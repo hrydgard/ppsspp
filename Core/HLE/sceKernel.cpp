@@ -27,6 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/KUBridge.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/Interpreter.h"
@@ -160,6 +161,7 @@ void __KernelInit()
 	__VaudioInit();
 	__CheatInit();
 	__KUBridgeInit();
+	MeCore::KernelInit();
 	__HeapInit();
 	__DmacInit();
 	__AudioCodecInit();

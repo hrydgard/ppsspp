@@ -65,5 +65,9 @@ void DoState(PointerWrap &p);
 // or 4. An access no device handles is logged, and reads as UNHANDLED_READ.
 u32 Read(MIPSState *mips, u32 address, int size);
 void Write(MIPSState *mips, u32 address, int size, u32 value);
+// A memory copy where either end may be hardware registers: kernel code copies Media Engine code
+// to the boot page at 0xBFC00000, which the main CPU reaches through MMIO. Byte by byte, and
+// backward where memmove would be. Returns false, having done nothing, if neither end is MMIO.
+bool Copy(MIPSState *mips, u32 destPtr, u32 srcPtr, u32 bytes);
 
 }  // namespace MMIO

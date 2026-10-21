@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
@@ -23,13 +25,18 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/ELF/PrxDecrypter.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/Util/KL4E.h"
 
 namespace MeCore {
 
@@ -120,6 +127,145 @@ bool Init() {
 	return true;
 }
 
+// Sony's ME firmware, as me_wrapper boots it (6.61's sceMeCore_driver_5dff5c50 and the boot at
+// 0x1c30): it reads the image to just below 0x883FF000 and decrypts it there, which leaves two KL4E
+// streams, the code and its data. Its ME stub decompresses the code to 0x88300000 and calls it with
+// a0 at the second stream, which the code decompresses into the ME's eDRAM itself. That ends in the
+// main loop's halt, waiting for commands. The stub runs main CPU kernel routines (KL4E, caches), so
+// its part is done here. The compressed copy goes right after the code instead, and the stack (at
+// 0x88400000 on a PSP) below our idle threads' stacks, which are at the top of kernel memory. mcidclan's libraries also call functions in the image, picking per-model
+// address tables by the word at 0x18 (0x279c1d44 the PSP-1000's meimg, 0x279c637c the slim's
+// t2img).
+static const u32 FIRMWARE_IMAGE_ADDRESS = 0x08300000;
+// The code clears up to 0x083FFC00 once it's done with the compressed copy, but our idle threads'
+// stacks start at 0x083FE000 (they don't mind).
+static const u32 FIRMWARE_AREA_END = 0x083FE000;
+static const u32 FIRMWARE_STACK = 0x80000000 | FIRMWARE_AREA_END;
+// Where it returns to if something fails: halt, b ., in the boot page.
+static const u32 FIRMWARE_FAILED = 0xBFC00020;
+// What me_wrapper's bootstrap jumps to after a reset, standing in for its ME stub (below).
+static const u32 FIRMWARE_RESTART = 0xBFC00030;
+
+// Loads the image, and returns where its second stream is (0 if there's no image).
+static u32 LoadFirmwareImage() {
+	// The 6.61 me_wrapper picks by the Tachyon version: me_t2img.img from the slim on, meimg.img before.
+	const char *path = Memory::g_PSPModel == PSP_MODEL_FAT ? "flash0:/kd/resource/meimg.img" : "flash0:/kd/resource/me_t2img.img";
+	std::vector<u8> file;
+	if (pspFileSystem.ReadEntireFile(path, file, true) < 0 || file.size() < 0x150) {
+		WARN_LOG(Log::ME, "No %s in the firmware, so no ME firmware", path);
+		return 0;
+	}
+	std::vector<u8> plain(file.size());
+	const int plainSize = pspDecryptPRX(file.data(), plain.data(), (u32)file.size());
+	bool isKL3E = false;
+	if (plainSize <= 4 || !IsKL4EMagic(plain.data(), plainSize, &isKL3E)) {
+		ERROR_LOG(Log::ME, "%s didn't decrypt", path);
+		return 0;
+	}
+	if (kernelMemory.AllocAt(FIRMWARE_IMAGE_ADDRESS, FIRMWARE_AREA_END - FIRMWARE_IMAGE_ADDRESS, "ME firmware") != FIRMWARE_IMAGE_ADDRESS) {
+		WARN_LOG(Log::ME, "Kernel memory at %08x is taken, the ME firmware may get overwritten", FIRMWARE_IMAGE_ADDRESS);
+	}
+	// Leave room for the compressed copy, and some stack.
+	const u32 room = FIRMWARE_AREA_END - FIRMWARE_IMAGE_ADDRESS - plainSize - 0x10000;
+	u8 *dest = Memory::GetTypedPointerWriteRange<u8>(FIRMWARE_IMAGE_ADDRESS, room);
+	const u8 *end = nullptr;
+	const int size = dest ? DecompressKL4E(dest, room, plain.data() + 4, (size_t)plainSize - 4, &end, isKL3E) : -1;
+	if (size <= 0 || !end || end + 4 > plain.data() + plainSize || memcmp(end, "KL4E", 4) != 0) {
+		ERROR_LOG(Log::ME, "%s didn't decompress", path);
+		return 0;
+	}
+	const u32 compressed = (FIRMWARE_IMAGE_ADDRESS + size + 0x3F) & ~0x3F;
+	Memory::MemcpyUnchecked(compressed, plain.data(), plainSize);
+	INFO_LOG(Log::ME, "Loaded %s: code at %08x, %d bytes", path, FIRMWARE_IMAGE_ADDRESS, size);
+	return compressed + (u32)(end - plain.data());
+}
+
+// The state the bootstrap and stub leave the ME in, and what me_wrapper leaves in the boot page.
+static void BootFirmware(MEState *me, u32 data) {
+	u8 *page = Memory::GetBootPage();
+	auto poke = [&](u32 offset, u32 value) { *(u32_le *)(page + offset) = value; };
+	poke(FIRMWARE_FAILED & 0xFFF, 0x70000000);         // halt
+	poke((FIRMWARE_FAILED & 0xFFF) + 4, 0x1000FFFE);   // b FIRMWARE_FAILED
+	poke((FIRMWARE_FAILED & 0xFFF) + 8, 0);
+	// me_wrapper's bootstrap, which the ME runs from 0x40 whenever it comes out of reset, with the
+	// layout of 6.61's (me_wrapper+0): mcidclan's MIST restarts the ME through it, after patching
+	// +0x20..+0x28 to point a0 at 0x88400000. If 0xBC100000 is set, which nothing seems to do, it
+	// goes to the firmware's debug handler. The cache invalidation is left out.
+	static const u32 bootstrap[0xD4 / 4] = {
+		0x3C02BC10, 0x8C420000, 0x10400005, 0x00000000,  // lui v0,0xBC10; lw v0,0(v0); beqz v0,+0x20; nop
+		0x40424800, 0x00400008, 0x00000000, 0x00000000,  // cfc0 v0,$9; jr v0; nop; nop
+		0x24090000, 0x3C040000, 0x34840000,              // li t1,ramcfg; lui a0,hi(image); ori a0,a0,lo(image)
+		0x3C02BC10, 0xAC490040, 0x24030007, 0xAC430050,  // 0xBC100040 = t1, 0xBC100050 = 7
+		0x2403FFFF, 0xAC430004, 0x0000000F,              // 0xBC100004 = -1; sync
+		0x40806800, 0x3C032000, 0x40836000,              // Cause = 0, Status = 0x20000000
+		0x3C02BCC0, 0x24030001, 0xAC430010,              // VME 0x10 = 1, and wait for it
+		0x8C430010, 0x30630001, 0x1460FFFD, 0x00000000,
+		0x24030001, 0xAC430070, 0x24030008, 0xAC430030,  // VME 0x70 = 1, 0x30 = 8, 0x40 = 2
+		0x24030002, 0xAC430040,
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(bootstrap); i++) {
+		poke(0x40 + (u32)i * 4, bootstrap[i]);
+	}
+	poke(0x40 + 0x20, 0x24090000 | (me->ramConfig & 3));
+	poke(0x40 + 0x24, 0x3C040000 | ((0x80000000 | data) >> 16));
+	poke(0x40 + 0x28, 0x34840000 | (data & 0xFFFF));
+	poke(0x40 + 0xC0, 0x3C1F0000 | (FIRMWARE_RESTART >> 16));     // lui ra
+	poke(0x40 + 0xC4, 0x27FF0000 | (FIRMWARE_RESTART & 0xFFFF));  // addiu ra
+	poke(0x40 + 0xC8, 0x3C1D0000 | (FIRMWARE_STACK >> 16));       // lui sp
+	poke(0x40 + 0xCC, 0x03E00008);                                 // jr ra
+	// me_wrapper's ME stub decompresses the image again when a0 is in 0x88000000..0x883FFFFF. Only
+	// its own reboots do that, which don't happen without it, so here it always does what it does
+	// otherwise: run the image, which then restores eDRAM from a0, as when resuming from sleep.
+	poke(FIRMWARE_RESTART & 0xFFF, 0x3C010000 | (0x80000000 | FIRMWARE_IMAGE_ADDRESS) >> 16);  // lui at
+	poke((FIRMWARE_RESTART & 0xFFF) + 4, 0x00200008);  // jr at
+	poke((FIRMWARE_RESTART & 0xFFF) + 8, 0);
+	poke(0x70C, 0x01FF01FF);
+	poke(0x710, CoreTiming::GetClockFrequencyHz() / 1000000);
+	poke(0x714, 2);
+	poke(0x700, 0);
+
+	me->busClock = 7;
+	me->nmiFlags = 0xFFFFFFFF;
+	me->vmeControl[0x70 / 4] = 1;
+	me->vmeControl[0x30 / 4] = 8;
+	me->vmeControl[0x40 / 4] = 2;
+
+	MIPSState &cpu = me->cpu;
+	cpu.pc = 0x80000000 | FIRMWARE_IMAGE_ADDRESS;
+	cpu.r[MIPS_REG_A0] = 0x80000000 | data;
+	cpu.r[MIPS_REG_SP] = FIRMWARE_STACK;
+	cpu.r[MIPS_REG_RA] = FIRMWARE_FAILED;
+	cpu.cop0[12] = 0x20000000;
+	cpu.cop0[13] = 0;
+	me->resetFlags &= ~4;
+	me->inReset = false;
+}
+
+// A sysevent handler record (PspSysEventHandler in pspsdk), with its name after it.
+static u32 CreateSysEventHandler(const char *name) {
+	u32 size = 0x40 + 16;
+	const u32 addr = kernelMemory.Alloc(size, false, "SysEventHandler");
+	if (addr == (u32)-1)
+		return 0;
+	memset(Memory::GetPointerWriteUnchecked(addr), 0, size);
+	Memory::WriteUnchecked_U32(0x40, addr);              // size
+	Memory::WriteUnchecked_U32(addr + 0x40, addr + 4);   // name
+	Memory::WriteUnchecked_U32(0x00FFFF00, addr + 8);    // type mask: suspend and resume
+	Memory::MemcpyUnchecked(addr + 0x40, name, (u32)strlen(name) + 1);
+	return addr;
+}
+
+void KernelInit() {
+	if (!g_meState)
+		return;
+	if (const u32 data = LoadFirmwareImage()) {
+		BootFirmware(g_meState, data);
+		g_meState->booting = true;
+	}
+	// Its handler is never called: nothing here suspends.
+	g_meState->sysEventHandlers = CreateSysEventHandler("SceMeRpc");
+}
+
 void Shutdown() {
 	if (!g_meState) {
 		return;
@@ -168,7 +314,14 @@ void DoState(PointerWrap &p) {
 	Do(p, me->nmiFlags);
 	Do(p, me->ramConfig);
 	Do(p, me->mutex);
+	Do(p, me->sysreg54);
+	Do(p, me->sysreg5C);
+	Do(p, me->sysreg70);
+	Do(p, me->booting);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
+	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
+	DoArray(p, me->clocks, ARRAY_SIZE(me->clocks));
+	Do(p, me->sysEventHandlers);
 	Do(p, me->dmacplus.intTCStatus);
 	DoArray(p, me->dmacplus.lcd, ARRAY_SIZE(me->dmacplus.lcd));
 	DoArray(p, me->dmacplus.csc, ARRAY_SIZE(me->dmacplus.csc));
@@ -196,8 +349,12 @@ static void CheckInterrupts(MEState *me) {
 		return;
 	}
 	me->halted = false;
-	// mfic reads 0 after reset, and homebrew takes interrupts without mtic, so it doesn't gate them.
-	if ((status & (STATUS_IE | STATUS_EXL | STATUS_ERL)) != STATUS_IE) {
+	// Either Status.IE or mtic enables them: homebrew takes interrupts with IE set and $ic at its reset
+	// value of 0 (a PSP-1000 probe), while Sony's firmware never sets IE and gates them with mtic alone
+	// (t2img's main loop at 0x883003a4, whose handler at 0x8838c880 sets the command flag it waits for).
+	// That loop relies on mtic 0 keeping them out, so with both clear they aren't taken.
+	const bool enabled = (status & STATUS_IE) || me->interruptEnable;
+	if (!enabled || (status & (STATUS_EXL | STATUS_ERL))) {
 		return;
 	}
 	me->waiting = false;
@@ -333,6 +490,8 @@ static void RunCPU(MIPSState &cpu) {
 	cpu.jit->RunDowncount();
 }
 
+static void RunUntilIdle(MEState *me);
+
 void RunFor(int cycles) {
 	MEState *me = g_meState;
 	if (cycles <= 0) {
@@ -343,6 +502,10 @@ void RunFor(int cycles) {
 		return;
 	}
 	MIPSState &cpu = me->cpu;
+	if (me->booting) {
+		me->booting = false;
+		RunUntilIdle(me);
+	}
 	cpu.downcount += cycles;
 	if (!cpu.pendingInvalidates_.empty() || cpu.invalidateAll_) {
 		me->waitLoopEnds.clear();
@@ -365,6 +528,26 @@ void RunFor(int cycles) {
 			cpu.downcount += rest;
 			me->tickBase += rest;
 		}
+	}
+}
+
+// On a PSP the ME's firmware has booted long before a game starts, and homebrew that takes over
+// the ME (MIST's restart) relies on the eDRAM it leaves. So it runs to its idle halt the first time
+// the ME runs (the JIT only runs then), outside emulated time. Bounded, in case it never gets there.
+static void RunUntilIdle(MEState *me) {
+	MIPSState &cpu = me->cpu;
+	for (int i = 0; i < 1024; ++i) {
+		CheckInterrupts(me);
+		if (me->halted || me->inReset)
+			break;
+		cpu.downcount = 1 << 20;
+		RunCPU(cpu);
+	}
+	cpu.downcount = 0;
+	if (me->halted) {
+		INFO_LOG(Log::ME, "ME firmware idle at %08x", cpu.pc);
+	} else {
+		WARN_LOG(Log::ME, "ME firmware didn't reach its idle halt, at %08x", cpu.pc);
 	}
 }
 
@@ -412,6 +595,15 @@ void Halt() {
 	g_meState->halted = true;
 	// Ends the run, the rest of it spent halted.
 	g_meState->cpu.downcount = std::min(g_meState->cpu.downcount, -1);
+}
+
+void SetInterruptEnable(u32 value) {
+	MEState *me = g_meState;
+	me->interruptEnable = value & 1;
+	// Sony's firmware enables them for only a few instructions at a time, so a pending one has to be
+	// taken now: ends the run, which checks for them next.
+	if (me->interruptEnable && (PendingInterrupts(me) & me->cpu.cop0[12] & CAUSE_IP_MASK))
+		me->cpu.downcount = std::min(me->cpu.downcount, -1);
 }
 
 void RaiseInterrupt(u32 sources) {

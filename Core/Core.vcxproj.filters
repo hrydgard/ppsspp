@@ -673,6 +673,9 @@
     <ClCompile Include="HLE\KUBridge.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceSysreg.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\BlobFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -2008,6 +2011,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HLE\KUBridge.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSysreg.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\BlobFileSystem.h">

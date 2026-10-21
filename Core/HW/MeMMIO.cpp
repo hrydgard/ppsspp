@@ -35,6 +35,8 @@ namespace MeMMIO {
 
 using MeCore::g_meState;
 
+static const u32 ME_INTR_CODEC_DONE = 0x20;
+
 static bool IsME(const MIPSState *mips) {
 	return mips && mips->IsMediaEngine();
 }
@@ -44,6 +46,12 @@ public:
 	MeSysregDevice() : MMIODevice("ME sysreg", 0xBC100000, 0x100) {}
 
 	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (offset == 0 && g_meState) {
+			// me_wrapper's bootstrap goes to the ME firmware's debug handler if this is set. Nothing
+			// seems to set it.
+			*value = 0;
+			return true;
+		}
 		u32 *reg = Register(offset);
 		if (!reg) {
 			return false;
@@ -106,6 +114,9 @@ private:
 		case 0x48: return &g_meState->mutex;
 		case 0x4C: return &g_meState->resetFlags;
 		case 0x50: return &g_meState->busClock;
+		case 0x54: return &g_meState->sysreg54;
+		case 0x5C: return &g_meState->sysreg5C;
+		case 0x70: return &g_meState->sysreg70;
 		default: return nullptr;
 		}
 	}
@@ -136,6 +147,10 @@ public:
 			g_meState->intcRaised &= ~value;
 			return true;
 		case 0x8:
+			// Source 5 is the codec hardware finishing, which Sony's ME firmware waits for in halt
+			// after starting it (t2img 0x883211b4). That isn't emulated, so it's always done.
+			if ((value & ~g_meState->intcEnabled) & ME_INTR_CODEC_DONE)
+				g_meState->intcRaised |= ME_INTR_CODEC_DONE;
 			g_meState->intcEnabled = value;
 			return true;
 		default:
@@ -429,6 +444,79 @@ private:
 	}
 };
 
+// The VME's control registers. The VME itself (the ME's reconfigurable coprocessor) isn't emulated:
+// writes are kept, and its status (0x10) reads as done, which homebrew's ME startup waits for
+// (custom-core's meLibAVCSetTransferConfig, Yabause).
+class MeVmeControlDevice : public MMIODevice {
+public:
+	MeVmeControlDevice() : MMIODevice("VME control", 0xBCC00000, 0x80) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		*value = offset == 0x10 ? 0 : g_meState->vmeControl[offset / 4];
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		g_meState->vmeControl[offset / 4] = value;
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+// Clock dividers (0xBC200000), which the ME's startup code sets and Sony's ME firmware lowers around
+// its halt. Only kept.
+class MeClockDevice : public MMIODevice {
+public:
+	MeClockDevice() : MMIODevice("ME clocks", 0xBC200000, 0x10) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		*value = g_meState->clocks[offset / 4];
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		g_meState->clocks[offset / 4] = value;
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+// The DDR controller. Writing 5 to 0x04 flushes writes to RAM, done when it reads 0 again, which
+// MIST does before handing the ME a task. Writes reach RAM at once here.
+class MeDdrDevice : public MMIODevice {
+public:
+	MeDdrDevice() : MMIODevice("DDR", 0xBD000000, 0x10) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || offset != 4)
+			return false;
+		*value = 0;
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		return g_meState && offset == 4;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+static MeDdrDevice g_ddr;
+static MeClockDevice g_clocks;
+static MeVmeControlDevice g_vmeControl;
 static MeDmacplusDevice g_dmacplus;
 static MeSysregDevice g_sysreg;
 static MeInterruptDevice g_interrupts;
@@ -442,12 +530,24 @@ MMIODevice *InterruptDevice() {
 	return &g_interrupts;
 }
 
+MMIODevice *ClockDevice() {
+	return &g_clocks;
+}
+
+MMIODevice *VmeControlDevice() {
+	return &g_vmeControl;
+}
+
 MMIODevice *DmacplusDevice() {
 	return &g_dmacplus;
 }
 
 MMIODevice *MemProtectDevice() {
 	return &g_memProtect;
+}
+
+MMIODevice *DdrDevice() {
+	return &g_ddr;
 }
 
 }  // namespace MeMMIO

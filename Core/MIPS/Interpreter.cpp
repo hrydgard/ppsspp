@@ -326,6 +326,9 @@ namespace MIPSInt {
 		int rs = _RS;
 		int rd = _RD;
 		u32 addr = R(rs);
+		// The Media Engine ignores the target's low two bits: Sony's ME firmware keeps flags there.
+		if (mips->IsMediaEngine())
+			addr &= ~3;
 		switch (op & 0x3f) {
 		case 8: //jr
 			if (!mips->inDelaySlot)
@@ -1055,6 +1058,17 @@ namespace MIPSInt {
 		MeCore::Halt();
 	}
 
+	// An unknown Media Engine instruction (primary opcode 0x2C): Sony's ME firmware runs 0xB0E20000
+	// (with v0 = 1) and 0xB0E00000 around a reset of sysreg 0x50/0x54 bits when it resumes from sleep
+	// (t2img 0x88300948). Possibly a VME control write. Ignored.
+	void Int_Me2C(MIPSState *mips, MIPSOpcode op) {
+		if (!mips->IsMediaEngine()) {
+			Core_ExecException(PC, PC, ExecExceptionType::ILLEGAL);
+			return;
+		}
+		PC += 4;
+	}
+
 	// The interrupt enable flag, shared with the HLE sceKernelCpuSuspendIntr/ResumeIntr, which on
 	// hardware are just mfic v0, $0; mtic zero, $0 and mtic a0, $0. Only $0 exists.
 	void Int_Special2(MIPSState *mips, MIPSOpcode op) {
@@ -1068,7 +1082,7 @@ namespace MIPSInt {
 			break;
 		case 38:  // mtic
 			if (mips->IsMediaEngine()) {
-				MeCore::g_meState->interruptEnable = R(rt) & 1;
+				MeCore::SetInterruptEnable(R(rt));
 				break;
 			}
 			// Only bit 0 counts: mtic 2 disables. Pending interrupts run at the next scheduling point,

@@ -30,7 +30,13 @@ MMIODevice *SysregDevice();
 MMIODevice *InterruptDevice();
 // DMACplus (0xBC800000): DMA between the CPUs' memories, and the LCD.
 MMIODevice *DmacplusDevice();
+// Clock dividers (0xBC200000).
+MMIODevice *ClockDevice();
+// The VME's control registers (0xBCC00000), its status always done.
+MMIODevice *VmeControlDevice();
 // Memory protection (0xBC000000), which the ME's startup code unlocks.
 MMIODevice *MemProtectDevice();
+// The DDR controller's flush register (0xBD000004), always done.
+MMIODevice *DdrDevice();
 
 }  // namespace MeMMIO

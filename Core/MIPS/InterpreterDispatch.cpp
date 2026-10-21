@@ -480,6 +480,10 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 46:
         MIPSInt::Int_ITypeMem(mips, op);
         return 1;
+    // me2c
+    case 44:
+        MIPSInt::Int_Me2C(mips, op);
+        return 1;
     // cache
     case 47:
         MIPSInt::Int_Cache(mips, op);

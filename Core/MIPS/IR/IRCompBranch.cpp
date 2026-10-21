@@ -420,15 +420,19 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		// Account for the delay slot itself in total bytes.
 		js.compilerPC += 4;
 		return;  // Syscall (delay slot) wrote exit code.
-	} else if (delaySlotIsNice) {
+	} else if (delaySlotIsNice && !IsMediaEngine()) {
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		destReg = rs;  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
-		// Bad delay slot.
-		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+		// Bad delay slot. The Media Engine ignores the target's low two bits: Sony's ME firmware keeps
+		// flags there in its command table, and calls the entries as they are.
+		if (IsMediaEngine())
+			ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
+		else
+			ir.Write(IROp::Mov, IRTEMP_LHS, rs);
 		destReg = IRTEMP_LHS;
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);

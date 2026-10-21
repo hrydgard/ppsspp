@@ -98,6 +98,9 @@ void Init() {
 		MeMMIO::InterruptDevice(),
 		MeMMIO::MemProtectDevice(),
 		MeMMIO::DmacplusDevice(),
+		MeMMIO::VmeControlDevice(),
+		MeMMIO::ClockDevice(),
+		MeMMIO::DdrDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();
@@ -106,6 +109,30 @@ void Init() {
 
 void Shutdown() {
 	g_devices.clear();
+}
+
+bool Copy(MIPSState *mips, u32 destPtr, u32 srcPtr, u32 bytes) {
+	if (!Memory::IsMMIOAccess(destPtr) && !Memory::IsMMIOAccess(srcPtr)) {
+		return false;
+	}
+	const bool backward = destPtr > srcPtr && destPtr < srcPtr + bytes;
+	for (u32 i = 0; i < bytes; ++i) {
+		const u32 offset = backward ? bytes - 1 - i : i;
+		const u32 src = srcPtr + offset;
+		const u32 dest = destPtr + offset;
+		u8 value = 0;
+		if (Memory::IsMMIOAccess(src)) {
+			value = (u8)Read(mips, src, 1);
+		} else if (Memory::IsValidAddress(src)) {
+			value = Memory::ReadUnchecked_U8(src);
+		}
+		if (Memory::IsMMIOAccess(dest)) {
+			Write(mips, dest, 1, value);
+		} else if (Memory::IsValidAddress(dest)) {
+			Memory::WriteUnchecked_U8(value, dest);
+		}
+	}
+	return true;
 }
 
 void DoState(PointerWrap &p) {
