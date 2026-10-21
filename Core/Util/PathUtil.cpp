@@ -141,6 +141,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return PreferUpperCaseDir(pspDirectory, "SHADERS", "shaders");
 	case DIRECTORY_CUSTOM_THEMES:
 		return PreferUpperCaseDir(pspDirectory, "THEMES", "themes");
+	case DIRECTORY_CUSTOM_OVERLAYS:
+		return PreferUpperCaseDir(pspDirectory, "OVERLAYS", "overlays");
 	case DIRECTORY_NAND:
 		return pspDirectory / "NAND";
 

@@ -114,6 +114,8 @@ set(GPU_SOURCES
 	Common/GPUStateUtils.h
 	Common/DrawEngineCommon.cpp
 	Common/DrawEngineCommon.h
+	Common/Overlay.cpp
+	Common/Overlay.h
 	Common/PresentationCommon.cpp
 	Common/PresentationCommon.h
 	Common/ReinterpretFramebuffer.cpp

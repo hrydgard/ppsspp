@@ -66,6 +66,7 @@ class Texture;
 }
 
 struct ShaderInfo;
+struct OverlayLayout;
 class TextureCacheCommon;
 
 enum class OutputFlags {
@@ -148,12 +149,15 @@ protected:
 	static void ShowPostShaderError(const std::string &errorString);
 
 	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
-	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const;
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc, bool alphaBlend = false) const;
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
 	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
 	bool BindSource(int binding, bool bindStereo);
+
+	bool PrepareOverlayTexture(const OverlayLayout &layout);
+	void DrawOverlay(const OverlayLayout &layout);
 
 	void GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
@@ -164,6 +168,12 @@ protected:
 	Draw::SamplerState *samplerNearest_ = nullptr;
 	Draw::SamplerState *samplerLinear_ = nullptr;
 	Draw::Buffer *vdata_ = nullptr;
+
+	// Overlay (bezel) drawn around or behind the game, see Overlay.h.
+	Draw::Pipeline *texColorBlend_ = nullptr;
+	Draw::Buffer *overlayVdata_ = nullptr;
+	Draw::Texture *overlayTexture_ = nullptr;
+	uint32_t overlayGeneration_ = 0xFFFFFFFF;
 
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;

@@ -19,6 +19,8 @@
 #include <cmath>
 #include <set>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 #include "Common/GPU/thin3d.h"
 
 #include "Common/System/Display.h"
@@ -33,6 +35,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/HW/Display.h"
+#include "GPU/Common/Overlay.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/GPUState.h"
@@ -92,7 +95,7 @@ FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeigh
 	return rc;
 }
 
-void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &screenFrame, int rotation) {
 	float outW;
 	float outH;
 
@@ -104,6 +107,18 @@ void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, fl
 	float offsetY = config.fDisplayOffsetY;
 
 	float scale = config.fDisplayScale;
+
+	// With an overlay that has a hole, the overlay is fit to the screen and the game is fit into
+	// the hole instead. The offset and scale options don't apply then, the overlay decides those.
+	FRect frame = screenFrame;
+	OverlayLayout overlay;
+	const bool inOverlayHole = GetOverlayLayout(config, screenFrame.x, screenFrame.y, screenFrame.w, screenFrame.h, &overlay) && overlay.hasHole;
+	if (inOverlayHole) {
+		frame = FRect{ overlay.holeX, overlay.holeY, overlay.holeW, overlay.holeH };
+		offsetX = 0.5f;
+		offsetY = 0.5f;
+		scale = 1.0f;
+	}
 	float aspectRatioAdjust = config.fDisplayAspectRatio;
 
 	float origRatio = !rotated ? origW / origH : origH / origW;
@@ -136,7 +151,7 @@ void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, fl
 
 	// Ye olde 1080p hack: If everything is setup to exactly cover the screen (defaults), and the screen display aspect ratio is 16:9,
 	// cut off one line from the top and bottom.
-	if (scale == 1.0f && aspectRatioAdjust == 1.0f && offsetX == 0.5f && offsetY == 0.5f && g_Config.bDisplayCropTo16x9) {
+	if (!inOverlayHole && scale == 1.0f && aspectRatioAdjust == 1.0f && offsetX == 0.5f && offsetY == 0.5f && g_Config.bDisplayCropTo16x9) {
 		if (fabsf(frame.w / frame.h - 16.0f / 9.0f) < 0.0001f) {
 			outW *= 272.0f / 270.0f;
 			outH *= 272.0f / 270.0f;
@@ -173,6 +188,14 @@ void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, fl
 		rc->h = floorf(frame.h);
 		outW = frame.w;
 		outH = frame.h;
+	} else if (inOverlayHole && overlay.layer == OverlayLayer::Foreground) {
+		// Round outwards, so no black seam shows between the game and the overlay's border.
+		const float x0 = frame.x + frame.w * offsetX - outW * 0.5f;
+		const float y0 = frame.y + frame.h * offsetY - outH * 0.5f;
+		rc->x = floorf(x0);
+		rc->y = floorf(y0);
+		rc->w = ceilf(x0 + outW) - rc->x;
+		rc->h = ceilf(y0 + outH) - rc->y;
 	} else {
 		rc->x = floorf(frame.x + frame.w * offsetX - outW * 0.5f);
 		rc->y = floorf(frame.y + frame.h * offsetY - outH * 0.5f);
@@ -491,7 +514,7 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc, bool alphaBlend) const {
 	using namespace Draw;
 
 	Semantic pos = SEM_POSITION;
@@ -514,7 +537,9 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
 	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
-	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
+	BlendState *blendstateOff = alphaBlend ?
+		draw_->CreateBlendState({ true, 0xF, BlendFactor::SRC_ALPHA, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD, BlendFactor::ONE, BlendFactor::ONE_MINUS_SRC_ALPHA, BlendOp::ADD }) :
+		draw_->CreateBlendState({ false, 0xF });
 	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
 	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_STRIP, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
@@ -542,6 +567,8 @@ void PresentationCommon::CreateDeviceObjects() {
 
 	texColor_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc);
 	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
+	texColorBlend_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc, true);
+	overlayVdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
 	restorePostShader_ = false;
 }
@@ -567,6 +594,10 @@ static void DoReleaseVector(std::vector<T *> &list) {
 void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(texColor_);
 	DoRelease(texColorRBSwizzle_);
+	DoRelease(texColorBlend_);
+	DoRelease(overlayVdata_);
+	DoRelease(overlayTexture_);
+	overlayGeneration_ = 0xFFFFFFFF;
 	DoRelease(samplerNearest_);
 	DoRelease(samplerLinear_);
 	DoRelease(vdata_);
@@ -900,6 +931,74 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	}
 }
 
+// Uploads the active overlay image if it changed. Returns false if there's nothing to draw.
+bool PresentationCommon::PrepareOverlayTexture(const OverlayLayout &layout) {
+	if (overlayTexture_ && overlayGeneration_ == layout.generation)
+		return true;
+
+	DoRelease(overlayTexture_);
+	overlayGeneration_ = layout.generation;
+
+	std::shared_ptr<const OverlayImage> image = GetOverlayImage(layout.generation);
+	if (!image || image->width <= 0 || image->height <= 0) {
+		// Changed under us, we'll get it next frame. Retry then.
+		overlayGeneration_ = 0xFFFFFFFF;
+		return false;
+	}
+
+	Draw::TextureDesc desc{};
+	desc.type = Draw::TextureType::LINEAR2D;
+	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+	desc.width = image->width;
+	desc.height = image->height;
+	desc.depth = 1;
+	desc.mipLevels = 1;
+	desc.generateMips = false;
+	desc.tag = "overlay";
+	desc.initData.push_back(image->rgba.data());
+	overlayTexture_ = draw_->CreateTexture(desc);
+	if (!overlayTexture_) {
+		ERROR_LOG(Log::G3D, "Failed to create overlay texture (%dx%d)", image->width, image->height);
+		return false;
+	}
+	return true;
+}
+
+void PresentationCommon::DrawOverlay(const OverlayLayout &layout) {
+	const float x0 = layout.overlayX, y0 = layout.overlayY;
+	const float x1 = x0 + layout.overlayW, y1 = y0 + layout.overlayH;
+	Vertex verts[4] = {
+		{ x0, y0, 0, 0.0f, 0.0f, 0xFFFFFFFF }, // TL
+		{ x1, y0, 0, 1.0f, 0.0f, 0xFFFFFFFF }, // TR
+		{ x0, y1, 0, 0.0f, 1.0f, 0xFFFFFFFF }, // BL
+		{ x1, y1, 0, 1.0f, 1.0f, 0xFFFFFFFF }, // BR
+	};
+	// Same transform as the game quad, see RunPostshaderPasses.
+	const bool flipped = draw_->GetDeviceCaps().coordConvention == CoordConvention::OpenGL;
+	const float invDestW = 2.0f / pixelWidth_;
+	const float invDestH = 2.0f / pixelHeight_;
+	for (auto &v : verts) {
+		v.x = v.x * invDestW - 1.0f;
+		v.y = v.y * invDestH - 1.0f;
+		if (flipped)
+			v.y = -v.y;
+	}
+	draw_->UpdateBuffer(overlayVdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+
+	draw_->BindPipeline(texColorBlend_);
+	Draw::VsTexColUB ub{};
+	memcpy(ub.WorldViewProj, g_display.rot_matrix.m, sizeof(float) * 16);
+	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	draw_->BindTexture(0, overlayTexture_);
+	draw_->BindSamplerStates(0, 1, &samplerLinear_);
+	draw_->BindVertexBuffer(overlayVdata_, 0);
+
+	Draw::Viewport viewport{ 0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 1.0f };
+	draw_->SetViewport(viewport);
+	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+	draw_->Draw(4, 0);
+}
+
 void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	bool useNearest = outputFlags_ & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
@@ -911,10 +1010,25 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
+	OverlayLayout overlay;
+	bool drawOverlay = false;
+	if (!(outputFlags_ & OutputFlags::NATIVE_SIZE)) {
+		const FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth_, (float)pixelHeight_);
+		drawOverlay = GetOverlayLayout(config, frame.x, frame.y, frame.w, frame.h, &overlay) && PrepareOverlayTexture(overlay);
+	}
+
 	if (!srcFramebuffer_ && !srcTexture_) {
-		// Bound blank. We're done (although we could draw a black rectangle here).
+		// Bound blank. Keep the overlay up though, so it doesn't flicker during loading and such.
+		if (drawOverlay) {
+			DrawOverlay(overlay);
+			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+		}
 		presentedThisFrame_ = true;
 		return;
+	}
+
+	if (drawOverlay && overlay.layer == OverlayLayer::Background) {
+		DrawOverlay(overlay);
 	}
 
 	Draw::Pipeline *pipeline = (outputFlags_ & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
@@ -981,6 +1095,10 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	} else {
 		setViewport(0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_);
 		draw_->Draw(4, 0);
+	}
+
+	if (drawOverlay && overlay.layer == OverlayLayer::Foreground) {
+		DrawOverlay(overlay);
 	}
 
 	DoRelease(srcFramebuffer_);

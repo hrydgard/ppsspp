@@ -85,6 +85,7 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	int iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;  // The internal screen rotation angle. Useful for vertical SHMUPs and similar.
 	bool bRotateControlsWithScreen = true;  // Rotate gamepad controls along with the internal screen rotation.
 	bool bIgnoreScreenInsets = true;  // Android: Center screen disregarding insets if this is enabled.
+	std::string sOverlay;  // Overlay (bezel) image id, see GPU/Common/Overlay.h. Empty means off.
 
 	// Deprecated
 	bool bEnableCardboardVR = false; // Cardboard Master Switch
