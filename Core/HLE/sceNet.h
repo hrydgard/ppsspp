@@ -104,6 +104,7 @@ extern const char * const defaultNetSSID;
 
 void Register_sceNet();
 void Register_sceNetApctl();
+void Register_sceNetApctl_lib();
 void Register_sceWlanDrv();
 void Register_sceNetUpnp();
 void Register_sceNetIfhandle();
