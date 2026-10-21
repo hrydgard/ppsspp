@@ -2296,6 +2296,8 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 
 	if (iResult != 0) {
 		DEBUG_LOG(Log::sceNet, "%s: sock bind failed", __func__);
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
 		closesocket(usocket);
 		return ERROR_NET_NO_SPACE;
 	}
