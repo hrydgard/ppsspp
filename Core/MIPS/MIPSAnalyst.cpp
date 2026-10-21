@@ -243,6 +243,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x52d5141545a75eda, 60, "sceGuClutMode", },
 	{ 0x530cbe1ce9b45d58, 108, "sceGuLightAtt", },
 	{ 0x53c9aa23504a630f, 96, "vmmul_q_5", },
+	{ 0x534ee7407afd0428, 1868, "syphonfilterls_update_trail", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "sceGuBlendFunc", },
@@ -356,6 +357,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
 	{ 0x9e6adef67e76ed5c, 188, "everybodystennis_copy_portrait", }, // Everybody's Tennis (EUR)
 	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
+	{ 0x9e6e007072b74503, 2028, "syphonfilterls_draw_trail", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x9f269daa6f0da803, 128, "sceGupScissor", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
 	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)

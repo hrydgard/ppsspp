@@ -1485,32 +1485,43 @@ static int Hook_codedarms_stencil_check(MIPSState *mips) {
 	return 0;
 }
 
-static int Hook_resistance_draw_trail(MIPSState *mips) {
+// Shared by Resistance: Retribution and Syphon Filter: Logan's Shadow (the same engine).
+static void SkipTrailIfDisplayListFull(MIPSState *mips, s32 luiOffset, s32 lwOffset) {
 	// Smoke trails get a new node per update rather than per unit of time, while the nodes expire by
 	// time, so the higher the frame rate, the more of them are alive. After the angel boss in Bonn the
 	// trails behind the debris make the display list overflow its buffer at 60fps, into the music
 	// stream and beyond (#19755). Locking the CPU to 222MHz, which slows the frame rate, avoids it.
-	// resistance_update_trail now limits the node rate, so this is a backstop.
+	// The update_trail hooks now limit the node rate, so this is a backstop.
 	// The game keeps its two list buffers and their limits next to the write pointer, but doesn't
 	// check them here. Hooked where the node count is about to become the loop count: when the
 	// current buffer is nearly full, skip the trail by making the count zero.
 	u32 listPtrAddr;
-	if (!GetMIPSStaticAddress(mips, listPtrAddr, 0x6C, 0x3A4) || !Memory::IsValid4AlignedRange(listPtrAddr - 0x10, 0x14 + 8)) {
-		return 0;
+	if (!GetMIPSStaticAddress(mips, listPtrAddr, luiOffset, lwOffset) || !Memory::IsValid4AlignedRange(listPtrAddr - 0x10, 0x14 + 8)) {
+		return;
 	}
 	const u32 ptr = Memory::ReadUnchecked_U32(listPtrAddr) & 0x0FFFFFFF;
 	for (int i = 0; i < 2; i++) {
 		const u32 base = Memory::ReadUnchecked_U32(listPtrAddr - 0x10 + i * 4) & 0x0FFFFFFF;
 		const u32 limit = Memory::ReadUnchecked_U32(listPtrAddr + 4 + i * 4) & 0x0FFFFFFF;
 		if (ptr >= base && ptr <= limit) {
-			// A trail is at most 17 nodes of six sprites (0x84 bytes each), so this leaves room for it
-			// and for everything drawn after it.
+			// A trail is at most 17 nodes, of six sprites (0x84 bytes each) in Resistance and of up to
+			// 30 (0x5A0 bytes) in Syphon Filter's explosion smoke, so this leaves room for it and for
+			// everything drawn after it.
 			if (limit - ptr < 0x18000) {
 				mips->r[MIPS_REG_A1] = (u32)-1;
 			}
 			break;
 		}
 	}
+}
+
+static int Hook_resistance_draw_trail(MIPSState *mips) {
+	SkipTrailIfDisplayListFull(mips, 0x6C, 0x3A4);
+	return 0;
+}
+
+static int Hook_syphonfilterls_draw_trail(MIPSState *mips) {
+	SkipTrailIfDisplayListFull(mips, 0x68, 0x490);
 	return 0;
 }
 
@@ -1559,6 +1570,8 @@ static int Hook_resistance_update_trail(MIPSState *mips) {
 	// at 60fps. Keep the nodes at least 1/30 of that clock apart, as if the game ran at 30fps, so
 	// running faster doesn't pack the smoke denser and multiply the trails (#19755). Hooked where the
 	// accumulator is about to be tested: holding it under the threshold postpones the node.
+	// Also used for Syphon Filter: Logan's Shadow, whose trails are the same code. There the smoke
+	// from the exploding tank overflowed the display list into the heap at 60fps and crashed.
 	const u32 trail = mips->r[MIPS_REG_S0];
 	if (!Memory::IsValid4AlignedRange(trail + 0x140, 0x3C)) {
 		return 0;
@@ -2013,6 +2026,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_2, 0, REPFLAG_HOOKENTER, 0x6AC },
 	{ "medievil_projectile_update", &Hook_medievil_projectile_update, 0, REPFLAG_HOOKENTER, 0x6BC },
 	{ "activisionhits_frame_limit", &Hook_activisionhits_frame_limit, 0, REPFLAG_HOOKEXIT, 0 },
+	{ "syphonfilterls_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x434 },
+	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
 	{}
 };
 
