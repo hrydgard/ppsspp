@@ -1447,19 +1447,29 @@ int friendFinder() {
 		//_acquireNetworkLock();
 
 		// Reconnect when disconnected while Adhocctl is still inited
-		if (!adhocctlHandle && netAdhocctlInited && isAdhocctlNeedLogin) {
-			if (g_Config.bEnableWlan) {
-				// Not really initNetwork.
-				if (initNetwork(&product_code) == 0) {
-					g_adhocServerConnected = true;
-					INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
-					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-					netAdhocGameModeEntered = false;
-					isAdhocctlBusy = false;
-				} else {
-					g_adhocServerConnected = false;
-				}
+		if (netAdhocctlInited && isAdhocctlNeedLogin && g_Config.bEnableWlan) {
+			AdhocctlClientStatus status = adhocctlClientMaintenance(&product_code);
+			switch (status) {
+			case AdhocctlClientStatus::SPAWNED: {
+				g_adhocServerConnected = true;
+				INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
+				// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				netAdhocGameModeEntered = false;
+				isAdhocctlBusy = false;
+				break;
+			}
+			case AdhocctlClientStatus::DEAD: {
+				g_adhocServerConnected = false;
+				break;
+			}
+			case AdhocctlClientStatus::ALIVE: {
+				break;
+			}
+			default: {
+				ERROR_LOG(Log::sceNet, "%s: unreachable codepath at %s %d", __func__, __FILE__, __LINE__);
+				_dbg_assert_(false);
+			}
 			}
 		}
 
@@ -2159,11 +2169,18 @@ static bool should_abort_adhocctl_connection(void *_arg) {
 	return !friendFinderRunning;
 }
 
-int initNetwork(SceNetAdhocctlAdhocId *adhoc_id) {
+AdhocctlClientStatus adhocctlClientMaintenance(SceNetAdhocctlAdhocId *adhoc_id) {
+	// do not hold two locks
+	auto server_ip = GetAdhocServerIP();
+
+	const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+
+	if (adhocctlHandle) {
+		return AdhocctlClientStatus::ALIVE;
+	}
+
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	int iResult = 0;
-
-	auto server_ip = GetAdhocServerIP();
 
 	struct adhocctl_addr_v4 adhocctl_addr;
 	adhocctl_addr.ip = server_ip.in.sin_addr.s_addr;
@@ -2195,7 +2212,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id) {
 
 	// Don't need to connect if AdhocServer DNS was not resolved
 	if (server_ip.in.sin_addr.s_addr == INADDR_NONE) {
-		return SOCKET_ERROR;
+		return AdhocctlClientStatus::DEAD;
 	}
 
 	SceNetEtherAddr address;
@@ -2207,13 +2224,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id) {
 	if (!new_adhocctl_handle) {
 		ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
 		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")));
-		return SOCKET_ERROR;
+		return AdhocctlClientStatus::DEAD;
 	}
 
-	const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
-	if (adhocctlHandle) {
-		killAdhocctlClient(false, adhocctl_guard);
-	}
 	adhocctlHandle = new_adhocctl_handle;
 	int new_adhocctl_id = 2;
 	if (new_adhocctl_id == adhocctlId) {
@@ -2225,7 +2238,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id) {
 	sockaddr_in addr;
 	getLocalIp(&addr);
 
-	return 0;
+	return AdhocctlClientStatus::SPAWNED;
 }
 
 bool isZeroMAC(const SceNetEtherAddr* addr) {

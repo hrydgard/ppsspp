@@ -1303,13 +1303,19 @@ int getPDPSocketCount();
  */
 int getPTPSocketCount();
 
+enum class AdhocctlClientStatus {
+	ALIVE,
+	SPAWNED,
+	DEAD,
+};
+
 /**
- * Initialize Networking Components for Adhocctl Emulator
+ * Bring up / check status of adhocctl client
  * @param adhoc_id Game Product Code
  * @param server_ip Server IP
- * @return 0 on success or... -1
+ * @return ALIVE when a client is already running, SPAWNED when a client is established, DEAD when there is no active client
  */
-int initNetwork(SceNetAdhocctlAdhocId *adhocid);
+AdhocctlClientStatus adhocctlClientMaintenance(SceNetAdhocctlAdhocId *adhoc_id);
 
 /**
  * Zero MAC Check
