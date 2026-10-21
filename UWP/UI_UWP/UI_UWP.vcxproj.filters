@@ -131,6 +131,9 @@
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\SettingsPage.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\SimpleDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -285,6 +288,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\SettingsPage.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h">

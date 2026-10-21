@@ -75,7 +75,6 @@ private:
 	void OnRenderingBackend(UI::EventParams &e);
 	void OnRenderingDevice(UI::EventParams &e);
 	void OnInflightFramesChoice(UI::EventParams &e);
-	void OnAudioDevice(UI::EventParams &e);
 	void OnJitAffectingSetting(UI::EventParams &e);
 	void OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)

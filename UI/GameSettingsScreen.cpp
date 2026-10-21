@@ -44,6 +44,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameSettingsScreen.h"
+#include "UI/SettingsPage.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GamepadEmu.h"
 #include "UI/ControlMappingScreen.h"
@@ -638,75 +639,47 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	AddOverlayList(graphicsSettings, screenManager());
 }
 
-void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
+// Doesn't depend on the screen, so the page can be described without creating one.
+static void BuildAudioSettings(SettingsPage &page) {
 	using namespace UI;
 
-	auto a = GetI18NCategory(I18NCat::AUDIO);
-	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-
 #if PPSSPP_PLATFORM(IOS)
-	CheckBox *respectSilentMode = audioSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
-	respectSilentMode->OnClick.Add([=](EventParams &e) {
+	page.Bool(&g_Config.bAudioRespectSilentMode, "Respect silent mode").Enabled(&g_Config.bEnableSound).OnChange([](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
-	respectSilentMode->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	CheckBox *mixWithOthers = audioSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
-	mixWithOthers->OnClick.Add([=](EventParams &e) {
+	page.Bool(&g_Config.bAudioMixWithOthers, "Mix audio with other apps").Enabled(&g_Config.bEnableSound).OnChange([](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
-	mixWithOthers->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
-	audioSettings->Add(new ItemHeader(a->T("Audio playback")));
+	page.Header("Audio playback");
 
 	static const char *syncModes[] = { "Smooth (reduces artifacts)", "Classic (lowest latency)" };
 
-	audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioPlaybackMode, a->T("Playback mode"), syncModes, 0, ARRAY_SIZE(syncModes), I18NCat::AUDIO, screenManager()));
-	audioSettings->Add(new CheckBox(&g_Config.bFillAudioGaps, a->T("Fill audio gaps")))->SetEnabledFunc([]() {
+	page.IntChoice(&g_Config.iAudioPlaybackMode, "Playback mode", syncModes, 0, ARRAY_SIZE(syncModes));
+	page.Bool(&g_Config.bFillAudioGaps, "Fill audio gaps").EnabledFunc([]() {
 		return g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR;
 	});
 
-	audioSettings->Add(new ItemHeader(a->T("Game volume")));
+	page.Header("Game volume");
 
 	// This is here because it now only applies to in-game. Muting the menu sounds is separate.
-	CheckBox *enableSound = audioSettings->Add(new CheckBox(&g_Config.bEnableSound, a->T("Enable Sound")));
+	page.Bool(&g_Config.bEnableSound, "Enable Sound");
 
-	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGameVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iGameVolume), a->T("Game volume"), screenManager()));
-	volume->SetFormat("%d%%");
-	volume->SetEnabledPtr(&g_Config.bEnableSound);
-	volume->SetZeroLabel(a->T("Mute"));
-
-	PopupSliderChoice *reverbVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iReverbVolume, VOLUME_OFF, 2 * VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iReverbVolume), a->T("Reverb volume"), screenManager()));
-	reverbVolume->SetFormat("%d%%");
-	reverbVolume->SetEnabledPtr(&g_Config.bEnableSound);
-	reverbVolume->SetZeroLabel(a->T("Disabled"));
-
-	PopupSliderChoice *altVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAltSpeedVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iAltSpeedVolume), a->T("Alternate speed volume"), screenManager()));
-	altVolume->SetFormat("%d%%");
-	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
-	altVolume->SetZeroLabel(a->T("Mute"));
-
-	PopupSliderChoice *achievementVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iAchievementVolume), ac->T("Achievement sound volume"), screenManager()));
-	achievementVolume->SetFormat("%d%%");
-	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
-	achievementVolume->SetZeroLabel(a->T("Mute"));
-	achievementVolume->OnChange.Add([](UI::EventParams &e) {
+	page.IntSlider(&g_Config.iGameVolume, VOLUME_OFF, VOLUMEHI_FULL, "Game volume").Format("%d%%").ZeroLabel("Mute").Enabled(&g_Config.bEnableSound);
+	page.IntSlider(&g_Config.iReverbVolume, VOLUME_OFF, 2 * VOLUMEHI_FULL, "Reverb volume").Format("%d%%").ZeroLabel("Disabled").Enabled(&g_Config.bEnableSound);
+	page.IntSlider(&g_Config.iAltSpeedVolume, VOLUME_OFF, VOLUMEHI_FULL, "Alternate speed volume").Format("%d%%").ZeroLabel("Mute").Enabled(&g_Config.bEnableSound);
+	page.IntSlider(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, { I18NCat::ACHIEVEMENTS, "Achievement sound volume" }).Format("%d%%").ZeroLabel("Mute").Enabled(&g_Config.bEnableSound).OnChange([](EventParams &e) {
 		// Audio preview
 		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
 		g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume);
 	});
 
-	audioSettings->Add(new ItemHeader(a->T("UI sound")));
+	page.Header("UI sound");
 
-	audioSettings->Add(new CheckBox(&g_Config.bUISound, a->T("UI sound")));
-	PopupSliderChoice *uiVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iUIVolume), a->T("UI volume"), screenManager()));
-	uiVolume->SetFormat("%d%%");
-	uiVolume->SetZeroLabel(a->T("Mute"));
-	uiVolume->SetLiveUpdate(true);
-	uiVolume->OnChange.Add([](UI::EventParams &e) {
+	page.Bool(&g_Config.bUISound, "UI sound");
+	page.IntSlider(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, "UI volume").Format("%d%%").ZeroLabel("Mute").LiveUpdate().Enabled(&g_Config.bUISound).OnChange([](EventParams &e) {
 		static double lastTimePlayed = 0.0;
 		double now = time_now_d();
 		if (now - lastTimePlayed < 0.1) {
@@ -716,27 +689,27 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		// Audio preview
 		PlayUISound(UI::UISound::CONFIRM);
 	});
-	uiVolume->SetEnabledPtr(&g_Config.bUISound);
 
-	PopupSliderChoice *gamePreviewVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGamePreviewVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iGamePreviewVolume), a->T("Game preview volume"), screenManager()));
-	gamePreviewVolume->SetFormat("%d%%");
-	gamePreviewVolume->SetZeroLabel(a->T("Mute"));
+	page.IntSlider(&g_Config.iGamePreviewVolume, VOLUME_OFF, VOLUMEHI_FULL, "Game preview volume").Format("%d%%").ZeroLabel("Mute");
 
 	bool sdlAudio = false;
 
 #if defined(SDL)
-	audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+	page.Header("Audio backend");
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
-	audioDeviceList.insert(audioDeviceList.begin(), a->T_cstr("Auto"));
-	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, I18NCat::NONE, screenManager()));
-	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
+	audioDeviceList.insert(audioDeviceList.begin(), std::string(T(I18NCat::AUDIO, "Auto")));
+	page.StringChoice(&g_Config.sAudioDevice, "Device", std::move(audioDeviceList)).OnChange([](EventParams &e) {
+		if (g_Config.sAudioDevice == T(I18NCat::AUDIO, "Auto")) {
+			g_Config.sAudioDevice.clear();
+		}
+		System_Notify(SystemNotification::AUDIO_RESET_DEVICE);
+	});
 	sdlAudio = true;
 
 	static const int bufferSizes[] = {128, 256, 512, 1024, 2048};
-	PopupSliderChoice *bufferSize = audioSettings->Add(new PopupSliderChoice(&g_Config.iSDLAudioBufferSize, 0, 2048, 256, a->T("Buffer size"), screenManager()));
-	bufferSize->RestrictChoices(bufferSizes, ARRAY_SIZE(bufferSizes));
-	audioSettings->Add(new SettingHint(di->T("This change will not take effect until PPSSPP is restarted."), bufferSize));
+	page.IntSlider(&g_Config.iSDLAudioBufferSize, 0, 2048, "Buffer size").Default(256).RestrictTo(bufferSizes, ARRAY_SIZE(bufferSizes));
+	page.Hint({ I18NCat::DIALOG, "This change will not take effect until PPSSPP is restarted." });
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -748,17 +721,16 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	std::vector<AudioDeviceDesc> deviceDescs;
 	g_audioBackend->EnumerateDevices(&deviceDescs);
 	if (!deviceDescs.empty()) {
-		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+		page.Header("Audio backend");
 		for (auto &desc : deviceDescs) {
 			audioDeviceNames.push_back(desc.name);
 			audioDeviceIds.push_back(desc.uniqueId);
 		}
 
-		audioDeviceNames.insert(audioDeviceNames.begin(), std::string(a->T("Auto")));
+		audioDeviceNames.insert(audioDeviceNames.begin(), std::string(T(I18NCat::AUDIO, "Auto")));
 		audioDeviceIds.insert(audioDeviceIds.begin(), "");
 
-		PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceNames, I18NCat::NONE, screenManager(), &audioDeviceIds));
-		audioDevice->OnChoice.Add([](UI::EventParams &) {
+		page.StringChoice(&g_Config.sAudioDevice, "Device", std::move(audioDeviceNames), std::move(audioDeviceIds)).OnChange([](EventParams &) {
 			bool reverted;
 			if (g_audioBackend->InitOutputDevice(g_Config.sAudioDevice, LatencyMode::Aggressive, &reverted)) {
 				if (reverted) {
@@ -768,43 +740,45 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 				WARN_LOG(Log::Audio, "InitOutputDevice failed");
 			}
 		});
-		CheckBox *autoAudio = audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
-		autoAudio->SetEnabledFunc([]()->bool {
+		page.Bool(&g_Config.bAutoSwitchAudioDevice, "Use new audio devices automatically").EnabledFunc([]()->bool {
 			return g_Config.sAudioDevice.empty();
 		});
 	}
 
-	const bool isWindows = true;
 #else
-	const bool isWindows = false;
 	if (sdlAudio) {
-		audioSettings->Add(new CheckBox(&g_Config.bAutoSwitchAudioDevice, a->T("Use new audio devices automatically")));
+		page.Bool(&g_Config.bAutoSwitchAudioDevice, "Use new audio devices automatically");
 	} else {
-		audioSettings->Add(new ItemHeader(a->T("Audio backend")));
+		page.Header("Audio backend");
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
-	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
+	page.Bool(&g_Config.bExtraAudioBuffering, { I18NCat::AUDIO, "AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)" });
 
 	// Show Oboe debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);
 	if (!audioErrorStr.empty()) {
-		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));
+		page.Info("Audio Error", audioErrorStr);
 	}
 #endif
 #endif
 
 	std::vector<std::string> micList = Microphone::getDeviceList();
 	if (!micList.empty()) {
-		audioSettings->Add(new ItemHeader(a->T("Microphone")));
+		page.Header("Microphone");
 		std::vector<std::string> micValues = micList;
-		micList.emplace(micList.begin(), a->T("Auto"));
+		micList.emplace(micList.begin(), T(I18NCat::AUDIO, "Auto"));
 		micValues.insert(micValues.begin(), "");
-		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager(), &micValues));
-		MicChoice->OnChoice.Add([](UI::EventParams &e) {
+		page.StringChoice(&g_Config.sMicDevice, "Microphone Device", std::move(micList), std::move(micValues)).OnChange([](EventParams &e) {
 			Microphone::onMicDeviceChange();
 		});
 	}
+}
+
+void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
+	SettingsPage page(I18NCat::AUDIO);
+	BuildAudioSettings(page);
+	CreateSettingViews(page, audioSettings, screenManager());
 }
 
 void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings) {
@@ -1806,14 +1780,6 @@ void GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
 			g_Config.iInflightFrames = prevInflightFrames_;
 		});
 	}
-}
-
-void GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
-	auto a = GetI18NCategory(I18NCat::AUDIO);
-	if (g_Config.sAudioDevice == a->T("Auto")) {
-		g_Config.sAudioDevice.clear();
-	}
-	System_Notify(SystemNotification::AUDIO_RESET_DEVICE);
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
