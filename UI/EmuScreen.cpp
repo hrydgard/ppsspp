@@ -782,7 +782,10 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 				// Reset whatever got tilted.
 				switch (g_Config.iTiltInputType) {
 				case TILT_ANALOG:
-					__CtrlSetAnalogXY(0, 0, 0);
+					__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0, 0);
+					break;
+				case TILT_ANALOG_RIGHT:
+					__CtrlSetAnalogXY(CTRL_STICK_RIGHT, 0, 0);
 					break;
 				case TILT_ACTION_BUTTON:
 					__CtrlUpdateButtons(0, CTRL_CROSS | CTRL_CIRCLE | CTRL_SQUARE | CTRL_TRIANGLE);

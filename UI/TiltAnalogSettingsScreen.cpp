@@ -31,13 +31,13 @@
 #include "UI/TiltAnalogSettingsScreen.h"
 #include "UI/MiscViews.h"
 
-const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
+const char *g_tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons", "Right Analog Stick" };
 const size_t g_numTiltTypes = ARRAY_SIZE(g_tiltTypes);
 
 void TiltAnalogSettingsScreen::CreateCalibrationView(UI::ViewGroup *parent, UI::LayoutParams *layoutParams) {
 	using namespace UI;
 
-	if (g_Config.iTiltInputType == TILT_ANALOG) {
+	if (TiltTypeIsAnalog(g_Config.iTiltInputType)) {
 		tilt_ = new JoystickHistoryView(StickHistoryViewType::OTHER, "", layoutParams);
 		parent->Add(tilt_);
 	} else {
@@ -125,7 +125,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	settings->Add(calibrationInfo);
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
-	if (g_Config.iTiltInputType == 1) {
+	if (TiltTypeIsAnalog(g_Config.iTiltInputType)) {
 		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, 0.0f, co->T("Deadzone radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 		settings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltInverseDeadzone, 0.0f, 0.8f, 0.0f, co->T("Low end radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 		settings->Add(new CheckBox(&g_Config.bTiltCircularDeadzone, co->T("Circular deadzone")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);

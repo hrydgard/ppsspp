@@ -29,7 +29,7 @@ float GetCurrentYAngle() {
 
 // These functions generate tilt events given the current Tilt amount,
 // and the deadzone radius.
-void GenerateAnalogStickEvent(float analogX, float analogY);
+void GenerateAnalogStickEvent(int stick, float analogX, float analogY);
 void GenerateDPadEvent(int digitalX, int digitalY);
 void GenerateActionButtonEvent(int digitalX, int digitalY);
 void GenerateTriggerButtonEvent(int digitalX, int digitalY);
@@ -170,7 +170,7 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 	tiltX *= xSensitivity * tiltFactor;
 	tiltY *= ySensitivity * tiltFactor;
 
-	if (g_Config.iTiltInputType == TILT_ANALOG) {
+	if (TiltTypeIsAnalog(g_Config.iTiltInputType)) {
 		// Only analog mappings use the deadzone.
 		float adjustedTiltX;
 		float adjustedTiltY;
@@ -189,7 +189,7 @@ void ProcessTilt(bool landscape, float calibrationAngle, float x, float y, float
 
 		rawTiltAnalogX = adjustedTiltX;
 		rawTiltAnalogY = adjustedTiltY;
-		GenerateAnalogStickEvent(adjustedTiltX, adjustedTiltY);
+		GenerateAnalogStickEvent(g_Config.iTiltInputType == TILT_ANALOG_RIGHT ? CTRL_STICK_RIGHT : CTRL_STICK_LEFT, adjustedTiltX, adjustedTiltY);
 		return;
 	}
 
@@ -236,8 +236,8 @@ inline float clamp(float f) {
 
 // TODO: Instead of __Ctrl, route data into the ControlMapper.
 
-void GenerateAnalogStickEvent(float tiltX, float tiltY) {
-	__CtrlSetAnalogXY(CTRL_STICK_LEFT, clamp(tiltX), clamp(tiltY));
+void GenerateAnalogStickEvent(int stick, float tiltX, float tiltY) {
+	__CtrlSetAnalogXY(stick, clamp(tiltX), clamp(tiltY));
 }
 
 void GenerateDPadEvent(int digitalX, int digitalY) {
@@ -380,6 +380,7 @@ void ResetTiltEvents() {
 	__CtrlUpdateButtons(0, tiltButtonsDown);
 	tiltButtonsDown = 0;
 	__CtrlSetAnalogXY(CTRL_STICK_LEFT, 0.0f, 0.0f);
+	__CtrlSetAnalogXY(CTRL_STICK_RIGHT, 0.0f, 0.0f);
 }
 
 }  // namespace TiltEventProcessor
