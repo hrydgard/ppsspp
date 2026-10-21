@@ -2000,12 +2000,14 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// Keeping the current flags instead left a state saved with adhocctl inited, loaded into a
 		// fresh boot, failing every call with NOT_INITIALIZED; MGS Peace Walker retried
 		// sceNetAdhocctlDisconnect forever when starting a cutscene.
-		if (netAdhocInited && !cur_netAdhocInited) {
+		if (netAdhocInited != cur_netAdhocInited) {
 			if (aemuPostofficeEnetThread.joinable()) {
 				aemuPostofficeEnetPumping = false;
 				aemuPostofficeEnetThread.join();
 			}
-			SetupAdhocRelayMode();
+			if (netAdhocInited) {
+				SetupAdhocRelayMode();
+			}
 		}
 		if (netAdhocctlInited && !cur_netAdhocctlInited) {
 			isAdhocctlNeedLogin = true;
