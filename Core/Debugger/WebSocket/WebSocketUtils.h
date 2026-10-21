@@ -50,14 +50,16 @@ struct WebSocketClientInfo {
 // later - a resume, a step, a button held for some frames. Deliberately not named after the
 // request: the event that reports the actual outcome uses that name, and for input.buttons.press
 // it carries the same ticket too, so anything less distinct would be impossible to tell apart.
+// replyFollows says that outcome is a reply carrying the request's ticket (see ReplyLater()).
 struct DebuggerDeferredEvent {
-	DebuggerDeferredEvent(const char *n, const JsonGet data) : name(n) {
+	DebuggerDeferredEvent(const char *n, const JsonGet data, bool replyFollows) : name(n), replyFollows(replyFollows) {
 		const JsonNode *value = data ? data.get("ticket") : nullptr;
 		if (value)
 			ticketRaw = json_stringify(value);
 	}
 
 	const char *name;
+	bool replyFollows;
 	std::string ticketRaw;
 
 	operator std::string() const {
@@ -65,6 +67,9 @@ struct DebuggerDeferredEvent {
 		j.begin();
 		j.writeString("event", "deferred");
 		j.writeString("for", name);
+		if (replyFollows) {
+			j.writeBool("replyFollows", true);
+		}
 		if (!ticketRaw.empty()) {
 			j.writeRaw("ticket", ticketRaw);
 		}
@@ -136,11 +141,21 @@ struct DebuggerRequest {
 	void Flush();
 	bool Finish();
 
+	// For a handler that answers later with a message carrying the request's ticket, rather than
+	// a ticketless broadcast. The deferred event then tells the client to keep waiting for it.
+	void ReplyLater() {
+		replyLater_ = true;
+	}
+	bool RepliesLater() const {
+		return replyLater_;
+	}
+
 private:
 	JsonWriter writer_;
 	bool responseBegun_ = false;
 	bool responseSent_ = false;
 	bool responsePartial_ = false;
+	bool replyLater_ = false;
 };
 
 class DebuggerSubscriber {

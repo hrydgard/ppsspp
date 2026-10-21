@@ -168,6 +168,7 @@ void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 
 	const JsonNode *value = req.data.get("ticket");
 	lastTicket_ = value ? json_stringify(value) : "";
+	req.ReplyLater();
 }
 
 // Setup GPU stats feed (gpu.stats.feed)
