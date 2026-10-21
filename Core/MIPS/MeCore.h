@@ -60,6 +60,7 @@ struct MEState {
 	u32 sysreg54 = 0;        // 0x54. Sony's ME firmware clears bit 0. Unknown.
 	u32 sysreg5C = 0;        // 0x5C. Sony's ME firmware sets bit 1. Unknown.
 	u32 sysreg70 = 0;        // 0x70. MIST's meEasyShot sets bits 0 and 2. Unknown.
+	u32 sysregOther[0x40]{}; // The rest, kept: clock and IO enables (0x58, 0x60, 0x6C, 0x78...).
 	// Sony's ME firmware still has to boot to its idle halt (RunUntilIdle).
 	bool booting = false;
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
@@ -74,6 +75,21 @@ struct MEState {
 		u32 csc[0x11]{};           // 0x120-0x160: colour space conversion
 		u32 channels[4][5]{};      // 0x180-0x1FF: source, destination, next LLI, control, configuration
 	} dmacplus;
+
+	// The audio block (0xBE000000), which the ME feeds directly in a POPS boot: a FIFO of stereo
+	// samples (0x70) that plays at 44.1kHz. Only what POPS's ME loop uses.
+	struct Audio {
+		u32 regs[0x20]{};
+		u32 fifo[24]{};
+		u32 fifoCount = 0;
+		// It played out its last sample. Status 0x28 bit 1, until the next one is written.
+		bool underrun = false;
+		// When the last sample to leave the FIFO has played, if it's empty. INT64_MAX until one has
+		// left it since the last write.
+		s64 lastPlayed = INT64_MAX;
+		// When the oldest sample in the FIFO has played, in ME ticks.
+		s64 nextPlayed = 0;
+	} audio;
 
 	// The sysevent handler list sceKernelReferSysEventHandler returns, in kernel memory.
 	u32 sysEventHandlers = 0;
@@ -111,6 +127,11 @@ u64 GetTicks();
 u32 ReadCop0(int reg);
 void WriteCop0(int reg, u32 value);
 void Halt();
+// Whether a syscall the ME makes is to a firmware function it may call, all of which do nothing on
+// it: kernel code it runs (POPS's ME loop) calls the cache functions, which only work on the calling
+// CPU's caches, and those aren't emulated. An unresolved import does nothing, as on the main CPU.
+// Logs the others.
+bool SyscallDoesNothing(MIPSOpcode op, u32 pc);
 // mtic.
 void SetInterruptEnable(u32 value);
 

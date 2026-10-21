@@ -27,8 +27,10 @@
 #include "Core/CoreTiming.h"
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HW/MeMMIO.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/MIPS/MeCore.h"
@@ -318,6 +320,13 @@ void DoState(PointerWrap &p) {
 	Do(p, me->sysreg5C);
 	Do(p, me->sysreg70);
 	Do(p, me->booting);
+	DoArray(p, me->sysregOther, ARRAY_SIZE(me->sysregOther));
+	DoArray(p, me->audio.regs, ARRAY_SIZE(me->audio.regs));
+	DoArray(p, me->audio.fifo, ARRAY_SIZE(me->audio.fifo));
+	Do(p, me->audio.fifoCount);
+	Do(p, me->audio.underrun);
+	Do(p, me->audio.lastPlayed);
+	Do(p, me->audio.nextPlayed);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
 	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
 	DoArray(p, me->clocks, ARRAY_SIZE(me->clocks));
@@ -513,10 +522,16 @@ void RunFor(int cycles) {
 	// The main CPU may have given a waiting loop what it waits for.
 	me->waiting = false;
 	while (cpu.downcount >= 0 && coreState == CORE_RUNNING_CPU) {
+		MeMMIO::AudioUpdate(GetTicks());
 		CheckInterrupts(me);
 		if (!me->halted && !me->waiting)
 			me->waiting = WaitsForMainCPU(me);
-		if (me->halted || me->waiting) {
+		if (me->halted) {
+			// Asleep until the audio FIFO next has room, if that's within this slice: POPS's ME
+			// loop sleeps for each sample it plays.
+			const s64 wake = MeMMIO::AudioNextEvent();
+			cpu.downcount = wake <= me->tickBase ? (int)(me->tickBase - wake) : -1;
+		} else if (me->waiting) {
 			cpu.downcount = -1;
 		} else {
 			// Run a part, with the rest set aside so the clock stays right.
@@ -549,6 +564,25 @@ static void RunUntilIdle(MEState *me) {
 	} else {
 		WARN_LOG(Log::ME, "ME firmware didn't reach its idle halt, at %08x", cpu.pc);
 	}
+}
+
+bool SyscallDoesNothing(MIPSOpcode op, u32 pc) {
+	static const char *const cacheFunctions[] = {
+		"sceKernelDcacheWritebackAll",
+		"sceKernelDcacheWritebackInvalidateAll",
+		"sceKernelDcacheWritebackRange",
+		"sceKernelDcacheWritebackInvalidateRange",
+		"sceKernelDcacheInvalidateRange",
+	};
+	const HLEFunction *func = GetSyscallFunctionData(op, pc);
+	if (!func)
+		return true;
+	for (const char *name : cacheFunctions) {
+		if (!strcmp(func->name, name))
+			return true;
+	}
+	ERROR_LOG(Log::ME, "syscall to %s on the Media Engine at %08x", func->name, pc);
+	return false;
 }
 
 void SetReset(bool asserted) {

@@ -89,7 +89,8 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 
 #if PPSSPP_ARCH(AMD64)
 // Memory directly, or through the fixed code for a hardware register (0xBC000000-0xBFFFFFFF), where
-// the address may also be one the CPU has no memory at.
+// the address may also be one the CPU has no memory at. The main CPU has no views anywhere in kernel
+// segment 1 (0xA0000000-0xBFFFFFFF), so all of it goes there (see Memory::IsMMIOAccess).
 void X64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -98,7 +99,7 @@ void X64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 	LEA(32, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
 	const X64Reg reg = isStore ? regs_.RX(inst.src3) : regs_.RX(inst.dest);
 
-	CMP(32, R(SCRATCH1), Imm32(0xBC000000));
+	CMP(32, R(SCRATCH1), Imm32(mips_->IsMediaEngine() ? 0xBC000000 : 0xA0000000));
 	FixupBranch below = J_CC(CC_B);
 	CMP(32, R(SCRATCH1), Imm32(0xC0000000));
 	FixupBranch above = J_CC(CC_AE);

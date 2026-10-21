@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/MeMMIO.h"
@@ -37,6 +38,9 @@ public:
 	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
 		if (offset + size > Memory::BOOT_PAGE_SIZE)
 			return false;
+		// What the ME has written by now: a main CPU polling a mailbox here sees it as on a PSP.
+		if (mips == currentMIPS)
+			CoreTiming::CatchUpOtherCPUs(mips);
 		const u8 *ptr = Memory::GetBootPage() + offset;
 		switch (size) {
 		case 1: *value = *ptr; break;
@@ -87,6 +91,43 @@ public:
 
 static BootPageDevice g_bootPage;
 
+// Kernel code reaches RAM and VRAM uncached at 0xA8000000 and 0xA4000000 (Yabause's me.prx does, by
+// ORing 0xA0000000 onto its own addresses). The main CPU's space has no views there, so it goes
+// through the uncached mirrors at 0x40000000 instead. The Media Engine's space maps them.
+class KernelUncachedDevice : public MMIODevice {
+public:
+	KernelUncachedDevice() : MMIODevice("kseg1 memory", 0xA0000000, 0x1C000000) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		const u32 address = 0x40000000 + offset;
+		if ((mips && mips->IsMediaEngine()) || !Memory::IsValidRange(address, size))
+			return false;
+		switch (size) {
+		case 1: *value = Memory::ReadUnchecked_U8(address); break;
+		case 2: *value = Memory::ReadUnchecked_U16(address); break;
+		default: *value = Memory::ReadUnchecked_U32(address); break;
+		}
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		const u32 address = 0x40000000 + offset;
+		if ((mips && mips->IsMediaEngine()) || !Memory::IsValidRange(address, size))
+			return false;
+		switch (size) {
+		case 1: Memory::WriteUnchecked_U8((u8)value, address); break;
+		case 2: Memory::WriteUnchecked_U16((u16)value, address); break;
+		default: Memory::WriteUnchecked_U32(value, address); break;
+		}
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+static KernelUncachedDevice g_kernelUncached;
+
 static std::vector<MMIODevice *> g_devices;
 
 void Init() {
@@ -101,6 +142,8 @@ void Init() {
 		MeMMIO::VmeControlDevice(),
 		MeMMIO::ClockDevice(),
 		MeMMIO::DdrDevice(),
+		MeMMIO::AudioDevice(),
+		&g_kernelUncached,
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();

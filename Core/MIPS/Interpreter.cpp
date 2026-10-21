@@ -183,9 +183,18 @@ namespace MIPSInt {
 
 	void Int_Syscall(MIPSState *mips, MIPSOpcode op) {
 		if (mips->IsMediaEngine()) {
-			// There's no HLE on the ME. TODO: Its exception vector.
-			ERROR_LOG(Log::ME, "syscall on the Media Engine at %08x", mips->pc);
-			Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+			// TODO: Its exception vector.
+			if (!MeCore::SyscallDoesNothing(op, mips->pc)) {
+				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+				return;
+			}
+			mips->r[MIPS_REG_V0] = 0;
+			if (mips->inDelaySlot) {
+				mips->pc = mips->nextPC;
+			} else {
+				mips->pc += 4;
+			}
+			mips->inDelaySlot = false;
 			return;
 		}
 		const u32 syscallPC = mips->pc - 4;
