@@ -361,7 +361,8 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	// Might be a stubbed address or something?
 	if (space_ ? !space_->IsValidAddress(targetAddr) : !Memory::IsValidAddress(targetAddr)) {
 		// If preloading, flush - this block will likely be fixed later.
-		ERROR_LOG(Log::JIT, "Jump to invalid address: %08x", targetAddr);
+		// Usually code that never runs, like a call through an import that isn't linked yet.
+		DEBUG_LOG(Log::JIT, "Compiled jump to %08x (probably benign)", targetAddr);
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		// Continue so the block gets completed and crashes properly.
 	}
