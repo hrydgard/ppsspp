@@ -411,7 +411,8 @@ void Arm64JitBackend::CompIR_LoadShift(IRInst inst) {
 }
 
 // Memory directly, or through the fixed code for a hardware register (0xBC000000-0xBFFFFFFF), where
-// the address may also be one the CPU has no memory at.
+// the address may also be one the CPU has no memory at. The main CPU has no views anywhere in kernel
+// segment 1 (0xA0000000-0xBFFFFFFF), so all of it goes there (see Memory::IsMMIOAccess).
 void Arm64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -420,8 +421,13 @@ void Arm64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 	ADDI2R(SCRATCH1, regs_.R(inst.src1), inst.constant, SCRATCH2);
 	const ARM64Reg reg = isStore ? regs_.R(inst.src3) : regs_.R(inst.dest);
 
-	LSR(SCRATCH2, SCRATCH1, 26);
-	CMPI2R(SCRATCH2, 0xBC000000 >> 26);
+	if (mips_->IsMediaEngine()) {
+		LSR(SCRATCH2, SCRATCH1, 26);
+		CMPI2R(SCRATCH2, 0xBC000000 >> 26);
+	} else {
+		LSR(SCRATCH2, SCRATCH1, 29);
+		CMPI2R(SCRATCH2, 0xA0000000 >> 29);
+	}
 	FixupBranch memory = B(CC_NEQ);
 	if (isStore)
 		MOV(SCRATCH2, reg);

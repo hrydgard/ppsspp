@@ -409,9 +409,11 @@ inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0xBFE00000) == 0x04200000) || ((address & 0xBFE00000) == 0x04600000);
 }
 
-// TODO: To re-evaluate.
+// Kernel segment 1 (0xA0000000-0xBFFFFFFF): the hardware registers from 0xBC000000, and below them
+// uncached RAM and VRAM, which only the Media Engine's space maps. Kernel code reaches the rest
+// through MMIO::Read/Write.
 inline bool IsMMIOAccess(const u32 address) {
-	return ((address & 0xFC000000) == 0xBC000000);
+	return (address & 0xE0000000) == 0xA0000000;
 }
 
 // 0x08000000 -> 0x08800000
