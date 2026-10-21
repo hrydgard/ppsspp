@@ -1393,6 +1393,16 @@ void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lo
 	clearLocalIpCache();
 }
 
+enum class AdhocctlClientStatus {
+	ALIVE,
+	SPAWNED,
+	DEAD,
+};
+
+static bool should_abort_adhocctl_connection(void *_arg) {
+	return !friendFinderRunning;
+}
+
 // TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
 int friendFinder() {
 	SetCurrentThreadName("FriendFinder");
@@ -1412,6 +1422,85 @@ int friendFinder() {
 
 	// Log Startup
 	INFO_LOG(Log::sceNet, "FriendFinder: Begin of Friend Finder Thread");
+
+	static const auto maintain_adhocctl_client = [] (SceNetAdhocctlAdhocId *adhoc_id) -> AdhocctlClientStatus {
+		{
+			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+			if (adhocctlHandle) {
+				return AdhocctlClientStatus::ALIVE;
+			}
+		}
+
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		int iResult = 0;
+
+		auto server_ip = GetAdhocServerIP();
+
+		struct adhocctl_addr_v4 adhocctl_addr;
+		adhocctl_addr.ip = server_ip.in.sin_addr.s_addr;
+		adhocctl_addr.port = server_ip.in.sin_port;
+
+		struct adhocctl_addr_v4 _adhocctl_bind_addr = {0};
+		struct adhocctl_addr_v4 *adhocctl_bind_addr = NULL;
+
+		// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
+		// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
+		if (isLocalServer && !serverHasRelay) {
+			_adhocctl_bind_addr.ip = g_localhostIP.in.sin_addr.s_addr;
+			_adhocctl_bind_addr.port = 0;
+			adhocctl_bind_addr = &_adhocctl_bind_addr;
+		}
+
+		// Default/Initial Network Parameters
+		memset(&parameter, 0, sizeof(parameter));
+		strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+		parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+		parameter.channel = g_Config.iWlanAdhocChannel;
+		// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
+		if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
+		//getLocalMac(&parameter.bssid.mac_addr);
+
+		// Default ProductId
+		product_code.type = adhoc_id->type;
+		memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
+
+		// Don't need to connect if AdhocServer DNS was not resolved
+		if (server_ip.in.sin_addr.s_addr == INADDR_NONE) {
+			return AdhocctlClientStatus::DEAD;
+		}
+
+		SceNetEtherAddr address;
+		getLocalMac(&address);
+
+		// Connect to Adhoc Server
+		void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp, should_abort_adhocctl_connection, NULL);
+
+		if (!new_adhocctl_handle) {
+			ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")));
+			return AdhocctlClientStatus::DEAD;
+		}
+
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		if (adhocctlHandle) {
+			// we have two friend finders?? DO NOT try to create adhocctl client outside of this lambda
+			ERROR_LOG(Log::sceNet, "%s: unreachable codepath at %s %d", __func__, __FILE__, __LINE__);
+			_dbg_assert_(false);
+			killAdhocctlClient(false, adhocctl_guard);
+		}
+		adhocctlHandle = new_adhocctl_handle;
+		int new_adhocctl_id = 2;
+		if (new_adhocctl_id == adhocctlId) {
+			new_adhocctl_id++;
+		}
+		adhocctlId = new_adhocctl_id;
+
+		// warm the local ip cache
+		sockaddr_in addr;
+		getLocalIp(&addr);
+
+		return AdhocctlClientStatus::SPAWNED;
+	};
 
 	// Resolve and cache AdhocServer DNS
 	addrinfo* resolved = nullptr;
@@ -1448,7 +1537,7 @@ int friendFinder() {
 
 		// Reconnect when disconnected while Adhocctl is still inited
 		if (netAdhocctlInited && isAdhocctlNeedLogin && g_Config.bEnableWlan) {
-			AdhocctlClientStatus status = adhocctlClientMaintenance(&product_code);
+			AdhocctlClientStatus status = maintain_adhocctl_client(&product_code);
 			switch (status) {
 			case AdhocctlClientStatus::SPAWNED: {
 				g_adhocServerConnected = true;
@@ -2163,82 +2252,6 @@ int getPTPSocketCount() {
 
 	// Return Socket Count
 	return counter;
-}
-
-static bool should_abort_adhocctl_connection(void *_arg) {
-	return !friendFinderRunning;
-}
-
-AdhocctlClientStatus adhocctlClientMaintenance(SceNetAdhocctlAdhocId *adhoc_id) {
-	// do not hold two locks
-	auto server_ip = GetAdhocServerIP();
-
-	const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
-
-	if (adhocctlHandle) {
-		return AdhocctlClientStatus::ALIVE;
-	}
-
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	int iResult = 0;
-
-	struct adhocctl_addr_v4 adhocctl_addr;
-	adhocctl_addr.ip = server_ip.in.sin_addr.s_addr;
-	adhocctl_addr.port = server_ip.in.sin_port;
-
-	struct adhocctl_addr_v4 _adhocctl_bind_addr = {0};
-	struct adhocctl_addr_v4 *adhocctl_bind_addr = NULL;
-
-	// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
-	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (isLocalServer && !serverHasRelay) {
-		_adhocctl_bind_addr.ip = g_localhostIP.in.sin_addr.s_addr;
-		_adhocctl_bind_addr.port = 0;
-		adhocctl_bind_addr = &_adhocctl_bind_addr;
-	}
-	
-	// Default/Initial Network Parameters
-	memset(&parameter, 0, sizeof(parameter));
-	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
-	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	parameter.channel = g_Config.iWlanAdhocChannel;
-	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
-	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
-	//getLocalMac(&parameter.bssid.mac_addr);
-	
-	// Default ProductId
-	product_code.type = adhoc_id->type;
-	memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-
-	// Don't need to connect if AdhocServer DNS was not resolved
-	if (server_ip.in.sin_addr.s_addr == INADDR_NONE) {
-		return AdhocctlClientStatus::DEAD;
-	}
-
-	SceNetEtherAddr address;
-	getLocalMac(&address);
-
-	// Connect to Adhoc Server
-	void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp, should_abort_adhocctl_connection, NULL);
-
-	if (!new_adhocctl_handle) {
-		ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
-		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")));
-		return AdhocctlClientStatus::DEAD;
-	}
-
-	adhocctlHandle = new_adhocctl_handle;
-	int new_adhocctl_id = 2;
-	if (new_adhocctl_id == adhocctlId) {
-		new_adhocctl_id++;
-	}
-	adhocctlId = new_adhocctl_id;
-
-	// warm the local ip cache
-	sockaddr_in addr;
-	getLocalIp(&addr);
-
-	return AdhocctlClientStatus::SPAWNED;
 }
 
 bool isZeroMAC(const SceNetEtherAddr* addr) {
