@@ -163,6 +163,8 @@ Path ResolvePBPFile(const Path &filename);
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
+// Mounts a disc image at umd0:, umd1:, umd: and disc0:, whether or not one was there.
+bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error);
 
 enum class ArchiveType {
 	ZIP,

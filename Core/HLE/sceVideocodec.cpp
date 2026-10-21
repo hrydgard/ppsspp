@@ -45,6 +45,7 @@
 #include "Core/HLE/scePower.h"
 #include "Core/HW/AvcDecoder.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 
 // The context the caller hands us is 96 bytes. The offsets below are what mpeg.prx actually
@@ -60,6 +61,9 @@ enum {
 	CTX_AU_DATA = 36,       // the access unit to decode
 	CTX_AU_SIZE = 40,
 	CTX_YUV_STRUCT = 44,    // type 0: pointer to the eight output buffers
+	CTX_SEQUENCE_INFO = 48, // 0x64 bytes the ME fills from the stream's parameter sets
+	CTX_PICTURE_INFO = 56,  // optional 0x540 bytes for per-picture records (mpeg_vsh.prx's modes 3-6)
+	CTX_SEI = 80,           // where sceVideocodecGetSEI writes
 	CTX_EDRAM_RAW = 92,
 };
 
@@ -98,20 +102,23 @@ struct VideocodecCtx {
 	u32 frameBuffersSize = 0;
 	int frameBufferWidth = 0;
 	int frameBufferHeight = 0;
+	// Which of the MAX_PICTURES frame stores the next picture goes into. Not saved: after a load the
+	// pictures already handed out are gone either way.
+	int nextFrameStore = 0;
 };
 
 static std::map<u32, VideocodecCtx> g_videocodecCtxs;
 
 // The Media Engine's own memory, modelled as an address space rather than a pool of blocks.
 //
-// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB). However only 2MB are available
-// for the ME: the rest of the EDRAM is actually allocated to the GPU on a real PSP in the default
-// configuration, which is what we emulate. DMA:s can arrive in multiple pieces so this has to be
+// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB), and we use all of that. A real
+// PSP's ME has less, but the frame buffers we hand out here are bigger than the decoder's own: four
+// 720x480 pictures (UMD Video) take 2MB. DMA:s can arrive in multiple pieces so this has to be
 // a "real" separate address space, so a subsequent larger read will work.
-static const u32 ME_MEM_SIZE = 2 * 1024 * 1024;
-// What we hand out ourselves lives in the top half, out of the way of the addresses mpeg.prx
-// picks for itself, which have all been well down in the first megabyte.
-static const u32 ME_ALLOC_BASE = ME_MEM_SIZE / 2;
+static const u32 ME_MEM_SIZE = 4 * 1024 * 1024;
+// What we hand out ourselves lives above the first megabyte, out of the way of the addresses mpeg.prx
+// picks for itself, which have all been well down in it.
+static const u32 ME_ALLOC_BASE = 1024 * 1024;
 static std::vector<u8> g_meRam;
 static BlockAllocator g_meAlloc(64);
 
@@ -246,6 +253,11 @@ void __VideocodecDoState(PointerWrap &p) {
 	// is the one copy - the contexts above only carry addresses into it.
 	Do(p, g_meRam);
 	g_meAlloc.DoState(p);
+	if (p.mode == p.MODE_READ && !g_meRam.empty() && g_meRam.size() < ME_MEM_SIZE) {
+		// From when the ME had 2MB. Its allocations stay where they are, and its allocator keeps
+		// the old upper bound.
+		g_meRam.resize(ME_MEM_SIZE, 0);
+	}
 }
 
 u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets[8]) {
@@ -311,7 +323,7 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 	}
 
 	for (int i = 0; i < 8; i++) {
-		buffers[i] = vctx.frameBuffers + slot * total + offsets[i];
+		buffers[i] = vctx.frameBuffers + vctx.nextFrameStore * total + offsets[i];
 	}
 	structAddr += slot * PICTURE_DESCRIPTOR_SIZE;
 
@@ -326,6 +338,62 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 		Memory::WriteUnchecked_U32(buffers[i], structAddr + i * 4);
 	}
 	return true;
+}
+
+// The ME's SEI record (0xA4 bytes), which sceVideocodecGetSEI hands back for the last access unit
+// decoded and the picture records below carry for each picture as it comes out (pspautotests
+// video/mpeg/avcdetail). Read off that test's stream: +0x18 counts up by 2 per access unit from
+// each buffering period and +0x1C stays 2, which is cpb_removal_delay and dpb_output_delay; +0x00
+// is 7 for the stream's IDR picture and 2 for the rest; a buffering period sets +0x64 and puts
+// 90000 (its initial_cpb_removal_delay?) at +0x08 and +0x10, which the parser doesn't give us.
+// +0x20 is 0 for the test's frames, and the UMD Video player reads it as the pic_struct.
+// +0x21, +0x24 and +0x28 are copied from the test.
+static const u32 SEI_RECORD_SIZE = 0xA4;
+
+static void WriteSeiRecord(u32 addr, const AvcTiming &timing) {
+	Memory::Memset(addr, 0, SEI_RECORD_SIZE, "VideocodecSei");
+	if (!timing.picTiming) {
+		return;
+	}
+	Memory::WriteUnchecked_U32(timing.keyFrame ? 7 : 2, addr + 0x00);
+	Memory::WriteUnchecked_U32(timing.cpbRemovalDelay, addr + 0x18);
+	Memory::WriteUnchecked_U32(timing.dpbOutputDelay, addr + 0x1C);
+	Memory::WriteUnchecked_U32(0x100 | (timing.picStruct & 0xFF), addr + 0x20);
+	Memory::WriteUnchecked_U32(0x00030100, addr + 0x24);
+	Memory::WriteUnchecked_U32(1, addr + 0x28);
+	Memory::WriteUnchecked_U32(timing.bufferingPeriod ? 1 : 0, addr + 0x64);
+}
+
+// Per-picture records, which the VSH's UMD Video player reads and games' mpeg.prx doesn't. Given a
+// buffer at CTX_PICTURE_INFO, the ME points a picture descriptor's +0x24 and +0x28 at two 0xA4-byte
+// records for it, 0x148 bytes per picture; without one both stay 0 (pspautotests
+// video/mpeg/avcdetail). The first is the picture's SEI record; the second stayed zero there.
+static void PublishPictureInfo(u32 ctxAddr, u32 yuvStructAddr, int slot, const AvcPicture &pic) {
+	const u32 descAddr = yuvStructAddr + slot * PICTURE_DESCRIPTOR_SIZE;
+	const u32 records = Memory::ReadUnchecked_U32(ctxAddr + CTX_PICTURE_INFO);
+	if (records == 0 || !Memory::IsValidRange(records + slot * 2 * SEI_RECORD_SIZE, 2 * SEI_RECORD_SIZE) ||
+		!Memory::IsValidRange(descAddr, PICTURE_DESCRIPTOR_SIZE)) {
+		return;
+	}
+	const u32 record = records + slot * 2 * SEI_RECORD_SIZE;
+	WriteSeiRecord(record, pic.timing);
+	Memory::Memset(record + SEI_RECORD_SIZE, 0, SEI_RECORD_SIZE, "VideocodecPictureInfo");
+	Memory::WriteUnchecked_U32(record, descAddr + 0x24);
+	Memory::WriteUnchecked_U32(record + SEI_RECORD_SIZE, descAddr + 0x28);
+}
+
+// The ME fills this from the stream's parameter sets. Only the VUI timing is filled in here: the
+// PSP's streams count time at 240000 ticks a second, so num_units_in_tick is 4004 for 29.97 fps
+// (pspautotests video/mpeg/avcdetail) and 5005 for 23.976, which the UMD Video player checks for.
+static void PublishSequenceInfo(const VideocodecCtx &vctx, u32 ctxAddr) {
+	const u32 info = Memory::ReadUnchecked_U32(ctxAddr + CTX_SEQUENCE_INFO);
+	int num, den;
+	if (info == 0 || !Memory::IsValidRange(info, 0x64) || !vctx.decoder->FrameRate(&num, &den)) {
+		return;
+	}
+	const u32 timeScale = 240000;
+	Memory::WriteUnchecked_U32((u32)((u64)timeScale * den / (2 * (u64)num)), info + 0x20);
+	Memory::WriteUnchecked_U32(timeScale, info + 0x24);
 }
 
 void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos) {
@@ -570,11 +638,21 @@ static int PublishPictures(VideocodecCtx &vctx, u32 ctxAddr, u32 outAddr) {
 			if (published >= MAX_PICTURES || !PublishFrameBuffers(vctx, yuvStructAddr, pic.width, pic.height, published, buffers)) {
 				break;
 			}
+			// Each picture gets the next frame store, as the ME rotates through its own. A caller can
+			// still be reading the last one: the VSH's UMD Video player converts a picture in strips
+			// spread over its next few frames.
+			vctx.nextFrameStore = (vctx.nextFrameStore + 1) % MAX_PICTURES;
 			WriteTiledYCbCr(buffers, pic);
+			// 1 for a picture decoding can start from (the stream's IDR in pspautotests
+			// video/mpeg/avcdetail), which mpeg.prx passes back from sceMpegAvcDecodeDetail. The UMD
+			// Video player drops pictures after starting or seeking until it sees one.
+			Memory::WriteUnchecked_U32(pic.timing.keyFrame ? 1 : 0, yuvStructAddr + published * PICTURE_DESCRIPTOR_SIZE + 0x20);
+			PublishPictureInfo(ctxAddr, yuvStructAddr, published, pic);
 			published++;
 		}
 	}
 	if (published > 0) {
+		PublishSequenceInfo(vctx, ctxAddr);
 		Memory::WriteUnchecked_U32(pictures[0].width, outAddr + 8);
 		Memory::WriteUnchecked_U32(pictures[0].height, outAddr + 12);
 		Memory::WriteUnchecked_U32(1, outAddr + 28);
@@ -756,8 +834,23 @@ static int sceVideocodecGetVersion(u32 ctxAddr, int type) {
 	return MECall(hleLogInfo(Log::ME, 0), "videocodec getversion", getVersionUs);
 }
 
+// Writes the SEI record of the last access unit decoded to the buffer at CTX_SEI. mpeg_vsh.prx's
+// sceMpeg_6F314410 asks for it, and the UMD Video player times pictures from its +0x1C.
 static int sceVideocodecGetSEI(u32 ctxAddr, int type) {
-	return hleLogWarning(Log::ME, 0, "UNIMPL");
+	if (!Memory::IsValidRange(ctxAddr, 96)) {
+		return hleLogError(Log::ME, -1, "bad context pointer");
+	}
+	const u32 sei = Memory::ReadUnchecked_U32(ctxAddr + CTX_SEI);
+	if (!Memory::IsValidRange(sei, SEI_RECORD_SIZE)) {
+		return hleLogError(Log::ME, -1, "bad SEI buffer %08x", sei);
+	}
+	auto it = g_videocodecCtxs.find(ctxAddr);
+	AvcTiming timing;
+	if (it != g_videocodecCtxs.end() && it->second.decoder) {
+		timing = it->second.decoder->LastTiming();
+	}
+	WriteSeiRecord(sei, timing);
+	return hleLogDebug(Log::ME, 0, "cpb_removal_delay %d, dpb_output_delay %d", timing.cpbRemovalDelay, timing.dpbOutputDelay);
 }
 
 static int sceVideocodecScanHeader(u32 ctxAddr, int type) {

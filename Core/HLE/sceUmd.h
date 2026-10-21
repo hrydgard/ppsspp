@@ -40,6 +40,12 @@ void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
 void __UmdReplace(const Path &filepath);
+// A drive that can be empty: the XMB's, booted without a game. Insert fails if a disc is in.
+bool __UmdInsert(const Path &filepath, std::string *error);
+void __UmdEject();
+bool __UmdIsInserted();
+// What's on the disc in the drive (PSP_UMD_TYPE_* bits), or 0 for an empty drive.
+u32 __UmdDiscType();
 bool getUMDReplacePermit();
 
 void Register_sceUmdUser();

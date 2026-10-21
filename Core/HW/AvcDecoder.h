@@ -27,6 +27,17 @@ struct AVCodecContext;
 struct AVCodecParserContext;
 struct AVFrame;
 
+// An access unit's timing SEI, as far as ffmpeg's parser reports it.
+struct AvcTiming {
+	bool picTiming = false;        // a picture timing SEI came with it
+	bool bufferingPeriod = false;  // and a buffering period SEI
+	bool keyFrame = false;         // a picture decoding can start from
+	int cpbRemovalDelay = 0;
+	int dpbOutputDelay = 0;
+	// H.264 pic_struct (0 a frame, 1/2 a field, 3-8 a frame shown as that many fields).
+	int picStruct = 0;
+};
+
 // One decoded picture: three 8-bit 4:2:0 planes (Y, Cb, Cr). Strides are in bytes and are not
 // necessarily the width.
 struct AvcPicture {
@@ -34,6 +45,7 @@ struct AvcPicture {
 	int strides[3]{};
 	int width = 0;
 	int height = 0;
+	AvcTiming timing;
 };
 
 // An H.264 decoder for sceVideocodec, which is a low level interface to the PSP Media Engine.
@@ -69,6 +81,11 @@ public:
 
 	// Throws away any decoder state, for a seek or a new stream.
 	void Flush();
+
+	// The timing of the last access unit DecodePictures was given.
+	const AvcTiming &LastTiming() const { return lastTiming_; }
+	// The frame rate from the stream's parameter sets, false until they've been seen.
+	bool FrameRate(int *num, int *den) const;
 
 	bool HasFrame() const { return haveFrame_; }
 	int Width() const { return width_; }
@@ -117,6 +134,9 @@ private:
 	std::deque<Decoded> decoded_;
 	// When each access unit's picture is due, in clock ticks, for streams with picture timing.
 	std::map<int, s64> outputTicks_;
+	// Each access unit's timing, while its picture hasn't come out yet.
+	std::map<int, AvcTiming> timings_;
+	AvcTiming lastTiming_;
 	s64 bufferingTick_ = 0;
 	bool firstTiming_ = true;
 	int nextIndex_ = 0;

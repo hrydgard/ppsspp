@@ -177,6 +177,10 @@ static void __KernelUmdActivate()
 	if (sceKernelGetCompiledSdkVersion() != 0) {
 		notifyArg |= PSP_UMD_READY;
 	}
+	// An empty drive (the XMB's) says so: the shell otherwise asks for the disc and reports it unreadable.
+	if (!UMDInserted) {
+		notifyArg = PSP_UMD_NOT_PRESENT;
+	}
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -187,7 +191,7 @@ static void __KernelUmdActivate()
 
 static void __KernelUmdDeactivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
+	u32 notifyArg = UMDInserted ? PSP_UMD_PRESENT | PSP_UMD_READY : PSP_UMD_NOT_PRESENT;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -283,7 +287,9 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 		if (info->size != 8)
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
-		info->type = PSP_UMD_TYPE_GAME;
+		// Games see a game disc, whatever else is on it.
+		const u32 type = __UmdDiscType();
+		info->type = (type & PSP_UMD_TYPE_GAME) || type == 0 ? PSP_UMD_TYPE_GAME : type;
 		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
@@ -504,6 +510,64 @@ void __UmdReplace(const Path &filepath) {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+bool __UmdInsert(const Path &filepath, std::string *error) {
+	if (UMDInserted) {
+		*error = "a disc is already in the drive";
+		return false;
+	}
+	FileLoader *fileLoader;
+	if (!UmdMount(filepath, &fileLoader, *error)) {
+		return false;
+	}
+	Achievements::ChangeUMD(filepath, fileLoader);
+
+	UMDInserted = true;
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED);
+	return true;
+}
+
+void __UmdEject() {
+	if (!UMDInserted) {
+		return;
+	}
+	UMDInserted = false;
+	pspFileSystem.Unmount("umd0:");
+	pspFileSystem.Unmount("umd1:");
+	pspFileSystem.Unmount("umd:");
+	pspFileSystem.Unmount("disc0:");
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_NOT_PRESENT | PSP_UMD_CHANGED);
+}
+
+bool __UmdIsInserted() {
+	return UMDInserted;
+}
+
+u32 __UmdDiscType() {
+	if (!UMDInserted) {
+		return 0;
+	}
+	auto hasDir = [](const char *path) {
+		const PSPFileInfo info = pspFileSystem.GetFileInfo(path);
+		return info.exists && info.type == FILETYPE_DIRECTORY;
+	};
+	u32 type = 0;
+	if (hasDir("disc0:/PSP_GAME")) {
+		type |= PSP_UMD_TYPE_GAME;
+	}
+	if (hasDir("disc0:/UMD_VIDEO")) {
+		type |= PSP_UMD_TYPE_VIDEO;
+	}
+	if (hasDir("disc0:/UMD_AUDIO")) {
+		type |= PSP_UMD_TYPE_AUDIO;
+	}
+	// A loose game directory or an ISO without the usual layout still boots as a game.
+	return type != 0 ? type : PSP_UMD_TYPE_GAME;
 }
 
 bool getUMDReplacePermit() {

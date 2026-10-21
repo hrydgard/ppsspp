@@ -1201,6 +1201,13 @@ static u32 sceDisplaySetHoldMode(u32 hMode) {
 	return hleLogWarning(Log::sceDisplay, 0, "UNIMPL");
 }
 
+// 6.61's display_02g.prx returns a global its init sets from the LCD panel type in IdStorage:
+// 0x0103000B for type 1, 0x0103020F for type 2 (sceDisplay_driver_206276C2), never 0. The VSH's
+// video player polls it through vshbridge.prx, and with 0 never sets up its picture output.
+static u32 sceDisplay_driver_996881D2() {
+	return hleLogDebug(Log::sceDisplay, 0x0103000B);
+}
+
 const HLEFunction sceDisplay[] = {
 	{0X0E20F177, &WrapU_III<sceDisplaySetMode>,               "sceDisplaySetMode",                 'x', "iii" },
 	{0X289D82FE, &WrapI_UIII<sceDisplaySetFramebuf>,          "sceDisplaySetFrameBuf",             'i', "xiii"},
@@ -1225,6 +1232,7 @@ const HLEFunction sceDisplay[] = {
 	{0X9E3C6DC6, &WrapU_II<sceDisplaySetBrightness>,          "sceDisplaySetBrightness",           'x', "ii"  },
 	{0X4D4E10EC, &WrapU_V<sceDisplayIsVblank>,                "sceDisplayIsVblank",                'x', ""    },
 	{0X21038913, &WrapU_V<sceDisplayIsVsync>,                 "sceDisplayIsVsync",                 'x', ""    },
+	{0X996881D2, &WrapU_V<sceDisplay_driver_996881D2>,        "sceDisplay_driver_996881D2",        'x', ""    },
 };
 
 void Register_sceDisplay() {

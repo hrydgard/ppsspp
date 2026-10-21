@@ -155,7 +155,7 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 struct SceMp4AvcCscStruct {
 	s32_le height;        // 0x00  in macroblocks
 	s32_le width;         // 0x04
-	s32_le unk08;         // 0x08
+	s32_le unk08;         // 0x08  1: the top field only (see MpegBaseCscRange)
 	s32_le unk0c;         // 0x0c
 	u32_le buffer[8];     // 0x10  four luma, then four chroma
 };
@@ -458,9 +458,85 @@ void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 		rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
+// The field-splitting cases of MpegBaseCscRange (see there). Each field is converted as a picture
+// of its own, with its own chroma: in interlaced 4:2:0 the top field's chroma is rows 0, 2, 4... and
+// the bottom field's 1, 3, 5..., which is how the ME lays them out (buffers 4/5 and 6/7), and why a
+// caller that copied only the top field's buffers can convert it.
+static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, int bufferWidth, int bpp,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width, int height, int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	const u32 rowBytes = (u32)(bufferWidth * bpp);
+	const int width2 = width >> 1;
+	const int fieldHeight = height >> 1;
+	const int fieldChromaHeight = fieldHeight >> 1;
+	static std::vector<u8> field;
+	static std::vector<u8> scratch;
+	field.resize((size_t)width * fieldHeight + (size_t)width2 * fieldChromaHeight * 2);
+	u8 *fieldLuma = field.data();
+	u8 *fieldCb = fieldLuma + (size_t)width * fieldHeight;
+	u8 *fieldCr = fieldCb + (size_t)width2 * fieldChromaHeight;
+
+	u32 rowsWritten = 0;
+	// The odd field first, so that the even one is what's left if both go to the same buffer.
+	for (int parity = 1; parity >= 0; parity--) {
+		if (parity == 1 && topFieldOnly) {
+			continue;
+		}
+		// The field's rows within the range (frame row y is row y >> 1 of its field).
+		const int first = (rangeY + ((parity - rangeY) & 1)) >> 1;
+		const int end = (rangeY + rangeHeight - parity + 1) >> 1;
+		const int rows = std::min(end, fieldHeight) - first;
+		if (rows <= 0) {
+			continue;
+		}
+		for (int y = 0; y < fieldHeight; y++) {
+			memcpy(fieldLuma + (size_t)y * width, luma + (size_t)(y * 2 + parity) * width, width);
+		}
+		for (int y = 0; y < fieldChromaHeight; y++) {
+			memcpy(fieldCb + (size_t)y * width2, cb + (size_t)(y * 2 + parity) * width2, width2);
+			memcpy(fieldCr + (size_t)y * width2, cr + (size_t)(y * 2 + parity) * width2, width2);
+		}
+		scratch.resize((size_t)rows * rowBytes);
+		MpegCscRange(scratch.data(), bufferWidth, g_mpegBasePixelMode, fieldLuma, fieldCb, fieldCr, width,
+			rangeX, first, rangeWidth, rows);
+
+		for (int k = 0; k < rows; k++) {
+			u32 addr;
+			if (bufferRGB2 != 0) {
+				// Packed: the field's rows one after another in their own buffer.
+				addr = (parity ? bufferRGB2 : bufferRGB) + (u32)k * rowBytes;
+			} else {
+				// In place, at the frame row it came from.
+				addr = bufferRGB + (u32)((first + k) * 2 + parity - rangeY) * rowBytes;
+			}
+			if (!Memory::IsValidRange(addr, rangeWidth * bpp)) {
+				return hleLogError(Log::Mpeg, -1, "output row at %08x not writable", addr);
+			}
+			Memory::MemcpyUnchecked(addr, scratch.data() + (size_t)k * rowBytes, rangeWidth * bpp);
+		}
+		rowsWritten += rows;
+	}
+
+	const u32 extent = (bufferRGB2 != 0 ? (u32)((rangeHeight + 1) >> 1) : (u32)rangeHeight) * rowBytes;
+	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, extent, "MpegBaseCsc");
+	gpu->PerformWriteFormattedFromMemory(bufferRGB, extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
+	if (bufferRGB2 != 0 && bufferRGB2 != bufferRGB && !topFieldOnly) {
+		NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB2, extent, "MpegBaseCsc");
+		gpu->PerformWriteFormattedFromMemory(bufferRGB2, extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
+	}
+	const int cscUs = std::max(1, PowerScaleFromDefaultClock((int)(2400LL * rangeWidth * rowsWritten / (480 * 272))));
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x/%08x stride %d, %s",
+		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferRGB2, bufferWidth, topFieldOnly ? "top field" : "both fields"), "mpegbase csc", cscUs);
+}
+
 // The shared body of sceMpegBaseCscAvc and sceMpegBaseCscAvcRange - the former is just the
 // latter over the whole frame.
-static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
+// Where the converted rows go (pspautotests video/mpeg/cscavc). With no second buffer, every row
+// lands where it is in the frame, and +0x08 in the descriptor leaves out the odd ones. With one, the
+// fields are split: the even rows packed together into bufferRGB and the odd ones into the second,
+// and +0x08 leaves the odd field out. The VSH's UMD Video player passes the same buffer twice with
+// +0x08 set, for the top field of a 720x480 picture in 240 rows. When both fields go to the same
+// buffer, the even one is what's left.
+static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int bufferWidth,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
 	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
 	if (!csc.IsValid()) {
@@ -498,6 +574,11 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 	}
 
 	const int bpp = g_mpegBasePixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	const bool topFieldOnly = csc->unk08 != 0;
+	if (bufferRGB2 != 0 || topFieldOnly) {
+		return MpegBaseCscFields(bufferRGB, bufferRGB2, topFieldOnly, bufferWidth, bpp, luma, cb, cr, width, height,
+			rangeX, rangeY, rangeWidth, rangeHeight);
+	}
 	const u32 destSize = (u32)(rangeHeight * bufferWidth * bpp);
 	if (!Memory::IsValidRange(bufferRGB, destSize)) {
 		return hleLogError(Log::Mpeg, -1, "output buffer not writable");
@@ -531,6 +612,21 @@ static int sceMpegBaseCscInit(int bufferWidth) {
 	return hleLogInfo(Log::Mpeg, 0, "bufferWidth %d", bufferWidth);
 }
 
+// sceMpegBaseCscInit with the colour conversion matrix passed in: in mpegbase_260.prx, CscInit is this
+// function called with its built-in 22-byte table (mpegbase+0x1804). The VSH's video player passes
+// its own. We convert with the standard matrix whatever this says.
+static int sceMpegBaseCscInitMatrix(int bufferWidth, u32 matrixAddr) {
+	g_mpegBaseBufferWidth = bufferWidth ? bufferWidth : 512;
+	if (!Memory::IsValidRange(matrixAddr, 22)) {
+		return hleLogError(Log::Mpeg, -1, "bad matrix pointer");
+	}
+	char hex[22 * 2 + 1];
+	for (int i = 0; i < 22; i++) {
+		snprintf(hex + i * 2, 3, "%02x", Memory::ReadUnchecked_U8(matrixAddr + i));
+	}
+	return hleLogInfo(Log::Mpeg, 0, "bufferWidth %d, matrix %s", bufferWidth, hex);
+}
+
 // Sets the output pixel format for the conversions below. The official name isn't known - this one
 // says what it does. Inside mpegbase.prx it stores the value and hands it to the DMACPLUS colour
 // conversion hardware, and mpeg.prx gets it by indexing a table of {1, 2, 3, 0} with the pixel mode
@@ -549,17 +645,17 @@ static int sceMpegBaseCscSetPixelMode(int pixelMode) {
 	return hleLogInfo(Log::Mpeg, 0, "pixel mode %d -> GE mode %d", pixelMode, g_mpegBasePixelMode);
 }
 
-static int sceMpegBaseCscAvc(u32 bufferRGB, u32 unknown, int bufferWidth, u32 cscAddr) {
+static int sceMpegBaseCscAvc(u32 bufferRGB, u32 bufferRGB2, int bufferWidth, u32 cscAddr) {
 	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
 	if (!csc.IsValid()) {
 		return hleLogError(Log::Mpeg, -1, "bad csc struct pointer");
 	}
 	// The whole frame. MpegBaseCscRange clamps to the real frame size (from the allocation, not the
 	// descriptor), so pass more than any frame can be.
-	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, 0, 0, 1024, 1024);
+	return MpegBaseCscRange(bufferRGB, bufferRGB2, cscAddr, bufferWidth, 0, 0, 1024, 1024);
 }
 
-static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 unknown, u32 rangeAddr, int bufferWidth, u32 cscAddr) {
+static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 bufferRGB2, u32 rangeAddr, int bufferWidth, u32 cscAddr) {
 	if (!Memory::IsValidRange(rangeAddr, 16)) {
 		return hleLogError(Log::Mpeg, -1, "bad range pointer");
 	}
@@ -568,7 +664,7 @@ static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 unknown, u32 rangeAddr, int
 	const int rangeY = Memory::ReadUnchecked_U32(rangeAddr + 4) << 4;
 	const int rangeWidth = Memory::ReadUnchecked_U32(rangeAddr + 8) << 4;
 	const int rangeHeight = Memory::ReadUnchecked_U32(rangeAddr + 12) << 4;
-	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, rangeX, rangeY, rangeWidth, rangeHeight);
+	return MpegBaseCscRange(bufferRGB, bufferRGB2, cscAddr, bufferWidth, rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
 // Moves a decoded frame between two sets of buffers. Both arguments are descriptors; what gets
@@ -624,7 +720,8 @@ const HLEFunction sceMpegbase[] =
 	{0X0530BE4E, &WrapI_I<sceMpegBaseCscSetPixelMode>,          "sceMpegbase_0530BE4E",               'i', "i"      },
 	{0X91929A21, &WrapI_UUIU<sceMpegBaseCscAvc>,               "sceMpegBaseCscAvc",                  'i', "xxix"   },
 	{0X304882E1, &WrapU_UUUIU<sceMpegBaseCscAvcRange>,         "sceMpegBaseCscAvcRange",             'x', "xxxix"  },
-	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,             "sceMpegBaseYCrCbCopy",               'i', "xxi"    }
+	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,             "sceMpegBaseYCrCbCopy",               'i', "xxi"    },
+	{0XAC9E717E, &WrapI_IU<sceMpegBaseCscInitMatrix>,          "sceMpegBaseCscInitMatrix",           'i', "ix"     },
 };
 
 void Register_sceMpegbase()

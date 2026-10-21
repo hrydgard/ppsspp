@@ -33,6 +33,25 @@ void UpdateRotation(float rotMatrix[4], bool useBufferedRendering) {
 	}
 }
 
+// The part of a video texture the frame fills: as much as was written there (see
+// TextureCacheCommon::ApplyTextureFinish), or 480x272 if that isn't known. The VSH's UMD Video
+// player converts 480 rows, and its strips wrap around a texture they fill the width of.
+int VideoFrameWidth() {
+	return gstate_c.videoColumns > 0 ? gstate_c.videoColumns : 480;
+}
+
+int VideoFrameHeight() {
+	return gstate_c.videoRows > 0 ? gstate_c.videoRows : 272;
+}
+
+bool VideoClampsS() {
+	return gstate.getTextureWidth(0) > VideoFrameWidth();
+}
+
+bool VideoClampsT() {
+	return gstate.getTextureHeight(0) > VideoFrameHeight();
+}
+
 void CalcTexClamp(float texClamp[4], float texClampOffset[2]) {
 	const float invW = 1.0f / (float)gstate_c.curTextureWidth;
 	const float invH = 1.0f / (float)gstate_c.curTextureHeight;
@@ -40,8 +59,8 @@ void CalcTexClamp(float texClamp[4], float texClampOffset[2]) {
 	int h = gstate.getTextureHeight(0);
 	if (gstate_c.textureIsVideo) {
 		// Only the video frame itself, whatever is in memory around it may be garbage.
-		w = std::min(w, 480);
-		h = std::min(h, 272);
+		w = std::min(w, VideoFrameWidth());
+		h = std::min(h, VideoFrameHeight());
 	}
 
 	// First wrap xy, then half texel xy (for clamp.)

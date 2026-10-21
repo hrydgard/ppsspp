@@ -266,7 +266,30 @@ bool GPUCommon::IsVideo(u32 addr) const {
 	return false;
 }
 
-void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
+u32 GPUCommon::VideoBytesFrom(u32 addr) const {
+	addr &= 0x3FFFFFFF;
+	u32 bytes = 0;
+	for (const VideoInfo &info : videos_) {
+		if (addr >= info.addr && addr < info.addr + info.size) {
+			bytes = std::max(bytes, info.addr + info.size - addr);
+		}
+	}
+	return bytes;
+}
+
+u32 GPUCommon::VideoRowBytesFrom(u32 addr, u32 rowBytes) const {
+	addr &= 0x3FFFFFFF;
+	u32 covered = 0;
+	for (const VideoInfo &info : videos_) {
+		// The frames that start in the first row, which strips converted side by side do.
+		if (info.rowBytes != 0 && info.addr >= addr && info.addr < addr + rowBytes) {
+			covered = std::max(covered, info.addr - addr + info.rowBytes);
+		}
+	}
+	return covered;
+}
+
+void GPUCommon::NoteVideoRange(u32 addr, u32 size, u32 rowBytes) {
 	addr &= 0x3FFFFFFF;
 	// A game blits its video frame every displayed frame while waiting for the next one, so the
 	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
@@ -275,10 +298,11 @@ void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
 		if (info.addr == addr) {
 			info.size = size;
 			info.flips = gpuStats.totals.numFlips;
+			info.rowBytes = rowBytes;
 			return;
 		}
 	}
-	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
+	videos_.push_back({ addr, size, gpuStats.totals.numFlips, rowBytes });
 }
 
 // So the list doesn't grow unboundedly, and a buffer reused for something else once the movie is
@@ -2662,7 +2686,7 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 }
 
 void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format, int rectWidth) {
-	NoteVideoRange(addr, (u32)size);
+	NoteVideoRange(addr, (u32)size, (u32)(rectWidth * BufferFormatBytesPerPixel(format)));
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format, rectWidth);
 	}

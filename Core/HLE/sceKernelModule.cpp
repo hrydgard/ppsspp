@@ -73,6 +73,7 @@
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceIo.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
@@ -540,6 +541,10 @@ u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 
 // Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;
+
+bool __KernelIsRunningVSH() {
+	return g_runningVSH;
+}
 
 // A sceKernelLoadModule whose caller is waiting for the file to be read. The module is only put
 // in memory when the wait ends - see sceKernelLoadModule.
@@ -1897,6 +1902,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0 || equals(modinfo->name, "vsh_module")) {
 		g_runningVSH = true;
 		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
+		// The shell booted without a game: its drive starts out empty, for a disc to go in later.
+		if (!pspFileSystem.GetSystem("disc0:")) {
+			__UmdEject();
+		}
 	}
 
 	// OK, even if it's an ELF module, it might be one we shouldn't fully load and execute!

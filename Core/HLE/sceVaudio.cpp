@@ -132,6 +132,12 @@ static u32 sceVaudioSetAlcMode(int alcMode) {
 	return 0;
 }
 
+// In vaudio.prx this is sceVaudioChReserve with a flag set (a3 = 1 into the shared reserve, 0 for
+// ChReserve), which presumably buffers deeper. Not modelled. The VSH's UMD Video player uses it.
+static u32 sceVaudioChReserveBuffering(int sampleCount, int freq, int format) {
+	return sceVaudioChReserve(sampleCount, freq, format);
+}
+
 const HLEFunction sceVaudio[] = {
 	{0X8986295E, &WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlocking",     'x', "ix" },
 	{0X03B6807D, &WrapU_III<sceVaudioChReserve>,     "sceVaudioChReserve",          'x', "iii"},
@@ -139,10 +145,15 @@ const HLEFunction sceVaudio[] = {
 	{0X346FBE94, &WrapU_II<sceVaudioSetEffectType>,  "sceVaudioSetEffectType",      'x', "ii" },
 	{0XCBD4AC51, &WrapU_I<sceVaudioSetAlcMode>,      "sceVaudioSetAlcMode",         'x', "i"  },
 	{0X504E4745, nullptr,                            "sceVaudio_504E4745",          '?', ""   },
-	{0X27ACC20B, nullptr,                            "sceVaudioChReserveBuffering", '?', ""   },
+	{0X27ACC20B, &WrapU_III<sceVaudioChReserveBuffering>, "sceVaudioChReserveBuffering", 'x', "iii"},
 	{0XE8E78DC8, nullptr,                            "sceVaudio_E8E78DC8",          '?', ""   },
 };
 
 void Register_sceVaudio() {
 	RegisterHLEModule("sceVaudio",ARRAY_SIZE(sceVaudio), sceVaudio );
+}
+
+void Register_sceVaudio_driver() {
+	// The same functions; vshbridge.prx imports them under the driver name for the VSH's video player.
+	RegisterHLEModule("sceVaudio_driver", ARRAY_SIZE(sceVaudio), sceVaudio);
 }

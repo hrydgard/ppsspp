@@ -978,10 +978,20 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 	const bool isVideo = (entry->status & TexStatus::VIDEO) != 0;
 	gstate_c.SetTextureIsVideo(isVideo);
 	if (isVideo) {
-		// Restrict sampling to the 480x272 frame (see CalcTexClamp), since with the forced linear
+		// Restrict sampling to the frame (see CalcTexClamp), since with the forced linear
 		// filtering, whatever is next to it in memory bleeds in at the edges.
 		gstate_c.curTextureXOffset = 0;
 		gstate_c.curTextureYOffset = 0;
+		const u32 bytesPerPixel = textureBitsPerPixel[entry->format] / 8;
+		const u32 rowBytes = (u32)entry->bufw * bytesPerPixel;
+		const int videoRows = rowBytes ? (int)(gpu->VideoBytesFrom(entry->addr) / rowBytes) : 0;
+		const int videoColumns = bytesPerPixel ? (int)(gpu->VideoRowBytesFrom(entry->addr, rowBytes) / bytesPerPixel) : 0;
+		if (videoRows != gstate_c.videoRows || videoColumns != gstate_c.videoColumns) {
+			gstate_c.videoRows = videoRows;
+			gstate_c.videoColumns = videoColumns;
+			// The clamp, and whether the shader clamps or wraps, depend on it.
+			gstate_c.Dirty(DIRTY_TEXCLAMP | DIRTY_FRAGMENTSHADER_STATE);
+		}
 		gstate_c.SetNeedShaderTexclamp(true);
 	}
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..

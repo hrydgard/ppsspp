@@ -20,6 +20,7 @@
 class PointerWrap;
 
 void Register_sceVaudio();
+void Register_sceVaudio_driver();
 
 void __VaudioInit();
 void __VaudioDoState(PointerWrap &p);
