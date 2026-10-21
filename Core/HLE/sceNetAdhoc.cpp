@@ -63,6 +63,7 @@
 #include "Core/HLE/NetAdhocCommon.h"
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
+#include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
 
 #ifdef _WIN32
 #undef errno
@@ -94,6 +95,8 @@ std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 bool serverHasRelay = false;
+bool netAdhocUseUdp = false;
+bool netAdhocRelayModeEnetPdpReliable = true;
 std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
 bool trackingRelayFailure = false;
 bool relayDisabled = false;
@@ -101,6 +104,9 @@ bool relayFirstConnect = true;
 bool g_serverListLoaded = false;
 
 int gameModeNotifyEvent = -1;
+
+std::thread aemuPostofficeEnetThread;
+std::atomic<bool> aemuPostofficeEnetPumping = false;
 
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
@@ -535,57 +541,54 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	}
 
 	AdhocctlRequest& req = adhocctlRequests[uid];
-	int len = 0;
-
-	SceNetAdhocctlConnectPacketC2S packet;
-	memset(&packet, 0, sizeof(packet));
-	packet.base.opcode = req.opcode;
-	packet.group = req.group;
-
-	// Don't send any packets not in these cases (by setting the len to 0)
-	switch (req.opcode)
-	{
-	case OPCODE_CONNECT:
-		len = sizeof(packet);
-		break;
-	case OPCODE_SCAN:
-	case OPCODE_DISCONNECT:
-		len = 1;
-		break;
-	}
 
 	if (g_Config.bEnableWlan) {
-		// Send Packet if it wasn't succesfully sent before
-		int ret = 0;
-		int sockerr = 0;
-		if (len > 0) {
-			ret = SOCKET_ERROR;
-			sockerr = EAGAIN;
-			// Don't send anything yet if connection to Adhoc Server is still in progress
-			if (!isAdhocctlNeedLogin && IsSocketReady((int)metasocket, false, true) > 0) {
-				ret = send((int)metasocket, (const char*)&packet, len, MSG_NOSIGNAL);
-				sockerr = socket_errno;
-				// Successfully Sent or Connection has been closed or Connection failure occurred
-				if (ret >= 0 || (ret == SOCKET_ERROR && sockerr != EAGAIN && sockerr != EWOULDBLOCK)) {
-					// Prevent from sending again
-					req.opcode = 0;
-					if (ret == SOCKET_ERROR)
-						DEBUG_LOG(Log::sceNet, "sceNetAdhocctl[%i]: Socket Error (%i)", uid, sockerr);
-				}
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		enum adhocctl_call_status call_status = ADHOCCTL_CALL_WOULDBLOCK;
+		if (adhocctlHandle) {
+			switch(req.opcode) {
+			case OPCODE_CONNECT:{
+				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
+				break;
+			}
+			case OPCODE_SCAN:{
+				call_status = adhocctl_scan(adhocctlHandle);
+				break;
+			}
+			case OPCODE_DISCONNECT:{
+				call_status = adhocctl_disconnect(adhocctlHandle);
+				break;
+			}
+			case OPCODE_LOGIN:{
+				call_status = ADHOCCTL_CALL_SUCCESS;
+				break;
+			}
+			default:
+				ERROR_LOG(Log::sceNet, "%s: unreachable codepath at %s %d", __func__, __FILE__, __LINE__);
+				_dbg_assert_(false);
+				call_status = ADHOCCTL_CALL_SUCCESS;
+				break;
 			}
 		}
 
-		// Retry until successfully sent. Login packet sent after successfully connected to Adhoc Server (indicated by networkInited), so we're not sending Login again here
-		// A login stops waiting early once the friend finder has tried and failed to connect.
-		if ((req.opcode == OPCODE_LOGIN && !g_adhocServerConnected && !g_adhocServerLoginFailed) || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
+		if (call_status == ADHOCCTL_CALL_ERROR) {
+			// drop the request, we need a new client
+			DEBUG_LOG(Log::sceNet, "sceNetAdhocctl[%i]: adhocctl client error", uid);
+			req.opcode = 0;
+			killAdhocctlClient(true, adhocctl_guard);
+		}
+
+		// either the call actually got a wouldblock, or the client is not ready
+		// in the case of connection/login failure, we still do a timeout first
+		if (call_status == ADHOCCTL_CALL_WOULDBLOCK) {
 			u64 now = (u64)(time_now_d() * 1000000.0);
 			if (now - adhocctlStartTime <= static_cast<u64>(adhocDefaultTimeout) + 500) {
 				// Try again in another 0.5ms until timedout.
 				CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocctlNotifyEvent, userdata);
 				return;
-			}
-			else if (req.opcode != OPCODE_LOGIN)
+			} else {
 				result = SCE_NET_ADHOCCTL_ERROR_BUSY;
+			}
 		}
 	}
 	else
@@ -630,7 +633,9 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 
 // Used to simulate blocking on metasocket when send OP code to AdhocServer
 int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* reason) {
-	int uid = (metasocket <= 0) ? 1 : (int)metasocket;
+	adhocctlMutex.lock();
+	int uid = adhocctlHandle == NULL ? 1 : adhocctlId;
+	adhocctlMutex.unlock();
 
 	if (adhocctlRequests.find(uid) != adhocctlRequests.end()) {
 		WARN_LOG(Log::sceNet, "sceNetAdhocctl - WaitID[%d] already existed, Socket is busy!", uid);
@@ -723,15 +728,16 @@ static void *pdp_postoffice_recover(int idx) {
 
 	INFO_LOG(Log::sceNet, "%s: recovering pdp socket id %d", __func__, idx + 1);
 
-	struct aemu_post_office_sock_addr addr;
-	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
+	struct aemu_postoffice_sock_addr addr;
+	auto server_ip = GetAdhocServerIP();
+	addr.addr = server_ip.in.sin_addr.s_addr;
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
 	SceNetEtherAddr local_mac;
 	getLocalMac(&local_mac);
 
 	int state;
-	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), &state);
+	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), netAdhocUseUdp, internal->postofficePdpEnetReliable, NULL, NULL, &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
 		handle_relay_connect_failure();
@@ -1197,7 +1203,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 	int sockerr = 0;
 	if (serverHasRelay) {
 		ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
-		if (ret == 0){
+		if (ret == 0) {
 			// we got data
 			result = 0;
 			return 0;
@@ -1268,12 +1274,13 @@ static void *ptp_listen_postoffice_recover(int idx) {
 
 	INFO_LOG(Log::sceNet, "%s: recovering ptp listen socket id %d", __func__, idx + 1);
 
-	struct aemu_post_office_sock_addr addr;
-	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
+	struct aemu_postoffice_sock_addr addr;
+	auto server_ip = GetAdhocServerIP();
+	addr.addr = server_ip.in.sin_addr.s_addr;
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
 	int state;
-	internal->postofficeHandle = ptp_listen_v4(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, &state);
+	internal->postofficeHandle = ptp_listen_v4(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, netAdhocUseUdp, NULL, NULL, &state);
 
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
@@ -1297,7 +1304,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	int state = 0;
 	int port_cpy = 0;
 	SceNetEtherAddr mac_cpy = {0};
-	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, &state);
+	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, NULL, NULL, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 			handle_relay_connect_failure();
@@ -1432,8 +1439,9 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 
 	AdhocSocket *internal = adhocSockets[idx];
 
-	struct aemu_post_office_sock_addr addr;
-	addr.addr = g_adhocServerIP.in.sin_addr.s_addr;
+	struct aemu_postoffice_sock_addr addr;
+	auto server_ip = GetAdhocServerIP();
+	addr.addr = server_ip.in.sin_addr.s_addr;
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
 	if (internal->postofficeHandle != NULL) {
@@ -1454,7 +1462,7 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			int state;
 			SceNetEtherAddr fixed_daddr = internal->data.ptp.paddr;
 			fixGameMac(&fixed_daddr);
-			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), &state);
+			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), netAdhocUseUdp, NULL, NULL, &state);
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
@@ -1522,7 +1530,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		if (serverHasRelay) {
 			if (sock->postofficeHandle == NULL) {
 				ret = SOCKET_ERROR;
-				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
+				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED) {
 					sockerr = ECONNREFUSED;
 				} else {
 					sockerr = EAGAIN;
@@ -1824,8 +1832,31 @@ static void SetupAdhocRelayMode() {
 		break;
 	}
 
-	if (serverHasRelay) {
-		aemu_post_office_init();
+	netAdhocUseUdp = g_Config.bAdhocUseUdp;
+	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
+
+	init_aemu_postoffice(netAdhocUseUdp);
+
+	if (netAdhocUseUdp) {
+		aemuPostofficeEnetPumping = true;
+		aemuPostofficeEnetThread = std::thread([] {
+			while (aemuPostofficeEnetPumping) {
+				// no std::chrono::high_resolution_clock::now() in msvc.....
+				static const double target_interval = 1.0 / 120;
+				double begin = time_now_d();
+				int pump_status = pump_enet_aemu_postoffice();
+				if (pump_status == 1) {
+					double time_spent = time_now_d() - begin;
+					if (target_interval > time_spent) {
+						sleep_us((target_interval - time_spent) * 1000000, "adhoc enet pump");
+					}
+				}
+				if (pump_status == -1) {
+					ERROR_LOG(Log::sceNet, "adhoc enet pumping has failed");
+					return;
+				}
+			}
+		});
 	}
 }
 
@@ -1854,10 +1885,8 @@ static void StopFriendFinder() {
 	freeFriendsRecursive(friends, &peercount);
 	friends = NULL;
 
-	g_adhocServerConnected = false;
-	shutdown((int)metasocket, SD_BOTH);
-	closesocket((int)metasocket);
-	metasocket = (int)INVALID_SOCKET;
+	const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+	killAdhocctlClient(false, adhocctl_guard);
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
@@ -1972,6 +2001,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// fresh boot, failing every call with NOT_INITIALIZED; MGS Peace Walker retried
 		// sceNetAdhocctlDisconnect forever when starting a cutscene.
 		if (netAdhocInited && !cur_netAdhocInited) {
+			// spin up adhoc
 			SetupAdhocRelayMode();
 		}
 		if (netAdhocctlInited && !cur_netAdhocctlInited) {
@@ -1985,6 +2015,16 @@ void __NetAdhocDoState(PointerWrap &p) {
 				adhocctlState = loadedState;
 			}
 			isAdhocctlNeedLogin = false;
+		}
+		if (!netAdhocInited && cur_netAdhocInited) {
+			// cleanup adhoc
+			if (aemuPostofficeEnetThread.joinable()) {
+				aemuPostofficeEnetPumping = false;
+				aemuPostofficeEnetThread.join();
+				// one more pump to best effort send the final disconnects
+				pump_enet_aemu_postoffice();
+			}
+			deinit_aemu_postoffice();
 		}
 	}
 }
@@ -2039,6 +2079,14 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		SetupAdhocRelayMode();
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer && isLocalServer) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
+		}
+
+		if (serverHasRelay && g_Config.bEnableAdhocServer && isLocalServer) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
+		}
+
 		if (g_Config.bEnableWlan) {
 			std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
@@ -2074,7 +2122,6 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 
 	adhocctlEvents.clear();
 	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
-	g_adhocServerLoginFailed = false;
 	isAdhocctlNeedLogin = true;
 
 	// Create fake PSP Thread for callback
@@ -2120,7 +2167,7 @@ int sceNetAdhocctlGetState(u32 ptrToStatus) {
 	return hleLogVerbose(Log::sceNet, 0, "state = %d", state);
 }
 
-static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize) {
+static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize, bool enet_reliable) {
 	if (relayDisabled) {
 		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "relay disabled");
 	}
@@ -2138,6 +2185,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	internal->flags = 0;
 	internal->lastAttempt = 0;
 	internal->internalLastAttempt = 0;
+	internal->postofficePdpEnetReliable = enet_reliable;
 
 	AdhocSocket **free_slot = NULL;
 	int i;
@@ -2160,6 +2208,171 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	return i + 1;
 }
 
+int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool postoffice_enet_pdp_reliable) {
+	if (!g_Config.bEnableWlan) {
+		return -1;
+	}
+
+	if (!g_netInited) {
+		return 0x800201CA; //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX
+	}
+
+	if (!netAdhocInited) {
+		return SCE_NET_ADHOC_ERROR_NOT_INITIALIZED;
+	}
+
+	if (mac == NULL || bufferSize <= 0) {
+		DEBUG_LOG(Log::sceNet, "%s: bad arg", __func__);
+		return SCE_NET_ADHOC_ERROR_INVALID_ARG;
+	}
+
+	if (isPDPPortInUse(port)) {
+		// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
+		DEBUG_LOG(Log::sceNet, "%s: port in-use", __func__);
+		return SCE_NET_ADHOC_ERROR_PORT_IN_USE;
+	}
+
+	bool isClient = false;
+
+	// sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+	if (port == 0) {
+		isClient = true;
+		port = -static_cast<int>(portOffset);
+	}
+
+	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
+	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
+	if (saddr != NULL) {
+		getLocalMac(saddr);
+	}
+
+
+	if ((adhocctlCurrentMode == ADHOCCTL_MODE_NONE) || !isLocalMAC(saddr)) {
+		DEBUG_LOG(Log::sceNet, "%s: invalid mac address supplied", __func__);
+		return SCE_NET_ADHOC_ERROR_INVALID_ADDR;
+	}
+
+	if (serverHasRelay)
+		return pdp_create_postoffice(saddr, port, bufferSize, postoffice_enet_pdp_reliable);
+
+	// Create Internet UDP Socket
+	// Socket is remapped through adhocSockets
+	int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+	if (usocket == INVALID_SOCKET) {
+		DEBUG_LOG(Log::sceNet, "%s: sock creation failed", __func__);
+		return ERROR_NET_NO_SPACE;
+	}
+
+	// Change socket buffer size to be consistent on all platforms.
+	// Send Buffer should be smaller than Recv Buffer to prevent faster device from flooding slower device too much.
+	setSockBufferSize(usocket, SO_SNDBUF, bufferSize*5); //PSP_ADHOC_PDP_MFS
+	// Recv Buffer should be equal or larger than Send Buffer. Using larger Recv Buffer might helped reduces dropped packets during a slowdown, but too large may cause slow performance on Warriors Orochi 2.
+	setSockBufferSize(usocket, SO_RCVBUF, bufferSize*10); //PSP_ADHOC_PDP_MFS*10
+
+	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+	setSockNoSIGPIPE(usocket, 1);
+
+	// Enable Port Re-use, this will allow binding to an already used port, but only one of them can read the data (shared receive buffer?)
+	setSockReuseAddrPort(usocket);
+
+	// Disable Connection Reset error on UDP to avoid strange behavior https://stackoverflow.com/questions/34242622/windows-udp-sockets-recvfrom-fails-with-error-10054
+	setUDPConnReset(usocket, false);
+
+	// Binding Information for local Port
+	struct sockaddr_in addr {};
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	if (isLocalServer) {
+		getLocalIp(&addr);
+	}
+	uint16_t requestedport = static_cast<int>(port + static_cast<int>(portOffset));
+	// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+	if (requestedport == 0 && port > 0)
+		requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+
+	// Show a warning about privileged ports
+	if (requestedport != 0 && requestedport < 1024) {
+		WARN_LOG(Log::sceNet, "sceNetAdhocPdpCreate - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+	}
+	addr.sin_port = htons(requestedport);
+
+
+	// Bound Socket to local Port
+	int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
+
+	if (iResult != 0) {
+		DEBUG_LOG(Log::sceNet, "%s: sock bind failed", __func__);
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
+		closesocket(usocket);
+		return ERROR_NET_NO_SPACE;
+	}
+
+	// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending from incorrect port issue on MGS:PW on Android
+	auto server_ip = GetAdhocServerIP();
+	addr.sin_addr.s_addr = server_ip.in.sin_addr.s_addr;
+	addr.sin_port = 0;
+	sendto(usocket, dummyPeekBuf64k, 0, MSG_NOSIGNAL, (struct sockaddr*)&addr, sizeof(addr));
+	// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+	socklen_t len = sizeof(addr);
+	if (getsockname(usocket, (struct sockaddr*)&addr, &len) == 0) {
+		uint16_t boundport = ntohs(addr.sin_port);
+		if (port + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+			WARN_LOG(Log::sceNet, "sceNetAdhocPdpCreate - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", port, requestedport, boundport, boundport - portOffset);
+		port = boundport - portOffset;
+	}
+
+	// Allocate Memory for Internal Data
+	AdhocSocket * internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
+
+	if (internal == NULL) {
+		DEBUG_LOG(Log::sceNet, "%s: out of memory when allocating internal socket tracking", __func__);
+		closesocket(usocket);
+		return ERROR_NET_NO_SPACE;
+	}
+
+	// Find Free Translator Index
+	// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+	int i = 0;
+	for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+
+	if (i >= MAX_SOCKET) {
+		DEBUG_LOG(Log::sceNet, "%s: out of slot when allocating internal socket tracking", __func__);
+		free(internal);
+		closesocket(usocket);
+		return ERROR_NET_NO_SPACE;
+	}
+
+	// Clear Memory
+	memset(internal, 0, sizeof(AdhocSocket));
+
+	// Socket Type
+	internal->type = SOCK_PDP;
+	internal->nonblocking = flag;
+	internal->buffer_size = bufferSize;
+	internal->isClient = isClient;
+
+	// Fill in Data
+	internal->data.pdp.id = usocket;
+	internal->data.pdp.laddr = *saddr;
+	internal->data.pdp.lport = port; //getLocalPort(usocket) - portOffset;
+
+	// Link Socket to Translator ID
+	adhocSockets[i] = internal;
+
+	// Forward Port on Router
+	//sceNetPortOpen("UDP", port);
+	UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
+
+	// Switch to non-blocking for futher usage
+	changeBlockingMode(usocket, 1);
+
+	// Success
+	INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate - PSP Socket id: %i, Host Socket id: %i", i + 1, usocket);
+	return i + 1;
+}
+
 /**
  * Adhoc Emulator PDP Socket Creator
  * @param saddr Local MAC (Unused)
@@ -2169,167 +2382,15 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_INVALID_ADDR, ADHOC_PORT_NOT_AVAIL, ADHOC_INVALID_PORT, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
 // When choosing AdHoc menu in Wipeout Pulse sometimes it's saying that "WLAN is turned off" on game screen and getting "kUnityCommandCode_MediaDisconnected" error in the Log Console when calling sceNetAdhocPdpCreate, probably it needed to wait something from the thread before calling this (ie. need to receives 7 bytes from adhoc server 1st?)
+
 int sceNetAdhocPdpCreate(MIPSState *mips, const char *mac, int port, int bufferSize, u32 flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), port, bufferSize, flag, mips->pc);
-	if (!g_Config.bEnableWlan) {
-		return hleLogError(Log::sceNet, -1, "WLAN");
+
+	int ret = NetAdhocPdpCreate(mac, port, bufferSize, flag, netAdhocRelayModeEnetPdpReliable);
+	if (ret < 0) {
+		return hleLogDebug(Log::sceNet, ret);
 	}
-
-	if (!g_netInited)
-		return hleLogError(Log::sceNet, 0x800201CA); //PSP_LWMUTEX_ERROR_NO_SUCH_LWMUTEX;
-
-	// Library is initialized
-	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
-	bool isClient = false;
-	if (netAdhocInited) {
-		// Valid Arguments are supplied
-		if (mac != NULL && bufferSize > 0) {
-			// Port is in use by another PDP Socket.
-			if (isPDPPortInUse(port)) {
-				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
-				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
-			}
-
-			//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-			if (port == 0) {
-				isClient = true;
-				port = -static_cast<int>(portOffset);
-			}
-			// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
-			if (saddr != NULL) {
-				getLocalMac(saddr);
-			}
-			// Valid MAC supplied. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
-			if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && isLocalMAC(saddr)) {
-				if (serverHasRelay)
-					return pdp_create_postoffice(saddr, port, bufferSize);
-
-				// Create Internet UDP Socket
-				// Socket is remapped through adhocSockets
-				int usocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-				// Valid Socket produced
-				if (usocket != INVALID_SOCKET) {
-					// Change socket buffer size to be consistent on all platforms.
-					// Send Buffer should be smaller than Recv Buffer to prevent faster device from flooding slower device too much.
-					setSockBufferSize(usocket, SO_SNDBUF, bufferSize*5); //PSP_ADHOC_PDP_MFS
-					// Recv Buffer should be equal or larger than Send Buffer. Using larger Recv Buffer might helped reduces dropped packets during a slowdown, but too large may cause slow performance on Warriors Orochi 2.
-					setSockBufferSize(usocket, SO_RCVBUF, bufferSize*10); //PSP_ADHOC_PDP_MFS*10
-
-					// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-					setSockNoSIGPIPE(usocket, 1);
-
-					// Enable Port Re-use, this will allow binding to an already used port, but only one of them can read the data (shared receive buffer?)
-					setSockReuseAddrPort(usocket);
-
-					// Disable Connection Reset error on UDP to avoid strange behavior https://stackoverflow.com/questions/34242622/windows-udp-sockets-recvfrom-fails-with-error-10054
-					setUDPConnReset(usocket, false);
-
-					// Binding Information for local Port
-					struct sockaddr_in addr {};
-					addr.sin_family = AF_INET;
-					addr.sin_addr.s_addr = INADDR_ANY;
-					if (isLocalServer) {
-						getLocalIp(&addr);
-					}
-					uint16_t requestedport = static_cast<int>(port + static_cast<int>(portOffset));
-					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
-					if (requestedport == 0 && port > 0)
-						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
-					// Show a warning about privileged ports
-					if (requestedport != 0 && requestedport < 1024) {
-						WARN_LOG(Log::sceNet, "sceNetAdhocPdpCreate - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
-					}
-					addr.sin_port = htons(requestedport);
-
-					// Bound Socket to local Port
-					int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
-
-					if (iResult == 0) {
-						// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending from incorrect port issue on MGS:PW on Android
-						addr.sin_addr.s_addr = g_adhocServerIP.in.sin_addr.s_addr;
-						addr.sin_port = 0;
-						sendto(usocket, dummyPeekBuf64k, 0, MSG_NOSIGNAL, (struct sockaddr*)&addr, sizeof(addr));
-						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
-						socklen_t len = sizeof(addr);
-						if (getsockname(usocket, (struct sockaddr*)&addr, &len) == 0) {
-							uint16_t boundport = ntohs(addr.sin_port);
-							if (port + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(Log::sceNet, "sceNetAdhocPdpCreate - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", port, requestedport, boundport, boundport - portOffset);
-							port = boundport - portOffset;
-						}
-
-						// Allocate Memory for Internal Data
-						AdhocSocket * internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
-
-						// Allocated Memory
-						if (internal != NULL) {
-							// Find Free Translator Index
-							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
-							int i = 0;
-							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
-
-							// Found Free Translator Index
-							if (i < MAX_SOCKET) {
-								// Clear Memory
-								memset(internal, 0, sizeof(AdhocSocket));
-
-								// Socket Type
-								internal->type = SOCK_PDP;
-								internal->nonblocking = flag;
-								internal->buffer_size = bufferSize;
-								internal->isClient = isClient;
-
-								// Fill in Data
-								internal->data.pdp.id = usocket;
-								internal->data.pdp.laddr = *saddr;
-								internal->data.pdp.lport = port; //getLocalPort(usocket) - portOffset;
-
-								// Link Socket to Translator ID
-								adhocSockets[i] = internal;
-
-								// Forward Port on Router
-								//sceNetPortOpen("UDP", port);
-								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
-
-								// Switch to non-blocking for futher usage
-								changeBlockingMode(usocket, 1);
-
-								// Success
-								INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate - PSP Socket id: %i, Host Socket id: %i", i + 1, usocket);
-								return i + 1;
-							}
-
-							// Free Memory for Internal Data
-							free(internal);
-						}
-					}
-
-					// Close Socket
-					closesocket(usocket);
-
-					// Port not available (exclusively in use?)
-					if (iResult == SOCKET_ERROR) {
-						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
-						auto n = GetI18NCategory(I18NCat::NETWORKING);
-						g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
-
-						return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_NOT_AVAIL, "port not available");
-					}
-				}
-
-				// Default to No-Space Error
-				return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "net no space");
-			}
-
-			// Invalid MAC supplied
-			return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address");
-		}
-
-		// Invalid Arguments were supplied
-		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
-	}
-	// Library is uninitialized
-	return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_INITIALIZED, "adhoc not initialized");
+	return ret;
 }
 
 /**
@@ -2553,7 +2614,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 										int error = 0;
 										if (serverHasRelay) {
 											sent = pdp_send_postoffice(id - 1, &peer.mac, dport, data, len);
-											if (sent == 0){
+											if (sent == 0) {
 												sent = len;
 											} else {
 												sent = SOCKET_ERROR;
@@ -2912,7 +2973,7 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 		}
 	} else {
 		void *pdp_handle = pdp_postoffice_recover(idx);
-		if (pdp_handle == NULL){
+		if (pdp_handle == NULL) {
 			return false;
 		}
 		int peek_len = pdp_buffered_data_size(pdp_handle);
@@ -2941,7 +3002,7 @@ static bool postoffice_can_send(int idx) {
 		return ptp_send_buf_not_full(ptp_handle);
 	} else {
 		void *pdp_handle = pdp_postoffice_recover(idx);
-		if (pdp_handle == NULL){
+		if (pdp_handle == NULL) {
 			return false;
 		}
 		if (pdp_is_dead(pdp_handle)) {
@@ -3258,7 +3319,6 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 		// Only scan when in Disconnected state, otherwise AdhocServer will kick you out
 		if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
 			isAdhocctlBusy = true;
-			g_adhocServerLoginFailed = false;
 			isAdhocctlNeedLogin = true;
 			adhocctlState = ADHOCCTL_STATE_SCANNING;
 			adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
@@ -3466,22 +3526,22 @@ u32 NetAdhocctl_Disconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			iResult = send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
-			error = socket_errno;
-
-			// Sending may get socket error 10053 if the AdhocServer is already shutted down
-			if (iResult == SOCKET_ERROR) {
-				if (error != EAGAIN && error != EWOULDBLOCK) {
-					ERROR_LOG(Log::sceNet, "Socket error (%i) when sending", error);
-					// Set Disconnected State
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-				}
-				else if (friendFinderRunning) {
+			adhocctlMutex.lock();
+			enum adhocctl_call_status status = ADHOCCTL_CALL_SUCCESS;
+			if (adhocctlHandle != NULL) {
+				status = adhocctl_disconnect(adhocctlHandle);
+			}
+			adhocctlMutex.unlock();
+			if (status == ADHOCCTL_CALL_ERROR) {
+				ERROR_LOG(Log::sceNet, "adhocctl client error while sending disconnect");
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+				killAdhocctlClient(true, adhocctl_guard);
+			} else if (status == ADHOCCTL_CALL_WOULDBLOCK) {
+				if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_DISCONNECT, {0} };
 					WaitBlockingAdhocctlSocket(req, 0, "adhocctl disconnect");
-				}
-				else {
-					// Set Disconnected State
+				} else {
 					return SCE_NET_ADHOCCTL_ERROR_BUSY;
 				}
 			}
@@ -3574,10 +3634,10 @@ int NetAdhocctl_Term() {
 		//May also need to clear Handlers
 		adhocctlHandlers.clear();
 		// Free stuff here
-		g_adhocServerConnected = false;
-		shutdown((int)metasocket, SD_BOTH);
-		closesocket((int)metasocket);
-		metasocket = (int)INVALID_SOCKET;
+		{
+			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+			killAdhocctlClient(false, adhocctl_guard);
+		}
 		// Delete fake PSP Thread.
 		// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
 		if (threadAdhocID > 0 && strcmp(__KernelGetThreadName(threadAdhocID), "ERROR") != 0) {
@@ -3752,7 +3812,6 @@ int NetAdhocctl_Create(const char *groupName) {
 			// Disconnected State
 			if (adhocctlState == ADHOCCTL_STATE_DISCONNECTED && !isAdhocctlBusy) {
 				isAdhocctlBusy = true;
-				g_adhocServerLoginFailed = false;
 				isAdhocctlNeedLogin = true;
 
 				// Set Network Name
@@ -4011,6 +4070,15 @@ int NetAdhoc_Term() {
 		// if (_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);
 		// Library shutdown
 
+		if (aemuPostofficeEnetThread.joinable()) {
+			aemuPostofficeEnetPumping = false;
+			aemuPostofficeEnetThread.join();
+			// give enet one last pump so that sockets there were closed in deleteAllAdhocSockets sends at least one disconnect packet to the server
+			pump_enet_aemu_postoffice();
+		}
+
+		deinit_aemu_postoffice();
+
 		netAdhocInited = false;
 		//return hleLogSuccessInfoI(Log::sceNet, 0);
 	}
@@ -4182,7 +4250,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
 						if (serverHasRelay) {
-							if (sock->postofficeHandle != NULL){
+							if (sock->postofficeHandle != NULL) {
 								// good to go
 								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 							}
@@ -4979,7 +5047,7 @@ static int sceNetAdhocPtpConnect(MIPSState *mips, int id, int timeout, int flag)
 	return NetAdhocPtp_Connect(id, timeout, flag);
 }
 
-static int ptp_close_postoffice(int idx){
+static int ptp_close_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 
 	// sync

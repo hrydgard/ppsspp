@@ -633,9 +633,13 @@ void __NetInit() {
 	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
 
 	// Init Default AdhocServer struct
+	g_adhocServerIPMutex.lock();
 	g_adhocServerIP.in.sin_family = AF_INET;
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too
 	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
+	g_adhocServerIPMutex.unlock();
+
+	clearLocalIpCache();
 
 	dummyPeekBuf64k = (char*)malloc(dummyPeekBuf64kSize);
 	InitLocalhostIP();

@@ -1875,7 +1875,7 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	//else return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG; // SCE_NET_ADHOC_MATCHING_ERROR_INVALID_OPTLEN; // Returning Not Success will cause GTA:VC stuck unable to choose host/join menu
 
 	// Create PDP Socket
-	int sock = hleCall(sceNetAdhoc, int, sceNetAdhocPdpCreate, currentMIPS, (const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0);
+	int sock = NetAdhocPdpCreate((const char*)&item->mac, static_cast<int>(item->port), item->rxbuflen, 0, true);
 	item->socket = sock;
 	if (sock < 1) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_PORT_IN_USE, "adhoc matching port in use");
