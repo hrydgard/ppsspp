@@ -58,6 +58,7 @@ static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
 MemoryExceptionType g_lastMemoryExceptionType;
 static bool inCrashHandler = false;
+volatile bool g_inIRInterpreter = false;
 
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
@@ -126,10 +127,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	// TODO: Check that codePtr is within the current JIT space.
 	bool inJitSpace = mipsr4k.jit && mipsr4k.jit->CodeInRange(codePtr);
-	if (!inJitSpace) {
-		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
-		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
-		// might be tricky...
+	// The IR interpreter's own accesses to PSP memory. We can't redirect those to a crash handler, but we can
+	// step over the faulting instruction and stop the core.
+	const bool inIRInterpreter = !inJitSpace && g_inIRInterpreter;
+	if (!inJitSpace && !inIRInterpreter) {
+		// This is a crash in other non-jitted code. Not something we want to handle here, ignore.
 		inCrashHandler = false;
 		return false;
 	}
@@ -239,6 +241,18 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		type = MemoryExceptionType::UNKNOWN;
 	}
 
+	if (inIRInterpreter && !success) {
+		// Without the instruction's size we can't step over it.
+		inCrashHandler = false;
+		return false;
+	}
+	if (inIRInterpreter && coreState == CORE_RUNTIME_ERROR) {
+		// Already reported, the interpreter just hasn't reached the end of the block yet.
+		context->CTX_PC += info.instructionSize;
+		inCrashHandler = false;
+		return true;
+	}
+
 	g_lastMemoryExceptionType = type;
 
 	bool handled = true;
@@ -275,6 +289,17 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.
 		Core_MemoryException(guestAddress, info.OperandSizeInBytes(), approximatePC, type, infoString, true);
+
+		if (inIRInterpreter) {
+			// Step over the access and stop the core, like the JITs' crash handlers do. The interpreter
+			// leaves at the next block exit, which checks the downcount. Resuming isn't possible, the guest
+			// has already run on past the access.
+			context->CTX_PC += info.instructionSize;
+			coreState = CORE_RUNTIME_ERROR;
+			currentMIPS->downcount = -1;
+			inCrashHandler = false;
+			return true;
+		}
 
 		// There's a small chance we can resume from this type of crash.
 		g_lastCrashAddress = codePtr;
