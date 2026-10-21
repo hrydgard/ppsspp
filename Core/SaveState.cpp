@@ -1227,20 +1227,13 @@ int g_screenshotFailures;
 		return true;
 	}
 
-	// Keeps the state a slot load is about to replace, as load undo. Snapshotted here, compressed and
-	// written on the worker.
-	static void SaveLoadUndo(const std::string &gamePrefix) {
+	// Keeps the state a slot load replaced, as load undo: the snapshot RunLoad took before loading (which
+	// this takes ownership of), compressed and written on the worker.
+	static void SaveLoadUndo(const std::string &gamePrefix, u8 *buffer, size_t size) {
 		Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
 		if (backup.empty()) {
 			ERROR_LOG(Log::SaveState, "Saving load undo state failed. Error in the file system.");
-			return;
-		}
-
-		u8 *buffer = nullptr;
-		size_t size = 0;
-		SaveStart state;
-		if (CChunkFileReader::MeasureAndSavePtr(state, &buffer, &size) != CChunkFileReader::ERROR_NONE) {
-			ERROR_LOG(Log::SaveState, "Saving load undo state failed");
+			free(buffer);
 			return;
 		}
 
@@ -1307,9 +1300,19 @@ int g_screenshotFailures;
 			return true;
 		}
 
-		// Kept even if the load fails: that resets the game, and this is the way back.
-		if (!op.slotGamePrefix.empty() && g_Config.bEnableStateUndo) {
-			SaveLoadUndo(op.slotGamePrefix);
+		// A load that fails partway leaves the emulator half in the new state. With a snapshot of the current
+		// one, we can go back to it rather than reset the game. The snapshot is also what load undo keeps.
+		const bool keepUndo = !op.slotGamePrefix.empty() && g_Config.bEnableStateUndo;
+		u8 *snapshot = nullptr;
+		size_t snapshotSize = 0;
+		{
+			SaveStart current;
+			current.countsAsSave = keepUndo;
+			if (CChunkFileReader::MeasureAndSavePtr(current, &snapshot, &snapshotSize) != CChunkFileReader::ERROR_NONE) {
+				// Out of memory, most likely. A failed load will have to reset the game.
+				WARN_LOG(Log::SaveState, "Couldn't snapshot the current state before loading");
+				snapshot = nullptr;
+			}
 		}
 
 		// Use the state's latest version as a guess for saveStateInitialGitVersion.
@@ -1317,11 +1320,28 @@ int g_screenshotFailures;
 		SaveStart state;
 		std::string errorString;
 		CChunkFileReader::Error result;
+		bool restored = false;
 		{
 			FrozenLoadScope frozenScope;
 			result = CChunkFileReader::LoadPtr(read.buffer.get(), read.size, state, &errorString);
+			read.buffer.reset();
+			if (result != CChunkFileReader::ERROR_NONE && snapshot) {
+				SaveStart current;
+				std::string restoreError;
+				restored = CChunkFileReader::LoadPtr(snapshot, snapshotSize, current, &restoreError) == CChunkFileReader::ERROR_NONE;
+				if (!restored) {
+					ERROR_LOG(Log::SaveState, "Restoring the state from before the failed load also failed, at %s", restoreError.c_str());
+				}
+			}
 		}
-		read.buffer.reset();
+
+		// After a failed load we're back where we were (unless that failed too, and the game resets), so
+		// the undo already on disk is still the useful one.
+		if (snapshot && keepUndo && !restored) {
+			SaveLoadUndo(op.slotGamePrefix, snapshot, snapshotSize);
+		} else {
+			free(snapshot);
+		}
 
 		if (result == CChunkFileReader::ERROR_NONE) {
 			message = op.slot != LOAD_UNDO_SLOT ? sc->T("Loaded State") : sc->T("State load undone");
@@ -1337,7 +1357,9 @@ int g_screenshotFailures;
 			ResetAVDumping();
 			g_lastSaveTime = time_now_d();
 		} else {
-			HandleLoadFailure(false, &metadata);
+			if (!restored) {
+				HandleLoadFailure(false, &metadata);
+			}
 			// The file was fine, its contents weren't: almost always a state from another version.
 			// errorString is the section that failed.
 			message = sc->T("LoadStateWrongVersion", i18nLoadFailure);
