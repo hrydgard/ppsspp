@@ -2007,6 +2007,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 			}
 			if (netAdhocInited) {
 				SetupAdhocRelayMode();
+			} else {
+				deinit_aemu_postoffice();
 			}
 		}
 		if (netAdhocctlInited && !cur_netAdhocctlInited) {
