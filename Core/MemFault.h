@@ -20,9 +20,9 @@ void MemFault_IgnoreLastCrash();
 // just leave it as-is.
 bool HandleFault(uintptr_t hostAddress, void *context);
 
-// Set on the thread running IRInterpret, while it runs its own loads and stores. A fault in those can
-// be stepped over, which the IR interpreter does to halt cleanly instead of crashing.
-extern thread_local bool g_inIRInterpreter;
+// Set while IRInterpret runs its own loads and stores. A fault in those can be stepped over, which the
+// IR interpreter does to halt cleanly instead of crashing. Only the CPU thread runs it.
+extern volatile bool g_inIRInterpreter;
 
 class IRInterpreterFaultScope {
 public:

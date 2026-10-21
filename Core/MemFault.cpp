@@ -58,7 +58,7 @@ static int64_t g_numReportedBadAccesses = 0;
 const uint8_t *g_lastCrashAddress;
 MemoryExceptionType g_lastMemoryExceptionType;
 static bool inCrashHandler = false;
-thread_local bool g_inIRInterpreter = false;
+volatile bool g_inIRInterpreter = false;
 
 std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
