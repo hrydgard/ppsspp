@@ -376,6 +376,7 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		if (!MountGameISO(loadedFile, &error)) {
 			error = "mounting the ISO failed: " + error;
 			return false;

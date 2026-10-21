@@ -287,7 +287,9 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 		if (info->size != 8)
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
-		info->type = PSP_UMD_TYPE_GAME;
+		// Games see a game disc, whatever else is on it.
+		const u32 type = __UmdDiscType();
+		info->type = (type & PSP_UMD_TYPE_GAME) || type == 0 ? PSP_UMD_TYPE_GAME : type;
 		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
@@ -544,6 +546,28 @@ void __UmdEject() {
 
 bool __UmdIsInserted() {
 	return UMDInserted;
+}
+
+u32 __UmdDiscType() {
+	if (!UMDInserted) {
+		return 0;
+	}
+	auto hasDir = [](const char *path) {
+		const PSPFileInfo info = pspFileSystem.GetFileInfo(path);
+		return info.exists && info.type == FILETYPE_DIRECTORY;
+	};
+	u32 type = 0;
+	if (hasDir("disc0:/PSP_GAME")) {
+		type |= PSP_UMD_TYPE_GAME;
+	}
+	if (hasDir("disc0:/UMD_VIDEO")) {
+		type |= PSP_UMD_TYPE_VIDEO;
+	}
+	if (hasDir("disc0:/UMD_AUDIO")) {
+		type |= PSP_UMD_TYPE_AUDIO;
+	}
+	// A loose game directory or an ISO without the usual layout still boots as a game.
+	return type != 0 ? type : PSP_UMD_TYPE_GAME;
 }
 
 bool getUMDReplacePermit() {

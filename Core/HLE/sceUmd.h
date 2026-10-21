@@ -44,6 +44,8 @@ void __UmdReplace(const Path &filepath);
 bool __UmdInsert(const Path &filepath, std::string *error);
 void __UmdEject();
 bool __UmdIsInserted();
+// What's on the disc in the drive (PSP_UMD_TYPE_* bits), or 0 for an empty drive.
+u32 __UmdDiscType();
 bool getUMDReplacePermit();
 
 void Register_sceUmdUser();

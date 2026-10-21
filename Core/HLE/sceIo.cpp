@@ -1766,8 +1766,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	case 0x01F20001:
 		// Get UMD disc type
 		if (Memory::IsValid4AlignedRange(outPtr, 8) && outLen >= 8) {
-			// A game disc, or none in an empty drive (as JPCSP answers without a disc).
-			Memory::WriteUnchecked_U32(__UmdIsInserted() ? PSP_UMD_TYPE_GAME : 0, outPtr + 4);
+			// What's on the disc, or none in an empty drive (as JPCSP answers without a disc).
+			Memory::WriteUnchecked_U32(__UmdDiscType(), outPtr + 4);
 			return hleLogDebug(Log::sceIo, 0);
 		} else {
 			return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
