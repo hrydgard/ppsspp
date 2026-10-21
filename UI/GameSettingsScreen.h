@@ -59,15 +59,14 @@ private:
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
 
 	std::string gameID_;
-#ifdef _WIN32
-	UI::CheckBox *SavePathInMyDocumentChoice = nullptr;
-	UI::CheckBox *SavePathInOtherChoice = nullptr;
-	// Used to enable/disable the above two options.
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	void CheckMemstickInstallState();
+
 	bool installed_ = false;
 	bool otherinstalled_ = false;
+	bool memstickMyDocEnabled_ = false;
+	bool memstickOtherEnabled_ = false;
 #endif
-
-	std::string memstickDisplay_;
 
 	// Global settings handlers
 	void OnChangeBackground(UI::EventParams &e);
@@ -93,7 +92,6 @@ private:
 	int iAlternateSpeedPercentAnalog_ = 0;
 	int prevInflightFrames_ = -1;
 	bool enableReports_ = false;
-	bool enableReportsSet_ = false;
 	bool analogSpeedMapped_ = false;
 
 	// edit the game-specific settings and restore the global settings after exiting

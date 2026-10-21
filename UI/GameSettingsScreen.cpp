@@ -68,7 +68,6 @@
 #include "UI/AdhocServerScreen.h"
 
 #include "Common/File/FileUtil.h"
-#include "Common/File/AndroidContentURI.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -119,6 +118,8 @@ GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID,
 	: UITabbedBaseDialogScreen(gamePath, &g_Config.iSettingsCurrentTab, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
+	// Written back on exit, so it must be read even if the System tab is never opened.
+	enableReports_ = Reporting::IsEnabled();
 
 	if (editGameSpecificThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
@@ -160,6 +161,9 @@ GameSettingsScreen::~GameSettingsScreen() {
 void GameSettingsScreen::PreCreateViews() {
 	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
 	ReloadAllThemeInfo();
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	CheckMemstickInstallState();
+#endif
 }
 
 static bool UsingHardwareTextureScaling() {
@@ -188,30 +192,50 @@ static std::string *GPUDeviceNameSetting() {
 	return nullptr;
 }
 
-static bool PathToVisualUsbPath(Path path, std::string &outPath) {
-	switch (path.Type()) {
-	case PathType::NATIVE:
-		if (path.StartsWith(g_Config.memStickDirectory)) {
-			return g_Config.memStickDirectory.ComputePathTo(path, outPath);
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+// Works out where the memstick is (installed.txt next to the exe means My Documents or a custom
+// folder), and which of the two checkboxes can be changed.
+void GameSettingsScreen::CheckMemstickInstallState() {
+	const Path &PPSSPPpath = File::GetExeDirectory();
+	const Path installedFile = PPSSPPpath / "installed.txt";
+	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
+
+	installed_ = File::Exists(installedFile);
+	otherinstalled_ = false;
+	memstickMyDocEnabled_ = !PSP_IsInited();
+	memstickOtherEnabled_ = false;
+	if (!installed_ && myDocsExists) {
+		// Disable the setting if we can't create & delete a file next to the exe.
+		if (File::CreateEmptyFile(PPSSPPpath / "installedTEMP.txt")) {
+			if (!(File::Delete(PPSSPPpath / "installedTEMP.txt")))
+				memstickMyDocEnabled_ = false;
+			else
+				memstickOtherEnabled_ = !PSP_IsInited();
+		} else
+			memstickMyDocEnabled_ = false;
+	} else {
+		if (installed_ && myDocsExists) {
+			FILE *testInstalled = File::OpenCFile(installedFile, "rt");
+			if (testInstalled) {
+				char temp[2048];
+				char *tempStr = fgets(temp, sizeof(temp), testInstalled);
+				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
+				if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
+					tempStr += 3;
+				}
+				memstickOtherEnabled_ = !PSP_IsInited();
+				if (tempStr && strlen(tempStr) != 0 && strcmp(tempStr, "\n") != 0) {
+					installed_ = false;
+					otherinstalled_ = true;
+				}
+				fclose(testInstalled);
+			}
+		} else if (!myDocsExists) {
+			memstickMyDocEnabled_ = false;
 		}
-		break;
-	case PathType::CONTENT_URI:
-#if PPSSPP_PLATFORM(ANDROID)
-	{
-		// Try to parse something sensible out of the content URI.
-		AndroidContentURI uri(path.ToString());
-		outPath = uri.RootPath();
-		if (startsWith(outPath, "primary:")) {
-			outPath = "/" + outPath.substr(8);
-		}
-		return true;
 	}
-#endif
-	default:
-		break;
-	}
-	return false;
 }
+#endif
 
 void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
@@ -355,8 +379,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 				msaaChoice->SetChoiceIcon(i, ImageID("I_WARNING"));
 			}
 		}
-	} else {
-		g_Config.iMultiSampleLevel = 0;
 	}
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1041,13 +1063,12 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	CheckBox *relay_mode_enet = networkingSettings->Add(new CheckBox(&g_Config.bAdhocUseUdp, n->T("Connect to adhoc server using UDP (ENet) instead of TCP")));
 	relay_mode_enet->SetEnabled(!PSP_IsInited());
-	relay_mode_enet->OnClick.Add([this](UI::EventParams &e) {
-		RecreateViews();
-	});
 	networkingSettings->Add(new SettingHint(n->T("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP."), nullptr));
 
 	CheckBox *relay_mode_enet_pdp_reliable = networkingSettings->Add(new CheckBox(&g_Config.bAdhocRelayModeEnetPdpReliable, n->T("Reliable datagram packet delivery on packet relay in UDP mode")));
-	relay_mode_enet_pdp_reliable->SetEnabled(!PSP_IsInited() && g_Config.bAdhocUseUdp);
+	relay_mode_enet_pdp_reliable->SetEnabledFunc([] {
+		return !PSP_IsInited() && g_Config.bAdhocUseUdp;
+	});
 	networkingSettings->Add(new SettingHint(n->T("When disabled, packet loss on datagram adhoc sockets will be exposed to game's netcode. Keep this enabled if you don't know what that means."), nullptr));
 
 
@@ -1298,73 +1319,30 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR) {
-		memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-		auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder"), I18NCat::NONE));
+		auto memstickPath = systemSettings->Add(new ChoiceWithCallbackValueDisplay(sy->T("Memory Stick folder"), []() {
+			return g_Config.memStickDirectory.ToVisualString();
+		}));
 		memstickPath->SetEnabled(!PSP_IsInited());
 		memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
-
-		// Display USB path for convenience.
-		std::string usbPath;
-		if (PathToVisualUsbPath(g_Config.memStickDirectory, usbPath)) {
-			if (usbPath.empty()) {
-				// Probably it's just the root. So let's add PSP to make it clear.
-				usbPath = "/PSP";
-			}
-		}
 	}
 #elif defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
-	memstickDisplay_ = g_Config.memStickDirectory.ToVisualString();
-	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&memstickDisplay_, sy->T("Memory Stick folder"), I18NCat::NONE));
+	auto memstickPath = systemSettings->Add(new ChoiceWithCallbackValueDisplay(sy->T("Memory Stick folder"), []() {
+		return g_Config.memStickDirectory.ToVisualString();
+	}));
 	memstickPath->SetEnabled(!PSP_IsInited());
 	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnShowMemstickScreen);
 #else
-	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Memory Stick in My Documents")));
-	SavePathInMyDocumentChoice->SetEnabled(!PSP_IsInited());
-	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickMyDoc);
-	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Memory Stick in installed.txt")));
-	SavePathInOtherChoice->SetEnabled(false);
-	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickOther);
-	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
+	CheckBox *myDocsChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Memory Stick in My Documents")));
+	myDocsChoice->SetEnabledPtr(&memstickMyDocEnabled_);
+	myDocsChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickMyDoc);
+	CheckBox *otherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Memory Stick in installed.txt")));
+	otherChoice->SetEnabledPtr(&memstickOtherEnabled_);
+	otherChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickOther);
 
 	if (!System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST)) {
 		// It might be slow, so use an option.
 		systemSettings->Add(new CheckBox(&g_Config.bReportAccurateFreeStorageSpace, sy->T("Report free storage space accurately")));
-	}
-
-	const Path &PPSSPPpath = File::GetExeDirectory();
-	const Path installedFile = PPSSPPpath / "installed.txt";
-	installed_ = File::Exists(installedFile);
-	otherinstalled_ = false;
-	if (!installed_ && myDocsExists) {
-		if (File::CreateEmptyFile(PPSSPPpath / "installedTEMP.txt")) {
-			// Disable the setting whether cannot create & delete file
-			if (!(File::Delete(PPSSPPpath / "installedTEMP.txt")))
-				SavePathInMyDocumentChoice->SetEnabled(false);
-			else
-				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
-		} else
-			SavePathInMyDocumentChoice->SetEnabled(false);
-	} else {
-		if (installed_ && myDocsExists) {
-			FILE *testInstalled = File::OpenCFile(installedFile, "rt");
-			if (testInstalled) {
-				char temp[2048];
-				char *tempStr = fgets(temp, sizeof(temp), testInstalled);
-				// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
-				if (tempStr && strncmp(tempStr, "\xEF\xBB\xBF", 3) == 0) {
-					tempStr += 3;
-				}
-				SavePathInOtherChoice->SetEnabled(!PSP_IsInited());
-				if (tempStr && strlen(tempStr) != 0 && strcmp(tempStr, "\n") != 0) {
-					installed_ = false;
-					otherinstalled_ = true;
-				}
-				fclose(testInstalled);
-			}
-		} else if (!myDocsExists) {
-			SavePathInMyDocumentChoice->SetEnabled(false);
-		}
 	}
 #endif
 #endif
@@ -1373,9 +1351,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	sizeChoice->SetFormat("%d GB");
 
 	systemSettings->Add(new ItemHeader(sy->T("Help the PPSSPP team")));
-	if (!enableReportsSet_)
-		enableReports_ = Reporting::IsEnabled();
-	enableReportsSet_ = true;
 	CheckBox *enableReportsCheckbox;
 	enableReportsCheckbox = new CheckBox(&enableReports_, sy->T("Enable Compatibility Server Reports"));
 	enableReportsCheckbox->SetEnabledFunc([]() { return Reporting::IsSupported(); });
@@ -1607,7 +1582,7 @@ void GameSettingsScreen::OnMemoryStickOther(UI::EventParams &e) {
 	}
 	else {
 		File::Delete(PPSSPPpath / "installed.txt");
-		SavePathInMyDocumentChoice->SetEnabled(true);
+		memstickMyDocEnabled_ = true;
 		otherinstalled_ = false;
 		installed_ = false;
 		g_Config.memStickDirectory = PPSSPPpath / "memstick";
