@@ -60,6 +60,22 @@ Two separate things:
   retried 12 times. Implemented now - PPSSPP has no region-locked discs, so anything it can load is
   something it should run - and the call drops to one.
 
+## Around the XMB (6.61)
+
+- **Game**: the memory stick list shows PSP games, PS1 EBOOTs and homebrew with icons and info.
+  Homebrew and PS1 games launch from it; PSN titles stop at "The copyright protection information
+  is invalid (8010850E)", since there's no licence (`PSP/LICENSE/*.RIF`). A game that exits goes
+  back to the XMB, as on a PSP. The Saved Data Utility lists saves: it needed the raw stick device
+  `msstor0p1:/` (pspautotests `io/msstor/msstor`) and `sceSdGetLastIndex` without a key.
+- **Photo**: folders under `PICTURE/` list with thumbnails, and JPEG and PNG open full screen (R
+  for the next one).
+- **Music**: MP3 plays. SensMe stops at 8002013A.
+- **Settings**: the menus open. System Information shows "-" for the MAC address: wlan.prx reads it
+  from IdStorage key 0x44, and IdStorage is left failing on purpose (see below).
+- **Network**: the browser and the online manuals reach their Network Connection screen once
+  `sceNetApctl_lib` is there, then stop at 8002013A on `sceHttp` functions only the NetFront browser
+  uses (06488A1C, 2C3C82CF, 3A67F306, 739C2D79, 77EE5319, 8046E250, A461A167, B0257723).
+
 ## Current status
 
 `--vsh` boots VSH and renders real XMB frames. Measured on the GE command stream after 25
