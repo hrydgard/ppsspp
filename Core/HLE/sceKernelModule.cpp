@@ -2050,8 +2050,16 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.stub_top = modinfo->libstub;
 	module->nm.stub_size = modinfo->libstubend - modinfo->libstub;
 
-	const u32_le *entPos = (u32_le *)Memory::GetPointerOrException(modinfo->libent);
-	const u32_le *entEnd = (u32_le *)Memory::GetPointerOrException(modinfo->libentend);
+	const u32_le *entPos = nullptr;
+	const u32_le *entEnd = nullptr;
+	// A module that wasn't relocated (cut off before its relocations, see LoadInto) still has
+	// link-time addresses here.
+	if (Memory::IsValidRange(modinfo->libent, modinfo->libentend - modinfo->libent)) {
+		entPos = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libent);
+		entEnd = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libentend);
+	} else {
+		WARN_LOG(Log::Loader, "Garbage libent address %08x or end %08x, no exports", modinfo->libent, modinfo->libentend);
+	}
 
 	for (int m = 0; entPos < entEnd; ++m) {
 		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
