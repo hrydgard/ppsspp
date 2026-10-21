@@ -27,6 +27,7 @@
 
 namespace UI {
 class ChoiceStrip;
+class ViewGroup;
 class Choice;
 class TextView;
 class PopupMultiChoice;
@@ -49,7 +50,13 @@ public:
 	int activeField = 0;
 
 private:
+	bool ActiveFieldIsHex() const;
+
 	UI::Choice *fieldViews_[2]{};
+	// The A-F keys, shown while the active field is in hex.
+	UI::ViewGroup *hexKeys_ = nullptr;
+	UI::Choice *hexToggle_ = nullptr;
+	UI::Choice *dotKey_ = nullptr;
 	int fieldCount_ = 1;
 	ScreenManager *screenManager_ = nullptr;
 	RequesterToken token_{};

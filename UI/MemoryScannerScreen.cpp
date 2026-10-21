@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 
 #include "Common/Data/Text/I18n.h"
@@ -102,28 +104,49 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 	// Big keys, so they're easy to hit with a thumb.
 	GridLayoutSettings settings(80, 52, 4);
 	settings.fillCells = true;
-	GridLayout *grid = parent->Add(new GridLayoutList(settings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
-	static const char *keys[] = {
+	auto addKeys = [&](ViewGroup *grid, const std::vector<const char *> &keys) {
+		for (const char *key : keys) {
+			std::string_view label = key;
+			if (!strcmp(key, "...")) {
+				label = cw->T("Keyboard");
+			} else if (!strcmp(key, "Del")) {
+				label = cw->T("Del");
+			} else if (!strcmp(key, "Clr")) {
+				label = cw->T("Clear");
+			}
+			Choice *c = grid->Add(new Choice(label));
+			c->SetCentered(true);
+			c->OnClick.Add([this, key](EventParams &) {
+				Key(key);
+			});
+			if (!strcmp(key, "Hex")) {
+				hexToggle_ = c;
+			} else if (!strcmp(key, ".")) {
+				dotKey_ = c;
+			}
+		}
+	};
+
+	GridLayout *grid = parent->Add(new GridLayoutList(settings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4, 0, 0))));
+	addKeys(grid, {
 		"7", "8", "9", "Del",
 		"4", "5", "6", "-",
 		"1", "2", "3", ".",
-		"0", "0x", "C", "...",
-	};
-	for (const char *key : keys) {
-		std::string_view label = key;
-		if (!strcmp(key, "...")) {
-			label = cw->T("Keyboard");
-		} else if (!strcmp(key, "Del")) {
-			label = cw->T("Del");
-		}
-		Choice *c = grid->Add(new Choice(label));
-		c->SetCentered(true);
-		c->OnClick.Add([this, key](EventParams &) {
-			Key(key);
-		});
-	}
+		"0", "Hex", "Clr", "...",
+	});
+	// Only shown in hex mode.
+	hexKeys_ = parent->Add(new GridLayoutList(settings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 4))));
+	addKeys(hexKeys_, { "A", "B", "C", "D", "E", "F" });
 
 	UpdateViews();
+}
+
+bool ScanValueEditor::ActiveFieldIsHex() const {
+	if (activeField < 0 || activeField >= 2 || !fields[activeField])
+		return false;
+	const std::string &s = *fields[activeField];
+	size_t pos = (!s.empty() && (s[0] == '-' || s[0] == '+')) ? 1 : 0;
+	return s.compare(pos, 2, "0x") == 0 || s.compare(pos, 2, "0X") == 0 || s.compare(pos, 1, "$") == 0;
 }
 
 void ScanValueEditor::Key(const char *key) {
@@ -134,7 +157,7 @@ void ScanValueEditor::Key(const char *key) {
 	if (!strcmp(key, "Del")) {
 		if (!s.empty())
 			s.pop_back();
-	} else if (!strcmp(key, "C")) {
+	} else if (!strcmp(key, "Clr")) {
 		s.clear();
 	} else if (!strcmp(key, "-")) {
 		// Toggle the sign.
@@ -143,15 +166,38 @@ void ScanValueEditor::Key(const char *key) {
 		else
 			s.insert(0, "-");
 	} else if (!strcmp(key, ".")) {
-		if (s.find('.') == std::string::npos)
+		// A hex value is raw bits, even for floats, so no decimal point.
+		if (!ActiveFieldIsHex() && s.find('.') == std::string::npos)
 			s += s.empty() || s == "-" ? "0." : ".";
-	} else if (!strcmp(key, "0x")) {
-		// Toggle hex.
-		size_t pos = (!s.empty() && s[0] == '-') ? 1 : 0;
-		if (s.compare(pos, 2, "0x") == 0)
-			s.erase(pos, 2);
-		else
-			s.insert(pos, "0x");
+	} else if (!strcmp(key, "Hex")) {
+		// Toggle hex: converts the typed number to the other base, and shows or hides the A-F keys.
+		const bool wasHex = ActiveFieldIsHex();
+		const bool negative = !s.empty() && s[0] == '-';
+		size_t pos = (!s.empty() && (s[0] == '-' || s[0] == '+')) ? 1 : 0;
+		std::string digits = s.substr(pos);
+		if (wasHex) {
+			digits.erase(0, digits[0] == '$' ? 1 : 2);
+		} else {
+			// A float's fraction can't carry over.
+			size_t dot = digits.find('.');
+			if (dot != std::string::npos)
+				digits.erase(dot);
+		}
+		const bool valid = !digits.empty() && digits.size() <= 16 &&
+			digits.find_first_not_of(wasHex ? "0123456789abcdefABCDEF" : "0123456789") == std::string::npos;
+		std::string sign = negative ? "-" : "";
+		if (!valid) {
+			// Nothing (or nothing usable) typed yet, just switch the mode.
+			s = sign + (wasHex ? "" : "0x");
+		} else {
+			unsigned long long v = strtoull(digits.c_str(), nullptr, wasHex ? 16 : 10);
+			s = sign + (wasHex ? StringFromFormat("%llu", v) : StringFromFormat("0x%llX", v));
+		}
+	} else if (key[0] >= 'A' && key[0] <= 'F' && key[1] == '\0') {
+		if (!ActiveFieldIsHex())
+			return;
+		if (s.size() < 24)
+			s += key;
 	} else if (!strcmp(key, "...")) {
 		// The system keyboard, for hex digits A-F or anything else.
 		if (screenManager_) {
@@ -199,6 +245,9 @@ void ScanValueEditor::Detach() {
 	fields[1] = nullptr;
 	fieldViews_[0] = nullptr;
 	fieldViews_[1] = nullptr;
+	hexKeys_ = nullptr;
+	hexToggle_ = nullptr;
+	dotKey_ = nullptr;
 	fieldCount_ = 0;
 	activeField = 0;
 }
@@ -212,6 +261,17 @@ void ScanValueEditor::UpdateViews() {
 		std::string label = fieldLabels[i] ? std::string(cw->T(fieldLabels[i])) : std::string(cw->T("Value"));
 		fieldViews_[i]->SetText(StringFromFormat("%s%s: %s", fieldCount_ > 1 && i == activeField ? "> " : "", label.c_str(), text.c_str()));
 		fieldViews_[i]->SetSelectedIndicator(fieldCount_ > 1 && i == activeField);
+	}
+	const bool hex = ActiveFieldIsHex();
+	if (hexKeys_) {
+		hexKeys_->SetVisibility(hex ? UI::V_VISIBLE : UI::V_GONE);
+	}
+	if (hexToggle_) {
+		// Says what pressing it switches to.
+		hexToggle_->SetText(hex ? cw->T("Dec") : cw->T("Hex"));
+	}
+	if (dotKey_) {
+		dotKey_->SetEnabled(!hex);
 	}
 }
 

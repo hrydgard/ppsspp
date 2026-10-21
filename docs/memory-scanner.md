@@ -31,8 +31,9 @@ Values are searched at their natural alignment: 8-bit at every byte, 16-bit ever
     Decreased value, Increased value by, Decreased value by, Changed value, Unchanged value.
     These compare with the values at the previous scan.
 - The value can be changed before every scan. Type it with the on-screen keypad, or use
-  **Keyboard** for anything else (like hex digits A-F). `0x` (or `$`) means hex, `-` works
-  for any size (so `-1` finds `0xFF` in 8-bit).
+  **Keyboard** for the system keyboard. **Hex** switches the value to hexadecimal: it adds the
+  `0x` prefix, converts what was typed and shows the A-F keys (**Dec** converts back). Typed `0x` or `$` also means
+  hex. `-` works for any size (so `-1` finds `0xFF` in 8-bit).
 - Floats use a rounded compare: `95` matches 94.5 to 95.5, `95.25` matches 95.245 to 95.255.
   A hex value for a float matches its exact bits.
 - Integers are compared unsigned for Bigger/Smaller/Between.
