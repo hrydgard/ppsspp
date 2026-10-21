@@ -696,9 +696,11 @@ void AuCtx::DoState(PointerWrap &p) {
 	Do(p, dummy);
 	Do(p, FrameNum);
 
-	// The decoder writes a whole frame into each half. The game side requires at least this much.
+	// The decoder writes a whole frame into each half. The game side requires at least this much,
+	// except for an MP3 handle reserved without parameters, which has no buffers at all.
 	const u32 minPCMBufSize = audioType == PSP_CODEC_AAC ? 8192 : 9216;
-	if (p.mode == p.MODE_READ && PCMBufSize < minPCMBufSize) {
+	const bool noBuffers = PCMBuf == 0 && PCMBufSize == 0;
+	if (p.mode == p.MODE_READ && PCMBufSize < minPCMBufSize && !noBuffers) {
 		ERROR_LOG(Log::SaveState, "AuCtx: PCM buffer of %d bytes in savestate is too small", PCMBufSize);
 		p.SetError(p.ERROR_FAILURE);
 		return;
