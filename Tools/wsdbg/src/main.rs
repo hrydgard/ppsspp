@@ -99,7 +99,7 @@ struct Args {
     /// for this session and kill it on the way out. Takes the executable and all of its
     /// arguments, so it has to come last: everything after it belongs to PPSSPP, not to wsdbg.
     ///
-    ///   wsdbg --sync --compact --launch ./PPSSPPHeadless.exe --vsh -i --graphics=vulkan
+    ///   wsdbg --sync --compact --launch ./PPSSPPHeadless.exe --vsh --cpu=interpreter --graphics=vulkan
     ///
     /// --debugger=0 is appended unless the given arguments already ask for a debugger port, and
     /// the port is read straight off the child's stdout rather than scraped from a log file.

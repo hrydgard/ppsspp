@@ -288,7 +288,7 @@ state, input injection, log tailing), served at `/debugger` on the Remote ISO po
 Read [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) before changing the interface, and update
 it when you add a command.
 
-- Breakpoints are most reliable on the interpreter (`-i`): under the JITs, memory breakpoints only work
+- Breakpoints are most reliable on the interpreter (`--cpu=interpreter`): under the JITs, memory breakpoints only work
   for constant addresses and register breakpoints never trip at all.
 - **Debugger code that runs off the CPU thread has a lock order that has deadlocked for real** -
   `Core_RunOnCPUThread()` for mutations, `g_frameMutex` for hot reads. Read

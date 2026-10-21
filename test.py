@@ -736,12 +736,9 @@ def init():
 def cpu_backend(args):
   # Which backend headless will end up on, given the args we hand through to it. Headless defaults
   # to the JIT, and a later flag overrides an earlier one, like its own parsing in Core/CmdLine.cpp.
-  short_flags = {'-i': 'interpreter', '-r': 'ir', '-j': 'jit', '-J': 'jit-ir'}
   backend = 'jit'
   for arg in args:
-    if arg in short_flags:
-      backend = short_flags[arg]
-    elif arg.startswith('--cpu='):
+    if arg.startswith('--cpu='):
       backend = arg[len('--cpu='):]
   return backend
 

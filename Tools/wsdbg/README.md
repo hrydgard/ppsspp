@@ -28,7 +28,7 @@ For headless scripting, `--launch` removes all of that. It starts PPSSPP, learns
 from its output, connects once the socket accepts, and kills it again on the way out:
 
 ```bash
-wsdbg --sync --compact --quiet --launch ./PPSSPPHeadless.exe --vsh -i --graphics=vulkan < script.txt
+wsdbg --sync --compact --quiet --launch ./PPSSPPHeadless.exe --vsh --cpu=interpreter --graphics=vulkan < script.txt
 ```
 
 `--launch` takes the executable and all of its arguments, so it has to come last - everything after

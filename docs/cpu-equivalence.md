@@ -335,5 +335,5 @@ Against the other hosts:
 
 ## Unrelated
 
-In headless, `-r` is both the IR interpreter and `--root`, and `--root` wins: it takes the next
-argument as a directory. Use `--cpu=ir`.
+Headless used to take `-r` for the IR interpreter, but `--root` (whose short form is `-r`) won and took
+the next argument as a directory. The short cpu core flags are gone now; use `--cpu=ir`.

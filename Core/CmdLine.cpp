@@ -310,10 +310,6 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 	PRINT_STDOUT("  --state=FILE          load state from FILE\n");
 
 	PRINT_STDOUT("  --cpu=CPU             use the specified CPU core (interpreter, ir, jit, jit-ir)\n");
-	PRINT_STDOUT("  -i                    use the interpreter\n");
-	PRINT_STDOUT("  -r                    use IR interpreter\n");
-	PRINT_STDOUT("  -j                    use JIT\n");
-	PRINT_STDOUT("  -J                    use IR JIT\n");
 
 	for (const auto &param : g_autoParams) {
 		if (param.mode != CmdLineMode::Both && param.mode != mode) {
@@ -402,19 +398,12 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			case 'h':
 				PrintUsage(argv[0], nullptr);
 				return CommandLineParseResult::Exit;
-			// Legacy cpucore options.
-			case 'j':
-				cpuCore = CPUCore::JIT;
-				break;
 			case 'i':
-				cpuCore = CPUCore::INTERPRETER;
-				break;
-			case 'r':
-				cpuCore = CPUCore::IR_INTERPRETER;
-				break;
+			case 'j':
 			case 'J':
-				cpuCore = CPUCore::JIT_IR;
-				break;
+				// Removed cpu core options. Fail rather than quietly run on the default core.
+				PRINT_STDERR("Error: %s was removed, use --cpu=interpreter, ir, jit or jit-ir.\n", argv[i]);
+				return CommandLineParseResult::Error;
 			}
 		}
 
@@ -452,12 +441,6 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			printf("%s\n", PPSSPP_GIT_VERSION);
 			return CommandLineParseResult::Exit;
 			// Commands with parameters. TODO: Should support both space and equals, like --config=foo.ini and --config foo.ini
-		} else if (equals(argv[i], "--jit-ir")) {
-			// Headless legacy
-			cpuCore = CPUCore::JIT_IR;
-		} else if (equals(argv[i], "--ir")) {
-			// Headless legacy
-			cpuCore = CPUCore::IR_INTERPRETER;
 		} else if (startsWith(argv[i], gpuBackendStr)) {
 			const std::string restOfOption = argv[i] + gpuBackendStr.size();
 			// Force software rendering off, as picking gles implies HW acceleration.
