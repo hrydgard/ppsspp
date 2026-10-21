@@ -97,8 +97,10 @@ can be somewhere else every time. The game finds them through pointers, and a po
    can also be frozen straight from the list.
 
 The shortest chains are listed first, and up to 20 are shown even when there are more.
-Pointer results stay until a new pointer scan, **Clear pointer results**, or the game closes.
-**Pointer scan results** in the main scanner window opens them again.
+Pointer results stay in RAM until a new pointer scan, **Clear pointer results**, a different
+game, or PPSSPP closes. Closing, resetting or restarting the same game keeps them, since that's
+how they're filtered. **Pointer scan results** in the main scanner window opens them again, as
+does tapping any found address.
 
 Larger depths and offsets find more chains, but take longer, use more RAM, and give more false
 ones. If the scan stops at its limit, it says so; use a smaller depth or offset.

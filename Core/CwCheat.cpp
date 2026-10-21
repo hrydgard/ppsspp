@@ -266,7 +266,8 @@ void __CheatShutdown() {
 	// Scan results and frozen values belong to the game that's shutting down.
 	GetMemoryScanner().Reset();
 	GetMemoryScanner().ClearFreezes();
-	GetPointerScanner().Reset();
+	// Pointer results are kept: filtering them after restarting the game is how they're narrowed
+	// down. They're dropped when a different game opens the scanner.
 }
 
 void __CheatDoState(PointerWrap &p) {

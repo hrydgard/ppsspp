@@ -737,7 +737,8 @@ void MemoryScannerEditScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (!where_.IsPointer()) {
 		items->Add(new ItemHeader(cw->T("Pointers")));
 		const PointerScanner &pointers = GetPointerScanner();
-		std::string_view label = pointers.HasResults() ? cw->T("Pointer scan (filter with this address)") : cw->T("Find pointers to this address");
+		const bool havePointers = pointers.HasResults() && pointers.GameID() == CurrentGameID();
+		std::string_view label = havePointers ? cw->T("Pointer scan (filter with this address)") : cw->T("Find pointers to this address");
 		Choice *pointerScan = items->Add(new Choice(label, ImageID("I_SEARCH")));
 		pointerScan->OnClick.Add([this](EventParams &e) {
 			PointerScanScreen *screen = new PointerScanScreen(where_.base, type_);
