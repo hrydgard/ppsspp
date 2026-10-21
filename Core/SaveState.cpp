@@ -31,6 +31,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/System/System.h"
+#include "Common/System/OSD.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
@@ -424,6 +425,23 @@ int g_screenshotFailures;
 		}
 	}
 
+	// A session booted into the XMB inserts and ejects discs, which changes the mounts, and keeps
+	// doing so for a game launched from it. MetaFileSystem's state pairs its sections with mounts by
+	// position and doesn't record which disc was in, so a state from such a session could fail to
+	// load, or load one disc's file state onto another.
+	static bool IsVSHSession() {
+		return PSP_CoreParameter().fileToStart.GetFilename() == "vshmain.prx";
+	}
+
+	static bool WarnUserIfVSHSession() {
+		if (!IsVSHSession()) {
+			return false;
+		}
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		g_OSD.Show(OSDType::MESSAGE_INFO, pa->T("Save states are not available in the XMB"), 3.0f, "savevsh");
+		return true;
+	}
+
 	bool Enqueue(const SaveState::Operation &op) {
 		// These two both refuse the operation, and both say so - dropping it silently just
 		// looks like the hotkey didn't work. Callers that ask the same questions themselves
@@ -435,6 +453,11 @@ int g_screenshotFailures;
 		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
 		// back into that.
 		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
+			CallbackRefused(op.callback);
+			return false;
+		}
+		// Verify saves and loads back in place, with the mounts as they are.
+		if (op.type != OperationType::Verify && WarnUserIfVSHSession()) {
 			CallbackRefused(op.callback);
 			return false;
 		}
@@ -660,7 +683,7 @@ int g_screenshotFailures;
 
 	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
 		// Enqueue() would refuse too, but only after the load undo backup below has replaced the old one.
-		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(false)) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(false) || WarnUserIfVSHSession()) {
 			CallbackRefused(callback);
 			return;
 		}
@@ -716,7 +739,7 @@ int g_screenshotFailures;
 
 	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback) {
 		// Enqueue() would refuse too, but only after the screenshots below have been rotated.
-		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(true)) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(true) || WarnUserIfVSHSession()) {
 			CallbackRefused(callback);
 			return;
 		}
@@ -1481,7 +1504,7 @@ int g_screenshotFailures;
 
 	// NOTE: This can cause ending of the current renderpass, due to the readback needed for the screenshot.
 	void Process(bool takeRewindSnapshots) {
-		if (takeRewindSnapshots) {
+		if (takeRewindSnapshots && !IsVSHSession()) {
 			rewindStates.Process();
 		}
 		RunCompletions(true);
