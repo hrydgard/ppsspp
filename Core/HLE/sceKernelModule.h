@@ -280,3 +280,6 @@ void Register_SystemCtrlForUser();
 // Expose for use by KUBridge.
 u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 optionAddr);
 u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr);
+
+// Address of a function a loaded module exports, or 0.
+u32 KernelFindModuleExport(const char *libraryName, u32 nid);

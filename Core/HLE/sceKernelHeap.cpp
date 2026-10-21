@@ -6,6 +6,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelHeap.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -216,6 +217,15 @@ static int sceKernelSetUmdCacheOn(int on) {
 	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
+// A PS1 EBOOT declares none, and the POPS manager breaks unless it reads at least 3.00.
+static int sceKernelGetCompiledSdkVersionForKernel() {
+	int version = sceKernelGetCompiledSdkVersion();
+	if (version == 0 && PopsBootActive()) {
+		version = 0x06060010;
+	}
+	return hleLogDebug(Log::sceKernel, version);
+}
+
 static u32 sceKernelMemset(u32 addr, int value, u32 size) {
 	if (Memory::IsValidRange(addr, size)) {
 		Memory::Memset(addr, (u8)value, size, "KernelMemset");
@@ -257,6 +267,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0xF91FE6AA, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0xC2460DD5, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x807179E7, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
+	// 6.60's NID.
+	{ 0xB4F00CB5, &WrapI_V<sceKernelGetCompiledSdkVersionForKernel>, "sceKernelGetCompiledSdkVersion",   'x', "",      HLE_KERNEL_SYSCALL },
 	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
 	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
 };

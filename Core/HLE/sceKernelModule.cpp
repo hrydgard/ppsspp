@@ -67,6 +67,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/scePsmf.h"
@@ -503,6 +504,23 @@ struct SceKernelSMOption {
 static int actionAfterModule;
 
 static std::set<SceUID> loadedModules;
+
+u32 KernelFindModuleExport(const char *libraryName, u32 nid) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
+		for (const FuncSymbolExport &func : module->exportedFuncs) {
+			if (func.nid == nid && !strncmp(func.moduleName, libraryName, KERNELOBJECT_MAX_NAME_LENGTH)) {
+				return func.symAddr;
+			}
+		}
+	}
+	return 0;
+}
+
 // Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;
@@ -2231,6 +2249,10 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		if (!strcmp(modinfo->name, "sceATRAC3plus_Library")) {
 			__AtracNotifyLoadModule(modinfo->moduleVersion, module->crc, module->GetBSSAddr(), module->nm.bss_size);
 		}
+	}
+
+	if (PopsBootActive() && !strcmp(modinfo->name, "pops")) {
+		__PopsBootPatchEmulator(module->nm.text_addr, module->nm.text_size);
 	}
 
 	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);

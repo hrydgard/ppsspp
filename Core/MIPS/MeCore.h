@@ -104,8 +104,8 @@ struct MEState {
 // Null when the ME isn't emulated.
 extern MEState *g_meState;
 
-// Whether the config and this boot (homebrew) want the ME.
-bool Wanted(bool homebrew);
+// Whether this boot wants the ME: homebrew with the setting on, or a PS1 game.
+bool Wanted(bool homebrew, bool pops);
 // Creates the ME, in reset. Fails on platforms without an ME address space.
 bool Init();
 void Shutdown();

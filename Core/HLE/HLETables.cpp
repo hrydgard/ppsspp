@@ -87,6 +87,7 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "PopsBoot.h"
 #include "sceAmctrl.h"
 #include "sceNetInet.h"
 #include "sceNetResolver.h"
@@ -361,6 +362,7 @@ void RegisterAllModules() {
 	Register_sceSysreg_driver();
 	Register_sceSysEventForKernel();
 	Register_sceAmctrl_driver();
+	Register_InitForKernel();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
