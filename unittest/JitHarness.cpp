@@ -715,9 +715,10 @@ bool TestMESpace() {
 	return success;
 }
 
-bool TestMeCore() {
+static bool TestMeCoreOn(CPUCore core) {
 	Memory::g_PSPModel = PSP_MODEL_FAT;
 	SetupJitHarness();
+	PSP_CoreParameter().cpuCore = core;
 	MMIO::Init();
 	bool success = true;
 
@@ -728,6 +729,7 @@ bool TestMeCore() {
 		return true;
 	}
 	MeCore::MEState *me = MeCore::g_meState;
+	EXPECT_EQ_INT(me->cpu.jit != nullptr, core != CPUCore::INTERPRETER);
 
 	// The classic homebrew ME code at 0xBFC00040 (pspsdk me/basic): count at 0xBFC00060, forever.
 	const u32 code[] = {
@@ -775,6 +777,15 @@ bool TestMeCore() {
 	EXPECT_EQ_HEX(me->cpu.pc, pc);
 	EXPECT_EQ_HEX(me->cpu.space->ReadUnchecked_U32(0x80001000), 0xCAFE0001);
 
+	// COP0's control registers, which the ME's exception code keeps state in.
+	me->cpu.r[MIPS_REG_V0] = 0x12345678;
+	me->cpu.space->WriteUnchecked_U32(0x40C27000, 0x80002000);  // ctc0 v0, $14
+	me->cpu.space->WriteUnchecked_U32(0x40437000, 0x80002004);  // cfc0 v1, $14
+	me->cpu.pc = 0x80002000;
+	MIPS_InterpretSingleStep(&me->cpu);
+	MIPS_InterpretSingleStep(&me->cpu);
+	EXPECT_EQ_HEX(me->cpu.r[MIPS_REG_V1], 0x12345678);
+
 	// Back in reset, it stops.
 	MeCore::SetReset(true);
 	const u32 stopped = counter();
@@ -787,11 +798,17 @@ bool TestMeCore() {
 	return success;
 }
 
+bool TestMeCore() {
+	// The ME runs on the interpreter, the IR interpreter, or the native JIT where it can.
+	return TestMeCoreOn(CPUCore::INTERPRETER) && TestMeCoreOn(CPUCore::IR_INTERPRETER) && TestMeCoreOn(CPUCore::JIT);
+}
+
 // The main CPU releases the ME, which waits in halt for the main CPU's soft interrupt, and answers
 // each one with its own.
-bool TestMeInterrupts() {
+static bool TestMeInterruptsOn(CPUCore core) {
 	Memory::g_PSPModel = PSP_MODEL_FAT;
 	SetupJitHarness();
+	PSP_CoreParameter().cpuCore = core;
 	MMIO::Init();
 	bool success = true;
 
@@ -802,6 +819,7 @@ bool TestMeInterrupts() {
 		return true;
 	}
 	MeCore::MEState *me = MeCore::g_meState;
+	EXPECT_EQ_INT(me->cpu.jit != nullptr, core != CPUCore::INTERPRETER);
 
 	auto assemble = [&](u32 addr, const std::vector<const char *> &lines) {
 		for (const char *line : lines) {
@@ -893,6 +911,11 @@ bool TestMeInterrupts() {
 	MMIO::Shutdown();
 	DestroyJitHarness();
 	return success;
+}
+
+bool TestMeInterrupts() {
+	// The ME runs on the interpreter, the IR interpreter, or the native JIT where it can.
+	return TestMeInterruptsOn(CPUCore::INTERPRETER) && TestMeInterruptsOn(CPUCore::IR_INTERPRETER) && TestMeInterruptsOn(CPUCore::JIT);
 }
 
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and

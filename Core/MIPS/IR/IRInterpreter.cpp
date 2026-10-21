@@ -116,6 +116,24 @@ static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
 	}
 }
 
+u32 IRRunKernelLoad(MIPSState *mips, u32 addr, u32 op) {
+	switch ((IROp)op) {
+	case IROp::LoadKernel8: return RunKernelLoad<1, false>(mips, addr);
+	case IROp::LoadKernel8Ext: return RunKernelLoad<1, true>(mips, addr);
+	case IROp::LoadKernel16: return RunKernelLoad<2, false>(mips, addr);
+	case IROp::LoadKernel16Ext: return RunKernelLoad<2, true>(mips, addr);
+	default: return RunKernelLoad<4, false>(mips, addr);
+	}
+}
+
+void IRRunKernelStore(MIPSState *mips, u32 addr, u32 value, u32 op) {
+	switch ((IROp)op) {
+	case IROp::StoreKernel8: RunKernelStore<1>(mips, addr, value); break;
+	case IROp::StoreKernel16: RunKernelStore<2>(mips, addr, value); break;
+	default: RunKernelStore<4>(mips, addr, value); break;
+	}
+}
+
 // With GCC and Clang, each op jumps straight to the next op's handler through a table ("threaded"
 // dispatch), which predicts much better than the one shared indirect jump of a switch. Other
 // compilers get the switch. Ops missing from the table fall back to the switch, so they still work.

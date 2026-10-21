@@ -115,6 +115,7 @@ private:
 	void CompIR_VecPack(IRInst inst) override;
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
+	void CompIR_KernelLoadStore(IRInst inst) override;
 
 	struct LoadStoreArg {
 		Arm64Gen::ARM64Reg base = Arm64Gen::INVALID_REG;
@@ -153,6 +154,9 @@ private:
 	const u8 *vfpuDot_ = nullptr;
 	// See GenerateArm64VfpuMultiDot(), by the number of terms.
 	const u8 *vfpuMultiDot_[5]{};
+	// LoadKernel8 to StoreKernel32 on a hardware register: address in SCRATCH1, a store's value in
+	// SCRATCH2, a load's result back in SCRATCH1. Every other register is kept.
+	const u8 *kernelLoadStore_[8]{};
 
 	// Note: mutable state used at runtime.
 	const u8 *currentRoundingFunc_ = nullptr;

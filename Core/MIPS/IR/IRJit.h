@@ -247,6 +247,7 @@ public:
 	IRInterpreterJit(MIPSState *mipsState);
 
 	void RunLoopUntil(u64 globalticks) override;
+	void RunDowncount() override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
 		return false;
@@ -264,6 +265,8 @@ public:
 protected:
 	template <bool profile>
 	void RunBlocks();
+	template <bool profile>
+	void RunBlocksUntilDowncount();
 	void WriteProfileReport() override;
 	CompileResult CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) override;
 	void GetBlockInstructions(const JitBlock &block, std::vector<IRInst> &instructions) const override;

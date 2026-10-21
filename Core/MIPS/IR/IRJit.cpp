@@ -91,6 +91,7 @@ IRJit::IRJit(MIPSState *mipsState, bool compileToNative) : frontend_(mipsState->
 
 	profiling_ = !g_Config.sJitProfileFile.empty();
 	blocks_.SetAddressSpace(mipsState->space);
+	frontend_.SetAddressSpace(mipsState->space);
 }
 
 IRJit::~IRJit() {
@@ -339,6 +340,54 @@ void IRInterpreterJit::RunLoopUntil(u64 globalticks) {
 		RunBlocks<false>();
 }
 
+// Runs blocks, compiling as needed, until the downcount runs out (or the core stops).
+template <bool profile>
+inline void IRInterpreterJit::RunBlocksUntilDowncount() {
+	MIPSState *mips = mips_;
+	while (mips->downcount >= 0) {
+		// The block's offset into the IR arena, or 0 for none, or a replacement hook (handled by
+		// compiling a block).
+		const u32 offset = *mips->space->GetBlockShadowEntry(mips->pc);
+		static_assert(Memory::BLOCK_SHADOW_HOOK_NO_JIT == 1, "IR arena reserves offsets 0 and 1");
+		if (offset > Memory::BLOCK_SHADOW_HOOK_NO_JIT) {
+			const IRInst *instPtr = arena_.data() + offset;
+			// First op is always, except when using breakpoints, downcount, to save one dispatch inside IRInterpret.
+			// This branch is very cpu-branch-predictor-friendly so this still beats the dispatch.
+			if (instPtr->op == IROp::Downcount) {
+				mips->downcount -= instPtr->constant;
+				instPtr++;
+			}
+			if constexpr (profile) {
+				JitBlock *block = blocks_.GetBlock(blocks_.FindByEntry(offset));
+				Instant start = Instant::Now();
+				mips->pc = IRInterpret(mips, instPtr);
+				block->profileStats_.executions += 1;
+				block->profileStats_.totalNanos += start.ElapsedNanos();
+			} else {
+				// Runs on through the blocks it can, as long as downcount lasts.
+				mips->pc = IRInterpret(mips, instPtr, arena_.data());
+			}
+			// Note: this will "jump to zero" on a badly constructed block missing exits.
+			if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
+				int blockNum = blocks_.FindByEntry(offset);
+				JitBlock *block = blocks_.GetBlockUnchecked(blockNum);
+				Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
+				return;
+			}
+		} else {
+			RestoreHostRoundingMode();
+#ifdef _DEBUG
+			compilerEnabled_ = true;
+#endif
+			Compile(mips->pc);
+#ifdef _DEBUG
+			compilerEnabled_ = false;
+#endif
+			ApplyHostRoundingMode(mips);
+		}
+	}
+}
+
 template <bool profile>
 void IRInterpreterJit::RunBlocks() {
 	// IR Dispatcher
@@ -356,53 +405,27 @@ void IRInterpreterJit::RunBlocks() {
 #ifdef _DEBUG
 		compilerEnabled_ = false;
 #endif
-		while (mips->downcount >= 0) {
-			// The block's offset into the IR arena, or 0 for none, or a replacement hook (handled by
-			// compiling a block).
-			const u32 offset = *mips->space->GetBlockShadowEntry(mips->pc);
-			static_assert(Memory::BLOCK_SHADOW_HOOK_NO_JIT == 1, "IR arena reserves offsets 0 and 1");
-			if (offset > Memory::BLOCK_SHADOW_HOOK_NO_JIT) {
-				const IRInst *instPtr = arena_.data() + offset;
-				// First op is always, except when using breakpoints, downcount, to save one dispatch inside IRInterpret.
-				// This branch is very cpu-branch-predictor-friendly so this still beats the dispatch.
-				if (instPtr->op == IROp::Downcount) {
-					mips->downcount -= instPtr->constant;
-					instPtr++;
-				}
-				if constexpr (profile) {
-					JitBlock *block = blocks_.GetBlock(blocks_.FindByEntry(offset));
-					Instant start = Instant::Now();
-					mips->pc = IRInterpret(mips, instPtr);
-					block->profileStats_.executions += 1;
-					block->profileStats_.totalNanos += start.ElapsedNanos();
-				} else {
-					// Runs on through the blocks it can, as long as downcount lasts.
-					mips->pc = IRInterpret(mips, instPtr, arena_.data());
-				}
-				// Note: this will "jump to zero" on a badly constructed block missing exits.
-				if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
-					int blockNum = blocks_.FindByEntry(offset);
-					JitBlock *block = blocks_.GetBlockUnchecked(blockNum);
-					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
-					break;
-				}
-			} else {
-				RestoreHostRoundingMode();
-#ifdef _DEBUG
-				compilerEnabled_ = true;
-#endif
-				Compile(mips->pc);
-#ifdef _DEBUG
-				compilerEnabled_ = false;
-#endif
-				ApplyHostRoundingMode(mips);
-			}
-		}
+		RunBlocksUntilDowncount<profile>();
 #ifdef _DEBUG
 		compilerEnabled_ = true;
 #endif
 	}
 
+	RestoreHostRoundingMode();
+}
+
+void IRInterpreterJit::RunDowncount() {
+	ApplyHostRoundingMode(mips_);
+#ifdef _DEBUG
+	compilerEnabled_ = false;
+#endif
+	if (profiling_)
+		RunBlocksUntilDowncount<true>();
+	else
+		RunBlocksUntilDowncount<false>();
+#ifdef _DEBUG
+	compilerEnabled_ = true;
+#endif
 	RestoreHostRoundingMode();
 }
 
@@ -567,8 +590,8 @@ int JitBlockTable::GetBlockNumberFromStartAddress(u32 em_address) const {
 void JitBlock::Finalize(const Memory::AddressSpace &space) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
-	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
-		origFirstOpcode_ = Memory::ReadUnchecked_Instruction(origAddr_);
+	if (origAddr_ && space.IsValid4AlignedAddress(origAddr_)) {
+		origFirstOpcode_ = space.IsMediaEngine() ? MIPSOpcode(space.ReadUnchecked_U32(origAddr_)) : Memory::ReadUnchecked_Instruction(origAddr_);
 		_dbg_assert_(entry_ != 0);
 		space.WriteBlockShadow(origAddr_, entry_);
 	} else {
@@ -577,7 +600,7 @@ void JitBlock::Finalize(const Memory::AddressSpace &space) {
 }
 
 void JitBlock::Destroy(const Memory::AddressSpace &space) {
-	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
+	if (origAddr_ && space.IsValid4AlignedAddress(origAddr_)) {
 		// A block at a mirror may have taken over the entry, leave that alone. One that never got an
 		// entry (the arena or code space filled while compiling it) has nothing in the shadow.
 		if (entry_ != 0)

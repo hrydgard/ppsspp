@@ -38,10 +38,8 @@ static constexpr int MIN_BLOCK_EXIT_LEN = 5;
 
 X64JitBackend::X64JitBackend(JitOptions &jitopt)
 	: jo(jitopt), regs_(&jo) {
-	// Automatically disable incompatible options.
-	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
-		jo.enablePointerify = false;
-	}
+	// Automatically disable incompatible options. Pointerify also depends on the CPU's memory base,
+	// checked in GenerateFixedCode().
 	jo.optimizeForInterpreter = false;
 
 	// Since we store the offset, this is as big as it can be.

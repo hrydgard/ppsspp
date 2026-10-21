@@ -358,7 +358,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?
-	if (!Memory::IsValidAddress(targetAddr)) {
+	if (space_ ? !space_->IsValidAddress(targetAddr) : !Memory::IsValidAddress(targetAddr)) {
 		// If preloading, flush - this block will likely be fixed later.
 		ERROR_LOG(Log::JIT, "Jump to invalid address: %08x", targetAddr);
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
@@ -459,6 +459,11 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
+	if (IsMediaEngine()) {
+		// There's no HLE on the ME, the interpreter traps it.
+		Comp_Generic(op);
+		return;
+	}
 	// Like the interpreter, the syscall sees every earlier instruction charged (including a branch it's
 	// the delay slot of) but not itself, which is charged once it returns.
 	const int syscallCycles = MIPSGetInstructionCycleEstimate(op);
