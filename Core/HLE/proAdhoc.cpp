@@ -2191,7 +2191,7 @@ AdhocctlClientStatus adhocctlClientMaintenance(SceNetAdhocctlAdhocId *adhoc_id) 
 
 	// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (isLoopbackIP(server_ip.in.sin_addr.s_addr) && !serverHasRelay) {
+	if (isLocalServer && !serverHasRelay) {
 		_adhocctl_bind_addr.ip = g_localhostIP.in.sin_addr.s_addr;
 		_adhocctl_bind_addr.port = 0;
 		adhocctl_bind_addr = &_adhocctl_bind_addr;
