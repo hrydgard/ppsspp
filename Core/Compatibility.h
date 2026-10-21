@@ -22,6 +22,10 @@
 #include <cstdint>
 #include <set>
 
+// compat.ini's ID for every PS1 game: they're all run by the firmware's same PS1 emulator. In the
+// usual letters-and-digits form, so it parses like any other ID.
+constexpr const char *POPS_COMPAT_ID = "POPS00000";
+
 // Compatibility flags are controlled by assets/compat.ini.
 // Alternatively, if PSP/System/compat.ini exists, it is merged on top, to enable editing
 // the file on Android for tests.
@@ -47,6 +51,13 @@
 // We already have the Action Replay-based cheat system for such use cases.
 
 // TODO: Turn into bitfield for smaller mem footprint.
+// A framebuffer at a fixed address and size, from compat.ini as "address,width,height" (address in hex).
+struct CompatFramebuffer {
+	uint32_t address;
+	int width;
+	int height;
+};
+
 struct CompatFlags {
 	bool VertexDepthRounding;
 	bool PixelDepthRounding;
@@ -124,6 +135,10 @@ struct CompatFlags {
 	bool AccurateSplines;
 	bool ReadbackShadow;
 	bool ColorPickingDrawSyncReadback;
+	bool SeparateLogicOpDraws;
+	bool SnapHalfPixelSprites;
+	CompatFramebuffer FixedFramebuffer;
+	uint32_t NativeResolutionFramebuffer;
 };
 
 struct VRCompat {
@@ -165,6 +180,9 @@ private:
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, CompatFramebuffer *value);
+	// A VRAM address, in hex.
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, uint32_t *address);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};

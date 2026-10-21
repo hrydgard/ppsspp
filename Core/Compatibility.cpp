@@ -169,6 +169,10 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "AccurateSplines", &flags_.AccurateSplines);
 	CheckSetting(iniFile, gameID, "ReadbackShadow", &flags_.ReadbackShadow);
 	CheckSetting(iniFile, gameID, "ColorPickingDrawSyncReadback", &flags_.ColorPickingDrawSyncReadback);
+	CheckSetting(iniFile, gameID, "SeparateLogicOpDraws", &flags_.SeparateLogicOpDraws);
+	CheckSetting(iniFile, gameID, "SnapHalfPixelSprites", &flags_.SnapHalfPixelSprites);
+	CheckSetting(iniFile, gameID, "FixedFramebuffer", &flags_.FixedFramebuffer);
+	CheckSetting(iniFile, gameID, "NativeResolutionFramebuffer", &flags_.NativeResolutionFramebuffer);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
@@ -226,6 +230,45 @@ void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, co
 		}
 		activeList_ += std::string(option) + ": " + std::to_string(*flag);
 	}
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, CompatFramebuffer *value) {
+	std::string text;
+	Section *section = iniFile.GetSection(option);
+	if (ignored_.find(option) != ignored_.end() || !section || !section->Get(gameID.c_str(), &text)) {
+		return;
+	}
+	CompatFramebuffer parsed{};
+	if (sscanf(text.c_str(), "%x,%d,%d", &parsed.address, &parsed.width, &parsed.height) != 3 || parsed.width <= 0 || parsed.height <= 0) {
+		WARN_LOG(Log::Loader, "compat.ini: [%s] %s is not address,width,height: '%s'", option, gameID.c_str(), text.c_str());
+		return;
+	}
+	parsed.address &= 0x041FFFFF;
+	*value = parsed;
+
+	if (!activeList_.empty()) {
+		activeList_ += "\n";
+	}
+	activeList_ += std::string(option) + ": " + text;
+}
+
+void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, uint32_t *address) {
+	std::string text;
+	Section *section = iniFile.GetSection(option);
+	if (ignored_.find(option) != ignored_.end() || !section || !section->Get(gameID.c_str(), &text)) {
+		return;
+	}
+	uint32_t parsed;
+	if (sscanf(text.c_str(), "%x", &parsed) != 1) {
+		WARN_LOG(Log::Loader, "compat.ini: [%s] %s is not an address: '%s'", option, gameID.c_str(), text.c_str());
+		return;
+	}
+	*address = parsed & 0x041FFFFF;
+
+	if (!activeList_.empty()) {
+		activeList_ += "\n";
+	}
+	activeList_ += std::string(option) + ": " + text;
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *flag) {
