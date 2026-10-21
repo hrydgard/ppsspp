@@ -1136,7 +1136,10 @@ int main(int argc, const char* argv[]) {
 	// headless has to as well or it isn't testing what ships.
 	const bool bootIsDisc = testFilenames.size() == 1 &&
 		!BootTargetIsHomebrewExecutable(testFilenames[0]);
-	if (!bootIsDisc) {
+	// The VSH is firmware, and runs the firmware's modules like the app does (its video player needs the
+	// real sceMpeg from mpeg_vsh.prx).
+	const bool bootIsVSH = cmdLineOptions.bootVSH.value_or(false);
+	if (!bootIsDisc && !bootIsVSH) {
 		g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
 	}
 
