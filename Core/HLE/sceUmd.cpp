@@ -177,6 +177,10 @@ static void __KernelUmdActivate()
 	if (sceKernelGetCompiledSdkVersion() != 0) {
 		notifyArg |= PSP_UMD_READY;
 	}
+	// An empty drive (the XMB's) says so: the shell otherwise asks for the disc and reports it unreadable.
+	if (!UMDInserted) {
+		notifyArg = PSP_UMD_NOT_PRESENT;
+	}
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -187,7 +191,7 @@ static void __KernelUmdActivate()
 
 static void __KernelUmdDeactivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
+	u32 notifyArg = UMDInserted ? PSP_UMD_PRESENT | PSP_UMD_READY : PSP_UMD_NOT_PRESENT;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -504,6 +508,42 @@ void __UmdReplace(const Path &filepath) {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+bool __UmdInsert(const Path &filepath, std::string *error) {
+	if (UMDInserted) {
+		*error = "a disc is already in the drive";
+		return false;
+	}
+	FileLoader *fileLoader;
+	if (!UmdMount(filepath, &fileLoader, *error)) {
+		return false;
+	}
+	Achievements::ChangeUMD(filepath, fileLoader);
+
+	UMDInserted = true;
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED);
+	return true;
+}
+
+void __UmdEject() {
+	if (!UMDInserted) {
+		return;
+	}
+	UMDInserted = false;
+	pspFileSystem.Unmount("umd0:");
+	pspFileSystem.Unmount("umd1:");
+	pspFileSystem.Unmount("umd:");
+	pspFileSystem.Unmount("disc0:");
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_NOT_PRESENT | PSP_UMD_CHANGED);
+}
+
+bool __UmdIsInserted() {
+	return UMDInserted;
 }
 
 bool getUMDReplacePermit() {

@@ -35,12 +35,17 @@ code is not correct." Cancel it with circle and the menu is there and usable.
 
 Two separate things:
 
-- **It thinks a disc is inserted**, because nothing in PPSSPP models an empty drive.
-  `sceUmd.cpp` reports `PSP_UMD_PRESENT | PSP_UMD_READY` unconditionally, and `sceIoDevctl`
-  `0x01F20001` (get disc type) always answers `0x10`, "game disc". JPCSP answers `0` when no ISO is
-  loaded, which is why it never asks the next question. Fixing this properly means giving those two
-  a notion of "no disc" - low risk for games, which always have one, but it is on a path every game
-  uses.
+- **It thought a disc was inserted**, because nothing in PPSSPP modelled an empty drive. Now a shell
+  booted without a game starts with an empty drive: `sceUmdActivate` tells the shell's drive callback
+  (`SceVshMediaDetectUMD`) there's no disc, and `sceIoDevctl` `0x01F20001` (get disc type) answers `0`,
+  as JPCSP does. Activation used to report a readable disc regardless, so the shell asked for its type,
+  got nothing it knew, and showed "The disc could not be read."
+
+  A disc goes in with the WebSocket debugger's `game.umd.insert` (`path`), which mounts the image
+  and calls the drive callback the way a PSP does when a disc is inserted, and comes out with
+  `game.umd.eject`. The shell then lists the disc in the Game column with its icon, background and
+  animated preview, and launching it boots the game through `sceKernelLoadExecVSHDisc` (Daxter on
+  6.61, to its title menu).
 - **It then asked whether the region matched and we didn't answer.** `sceIoDevctl` `0x01E18030` is
   the region check, and unusually it answers through the *return value* (1 matches, 0 doesn't)
   rather than an output buffer. It was unimplemented, so the VSH read the failure as a mismatch and

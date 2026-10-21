@@ -353,7 +353,10 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		error = "has no disc";
 		return false;
 	}
+	return UmdMount(filepath, fileLoader, error);
+}
 
+bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error) {
 	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
 	if (!loadedFile || !loadedFile->Exists()) {
@@ -374,7 +377,7 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		if (!MountGameISO(loadedFile, &error)) {
-			error = "mounting the replaced ISO failed: " + error;
+			error = "mounting the ISO failed: " + error;
 			return false;
 		}
 		break;

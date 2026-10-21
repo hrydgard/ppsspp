@@ -40,6 +40,7 @@
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/RetroAchievements.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
@@ -245,6 +246,8 @@ DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.state.verify"] = [p](DebuggerRequest &req) { p->StateOperation(req, StateOp::VERIFY); };
 	map["game.speed.get"] = &WebSocketGameSpeedGet;
 	map["game.speed.set"] = &WebSocketGameSpeedSet;
+	map["game.umd.insert"] = &WebSocketGameUmdInsert;
+	map["game.umd.eject"] = &WebSocketGameUmdEject;
 	map["version"] = &WebSocketVersion;
 
 	return p;
@@ -467,4 +470,53 @@ void WebSocketVersion(DebuggerRequest &req) {
 		json.writeNull("path");
 	else
 		json.writeString("path", path);
+}
+
+// Put a disc in the drive (game.umd.insert)
+//
+// For the XMB, booted with --vsh and no game, whose drive starts out empty. The shell gets the
+// drive's callback, as on a PSP. To swap discs in a running game, use the Switch UMD menu.
+//
+// Parameters:
+//  - path: string, the disc image (ISO, CSO, ...) or extracted disc directory to insert.
+//
+// Response (same event name) with no extra data, or error if a disc is already in the drive or the
+// image can't be mounted.
+void WebSocketGameUmdInsert(DebuggerRequest &req) {
+	std::string path;
+	if (!req.ParamString("path", &path))
+		return;
+
+	bool running = false;
+	bool inserted = false;
+	std::string error;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			inserted = __UmdInsert(Path(path), &error);
+	});
+
+	if (!running)
+		return req.Fail("Game not running");
+	if (!inserted)
+		return req.Fail("Couldn't insert the disc: " + error);
+	req.Respond();
+}
+
+// Take the disc out of the drive (game.umd.eject)
+//
+// No parameters.
+//
+// Response (same event name) with no extra data. Ejecting an empty drive does nothing.
+void WebSocketGameUmdEject(DebuggerRequest &req) {
+	bool running = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running)
+			__UmdEject();
+	});
+
+	if (!running)
+		return req.Fail("Game not running");
+	req.Respond();
 }
