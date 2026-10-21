@@ -1900,7 +1900,7 @@ int getRelativeLocalIpFromRoutingTable(const in_addr &target_ip, in_addr &local_
 	sockaddr_in fetch_sockaddr = {0};
 	fetch_sockaddr.sin_family = AF_INET;
 	fetch_sockaddr.sin_addr = target_ip;
-	fetch_sockaddr.sin_port = 53;
+	fetch_sockaddr.sin_port = htons(53);
 
 	int connect_status = connect(sock, (struct sockaddr*)&fetch_sockaddr, sizeof(fetch_sockaddr)); // binds the DGRAM socket to a target address, which sets the address for send(), and the only address to receive data from
 	// this way we get an address from the routing table
