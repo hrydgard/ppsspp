@@ -28,6 +28,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -58,7 +59,7 @@
 #define LO mips->lo
 
 static inline void DelayBranchTo(MIPSState *mips, u32 where) {
-	if (!Memory::IsValidAddress(where) || (where & 3) != 0) {
+	if (!mips->space->IsValidAddress(where) || (where & 3) != 0) {
 		Core_ExecException(where, PC, ExecExceptionType::JUMP);
 	}
 	PC += 4;
@@ -67,7 +68,8 @@ static inline void DelayBranchTo(MIPSState *mips, u32 where) {
 }
 
 static inline void SkipLikely(MIPSState *mips) {
-	const MIPSOpcode delaySlotOp = Memory::Read_Instruction(PC + 4);
+	const u32 delaySlotPC = PC + 4;
+	const MIPSOpcode delaySlotOp(mips->space->IsValid4AlignedAddress(delaySlotPC) ? mips->space->ReadUnchecked_U32(delaySlotPC) : 0);
 	// Don't actually skip if it is a jump (seen in Brooktown High.)
 	if (MIPSGetInfo(delaySlotOp) & IS_JUMP) {
 		PC += 4;
@@ -79,11 +81,11 @@ static inline void SkipLikely(MIPSState *mips) {
 }
 
 int MIPS_InterpretSingleStep(MIPSState *mips) {
-	if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+	if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
 		Core_ExecException(mips->pc, mips->	pc, ExecExceptionType::JUMP);
 		return 0;
 	}
-	MIPSOpcode op = ReadExecutedOp(mips->pc);
+	MIPSOpcode op = ReadExecutedOp(*mips->space, mips->pc);
 	// Same reason as the run loop in MIPSInterpret_RunUntil - see ApplyHostRoundingMode.
 	ApplyHostRoundingMode(mips);
 	if (mips->inDelaySlot) {
@@ -101,7 +103,8 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 
 // Hardware registers, for kernel code only.
 static u32 ReadMMIO(MIPSState *mips, u32 addr, int size) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+	// The Media Engine always runs in kernel mode.
+	if (!mips->space->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
 		return MMIO::UNHANDLED_READ;
 	}
@@ -109,7 +112,7 @@ static u32 ReadMMIO(MIPSState *mips, u32 addr, int size) {
 }
 
 static void WriteMMIO(MIPSState *mips, u32 addr, int size, u32 value) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+	if (!mips->space->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
 		return;
 	}
@@ -172,13 +175,19 @@ namespace MIPSInt {
 			break;
 
 		default:
-			DEBUG_LOG(Log::CPU, "cache instruction affecting %08x : function %i", addr, func);
+			VERBOSE_LOG(Log::CPU, "cache instruction affecting %08x : function %i", addr, func);
 		}
 
 		PC += 4;
 	}
 
 	void Int_Syscall(MIPSState *mips, MIPSOpcode op) {
+		if (mips->space->IsMediaEngine()) {
+			// There's no HLE on the ME. TODO: Its exception vector.
+			ERROR_LOG(Log::ME, "syscall on the Media Engine at %08x", mips->pc);
+			Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
+			return;
+		}
 		const u32 syscallPC = mips->pc - 4;
 		// Need to pre-move PC, as CallSyscall may result in a rescheduling!
 		// To do this neater, we'll need a little generated kernel loop that syscall can jump to and then RFI from
@@ -371,7 +380,7 @@ namespace MIPSInt {
 		switch (op >> 26) {
 		case 48: // ll
 			if (rt != 0) {
-				if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (!mips->space->IsValid4AlignedAddress(addr)) {
 					if (Memory::IsMMIOAccess(addr)) {
 						R(rt) = ReadMMIO(mips, addr, 4);
 					} else {
@@ -386,7 +395,7 @@ namespace MIPSInt {
 			break;
 		case 56: // sc
 			if (mips->llBit) {
-				if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (!mips->space->IsValid4AlignedAddress(addr)) {
 					if (Memory::IsMMIOAccess(addr))
 						WriteMMIO(mips, addr, 4, R(rt));
 					else
@@ -462,7 +471,7 @@ namespace MIPSInt {
 
 		switch (op >> 26) {
 		case 32:
-			if (!Memory::IsValidAddress(addr)) {
+			if (!mips->space->IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
 					R(rt) = SignExtend8ToU32(ReadMMIO(mips, addr, 1));
@@ -475,7 +484,7 @@ namespace MIPSInt {
 			R(rt) = SignExtend8ToU32(mips->space->ReadUnchecked_U8(addr));
 			break; //lb
 		case 33:
-			if (!Memory::IsValid2AlignedAddress(addr)) {
+			if (!mips->space->IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
 					R(rt) = SignExtend16ToU32(ReadMMIO(mips, addr, 2));
@@ -488,7 +497,7 @@ namespace MIPSInt {
 			R(rt) = SignExtend16ToU32(mips->space->ReadUnchecked_U16(addr));
 			break; //lh
 		case 35:
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
 					R(rt) = ReadMMIO(mips, addr, 4);
@@ -501,7 +510,7 @@ namespace MIPSInt {
 			R(rt) = mips->space->ReadUnchecked_U32(addr);
 			break; //lw
 		case 36:
-			if (!Memory::IsValidAddress(addr)) {
+			if (!mips->space->IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
 					R(rt) = ReadMMIO(mips, addr, 1);
@@ -514,7 +523,7 @@ namespace MIPSInt {
 			R(rt) = mips->space->ReadUnchecked_U8(addr);
 			break; //lbu
 		case 37:
-			if (!Memory::IsValid2AlignedAddress(addr)) {
+			if (!mips->space->IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
 					R(rt) = ReadMMIO(mips, addr, 2);
@@ -527,7 +536,7 @@ namespace MIPSInt {
 			R(rt) = mips->space->ReadUnchecked_U16(addr);
 			break; //lhu
 		case 40:
-			if (!Memory::IsValidAddress(addr)) {
+			if (!mips->space->IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
 					WriteMMIO(mips, addr, 1, (u8)R(rt));
@@ -539,7 +548,7 @@ namespace MIPSInt {
 			mips->space->WriteUnchecked_U8(R(rt), addr);
 			break; //sb
 		case 41:
-			if (!Memory::IsValid2AlignedAddress(addr)) {
+			if (!mips->space->IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
 					WriteMMIO(mips, addr, 2, (u16)R(rt));
@@ -551,7 +560,7 @@ namespace MIPSInt {
 			mips->space->WriteUnchecked_U16(R(rt), addr);
 			break; //sh
 		case 43:
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
 					WriteMMIO(mips, addr, 4, R(rt));
@@ -569,7 +578,7 @@ namespace MIPSInt {
 			{
 				// Not checking for alignment here - the actual read will be aligned.
 				u32 mem = 0;
-				if (Memory::IsValidAddress(addr)) {
+				if (mips->space->IsValidAddress(addr)) {
 					mem = mips->space->ReadUnchecked_U32(addr & 0xfffffffc);
 				} else if (Memory::IsMMIOAccess(addr)) {
 					mem = ReadMMIO(mips, addr & 0xfffffffc, 4);
@@ -586,7 +595,7 @@ namespace MIPSInt {
 			{
 				// Not checking for alignment here - the actual read will be aligned.
 				u32 mem = 0;
-				if (Memory::IsValidAddress(addr)) {
+				if (mips->space->IsValidAddress(addr)) {
 					mem = mips->space->ReadUnchecked_U32(addr & 0xfffffffc);
 				} else if (Memory::IsMMIOAccess(addr)) {
 					mem = ReadMMIO(mips, addr & 0xfffffffc, 4);
@@ -603,7 +612,7 @@ namespace MIPSInt {
 		case 42: //swl
 			{
 				// Not checking for alignment here - the actual read/write will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				if (!mips->space->IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swl");
 					break;
 				}
@@ -617,7 +626,7 @@ namespace MIPSInt {
 		case 46: //swr
 			{
 				// Not checking for alignment here - the actual read/write will be aligned.
-				if (!Memory::IsValidAddress(addr)) {
+				if (!mips->space->IsValidAddress(addr)) {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swr");
 					break;
 				}
@@ -643,7 +652,7 @@ namespace MIPSInt {
 
 		switch (op >> 26) {
 		case 49:
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					FI(ft) = ReadMMIO(mips, addr, 4);
 					break;
@@ -655,7 +664,7 @@ namespace MIPSInt {
 			FI(ft) = mips->space->ReadUnchecked_U32(addr);
 			break; //lwc1
 		case 57:
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					WriteMMIO(mips, addr, 4, FI(ft));
 					break;
@@ -749,7 +758,7 @@ namespace MIPSInt {
 				// still not real COP0 semantics (no Compare-triggered interrupt), just a
 				// closer approximation. See docs/VSHBootInvestigation.md "Attempt 9".
 				if (rd == 9)
-					R(rt) = (u32)CoreTiming::GetTicks(mips);
+					R(rt) = (u32)(mips->space->IsMediaEngine() ? MeCore::GetTicks() : CoreTiming::GetTicks(mips));
 				else
 					R(rt) = mips->cop0[rd];
 			}
@@ -1037,10 +1046,16 @@ namespace MIPSInt {
 		int rt = _RT;
 		switch (op & 0x3F) {
 		case 36:  // mfic
-			if (rt != 0)
+			if (rt != 0 && mips->space->IsMediaEngine())
+				R(rt) = MeCore::g_meState->interruptEnable;
+			else if (rt != 0)
 				R(rt) = __InterruptsEnabled() ? 1 : 0;
 			break;
 		case 38:  // mtic
+			if (mips->space->IsMediaEngine()) {
+				MeCore::g_meState->interruptEnable = R(rt) & 1;
+				break;
+			}
 			// Only bit 0 counts: mtic 2 disables. Pending interrupts run at the next scheduling point,
 			// not right away as with sceKernelCpuResumeIntr.
 			if (R(rt) & 1)

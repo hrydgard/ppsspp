@@ -325,6 +325,8 @@ public:
 	MIPSComp::JitInterface *jit = nullptr;
 	// What this CPU sees of memory. The main CPU's is Memory::g_mainSpace.
 	const Memory::AddressSpace *space = nullptr;
+	// Interpreter only, and Reset() leaves the main CPU's replacement hooks alone (the Media Engine).
+	bool noJit = false;
 };
 
 // Access control ('private') break standard layout. Let's not allow it, to avoid excessive

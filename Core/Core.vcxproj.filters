@@ -129,6 +129,9 @@
     <ClCompile Include="MIPS\MIPSTracer.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MeCore.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
@@ -1420,6 +1423,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSTracer.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\MeCore.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSAnalyst.h">

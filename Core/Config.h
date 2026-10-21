@@ -233,6 +233,8 @@ public:
 
 	bool bFastMemory;
 	int iCpuCore;
+	// Run homebrew's Media Engine code (Core/MIPS/MeCore.h). Global for now, in developer settings.
+	bool bEmulateMediaEngine;
 	bool bCheckForNewVersion;
 	bool bWow64WarningDismissed;
 	bool bForceLagSync;

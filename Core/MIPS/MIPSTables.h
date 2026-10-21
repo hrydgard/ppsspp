@@ -135,6 +135,8 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 MIPSInfo MIPSGetInfo(MIPSOpcode op);
 void MIPSInterpret(MIPSState *mips, MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks);
+// Runs until the downcount goes negative, without CoreTiming or breakpoints. For the Media Engine.
+void MIPSInterpret_RunDowncount(MIPSState *mips);
 MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
 // MIPSInterpret for the JIT backends' interpreter fallback (CompIR_Interpret), which calls it from

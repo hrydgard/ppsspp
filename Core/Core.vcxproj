@@ -718,6 +718,7 @@
     <ClCompile Include="MIPS\MIPSTables.cpp" />
     <ClCompile Include="MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="MIPS\MIPSTracer.cpp" />
+    <ClCompile Include="MIPS\MeCore.cpp" />
     <ClCompile Include="PSPLoaders.cpp" />
     <ClCompile Include="Reporting.cpp" />
     <ClCompile Include="RetroAchievements.cpp" />
@@ -1043,6 +1044,7 @@
     <ClInclude Include="MIPS\MIPSTables.h" />
     <ClInclude Include="MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="MIPS\MIPSTracer.h" />
+    <ClInclude Include="MIPS\MeCore.h" />
     <ClInclude Include="Opcode.h" />
     <ClInclude Include="PSPLoaders.h" />
     <ClInclude Include="Reporting.h" />

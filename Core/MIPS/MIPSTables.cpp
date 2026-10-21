@@ -1189,6 +1189,18 @@ struct IRBlockState {
 	bool skipNext = false;
 };
 
+// The instruction after the branch at pc, as this CPU sees it. The Media Engine's code can be where
+// the main CPU has no memory.
+static MIPSOpcode ReadDelaySlot(const MIPSState *mips, u32 pc) {
+	if (!mips->space->IsMediaEngine()) {
+		return Memory::Read_Instruction(pc + 4);
+	}
+	if (!mips->space->IsValid4AlignedAddress(pc + 4)) {
+		return MIPSOpcode(0);
+	}
+	return MIPSOpcode(mips->space->ReadUnchecked_U32(pc + 4));
+}
+
 // After running op from pc, whether the block is over. In a delay slot, the caller runs on anyway.
 static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcode op, u32 pc) {
 	if (b.endAfterNext) {
@@ -1220,7 +1232,7 @@ static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcod
 	}
 
 	const u32 enc = op.encoding;
-	if (((enc >> 26) == 0x14 || (enc >> 26) == 0x15) && (enc & 0xFFFF) == 1 && (Memory::Read_Instruction(pc + 4).encoding & 0xFC00003F) == 0x0D) {
+	if (((enc >> 26) == 0x14 || (enc >> 26) == 0x15) && (enc & 0xFFFF) == 1 && (ReadDelaySlot(mips, pc).encoding & 0xFC00003F) == 0x0D) {
 		// beql/bnel over a break: BranchRSRTComp drops both and goes on.
 		b.numInstructions++;
 		b.skipNext = mips->inDelaySlot;
@@ -1236,7 +1248,7 @@ static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcod
 		return true;
 	}
 	// Not taken: the delay slot runs next, as an ordinary instruction.
-	const MIPSInfo delaySlotInfo = MIPSGetInfo(Memory::Read_Instruction(pc + 4));
+	const MIPSInfo delaySlotInfo = MIPSGetInfo(ReadDelaySlot(mips, pc));
 	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op) && (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) == 0) {
 		b.continueAfterNext = true;
 	} else {
@@ -1254,11 +1266,11 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
-			if (!Memory::IsValid4AlignedAddress(pc)) {
+			if (!mips->space->IsValid4AlignedAddress(pc)) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = ReadExecutedOp(pc);
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, pc);
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
@@ -1394,11 +1406,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
-			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+			if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = ReadExecutedOp(mips->pc);
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, mips->pc);
 			// Replacements are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
@@ -1470,6 +1482,12 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 	}
 
 	return 1;
+}
+
+void MIPSInterpret_RunDowncount(MIPSState *mips) {
+	ApplyHostRoundingMode(mips);
+	RunUntilDowncountZeroFast(mips);
+	RestoreHostRoundingMode();
 }
 
 const char *MIPSGetName(MIPSOpcode op) {

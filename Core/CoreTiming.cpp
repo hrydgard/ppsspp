@@ -33,6 +33,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 
 static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
@@ -413,8 +414,16 @@ void ProcessEvents() {
 	}
 }
 
+// The Media Engine catches up with the main CPU.
+static void RunOtherCPUs(int cycles) {
+	if (MeCore::g_meState) {
+		MeCore::RunFor(cycles);
+	}
+}
+
 void ForceCheck(MIPSState *mips) {
 	int cyclesExecuted = slicelength - mips->downcount;
+	RunOtherCPUs(cyclesExecuted);
 	globalTimer += cyclesExecuted;
 	// This will cause us to check for new events immediately.
 	mips->downcount = -1;
@@ -429,6 +438,7 @@ void ForceCheck(MIPSState *mips) {
 void Advance(MIPSState *mips) {
 	PROFILE_THIS_SCOPE("advance");
 	int cyclesExecuted = slicelength - mips->downcount;
+	RunOtherCPUs(cyclesExecuted);
 	globalTimer += cyclesExecuted;
 	mips->downcount = slicelength;
 

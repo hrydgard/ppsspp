@@ -322,6 +322,10 @@ void MIPSState::Shutdown() {
 }
 
 void MIPSState::Reset() {
+	if (noJit) {
+		InitRegisters();
+		return;
+	}
 	Shutdown();
 	Init();
 }

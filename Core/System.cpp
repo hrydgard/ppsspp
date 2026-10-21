@@ -61,6 +61,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HW/Display.h"
 #include "Core/HW/MMIO.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Util/PathUtil.h"
@@ -383,6 +384,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	std::string geDumpDiscID;
 
 	std::string gameTitle = "Unidentified PSP title";
+	bool homebrew = false;
 
 	switch (type) {
 	case IdentifiedFileType::PSP_ISO:
@@ -437,7 +439,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		// would, and the program would then overwrite its own heap and stacks.
 		// Homebrew is identified by the MG ("memory stick game") category, or no PARAM.SFO at all.
 		// (g_paramSFO only gets a few keys copied over for a PBP, so the category is in the raw copy.)
-		const bool homebrew = !hasSFO || g_paramSFORaw.GetValueString("CATEGORY") == "MG";
+		homebrew = !hasSFO || g_paramSFORaw.GetValueString("CATEGORY") == "MG";
 		if (homebrew && Memory::g_PSPModel != PSP_MODEL_FAT && Memory::g_MemorySize == Memory::RAM_NORMAL_SIZE) {
 			INFO_LOG(Log::Loader, "Homebrew PBP: mapping the PSP-2000 extra RAM, outside the user partition");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
@@ -446,6 +448,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		break;
 	}
 	case IdentifiedFileType::PSP_ELF:
+		homebrew = true;
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
 			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
@@ -554,6 +557,9 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	CoreTiming::Init(&mipsr4k);
 	MMIO::Init();
+	if (MeCore::Wanted(homebrew)) {
+		MeCore::Init();
+	}
 
 	DisplayHWInit();
 
@@ -678,6 +684,7 @@ void CPU_Shutdown(bool success) {
 	Replacement_Shutdown();
 
 	CoreTiming::Shutdown();
+	MeCore::Shutdown();
 	MMIO::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();

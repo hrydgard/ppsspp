@@ -255,7 +255,7 @@ namespace MIPSInt
 				float d[4];
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				const bool valid = Memory::IsValid4AlignedAddress(addr);
+				const bool valid = mips->space->IsValid4AlignedAddress(addr);
 				if ((op & 2) == 0) {
 					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
@@ -280,7 +280,7 @@ namespace MIPSInt
 		case 54: //lv.q
 			// A quadword access has to be 16-byte aligned, so a misaligned one is simply
 			// rejected - we don't try to carry it out anyway, same as every other path here.
-			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+			if ((addr & 0xF) || !mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
 				const float zero[4]{};
 				WriteLoadedVector(mips, zero, vt);
@@ -308,7 +308,7 @@ namespace MIPSInt
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
 				if ((op & 2) == 0) {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!mips->space->IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svl.q");
 						break;
 					}
@@ -318,7 +318,7 @@ namespace MIPSInt
 						mips->space->WriteUnchecked_Float(d[3 - i], addr - i * 4);
 					}
 				} else {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!mips->space->IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svr.q");
 						break;
 					}
@@ -332,7 +332,7 @@ namespace MIPSInt
 
 		case 62: //sv.q
 			// See lv.q above.
-			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+			if ((addr & 0xF) || !mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "sv.q");
 				break;
 			}
@@ -1745,7 +1745,7 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 50: //lv.s
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lv.s");
 				VI(vt) = 0;
 				break;
@@ -1753,7 +1753,7 @@ namespace MIPSInt
 			VI(vt) = mips->space->ReadUnchecked_U32(addr);
 			break;
 		case 58: //sv.s
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sv.s");
 				break;
 			}

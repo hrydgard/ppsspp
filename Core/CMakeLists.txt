@@ -634,6 +634,8 @@ add_library(Core STATIC
 	MIPS/MIPSVFPUUtils.h
 	MIPS/MIPSTracer.cpp
 	MIPS/MIPSTracer.h
+	MIPS/MeCore.cpp
+	MIPS/MeCore.h
 	MIPS/JitCommon/JitCommon.cpp
 	MIPS/JitCommon/JitCommon.h
 	MIPS/JitCommon/JitProfiler.cpp

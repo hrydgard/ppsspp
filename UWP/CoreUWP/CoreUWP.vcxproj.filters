@@ -233,6 +233,7 @@
     <ClCompile Include="..\..\Core\MIPS\MIPSTables.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSVFPUUtils.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSTracer.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\MeCore.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRAsm.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\x86\X64IRCompBranch.cpp" />
@@ -633,6 +634,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTables.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSVFPUUtils.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h" />
+    <ClInclude Include="..\..\Core\MIPS\MeCore.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64VfpuDot.h" />

@@ -46,10 +46,11 @@ public:
 	bool NeedsProbing();
 #if defined(__APPLE__)
 	// Asks the kernel for a free range of this size for the views, and keeps it reserved (inaccessible), so
-	// CreateView can map over it without anything else taking it in between. ReleaseSpace releases it too.
+	// CreateView can map over it without anything else taking it in between. Any arena's views can go in
+	// it, and there can be a few at once (one per address space).
 	// alignMask: the address bits that must be zero.
-	u8 *ReserveViewSpace(size_t size, size_t alignMask);
-	void ReleaseViewSpace();
+	static u8 *ReserveViewSpace(size_t size, size_t alignMask);
+	static void ReleaseViewSpace(u8 *base);
 #endif
 
 private:
@@ -59,8 +60,14 @@ private:
 #elif defined(__APPLE__)
 	size_t vm_size;
 	vm_address_t vm_mem;  // same type as vm_address_t
-	vm_address_t reserved_mem = 0;
-	size_t reserved_size = 0;
+
+	struct Reservation {
+		vm_address_t addr = 0;
+		size_t size = 0;
+	};
+	static constexpr int MAX_RESERVATIONS = 4;
+	static Reservation reservations_[MAX_RESERVATIONS];
+	static bool InReservation(vm_address_t addr, size_t size);
 #else
 	int fd = -1;
 	// Where Find4GBBase keeps the view range reserved (inaccessible) until ReleaseSpace, so nothing else
