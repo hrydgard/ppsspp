@@ -509,6 +509,13 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		// Chat message finished.
 		return;
 	}
+	if (tag == "MemoryScanner") {
+		// Its Back button finishes with DR_OK, which below would mean "exit to menu" (that's
+		// what it means from the pause menu). Closing the scanner just returns to the game.
+		UI::EnableFocusMovement(false);
+		RecreateViews();
+		return;
+	}
 
 	// Returning to the PauseScreen, unless we're stepping, means we should go back to controls.
 	UI::EnableFocusMovement(false);
