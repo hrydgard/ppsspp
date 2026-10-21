@@ -8,6 +8,7 @@
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Log.h"
 #include "Common/System/Display.h"
+#include "Common/TimeUtil.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -314,6 +315,64 @@ void GenerateTriggerButtonEvent(int digitalX, int digitalY) {
 	downButtons &= ~__CtrlPeekButtons();
 	__CtrlUpdateButtons(downButtons, tiltButtonsDown & upButtons);
 	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
+}
+
+// Gyro fusion state. Accelerometer and gyro events arrive on the same thread.
+static Lin::Vec3 g_lastAccel(0.0f);
+static bool g_haveAccel = false;
+static Lin::Vec3 g_fusedGravity(0.0f);
+static double g_lastGyroTimestamp = 0.0;
+static double g_lastGyroArrival = 0.0;
+static bool g_seenGyro = false;
+
+void ProcessAccelerometerForFusion(float x, float y, float z) {
+	Lin::Vec3 accel(x, y, z);
+	if (my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z) || accel.length2() < 0.0001f) {
+		return;
+	}
+	g_lastAccel = accel;
+	g_haveAccel = true;
+}
+
+bool ProcessGyro(float x, float y, float z, double timestamp, Lin::Vec3 *gravity) {
+	g_seenGyro = true;
+	g_lastGyroArrival = time_now_d();
+	if (!g_haveAccel || my_isnanorinf(x) || my_isnanorinf(y) || my_isnanorinf(z)) {
+		return false;
+	}
+
+	double dt = timestamp - g_lastGyroTimestamp;
+	g_lastGyroTimestamp = timestamp;
+	if (g_fusedGravity.length2() == 0.0f || dt <= 0.0 || dt > 0.1) {
+		// First sample, or a gap (paused, sensor restarted). Start over from the accelerometer.
+		g_fusedGravity = g_lastAccel.normalized();
+		*gravity = g_fusedGravity;
+		return true;
+	}
+
+	// A vector fixed in the world, seen from a device rotating at w, turns the other way: dg/dt = g x w.
+	Lin::Vec3 w(x, y, z);
+	g_fusedGravity += (g_fusedGravity % w) * (float)dt;
+
+	// Pull toward the accelerometer with time constant tau. The accelerometer only measures gravity
+	// when it reads about 1g, otherwise it's mostly the player shaking the device, so trust it less.
+	const float tau = 0.5f;
+	const float standardGravity = 9.81f;
+	float accelLength = g_lastAccel.length();
+	float trust = Clamp(1.0f - fabsf(accelLength - standardGravity) / (0.5f * standardGravity), 0.0f, 1.0f);
+	float alpha = trust * (float)dt / (tau + (float)dt);
+	g_fusedGravity = g_fusedGravity.normalized().lerp(g_lastAccel / accelLength, alpha).normalized();
+
+	*gravity = g_fusedGravity;
+	return true;
+}
+
+bool GyroActive() {
+	return g_seenGyro && time_now_d() - g_lastGyroArrival < 0.2;
+}
+
+bool HasSeenGyro() {
+	return g_seenGyro;
 }
 
 void ResetTiltEvents() {

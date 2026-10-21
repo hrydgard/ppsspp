@@ -100,6 +100,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// For accelerometer sensing.
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
+	private Sensor mGyroscope;
 
 	private String shortcutParam = "";
 	private static String overrideShortcutParam = null;
@@ -724,6 +725,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+		mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
 
 		surfaceManager = new NativeSurfaceManager(this);
 		TextRenderer.init(this);
@@ -999,6 +1001,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		mSensorManager = null;
 		mAccelerometer = null;
+		mGyroscope = null;
 
 		// Probably vain attempt to help the garbage collector...
 		audioFocusChangeListener = null;
@@ -1065,6 +1068,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+		if (mGyroscope != null) {
+			mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
+		}
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.registerInputDeviceListener(inputDeviceListener, null);
@@ -1151,11 +1157,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@Override
 	public void onSensorChanged(SensorEvent event) {
-		if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER) {
-			return;
+		switch (event.sensor.getType()) {
+		case Sensor.TYPE_ACCELEROMETER:
+			NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
+			break;
+		case Sensor.TYPE_GYROSCOPE:
+			NativeApp.gyroscope(event.values[0], event.values[1], event.values[2], event.timestamp);
+			break;
 		}
-		// Can also look at event.timestamp for accuracy magic
-		NativeApp.accelerometer(event.values[0], event.values[1], event.values[2]);
 	}
 
 	@Override

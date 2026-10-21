@@ -113,6 +113,9 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 			RecreateViews();
 		});
 	typeChoice->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+	if (TiltEventProcessor::HasSeenGyro()) {
+		settings->Add(new CheckBox(&g_Config.bTiltUseGyro, co->T("Use gyroscope")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+	}
 	settings->Add(new ItemHeader(co->T("Calibration")));
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);

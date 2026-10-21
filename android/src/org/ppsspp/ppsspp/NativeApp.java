@@ -65,6 +65,7 @@ public class NativeApp {
 	public static native void touch(float x, float y, int data, int pointerId);
 
 	public static native void accelerometer(float x, float y, float z);
+	public static native void gyroscope(float x, float y, float z, long timestampNs);
 
 	public static native void mouse(float x, float y, int button, int action);
 	public static native void mouseDelta(float x, float y);

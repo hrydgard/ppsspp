@@ -67,6 +67,8 @@ void NativeTouch(const TouchInput &touch);
 bool NativeKey(const KeyInput &key);
 void NativeAxis(const AxisInput *axis, size_t count);
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ);
+// Angular rates in rad/s around the NativeAccelerometer axes. The timestamp is in seconds, on any clock (only deltas are used).
+void NativeGyroscope(float x, float y, float z, double timestamp);
 void NativeMouseDelta(float dx, float dy);
 KeyModifier NativeGetKeyModifiers();  // TODO: Move this to input handling somewhere? But don't want it in each backend...
 

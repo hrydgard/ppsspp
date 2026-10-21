@@ -1802,13 +1802,7 @@ void NativeMouseDelta(float dx, float dy) {
 	SendMouseDeltaAxis();
 }
 
-// TODO: Should include a device ID here, since accelerometers can be on pads for example (DualSense).
-void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
-	if (g_Config.iTiltInputType == TILT_NULL) {
-		// if tilt events are disabled, don't do anything special.
-		return;
-	}
-
+static void ProcessTiltVector(float tiltX, float tiltY, float tiltZ) {
 	// create the base coordinate tilt system from the calibration data.
 	float tiltBaseAngleY = g_Config.fTiltBaseAngleY;
 
@@ -1829,10 +1823,35 @@ void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
 	TiltEventProcessor::ProcessTilt(landscape, tiltBaseAngleY, tiltX, tiltY, tiltZ,
 		g_Config.bInvertTiltX, g_Config.bInvertTiltY,
 		xSensitivity, ySensitivity);
+}
+
+// TODO: Should include a device ID here, since accelerometers can be on pads for example (DualSense).
+void NativeAccelerometer(float tiltX, float tiltY, float tiltZ) {
+	if (g_Config.iTiltInputType == TILT_NULL) {
+		// if tilt events are disabled, don't do anything special.
+		return;
+	}
+
+	TiltEventProcessor::ProcessAccelerometerForFusion(tiltX, tiltY, tiltZ);
+	// When there's a gyro, its events drive tilt instead.
+	if (!g_Config.bTiltUseGyro || !TiltEventProcessor::GyroActive()) {
+		ProcessTiltVector(tiltX, tiltY, tiltZ);
+	}
 
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_X] = tiltX;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Y] = tiltY;
 	HLEPlugins::PluginDataAxis[JOYSTICK_AXIS_ACCELEROMETER_Z] = tiltZ;
+}
+
+void NativeGyroscope(float x, float y, float z, double timestamp) {
+	if (g_Config.iTiltInputType == TILT_NULL) {
+		return;
+	}
+
+	Lin::Vec3 gravity;
+	if (TiltEventProcessor::ProcessGyro(x, y, z, timestamp, &gravity) && g_Config.bTiltUseGyro) {
+		ProcessTiltVector(gravity.x, gravity.y, gravity.z);
+	}
 }
 
 void System_PostUIMessage(UIMessage message, std::string_view param) {

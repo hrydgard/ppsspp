@@ -1265,6 +1265,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 	NativeAccelerometer(x, y, z);
 }
 
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_gyroscope(JNIEnv *, jclass, float x, float y, float z, jlong timestampNs) {
+	if (!renderer_inited)
+		return;
+	NativeGyroscope(x, y, z, (double)timestampNs * 1e-9);
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring jmessage, jstring jparam) {
 	std::string msg = GetJavaString(env, jmessage);
 	std::string prm = GetJavaString(env, jparam);
