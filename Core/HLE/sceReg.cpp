@@ -8,6 +8,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 
 #define SYSTEM_REGISTRY "/system"
 #define REG_KEYNAME_SIZE 27
@@ -58,6 +59,9 @@ struct KeyValue {
 	const char *strValue;  // also can be used for bin. Note: can't be std::string/string_view, will cut off the length.
 	int intValue;
 	const KeyValue *dirContents;  // intValue is the count.
+	// If set, an INT key reads this setting (as 0 or 1), even after the guest writes it: the VSH
+	// rewrites every key with its default at each boot, since category_version is below its schema.
+	const bool *boolSetting = nullptr;
 };
 
 // Guest-written registry values (sceRegCreateKey / sceRegSetKeyValue), keyed by category path
@@ -764,7 +768,7 @@ static const KeyValue tree_CONFIG_SYSTEM_CHARACTER_SET[] = {
 static const KeyValue tree_CONFIG_SYSTEM[] = {
 	{ "owner_name", ValueType::STR, "P939", 5 },
 	{ "backlight_brightness", ValueType::INT, "", (int)0x3 },  // decimal: 3
-	{ "umd_autoboot", ValueType::INT, "", (int)0x1 },  // decimal: 1
+	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, &g_Config.bVshUmdAutoboot },  // decimal: 1
 	{ "usb_charge", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "umd_cache", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "usb_auto_connect", ValueType::INT, "", (int)0x1 },  // decimal: 1
@@ -1087,6 +1091,12 @@ static const MergedCategory &GetMergedCategory(const std::string &path) {
 				kv.intValue = value.intValue;
 				merged.keyvals.push_back(kv);
 			}
+		}
+	}
+
+	for (auto &kv : merged.keyvals) {
+		if (kv.boolSetting) {
+			kv.intValue = *kv.boolSetting ? 1 : 0;
 		}
 	}
 
