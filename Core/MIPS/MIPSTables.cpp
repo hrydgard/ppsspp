@@ -1192,7 +1192,7 @@ struct IRBlockState {
 // The instruction after the branch at pc, as this CPU sees it. The Media Engine's code can be where
 // the main CPU has no memory.
 static MIPSOpcode ReadDelaySlot(const MIPSState *mips, u32 pc) {
-	if (!mips->space->IsMediaEngine()) {
+	if (!mips->IsMediaEngine()) {
 		return Memory::Read_Instruction(pc + 4);
 	}
 	if (!mips->space->IsValid4AlignedAddress(pc + 4)) {

@@ -381,6 +381,10 @@ void MIPSState::InitRegisters() {
 
 const float vfpuPrefixConstants[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
 
+bool MIPSState::IsMediaEngine() const {
+	return space && space->IsMediaEngine();
+}
+
 bool MIPSState::HasDefaultPrefix() const {
 	return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
 }

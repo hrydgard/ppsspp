@@ -104,7 +104,7 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 // Hardware registers, for kernel code only.
 static u32 ReadMMIO(MIPSState *mips, u32 addr, int size) {
 	// The Media Engine always runs in kernel mode.
-	if (!mips->space->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
+	if (!mips->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
 		return MMIO::UNHANDLED_READ;
 	}
@@ -112,7 +112,7 @@ static u32 ReadMMIO(MIPSState *mips, u32 addr, int size) {
 }
 
 static void WriteMMIO(MIPSState *mips, u32 addr, int size, u32 value) {
-	if (!mips->space->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
+	if (!mips->IsMediaEngine() && !Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
 		return;
 	}
@@ -182,7 +182,7 @@ namespace MIPSInt {
 	}
 
 	void Int_Syscall(MIPSState *mips, MIPSOpcode op) {
-		if (mips->space->IsMediaEngine()) {
+		if (mips->IsMediaEngine()) {
 			// There's no HLE on the ME. TODO: Its exception vector.
 			ERROR_LOG(Log::ME, "syscall on the Media Engine at %08x", mips->pc);
 			Core_ExecException(mips->pc, mips->pc, ExecExceptionType::ILLEGAL);
@@ -758,7 +758,7 @@ namespace MIPSInt {
 				// still not real COP0 semantics (no Compare-triggered interrupt), just a
 				// closer approximation. See docs/VSHBootInvestigation.md "Attempt 9".
 				if (rd == 9)
-					R(rt) = (u32)(mips->space->IsMediaEngine() ? MeCore::GetTicks() : CoreTiming::GetTicks(mips));
+					R(rt) = (u32)(mips->IsMediaEngine() ? MeCore::GetTicks() : CoreTiming::GetTicks(mips));
 				else
 					R(rt) = mips->cop0[rd];
 			}
@@ -1046,13 +1046,13 @@ namespace MIPSInt {
 		int rt = _RT;
 		switch (op & 0x3F) {
 		case 36:  // mfic
-			if (rt != 0 && mips->space->IsMediaEngine())
+			if (rt != 0 && mips->IsMediaEngine())
 				R(rt) = MeCore::g_meState->interruptEnable;
 			else if (rt != 0)
 				R(rt) = __InterruptsEnabled() ? 1 : 0;
 			break;
 		case 38:  // mtic
-			if (mips->space->IsMediaEngine()) {
+			if (mips->IsMediaEngine()) {
 				MeCore::g_meState->interruptEnable = R(rt) & 1;
 				break;
 			}
