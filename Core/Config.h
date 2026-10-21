@@ -594,6 +594,8 @@ public:
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
+	// /CONFIG/SYSTEM/umd_autoboot: whether the VSH starts an inserted disc by itself.
+	bool bVshUmdAutoboot;
 
 	// Networking
 	bool bEnableAdhocServer;

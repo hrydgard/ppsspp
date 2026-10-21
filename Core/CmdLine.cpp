@@ -226,7 +226,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(timeoutWall), CmdParamType::Double, "timeout", '\0', "Alias for --timeout-wall", CmdLineMode::Headless},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
-	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1:", CmdLineMode::Headless},
+	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1: when booting an ELF/PBP or --vsh"},
 	{POFF(unpackUpdater), CmdParamType::String, "unpack-updater", '\0', "Unpack the firmware in an updater EBOOT.PBP into DIR and exit", CmdLineMode::Headless},
 	{POFF(unpackUpdaterModel), CmdParamType::String, "unpack-updater-model", '\0', "PSP model to unpack for (01g..12g, default any)", CmdLineMode::Headless},
 	{POFF(unpackUpdaterFilter), CmdParamType::String, "unpack-updater-filter", '\0', "Only unpack entries under this path, e.g. flash0:/font/", CmdLineMode::Headless},

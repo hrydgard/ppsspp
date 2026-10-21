@@ -411,6 +411,7 @@ std::thread *graphicsLoadThread;
 
 // globals
 Path boot_filename;
+Path boot_mountIso;
 
 // This is called before NativeInit so we do a little bit of initialization here.
 void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, bool *landscape, std::string *version) {
@@ -701,6 +702,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
 		boot_filename = g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 	}
+	boot_mountIso = cmdLineOptions.mountIso.has_value() ? Path(cmdLineOptions.mountIso.value()) : Path();
 
 	if (cmdLineOptions.appendConfig.has_value()) {
 		g_Config.SetAppendedConfigIni(Path(cmdLineOptions.appendConfig.value()));
@@ -833,7 +835,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
-		g_screenManager->switchScreen(new EmuScreen(boot_filename));
+		g_screenManager->switchScreen(new EmuScreen(boot_filename, boot_mountIso));
 	} else {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 	}
