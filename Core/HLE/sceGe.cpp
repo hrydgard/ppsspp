@@ -40,6 +40,7 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 
 static const int LIST_ID_MAGIC = 0x35000000;
 
@@ -495,6 +496,14 @@ static u32 sceGeDrawSync(u32 mode) {
 		const u32 fb = 0x04000000 | gstate.getFrameBufRawAddress();
 		if (fb == 0x04000000 || fb == 0x04080000) {
 			gpu->PerformReadbackToMemory(fb, 0x00044000);
+		}
+	}
+	if (mode == 0 && PSP_CoreParameter().compat.flags().DrawSyncReadbackRenderTarget) {
+		// The game reads what it just drew from VRAM after this. By then FRAMEBUFPTR may already
+		// point back at the display buffer, so read back the target the draws went to instead.
+		FramebufferManagerCommon *framebufferManager = gpu->GetFramebufferManagerCommon();
+		if (framebufferManager) {
+			framebufferManager->ReadbackCurrentRenderTarget();
 		}
 	}
 	return hleLogDebug(Log::sceGe, result);

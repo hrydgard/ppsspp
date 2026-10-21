@@ -1135,6 +1135,15 @@ bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFrame
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
 
+void FramebufferManagerCommon::ReadbackCurrentRenderTarget() {
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb || vfb->memoryUpdated) {
+		return;
+	}
+	ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+	vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD | FB_USAGE_FIRST_FRAME_SAVED) & ~FB_USAGE_DOWNLOAD_CLEAR;
+}
+
 bool FramebufferManagerCommon::ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb) {
 	// Download depth buffer if compat flag set (previously used for Syphon Filter lens flares, now used for nothing)
 	if (!PSP_CoreParameter().compat.flags().ReadbackDepth || GetSkipGPUReadbackMode() != SkipGPUReadbackMode::NO_SKIP) {

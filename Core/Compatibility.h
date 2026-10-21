@@ -124,6 +124,7 @@ struct CompatFlags {
 	bool AccurateSplines;
 	bool ReadbackShadow;
 	bool ColorPickingDrawSyncReadback;
+	bool DrawSyncReadbackRenderTarget;
 };
 
 struct VRCompat {
