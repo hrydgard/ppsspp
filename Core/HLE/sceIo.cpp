@@ -1623,6 +1623,15 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 		info.exists = true;
 
 		isTTY = true;
+	} else if (startsWithNoCase(filename, "msstor")) {
+		// The memory stick's raw block device. Nothing reads through it yet: the VSH's Saved Data
+		// Utility opens it only to ask (sceIoIoctl 0x02125008/9) whether a stick is in and writable,
+		// so a node with nothing behind it does, as for tty0:.
+		info.name = filename;
+		info.access = 0777;
+		info.exists = true;
+
+		isTTY = true;
 	} else {
 		h = pspFileSystem.OpenFile(filename, (FileAccess)(access | (int)FileAccess::FILEACCESS_PPSSPP_QUIET));
 		if (h < 0) {
@@ -1695,13 +1704,23 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 			// These are fast to open, no delay or even rescheduling happens.
 			return hleLogDebug(Log::sceIo, id);
 		}
+		if (startsWithNoCase(filename, "msstor")) {
+			// Nor does the memory stick's raw device (pspautotests io/msstor/msstor).
+			return hleLogDebug(Log::sceIo, id);
+		}
 		return hleDelayResult(hleLogDebug(Log::sceIo, id), "file opened", __IoOpenDelayUs(filename));
 	}
 }
 
 static u32 sceIoClose(int id) {
 	u32 error;
+	// Closing the memory stick's raw device doesn't reschedule (pspautotests io/msstor/msstor).
+	FileNode *f = __IoGetFd(id, error);
+	const bool rawMemstick = f && startsWithNoCase(f->fullpath, "msstor");
 	__IoFreeFd(id, error);
+	if (rawMemstick) {
+		return hleLogDebug(Log::sceIo, error);
+	}
 	// Timing is not accurate, aiming low for now.
 	return hleDelayResult(hleLogDebug(Log::sceIo, error), "file closed", 100);
 }
@@ -1747,6 +1766,22 @@ struct DeviceSize {
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
 		DEBUG_LOG(Log::sceIo,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+	}
+
+	// The memory stick's raw device (see sceIoIoctl). 0x02125802 is the stick's type code, from
+	// msstor.prx's devctl handler (6.61, 08002988): a PSP with its stick answers 0x40 (pspautotests
+	// io/msstor/msstor), which the VSH's Saved Data Utility checks against 0x11 and 0x41.
+	// 0x02125801 copies 5 bytes of the stick's state (08002920), which we don't know; only its size
+	// check is here.
+	if (startsWithNoCase(name, "msstor") && cmd == 0x02125801 && (!Memory::IsValidRange(outPtr, 5) || outLen < 5)) {
+		return hleLogError(Log::sceIo, SCE_ERROR_MSSTOR_BAD_PARAMS, "bad output buffer");
+	}
+	if (startsWithNoCase(name, "msstor") && cmd == 0x02125802) {
+		if (!Memory::IsValidRange(outPtr, 4) || outLen < 4) {
+			return hleLogError(Log::sceIo, SCE_ERROR_MSSTOR_BAD_PARAMS, "bad output buffer");
+		}
+		Memory::WriteUnchecked_U32(0x40, outPtr);
+		return hleLogDebug(Log::sceIo, 0, "stick type 40");
 	}
 
 	// UMD checks
@@ -2954,6 +2989,23 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		}
 		break;
+
+	// The memory stick's raw device, from msstor.prx's ioctl handler (6.61, 08001620). Both read the
+	// same two state words: 0x02125008 gives 1 when a medium is in and the second isn't 1, and
+	// 0x02125009 gives 1 when it is (write protected, as far as we can tell). A Memory Stick Duo has
+	// no lock switch, so: in, and writable.
+	case 0x02125008:
+	case 0x02125009:
+		// It only reads the driver's state, without rescheduling (pspautotests io/msstor/msstor).
+		usec = 0;
+		if (!startsWithNoCase(f->fullpath, "msstor")) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED, "msstor ioctl on %s", f->fullpath.c_str());
+		}
+		if (!Memory::IsValidRange(outdataPtr, 4) || outlen < 4) {
+			return SCE_ERROR_MSSTOR_BAD_PARAMS;
+		}
+		Memory::WriteUnchecked_U32(cmd == 0x02125008 ? 1 : 0, outdataPtr);
+		return 0;
 
 	default:
 		{

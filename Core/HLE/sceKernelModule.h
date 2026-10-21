@@ -244,6 +244,9 @@ bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::st
 bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string);
 // The VSH (the XMB) is what's running, not a game it launched.
 bool __KernelIsRunningVSH();
+// What sceKernelExitGame does in a game the XMB launched, as on a PSP: back to the XMB. False if this
+// session didn't start in the XMB.
+bool __KernelExitToVSH(MIPSState *mips);
 // Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.
 SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr);
 bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string);

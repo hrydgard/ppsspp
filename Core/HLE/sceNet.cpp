@@ -1855,6 +1855,16 @@ const HLEFunction sceNetApctl[] = {
 	{0X756E6F10, &WrapV_V<__NetApctlCallbacks>,                 "__NetApctlCallbacks",             'v', ""     },
 };
 
+// The same functions as pspnet_apctl.prx exports them to the VSH (its netconf plugin, which the
+// browser and the online manuals start with).
+const HLEFunction sceNetApctl_lib[] = {
+	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
+	{0XE11BAFAB, &WrapI_U<sceNetApctlDelInternalHandler>,       "sceNetApctlDelInternalHandler",   'i', "x"    },
+	{0XB3CF6849, &WrapI_V<sceNetApctlScan>,                     "sceNetApctlScan",                 'i', ""     },
+	{0X0C7FFA5C, &WrapI_UU<sceNetApctlGetBSSDescIDList>,        "sceNetApctlGetBSSDescIDList",     'i', "xx"   },
+	{0X96BEB231, &WrapI_IIU<sceNetApctlGetBSSDescEntry>,        "sceNetApctlGetBSSDescEntry",      'i', "iix"  },
+};
+
 const HLEFunction sceWlanDrv[] = {
 	{0XD7763699, &WrapU_V<sceWlanGetSwitchState>,    "sceWlanGetSwitchState",           'x', ""     },
 	{0X0C622081, &WrapU_U<sceWlanGetEtherAddr>,      "sceWlanGetEtherAddr",             'x', "x"    },
@@ -1881,6 +1891,10 @@ void Register_sceNet() {
 
 void Register_sceNetApctl() {
 	RegisterHLEModule("sceNetApctl", ARRAY_SIZE(sceNetApctl), sceNetApctl);
+}
+
+void Register_sceNetApctl_lib() {
+	RegisterHLEModule("sceNetApctl_lib", ARRAY_SIZE(sceNetApctl_lib), sceNetApctl_lib);
 }
 
 void Register_sceWlanDrv() {

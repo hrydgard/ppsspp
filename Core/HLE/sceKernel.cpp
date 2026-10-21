@@ -355,6 +355,10 @@ std::string __KernelStateSummary() {
 
 void sceKernelExitGame() {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGame");
+	if (__KernelExitToVSH(currentMIPS)) {
+		hleNoLogVoid();
+		return;
+	}
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 
@@ -365,6 +369,10 @@ void sceKernelExitGame() {
 void sceKernelExitGameWithStatus()
 {
 	INFO_LOG(Log::sceKernel, "sceKernelExitGameWithStatus");
+	if (__KernelExitToVSH(currentMIPS)) {
+		hleNoLogVoid();
+		return;
+	}
 	__KernelSwitchOffThread("game exited");
 	Core_Stop();
 

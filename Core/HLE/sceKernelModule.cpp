@@ -541,6 +541,9 @@ u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 
 // Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;
+// What the XMB passed as vshmain args when it launched the running game, to hand back on exit.
+// Survives the kernel reset that LoadExec does, so it isn't cleared with the rest of this file's state.
+static std::vector<u8> g_vshmainArgs;
 
 bool __KernelIsRunningVSH() {
 	return g_runningVSH;
@@ -2471,7 +2474,7 @@ void __KernelLoadReset() {
 // Shared by __KernelLoadExec (loading from a file) and __KernelLoadExecFromBuffer (loading
 // from a buffer already in RAM, as used by the VSH's USB/WLAN game-push feature) - everything
 // past the point where we have the executable's bytes in hand.
-static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t size, const char *filename, u32 paramPtr, std::string *error_string) {
+static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t size, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs = nullptr) {
 	SceKernelLoadExecParam param{};
 
 	auto paramData = PSPPointer<SceKernelLoadExecParam>::Create(paramPtr);
@@ -2482,7 +2485,11 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 
 	u8 *param_argp = nullptr;
 	u8 *param_key = nullptr;
-	if (param.args > 0) {
+	if (hostArgs) {
+		param.args = (u32)hostArgs->size();
+		param_argp = new u8[param.args];
+		memcpy(param_argp, hostArgs->data(), param.args);
+	} else if (param.args > 0) {
 		u32 argpAddr = param.argp;
 		param_argp = new u8[param.args];
 		Memory::Memcpy(param_argp, argpAddr, param.args, "KernelLoadParam");
@@ -2547,7 +2554,7 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 	}
 
 	INFO_LOG(Log::System, "Starting modules...");
-	if (paramPtr)
+	if (paramPtr || hostArgs)
 		__KernelStartModule(module, param.args, (const char*)param_argp, &option);
 	else
 		__KernelStartModule(module, (u32)strlen(filename) + 1, filename, &option);
@@ -2667,8 +2674,23 @@ int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 	}
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
+	if (g_runningVSH) {
+		// The XMB launching something: keep its vshmain args for when it comes back.
+		g_vshmainArgs.clear();
+		auto vshParam = PSPPointer<SceKernelLoadExecVSHParam>::Create(paramPtr);
+		if (vshParam.IsValid() && vshParam->size >= offsetof(SceKernelLoadExecVSHParam, vshmainArgs) + 4 &&
+			vshParam->vshmainArgsSize != 0 && Memory::IsValidRange(vshParam->vshmainArgs, vshParam->vshmainArgsSize)) {
+			const u8 *args = Memory::GetPointerUnchecked(vshParam->vshmainArgs);
+			g_vshmainArgs.assign(args, args + vshParam->vshmainArgsSize);
+		}
+		INFO_LOG(Log::sceModule, "Keeping %d bytes of vshmain args", (int)g_vshmainArgs.size());
+	}
 	std::string error_string;
 	if (!__KernelLoadExec(mips, exec_filename.c_str(), paramPtr, &error_string)) {
+		// The old program is gone by now. A game the XMB couldn't start goes back to the XMB.
+		if (__KernelExitToVSH(mips)) {
+			return hleLogError(Log::sceModule, 0, "failed: %s, back to the VSH", error_string.c_str());
+		}
 		Core_HLEError("sceKernelLoadExec failed: " + error_string);
 		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
@@ -2676,6 +2698,39 @@ int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 		gpu->Reinitialize();
 	}
 	return hleLogDebug(Log::sceModule, 0);
+}
+
+bool __KernelExitToVSH(MIPSState *mips) {
+	// A session that started in the XMB, running a game it launched. The XMB itself exiting (power
+	// off) still ends the session.
+	if (PSP_CoreParameter().fileToStart.GetFilename() != "vshmain.prx" || g_runningVSH) {
+		return false;
+	}
+	std::string error_string;
+	const char *vshmain = "flash0:/vsh/module/vshmain.prx";
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(vshmain, fileData) < 0) {
+		ERROR_LOG(Log::sceModule, "Couldn't return to the VSH: no %s", vshmain);
+		return false;
+	}
+	// Its args from when it launched the game tell it that it's coming back (and not to auto-start
+	// the disc in the drive, say). vshmain's module_start only takes them (copying them into its
+	// state) when they're 0x20 or 0x400 bytes and start with that size and then 0x20, which it
+	// doesn't write itself.
+	std::vector<u8> args = g_vshmainArgs;
+	if (args.size() >= 8) {
+		u32 header[2] = { (u32)args.size(), 0x20 };
+		memcpy(args.data(), header, sizeof(header));
+	}
+	INFO_LOG(Log::sceModule, "Back to the VSH with %d bytes of vshmain args", (int)args.size());
+	if (!__KernelLoadExecFromPtr(mips, fileData.data(), fileData.size(), vshmain, 0, &error_string, args.empty() ? nullptr : &args)) {
+		ERROR_LOG(Log::sceModule, "Couldn't return to the VSH: %s", error_string.c_str());
+		return false;
+	}
+	if (gpu) {
+		gpu->Reinitialize();
+	}
+	return true;
 }
 
 static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
