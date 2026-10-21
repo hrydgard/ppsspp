@@ -371,10 +371,6 @@ bool GyroActive() {
 	return g_seenGyro && time_now_d() - g_lastGyroArrival < 0.2;
 }
 
-bool HasSeenGyro() {
-	return g_seenGyro;
-}
-
 void ResetTiltEvents() {
 	// Reset the buttons we have marked pressed.
 	__CtrlUpdateButtons(0, tiltButtonsDown);

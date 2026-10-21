@@ -16,8 +16,6 @@ void ProcessAccelerometerForFusion(float x, float y, float z);
 bool ProcessGyro(float x, float y, float z, double timestamp, Lin::Vec3 *gravity);
 // True if gyro data arrived recently, in which case the accelerometer shouldn't drive tilt directly.
 bool GyroActive();
-// Whether we've ever seen gyro data, to decide whether to show the gyro setting.
-bool HasSeenGyro();
 
 float GetCurrentYAngle();
 

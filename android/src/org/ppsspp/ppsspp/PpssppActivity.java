@@ -726,6 +726,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+		String sensors = (mAccelerometer != null ? "1" : "0") + ":" + (mGyroscope != null ? "1" : "0");
+		Log.i(TAG, "Sensors (accelerometer:gyro): " + sensors);
+		NativeApp.sendMessageFromJava("sensors", sensors);
 
 		surfaceManager = new NativeSurfaceManager(this);
 		TextRenderer.init(this);
@@ -1067,7 +1070,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			NativeApp.resume();
 		}
 		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+		if (mAccelerometer != null) {
+			mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+		}
 		if (mGyroscope != null) {
 			mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
 		}

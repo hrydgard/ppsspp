@@ -22,6 +22,7 @@
 
 #include "Common/Math/math_util.h"
 #include "Common/Log.h"
+#include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
@@ -113,7 +114,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 			RecreateViews();
 		});
 	typeChoice->SetEnabledPtr(&g_Config.bTiltInputEnabled);
-	if (TiltEventProcessor::HasSeenGyro()) {
+	if (System_GetPropertyBool(SYSPROP_HAS_GYRO)) {
 		settings->Add(new CheckBox(&g_Config.bTiltUseGyro, co->T("Use gyroscope")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	}
 	settings->Add(new ItemHeader(co->T("Calibration")));
