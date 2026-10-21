@@ -381,6 +381,7 @@ enum PSPErrorCode : u32 {
 	SCE_ERROR_UMD_NOT_READY                           = 0x80210001,
 
 	SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS              = 0x80220081,
+	SCE_ERROR_MSSTOR_BAD_PARAMS                       = 0x80220183,  // msstor.prx's ioctls, for a bad output buffer
 	SCE_ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS      = 0x80220082,
 
 	SCE_ERROR_PGD_INVALID_HEADER                      = 0x80510204,
