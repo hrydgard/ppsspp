@@ -758,7 +758,10 @@ bool TestMeCore() {
 
 	// Saved and loaded.
 	struct State {
-		void DoState(PointerWrap &p) { MeCore::DoState(p); }
+		void DoState(PointerWrap &p) {
+			CoreTiming::DoState(p);
+			MeCore::DoState(p);
+		}
 	} state;
 	std::vector<u8> saved;
 	me->cpu.space->WriteUnchecked_U32(0xCAFE0001, 0x80001000);
@@ -777,6 +780,114 @@ bool TestMeCore() {
 	const u32 stopped = counter();
 	MeCore::RunFor(1000);
 	EXPECT_EQ_INT(counter(), stopped);
+
+	MeCore::Shutdown();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
+// The main CPU releases the ME, which waits in halt for the main CPU's soft interrupt, and answers
+// each one with its own.
+bool TestMeInterrupts() {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	MeCore::MEState *me = MeCore::g_meState;
+
+	auto assemble = [&](u32 addr, const std::vector<const char *> &lines) {
+		for (const char *line : lines) {
+			std::string error;
+			if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+				printf("ERROR: %s: %s\n", line, error.c_str());
+				success = false;
+			}
+			addr += 4;
+		}
+	};
+	// Shared RAM, which the ME runs from too.
+	const u32 code = 0x08900000;
+	assemble(code, {
+		"lui k0, 0x0890",
+		"addiu k0, k0, 0x100",
+		"mtc0 k0, $25",          // EBase: the handler
+		"lui k1, 0xBC30",
+		"lui k0, 0x8000",
+		"sw k0, 8(k1)",          // the soft interrupt reaches the ME
+		"ori k0, zero, 0x401",
+		"mtc0 k0, $12",          // IM2, IE
+		"nop",
+		"nop",                   // 0x08900024: halt, which armips doesn't know
+		"j 0x08900024",
+		"nop",
+	});
+	assemble(code + 0x100, {
+		"lui k1, 0xBC30",
+		"lui k0, 0x8000",
+		"sw k0, 0(k1)",          // acknowledged
+		"lui k1, 0x0890",
+		"lw k0, 0x200(k1)",
+		"addiu k0, k0, 1",
+		"sw k0, 0x200(k1)",
+		"lui k1, 0xBC10",
+		"ori k0, zero, 1",
+		"sw k0, 0x44(k1)",       // interrupts the main CPU
+		"eret",
+	});
+	Memory::WriteUnchecked_U32(0x70000000, code + 0x24);
+	// From the reset vector's 0x40.
+	u8 *page = Memory::GetBootPage();
+	const u32 jump[] = { MIPS_MAKE_LUI(MIPS_REG_T0, 0x0890), 0x01000008 /* jr t0 */, MIPS_MAKE_NOP() };
+	memcpy(page + 0x40, jump, sizeof(jump));
+	auto counter = [&]() { return Memory::ReadUnchecked_U32(code + 0x200); };
+
+	MMIO::Write(&mipsr4k, 0xBC10004C, 4, 0x04);
+	MMIO::Write(&mipsr4k, 0xBC10004C, 4, 0x00);
+	EXPECT_FALSE(me->inReset);
+	MeCore::RunFor(2000);
+	EXPECT_TRUE(me->halted);
+	EXPECT_EQ_HEX(me->cpu.pc, code + 0x28);
+	EXPECT_EQ_INT(counter(), 0);
+
+	for (int i = 1; i <= 2; ++i) {
+		MMIO::Write(&mipsr4k, 0xBC100044, 4, 1);
+		MeCore::RunFor(2000);
+		EXPECT_EQ_INT(counter(), i);
+		EXPECT_TRUE(me->halted);
+		EXPECT_EQ_HEX(me->intcRaised, 0);
+		EXPECT_EQ_HEX(me->cpu.cop0[12] & 2, 0);
+	}
+	EXPECT_TRUE(CoreTiming::GetScheduledEventsSummary().find("MeIntr") != std::string::npos);
+
+	// The mutex: each CPU only gets it while the other doesn't have it.
+	MMIO::Write(&mipsr4k, 0xBC100048, 4, 1);
+	MMIO::Write(&me->cpu, 0xBC100048, 4, 2);
+	EXPECT_EQ_HEX(MMIO::Read(&me->cpu, 0xBC100048, 4), 1);
+	MMIO::Write(&mipsr4k, 0xBC100048, 4, 0);
+	MMIO::Write(&me->cpu, 0xBC100048, 4, 2);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC100048, 4), 2);
+
+	// The main CPU has its own interrupt controller at the same address.
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC300008, 4), MMIO::UNHANDLED_READ);
+	EXPECT_EQ_HEX(MMIO::Read(&me->cpu, 0xBC300008, 4), 0x80000000);
+
+	// Count doesn't run on the ME.
+	MeCore::WriteCop0(9, 1234);
+	MeCore::RunFor(1000);
+	EXPECT_EQ_INT(MeCore::ReadCop0(9), 1234);
+	EXPECT_TRUE(me->halted);
+
+	// Reset again.
+	MMIO::Write(&mipsr4k, 0xBC10004C, 4, 0x04);
+	EXPECT_TRUE(me->inReset);
 
 	MeCore::Shutdown();
 	MMIO::Shutdown();

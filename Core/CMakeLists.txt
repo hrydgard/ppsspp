@@ -578,6 +578,8 @@ add_library(Core STATIC
 	HW/Display.h
 	HW/GpioMMIO.cpp
 	HW/GpioMMIO.h
+	HW/MeMMIO.cpp
+	HW/MeMMIO.h
 	HW/MMIO.cpp
 	HW/MMIO.h
 	HW/AvcDecoder.cpp

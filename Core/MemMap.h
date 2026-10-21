@@ -372,10 +372,10 @@ struct AddressSpace {
 
 extern AddressSpace g_mainSpace;
 
-// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), the
-// boot page, and the main CPU's RAM and VRAM, the same host pages as in g_mainSpace. Returns null if
-// this platform can't map memory twice. Only for a boot that runs the ME; Shutdown() (and so Reinit())
-// destroys it.
+// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), its
+// own memory where the main CPU has VRAM, the boot page, and the main CPU's RAM, the same host pages
+// as in g_mainSpace. Returns null if this platform can't map memory twice. Only for a boot that runs
+// the ME; Shutdown() (and so Reinit()) destroys it.
 AddressSpace *CreateMESpace();
 void DestroyMESpace();
 
@@ -584,6 +584,17 @@ inline bool IsValidTextureAddress(const u32 address) {
 inline bool IsKernelCodeAddress(u32 address) {
 	address &= 0x3FFFFFFF;
 	return ((address & 0x0F800003) == 0x08000000) && address >= 0x08000100;
+}
+
+// Homebrew that runs the Media Engine calls its own code in kernel mode, through a kernel module of
+// its own ("kcall"), so while the ME is emulated any code may access hardware registers.
+// HACK: This makes every block check its computed-address loads and stores for hardware registers.
+// Kernel mode should be part of the CPU's state instead, switched on while a kernel module's export
+// runs, with blocks checking that they were compiled for the mode they run in.
+extern bool g_kernelModeAnywhere;
+
+inline bool MayRunInKernelMode(u32 pc) {
+	return g_kernelModeAnywhere || IsKernelCodeAddress(pc);
 }
 
 // I believe this is the same, but let's keep a separate function.

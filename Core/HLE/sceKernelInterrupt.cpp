@@ -30,6 +30,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/sceKernel.h"
@@ -132,6 +133,19 @@ static void sceKernelCpuResumeIntrWithSync(u32 enable)
 
 bool IntrHandler::run(PendingInterrupt& pend)
 {
+	if (pend.subintr == PSP_INTR_SUB_NONE) {
+		if (!baseEnabled_ || baseHandler_ == 0 || baseHandler_ == FIRMWARE_HANDLER) {
+			return false;
+		}
+		// As interruptman calls it (6.61): the interrupt, the arg, the interrupted pc.
+		DEBUG_LOG(Log::CPU, "Entering base interrupt handler %08x", baseHandler_);
+		currentMIPS->pc = baseHandler_;
+		currentMIPS->r[MIPS_REG_A0] = intrNumber;
+		currentMIPS->r[MIPS_REG_A1] = baseArg_;
+		currentMIPS->r[MIPS_REG_A2] = intState.savedCpu.pc;
+		return true;
+	}
+
 	SubIntrHandler *handler = get(pend.subintr);
 	if (!handler) {
 		WARN_LOG(Log::sceIntc, "Ignoring interrupt, already been released.");
@@ -155,7 +169,16 @@ void IntrHandler::copyArgsToCPU(PendingInterrupt& pend)
 
 void IntrHandler::handleResult(PendingInterrupt& pend)
 {
-	//u32 result = currentMIPS->r[MIPS_REG_V0];
+	if (pend.subintr != PSP_INTR_SUB_NONE)
+		return;
+	// From interruptman (6.61): -1 is done, -2 disables the interrupt, and n >= 0 runs the handler's
+	// own sub-interrupt n, which nothing here registers.
+	const int result = (int)currentMIPS->r[MIPS_REG_V0];
+	if (result == -2) {
+		enableBase(false);
+	} else if (result >= 0) {
+		WARN_LOG(Log::sceIntc, "Base handler for interrupt %d asked for sub-interrupt %d", intrNumber, result);
+	}
 }
 
 SubIntrHandler* IntrHandler::add(int subIntrNum)
@@ -248,6 +271,11 @@ void __InterruptsInit()
 	inInterrupt = false;
 	for (int i = 0; i < (int)ARRAY_SIZE(intrHandlers); ++i)
 		intrHandlers[i] = new IntrHandler(i);
+	if (MeCore::g_meState) {
+		// me_wrapper's, in the firmware.
+		intrHandlers[PSP_MECODEC_INTR]->setBaseHandler(IntrHandler::FIRMWARE_HANDLER, 0);
+		intrHandlers[PSP_MECODEC_INTR]->enableBase(true);
+	}
 	intState.clear();
 	threadBeforeInterrupt = 0;
 }

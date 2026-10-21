@@ -313,7 +313,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	js.hadBreakpoints = false;
 	js.blockWrotePrefixes = false;
 	js.inDelaySlot = false;
-	js.kernelMode = Memory::IsKernelCodeAddress(em_address);
+	js.kernelMode = Memory::MayRunInKernelMode(em_address);
 
 	js.PrefixStart();
 	ir.Clear();

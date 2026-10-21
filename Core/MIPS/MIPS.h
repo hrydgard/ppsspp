@@ -299,6 +299,7 @@ public:
 	}
 
 	bool HasDefaultPrefix() const;
+	bool IsMediaEngine() const;
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);

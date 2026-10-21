@@ -29,14 +29,33 @@ class PointerWrap;
 
 namespace MeCore {
 
+// The ME's interrupt controller's source for the main CPU's soft interrupt (0xBC100044).
+enum : u32 {
+	ME_INTR_SOFT = 0x80000000,
+};
+
 struct MEState {
 	MIPSState cpu;
 	// Held in reset until the main CPU releases it.
 	bool inReset = true;
+	// Stopped by halt, until an interrupt it doesn't mask is raised.
+	bool halted = false;
 	// The ME's clock is tickBase - cpu.downcount.
 	s64 tickBase = 0;
 	// mfic/mtic's interrupt enable, which is per CPU.
 	u32 interruptEnable = 0;
+
+	// Its interrupt controller (0xBC300000): raised sources, and the ones that reach the CPU (IP2).
+	u32 intcRaised = 0;
+	u32 intcEnabled = 0;
+
+	// System registers (0xBC100000): those the ME code we run uses.
+	u32 resetFlags = 0;      // 0x4C. Bit 2 holds the ME in reset.
+	u32 busClock = 0;        // 0x50
+	u32 nmiFlags = 0;        // 0x04
+	u32 ramConfig = 0;       // 0x40. Bits 0-1: RAM size, 16 << n MB.
+	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
+	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
 };
 
 // Null when the ME isn't emulated.
@@ -54,7 +73,17 @@ void DoState(PointerWrap &p);
 void RunFor(int cycles);
 // Asserting reset stops the ME. Releasing it starts the ME at the reset vector.
 void SetReset(bool asserted);
-// Count (COP0 register 9) on the ME.
+// The ME's clock.
 u64 GetTicks();
+
+// COP0 registers with behaviour on the ME: Compare (11), Cause (13).
+u32 ReadCop0(int reg);
+void WriteCop0(int reg, u32 value);
+void Halt();
+
+// Raises sources in the ME's interrupt controller.
+void RaiseInterrupt(u32 sources);
+// The ME interrupts the main CPU (it wrote 0xBC100044).
+void InterruptMainCPU();
 
 }  // namespace MeCore

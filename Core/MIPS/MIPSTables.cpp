@@ -257,7 +257,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 // Theoretically should not hit these.
 static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, ENDS_BLOCK),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, Int_Halt, ENDS_BLOCK),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -1192,7 +1192,7 @@ struct IRBlockState {
 // The instruction after the branch at pc, as this CPU sees it. The Media Engine's code can be where
 // the main CPU has no memory.
 static MIPSOpcode ReadDelaySlot(const MIPSState *mips, u32 pc) {
-	if (!mips->space->IsMediaEngine()) {
+	if (!mips->IsMediaEngine()) {
 		return Memory::Read_Instruction(pc + 4);
 	}
 	if (!mips->space->IsValid4AlignedAddress(pc + 4)) {
