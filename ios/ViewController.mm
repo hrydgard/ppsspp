@@ -312,6 +312,21 @@ static int GetPickerRequestId(id picker) {
 	} else {
 		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
+
+	if (self.motionManager.gyroAvailable) {
+		self.motionManager.gyroUpdateInterval = 1.0 / 60.0;
+		INFO_LOG(Log::G3D, "Starting gyro updates.");
+
+		// Same serial queue as the accelerometer, so the two don't race in the tilt fusion.
+		[self.motionManager startGyroUpdatesToQueue:self.accelerometerQueue
+							withHandler:^(CMGyroData *gyroData, NSError *error) {
+			if (error) {
+				NSLog(@"Gyro error: %@", error);
+				return;
+			}
+			ProcessGyroData(gyroData);
+		}];
+	}
 #endif
 
 	// Spin up the render thread, which in turn starts the emu thread.
@@ -327,6 +342,10 @@ static int GetPickerRequestId(id picker) {
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
 		[self.motionManager stopAccelerometerUpdates];
+	}
+	if (self.motionManager.gyroActive) {
+		INFO_LOG(Log::G3D, "Stopping gyro updates");
+		[self.motionManager stopGyroUpdates];
 	}
 #endif
 }
