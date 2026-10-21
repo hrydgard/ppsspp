@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -87,8 +87,9 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 	screenManager_ = screenManager;
 	token_ = token;
 	fieldCount_ = twoFields ? 2 : 1;
-	if (activeField >= fieldCount_)
+	if (activeField >= fieldCount_) {
 		activeField = 0;
+	}
 
 	for (int i = 0; i < fieldCount_; i++) {
 		fieldViews_[i] = parent->Add(new Choice(""));
@@ -142,33 +143,38 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 }
 
 bool ScanValueEditor::ActiveFieldIsHex() const {
-	if (activeField < 0 || activeField >= 2 || !fields[activeField])
+	if (activeField < 0 || activeField >= 2 || !fields[activeField]) {
 		return false;
+	}
 	const std::string &s = *fields[activeField];
 	size_t pos = (!s.empty() && (s[0] == '-' || s[0] == '+')) ? 1 : 0;
 	return s.compare(pos, 2, "0x") == 0 || s.compare(pos, 2, "0X") == 0 || s.compare(pos, 1, "$") == 0;
 }
 
 void ScanValueEditor::Key(const char *key) {
-	if (activeField < 0 || activeField >= 2 || !fields[activeField])
+	if (activeField < 0 || activeField >= 2 || !fields[activeField]) {
 		return;
+	}
 	std::string &s = *fields[activeField];
 
 	if (!strcmp(key, "Del")) {
-		if (!s.empty())
+		if (!s.empty()) {
 			s.pop_back();
+		}
 	} else if (!strcmp(key, "Clr")) {
 		s.clear();
 	} else if (!strcmp(key, "-")) {
 		// Toggle the sign.
-		if (!s.empty() && s[0] == '-')
+		if (!s.empty() && s[0] == '-') {
 			s.erase(0, 1);
-		else
+		} else {
 			s.insert(0, "-");
+		}
 	} else if (!strcmp(key, ".")) {
 		// A hex value is raw bits, even for floats, so no decimal point.
-		if (!ActiveFieldIsHex() && s.find('.') == std::string::npos)
+		if (!ActiveFieldIsHex() && s.find('.') == std::string::npos) {
 			s += s.empty() || s == "-" ? "0." : ".";
+		}
 	} else if (!strcmp(key, "Hex")) {
 		// Toggle hex: converts the typed number to the other base, and shows or hides the A-F keys.
 		const bool wasHex = ActiveFieldIsHex();
@@ -180,8 +186,9 @@ void ScanValueEditor::Key(const char *key) {
 		} else {
 			// A float's fraction can't carry over.
 			size_t dot = digits.find('.');
-			if (dot != std::string::npos)
+			if (dot != std::string::npos) {
 				digits.erase(dot);
+			}
 		}
 		const bool valid = !digits.empty() && digits.size() <= 16 &&
 			digits.find_first_not_of(wasHex ? "0123456789abcdefABCDEF" : "0123456789") == std::string::npos;
@@ -194,10 +201,12 @@ void ScanValueEditor::Key(const char *key) {
 			s = sign + (wasHex ? StringFromFormat("%llu", v) : StringFromFormat("0x%llX", v));
 		}
 	} else if (key[0] >= 'A' && key[0] <= 'F' && key[1] == '\0') {
-		if (!ActiveFieldIsHex())
+		if (!ActiveFieldIsHex()) {
 			return;
-		if (s.size() < 24)
+		}
+		if (s.size() < 24) {
 			s += key;
+		}
 	} else if (!strcmp(key, "...")) {
 		// The system keyboard, for hex digits A-F or anything else.
 		if (screenManager_) {
@@ -222,8 +231,9 @@ bool ScanValueEditor::HandleKey(const KeyInput &input) {
 	if (input.flags & KeyInputFlags::CHAR) {
 		int c = input.unicodeChar;
 		std::string *field = fields[activeField];
-		if (!field)
+		if (!field) {
 			return false;
+		}
 		if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || c == 'x' || c == 'X' || c == '.' || c == '-' || c == '+' || c == '$') {
 			if (field->size() < 24) {
 				*field += (char)c;
@@ -255,8 +265,9 @@ void ScanValueEditor::Detach() {
 void ScanValueEditor::UpdateViews() {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	for (int i = 0; i < fieldCount_; i++) {
-		if (!fieldViews_[i] || !fields[i])
+		if (!fieldViews_[i] || !fields[i]) {
 			continue;
+		}
 		std::string text = fields[i]->empty() ? std::string("_") : *fields[i];
 		std::string label = fieldLabels[i] ? std::string(cw->T(fieldLabels[i])) : std::string(cw->T("Value"));
 		fieldViews_[i]->SetText(StringFromFormat("%s%s: %s", fieldCount_ > 1 && i == activeField ? "> " : "", label.c_str(), text.c_str()));
@@ -299,8 +310,7 @@ bool MemoryScannerScreen::WantsTextInput() const {
 void MemoryScannerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
-	resultViews_.clear();
-	freezeFlags_.clear();
+	watches_.Clear();
 	status_ = nullptr;
 
 	const Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
@@ -355,10 +365,11 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 			choice->OnClick.Add([i, typeChoices](EventParams &) {
 				s_type = i;
 				for (int j = 0; j < (int)typeChoices->size(); j++) {
-					if (j == i)
+					if (j == i) {
 						(*typeChoices)[j]->Press();
-					else
+					} else {
 						(*typeChoices)[j]->Release();
+					}
 				}
 			});
 			typeChoices->push_back(choice);
@@ -374,8 +385,9 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 	for (int i = 0; i < (int)ScanCompare::COUNT; i++) {
 		const ScanCompare c = (ScanCompare)i;
 		const bool allowed = searching ? c != ScanCompare::Unknown : MemoryScanner::CompareAllowedOnFirstScan(c);
-		if (!allowed)
+		if (!allowed) {
 			compareChoice->HideChoice(i);
+		}
 	}
 	compareChoice->OnChoice.Add([this](EventParams &) {
 		RecreateViews();
@@ -416,6 +428,19 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 		});
 	}
 
+	const PointerScanner &pointers = GetPointerScanner();
+	if (pointers.HasResults() && pointers.GameID() == CurrentGameID()) {
+		std::string countStr = StringFromFormat("%llu", (unsigned long long)pointers.Results().size());
+		parent->Add(new Choice(ApplySafeSubstitutions(cw->T("Pointer scan results (%1)"), countStr), ImageID("I_SEARCH")))->OnClick.Add([this](EventParams &e) {
+			const PointerScanner &pointers = GetPointerScanner();
+			PointerScanScreen *screen = new PointerScanScreen(pointers.Target(), pointers.Type());
+			if (e.v) {
+				screen->SetPopupOrigin(e.v);
+			}
+			screenManager()->push(screen);
+		});
+	}
+
 	parent->Add(new CheckBox(&g_Config.bMemoryScannerPause, cw->T("Pause emulation while the scanner is open")));
 
 	status_ = parent->Add(new TextView(statusText_, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
@@ -439,7 +464,7 @@ void MemoryScannerScreen::CreateResults(UI::ViewGroup *parent) {
 		// Copy, the rows can change the list.
 		const std::vector<MemoryScanner::Freeze> freezes = scanner.Freezes();
 		for (const auto &f : freezes) {
-			AddResultRow(parent, f.addr, f.type, false);
+			watches_.AddRow(parent, this, f.where, f.type, WatchList::Style::Frozen);
 		}
 		parent->Add(new Choice(cw->T("Unfreeze all")))->OnClick.Add([this](EventParams &) {
 			GetMemoryScanner().ClearFreezes();
@@ -466,71 +491,13 @@ void MemoryScannerScreen::CreateResults(UI::ViewGroup *parent) {
 		return;
 	}
 
-	TextView *hint = parent->Add(new TextView(cw->T("Tick Freeze to hold a value. Tap an address to change its value or save it as a cheat"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+	TextView *hint = parent->Add(new TextView(cw->T("Tick Freeze to hold a value. Tap an address to change its value, save it as a cheat or find pointers to it"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
 	hint->SetSmall(true);
 
 	const ScanValueType type = scanner.Type();
 	for (u32 addr : scanner.GetResults(MAX_LISTED_RESULTS)) {
-		AddResultRow(parent, addr, type, true);
+		watches_.AddRow(parent, this, PointerChain::Direct(addr), type, WatchList::Style::SearchResult);
 	}
-}
-
-void MemoryScannerScreen::AddResultRow(UI::ViewGroup *parent, u32 addr, ScanValueType type, bool showPrevious) {
-	using namespace UI;
-	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
-
-	LinearLayout *row = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	row->SetSpacing(4.0f);
-
-	freezeFlags_.push_back(GetMemoryScanner().IsFrozen(addr, type));
-	bool *flag = &freezeFlags_.back();
-	CheckBox *freeze = row->Add(new CheckBox(flag, cw->T("Freeze"), "", new LinearLayoutParams(150, WRAP_CONTENT, 0.0f)));
-	freeze->OnClick.Add([this, addr, type, flag](EventParams &) {
-		// Hold the value it has right now.
-		u32 bits = 0;
-		if (MemoryScanner::ReadPSP(type, addr, &bits)) {
-			GetMemoryScanner().SetFrozen(addr, type, bits, *flag);
-		}
-		RecreateViews();
-	});
-
-	Choice *c = row->Add(new Choice(ResultText(addr, type, showPrevious), new LinearLayoutParams(1.0f)));
-	c->OnClick.Add([this, addr, type](EventParams &e) {
-		MemoryScannerEditScreen *edit = new MemoryScannerEditScreen(addr, type);
-		if (e.v)
-			edit->SetPopupOrigin(e.v);
-		screenManager()->push(edit);
-	});
-	resultViews_.push_back(ResultView{ addr, type, showPrevious, c });
-}
-
-std::string MemoryScannerScreen::ResultText(u32 addr, ScanValueType type, bool showPrevious) const {
-	const MemoryScanner &scanner = GetMemoryScanner();
-	u32 bits = 0;
-	if (!MemoryScanner::ReadPSP(type, addr, &bits)) {
-		return StringFromFormat("0x%08X  ?", addr);
-	}
-	std::string text = StringFromFormat("0x%08X  =  %s", addr, MemoryScanner::FormatValue(type, bits).c_str());
-	if (!showPrevious) {
-		// A frozen value from the list above: show its type, it may not be the search's.
-		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
-		static const char *typeNames[] = { "8-bit", "16-bit", "32-bit", "Float" };
-		text += StringFromFormat("   [%s]", cw->T_cstr(typeNames[(int)type]));
-		return text;
-	}
-	const u32 prev = scanner.PreviousValue(addr);
-	if (prev != bits) {
-		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
-		text += StringFromFormat("   (%s %s)", cw->T_cstr("was"), MemoryScanner::FormatValue(type, prev).c_str());
-	}
-	return text;
-}
-
-void MemoryScannerScreen::RefreshResultValues() {
-	for (auto &rv : resultViews_) {
-		rv.view->SetText(ResultText(rv.addr, rv.type, rv.showPrevious));
-	}
-	lastRefresh_ = time_now_d();
 }
 
 void MemoryScannerScreen::DoScan(bool first) {
@@ -581,8 +548,9 @@ void MemoryScannerScreen::DoScan(bool first) {
 
 void MemoryScannerScreen::update() {
 	PopupScreen::update();
-	if (!resultViews_.empty() && time_now_d() - lastRefresh_ >= REFRESH_INTERVAL) {
-		RefreshResultValues();
+	if (!watches_.Empty() && time_now_d() - lastRefresh_ >= REFRESH_INTERVAL) {
+		watches_.Refresh();
+		lastRefresh_ = time_now_d();
 	}
 }
 
@@ -594,28 +562,123 @@ bool MemoryScannerScreen::key(const KeyInput &input) {
 }
 
 void MemoryScannerScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	// Values may have been set, or frozen, in the edit popup.
-	if (dynamic_cast<const MemoryScannerEditScreen *>(dialog)) {
-		RecreateViews();
-	} else {
-		RefreshResultValues();
+	// Values may have been set or frozen in the edit popup, or pointer chains found.
+	RecreateViews();
+}
+
+// WatchList
+
+void WatchList::Clear() {
+	rows_.clear();
+	flags_.clear();
+}
+
+static const char *TypeName(ScanValueType type) {
+	return g_typeNames[(int)type];
+}
+
+std::string WatchList::RowText(const PointerChain &where, ScanValueType type, Style style) {
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	std::string text;
+	u32 addr = 0;
+	const bool resolved = where.Resolve(&addr);
+	if (where.IsPointer()) {
+		text = where.ToString() + "  ->  ";
+		if (!resolved) {
+			text += cw->T("invalid");
+			return text;
+		}
+	}
+	u32 bits = 0;
+	if (!resolved || !MemoryScanner::ReadPSP(type, addr, &bits)) {
+		return text + StringFromFormat("0x%08X  ?", addr);
+	}
+	text += StringFromFormat("0x%08X  =  %s", addr, MemoryScanner::FormatValue(type, bits).c_str());
+
+	switch (style) {
+	case Style::Frozen:
+		text += StringFromFormat("   [%s]", cw->T_cstr(TypeName(type)));
+		break;
+	case Style::SearchResult:
+	{
+		const u32 prev = GetMemoryScanner().PreviousValue(addr);
+		if (prev != bits) {
+			text += StringFromFormat("   (%s %s)", cw->T_cstr("was"), MemoryScanner::FormatValue(type, prev).c_str());
+		}
+		break;
+	}
+	case Style::Pointer:
+		break;
+	}
+	return text;
+}
+
+void WatchList::AddRow(UI::ViewGroup *parent, Screen *owner, const PointerChain &where, ScanValueType type, Style style) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	LinearLayout *row = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	row->SetSpacing(4.0f);
+
+	flags_.push_back(GetMemoryScanner().IsFrozen(where, type));
+	bool *flag = &flags_.back();
+	CheckBox *freeze = row->Add(new CheckBox(flag, cw->T("Freeze"), "", new LinearLayoutParams(150, WRAP_CONTENT, 0.0f)));
+	freeze->OnClick.Add([owner, where, type, flag](EventParams &) {
+		if (!*flag) {
+			GetMemoryScanner().SetFrozen(where, type, 0, false);
+		} else {
+			// Hold the value it has right now.
+			u32 addr = 0;
+			u32 bits = 0;
+			if (where.Resolve(&addr) && MemoryScanner::ReadPSP(type, addr, &bits)) {
+				GetMemoryScanner().SetFrozen(where, type, bits, true);
+			} else {
+				*flag = false;
+			}
+		}
+		owner->RecreateViews();
+	});
+
+	Choice *c = row->Add(new Choice(RowText(where, type, style), new LinearLayoutParams(1.0f)));
+	c->OnClick.Add([owner, where, type](EventParams &e) {
+		MemoryScannerEditScreen *edit = new MemoryScannerEditScreen(where, type);
+		if (e.v) {
+			edit->SetPopupOrigin(e.v);
+		}
+		owner->screenManager()->push(edit);
+	});
+	rows_.push_back(Row{ where, type, style, c });
+}
+
+void WatchList::Refresh() {
+	for (Row &row : rows_) {
+		row.view->SetText(RowText(row.where, row.type, row.style));
 	}
 }
 
 // MemoryScannerEditScreen
 
-MemoryScannerEditScreen::MemoryScannerEditScreen(u32 addr, ScanValueType type)
-	: PopupScreen(T(I18NCat::CWCHEATS, "Edit value"), T(I18NCat::DIALOG, "Back")), addr_(addr), type_(type) {
-	frozen_ = GetMemoryScanner().IsFrozen(addr_, type_);
+static std::string DefaultCheatName(const PointerChain &where) {
+	if (where.IsPointer()) {
+		return StringFromFormat("Scanner pointer 0x%07X", where.base - PSP_GetUserMemoryBase());
+	}
+	return StringFromFormat("Scanner 0x%07X", where.base - PSP_GetUserMemoryBase());
+}
+
+MemoryScannerEditScreen::MemoryScannerEditScreen(const PointerChain &where, ScanValueType type)
+	: PopupScreen(T(I18NCat::CWCHEATS, "Edit value"), T(I18NCat::DIALOG, "Back")), where_(where), type_(type) {
+	frozen_ = GetMemoryScanner().IsFrozen(where_, type_);
+	u32 addr = 0;
 	u32 bits = 0;
-	if (MemoryScanner::ReadPSP(type_, addr_, &bits)) {
+	if (Resolve(&addr) && MemoryScanner::ReadPSP(type_, addr, &bits)) {
 		value_ = MemoryScanner::FormatValue(type_, bits);
 		// Drop the "(signed)" part, it isn't a valid value to type.
 		size_t space = value_.find(' ');
-		if (space != std::string::npos)
+		if (space != std::string::npos) {
 			value_.resize(space);
+		}
 	}
-	name_ = StringFromFormat("Scanner 0x%08X", addr_ - PSP_GetUserMemoryBase());
+	name_ = DefaultCheatName(where_);
 }
 
 bool MemoryScannerEditScreen::WantsTextInput() const {
@@ -629,8 +692,12 @@ void MemoryScannerEditScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	LinearLayout *items = scroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	items->Add(new InfoItem(cw->T("Address"), StringFromFormat("0x%08X (+0x%07X)", addr_, addr_ - PSP_GetUserMemoryBase())));
-	currentText_ = items->Add(new TextView("", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+	if (where_.IsPointer()) {
+		items->Add(new InfoItem(cw->T("Pointer"), where_.ToString()));
+	} else {
+		items->Add(new InfoItem(cw->T("Address"), StringFromFormat("0x%08X (+0x%07X)", where_.base, where_.base - PSP_GetUserMemoryBase())));
+	}
+	currentText_ = items->Add(new TextView("", FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
 
 	editor_.fields[0] = &value_;
 	editor_.fieldLabels[0] = "New value";
@@ -640,12 +707,19 @@ void MemoryScannerEditScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		OnSet();
 	});
 	items->Add(new CheckBox(&frozen_, cw->T("Freeze"), cw->T("Keep writing this value while the game runs")))->OnClick.Add([this](EventParams &) {
-		// Hold the typed value if it's valid, otherwise what's in memory now.
-		u32 bits = 0;
-		if (!GetValueToUse(&bits) && !MemoryScanner::ReadPSP(type_, addr_, &bits)) {
+		if (!frozen_) {
+			GetMemoryScanner().SetFrozen(where_, type_, 0, false);
+			UpdateTexts();
 			return;
 		}
-		GetMemoryScanner().SetFrozen(addr_, type_, bits, frozen_);
+		// Hold the typed value if it's valid, otherwise what's in memory now.
+		u32 bits = 0;
+		u32 addr = 0;
+		if (!GetValueToUse(&bits) && !(Resolve(&addr) && MemoryScanner::ReadPSP(type_, addr, &bits))) {
+			frozen_ = false;
+			return;
+		}
+		GetMemoryScanner().SetFrozen(where_, type_, bits, true);
 		UpdateTexts();
 	});
 
@@ -659,6 +733,22 @@ void MemoryScannerEditScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	status_ = items->Add(new TextView("", FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
 	status_->SetVisibility(V_GONE);
+
+	if (!where_.IsPointer()) {
+		items->Add(new ItemHeader(cw->T("Pointers")));
+		const PointerScanner &pointers = GetPointerScanner();
+		std::string_view label = pointers.HasResults() ? cw->T("Pointer scan (filter with this address)") : cw->T("Find pointers to this address");
+		Choice *pointerScan = items->Add(new Choice(label, ImageID("I_SEARCH")));
+		pointerScan->OnClick.Add([this](EventParams &e) {
+			PointerScanScreen *screen = new PointerScanScreen(where_.base, type_);
+			if (e.v) {
+				screen->SetPopupOrigin(e.v);
+			}
+			screenManager()->push(screen);
+		});
+		TextView *hint = items->Add(new TextView(cw->T("PointerScanHint", "For values that move when the level changes or the game restarts: a pointer cheat finds them again."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+		hint->SetSmall(true);
+	}
 
 	UpdateTexts();
 }
@@ -674,18 +764,30 @@ bool MemoryScannerEditScreen::GetValueToUse(u32 *bits) {
 
 void MemoryScannerEditScreen::UpdateTexts() {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
-	u32 bits = 0;
 	if (currentText_) {
-		if (MemoryScanner::ReadPSP(type_, addr_, &bits)) {
-			currentText_->SetText(StringFromFormat("%s: %s  (%s)", cw->T_cstr("Current value"), MemoryScanner::FormatValue(type_, bits).c_str(), MemoryScanner::FormatHex(type_, bits).c_str()));
-		} else {
+		u32 addr = 0;
+		u32 bits = 0;
+		if (!Resolve(&addr)) {
+			currentText_->SetText(cw->T("The pointer is invalid right now"));
+		} else if (!MemoryScanner::ReadPSP(type_, addr, &bits)) {
 			currentText_->SetText(cw->T("Current value: ?"));
+		} else if (where_.IsPointer()) {
+			currentText_->SetText(StringFromFormat("%s 0x%08X, %s: %s  (%s)", cw->T_cstr("Points to"), addr, cw->T_cstr("Current value"), MemoryScanner::FormatValue(type_, bits).c_str(), MemoryScanner::FormatHex(type_, bits).c_str()));
+		} else {
+			currentText_->SetText(StringFromFormat("%s: %s  (%s)", cw->T_cstr("Current value"), MemoryScanner::FormatValue(type_, bits).c_str(), MemoryScanner::FormatHex(type_, bits).c_str()));
 		}
 	}
 	if (cheatText_) {
 		u32 newBits = 0;
 		if (GetValueToUse(&newBits)) {
-			cheatText_->SetText(MemoryScanner::MakeCwCheatLine(type_, addr_, newBits));
+			std::string code;
+			for (const std::string &line : MemoryScanner::MakeCwCheatLines(type_, where_, newBits)) {
+				if (!code.empty()) {
+					code += "\n";
+				}
+				code += line;
+			}
+			cheatText_->SetText(code);
 		} else {
 			cheatText_->SetText(cw->T("Invalid value for this value type"));
 		}
@@ -696,13 +798,19 @@ void MemoryScannerEditScreen::UpdateTexts() {
 void MemoryScannerEditScreen::OnSet() {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	u32 bits = 0;
-	bool ok = GetValueToUse(&bits) && MemoryScanner::WritePSP(type_, addr_, bits);
-	if (ok) {
-		// A frozen address is held at the new value from now on.
-		GetMemoryScanner().UpdateFrozenValue(addr_, type_, bits);
+	u32 addr = 0;
+	if (!GetValueToUse(&bits)) {
+		status_->SetText(cw->T("Invalid value for this value type"));
+		status_->SetTextColor(0xFF4040FF);
+	} else if (!Resolve(&addr) || !MemoryScanner::WritePSP(type_, addr, bits)) {
+		status_->SetText(cw->T("The pointer is invalid right now"));
+		status_->SetTextColor(0xFF4040FF);
+	} else {
+		// A frozen value is held at the new value from now on.
+		GetMemoryScanner().UpdateFrozenValue(where_, type_, bits);
+		status_->SetText(cw->T("Value written to game memory"));
+		status_->SetTextColor(0xFF40FF40);
 	}
-	status_->SetText(ok ? cw->T("Value written to game memory") : cw->T("Invalid value for this value type"));
-	status_->SetTextColor(ok ? 0xFF40FF40 : 0xFF4040FF);
 	status_->SetVisibility(UI::V_VISIBLE);
 	UpdateTexts();
 }
@@ -718,10 +826,10 @@ void MemoryScannerEditScreen::OnAdd() {
 	}
 	std::string name(StripSpaces(name_));
 	if (name.empty()) {
-		name = StringFromFormat("Scanner 0x%08X", addr_ - PSP_GetUserMemoryBase());
+		name = DefaultCheatName(where_);
 	}
 	std::string error;
-	if (AppendCheatToGameIni(name, { MemoryScanner::MakeCwCheatLine(type_, addr_, bits) }, &error)) {
+	if (AppendCheatToGameIni(name, MemoryScanner::MakeCwCheatLines(type_, where_, bits), &error)) {
 		status_->SetText(ApplySafeSubstitutions(cw->T("Cheat '%1' added, enable it in the Cheats menu"), name));
 		status_->SetTextColor(0xFF40FF40);
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, ApplySafeSubstitutions(cw->T("Cheat '%1' added, enable it in the Cheats menu"), name), 3.0f);
@@ -745,6 +853,182 @@ bool MemoryScannerEditScreen::key(const KeyInput &input) {
 		return true;
 	}
 	return PopupScreen::key(input);
+}
+
+void MemoryScannerEditScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	// The pointer scan may have frozen this value.
+	frozen_ = GetMemoryScanner().IsFrozen(where_, type_);
+	UpdateTexts();
+}
+
+// PointerScanScreen
+
+static int s_pointerDepth = 2;
+static int s_pointerOffsetIndex = 2;
+static const u32 g_pointerOffsets[] = { 0x100, 0x400, 0x1000, 0x4000, 0x10000 };
+static const char *g_pointerOffsetNames[] = { "0x100", "0x400", "0x1000", "0x4000", "0x10000" };
+static_assert(ARRAY_SIZE(g_pointerOffsets) == ARRAY_SIZE(g_pointerOffsetNames), "pointer offsets");
+
+PointerScanScreen::PointerScanScreen(u32 target, ScanValueType type)
+	: PopupScreen(T(I18NCat::CWCHEATS, "Pointer scan"), T(I18NCat::DIALOG, "Back")), target_(target), type_(type) {
+	PointerScanner &pointers = GetPointerScanner();
+	if (pointers.HasResults() && pointers.GameID() != CurrentGameID()) {
+		pointers.Reset();
+	}
+}
+
+void PointerScanScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	watches_.Clear();
+
+	const Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
+	if (bounds.w >= 640) {
+		LinearLayout *columns = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+		ScrollView *left = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(370, FILL_PARENT, 0.0f)));
+		LinearLayout *leftColumn = left->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		leftColumn->SetSpacing(2.0f);
+		CreateControls(leftColumn);
+
+		ScrollView *right = columns->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8, 0, 0, 0))));
+		LinearLayout *rightColumn = right->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		CreateResults(rightColumn);
+	} else {
+		ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+		LinearLayout *column = scroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		CreateResults(column);
+		CreateControls(column);
+	}
+
+	lastRefresh_ = time_now_d();
+}
+
+void PointerScanScreen::CreateControls(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	const PointerScanner &pointers = GetPointerScanner();
+
+	parent->Add(new InfoItem(cw->T("Address"), StringFromFormat("0x%08X", target_)));
+	parent->Add(new InfoItem(cw->T("Value type"), cw->T(TypeName(pointers.HasResults() ? pointers.Type() : type_))));
+
+	parent->Add(new ItemHeader(cw->T("New pointer scan")));
+	parent->Add(new PopupSliderChoice(&s_pointerDepth, 1, MAX_POINTER_DEPTH, 2, cw->T("Max pointer depth"), screenManager()));
+	parent->Add(new PopupMultiChoice(&s_pointerOffsetIndex, cw->T("Max offset"), g_pointerOffsetNames, 0, ARRAY_SIZE(g_pointerOffsetNames), I18NCat::NONE, screenManager()));
+	parent->Add(new Choice(cw->T("Scan for pointers to this address"), ImageID("I_SEARCH")))->OnClick.Add([this](EventParams &) {
+		DoScan();
+	});
+
+	if (pointers.HasResults()) {
+		parent->Add(new ItemHeader(cw->T("Narrow down")));
+		parent->Add(new InfoItem(cw->T("Scans"), pointers.Scans()));
+		parent->Add(new Choice(cw->T("Filter with this address")))->OnClick.Add([this](EventParams &) {
+			DoFilter();
+		});
+		parent->Add(new Choice(cw->T("Clear pointer results")))->OnClick.Add([this](EventParams &) {
+			GetPointerScanner().Reset();
+			statusText_.clear();
+			RecreateViews();
+		});
+	}
+
+	TextView *help = parent->Add(new TextView(cw->T("PointerScanHelp", "After a scan, change level or restart the game, find the value again with a normal search, tap its address and use Pointer scan > Filter with this address. Repeat until only a few chains are left, then add one as a cheat."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+	help->SetSmall(true);
+
+	if (!statusText_.empty()) {
+		TextView *status = parent->Add(new TextView(statusText_, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		if (statusIsError_) {
+			status->SetTextColor(0xFF4040FF);
+		}
+	}
+}
+
+void PointerScanScreen::CreateResults(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	const PointerScanner &pointers = GetPointerScanner();
+	parent->Add(new ItemHeader(cw->T("Pointer chains")));
+
+	if (!pointers.HasResults()) {
+		parent->Add(new TextView(cw->T("PointerScanIntro", "Finds pointers in the game's static data that lead to this address. The game finds moving values the same way, so a cheat using such a pointer keeps working when the value moves."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		return;
+	}
+
+	const std::vector<PointerChain> &chains = pointers.Results();
+	if (chains.empty()) {
+		parent->Add(new TextView(cw->T("No pointer chains found. Try a larger depth or offset."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		return;
+	}
+
+	if (pointers.Truncated()) {
+		TextView *warn = parent->Add(new TextView(cw->T("Too many chains, some were left out. Use a smaller depth or offset."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		warn->SetTextColor(0xFF40C0FF);
+	}
+
+	if (chains.size() > MAX_LISTED_RESULTS) {
+		std::string countStr = StringFromFormat("%llu", (unsigned long long)chains.size());
+		parent->Add(new TextView(ApplySafeSubstitutions(cw->T("%1 pointer chains found. Change level or restart the game, then filter with the value's new address to keep the ones that still work. The shortest are listed below."), countStr), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+	}
+
+	const ScanValueType type = pointers.Type();
+	for (size_t i = 0; i < chains.size() && i < MAX_LISTED_RESULTS; i++) {
+		watches_.AddRow(parent, this, chains[i], type, WatchList::Style::Pointer);
+	}
+}
+
+void PointerScanScreen::DoScan() {
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	PointerScanner &pointers = GetPointerScanner();
+
+	if (PointerScanner::GetPSPStaticRanges().empty()) {
+		statusText_ = cw->T("Couldn't find the game's static data");
+		statusIsError_ = true;
+		RecreateViews();
+		return;
+	}
+
+	PointerScanner::Settings settings;
+	settings.maxDepth = s_pointerDepth;
+	settings.maxOffset = g_pointerOffsets[std::max(0, std::min(s_pointerOffsetIndex, (int)ARRAY_SIZE(g_pointerOffsets) - 1))];
+
+	// Like value scans, this runs on the emulation thread, so the game is stopped meanwhile.
+	const double startTime = time_now_d();
+	pointers.SetGameID(CurrentGameID());
+	const bool ok = pointers.Scan(target_, type_, settings);
+	const int ms = (int)((time_now_d() - startTime) * 1000.0);
+
+	if (!ok) {
+		statusText_ = cw->T("Scan failed, game memory isn't available");
+		statusIsError_ = true;
+	} else {
+		std::string countStr = StringFromFormat("%llu", (unsigned long long)pointers.Results().size());
+		statusText_ = ApplySafeSubstitutions(cw->T("%1 pointer chains found (%2 ms)"), countStr, StringFromFormat("%d", ms));
+		statusIsError_ = false;
+	}
+	RecreateViews();
+}
+
+void PointerScanScreen::DoFilter() {
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	const size_t left = GetPointerScanner().Filter(target_);
+	std::string countStr = StringFromFormat("%llu", (unsigned long long)left);
+	statusText_ = ApplySafeSubstitutions(cw->T("%1 pointer chains still lead to this address"), countStr);
+	statusIsError_ = false;
+	RecreateViews();
+}
+
+void PointerScanScreen::update() {
+	PopupScreen::update();
+	if (!watches_.Empty() && time_now_d() - lastRefresh_ >= REFRESH_INTERVAL) {
+		watches_.Refresh();
+		lastRefresh_ = time_now_d();
+	}
+}
+
+void PointerScanScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	// A chain may have been frozen or edited.
+	RecreateViews();
 }
 
 // Cheat file
@@ -781,8 +1065,9 @@ bool AppendCheatToGameIni(const std::string &name, const std::vector<std::string
 		for (std::string_view l : fileLines) {
 			std::string line(StripSpaces(l));
 			// Skip a BOM.
-			if (line.size() >= 3 && (u8)line[0] == 0xEF && (u8)line[1] == 0xBB && (u8)line[2] == 0xBF)
+			if (line.size() >= 3 && (u8)line[0] == 0xEF && (u8)line[1] == 0xBB && (u8)line[2] == 0xBF) {
 				line = std::string(StripSpaces(line.substr(3)));
+			}
 			if (line.size() >= 2 && line[0] == '_' && line[1] == 'S') {
 				hasAnySection = true;
 				lastSectionIsOurs = ReplaceAll(std::string(StripSpaces(line.substr(2))), "-", "") == wanted;

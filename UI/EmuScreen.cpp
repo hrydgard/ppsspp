@@ -1274,8 +1274,9 @@ void EmuScreen::CreateViews() {
 		memoryScannerButton_ = root_->Add(new Button(cw->T("Memory Scanner"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), 0, NONE, NONE, Centering::Horizontal)));
 		memoryScannerButton_->OnClick.Add([this](UI::EventParams &e) {
 			MemoryScannerScreen *scanner = new MemoryScannerScreen();
-			if (e.v)
+			if (e.v) {
 				scanner->SetPopupOrigin(e.v);
+			}
 			screenManager()->push(scanner);
 		});
 		memoryScannerButton_->SetVisibility(MemoryScannerAvailable() ? V_VISIBLE : V_GONE);
@@ -1654,12 +1655,15 @@ void EmuScreen::HandleFlip() {
 bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
 	if (!(mode & ScreenRenderMode::TOP) && !ShouldRunBehind()) {
 		const char *topTag = screenManager()->topScreen()->tag();
-		if (strcmp(topTag, "DevMenu") == 0)
+		if (strcmp(topTag, "DevMenu") == 0) {
 			return true;
+		}
 		// The memory scanner can let the game run behind it, to watch values change.
 		// (Scans themselves run on this thread, so the game never runs during one.)
-		if (strcmp(topTag, "MemoryScanner") == 0 && !g_Config.bMemoryScannerPause)
+		const bool scannerOnTop = strcmp(topTag, "MemoryScanner") == 0 || strcmp(topTag, "MemoryScannerEdit") == 0 || strcmp(topTag, "PointerScan") == 0;
+		if (scannerOnTop && !g_Config.bMemoryScannerPause) {
 			return true;
+		}
 		return false;
 	}
 	return true;

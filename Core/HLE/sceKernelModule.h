@@ -231,6 +231,14 @@ KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
 // The code of the loaded modules, as (address, size).
 std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges();
+// The static data (.data and .bss) of the loaded user mode modules, where pointers to heap
+// allocations are kept. Used by the Memory Scanner's pointer scan.
+struct ModuleDataRange {
+	u32 start;
+	u32 size;
+	std::string name;
+};
+std::vector<ModuleDataRange> __KernelModuleDataRanges();
 // For the next savestate load: code it leaves as it was, as (address, size). Its functions aren't
 // hashed again.
 void __KernelModuleSetUnchangedCodeOnLoad(std::vector<std::pair<u32, u32>> unchanged);

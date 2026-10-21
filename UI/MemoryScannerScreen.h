@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,15 +26,13 @@
 #include "Core/MemoryScanner.h"
 
 namespace UI {
-class ChoiceStrip;
 class ViewGroup;
 class Choice;
 class TextView;
-class PopupMultiChoice;
 }
 
-// An on-screen number pad that edits one of up to two value fields. Used by both screens,
-// so values can be typed without a soft keyboard (which covers half the screen on phones).
+// An on-screen number pad that edits one of up to two value fields. Used by all the scanner
+// screens, so values can be typed without a soft keyboard (which covers half the screen on phones).
 class ScanValueEditor {
 public:
 	// Adds the value field(s) and the keypad.
@@ -62,6 +60,36 @@ private:
 	RequesterToken token_{};
 };
 
+// Rows of watched values, each with a Freeze checkbox, showing the live value. Tapping a row
+// opens the edit popup. Used for search results, frozen values and pointer chains.
+class WatchList {
+public:
+	enum class Style {
+		SearchResult,  // Shows the value at the last scan, when it changed.
+		Frozen,        // Shows the value type, it may not be the current search's.
+		Pointer,       // Shows the chain and where it leads now.
+	};
+
+	void Clear();
+	// owner gets RecreateViews() after a freeze changes, so lists of frozen values update.
+	void AddRow(UI::ViewGroup *parent, Screen *owner, const PointerChain &where, ScanValueType type, Style style);
+	void Refresh();
+	bool Empty() const { return rows_.empty(); }
+
+	static std::string RowText(const PointerChain &where, ScanValueType type, Style style);
+
+private:
+	struct Row {
+		PointerChain where;
+		ScanValueType type;
+		Style style;
+		UI::Choice *view;
+	};
+	std::vector<Row> rows_;
+	// Storage for the freeze checkboxes. A deque, so the pointers stay valid as it grows.
+	std::deque<bool> flags_;
+};
+
 class MemoryScannerScreen : public UI::PopupScreen {
 public:
 	MemoryScannerScreen();
@@ -82,30 +110,20 @@ private:
 	void CreateControls(UI::ViewGroup *parent);
 	void CreateResults(UI::ViewGroup *parent);
 	void DoScan(bool first);
-	void RefreshResultValues();
-	// A result line: freeze checkbox and the address/value, which opens the edit popup.
-	void AddResultRow(UI::ViewGroup *parent, u32 addr, ScanValueType type, bool showPrevious);
-	std::string ResultText(u32 addr, ScanValueType type, bool showPrevious) const;
 
 	ScanValueEditor editor_;
+	WatchList watches_;
 	UI::TextView *status_ = nullptr;
-	struct ResultView {
-		u32 addr;
-		ScanValueType type;
-		bool showPrevious;
-		UI::Choice *view;
-	};
-	std::vector<ResultView> resultViews_;
-	// Storage for the freeze checkboxes. A deque, so the pointers stay valid as it grows.
-	std::deque<bool> freezeFlags_;
 	double lastRefresh_ = 0.0;
 	std::string statusText_;
 	bool statusIsError_ = false;
 };
 
+// Changes the value at an address or at the end of a pointer chain, freezes it, or saves it as a
+// cheat. For a plain address it also starts a pointer scan.
 class MemoryScannerEditScreen : public UI::PopupScreen {
 public:
-	MemoryScannerEditScreen(u32 addr, ScanValueType type);
+	MemoryScannerEditScreen(const PointerChain &where, ScanValueType type);
 
 	const char *tag() const override { return "MemoryScannerEdit"; }
 
@@ -116,14 +134,16 @@ public:
 
 protected:
 	UI::Size PopupWidth() const override { return 600; }
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 private:
 	void UpdateTexts();
 	bool GetValueToUse(u32 *bits);
+	bool Resolve(u32 *addr) const { return where_.Resolve(addr); }
 	void OnSet();
 	void OnAdd();
 
-	u32 addr_;
+	PointerChain where_;
 	ScanValueType type_;
 	bool frozen_ = false;
 	std::string value_;
@@ -134,6 +154,37 @@ private:
 	UI::TextView *cheatText_ = nullptr;
 	UI::TextView *status_ = nullptr;
 	double lastRefresh_ = 0.0;
+};
+
+// Finds pointer chains to an address, and narrows them down with the value's address after it
+// moved. Its chains can be frozen, edited and added as pointer cheats like any address.
+class PointerScanScreen : public UI::PopupScreen {
+public:
+	// target is the address scanned for, or filtered with.
+	PointerScanScreen(u32 target, ScanValueType type);
+
+	const char *tag() const override { return "PointerScan"; }
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	void update() override;
+
+protected:
+	bool FillVertical() const override { return true; }
+	UI::Size PopupWidth() const override { return 820; }
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
+private:
+	void CreateControls(UI::ViewGroup *parent);
+	void CreateResults(UI::ViewGroup *parent);
+	void DoScan();
+	void DoFilter();
+
+	u32 target_;
+	ScanValueType type_;
+	WatchList watches_;
+	double lastRefresh_ = 0.0;
+	std::string statusText_;
+	bool statusIsError_ = false;
 };
 
 // Appends a cheat with these lines to the running game's cheat file (PSP/Cheats/<DISC_ID>.ini),

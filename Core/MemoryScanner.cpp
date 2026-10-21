@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MemoryScanner.h"
+#include "Core/HLE/sceKernelModule.h"
 
 static constexpr u32 CWCHEAT_BASE = 0x08800000;
 
@@ -298,8 +299,9 @@ static inline bool Matches(T cur, T prev, const ScanValue &v, const ScanValue &v
 	{
 		T lo = ValueAs<T>(v);
 		T hi = ValueAs<T>(v2);
-		if (hi < lo)
+		if (hi < lo) {
 			std::swap(lo, hi);
+		}
 		return cur >= lo && cur <= hi;
 	}
 	case ScanCompare::Unknown: return true;
@@ -317,8 +319,9 @@ static inline bool Matches(T cur, T prev, const ScanValue &v, const ScanValue &v
 template <typename T, ScanCompare C>
 static void FirstLoop(const u8 *mem, u32 size, std::vector<u64> &bits, const ScanValue &v, const ScanValue &v2) {
 	const u32 align = (u32)sizeof(T);
-	if (size < sizeof(T))
+	if (size < sizeof(T)) {
 		return;
+	}
 	const u32 last = size - (u32)sizeof(T);
 	for (u32 off = 0; off <= last; off += align) {
 		T cur = LoadValue<T>(mem + off);
@@ -332,8 +335,9 @@ template <typename T, ScanCompare C>
 static void NextLoop(const u8 *mem, const u8 *prevMem, u32 size, std::vector<u64> &bits, const ScanValue &v, const ScanValue &v2) {
 	for (size_t i = 0; i < bits.size(); i++) {
 		u64 w = bits[i];
-		if (!w)
+		if (!w) {
 			continue;
+		}
 		u64 keep = w;
 		while (w) {
 			int b = LowestSetBit64(w);
@@ -527,43 +531,315 @@ u32 MemoryScanner::PreviousValue(u32 addr) const {
 	}
 }
 
-void MemoryScanner::SetFrozen(u32 addr, ScanValueType type, u32 bits, bool frozen) {
-	auto it = std::find_if(freezes_.begin(), freezes_.end(), [&](const Freeze &f) { return f.addr == addr && f.type == type; });
+// Pointer chains
+
+template <typename Read32>
+static bool FollowChain(const PointerChain &c, Read32 read32, u32 *addr) {
+	if (c.depth <= 0) {
+		*addr = c.base;
+		return true;
+	}
+	u32 p;
+	if (!read32(c.base, &p)) {
+		return false;
+	}
+	for (int i = 0; i < c.depth - 1; i++) {
+		if (!read32(p + c.offsets[i], &p)) {
+			return false;
+		}
+	}
+	// The same memory through a mirror (uncached 0x4xxxxxxx and so on) is the same address.
+	*addr = (p + c.offsets[c.depth - 1]) & 0x3FFFFFFF;
+	return true;
+}
+
+bool PointerChain::Resolve(u32 *addr) const {
+	return FollowChain(*this, [](u32 a, u32 *v) {
+		if (!Memory::IsValidRange(a, 4)) {
+			return false;
+		}
+		*v = Memory::ReadUnchecked_U32(a);
+		return true;
+	}, addr);
+}
+
+bool PointerChain::ResolveInBuffer(const u8 *mem, u32 memBase, u32 memSize, u32 *addr) const {
+	return FollowChain(*this, [=](u32 a, u32 *v) {
+		// Mirrors (uncached 0x4xxxxxxx and so on) are the same memory.
+		a &= 0x3FFFFFFF;
+		if (a < memBase || a - memBase + 4 > memSize) {
+			return false;
+		}
+		memcpy(v, mem + (a - memBase), 4);
+		return true;
+	}, addr);
+}
+
+std::string PointerChain::ToString() const {
+	if (depth <= 0) {
+		return StringFromFormat("0x%08X", base);
+	}
+	std::string s(depth, '[');
+	s += StringFromFormat("0x%08X]", base);
+	for (int i = 0; i < depth; i++) {
+		s += StringFromFormat(" + 0x%X", offsets[i]);
+		if (i < depth - 1) {
+			s += "]";
+		}
+	}
+	return s;
+}
+
+bool PointerChain::operator==(const PointerChain &other) const {
+	if (base != other.base || depth != other.depth) {
+		return false;
+	}
+	for (int i = 0; i < depth; i++) {
+		if (offsets[i] != other.offsets[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+std::vector<std::string> MemoryScanner::MakeCwCheatLines(ScanValueType type, const PointerChain &chain, u32 bits) {
+	if (!chain.IsPointer()) {
+		return { MakeCwCheatLine(type, chain.base, bits) };
+	}
+	// _L 0x6AAAAAAA 0xVVVVVVVV   A = first pointer, relative to 0x08800000; V = value
+	// _L 0x000T000N 0xOOOOOOOO   T = 0/1/2 for 8/16/32-bit, N = this line + the walk lines, O = last offset
+	// _L 0x2WWWWWWW 0x00000000   one per pointer after the first: p = [p + W]
+	u32 typeCode;
+	switch (type) {
+	case ScanValueType::U8: typeCode = 0; bits &= 0xFF; break;
+	case ScanValueType::U16: typeCode = 1; bits &= 0xFFFF; break;
+	default: typeCode = 2; break;
+	}
+	std::vector<std::string> lines;
+	lines.push_back(StringFromFormat("_L 0x6%07X 0x%08X", (chain.base - CWCHEAT_BASE) & 0x0FFFFFFF, bits));
+	lines.push_back(StringFromFormat("_L 0x%08X 0x%08X", (typeCode << 16) | (u32)chain.depth, chain.offsets[chain.depth - 1]));
+	for (int i = 0; i < chain.depth - 1; i++) {
+		lines.push_back(StringFromFormat("_L 0x2%07X 0x00000000", chain.offsets[i] & 0x0FFFFFFF));
+	}
+	return lines;
+}
+
+// Freezing
+
+void MemoryScanner::SetFrozen(const PointerChain &where, ScanValueType type, u32 bits, bool frozen) {
+	auto it = std::find_if(freezes_.begin(), freezes_.end(), [&](const Freeze &f) { return f.where == where && f.type == type; });
 	if (frozen) {
 		if (it != freezes_.end()) {
 			it->bits = bits;
 		} else {
-			freezes_.push_back(Freeze{ addr, type, bits });
-			std::sort(freezes_.begin(), freezes_.end(), [](const Freeze &a, const Freeze &b) { return a.addr < b.addr; });
+			freezes_.push_back(Freeze{ where, type, bits });
 		}
 		// Hold it right away, not only at the next cheat run.
-		WritePSP(type, addr, bits);
+		u32 addr;
+		if (where.Resolve(&addr)) {
+			WritePSP(type, addr, bits);
+		}
 	} else if (it != freezes_.end()) {
 		freezes_.erase(it);
 	}
 }
 
-bool MemoryScanner::IsFrozen(u32 addr, ScanValueType type) const {
+bool MemoryScanner::IsFrozen(const PointerChain &where, ScanValueType type) const {
 	for (const Freeze &f : freezes_) {
-		if (f.addr == addr && f.type == type)
+		if (f.where == where && f.type == type) {
 			return true;
+		}
 	}
 	return false;
 }
 
-void MemoryScanner::UpdateFrozenValue(u32 addr, ScanValueType type, u32 bits) {
+void MemoryScanner::UpdateFrozenValue(const PointerChain &where, ScanValueType type, u32 bits) {
 	for (Freeze &f : freezes_) {
-		if (f.addr == addr && f.type == type)
+		if (f.where == where && f.type == type) {
 			f.bits = bits;
+		}
 	}
 }
 
 void MemoryScanner::ApplyFreezes() const {
 	for (const Freeze &f : freezes_) {
-		u32 cur = 0;
+		u32 addr, cur = 0;
+		// A pointer that's invalid right now (loading, menus) just isn't written.
+		if (!f.where.Resolve(&addr)) {
+			continue;
+		}
 		// Only write (and invalidate) when the game changed it.
-		if (ReadPSP(f.type, f.addr, &cur) && cur != f.bits) {
-			WritePSP(f.type, f.addr, f.bits);
+		if (ReadPSP(f.type, addr, &cur) && cur != f.bits) {
+			WritePSP(f.type, addr, f.bits);
 		}
 	}
+}
+
+// Pointer scan
+
+PointerScanner &GetPointerScanner() {
+	static PointerScanner scanner;
+	return scanner;
+}
+
+std::vector<std::pair<u32, u32>> PointerScanner::GetPSPStaticRanges() {
+	std::vector<std::pair<u32, u32>> ranges;
+	for (const ModuleDataRange &r : __KernelModuleDataRanges()) {
+		ranges.emplace_back(r.start, r.size);
+	}
+	return ranges;
+}
+
+void PointerScanner::Reset() {
+	std::vector<PointerChain>().swap(results_);
+	target_ = 0;
+	scans_ = 0;
+	truncated_ = false;
+	gameID_.clear();
+}
+
+bool PointerScanner::ScanBuffer(const u8 *mem, u32 memBase, u32 memSize, const std::vector<std::pair<u32, u32>> &staticRangesIn,
+	u32 target, ScanValueType type, const Settings &settingsIn) {
+	if (!mem || memSize < 4) {
+		return false;
+	}
+	std::string gameID = gameID_;
+	Reset();
+	gameID_ = gameID;
+
+	Settings settings = settingsIn;
+	settings.maxDepth = std::max(1, std::min(settings.maxDepth, MAX_POINTER_DEPTH));
+	target_ = target;
+	type_ = type;
+	settings_ = settings;
+	const u32 memEnd = memBase + memSize;
+
+	// Bases must be in static data, and in user memory so CwCheat can address them.
+	std::vector<std::pair<u32, u32>> staticRanges;
+	for (const auto &r : staticRangesIn) {
+		u32 start = std::max(r.first, CWCHEAT_BASE);
+		u32 end = r.first + r.second;
+		if (end > start) {
+			staticRanges.emplace_back(start, end);
+		}
+	}
+	std::sort(staticRanges.begin(), staticRanges.end());
+	auto isStatic = [&](u32 addr) {
+		auto it = std::upper_bound(staticRanges.begin(), staticRanges.end(), std::make_pair(addr, 0xFFFFFFFFu));
+		if (it == staticRanges.begin()) {
+			return false;
+		}
+		--it;
+		return addr >= it->first && addr + 4 <= it->second;
+	};
+
+	// Every aligned word that looks like a pointer into this memory, sorted by where it points:
+	// (value << 32) | address of the word.
+	std::vector<u64> index;
+	index.reserve(memSize / 64);
+	for (u32 off = 0; off + 4 <= memSize; off += 4) {
+		u32 v;
+		memcpy(&v, mem + off, 4);
+		v &= 0x3FFFFFFF;
+		if ((v & 3) == 0 && v >= memBase && v < memEnd) {
+			index.push_back(((u64)v << 32) | (memBase + off));
+		}
+	}
+	std::sort(index.begin(), index.end());
+
+	// Back from the target, one pointer at a time: what points at (or a bit before) it, then what
+	// points at those, and so on. A pointer in static data ends a chain.
+	struct Node {
+		u32 addr;
+		u32 offsets[MAX_POINTER_DEPTH];  // from this node to the target; level of them are used
+	};
+	std::vector<Node> frontier(1);
+	frontier[0].addr = target;
+	for (int level = 1; level <= settings.maxDepth && !frontier.empty(); level++) {
+		std::vector<Node> next;
+		for (const Node &node : frontier) {
+			const u32 lo = node.addr >= settings.maxOffset ? node.addr - settings.maxOffset : 0;
+			auto it = std::lower_bound(index.begin(), index.end(), (u64)lo << 32);
+			for (; it != index.end() && (u32)(*it >> 32) <= node.addr; ++it) {
+				const u32 value = (u32)(*it >> 32);
+				const u32 addr = (u32)*it;
+				if (isStatic(addr)) {
+					if (results_.size() >= MAX_RESULTS) {
+						truncated_ = true;
+						continue;
+					}
+					PointerChain c;
+					c.base = addr;
+					c.depth = level;
+					c.offsets[0] = node.addr - value;
+					for (int i = 1; i < level; i++) {
+						c.offsets[i] = node.offsets[i - 1];
+					}
+					results_.push_back(c);
+				} else if (level < settings.maxDepth) {
+					if (next.size() >= MAX_NODES_PER_LEVEL) {
+						truncated_ = true;
+						continue;
+					}
+					Node n;
+					n.addr = addr;
+					n.offsets[0] = node.addr - value;
+					for (int i = 1; i < level; i++) {
+						n.offsets[i] = node.offsets[i - 1];
+					}
+					next.push_back(n);
+				}
+			}
+		}
+		frontier.swap(next);
+	}
+
+	// Shortest and simplest first: fewer pointers, then smaller offsets.
+	std::sort(results_.begin(), results_.end(), [](const PointerChain &a, const PointerChain &b) {
+		if (a.depth != b.depth) {
+			return a.depth < b.depth;
+		}
+		u64 sa = 0, sb = 0;
+		for (int i = 0; i < a.depth; i++) {
+			sa += a.offsets[i];
+			sb += b.offsets[i];
+		}
+		if (sa != sb) {
+			return sa < sb;
+		}
+		return a.base < b.base;
+	});
+	scans_ = 1;
+	return true;
+}
+
+size_t PointerScanner::FilterBuffer(const u8 *mem, u32 memBase, u32 memSize, u32 newTarget) {
+	if (scans_ == 0) {
+		return 0;
+	}
+	results_.erase(std::remove_if(results_.begin(), results_.end(), [&](const PointerChain &c) {
+		u32 addr;
+		return !c.ResolveInBuffer(mem, memBase, memSize, &addr) || addr != newTarget;
+	}), results_.end());
+	target_ = newTarget;
+	scans_++;
+	return results_.size();
+}
+
+bool PointerScanner::Scan(u32 target, ScanValueType type, const Settings &settings) {
+	u32 start, size;
+	MemoryScanner::GetPSPScanRange(&start, &size);
+	if (size == 0 || !Memory::IsValidRange(start, size)) {
+		return false;
+	}
+	return ScanBuffer(Memory::GetPointerUnchecked(start), start, size, GetPSPStaticRanges(), target, type, settings);
+}
+
+size_t PointerScanner::Filter(u32 newTarget) {
+	u32 start, size;
+	MemoryScanner::GetPSPScanRange(&start, &size);
+	if (size == 0 || !Memory::IsValidRange(start, size)) {
+		return results_.size();
+	}
+	return FilterBuffer(Memory::GetPointerUnchecked(start), start, size, newTarget);
 }

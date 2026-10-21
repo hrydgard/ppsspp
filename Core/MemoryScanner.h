@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "Common/CommonTypes.h"
@@ -55,6 +56,31 @@ enum class ScanCompare {
 	Changed,        // value != previous
 	Unchanged,      // value == previous
 	COUNT,
+};
+
+// Where a value is: a plain address (depth 0), or a chain of pointers starting at a static
+// address, like CwCheat's pointer code type (0x6) follows:
+//   p = [base]; p = [p + offsets[0]]; ... ; address = p + offsets[depth - 1]
+// so depth is the number of pointers read.
+static constexpr int MAX_POINTER_DEPTH = 4;
+struct PointerChain {
+	u32 base = 0;
+	int depth = 0;
+	u32 offsets[MAX_POINTER_DEPTH]{};
+
+	static PointerChain Direct(u32 addr) {
+		PointerChain c;
+		c.base = addr;
+		return c;
+	}
+	bool IsPointer() const { return depth > 0; }
+	// Follows the chain in PSP memory. False if a pointer on the way isn't a valid address.
+	bool Resolve(u32 *addr) const;
+	// The same, in a buffer holding memory from memBase.
+	bool ResolveInBuffer(const u8 *mem, u32 memBase, u32 memSize, u32 *addr) const;
+	// "[[0x08912340] + 0x10] + 0x1C", or "0x08912340" for a plain address.
+	std::string ToString() const;
+	bool operator==(const PointerChain &other) const;
 };
 
 // A parsed search value. For integers, bits holds the value truncated to the type's size.
@@ -88,6 +114,9 @@ public:
 	// CwCheat line(s) writing bits to addr: "_L 0x2XXXXXXX 0xYYYYYYYY". The address must be
 	// in user memory (at or above 0x08800000).
 	static std::string MakeCwCheatLine(ScanValueType type, u32 addr, u32 bits);
+	// The lines of a cheat writing bits through a chain: a plain write for a plain address, or a
+	// pointer code (0x6) with one walk line (0x2) per pointer after the first.
+	static std::vector<std::string> MakeCwCheatLines(ScanValueType type, const PointerChain &chain, u32 bits);
 
 	// The range of PSP RAM that's scanned: user memory, from 0x08800000 to the end of RAM.
 	// This includes the extra 32MB of a PSP-2000+ when the game (or the HD remaster
@@ -125,15 +154,19 @@ public:
 
 	// Frozen values are written back to memory every time cheats run (the cheat refresh
 	// interval), until unfrozen. They're independent of the search, so a new search keeps them.
+	// A frozen pointer chain is followed again every time, like a pointer cheat.
 	struct Freeze {
-		u32 addr;
+		PointerChain where;
 		ScanValueType type;
 		u32 bits;
 	};
-	void SetFrozen(u32 addr, ScanValueType type, u32 bits, bool frozen);
-	bool IsFrozen(u32 addr, ScanValueType type) const;
+	void SetFrozen(const PointerChain &where, ScanValueType type, u32 bits, bool frozen);
+	bool IsFrozen(const PointerChain &where, ScanValueType type) const;
 	// Changes the value a frozen address is held at (if it's frozen).
-	void UpdateFrozenValue(u32 addr, ScanValueType type, u32 bits);
+	void UpdateFrozenValue(const PointerChain &where, ScanValueType type, u32 bits);
+	void SetFrozen(u32 addr, ScanValueType type, u32 bits, bool frozen) { SetFrozen(PointerChain::Direct(addr), type, bits, frozen); }
+	bool IsFrozen(u32 addr, ScanValueType type) const { return IsFrozen(PointerChain::Direct(addr), type); }
+	void UpdateFrozenValue(u32 addr, ScanValueType type, u32 bits) { UpdateFrozenValue(PointerChain::Direct(addr), type, bits); }
 	const std::vector<Freeze> &Freezes() const { return freezes_; }
 	void ClearFreezes() { freezes_.clear(); }
 	void ApplyFreezes() const;
@@ -168,3 +201,57 @@ private:
 
 // The one scanner, which keeps its results while the game runs.
 MemoryScanner &GetMemoryScanner();
+
+// Finds pointer chains leading to an address, starting from static data (the .data/.bss of the
+// game's modules), which stays at the same place when the game reloads a level or restarts.
+// A heap object can be somewhere else every time, but the chain to it still finds it.
+//
+// The first scan usually finds many chains, most of them only right by chance. Filtering keeps
+// the ones that lead to the value's new address after it moved (new level, restarted game).
+class PointerScanner {
+public:
+	struct Settings {
+		int maxDepth = 2;          // 1 to MAX_POINTER_DEPTH pointers.
+		u32 maxOffset = 0x1000;    // Largest offset from a pointer to what's used after it.
+	};
+	// Upper bounds, to keep a deep scan from using all the RAM. Truncated() says if hit.
+	static constexpr size_t MAX_RESULTS = 200000;
+	static constexpr size_t MAX_NODES_PER_LEVEL = 1000000;
+
+	// Static data ranges of the game, as (start, size).
+	static std::vector<std::pair<u32, u32>> GetPSPStaticRanges();
+
+	bool Scan(u32 target, ScanValueType type, const Settings &settings);
+	// Keeps the chains that now lead to newTarget. Returns how many are left.
+	size_t Filter(u32 newTarget);
+
+	// The same, on a buffer. Used by the above, and by tests.
+	bool ScanBuffer(const u8 *mem, u32 memBase, u32 memSize, const std::vector<std::pair<u32, u32>> &staticRanges,
+		u32 target, ScanValueType type, const Settings &settings);
+	size_t FilterBuffer(const u8 *mem, u32 memBase, u32 memSize, u32 newTarget);
+
+	void Reset();
+
+	bool HasResults() const { return scans_ > 0; }
+	// 1 after a scan, +1 for each filter.
+	int Scans() const { return scans_; }
+	bool Truncated() const { return truncated_; }
+	u32 Target() const { return target_; }
+	ScanValueType Type() const { return type_; }
+	const Settings &LastSettings() const { return settings_; }
+	// Shortest chains first.
+	const std::vector<PointerChain> &Results() const { return results_; }
+	const std::string &GameID() const { return gameID_; }
+	void SetGameID(std::string_view id) { gameID_ = id; }
+
+private:
+	std::vector<PointerChain> results_;
+	u32 target_ = 0;
+	ScanValueType type_ = ScanValueType::U32;
+	Settings settings_;
+	int scans_ = 0;
+	bool truncated_ = false;
+	std::string gameID_;
+};
+
+PointerScanner &GetPointerScanner();

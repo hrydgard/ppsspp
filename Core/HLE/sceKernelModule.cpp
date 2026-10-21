@@ -607,6 +607,24 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 	return ranges;
 }
 
+std::vector<ModuleDataRange> __KernelModuleDataRanges() {
+	std::vector<ModuleDataRange> ranges;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		const PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module || module->isFake || (module->nm.attribute & 0x1000) != 0) {
+			continue;
+		}
+		const u32 start = module->GetDataAddr();
+		const u32 size = module->nm.data_size + module->nm.bss_size;
+		if (module->nm.text_addr == 0 || size == 0) {
+			continue;
+		}
+		ranges.push_back(ModuleDataRange{ start, size, std::string(module->nm.name, strnlen(module->nm.name, sizeof(module->nm.name))) });
+	}
+	return ranges;
+}
+
 void __KernelModuleDoState(PointerWrap &p) {
 	auto s = p.Section("sceKernelModule", 1, 7);
 	if (!s)

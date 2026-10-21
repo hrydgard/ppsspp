@@ -71,7 +71,55 @@ Tap a result to:
   (32-bit and float).
 
 Keep in mind that values found this way can move around (a new level, a reloaded save), so a
-cheat made from them may only work in some situations.
+cheat made from them may only work in some situations. That's what pointer scans are for.
+
+## Pointer scans
+
+Many PSP games keep a lot of their state at fixed addresses (the game's own static data), and a
+plain cheat works fine there. Values in objects the game allocates (per level, per character)
+can be somewhere else every time. The game finds them through pointers, and a pointer cheat
+(CwCheat code type `0x6`) can follow the same pointers.
+
+1. Find the value with a normal search, tap its address and press **Find pointers to this
+   address**.
+2. Pick **Max pointer depth** (how many pointers in a row, default 2) and **Max offset** (how
+   far the value can be from where a pointer points, default `0x1000`), then **Scan for pointers
+   to this address**.
+   The scan only keeps chains that start in the static data (`.data`/`.bss`) of the game's
+   modules, since those stay at the same place. Code isn't searched: MIPS jump instructions
+   look exactly like pointers.
+3. The first scan usually finds many chains, and most of them are only right by chance.
+   Change level, or restart the game (loading a savestate doesn't help: it restores the same
+   memory layout). Find the value again with a normal search, tap its new address, and use
+   **Pointer scan (filter with this address)** > **Filter with this address**. Only the chains
+   that now lead to the new address are kept. Repeat until only a few are left.
+4. Tap a chain to set the value through it, freeze it, or **Add** it as a pointer cheat. Chains
+   can also be frozen straight from the list.
+
+The shortest chains are listed first, and up to 20 are shown even when there are more.
+Pointer results stay until a new pointer scan, **Clear pointer results**, or the game closes.
+**Pointer scan results** in the main scanner window opens them again.
+
+Larger depths and offsets find more chains, but take longer, use more RAM, and give more false
+ones. If the scan stops at its limit, it says so; use a smaller depth or offset.
+
+The cheat written for `[[0x08912340] + 0x10] + 0x1C`, setting a 32-bit value to 999:
+
+```
+_L 0x60112340 0x000003E7   first pointer (relative to 0x08800000), value
+_L 0x00020002 0x0000001C   2 = 32-bit (0 = 8-bit, 1 = 16-bit), 2 = lines in this pointer code, last offset
+_L 0x20000010 0x00000000   follow one more pointer, at +0x10
+```
+
+Things to keep in mind:
+
+- During loading screens and menus a pointer can be null or point at freed memory. If a pointer
+  on the way doesn't lead to valid memory, PPSSPP doesn't write at all, but a pointer to memory
+  that's been reused for something else can't be told apart from a good one.
+- A chain may lead to "the selected unit" instead of "the player". Filtering after a few
+  different situations weeds those out.
+- Other cheat devices may handle multi-level `0x6` codes differently. Single-level ones are the
+  most portable.
 
 ## Memory use
 

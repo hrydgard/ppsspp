@@ -1,7 +1,30 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <cstdio>
 #include <cstring>
+#include <string>
 #include <vector>
 
+#include "Core/CwCheat.h"
+#include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MemoryScanner.h"
+#include "Core/MIPS/MIPS.h"
 #include "unittest/UnitTest.h"
 
 static bool Parse(ScanValueType type, const char *text, ScanValue *v) {
@@ -11,7 +34,7 @@ static bool Parse(ScanValueType type, const char *text, ScanValue *v) {
 static void Put32(std::vector<u8> &mem, u32 off, u32 v) { memcpy(&mem[off], &v, 4); }
 static void PutF(std::vector<u8> &mem, u32 off, float v) { memcpy(&mem[off], &v, 4); }
 
-bool TestMemoryScanner() {
+static bool TestValueScans() {
 	const u32 base = 0x08800000;
 	ScanValue v, v2;
 
@@ -102,4 +125,159 @@ bool TestMemoryScanner() {
 	EXPECT_EQ_INT((int)scanner.ResultCount(), 0);
 	EXPECT_FALSE(scanner.HasResults());
 	return true;
+}
+
+// Turns generated "_L 0xAAAAAAAA 0xBBBBBBBB" lines into a cheat for the engine.
+static bool LinesToCheat(const std::vector<std::string> &lines, CheatCode *cheat) {
+	cheat->name = "Pointer test";
+	cheat->format = CheatCodeFormat::CwCheat;
+	cheat->lines.clear();
+	for (const std::string &line : lines) {
+		CheatLine l;
+		if (sscanf(line.c_str(), "_L 0x%x 0x%x", &l.part1, &l.part2) != 2) {
+			printf("Bad generated line: %s\n", line.c_str());
+			return false;
+		}
+		cheat->lines.push_back(l);
+	}
+	return true;
+}
+
+static bool RunGeneratedCheat(CWCheatEngine &engine, ScanValueType type, const PointerChain &chain, u32 bits) {
+	CheatCode cheat;
+	if (!LinesToCheat(MemoryScanner::MakeCwCheatLines(type, chain, bits), &cheat)) {
+		return false;
+	}
+	engine.SetCheats({ cheat });
+	engine.Run();
+	return true;
+}
+
+static bool HasChain(const std::vector<PointerChain> &chains, const PointerChain &wanted) {
+	for (const PointerChain &c : chains) {
+		if (c == wanted) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Pointer chains in emulated RAM: the scan finds them, the generated pointer cheat writes
+// through them in the real cheat engine, and filtering keeps only the ones that follow a move.
+static bool TestPointerScan() {
+	// "Static data" of a pretend game module, and two heap objects.
+	const u32 staticStart = 0x08900000;
+	const u32 staticSize = 0x1000;
+	const u32 player = 0x09A00000;     // the struct the value is in
+	const u32 world = 0x09B00000;      // a struct pointing to player
+	const u32 target = player + 0x1C;  // the value
+
+	Memory::Memset(staticStart, 0, staticSize, "PointerTest");
+	Memory::Memset(player, 0, 0x100, "PointerTest");
+	Memory::Memset(world, 0, 0x100, "PointerTest");
+
+	// Depth 1: static -> player.  Depth 2: static -> world -> player.
+	Memory::WriteUnchecked_U32(player, staticStart + 0x40);
+	Memory::WriteUnchecked_U32(world, staticStart + 0x80);
+	Memory::WriteUnchecked_U32(player, world + 0x10);
+	Memory::WriteUnchecked_U32(100, target);
+
+	u32 memStart, memSize;
+	MemoryScanner::GetPSPScanRange(&memStart, &memSize);
+	const u8 *mem = Memory::GetPointerUnchecked(memStart);
+	const std::vector<std::pair<u32, u32>> statics = { { staticStart, staticSize } };
+
+	PointerChain one;
+	one.base = staticStart + 0x40;
+	one.depth = 1;
+	one.offsets[0] = 0x1C;
+	PointerChain two;
+	two.base = staticStart + 0x80;
+	two.depth = 2;
+	two.offsets[0] = 0x10;
+	two.offsets[1] = 0x1C;
+
+	u32 resolved = 0;
+	EXPECT_TRUE(two.Resolve(&resolved));
+	EXPECT_EQ_HEX(resolved, target);
+	EXPECT_EQ_STR(two.ToString(), std::string("[[0x08900080] + 0x10] + 0x1C"));
+
+	PointerScanner scanner;
+	PointerScanner::Settings settings;
+	settings.maxDepth = 2;
+	settings.maxOffset = 0x100;
+	EXPECT_TRUE(scanner.ScanBuffer(mem, memStart, memSize, statics, target, ScanValueType::U32, settings));
+	EXPECT_TRUE(HasChain(scanner.Results(), one));
+	EXPECT_TRUE(HasChain(scanner.Results(), two));
+	// Shortest first.
+	EXPECT_EQ_INT(scanner.Results()[0].depth, 1);
+
+	// Depth 1 only finds the direct one.
+	settings.maxDepth = 1;
+	EXPECT_TRUE(scanner.ScanBuffer(mem, memStart, memSize, statics, target, ScanValueType::U32, settings));
+	EXPECT_TRUE(HasChain(scanner.Results(), one));
+	EXPECT_FALSE(HasChain(scanner.Results(), two));
+
+	// Generated pointer cheats, run by the engine.
+	CWCheatEngine engine("TEST00000");
+	EXPECT_TRUE(RunGeneratedCheat(engine, ScanValueType::U32, two, 999));
+	EXPECT_EQ_INT(Memory::ReadUnchecked_U32(target), 999);
+	EXPECT_TRUE(RunGeneratedCheat(engine, ScanValueType::U16, one, 0xBEEF));
+	EXPECT_EQ_HEX((u32)Memory::ReadUnchecked_U16(target), 0xBEEF);
+	EXPECT_TRUE(RunGeneratedCheat(engine, ScanValueType::U8, two, 0x7F));
+	EXPECT_EQ_HEX((u32)Memory::ReadUnchecked_U8(target), 0x7F);
+	// A plain address still makes a plain write.
+	EXPECT_EQ_INT((int)MemoryScanner::MakeCwCheatLines(ScanValueType::U32, PointerChain::Direct(target), 1).size(), 1);
+
+	// The player moves (new level): world now points to the new one, and the depth 1 pointer is
+	// gone. Filtering with the new address keeps only the depth 2 chain.
+	settings.maxDepth = 2;
+	EXPECT_TRUE(scanner.ScanBuffer(mem, memStart, memSize, statics, target, ScanValueType::U32, settings));
+	const u32 player2 = 0x09C00000;
+	Memory::Memset(player2, 0, 0x100, "PointerTest");
+	Memory::WriteUnchecked_U32(0, staticStart + 0x40);
+	Memory::WriteUnchecked_U32(player2, world + 0x10);
+	EXPECT_TRUE(scanner.FilterBuffer(mem, memStart, memSize, player2 + 0x1C) >= 1);
+	EXPECT_FALSE(HasChain(scanner.Results(), one));
+	EXPECT_TRUE(HasChain(scanner.Results(), two));
+	EXPECT_EQ_INT(scanner.Scans(), 2);
+
+	// The same cheat now writes to the moved value.
+	EXPECT_TRUE(RunGeneratedCheat(engine, ScanValueType::U32, two, 1234));
+	EXPECT_EQ_INT(Memory::ReadUnchecked_U32(player2 + 0x1C), 1234);
+
+	// A pointer through the uncached mirror is the same address.
+	Memory::WriteUnchecked_U32(player2 | 0x40000000, world + 0x10);
+	EXPECT_TRUE(two.Resolve(&resolved));
+	EXPECT_EQ_HEX(resolved, player2 + 0x1C);
+
+	// A step of the chain leads outside memory (a stale pointer): the cheat must not write at all.
+	// Skipping just that step would write at the pointer before it + the last offset, which here
+	// is valid memory (0x09FFFF1C, near the end of RAM).
+	PointerChain stale;
+	stale.base = staticStart + 0xC0;
+	stale.depth = 2;
+	stale.offsets[0] = 0x200;
+	stale.offsets[1] = 0x1C;
+	Memory::WriteUnchecked_U32(0x09FFFF00, stale.base);
+	Memory::WriteUnchecked_U32(0x5555, 0x09FFFF1C);
+	EXPECT_FALSE(stale.Resolve(&resolved));
+	EXPECT_TRUE(RunGeneratedCheat(engine, ScanValueType::U32, stale, 0xDEAD));
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x09FFFF1C), 0x5555);
+	return true;
+}
+
+bool TestMemoryScanner() {
+	if (!TestValueScans()) {
+		return false;
+	}
+	currentMIPS = &mipsr4k;
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
+	if (!Memory::Init(Memory::MemMapSetupFlags::Default)) {
+		printf("Memory::Init failed\n");
+		return false;
+	}
+	const bool success = TestPointerScan();
+	Memory::Shutdown();
+	return success;
 }
