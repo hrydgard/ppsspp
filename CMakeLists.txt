@@ -1427,6 +1427,7 @@ if(UNITTEST)
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
 		unittest/TestCwCheat.cpp
+		unittest/TestMemoryScanner.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
 		unittest/TestGEMath.cpp

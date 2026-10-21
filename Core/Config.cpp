@@ -289,6 +289,8 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("EnablePlugins", SETTING(g_Config, bEnablePlugins), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("EnableFileHandlerPlugins", SETTING(g_Config, bEnableFileHandlerPlugins), false, CfgFlag::DEFAULT),
 	ConfigSetting("CwCheatRefreshRate", SETTING(g_Config, iCwCheatRefreshIntervalMs), 77, CfgFlag::PER_GAME),
+	ConfigSetting("MemoryScanner", SETTING(g_Config, bEnableMemoryScanner), false, CfgFlag::PER_GAME),
+	ConfigSetting("MemoryScannerPause", SETTING(g_Config, bMemoryScannerPause), true, CfgFlag::DEFAULT),
 	ConfigSetting("CwCheatScrollPosition", SETTING(g_Config, fCwCheatScrollPosition), 0.0f, CfgFlag::PER_GAME),
 	ConfigSetting("GameListScrollPosition", SETTING(g_Config, fGameListScrollPosition), 0.0f, CfgFlag::DEFAULT),
 	ConfigSetting("HomebrewScrollPosition", SETTING(g_Config, fHomebrewScrollPosition), 0.0f, CfgFlag::DEFAULT),

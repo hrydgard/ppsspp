@@ -86,6 +86,7 @@ using namespace std::placeholders;
 #include "UI/MainScreen.h"
 #include "UI/Background.h"
 #include "UI/EmuScreen.h"
+#include "UI/MemoryScannerScreen.h"
 #include "UI/DevScreens.h"
 #include "UI/GameInfoCache.h"
 #include "UI/BaseScreens.h"
@@ -1261,6 +1262,18 @@ void EmuScreen::CreateViews() {
 		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 
+	{
+		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+		memoryScannerButton_ = root_->Add(new Button(cw->T("Memory Scanner"), new AnchorLayoutParams(WRAP_CONTENT, WRAP_CONTENT, bounds.centerX(), 0, NONE, NONE, Centering::Horizontal)));
+		memoryScannerButton_->OnClick.Add([this](UI::EventParams &e) {
+			MemoryScannerScreen *scanner = new MemoryScannerScreen();
+			if (e.v)
+				scanner->SetPopupOrigin(e.v);
+			screenManager()->push(scanner);
+		});
+		memoryScannerButton_->SetVisibility(MemoryScannerAvailable() ? V_VISIBLE : V_GONE);
+	}
+
 	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, Centering::Both));
 	buttons->SetSpacing(20.0f);
 	root_->Add(buttons);
@@ -1439,6 +1452,10 @@ void EmuScreen::update() {
 	saveStateSpinner_->SetVisibility(showSaveStateSpinner ? V_VISIBLE : V_GONE);
 
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
+	if (memoryScannerButton_) {
+		// The setting can be toggled in the cheats menu while the game runs.
+		memoryScannerButton_->SetVisibility(MemoryScannerAvailable() ? V_VISIBLE : V_GONE);
+	}
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 	backButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 
@@ -1628,7 +1645,14 @@ void EmuScreen::HandleFlip() {
 }
 
 bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
-	if (!(mode & ScreenRenderMode::TOP) && !ShouldRunBehind() && strcmp(screenManager()->topScreen()->tag(), "DevMenu") != 0) {
+	if (!(mode & ScreenRenderMode::TOP) && !ShouldRunBehind()) {
+		const char *topTag = screenManager()->topScreen()->tag();
+		if (strcmp(topTag, "DevMenu") == 0)
+			return true;
+		// The memory scanner can let the game run behind it, to watch values change.
+		// (Scans themselves run on this thread, so the game never runs during one.)
+		if (strcmp(topTag, "MemoryScanner") == 0 && !g_Config.bMemoryScannerPause)
+			return true;
 		return false;
 	}
 	return true;
@@ -2083,6 +2107,11 @@ void EmuScreen::AutoLoadSaveState() {
 
 void EmuScreen::resized() {
 	RecreateViews();
+}
+
+bool MemoryScannerAvailable() {
+	return g_Config.bEnableMemoryScanner && g_Config.bEnableCheats && !Achievements::HardcoreModeActive() &&
+		PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP;
 }
 
 bool MustRunBehind() {

@@ -105,6 +105,8 @@ list(APPEND UISource
 	UploadScreen.cpp
 	CwCheatScreen.h
 	CwCheatScreen.cpp
+	MemoryScannerScreen.h
+	MemoryScannerScreen.cpp
 	FirmwareScreen.h
 	FirmwareScreen.cpp
 	InstallUpdateScreen.h

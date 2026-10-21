@@ -13,6 +13,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
+#include "Core/MemoryScanner.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -262,6 +263,8 @@ void __CheatInit() {
 
 void __CheatShutdown() {
 	__CheatStop();
+	// Scan results belong to the game that's shutting down.
+	GetMemoryScanner().Reset();
 }
 
 void __CheatDoState(PointerWrap &p) {
