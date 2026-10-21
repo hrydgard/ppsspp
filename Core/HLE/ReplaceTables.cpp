@@ -38,6 +38,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
 #include "Core/HW/MMIO.h"
 
 #include "GPU/Math3D.h"
@@ -1771,6 +1772,21 @@ static int Hook_blitz_fps_hack(MIPSState *mips) {
 	return 0;
 }
 
+static int Hook_activisionhits_frame_limit(MIPSState *mips) {
+	// The manual pages flip from a GE finish callback, and the loop only sleeps 100us between frames,
+	// so how fast the GE draws sets the frame rate. Ours draws instantly, so it ran at ~800fps (#20287).
+	// Allow one frame per vblank. Screens that wait for vblank on their own already pass this.
+	static int lastVCount = -1;
+	const int vcount = __DisplayGetVCount();
+	if (vcount <= lastVCount) {
+		__DisplayWaitForVblanks("vblank start waited", 1);
+		lastVCount = vcount + 1;
+	} else {
+		lastVCount = vcount;
+	}
+	return 0;
+}
+
 static int Hook_brian_lara_fps_hack(MIPSState *mips) {
 	if (PSP_CoreParameter().compat.flags().FramerateHack30) {
 		__DisplayWaitForVblanks("vblank start waited", 1);
@@ -1996,6 +2012,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_1, 0, REPFLAG_HOOKENTER, 0x620 },
 	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_2, 0, REPFLAG_HOOKENTER, 0x6AC },
 	{ "medievil_projectile_update", &Hook_medievil_projectile_update, 0, REPFLAG_HOOKENTER, 0x6BC },
+	{ "activisionhits_frame_limit", &Hook_activisionhits_frame_limit, 0, REPFLAG_HOOKEXIT, 0 },
 	{}
 };
 
