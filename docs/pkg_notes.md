@@ -153,7 +153,7 @@ disc before deciding to boot the patch.
   `PBOOT.PBP` to `EBOOT.PBP`, and boot it headless with the UMD mounted -
 
   ```
-  ./build/PPSSPPHeadless -i --graphics=software --memstick=<ms> \
+  ./build/PPSSPPHeadless --cpu=interpreter --graphics=software --memstick=<ms> \
       --mount="Hatsune Miku - Project Diva 2nd (Japan).iso" \
       <ms>/PSP/GAME/ULJM05681/EBOOT.PBP
   ```

@@ -14,7 +14,7 @@ finds the debugger port, connects, and cleans up after itself - no wrapper scrip
 ```bash
 printf 'cpu.runUntilTime us=6000000\ncpu.status\n:quit\n' | \
   Tools/wsdbg/target/release/wsdbg.exe --sync --compact --quiet \
-    --launch Windows/x64/Debug/PPSSPPHeadless.exe --vsh -i --graphics=vulkan --loglevel=3 2>emu.log
+    --launch Windows/x64/Debug/PPSSPPHeadless.exe --vsh --cpu=interpreter --graphics=vulkan --loglevel=3 2>emu.log
 ```
 
 That takes a few seconds. Protocol replies come back on stdout, the emulator's log on stderr.
@@ -23,7 +23,7 @@ Put more commands in the script to inspect state once it stops. Three things to 
 1. **Don't add `:wait cpu.stepping` after `cpu.runUntilTime`** (or any resume/step command).
    `--sync` already waits for it; a second one never arrives and burns the whole timeout. This is
    the single most likely reason a run seems to take minutes - emulation itself is ~real time.
-2. **`-i` (interpreter)** is what this path is known to work with, and breakpoints are most
+2. **`--cpu=interpreter`** is what this path is known to work with, and breakpoints are most
    reliable there.
 3. Boot needs a real firmware dump in `assets/flash0/` (and optionally `assets/flash1/`), neither
    of which is in the repo.

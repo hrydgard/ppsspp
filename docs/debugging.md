@@ -47,7 +47,7 @@ platforms. Where arch is x64 or ARM64.
 A working invocation, and the traps around it:
 
 ```bash
-./Windows/x64/Debug/PPSSPPHeadless.exe -i --debugger=34567 --timeout-wall=100000 --graphics=software --log \
+./Windows/x64/Debug/PPSSPPHeadless.exe --cpu=interpreter --debugger=34567 --timeout-wall=100000 --graphics=software --log \
     --root pspautotests/tests/../ pspautotests/tests/cpu/cpu_alu/cpu_alu.prx > hl.log 2>&1 &
 # wait for "Listening on port" in hl.log, then:
 ./Tools/wsdbg/target/release/wsdbg.exe 34567 --sync --sync-timeout 15 < script.txt
@@ -87,11 +87,8 @@ A working invocation, and the traps around it:
   that can't be honored is fatal in headless (exit 1) instead of falling back to a random port. If you still suspect
   you're talking to the wrong process, the `version` response carries `pid` and `path` - check them.
 - **The headless build defaults to JIT** (`Headless.cpp`, `CPUCore cpuCore = CPUCore::JIT`), despite
-  `g_Config.iCpuCore` being force-set to INTERPRETER just above - `ApplyToConfig()` has the final say. Pass `-i` for
-  the interpreter.
-- **`-r` is ambiguous in headless**: it's both "use IR interpreter" (legacy short cpu-core flag) and `--root`'s short
-  form. Passing `-r` makes it eat the *next* argument as the root path, silently dropping e.g. `--debugger=PORT` so
-  the server never starts. Use `--cpu=ir` instead. (`-i`, `-j`, `-J` are unambiguous.)
+  `g_Config.iCpuCore` being force-set to INTERPRETER just above - `ApplyToConfig()` has the final say. Pass
+  `--cpu=interpreter` for the interpreter. (`-r` is `--root`, which eats the next argument as the root path.)
 - When a test finishes, headless exits and the WebSocket connection closes (`CloseFrame { code: Away }`). So "the
   connection just closed" after a `cpu.resume` normally means **the breakpoint you were counting on never tripped**
   and the game ran to completion - not a transport problem.
@@ -292,7 +289,7 @@ as reliable, but are maybe not quite there.
 
 Concretely, as measured against the headless build (2026-08-16), per CPU backend:
 
-| | interpreter (`-i`) | JIT (`-j`) / IR JIT (`-J`) |
+| | interpreter | JIT / IR JIT |
 |---|---|---|
 | `cpu.breakpoint.*` (exec) | works | works |
 | `cpu.stepInto/Over/Out`, `runUntil`, `nextHLE` | works | works |
@@ -322,7 +319,7 @@ first-chance exception in Visual Studio. To keep the debugger out of the way whe
 - **gdb (Linux/Android)**: `handle SIGSEGV nostop noprint pass`.
 
 The `pspautotests/tests/cpu/crash/crash_*.prx` binaries each make one bad access (read, write, float, bad jump),
-which makes them the quickest check that the handler works on a platform: run one with `-j` in headless. They
+which makes them the quickest check that the handler works on a platform: run one with `--cpu=jit` in headless. They
 should print the guest exception and exit 0, not die with signal 11.
 
 ## Debugging a game that works on hardware but not in PPSSPP
@@ -365,7 +362,7 @@ Finding the function:
 1. **Get to the right moment.** Confirm the thing is actually happening before breaking on it - SSX's
    videos only start 11.5s in, and a screenshot from earlier just shows the paper background. `memory.read` of
    the decode buffer at a few `cpu.runUntilTime` points tells you when it starts changing.
-2. **Break on the write**, under the interpreter (`-i`), since JIT memory breakpoints only work for constant
+2. **Break on the write**, under the interpreter (`--cpu=interpreter`), since JIT memory breakpoints only work for constant
    addresses: `memory.breakpoint.add address=<a pixel mid-framebuffer> size=4 write=true enabled=true`, then
    `cpu.resume`. Pick a pixel in the middle of the frame, not the first one, which clears also hit.
 3. **`hle.backtrace`** gives the function's entry address. Addresses come back
@@ -388,7 +385,7 @@ hle.backtrace
 
 ```bash
 Tools/wsdbg/target/release/wsdbg.exe --sync --compact --quiet --launch \
-    Windows/x64/Release/PPSSPPHeadless.exe GAME.iso --memstick=memstick -i --graphics=vulkan \
+    Windows/x64/Release/PPSSPPHeadless.exe GAME.iso --memstick=memstick --cpu=interpreter --graphics=vulkan \
     --timeout-wall=240 < script.txt 2>/dev/null | grep -v '^<- log'
 ```
 
