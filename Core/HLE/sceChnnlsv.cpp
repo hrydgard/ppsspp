@@ -226,7 +226,9 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 	u8 *hash = Memory::GetPointerWriteOrException(addressHash);
 	if (!ctx.IsValid() || !hash)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
-	return hleLogDebug(Log::sceMisc, sceSdMacFinal(*ctx, hash, Memory::GetPointerWriteOrException(addressKey)));
+	// The key is optional: the VSH's Saved Data Utility checks PARAM.SFO hashes with none.
+	const u8 *key = addressKey ? Memory::GetPointerWriteOrException(addressKey) : nullptr;
+	return hleLogDebug(Log::sceMisc, sceSdMacFinal(*ctx, hash, key));
 }
 
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
@@ -402,7 +404,8 @@ int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 cryptkeyAddr) {
 	auto ctx2 = PSPPointer<pspChnnlsvContext2>::Create(ctx2Addr);
 	u8* data = Memory::GetPointerWriteOrException(dataAddr);
-	u8* cryptkey = Memory::GetPointerWriteOrException(cryptkeyAddr);
+	// Optional, as in sceSdGetLastIndex.
+	u8* cryptkey = cryptkeyAddr ? Memory::GetPointerWriteOrException(cryptkeyAddr) : nullptr;
 	if (!ctx2.IsValid() || !data)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 
