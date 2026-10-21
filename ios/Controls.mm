@@ -385,8 +385,16 @@ void ProcessAccelerometerData(CMAccelerometerData *accData) {
 	CMAcceleration acc = accData.acceleration;
 	// INFO_LOG(SYSTEM, "%f %f %f", acc.x, acc.y, acc.z);
 
+	// Core Motion reports acceleration in g, with the opposite sign of Android's m/s^2.
 	// Might need to change these for portrait or inverse landscape
-	NativeAccelerometer(-acc.x, -acc.y, -acc.z);
+	const float standardGravity = 9.81f;
+	NativeAccelerometer(-acc.x * standardGravity, -acc.y * standardGravity, -acc.z * standardGravity);
+}
+
+void ProcessGyroData(CMGyroData *gyroData) {
+	// Same axes and units (rad/s, right-handed) as Android.
+	CMRotationRate rate = gyroData.rotationRate;
+	NativeGyroscope(rate.x, rate.y, rate.z, gyroData.timestamp);
 }
 #endif
 

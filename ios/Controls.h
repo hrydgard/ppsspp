@@ -34,6 +34,7 @@ private:
 
 #if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData);
+void ProcessGyroData(CMGyroData *gyroData);
 #endif
 InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage);
 

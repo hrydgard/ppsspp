@@ -66,6 +66,7 @@ void NativeResized();
 void NativeTouch(const TouchInput &touch);
 bool NativeKey(const KeyInput &key);
 void NativeAxis(const AxisInput *axis, size_t count);
+// In m/s^2, the way Android reports it: about +9.81 on z with the device lying screen up.
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ);
 // Angular rates in rad/s around the NativeAccelerometer axes. The timestamp is in seconds, on any clock (only deltas are used).
 void NativeGyroscope(float x, float y, float z, double timestamp);
