@@ -1765,8 +1765,10 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDisplayVFB(u32 fbaddr, u32 *of
 		}
 	}
 
-	// Reject too-tiny framebuffers to display (Godfather, see issue #16915).
-	if (vfb && vfb->height < 64) {
+	// Reject too-tiny framebuffers to display (Godfather, see issue #16915). By the buffer's size: width
+	// and height only cover the latest draw, which can be small (the OoT PSP port ends its frames with
+	// a 51x51 one).
+	if (vfb && vfb->bufferHeight < 64) {
 		vfb = nullptr;
 	}
 	return vfb;
