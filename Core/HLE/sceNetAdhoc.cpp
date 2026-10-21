@@ -2000,16 +2000,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// Keeping the current flags instead left a state saved with adhocctl inited, loaded into a
 		// fresh boot, failing every call with NOT_INITIALIZED; MGS Peace Walker retried
 		// sceNetAdhocctlDisconnect forever when starting a cutscene.
-		if (netAdhocInited != cur_netAdhocInited) {
-			if (aemuPostofficeEnetThread.joinable()) {
-				aemuPostofficeEnetPumping = false;
-				aemuPostofficeEnetThread.join();
-			}
-			if (netAdhocInited) {
-				SetupAdhocRelayMode();
-			} else {
-				deinit_aemu_postoffice();
-			}
+		if (netAdhocInited && !cur_netAdhocInited) {
+			// spin up adhoc
+			SetupAdhocRelayMode();
 		}
 		if (netAdhocctlInited && !cur_netAdhocctlInited) {
 			isAdhocctlNeedLogin = true;
@@ -2022,6 +2015,16 @@ void __NetAdhocDoState(PointerWrap &p) {
 				adhocctlState = loadedState;
 			}
 			isAdhocctlNeedLogin = false;
+		}
+		if (!netAdhocInited && cur_netAdhocInited) {
+			// cleanup adhoc
+			if (aemuPostofficeEnetThread.joinable()) {
+				aemuPostofficeEnetPumping = false;
+				aemuPostofficeEnetThread.join();
+				// one more pump to best effort send the final disconnects
+				pump_enet_aemu_postoffice();
+			}
+			deinit_aemu_postoffice();
 		}
 	}
 }
