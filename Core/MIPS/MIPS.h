@@ -26,16 +26,13 @@
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
 
 namespace MIPSComp {
 class JitInterface;
-}
-
-namespace Memory {
-struct AddressSpace;
 }
 
 typedef Memory::Opcode MIPSOpcode;
@@ -298,8 +295,12 @@ public:
 		return VFPUPrefixWriteMask(vfpuCtrl[VFPU_CTRL_DPREFIX], i);
 	}
 
-	bool HasDefaultPrefix() const;
-	bool IsMediaEngine() const;
+	bool HasDefaultPrefix() const {
+		return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
+	}
+	bool IsMediaEngine() const {
+		return space && space->IsMediaEngine();
+	}
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
