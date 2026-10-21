@@ -999,6 +999,8 @@ const HLEFunction ThreadManForKernel[] =
 	{0x33BE4024, &WrapI_IU<sceKernelReferMsgPipeStatus>,             "sceKernelReferMsgPipeStatus",               'i', "ip",     HLE_KERNEL_SYSCALL },
 	{0xD8199E4C, &WrapI_IU<sceKernelReferFplStatus>,                 "sceKernelReferFplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
 	{0x5F32BEAA, &WrapU_IU<sceKernelReferVTimerStatus>,              "sceKernelReferVTimerStatus",                'x', "ix",     HLE_KERNEL_SYSCALL },
+	// Yabause-PSP's me.prx.
+	{0x30FD48F0, &WrapI_IUUU<sceKernelPollEventFlag>,                "sceKernelPollEventFlag",                    'i', "ixxp",   HLE_KERNEL_SYSCALL },
 	// NOT added on purpose, even though we implement all four for user mode already:
 	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
 	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and

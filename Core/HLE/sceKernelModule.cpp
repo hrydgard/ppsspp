@@ -152,6 +152,9 @@ static void UnexportFuncSymbol(const FuncSymbolExport &func);
 // Chinese-patch loaders (see sctrlHENSetStartModuleHandler below).
 static u32 g_startModuleHandler = 0;
 
+// LoadCore's control block, for sceKernelQueryLoadCoreCB. Made on first use.
+static u32 g_loadCoreCB = 0;
+
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting = false);
 
 // by QueryModuleInfo
@@ -563,7 +566,7 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 6);
+	auto s = p.Section("sceKernelModule", 1, 7);
 	if (!s)
 		return;
 
@@ -612,6 +615,12 @@ void __KernelModuleDoState(PointerWrap &p) {
 		g_vshModuleStarting = 0;
 	}
 
+	if (s >= 7) {
+		Do(p, g_loadCoreCB);
+	} else if (p.mode == p.MODE_READ) {
+		g_loadCoreCB = 0;
+	}
+
 	if (p.mode == p.MODE_READ) {
 		u32 error;
 		// We process these late, since they depend on loadedModules for interlinking.
@@ -652,6 +661,7 @@ void __KernelModuleShutdown() {
 	g_pendingModuleLoads.clear();
 	g_vshModulesToStart.clear();
 	g_vshModuleStarting = 0;
+	g_loadCoreCB = 0;
 	MIPSAnalyst::Reset();
 	HLEPlugins::Unload();
 }
@@ -2040,8 +2050,16 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->nm.stub_top = modinfo->libstub;
 	module->nm.stub_size = modinfo->libstubend - modinfo->libstub;
 
-	const u32_le *entPos = (u32_le *)Memory::GetPointerOrException(modinfo->libent);
-	const u32_le *entEnd = (u32_le *)Memory::GetPointerOrException(modinfo->libentend);
+	const u32_le *entPos = nullptr;
+	const u32_le *entEnd = nullptr;
+	// A module that wasn't relocated (cut off before its relocations, see LoadInto) still has
+	// link-time addresses here.
+	if (Memory::IsValidRange(modinfo->libent, modinfo->libentend - modinfo->libent)) {
+		entPos = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libent);
+		entEnd = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libentend);
+	} else {
+		WARN_LOG(Log::Loader, "Garbage libent address %08x or end %08x, no exports", modinfo->libent, modinfo->libentend);
+	}
 
 	for (int m = 0; entPos < entEnd; ++m) {
 		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
@@ -3360,6 +3378,21 @@ u32 sceKernelFindModuleByUID(u32 uid)
 	return hleLogInfo(Log::sceModule, module->modulePtr.ptr);
 }
 
+// The firmware's semawm.prx walks the first 0x200 bytes, the registered libraries' 128 hash buckets,
+// for libraries a custom firmware adds (decrypted from semawm 6.61, run by PMP Mod and psp-me-bench).
+// We don't keep LoadCore's structures, so every bucket is empty.
+u32 sceKernelQueryLoadCoreCB() {
+	if (!g_loadCoreCB) {
+		u32 size = 0x400;
+		const u32 addr = kernelMemory.Alloc(size, false, "LoadCoreCB");
+		if (addr == (u32)-1)
+			return hleLogError(Log::sceModule, 0, "out of kernel memory");
+		Memory::Memset(addr, 0, size, "LoadCoreCB");
+		g_loadCoreCB = addr;
+	}
+	return hleLogInfo(Log::sceModule, g_loadCoreCB);
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
 	u32 error;
@@ -3724,6 +3757,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	// 6.60 NIDs.
 	{0x939E4270, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModuleForKernel",            'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x3FF74DF1, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	{0x387E3CA9, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser() {

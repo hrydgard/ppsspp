@@ -149,7 +149,7 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0X0E760DBA, nullptr,                                            "sceKernelLinkLibraryEntries",             '?', ""   },
 	{0X0DE1F600, nullptr,                                            "sceKernelLinkLibraryEntriesForUser",      '?', ""   },
 	{0XDA1B09AA, nullptr,                                            "sceKernelUnLinkLibraryEntries",           '?', ""   },
-	{0XC99DD47A, nullptr,                                            "sceKernelQueryLoadCoreCB",                '?', ""   },
+	{0XC99DD47A, &WrapU_V<sceKernelQueryLoadCoreCB>,                 "sceKernelQueryLoadCoreCB",                'x', "",       HLE_KERNEL_SYSCALL },
 	{0X616FCCCD, nullptr,                                            "sceKernelSetBootCallbackLevel",           '?', ""   },
 	{0XF32A2940, nullptr,                                            "sceKernelModuleFromUID",                  '?', ""   },
 	{0XCD0F3BAC, nullptr,                                            "sceKernelCreateModule",                   '?', ""   },
@@ -165,6 +165,7 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
 	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
+	{0x696594C8, &WrapU_V<sceKernelQueryLoadCoreCB>,                 "sceKernelQueryLoadCoreCB660",             'x', "",       HLE_KERNEL_SYSCALL },
 };
 
 

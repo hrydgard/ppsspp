@@ -344,6 +344,8 @@ tests_good = [
   "malloc/malloc",
   "misc/dcache",
   "misc/deadbeef",
+  "modules/cutrel/cutrel",
+  "modules/cutrel/kernel/cutrel",
   "modules/loadrace/loadrace",
   "modules/startoptions/startoptions",
   "modules/unresolved/unresolved",
