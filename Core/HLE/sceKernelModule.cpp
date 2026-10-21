@@ -2678,6 +2678,23 @@ int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 	return hleLogDebug(Log::sceModule, 0);
 }
 
+bool __KernelExitToVSH(MIPSState *mips) {
+	// A session that started in the XMB, running a game it launched. The XMB itself exiting (power
+	// off) still ends the session.
+	if (PSP_CoreParameter().fileToStart.GetFilename() != "vshmain.prx" || g_runningVSH) {
+		return false;
+	}
+	std::string error_string;
+	if (!__KernelLoadExec(mips, "flash0:/vsh/module/vshmain.prx", 0, &error_string)) {
+		ERROR_LOG(Log::sceModule, "Couldn't return to the VSH: %s", error_string.c_str());
+		return false;
+	}
+	if (gpu) {
+		gpu->Reinitialize();
+	}
+	return true;
+}
+
 static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
 
 // What sceKernelLoadModule does once the file has been read: decrypt the module, place it in memory
