@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -75,11 +76,21 @@ private:
 	void CreateResults(UI::ViewGroup *parent);
 	void DoScan(bool first);
 	void RefreshResultValues();
-	std::string ResultText(u32 addr) const;
+	// A result line: freeze checkbox and the address/value, which opens the edit popup.
+	void AddResultRow(UI::ViewGroup *parent, u32 addr, ScanValueType type, bool showPrevious);
+	std::string ResultText(u32 addr, ScanValueType type, bool showPrevious) const;
 
 	ScanValueEditor editor_;
 	UI::TextView *status_ = nullptr;
-	std::vector<std::pair<u32, UI::Choice *>> resultViews_;
+	struct ResultView {
+		u32 addr;
+		ScanValueType type;
+		bool showPrevious;
+		UI::Choice *view;
+	};
+	std::vector<ResultView> resultViews_;
+	// Storage for the freeze checkboxes. A deque, so the pointers stay valid as it grows.
+	std::deque<bool> freezeFlags_;
 	double lastRefresh_ = 0.0;
 	std::string statusText_;
 	bool statusIsError_ = false;
@@ -87,7 +98,7 @@ private:
 
 class MemoryScannerEditScreen : public UI::PopupScreen {
 public:
-	MemoryScannerEditScreen(u32 addr);
+	MemoryScannerEditScreen(u32 addr, ScanValueType type);
 
 	const char *tag() const override { return "MemoryScannerEdit"; }
 
@@ -107,6 +118,7 @@ private:
 
 	u32 addr_;
 	ScanValueType type_;
+	bool frozen_ = false;
 	std::string value_;
 	std::string name_;
 	ScanValueEditor editor_;

@@ -239,6 +239,7 @@ void MemoryScannerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	resultViews_.clear();
+	freezeFlags_.clear();
 	status_ = nullptr;
 
 	const Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
@@ -355,6 +356,21 @@ void MemoryScannerScreen::CreateResults(UI::ViewGroup *parent) {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 
 	MemoryScanner &scanner = GetMemoryScanner();
+
+	// Frozen values first, so they can be watched and unfrozen whatever the search shows.
+	if (!scanner.Freezes().empty()) {
+		parent->Add(new ItemHeader(cw->T("Frozen values")));
+		// Copy, the rows can change the list.
+		const std::vector<MemoryScanner::Freeze> freezes = scanner.Freezes();
+		for (const auto &f : freezes) {
+			AddResultRow(parent, f.addr, f.type, false);
+		}
+		parent->Add(new Choice(cw->T("Unfreeze all")))->OnClick.Add([this](EventParams &) {
+			GetMemoryScanner().ClearFreezes();
+			RecreateViews();
+		});
+	}
+
 	parent->Add(new ItemHeader(cw->T("Results")));
 
 	if (scanner.ScanCount() == 0) {
@@ -374,29 +390,58 @@ void MemoryScannerScreen::CreateResults(UI::ViewGroup *parent) {
 		return;
 	}
 
-	TextView *hint = parent->Add(new TextView(cw->T("Tap an address to change its value or save it as a cheat"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+	TextView *hint = parent->Add(new TextView(cw->T("Tick Freeze to hold a value. Tap an address to change its value or save it as a cheat"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
 	hint->SetSmall(true);
 
+	const ScanValueType type = scanner.Type();
 	for (u32 addr : scanner.GetResults(MAX_LISTED_RESULTS)) {
-		Choice *c = parent->Add(new Choice(ResultText(addr)));
-		c->OnClick.Add([this, addr](EventParams &e) {
-			MemoryScannerEditScreen *edit = new MemoryScannerEditScreen(addr);
-			if (e.v)
-				edit->SetPopupOrigin(e.v);
-			screenManager()->push(edit);
-		});
-		resultViews_.emplace_back(addr, c);
+		AddResultRow(parent, addr, type, true);
 	}
 }
 
-std::string MemoryScannerScreen::ResultText(u32 addr) const {
+void MemoryScannerScreen::AddResultRow(UI::ViewGroup *parent, u32 addr, ScanValueType type, bool showPrevious) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	LinearLayout *row = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	row->SetSpacing(4.0f);
+
+	freezeFlags_.push_back(GetMemoryScanner().IsFrozen(addr, type));
+	bool *flag = &freezeFlags_.back();
+	CheckBox *freeze = row->Add(new CheckBox(flag, cw->T("Freeze"), "", new LinearLayoutParams(150, WRAP_CONTENT, 0.0f)));
+	freeze->OnClick.Add([this, addr, type, flag](EventParams &) {
+		// Hold the value it has right now.
+		u32 bits = 0;
+		if (MemoryScanner::ReadPSP(type, addr, &bits)) {
+			GetMemoryScanner().SetFrozen(addr, type, bits, *flag);
+		}
+		RecreateViews();
+	});
+
+	Choice *c = row->Add(new Choice(ResultText(addr, type, showPrevious), new LinearLayoutParams(1.0f)));
+	c->OnClick.Add([this, addr, type](EventParams &e) {
+		MemoryScannerEditScreen *edit = new MemoryScannerEditScreen(addr, type);
+		if (e.v)
+			edit->SetPopupOrigin(e.v);
+		screenManager()->push(edit);
+	});
+	resultViews_.push_back(ResultView{ addr, type, showPrevious, c });
+}
+
+std::string MemoryScannerScreen::ResultText(u32 addr, ScanValueType type, bool showPrevious) const {
 	const MemoryScanner &scanner = GetMemoryScanner();
-	const ScanValueType type = scanner.Type();
 	u32 bits = 0;
 	if (!MemoryScanner::ReadPSP(type, addr, &bits)) {
 		return StringFromFormat("0x%08X  ?", addr);
 	}
 	std::string text = StringFromFormat("0x%08X  =  %s", addr, MemoryScanner::FormatValue(type, bits).c_str());
+	if (!showPrevious) {
+		// A frozen value from the list above: show its type, it may not be the search's.
+		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+		static const char *typeNames[] = { "8-bit", "16-bit", "32-bit", "Float" };
+		text += StringFromFormat("   [%s]", cw->T_cstr(typeNames[(int)type]));
+		return text;
+	}
 	const u32 prev = scanner.PreviousValue(addr);
 	if (prev != bits) {
 		auto cw = GetI18NCategory(I18NCat::CWCHEATS);
@@ -407,7 +452,7 @@ std::string MemoryScannerScreen::ResultText(u32 addr) const {
 
 void MemoryScannerScreen::RefreshResultValues() {
 	for (auto &rv : resultViews_) {
-		rv.second->SetText(ResultText(rv.first));
+		rv.view->SetText(ResultText(rv.addr, rv.type, rv.showPrevious));
 	}
 	lastRefresh_ = time_now_d();
 }
@@ -473,15 +518,19 @@ bool MemoryScannerScreen::key(const KeyInput &input) {
 }
 
 void MemoryScannerScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	// Values may have been set in the edit popup.
-	RefreshResultValues();
+	// Values may have been set, or frozen, in the edit popup.
+	if (dynamic_cast<const MemoryScannerEditScreen *>(dialog)) {
+		RecreateViews();
+	} else {
+		RefreshResultValues();
+	}
 }
 
 // MemoryScannerEditScreen
 
-MemoryScannerEditScreen::MemoryScannerEditScreen(u32 addr)
-	: PopupScreen(T(I18NCat::CWCHEATS, "Edit value"), T(I18NCat::DIALOG, "Back")), addr_(addr) {
-	type_ = GetMemoryScanner().Type();
+MemoryScannerEditScreen::MemoryScannerEditScreen(u32 addr, ScanValueType type)
+	: PopupScreen(T(I18NCat::CWCHEATS, "Edit value"), T(I18NCat::DIALOG, "Back")), addr_(addr), type_(type) {
+	frozen_ = GetMemoryScanner().IsFrozen(addr_, type_);
 	u32 bits = 0;
 	if (MemoryScanner::ReadPSP(type_, addr_, &bits)) {
 		value_ = MemoryScanner::FormatValue(type_, bits);
@@ -513,6 +562,15 @@ void MemoryScannerEditScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	items->Add(new Choice(cw->T("Set"), ImageID("I_CHECKMARK")))->OnClick.Add([this](EventParams &) {
 		OnSet();
+	});
+	items->Add(new CheckBox(&frozen_, cw->T("Freeze"), cw->T("Keep writing this value while the game runs")))->OnClick.Add([this](EventParams &) {
+		// Hold the typed value if it's valid, otherwise what's in memory now.
+		u32 bits = 0;
+		if (!GetValueToUse(&bits) && !MemoryScanner::ReadPSP(type_, addr_, &bits)) {
+			return;
+		}
+		GetMemoryScanner().SetFrozen(addr_, type_, bits, frozen_);
+		UpdateTexts();
 	});
 
 	items->Add(new ItemHeader(cw->T("Save as cheat")));
@@ -563,6 +621,10 @@ void MemoryScannerEditScreen::OnSet() {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	u32 bits = 0;
 	bool ok = GetValueToUse(&bits) && MemoryScanner::WritePSP(type_, addr_, bits);
+	if (ok) {
+		// A frozen address is held at the new value from now on.
+		GetMemoryScanner().UpdateFrozenValue(addr_, type_, bits);
+	}
 	status_->SetText(ok ? cw->T("Value written to game memory") : cw->T("Invalid value for this value type"));
 	status_->SetTextColor(ok ? 0xFF40FF40 : 0xFF4040FF);
 	status_->SetVisibility(UI::V_VISIBLE);

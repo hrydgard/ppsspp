@@ -51,9 +51,19 @@ keeps running behind the scanner.
 - 20 or fewer: the addresses are listed with their current values, refreshed every second,
   and the value at the last scan when it differs.
 
+Each listed result has a **Freeze** checkbox. Ticking it holds the address at its current
+value: it's written back every time cheats run (the cheat refresh interval), so you can test
+what an address does without making a cheat first. Frozen values are shown in a **Frozen
+values** section above the results, with their own checkboxes and **Unfreeze all**, and stay
+frozen through new searches until unfrozen or the game is closed. Like cheats, freezing only
+works while cheats are enabled. While the scanner keeps the game paused, freezing still
+writes the value right away.
+
 Tap a result to:
 
-- Type a new value and press **Set** to write it to game memory right away.
+- Type a new value and press **Set** to write it to game memory right away. If the address
+  is frozen, it's held at the new value from then on.
+- Tick **Freeze** to hold the typed value (or the current one, if nothing valid is typed).
 - Type a name and press **Add** to save the address and value as a CwCheat code in the game's
   cheat file (`PSP/Cheats/<DISC_ID>.ini`). It's added disabled; turn it on in the Cheats menu.
   The code written is `_L 0x0XXXXXXX` (8-bit), `_L 0x1XXXXXXX` (16-bit) or `_L 0x2XXXXXXX`

@@ -526,3 +526,44 @@ u32 MemoryScanner::PreviousValue(u32 addr) const {
 	default: return LoadValue<u32>(p);
 	}
 }
+
+void MemoryScanner::SetFrozen(u32 addr, ScanValueType type, u32 bits, bool frozen) {
+	auto it = std::find_if(freezes_.begin(), freezes_.end(), [&](const Freeze &f) { return f.addr == addr && f.type == type; });
+	if (frozen) {
+		if (it != freezes_.end()) {
+			it->bits = bits;
+		} else {
+			freezes_.push_back(Freeze{ addr, type, bits });
+			std::sort(freezes_.begin(), freezes_.end(), [](const Freeze &a, const Freeze &b) { return a.addr < b.addr; });
+		}
+		// Hold it right away, not only at the next cheat run.
+		WritePSP(type, addr, bits);
+	} else if (it != freezes_.end()) {
+		freezes_.erase(it);
+	}
+}
+
+bool MemoryScanner::IsFrozen(u32 addr, ScanValueType type) const {
+	for (const Freeze &f : freezes_) {
+		if (f.addr == addr && f.type == type)
+			return true;
+	}
+	return false;
+}
+
+void MemoryScanner::UpdateFrozenValue(u32 addr, ScanValueType type, u32 bits) {
+	for (Freeze &f : freezes_) {
+		if (f.addr == addr && f.type == type)
+			f.bits = bits;
+	}
+}
+
+void MemoryScanner::ApplyFreezes() const {
+	for (const Freeze &f : freezes_) {
+		u32 cur = 0;
+		// Only write (and invalidate) when the game changed it.
+		if (ReadPSP(f.type, f.addr, &cur) && cur != f.bits) {
+			WritePSP(f.type, f.addr, f.bits);
+		}
+	}
+}

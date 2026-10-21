@@ -263,8 +263,9 @@ void __CheatInit() {
 
 void __CheatShutdown() {
 	__CheatStop();
-	// Scan results belong to the game that's shutting down.
+	// Scan results and frozen values belong to the game that's shutting down.
 	GetMemoryScanner().Reset();
+	GetMemoryScanner().ClearFreezes();
 }
 
 void __CheatDoState(PointerWrap &p) {
@@ -319,6 +320,8 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		g_Config.bReloadCheats = false;
 	}
 	cheatEngine->Run();
+	// Values frozen in the Memory Scanner are held like cheats, at the same interval.
+	GetMemoryScanner().ApplyFreezes();
 }
 
 CWCheatEngine::CWCheatEngine(std::string_view gameID) : gameID_(gameID) {

@@ -106,6 +106,7 @@ public:
 	bool CanUndo() const { return !undoBits_.empty(); }
 	void Undo();
 
+	// Clears the search. Frozen values stay.
 	void Reset();
 
 	bool HasResults() const { return scanCount_ > 0; }
@@ -121,6 +122,21 @@ public:
 	std::vector<u32> GetResults(size_t max) const;
 	// The value at addr when the last scan ran.
 	u32 PreviousValue(u32 addr) const;
+
+	// Frozen values are written back to memory every time cheats run (the cheat refresh
+	// interval), until unfrozen. They're independent of the search, so a new search keeps them.
+	struct Freeze {
+		u32 addr;
+		ScanValueType type;
+		u32 bits;
+	};
+	void SetFrozen(u32 addr, ScanValueType type, u32 bits, bool frozen);
+	bool IsFrozen(u32 addr, ScanValueType type) const;
+	// Changes the value a frozen address is held at (if it's frozen).
+	void UpdateFrozenValue(u32 addr, ScanValueType type, u32 bits);
+	const std::vector<Freeze> &Freezes() const { return freezes_; }
+	void ClearFreezes() { freezes_.clear(); }
+	void ApplyFreezes() const;
 
 	// Reading and writing a value of the scan's type in PSP memory.
 	static bool ReadPSP(ScanValueType type, u32 addr, u32 *bits);
@@ -146,6 +162,8 @@ private:
 	std::vector<u8> snapshot_;
 	std::vector<u64> undoBits_;
 	size_t undoResultCount_ = 0;
+
+	std::vector<Freeze> freezes_;
 };
 
 // The one scanner, which keeps its results while the game runs.
