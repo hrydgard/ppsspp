@@ -9,6 +9,14 @@ namespace TiltEventProcessor {
 void ProcessTilt(bool landscape, const float calibrationAngle, float x, float y, float z, bool invertX, bool invertY, float xSensitivity, float ySensitivity);
 void ResetTiltEvents();
 
+// Steadies the gravity vector by integrating gyroscope rates, and only slowly pulling the result toward the
+// accelerometer. Both use the same device axes. Rates are in rad/s, the timestamp in seconds.
+// ProcessGyro returns false until there's an accelerometer reading to start from.
+void ProcessAccelerometerForFusion(float x, float y, float z);
+bool ProcessGyro(float x, float y, float z, double timestamp, Lin::Vec3 *gravity);
+// True if gyro data arrived recently, in which case the accelerometer shouldn't drive tilt directly.
+bool GyroActive();
+
 float GetCurrentYAngle();
 
 // Lets you preview the amount of tilt in TiltAnalogSettingsScreen.

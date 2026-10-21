@@ -164,6 +164,8 @@ static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 static bool g_hasCameraCutout = false;
+static bool g_hasAccelerometer = false;
+static bool g_hasGyro = false;
 
 // Global ref. Written on the UI thread under g_activityLock. Other threads go through Android_GetActivity.
 static jobject ppssppActivity;
@@ -465,7 +467,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_KEYBOARD:
 		return deviceType != DEVICE_TYPE_VR;
 	case SYSPROP_HAS_ACCELEROMETER:
-		return deviceType == DEVICE_TYPE_MOBILE;
+		// A headset has the sensors, but tilting it isn't tilt control.
+		return g_hasAccelerometer && deviceType != DEVICE_TYPE_VR;
+	case SYSPROP_HAS_GYRO:
+		return g_hasGyro && deviceType != DEVICE_TYPE_VR;
 	case SYSPROP_CAN_CREATE_SHORTCUT:
 		return false;  // We can't create shortcuts directly from game code, but we can from the Android UI.
 	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
@@ -1265,6 +1270,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_accelerometer(JNIEnv *,
 	NativeAccelerometer(x, y, z);
 }
 
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_gyroscope(JNIEnv *, jclass, float x, float y, float z, jlong timestampNs) {
+	if (!renderer_inited)
+		return;
+	NativeGyroscope(x, y, z, (double)timestampNs * 1e-9);
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNIEnv *env, jclass, jstring jmessage, jstring jparam) {
 	std::string msg = GetJavaString(env, jmessage);
 	std::string prm = GetJavaString(env, jparam);
@@ -1292,6 +1303,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 			g_safeInsetTop = (float)top;
 			g_safeInsetBottom = (float)bottom;
 			g_hasCameraCutout = cutout != 0;
+		}
+	} else if (msg == "sensors") {
+		int accelerometer, gyro;
+		if (2 == sscanf(prm.c_str(), "%d:%d", &accelerometer, &gyro)) {
+			g_hasAccelerometer = accelerometer != 0;
+			g_hasGyro = gyro != 0;
 		}
 	} else if (msg == "inputDeviceConnectedID") {
 		nextInputDeviceID = (InputDeviceID)parseLong(prm);

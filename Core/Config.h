@@ -473,6 +473,7 @@ public:
 	// 0 - no tilt, 1 - analog stick, 2 - D-Pad, 3 - Action Buttons (Tri, Cross, Square, Circle)
 	int iTiltInputType;
 	bool bTiltInputEnabled;
+	bool bTiltUseGyro;
 
 	// The four tabs (including Remote last). Values from GameBrowserViewMode.
 	int iGameBrowserView1;

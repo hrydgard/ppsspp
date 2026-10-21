@@ -1023,6 +1023,7 @@ static const ConfigSetting controlSettings[] = {
 	ConfigSetting("TiltCircularDeadzone", SETTING(g_Config, bTiltCircularDeadzone), true, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInputType", SETTING(g_Config, iTiltInputType), 1, CfgFlag::PER_GAME),
 	ConfigSetting("TiltInputEnabled", SETTING(g_Config, bTiltInputEnabled), false, CfgFlag::PER_GAME),
+	ConfigSetting("TiltUseGyro", SETTING(g_Config, bTiltUseGyro), true, CfgFlag::PER_GAME),
 
 	ConfigSetting("DisableDpadDiagonals", SETTING(g_Config, bDisableDpadDiagonals), false, CfgFlag::PER_GAME),
 	ConfigSetting("GamepadOnlyFocused", SETTING(g_Config, bGamepadOnlyFocused), false, CfgFlag::PER_GAME),
