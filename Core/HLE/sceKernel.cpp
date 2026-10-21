@@ -1014,15 +1014,18 @@ const HLEFunction ThreadManForKernel[] =
 	{0x5F32BEAA, &WrapU_IU<sceKernelReferVTimerStatus>,              "sceKernelReferVTimerStatus",                'x', "ix",     HLE_KERNEL_SYSCALL },
 	// Yabause-PSP's me.prx.
 	{0x30FD48F0, &WrapI_IUUU<sceKernelPollEventFlag>,                "sceKernelPollEventFlag",                    'i', "ixxp",   HLE_KERNEL_SYSCALL },
-	// NOT added on purpose, even though we implement all four for user mode already:
-	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
-	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and
-	// ID storage drivers use to set themselves up while booting the VSH, and leaving them
-	// unresolved is load-bearing: the drivers fail their init early and the boot moves on. Resolve
-	// them and the drivers instead get all the way through to talking to the NAND controller, which
-	// we don't emulate - sceIdStorage_Service then polls 0xbd101300 forever, no plugin module ever
-	// starts, and the boot is dead where it used to reach the shell. Adding these needs NAND MMIO
-	// (or HLE'ing sceIdStorage/sceNand above the driver) to land first.
+	{0XD979E9BF, &WrapI_IUU<sceKernelAllocateFpl>,                   "sceKernelAllocateFpl",                      'i', "ixx",    HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
+	// HACK WARNING!
+	//
+	// NOT added on purpose, even though we implement all three for user mode already:
+	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F) and sceKernelUnlockMutex
+	// (0x6B30100F). They are what the real flash0 NAND and ID storage drivers use to set themselves
+	// up while booting the VSH, and leaving them unresolved is load-bearing: the drivers fail their
+	// init early and the boot moves on. Resolve them and the drivers instead get all the way through
+	// to talking to the NAND controller, which we don't emulate - sceIdStorage_Service then polls
+	// 0xbd101300 forever, no plugin module ever starts, and the boot is dead where it used to reach
+	// the shell. Adding these needs NAND MMIO (or HLE'ing sceIdStorage/sceNand above the driver) to
+	// land first. sceKernelAllocateFpl (below) was in this list, but the boot reaches the XMB with it.
 };
 
 void Register_ThreadManForUser()
