@@ -1063,8 +1063,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 							walkOffset = -walkOffset;
 						}
 						if (Memory::IsValidRange(base + walkOffset, 4)) {
-							// TODO: I've seen crashes here. Presumably an unaligned pointer just off the edge of memory.
-							// We should probably check pointer validity and invalidate the cheat if this happens.
 							base = Memory::ReadUnchecked_U32(base + walkOffset);
 							switch (line.part2 >> 28) {
 							case 0x2:
@@ -1075,6 +1073,9 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 								}
 								if (Memory::IsValidRange(base + walkOffset, 4)) {
 									base = Memory::ReadUnchecked_U32(base + walkOffset);
+								} else {
+									// See below.
+									type = -1;
 								}
 								break;
 
@@ -1082,6 +1083,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 								// Unexpected value in cheat line?
 								break;
 							}
+						} else {
+							// A pointer on the way is null or garbage (loading, menus). Skipping the step
+							// would write relative to the pointer before it, into some other object,
+							// so don't write at all.
+							type = -1;
 						}
 					}
 					break;
