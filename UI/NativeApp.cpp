@@ -1637,12 +1637,18 @@ bool NativeKey(const KeyInput &key) {
 		g_controlMapper.Key(key);
 	}
 
-	// Ignore volume keys and stuff here - though we do send them through to the control mapper, so they can be mapped to PSP buttons.
+	// Leave volume keys to the OS, unless they're mapped (to L/R for example). Then they also reach the menus,
+	// and in game we consume them, repeats included, so the OS doesn't change the volume as well.
+	bool mappedVolumeKey = false;
 	switch (key.keyCode) {
 	case NKCODE_VOLUME_DOWN:
 	case NKCODE_VOLUME_UP:
 	case NKCODE_VOLUME_MUTE:
-		return false;
+		if (!KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), nullptr)) {
+			return false;
+		}
+		mappedVolumeKey = true;
+		break;
 	default:
 		break;
 	}
@@ -1713,7 +1719,7 @@ bool NativeKey(const KeyInput &key) {
 		retval = false;
 		break;
 	case UI::KeyEventResult::IGNORE_KEY:
-		return false;
+		return mappedVolumeKey && (inputMode & InputMode::Other);
 	}
 
 	// Queue up the key event for synchronous processing in the UI.
@@ -1729,6 +1735,9 @@ bool NativeKey(const KeyInput &key) {
 	if (key.keyCode == NKCODE_BUTTON_MODE) {
 		// Tell the caller that we handled the key.
 		retval = true;
+	}
+	if (mappedVolumeKey) {
+		retval = inputMode & InputMode::Other;
 	}
 
 	return retval;
