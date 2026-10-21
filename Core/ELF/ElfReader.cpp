@@ -585,6 +585,23 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 
 	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
 
+	// A PRX cut off where its relocation sections start, like PMDVIS's kcall.prx. On a PSP-1000
+	// (6.61) it loads unrelocated if syslib is its only export library, from user or kernel mode, but
+	// with another library the load never returns and the PSP hangs (pspautotests modules/cutrel and
+	// modules/cutrel/kernel, which leave that case out). Refuse that one instead, with the error
+	// PSPLink's modload gave for PMDVIS's file, so the program can carry on without it.
+	const bool exportsLibraries = modInfo && modInfo->libentend - modInfo->libent > 16;  // One entry is syslib's.
+	if (bRelocate && exportsLibraries) {
+		for (int i = 0; i < GetNumSections(); i++) {
+			const Elf32_Shdr *s = &sections[i];
+			if (s->sh_type == SHT_PSPREL && s->sh_size != 0 && s->sh_offset >= size_) {
+				loadError_ = StringFromFormat("Relocation section %d starts at %d, past the end of the file (%d bytes)", i, (int)s->sh_offset, (int)size_);
+				ERROR_LOG(Log::Loader, "%s", loadError_.c_str());
+				return SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
+			}
+		}
+	}
+
 	std::string modName = "ELF";
 	if (modInfo) {
 		size_t n = strnlen(modInfo->name, 28);
