@@ -531,6 +531,21 @@ static int sceMpegBaseCscInit(int bufferWidth) {
 	return hleLogInfo(Log::Mpeg, 0, "bufferWidth %d", bufferWidth);
 }
 
+// sceMpegBaseCscInit with the colour conversion matrix passed in: in mpegbase_260.prx, CscInit is this
+// function called with its built-in 22-byte table (mpegbase+0x1804). The VSH's video player passes
+// its own. We convert with the standard matrix whatever this says.
+static int sceMpegBaseCscInitMatrix(int bufferWidth, u32 matrixAddr) {
+	g_mpegBaseBufferWidth = bufferWidth ? bufferWidth : 512;
+	if (!Memory::IsValidRange(matrixAddr, 22)) {
+		return hleLogError(Log::Mpeg, -1, "bad matrix pointer");
+	}
+	char hex[22 * 2 + 1];
+	for (int i = 0; i < 22; i++) {
+		snprintf(hex + i * 2, 3, "%02x", Memory::ReadUnchecked_U8(matrixAddr + i));
+	}
+	return hleLogInfo(Log::Mpeg, 0, "bufferWidth %d, matrix %s", bufferWidth, hex);
+}
+
 // Sets the output pixel format for the conversions below. The official name isn't known - this one
 // says what it does. Inside mpegbase.prx it stores the value and hands it to the DMACPLUS colour
 // conversion hardware, and mpeg.prx gets it by indexing a table of {1, 2, 3, 0} with the pixel mode
@@ -624,7 +639,8 @@ const HLEFunction sceMpegbase[] =
 	{0X0530BE4E, &WrapI_I<sceMpegBaseCscSetPixelMode>,          "sceMpegbase_0530BE4E",               'i', "i"      },
 	{0X91929A21, &WrapI_UUIU<sceMpegBaseCscAvc>,               "sceMpegBaseCscAvc",                  'i', "xxix"   },
 	{0X304882E1, &WrapU_UUUIU<sceMpegBaseCscAvcRange>,         "sceMpegBaseCscAvcRange",             'x', "xxxix"  },
-	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,             "sceMpegBaseYCrCbCopy",               'i', "xxi"    }
+	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,             "sceMpegBaseYCrCbCopy",               'i', "xxi"    },
+	{0XAC9E717E, &WrapI_IU<sceMpegBaseCscInitMatrix>,          "sceMpegBaseCscInitMatrix",           'i', "ix"     },
 };
 
 void Register_sceMpegbase()
