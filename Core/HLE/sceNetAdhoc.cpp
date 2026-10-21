@@ -2069,6 +2069,8 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		// Since we are deleting GameMode Master here, we should probably need to make sure GameMode resources all cleared too.
 		deleteAllGMB();
 
+		SetupAdhocRelayMode();
+
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
@@ -2077,8 +2079,6 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		if (serverHasRelay && g_Config.bEnableAdhocServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
 		}
-
-		SetupAdhocRelayMode();
 
 		if (g_Config.bEnableWlan) {
 			std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
