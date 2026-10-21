@@ -1781,6 +1781,25 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 		// We process savestates before running the frame.
 		SaveState::Process();
 
+		// A savestate that failed to load halfway leaves a reset as the only option. Do it before the frame
+		// draws anything: the GPU can't shut down while its pipelines are bound in the open backbuffer pass.
+		if (SaveState::PollRestartNeeded() && !bootPending_) {
+			Achievements::UnloadGame();
+			PSP_Shutdown(true);
+
+			// Restart the boot process
+			bootPending_ = true;
+			bootIsReset_ = true;
+			RecreateViews();
+			_dbg_assert_(coreState == CORE_POWERDOWN);
+			if (!PSP_InitStart(PSP_CoreParameter())) {
+				bootPending_ = false;
+				WARN_LOG(Log::Loader, "Error resetting");
+				screenManager()->switchScreen(new MainScreen());
+			}
+			return flags;
+		}
+
 		if (gpu) {
 			gpu->BeginHostFrame(displayLayoutConfig);
 		}
@@ -1856,22 +1875,6 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			if (ScreenshotNotifyPostGameRender(draw) && skipBufferEffects) {
 				// Need to restore the backbuffer render pass, it probably got destroyed.
 				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
-			}
-		}
-
-		if (SaveState::PollRestartNeeded() && !bootPending_) {
-			Achievements::UnloadGame();
-			PSP_Shutdown(true);
-
-			// Restart the boot process
-			bootPending_ = true;
-			bootIsReset_ = true;
-			RecreateViews();
-			_dbg_assert_(coreState == CORE_POWERDOWN);
-			if (!PSP_InitStart(PSP_CoreParameter())) {
-				bootPending_ = false;
-				WARN_LOG(Log::Loader, "Error resetting");
-				screenManager()->switchScreen(new MainScreen());
 			}
 		}
 	}
