@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
@@ -279,14 +280,29 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 
 	if (!searching) {
 		parent->Add(new ItemHeader(cw->T("Value type")));
-		ChoiceStrip *types = parent->Add(new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		for (const char *name : g_typeNames) {
-			types->AddChoice(cw->T(name));
+		// Not a ChoiceStrip: its choices are created without layout params, which makes them
+		// FILL_PARENT, so in a full-width row the first one took all the space and the others
+		// couldn't be clicked. Equal weights instead.
+		LinearLayout *types = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		types->SetSpacing(0.0f);
+		auto typeChoices = std::make_shared<std::vector<StickyChoice *>>();
+		for (int i = 0; i < (int)ARRAY_SIZE(g_typeNames); i++) {
+			StickyChoice *choice = types->Add(new StickyChoice(cw->T(g_typeNames[i]), "", new LinearLayoutParams(1.0f)));
+			choice->SetCentered(true);
+			if (i == s_type) {
+				choice->Press();
+			}
+			choice->OnClick.Add([i, typeChoices](EventParams &) {
+				s_type = i;
+				for (int j = 0; j < (int)typeChoices->size(); j++) {
+					if (j == i)
+						(*typeChoices)[j]->Press();
+					else
+						(*typeChoices)[j]->Release();
+				}
+			});
+			typeChoices->push_back(choice);
 		}
-		types->SetSelection(s_type, false);
-		types->OnChoice.Add([types](EventParams &) {
-			s_type = types->GetSelection();
-		});
 	} else {
 		parent->Add(new InfoItem(cw->T("Value type"), cw->T(g_typeNames[s_type])));
 		parent->Add(new InfoItem(cw->T("Scans"), scanner.ScanCount()));
