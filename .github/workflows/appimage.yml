@@ -47,8 +47,15 @@ jobs:
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
     steps:
+      # The pkgforge mirror often drops a download partway, so retry the whole transaction.
       - name: Install git
-        run: pacman -Syu --noconfirm git
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do
+            pacman -Syu --noconfirm git && exit 0
+            sleep 20
+          done
+          exit 1
 
       - uses: actions/checkout@v7
         with:
@@ -88,6 +95,10 @@ jobs:
 
       - name: Install dependencies
         shell: bash
+        env:
+          # get-debloated-pkgs.sh queries the GitHub API, which rate-limits unauthenticated
+          # requests per runner IP. It then sleeps 10 minutes and usually fails anyway.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
@@ -105,9 +116,17 @@ jobs:
           echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
           EXTRA_PACKAGES="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/get-debloated-pkgs.sh"
 
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              sleep 20
+            done
+            return 1
+          }
+
           echo "Installing build dependencies..."
           echo "---------------------------------------------------------------"
-          pacman -Syu --noconfirm \
+          retry pacman -Syu --noconfirm \
             base-devel \
             curl \
             git \
