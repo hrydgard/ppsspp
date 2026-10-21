@@ -51,6 +51,13 @@ constexpr const char *POPS_COMPAT_ID = "POPS00000";
 // We already have the Action Replay-based cheat system for such use cases.
 
 // TODO: Turn into bitfield for smaller mem footprint.
+// A framebuffer at a fixed address and size, from compat.ini as "address,width,height" (address in hex).
+struct CompatFramebuffer {
+	uint32_t address;
+	int width;
+	int height;
+};
+
 struct CompatFlags {
 	bool VertexDepthRounding;
 	bool PixelDepthRounding;
@@ -128,6 +135,7 @@ struct CompatFlags {
 	bool AccurateSplines;
 	bool ReadbackShadow;
 	bool ColorPickingDrawSyncReadback;
+	CompatFramebuffer FixedFramebuffer;
 };
 
 struct VRCompat {
@@ -169,6 +177,7 @@ private:
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, CompatFramebuffer *value);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};
