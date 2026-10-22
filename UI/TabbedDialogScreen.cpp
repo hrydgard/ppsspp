@@ -121,29 +121,24 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		}
 	});
 
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) || System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
-		// Hide search if screen is too small.
-		int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
-		if ((g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && (deviceType != DEVICE_TYPE_VR) && ShowSearchControls()) {
-			// Search
-			auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
-			AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *searchSettings) {
-				auto se = GetI18NCategory(I18NCat::SEARCH);
+	if (ShowSearchControls() && CanShowSearch()) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *searchSettings) {
+			auto se = GetI18NCategory(I18NCat::SEARCH);
 
-				searchSettings->Add(new ItemHeader(se->T("Find settings")));
-				searchSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
-					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
-				});
-
-				clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
-				clearSearchChoice_->OnClick.Add([](UI::EventParams &e) {
-					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
-				});
-				clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
-
-				noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
+			searchSettings->Add(new ItemHeader(se->T("Find settings")));
+			searchSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
+				System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
 			});
-		}
+
+			clearSearchChoice_ = searchSettings->Add(new Choice(se->T("Clear filter")));
+			clearSearchChoice_->OnClick.Add([](UI::EventParams &e) {
+				System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, "");
+			});
+			clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+
+			noSearchResults_ = searchSettings->Add(new TextView("", new LinearLayoutParams(Margins(20, 5))));
+		});
 	}
 
 	// After the search tab, which the saved tab can be.
@@ -185,10 +180,20 @@ void UITabbedBaseDialogScreen::SetCurrentTab(int tab) {
 	tabHolder_->SetCurrentTab(tab);
 }
 
+bool UITabbedBaseDialogScreen::CanShowSearch() {
+	if (!System_GetPropertyBool(SYSPROP_HAS_KEYBOARD) && !System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		return false;
+	}
+	// Hide search if screen is too small.
+	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	return (g_display.dp_xres < g_display.dp_yres || g_display.dp_yres >= 500) && deviceType != DEVICE_TYPE_VR;
+}
+
 void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	using namespace UI;
-	// GAMESETTINGS_SEARCH is broadcast to every screen, including ones whose views don't exist yet.
-	if (!tabHolder_) {
+	// GAMESETTINGS_SEARCH is broadcast to every screen, including ones whose views don't exist yet,
+	// and ones that search some other way.
+	if (!tabHolder_ || !ShowSearchControls()) {
 		return;
 	}
 	auto se = GetI18NCategory(I18NCat::SEARCH);

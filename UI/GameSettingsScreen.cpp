@@ -28,6 +28,7 @@
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Notice.h"
 #include "Common/UI/ScreenManager.h"
@@ -264,22 +265,169 @@ void GameSettingsScreen::CreateTabs() {
 	bool showVR = deviceType == DEVICE_TYPE_VR || g_Config.bForceVR;
 
 	pages_.clear();
+	pageViews_.clear();
+	pendingFocusView_ = nullptr;
 	for (const PageDef &def : PageDefs()) {
 		if (def.build == &GameSettingsScreen::BuildVRSettings && !showVR) {
 			continue;
 		}
 		pages_.push_back(&def);
 	}
+	pageViews_.resize(pages_.size());
 
-	for (const PageDef *def : pages_) {
-		AddTab(def->tag, ms->T(def->title), def->icon ? ImageID(def->icon) : ImageID::invalid(), [this, def](UI::LinearLayout *parent) {
+	for (int i = 0; i < (int)pages_.size(); i++) {
+		const PageDef *def = pages_[i];
+		AddTab(def->tag, ms->T(def->title), def->icon ? ImageID(def->icon) : ImageID::invalid(), [this, def, i](UI::LinearLayout *parent) {
 			if (def->helpTag) {
 				parent->Add(new PaneTitleBar(gamePath_, T(I18NCat::MAINSETTINGS, def->title), def->helpTag));
 			}
 			SettingsPage page(def->cat);
 			(this->*def->build)(page);
-			CreateSettingViews(page, parent, screenManager());
+			pageViews_[i].clear();
+			CreateSettingViews(page, parent, screenManager(), &pageViews_[i]);
 		});
+	}
+
+	if (CanShowSearch()) {
+		AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *parent) {
+			CreateSearchTab(parent);
+		});
+	}
+}
+
+static bool SettingTextMatches(const SettingText &text, I18NCat pageCat, std::string_view query) {
+	if (text.empty()) {
+		return false;
+	}
+	return containsNoCase(text.Translate(pageCat), query) || containsNoCase(text.English(), query);
+}
+
+// Shows the matching settings themselves, so they can be changed right here.
+void GameSettingsScreen::CreateSearchTab(UI::LinearLayout *parent) {
+	using namespace UI;
+	auto se = GetI18NCategory(I18NCat::SEARCH);
+
+	parent->Add(new ItemHeader(se->T("Find settings")));
+	parent->Add(new PopupTextInputChoice(GetRequesterToken(), &searchText_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
+		searchText_ = StripSpaces(searchText_);
+		RecreateViews();
+	});
+	if (searchText_.empty()) {
+		return;
+	}
+	parent->Add(new Choice(se->T("Clear filter")))->OnClick.Add([this](UI::EventParams &e) {
+		searchText_.clear();
+		RecreateViews();
+	});
+
+	bool found = false;
+	for (int p = 0; p < (int)pages_.size(); p++) {
+		const PageDef *def = pages_[p];
+		SettingsPage page(def->cat);
+		(this->*def->build)(page);
+		const I18NCat cat = page.DefaultCat();
+		const std::deque<SettingItem> &items = page.Items();
+
+		// A matching header shows its whole section, and a matching hint the setting it belongs to.
+		std::vector<bool> show(items.size());
+		bool sectionMatches = false;
+		int lastSetting = -1;
+		for (int i = 0; i < (int)items.size(); i++) {
+			const SettingItem &item = items[i];
+			bool matches = SettingTextMatches(item.text, cat, searchText_);
+			switch (item.type) {
+			case SettingType::Header:
+				sectionMatches = matches;
+				break;
+			case SettingType::Hint:
+				if (matches && lastSetting >= 0) {
+					show[lastSetting] = true;
+				}
+				break;
+			default:
+				lastSetting = i;
+				show[i] = matches || sectionMatches;
+				break;
+			}
+		}
+
+		const SettingItem *header = nullptr;
+		bool headerShown = false;
+		View *prevView = nullptr;
+		for (int i = 0; i < (int)items.size(); i++) {
+			const SettingItem &item = items[i];
+			if (item.type == SettingType::Header) {
+				header = &item;
+				headerShown = false;
+				continue;
+			}
+			if (item.type == SettingType::Hint) {
+				if (prevView) {
+					CreateSettingView(item, cat, prevView, parent, screenManager());
+				}
+				continue;
+			}
+			prevView = nullptr;
+			if (!show[i]) {
+				continue;
+			}
+
+			LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			row->SetSpacing(0.0f);
+			View *view = CreateSettingView(item, cat, nullptr, row, screenManager());
+			if (!view) {
+				delete row;
+				continue;
+			}
+			// FILL_PARENT, since some views (like CheckBox) measure their width from their bounds.
+			view->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, Gravity::G_VCENTER));
+			Choice *goTo = row->Add(new Choice(ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT, 0.0f, Gravity::G_VCENTER)));
+			goTo->OnClick.Add([this, p, i](UI::EventParams &e) {
+				GoToSetting(p, i);
+			});
+
+			if (!headerShown) {
+				std::string title(T(I18NCat::MAINSETTINGS, def->title));
+				if (header) {
+					title += " > ";
+					title += header->text.Translate(cat);
+				}
+				parent->Add(new ItemHeader(title));
+				headerShown = true;
+			}
+			parent->Add(row);
+			prevView = view;
+			found = true;
+		}
+	}
+
+	if (!found) {
+		parent->Add(new TextView(ApplySafeSubstitutions(se->T("No settings matched '%1'"), searchText_), new LinearLayoutParams(Margins(20, 5))));
+	}
+}
+
+// Switches to the setting's tab, and focuses it (in update) so it's highlighted and scrolled into view.
+void GameSettingsScreen::GoToSetting(int pageIndex, int itemIndex) {
+	SetCurrentTab(pageIndex);
+	if (pageIndex >= (int)pageViews_.size() || itemIndex >= (int)pageViews_[pageIndex].size()) {
+		return;
+	}
+	pendingFocusView_ = pageViews_[pageIndex][itemIndex];
+}
+
+void GameSettingsScreen::update() {
+	UITabbedBaseDialogScreen::update();
+
+	// The tab may have just been created, or not been laid out while hidden. Scrolling needs the
+	// view's position, so wait for a layout.
+	if (pendingFocusView_ && pendingFocusView_->GetBounds().h > 0.0f) {
+		UI::ScrollView *scrollView = UI::GetEnclosingScrollView(pendingFocusView_);
+		if (scrollView) {
+			scrollView->ScrollToCenter(pendingFocusView_);
+		}
+		// Highlights it. Done directly, since SetFocus does nothing when focus movement is off (mouse or touch).
+		UI::SetFocusedView(pendingFocusView_, UI::FocusFlags::CAUSE_RESTORE);
+		pendingFocusView_ = nullptr;
 	}
 }
 

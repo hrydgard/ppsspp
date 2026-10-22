@@ -50,6 +50,8 @@ protected:
 
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);
+	// Whether there's room and a way to type a search.
+	static bool CanShowSearch();
 
 	void sendMessage(UIMessage message, const char *value) override;
 
