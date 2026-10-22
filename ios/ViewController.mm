@@ -648,10 +648,9 @@ static int GetPickerRequestId(id picker) {
 
 #if !PPSSPP_PLATFORM(TVOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
 	// From iOS 27, an external display scene only goes to apps that register for one like this. Earlier
-	// versions go by the Info.plist role instead. Only Metal can show the game there so far, and without
-	// the scene, iOS mirrors the phone.
+	// versions go by the Info.plist role instead. Without the scene, iOS mirrors the phone.
 	if (@available(iOS 27.0, *)) {
-		if (g_Config.iGPUBackend == (int)GPUBackend::METAL) {
+		if (g_Config.iGPUBackend == (int)GPUBackend::METAL || g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 			UISceneConfiguration *sceneConfiguration = [UISceneConfiguration new];
 			sceneConfiguration.delegateClass = [ExternalDisplaySceneDelegate class];
 			self.externalDisplayRegistration = [self registerSceneAccessory:[UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:sceneConfiguration]];

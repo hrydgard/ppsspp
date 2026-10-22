@@ -1683,8 +1683,7 @@ void EmuScreen::UpdateGameOutput() {
 		return;
 	}
 	OutputParams params;
-	params.pixelWidth = output->swapchain->Width();
-	params.pixelHeight = output->swapchain->Height();
+	screenManager()->getDrawContext()->GetFramebufferDimensions(output->swapchain, &params.pixelWidth, &params.pixelHeight);
 	params.orientation = params.pixelHeight > params.pixelWidth * 1.1f ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
 	gameOutputOrientation_ = params.orientation;
 	gpu->SetPresentationOutput(&params);

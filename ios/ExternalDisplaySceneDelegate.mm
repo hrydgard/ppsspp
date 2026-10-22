@@ -111,9 +111,9 @@ static bool g_launched = false;
 	if (!self.windowScene || self.window) {
 		return;
 	}
-	// Only Metal can present to a second display so far. Without a window, iOS mirrors the phone.
-	if (g_Config.iGPUBackend != (int)GPUBackend::METAL) {
-		INFO_LOG(Log::G3D, "External display: mirroring, as the backend isn't Metal");
+	// Without a window, iOS mirrors the phone.
+	if (g_Config.iGPUBackend != (int)GPUBackend::METAL && g_Config.iGPUBackend != (int)GPUBackend::VULKAN) {
+		INFO_LOG(Log::G3D, "External display: mirroring, as the backend can't present to it");
 		return;
 	}
 #if !TARGET_OS_TV
