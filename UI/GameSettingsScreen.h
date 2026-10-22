@@ -22,6 +22,7 @@
 #include <mutex>
 #include <thread>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/PopupScreens.h"
 #include "Core/ConfigValues.h"
@@ -29,6 +30,7 @@
 #include "UI/TabbedDialogScreen.h"
 
 class Path;
+class SettingsPage;
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
@@ -50,14 +52,28 @@ protected:
 private:
 	void PreCreateViews() override;
 
-	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
-	void CreateControlsSettings(UI::ViewGroup *tools);
-	void CreateAudioSettings(UI::ViewGroup *audioSettings);
-	void CreateNetworkingSettings(UI::ViewGroup *networkingSettings);
-	void CreateToolsSettings(UI::ViewGroup *tools);
-	void CreateSystemSettings(UI::ViewGroup *systemSettings);
-	void CreateVRSettings(UI::ViewGroup *vrSettings);
+	// One per tab.
+	struct PageDef {
+		const char *tag;
+		const char *title;  // In MAINSETTINGS.
+		const char *icon;
+		const char *helpTag;  // If null, there's no title bar.
+		I18NCat cat;
+		void (GameSettingsScreen::*build)(SettingsPage &page);
+	};
+	static const std::vector<PageDef> &PageDefs();
+
+	void BuildGraphicsSettings(SettingsPage &page);
+	void BuildControlsSettings(SettingsPage &page);
+	void BuildAudioSettings(SettingsPage &page);
+	void BuildNetworkingSettings(SettingsPage &page);
+	void BuildToolsSettings(SettingsPage &page);
+	void BuildSystemSettings(SettingsPage &page);
+	void BuildVRSettings(SettingsPage &page);
 	UI::View *AddNicknameChoice(UI::ViewGroup *parent);
+
+	// The tabs shown.
+	std::vector<const PageDef *> pages_;
 
 	std::string gameID_;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
