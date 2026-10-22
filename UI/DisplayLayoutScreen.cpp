@@ -329,7 +329,10 @@ void DisplayLayoutScreen::CreateViews() {
 		Choice *center = new Choice(di->T("Reset"));
 		center->OnClick.Add([this, &config, portrait](UI::EventParams &) {
 			// Hm, not really ideal to have to use strings here.
+			// The overlay is a choice of its own, not part of the size/position, so keep it.
+			const std::string overlay = config.sOverlay;
 			config.ResetToDefault(portrait ? "DisplayLayout.Portrait" : "DisplayLayout.Landscape");
+			config.sOverlay = overlay;
 			// Which checkboxes are shown depends on the rotation.
 			RecreateViews();
 		});
