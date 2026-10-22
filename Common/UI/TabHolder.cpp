@@ -138,6 +138,10 @@ bool TabHolder::EnsureTab(int index) {
 
 void TabHolder::SetInitialTab(int tab) {
 	if (tab < 0 || tab >= (int)tabs_.size()) {
+		// The tab may no longer exist (the search tab is hidden on small screens, for example).
+		if (currentTab_ < (int)tabs_.size()) {
+			EnsureTab(currentTab_);
+		}
 		return;
 	}
 	EnsureTab(tab);
