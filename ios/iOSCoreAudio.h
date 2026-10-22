@@ -25,6 +25,9 @@ void iOSCoreAudioShutdown();
 // Applies the audio settings (mix with others, respect silent mode) to the session.
 void iOSCoreAudioUpdateSession();
 
+// Logs where the session's output currently goes (speaker, headphones, AirPlay...).
+void iOSCoreAudioLogRoute(const char *reason);
+
 // Microphone input, for sceUsbMic. These are called on the CPU thread. Input is buffered, and
 // iOSCoreAudioPollRecording hands it over to Microphone::addAudioData.
 void iOSCoreAudioStartRecording(int sampleRate);

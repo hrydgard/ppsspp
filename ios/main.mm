@@ -506,12 +506,12 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::EXIT_APP:
 		// NOTE: on iOS, this is considered a crash and not a valid way to exit.
-		exit(0);
-		// The below seems right, but causes hangs. See #12140.
-		// dispatch_async(dispatch_get_main_queue(), ^{
-		// [sharedViewController shutdown];
-		//	exit(0);
-		// });
+		// We're on the render thread. Calling exit() here would destroy its still joinable std::thread,
+		// which aborts, so let the main thread join it first.
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController shutdown];
+			exit(0);
+		});
 		break;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{

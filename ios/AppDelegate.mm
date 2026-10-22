@@ -82,6 +82,14 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 	iOSCoreAudioInit();
 }
 
+// for AVAudioSessionRouteChangeNotification
+-(void) handleAudioRouteChange:(NSNotification *)notification {
+	NSNumber *reason = notification.userInfo[AVAudioSessionRouteChangeReasonKey];
+	char buf[32];
+	snprintf(buf, sizeof(buf), "change, reason %d", reason.intValue);
+	iOSCoreAudioLogRoute(buf);
+}
+
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 	self.launchOptions = launchOptions;
 
@@ -91,6 +99,7 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioRouteChange:) name:AVAudioSessionRouteChangeNotification object:nil];
 
 	return YES;
 }

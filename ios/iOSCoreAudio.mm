@@ -65,13 +65,17 @@ void iOSCoreAudioUpdateSession() {
 #else
 	// Hacky hack to force iOS to re-evaluate.
 	// Switching from CatogoryPlayback to CategoryPlayback with an option otherwise does nothing.
-	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&error];
+	NSError *hackError = nil;
+	if (![[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&hackError]) {
+		NSLog(@"Switching to AudioProcessing failed: %@", hackError);
+	}
 
 	// Here, we apply the settings.
 	if (g_micEnabled) {
 		// Recording needs PlayAndRecord, which ignores the silent switch. A2DP rather than the
 		// hands-free profile keeps Bluetooth headphones at full quality, with the built-in mic as input.
-		AVAudioSessionCategoryOptions options = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP;
+		// Unlike the playback categories, PlayAndRecord needs to be told to allow AirPlay.
+		AVAudioSessionCategoryOptions options = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP | AVAudioSessionCategoryOptionAllowAirPlay;
 		if (g_Config.bAudioMixWithOthers) {
 			options |= AVAudioSessionCategoryOptionMixWithOthers;
 		}
@@ -93,7 +97,17 @@ void iOSCoreAudioUpdateSession() {
 #endif
 
 	if (error) {
-		NSLog(@"%@", error);
+		NSLog(@"Setting the audio session category failed: %@", error);
+	}
+}
+
+void iOSCoreAudioLogRoute(const char *reason) {
+	AVAudioSession *session = [AVAudioSession sharedInstance];
+	for (AVAudioSessionPortDescription *port in session.currentRoute.outputs) {
+		NSLog(@"Audio route (%s): %@ '%@' (category %@, options %d)", reason, port.portType, port.portName, session.category, (int)session.categoryOptions);
+	}
+	for (AVAudioSessionPortDescription *port in session.currentRoute.inputs) {
+		NSLog(@"Audio input (%s): %@ '%@'", reason, port.portType, port.portName);
 	}
 }
 
@@ -204,6 +218,8 @@ void iOSCoreAudioInit() {
 		}
 	}
 
+	iOSCoreAudioLogRoute("init");
+
 	if (audioInstance) {
 		// Already running
 		return;
@@ -307,14 +323,15 @@ void iOSCoreAudioShutdown()
 
 // Brings the unit in line with g_micEnabled. Main thread.
 static void UpdateMicrophone() {
-	iOSCoreAudioUpdateSession();
 	if (!audioInstance) {
+		// Sets up the session too.
 		iOSCoreAudioInit();
 		return;
 	}
 	if (!g_Config.bEnableSound && !g_micEnabled) {
 		// The unit was only running for the microphone.
 		iOSCoreAudioShutdown();
+		iOSCoreAudioUpdateSession();
 		return;
 	}
 	if (g_micEnabled == g_micInputOn && (!g_micEnabled || g_micSampleRate == g_micInputRate)) {
@@ -323,6 +340,8 @@ static void UpdateMicrophone() {
 
 	AudioOutputUnitStop(audioInstance);
 	AudioUnitUninitialize(audioInstance);
+	// Only with the unit stopped: iOS refuses (with '!pri') to leave PlayAndRecord while the input runs.
+	iOSCoreAudioUpdateSession();
 	ConfigureInput(audioInstance, g_micEnabled);
 	OSStatus err = AudioUnitInitialize(audioInstance);
 	if (err == noErr) {
