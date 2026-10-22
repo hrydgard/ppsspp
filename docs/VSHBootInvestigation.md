@@ -379,11 +379,13 @@ boot *worse*, because a correct implementation lets a real flash0 driver finish 
 on into hardware PPSSPP does not emulate. Leaving the import unresolved makes the driver fail early
 and the boot continues. All three are commented in the source at the point where they'd be added:
 
-- **`ThreadManForKernel` mutex/fpl NIDs** (`0xB7D098C6` `sceKernelCreateMutex`, `0xB011B11F`
-  `sceKernelLockMutex`, `0x6B30100F` `sceKernelUnlockMutex`, `0xD979E9BF` `sceKernelAllocateFpl`) -
-  we implement all four for user mode already. Resolve them and the NAND and ID storage drivers
-  init successfully, then `sceIdStorage_Service` polls the NAND controller at `0xbd101300` forever.
-  No module starts.
+- **`ThreadManForKernel` mutex NIDs** (`0xB7D098C6` `sceKernelCreateMutex`, `0xB011B11F`
+  `sceKernelLockMutex`, `0x6B30100F` `sceKernelUnlockMutex`) - we implement all three for user
+  mode already. Resolve them and the NAND and ID storage drivers init successfully, then
+  `sceIdStorage_Service` polls the NAND controller at `0xbd101300` forever (470k reads in 25
+  emulated seconds), and only 4 modules start. `sceKernelAllocateFpl` (`0xD979E9BF`) used to be on
+  this list, but it's the mutexes that do it: with only the FPL resolved, `sceIdStorage_Service`
+  allocates from its pool and the boot still reaches the XMB.
 - **`InterruptManagerForKernel` interrupt registration** (`0x58DD8978`, `0xF987B1F0`, `0x4D6E7305`,
   `0xD774BA45`) - JPCSP can honour these because it emulates the interrupt controller as MMIO. We
   dispatch the few interrupts we emulate ourselves (`__RegisterIntrHandler`), so success is a lie
