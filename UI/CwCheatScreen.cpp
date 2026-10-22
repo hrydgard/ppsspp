@@ -160,14 +160,11 @@ bool CwCheatScreen::WantsTextInput() const {
 
 bool CwCheatScreen::TryLoadCheatInfo() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-	std::string gameID;
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return false;
 	}
-	gameID = info->GetParamSFO().GetValueString("DISC_ID");
-	if ((info->id.empty() || !info->disc_total)	&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_);
-	}
+	// The cache has already replaced the ID of homebrew with a generated one.
+	const std::string &gameID = info->id;
 
 	if (!engine_ || gameID != gameID_) {
 		gameID_ = gameID;

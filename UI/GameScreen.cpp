@@ -799,10 +799,8 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 void GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info_ && info_->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string discID = info_->GetParamSFO().GetValueString("DISC_ID");
-		if ((discID.empty() || !info_->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
-			discID = g_paramSFO.GenerateFakeID(gamePath_);
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
+		// The cache has already replaced the ID of homebrew with a generated one.
+		screenManager()->push(new GameSettingsScreen(gamePath_, info_->id, true));
 	}
 }
 
