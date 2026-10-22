@@ -319,6 +319,8 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
+		// A pass to a swapchain closes its label and opens another in presentCmd, if there's an image to render to.
+		bool labelOpen = emitLabels;
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			char temp[128];
@@ -338,6 +340,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			if (!step.render.framebuffer) {
 				if (emitLabels) {
 					vkCmdEndDebugUtilsLabelEXT(cmd);
+					labelOpen = false;
 				}
 				// The first pass to a swapchain moves us over to presentCmd.
 				if (!frameData.hasPresentCommands) {
@@ -373,6 +376,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 						VkDebugUtilsLabelEXT labelInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
 						labelInfo.pLabelName = "present";
 						vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+						labelOpen = true;
 					}
 				} else {
 					perform = false;
@@ -409,7 +413,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			profile->timestampDescriptions.push_back(StepToString(vulkan_, step));
 		}
 
-		if (emitLabels) {
+		if (labelOpen) {
 			vkCmdEndDebugUtilsLabelEXT(cmd);
 		}
 	}
