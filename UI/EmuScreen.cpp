@@ -2002,6 +2002,11 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (g_Config.bShowGPOLEDs)
 		return true;
+	// Without this, the button would only be drawn while something else is (an OSD message,
+	// touch controls), but could still be clicked.
+	if (memoryScannerButton_ && memoryScannerButton_->GetVisibility() == UI::V_VISIBLE) {
+		return true;
+	}
 	// Debug UI.
 	if ((DebugOverlay)g_Config.iDebugOverlay != DebugOverlay::OFF || g_Config.bShowDeveloperMenu)
 		return true;
