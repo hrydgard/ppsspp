@@ -1999,6 +1999,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect c
 }
 
 void VKContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {
+	_dbg_assert_(fbo && !fbo->IsSwapchain());
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
 	_assert_(fb != curFramebuffer_);
@@ -2034,7 +2035,8 @@ void VKContext::DestroySwapchain(Swapchain *swapchain) {
 	VKSwapchain *vkSwapchain = (VKSwapchain *)swapchain;
 	renderManager_.DestroyExtraSwapchain(vkSwapchain->swapchain);
 	vkSwapchain->swapchain = nullptr;
-	vkSwapchain->Release();
+	// Nothing else may hold it, it no longer has a swapchain to be.
+	vkSwapchain->ReleaseAssertLast();
 }
 
 void VKContext::ResizeSwapchain(Swapchain *swapchain, int width, int height) {

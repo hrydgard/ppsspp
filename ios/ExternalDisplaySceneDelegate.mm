@@ -24,8 +24,9 @@
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/System.h"
 
-static NSString *const PPSSPPDidLaunchNotification = @"PPSSPPDidLaunch";
+static NSString *const PPSSPPExternalDisplayUpdateNotification = @"PPSSPPExternalDisplayUpdate";
 
 // Set by the SceneDelegate. Before that, the config (and so the graphics backend) isn't known.
 static bool g_launched = false;
@@ -42,6 +43,8 @@ static bool g_launched = false;
 // Adds the view's layer as a Game output once it has a size, and keeps the output's size up to date.
 @interface ExternalDisplayViewController : UIViewController
 @property (nonatomic) int outputId;
+// A reference to the layer for the output's requests, which hold it unretained. Released once it's removed.
+@property (nonatomic) void *retainedLayer;
 @end
 
 @implementation ExternalDisplayViewController {
@@ -73,7 +76,8 @@ static bool g_launched = false;
 	}
 	Draw::SwapchainDesc desc{};
 	desc.winsys = WINDOWSYSTEM_METAL_EXT;
-	desc.data1 = (__bridge void *)self.view.layer;
+	self.retainedLayer = (void *)CFBridgingRetain(self.view.layer);
+	desc.data1 = self.retainedLayer;
 	desc.width = width;
 	desc.height = height;
 	desc.tag = "ExternalDisplay";
@@ -95,14 +99,15 @@ static bool g_launched = false;
 	}
 	self.windowScene = (UIWindowScene *)scene;
 	INFO_LOG(Log::G3D, "External display connected");
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didLaunch:) name:PPSSPPDidLaunchNotification object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(update:) name:PPSSPPExternalDisplayUpdateNotification object:nil];
 	if (g_launched) {
 		[self attach];
 	}
 }
 
-- (void)didLaunch:(NSNotification *)notification {
+- (void)update:(NSNotification *)notification {
 	// After a restart, the outputs are gone along with the old screen manager, and the backend may have changed.
+	// Or the setting did.
 	[self detach];
 	[self attach];
 }
@@ -112,8 +117,13 @@ static bool g_launched = false;
 		return;
 	}
 	// Without a window, iOS mirrors the phone.
-	if (g_Config.iGPUBackend != (int)GPUBackend::METAL && g_Config.iGPUBackend != (int)GPUBackend::VULKAN) {
+	// The running backend: the setting is already the new one while the restart prompt for a change is up.
+	if (GetGPUBackend() != GPUBackend::METAL && GetGPUBackend() != GPUBackend::VULKAN) {
 		INFO_LOG(Log::G3D, "External display: mirroring, as the backend can't present to it");
+		return;
+	}
+	if (g_Config.iExternalDisplay != (int)ExternalDisplayMode::SHOW_GAME) {
+		INFO_LOG(Log::G3D, "External display: mirroring, as set");
 		return;
 	}
 #if !TARGET_OS_TV
@@ -132,8 +142,16 @@ static bool g_launched = false;
 	}
 	ExternalDisplayViewController *viewController = (ExternalDisplayViewController *)self.window.rootViewController;
 	if (viewController.outputId) {
-		// The swapchain keeps the layer alive until the removal has gone through.
-		Native_RemoveOutput(viewController.outputId);
+		// The window and its layer go now, but the add may still be queued, so our reference to the layer has to
+		// stay until the removal has been handled. Waited for off the main thread, which the render thread may
+		// be waiting on. If that times out, the layer is kept, as the add may still come.
+		const int outputId = viewController.outputId;
+		void *layer = viewController.retainedLayer;
+		dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+			if (Native_RemoveOutputAndWait(outputId)) {
+				CFRelease(layer);
+			}
+		});
 	}
 	self.window = nil;
 }
@@ -149,5 +167,11 @@ static bool g_launched = false;
 
 void ExternalDisplayNotifyLaunched() {
 	g_launched = true;
-	[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPDidLaunchNotification object:nil];
+	[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPExternalDisplayUpdateNotification object:nil];
+}
+
+void ExternalDisplaySettingChanged() {
+	if (g_launched) {
+		[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPExternalDisplayUpdateNotification object:nil];
+	}
 }

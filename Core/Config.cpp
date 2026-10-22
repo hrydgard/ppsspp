@@ -749,6 +749,7 @@ static int DefaultAnalogAltSpeedPercent() {
 static constexpr ConfigSetting graphicsSettings[] = {
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
+	ConfigSetting("ExternalDisplay", SETTING(g_Config, iExternalDisplay), (int)ExternalDisplayMode::SHOW_GAME, CfgFlag::DEFAULT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	ConfigSetting("CustomDriver", SETTING(g_Config, sCustomDriver), "", CfgFlag::DEFAULT),
 #endif

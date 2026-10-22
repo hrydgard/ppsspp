@@ -34,6 +34,7 @@
 #include <clocale>
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <cstdlib>
 #include <memory>
 #include <mutex>
@@ -190,6 +191,11 @@ std::string config_filename;
 // that consumes it also sees those writes - with a plain bool it could see the flag first and keep stale bounds.
 static std::atomic<bool> resized{false};
 
+// Secondary outputs are added, resized and removed through their own queue, not pendingMessages or
+// g_pendingClosures. Those run mid-frame, after BeginFrame, but creating or destroying a Vulkan swapchain
+// stops the render threads, so this runs before BeginFrame. It also runs in NativeInitGraphics before
+// deviceRestored, so a removal queued while the graphics were down lands before swapchains are recreated
+// (on a surface that may be gone). And it tracks completion for Native_RemoveOutputAndWait.
 struct OutputRequest {
 	enum class Type {
 		ADD,
@@ -204,14 +210,24 @@ struct OutputRequest {
 	int height;
 };
 static std::mutex g_outputRequestLock;
+static std::condition_variable g_outputRequestsDoneCond;
 static std::vector<OutputRequest> g_outputRequests;
+// Counts requests queued and handled, for Native_RemoveOutputAndWait. Under g_outputRequestLock.
+static uint64_t g_outputRequestsQueued = 0;
+static uint64_t g_outputRequestsDone = 0;
+// Whether the outputs have swapchains, between NativeInitGraphics and NativeShutdownGraphics.
+static bool g_outputsLive = false;
+// The thread that handles the requests, which mustn't wait for them.
+static std::thread::id g_outputRequestThread;
 static std::atomic<int> g_nextOutputId{1};
 
 static void ProcessOutputRequests() {
 	std::vector<OutputRequest> requests;
+	uint64_t queued;
 	{
 		std::lock_guard<std::mutex> guard(g_outputRequestLock);
 		requests.swap(g_outputRequests);
+		queued = g_outputRequestsQueued;
 	}
 	for (const OutputRequest &request : requests) {
 		switch (request.type) {
@@ -220,6 +236,16 @@ static void ProcessOutputRequests() {
 		case OutputRequest::Type::REMOVE: g_screenManager->RemoveOutput(request.id); break;
 		}
 	}
+	std::lock_guard<std::mutex> guard(g_outputRequestLock);
+	g_outputRequestsDone = queued;
+	g_outputRequestThread = std::this_thread::get_id();
+	g_outputRequestsDoneCond.notify_all();
+}
+
+static void SetOutputsLive(bool live) {
+	std::lock_guard<std::mutex> guard(g_outputRequestLock);
+	g_outputsLive = live;
+	g_outputRequestsDoneCond.notify_all();
 }
 
 static int renderCounter = 0;
@@ -972,6 +998,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_screenManager->setUIContext(uiContext);
 	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
+	// Live before the queue is processed: a removal that comes in while the outputs' swapchains are being
+	// recreated has to wait for the next frame, as its surface may be gone once it returns.
+	SetOutputsLive(true);
 	// An output removed while there was no device can't be recreated, its surface may be gone.
 	ProcessOutputRequests();
 	g_screenManager->deviceRestored(g_draw);
@@ -1092,6 +1121,7 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	if (g_screenManager) {
 		g_screenManager->deviceLost();
 	}
+	SetOutputsLive(false);
 	g_iconCache.ClearTextures();
 
 	if (gpu) {
@@ -2044,6 +2074,7 @@ int Native_AddOutput(OutputRole role, const Draw::SwapchainDesc &desc) {
 	request.desc = desc;
 	std::lock_guard<std::mutex> guard(g_outputRequestLock);
 	g_outputRequests.push_back(request);
+	g_outputRequestsQueued++;
 	return request.id;
 }
 
@@ -2055,6 +2086,7 @@ void Native_ResizeOutput(int id, int width, int height) {
 	request.height = height;
 	std::lock_guard<std::mutex> guard(g_outputRequestLock);
 	g_outputRequests.push_back(request);
+	g_outputRequestsQueued++;
 }
 
 void Native_RemoveOutput(int id) {
@@ -2063,6 +2095,22 @@ void Native_RemoveOutput(int id) {
 	request.id = id;
 	std::lock_guard<std::mutex> guard(g_outputRequestLock);
 	g_outputRequests.push_back(request);
+	g_outputRequestsQueued++;
+}
+
+bool Native_RemoveOutputAndWait(int id) {
+	Native_RemoveOutput(id);
+	std::unique_lock<std::mutex> lock(g_outputRequestLock);
+	_dbg_assert_msg_(std::this_thread::get_id() != g_outputRequestThread, "Waiting for output requests on the thread that handles them");
+	const uint64_t queued = g_outputRequestsQueued;
+	// Without a device, the outputs have no swapchains to let go of.
+	const bool done = g_outputRequestsDoneCond.wait_for(lock, std::chrono::seconds(3), [=] {
+		return !g_outputsLive || g_outputRequestsDone >= queued;
+	});
+	if (!done) {
+		ERROR_LOG(Log::G3D, "Timed out waiting for output %d to be removed", id);
+	}
+	return done;
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {

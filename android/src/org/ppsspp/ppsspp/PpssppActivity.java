@@ -24,16 +24,22 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.display.DeviceProductInfo;
+import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.text.InputType;
 import android.util.Log;
+import android.view.Display;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -115,6 +121,29 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
 	private InputManager.InputDeviceListener inputDeviceListener;
+
+	// The game on a second display, while there's one (and the backend can draw to it) and we're started.
+	private ExternalDisplayPresentation externalDisplayPresentation;
+	private boolean externalDisplayWatched = false;
+	private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
+		@Override
+		public void onDisplayAdded(int displayId) {
+			updateExternalDisplay();
+		}
+
+		@Override
+		public void onDisplayRemoved(int displayId) {
+			updateExternalDisplay();
+		}
+
+		@Override
+		public void onDisplayChanged(int displayId) {
+			// The device's own screen changes all the time (refresh rate).
+			if (displayId != Display.DEFAULT_DISPLAY) {
+				updateExternalDisplay();
+			}
+		}
+	};
 
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
@@ -945,6 +974,61 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		updateSustainedPerformanceMode();
 	}
 
+	// Shows the game on a presentation display (like a TV on HDMI), if there's one, the backend can draw
+	// to a second surface (Vulkan) and the setting says so. Otherwise Android mirrors the phone there.
+	private void updateExternalDisplay() {
+		Display display = null;
+		if (externalDisplayWatched && "1".equals(NativeApp.queryConfig("externalDisplayOutput"))) {
+			DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
+			for (Display candidate : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+				if (!isBuiltInDisplay(candidate)) {
+					display = candidate;
+					break;
+				}
+			}
+		}
+		if (externalDisplayPresentation != null && (display == null || !externalDisplayPresentation.isShowing() || externalDisplayPresentation.getDisplay().getDisplayId() != display.getDisplayId())) {
+			dismissExternalDisplay();
+		}
+		if (externalDisplayPresentation != null || display == null) {
+			return;
+		}
+		Log.i(TAG, "Showing the game on display " + display.getDisplayId() + " (" + display.getName() + ")");
+		ExternalDisplayPresentation presentation = new ExternalDisplayPresentation(this, display);
+		presentation.setOnDismissListener(dialog -> {
+			// Dismissed by the system, which some display changes (like a mode switch) do. Show it again if it should be.
+			if (externalDisplayPresentation == presentation) {
+				externalDisplayPresentation = null;
+				new Handler(Looper.getMainLooper()).post(this::updateExternalDisplay);
+			}
+		});
+		try {
+			presentation.show();
+			externalDisplayPresentation = presentation;
+		} catch (WindowManager.InvalidDisplayException e) {
+			Log.w(TAG, "Couldn't show the game on display " + display.getDisplayId() + ": " + e);
+		}
+	}
+
+	// A second screen that's part of the device (a dual-screen handheld's, a cover screen) isn't a TV, and
+	// the game shouldn't move there by itself. Only Android 12 and up can tell.
+	private static boolean isBuiltInDisplay(Display display) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+			return false;
+		}
+		DeviceProductInfo info = display.getDeviceProductInfo();
+		return info != null && info.getConnectionToSinkType() == DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN;
+	}
+
+	private void dismissExternalDisplay() {
+		// Cleared first, so its dismiss listener knows it was us.
+		ExternalDisplayPresentation presentation = externalDisplayPresentation;
+		externalDisplayPresentation = null;
+		if (presentation != null) {
+			presentation.dismiss();
+		}
+	}
+
 	// The render loop thread (EmuThread) is now spawned from the native side.
 	protected void startRenderLoopThread() {
 		synchronized (PpssppActivity.class) {
@@ -1080,6 +1164,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.registerInputDeviceListener(inputDeviceListener, null);
 
+		if (checkCurrent("showing the game on a second display")) {
+			// For the message on the TV while we're in the menus, "In menus on <the name>".
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
+				NativeApp.setDeviceName(Settings.Global.getString(getContentResolver(), Settings.Global.DEVICE_NAME));
+			}
+			DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
+			displayManager.registerDisplayListener(displayListener, null);
+			externalDisplayWatched = true;
+			updateExternalDisplay();
+		}
+
 		// In case the surface outlived the stop. Otherwise this waits for surfaceCreated.
 		startRenderLoopThread();
 		Log.i(TAG, "onStart end");
@@ -1095,6 +1190,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);
+
+		// Before the render thread stops, so it can let go of the second display's surface.
+		DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
+		displayManager.unregisterDisplayListener(displayListener);
+		externalDisplayWatched = false;
+		dismissExternalDisplay();
 
 		// Normally surfaceDestroyed has done this already, but not every device destroys the surface of a
 		// stopped activity, and an invisible game shouldn't keep running.
@@ -1805,6 +1906,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return true;
 		} else if (command.equals("sustainedPerfMode")) {
 			updateSustainedPerformanceMode();
+			return true;
+		} else if (command.equals("externalDisplay")) {
+			updateExternalDisplay();
 			return true;
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();

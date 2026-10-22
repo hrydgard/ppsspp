@@ -235,8 +235,13 @@ PresentationCommon::~PresentationCommon() {
 	DestroyDeviceObjects();
 }
 
+// Cardboard VR is for the device's own screen, in a headset, not a TV.
+bool PresentationCommon::UseCardboard(const DisplayLayoutConfig &config) const {
+	return config.bEnableCardboardVR && !hasOutputOverride_;
+}
+
 void PresentationCommon::GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const {
-	if (!config.bEnableCardboardVR) {
+	if (!UseCardboard(config)) {
 		cardboardSettings->enabled = false;
 		return;
 	}
@@ -749,7 +754,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, output);
 	// Note: In cardboard mode, we halve the width here to compensate
 	// for splitting the window in half, while still reusing normal centering.
-	if (config.bEnableCardboardVR) {
+	if (UseCardboard(config)) {
 		frame.w /= 2.0;
 		pixelWidth /= 2;
 	}

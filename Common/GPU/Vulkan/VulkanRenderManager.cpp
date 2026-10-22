@@ -676,6 +676,7 @@ bool VulkanRenderManager::InitExtraSwapchain(VKRSwapchain *swapchain, std::strin
 		swapchain->framebuffers.push_back(framebuffer);
 	}
 	swapchain->outOfDate = false;
+	swapchain->suboptimalFrames = 0;
 	INFO_LOG(Log::G3D, "Created an additional swapchain: %dx%d, %d images", extent.width, extent.height, (int)count);
 	return true;
 }
@@ -758,6 +759,8 @@ void VulkanRenderManager::CheckNothingPending() {
 
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(Log::G3D, "VulkanRenderManager destructor");
+	// Their owners (the outputs) destroy them first, on device loss. Left over, they'd outlive the device.
+	_dbg_assert_(extraSwapchains_.empty());
 
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);

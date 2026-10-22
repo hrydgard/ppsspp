@@ -526,6 +526,9 @@ void TakeUserScreenshot() {
 	if (GetUIState() != UISTATE_INGAME) {
 		// We're out in the UI, no game. The only type of screenshot available is output.
 		type = ScreenshotType::Output;
+	} else if (gpu && gpu->PresentsToOtherOutput()) {
+		// The game is on a TV. The device's own screen only has the controls on it.
+		type = ScreenshotType::Display;
 	}
 
 	// Close any active popups, so they don't end up in the screenshot.

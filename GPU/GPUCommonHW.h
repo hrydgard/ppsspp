@@ -72,6 +72,7 @@ public:
 
 	bool PresentedThisFrame() const override;
 	void SetPresentationOutput(const OutputParams *output) override;
+	bool PresentsToOtherOutput() const override;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb) override;

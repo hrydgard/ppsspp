@@ -861,27 +861,28 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 		}
 		break;
 
+	// These change the layout the game is shown with, which on a TV isn't the device orientation's.
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL:
 		if (down) {
-			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 			config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL;
 		}
 		break;
 	case VIRTKEY_SCREEN_ROTATION_VERTICAL180:
 		if (down) {
-			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 			config.iInternalScreenRotation = ROTATION_LOCKED_VERTICAL180;
 		}
 		break;
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL:
 		if (down) {
-			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 			config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
 		}
 		break;
 	case VIRTKEY_SCREEN_ROTATION_HORIZONTAL180:
 		if (down) {
-			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+			DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 			config.iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL180;
 		}
 		break;
@@ -1672,6 +1673,21 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 
 // Sends the game to a Game output, if there is one. Not in non-buffered mode, which draws straight
 // into the backbuffer during emulation.
+static DeviceOrientation OutputOrientation(int width, int height) {
+	return height > width * 1.1f ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+}
+
+bool GetGameOutputOrientation(ScreenManager *screenManager, DeviceOrientation *orientation) {
+	const OutputDisplay *output = screenManager->FindOutput(OutputRole::Game);
+	if (!output || !output->swapchain) {
+		return false;
+	}
+	int width, height;
+	screenManager->getDrawContext()->GetFramebufferDimensions(output->swapchain, &width, &height);
+	*orientation = OutputOrientation(width, height);
+	return true;
+}
+
 void EmuScreen::UpdateGameOutput() {
 	const OutputDisplay *output = screenManager()->FindOutput(OutputRole::Game);
 	gameOnOutput_ = output && gpu && !skipBufferEffects_ && GPUIsBuffered();
@@ -1684,13 +1700,17 @@ void EmuScreen::UpdateGameOutput() {
 	}
 	OutputParams params;
 	screenManager()->getDrawContext()->GetFramebufferDimensions(output->swapchain, &params.pixelWidth, &params.pixelHeight);
-	params.orientation = params.pixelHeight > params.pixelWidth * 1.1f ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+	params.orientation = OutputOrientation(params.pixelWidth, params.pixelHeight);
 	gameOutputOrientation_ = params.orientation;
 	gpu->SetPresentationOutput(&params);
 }
 
+DeviceOrientation EmuScreen::GameLayoutOrientation() const {
+	return gameOnOutput_ ? gameOutputOrientation_ : GetDeviceOrientation();
+}
+
 const DisplayLayoutConfig &EmuScreen::GameLayoutConfig() const {
-	return g_Config.GetDisplayLayoutConfig(gameOnOutput_ ? gameOutputOrientation_ : GetDeviceOrientation());
+	return g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 }
 
 bool EmuScreen::renderOutput(const OutputDisplay &output) {

@@ -118,10 +118,19 @@ public:
 	}
 	// Presents to another output than the primary, until called with nullptr.
 	void SetOutputOverride(const OutputParams *output) {
+		const bool changed = hasOutputOverride_ != (output != nullptr) || (output &&
+			(output->pixelWidth != outputOverride_.pixelWidth || output->pixelHeight != outputOverride_.pixelHeight || output->orientation != outputOverride_.orientation));
 		hasOutputOverride_ = output != nullptr;
 		if (output) {
 			outputOverride_ = *output;
 		}
+		// The post-shader framebuffers are sized for the output, so another one needs them rebuilt (in BeginFrame).
+		if (changed && usePostShader_) {
+			restorePostShader_ = true;
+		}
+	}
+	bool HasOutputOverride() const {
+		return hasOutputOverride_;
 	}
 	OutputParams GetOutput() const {
 		return hasOutputOverride_ ? outputOverride_ : PrimaryOutputParams(pixelWidth_, pixelHeight_);
@@ -193,6 +202,7 @@ protected:
 	bool PrepareOverlayTexture(const OverlayLayout &layout);
 	void DrawOverlay(const OverlayLayout &layout, const OutputParams &output);
 
+	bool UseCardboard(const DisplayLayoutConfig &config) const;
 	void GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 

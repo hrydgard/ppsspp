@@ -135,6 +135,12 @@ enum class GPUBackend {
 	METAL = 4,
 };
 
+// What an external display (a TV) shows, where the platform lets us choose. See docs/multi-swapchain.md.
+enum class ExternalDisplayMode {
+	SHOW_GAME = 0,  // The game, with the controls and the menus on the device. Needs Metal or Vulkan.
+	MIRROR = 1,
+};
+
 enum class DepthRasterMode {
 	DEFAULT = 0,
 	LOW_QUALITY = 1,

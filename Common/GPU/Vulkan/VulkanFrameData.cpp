@@ -187,7 +187,14 @@ void FrameData::PresentExtraSwapchains(VulkanContext *vulkan) {
 		VkResult res = vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
 		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_ERROR_SURFACE_LOST_KHR) {
 			swapchain->outOfDate = true;
-		} else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR) {
+		} else if (res == VK_SUBOPTIMAL_KHR) {
+			// Like the main swapchain, recreated once it stays that way (a TV's mode changed without a resize).
+			if (++swapchain->suboptimalFrames > VulkanContext::MAX_INFLIGHT_FRAMES) {
+				swapchain->outOfDate = true;
+			}
+		} else if (res == VK_SUCCESS) {
+			swapchain->suboptimalFrames = 0;
+		} else {
 			ERROR_LOG(Log::G3D, "vkQueuePresentKHR failed for an additional swapchain: %s", VulkanResultToString(res));
 		}
 		swapchain->acquired = false;

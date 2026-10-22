@@ -106,10 +106,13 @@ void ScreenManager::ProcessInputEvent(const QueuedEvent &event) {
 	case QueuedEventType::KEY:
 	{
 		const KeyInput &key = event.key;
-		// Send key up to every screen layer, to avoid stuck keys.
+		// Send key up to every screen layer, to avoid stuck keys. A press and release in one (iOS's back swipe,
+		// the mouse wheel) is a press only for the top one, or every dialog below would act on it too.
 		if (key.flags & KeyInputFlags::UP) {
-			for (auto &layer : stack_) {
-				layer.screen->key(key);
+			KeyInput upOnly = key;
+			upOnly.flags &= ~KeyInputFlags::DOWN;
+			for (size_t i = 0; i < stack_.size(); i++) {
+				stack_[i].screen->key(i == stack_.size() - 1 ? key : upOnly);
 			}
 		} else if (!stack_.empty()) {
 			stack_.back().screen->key(key);
@@ -300,7 +303,7 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		const float dpHeight = h * g_display.dpi_scale_y;
 		const Bounds primaryBounds = ui->GetBounds();
 		ui->SetBounds(Bounds(0, 0, dpWidth, dpHeight));
-		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention));
+		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention, false));
 		bool drawn = false;
 		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
 			if (iter->screen->renderOutput(output.display)) {
