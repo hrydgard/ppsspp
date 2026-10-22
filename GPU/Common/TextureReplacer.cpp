@@ -21,6 +21,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <type_traits>
 #include <png.h>
 
 #include "ext/basis_universal/basisu_transcoder.h"
@@ -172,6 +173,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	savedCache_.clear();
 
 	indexed_.clear();
+	ignoreRanges_.clear();
 	ignoreAddress_ = false;
 	reduceHash_ = false;
 	reduceHashGlobalValue = 0.5;
@@ -288,6 +290,9 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	if (replaceEnabled_ && notify) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, gr->T("Texture replacement pack activated"), 3.0f);
 	}
+
+	// After the override ini too, which can turn it on.
+	ApplyIgnoreAddress();
 
 	vfs_ = dir;
 
@@ -562,6 +567,13 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		}
 	}
 
+	if (ini.HasSection("ignore")) {
+		// Format: start-end,w,h = (the range and the size are optional parts)
+		for (const auto &[k, v] : ini.GetOrCreateSection("ignore")->ToMap()) {
+			ParseIgnore(k);
+		}
+	}
+
 	// Format of both: addr,w,h = w,h|x,y,w,h|...
 	if (ini.HasSection("shadowranges")) {
 		// Written by the pack's author. Dumps of these textures only use these regions.
@@ -587,6 +599,134 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 
 	return true;
+}
+
+void TextureReplacer::ParseIgnore(const std::string &key) {
+	std::vector<std::string> parts;
+	SplitString(key, ',', parts, true);
+	std::vector<std::string> range;
+	if (!parts.empty()) {
+		SplitString(parts[0], '-', range, true);
+	}
+	auto parseAddr = [](std::string text, u32 *addr) {
+		if (!startsWith(text, "0x") && !startsWith(text, "0X")) {
+			text = "0x" + text;
+		}
+		return TryParse(text, addr);
+	};
+
+	IgnoreRange ignore;
+	u32 w = 0;
+	u32 h = 0;
+	bool valid = (parts.size() == 1 || parts.size() == 3) && (range.size() == 1 || range.size() == 2);
+	valid = valid && parseAddr(range[0], &ignore.start);
+	ignore.end = ignore.start;
+	if (valid && range.size() == 2) {
+		valid = parseAddr(range[1], &ignore.end) && ignore.end >= ignore.start;
+	}
+	if (valid && parts.size() == 3) {
+		valid = TryParse(parts[1], &w) && TryParse(parts[2], &h) && w > 0 && h > 0 && w <= 1024 && h <= 1024;
+	}
+	if (!valid) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid [ignore] entry %s, expecting 0x08800000-0x08900000 or 0x08812340, optionally followed by ,w,h", key.c_str());
+		return;
+	}
+	// The same as in the names of dumps.
+	ignore.start &= 0x3FFFFFFF;
+	ignore.end &= 0x3FFFFFFF;
+	ignore.w = (u16)w;
+	ignore.h = (u16)h;
+	ignoreRanges_.push_back(ignore);
+}
+
+bool TextureReplacer::IsIgnoredTexture(u32 addr, int w, int h) const {
+	addr &= 0x3FFFFFFF;
+	for (const IgnoreRange &ignore : ignoreRanges_) {
+		if (addr >= ignore.start && addr <= ignore.end && (ignore.w == 0 || (ignore.w == w && ignore.h == h))) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void TextureReplacer::ApplyIgnoreAddress() {
+	if (!ignoreAddress_) {
+		return;
+	}
+
+	// Entries with an address are found with it dropped. One without (from an older pack) wins over one with.
+	std::unordered_map<ReplacementCacheKey, std::string> aliases;
+	for (const auto &[key, value] : aliases_) {
+		if (key.Address() == 0) {
+			aliases[key] = value;
+		}
+	}
+	for (const auto &[key, value] : aliases_) {
+		if (key.Address() == 0) {
+			continue;
+		}
+		if (key.ContentsHash() == 0 && key.ClutHash() == 0) {
+			if (value.empty()) {
+				// "Don't dump anything at this address", which needs the address. Matches the same as before.
+				IgnoreRange ignore;
+				ignore.start = ignore.end = key.Address();
+				ignoreRanges_.push_back(ignore);
+			}
+			// Without the address, it would match everything.
+			continue;
+		}
+		if (key.ContentsHash() == 0) {
+			// Address and CLUT only. Without the address it would match that CLUT anywhere, so it's dropped.
+			WARN_LOG(Log::TexReplacement, "%s in [hashes] has no texture hash, it's ignored with ignoreAddress", HashName(key, 0).c_str());
+			continue;
+		}
+		ReplacementCacheKey zeroed = key;
+		zeroed.ZeroAddress();
+		aliases.emplace(zeroed, value);
+	}
+	aliases_ = std::move(aliases);
+
+	auto zeroMap = [](auto &map) {
+		std::remove_reference_t<decltype(map)> result;
+		for (const auto &[key, value] : map) {
+			if (key.Address() == 0) {
+				result[key] = value;
+			}
+		}
+		for (const auto &[key, value] : map) {
+			if (key.Address() != 0 && key.ContentsHash() != 0) {
+				ReplacementCacheKey zeroed = key;
+				zeroed.ZeroAddress();
+				result.emplace(zeroed, value);
+			}
+		}
+		map = std::move(result);
+	};
+	zeroMap(filtering_);
+	zeroMap(indexed_);
+}
+
+void TextureReplacer::LogDump(const std::string &hashfile, u32 addr, ReplacementCacheKey key, int texW, int texH, GETextureFormat fmt, const char *region) {
+	if (newTextureDir_.empty()) {
+		return;
+	}
+	const Path filename = newTextureDir_ / "dumps.txt";
+	const bool exists = File::Exists(filename);
+	FILE *f = File::OpenCFile(filename, "ab");
+	if (!f) {
+		return;
+	}
+	if (!exists) {
+		fprintf(f, "# One line for each texture dumped to this folder: the file, then where it came from.\n");
+		fprintf(f, "# key is the name it would have with the address and palette hash in it, for [hashes] or [ignore].\n");
+	}
+	if (!dumpLogStarted_) {
+		dumpLogStarted_ = true;
+		fprintf(f, "\n# %s, dumping started\n", gameID_.c_str());
+	}
+	fprintf(f, "%s addr=0x%08x size=%dx%d format=%s key=%016llx%08x%s%s\n", hashfile.c_str(), addr & 0x3FFFFFFF, texW, texH,
+		GeTextureFormatToString(fmt), (unsigned long long)key.cachekey, key.hash, region ? " region=" : "", region ? region : "");
+	fclose(f);
 }
 
 void TextureReplacer::ParseShadowRange(const std::string &key, const std::string &value, bool declared) {
@@ -869,6 +1009,12 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 		return it->second.texture;
 	}
 
+	if (IsIgnoredTexture(replacementKey.Address(), w, h)) {
+		// Marked as not found, for faster lookup next time.
+		cache_.emplace(std::make_pair(replacementKey, ReplacedTextureRef{}));
+		return nullptr;
+	}
+
 	ReplacementDesc desc;
 	desc.newW = w;
 	desc.newH = h;
@@ -1025,6 +1171,8 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) co
 		return false;
 	if (replacedInfo.isVideo)
 		return false;
+	if (IsIgnoredTexture(replacedInfo.addr, replacedInfo.texW, replacedInfo.texH))
+		return false;
 
 	return true;
 }
@@ -1079,8 +1227,9 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		SplitString(replacedLevelNames, '|', names);
 		hashfile = names[std::min(level, (int)(names.size() - 1))];
 	} else {
-		// Generate a new PNG filename, complete with level.
-		hashfile = HashName(replacementKey, level) + ".png";
+		// Generate a new PNG filename, complete with level. With ignoreAddress it still has the address, which is
+		// dropped when it's read.
+		hashfile = HashName(ReplacementCacheKey(replacedInfo.cachekey, replacedInfo.hash), level) + ".png";
 	}
 
 	if (level >= (int)ARRAY_SIZE(SavedTextureCacheData::levelSaved)) {
@@ -1133,6 +1282,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	task->h = h;
 	task->replacedInfoHash = replacedInfo.hash;
 	g_threadManager.EnqueueTask(task);  // We don't care about waiting for the task. It'll be fine.
+	LogDump(hashfile, replacedInfo.addr, ReplacementCacheKey(replacedInfo.cachekey, replacedInfo.hash), replacedInfo.texW, replacedInfo.texH, replacedInfo.texFormat, nullptr);
 
 	// Remember that we've saved this for next time.
 	// Should be OK that the actual disk write may not be finished yet.
@@ -1212,7 +1362,10 @@ void TextureReplacer::NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInf
 		SplitString(replacedLevelNames, '|', names);
 		hashfile = names[0];
 	} else {
-		hashfile = HashName(saveKey, 0) + "_indexed.png";
+		// Keeps the address, see NotifyTextureDecoded.
+		ReplacementCacheKey nameKey(replacedInfo.cachekey, replacedInfo.hash);
+		nameKey.ZeroClutHash();
+		hashfile = HashName(nameKey, 0) + "_indexed.png";
 	}
 
 	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
@@ -1242,6 +1395,7 @@ void TextureReplacer::NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInf
 	task->numColors = numColors;
 	memcpy(task->palette, palette, numColors * sizeof(u32));
 	g_threadManager.EnqueueTask(task);
+	LogDump(hashfile, replacedInfo.addr, ReplacementCacheKey(replacedInfo.cachekey, replacedInfo.hash), replacedInfo.texW, replacedInfo.texH, replacedInfo.texFormat, nullptr);
 
 	// Remember that we've saved this for next time.
 	SavedTextureCacheData &saveData = savedCache_[saveKey];
@@ -1758,6 +1912,7 @@ TextureReplacer::ShadowVariant *TextureReplacer::CreateShadowVariant(const Repla
 
 	ShadowVariant variant;
 	variant.cachekey = replacedInfo.cachekey;
+	variant.sourceCachekey = replacedInfo.cachekey;
 	variant.addr = replacedInfo.addr;
 	variant.bufw = replacedInfo.bufw;
 	variant.texW = texW;
@@ -2067,6 +2222,7 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		CommitShadowIndexed(variant, region, hash);
 		return;
 	}
+	const std::string regionText = StringFromFormat("%d,%d,%d,%d", region.x, region.y, region.w, region.h);
 	const ReplacementCacheKey namingKey = NamingKey(variant.cachekey, hash);
 
 	bool foundAlias = false;
@@ -2112,7 +2268,8 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		if (!names.empty()) {
 			hashfile = names[std::min(level, (int)names.size() - 1)];
 		} else {
-			hashfile = HashName(namingKey, level) + ".png";
+			// Keeps the address with ignoreAddress, see NotifyTextureDecoded.
+			hashfile = HashName(ReplacementCacheKey(variant.cachekey, hash), level) + ".png";
 		}
 
 		SaveTextureTask *task = new SaveTextureTask(saveBuf);
@@ -2122,6 +2279,7 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		task->h = saveH;
 		task->replacedInfoHash = hash;
 		g_threadManager.EnqueueTask(task);
+		LogDump(hashfile, variant.addr, ReplacementCacheKey(variant.sourceCachekey, hash), variant.texW, variant.texH, variant.fmt, regionText.c_str());
 
 		saveData.levelW[level] = saveW;
 		saveData.levelH[level] = saveH;
@@ -2158,7 +2316,8 @@ void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion r
 		SplitString(replacedLevelNames, '|', names);
 		hashfile = names[0];
 	} else {
-		hashfile = HashName(namingKey, 0) + "_indexed.png";
+		// variant.cachekey has the address (no CLUT hash), see NotifyTextureDecoded.
+		hashfile = HashName(ReplacementCacheKey(variant.cachekey, hash), 0) + "_indexed.png";
 	}
 
 	// Indices aren't scaled, so this is in texels.
@@ -2183,6 +2342,8 @@ void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion r
 	task->numColors = variant.numColors;
 	memcpy(task->palette, variant.palette, variant.numColors * sizeof(u32));
 	g_threadManager.EnqueueTask(task);
+	const std::string regionText = StringFromFormat("%d,%d,%d,%d", region.x, region.y, region.w, region.h);
+	LogDump(hashfile, variant.addr, ReplacementCacheKey(variant.sourceCachekey, hash), variant.texW, variant.texH, variant.fmt, regionText.c_str());
 
 	saveData.levelW[0] = saveW;
 	saveData.levelH[0] = saveH;
@@ -2723,7 +2884,7 @@ version = 1
 hash = quick             # options available: "quick", "xxh32" - more accurate, but slower, "xxh64" - more accurate and quite fast, but slower than xxh32 on 32 bit cpu's
 ignoreMipmap = true      # Usually, can just generate them with basisu, no need to dump.
 reduceHash = false       # Unsafe and can cause glitches in some cases, but allows to skip garbage data in some textures reducing endless duplicates as a side effect speeds up hashing as well, requires stronger hash like xxh32 or xxh64
-ignoreAddress = false    # Reduces duplicates at the cost of making hash less reliable, requires stronger hash like xxh32 or xxh64. Basically automatically sets the address to 0 in the dumped filenames.
+ignoreAddress = false    # Reduces duplicates at the cost of making hash less reliable, requires stronger hash like xxh32 or xxh64. Dumped filenames still have the address they came from, it's ignored when they're matched.
 saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) can be dumped as 8-bit palette PNGs of their indices, named <hash>_indexed.png, one for all palettes. "all" does that for every such texture, "true" only for the ones listed in [indexed]. Other textures are dumped as usual.
 
 [games]
@@ -2792,6 +2953,12 @@ saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) c
 # HD version of it in glyphs/ is drawn instead of the game's. See docs/shadow-textures.md.
 #[layered]
 #0x08b31020,256,128 = box_original.png|box_hd.png
+
+[ignore]
+# Textures at these addresses are neither dumped nor replaced, also with ignoreAddress. An address, or a range
+# (both ends included), optionally followed by a size. new/dumps.txt has the address and size of each dump.
+# Example: 0x09a00000-0x09c00000 =
+# Example: 0x08b31020,32,16 =
 
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);

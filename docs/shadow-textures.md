@@ -123,7 +123,9 @@ image (same address, different hash), and look up what you see:
 | Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` and HD glyphs (see below) |
 | `over the memory budget, dumping early` in the log | Dumps were written before they settled | Raise `shadowMemoryMB` |
 | The same image at different addresses | The game loads it to different places | `ignoreAddress = true` (needs xxh32 or xxh64) |
-| The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping that address with an empty entry in `[hashes]`: `08b310200000000000000000 =` |
+| The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping them with `[ignore]` |
+| Textures you'll never replace, made again for every map, menu or save slot (map tile atlases, thumbnails) | The game builds them from other textures | Put their address range in `[ignore]` (see [Ignoring textures](#ignoring-textures)) |
+| You can't tell which texture a dump is | With `ignoreAddress`, or for palette dumps, the name doesn't say | Look the file up in `new/dumps.txt` |
 
 ### Each option, and which way to turn it
 
@@ -173,6 +175,44 @@ color dumps of those textures instead.
 **`ignoreAddress`** (not a shadow option): leaves the address out of the key. Use it when the same image is
 loaded to different addresses. Don't use it if different images share a hash at different addresses, which is
 rare with xxh64.
+- Dumps are still named with the address they were first dumped from, and the address is dropped when the
+  names in `[hashes]`, `[filtering]` and `[indexed]` and the files in the pack are matched. So you can still see
+  where a texture is, and put that range in `[ignore]`. Packs with `00000000` addresses in their names still work.
+- An empty entry in `[hashes]` with only an address (`123456780000000000000000 =`) still stops dumping at that
+  address. Entries with an address and a CLUT hash but no texture hash are ignored with `ignoreAddress`, since
+  without the address they'd match that CLUT anywhere.
+
+## Ignoring textures
+
+Some textures are never worth replacing, and the game makes new ones all the time: map tile atlases that are
+put together again for every map, thumbnails of save slots, previews. List where they are in `[ignore]`, and
+they're neither dumped nor replaced:
+
+```ini
+[ignore]
+0x09a00000-0x09c00000 =
+0x08b31020,32,16 =
+```
+
+- An entry is an address, or a range of addresses with both ends included, optionally followed by a size. With
+  a size, only textures of that size there are ignored, so a range can hold thumbnails you ignore and other
+  textures you keep.
+- It works the same with `ignoreAddress` on or off.
+- Use it instead of `[hashes]` entries without an address and texture hash, like `000000000000070700000000 =`.
+  For textures without a palette, the middle 8 digits of a name are the texture's size, not a CLUT hash
+  (`0707` is 128x128), so an entry like that stops dumping every 128x128 texture of the game.
+
+### Finding where a dump came from
+
+Every dump adds a line to `new/dumps.txt`:
+
+```
+08b3102000000000ab12cd34_indexed.png addr=0x08b31020 size=512x256 format=CLUT8 key=08b31020d1e2f3a4ab12cd34 region=0,0,512,256
+```
+
+It has the address, size and format of the texture the file was dumped from, and in `key` its name with the
+palette hash of the palette it was dumped with, which palette dumps (`_indexed`) don't have in their names. To find the range of a kind
+of texture you want to ignore, look up a few of its dumps there.
 
 ## Layered textures
 

@@ -160,6 +160,10 @@ public:
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
 
+	// Textures matched by [ignore] (address ranges, optionally a size) are neither dumped nor replaced.
+	// w and h of 0 match only entries without a size.
+	bool IsIgnoredTexture(u32 addr, int w, int h) const;
+
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
 	void NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH);
@@ -208,6 +212,12 @@ protected:
 	void ParseIndexed(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
+	void ParseIgnore(const std::string &key);
+	// With ignoreAddress, files are named with the address they were dumped from, and it's dropped here, when
+	// they're read: for [hashes] and the files found, [filtering] and [indexed].
+	void ApplyIgnoreAddress();
+	// Adds a line for a written dump to new/dumps.txt, with what its name doesn't tell.
+	void LogDump(const std::string &hashfile, u32 addr, ReplacementCacheKey key, int texW, int texH, GETextureFormat fmt, const char *region);
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored);
 	// The hashing done by ComputeHash once the hashed size is known, over memory or a snapshot of it.
@@ -238,6 +248,8 @@ protected:
 	// One content of a texture, waiting to be dumped.
 	struct ShadowVariant {
 		u64 cachekey = 0;
+		// cachekey as the texture cache had it (an indexed capture's cachekey has no CLUT hash), for dumps.txt.
+		u64 sourceCachekey = 0;
 		u32 addr = 0;
 		int bufw = 0;
 		int texW = 0;
@@ -378,6 +390,15 @@ protected:
 	std::unordered_map<u64, LayeredSlot> layered_;
 	// Layered textures from before an ini reload, kept alive for the same reason.
 	std::vector<ReplacedTexture *> retiredLayered_;
+
+	struct IgnoreRange {
+		u32 start = 0;
+		u32 end = 0;  // Inclusive.
+		u16 w = 0;  // 0 for any size.
+		u16 h = 0;
+	};
+	std::vector<IgnoreRange> ignoreRanges_;
+	bool dumpLogStarted_ = false;
 
 	bool replaceEnabled_ = false;
 	bool saveEnabled_ = false;
