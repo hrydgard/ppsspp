@@ -94,6 +94,7 @@ enum class InputMode {
 	Mouse = 2,
 	Other = 4,
 	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
+	AllKeys = 16,  // The screen gets keys that are normally left to the OS, like volume. For key mapping.
 };
 ENUM_CLASS_BITOPS(InputMode);
 

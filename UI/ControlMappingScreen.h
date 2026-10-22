@@ -70,6 +70,10 @@ public:
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
+	InputMode PassInputToMapper() const override {
+		return PopupScreen::PassInputToMapper() | InputMode::AllKeys;
+	}
+
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
 
