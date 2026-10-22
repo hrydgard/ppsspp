@@ -290,6 +290,11 @@ void RetroAchievementsLeaderboardScreen::FetchEntries() {
 void RetroAchievementsLeaderboardScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	const rc_client_leaderboard_t *leaderboard = rc_client_get_leaderboard_info(Achievements::GetClient(), leaderboardID_);
+	if (!leaderboard) {
+		// The game was unloaded. There has to be a tab, though.
+		AddTab("AchievementsLeaderboard", "", [](UI::LinearLayout *parent) {});
+		return;
+	}
 
 	using namespace UI;
 	AddTab("AchievementsLeaderboard", leaderboard->title, [this, leaderboard](UI::LinearLayout *parent) {
