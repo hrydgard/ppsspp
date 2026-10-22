@@ -191,6 +191,11 @@ std::string config_filename;
 // that consumes it also sees those writes - with a plain bool it could see the flag first and keep stale bounds.
 static std::atomic<bool> resized{false};
 
+// Secondary outputs are added, resized and removed through their own queue, not pendingMessages or
+// g_pendingClosures. Those run mid-frame, after BeginFrame, but creating or destroying a Vulkan swapchain
+// stops the render threads, so this runs before BeginFrame. It also runs in NativeInitGraphics before
+// deviceRestored, so a removal queued while the graphics were down lands before swapchains are recreated
+// (on a surface that may be gone). And it tracks completion for Native_RemoveOutputAndWait.
 struct OutputRequest {
 	enum class Type {
 		ADD,
