@@ -71,7 +71,8 @@ void iOSCoreAudioUpdateSession() {
 	if (g_micEnabled) {
 		// Recording needs PlayAndRecord, which ignores the silent switch. A2DP rather than the
 		// hands-free profile keeps Bluetooth headphones at full quality, with the built-in mic as input.
-		AVAudioSessionCategoryOptions options = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP;
+		// Unlike the playback categories, PlayAndRecord needs to be told to allow AirPlay.
+		AVAudioSessionCategoryOptions options = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP | AVAudioSessionCategoryOptionAllowAirPlay;
 		if (g_Config.bAudioMixWithOthers) {
 			options |= AVAudioSessionCategoryOptionMixWithOthers;
 		}
@@ -94,6 +95,13 @@ void iOSCoreAudioUpdateSession() {
 
 	if (error) {
 		NSLog(@"%@", error);
+	}
+}
+
+void iOSCoreAudioLogRoute(const char *reason) {
+	AVAudioSession *session = [AVAudioSession sharedInstance];
+	for (AVAudioSessionPortDescription *port in session.currentRoute.outputs) {
+		NSLog(@"Audio route (%s): %@ '%@' (category %@, options %d)", reason, port.portType, port.portName, session.category, (int)session.categoryOptions);
 	}
 }
 
@@ -203,6 +211,8 @@ void iOSCoreAudioInit() {
 			NSLog(@"%@", error.localizedFailureReason);
 		}
 	}
+
+	iOSCoreAudioLogRoute("init");
 
 	if (audioInstance) {
 		// Already running
