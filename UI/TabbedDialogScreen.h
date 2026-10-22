@@ -62,10 +62,7 @@ protected:
 	// Whether there's room and a way to type a search.
 	static bool CanShowSearch();
 
-	void sendMessage(UIMessage message, const char *value) override;
-
 private:
-	void ApplySearchFilter();
 	void CreateSearchTab(UI::LinearLayout *parent);
 	void GoToSetting(int settingsTab, int itemIndex);
 
@@ -82,13 +79,6 @@ private:
 	UI::View *pendingFocusView_ = nullptr;
 
 	UI::TabHolder *tabHolder_ = nullptr;
-	UI::TextView *filterNotice_ = nullptr;
-	UI::Choice *clearSearchChoice_ = nullptr;
-	UI::TextView *noSearchResults_ = nullptr;
-
-	// If we recreate the views while this is active we show it again
-	std::string oldSettingInfo_;
-	std::string searchFilter_;
 
 	int *currentTabSetting_ = nullptr;
 
