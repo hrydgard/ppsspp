@@ -2,6 +2,8 @@
 #include "Common/System/System.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/UI/ScreenManager.h"
+#include "Common/UI/Context.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ScrollView.h"
@@ -278,7 +280,11 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 
 	afterPreRender();
 
-	// Secondary outputs. The topmost screen with something for one draws it, otherwise it's left cleared.
+	// Secondary outputs. The topmost screen with something for one draws it, then the background screen.
+	UIContext *ui = getUIContext();
+	if (!outputs_.empty()) {
+		ui->BeginFrame();
+	}
 	for (const Output &output : outputs_) {
 		Draw::Swapchain *swapchain = output.display.swapchain;
 		if (!swapchain) {
@@ -289,11 +295,26 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		draw_->GetFramebufferDimensions(swapchain, &w, &h);
 		draw_->SetViewport(Draw::Viewport{0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f});
 		draw_->SetScissorRect(0, 0, w, h);
+
+		// UI drawn there gets the primary's DPI scale, over the whole output.
+		const float dpWidth = w * g_display.dpi_scale_x;
+		const float dpHeight = h * g_display.dpi_scale_y;
+		const Bounds primaryBounds = ui->GetBounds();
+		ui->SetBounds(Bounds(0, 0, dpWidth, dpHeight));
+		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention));
+		bool drawn = false;
 		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
 			if (iter->screen->renderOutput(output.display)) {
+				drawn = true;
 				break;
 			}
 		}
+		if (!drawn && backgroundScreen_) {
+			backgroundScreen_->renderOutput(output.display);
+		}
+		ui->Flush();
+		ui->Draw()->PopDrawMatrix();
+		ui->SetBounds(primaryBounds);
 	}
 
 	// Now, start the final render pass. This is now the ONLY place where binding the backbuffer is allowed.

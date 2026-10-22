@@ -37,6 +37,7 @@ inline void NoOpVoidBool(bool) {}
 class BackgroundScreen : public UIScreen {
 public:
 	ScreenRenderFlags render(ScreenRenderMode mode) override;
+	bool renderOutput(const OutputDisplay &output) override;
 	void sendMessage(UIMessage message, const char *value) override;
 
 private:

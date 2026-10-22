@@ -97,6 +97,20 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	}
 }
 
+// Nothing on the stack shows anything there, so we're in the menus.
+bool BackgroundScreen::renderOutput(const OutputDisplay &output) {
+	if (output.role != OutputRole::Game) {
+		return false;
+	}
+	UIContext &dc = *screenManager()->getUIContext();
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const Bounds &bounds = dc.GetBounds();
+	dc.Begin();
+	dc.DrawText(di->T("Menus are on your device"), bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
+	dc.Flush();
+	return true;
+}
+
 ScreenRenderFlags BackgroundScreen::render(ScreenRenderMode mode) {
 	UIContext *uiContext = screenManager()->getUIContext();
 
