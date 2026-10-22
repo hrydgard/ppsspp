@@ -160,14 +160,11 @@ bool CwCheatScreen::WantsTextInput() const {
 
 bool CwCheatScreen::TryLoadCheatInfo() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
-	std::string gameID;
 	if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 		return false;
 	}
-	gameID = info->GetParamSFO().GetValueString("DISC_ID");
-	if ((info->id.empty() || !info->disc_total)	&& gamePath_.FilePathContainsNoCase("PSP/GAME/")) {
-		gameID = g_paramSFO.GenerateFakeID(gamePath_);
-	}
+	// The cache has already replaced the ID of homebrew with a generated one.
+	const std::string &gameID = info->id;
 
 	if (!engine_ || gameID != gameID_) {
 		gameID_ = gameID;
@@ -205,6 +202,9 @@ bool CwCheatScreen::key(const KeyInput &input) {
 
 void CwCheatScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (auto downloadScreen = dynamic_cast<const CwCheatDownloadPopupScreen *>(dialog)) {
+		if (result != DR_OK || downloadScreen->ChosenUrl().empty()) {
+			return;
+		}
 		if (downloadRequest_) {
 			ERROR_LOG(Log::CwCheats, "Download already in progress, ignoring new download request.");
 			return;
@@ -429,7 +429,7 @@ void CwCheatScreen::ImportAndReport(const Path &cheatFile) {
 	int cheatCount = 0;
 	if (!ImportCheats(cheatFile, &cheatCount)) {
 		// Show an error message?
-		if (File::Exists(cheatFile)) {
+		if (!File::Exists(cheatFile)) {
 			auto er = GetI18NCategory(I18NCat::ERRORS);
 			errorMessage_ = ApplySafeSubstitutions(er->T("File not found: %1"), "");
 			errorLevel_ = NoticeLevel::WARN;
@@ -474,14 +474,14 @@ void CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 }
 
 bool CwCheatScreen::ImportCheats(const Path &cheatFile, int *cheatsFound) {
-	FILE *in = File::OpenCFile(cheatFile, "rt");
-	if (!in) {
-		WARN_LOG(Log::CwCheats, "Unable to open %s\n", cheatFile.c_str());
+	if (gameID_.length() != 9 || !engine_) {
+		WARN_LOG(Log::CwCheats, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
 		return false;
 	}
 
-	if (gameID_.length() != 9 || !engine_) {
-		WARN_LOG(Log::CwCheats, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
+	FILE *in = File::OpenCFile(cheatFile, "rt");
+	if (!in) {
+		WARN_LOG(Log::CwCheats, "Unable to open %s\n", cheatFile.c_str());
 		return false;
 	}
 

@@ -95,11 +95,12 @@ GamepadComponent::GamepadComponent(std::string_view key, UI::LayoutParams *layou
 static void rotateTouchHelper(float &dx, float &dy) {
 	// rotates dx and dy depending on rotation count
 	// modified from controlmapper.cpp
-	if (!g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
+	const DisplayLayoutConfig &layout = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	if (!layout.bRotateControlsWithScreen) {
 		return;
 	}
 	int rotations = 0;
-	switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+	switch (layout.iInternalScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
 	case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
 	case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;
@@ -459,8 +460,9 @@ void PSPDpad::Draw(UIContext &dc) {
 		return;
 	// from control mapper.cpp
 	int rotations = 0;
-	if (g_Config.displayLayoutLandscape.bRotateControlsWithScreen) {
-		switch (g_Config.displayLayoutLandscape.iInternalScreenRotation) {
+	const DisplayLayoutConfig &layout = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	if (layout.bRotateControlsWithScreen) {
+		switch (layout.iInternalScreenRotation) {
 		case ROTATION_LOCKED_HORIZONTAL180: rotations = 2; break;
 		case ROTATION_LOCKED_VERTICAL:      rotations = 3; break;
 		case ROTATION_LOCKED_VERTICAL180:   rotations = 1; break;

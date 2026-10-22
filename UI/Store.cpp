@@ -354,7 +354,12 @@ void ProductView::OnLaunchClick(UI::EventParams &e) {
 
 StoreScreen::StoreScreen() : UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::Default) {
 	lang_ = g_Config.sLanguageIni;
+	StartListingDownload();
+}
+
+void StoreScreen::StartListingDownload() {
 	loading_ = true;
+	connectionError_ = false;
 
 	std::string indexPath = StoreBaseUrl() + "index.json";
 	const char *acceptMime = "application/json, */*; q=0.8";
@@ -480,7 +485,7 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 		// TODO: Similar apps, etc etc
 		productPanel_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
-		leftScroll->SetTag("StoreMainProduct");
+		productPanel_->SetTag("StoreMainProduct");
 		content->Add(productPanel_);
 
 		ProductItemView *selectedItem = GetSelectedItem();
@@ -532,6 +537,7 @@ void StoreScreen::OnGameLaunch(UI::EventParams &e) {
 }
 
 void StoreScreen::OnRetry(UI::EventParams &e) {
+	StartListingDownload();
 	RecreateViews();
 }
 

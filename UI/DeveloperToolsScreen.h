@@ -53,8 +53,6 @@ private:
 	HasIni hasTexturesIni_ = HasIni::MAYBE;
 
 	bool MIPSTracerEnabled_ = false;
-	std::string MIPSTracerPath_ = "";
-	UI::InfoItem* MIPSTracerPath = nullptr;
 
 	int testSliderValue_ = 0;
 	bool pretendIngame_ = false;

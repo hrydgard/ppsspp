@@ -257,6 +257,11 @@ void GameScreen::RefreshInstalledUpdate() {
 	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
 }
 
+// Both panes use isHomebrew_, and which is created first depends on orientation.
+void GameScreen::BeforeCreateViews() {
+	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
+}
+
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
@@ -579,8 +584,6 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		});
 	}
 
-	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
-
 	const bool packing = GamePacker::IsPacking(gamePath_);
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) && !packing) {
 		rightColumnItems->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
@@ -799,10 +802,8 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 void GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info_ && info_->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string discID = info_->GetParamSFO().GetValueString("DISC_ID");
-		if ((discID.empty() || !info_->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
-			discID = g_paramSFO.GenerateFakeID(gamePath_);
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
+		// The cache has already replaced the ID of homebrew with a generated one.
+		screenManager()->push(new GameSettingsScreen(gamePath_, info_->id, true));
 	}
 }
 

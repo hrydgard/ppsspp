@@ -136,14 +136,18 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 	ConfigCustomButton *cfg = nullptr;
 	bool *show = nullptr;
-	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
 	// This screen is reachable from the main menu, so neither GamepadEmu nor the layout screen
 	// need have sanitized these yet - and everything below indexes the tables with them.
 	CustomKeyData::Sanitize(*cfg);
 	show = &touch.touchCustom[id_].show;
-	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
-		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
+	// Only load once, since the views can be recreated (on rotation, for example) before the array is saved.
+	if (!arrayLoaded_) {
+		for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
+			array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
+		}
+		arrayLoaded_ = true;
+	}
 
 	// TODO: Less hacky layout work
 	const Bounds layoutBounds = GetLayoutBounds(*screenManager()->getUIContext());
@@ -205,8 +209,9 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			choice = new Choice(mc->T(KeyMap::GetPspButtonNameCharPointer(g_customKeyList[i].c)), new LinearLayoutParams(1.0f));
 		}
 
-		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
-		choice->OnClick.Handle(choiceEventHandler, &ChoiceEventHandler::onChoiceClick);
+		choice->OnClick.Add([checkbox](UI::EventParams &) {
+			checkbox->Toggle();
+		});
 
 		choice->SetCentered(true);
 
@@ -241,7 +246,3 @@ void CustomButtonMappingScreen::onFinish(DialogResult result) {
 	saveArray();
 	g_Config.Save("CustomButtonMappingScreen::onFinish");
 }
-
-void CustomButtonMappingScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
-	checkbox_->Toggle();
-};

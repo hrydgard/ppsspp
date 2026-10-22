@@ -133,8 +133,10 @@ protected:
 		}
 
 		grid->Add(new Choice(pa->T("Save State"), ImageID("I_FILE_SAVE")))->OnClick.Handle(this, &ScreenshotViewScreen::OnSaveState);
-		// We can unconditionally show the load state button, because you can only pop this dialog up if a state exists.
-		grid->Add(new Choice(pa->T("Load State"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &ScreenshotViewScreen::OnLoadState);
+		// You can only pop this dialog up if a state exists. Hardcore mode doesn't allow loading, like in SaveSlotView.
+		if (!Achievements::HardcoreModeActive()) {
+			grid->Add(new Choice(pa->T("Load State"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &ScreenshotViewScreen::OnLoadState);
+		}
 		grid->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN")))->OnClick.Handle(this, &ScreenshotViewScreen::OnDeleteState);
 		if (undoButton) {
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);

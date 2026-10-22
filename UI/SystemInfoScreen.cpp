@@ -38,7 +38,7 @@ void SystemInfoScreen::update() {
 // TODO: How can we de-duplicate this and SystemInfoScreen::CreateTabs?
 static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto si = GetI18NCategory(I18NCat::DIALOG);
+	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
 	char *summary = new char[100000];
 	StringWriter w(summary, 100000);
@@ -145,7 +145,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	UI::CollapsibleSection *cpuInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
-	if (equals(cpu_info.brand_string, "Unknown")) {
+	if (!equals(cpu_info.brand_string, "Unknown")) {
 		cpuInfo->Add(new InfoItem(si->T("CPU Name"), cpu_info.brand_string));
 	}
 
@@ -393,7 +393,8 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 		}
 		System_CopyStringToClipboard(buildConfigStr.c_str());
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), di->T("Build Configuration")), 0.0f, "copyToClip");
+		auto si = GetI18NCategory(I18NCat::SYSINFO);
+		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("Build Configuration")), 0.0f, "copyToClip");
 	});
 
 	for (auto &item : buildConfigItems) {

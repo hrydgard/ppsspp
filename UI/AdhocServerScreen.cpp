@@ -867,7 +867,8 @@ void AskToEditCurrentServer(int requestToken, ScreenManager *screenManager) {
 		});
 		return;
 	}
-	static std::string editText = g_Config.sProAdhocServer;
+	static std::string editText;
+	editText = g_Config.sProAdhocServer;
 	TextEditPopupScreen *popupScreen = new TextEditPopupScreen(&editText, editText, n->T("Ad hoc server address"), 256);
 	if (System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT)) {
 		popupScreen->SetAlignTop(true);

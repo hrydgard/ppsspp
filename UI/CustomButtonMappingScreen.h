@@ -46,15 +46,8 @@ private:
 	void saveArray();
 
 	bool array[ARRAY_SIZE(CustomKeyData::g_customKeyList)]{};
+	bool arrayLoaded_ = false;
 	int id_;
-
-	class ChoiceEventHandler{
-	public:
-		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
-		void onChoiceClick(UI::EventParams &e);
-	private:
-		UI::CheckBox *checkbox_;
-	};
 
 	DeviceOrientation deviceOrientation_;
 };
