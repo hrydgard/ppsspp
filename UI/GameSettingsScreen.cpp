@@ -1000,13 +1000,33 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 	});
 }
 
+// The nickname is shown on both the Networking and System tabs.
+void GameSettingsScreen::AddNicknameChoice(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	PopupTextInputChoice *nickname = parent->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Nickname"), "", 32, screenManager()));
+	if (g_Config.sNickName == "PPSSPP") {
+		nickname->SetIconRight(ImageID("I_WARNING"));
+	}
+	nickname->OnChange.Add([this](UI::EventParams &e) {
+		// Copy to infrastructure name if valid and not already set.
+		if (g_Config.sInfrastructureUsername.empty()) {
+			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
+				g_Config.sInfrastructureUsername = g_Config.sNickName;
+			}
+		}
+		// Updates the warning icon, and the username notice on the Networking tab.
+		RecreateViews();
+	});
+}
+
 void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSettings) {
 	using namespace UI;
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	networkingSettings->Add(new ItemHeader(ms->T("Networking")));
 
@@ -1064,13 +1084,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower."), relayModePopup));
 
-	PopupTextInputChoice *nickname = networkingSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Nickname"), "", 32, screenManager()));
-	if (g_Config.sNickName == "PPSSPP") {
-		nickname->SetIconRight(ImageID("I_WARNING"));
-	}
-	nickname->OnChange.Add([this](UI::EventParams &e) {
-		RecreateViews();
-	});
+	AddNicknameChoice(networkingSettings);
 	networkingSettings->Add(new SettingHint(n->T("Try to pick a unique nickname for ad hoc play"), nullptr));
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")))->OnClick.Add(requestLocalNetwork);
@@ -1468,14 +1482,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
-	systemSettings->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sNickName, sy->T("Nickname"), "", 32, screenManager()))->OnChange.Add([](UI::EventParams &e) {
-		// Copy to infrastructure name if valid and not already set.
-		if (g_Config.sInfrastructureUsername.empty()) {
-			if (g_Config.sNickName == SanitizeString(g_Config.sNickName, StringRestriction::AlphaNumDashUnderscore, 3, 16)) {
-				g_Config.sInfrastructureUsername = g_Config.sNickName;
-			}
-		}
-	});
+	AddNicknameChoice(systemSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Daylight savings")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, ARRAY_SIZE(dateFormat), I18NCat::SYSTEM, screenManager()));

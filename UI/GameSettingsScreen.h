@@ -57,6 +57,7 @@ private:
 	void CreateToolsSettings(UI::ViewGroup *tools);
 	void CreateSystemSettings(UI::ViewGroup *systemSettings);
 	void CreateVRSettings(UI::ViewGroup *vrSettings);
+	void AddNicknameChoice(UI::ViewGroup *parent);
 
 	std::string gameID_;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
