@@ -13,6 +13,7 @@
 #include <memory>
 #include <cstdint>
 #include <map>
+#include <unordered_map>
 
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Render/DrawBuffer.h"
@@ -39,6 +40,28 @@ struct TextMeasureEntry {
 	int height;
 	int leading;  // only used with Cocoa
 	int lastUsedFrame;
+};
+
+struct TextWrapEntry {
+	std::string wrapped;
+	int lastUsedFrame;
+};
+
+struct TextCacheKey {
+	std::string text;
+	FontStyle style;
+	int flags = 0;
+	// Wrapping only.
+	float maxWidth = 0.0f;
+	float scale = 0.0f;
+
+	bool operator==(const TextCacheKey &other) const {
+		return text == other.text && style == other.style && flags == other.flags && maxWidth == other.maxWidth && scale == other.scale;
+	}
+};
+
+struct TextCacheKeyHash {
+	size_t operator()(const TextCacheKey &key) const;
 };
 
 class TextDrawer {
@@ -85,7 +108,8 @@ protected:
 	virtual bool SupportsColorEmoji() const = 0;
 	virtual void ClearFonts() = 0;
 
-	void WrapString(std::string &out, std::string_view str, float maxWidth, int flags);
+	// Wraps and/or ellipsizes, caching the result. The reference stays valid until the next OncePerFrame.
+	const std::string &WrapString(std::string_view str, float maxWidth, int flags);
 
 	// v has the 8-bit alpha.
 	static u16 AlphaToPremul4444(u32 v) {
@@ -114,8 +138,6 @@ protected:
 		return (a << 24) | (r << 16) | (g << 8) | b;
 	}
 
-	typedef std::pair<std::string, FontStyle> CacheKeyType;
-
 	Draw::DrawContext *draw_;
 
 	int frameCount_ = 0;
@@ -128,8 +150,14 @@ protected:
 	// We will clamp strings to this length to avoid various degenenerate behaviors.k
 	static constexpr size_t MAX_TEXT_LENGTH = 16384;
 
-	std::map<CacheKeyType, std::unique_ptr<TextStringEntry>> cache_;
-	std::map<CacheKeyType, std::unique_ptr<TextMeasureEntry>> sizeCache_;
+	// Fills in and returns lookupKey_, which reuses its string buffer, so a cache hit doesn't allocate.
+	const TextCacheKey &LookupKey(std::string_view str, int flags = 0, float maxWidth = 0.0f, float scale = 0.0f);
+
+	TextCacheKey lookupKey_;
+
+	std::unordered_map<TextCacheKey, std::unique_ptr<TextStringEntry>, TextCacheKeyHash> cache_;
+	std::unordered_map<TextCacheKey, TextMeasureEntry, TextCacheKeyHash> sizeCache_;
+	std::unordered_map<TextCacheKey, TextWrapEntry, TextCacheKeyHash> wrapCache_;
 };
 
 class TextDrawerWordWrapper : public WordWrapper {

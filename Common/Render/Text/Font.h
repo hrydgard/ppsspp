@@ -33,6 +33,10 @@ struct FontStyle {
 	FontStyleFlags flags = FontStyleFlags::Default;
 };
 
+inline constexpr bool operator==(const FontStyle &a, const FontStyle &b) {
+	return a.family == b.family && a.sizePts == b.sizePts && a.flags == b.flags;
+}
+
 inline constexpr bool operator<(const FontStyle &a, const FontStyle &b) {
 	if (a.family != b.family)
 		return a.family < b.family;
