@@ -40,7 +40,6 @@ public:
 	~GameSettingsScreen();
 
 	const char *tag() const override { return "GameSettings"; }
-	void update() override;
 
 protected:
 	void CallbackRestoreDefaults(bool yes);
@@ -48,8 +47,6 @@ protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	void CreateTabs() override;
-	// Has its own search tab, which shows the matching settings instead of filtering the tabs.
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void PreCreateViews() override;
@@ -74,14 +71,6 @@ private:
 	void BuildVRSettings(SettingsPage &page);
 	UI::View *AddNicknameChoice(UI::ViewGroup *parent);
 
-	void CreateSearchTab(UI::LinearLayout *parent);
-	void GoToSetting(int pageIndex, int itemIndex);
-
-	// The tabs shown, and the views created for each page's items (filled in when a tab is created).
-	std::vector<const PageDef *> pages_;
-	std::vector<std::vector<UI::View *>> pageViews_;
-	std::string searchText_;
-	UI::View *pendingFocusView_ = nullptr;
 
 	std::string gameID_;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)

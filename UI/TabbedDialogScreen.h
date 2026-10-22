@@ -2,7 +2,10 @@
 
 #include "ppsspp_config.h"
 #include <functional>
+#include <string>
+#include <vector>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/System/System.h"
@@ -12,6 +15,8 @@
 namespace UI {
 class TabHolder;
 }
+
+class SettingsPage;
 
 enum class TabDialogFlags {
 	Default = 0,
@@ -36,7 +41,11 @@ public:
 	void AddTab(const char *tag, std::string_view title, std::function<void(UI::LinearLayout *)> createCallback, TabFlags flags = TabFlags::Default) {
 		AddTab(tag, title, ImageID::invalid(), createCallback, flags);
 	}
+	// A tab described by a SettingsPage, whose settings show up in search. createHeader can add views above
+	// the page, like a title bar. build may be called at any time (also for search), so it shouldn't create views.
+	void AddSettingsTab(const char *tag, std::string_view title, ImageID imageId, I18NCat cat, std::function<void(SettingsPage &)> build, std::function<void(UI::LinearLayout *)> createHeader = nullptr);
 	void CreateViews() override;
+	void update() override;
 
 protected:
 	// Load data and define your tabs here.
@@ -57,6 +66,20 @@ protected:
 
 private:
 	void ApplySearchFilter();
+	void CreateSearchTab(UI::LinearLayout *parent);
+	void GoToSetting(int settingsTab, int itemIndex);
+
+	struct SettingsTab {
+		int tabIndex;
+		std::string title;
+		I18NCat cat;
+		std::function<void(SettingsPage &)> build;
+		std::vector<UI::View *> views;  // One per page item, filled in when the tab is created.
+	};
+	std::vector<SettingsTab> settingsTabs_;
+	std::string searchText_;
+	// Highlighted and scrolled to once laid out.
+	UI::View *pendingFocusView_ = nullptr;
 
 	UI::TabHolder *tabHolder_ = nullptr;
 	UI::TextView *filterNotice_ = nullptr;

@@ -10,8 +10,10 @@
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ScreenManager.h"
+#include "Common/UI/Root.h"
 #include "UI/MiscViews.h"
 #include "Common/UI/Context.h"
+#include "UI/SettingsPage.h"
 #include "UI/TabbedDialogScreen.h"
 
 UITabbedBaseDialogScreen::UITabbedBaseDialogScreen(const Path &gamePath, int *currentTabSetting, TabDialogFlags flags)
@@ -53,8 +55,26 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 	});
 }
 
+void UITabbedBaseDialogScreen::AddSettingsTab(const char *tag, std::string_view title, ImageID imageId, I18NCat cat, std::function<void(SettingsPage &)> build, std::function<void(UI::LinearLayout *)> createHeader) {
+	int index = (int)settingsTabs_.size();
+	settingsTabs_.push_back(SettingsTab{ (int)tabHolder_->GetTabContentViews().size(), std::string(title), cat, std::move(build) });
+	AddTab(tag, title, imageId, [this, index, createHeader = std::move(createHeader)](UI::LinearLayout *parent) {
+		if (createHeader) {
+			createHeader(parent);
+		}
+		SettingsTab &tab = settingsTabs_[index];
+		SettingsPage page(tab.cat);
+		tab.build(page);
+		tab.views.clear();
+		CreateSettingViews(page, parent, screenManager(), &tab.views);
+	});
+}
+
 void UITabbedBaseDialogScreen::CreateViews() {
 	PreCreateViews();
+
+	settingsTabs_.clear();
+	pendingFocusView_ = nullptr;
 
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait || ForceHorizontalTabs();
 
@@ -121,7 +141,12 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		}
 	});
 
-	if (ShowSearchControls() && CanShowSearch()) {
+	if (ShowSearchControls() && CanShowSearch() && !settingsTabs_.empty()) {
+		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
+		AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *parent) {
+			CreateSearchTab(parent);
+		});
+	} else if (ShowSearchControls() && CanShowSearch()) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *searchSettings) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
@@ -255,5 +280,142 @@ void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	}
 	if (clearSearchChoice_) {
 		clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	}
+}
+
+static bool SettingTextMatches(const SettingText &text, I18NCat pageCat, std::string_view query) {
+	if (text.empty()) {
+		return false;
+	}
+	return containsNoCase(text.Translate(pageCat), query) || containsNoCase(text.English(), query);
+}
+
+// Shows the matching settings themselves, so they can be changed right here.
+void UITabbedBaseDialogScreen::CreateSearchTab(UI::LinearLayout *parent) {
+	using namespace UI;
+	auto se = GetI18NCategory(I18NCat::SEARCH);
+
+	parent->Add(new ItemHeader(se->T("Find settings")));
+	parent->Add(new PopupTextInputChoice(GetRequesterToken(), &searchText_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
+		searchText_ = StripSpaces(searchText_);
+		RecreateViews();
+	});
+	if (searchText_.empty()) {
+		return;
+	}
+	parent->Add(new Choice(se->T("Clear filter")))->OnClick.Add([this](UI::EventParams &e) {
+		searchText_.clear();
+		RecreateViews();
+	});
+
+	bool found = false;
+	for (int t = 0; t < (int)settingsTabs_.size(); t++) {
+		const SettingsTab &tab = settingsTabs_[t];
+		SettingsPage page(tab.cat);
+		tab.build(page);
+		const I18NCat cat = page.DefaultCat();
+		const std::deque<SettingItem> &items = page.Items();
+
+		// A matching header shows its whole section, and a matching hint the setting it belongs to.
+		std::vector<bool> show(items.size());
+		bool sectionMatches = false;
+		int lastSetting = -1;
+		for (int i = 0; i < (int)items.size(); i++) {
+			const SettingItem &item = items[i];
+			bool matches = SettingTextMatches(item.text, cat, searchText_);
+			switch (item.type) {
+			case SettingType::Header:
+				sectionMatches = matches;
+				break;
+			case SettingType::Hint:
+				if (matches && lastSetting >= 0) {
+					show[lastSetting] = true;
+				}
+				break;
+			default:
+				lastSetting = i;
+				show[i] = matches || sectionMatches;
+				break;
+			}
+		}
+
+		const SettingItem *header = nullptr;
+		bool headerShown = false;
+		View *prevView = nullptr;
+		for (int i = 0; i < (int)items.size(); i++) {
+			const SettingItem &item = items[i];
+			if (item.type == SettingType::Header) {
+				header = &item;
+				headerShown = false;
+				continue;
+			}
+			if (item.type == SettingType::Hint) {
+				if (prevView) {
+					CreateSettingView(item, cat, prevView, parent, screenManager());
+				}
+				continue;
+			}
+			prevView = nullptr;
+			if (!show[i]) {
+				continue;
+			}
+
+			LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+			row->SetSpacing(0.0f);
+			View *view = CreateSettingView(item, cat, nullptr, row, screenManager());
+			if (!view) {
+				delete row;
+				continue;
+			}
+			// FILL_PARENT, since some views (like CheckBox) measure their width from their bounds.
+			view->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, Gravity::G_VCENTER));
+			Choice *goTo = row->Add(new Choice(ImageID("I_ARROW_RIGHT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT, 0.0f, Gravity::G_VCENTER)));
+			goTo->OnClick.Add([this, t, i](UI::EventParams &e) {
+				GoToSetting(t, i);
+			});
+
+			if (!headerShown) {
+				std::string title = tab.title;
+				if (header) {
+					title += " > ";
+					title += header->text.Translate(cat);
+				}
+				parent->Add(new ItemHeader(title));
+				headerShown = true;
+			}
+			parent->Add(row);
+			prevView = view;
+			found = true;
+		}
+	}
+
+	if (!found) {
+		parent->Add(new TextView(ApplySafeSubstitutions(se->T("No settings matched '%1'"), searchText_), new LinearLayoutParams(Margins(20, 5))));
+	}
+}
+
+// Switches to the setting's tab, and focuses it (in update) so it's highlighted and scrolled into view.
+void UITabbedBaseDialogScreen::GoToSetting(int settingsTab, int itemIndex) {
+	const SettingsTab &tab = settingsTabs_[settingsTab];
+	SetCurrentTab(tab.tabIndex);
+	// The views are filled in when the tab is created, which SetCurrentTab does if needed.
+	if (itemIndex < (int)tab.views.size()) {
+		pendingFocusView_ = tab.views[itemIndex];
+	}
+}
+
+void UITabbedBaseDialogScreen::update() {
+	UIBaseDialogScreen::update();
+
+	// The tab may have just been created, or not been laid out while hidden. Scrolling needs the
+	// view's position, so wait for a layout.
+	if (pendingFocusView_ && pendingFocusView_->GetBounds().h > 0.0f) {
+		UI::ScrollView *scrollView = UI::GetEnclosingScrollView(pendingFocusView_);
+		if (scrollView) {
+			scrollView->ScrollToCenter(pendingFocusView_);
+		}
+		// Highlights it. Done directly, since SetFocus does nothing when focus movement is off (mouse or touch).
+		UI::SetFocusedView(pendingFocusView_, UI::FocusFlags::CAUSE_RESTORE);
+		pendingFocusView_ = nullptr;
 	}
 }
