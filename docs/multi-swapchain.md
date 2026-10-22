@@ -275,15 +275,15 @@ can be tested on its own.
 
 1. **`OutputParams` refactor** of `PresentationCommon` and `CopyDisplayToOutput`. No change in
    behaviour, checked with frametests.
-2. **thin3d `Swapchain` API plus Vulkan** (`VulkanSurfaceSwapchain`, presentation-for-everything,
-   per-output render manager state). Single-output path unchanged: unit tests, pspautotests,
-   frametests, an Android device.
-3. **Dev client on macOS SDL:** a `--game-window` option opens a second SDL window as a `Game` output.
-   This tests most of the design in a fast loop, without AirPlay. Headless can add an offscreen
-   second output, so frametests can check what it shows.
-4. **iOS TV mode,** on Vulkan (MoltenVK, still the iOS default), tested with the Apple TV.
-5. **Metal backend,** before Metal becomes the iOS default (see `docs/metal-backend.md`), so TV mode
-   doesn't regress then. It's the simpler of the two. Then D3D11 when something wants it.
+2. **thin3d `Swapchain` API plus Metal,** the iOS default. Single-output path unchanged: unit tests,
+   pspautotests, frametests.
+3. **Dev client on macOS SDL:** a `--game-window` option opens a second SDL window as a `Game` output
+   (with `--graphics=metal`). This tests most of the design in a fast loop, without AirPlay. Headless
+   can add an offscreen second output, so frametests can check what it shows.
+4. **iOS TV mode,** on Metal, tested with the Apple TV.
+5. **Vulkan** (`VulkanSurfaceSwapchain`, presentation-for-everything, per-output render manager
+   state), for Android, the Mac default and Vulkan users on iOS. Single-output path unchanged: unit
+   tests, pspautotests, frametests, an Android device. Then D3D11 when something wants it.
 
 Open questions:
 - Does removing the external window resume mirroring?
