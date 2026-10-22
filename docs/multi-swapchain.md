@@ -197,17 +197,36 @@ removes them (see "iOS").
 
 ### Rendering
 
+There is still one screen stack. A screen can draw to more than one output:
+
+```cpp
+// Draws this screen's content for a secondary output. The swapchain is already bound.
+// Returns false if the screen has nothing for it.
+virtual bool renderOutput(const OutputDisplay &output) { return false; }
+```
+
 `ScreenManager::Render` stays the only place that binds a swapchain:
 
 1. `PreRender` for every screen, as now. Emulation and post-shader passes run here.
-2. For each secondary output with role `Game`, while an `EmuScreen` is on the stack:
-   `BindFramebufferAsRenderTarget(output.swapchain)`, then `EmuScreen::renderGameOutput(output)`. That is
-   `CopyDisplayToOutput` with the output's size and layout, and nothing else.
-3. The primary pass, as now. While the game goes to another output, `EmuScreen::render` leaves out
-   its own `CopyDisplayToOutput` and draws the touch controls over black. Optionally it draws a small
-   game preview, which is a second `CopyToOutput` and cheap once step 2 below is done. The pause menu
-   and the other screens draw on the phone as usual. The TV keeps the last game frame (darkened, the
-   same as behind the pause menu today).
+2. For each secondary output, bind its swapchain and ask the stack from the top down. The first
+   screen whose `renderOutput` returns true has drawn it. If no screen claims it, the output falls
+   back to clearing it (or, on iOS, it's taken away so the system mirrors again).
+   - `EmuScreen` claims `Game` outputs. It draws `CopyDisplayToOutput` with that output's
+     `OutputParams` and nothing else.
+   - The pause menu and the other dialogs don't claim anything. So while the pause menu is up, the
+     phone shows the menu and the TV keeps the game (darkened, as behind the menu today).
+   - Later, other screens can claim a TV too. The game browser could show a big-screen backdrop
+     instead of a mirror of the menu.
+3. The primary pass, as now. While `EmuScreen` sends the game to another output, its `render` leaves
+   out its own `CopyDisplayToOutput` and draws the touch controls over black. Optionally it draws a
+   small game preview, which is a second `CopyToOutput`.
+
+The other option was a stack entry holding one screen per swapchain. It doesn't fit, because input,
+focus and dialogs belong to one place (the phone). Per-output screens would have to be pushed and
+popped in step, and most entries would have only one.
+
+ImGui windows aren't screens. ImGui owns its viewports. After the screens, the ImGui step draws each
+viewport to its own swapchain, so it shares the swapchain layer with the screen stack and nothing else.
 
 ### Presentation parameters
 
