@@ -25,7 +25,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 
-static NSString *const PPSSPPDidLaunchNotification = @"PPSSPPDidLaunch";
+static NSString *const PPSSPPExternalDisplayUpdateNotification = @"PPSSPPExternalDisplayUpdate";
 
 // Set by the SceneDelegate. Before that, the config (and so the graphics backend) isn't known.
 static bool g_launched = false;
@@ -95,14 +95,15 @@ static bool g_launched = false;
 	}
 	self.windowScene = (UIWindowScene *)scene;
 	INFO_LOG(Log::G3D, "External display connected");
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(didLaunch:) name:PPSSPPDidLaunchNotification object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(update:) name:PPSSPPExternalDisplayUpdateNotification object:nil];
 	if (g_launched) {
 		[self attach];
 	}
 }
 
-- (void)didLaunch:(NSNotification *)notification {
+- (void)update:(NSNotification *)notification {
 	// After a restart, the outputs are gone along with the old screen manager, and the backend may have changed.
+	// Or the setting did.
 	[self detach];
 	[self attach];
 }
@@ -114,6 +115,10 @@ static bool g_launched = false;
 	// Without a window, iOS mirrors the phone.
 	if (g_Config.iGPUBackend != (int)GPUBackend::METAL && g_Config.iGPUBackend != (int)GPUBackend::VULKAN) {
 		INFO_LOG(Log::G3D, "External display: mirroring, as the backend can't present to it");
+		return;
+	}
+	if (g_Config.iExternalDisplay != (int)ExternalDisplayMode::SHOW_GAME) {
+		INFO_LOG(Log::G3D, "External display: mirroring, as set");
 		return;
 	}
 #if !TARGET_OS_TV
@@ -149,5 +154,11 @@ static bool g_launched = false;
 
 void ExternalDisplayNotifyLaunched() {
 	g_launched = true;
-	[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPDidLaunchNotification object:nil];
+	[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPExternalDisplayUpdateNotification object:nil];
+}
+
+void ExternalDisplaySettingChanged() {
+	if (g_launched) {
+		[[NSNotificationCenter defaultCenter] postNotificationName:PPSSPPExternalDisplayUpdateNotification object:nil];
+	}
 }

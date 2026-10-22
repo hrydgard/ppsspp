@@ -328,6 +328,21 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	}
 #endif
 
+#if (PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(TVOS)) || PPSSPP_PLATFORM(ANDROID)
+	// Showing the game there needs a second swapchain. Otherwise the system mirrors the screen.
+	static const char *externalDisplayModes[] = { "Show the game", "Mirror the screen" };
+	PopupMultiChoice *externalDisplayChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iExternalDisplay, gr->T("External display"), externalDisplayModes, 0, ARRAY_SIZE(externalDisplayModes), I18NCat::GRAPHICS, screenManager()));
+	externalDisplayChoice->SetEnabled(draw->GetDeviceCaps().multipleSwapchains);
+	// Picking the current value again would rebuild the TV's output for nothing (iOS starts over on a change).
+	externalDisplayChoice->OnChoice.Add([previous = g_Config.iExternalDisplay](UI::EventParams &e) mutable {
+		if (g_Config.iExternalDisplay == previous) {
+			return;
+		}
+		previous = g_Config.iExternalDisplay;
+		System_Notify(SystemNotification::EXTERNAL_DISPLAY_CHANGED);
+	});
+#endif
+
 	// Backends that don't allow a device choice will only expose one device.
 	if (draw->GetDeviceList().size() > 1) {
 		std::string *deviceNameSetting = GPUDeviceNameSetting();

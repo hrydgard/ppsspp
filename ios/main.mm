@@ -22,6 +22,7 @@
 
 #import "AppDelegate.h"
 #import "ViewController.h"
+#import "ExternalDisplaySceneDelegate.h"
 #import "iOSCoreAudio.h"
 #import "IAPManager.h"
 #import "SceneDelegate.h"
@@ -442,6 +443,11 @@ void System_Notify(SystemNotification notification) {
 			if (sharedViewController) {
 				[sharedViewController appSwitchModeChanged];
 			}
+		});
+		break;
+	case SystemNotification::EXTERNAL_DISPLAY_CHANGED:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			ExternalDisplaySettingChanged();
 		});
 		break;
 	case SystemNotification::IMMERSIVE_MODE_CHANGE:

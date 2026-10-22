@@ -269,8 +269,9 @@ can be tested on its own.
   the main thread waits for that (the same handshake as `requestExitVulkanRenderLoop`). Only then does
   it remove the window. Removing the window should give the TV back to system mirroring. **Verify on
   the device:** if iOS doesn't resume mirroring, we need a `Mirror` output for the menus instead.
-- **Settings:** "When a TV is connected: Show the game on the TV (default) / Mirror the screen". The
-  pause menu gets a toggle for the current session.
+- **Setting:** Graphics → "External display": "Show the game" (the default) or "Mirror the screen"
+  (`iExternalDisplay`, iOS and Android). It's disabled on backends without `multipleSwapchains`, and a
+  change applies right away (`SystemNotification::EXTERNAL_DISPLAY_CHANGED`).
 - **Out of scope:** iPad Stage Manager's interactive extended displays (role `Application`), and
   tvOS.
 - **AirPlay latency:** this is the same video stream as mirroring, so the same lag. Input stays local,
@@ -283,8 +284,10 @@ can be tested on its own.
   (Miracast, like Samsung's Smart View), and Developer options → "Simulate secondary displays".
   Casting to a Chromecast or an Android TV is mirroring only.
 - **Showing it:** while it's started, the activity watches `DisplayManager` and, when there's a
-  `DISPLAY_CATEGORY_PRESENTATION` display and the backend is Vulkan (`queryConfig("externalDisplayOutput")`),
-  shows an `ExternalDisplayPresentation` there. That's a `Presentation` with a `SurfaceView`, whose
+  `DISPLAY_CATEGORY_PRESENTATION` display, the backend is Vulkan and the setting says "Show the game"
+  (`queryConfig("externalDisplayOutput")`), shows an `ExternalDisplayPresentation` there. Displays that
+  are part of the device (a dual-screen handheld's second screen) are skipped, where Android can tell
+  (12 and up, `DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN`). That's a `Presentation` with a `SurfaceView`, whose
   surface callbacks add, resize and remove a `Game` output through JNI. Otherwise Android mirrors.
   A backend change recreates the activity, which checks again.
 - **Removing:** the surface mustn't be touched once `surfaceDestroyed` returns, so it removes the output

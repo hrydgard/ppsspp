@@ -593,8 +593,8 @@ static std::string QueryConfig(std::string_view query) {
 	} else if (query == "audioMixWithOthers") {
 		return g_Config.bAudioMixWithOthers ? "1" : "0";
 	} else if (query == "externalDisplayOutput") {
-		// Whether the game can go to a second display, see ExternalDisplayPresentation.java.
-		return g_Config.iGPUBackend == (int)GPUBackend::VULKAN ? "1" : "0";
+		// Whether the game goes to a second display, see ExternalDisplayPresentation.java.
+		return g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.iExternalDisplay == (int)ExternalDisplayMode::SHOW_GAME ? "1" : "0";
 	} else {
 		return "";
 	}
@@ -1031,6 +1031,9 @@ void System_Notify(SystemNotification notification) {
 		break;
 	case SystemNotification::SUSTAINED_PERF_CHANGE:
 		PushCommand("sustainedPerfMode", "");
+		break;
+	case SystemNotification::EXTERNAL_DISPLAY_CHANGED:
+		PushCommand("externalDisplay", "");
 		break;
 	case SystemNotification::TEST_JAVA_EXCEPTION:
 		PushCommand("testException", "This is a test exception");

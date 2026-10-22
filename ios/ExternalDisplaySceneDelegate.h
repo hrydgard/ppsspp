@@ -30,3 +30,5 @@
 
 // Called by the app's SceneDelegate when PPSSPP has (re)started, and the config is loaded.
 void ExternalDisplayNotifyLaunched();
+// g_Config.iExternalDisplay changed. On the main thread.
+void ExternalDisplaySettingChanged();

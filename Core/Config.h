@@ -288,6 +288,7 @@ public:
 
 	// GFX
 	int iGPUBackend;
+	int iExternalDisplay;  // ExternalDisplayMode
 	std::string sCustomDriver;
 	std::string sFailedGPUBackends;  // NOT stored in ppsspp.ini anymore!
 	std::string sDisabledGPUBackends;

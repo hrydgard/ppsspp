@@ -24,6 +24,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.hardware.display.DeviceProductInfo;
 import android.hardware.display.DisplayManager;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
@@ -121,6 +122,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// The game on a second display, while there's one (and the backend can draw to it) and we're started.
 	private ExternalDisplayPresentation externalDisplayPresentation;
+	private boolean externalDisplayWatched = false;
 	private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
 		@Override
 		public void onDisplayAdded(int displayId) {
@@ -966,15 +968,17 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		updateSustainedPerformanceMode();
 	}
 
-	// Shows the game on a presentation display (like a TV on HDMI), if there's one and the backend can draw
-	// to a second surface (Vulkan). Otherwise Android mirrors the phone there.
+	// Shows the game on a presentation display (like a TV on HDMI), if there's one, the backend can draw
+	// to a second surface (Vulkan) and the setting says so. Otherwise Android mirrors the phone there.
 	private void updateExternalDisplay() {
 		Display display = null;
-		if ("1".equals(NativeApp.queryConfig("externalDisplayOutput"))) {
+		if (externalDisplayWatched && "1".equals(NativeApp.queryConfig("externalDisplayOutput"))) {
 			DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
-			Display[] displays = displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
-			if (displays.length > 0) {
-				display = displays[0];
+			for (Display candidate : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
+				if (!isBuiltInDisplay(candidate)) {
+					display = candidate;
+					break;
+				}
 			}
 		}
 		if (externalDisplayPresentation != null && (display == null || externalDisplayPresentation.getDisplay().getDisplayId() != display.getDisplayId())) {
@@ -991,6 +995,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} catch (WindowManager.InvalidDisplayException e) {
 			Log.w(TAG, "Couldn't show the game on display " + display.getDisplayId() + ": " + e);
 		}
+	}
+
+	// A second screen that's part of the device (a dual-screen handheld's, a cover screen) isn't a TV, and
+	// the game shouldn't move there by itself. Only Android 12 and up can tell.
+	private static boolean isBuiltInDisplay(Display display) {
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+			return false;
+		}
+		DeviceProductInfo info = display.getDeviceProductInfo();
+		return info != null && info.getConnectionToSinkType() == DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN;
 	}
 
 	private void dismissExternalDisplay() {
@@ -1142,6 +1156,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 			DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
 			displayManager.registerDisplayListener(displayListener, null);
+			externalDisplayWatched = true;
 			updateExternalDisplay();
 		}
 
@@ -1164,6 +1179,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// Before the render thread stops, so it can let go of the second display's surface.
 		DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
 		displayManager.unregisterDisplayListener(displayListener);
+		externalDisplayWatched = false;
 		dismissExternalDisplay();
 
 		// Normally surfaceDestroyed has done this already, but not every device destroys the surface of a
@@ -1875,6 +1891,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return true;
 		} else if (command.equals("sustainedPerfMode")) {
 			updateSustainedPerformanceMode();
+			return true;
+		} else if (command.equals("externalDisplay")) {
+			updateExternalDisplay();
 			return true;
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();
