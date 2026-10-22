@@ -1,11 +1,14 @@
 #include "ppsspp_config.h"
 
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
 #include <map>
+#include <mutex>
+#include <random>
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -432,22 +435,34 @@ int inet_pton(int af, const char* src, void* dst)
 		unsigned int x = 0;
 		char ch;
 		int marknum = 0;
+		bool sawDoubleColon = false;
 		for (i = 0; src[i] != 0; i++)
 		{
 			if (src[i] == ':')
 				marknum++;
 		}
+		// Eight groups have at most seven colons, eight with a leading or trailing "::".
+		if (marknum > 8)
+			return 0;
 		for (i = 0; (ch = src[i]) != 0; i++)
 		{
 			if (ch == ':')
 			{
+				// "::" below can skip k ahead, so check before every write.
+				if (k >= 8)
+					return 0;
 				x = ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
 				ip[k++] = x;
 				if (k == 8)
 					return 0;
 				x = 0;
-				if (i > 0 && src[i - 1] == ':')
+				if (i > 0 && src[i - 1] == ':') {
+					// Only one "::" is allowed. With marknum <= 8 the skip keeps k in range.
+					if (sawDoubleColon)
+						return 0;
+					sawDoubleColon = true;
 					k += 7 - marknum;
+				}
 			}
 			else if (ch >= '0' && ch <= '9')
 				x = x * 16 + ch - '0';
@@ -460,10 +475,10 @@ int inet_pton(int af, const char* src, void* dst)
 			if (x > 0xFFFF)
 				return 0;
 		}
+		if (k != 7)
+			return 0;
 		x = ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
 		ip[k++] = x;
-		if (k != 8)
-			return 0;
 	}
 	return 1;
 }
@@ -474,6 +489,28 @@ int inet_pton(int af, const char* src, void* dst)
 #define DNS_PORT 53
 #define DNS_QUERY_TYPE_A 1
 #define DNS_QUERY_CLASS_IN 1
+
+#define DNS_FLAG_RESPONSE 0x8000
+#define DNS_FLAG_TRUNCATED 0x0200
+#define DNS_RCODE_MASK 0x000F
+
+// The packet has no alignment, so read and write fields with memcpy.
+static uint16_t ReadBE16(const unsigned char *p) {
+	uint16_t value;
+	memcpy(&value, p, sizeof(value));
+	return ntohs(value);
+}
+
+static uint32_t ReadBE32(const unsigned char *p) {
+	uint32_t value;
+	memcpy(&value, p, sizeof(value));
+	return ntohl(value);
+}
+
+static void WriteBE16(unsigned char *p, uint16_t value) {
+	value = htons(value);
+	memcpy(p, &value, sizeof(value));
+}
 
 // DNS header structure
 struct DNSHeader {
@@ -519,26 +556,41 @@ static bool encode_domain_name(const char *domain, unsigned char *encoded, size_
 }
 
 // Function to parse and print the DNS response
-static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint32_t *output) {
+static bool parse_dns_response(const unsigned char *buffer, size_t response_len, uint16_t expected_id, uint32_t *output) {
 	if (response_len < sizeof(DNSHeader)) {
 		ERROR_LOG(Log::Net, "DNS response too short");
 		return false;
 	}
 
-	DNSHeader *dns = (DNSHeader *)buffer;
-	unsigned char *ptr = buffer + sizeof(struct DNSHeader);
-	unsigned char *end = buffer + response_len;
+	const uint16_t id = ReadBE16(buffer + offsetof(DNSHeader, id));
+	const uint16_t flags = ReadBE16(buffer + offsetof(DNSHeader, flags));
+	const unsigned char *ptr = buffer + sizeof(struct DNSHeader);
+	const unsigned char *end = buffer + response_len;
 
 	DEBUG_LOG(Log::Net, "DNS Response:");
-	DEBUG_LOG(Log::Net, "ID: 0x%x", ntohs(dns->id));
-	DEBUG_LOG(Log::Net, "Flags: 0x%x", ntohs(dns->flags));
-	DEBUG_LOG(Log::Net, "Questions: %d", ntohs(dns->q_count));
-	DEBUG_LOG(Log::Net, "Answers: %d", ntohs(dns->ans_count));
-	DEBUG_LOG(Log::Net, "Authority Records: %d", ntohs(dns->auth_count));
-	DEBUG_LOG(Log::Net, "Additional Records: %d", ntohs(dns->add_count));
+	DEBUG_LOG(Log::Net, "ID: 0x%x", id);
+	DEBUG_LOG(Log::Net, "Flags: 0x%x", flags);
+	DEBUG_LOG(Log::Net, "Questions: %d", ReadBE16(buffer + offsetof(DNSHeader, q_count)));
+	DEBUG_LOG(Log::Net, "Answers: %d", ReadBE16(buffer + offsetof(DNSHeader, ans_count)));
+	DEBUG_LOG(Log::Net, "Authority Records: %d", ReadBE16(buffer + offsetof(DNSHeader, auth_count)));
+	DEBUG_LOG(Log::Net, "Additional Records: %d", ReadBE16(buffer + offsetof(DNSHeader, add_count)));
+
+	if (id != expected_id || !(flags & DNS_FLAG_RESPONSE)) {
+		ERROR_LOG(Log::Net, "DNS response doesn't answer our query (ID 0x%04x, expected 0x%04x, flags 0x%04x)", id, expected_id, flags);
+		return false;
+	}
+	if (flags & DNS_FLAG_TRUNCATED) {
+		// We'd have to retry over TCP to get the rest.
+		ERROR_LOG(Log::Net, "DNS response truncated");
+		return false;
+	}
+	if ((flags & DNS_RCODE_MASK) != 0) {
+		WARN_LOG(Log::Net, "DNS server returned error %d", flags & DNS_RCODE_MASK);
+		return false;
+	}
 
 	// Skip over the question section
-	const int q_count = ntohs(dns->q_count);
+	const int q_count = ReadBE16(buffer + offsetof(DNSHeader, q_count));
 	for (int i = 0; i < q_count; i++) {
 		while (ptr < end && *ptr != 0) {
 			int jump = *ptr;
@@ -558,7 +610,7 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 	*output = 0;
 
 	// Parse the answer section
-	const int ans_count = ntohs(dns->ans_count);
+	const int ans_count = ReadBE16(buffer + offsetof(DNSHeader, ans_count));
 	for (int i = 0; i < ans_count; i++) {
 		DEBUG_LOG(Log::Net, "Answer %d:\n", i + 1);
 
@@ -591,14 +643,13 @@ static bool parse_dns_response(unsigned char *buffer, size_t response_len, uint3
 			return false;
 		}
 
-		// TODO: Use a struct or something.
-		uint16_t type = ntohs(*((uint16_t *)ptr));
+		uint16_t type = ReadBE16(ptr);
 		ptr += 2;
-		uint16_t clazz = ntohs(*((uint16_t *)ptr));
+		uint16_t clazz = ReadBE16(ptr);
 		ptr += 2;
-		uint32_t ttl = ntohl(*((uint32_t *)ptr));
+		uint32_t ttl = ReadBE32(ptr);
 		ptr += 4;
-		uint16_t data_len = ntohs(*((uint16_t *)ptr));
+		uint16_t data_len = ReadBE16(ptr);
 		ptr += 2;
 
 		DEBUG_LOG(Log::Net, "  Type: %d", type);
@@ -633,6 +684,8 @@ struct DNSCacheEntry {
 	uint32_t ipv4Address;
 };
 
+// Only used from the emu thread currently, but cheap to protect.
+static std::mutex g_directDNSCacheLock;
 static std::map<std::string, DNSCacheEntry> g_directDNSCache;
 
 bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t *ipv4_addr) {
@@ -648,11 +701,14 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 
 	std::string key = StringFromFormat("%s:%s", dns_server_ip, domain);
 
-	auto iter = g_directDNSCache.find(key);
-	if (iter != g_directDNSCache.end()) {
-		INFO_LOG(Log::Net, "Returning cached response from direct DNS request for '%s' to DNS server '%s", domain, dns_server_ip);
-		*ipv4_addr = iter->second.ipv4Address;
-		return true;
+	{
+		std::lock_guard<std::mutex> guard(g_directDNSCacheLock);
+		auto iter = g_directDNSCache.find(key);
+		if (iter != g_directDNSCache.end()) {
+			INFO_LOG(Log::Net, "Returning cached response from direct DNS request for '%s' to DNS server '%s", domain, dns_server_ip);
+			*ipv4_addr = iter->second.ipv4Address;
+			return true;
+		}
 	}
 
 	SOCKET sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -689,12 +745,22 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 		return false;
 	}
 
+	// Connecting a UDP socket makes the OS drop datagrams from anyone but the server.
+	if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		ERROR_LOG(Log::Net, "Failed to connect to DNS server %s", dns_server_ip);
+		closesocket(sockfd);
+		return false;
+	}
+
+	// A random ID, so a stale or stray reply isn't mistaken for the answer.
+	std::random_device rd;
+	const uint16_t query_id = (uint16_t)rd();
+
 	// Build DNS query
 	unsigned char buffer[1024]{};
-	struct DNSHeader *dns = (struct DNSHeader *)buffer;
-	dns->id = htons(0x1234);  // Random ID
-	dns->flags = htons(0x0100); // Standard query
-	dns->q_count = htons(1);    // One question
+	WriteBE16(buffer + offsetof(DNSHeader, id), query_id);
+	WriteBE16(buffer + offsetof(DNSHeader, flags), 0x0100);  // Standard query, recursion desired
+	WriteBE16(buffer + offsetof(DNSHeader, q_count), 1);     // One question
 
 	unsigned char *qname = buffer + sizeof(DNSHeader);
 	size_t qname_space = sizeof(buffer) - sizeof(DNSHeader) - 4;  // Reserve 4 bytes for qtype and qclass
@@ -705,20 +771,19 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	}
 
 	unsigned char *qinfo = qname + strlen((const char *)qname) + 1;
-	*((uint16_t *)qinfo) = htons(DNS_QUERY_TYPE_A); // Query type: A
-	*((uint16_t *)(qinfo + 2)) = htons(DNS_QUERY_CLASS_IN); // Query class: IN
+	WriteBE16(qinfo, DNS_QUERY_TYPE_A);
+	WriteBE16(qinfo + 2, DNS_QUERY_CLASS_IN);
 
 	// Send DNS query
 	size_t query_len = (qinfo + 4) - buffer;
-	if (sendto(sockfd, (const char *)buffer, (int)query_len, 0, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	if (send(sockfd, (const char *)buffer, (int)query_len, 0) < 0) {
 		ERROR_LOG(Log::Net, "Failed to send DNS query");
 		closesocket(sockfd);
 		return false;
 	}
 
 	// Receive DNS response
-	socklen_t server_len = sizeof(server_addr);
-	int response_len = recvfrom(sockfd, (char *)buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_len);
+	int response_len = recv(sockfd, (char *)buffer, sizeof(buffer), 0);
 	if (response_len < 0) {
 		ERROR_LOG(Log::Net, "Failed to receive DNS response (timeout or error)");
 		closesocket(sockfd);
@@ -729,10 +794,11 @@ bool DirectDNSLookupIPV4(const char *dns_server_ip, const char *domain, uint32_t
 	closesocket(sockfd);
 
 	// Done communicating, time to parse.
-	if (!parse_dns_response(buffer, (size_t)response_len, ipv4_addr)) {
+	if (!parse_dns_response(buffer, (size_t)response_len, query_id, ipv4_addr)) {
 		return false;
 	}
 
+	std::lock_guard<std::mutex> guard(g_directDNSCacheLock);
 	g_directDNSCache[key] = DNSCacheEntry{ *ipv4_addr };
 	return true;
 }

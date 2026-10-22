@@ -128,6 +128,8 @@
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
 #include "Common/Render/Text/draw_text.h"
+#include "Common/Net/Resolve.h"
+#include "Common/Net/SocketCompat.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -228,6 +230,39 @@ bool TestMathUtil() {
 	volatile float zero = 0.0f;
 	EXPECT_TRUE(my_isinf(1.0f/zero));
 	EXPECT_FALSE(my_isnan(1.0f/zero));
+	return true;
+}
+
+bool TestInetPton() {
+	uint8_t ip4[4];
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3.4", ip4), 1);
+	EXPECT_TRUE(ip4[0] == 1 && ip4[1] == 2 && ip4[2] == 3 && ip4[3] == 4);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3.4.5", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "256.1.1.1", ip4), 0);
+
+	// Bytes in network order.
+	uint8_t ip6[16];
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::1", ip6), 1);
+	for (int i = 0; i < 15; i++) {
+		EXPECT_EQ_INT(ip6[i], 0);
+	}
+	EXPECT_EQ_INT(ip6[15], 1);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::", ip6), 1);
+	EXPECT_EQ_INT(ip6[15], 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "fe80::1:2", ip6), 1);
+	EXPECT_TRUE(ip6[0] == 0xFE && ip6[1] == 0x80 && ip6[2] == 0 && ip6[11] == 0);
+	EXPECT_TRUE(ip6[12] == 0 && ip6[13] == 1 && ip6[14] == 0 && ip6[15] == 2);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7:8", ip6), 1);
+	EXPECT_TRUE(ip6[1] == 1 && ip6[15] == 8);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::2:3:4:5:6:7:8", ip6), 1);
+	EXPECT_TRUE(ip6[0] == 0 && ip6[1] == 0 && ip6[3] == 2 && ip6[15] == 8);
+
+	// These used to write outside the 16 bytes.
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1::2::3", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, ":::::::::", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7:8::", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7:8:9", ip6), 0);
 	return true;
 }
 
@@ -3861,6 +3896,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(QueueBuf),
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),
+	TEST_ITEM(InetPton),
 };
 
 int main(int argc, const char *argv[]) {
