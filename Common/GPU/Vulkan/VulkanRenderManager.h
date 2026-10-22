@@ -263,7 +263,8 @@ public:
 	//
 	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
 	// not keeping track of your calls to this function on your own.
-	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
+	// With no framebuffer, renders to swapchain, or the main one if that's null too.
+	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag, VKRSwapchain *swapchain = nullptr);
 
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.
@@ -513,6 +514,12 @@ public:
 	bool CreateBackbuffers();
 	void DestroyBackbuffers();
 
+	// Swapchains other than the main one, for other windows or displays. Use between frames, on the emu thread.
+	// They use the main swapchain's format, and don't pace the frame. Resizing and destroying wait for the GPU.
+	VKRSwapchain *CreateExtraSwapchain(WindowSystem winsys, void *data1, void *data2, int width, int height, std::string *error);
+	void DestroyExtraSwapchain(VKRSwapchain *swapchain);
+	void ResizeExtraSwapchain(VKRSwapchain *swapchain, int width, int height);
+
 	bool HasBackbuffers() {
 		return queueRunner_.HasBackbuffers();
 	}
@@ -569,7 +576,10 @@ private:
 	void ResetDescriptorLists(int frame);
 	void FlushDescriptors(int frame);
 
-	void SanityCheckPassesOnAdd();
+	void SanityCheckPassesOnAdd(VKRFramebuffer *fb, VKRSwapchain *swapchain);
+	bool InitExtraSwapchain(VKRSwapchain *swapchain, std::string *error);
+	void DestroyExtraSwapchainResources(VKRSwapchain *swapchain);
+	void RecreateExtraSwapchain(VKRSwapchain *swapchain);
 	bool CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
 	bool RecreatePresentationIfNeeded();
 
@@ -606,6 +616,7 @@ private:
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
+	std::vector<VKRSwapchain *> extraSwapchains_;
 
 	// Execution time state
 	VulkanContext *vulkan_;

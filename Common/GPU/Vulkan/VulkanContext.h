@@ -236,6 +236,8 @@ public:
 	// The extents will be automatically determined.
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
+	// Creates a surface for a window, like InitSurface does for the main one. For additional swapchains.
+	VkResult CreateSurface(WindowSystem winsys, void *data1, void *data2, VkSurfaceKHR *surface);
 
 	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
 	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
