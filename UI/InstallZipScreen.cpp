@@ -78,11 +78,6 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	std::string shortFilename = zipPath_.GetFilename();
 
 	bool showDeleteCheckbox = false;
-	returnToHomebrew_ = false;
-	installChoice_ = nullptr;
-	playChoice_ = nullptr;
-	doneView_ = nullptr;
-	existingSaveView_ = nullptr;
 
 	std::vector<Path> destOptions;
 
@@ -144,12 +139,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	std::string shortFilename = zipPath_.GetFilename();
 
-	returnToHomebrew_ = false;
-	installChoice_ = nullptr;
-	playChoice_ = nullptr;
-	doneView_ = nullptr;
-	existingSaveView_ = nullptr;
-	overwriteWarning_ = nullptr;
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
@@ -320,8 +309,13 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 }
 
 void InstallZipScreen::BeforeCreateViews() {
-	File::FileInfo fileInfo;
-	File::GetFileInfo(zipPath_, &fileInfo);
+	// The two panes are created in a different order depending on orientation, so neither can reset the other's views.
+	returnToHomebrew_ = false;
+	installChoice_ = nullptr;
+	playChoice_ = nullptr;
+	doneView_ = nullptr;
+	existingSaveView_ = nullptr;
+	overwriteWarning_ = nullptr;
 }
 
 bool InstallZipScreen::key(const KeyInput &key) {
