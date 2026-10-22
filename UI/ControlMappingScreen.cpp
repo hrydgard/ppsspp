@@ -308,18 +308,14 @@ void ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	}
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	// Uses a callback, since in portrait the settings are in a popup, which would get dialogFinished instead of us.
+	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1, [items](int index) {
+		KeyMap::AutoConfForPad(items[index]);
+	});
 	autoConfList->SetNotification(NoticeLevel::WARN, di->T("This will overwrite the existing configuration"));
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
-}
-
-void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (result == DR_OK && !strcmp(dialog->tag(), "listpopup")) {
-		UI::ListPopupScreen *popup = (UI::ListPopupScreen *)dialog;
-		KeyMap::AutoConfForPad(popup->GetChoiceString());
-	}
 }
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
@@ -351,8 +347,11 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return true;
 		}
 
-		if (pspBtn_ == VIRTKEY_SPEED_ANALOG && !UI::IsEscapeKey(key)) {
-			// Only map analog values to this mapping.
+		if (pspBtn_ == VIRTKEY_SPEED_ANALOG) {
+			// Only map analog values to this mapping. Escape cancels.
+			if (UI::IsEscapeKey(key)) {
+				TriggerFinish(DR_CANCEL);
+			}
 			return true;
 		}
 

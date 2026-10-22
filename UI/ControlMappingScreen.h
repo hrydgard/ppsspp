@@ -57,8 +57,6 @@ protected:
 private:
 	void OnAutoConfigure(UI::EventParams &params);
 
-	void dialogFinished(const Screen *dialog, DialogResult result) override;
-
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 
