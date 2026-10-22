@@ -39,6 +39,8 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/Util/GameDB.h"
 #include "Core/Util/RecentFiles.h"
@@ -208,6 +210,7 @@ static bool FileTypeSupportsCRC(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::ZARCHIVE:  // Of the first disc.
 		return true;
 	default:
 		return false;
@@ -222,6 +225,7 @@ static bool FileTypeHasIcon(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::ZARCHIVE:
 		return true;
 	default:
 		return false;
@@ -412,8 +416,14 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	infoLayout->Add(new TextView(GetFriendlyPath(gamePath_), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 
+	// For a multi-disc ZArchive, the time played on all its discs, which can have different IDs.
+	std::vector<std::string> playedIds{ info_->id };
+	{
+		std::lock_guard<std::mutex> guard(info_->lock);
+		playedIds.insert(playedIds.end(), info_->archiveDiscIDs.begin(), info_->archiveDiscIDs.end());
+	}
 	std::string timeStr;
-	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &timeStr)) {
+	if (g_Config.TimeTracker().GetPlayedTimeString(playedIds, &timeStr)) {
 		LinearLayout *timeHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
 		TextView *tvPlayTime = timeHoriz->Add(new TextView(timeStr, ALIGN_LEFT, true, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
@@ -422,17 +432,18 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *btnResetTime = timeHoriz->Add(new Choice(di->T("Reset"), new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
-		btnResetTime->OnClick.Add([this, ga, timeStr, title](UI::EventParams &) {
+		btnResetTime->OnClick.Add([this, ga, timeStr, title, playedIds](UI::EventParams &) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto gta = GetI18NCategory(I18NCat::GAME);
-			std::string id = info_->id;
 			std::string questionText(ga->T("Are you sure you want to reset the played time counter?"));
 			questionText += "\n";
 			questionText += timeStr;
 			screenManager()->push(
-				new UI::MessagePopupScreen(title, questionText, di->T("Reset"), di->T("Cancel"), [this, id](bool reset) {
+				new UI::MessagePopupScreen(title, questionText, di->T("Reset"), di->T("Cancel"), [this, playedIds](bool reset) {
 				if (reset) {
-					g_Config.TimeTracker().Reset(id);
+					for (const std::string &id : playedIds) {
+						g_Config.TimeTracker().Reset(id);
+					}
 					RecreateViews();
 				}
 			}));
@@ -560,6 +571,46 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		});
 		// The file is being read, and maybe about to be replaced.
 		play->SetEnabled(!GamePacker::IsPacking(gamePath_));
+	}
+
+	// A multi-disc game in a ZArchive: which disc to start from. In game, that's a disc change.
+	std::vector<std::string> archiveDiscs;
+	int archiveDisc = -1;
+	{
+		std::lock_guard<std::mutex> guard(info_->lock);
+		archiveDiscs = info_->archiveDiscs;
+		archiveDisc = info_->archiveDisc;
+	}
+	const bool runningThis = inGame_ && PSP_CoreParameter().fileToStart == gamePath_;
+	if (info_->fileType == IdentifiedFileType::ZARCHIVE && archiveDiscs.size() > 1 && (!inGame_ || (runningThis && getUMDReplacePermit()))) {
+		std::vector<std::string> names;
+		for (const std::string &disc : archiveDiscs) {
+			names.push_back(ArchiveDiscName(disc));
+		}
+		const std::string current = archiveDisc >= 0 && archiveDisc < (int)names.size() ? names[archiveDisc] : std::string();
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		rightColumnItems->Add(new Choice(inGame_ ? pa->T("Switch UMD") : ga->T("Change disc"), current))->OnClick.Add([this, names, archiveDiscs, archiveDisc, runningThis](UI::EventParams &e) {
+			auto ga = GetI18NCategory(I18NCat::GAME);
+			screenManager()->push(new ListPopupScreen(ga->T("Change disc"), names, archiveDisc, [this, archiveDiscs, runningThis](int index) {
+				if (index < 0 || index >= (int)archiveDiscs.size()) {
+					return;
+				}
+				if (runningThis) {
+					// Swaps the UMD, and remembers it for the next time.
+					__UmdReplaceArchiveDisc(index);
+				} else {
+					RememberZArchiveDisc(gamePath_, index == 0 ? std::string() : archiveDiscs[index]);
+				}
+				g_Config.Save("GameScreen::ChangeDisc");
+				OnArchiveDiscChanged(gamePath_);
+				// The menu music comes from the disc too.
+				g_BackgroundAudio.ReloadGame(gamePath_);
+				// Our info is now about another disc. Get the new one.
+				info_ = g_gameInfoCache->GetInfo(nullptr, gamePath_, g_desiredFlags, &knownFlags_);
+				CRC32string.clear();
+				RecreateViews();
+			}));
+		});
 	}
 
 	if (!info_->id.empty() && !inGame_) {
@@ -757,8 +808,15 @@ void GameScreen::OnCreateConfig(UI::EventParams &e) {
 	if (!info_->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
 	}
+	// Saving it switches the config into game-specific mode. Out here in the menus, where we're not
+	// running the game, switch back: otherwise the next save of the config (on exit, say) writes the
+	// game config again, bringing it back even after Delete Game Config.
+	const bool wasGameSpecific = g_Config.IsGameSpecific();
 	g_Config.CreateGameConfig(info_->id);
 	g_Config.SaveGameConfig(info_->id, info_->GetTitle());
+	if (!wasGameSpecific && g_Config.IsGameSpecific()) {
+		g_Config.UnloadGameConfig();
+	}
 	info_->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
@@ -792,6 +850,11 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 			return;
+		}
+		// Like the pause screen does. If the config were left in game-specific mode, its next save
+		// would write the game config right back.
+		if (g_Config.IsGameSpecific()) {
+			g_Config.UnloadGameConfig();
 		}
 		g_Config.DeleteGameConfig(info->id);
 		info->hasConfig = false;

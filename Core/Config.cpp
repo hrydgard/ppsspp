@@ -51,6 +51,7 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/Request.h"
 #include "Core/Config.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
@@ -1438,6 +1439,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	Section *playTime = iniFile.GetOrCreateSection("PlayTime");
 	playTimeTracker_.Load(playTime);
 
+	// The disc that each multi-disc ZArchive was last played from.
+	LoadZArchiveDiscMemory(iniFile.GetOrCreateSection("ZArchiveDiscs"));
+
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
 	for (const auto &[_, value] : pinnedPaths) {
@@ -1563,6 +1567,8 @@ bool Config::Save(const char *saveReason) {
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 		g_recentFiles.Save(recent, iMaxRecent);
+
+		SaveZArchiveDiscMemory(iniFile.GetOrCreateSection("ZArchiveDiscs"));
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();
@@ -1876,12 +1882,42 @@ void Config::RestoreDefaults(RestoreSettingsBits whatToRestore, bool log) {
 	}
 }
 
+// The discs of a multi-disc game in a ZArchive can have different IDs, but should share one game
+// config. Maps the other discs' IDs to the first's.
+static std::mutex g_gameConfigAliasLock;
+static std::map<std::string, std::string, std::less<>> g_gameConfigAliases;
+
+void Config::SetGameConfigAliases(const std::vector<std::string> &discIds) {
+	std::string target;
+	for (const std::string &id : discIds) {
+		if (!id.empty()) {
+			target = id;
+			break;
+		}
+	}
+	if (target.empty()) {
+		return;
+	}
+	std::lock_guard<std::mutex> guard(g_gameConfigAliasLock);
+	for (const std::string &id : discIds) {
+		if (!id.empty() && id != target) {
+			g_gameConfigAliases[id] = target;
+		}
+	}
+}
+
+std::string Config::GameConfigID(std::string_view gameId) const {
+	std::lock_guard<std::mutex> guard(g_gameConfigAliasLock);
+	auto iter = g_gameConfigAliases.find(gameId);
+	return iter != g_gameConfigAliases.end() ? iter->second : std::string(gameId);
+}
+
 bool Config::HasGameConfig(std::string_view gameId) {
 	if (gameId.empty()) {
 		return false;
 	}
 	bool exists = false;
-	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, GameConfigID(gameId), &exists);
 	return exists;
 }
 
@@ -1890,7 +1926,7 @@ bool Config::CreateGameConfig(std::string_view gameId) {
 		return false;
 	}
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, GameConfigID(gameId), &exists);
 
 	if (exists) {
 		INFO_LOG(Log::Config, "Game config already exists");
@@ -1903,7 +1939,7 @@ bool Config::CreateGameConfig(std::string_view gameId) {
 
 bool Config::DeleteGameConfig(std::string_view gameId) {
 	bool exists = false;
-	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, GameConfigID(gameId), &exists);
 
 	if (exists) {
 		if (System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN)) {
@@ -1926,7 +1962,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 	}
 
 	bool exists;
-	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, gameId, &exists);
+	Path fullIniFilePath = GetGameConfigFilePath(searchPath_, GameConfigID(gameId), &exists);
 
 	IniFile iniFile;
 
@@ -1935,7 +1971,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 	Section *top = iniFile.GetOrCreateSection("");
 	if (top->Lines().empty() && !titleForComment.empty()) {
-		top->AddComment(StringFromFormat("Game config for %s - %.*s", gameId.c_str(), STR_VIEW(titleForComment)));
+		top->AddComment(StringFromFormat("Game config for %s - %.*s", GameConfigID(gameId).c_str(), STR_VIEW(titleForComment)));
 	}
 
 	PreSaveCleanup();
@@ -1976,7 +2012,7 @@ bool Config::SaveGameConfig(const std::string &gameId, std::string_view titleFor
 
 bool Config::LoadGameConfig(const std::string &gameId) {
 	bool exists;
-	Path iniFileNameFull = GetGameConfigFilePath(searchPath_, gameId, &exists);
+	Path iniFileNameFull = GetGameConfigFilePath(searchPath_, GameConfigID(gameId), &exists);
 	if (!exists) {
 		// Bail if there's no game-specific config.
 		DEBUG_LOG(Log::Config, "No game-specific settings found in %s. Using global defaults.", iniFileNameFull.c_str());
@@ -2170,14 +2206,28 @@ void PlayTimeTracker::Save(Section *section) {
 }
 
 bool PlayTimeTracker::GetPlayedTimeString(std::string_view gameId, std::string *str) const {
+	return GetPlayedTimeString(std::vector<std::string>{ std::string(gameId) }, str);
+}
+
+bool PlayTimeTracker::GetPlayedTimeString(const std::vector<std::string> &gameIds, std::string *str) const {
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
-	auto iter = tracker_.find(gameId);
-	if (iter == tracker_.end()) {
+	bool found = false;
+	int totalSeconds = 0;
+	for (size_t i = 0; i < gameIds.size(); i++) {
+		if (std::find(gameIds.begin(), gameIds.begin() + i, gameIds[i]) != gameIds.begin() + i) {
+			continue;  // Counted it already.
+		}
+		auto iter = tracker_.find(gameIds[i]);
+		if (iter != tracker_.end()) {
+			found = true;
+			totalSeconds += iter->second.totalTimePlayed;
+		}
+	}
+	if (!found) {
 		return false;
 	}
 
-	int totalSeconds = iter->second.totalTimePlayed;
 	const int seconds = totalSeconds % 60;
 	totalSeconds /= 60;
 	const int minutes = totalSeconds % 60;

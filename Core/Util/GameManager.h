@@ -113,8 +113,6 @@ private:
 
 	Path GetTempFilename() const;
 	std::string GetGameID(const Path &path) const;
-	std::string GetPBPGameID(FileLoader *loader) const;
-	std::string GetISOGameID(FileLoader *loader) const;
 	std::shared_ptr<http::Request> curDownload_;
 	std::thread installThread_;
 	std::atomic<bool> installDonePending_{};

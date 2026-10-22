@@ -240,6 +240,20 @@ namespace Reporting
 		PurgeCRC();
 	}
 
+	void ForgetCRC(const Path &gamePath) {
+		{
+			std::lock_guard<std::mutex> guard(crcLock);
+			if (!crcPending || crcFilename != gamePath) {
+				crcResults.erase(gamePath);
+				return;
+			}
+		}
+		// It's being calculated right now, stop that first.
+		PurgeCRC();
+		std::lock_guard<std::mutex> guard(crcLock);
+		crcResults.erase(gamePath);
+	}
+
 	// Returns the full host
 	std::string ServerHost() {
 		if (g_Config.sReportHost.compare("default") == 0)

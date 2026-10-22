@@ -145,7 +145,7 @@ static std::vector<std::string> GatherGameLibrary() {
 	const Path &gamesDir = g_Config.currentDirectory;
 	if (!gamesDir.empty()) {
 		std::vector<File::FileInfo> fileInfo;
-		if (File::GetFilesInDir(gamesDir, &fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:")) {
+		if (File::GetFilesInDir(gamesDir, &fileInfo, "iso:cso:chd:zar:pbp:elf:prx:ppdmp:")) {
 			for (const File::FileInfo &info : fileInfo) {
 				if (info.isDirectory) {
 					// Detect installed/extracted PSP game folders.

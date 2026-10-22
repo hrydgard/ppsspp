@@ -27,6 +27,7 @@
 #include "Core/FileLoaders/LocalFileLoader.h"
 #include "Core/FileLoaders/RetryingFileLoader.h"
 #include "Core/FileLoaders/ZipFileLoader.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
@@ -110,6 +111,13 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	bool isDiscImage = false;
 	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
 		isDiscImage = true;
+	} else if (extension == ".zar") {
+		// The magic is at the end of the file, so check it before reading anything else.
+		if (ZArchive::HasFooterMagic(fileLoader)) {
+			return IdentifiedFileType::ZARCHIVE;
+		}
+		*errorString = "Not a valid ZArchive (.zar) file, or incomplete";
+		return IdentifiedFileType::UNKNOWN;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
 	} else if (extension == ".ppdmp") {
@@ -286,6 +294,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		// Magic didn't match, but the name says what it was meant to be - report it as a PKG so
 		// the install screen can explain what's wrong with it.
 		return IdentifiedFileType::PSP_PKG;
+	} else if (ZArchive::HasFooterMagic(fileLoader)) {
+		// A renamed .zar, perhaps.
+		return IdentifiedFileType::ZARCHIVE;
 	}
 	return IdentifiedFileType::UNKNOWN;
 }
@@ -301,6 +312,17 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader, IdentifiedFileType *
 			// Re-identify the file.
 			*fileType = Identify_File(fileLoader, errorString);
 		}
+	} else if (*fileType == IdentifiedFileType::ZARCHIVE) {
+		// Boot the game inside. The memstick content in it gets mounted later, in MountFileSystems.
+		std::string zarError;
+		FileLoader *target = OpenZArchiveBootTarget(fileLoader, &zarError);
+		if (!target) {
+			// We still own fileLoader. Leave it as a ZARCHIVE, so the error makes it to the user.
+			*errorString = zarError;
+			return fileLoader;
+		}
+		*fileType = Identify_File(target, errorString);
+		return target;
 	} else if (*fileType == IdentifiedFileType::ARCHIVE_ZIP) {
 		// Handle zip files, take automatic action depending on contents.
 		// Can also return nullptr.
@@ -346,6 +368,31 @@ Path ResolvePBPFile(const Path &filename) {
 	}
 }
 
+// Mounts the new disc and makes it the loaded file. Takes ownership of loadedFile either way.
+static bool SwapInUMD(FileLoader *loadedFile, IdentifiedFileType fileType, const std::string &errorString, FileLoader **fileLoader, std::string &error) {
+	switch (fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+		if (!MountGameISO(loadedFile, &error)) {
+			error = "mounting the ISO failed: " + error;
+			delete loadedFile;
+			return false;
+		}
+		break;
+	default:
+		error = "Unsupported file type: " + std::string(IdentifiedFileTypeToString(fileType)) + " " + errorString;
+		delete loadedFile;
+		return false;
+	}
+
+	// Only now that the old disc (if there was one) is unmounted, it's safe to let go of its loader.
+	UpdateLoadedFile(loadedFile);
+	*fileLoader = loadedFile;
+	return true;
+}
+
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error) {
 	IFileSystem *currentUMD = pspFileSystem.GetSystem("disc0:");
 
@@ -364,29 +411,116 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 		delete loadedFile;
 		return false;
 	}
-	UpdateLoadedFile(loadedFile);
 
+	// This can replace the loader (with a zip or ZArchive one that owns it), so it has to happen
+	// before it's stored anywhere.
 	std::string errorString;
 	IdentifiedFileType fileType;
 	loadedFile = ResolveFileLoaderTarget(loadedFile, &fileType, &errorString);
+	return SwapInUMD(loadedFile, fileType, errorString, fileLoader, error);
+}
 
-	*fileLoader = loadedFile;
-
-	switch (fileType) {
-	case IdentifiedFileType::PSP_ISO:
-	case IdentifiedFileType::PSP_ISO_NP:
-	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
-		if (!MountGameISO(loadedFile, &error)) {
-			error = "mounting the ISO failed: " + error;
-			return false;
-		}
-		break;
-	default:
-		error = "Unsupported file type: " + std::string(IdentifiedFileTypeToString(fileType)) + " " + errorString;
+bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc) {
+	ZArchiveFileLoader *zar = FindZArchiveFileLoader(PSP_LoadedFile());
+	if (!zar) {
 		return false;
-		break;
 	}
+	ZArchiveContents contents;
+	ScanZArchiveContents(*zar->GetArchive(), &contents);
+	*discs = contents.discs;
+	*currentDisc = -1;
+	for (size_t i = 0; i < contents.discs.size(); i++) {
+		if (equalsNoCase(contents.discs[i], zar->GetInnerPath())) {
+			*currentDisc = (int)i;
+		}
+	}
+	return true;
+}
+
+std::string GetPBPGameID(FileLoader *loader) {
+	PBPReader pbp(loader);
+	std::vector<u8> sfoData;
+	if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+		ParamSFOData sfo;
+		sfo.ReadSFO(sfoData);
+		return sfo.GetValueString("DISC_ID");
+	}
+	return "";
+}
+
+std::string GetISOGameID(FileLoader *loader) {
+	static constexpr s64 MAX_PARAM_SFO_SIZE = 1024 * 1024;
+	SequentialHandleAllocator handles;
+	std::string errorString;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
+	if (!bd) {
+		return "";
+	}
+
+	ISOFileSystem umd(&handles, bd);
+
+	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
+	int handle = -1;
+	if (info.exists) {
+		handle = umd.OpenFile("/PSP_GAME/PARAM.SFO", FILEACCESS_READ);
+	}
+	if (handle < 0) {
+		return "";
+	}
+	if (info.size < 0 || info.size > MAX_PARAM_SFO_SIZE) {
+		WARN_LOG(Log::Loader, "Ignoring implausibly large PARAM.SFO (%lld bytes)", (long long)info.size);
+		umd.CloseFile(handle);
+		return "";
+	}
+
+	std::string sfoData;
+	sfoData.resize((size_t)info.size);
+	if (info.size > 0)
+		umd.ReadFile(handle, (u8 *)sfoData.data(), info.size);
+	umd.CloseFile(handle);
+
+	ParamSFOData sfo;
+	sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size());
+	return sfo.GetValueString("DISC_ID");
+}
+
+std::vector<std::string> GetZArchiveDiscIDs(const std::shared_ptr<ZArchive> &archive, const ZArchiveContents &contents) {
+	std::vector<std::string> ids;
+	for (const std::string &disc : contents.discs) {
+		ZArchiveFileLoader discLoader(archive, disc);
+		ids.push_back(endsWithNoCase(disc, ".pbp") ? GetPBPGameID(&discLoader) : GetISOGameID(&discLoader));
+	}
+	return ids;
+}
+
+bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &error) {
+	if (!pspFileSystem.GetSystem("disc0:")) {
+		error = "has no disc";
+		return false;
+	}
+	ZArchiveFileLoader *zar = FindZArchiveFileLoader(PSP_LoadedFile());
+	if (!zar) {
+		error = "the game wasn't started from a ZArchive";
+		return false;
+	}
+	ZArchiveContents contents;
+	ScanZArchiveContents(*zar->GetArchive(), &contents);
+	if (discIndex < 0 || discIndex >= (int)contents.discs.size()) {
+		error = StringFromFormat("no disc %d in the ZArchive", discIndex + 1);
+		return false;
+	}
+
+	// Share the open archive, the memstick overlay is reading from it too.
+	const Path archivePath = zar->GetArchive()->GetPath();
+	const std::string disc = contents.discs[discIndex];
+	FileLoader *loadedFile = new ZArchiveFileLoader(zar->GetArchive(), disc);
+	std::string errorString;
+	IdentifiedFileType fileType = Identify_File(loadedFile, &errorString);
+	if (!SwapInUMD(loadedFile, fileType, errorString, fileLoader, error)) {
+		return false;
+	}
+	// So the next time, the game starts from this disc. The first is the default anyway.
+	RememberZArchiveDisc(archivePath, discIndex == 0 ? std::string() : disc);
 	return true;
 }
 
@@ -708,6 +842,7 @@ const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: return "PSP_SAVEDATA_DIRECTORY";
 	case IdentifiedFileType::PPSSPP_SAVESTATE: return "PPSSPP_SAVESTATE";
 	case IdentifiedFileType::PPSSPP_GE_DUMP: return "PPSSPP_GE_DUMP";
+	case IdentifiedFileType::ZARCHIVE: return "ZARCHIVE";
 	case IdentifiedFileType::UNKNOWN: return "UNKNOWN";
 	default: return "INVALID_TYPE";
 	}

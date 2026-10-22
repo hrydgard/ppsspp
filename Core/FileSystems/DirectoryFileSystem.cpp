@@ -906,7 +906,7 @@ static void tmFromFiletime(tm &dest, const FILETIME &src) {
 //
 // Note: PSP-created files would stay lowercase, but this uppercases them too.
 // Hopefully no PSP games read directories after they create files in them...
-static std::string SimulateVFATBug(std::string filename) {
+std::string SimulateVFATBug(std::string filename) {
 	// These are the characters allowed in DOS filenames.
 	static const char * const FAT_UPPER_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&'(){}-_`~";
 	static const char * const FAT_LOWER_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&'(){}-_`~";
@@ -1010,7 +1010,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view pat
 			entry.name = file.name;
 		}
 		if (hideISOFiles) {
-			if (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso") || endsWithNoCase(entry.name, ".chd")) {  // chd not really necessary, but let's hide them too.
+			if (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso") || endsWithNoCase(entry.name, ".chd") || endsWithNoCase(entry.name, ".zar")) {  // chd and zar not really necessary, but let's hide them too.
 				// Workaround for DJ Max Portable, see compat.ini.
 				continue;
 			} else if (file.isDirectory) {

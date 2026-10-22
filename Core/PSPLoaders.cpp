@@ -39,6 +39,7 @@
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/BlobFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -552,18 +553,31 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		path = AndroidContentURI(full_path.GetDirectory()).FilePath();
 	}
 
+	// An EBOOT.PBP from a ZArchive. Its PSP directory is overlaid on the memory stick (see
+	// MountFileSystems), so it boots from there, like one installed on the memory stick.
+	const ZArchiveFileLoader *zar = FindZArchiveFileLoader(fileLoader);
+	if (zar) {
+		const std::string &innerPath = zar->GetInnerPath();
+		const size_t slash = innerPath.find_last_of('/');
+		path = slash == std::string::npos ? std::string() : innerPath.substr(0, slash);
+		file = slash == std::string::npos ? innerPath : innerPath.substr(slash + 1);
+	}
+
 	// TODO: More robust check.
 	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
 	if (pos != std::string::npos) {
 		ms_path = "ms0:/" + path.substr(pos) + "/";
+	} else if (zar) {
+		*error_string = "Can only boot an EBOOT.PBP from PSP/GAME/ in a ZArchive";
+		return false;
 	} else {
 		// We map host0: to the containing directory, see below. This will also be set as the current dir
 		ms_path = "host0:/";
 	}
 
 	Path host0Dir;
-	if (!PSP_CoreParameter().mountRoot.empty()) {
+	if (!PSP_CoreParameter().mountRoot.empty() && !zar) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
 		Path pathNorm = NormalizePath(Path(path));

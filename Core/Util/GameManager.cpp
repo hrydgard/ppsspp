@@ -256,7 +256,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	std::string urlExtension = task.url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
 	// TODO: Bad idea due to Android content api where we don't always get the filename.
-	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
+	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd" || urlExtension == ".zar") {
 		// It's a raw ISO or CSO file. We just copy it to the destination, which is the
 		// currently selected directory in the game browser. Note: This might not be a good option!
 		Path destPath = Path(g_Config.currentDirectory) / task.url.GetFilename();
@@ -550,6 +550,19 @@ std::string GameManager::GetGameID(const Path &path) const {
 		id = GetISOGameID(loader);
 		break;
 
+	case IdentifiedFileType::ZARCHIVE:
+	{
+		// The ID of the game inside. Resolving takes over the loader.
+		IdentifiedFileType innerType;
+		loader = ResolveFileLoaderTarget(loader, &innerType, &errorString);
+		if (innerType == IdentifiedFileType::PSP_ISO || innerType == IdentifiedFileType::PSP_ISO_NP) {
+			id = GetISOGameID(loader);
+		} else if (innerType == IdentifiedFileType::PSP_PBP) {
+			id = GetPBPGameID(loader);
+		}
+		break;
+	}
+
 	default:
 		id.clear();
 		break;
@@ -557,53 +570,6 @@ std::string GameManager::GetGameID(const Path &path) const {
 
 	delete loader;
 	return id;
-}
-
-std::string GameManager::GetPBPGameID(FileLoader *loader) const {
-	PBPReader pbp(loader);
-	std::vector<u8> sfoData;
-	if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
-		ParamSFOData sfo;
-		sfo.ReadSFO(sfoData);
-		return sfo.GetValueString("DISC_ID");
-	}
-	return "";
-}
-
-std::string GameManager::GetISOGameID(FileLoader *loader) const {
-	static constexpr s64 MAX_PARAM_SFO_SIZE = 1024 * 1024;
-	SequentialHandleAllocator handles;
-	std::string errorString;
-	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
-	if (!bd) {
-		return "";
-	}
-
-	ISOFileSystem umd(&handles, bd);
-
-	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
-	int handle = -1;
-	if (info.exists) {
-		handle = umd.OpenFile("/PSP_GAME/PARAM.SFO", FILEACCESS_READ);
-	}
-	if (handle < 0) {
-		return "";
-	}
-	if (info.size < 0 || info.size > MAX_PARAM_SFO_SIZE) {
-		WARN_LOG(Log::Loader, "Ignoring implausibly large PARAM.SFO (%lld bytes)", (long long)info.size);
-		umd.CloseFile(handle);
-		return "";
-	}
-
-	std::string sfoData;
-	sfoData.resize((size_t)info.size);
-	if (info.size > 0)
-		umd.ReadFile(handle, (u8 *)sfoData.data(), info.size);
-	umd.CloseFile(handle);
-
-	ParamSFOData sfo;
-	sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size());
-	return sfo.GetValueString("DISC_ID");
 }
 
 bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFilename, int64_t *bytesCopied, int64_t allBytes, int64_t maxTotalSize) {

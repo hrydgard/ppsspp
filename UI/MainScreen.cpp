@@ -876,6 +876,35 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
+	// A multi-disc game from a ZArchive has the other discs right there.
+	std::vector<std::string> archiveDiscs;
+	int currentDisc = -1;
+	const bool hasDiscsTab = GetRunningArchiveDiscs(&archiveDiscs, &currentDisc) && archiveDiscs.size() > 1;
+	if (hasDiscsTab) {
+		ScrollView *scrollDiscs = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		scrollDiscs->SetTag("UmdReplaceArchiveDiscs");
+		LinearLayout *discList = scrollDiscs->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		for (int i = 0; i < (int)archiveDiscs.size(); i++) {
+			const std::string name = ArchiveDiscName(archiveDiscs[i]);
+			Choice *choice;
+			if (i == currentDisc) {
+				choice = discList->Add(new Choice(name, mm->T("In the drive")));
+				choice->SetEnabled(false);
+			} else {
+				choice = discList->Add(new Choice(name, ImageID("I_UMD")));
+			}
+			choice->OnClick.Add([this, i](UI::EventParams &e) {
+				// This also makes it the disc to start from next time.
+				__UmdReplaceArchiveDisc(i);
+				g_Config.Save("UmdReplaceScreen::ArchiveDisc");
+				OnArchiveDiscChanged(PSP_CoreParameter().fileToStart);
+				g_BackgroundAudio.ReloadGame(PSP_CoreParameter().fileToStart);
+				TriggerFinish(DR_OK);
+			});
+		}
+		leftColumn->AddTab(mm->T("Discs"), ImageID::invalid(), scrollDiscs);
+	}
+
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
@@ -916,7 +945,9 @@ void UmdReplaceScreen::CreateViews() {
 	rightColumnItems->Add(new Spacer());
 	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
 
-	if (g_recentFiles.HasAny()) {
+	if (hasDiscsTab) {
+		leftColumn->SetCurrentTab(0, true);
+	} else if (g_recentFiles.HasAny()) {
 		leftColumn->SetCurrentTab(0, true);
 	} else if (g_Config.iMaxRecent > 0) {
 		leftColumn->SetCurrentTab(1, true);

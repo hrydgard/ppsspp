@@ -40,6 +40,8 @@ void __UmdInit();
 void __UmdDoState(PointerWrap &p);
 
 void __UmdReplace(const Path &filepath);
+// Switches to another disc of the ZArchive the game was started from, see GetRunningArchiveDiscs.
+void __UmdReplaceArchiveDisc(int discIndex);
 // A drive that can be empty: the XMB's, booted without a game. Insert fails if a disc is in.
 bool __UmdInsert(const Path &filepath, std::string *error);
 void __UmdEject();

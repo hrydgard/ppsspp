@@ -57,6 +57,9 @@ public:
 	~BackgroundAudio();
 
 	void SetGame(const Path &path);
+	// If path is the game playing, starts its music over from its game info, for when that changed
+	// (another disc of a ZArchive can have different music).
+	void ReloadGame(const Path &path);
 	void Update();
 	bool Play();
 

@@ -724,6 +724,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileLoaders/RamCachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/LocalFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/ZipFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/ZArchiveFileLoader.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
 	       $(COREDIR)/HDRemaster.cpp \
@@ -757,6 +758,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileSystems/ISOFileSystem.cpp \
 	       $(COREDIR)/FileSystems/MetaFileSystem.cpp \
 	       $(COREDIR)/FileSystems/VirtualDiscFileSystem.cpp \
+	       $(COREDIR)/FileSystems/ZArchiveFileSystem.cpp \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
