@@ -32,6 +32,8 @@ struct TextStringEntry {
 	int height = 0;
 	int bmWidth = 0;
 	int bmHeight = 0;
+	// Padding in bitmap pixels around the text, on each side, to fit a drop shadow.
+	int shadowPad = 0;
 	int lastUsedFrame;
 };
 
@@ -152,6 +154,7 @@ protected:
 
 	// Fills in and returns lookupKey_, which reuses its string buffer, so a cache hit doesn't allocate.
 	const TextCacheKey &LookupKey(std::string_view str, int flags = 0, float maxWidth = 0.0f, float scale = 0.0f);
+	void AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const;
 
 	TextCacheKey lookupKey_;
 

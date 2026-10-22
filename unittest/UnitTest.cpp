@@ -3614,6 +3614,10 @@ public:
 	void SetOrCreateFont(const FontStyle &style) override { fontStyle_ = style; }
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
 
+	void TestDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) {
+		AddDropShadow(bitmapData, entry, srcFormat);
+	}
+
 	int measureCalls = 0;
 
 protected:
@@ -3671,6 +3675,35 @@ bool TestTextDrawerCache() {
 	EXPECT_EQ_FLOAT(h, 20.0f);
 	EXPECT_TRUE(w <= 200.0f);
 
+	// An 8x8 square of coverage in a 16x16 bitmap.
+	auto shadowTest = [&](float dpiScale, TextStringEntry &entry, std::vector<uint8_t> &bitmap) {
+		drawer.SetForcedDPIScale(dpiScale);
+		entry.width = entry.height = entry.bmWidth = entry.bmHeight = 16;
+		bitmap.assign(16 * 16, 0);
+		for (int y = 4; y < 12; y++) {
+			memset(&bitmap[y * 16 + 4], 0xFF, 8);
+		}
+		drawer.TestDropShadow(bitmap, entry, Draw::DataFormat::R8_UNORM);
+	};
+	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 24, FontStyleFlags::Default));
+	TextStringEntry entry1(0), entry2(0);
+	std::vector<uint8_t> bitmap;
+	shadowTest(1.0f, entry1, bitmap);
+	const int pad = entry1.shadowPad;
+	EXPECT_TRUE(pad > 0);
+	EXPECT_EQ_INT(entry1.width, 16);
+	EXPECT_TRUE(entry1.bmWidth >= 16 + pad * 2 && (entry1.bmWidth & 3) == 0);
+	EXPECT_EQ_INT((int)bitmap.size(), entry1.bmWidth * entry1.bmHeight * 4);
+	const uint32_t *pixels = (const uint32_t *)bitmap.data();
+	auto pixel = [&](int x, int y) { return pixels[(y + pad) * entry1.bmWidth + x + pad]; };
+	// The text stays opaque white, the shadow is black and partly transparent below-right of it, and the far corner is empty.
+	EXPECT_EQ_INT(pixel(8, 8), 0xFFFFFFFF);
+	EXPECT_EQ_INT(pixel(12, 12) & 0x00FFFFFF, 0);
+	EXPECT_TRUE((pixel(12, 12) >> 24) > 0);
+	EXPECT_EQ_INT(pixel(-pad, -pad), 0);
+	// Higher DPI means more pixels per UI unit, so a bigger blur in pixels.
+	shadowTest(0.5f, entry2, bitmap);
+	EXPECT_TRUE(entry2.shadowPad > pad);
 	return true;
 }
 

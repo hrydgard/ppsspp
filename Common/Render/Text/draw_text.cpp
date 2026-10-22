@@ -7,6 +7,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 #include "ext/xxhash.h"
@@ -43,6 +44,13 @@ static bool IsRenderDocLoaded() {
 	return false;
 #endif
 }
+
+// Drop shadow blur (sigma) and offset as fractions of the font size, which is in UI units. The bitmap
+// has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
+static constexpr float SHADOW_BLUR = 1.0f / 14.0f;
+static constexpr float SHADOW_OFFSET = 1.0f / 16.0f;
+// Blurring thin strokes spreads them thin, so boost the shadow's alpha a bit (clamped).
+static constexpr float SHADOW_STRENGTH = 1.5f;
 
 size_t TextCacheKeyHash::operator()(const TextCacheKey &key) const {
 	uint32_t maxWidthBits, scaleBits;
@@ -102,11 +110,12 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		return;
 	}
 
+	const bool dropShadow = (align & FLAG_DROP_SHADOW) != 0;
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto [iter, inserted] = cache_.try_emplace(LookupKey(str));
+	auto [iter, inserted] = cache_.try_emplace(LookupKey(str, align & FLAG_DROP_SHADOW));
 	if (!inserted) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -134,13 +143,20 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		iter->second = std::make_unique<TextStringEntry>(frameCount_);
 		entry = iter->second.get();
 
+		// The shadow is built on the CPU from the text's coverage (or its colors, for emoji), and needs a color format.
+		const DataFormat bitmapFormat = dropShadow ? (emoji ? DataFormat::R8G8B8A8_UNORM : DataFormat::R8_UNORM) : texFormat;
+
 		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 		// because we need white. Well, we could using swizzle, but not all our backends support that.
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align, emoji)) {
+		if (!DrawStringBitmap(bitmapData, *entry, bitmapFormat, str, align, emoji)) {
 			// Nothing drawn. The entry without a texture records that fact.
 			return;
+		}
+		if (dropShadow) {
+			AddDropShadow(bitmapData, *entry, bitmapFormat);
+			texFormat = DataFormat::R8G8B8A8_UNORM;
 		}
 
 		desc.initData.push_back(&bitmapData[0]);
@@ -162,11 +178,14 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	// Okay, the texture is bound, let's draw.
 	float w = (float)entry->width * (fontScaleX_ * dpiScale_);
 	float h = (float)entry->height * (fontScaleY_ * dpiScale_);
-	float u = (float)entry->width / (float)entry->bmWidth;
-	float v = (float)entry->height / (float)entry->bmHeight;
+	float u = (float)(entry->width + entry->shadowPad * 2) / (float)entry->bmWidth;
+	float v = (float)(entry->height + entry->shadowPad * 2) / (float)entry->bmHeight;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 
-	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
+	// Align by the text, then grow the quad to include the shadow padding.
+	const float padX = entry->shadowPad * (fontScaleX_ * dpiScale_);
+	const float padY = entry->shadowPad * (fontScaleY_ * dpiScale_);
+	target.DrawTexRect(x - padX, y - padY, x + w + padX, y + h + padY, 0.0f, 0.0f, u, v, color);
 	target.Flush(true);
 }
 
@@ -251,6 +270,91 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	return DrawStringBitmap(bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, align, fullColor);
+}
+
+void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
+	const bool srcColor = srcFormat == Draw::DataFormat::R8G8B8A8_UNORM;
+	const float pixelsPerUnit = 1.0f / dpiScale_;
+	const float sigma = std::max(0.5f, fontStyle_.sizePts * SHADOW_BLUR * pixelsPerUnit);
+	const int radius = (int)ceilf(sigma * 2.5f);
+	const int offset = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_OFFSET * pixelsPerUnit));
+	// Same padding on all sides, so the text stays centered in the bitmap.
+	const int pad = radius + offset;
+
+	const int srcW = entry.bmWidth;
+	const int srcH = entry.bmHeight;
+	const int w = srcW + pad * 2;
+	const int h = srcH + pad * 2;
+
+	std::vector<float> kernel(radius * 2 + 1);
+	float kernelSum = 0.0f;
+	for (int i = -radius; i <= radius; i++) {
+		kernel[i + radius] = expf(-(float)(i * i) / (2.0f * sigma * sigma));
+		kernelSum += kernel[i + radius];
+	}
+	for (float &k : kernel) {
+		k /= kernelSum;
+	}
+
+	auto srcAlpha = [&](int x, int y) -> uint8_t {
+		return srcColor ? bitmapData[(y * srcW + x) * 4 + 3] : bitmapData[y * srcW + x];
+	};
+
+	// Blur the offset coverage, scattering each texel horizontally into rows, then the rows vertically.
+	std::vector<float> rows(w * srcH);
+	for (int y = 0; y < srcH; y++) {
+		for (int x = 0; x < srcW; x++) {
+			const uint8_t a = srcAlpha(x, y);
+			if (!a) {
+				continue;
+			}
+			const float fa = a * (1.0f / 255.0f);
+			float *dst = &rows[y * w + x + pad + offset - radius];
+			for (int i = 0; i <= radius * 2; i++) {
+				dst[i] += fa * kernel[i];
+			}
+		}
+	}
+	std::vector<float> shadow(w * h);
+	for (int y = 0; y < srcH; y++) {
+		const float *src = &rows[y * w];
+		for (int i = 0; i <= radius * 2; i++) {
+			float *dst = &shadow[(y + pad + offset - radius + i) * w];
+			const float k = kernel[i];
+			for (int x = 0; x < w; x++) {
+				dst[x] += src[x] * k;
+			}
+		}
+	}
+
+	// Composite the (premultiplied) text over the black shadow. Only alpha changes, since the shadow adds no color.
+	const int bmWidth = (w + 3) & ~3;
+	const int bmHeight = (h + 3) & ~3;
+	std::vector<uint8_t> out(bmWidth * bmHeight * sizeof(uint32_t));
+	uint32_t *out32 = (uint32_t *)out.data();
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			const int sx = x - pad;
+			const int sy = y - pad;
+			uint32_t textColor = 0;
+			if (sx >= 0 && sx < srcW && sy >= 0 && sy < srcH) {
+				if (srcColor) {
+					memcpy(&textColor, &bitmapData[(sy * srcW + sx) * 4], sizeof(textColor));
+				} else {
+					textColor = AlphaToPremul8888(bitmapData[sy * srcW + sx]);
+				}
+			}
+			const uint32_t textAlpha = textColor >> 24;
+			const float shadowAlpha = std::min(1.0f, shadow[y * w + x] * SHADOW_STRENGTH);
+			const uint32_t alpha = textAlpha + (uint32_t)((255 - textAlpha) * shadowAlpha + 0.5f);
+			out32[y * bmWidth + x] = (alpha << 24) | (textColor & 0x00FFFFFF);
+		}
+	}
+
+	bitmapData = std::move(out);
+	entry.bmWidth = bmWidth;
+	entry.bmHeight = bmHeight;
+	entry.shadowPad = pad;
 }
 
 void TextDrawer::ClearCache() {
