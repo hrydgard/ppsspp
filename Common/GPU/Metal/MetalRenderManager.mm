@@ -301,7 +301,7 @@ void RunOnCompileThread(std::function<void()> work) {
 }
 @end
 
-MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight, bool useThread) : device_(device), layer_(layer) {
+MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight, bool useThread) : device_(device) {
 	queue_ = [device_ newCommandQueue];
 	queue_.label = @"PPSSPP";
 	unifiedMemory_ = device_.hasUnifiedMemory;
@@ -315,21 +315,8 @@ MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer
 	dispatch_semaphore_wait(frameSemaphore_, DISPATCH_TIME_FOREVER);
 	flushSemaphore_ = dispatch_semaphore_create(0);
 
-	if (layer_) {
-		layer_.device = device_;
-		layer_.pixelFormat = MTLPixelFormatBGRA8Unorm;
-		// So we can read back screenshots, and copy from it.
-		layer_.framebufferOnly = NO;
-		layer_.maximumDrawableCount = 3;
-		CGSize size = layer_.drawableSize;
-		bbWidth_ = (int)size.width;
-		bbHeight_ = (int)size.height;
-	} else {
-		CreateOffscreenBackbuffer(offscreenWidth, offscreenHeight);
-	}
-	CreateBackbufferDepth();
-
 	chunk_ = new MetalCommandChunk();
+	backbuffer_ = CreateSwapchain(layer, offscreenWidth, offscreenHeight);
 	if (useThread) {
 		renderThread_ = std::thread([this] { RenderThreadFunc(); });
 	}
@@ -347,6 +334,10 @@ MetalRenderManager::~MetalRenderManager() {
 		queueCond_.notify_one();
 		renderThread_.join();
 	}
+	for (MetalSwapchain *swapchain : swapchains_) {
+		delete swapchain;
+	}
+	swapchains_.clear();
 	delete chunk_;
 	for (MetalCommandChunk *chunk : freeChunks_) {
 		delete chunk;
@@ -372,24 +363,56 @@ void MetalRenderManager::SetInflightFrames(int count) {
 	inflightFrames_ = std::clamp(count, 1, METAL_MAX_INFLIGHT_FRAMES);
 }
 
-void MetalRenderManager::CreateOffscreenBackbuffer(int width, int height) {
-	MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:width height:height mipmapped:NO];
-	desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
-	desc.storageMode = MTLStorageModePrivate;
-	DeferRelease(offscreenBackbuffer_);
-	offscreenBackbuffer_ = [device_ newTextureWithDescriptor:desc];
-	offscreenBackbuffer_.label = @"offscreen_backbuffer";
-	bbWidth_ = width;
-	bbHeight_ = height;
+MetalSwapchain *MetalRenderManager::CreateSwapchain(CAMetalLayer *layer, int width, int height) {
+	MetalSwapchain *swapchain = new MetalSwapchain();
+	if (layer) {
+		swapchain->layer = layer;
+		layer.device = device_;
+		layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+		// So we can read back screenshots, and copy from it.
+		layer.framebufferOnly = NO;
+		layer.maximumDrawableCount = 3;
+		if (width > 0 && height > 0) {
+			swapchain->pendingWidth = width;
+			swapchain->pendingHeight = height;
+		} else {
+			CGSize size = layer.drawableSize;
+			width = (int)size.width;
+			height = (int)size.height;
+		}
+	} else {
+		MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:width height:height mipmapped:NO];
+		desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
+		desc.storageMode = MTLStorageModePrivate;
+		swapchain->offscreen = [device_ newTextureWithDescriptor:desc];
+		swapchain->offscreen.label = @"offscreen_backbuffer";
+	}
+	swapchain->width = width;
+	swapchain->height = height;
+	CreateSwapchainDepth(swapchain);
+	swapchains_.push_back(swapchain);
+	return swapchain;
 }
 
-void MetalRenderManager::CreateBackbufferDepth() {
-	DeferRelease(bbDepth_);
-	if (bbWidth_ <= 0 || bbHeight_ <= 0) {
-		bbDepth_ = nil;
+void MetalRenderManager::DestroySwapchain(MetalSwapchain *swapchain) {
+	_dbg_assert_(swapchain != backbuffer_);
+	if (passSwapchain_ == swapchain) {
+		UnbindRenderPass();
+	}
+	// After this, no chunk that refers to it is left to replay.
+	WaitIdle();
+	swapchains_.erase(std::remove(swapchains_.begin(), swapchains_.end(), swapchain), swapchains_.end());
+	rtAcquired_.erase(std::remove(rtAcquired_.begin(), rtAcquired_.end(), swapchain), rtAcquired_.end());
+	delete swapchain;
+}
+
+void MetalRenderManager::CreateSwapchainDepth(MetalSwapchain *swapchain) {
+	DeferRelease(swapchain->depth);
+	if (swapchain->width <= 0 || swapchain->height <= 0) {
+		swapchain->depth = nil;
 		return;
 	}
-	MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8 width:bbWidth_ height:bbHeight_ mipmapped:NO];
+	MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8 width:swapchain->width height:swapchain->height mipmapped:NO];
 	desc.usage = MTLTextureUsageRenderTarget;
 	if (appleGPU_) {
 		// The backbuffer's depth never needs to survive a render pass.
@@ -397,23 +420,22 @@ void MetalRenderManager::CreateBackbufferDepth() {
 	} else {
 		desc.storageMode = MTLStorageModePrivate;
 	}
-	bbDepth_ = [device_ newTextureWithDescriptor:desc];
-	bbDepth_.label = @"backbuffer_depth";
+	swapchain->depth = [device_ newTextureWithDescriptor:desc];
+	swapchain->depth.label = @"backbuffer_depth";
 }
 
-void MetalRenderManager::Resize(int width, int height) {
-	if (!layer_ || width <= 0 || height <= 0) {
+void MetalRenderManager::Resize(MetalSwapchain *swapchain, int width, int height) {
+	if (!swapchain->layer || width <= 0 || height <= 0) {
 		return;
 	}
-	if (passIsBackbuffer_) {
+	if (passSwapchain_ == swapchain) {
 		UnbindRenderPass();
 	}
-	// The drawables are resized by the replay, as it's what acquires them.
-	pendingDrawableWidth_ = width;
-	pendingDrawableHeight_ = height;
-	bbWidth_ = width;
-	bbHeight_ = height;
-	CreateBackbufferDepth();
+	swapchain->pendingWidth = width;
+	swapchain->pendingHeight = height;
+	swapchain->width = width;
+	swapchain->height = height;
+	CreateSwapchainDepth(swapchain);
 }
 
 void MetalRenderManager::BeginFrame() {
@@ -433,10 +455,13 @@ void MetalRenderManager::Submit(MetalChunkEnd end, bool vsync, dispatch_semaphor
 	chunk->end = end;
 	chunk->vsync = vsync;
 	chunk->completed = completed;
-	chunk->newDrawableWidth = pendingDrawableWidth_;
-	chunk->newDrawableHeight = pendingDrawableHeight_;
-	pendingDrawableWidth_ = 0;
-	pendingDrawableHeight_ = 0;
+	for (MetalSwapchain *swapchain : swapchains_) {
+		if (swapchain->pendingWidth > 0) {
+			chunk->drawableResizes.push_back({ swapchain, swapchain->pendingWidth, swapchain->pendingHeight });
+			swapchain->pendingWidth = 0;
+			swapchain->pendingHeight = 0;
+		}
+	}
 
 	if (renderThread_.joinable()) {
 		{
@@ -489,12 +514,12 @@ void MetalRenderManager::WaitIdle() {
 	Flush(true);
 }
 
-void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag) {
-	if (passIsBackbuffer_ && inPass_ && colorLoad == MTLLoadActionLoad) {
+void MetalRenderManager::BindBackbufferPass(MetalSwapchain *swapchain, MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag) {
+	if (passSwapchain_ == swapchain && inPass_ && colorLoad == MTLLoadActionLoad) {
 		// Already rendering to it.
 		return;
 	}
-	backbufferDrawn_ = true;
+	swapchain->drawn = true;
 	EndRenderPass();
 	MetalRenderPassDesc desc{};
 	desc.colorLoad = colorLoad;
@@ -503,19 +528,19 @@ void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearCol
 	desc.stencilLoad = MTLLoadActionClear;
 	desc.depthMemoryless = appleGPU_;
 	desc.tag = tag;
-	desc.depth = bbDepth_;
+	desc.depth = swapchain->depth;
 	pass_ = desc;
-	passIsBackbuffer_ = true;
+	passSwapchain_ = swapchain;
 	curFormat_.color = MTLPixelFormatBGRA8Unorm;
-	curFormat_.depth = bbDepth_ ? MTLPixelFormatDepth32Float_Stencil8 : MTLPixelFormatInvalid;
+	curFormat_.depth = swapchain->depth ? MTLPixelFormatDepth32Float_Stencil8 : MTLPixelFormatInvalid;
 	curFormat_.stencil = curFormat_.depth;
 	curFormat_.sampleCount = 1;
-	passWidth_ = bbWidth_;
-	passHeight_ = bbHeight_;
+	passWidth_ = swapchain->width;
+	passHeight_ = swapchain->height;
 }
 
 void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
-	if (!passIsBackbuffer_ && HasRenderPass() && desc.color == pass_.color && desc.depth == pass_.depth) {
+	if (!passSwapchain_ && HasRenderPass() && desc.color == pass_.color && desc.depth == pass_.depth) {
 		// Binding the target we're already on continues the pass, like in the Vulkan backend: clears are applied,
 		// and DontCare is ignored since there's content to keep.
 		bool clearColor = desc.colorLoad == MTLLoadActionClear;
@@ -528,7 +553,7 @@ void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
 	}
 	EndRenderPass();
 	pass_ = desc;
-	passIsBackbuffer_ = false;
+	passSwapchain_ = nullptr;
 	id<MTLTexture> sizeTex = desc.color ? desc.color : desc.depth;
 	passWidth_ = sizeTex ? (int)sizeTex.width : 0;
 	passHeight_ = sizeTex ? (int)sizeTex.height : 0;
@@ -542,7 +567,7 @@ void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
 void MetalRenderManager::UnbindRenderPass() {
 	EndRenderPass();
 	pass_ = MetalRenderPassDesc{};
-	passIsBackbuffer_ = false;
+	passSwapchain_ = nullptr;
 	curFormat_ = MetalRenderTargetFormat{};
 }
 
@@ -573,8 +598,8 @@ void MetalRenderManager::StartRenderPass() {
 		return;
 	}
 	MetalRecordedPass rp;
-	rp.backbuffer = passIsBackbuffer_;
-	rp.color = passIsBackbuffer_ ? nullptr : (__bridge void *)pass_.color;
+	rp.swapchain = passSwapchain_;
+	rp.color = passSwapchain_ ? nullptr : (__bridge void *)pass_.color;
 	rp.depth = (__bridge void *)pass_.depth;
 	rp.msaaColor = (__bridge void *)pass_.msaaColor;
 	rp.msaaDepth = (__bridge void *)pass_.msaaDepth;
@@ -664,10 +689,10 @@ void MetalRenderManager::CopyTexture(__unsafe_unretained id<MTLTexture> src, int
 	copy.size = size;
 }
 
-void MetalRenderManager::CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options) {
+void MetalRenderManager::CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options, MetalSwapchain *srcSwapchain) {
 	MetalRecordedCopy &copy = RecordCopy(false);
 	copy.type = MetalCopyType::TEXTURE_TO_BUFFER;
-	copy.srcIsBackbuffer = src == nil;
+	copy.srcSwapchain = srcSwapchain;
 	copy.src = (__bridge void *)src;
 	copy.dst = (__bridge void *)dst;
 	copy.srcLevel = level;
@@ -897,16 +922,19 @@ void MetalRenderManager::RenderThreadFunc() {
 	}
 }
 
-id<MTLTexture> MetalRenderManager::ReplayBackbuffer() {
-	if (!layer_) {
-		return offscreenBackbuffer_;
+id<MTLTexture> MetalRenderManager::ReplaySwapchainTexture(MetalSwapchain *swapchain) {
+	if (!swapchain->layer) {
+		return swapchain->offscreen;
 	}
-	if (!rtDrawable_) {
+	if (!swapchain->drawable) {
 		@autoreleasepool {
-			rtDrawable_ = [layer_ nextDrawable];
+			swapchain->drawable = [swapchain->layer nextDrawable];
+		}
+		if (swapchain->drawable) {
+			rtAcquired_.push_back(swapchain);
 		}
 	}
-	return rtDrawable_ ? rtDrawable_.texture : nil;
+	return swapchain->drawable ? swapchain->drawable.texture : nil;
 }
 
 void MetalRenderManager::EndReplayEncoders() {
@@ -953,8 +981,8 @@ void MetalRenderManager::ReplayDispatch(const MetalRecordedDispatch &dispatch, i
 }
 
 void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
-	if (layer_ && chunk->newDrawableWidth > 0) {
-		layer_.drawableSize = CGSizeMake(chunk->newDrawableWidth, chunk->newDrawableHeight);
+	for (const auto &resize : chunk->drawableResizes) {
+		resize.swapchain->layer.drawableSize = CGSizeMake(resize.width, resize.height);
 	}
 
 	// The upload buffer is enqueued first, so it runs first even though they're committed together.
@@ -994,32 +1022,35 @@ void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
 	}
 	EndReplayEncoders();
 
+	// The block keeps the drawables alive until the GPU is done with them.
+	NSMutableArray *drawables = nil;
 	if (chunk->end == MetalChunkEnd::PRESENT) {
+		for (MetalSwapchain *swapchain : rtAcquired_) {
 #if PPSSPP_PLATFORM(MAC)
-		if (layer_ && layer_.displaySyncEnabled != chunk->vsync) {
-			layer_.displaySyncEnabled = chunk->vsync;
-		}
+			if (swapchain->layer.displaySyncEnabled != chunk->vsync) {
+				swapchain->layer.displaySyncEnabled = chunk->vsync;
+			}
 #endif
-		if (rtDrawable_) {
-			[cmd presentDrawable:rtDrawable_];
+			[cmd presentDrawable:swapchain->drawable];
+			if (!drawables) {
+				drawables = [NSMutableArray arrayWithCapacity:rtAcquired_.size()];
+			}
+			[drawables addObject:swapchain->drawable];
+			swapchain->drawable = nil;
 		}
+		rtAcquired_.clear();
 	}
 
 	dispatch_semaphore_t frameSemaphore = chunk->end == MetalChunkEnd::PRESENT ? frameSemaphore_ : nullptr;
 	dispatch_semaphore_t completed = chunk->completed;
-	// The block keeps the drawable alive until the GPU is done with it.
-	id<CAMetalDrawable> drawable = chunk->end == MetalChunkEnd::PRESENT ? rtDrawable_ : nil;
 	if (frameSemaphore || completed) {
 		[cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-			(void)drawable;
+			(void)drawables;
 			if (frameSemaphore)
 				dispatch_semaphore_signal(frameSemaphore);
 			if (completed)
 				dispatch_semaphore_signal(completed);
 		}];
-	}
-	if (chunk->end == MetalChunkEnd::PRESENT) {
-		rtDrawable_ = nil;
 	}
 	[uploadCmd commit];  // A no-op if it's nil.
 	[cmd commit];
@@ -1030,8 +1061,6 @@ static inline void *BaseTexture(void *obj) {
 	id<MTLTexture> parent = tex.parentTexture;
 	return parent ? (__bridge void *)parent : obj;
 }
-
-static void *const BACKBUFFER_TARGET = (void *)1;
 
 void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 	rtStepCount_ = 0;
@@ -1058,7 +1087,8 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			pass->isPass = true;
 			pass->index = c.pass;
 			pass->ranges.push_back({ i + 1, i + 1 });
-			pass->target = rp.backbuffer ? BACKBUFFER_TARGET : (rp.color ? rp.color : rp.depth);
+			pass->target = rp.swapchain ? (void *)rp.swapchain : (rp.color ? rp.color : rp.depth);
+			pass->targetIsSwapchain = rp.swapchain != nullptr;
 			pass->targetDepth = rp.depth;
 			pass->targetMsaa = rp.msaaColor ? rp.msaaColor : rp.msaaDepth;
 			pass->usesDepth = rp.usesDepth;
@@ -1080,8 +1110,9 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			step.target = copy.type == MetalCopyType::TEXTURE_TO_BUFFER ? copy.dst : BaseTexture(copy.dst);
 			step.targetMsaa = nullptr;
 			step.targetDepth = nullptr;
-			if (copy.srcIsBackbuffer) {
-				step.reads.push_back(BACKBUFFER_TARGET);
+			step.targetIsSwapchain = false;
+			if (copy.srcSwapchain) {
+				step.reads.push_back(copy.srcSwapchain);
 			} else if (copy.src && copy.type != MetalCopyType::BUFFER_TO_TEXTURE) {
 				step.reads.push_back(BaseTexture(copy.src));
 			}
@@ -1109,7 +1140,7 @@ void MetalRenderManager::MergeSteps(MetalCommandChunk &chunk) {
 	std::vector<void *> touched;
 	for (size_t i = 0; i < rtStepCount_; i++) {
 		MetalStep &si = rtSteps_[i];
-		if (!si.isPass || si.merged || si.target == BACKBUFFER_TARGET) {
+		if (!si.isPass || si.merged || si.targetIsSwapchain) {
 			continue;
 		}
 		touched.clear();
@@ -1163,8 +1194,8 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 		rtBlit_ = nil;
 	}
 	const MetalRecordedPass &pass = chunk.passes[step.index];
-	id<MTLTexture> color = pass.backbuffer ? ReplayBackbuffer() : (__bridge id<MTLTexture>)pass.color;
-	if (pass.backbuffer && !color) {
+	id<MTLTexture> color = pass.swapchain ? ReplaySwapchainTexture(pass.swapchain) : (__bridge id<MTLTexture>)pass.color;
+	if (pass.swapchain && !color) {
 		// No drawable (the window isn't visible?). Drop the pass.
 		return;
 	}
@@ -1296,7 +1327,7 @@ void MetalRenderManager::ReplayCopy(const MetalCommandChunk &chunk, const MetalR
 		break;
 	case MetalCopyType::TEXTURE_TO_BUFFER:
 	{
-		id<MTLTexture> src = copy.srcIsBackbuffer ? ReplayBackbuffer() : (__bridge id<MTLTexture>)copy.src;
+		id<MTLTexture> src = copy.srcSwapchain ? ReplaySwapchainTexture(copy.srcSwapchain) : (__bridge id<MTLTexture>)copy.src;
 		if (!src) {
 			break;
 		}

@@ -1894,6 +1894,7 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 }
 
 bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+	srcfb = PrimaryToNull(srcfb);
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 	if (!src && vulkan_->GetSwapchain() == VK_NULL_HANDLE) {
 		// No backbuffer to read, as in headless.
@@ -1909,6 +1910,7 @@ bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspects, int 
 }
 
 DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
+	src = PrimaryToNull(src);
 	if (src) {
 		return DrawContext::PreferredFramebufferReadbackFormat(src);
 	}
@@ -1920,6 +1922,7 @@ DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	fbo = PrimaryToNull(fbo);
 	_dbg_assert_(fbo != nullptr || equals(tag, "BackBuffer"))
 
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
@@ -1966,6 +1969,7 @@ void VKContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, i
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	fbo = PrimaryToNull(fbo);
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	if (fb) {
 		*w = fb->GetFB()->width;
@@ -1983,6 +1987,7 @@ void VKContext::HandleEvent(Event ev, int width, int height, void *param1, void 
 		break;
 	case Event::GOT_BACKBUFFER:
 		renderManager_.CreateBackbuffers();
+		primarySwapchain_->SetSize(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 		break;
 	default:
 		_assert_(false);

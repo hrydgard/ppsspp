@@ -190,6 +190,38 @@ std::string config_filename;
 // that consumes it also sees those writes - with a plain bool it could see the flag first and keep stale bounds.
 static std::atomic<bool> resized{false};
 
+struct OutputRequest {
+	enum class Type {
+		ADD,
+		RESIZE,
+		REMOVE,
+	};
+	Type type;
+	int id;
+	OutputRole role;
+	Draw::SwapchainDesc desc;
+	int width;
+	int height;
+};
+static std::mutex g_outputRequestLock;
+static std::vector<OutputRequest> g_outputRequests;
+static std::atomic<int> g_nextOutputId{1};
+
+static void ProcessOutputRequests() {
+	std::vector<OutputRequest> requests;
+	{
+		std::lock_guard<std::mutex> guard(g_outputRequestLock);
+		requests.swap(g_outputRequests);
+	}
+	for (const OutputRequest &request : requests) {
+		switch (request.type) {
+		case OutputRequest::Type::ADD: g_screenManager->AddOutput(request.id, request.role, request.desc); break;
+		case OutputRequest::Type::RESIZE: g_screenManager->ResizeOutput(request.id, request.width, request.height); break;
+		case OutputRequest::Type::REMOVE: g_screenManager->RemoveOutput(request.id); break;
+		}
+	}
+}
+
 static int renderCounter = 0;
 
 struct PendingMessage {
@@ -940,6 +972,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_screenManager->setUIContext(uiContext);
 	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
+	// An output removed while there was no device can't be recreated, its surface may be gone.
+	ProcessOutputRequests();
 	g_screenManager->deviceRestored(g_draw);
 
 	g_audioBackend = System_CreateAudioBackend();
@@ -1192,6 +1226,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
 #endif
 	}
+
+	ProcessOutputRequests();
 
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
@@ -1998,6 +2034,35 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 	int h = (int)(pixelHeight * g_display.dpi_scale_real_y);
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
 	return config.InternalRotationIsPortrait() ? (h < 480 + 80) : (w < 480 + 80);
+}
+
+int Native_AddOutput(OutputRole role, const Draw::SwapchainDesc &desc) {
+	OutputRequest request{};
+	request.type = OutputRequest::Type::ADD;
+	request.id = g_nextOutputId++;
+	request.role = role;
+	request.desc = desc;
+	std::lock_guard<std::mutex> guard(g_outputRequestLock);
+	g_outputRequests.push_back(request);
+	return request.id;
+}
+
+void Native_ResizeOutput(int id, int width, int height) {
+	OutputRequest request{};
+	request.type = OutputRequest::Type::RESIZE;
+	request.id = id;
+	request.width = width;
+	request.height = height;
+	std::lock_guard<std::mutex> guard(g_outputRequestLock);
+	g_outputRequests.push_back(request);
+}
+
+void Native_RemoveOutput(int id) {
+	OutputRequest request{};
+	request.type = OutputRequest::Type::REMOVE;
+	request.id = id;
+	std::lock_guard<std::mutex> guard(g_outputRequestLock);
+	g_outputRequests.push_back(request);
 }
 
 bool Native_UpdateScreenScale(int pixel_width, int pixel_height, float customScale) {

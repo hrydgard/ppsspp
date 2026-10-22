@@ -1,6 +1,7 @@
 #import "ios/ViewController.h"
 #import "ios/Controls.h"
 #import "ios/IAPManager.h"
+#import "ios/ExternalDisplaySceneDelegate.h"
 #if !PPSSPP_PLATFORM(TVOS)
 #import "ios/CameraHelper.h"
 #import <Photos/Photos.h>
@@ -149,6 +150,8 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 #if !PPSSPP_PLATFORM(TVOS)
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 @property (strong, nonatomic) CMMotionManager *motionManager;
+// The UISceneAccessoryRegistration for an external display, on iOS 27 and later.
+@property (strong, nonatomic) id externalDisplayRegistration;
 #endif
 
 @end
@@ -222,6 +225,15 @@ static int GetPickerRequestId(id picker) {
 
 - (void)shutdown {
 	self.gameController = nil;
+#if !PPSSPP_PLATFORM(TVOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+	if (@available(iOS 27.0, *)) {
+		if (self.externalDisplayRegistration) {
+			// After a restart, the new view controller registers again if the backend can use it.
+			[self unregisterSceneAccessory:self.externalDisplayRegistration];
+			self.externalDisplayRegistration = nil;
+		}
+	}
+#endif
 	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 	_dbg_assert_(sharedViewController != nil);
@@ -633,6 +645,19 @@ static int GetPickerRequestId(id picker) {
 	}
 
 	[self updateResolutionWithView:self.view];
+
+#if !PPSSPP_PLATFORM(TVOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 270000
+	// From iOS 27, an external display scene only goes to apps that register for one like this. Earlier
+	// versions go by the Info.plist role instead. Only Metal can show the game there so far, and without
+	// the scene, iOS mirrors the phone.
+	if (@available(iOS 27.0, *)) {
+		if (g_Config.iGPUBackend == (int)GPUBackend::METAL) {
+			UISceneConfiguration *sceneConfiguration = [UISceneConfiguration new];
+			sceneConfiguration.delegateClass = [ExternalDisplaySceneDelegate class];
+			self.externalDisplayRegistration = [self registerSceneAccessory:[UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:sceneConfiguration]];
+		}
+	}
+#endif
 
 	[self setupFirstController];
 

@@ -343,6 +343,8 @@ void DisplayLayoutScreen::CreateViews() {
 		mode_->AddChoice(ImageID("I_MOVE"));
 		mode_->AddChoice(ImageID("I_RESIZE"));
 		mode_->SetSelection(0, false);
+		// The game goes to another output, like a TV, which doesn't use this layout.
+		mode_->SetEnabled(screenManager()->FindOutput(OutputRole::Game) == nullptr);
 		bottomControls->Add(mode_);
 	}
 

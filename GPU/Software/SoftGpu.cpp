@@ -720,6 +720,12 @@ bool SoftGPU::PresentedThisFrame() const {
 	return presentation_ ? presentation_->PresentedThisFrame() : false;
 }
 
+void SoftGPU::SetPresentationOutput(const OutputParams *output) {
+	if (presentation_) {
+		presentation_->SetOutputOverride(output);
+	}
+}
+
 void SoftGPU::MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value) {
 	uint32_t bytes = height * stride * (fmt == GE_FORMAT_8888 ? 4 : 2);
 	MarkDirty(addr, bytes, value);

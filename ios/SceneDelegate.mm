@@ -2,6 +2,7 @@
 
 #import "SceneDelegate.h"
 #import "AppDelegate.h"
+#import "ExternalDisplaySceneDelegate.h"
 
 #import "iOSCoreAudio.h"
 #import "ViewController.h"
@@ -198,6 +199,8 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 	self.window.rootViewController = [[PPSSPPViewController alloc] init];
 
 	[self.window makeKeyAndVisible];
+
+	ExternalDisplayNotifyLaunched();
 }
 
 - (void)restart:(const char*)restartArgs {

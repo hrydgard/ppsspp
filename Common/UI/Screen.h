@@ -18,6 +18,7 @@
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
+#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 
 namespace UI {
@@ -26,7 +27,15 @@ namespace UI {
 
 namespace Draw {
 class DrawContext;
+class Swapchain;
 }
+
+// A display other than the primary one, like a second window or a TV. See docs/multi-swapchain.md.
+struct OutputDisplay {
+	int id;
+	OutputRole role;
+	Draw::Swapchain *swapchain;  // nullptr while there's no draw context.
+};
 
 enum DialogResult {
 	DR_NONE,
@@ -107,6 +116,9 @@ public:
 	virtual void update() {}
 	virtual ScreenRenderFlags PreRender(ScreenRenderMode mode) { return ScreenRenderFlags::NONE; }
 	virtual ScreenRenderFlags render(ScreenRenderMode mode) = 0;
+	// Draws this screen's content for a secondary output, whose swapchain is bound. Returns false if the
+	// screen has nothing for it. The topmost screen that returns true is the one shown.
+	virtual bool renderOutput(const OutputDisplay &output) { return false; }
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}

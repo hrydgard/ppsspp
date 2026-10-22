@@ -266,6 +266,13 @@ std::string System_GetProperty(SystemProperty prop) {
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
 		case SYSPROP_BUILD_VERSION:
 			return PPSSPP_GIT_VERSION;
+		case SYSPROP_DEVICE_NAME: {
+			// Since iOS 16, without the user-assigned-device-name entitlement this is just the model.
+			UIDevice *device = [UIDevice currentDevice];
+			return [device.name isEqualToString:device.model] ? "" : device.name.UTF8String;
+		}
+		case SYSPROP_DEVICE_MODEL:
+			return [UIDevice currentDevice].model.UTF8String;
 		default:
 			return "";
 	}
@@ -492,13 +499,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			// Get the connected scenes
 			NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
 
-			// Loop through scenes to find a UIWindowScene that is active
+			// Find the app's scene. An external display has a scene of its own.
 			for (UIScene *scene in scenes) {
-				if ([scene isKindOfClass:[UIWindowScene class]]) {
-					UIWindowScene *windowScene = (UIWindowScene *)scene;
-					SceneDelegate *sceneDelegate = (SceneDelegate *)windowScene.delegate;
-					[sceneDelegate restart:args.c_str()];
-					break; // call only on the first active scene
+				if ([scene.delegate isKindOfClass:[SceneDelegate class]]) {
+					[(SceneDelegate *)scene.delegate restart:args.c_str()];
+					break;
 				}
 			}
 		});

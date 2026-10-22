@@ -128,6 +128,10 @@ bool FramebufferManagerCommon::PresentedThisFrame() const {
 	return presentation_->PresentedThisFrame();
 }
 
+void FramebufferManagerCommon::SetPresentationOutput(const OutputParams *output) {
+	presentation_->SetOutputOverride(output);
+}
+
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	displayFramebufPtr_ = framebuf & 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(displayFramebufPtr_))
@@ -3448,8 +3452,8 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 
 bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer) {
 	int w, h;
-	draw->GetFramebufferDimensions(nullptr, &w, &h);
-	Draw::DataFormat fmt = draw->PreferredFramebufferReadbackFormat(nullptr);
+	draw->GetFramebufferDimensions(draw->GetPrimarySwapchain(), &w, &h);
+	Draw::DataFormat fmt = draw->PreferredFramebufferReadbackFormat(draw->GetPrimarySwapchain());
 	// Ignore preferred formats other than BGRA.
 	_dbg_assert_(fmt == Draw::DataFormat::B8G8R8A8_UNORM || fmt == Draw::DataFormat::R8G8B8A8_UNORM);
 	if (fmt != Draw::DataFormat::B8G8R8A8_UNORM)
@@ -3459,7 +3463,7 @@ bool GetOutputFramebuffer(Draw::DrawContext *draw, GPUDebugBuffer &buffer) {
 
 	buffer.Allocate(w, h, fmt == Draw::DataFormat::R8G8B8A8_UNORM ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_8888_BGRA, flipY);
 	buffer.SetIsBackbuffer(true);
-	return draw->CopyFramebufferToMemory(nullptr, Draw::Aspect::COLOR_BIT, 0, 0, w, h, fmt, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
+	return draw->CopyFramebufferToMemory(draw->GetPrimarySwapchain(), Draw::Aspect::COLOR_BIT, 0, 0, w, h, fmt, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
 }
 
 bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {

@@ -57,31 +57,46 @@ void SetOverrideScreenFrame(const Bounds *bounds) {
 	}
 }
 
-FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeight) {
+OutputParams PrimaryOutputParams(int pixelWidth, int pixelHeight) {
+	OutputParams output;
+	output.pixelWidth = pixelWidth;
+	output.pixelHeight = pixelHeight;
+	// Remove the DPI scale to get back to pixels.
+	output.insetLeft = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
+	output.insetRight = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
+	output.insetTop = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
+	output.insetBottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
+	output.orientation = g_display.GetDeviceOrientation();
+	output.rotation = g_display.rotation;
+	output.rotMatrix = g_display.rot_matrix;
+	output.useOverrideFrame = true;
+	return output;
+}
+
+FRect GetScreenFrame(bool ignoreScreenInsets, const OutputParams &output) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
-		pixelWidth,
-		pixelHeight,
+		(float)output.pixelWidth,
+		(float)output.pixelHeight,
 	};
 
 	const bool applyInset = !ignoreScreenInsets;
 
-	if (g_overrideScreenBounds) {
+	if (g_overrideScreenBounds && output.useOverrideFrame) {
 		// Set rectangle to match central node. Here we ignore bIgnoreScreenInsets.
 		rc.x = g_screenBounds.x;
 		rc.y = g_screenBounds.y;
 		rc.w = g_screenBounds.w;
 		rc.h = g_screenBounds.h;
 	} else if (applyInset) {
-		// Remove the DPI scale to get back to pixels.
-		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_display.dpi_scale_x;
-		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_display.dpi_scale_x;
-		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_display.dpi_scale_y;
-		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_display.dpi_scale_y;
+		float left = output.insetLeft;
+		float right = output.insetRight;
+		float top = output.insetTop;
+		float bottom = output.insetBottom;
 
 		// NOTE: Similarly to what we do in UI, we disregard any bottom inset when in landscape mode.
-		if (g_display.GetDeviceOrientation() == DeviceOrientation::Landscape) {
+		if (output.orientation == DeviceOrientation::Landscape) {
 			bottom = 0.0f;
 		}
 
@@ -95,7 +110,15 @@ FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeigh
 	return rc;
 }
 
+FRect GetScreenFrame(bool ignoreScreenInsets, float pixelWidth, float pixelHeight) {
+	return GetScreenFrame(ignoreScreenInsets, PrimaryOutputParams((int)pixelWidth, (int)pixelHeight));
+}
+
 void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &screenFrame, int rotation) {
+	CalculateDisplayOutputRect(config, rc, origW, origH, screenFrame, rotation, g_display.GetDeviceOrientation());
+}
+
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &screenFrame, int rotation, DeviceOrientation outputOrientation) {
 	float outW;
 	float outH;
 
@@ -127,7 +150,7 @@ void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, fl
 	if (stretch) {
 		// Automatically set aspect ratio to match the display, IF the rotation matches the output display ratio! Otherwise, just
 		// ignore it because actually stretching will just look silly.
-		if (rotated == (g_display.GetDeviceOrientation() == DeviceOrientation::Portrait)) {
+		if (rotated == (outputOrientation == DeviceOrientation::Portrait)) {
 			origRatio = frameRatio;
 		} else {
 			origRatio *= aspectRatioAdjust;
@@ -212,7 +235,7 @@ PresentationCommon::~PresentationCommon() {
 	DestroyDeviceObjects();
 }
 
-void PresentationCommon::GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const {
+void PresentationCommon::GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const {
 	if (!config.bEnableCardboardVR) {
 		cardboardSettings->enabled = false;
 		return;
@@ -220,13 +243,13 @@ void PresentationCommon::GetCardboardSettings(const DisplayLayoutConfig &config,
 
 	// Calculate Cardboard Settings
 	float cardboardScreenScale = config.iCardboardScreenSize / 100.0f;
-	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-	float cardboardScreenHeight = pixelHeight_ * cardboardScreenScale;
-	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
+	float cardboardScreenWidth = output.pixelWidth / 2.0f * cardboardScreenScale;
+	float cardboardScreenHeight = output.pixelHeight * cardboardScreenScale;
+	float cardboardMaxXShift = (output.pixelWidth / 2.0f - cardboardScreenWidth) / 2.0f;
 	float cardboardUserXShift = config.iCardboardXShift / 100.0f * cardboardMaxXShift;
 	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
+	float cardboardRightEyeX = output.pixelWidth / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+	float cardboardMaxYShift = output.pixelHeight / 2.0f - cardboardScreenHeight / 2.0f;
 	float cardboardUserYShift = config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
@@ -337,8 +360,9 @@ bool PresentationCommon::UpdatePostShader(const DisplayLayoutConfig &config) {
 	}
 
 	if (usePreviousFrame) {
-		int w = usePreviousAtOutputResolution ? pixelWidth_ : renderWidth_;
-		int h = usePreviousAtOutputResolution ? pixelHeight_ : renderHeight_;
+		const OutputParams output = GetOutput();
+		int w = usePreviousAtOutputResolution ? output.pixelWidth : renderWidth_;
+		int h = usePreviousAtOutputResolution ? output.pixelHeight : renderHeight_;
 
 		_dbg_assert_(w > 0 && h > 0);
 
@@ -432,9 +456,10 @@ bool PresentationCommon::BuildPostShader(const DisplayLayoutConfig &config, cons
 			nextHeight *= next->SSAAFilterLevel;
 		} else if (shaderInfo->outputResolution) {
 			// If the current shader uses output res (not next), we will use output res for it.
+			const OutputParams output = GetOutput();
 			FRect rc;
-			FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth_, (float)pixelHeight_);
-			CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation);
+			FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, output);
+			CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation, output.orientation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
 		}
@@ -716,18 +741,19 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
 
-	int pixelWidth = pixelWidth_;
-	int pixelHeight = pixelHeight_;
+	const OutputParams output = GetOutput();
+	int pixelWidth = output.pixelWidth;
+	int pixelHeight = output.pixelHeight;
 
 	// These are the output coordinates.
-	FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth, (float)pixelHeight);
+	FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, output);
 	// Note: In cardboard mode, we halve the width here to compensate
 	// for splitting the window in half, while still reusing normal centering.
 	if (config.bEnableCardboardVR) {
 		frame.w /= 2.0;
 		pixelWidth /= 2;
 	}
-	CalculateDisplayOutputRect(config, &rc_, 480.0f, 272.0f, frame, uvRotation);
+	CalculateDisplayOutputRect(config, &rc_, 480.0f, 272.0f, frame, uvRotation, output.orientation);
 	if (flags & OutputFlags::NATIVE_SIZE) {
 		// Top-left, or bottom-left in a flipped (OpenGL) backbuffer.
 		rc_.w = (u1 - u0) * srcWidth_;
@@ -806,12 +832,12 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	}
 
 	if (isFinalAtOutputResolution || useStereo) {
-		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
-		if (g_display.rotation != DisplayRotation::ROTATE_0) {
+		// In this mode, we ignore the output's rotation matrix. Apply manually.
+		if (output.rotation != DisplayRotation::ROTATE_0) {
 			for (int i = 0; i < 4; i++) {
 				Lin::Vec3 v(verts[i].x, verts[i].y, verts[i].z);
 				// Backwards notation, should fix that...
-				v = v * g_display.rot_matrix;
+				v = v * output.rotMatrix;
 				verts[i].x = v.x;
 				verts[i].y = v.y;
 			}
@@ -964,7 +990,7 @@ bool PresentationCommon::PrepareOverlayTexture(const OverlayLayout &layout) {
 	return true;
 }
 
-void PresentationCommon::DrawOverlay(const OverlayLayout &layout) {
+void PresentationCommon::DrawOverlay(const OverlayLayout &layout, const OutputParams &output) {
 	const float x0 = layout.overlayX, y0 = layout.overlayY;
 	const float x1 = x0 + layout.overlayW, y1 = y0 + layout.overlayH;
 	Vertex verts[4] = {
@@ -975,8 +1001,8 @@ void PresentationCommon::DrawOverlay(const OverlayLayout &layout) {
 	};
 	// Same transform as the game quad, see RunPostshaderPasses.
 	const bool flipped = draw_->GetDeviceCaps().coordConvention == CoordConvention::OpenGL;
-	const float invDestW = 2.0f / pixelWidth_;
-	const float invDestH = 2.0f / pixelHeight_;
+	const float invDestW = 2.0f / output.pixelWidth;
+	const float invDestH = 2.0f / output.pixelHeight;
 	for (auto &v : verts) {
 		v.x = v.x * invDestW - 1.0f;
 		v.y = v.y * invDestH - 1.0f;
@@ -987,15 +1013,15 @@ void PresentationCommon::DrawOverlay(const OverlayLayout &layout) {
 
 	draw_->BindPipeline(texColorBlend_);
 	Draw::VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, g_display.rot_matrix.m, sizeof(float) * 16);
+	memcpy(ub.WorldViewProj, output.rotMatrix.m, sizeof(float) * 16);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	draw_->BindTexture(0, overlayTexture_);
 	draw_->BindSamplerStates(0, 1, &samplerLinear_);
 	draw_->BindVertexBuffer(overlayVdata_, 0);
 
-	Draw::Viewport viewport{ 0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_, 0.0f, 1.0f };
+	Draw::Viewport viewport{ 0.0f, 0.0f, (float)output.pixelWidth, (float)output.pixelHeight, 0.0f, 1.0f };
 	draw_->SetViewport(viewport);
-	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+	draw_->SetScissorRect(0, 0, output.pixelWidth, output.pixelHeight);
 	draw_->Draw(4, 0);
 }
 
@@ -1008,19 +1034,20 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
 
-	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+	const OutputParams output = GetOutput();
+	draw_->SetScissorRect(0, 0, output.pixelWidth, output.pixelHeight);
 
 	OverlayLayout overlay;
 	bool drawOverlay = false;
 	if (!(outputFlags_ & OutputFlags::NATIVE_SIZE)) {
-		const FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth_, (float)pixelHeight_);
+		const FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, output);
 		drawOverlay = GetOverlayLayout(config, frame.x, frame.y, frame.w, frame.h, &overlay) && PrepareOverlayTexture(overlay);
 	}
 
 	if (!srcFramebuffer_ && !srcTexture_) {
 		// Bound blank. Keep the overlay up though, so it doesn't flicker during loading and such.
 		if (drawOverlay) {
-			DrawOverlay(overlay);
+			DrawOverlay(overlay, output);
 			draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 		}
 		presentedThisFrame_ = true;
@@ -1028,7 +1055,7 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	}
 
 	if (drawOverlay && overlay.layer == OverlayLayer::Background) {
-		DrawOverlay(overlay);
+		DrawOverlay(overlay, output);
 	}
 
 	Draw::Pipeline *pipeline = (outputFlags_ & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_;
@@ -1065,7 +1092,7 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 		previousUniforms_ = uniforms;
 	} else {
 		Draw::VsTexColUB ub{};
-		memcpy(ub.WorldViewProj, g_display.rot_matrix.m, sizeof(float) * 16);
+		memcpy(ub.WorldViewProj, output.rotMatrix.m, sizeof(float) * 16);
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	}
 
@@ -1081,7 +1108,7 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	};
 
 	CardboardSettings cardboardSettings;
-	GetCardboardSettings(config, &cardboardSettings);
+	GetCardboardSettings(config, output, &cardboardSettings);
 	if (cardboardSettings.enabled) {
 		// TODO: This could actually support stereo now, with an appropriate shader.
 
@@ -1093,12 +1120,12 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 		setViewport(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 		draw_->Draw(4, 0);
 	} else {
-		setViewport(0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_);
+		setViewport(0.0f, 0.0f, (float)output.pixelWidth, (float)output.pixelHeight);
 		draw_->Draw(4, 0);
 	}
 
 	if (drawOverlay && overlay.layer == OverlayLayer::Foreground) {
-		DrawOverlay(overlay);
+		DrawOverlay(overlay, output);
 	}
 
 	DoRelease(srcFramebuffer_);

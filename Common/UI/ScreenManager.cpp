@@ -2,6 +2,8 @@
 #include "Common/System/System.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/UI/ScreenManager.h"
+#include "Common/UI/Context.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ScrollView.h"
@@ -177,12 +179,78 @@ void ScreenManager::switchToNext() {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
+	for (Output &output : outputs_) {
+		if (output.display.swapchain) {
+			draw_->DestroySwapchain(output.display.swapchain);
+			output.display.swapchain = nullptr;
+		}
+	}
+	// Outputs added before the device is restored get their swapchains then.
+	deviceLost_ = true;
 }
 
 void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 	draw_ = draw;
+	deviceLost_ = false;
 	for (auto &iter : stack_)
 		iter.screen->deviceRestored(draw);
+	for (Output &output : outputs_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(output.desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to recreate the swapchain for output %d: %s", output.display.id, error.c_str());
+		}
+	}
+}
+
+void ScreenManager::AddOutput(int id, OutputRole role, const Draw::SwapchainDesc &desc) {
+	Output output{};
+	output.display.id = id;
+	output.display.role = role;
+	output.desc = desc;
+	if (draw_ && !deviceLost_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to create the swapchain for output %d: %s", id, error.c_str());
+		}
+	}
+	INFO_LOG(Log::G3D, "Added output %d (%dx%d)", id, desc.width, desc.height);
+	outputs_.push_back(output);
+}
+
+void ScreenManager::ResizeOutput(int id, int width, int height) {
+	for (Output &output : outputs_) {
+		if (output.display.id == id) {
+			output.desc.width = width;
+			output.desc.height = height;
+			if (output.display.swapchain) {
+				draw_->ResizeSwapchain(output.display.swapchain, width, height);
+			}
+		}
+	}
+}
+
+void ScreenManager::RemoveOutput(int id) {
+	for (auto iter = outputs_.begin(); iter != outputs_.end(); ++iter) {
+		if (iter->display.id == id) {
+			if (iter->display.swapchain) {
+				draw_->DestroySwapchain(iter->display.swapchain);
+			}
+			outputs_.erase(iter);
+			INFO_LOG(Log::G3D, "Removed output %d", id);
+			return;
+		}
+	}
+}
+
+const OutputDisplay *ScreenManager::FindOutput(OutputRole role) const {
+	for (const Output &output : outputs_) {
+		if (output.display.role == role && output.display.swapchain) {
+			return &output.display;
+		}
+	}
+	return nullptr;
 }
 
 void ScreenManager::resized() {
@@ -212,8 +280,44 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 
 	afterPreRender();
 
-	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.
-	draw_->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+	// Secondary outputs. The topmost screen with something for one draws it, then the background screen.
+	UIContext *ui = getUIContext();
+	for (const Output &output : outputs_) {
+		Draw::Swapchain *swapchain = output.display.swapchain;
+		if (!swapchain) {
+			continue;
+		}
+		draw_->BindFramebufferAsRenderTarget(swapchain, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "Output");
+		int w, h;
+		draw_->GetFramebufferDimensions(swapchain, &w, &h);
+		// Only with a render target bound, since it sets the scissor. That's to the primary's size, so ours goes after.
+		ui->BeginFrame();
+		draw_->SetViewport(Draw::Viewport{0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f});
+		draw_->SetScissorRect(0, 0, w, h);
+
+		// UI drawn there gets the primary's DPI scale, over the whole output.
+		const float dpWidth = w * g_display.dpi_scale_x;
+		const float dpHeight = h * g_display.dpi_scale_y;
+		const Bounds primaryBounds = ui->GetBounds();
+		ui->SetBounds(Bounds(0, 0, dpWidth, dpHeight));
+		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention));
+		bool drawn = false;
+		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
+			if (iter->screen->renderOutput(output.display)) {
+				drawn = true;
+				break;
+			}
+		}
+		if (!drawn && backgroundScreen_) {
+			backgroundScreen_->renderOutput(output.display);
+		}
+		ui->Flush();
+		ui->Draw()->PopDrawMatrix();
+		ui->SetBounds(primaryBounds);
+	}
+
+	// Now, start the final render pass. This is now the ONLY place where binding the backbuffer is allowed.
+	draw_->BindFramebufferAsRenderTarget(draw_->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 	getUIContext()->BeginFrame();
 
 	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};

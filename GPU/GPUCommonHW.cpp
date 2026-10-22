@@ -521,6 +521,10 @@ bool GPUCommonHW::PresentedThisFrame() const {
 	return framebufferManager_->PresentedThisFrame();
 }
 
+void GPUCommonHW::SetPresentationOutput(const OutputParams *output) {
+	framebufferManager_->SetPresentationOutput(output);
+}
+
 void GPUCommonHW::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

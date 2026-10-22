@@ -45,6 +45,7 @@ struct CommandLineOptions {
 	std::optional<std::string> startScreen;
 
 	std::optional<bool> escapeExit;
+	std::optional<bool> gameWindow;
 	// Run as if no memory stick were inserted.
 	std::optional<bool> memStickInserted;
 	// Quit the app instead of going to the main menu when the game ends, for external launchers.

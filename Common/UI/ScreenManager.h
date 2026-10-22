@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Common/Common.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/System.h"
 #include "Common/UI/Screen.h"
@@ -93,6 +94,14 @@ public:
 		return topIsTopLevel_;
 	}
 
+	// Secondary outputs. Call these on the render thread, between frames. The swapchains are recreated
+	// after a lost device, so the surface in desc has to stay valid until RemoveOutput.
+	void AddOutput(int id, OutputRole role, const Draw::SwapchainDesc &desc);
+	void ResizeOutput(int id, int width, int height);
+	void RemoveOutput(int id);
+	// nullptr if there's no output with the role, or it has no swapchain right now.
+	const OutputDisplay *FindOutput(OutputRole role) const;
+
 private:
 	void pop();
 	void switchToNext();
@@ -124,6 +133,13 @@ private:
 	std::vector<Layer> nextStack_;
 
 	std::unordered_map<int64_t, int> lastAxis_;
+
+	struct Output {
+		OutputDisplay display;
+		Draw::SwapchainDesc desc;
+	};
+	std::vector<Output> outputs_;
+	bool deviceLost_ = false;
 
 	std::atomic<InputMode> passInputToMapper_{InputMode::None};
 	std::atomic<bool> topIsTopLevel_{false};
