@@ -102,11 +102,20 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 		fieldViews_[i] = nullptr;
 	}
 
-	// Big keys, so they're easy to hit with a thumb.
-	GridLayoutSettings settings(80, 52, 4);
-	settings.fillCells = true;
-	auto addKeys = [&](ViewGroup *grid, const std::vector<const char *> &keys) {
-		for (const char *key : keys) {
+	// Big keys, so they're easy to hit with a thumb. Always four to a row, whatever the width of
+	// the window, so the pad looks the same everywhere. An empty key is a gap.
+	auto addRows = [&](ViewGroup *container, const std::vector<const char *> &keys) {
+		LinearLayout *row = nullptr;
+		for (size_t i = 0; i < keys.size(); i++) {
+			if (i % 4 == 0) {
+				row = container->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+				row->SetSpacing(4.0f);
+			}
+			const char *key = keys[i];
+			if (!key[0]) {
+				row->Add(new Spacer(new LinearLayoutParams(0, WRAP_CONTENT, 1.0f)));
+				continue;
+			}
 			std::string_view label = key;
 			if (!strcmp(key, "...")) {
 				label = cw->T("Keyboard");
@@ -115,7 +124,7 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 			} else if (!strcmp(key, "Clr")) {
 				label = cw->T("Clear");
 			}
-			Choice *c = grid->Add(new Choice(label));
+			Choice *c = row->Add(new Choice(label, new LinearLayoutParams(0, WRAP_CONTENT, 1.0f)));
 			c->SetCentered(true);
 			c->OnClick.Add([this, key](EventParams &) {
 				Key(key);
@@ -128,16 +137,22 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 		}
 	};
 
-	GridLayout *grid = parent->Add(new GridLayoutList(settings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4, 0, 0))));
-	addKeys(grid, {
+	LinearLayout *pad = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4, 0, 0))));
+	pad->SetSpacing(4.0f);
+	addRows(pad, {
 		"7", "8", "9", "Del",
 		"4", "5", "6", "-",
 		"1", "2", "3", ".",
 		"0", "Hex", "Clr", "...",
 	});
 	// Only shown in hex mode.
-	hexKeys_ = parent->Add(new GridLayoutList(settings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 4))));
-	addKeys(hexKeys_, { "A", "B", "C", "D", "E", "F" });
+	LinearLayout *hexKeys = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4, 0, 4))));
+	hexKeys->SetSpacing(4.0f);
+	addRows(hexKeys, {
+		"A", "B", "C", "D",
+		"E", "F", "", "",
+	});
+	hexKeys_ = hexKeys;
 
 	UpdateViews();
 }
@@ -345,8 +360,8 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 
 	u32 start, size;
 	MemoryScanner::GetPSPScanRange(&start, &size);
-	TextView *range = parent->Add(new TextView(StringFromFormat("%s: 0x%08X - 0x%08X (%u MB)", cw->T_cstr("User memory"), start, start + size, size >> 20)));
-	range->SetSmall(true);
+	// Wrapped, with some room at the sides: the range didn't fit the column in one line.
+	parent->Add(new TextView(StringFromFormat("%s: 0x%08X - 0x%08X (%u MB)", cw->T_cstr("User memory"), start, start + size, size >> 20), FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 12, 4))));
 
 	if (!searching) {
 		parent->Add(new ItemHeader(cw->T("Value type")));
