@@ -77,6 +77,7 @@ protected:
 
 	std::string_view GetTitle() const override;
 private:
+	void StartListingDownload();
 	void ParseListing(const std::string &json);
 	ProductItemView *GetSelectedItem();
 
