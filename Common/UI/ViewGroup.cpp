@@ -164,6 +164,7 @@ bool ViewGroup::ReplaceSubview(View *view, View *newView) {
 	for (int i = 0; i < (int)views_.size(); i++) {
 		if (views_[i] == view) {
 			views_[i] = newView;
+			SetParentOf(newView);
 			delete view;
 			return true;
 		}
@@ -1042,8 +1043,7 @@ CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *lay
 	open_ = &localOpen_;
 	SetSpacing(0.0f);
 
-	header_ = new CollapsibleHeader(open_, title);
-	views_.push_back(header_);
+	header_ = Add(new CollapsibleHeader(open_, title));
 	header_->OnClick.Add([=](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.

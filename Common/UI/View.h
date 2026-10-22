@@ -471,6 +471,9 @@ public:
 	const std::string &Tag() const { return tag_; }
 	void SetTag(std::string_view str) { tag_ = str; }
 
+	// The group this view was added to, if any.
+	ViewGroup *Parent() const { return parent_; }
+
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
 	virtual bool ContainsSubview(const View *view) const { return false; }
@@ -518,6 +521,9 @@ protected:
 	DialogResult autoResult_ = DR_OK;
 
 private:
+	friend class ViewGroup;  // Sets parent_.
+	ViewGroup *parent_ = nullptr;
+
 	std::function<bool()> enabledFunc_;
 	bool *enabledPtr_ = nullptr;
 	bool enabled_ = true;
