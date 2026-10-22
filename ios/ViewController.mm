@@ -338,6 +338,10 @@ static int GetPickerRequestId(id picker) {
 	[self requestExitVulkanRenderLoop];
 
 #if !PPSSPP_PLATFORM(TVOS)
+	g_touchTracker.CancelAll();
+#endif
+
+#if !PPSSPP_PLATFORM(TVOS)
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");

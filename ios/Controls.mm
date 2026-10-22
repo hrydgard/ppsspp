@@ -381,6 +381,18 @@ void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
 	}
 }
 
+void TouchTracker::CancelAll() {
+	for (int touchId = 0; touchId < (int)ARRAY_SIZE(touches_); ++touchId) {
+		if (touches_[touchId]) {
+			TouchInput input{};
+			input.flags = TouchInputFlags::UP | TouchInputFlags::CANCEL;
+			input.id = touchId;
+			NativeTouch(input);
+			touches_[touchId] = nullptr;
+		}
+	}
+}
+
 #if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData) {
 	CMAcceleration acc = accData.acceleration;

@@ -26,6 +26,8 @@ public:
 	void Moved(NSSet *touches, UIView *view);
 	void Ended(NSSet *touches, UIView *view);
 	void Cancelled(NSSet *touches, UIView *view);
+	// Lifts every touch still down. UIKit doesn't always end the touches that pull down Control Center.
+	void CancelAll();
 private:
 	void SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId);
 	int ToTouchID(UITouch *uiTouch, bool allowAllocate);
