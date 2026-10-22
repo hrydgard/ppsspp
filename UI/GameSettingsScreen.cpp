@@ -1001,7 +1001,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 }
 
 // The nickname is shown on both the Networking and System tabs.
-void GameSettingsScreen::AddNicknameChoice(UI::ViewGroup *parent) {
+UI::View *GameSettingsScreen::AddNicknameChoice(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
@@ -1019,6 +1019,7 @@ void GameSettingsScreen::AddNicknameChoice(UI::ViewGroup *parent) {
 		// Updates the warning icon, and the username notice on the Networking tab.
 		RecreateViews();
 	});
+	return nickname;
 }
 
 void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSettings) {
@@ -1084,21 +1085,20 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	relayModePopup->SetEnabled(!PSP_IsInited());
 	networkingSettings->Add(new SettingHint(n->T("PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower."), relayModePopup));
 
-	AddNicknameChoice(networkingSettings);
-	networkingSettings->Add(new SettingHint(n->T("Try to pick a unique nickname for ad hoc play"), nullptr));
+	View *nicknameChoice = AddNicknameChoice(networkingSettings);
+	networkingSettings->Add(new SettingHint(n->T("Try to pick a unique nickname for ad hoc play"), nicknameChoice));
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")))->OnClick.Add(requestLocalNetwork);
 
 	CheckBox *relay_mode_enet = networkingSettings->Add(new CheckBox(&g_Config.bAdhocUseUdp, n->T("Connect to adhoc server using UDP (ENet) instead of TCP")));
 	relay_mode_enet->SetEnabled(!PSP_IsInited());
-	networkingSettings->Add(new SettingHint(n->T("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP."), nullptr));
+	networkingSettings->Add(new SettingHint(n->T("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP."), relay_mode_enet));
 
 	CheckBox *relay_mode_enet_pdp_reliable = networkingSettings->Add(new CheckBox(&g_Config.bAdhocRelayModeEnetPdpReliable, n->T("Reliable datagram packet delivery on packet relay in UDP mode")));
 	relay_mode_enet_pdp_reliable->SetEnabledFunc([] {
 		return !PSP_IsInited() && g_Config.bAdhocUseUdp;
 	});
-	networkingSettings->Add(new SettingHint(n->T("When disabled, packet loss on datagram adhoc sockets will be exposed to game's netcode. Keep this enabled if you don't know what that means."), nullptr));
-
+	networkingSettings->Add(new SettingHint(n->T("When disabled, packet loss on datagram adhoc sockets will be exposed to game's netcode. Keep this enabled if you don't know what that means."), relay_mode_enet_pdp_reliable));
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
@@ -1482,7 +1482,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iLanguage, psps->T("Game language"), defaultLanguages, -1, ARRAY_SIZE(defaultLanguages), I18NCat::PSPSETTINGS, screenManager()));
 	static const char *models[] = { "PSP-1000", "PSP-2000/3000" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), I18NCat::SYSTEM, screenManager()))->SetEnabled(!PSP_IsInited());
-	AddNicknameChoice(systemSettings);
+	UI::View *nicknameChoice = AddNicknameChoice(systemSettings);
 	systemSettings->Add(new CheckBox(&g_Config.bDayLightSavings, sy->T("Daylight savings")));
 	static const char *dateFormat[] = { "YYYYMMDD", "MMDDYYYY", "DDMMYYYY" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iDateFormat, sy->T("Date Format"), dateFormat, 0, ARRAY_SIZE(dateFormat), I18NCat::SYSTEM, screenManager()));
