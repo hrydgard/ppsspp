@@ -282,9 +282,6 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 
 	// Secondary outputs. The topmost screen with something for one draws it, then the background screen.
 	UIContext *ui = getUIContext();
-	if (!outputs_.empty()) {
-		ui->BeginFrame();
-	}
 	for (const Output &output : outputs_) {
 		Draw::Swapchain *swapchain = output.display.swapchain;
 		if (!swapchain) {
@@ -293,6 +290,8 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		draw_->BindFramebufferAsRenderTarget(swapchain, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "Output");
 		int w, h;
 		draw_->GetFramebufferDimensions(swapchain, &w, &h);
+		// Only with a render target bound, since it sets the scissor. That's to the primary's size, so ours goes after.
+		ui->BeginFrame();
 		draw_->SetViewport(Draw::Viewport{0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f});
 		draw_->SetScissorRect(0, 0, w, h);
 
