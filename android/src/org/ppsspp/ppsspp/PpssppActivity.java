@@ -32,6 +32,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -136,6 +138,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		@Override
 		public void onDisplayChanged(int displayId) {
+			// The device's own screen changes all the time (refresh rate).
+			if (displayId != Display.DEFAULT_DISPLAY) {
+				updateExternalDisplay();
+			}
 		}
 	};
 
@@ -981,7 +987,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				}
 			}
 		}
-		if (externalDisplayPresentation != null && (display == null || externalDisplayPresentation.getDisplay().getDisplayId() != display.getDisplayId())) {
+		if (externalDisplayPresentation != null && (display == null || !externalDisplayPresentation.isShowing() || externalDisplayPresentation.getDisplay().getDisplayId() != display.getDisplayId())) {
 			dismissExternalDisplay();
 		}
 		if (externalDisplayPresentation != null || display == null) {
@@ -989,6 +995,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		Log.i(TAG, "Showing the game on display " + display.getDisplayId() + " (" + display.getName() + ")");
 		ExternalDisplayPresentation presentation = new ExternalDisplayPresentation(this, display);
+		presentation.setOnDismissListener(dialog -> {
+			// Dismissed by the system, which some display changes (like a mode switch) do. Show it again if it should be.
+			if (externalDisplayPresentation == presentation) {
+				externalDisplayPresentation = null;
+				new Handler(Looper.getMainLooper()).post(this::updateExternalDisplay);
+			}
+		});
 		try {
 			presentation.show();
 			externalDisplayPresentation = presentation;
@@ -1008,9 +1021,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	private void dismissExternalDisplay() {
-		if (externalDisplayPresentation != null) {
-			externalDisplayPresentation.dismiss();
-			externalDisplayPresentation = null;
+		// Cleared first, so its dismiss listener knows it was us.
+		ExternalDisplayPresentation presentation = externalDisplayPresentation;
+		externalDisplayPresentation = null;
+		if (presentation != null) {
+			presentation.dismiss();
 		}
 	}
 
