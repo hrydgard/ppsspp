@@ -240,6 +240,11 @@ bool TestInetPton() {
 	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3", ip4), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3.4.5", ip4), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET, "256.1.1.1", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1..2.3", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, ".1.2.3", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3.", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET, "", ip4), 0);
+	EXPECT_EQ_INT(net::inet_pton(-1, "1.2.3.4", ip4), -1);
 
 	// Bytes in network order.
 	uint8_t ip6[16];
@@ -257,12 +262,28 @@ bool TestInetPton() {
 	EXPECT_TRUE(ip6[1] == 1 && ip6[15] == 8);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::2:3:4:5:6:7:8", ip6), 1);
 	EXPECT_TRUE(ip6[0] == 0 && ip6[1] == 0 && ip6[3] == 2 && ip6[15] == 8);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7::", ip6), 1);
+	EXPECT_TRUE(ip6[13] == 7 && ip6[14] == 0 && ip6[15] == 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3::4:5:6:7", ip6), 1);
+	EXPECT_TRUE(ip6[5] == 3 && ip6[6] == 0 && ip6[7] == 0 && ip6[9] == 4 && ip6[15] == 7);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "FFFF::abcd", ip6), 1);
+	EXPECT_TRUE(ip6[0] == 0xFF && ip6[1] == 0xFF && ip6[14] == 0xAB && ip6[15] == 0xCD);
 
 	// These used to write outside the 16 bytes.
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1::2::3", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, ":::::::::", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7:8::", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7:8:9", ip6), 0);
+
+	// Other malformed ones.
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1::2:3:4:5:6:7:8", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, ":::", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, ":1::", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "12345::", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::ffff:1.2.3.4", ip6), 0);
+	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "", ip6), 0);
 	return true;
 }
 

@@ -398,89 +398,123 @@ bool GetLocalIP4List(std::vector<std::string> &IP4s) {
 	return false;
 }
 
-// IP address parser
-int inet_pton(int af, const char* src, void* dst)
-{
-	if (af == AF_INET)
-	{
-		unsigned char *ip = (unsigned char *)dst;
-		int k = 0, x = 0;
-		char ch;
-		for (int i = 0; (ch = src[i]) != 0; i++)
-		{
-			if (ch == '.')
-			{
-				ip[k++] = x;
-				if (k == 4)
-					return 0;
-				x = 0;
-			}
-			else if (ch < '0' || ch > '9')
-				return 0;
-			else
-				x = x * 10 + ch - '0';
-			if (x > 255)
-				return 0;
-		}
-		ip[k++] = x;
-		if (k != 4)
-			return 0;
+static int HexDigitValue(char c) {
+	if (c >= '0' && c <= '9') {
+		return c - '0';
+	} else if (c >= 'a' && c <= 'f') {
+		return c - 'a' + 10;
+	} else if (c >= 'A' && c <= 'F') {
+		return c - 'A' + 10;
 	}
-	else if (af == AF_INET6)
-	{
-		unsigned short* ip = ( unsigned short* )dst;
-		int i;
-		for (i = 0; i < 8; i++) ip[i] = 0;
+	return -1;
+}
+
+// IP address parser. Like the POSIX one, returns 1 on success, 0 for a malformed address and -1
+// for an unsupported family. IPv6 with an embedded IPv4 address ("::ffff:1.2.3.4") isn't supported.
+int inet_pton(int af, const char* src, void* dst) {
+	if (af == AF_INET) {
+		uint8_t ip[4];
 		int k = 0;
-		unsigned int x = 0;
-		char ch;
-		int marknum = 0;
-		bool sawDoubleColon = false;
-		for (i = 0; src[i] != 0; i++)
-		{
-			if (src[i] == ':')
-				marknum++;
-		}
-		// Eight groups have at most seven colons, eight with a leading or trailing "::".
-		if (marknum > 8)
-			return 0;
-		for (i = 0; (ch = src[i]) != 0; i++)
-		{
-			if (ch == ':')
-			{
-				// "::" below can skip k ahead, so check before every write.
-				if (k >= 8)
+		int x = 0;
+		int digits = 0;
+		for (const char *p = src; *p; p++) {
+			if (*p == '.') {
+				if (digits == 0 || k == 3) {
 					return 0;
-				x = ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
-				ip[k++] = x;
-				if (k == 8)
-					return 0;
-				x = 0;
-				if (i > 0 && src[i - 1] == ':') {
-					// Only one "::" is allowed. With marknum <= 8 the skip keeps k in range.
-					if (sawDoubleColon)
-						return 0;
-					sawDoubleColon = true;
-					k += 7 - marknum;
 				}
+				ip[k++] = x;
+				x = 0;
+				digits = 0;
+			} else if (*p >= '0' && *p <= '9') {
+				x = x * 10 + (*p - '0');
+				digits++;
+				if (x > 255) {
+					return 0;
+				}
+			} else {
+				return 0;
 			}
-			else if (ch >= '0' && ch <= '9')
-				x = x * 16 + ch - '0';
-			else if (ch >= 'a' && ch <= 'f')
-				x = x * 16 + ch - 'a' + 10;
-			else if (ch >= 'A' && ch <= 'F')
-				x = x * 16 + ch - 'A' + 10;
-			else
-				return 0;
-			if (x > 0xFFFF)
-				return 0;
 		}
-		if (k != 7)
+		if (digits == 0 || k != 3) {
 			return 0;
-		x = ((x & 0xFF00) >> 8) | ((x & 0x00FF) << 8);
-		ip[k++] = x;
+		}
+		ip[k] = x;
+		memcpy(dst, ip, sizeof(ip));
+		return 1;
 	}
-	return 1;
+
+	if (af == AF_INET6) {
+		// The groups before and after "::", which stands for one or more zero groups.
+		uint16_t head[8];
+		uint16_t tail[8];
+		int headCount = 0;
+		int tailCount = 0;
+		bool sawDoubleColon = false;
+		const char *p = src;
+		if (p[0] == ':') {
+			if (p[1] != ':') {
+				return 0;
+			}
+			sawDoubleColon = true;
+			p += 2;
+		}
+		while (*p) {
+			unsigned int x = 0;
+			int digits = 0;
+			int value;
+			while ((value = HexDigitValue(*p)) >= 0) {
+				if (++digits > 4) {
+					return 0;
+				}
+				x = x * 16 + value;
+				p++;
+			}
+			if (digits == 0 || headCount + tailCount == 8) {
+				return 0;
+			}
+			if (sawDoubleColon) {
+				tail[tailCount++] = (uint16_t)x;
+			} else {
+				head[headCount++] = (uint16_t)x;
+			}
+			if (*p == 0) {
+				break;
+			}
+			if (*p != ':') {
+				return 0;
+			}
+			p++;
+			if (*p == ':') {
+				if (sawDoubleColon) {
+					return 0;
+				}
+				sawDoubleColon = true;
+				p++;
+			} else if (*p == 0) {
+				// A single trailing colon.
+				return 0;
+			}
+		}
+		const int groups = headCount + tailCount;
+		if (sawDoubleColon ? groups > 7 : groups != 8) {
+			return 0;
+		}
+		// Network byte order.
+		uint8_t ip[16]{};
+		for (int i = 0; i < headCount; i++) {
+			ip[i * 2] = head[i] >> 8;
+			ip[i * 2 + 1] = head[i] & 0xFF;
+		}
+		for (int i = 0; i < tailCount; i++) {
+			const int group = 8 - tailCount + i;
+			ip[group * 2] = tail[i] >> 8;
+			ip[group * 2 + 1] = tail[i] & 0xFF;
+		}
+		memcpy(dst, ip, sizeof(ip));
+		return 1;
+	}
+
+	return -1;
 }
 
 // Structs for implementing DNS are available here:
@@ -536,6 +570,11 @@ static bool encode_domain_name(const char *domain, unsigned char *encoded, size_
 		}
 
 		size_t label_len = pos - start;
+		if (label_len == 0) {
+			// A leading or doubled dot. Its zero length byte would end the name early, and we'd look
+			// up something else. (A trailing dot never gets here.)
+			return false;
+		}
 		if (label_len > 63 || ptr + label_len + 1 >= end) {
 			return false;  // Label too long or buffer overflow
 		}
