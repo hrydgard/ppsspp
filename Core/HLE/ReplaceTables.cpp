@@ -1856,6 +1856,77 @@ static int Hook_bejeweled2_draw_dirty_stuff(MIPSState *mips) {
 	return 0;
 }
 
+// Zuma keeps the PC version's XInput-style gamepad code. It scales each stick axis to +-32640 and
+// gives each its own dead zone, so the stick's angle bends towards the nearest axis, and an axis
+// inside the dead zone reads exactly 0 (at half deflection, 15 degrees off horizontal is
+// horizontal). Here, after the floats are stored, the left stick gets a circular dead zone of the
+// same size instead.
+static int Hook_zuma_pad_analog(MIPSState *mips) {
+	const u32 func = mips->pc - 0x234;
+	// The hash masks immediates, so check the fields are where we expect.
+	if (Memory::Read_Instruction(func + 0x198).encoding != 0x8FC40070 ||  // lw a0, 0x70(fp) - left stick x
+		Memory::Read_Instruction(func + 0x1A0).encoding != 0x8FC50078 ||  // lw a1, 0x78(fp) - left stick y
+		Memory::Read_Instruction(func + 0x1F4).encoding != 0xE6E00000 ||  // swc1 f0, 0x0(s7)
+		Memory::Read_Instruction(func + 0x208).encoding != 0xE6E00004) {  // swc1 f0, 0x4(s7)
+		return 0;
+	}
+	const u32 axes = mips->r[MIPS_REG_FP];
+	const u32 floats = mips->r[MIPS_REG_S7];
+	const u32 pad = mips->r[MIPS_REG_S0];
+	if (!Memory::IsValidRange(axes + 0x70, 0xC) || !Memory::IsValidRange(floats, 8) || !Memory::IsValidRange(pad + 0x514, 4)) {
+		return 0;
+	}
+
+	// The same scaling the game applies before its dead zone, except that it reads each axis as 127
+	// minus the PSP's value, so a stick at rest (128) is -1, which the old dead zone hid.
+	const float x = -255.0f * (float)((s32)Memory::ReadUnchecked_U32(axes + 0x70) + 1);
+	const float y = 255.0f * (float)((s32)Memory::ReadUnchecked_U32(axes + 0x78) + 1);
+	const float deadZone = (float)(s32)Memory::ReadUnchecked_U32(pad + 0x514);
+	const float length = sqrtf(x * x + y * y);
+	float fx = 0.0f;
+	float fy = 0.0f;
+	if (length > deadZone && deadZone >= 0.0f && deadZone < 32767.0f) {
+		const float scale = (std::min(length, 32767.0f) - deadZone) / (32767.0f - deadZone) / length;
+		fx = x * scale;
+		fy = y * scale;
+	}
+	Memory::WriteUnchecked_Float(fx, floats);
+	Memory::WriteUnchecked_Float(fy, floats + 4);
+	return 0;
+}
+
+// Zuma aims the frog at a cursor it puts 450 pixels out along the stick, but only moves each
+// coordinate of the cursor when that axis is non-zero. With the stick straight up, say, the cursor
+// keeps whatever x it had, and the frog points there instead. Hooked where the two updates meet:
+// a coordinate that wasn't moved goes to the frog's own.
+static int Hook_zuma_aim_cursor(MIPSState *mips) {
+	const u32 func = mips->pc - 0x210;
+	if (Memory::Read_Instruction(func + 0x1A0).encoding != 0xAFA50034 ||  // sw a1, 0x34(sp) - frog x
+		Memory::Read_Instruction(func + 0x1A4).encoding != 0xAFA40038 ||  // sw a0, 0x38(sp) - frog y
+		Memory::Read_Instruction(func + 0x1B4).encoding != 0xC7AC0010 ||  // lwc1 f12, 0x10(sp) - x offset
+		Memory::Read_Instruction(func + 0x1D0).encoding != 0xAC850208 ||  // sw a1, 0x208(a0) - cursor x
+		Memory::Read_Instruction(func + 0x1F0).encoding != 0xC7AC0014 ||  // lwc1 f12, 0x14(sp) - y offset
+		Memory::Read_Instruction(func + 0x20C).encoding != 0xAC85020C) {  // sw a1, 0x20C(a0) - cursor y
+		return 0;
+	}
+	const u32 sp = mips->r[MIPS_REG_SP];
+	if (!Memory::IsValidRange(sp, 0x3C)) {
+		return 0;
+	}
+	const u32 aim = Memory::ReadUnchecked_U32(sp);
+	const float dx = Memory::ReadUnchecked_Float(sp + 0x10);
+	const float dy = Memory::ReadUnchecked_Float(sp + 0x14);
+	if ((dx == 0.0f) == (dy == 0.0f) || !Memory::IsValidRange(aim + 0x208, 8)) {
+		return 0;
+	}
+	if (dx == 0.0f) {
+		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(sp + 0x34), aim + 0x208);
+	} else {
+		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(sp + 0x38), aim + 0x20C);
+	}
+	return 0;
+}
+
 // GTA: Vice City Stories (#13200). A vehicle that moves less than 0.005 a frame with its gas pedal up gets
 // stopped dead, so that parked vehicles don't drift. Planes never set the pedal (the Bovver '64 hovercraft
 // is one), so where the frame rate is high enough that they cover less than that per frame, they stick to
@@ -2028,6 +2099,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "activisionhits_frame_limit", &Hook_activisionhits_frame_limit, 0, REPFLAG_HOOKEXIT, 0 },
 	{ "syphonfilterls_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x434 },
 	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
+	{ "zuma_pad_analog", &Hook_zuma_pad_analog, 0, REPFLAG_HOOKENTER, 0x234 },
+	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOKENTER, 0x210 },
 	{}
 };
 
