@@ -94,6 +94,7 @@ struct VKRSwapchain {
 	// Render thread. The image acquired for the frame being run, if any.
 	uint32_t curImage = 0;
 	bool acquired = false;
+	int suboptimalFrames = 0;
 	// Set by the render thread, which can't recreate it. Checked at the start of a frame.
 	std::atomic<bool> outOfDate{false};
 };
