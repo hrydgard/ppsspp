@@ -65,6 +65,10 @@ static std::atomic<bool> serverRequireExactPort;
 // Set when the server is asked to stop, so a registration in progress gives up instead of making
 // shutdown wait for its timeouts. A plain bool, since that's what the HTTP client polls.
 static bool registerCancelled;
+// Registration runs on its own thread, since its DNS lookup can't be cancelled and can take
+// many seconds on a bad network. The server thread mustn't wait for it, or shutdown does too.
+static std::thread registerThread;
+static std::atomic<bool> registerRunning;
 
 std::mutex g_webServerLock;
 static Path g_uploadPath;  // TODO: Supply this through registration instead.
@@ -822,6 +826,43 @@ void OpenWebDebugger() {
 	System_LaunchUrl(LaunchUrlType::BROWSER_URL, "http://localhost:" + std::to_string(g_Config.iRemoteISOPort) + "/debugger/index.html");
 }
 
+// Called from the server thread.
+static void StartRegisterServer(int port) {
+	if (registerRunning) {
+		// The previous attempt is still stuck. Try again next time.
+		return;
+	}
+	if (registerThread.joinable()) {
+		registerThread.join();
+	}
+	registerRunning = true;
+	registerThread = std::thread([port]() {
+		SetCurrentThreadName("RegisterServer");
+		AndroidJNIThreadContext context;
+		RegisterServer(port);
+		registerRunning = false;
+	});
+}
+
+// Called from the server thread on its way out. Cancelling makes connecting and the request give
+// up, but not a DNS lookup in progress, so leave a thread that's still in one to finish alone.
+//
+// Detaching is safe because the thread only uses its own http::Client, the two statics above and
+// the log (which drops messages after LogManager::Shutdown(), and is never freed while the app
+// runs). If the server is restarted before it finishes, it may still register the old port, and
+// StartRegisterServer() skips registering until it's done. Only a process exit during the lookup
+// can catch it, the same as the download threads.
+static void FinishRegisterServer() {
+	if (!registerThread.joinable()) {
+		return;
+	}
+	if (registerRunning) {
+		registerThread.detach();
+	} else {
+		registerThread.join();
+	}
+}
+
 static void WebServerThread() {
 	SetCurrentThreadName("HTTPServer");
 
@@ -870,7 +911,7 @@ static void WebServerThread() {
 
 	double lastRegister = time_now_d();
 	if (running) {
-		RegisterServer(http->Port());
+		StartRegisterServer(http->Port());
 		lastRegister = time_now_d();
 
 		// NOTICE rather than INFO on purpose: with --debugger=0 the port is picked for us, and this
@@ -890,7 +931,7 @@ static void WebServerThread() {
 		http->RunSlice(webServerSliceSeconds);
 		double now = time_now_d();
 		if (now > lastRegister + 540.0) {
-			RegisterServer(http->Port());
+			StartRegisterServer(http->Port());
 			lastRegister = now;
 		}
 	}
@@ -899,6 +940,7 @@ static void WebServerThread() {
 	http->Stop();
 	StopAllDebuggers();
 	delete http;
+	FinishRegisterServer();
 
 	UpdateStatus(ServerStatus::FINISHED);
 	INFO_LOG(Log::HTTP, "Left web server loop.");
