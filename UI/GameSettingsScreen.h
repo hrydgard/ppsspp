@@ -85,6 +85,7 @@ private:
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
 	void TriggerRestartOrDo(std::function<void()> callback);
+	void ReadConfigTemporaries();
 
 	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_ = 0;

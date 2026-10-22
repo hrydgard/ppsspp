@@ -118,14 +118,19 @@ GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID,
 	: UITabbedBaseDialogScreen(gamePath, &g_Config.iSettingsCurrentTab, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
 	analogSpeedMapped_ = KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true);
-	// Written back on exit, so it must be read even if the System tab is never opened.
-	enableReports_ = Reporting::IsEnabled();
 
 	if (editGameSpecificThenRestore_) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 		g_Config.LoadGameConfig(gameID_);
 	}
 
+	ReadConfigTemporaries();
+}
+
+// Also called after restoring defaults, so the old values aren't written back over them.
+void GameSettingsScreen::ReadConfigTemporaries() {
+	// Written back on exit, so it must be read even if the System tab is never opened.
+	enableReports_ = Reporting::IsEnabled();
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
 	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
 	iAlternateSpeedPercentAnalog_ = (g_Config.iAnalogFpsLimit * 100) / 60;
@@ -466,15 +471,24 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	altSpeed1->SetFormat("%i%%");
 	altSpeed1->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed1->SetNegativeDisable(gr->T("Disabled"));
+	altSpeed1->OnChange.Add([this](UI::EventParams &) {
+		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
+	});
 
 	PopupSliderChoice *altSpeed2 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent2_, 0, 1000, UI::NO_DEFAULT_INT, gr->T("Alternative Speed 2", "Alternative speed 2 (in %, 0 = unlimited)"), 5, screenManager(), gr->T("%, 0:unlimited")));
 	altSpeed2->SetFormat("%i%%");
 	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
+	altSpeed2->OnChange.Add([this](UI::EventParams &) {
+		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
+	});
 
 	if (analogSpeedMapped_) {
 		PopupSliderChoice *analogSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercentAnalog_, 1, 1000, UI::NO_DEFAULT_INT, gr->T("Analog alternative speed", "Analog alternative speed (in %)"), 5, screenManager(), "%"));
 		analogSpeed->SetFormat("%i%%");
+		analogSpeed->OnChange.Add([this](UI::EventParams &) {
+			g_Config.iAnalogFpsLimit = (iAlternateSpeedPercentAnalog_ * 60) / 100;
+		});
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Speed Hacks", "Speed Hacks (can cause rendering errors!)")));
@@ -1672,9 +1686,9 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 	}
 
 	if (result == DialogResult::DR_OK) {
-		g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
-		g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
-		g_Config.iAnalogFpsLimit = (iAlternateSpeedPercentAnalog_ * 60) / 100;
+		if (equals(dialog->tag(), "RestoreSettingsScreen")) {
+			ReadConfigTemporaries();
+		}
 		recreate = true;
 	}
 
@@ -1798,6 +1812,7 @@ void GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 	if (yes) {
 		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
+		ReadConfigTemporaries();
 	}
 	System_Notify(SystemNotification::UI);
 }
