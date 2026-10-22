@@ -38,6 +38,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Text/I18n.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/EmuScreen.h"
 #include "UI/Background.h"
 #include "UI/MiscViews.h"
 #include "Core/Config.h"
@@ -197,6 +198,21 @@ void DisplayLayoutScreen::sendMessage(UIMessage message, const char *value) {
 	if (message == UIMessage::POSTSHADER_UPDATED) {
 		g_Config.bShaderChainRequires60FPS = PostShaderChainRequires60FPS(GetFullPostShadersChain(g_Config.vPostShaderNames));
 		RecreateViews();
+	}
+}
+
+// Disables every control in the group, except keep.
+static void DisableControls(UI::ViewGroup *group, const UI::View *keep) {
+	for (int i = 0; i < group->GetNumSubviews(); i++) {
+		UI::View *view = group->GetViewByIndex(i);
+		if (view == keep) {
+			continue;
+		}
+		if (view->IsViewGroup()) {
+			DisableControls((UI::ViewGroup *)view, keep);
+		} else {
+			view->SetEnabled(false);
+		}
 	}
 }
 
@@ -566,6 +582,12 @@ void DisplayLayoutScreen::CreateViews() {
 				}
 			}
 		}
+	}
+
+	// With the game on a TV and the device held the other way, these would edit a layout that isn't shown.
+	DeviceOrientation gameOrientation;
+	if (GetGameOutputOrientation(screenManager(), &gameOrientation) && gameOrientation != GetDeviceOrientation()) {
+		DisableControls(root_, back);
 	}
 
 	root_->Add(new DisplayLayoutBackground(mode_, GetDeviceOrientation(), new AnchorLayoutParams(FILL_PARENT, FILL_PARENT, 0.0f, 0.0f, 0.0f, 0.0f)));
