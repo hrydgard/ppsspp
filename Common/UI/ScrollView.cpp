@@ -468,6 +468,25 @@ void ScrollView::ScrollTo(float newScrollPos) {
 	scrollToTarget_ = true;
 }
 
+void ScrollView::ScrollToCenter(const View *view) {
+	const Bounds &vBounds = view->GetBounds();
+	if (orientation_ == ORIENT_VERTICAL) {
+		ScrollTo(layoutScrollPos_ + vBounds.centerY() - bounds_.y - bounds_.h * 0.5f);
+	} else {
+		ScrollTo(layoutScrollPos_ + vBounds.centerX() - bounds_.x - bounds_.w * 0.5f);
+	}
+}
+
+ScrollView *GetEnclosingScrollView(View *view) {
+	for (ViewGroup *group = view->Parent(); group; group = group->Parent()) {
+		ScrollView *scrollView = dynamic_cast<ScrollView *>(group);
+		if (scrollView) {
+			return scrollView;
+		}
+	}
+	return nullptr;
+}
+
 void ScrollView::ScrollRelative(float distance) {
 	scrollTarget_ = scrollPos_ + distance;
 	scrollToTarget_ = true;
