@@ -1524,6 +1524,13 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		g_QuitRequested = 1;
 		break;
 
+	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+		// SDL only sends a quit when the last window closes, and --game-window's may still be open.
+		if (SDL_GetWindowFromEvent(&event) == window) {
+			g_QuitRequested = 1;
+		}
+		break;
+
 	#if !defined(MOBILE_DEVICE)
 	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
 		{
