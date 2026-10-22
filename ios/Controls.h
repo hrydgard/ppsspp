@@ -17,7 +17,7 @@
 bool InitController(GCController *controller);
 void ShutdownController(GCController *controller);
 
-// Returns false unless the controller is a Siri Remote (a micro gamepad profile and no extended one).
+// Returns false unless the controller is a Siri Remote (a micro gamepad profile, no extended one and no B button).
 bool InitSiriRemote(GCController *controller);
 
 struct TouchTracker {

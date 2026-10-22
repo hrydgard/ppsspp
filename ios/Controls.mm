@@ -28,132 +28,129 @@ static void analogTriggerPressed(InputAxis axis, float value) {
 	NativeAxis(&axisInput, 1);
 }
 
+static void bindButton(GCControllerButtonInput *input, InputKeyCode keyCode) {
+	// Optional buttons are nil on controllers that don't have them.
+	if (input == nil) {
+		return;
+	}
+	input.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		controllerButtonPressed(pressed, keyCode);
+	};
+}
+
+static void bindTrigger(GCControllerButtonInput *trigger, InputAxis axis) {
+	if (trigger == nil) {
+		return;
+	}
+	trigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		analogTriggerPressed(axis, value);
+	};
+}
+
+static void bindDpad(GCControllerDirectionPad *dpad) {
+	if (dpad == nil) {
+		return;
+	}
+	bindButton(dpad.up, NKCODE_DPAD_UP);
+	bindButton(dpad.down, NKCODE_DPAD_DOWN);
+	bindButton(dpad.left, NKCODE_DPAD_LEFT);
+	bindButton(dpad.right, NKCODE_DPAD_RIGHT);
+}
+
+static void bindStick(GCControllerDirectionPad *stick, InputAxis xAxis, InputAxis yAxis) {
+	if (stick == nil) {
+		return;
+	}
+	stick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+		AxisInput axisInput;
+		axisInput.deviceId = DEVICE_ID_PAD_0;
+		axisInput.axisId = xAxis;
+		axisInput.value = value;
+		NativeAxis(&axisInput, 1);
+	};
+	stick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+		AxisInput axisInput;
+		axisInput.deviceId = DEVICE_ID_PAD_0;
+		axisInput.axisId = yAxis;
+		axisInput.value = -value;
+		NativeAxis(&axisInput, 1);
+	};
+}
+
+// Newer iOS versions (17.4+) also have GCInputDirectionalDpad as a name for it.
+static GCControllerDirectionPad *findDpad(GCPhysicalInputProfile *profile) {
+	GCControllerDirectionPad *dpad = profile.dpads[GCInputDirectionPad];
+	if (dpad == nil) {
+		if (@available(iOS 17.4, tvOS 17.4, *)) {
+			dpad = profile.dpads[GCInputDirectionalDpad];
+		}
+	}
+	return dpad;
+}
+
 bool InitController(GCController *controller) {
 	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
-	if (extendedProfile == nil) {
+	GCPhysicalInputProfile *profile = controller.physicalInputProfile;
+
+	// Controllers without thumbsticks (like the 8BitDo FlipPad) have no extended profile, only the
+	// physical one. Take those if they at least look like a gamepad.
+	NSDictionary<NSString *, GCControllerButtonInput *> *buttons = profile.buttons;
+	NSDictionary<NSString *, GCControllerDirectionPad *> *dpads = profile.dpads;
+	if (extendedProfile == nil && (buttons[GCInputButtonA] == nil || findDpad(profile) == nil)) {
+		INFO_LOG(Log::System, "Ignoring controller without a gamepad layout: %s", [controller.vendorName ?: @"(unnamed)" UTF8String]);
 		return false;
 	}
 
-	for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+	for (GCControllerElement* element in profile.allElements) {
 		element.preferredSystemGestureState = GCSystemGestureStateDisabled;
 	}
 
 	const std::string controllerName = [controller.vendorName ?: @"Gamepad" UTF8String];
 	KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, controllerName);
 
-	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
-	};
-
-	extendedProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_3); // Circle
-	};
-
-	extendedProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_4); // Square
-	};
-
-	extendedProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_1); // Triangle
-	};
-
-	extendedProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_L1); // LTrigger
-	};
-
-	extendedProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_R1); // RTrigger
-	};
-
-	extendedProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_UP);
-	};
-
-	extendedProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_DOWN);
-	};
-
-	extendedProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_LEFT);
-	};
-
-	extendedProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_RIGHT);
-	};
-
-	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(Log::System, "ltrigger: %f %d", value, (int)pressed);
-		analogTriggerPressed(JOYSTICK_AXIS_LTRIGGER, value);
-	};
-
-	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(Log::System, "rtrigger: %f %d", value, (int)pressed);
-		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
-	};
-
-	// The optional buttons are nil on controllers that don't have them.
-	if (extendedProfile.leftThumbstickButton != nil) {
-		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBL);
-		};
-	}
-	if (extendedProfile.rightThumbstickButton != nil) {
-		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBR);
-		};
+	if (extendedProfile != nil) {
+		bindButton(extendedProfile.buttonA, NKCODE_BUTTON_2); // Cross
+		bindButton(extendedProfile.buttonB, NKCODE_BUTTON_3); // Circle
+		bindButton(extendedProfile.buttonX, NKCODE_BUTTON_4); // Square
+		bindButton(extendedProfile.buttonY, NKCODE_BUTTON_1); // Triangle
+		bindButton(extendedProfile.leftShoulder, NKCODE_BUTTON_L1); // LTrigger
+		bindButton(extendedProfile.rightShoulder, NKCODE_BUTTON_R1); // RTrigger
+		bindDpad(extendedProfile.dpad);
+		bindTrigger(extendedProfile.leftTrigger, JOYSTICK_AXIS_LTRIGGER);
+		bindTrigger(extendedProfile.rightTrigger, JOYSTICK_AXIS_RTRIGGER);
+		bindButton(extendedProfile.leftThumbstickButton, NKCODE_BUTTON_THUMBL);
+		bindButton(extendedProfile.rightThumbstickButton, NKCODE_BUTTON_THUMBR);
+		bindButton(extendedProfile.buttonOptions, NKCODE_BUTTON_SELECT);
+		bindButton(extendedProfile.buttonMenu, NKCODE_BUTTON_START);
+		bindButton(extendedProfile.buttonHome, NKCODE_HOME);
+		bindStick(extendedProfile.leftThumbstick, JOYSTICK_AXIS_X, JOYSTICK_AXIS_Y);
+		// Map right thumbstick as another analog stick, particularly useful for controllers
+		// like the DualShock 3/4 when connected to an iOS device
+		bindStick(extendedProfile.rightThumbstick, JOYSTICK_AXIS_Z, JOYSTICK_AXIS_RZ);
+		return true;
 	}
 
-	if (extendedProfile.buttonOptions != nil) {
-		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_SELECT);
-		};
-	}
-	if (extendedProfile.buttonMenu != nil) {
-		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_START);
-		};
-	}
+	// The same layout, looked up by element name. Anything the controller lacks is nil.
+	NSMutableArray<NSString *> *names = [NSMutableArray arrayWithArray:buttons.allKeys];
+	[names addObjectsFromArray:dpads.allKeys];
+	INFO_LOG(Log::System, "Controller %s has no extended profile, using its elements: %s", controllerName.c_str(), [[names componentsJoinedByString:@", "] UTF8String]);
 
-	if (extendedProfile.buttonHome != nil) {
-		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_HOME);
-		};
-	}
-
-	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	// Map right thumbstick as another analog stick, particularly useful for controllers
-	// like the DualShock 3/4 when connected to an iOS device
-	extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
-
+	bindButton(buttons[GCInputButtonA], NKCODE_BUTTON_2);
+	bindButton(buttons[GCInputButtonB], NKCODE_BUTTON_3);
+	bindButton(buttons[GCInputButtonX], NKCODE_BUTTON_4);
+	bindButton(buttons[GCInputButtonY], NKCODE_BUTTON_1);
+	bindButton(buttons[GCInputLeftShoulder], NKCODE_BUTTON_L1);
+	bindButton(buttons[GCInputRightShoulder], NKCODE_BUTTON_R1);
+	bindDpad(findDpad(profile));
+	bindTrigger(buttons[GCInputLeftTrigger], JOYSTICK_AXIS_LTRIGGER);
+	bindTrigger(buttons[GCInputRightTrigger], JOYSTICK_AXIS_RTRIGGER);
+	bindButton(buttons[GCInputLeftThumbstickButton], NKCODE_BUTTON_THUMBL);
+	bindButton(buttons[GCInputRightThumbstickButton], NKCODE_BUTTON_THUMBR);
+	bindButton(buttons[GCInputButtonOptions], NKCODE_BUTTON_SELECT);
+	bindButton(buttons[GCInputButtonMenu], NKCODE_BUTTON_START);
+	bindButton(buttons[GCInputButtonHome], NKCODE_HOME);
+	bindStick(dpads[GCInputLeftThumbstick], JOYSTICK_AXIS_X, JOYSTICK_AXIS_Y);
+	bindStick(dpads[GCInputRightThumbstick], JOYSTICK_AXIS_Z, JOYSTICK_AXIS_RZ);
 	return true;
 }
 
@@ -249,6 +246,10 @@ static void remoteClicked(RemoteClickState *s, GCControllerDirectionPad *touch, 
 bool InitSiriRemote(GCController *controller) {
 	GCMicroGamepad *micro = controller.microGamepad;
 	if (micro == nil || controller.extendedGamepad != nil) {
+		return false;
+	}
+	// A gamepad without thumbsticks can have a micro profile too. Remotes have no B button.
+	if (controller.physicalInputProfile.buttons[GCInputButtonB] != nil) {
 		return false;
 	}
 
