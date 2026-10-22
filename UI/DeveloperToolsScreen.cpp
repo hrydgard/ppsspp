@@ -350,8 +350,7 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 		return true;
 	});
 
-	MIPSTracerPath_ = mipsTracer.get_logging_path();
-	MIPSTracerPath = list->Add(new InfoItem(dev->T("Current log file"), MIPSTracerPath_));
+	list->Add(new InfoItem(dev->T("Current log file"), mipsTracer.get_logging_path()));
 
 	PopupSliderChoice* storage_capacity = list->Add(
 		new PopupSliderChoice(
@@ -771,8 +770,8 @@ void DeveloperToolsScreen::OnMIPSTracerPathChanged(UI::EventParams &e) {
 		BrowseFileType::ANY,
 		[this](std::string_view value, int) {
 			mipsTracer.set_logging_path(std::string(value));
-			MIPSTracerPath_ = value;
-			MIPSTracerPath->SetRightText(MIPSTracerPath_);
+			// The views may have been recreated while the dialog was open, so don't keep a pointer to the path view.
+			RecreateViews();
 		}
 	);
 }
