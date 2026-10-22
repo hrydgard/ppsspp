@@ -19,19 +19,6 @@ With `shadowTextures = true` in `[options]` of `textures.ini`:
 
 ## Regions
 
-Each dump is made with the region its draws sampled. The regions found are written to
-`new/shadowranges.ini`, which also includes those from `textures.ini` and from earlier dumping sessions. Copy
-its two sections into `textures.ini`, replacing the `[hashranges]` and `[shadowranges]` there.
-
-- A texture with one region gets a plain `[hashranges]` entry. Those dumps also work without shadowTextures.
-- A texture whose contents were drawn with different regions (an atlas that's sometimes used in full,
-  sometimes in part) gets a `[shadowranges]` entry listing them:
-
-```ini
-[shadowranges]
-0x08b31020,512,512 = 480,272|0,16,480,120
-```
-
 A region is `w,h` from the top left, or `x,y,w,h`. A region that doesn't start at the top left only hashes
 its rectangle, but its dump and replacement still reach from the top left to its bottom right corner, so the
 image is placed the same way as any other. What's above or left of the region in the PNG isn't drawn.
@@ -40,6 +27,50 @@ When replacing, the regions of the texture are tried largest first, with the who
 them, and the first one with a replacement wins. A region has to cover what draws sample (with two texels of
 slack), otherwise the replacement would leave something out. When a later draw samples more, the texture is
 looked up again.
+
+### Learned regions
+
+Without anything in `textures.ini` for a texture, each dump of it is made with the region its draws sampled
+while the dump waited. These regions are written to `new/shadowranges.ini` under `[learnedshadowranges]`.
+They're needed to find the replacements for those dumps again, so after each dumping session, copy the
+sections of that file into `textures.ini`, replacing the ones there:
+
+```ini
+[learnedshadowranges]
+0x08b31020,512,512 = 480,272|0,16,480,120
+```
+
+The file only has what's in `textures.ini` and what this session dumped. Regions you deleted don't come back
+from earlier sessions, so copy it before you start the next one.
+
+### Declared regions
+
+When you know what sizes a texture's images are, list them under `[shadowranges]` in `textures.ini`:
+
+```ini
+[shadowranges]
+0x08d70930,256,256 = 256,256|256,240
+```
+
+For a texture listed there:
+
+- Dumps only use the listed regions. Nothing is learned for it, and `shadowMaxRegions` doesn't apply.
+- Of the listed regions that hold what's drawn, a dump uses the largest one whose texels didn't change while
+  the image stayed the same. In the example, a sprite sheet that fills the texture is dumped at `256,256`,
+  even when only its top frames were drawn. When the game keeps other data in the last 16 rows and that data
+  changes while the image stays, the image is dumped at `256,240` without it.
+- If nothing changed while the dump waited, it's the largest listed region, so a sheet is never cut.
+  Data after a smaller image that happened not to change is dumped with it then. Raising
+  `shadowSettleSeconds` gives it more time to change.
+- If draws sample more than any listed region, the dump is the whole texture.
+- List the whole texture (`256,256` here) when some of its images fill it. If you leave it out, a dump that
+  doesn't fit the other regions still uses the whole texture, but it's only chosen as a last resort.
+
+`new/shadowranges.ini` copies your `[shadowranges]` lines with the same regions (largest first).
+
+`[hashranges]` entries are tried like learned regions. They aren't written to `new/shadowranges.ini`, and
+nothing writes new ones. Keep in mind that with `shadowTextures` off, a hash range crops every texture at that
+address.
 
 ## Options
 
@@ -50,7 +81,7 @@ All in `[options]`:
 | `shadowTextures` | `false` | Turns it on. |
 | `shadowSettleSeconds` | `4` | How long a content's region has to stay the same before it's dumped. |
 | `shadowMinVisibleSeconds` | `0` | Contents shown for less than this aren't dumped at all, like each step of text that's typed out letter by letter. Try `0.5`. 0 turns it off. |
-| `shadowMaxRegions` | `8` | Regions per texture. Each is one more hash for every new content of it. Past this, a dump uses the smallest known region that covers it. |
+| `shadowMaxRegions` | `8` | Learned regions per texture. Each is one more hash for every new content of it. Past this, a dump uses the smallest known region that covers it. Doesn't apply to textures in `[shadowranges]`. |
 | `shadowRegionAlign` | `1` | Rounds regions up to a multiple of this, so near-equal ones merge. Rounding can take in rows of other data, so leave it at 1 unless a texture gets many regions. |
 | `shadowMemoryMB` | `1024` | RAM for waiting dumps. Over it, the oldest are written early with the region they have. |
 
@@ -73,6 +104,9 @@ saveIndexed = all
 Empty the `new` folder before each test run (both the PNGs and `shadowranges.ini`, never just one of them), play
 the same part of the game, and compare how many files you get.
 
+The most reliable way to get few, clean dumps is to declare the sizes of the textures you know under
+`[shadowranges]` (see [Declared regions](#declared-regions)). The options below help with the ones you don't.
+
 ### Finding out why a texture has duplicates
 
 Turn on the TexReplacement log at Info level. Each dump logs a line like
@@ -81,8 +115,10 @@ image (same address, different hash), and look up what you see:
 
 | What you see | Why | What to change |
 |---|---|---|
-| The region is the whole texture | It's drawn in 3D, or was once. Shadow textures can't tell which part 3D draws sample. | Add a `[hashranges]` or `[shadowranges]` entry for it by hand, or try `reduceHash` |
-| One image dumped with different regions (480x136, 480x200, 480x272) | It was dumped before its draws reached their full size, or each time it's drawn a bit differently | Raise `shadowSettleSeconds` first. If that doesn't do it, raise `shadowRegionAlign`, then lower `shadowMaxRegions` |
+| The region is the whole texture | It's drawn in 3D, or was once. Shadow textures can't tell which part 3D draws sample. | Declare its sizes under `[shadowranges]`, or try `reduceHash` |
+| One image dumped with different regions (480x136, 480x200, 480x272) | It was dumped before its draws reached their full size, or each time it's drawn a bit differently | Declare its size under `[shadowranges]`. Or raise `shadowSettleSeconds`, then `shadowRegionAlign`, then lower `shadowMaxRegions` |
+| A sprite sheet is cut (only the frames that were drawn) | It was dumped with the region its draws sampled | Declare the full size under `[shadowranges]` |
+| A declared texture is dumped with trash at the edge | Nothing changed there while the dump waited, so the larger region was used | Raise `shadowSettleSeconds`, or declare only the smaller region for it |
 | The same image in many colors | Each palette is its own texture | `saveIndexed = all` (or `true` with the texture in `[indexed]`) |
 | Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` and HD glyphs (see below) |
 | `over the memory budget, dumping early` in the log | Dumps were written before they settled | Raise `shadowMemoryMB` |
@@ -92,6 +128,8 @@ image (same address, different hash), and look up what you see:
 ### Each option, and which way to turn it
 
 **`shadowSettleSeconds`** (default 4): how long a content's region has to stop growing before it's written.
+- Raise it for textures in `[shadowranges]` that get dumped with trash at the edge: it's how long the data
+  next to an image has to change, to be left out.
 - Raise it (8-15) when one image is dumped with several regions, or when a texture's later draws use more of
   it than its first ones (menus that open up, screens that fade in from a small part). More waiting means
   the region is complete when it's hashed, so one dump instead of one per size.
@@ -112,14 +150,16 @@ image (same address, different hash), and look up what you see:
   image, which is the trash shadow textures keep out of the key.
 - Change it before a dumping session, not in the middle of one: regions found with another value don't match.
 
-**`shadowMaxRegions`** (default 8): how many different regions a texture can have. Past this, a dump uses the
-smallest known region that covers it.
+**`shadowMaxRegions`** (default 8): how many different learned regions a texture can have. Past this, a dump
+uses the smallest known region that covers it. Textures in `[shadowranges]` aren't limited by it.
 - Lower it (2-4) for sprite sheets and atlases that are drawn in many slightly different ways, so they don't
   end up with one dump per way.
 - Raise it if a texture that's really used in several separate parts (an atlas of unrelated images) gets
   duplicates after lowering it: the shared region it snaps to can include data that changes.
 - Each region costs one more hash for every new content of that texture while replacing, so keep it low
   for textures that change often.
+- Setting it to 1 snaps everything a texture draws to the region it was first dumped with, which cuts sprite
+  sheets whose first dump only had part of them drawn. Declare those under `[shadowranges]` instead.
 
 **`shadowMemoryMB`** (default 1024): RAM for dumps that are waiting.
 - Raise it when the log says `over the memory budget, dumping early`, or when you raise

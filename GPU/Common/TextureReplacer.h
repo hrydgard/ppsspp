@@ -253,6 +253,12 @@ protected:
 		std::vector<u8> indices;  // Tightly packed, texW x texH.
 		u32 palette[256]{};
 		int numColors = 0;
+		// Which texels of the texture changed while this content stayed (declared textures only), per row as
+		// [volatileX0, volatileX1). A declared region with such texels in it holds data that isn't the image.
+		std::vector<u16> volatileX0;
+		std::vector<u16> volatileX1;
+		// The content isn't in memory anymore, so changes there don't tell anything.
+		bool contentGone = false;
 		// What draws sampled while this content was bound.
 		bool drawn = false;
 		bool unbounded = false;
@@ -267,9 +273,15 @@ protected:
 	struct ShadowSlot {
 		// Union of everything drawn from this texture, for the provisional key of contents not dumped yet.
 		bool unbounded = false;
-		ShadowRegion learned;
-		// Regions dumps of this texture were made with, from the ini and this session. Largest first.
-		std::vector<ShadowRegion> regions;
+		ShadowRegion drawn;
+		// From [shadowranges] in textures.ini. When there are any, dumps of this texture only use these, and
+		// nothing is learned for it. Largest first, like the others.
+		std::vector<ShadowRegion> declared;
+		// From [learnedshadowranges] and the dumps of this session.
+		std::vector<ShadowRegion> learned;
+		// From [hashranges] (0 or 1). Tried like the learned ones, but not written to shadowranges.ini.
+		std::vector<ShadowRegion> hashRange;
+		bool IsDeclared() const { return !declared.empty(); }
 	};
 	// What the draws of one replacement key sampled, and the region it was hashed over.
 	struct ShadowKeyInfo {
@@ -283,8 +295,16 @@ protected:
 	ShadowRegion NormalizeShadowRegion(const ShadowBounds &bounds, int w, int h, bool swizzled, GETextureFormat fmt) const;
 	static ShadowRegion FullRegion(int w, int h);
 	u32 HashShadowRegion(const u8 *base, u32 availableBytes, int bufw, const ShadowRegion &region, GETextureFormat fmt);
-	static void AddShadowRegion(ShadowSlot &slot, ShadowRegion region);
-	void ParseShadowRange(const std::string &key, const std::string &value);
+	// Adds it if it isn't there, largest first. Returns true if it was added.
+	static bool AddShadowRegion(std::vector<ShadowRegion> &regions, ShadowRegion region);
+	// The regions to try for a texture's contents when looking up a key, largest first, the whole texture too.
+	static std::vector<ShadowRegion> ShadowLookupRegions(const ShadowSlot &slot, int w, int h);
+	void ParseShadowRange(const std::string &key, const std::string &value, bool declared);
+	// Updates the volatile texels of a waiting content of a declared texture from its memory now.
+	void CheckShadowStability(ShadowVariant &variant);
+	bool ShadowRegionStable(const ShadowVariant &variant, const ShadowRegion &region) const;
+	// The region to dump a content of a declared texture with.
+	ShadowRegion PickDeclaredRegion(const ShadowSlot &slot, const ShadowVariant &variant, const ShadowRegion &seen) const;
 	bool ShadowKeyKnown(ReplacementCacheKey key);
 	ReplacementCacheKey NamingKey(u64 cachekey, u32 hash) const;
 	void CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH);
