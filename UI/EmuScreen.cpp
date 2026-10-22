@@ -697,14 +697,14 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 
 // TODO: We should replace the "fpsLimit" system with a speed factor.
 static void ShowFpsLimitNotice() {
-	int fpsLimit = 60;
+	int percent = 100;
 
 	switch (PSP_CoreParameter().fpsLimit) {
 	case FPSLimit::CUSTOM1:
-		fpsLimit = g_Config.iFpsLimit1;
+		percent = g_Config.iAltSpeedPercent1;
 		break;
 	case FPSLimit::CUSTOM2:
-		fpsLimit = g_Config.iFpsLimit2;
+		percent = g_Config.iAltSpeedPercent2;
 		break;
 	default:
 		break;
@@ -713,7 +713,7 @@ static void ShowFpsLimitNotice() {
 	// Now display it.
 
 	char temp[51];
-	snprintf(temp, sizeof(temp), "%d%%", (int)((float)fpsLimit / 60.0f * 100.0f));
+	snprintf(temp, sizeof(temp), "%d%%", percent);
 	g_OSD.Show(OSDType::STATUS_ICON, temp, "", "I_FAST_FORWARD", 1.5f, "altspeed");
 	g_OSD.SetFlags("altspeed", OSDMessageFlags::Transparent);
 }
@@ -994,9 +994,9 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 		if (down) {
 			if (!NetworkWarnUserIfOnlineAndCantSpeed()) {
 				// Cycle through enabled speeds.
-				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
+				if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iAltSpeedPercent1 >= 0) {
 					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
-				} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit2 >= 0) {
+				} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iAltSpeedPercent2 >= 0) {
 					PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
 				} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 || PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
 					PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
@@ -1145,7 +1145,7 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 	if (limitMode != FPSLimit::NORMAL && limitMode != FPSLimit::ANALOG)
 		return;
 	// Don't even try if the limit is invalid.
-	if (g_Config.iAnalogFpsLimit <= 0)
+	if (g_Config.iAnalogAltSpeedPercent <= 0)
 		return;
 
 	// Apply a small deadzone (against the resting position.)
@@ -1153,7 +1153,7 @@ void EmuScreen::OnVKeyAnalog(VirtKey virtualKeyCode, float value) {
 
 	// If target is above 60, value is how much to speed up over 60.  Otherwise, it's how much slower.
 	// So normalize the target.
-	int target = g_Config.iAnalogFpsLimit - 60;
+	int target = AltSpeedPercentToFps(g_Config.iAnalogAltSpeedPercent) - 60;
 	PSP_CoreParameter().analogFpsLimit = 60 + (int)(target * value);
 
 	// If we've reset back to normal, turn it off.

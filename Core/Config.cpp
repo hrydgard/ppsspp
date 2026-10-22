@@ -715,6 +715,23 @@ static const ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensitivity), 1.0f, CfgFlag::PER_GAME),
 };
 
+// The alternative speeds used to be stored as frame rates, out of 60.
+static int LegacyFpsLimitToPercent(int fps) {
+	return fps < 0 ? -1 : (fps * 100 + 30) / 60;
+}
+
+static int DefaultAltSpeedPercent1() {
+	return LegacyFpsLimitToPercent(g_Config.iLegacyFpsLimit1);
+}
+
+static int DefaultAltSpeedPercent2() {
+	return LegacyFpsLimitToPercent(g_Config.iLegacyFpsLimit2);
+}
+
+static int DefaultAnalogAltSpeedPercent() {
+	return LegacyFpsLimitToPercent(g_Config.iLegacyAnalogFpsLimit);
+}
+
 static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
@@ -744,9 +761,13 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), IsVREnabled(), CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
-	ConfigSetting("FrameRate", SETTING(g_Config, iFpsLimit1), 0, CfgFlag::PER_GAME),
-	ConfigSetting("FrameRate2", SETTING(g_Config, iFpsLimit2), -1, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogFrameRate", SETTING(g_Config, iAnalogFpsLimit), 240, CfgFlag::PER_GAME),
+	// Read before the new settings, which use them as defaults.
+	ConfigSetting("FrameRate", SETTING(g_Config, iLegacyFpsLimit1), 0, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
+	ConfigSetting("FrameRate2", SETTING(g_Config, iLegacyFpsLimit2), -1, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
+	ConfigSetting("AnalogFrameRate", SETTING(g_Config, iLegacyAnalogFpsLimit), 240, CfgFlag::PER_GAME | CfgFlag::DONT_SAVE),
+	ConfigSetting("AltSpeedPercent", SETTING(g_Config, iAltSpeedPercent1), &DefaultAltSpeedPercent1, CfgFlag::PER_GAME),
+	ConfigSetting("AltSpeedPercent2", SETTING(g_Config, iAltSpeedPercent2), &DefaultAltSpeedPercent2, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogAltSpeedPercent", SETTING(g_Config, iAnalogAltSpeedPercent), &DefaultAnalogAltSpeedPercent, CfgFlag::PER_GAME),
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConfigSetting("RestartRequired", SETTING(g_Config, bRestartRequired), false, CfgFlag::DONT_SAVE),
 #endif
