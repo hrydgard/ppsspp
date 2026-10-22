@@ -268,7 +268,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&config.fDisplayAspectRatio, 0.1f, 2.0f, 1.0f, gr->T("Aspect Ratio"), screenManager());
 		rightColumn->Add(aspectRatio);
-		aspectRatio->SetEnabledFunc([config]() {
+		aspectRatio->SetEnabledFunc([&config]() {
 			return !config.bDisplayStretch && !config.bDisplayIntegerScale;
 		});
 		aspectRatio->SetHasDropShadow(false);
@@ -322,9 +322,11 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(new Spacer(12.0f));
 
 		Choice *center = new Choice(di->T("Reset"));
-		center->OnClick.Add([&config, portrait](UI::EventParams &) {
+		center->OnClick.Add([this, &config, portrait](UI::EventParams &) {
 			// Hm, not really ideal to have to use strings here.
 			config.ResetToDefault(portrait ? "DisplayLayout.Portrait" : "DisplayLayout.Landscape");
+			// Which checkboxes are shown depends on the rotation.
+			RecreateViews();
 		});
 		rightColumn->Add(center);
 
@@ -514,6 +516,7 @@ void PostProcScreen::CreateViews() {
 	std::vector<std::string> items;
 	int selected = -1;
 	const std::string selectedName = id_ >= (int)g_Config.vPostShaderNames.size() ? "Off" : g_Config.vPostShaderNames[id_];
+	indexTranslation_.clear();
 
 	for (int i = 0; i < (int)shaders_.size(); i++) {
 		if (!shaders_[i].visible)
