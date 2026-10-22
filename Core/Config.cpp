@@ -937,6 +937,7 @@ void TouchControlConfig::ResetLayout() {
 	fDpadSpacing = 1.0f;
 	reset(&touchStartKey);
 	reset(&touchSelectKey);
+	reset(&touchHomeKey);
 	reset(&touchFastForwardKey);
 	reset(&touchLKey);
 	reset(&touchRKey);
@@ -1006,6 +1007,7 @@ static constexpr ConfigSetting touchControlSettings[] = {
 	ConfigSetting("DPadSpacing", SETTING(g_Config.touchControlsLandscape, fDpadSpacing), 1.0f, CfgFlag::PER_GAME),
 	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", SETTING(g_Config.touchControlsLandscape, touchStartKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", SETTING(g_Config.touchControlsLandscape, touchSelectKey), defaultTouchPosShow, CfgFlag::PER_GAME),
+	ConfigSetting("HomeKeyX", "HomeKeyY", "HomeKeyScale", "ShowTouchHome", SETTING(g_Config.touchControlsLandscape, touchHomeKey), defaultTouchPosHide, CfgFlag::PER_GAME),
 	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", SETTING(g_Config.touchControlsLandscape, touchFastForwardKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", SETTING(g_Config.touchControlsLandscape, touchLKey), defaultTouchPosShow, CfgFlag::PER_GAME),
 	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", SETTING(g_Config.touchControlsLandscape, touchRKey), defaultTouchPosShow, CfgFlag::PER_GAME),

@@ -92,6 +92,7 @@ void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	toggles_.push_back({ "R", &touch.touchRKey.show, ImageID("I_R"), nullptr });
 	toggles_.push_back({ "Start", &touch.touchStartKey.show, ImageID("I_START"), nullptr });
 	toggles_.push_back({ "Select", &touch.touchSelectKey.show, ImageID("I_SELECT"), nullptr });
+	toggles_.push_back({ "Home", &touch.touchHomeKey.show, ImageID("I_HOME"), nullptr });
 	toggles_.push_back({ "Dpad", &touch.touchDpad.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Analog Stick", &touch.touchAnalogStick.show, ImageID::invalid(), nullptr });
 	toggles_.push_back({ "Right Analog Stick", &touch.touchRightAnalogStick.show, ImageID::invalid(), [=](EventParams &e) {
