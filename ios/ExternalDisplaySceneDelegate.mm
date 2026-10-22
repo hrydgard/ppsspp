@@ -19,8 +19,6 @@
 
 #import <QuartzCore/CAMetalLayer.h>
 
-#include <algorithm>
-
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/System/NativeApp.h"
@@ -60,13 +58,7 @@ static bool g_launched = false;
 	[super viewDidLayoutSubviews];
 	UIScreen *screen = self.view.window.windowScene.screen;
 	const CGSize size = self.view.bounds.size;
-	CGFloat scale = screen ? screen.nativeScale : 1.0;
-	// Render no more than 1080p (a 4K Apple TV comes in at 3840x2160). The layer is scaled up to fill.
-	const CGFloat longSide = std::max(size.width, size.height);
-	const CGFloat shortSide = std::min(size.width, size.height);
-	if (longSide > 0 && shortSide > 0) {
-		scale = std::min(scale, std::min(1920.0 / longSide, 1080.0 / shortSide));
-	}
+	const CGFloat scale = screen ? screen.nativeScale : 1.0;
 	self.view.contentScaleFactor = scale;
 	const int width = (int)(size.width * scale);
 	const int height = (int)(size.height * scale);

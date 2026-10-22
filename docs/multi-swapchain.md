@@ -234,7 +234,7 @@ viewport to its own swapchain, so it shares the swapchain layer with the screen 
 `PresentationCommon` should get its output size and layout explicitly instead of from `g_display`.
 Mostly it already does, through `PSP_CoreParameter().pixelWidth/Height` and
 `UpdateDisplaySize`, and "auto" render resolution follows the same values, so it scales for the TV
-(1080p) on its own. What still reads the global:
+on its own. What still reads the global:
 
 - `GetScreenFrame` (insets, DPI)
 - the stretch logic in `CalculateDisplayOutputRect` (device orientation)
@@ -311,4 +311,3 @@ can be tested on its own.
 Open questions:
 - Does removing the external window resume mirroring?
 - How do two vsynced layers pace on a ProMotion phone?
-- Which mode does a 4K Apple TV report? AirPlay tends to cap at 1080p.
