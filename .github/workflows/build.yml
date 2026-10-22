@@ -352,7 +352,10 @@ jobs:
           extra: libretro_ios_tvos
           cc: clang
           cxx: clang++
-          args: ./b.sh --ios --libretro && ./b.sh --tvos --libretro
+          # libretro's buildbot uses Xcode 16.0, whose clang doesn't predefine TARGET_OS_*. Make ours
+          # behave the same, so code that forgets to include TargetConditionals.h fails here too.
+          # (CFLAGS from the environment doesn't work: the toolchain file overrides it.)
+          args: export CMAKE_ARGS="-DCMAKE_C_FLAGS=-fno-define-target-os-macros -DCMAKE_CXX_FLAGS=-fno-define-target-os-macros" && ./b.sh --ios --libretro && ./b.sh --tvos --libretro
           id: ios-tvos-libretro
           ffmpeg: /ios/universal/ /tvos/arm64/
 
