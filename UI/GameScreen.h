@@ -48,6 +48,7 @@ public:
 	bool GameRemoved() const { return gameRemoved_; }
 
 protected:
+	void BeforeCreateViews() override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContextMenu(UI::ViewGroup *parent) override;

@@ -257,6 +257,11 @@ void GameScreen::RefreshInstalledUpdate() {
 	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
 }
 
+// Both panes use isHomebrew_, and which is created first depends on orientation.
+void GameScreen::BeforeCreateViews() {
+	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
+}
+
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
@@ -578,8 +583,6 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
-
-	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
 
 	const bool packing = GamePacker::IsPacking(gamePath_);
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) && !packing) {
