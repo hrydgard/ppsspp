@@ -480,7 +480,7 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 		// TODO: Similar apps, etc etc
 		productPanel_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
-		leftScroll->SetTag("StoreMainProduct");
+		productPanel_->SetTag("StoreMainProduct");
 		content->Add(productPanel_);
 
 		ProductItemView *selectedItem = GetSelectedItem();
