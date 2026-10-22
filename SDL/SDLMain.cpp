@@ -1442,7 +1442,9 @@ void UpdateCursor() {
 	SDL_SetCursor(g_builtinCursors[(int)curCursor]);
 }
 
-// --game-window: a second window showing just the game, for testing multiple outputs.
+// --game-window: a second window showing just the game. For now it's only a way to test multiple outputs on
+// the desktop, standing in for a TV over AirPlay. Later, real multi-window support (like ImGui's multi-viewports)
+// will take this over.
 static SDL_Window *g_gameWindow = nullptr;
 static int g_gameOutputId = 0;
 

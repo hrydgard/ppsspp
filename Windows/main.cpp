@@ -1264,6 +1264,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	HWND hwndMain = MainWindow::GetHWND();
 	Achievements::InitializeRAIntegration(hwndMain);
 
+	if (cmdLineOptions.gameWindow.value_or(false)) {
+		MainWindow::CreateGameWindow();
+	}
+
 	//initialize custom controls
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
