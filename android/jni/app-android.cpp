@@ -89,6 +89,7 @@ struct JNIEnv {};
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "android/jni/AndroidEGLGraphicsContext.h"
 #include "Common/StringUtils.h"
@@ -201,6 +202,10 @@ static void SetPermissionStatusFromJava(std::string_view name, PermissionStatus 
 }
 
 static GraphicsContext *graphicsContext;
+
+// The latest surface size from backbufferResize, width in the high half, for Vulkan to check the surface's extent
+// against. Atomic rather than under g_pendingResizeLock (below), since a resize applied directly can recreate the swapchain.
+static std::atomic<uint64_t> g_surfaceSize;
 
 #if PPSSPP_ARCH(ARMV7)
 // Old Android workaround
@@ -730,6 +735,10 @@ retry:
 			delete ctx;
 			goto retry;
 		}
+		((VulkanContext *)ctx->GetAPIContext())->SetCbGetDrawSize([]() {
+			const uint64_t size = g_surfaceSize;
+			return VkExtent2D{ (uint32_t)(size >> 32), (uint32_t)size };
+		});
 		graphicsContext = ctx;
 		// Now, we wait until we get a surface to continue initializing Vulkan.
 		break;
@@ -907,6 +916,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	static int lastRotation = -1;
 	const bool rotated = lastRotation != -1 && rotation != lastRotation;
 	lastRotation = rotation;
+
+	g_surfaceSize = ((uint64_t)(uint32_t)pixel_xres << 32) | (uint32_t)pixel_yres;
 
 	// pixel_*res is the backbuffer resolution.
 	if (IsVREnabled()) {
