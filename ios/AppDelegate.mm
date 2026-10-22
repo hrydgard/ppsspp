@@ -1,5 +1,6 @@
 #import "AppDelegate.h"
 #import "SceneDelegate.h"
+#import "ExternalDisplaySceneDelegate.h"
 #import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
@@ -23,6 +24,7 @@
 // This is necessary because otherwise classes from static libraries aren't loaded.
 // We should move all the iOS code into the main binary directly to avoid this problem.
 __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate class];
+__attribute__((used)) static Class _forceLinkExternalDisplaySceneDelegate = [ExternalDisplaySceneDelegate class];
 
 @implementation AppDelegate
 

@@ -65,6 +65,7 @@ public:
 
 protected:
 	void darken();
+	void drawGameOnOutputMessage();
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
 	bool renderOutput(const OutputDisplay &output) override;

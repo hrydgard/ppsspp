@@ -257,8 +257,11 @@ can be tested on its own.
 
 ## iOS
 
-- **Info.plist:** add a `UIWindowSceneSessionRoleExternalDisplayNonInteractive` configuration with an
-  `ExternalDisplaySceneDelegate`. Without it, iOS just mirrors (today's behaviour).
+- **Getting the scene:** up to iOS 26, a `UIWindowSceneSessionRoleExternalDisplayNonInteractive`
+  configuration in Info.plist, with `ExternalDisplaySceneDelegate`. From iOS 27, that's ignored, and the
+  app has to register from a view controller instead (`registerSceneAccessory:` with
+  `UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:`). We do both. Without a
+  scene, iOS just mirrors. An AirPlay Apple TV 4K comes in at 3840x2160.
 - **Connect:** the delegate keeps the scene, and posts "external display available" (size from
   `screen.nativeBounds`, refresh rate, overscan) to the native side. It doesn't create a window yet.
 - **TV mode on:** when it should be active (setting on, `EmuScreen` running), the main thread creates

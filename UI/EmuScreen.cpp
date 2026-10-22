@@ -1577,6 +1577,16 @@ ScreenRenderRole EmuScreen::renderRole(bool isTop) const {
 	return role;
 }
 
+// In place of the game, while it's on another output.
+void EmuScreen::drawGameOnOutputMessage() {
+	UIContext &dc = *screenManager()->getUIContext();
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const Bounds &bounds = dc.GetBounds();
+	dc.Begin();
+	dc.DrawText(di->T("Playing on TV"), bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
+	dc.Flush();
+}
+
 void EmuScreen::darken() {
 	if (screenManager()->topScreen()->wantBrightBackground()) {
 		return;
@@ -1714,7 +1724,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 
 	if (!skipBufferEffects_ && !ShouldRunEmulation(mode)) {
-		if (gpu && !gameOnOutput_) {
+		if (gameOnOutput_) {
+			drawGameOnOutputMessage();
+		} else if (gpu) {
 			gpu->CopyDisplayToOutput(displayLayoutConfig);
 		}
 		draw->SetViewport(viewport);
@@ -1747,7 +1759,9 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	const bool skipBufferEffects = skipBufferEffects_;
 
 	// Gotta copy the output at some point. Also this is where we take the screenshot if needed.
-	if (gpu && !gameOnOutput_) {
+	if (gameOnOutput_) {
+		drawGameOnOutputMessage();
+	} else if (gpu) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
 	}
 
