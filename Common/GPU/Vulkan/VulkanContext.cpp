@@ -889,6 +889,13 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		deviceFeatures_.enabled.scalarBlockLayout.scalarBlockLayout = deviceFeatures_.available.scalarBlockLayout.scalarBlockLayout;
 	}
 
+	// What MoltenVK can do of what full Vulkan can (like image view swizzles). Using any of it needs it enabled.
+	deviceFeatures_.enabled.portabilitySubset = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR };
+	if (extensionsLookup_.KHR_portability_subset) {
+		deviceFeatures_.enabled.portabilitySubset = deviceFeatures_.available.portabilitySubset;
+		deviceFeatures_.enabled.portabilitySubset.pNext = nullptr;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -919,6 +926,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			ChainStruct(features2, &deviceFeatures_.enabled.portabilitySubset);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
