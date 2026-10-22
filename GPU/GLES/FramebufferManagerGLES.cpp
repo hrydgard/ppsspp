@@ -51,8 +51,8 @@ void FramebufferManagerGLES::NotifyDisplayResized() {
 
 bool FramebufferManagerGLES::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	int w, h;
-	draw_->GetFramebufferDimensions(nullptr, &w, &h);
+	draw_->GetFramebufferDimensions(draw_->GetPrimarySwapchain(), &w, &h);
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_888_RGB, true);
-	draw_->CopyFramebufferToMemory(nullptr, Draw::Aspect::COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
+	draw_->CopyFramebufferToMemory(draw_->GetPrimarySwapchain(), Draw::Aspect::COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetOutputFramebuffer");
 	return true;
 }

@@ -460,6 +460,7 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		bbRenderTargetTex_ = (ID3D11Texture2D *)param2;
 		bbWidth_ = width;
 		bbHeight_ = height;
+		primarySwapchain_->SetSize(width, height);
 
 		// Create matching depth stencil texture. This is not really needed for PPSSPP though,
 		// and probably not for most other renderers either as you're usually rendering to other render targets and
@@ -1725,6 +1726,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 }
 
 bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+	src = PrimaryToNull(src);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {
@@ -1879,6 +1881,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	fbo = PrimaryToNull(fbo);
 	// TODO: deviceContext1 can actually discard.
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
@@ -1976,6 +1979,7 @@ uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 }
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	fbo = PrimaryToNull(fbo);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	if (fb) {
 		*w = fb->Width();

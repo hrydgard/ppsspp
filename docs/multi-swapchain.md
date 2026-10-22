@@ -82,10 +82,11 @@ class DrawContext {
 }
 ```
 
-- **`nullptr` goes away in two steps.** First it's an alias for `GetPrimarySwapchain()`, so nothing
-  breaks. Then the callers move over (`ScreenManager::Render` is the one bind, plus the readback and
-  dimension calls) and `nullptr` becomes an assert. Backends check `IsSwapchain()` instead of
-  comparing with null.
+- **`nullptr` is an alias for the primary,** so nothing breaks. The direct callers use
+  `GetPrimarySwapchain()`. Some code still passes a `Framebuffer *` that may be null (non-buffered
+  rendering, for one), so `nullptr` can only become an assert after that's audited. Backends that
+  support one swapchain map the primary to their old `nullptr` path (`PrimaryToNull`). Metal treats
+  all its swapchains the same way.
 - **Size changes on resize.** Unlike other framebuffers, a swapchain's `Width()`/`Height()` change when
   its surface does, and only at a frame boundary.
 - **Platform code keeps the primary out of its hands.** `GraphicsContext::InitSurface` still creates

@@ -1396,7 +1396,7 @@ namespace Libretro {
       // gotta do the backbuffer bind somewhere.
       using namespace Draw;
       if (draw) {
-         draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+         draw->BindFramebufferAsRenderTarget(draw->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
       }
 
       if (gpu && draw) {

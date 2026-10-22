@@ -212,8 +212,8 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 
 	afterPreRender();
 
-	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.
-	draw_->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+	// Now, start the final render pass. This is now the ONLY place where binding the backbuffer is allowed.
+	draw_->BindFramebufferAsRenderTarget(draw_->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 	getUIContext()->BeginFrame();
 
 	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};

@@ -1878,7 +1878,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 			// The right time to run this
 			if (ScreenshotNotifyPostGameRender(draw) && skipBufferEffects) {
 				// Need to restore the backbuffer render pass, it probably got destroyed.
-				draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+				draw->BindFramebufferAsRenderTarget(draw->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 			}
 		}
 	}

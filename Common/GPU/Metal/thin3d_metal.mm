@@ -404,6 +404,23 @@ private:
 	std::string tag_;
 };
 
+class MetalSwapchainFB : public Swapchain {
+public:
+	MetalSwapchainFB(MetalSwapchain *swapchain, const char *tag) : swapchain(swapchain), tag_(tag ? tag : "") {
+		UpdateSize();
+	}
+	void UpdateSize() {
+		width_ = swapchain->width;
+		height_ = swapchain->height;
+	}
+	const char *Tag() const override { return tag_.c_str(); }
+
+	MetalSwapchain *swapchain;
+
+private:
+	std::string tag_;
+};
+
 // Bytes only, so there's no padding for memcmp to compare.
 struct MetalDepthStencilKey {
 	uint8_t depthTest;
@@ -453,8 +470,12 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
 	bool CopyFramebufferToMemory(Framebuffer *src, Aspect aspect, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override {
-		return src ? DataFormat::R8G8B8A8_UNORM : DataFormat::B8G8R8A8_UNORM;
+		return ToSwapchain(src) ? DataFormat::B8G8R8A8_UNORM : DataFormat::R8G8B8A8_UNORM;
 	}
+
+	Swapchain *CreateSwapchain(const SwapchainDesc &desc, std::string *error) override;
+	void DestroySwapchain(Swapchain *swapchain) override;
+	void ResizeSwapchain(Swapchain *swapchain, int width, int height) override;
 
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) override;
@@ -520,6 +541,13 @@ private:
 	id<MTLDepthStencilState> GetDepthStencilState(const DepthStencilStateDesc &desc);
 	void UploadTextureData(MetalTexture *tex, int level, int x, int y, int w, int h, const uint8_t *data, int srcStride, TextureCallback callback, bool useUploadBuffer);
 	void ResetViewportScissor();
+	// nullptr and the primary swapchain mean the backbuffer. Returns nullptr for an ordinary framebuffer.
+	MetalSwapchain *ToSwapchain(Framebuffer *fb) const {
+		if (!fb || fb == primarySwapchain_) {
+			return rm_->Backbuffer();
+		}
+		return fb->IsSwapchain() ? ((MetalSwapchainFB *)fb)->swapchain : nullptr;
+	}
 
 	MetalRenderManager *rm_;
 	id<MTLDevice> device_;
@@ -621,6 +649,7 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 #else
 	caps_.presentModesSupported = PresentMode::FIFO;
 #endif
+	caps_.multipleSwapchains = true;
 	caps_.multiSampleLevelsMask = 1;
 	for (int level = 1; level <= 3; level++) {
 		if ([device_ supportsTextureSampleCount:1 << level]) {
@@ -1014,6 +1043,7 @@ Framebuffer *MetalDrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 void MetalDrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) {
+	_dbg_assert_(srcfb && !srcfb->IsSwapchain() && dstfb && !dstfb->IsSwapchain());
 	MetalFramebuffer *src = (MetalFramebuffer *)srcfb;
 	MetalFramebuffer *dst = (MetalFramebuffer *)dstfb;
 
@@ -1083,13 +1113,21 @@ bool MetalDrawContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, i
 }
 
 bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect, int x, int y, int w, int h, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
-	MetalFramebuffer *fb = (MetalFramebuffer *)srcfb;
-	// nil with !fb means the backbuffer (the drawable is only known when the commands are encoded).
+	MetalSwapchain *swapchain = ToSwapchain(srcfb);
+	// A swapchain's texture is only known when the commands are encoded.
 	id<MTLTexture> srcTex;
-	int texW = rm_->BackbufferWidth();
-	int texH = rm_->BackbufferHeight();
+	int texW;
+	int texH;
 	MTLPixelFormat srcFormat = rm_->BackbufferFormat();
-	if (fb) {
+	if (swapchain) {
+		if (aspect != Aspect::COLOR_BIT || !swapchain->drawn) {
+			// Like headless Vulkan, which has no backbuffer. The GE debugger shows the PSP's framebuffer instead.
+			return false;
+		}
+		texW = swapchain->width;
+		texH = swapchain->height;
+	} else {
+		MetalFramebuffer *fb = (MetalFramebuffer *)srcfb;
 		srcTex = aspect == Aspect::COLOR_BIT ? fb->color : fb->depth;
 		if (!srcTex) {
 			return false;
@@ -1097,11 +1135,6 @@ bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect
 		texW = (int)srcTex.width;
 		texH = (int)srcTex.height;
 		srcFormat = srcTex.pixelFormat;
-	} else if (aspect != Aspect::COLOR_BIT || !rm_->BackbufferDrawn()) {
-		// Like headless Vulkan, which has no backbuffer. The GE debugger shows the PSP's framebuffer instead.
-		return false;
-	} else if (rm_->OffscreenBackbuffer()) {
-		srcTex = rm_->OffscreenBackbuffer();
 	}
 	if (x < 0) { w += x; x = 0; }
 	if (y < 0) { h += y; y = 0; }
@@ -1127,7 +1160,7 @@ bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect
 		readbackBuffer_.label = @"readback";
 	}
 
-	rm_->CopyTextureToBuffer(srcTex, 0, MTLOriginMake(x, y, 0), MTLSizeMake(w, h, 1), readbackBuffer_, 0, srcStride, (uint32_t)size, options);
+	rm_->CopyTextureToBuffer(srcTex, 0, MTLOriginMake(x, y, 0), MTLSizeMake(w, h, 1), readbackBuffer_, 0, srcStride, (uint32_t)size, options, swapchain);
 	rm_->Flush(true);
 
 	const uint8_t *src = (const uint8_t *)readbackBuffer_.contents;
@@ -1172,8 +1205,11 @@ void MetalDrawContext::ResetViewportScissor() {
 }
 
 void MetalDrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	MetalFramebuffer *fb = (MetalFramebuffer *)fbo;
-	if (fb) {
+	MetalSwapchain *swapchain = ToSwapchain(fbo);
+	if (swapchain) {
+		rm_->BindBackbufferPass(swapchain, RPActionToMetal(rp.color), ClearColorFromRGBA(rp.clearColor), tag);
+	} else {
+		MetalFramebuffer *fb = (MetalFramebuffer *)fbo;
 		MetalRenderPassDesc desc{};
 		desc.color = fb->color;
 		desc.depth = fb->depth;
@@ -1187,8 +1223,6 @@ void MetalDrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 		desc.clearStencil = rp.clearStencil;
 		desc.tag = tag;
 		rm_->BindRenderPass(desc);
-	} else {
-		rm_->BindBackbufferPass(RPActionToMetal(rp.color), ClearColorFromRGBA(rp.clearColor), tag);
 	}
 	ResetViewportScissor();
 	if (invalidationCallback_) {
@@ -1198,6 +1232,7 @@ void MetalDrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 
 void MetalDrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) {
 	_dbg_assert_(binding < (int)MAX_TEXTURE_SLOTS);
+	_dbg_assert_(fbo && !fbo->IsSwapchain());
 	MetalFramebuffer *fb = (MetalFramebuffer *)fbo;
 	id<MTLTexture> tex;
 	switch (aspect) {
@@ -1218,12 +1253,45 @@ void MetalDrawContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int bin
 }
 
 void MetalDrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
-	if (fbo) {
+	if (MetalSwapchain *swapchain = ToSwapchain(fbo)) {
+		*w = swapchain->width;
+		*h = swapchain->height;
+	} else {
 		*w = fbo->Width();
 		*h = fbo->Height();
+	}
+}
+
+Swapchain *MetalDrawContext::CreateSwapchain(const SwapchainDesc &desc, std::string *error) {
+	if (desc.winsys != WINDOWSYSTEM_METAL_EXT) {
+		*error = "Metal swapchains need a CAMetalLayer";
+		return nullptr;
+	}
+	// A null layer gives an offscreen swapchain of the given size, like headless.
+	CAMetalLayer *layer = (__bridge CAMetalLayer *)desc.data1;
+	if (!layer && (desc.width <= 0 || desc.height <= 0)) {
+		*error = "No size for an offscreen swapchain";
+		return nullptr;
+	}
+	return new MetalSwapchainFB(rm_->CreateSwapchain(layer, desc.width, desc.height), desc.tag);
+}
+
+void MetalDrawContext::DestroySwapchain(Swapchain *swapchain) {
+	_dbg_assert_(swapchain && swapchain != primarySwapchain_);
+	MetalSwapchainFB *fb = (MetalSwapchainFB *)swapchain;
+	rm_->DestroySwapchain(fb->swapchain);
+	fb->swapchain = nullptr;
+	fb->Release();
+}
+
+void MetalDrawContext::ResizeSwapchain(Swapchain *swapchain, int width, int height) {
+	MetalSwapchain *metalSwapchain = ToSwapchain(swapchain);
+	_dbg_assert_(metalSwapchain);
+	rm_->Resize(metalSwapchain, width, height);
+	if (swapchain == primarySwapchain_) {
+		primarySwapchain_->SetSize(metalSwapchain->width, metalSwapchain->height);
 	} else {
-		*w = rm_->BackbufferWidth();
-		*h = rm_->BackbufferHeight();
+		((MetalSwapchainFB *)swapchain)->UpdateSize();
 	}
 }
 
@@ -1535,6 +1603,7 @@ void MetalDrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		break;
 	case Event::GOT_BACKBUFFER:
 		rm_->Resize(width, height);
+		primarySwapchain_->SetSize(rm_->BackbufferWidth(), rm_->BackbufferHeight());
 		break;
 	default:
 		break;

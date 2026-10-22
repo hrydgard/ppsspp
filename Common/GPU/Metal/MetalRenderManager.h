@@ -221,8 +221,24 @@ struct MetalCommand {
 	};
 };
 
+// A layer we present to, or an offscreen backbuffer of a fixed size. The render manager owns them, and
+// the first one is the backbuffer.
+struct MetalSwapchain {
+	CAMetalLayer *layer = nil;  // nil for an offscreen backbuffer.
+	id<MTLTexture> offscreen;
+	id<MTLTexture> depth;
+	int width = 0;
+	int height = 0;
+	// Non-zero to resize the layer's drawables, which the replay does as it's what acquires them.
+	int pendingWidth = 0;
+	int pendingHeight = 0;
+	bool drawn = false;  // Something has rendered to it.
+	// Replay side. Acquired by the first pass that renders to it, presented at the end of the frame.
+	id<CAMetalDrawable> drawable;
+};
+
 struct MetalRecordedPass {
-	void *color;  // Unused for the backbuffer, it's the drawable's.
+	void *color;  // Unused for a swapchain, it's the drawable's.
 	void *depth;
 	void *msaaColor;
 	void *msaaDepth;
@@ -235,7 +251,7 @@ struct MetalRecordedPass {
 	MTLStoreAction depthStore;
 	bool usesDepth;  // Some draw tested or wrote depth or stencil.
 	bool depthMemoryless;
-	bool backbuffer;
+	MetalSwapchain *swapchain;  // Renders to this instead of color.
 	std::string tag;
 };
 
@@ -248,7 +264,7 @@ enum class MetalCopyType : uint8_t {
 
 struct MetalRecordedCopy {
 	MetalCopyType type;
-	bool srcIsBackbuffer;  // The source texture is the current drawable.
+	MetalSwapchain *srcSwapchain;  // Copies from the swapchain's current drawable instead of src.
 	void *src;
 	void *dst;
 	uint32_t srcOffset;  // For buffers.
@@ -289,7 +305,8 @@ struct MetalStep {
 	uint32_t index;  // Into the chunk's passes or copies.
 	// Command ranges, [first, last), not including the pass begin and end. Merging appends more.
 	std::vector<std::pair<uint32_t, uint32_t>> ranges;
-	void *target;  // Color (or depth, if there's no color) of a pass. Destination of a copy.
+	void *target;  // Color (or depth, if there's no color) of a pass, or its swapchain. Destination of a copy.
+	bool targetIsSwapchain;
 	void *targetDepth;
 	void *targetMsaa;  // A pass's multisampled color (or depth), which the shared code can read samples from.
 	std::vector<void *> reads;  // Textures sampled by the pass, or the copy's source.
@@ -305,8 +322,12 @@ struct MetalCommandChunk {
 	std::vector<MetalRecordedDispatch> dispatches;
 	MetalChunkEnd end = MetalChunkEnd::FLUSH;
 	bool vsync = true;
-	int newDrawableWidth = 0;  // Non-zero to resize the layer's drawables first.
-	int newDrawableHeight = 0;
+	struct DrawableResize {
+		MetalSwapchain *swapchain;
+		int width;
+		int height;
+	};
+	std::vector<DrawableResize> drawableResizes;  // Applied before the commands.
 	dispatch_semaphore_t completed = nullptr;  // Signalled when the GPU is done with the chunk, if set.
 	bool exitThread = false;
 
@@ -318,8 +339,7 @@ struct MetalCommandChunk {
 		dispatches.clear();
 		end = MetalChunkEnd::FLUSH;
 		vsync = true;
-		newDrawableWidth = 0;
-		newDrawableHeight = 0;
+		drawableResizes.clear();
 		completed = nullptr;
 		exitThread = false;
 	}
@@ -356,29 +376,30 @@ public:
 		}
 	}
 
-	// Backbuffer
-	void Resize(int width, int height);
-	int BackbufferWidth() const { return bbWidth_; }
-	int BackbufferHeight() const { return bbHeight_; }
+	// Swapchains. The backbuffer is the first, and lives as long as the render manager. Others are created
+	// and destroyed between frames. Destroying one waits for the GPU.
+	MetalSwapchain *Backbuffer() const { return backbuffer_; }
+	MetalSwapchain *CreateSwapchain(CAMetalLayer *layer, int width, int height);
+	void DestroySwapchain(MetalSwapchain *swapchain);
+	void Resize(MetalSwapchain *swapchain, int width, int height);
+	void Resize(int width, int height) { Resize(backbuffer_, width, height); }
+	int BackbufferWidth() const { return backbuffer_->width; }
+	int BackbufferHeight() const { return backbuffer_->height; }
 	MTLPixelFormat BackbufferFormat() const { return MTLPixelFormatBGRA8Unorm; }
-	// The offscreen backbuffer, or nil when rendering to the layer.
-	id<MTLTexture> OffscreenBackbuffer() const { return offscreenBackbuffer_; }
-	// False until something renders to the backbuffer (headless never does).
-	bool BackbufferDrawn() const { return backbufferDrawn_; }
 
 	// Render passes. The pass is started lazily, see above.
 	void BindRenderPass(const MetalRenderPassDesc &desc);
-	void BindBackbufferPass(MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag);
+	void BindBackbufferPass(MetalSwapchain *swapchain, MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag);
 	// Clears parts of the current render target, by restarting the pass with clear load actions if needed.
 	void Clear(bool color, bool depth, bool stencil, MTLClearColor clearColor, double clearDepth, uint32_t clearStencil);
 	// Forget the current render target, ending its pass.
 	void UnbindRenderPass();
-	bool HasRenderPass() const { return pass_.color != nil || pass_.depth != nil || passIsBackbuffer_; }
+	bool HasRenderPass() const { return pass_.color != nil || pass_.depth != nil || passSwapchain_; }
 	const MetalRenderPassDesc &CurPass() const { return pass_; }
 	const MetalRenderTargetFormat &CurTargetFormat() const { return curFormat_; }
 	int CurPassWidth() const { return passWidth_; }
 	int CurPassHeight() const { return passHeight_; }
-	bool IsBackbufferPass() const { return passIsBackbuffer_; }
+	bool IsBackbufferPass() const { return passSwapchain_ != nullptr; }
 
 	// Starts the render pass if needed. Returns false if there's no render target, in which case nothing
 	// should be drawn.
@@ -421,8 +442,8 @@ public:
 	// goes in the upload command buffer, which runs before everything else in the current submit. Use that
 	// only for resources that nothing earlier in the frame has used (like new textures).
 	void CopyTexture(__unsafe_unretained id<MTLTexture> src, int srcLevel, MTLOrigin srcOrigin, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int dstLevel, MTLOrigin dstOrigin);
-	// src nil means the backbuffer.
-	void CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options);
+	// With srcSwapchain set, copies from its drawable (or offscreen texture) instead of src.
+	void CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options, MetalSwapchain *srcSwapchain = nullptr);
 	void CopyBufferToTexture(__unsafe_unretained id<MTLBuffer> src, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int slice, int level, MTLOrigin origin, MTLBlitOption options, bool upload);
 	void GenerateMips(__unsafe_unretained id<MTLTexture> texture, bool upload);
 	// Runs in the upload command buffer, in order with the upload copies. Fill in the returned dispatch.
@@ -438,8 +459,7 @@ private:
 	void EndRenderPass();
 	void RecordEndPass();
 	void ResetEncoderState();
-	void CreateOffscreenBackbuffer(int width, int height);
-	void CreateBackbufferDepth();
+	void CreateSwapchainDepth(MetalSwapchain *swapchain);
 	MetalCommand &Record(MetalCmd cmd) {
 		chunk_->commands.emplace_back();
 		MetalCommand &c = chunk_->commands.back();
@@ -458,11 +478,10 @@ private:
 	void ReplayCopy(const MetalCommandChunk &chunk, const MetalRecordedCopy &copy, id<MTLCommandBuffer> cmd, bool upload);
 	void EndReplayEncoders();
 	void ReplayDispatch(const MetalRecordedDispatch &dispatch, id<MTLCommandBuffer> cmd);
-	id<MTLTexture> ReplayBackbuffer();
+	id<MTLTexture> ReplaySwapchainTexture(MetalSwapchain *swapchain);
 
 	id<MTLDevice> device_;
 	id<MTLCommandQueue> queue_;
-	CAMetalLayer *layer_ = nil;
 	bool unifiedMemory_ = false;
 	bool appleGPU_ = false;
 
@@ -480,16 +499,11 @@ private:
 
 	// Recording state (emu thread).
 	MetalCommandChunk *chunk_ = nullptr;
-	id<MTLTexture> offscreenBackbuffer_;
-	bool backbufferDrawn_ = false;
-	id<MTLTexture> bbDepth_;
-	int bbWidth_ = 0;
-	int bbHeight_ = 0;
-	int pendingDrawableWidth_ = 0;
-	int pendingDrawableHeight_ = 0;
+	std::vector<MetalSwapchain *> swapchains_;
+	MetalSwapchain *backbuffer_ = nullptr;
 
 	MetalRenderPassDesc pass_;
-	bool passIsBackbuffer_ = false;
+	MetalSwapchain *passSwapchain_ = nullptr;
 	bool inPass_ = false;
 	bool passUsesDepth_ = false;
 	size_t recordedPassIndex_ = 0;
@@ -541,7 +555,7 @@ private:
 	id<MTLBlitCommandEncoder> rtBlit_;
 	id<MTLBlitCommandEncoder> rtUploadBlit_;
 	id<MTLComputeCommandEncoder> rtUploadCompute_;
-	id<CAMetalDrawable> rtDrawable_;
+	std::vector<MetalSwapchain *> rtAcquired_;  // Swapchains with a drawable to present.
 	// Replay scratch, reused between chunks.
 	std::vector<MetalStep> rtSteps_;
 	size_t rtStepCount_ = 0;
