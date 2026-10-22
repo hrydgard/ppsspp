@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/Render/TextureAtlas.h"
 
 namespace UI {
 class View;
@@ -57,6 +58,8 @@ enum class SettingType {
 	IntChoice,
 	StringChoice,
 	IntSlider,
+	FloatSlider,
+	Choice,  // A button. onChange is called on click.
 	Info,
 	Hint,  // Explanatory text attached to the previous item.
 	Custom,
@@ -69,10 +72,12 @@ struct SettingItem {
 	SettingText text;
 	void *ptr = nullptr;  // bool *, int * or std::string *, depending on type.
 
-	// IntChoice. The choices are translated in the same category as the text.
+	// IntChoice. The choices are translated in the same category as the text, unless choiceCat is set.
 	const char **choices = nullptr;
 	int minVal = 0;
 	int numChoices = 0;
+	I18NCat choiceCat = I18NCat::NONE;
+	bool hasChoiceCat = false;
 
 	// StringChoice. If values is empty, the names are stored.
 	std::vector<std::string> choiceNames;
@@ -83,11 +88,25 @@ struct SettingItem {
 	int maxValue = 0;
 	int defaultValue = 0;
 	bool hasDefault = false;
+	int step = 1;
 	std::string format;
 	SettingText zeroLabel;
-	bool liveUpdate = false;
+	std::string negativeLabel;
 	const int *restrictTo = nullptr;
 	size_t restrictCount = 0;
+
+	// FloatSlider
+	float fMinValue = 0.0f;
+	float fMaxValue = 0.0f;
+	float fDefaultValue = 0.0f;
+	float fStep = 0.0f;
+
+	// Both slider types. Already translated.
+	std::string units;
+	bool liveUpdate = false;
+
+	// Choice
+	ImageID image;
 
 	// Info
 	std::string rightText;
@@ -96,16 +115,26 @@ struct SettingItem {
 	std::function<UI::View *(UI::ViewGroup *parent)> createCustom;
 
 	bool *enabledPtr = nullptr;
+	bool *disabledPtr = nullptr;
 	std::function<bool()> enabledFunc;
-	// Called on click (Bool), choice (choices) or change (sliders).
+	// Called on click (Bool, Choice), choice (choices) or change (sliders).
 	std::function<void(UI::EventParams &)> onChange;
+	// For tweaks the description doesn't cover, called after the view is created.
+	std::function<void(UI::View *)> setup;
 
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
+	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
 	SettingItem &EnabledFunc(std::function<bool()> func) { enabledFunc = std::move(func); return *this; }
 	SettingItem &OnChange(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
+	SettingItem &OnClick(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
+	SettingItem &Setup(std::function<void(UI::View *)> func) { setup = std::move(func); return *this; }
+	SettingItem &ChoiceCat(I18NCat cat) { choiceCat = cat; hasChoiceCat = true; return *this; }
 	SettingItem &Default(int value) { defaultValue = value; hasDefault = true; return *this; }
+	SettingItem &Step(int value) { step = value; return *this; }
 	SettingItem &Format(std::string_view fmt) { format = fmt; return *this; }
 	SettingItem &ZeroLabel(SettingText label) { zeroLabel = label; return *this; }
+	SettingItem &NegativeLabel(std::string_view label) { negativeLabel = label; return *this; }
+	SettingItem &Units(std::string_view text) { units = text; return *this; }
 	SettingItem &LiveUpdate() { liveUpdate = true; return *this; }
 	SettingItem &RestrictTo(const int *values, size_t count) { restrictTo = values; restrictCount = count; return *this; }
 };
@@ -121,9 +150,12 @@ public:
 	// Choices are shown as is, untranslated.
 	SettingItem &StringChoice(std::string *value, SettingText text, std::vector<std::string> names, std::vector<std::string> values = {});
 	SettingItem &IntSlider(int *value, int minValue, int maxValue, SettingText text);
+	SettingItem &FloatSlider(float *value, float minValue, float maxValue, float defaultValue, float step, SettingText text);
+	SettingItem &Choice(SettingText text, ImageID image = ImageID::invalid());
 	SettingItem &Info(SettingText text, std::string_view rightText);
 	SettingItem &Hint(SettingText text);
-	// For anything the other types can't describe. The text is only used for search.
+	// For anything the other types can't describe. The text is only used for search. The view
+	// returned is the one a following Hint is attached to, and the one search results lead to.
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);
 
 	I18NCat DefaultCat() const { return defaultCat_; }
@@ -136,4 +168,6 @@ private:
 	std::deque<SettingItem> items_;  // A deque so references stay valid while adding.
 };
 
-void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager);
+// If views is set, it gets the view created for each item (or null), in the same order.
+void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views = nullptr);
+UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager);

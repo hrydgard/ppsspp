@@ -74,6 +74,22 @@ SettingItem &SettingsPage::IntSlider(int *value, int minValue, int maxValue, Set
 	return item;
 }
 
+SettingItem &SettingsPage::FloatSlider(float *value, float minValue, float maxValue, float defaultValue, float step, SettingText text) {
+	SettingItem &item = Add(SettingType::FloatSlider, text);
+	item.ptr = value;
+	item.fMinValue = minValue;
+	item.fMaxValue = maxValue;
+	item.fDefaultValue = defaultValue;
+	item.fStep = step;
+	return item;
+}
+
+SettingItem &SettingsPage::Choice(SettingText text, ImageID image) {
+	SettingItem &item = Add(SettingType::Choice, text);
+	item.image = image;
+	return item;
+}
+
 SettingItem &SettingsPage::Info(SettingText text, std::string_view rightText) {
 	SettingItem &item = Add(SettingType::Info, text);
 	item.rightText = rightText;
@@ -91,7 +107,7 @@ SettingItem &SettingsPage::Custom(SettingText text, std::function<UI::View *(UI:
 	return item;
 }
 
-static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
+static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
 	using namespace UI;
 
 	std::string_view text = item.text.Translate(pageCat);
@@ -108,7 +124,8 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 	}
 	case SettingType::IntChoice:
 	{
-		PopupMultiChoice *choice = parent->Add(new PopupMultiChoice((int *)item.ptr, text, item.choices, item.minVal, item.numChoices, item.text.hasCat ? item.text.cat : pageCat, screenManager));
+		I18NCat choiceCat = item.hasChoiceCat ? item.choiceCat : (item.text.hasCat ? item.text.cat : pageCat);
+		PopupMultiChoice *choice = parent->Add(new PopupMultiChoice((int *)item.ptr, text, item.choices, item.minVal, item.numChoices, choiceCat, screenManager));
 		if (item.onChange) {
 			choice->OnChoice.Add(item.onChange);
 		}
@@ -129,14 +146,17 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 		int defaultValue = item.defaultValue;
 		if (!item.hasDefault) {
 			defaultValue = Config::GetDefaultValueInt((int *)item.ptr);
-			_dbg_assert_msg_(defaultValue != NO_DEFAULT_INT,"No default for slider '%s'", item.text.key);
+			_dbg_assert_msg_(defaultValue != ::NO_DEFAULT_INT, "No default for slider '%s'", item.text.key);
 		}
-		PopupSliderChoice *slider = parent->Add(new PopupSliderChoice((int *)item.ptr, item.minValue, item.maxValue, defaultValue, text, screenManager));
+		PopupSliderChoice *slider = parent->Add(new PopupSliderChoice((int *)item.ptr, item.minValue, item.maxValue, defaultValue, text, item.step, screenManager, item.units));
 		if (!item.format.empty()) {
 			slider->SetFormat(item.format);
 		}
 		if (!item.zeroLabel.empty()) {
 			slider->SetZeroLabel(item.zeroLabel.Translate(pageCat));
+		}
+		if (!item.negativeLabel.empty()) {
+			slider->SetNegativeDisable(item.negativeLabel);
 		}
 		if (item.liveUpdate) {
 			slider->SetLiveUpdate(true);
@@ -149,6 +169,25 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 		}
 		return slider;
 	}
+	case SettingType::FloatSlider:
+	{
+		PopupSliderChoiceFloat *slider = parent->Add(new PopupSliderChoiceFloat((float *)item.ptr, item.fMinValue, item.fMaxValue, item.fDefaultValue, text, item.fStep, screenManager, item.units));
+		if (item.liveUpdate) {
+			slider->SetLiveUpdate(true);
+		}
+		if (item.onChange) {
+			slider->OnChange.Add(item.onChange);
+		}
+		return slider;
+	}
+	case SettingType::Choice:
+	{
+		UI::Choice *choice = parent->Add(new UI::Choice(text, item.image));
+		if (item.onChange) {
+			choice->OnClick.Add(item.onChange);
+		}
+		return choice;
+	}
 	case SettingType::Info:
 		return parent->Add(new InfoItem(text, item.rightText));
 	case SettingType::Hint:
@@ -159,18 +198,33 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 	return nullptr;
 }
 
-void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager) {
+UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
+	UI::View *view = CreateSettingViewInner(item, pageCat, prevView, parent, screenManager);
+	if (!view) {
+		return nullptr;
+	}
+	if (item.enabledFunc) {
+		view->SetEnabledFunc(item.enabledFunc);
+	} else if (item.enabledPtr) {
+		view->SetEnabledPtr(item.enabledPtr);
+	} else if (item.disabledPtr) {
+		view->SetDisabledPtr(item.disabledPtr);
+	}
+	if (item.setup) {
+		item.setup(view);
+	}
+	return view;
+}
+
+void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views) {
 	UI::View *prevView = nullptr;
 	for (const SettingItem &item : page.Items()) {
 		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, parent, screenManager);
-		if (!view) {
-			continue;
+		if (views) {
+			views->push_back(view);
 		}
-		if (item.enabledFunc) {
-			view->SetEnabledFunc(item.enabledFunc);
-		} else if (item.enabledPtr) {
-			view->SetEnabledPtr(item.enabledPtr);
+		if (view) {
+			prevView = view;
 		}
-		prevView = view;
 	}
 }
