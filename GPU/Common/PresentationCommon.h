@@ -199,6 +199,7 @@ protected:
 	bool PrepareOverlayTexture(const OverlayLayout &layout);
 	void DrawOverlay(const OverlayLayout &layout, const OutputParams &output);
 
+	bool UseCardboard(const DisplayLayoutConfig &config) const;
 	void GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
