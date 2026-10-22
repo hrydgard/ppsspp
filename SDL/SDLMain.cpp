@@ -1117,6 +1117,10 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
+#if PPSSPP_PLATFORM(MAC)
+	case SYSPROP_DEVICE_MODEL:
+		return "Mac";
+#endif
 	case SYSPROP_NAME:
 #ifdef _WIN32
 		return "SDL:Windows";

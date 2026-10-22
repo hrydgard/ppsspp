@@ -137,6 +137,8 @@ enum SystemKeyboardLayout {
 
 enum SystemProperty {
 	SYSPROP_NAME,
+	SYSPROP_DEVICE_NAME,  // The name the user gave the device, like "Henrik's iPhone". Empty if we can't get it.
+	SYSPROP_DEVICE_MODEL,  // What kind of device it is, like "iPhone" or "Mac". Empty if unknown.
 	SYSPROP_SYSTEMBUILD,
 	SYSPROP_LANGREGION,
 	SYSPROP_CPUINFO,

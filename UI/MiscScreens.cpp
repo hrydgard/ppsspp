@@ -104,9 +104,19 @@ bool BackgroundScreen::renderOutput(const OutputDisplay &output) {
 	}
 	UIContext &dc = *screenManager()->getUIContext();
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	std::string text;
+	const std::string deviceName = System_GetProperty(SYSPROP_DEVICE_NAME);
+	const std::string deviceModel = System_GetProperty(SYSPROP_DEVICE_MODEL);
+	if (!deviceName.empty()) {
+		text = ApplySafeSubstitutions(di->T("In menus on %1"), deviceName);
+	} else if (!deviceModel.empty()) {
+		text = ApplySafeSubstitutions(di->T("In menus on your %1"), deviceModel);
+	} else {
+		text = di->T("In menus on your device");
+	}
 	const Bounds &bounds = dc.GetBounds();
 	dc.Begin();
-	dc.DrawText(di->T("Menus are on your device"), bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
+	dc.DrawText(text, bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
 	dc.Flush();
 	return true;
 }

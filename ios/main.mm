@@ -266,6 +266,13 @@ std::string System_GetProperty(SystemProperty prop) {
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
 		case SYSPROP_BUILD_VERSION:
 			return PPSSPP_GIT_VERSION;
+		case SYSPROP_DEVICE_NAME: {
+			// Since iOS 16, without the user-assigned-device-name entitlement this is just the model.
+			UIDevice *device = [UIDevice currentDevice];
+			return [device.name isEqualToString:device.model] ? "" : device.name.UTF8String;
+		}
+		case SYSPROP_DEVICE_MODEL:
+			return [UIDevice currentDevice].model.UTF8String;
 		default:
 			return "";
 	}
