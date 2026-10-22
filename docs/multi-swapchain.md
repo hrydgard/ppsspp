@@ -144,8 +144,11 @@ The main swapchain stays where it is, in `VulkanContext` and `FrameDataShared`. 
   recreated at the start of the next frame, on the emu thread. Recreating and destroying stop the
   render threads and wait for the queue, like a resize of the main swapchain does. Creating doesn't need
   to, since nothing refers to the new one yet.
-- **Not done:** reading back an extra swapchain, and rotation (pre-transform) of one, which Android
-  will need. `VulkanPresentation` (libretro, offscreen) still only replaces the main swapchain.
+- **Rotation:** extra swapchains aren't pre-rotated. They ask for the identity transform, and their
+  viewports, scissors and UI projection (`ComputeOrthoMatrix(..., false)`) leave out the main
+  swapchain's rotation, which is Android's.
+- **Not done:** reading back an extra swapchain. `VulkanPresentation` (libretro, offscreen) still only
+  replaces the main swapchain.
 
 With only the main swapchain, the frame does what it did before: frametests on Vulkan match.
 
@@ -273,6 +276,23 @@ can be tested on its own.
 - **AirPlay latency:** this is the same video stream as mirroring, so the same lag. Input stays local,
   but the picture is late.
 
+## Android
+
+- **The display:** Android shows a second display to apps as a presentation display: HDMI or USB-C
+  DisplayPort out (Samsung DeX has to be off, or the TV is a desktop), some wireless displays
+  (Miracast, like Samsung's Smart View), and Developer options → "Simulate secondary displays".
+  Casting to a Chromecast or an Android TV is mirroring only.
+- **Showing it:** while it's started, the activity watches `DisplayManager` and, when there's a
+  `DISPLAY_CATEGORY_PRESENTATION` display and the backend is Vulkan (`queryConfig("externalDisplayOutput")`),
+  shows an `ExternalDisplayPresentation` there. That's a `Presentation` with a `SurfaceView`, whose
+  surface callbacks add, resize and remove a `Game` output through JNI. Otherwise Android mirrors.
+  A backend change recreates the activity, which checks again.
+- **Removing:** the surface mustn't be touched once `surfaceDestroyed` returns, so it removes the output
+  with `Native_RemoveOutputAndWait()`. That returns once the render thread has processed the removal,
+  or right away if the graphics are shut down (the outputs have no swapchains then). The activity
+  dismisses the presentation in `onStop`, before it stops the render thread.
+- **Device name:** "In menus on %1" uses `Settings.Global.DEVICE_NAME` (Android 7.1 and up).
+
 ## Later clients
 
 - **ImGui viewports:** `ImGuiConfigFlags_ViewportsEnable`, a platform backend that creates SDL or
@@ -285,8 +305,6 @@ can be tested on its own.
 - **Desktop VR mirror:** with OpenXR on Vulkan, each XR swapchain is a `VulkanPresentation` (acquire
   maps to `xrAcquireSwapchainImage`/`xrWaitSwapchainImage`, present to `xrReleaseSwapchainImage`),
   and the desktop window stays primary. VR is GL-only today, so this also needs a Vulkan OpenXR path.
-- **Android external display:** a `Presentation` dialog with its own `Surface`, as a `Game` output on
-  Vulkan.
 
 ## Phases
 
@@ -299,8 +317,8 @@ can be tested on its own.
    can add an offscreen second output, so frametests can check what it shows.
 4. **iOS TV mode,** on Metal, tested with the Apple TV.
 5. **Vulkan:** done, tested with `--game-window` on Mac, Linux (SDL) and Windows (a second Win32
-   window), and on iOS with MoltenVK. Then Android (Vulkan only, through `Presentation`), and D3D11
-   when something wants it.
+   window), and on iOS with MoltenVK. D3D11 when something wants it.
+6. **Android,** on Vulkan, through `Presentation`.
 
 Open questions:
 - Does removing the external window resume mirroring?

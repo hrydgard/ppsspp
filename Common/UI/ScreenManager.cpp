@@ -300,7 +300,7 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		const float dpHeight = h * g_display.dpi_scale_y;
 		const Bounds primaryBounds = ui->GetBounds();
 		ui->SetBounds(Bounds(0, 0, dpWidth, dpHeight));
-		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention));
+		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention, false));
 		bool drawn = false;
 		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
 			if (iter->screen->renderOutput(output.display)) {

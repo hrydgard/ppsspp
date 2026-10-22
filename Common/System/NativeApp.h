@@ -124,6 +124,9 @@ enum class OutputRole {
 int Native_AddOutput(OutputRole role, const Draw::SwapchainDesc &desc);
 void Native_ResizeOutput(int id, int width, int height);
 void Native_RemoveOutput(int id);
+// Also waits until the output's swapchain is gone, so its surface can go away right after (as on Android,
+// where a surface mustn't be touched once surfaceDestroyed returns). Don't call it from the render thread.
+bool Native_RemoveOutputAndWait(int id);
 
 AudioBackend *System_CreateAudioBackend();
 

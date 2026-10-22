@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 
 import androidx.annotation.RequiresApi;
 
@@ -44,6 +45,13 @@ public class NativeApp {
 	// rotation is the Surface.ROTATION_* of the display. A change in it alone (a 180 degree flip) keeps the size
 	// but the swapchain still has to be recreated, for the pre-rotation.
 	public static native void backbufferResize(int bufferWidth, int bufferHeight, int rotation);
+
+	// A second display, like a TV, that the game is shown on. addOutput returns the output's id, or 0.
+	// removeOutput returns once the native side is done with the surface.
+	public static native int addOutput(Surface surface, int width, int height);
+	public static native void resizeOutput(int id, int width, int height);
+	public static native void removeOutput(int id);
+	public static native void setDeviceName(String name);
 
 	public static native boolean isAtTopLevel();
 
