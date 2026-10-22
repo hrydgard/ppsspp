@@ -80,10 +80,8 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	renderPasses_.Clear();
 }
 
-bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared) {
-	VkResult res;
-	// We share the same depth buffer but have multiple color buffers, see the loop below.
-	VkImageView attachments[2] = { VK_NULL_HANDLE, depth_.view };
+VkFramebuffer VulkanQueueRunner::CreateBackbufferFramebuffer(VkImageView colorView, VkImageView depthView, int width, int height) {
+	VkImageView attachments[2] = { colorView, depthView };
 
 	VkFramebufferCreateInfo fb_info = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
 	fb_info.renderPass = GetCompatibleRenderPass()->Get(vulkan_, RenderPassType::BACKBUFFER, VK_SAMPLE_COUNT_1_BIT);
@@ -93,13 +91,19 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameD
 	fb_info.height = height;
 	fb_info.layers = 1;
 
+	VkFramebuffer framebuffer = VK_NULL_HANDLE;
+	VkResult res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffer);
+	_dbg_assert_(res == VK_SUCCESS);
+	return res == VK_SUCCESS ? framebuffer : VK_NULL_HANDLE;
+}
+
+bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared) {
+	// We share the same depth buffer but have multiple color buffers.
 	framebuffers_.resize(frameDataShared.swapchainImageCount_);
 
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
-		attachments[0] = frameDataShared.swapchainImages_[i].view;
-		res = vkCreateFramebuffer(vulkan_->GetDevice(), &fb_info, nullptr, &framebuffers_[i]);
-		_dbg_assert_(res == VK_SUCCESS);
-		if (res != VK_SUCCESS) {
+		framebuffers_[i] = CreateBackbufferFramebuffer(frameDataShared.swapchainImages_[i].view, depth_.view, width, height);
+		if (framebuffers_[i] == VK_NULL_HANDLE) {
 			framebuffers_.clear();
 			return false;
 		}
@@ -109,13 +113,18 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameD
 }
 
 bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers) {
+	depth_.format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
+	return CreateDepthStencilImage(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), &depth_.image, &depth_.alloc, &depth_.view, barriers, "BackbufferDepth");
+}
+
+bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag) {
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 	image_info.imageType = VK_IMAGE_TYPE_2D;
 	image_info.format = depth_format;
-	image_info.extent.width = vulkan_->GetBackbufferWidth();
-	image_info.extent.height = vulkan_->GetBackbufferHeight();
+	image_info.extent.width = width;
+	image_info.extent.height = height;
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1;
 	image_info.arrayLayers = 1;
@@ -126,21 +135,19 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 	image_info.flags = 0;
 
-	depth_.format = depth_format;
-
 	VmaAllocationCreateInfo allocCreateInfo{};
 	VmaAllocationInfo allocInfo{};
 
 	allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
-	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_info, &allocCreateInfo, &depth_.image, &depth_.alloc, &allocInfo);
+	VkResult res = vmaCreateImage(vulkan_->Allocator(), &image_info, &allocCreateInfo, image, alloc, &allocInfo);
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
 
-	vulkan_->SetDebugName(depth_.image, VK_OBJECT_TYPE_IMAGE, "BackbufferDepth");
+	vulkan_->SetDebugName(*image, VK_OBJECT_TYPE_IMAGE, tag);
 
-	VkImageMemoryBarrier *barrier = barriers->Add(depth_.image,
+	VkImageMemoryBarrier *barrier = barriers->Add(*image,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0);
 	barrier->subresourceRange.aspectMask = aspectMask;
@@ -152,7 +159,7 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 	_dbg_assert_(depth_format != VK_FORMAT_UNDEFINED);
 
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	depth_view_info.image = depth_.image;
+	depth_view_info.image = *image;
 	depth_view_info.format = depth_format;
 	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -168,8 +175,8 @@ bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrie
 
 	VkDevice device = vulkan_->GetDevice();
 
-	res = vkCreateImageView(device, &depth_view_info, NULL, &depth_.view);
-	vulkan_->SetDebugName(depth_.view, VK_OBJECT_TYPE_IMAGE_VIEW, "depth_stencil_backbuffer");
+	res = vkCreateImageView(device, &depth_view_info, NULL, view);
+	vulkan_->SetDebugName(*view, VK_OBJECT_TYPE_IMAGE_VIEW, tag);
 	_dbg_assert_(res == VK_SUCCESS);
 	if (res != VK_SUCCESS)
 		return false;
@@ -312,6 +319,8 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
+		// A pass to a swapchain closes its label and opens another in presentCmd, if there's an image to render to.
+		bool labelOpen = emitLabels;
 		if (emitLabels) {
 			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
 			char temp[128];
@@ -331,14 +340,20 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			if (!step.render.framebuffer) {
 				if (emitLabels) {
 					vkCmdEndDebugUtilsLabelEXT(cmd);
+					labelOpen = false;
 				}
-				frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared);
+				// The first pass to a swapchain moves us over to presentCmd.
+				if (!frameData.hasPresentCommands) {
+					frameData.Submit(vulkan_, FrameSubmitType::Pending, frameDataShared);
+				}
 
 				// If the window is minimized and we don't have a swap chain, don't bother.
-				if (frameDataShared.swapchainImageCount_ > 0) {
-					// When stepping in the GE debugger, we can end up here multiple times in a "frame".
-					// So only acquire once.
-					if (!frameData.hasAcquired) {
+				if (step.render.swapchain || frameDataShared.swapchainImageCount_ > 0) {
+					if (step.render.swapchain) {
+						perform = frameData.AcquireExtraSwapchain(vulkan_, step.render.swapchain);
+					} else if (!frameData.hasAcquired) {
+						// When stepping in the GE debugger, we can end up here multiple times in a "frame".
+						// So only acquire once.
 						frameData.AcquireNextImage(vulkan_);
 						if (frameData.hasAcquired && frameData.curSwapchainImage != (uint32_t)-1) {
 							SetBackbuffer(framebuffers_[frameData.curSwapchainImage], frameDataShared.swapchainImages_[frameData.curSwapchainImage].image);
@@ -361,6 +376,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 						VkDebugUtilsLabelEXT labelInfo{VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT};
 						labelInfo.pLabelName = "present";
 						vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+						labelOpen = true;
 					}
 				} else {
 					perform = false;
@@ -368,7 +384,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			}
 			if (perform) {
 				PerformRenderPass(step, cmd, curFrame, frameData.profile);
-			} else {
+			} else if (!step.render.swapchain) {
 				frameData.skipSwap = true;
 			}
 			break;
@@ -397,7 +413,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 			profile->timestampDescriptions.push_back(StepToString(vulkan_, step));
 		}
 
-		if (emitLabels) {
+		if (labelOpen) {
 			vkCmdEndDebugUtilsLabelEXT(cmd);
 		}
 	}
@@ -869,8 +885,8 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 	switch (step.stepType) {
 	case VKRStepType::RENDER:
 	{
-		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan->GetBackbufferWidth();
-		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan->GetBackbufferHeight();
+		int w = step.render.framebuffer ? step.render.framebuffer->width : (step.render.swapchain ? (int)step.render.swapchain->extent.width : vulkan->GetBackbufferWidth());
+		int h = step.render.framebuffer ? step.render.framebuffer->height : (step.render.swapchain ? (int)step.render.swapchain->extent.height : vulkan->GetBackbufferHeight());
 		int actual_w = step.render.renderArea.extent.width;
 		int actual_h = step.render.renderArea.extent.height;
 		const char *renderCmd = GetRPTypeName(step.render.renderPassType);
@@ -935,7 +951,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	// we'll scan forward and slurp up any rendering that can be merged across.
 	for (int i = 0; i < (int)steps.size(); i++) {
 		decltype(steps[i]->render) &render_i = steps[i]->render;
-		if (steps[i]->stepType == VKRStepType::RENDER && counts[render_i.framebuffer] > 1) {
+		// Swapchain passes (no framebuffer) aren't merged, there can be several of them to different swapchains.
+		if (steps[i]->stepType == VKRStepType::RENDER && render_i.framebuffer && counts[render_i.framebuffer] > 1) {
 			auto fb = render_i.framebuffer;
 			TinySet<VKRFramebuffer *, 8> touchedFramebuffers;  // must be the same fast-size as the dependencies TinySet for annoying reasons.
 			for (int j = i + 1; j < (int)steps.size(); j++) {
@@ -1201,8 +1218,14 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	int curWidth = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
 	int curHeight = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
+	if (step.render.swapchain) {
+		curWidth = step.render.swapchain->extent.width;
+		curHeight = step.render.swapchain->extent.height;
+	}
 
 	VKRFramebuffer *fb = step.render.framebuffer;
+	// Only the main swapchain is rotated to match the display.
+	const bool rotateToDisplay = !fb && !step.render.swapchain;
 
 	VKRGraphicsPipeline *lastGraphicsPipeline = nullptr;
 	VKRComputePipeline *lastComputePipeline = nullptr;
@@ -1285,7 +1308,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::VIEWPORT:
-			if (fb != nullptr) {
+			if (!rotateToDisplay) {
 				vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
 			} else {
 				const VkViewport &vp = c.viewport.vp;
@@ -1304,7 +1327,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::SCISSOR:
 		{
-			if (fb != nullptr) {
+			if (!rotateToDisplay) {
 				vkCmdSetScissor(cmd, 0, 1, &c.scissor.scissor);
 			} else {
 				// Rendering to backbuffer. Might need to rotate.
@@ -1517,11 +1540,16 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 			VKRRenderPassStoreAction::STORE, VKRRenderPassStoreAction::DONT_CARE, VKRRenderPassStoreAction::DONT_CARE,
 		};
 		renderPass = GetRenderPass(key);
-		framebuf = backbuffer_;
-
-		// Raw, rotated backbuffer size.
-		w = vulkan_->GetBackbufferWidth();
-		h = vulkan_->GetBackbufferHeight();
+		if (VKRSwapchain *swapchain = step.render.swapchain) {
+			framebuf = swapchain->framebuffers[swapchain->curImage];
+			w = swapchain->extent.width;
+			h = swapchain->extent.height;
+		} else {
+			framebuf = backbuffer_;
+			// Raw, rotated backbuffer size.
+			w = vulkan_->GetBackbufferWidth();
+			h = vulkan_->GetBackbufferHeight();
+		}
 
 		Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 		numClearVals = hasDepth ? 2 : 1;  // We might do depth-less backbuffer in the future, though doubtful of the value.
@@ -1535,7 +1563,7 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 	rp_begin.framebuffer = framebuf;
 
 	VkRect2D rc = step.render.renderArea;
-	if (!step.render.framebuffer) {
+	if (!step.render.framebuffer && !step.render.swapchain) {
 		// Rendering to backbuffer, must rotate, just like scissors.
 		DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
 		RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());

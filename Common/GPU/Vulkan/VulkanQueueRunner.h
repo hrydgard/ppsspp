@@ -150,6 +150,8 @@ struct VKRStep {
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;
+			// With no framebuffer: an additional swapchain, or nullptr for the main one.
+			VKRSwapchain *swapchain;
 			VKRRenderPassLoadAction colorLoad;
 			VKRRenderPassLoadAction depthLoad;
 			VKRRenderPassLoadAction stencilLoad;
@@ -271,6 +273,9 @@ public:
 
 	bool InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
+	// For additional swapchains too. The depth image is transitioned by the barriers.
+	VkFramebuffer CreateBackbufferFramebuffer(VkImageView colorView, VkImageView depthView, int width, int height);
+	bool CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
 private:
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);

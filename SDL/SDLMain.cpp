@@ -1442,34 +1442,48 @@ void UpdateCursor() {
 	SDL_SetCursor(g_builtinCursors[(int)curCursor]);
 }
 
-// --game-window: a second window showing just the game, for testing multiple outputs.
+// --game-window: a second window showing just the game. For now it's only a way to test multiple outputs on
+// the desktop, standing in for a TV over AirPlay. Later, real multi-window support (like ImGui's multi-viewports)
+// will take this over.
 static SDL_Window *g_gameWindow = nullptr;
 static int g_gameOutputId = 0;
 
 static void CreateGameWindow() {
+	Draw::SwapchainDesc desc{};
+	desc.tag = "GameWindow";
+	const GPUBackend backend = (GPUBackend)g_Config.iGPUBackend;
+	if (backend == GPUBackend::VULKAN) {
+		g_gameWindow = SDL_CreateWindow("PPSSPP game", 960, 544, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		WindowDesc windowDesc{};
+		std::string error;
+		if (g_gameWindow && !DetermineVulkanWindowSystem(g_gameWindow, &windowDesc, &error)) {
+			fprintf(stderr, "Can't use the game window: %s\n", error.c_str());
+			SDL_DestroyWindow(g_gameWindow);
+			g_gameWindow = nullptr;
+			return;
+		}
+		desc.winsys = windowDesc.winsys;
+		desc.data1 = windowDesc.data1;
+		desc.data2 = windowDesc.data2;
 #if PPSSPP_PLATFORM(MAC)
-	if (g_Config.iGPUBackend != (int)GPUBackend::METAL) {
-		fprintf(stderr, "--game-window needs --graphics=metal\n");
+	} else if (backend == GPUBackend::METAL) {
+		g_gameWindow = SDL_CreateWindow("PPSSPP game", 960, 544, SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		if (g_gameWindow) {
+			desc.winsys = WINDOWSYSTEM_METAL_EXT;
+			desc.data1 = SDL_Metal_GetLayer(SDL_Metal_CreateView(g_gameWindow));
+		}
+#endif
+	} else {
+		// TODO: Windows (D3D11) and OpenGL.
+		fprintf(stderr, "--game-window needs Vulkan, or Metal on Mac\n");
 		return;
 	}
-	g_gameWindow = SDL_CreateWindow("PPSSPP game", 960, 544, SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	if (!g_gameWindow) {
 		fprintf(stderr, "Error creating the game window: %s\n", SDL_GetError());
 		return;
 	}
-	SDL_MetalView metalView = SDL_Metal_CreateView(g_gameWindow);
-	int width = 0, height = 0;
-	SDL_GetWindowSizeInPixels(g_gameWindow, &width, &height);
-	Draw::SwapchainDesc desc{};
-	desc.winsys = WINDOWSYSTEM_METAL_EXT;
-	desc.data1 = SDL_Metal_GetLayer(metalView);
-	desc.width = width;
-	desc.height = height;
-	desc.tag = "GameWindow";
+	SDL_GetWindowSizeInPixels(g_gameWindow, &desc.width, &desc.height);
 	g_gameOutputId = Native_AddOutput(OutputRole::Game, desc);
-#else
-	fprintf(stderr, "--game-window is only implemented on Mac (Metal)\n");
-#endif
 }
 
 // Returns true if the event was for the game window, and has been handled. Keys still go to the emulator.

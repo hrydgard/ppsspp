@@ -80,6 +80,7 @@ namespace MainWindow
 	void SetWindowSize(int zoom);
 	void RunCallbackInWndProc(void (*callback)(void *window, void *userdata), void *userdata);
 	void SetKeepScreenBright(bool keepBright);
+	void CreateGameWindow();
 
 	bool ConfirmAction(HWND hWnd, bool actionIsReset);
 }

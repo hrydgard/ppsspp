@@ -1,6 +1,7 @@
 # Multiple swapchains (design)
 
-Status: design, nothing implemented yet.
+Status: implemented on Metal and Vulkan, used by iOS TV mode and `--game-window` (Mac, Linux and
+Windows).
 
 The first user is an iOS "TV mode": with AirPlay connected, the game runs full screen on the TV and the
 phone shows only the touch controls (and the menus). The same mechanism is meant to carry later uses:
@@ -124,35 +125,29 @@ an unlucky vsync phase between two displays makes that stutter. Policy:
 
 ### Vulkan
 
-1. **Split `VulkanContext`'s surface state into `VulkanSurfaceSwapchain`:** surface, swapchain,
-   format, extent, caps, pre-transform, present modes, `cbGetDrawSize`. Move `InitSurface`,
-   `ReinitSurface`, `InitSwapchain`, `DestroySwapchain` and `DestroySurface` onto it. `VulkanContext`
-   keeps a primary one, and its current accessors forward to it, so callers don't change.
-2. **Make the real swapchain a `VulkanPresentation` too.** Today it's the `presentation_ == nullptr`
-   branch in each consumer. With a real-swapchain implementation, every output is a presentation:
-   KHR swapchain, libretro, offscreen, later OpenXR. The render manager then deals with one interface,
-   and the branches go away.
-3. **Per-output state in the render manager.** `FrameDataShared::swapchainImages_` and the queue
-   runner's `backbuffer_`, `framebuffers_` and `depth_` move into a `VKROutput` (presentation, images,
-   views, semaphores, framebuffers, depth, out-of-date counter). The per-frame `acquireSemaphore`,
-   `curSwapchainImage`, `hasAcquired` and `skipSwap` become a small array indexed by output (cap of
-   4). Output 0 is the primary.
-4. **Steps.** A RENDER step with no framebuffer gets an output index. `SanityCheckPassesOnAdd` changes
-   from "one backbuffer pass" to "one pass per output, after all offscreen passes". `RunSteps`
-   already acquires lazily on the first backbuffer step, and that becomes per output.
-5. **Submit and present.** The present command buffer waits on the acquire semaphore of every output
-   acquired this frame (stage COLOR_ATTACHMENT_OUTPUT) and signals each one's rendering-complete
-   semaphore. Real swapchains present in a single `vkQueuePresentKHR` with `swapchainCount = N`, and
-   read the per-swapchain results from `pResults`. Other presentations get their own `QueuePresent`.
-6. **Queue support.** `CreateSwapchain` checks `vkGetPhysicalDeviceSurfaceSupportKHR` for the
-   existing graphics queue family and fails if it's missing. That never happens on Apple, Windows or
-   desktop Linux. On Android it's always the same queue.
-7. **Rotation.** The pre-transform is per surface, and so is the rect rotation that reads
-   `g_display.rotation` (`VulkanRenderManager.cpp`, `RotateRectToDisplay` in the queue runner). The
-   rotation goes into `VKROutput` and gets applied per pass.
+The main swapchain stays where it is, in `VulkanContext` and `FrameDataShared`. The others are
+`VKRSwapchain`s (`VulkanFrameData.h`), owned by the render manager:
 
-The single-output path should come out doing exactly what it does now: same waits, same single
-present. Most of the regression risk is in step 5, which every platform runs.
+- **Creating one:** `VulkanContext::CreateSurface` (the per-platform surface code, shared with the main
+  surface), a check that the graphics queue can present to it, then the swapchain in the main one's
+  format, with its own image views, framebuffers (compatible with the backbuffer render pass) and depth
+  buffer. Per in-flight frame it has an acquire semaphore, and per image a rendering-complete one.
+- **Steps:** a RENDER step with no framebuffer has a `swapchain`, null for the main one. The queue
+  runner uses its framebuffer and size, and doesn't rotate it to the display.
+  `SanityCheckPassesOnAdd` allows one pass per swapchain, after all the offscreen ones. Swapchain
+  passes are never merged.
+- **Pacing:** acquiring one doesn't wait (timeout 0). If there's no image, the pass is skipped.
+- **Submit and present:** the frame's last submit waits on the acquire semaphore of every swapchain
+  acquired that frame, and signals each one's rendering-complete semaphore. They're presented one
+  `vkQueuePresentKHR` each, after the main one, even when the main one skipped the frame.
+- **Out of date, resize, destroy:** the render thread only flags a swapchain as out of date. It's
+  recreated at the start of the next frame, on the emu thread. Recreating and destroying stop the
+  render threads and wait for the queue, like a resize of the main swapchain does. Creating doesn't need
+  to, since nothing refers to the new one yet.
+- **Not done:** reading back an extra swapchain, and rotation (pre-transform) of one, which Android
+  will need. `VulkanPresentation` (libretro, offscreen) still only replaces the main swapchain.
+
+With only the main swapchain, the frame does what it did before: frametests on Vulkan match.
 
 ### Metal
 
@@ -165,9 +160,8 @@ For a non-pacing layer, skip the pass when `nextDrawable` would block.
 
 - **D3D11:** easy, and later. Creating the `IDXGISwapChain` moves from `D3D11Context` into the draw
   context, one per HWND, and `Present()` presents each one.
-- **OpenGL:** `multipleSwapchains = false` for now. Desktop GL could use one context with
-  `MakeCurrent(window_i)` before each window's pass and swap, which needs a per-surface default FBO
-  and swap function, and a surface ID in the PRESENT task. Nothing on the iOS path uses GL.
+- **OpenGL:** not supported, and not planned: `multipleSwapchains` stays false. With OpenGL, the
+  platforms keep their single-display behaviour (iOS mirrors to the TV).
 
 ## Frontend: outputs and roles
 
@@ -304,9 +298,9 @@ can be tested on its own.
    (with `--graphics=metal`). This tests most of the design in a fast loop, without AirPlay. Headless
    can add an offscreen second output, so frametests can check what it shows.
 4. **iOS TV mode,** on Metal, tested with the Apple TV.
-5. **Vulkan** (`VulkanSurfaceSwapchain`, presentation-for-everything, per-output render manager
-   state), for Android, the Mac default and Vulkan users on iOS. Single-output path unchanged: unit
-   tests, pspautotests, frametests, an Android device. Then D3D11 when something wants it.
+5. **Vulkan:** done, tested with `--game-window` on Mac, Linux (SDL) and Windows (a second Win32
+   window), and on iOS with MoltenVK. Then Android (Vulkan only, through `Presentation`), and D3D11
+   when something wants it.
 
 Open questions:
 - Does removing the external window resume mirroring?

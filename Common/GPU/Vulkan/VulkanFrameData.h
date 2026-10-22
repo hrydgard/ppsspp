@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include <mutex>
@@ -73,6 +74,30 @@ struct SwapchainImageData {
 	VkSemaphore renderingCompleteSemaphore = VK_NULL_HANDLE;
 };
 
+static constexpr int MAX_EXTRA_SWAPCHAINS = 4;
+
+// A swapchain other than the main one (see docs/multi-swapchain.md). The VulkanRenderManager owns it.
+// It doesn't pace the frame: if it has no image ready, its pass is skipped that frame.
+struct VKRSwapchain {
+	VkSurfaceKHR surface = VK_NULL_HANDLE;
+	VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+	VkExtent2D extent{};
+	int requestedWidth = 0;
+	int requestedHeight = 0;
+	std::vector<SwapchainImageData> images;
+	std::vector<VkFramebuffer> framebuffers;
+	VkImage depthImage = VK_NULL_HANDLE;
+	VmaAllocation depthAlloc = VK_NULL_HANDLE;
+	VkImageView depthView = VK_NULL_HANDLE;
+	VkSemaphore acquireSemaphores[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+
+	// Render thread. The image acquired for the frame being run, if any.
+	uint32_t curImage = 0;
+	bool acquired = false;
+	// Set by the render thread, which can't recreate it. Checked at the start of a frame.
+	std::atomic<bool> outOfDate{false};
+};
+
 struct FrameDataShared {
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
@@ -122,6 +147,8 @@ struct FrameData {
 
 	// Swapchain.
 	uint32_t curSwapchainImage = -1;
+	// Additional swapchains with an image acquired this frame, to wait for and present.
+	std::vector<VKRSwapchain *> acquiredSwapchains;
 
 	// Frames need unique IDs to wait for present on, let's keep them here.
 	// Also used for indexing into the frame timing history buffer.
@@ -140,6 +167,9 @@ struct FrameData {
 
 	void AcquireNextImage(VulkanContext *vulkan);
 	VkResult QueuePresent(VulkanContext *vulkan, FrameDataShared &shared);
+	// Additional swapchains. Acquiring doesn't wait, and returns false if there's no image ready.
+	bool AcquireExtraSwapchain(VulkanContext *vulkan, VKRSwapchain *swapchain);
+	void PresentExtraSwapchains(VulkanContext *vulkan);
 
 	// Generally called from the main thread, unlike most of the rest.
 	VkCommandBuffer GetInitCmd(VulkanContext *vulkan);

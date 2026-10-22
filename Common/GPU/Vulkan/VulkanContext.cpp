@@ -1072,37 +1072,29 @@ VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data
 	return ReinitSurface();
 }
 
-VkResult VulkanContext::ReinitSurface() {
-	if (surface_ != VK_NULL_HANDLE) {
-		INFO_LOG(Log::G3D, "Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
-		vkDestroySurfaceKHR(instance_, surface_, nullptr);
-		surface_ = VK_NULL_HANDLE;
-	}
+VkResult VulkanContext::CreateSurface(WindowSystem winsys, void *data1, void *data2, VkSurfaceKHR *surface) {
+	VkResult retval = VK_SUCCESS;
 
-	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
-
-		VkResult retval = VK_SUCCESS;
-
-	switch (winsys_) {
+	switch (winsys) {
 #ifdef _WIN32
 	case WINDOWSYSTEM_WIN32:
 	{
 		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 		win32.flags = 0;
-		win32.hinstance = (HINSTANCE)winsysData1_;
-		win32.hwnd = (HWND)winsysData2_;
-		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		win32.hinstance = (HINSTANCE)data1;
+		win32.hwnd = (HWND)data2;
+		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, surface);
 		break;
 	}
 #endif
 #if defined(__ANDROID__)
 	case WINDOWSYSTEM_ANDROID:
 	{
-		ANativeWindow *wnd = (ANativeWindow *)winsysData1_;
+		ANativeWindow *wnd = (ANativeWindow *)data1;
 		VkAndroidSurfaceCreateInfoKHR android{ VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 		android.flags = 0;
 		android.window = wnd;
-		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, surface);
 		break;
 	}
 #endif
@@ -1111,9 +1103,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkMetalSurfaceCreateInfoEXT metal{ VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT };
 		metal.flags = 0;
-		metal.pLayer = winsysData1_;
-		metal.pNext = winsysData2_;
-		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		metal.pLayer = data1;
+		metal.pNext = data2;
+		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, surface);
 		break;
 	}
 #endif
@@ -1122,9 +1114,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkXlibSurfaceCreateInfoKHR xlib{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
 		xlib.flags = 0;
-		xlib.dpy = (Display *)winsysData1_;
-		xlib.window = (Window)winsysData2_;
-		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		xlib.dpy = (Display *)data1;
+		xlib.window = (Window)data2;
+		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, surface);
 		break;
 	}
 #endif
@@ -1133,9 +1125,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkXCBSurfaceCreateInfoKHR xcb{ VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
 		xcb.flags = 0;
-		xcb.connection = (Connection *)winsysData1_;
-		xcb.window = (Window)(uintptr_t)winsysData2_;
-		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		xcb.connection = (Connection *)data1;
+		xcb.window = (Window)(uintptr_t)data2;
+		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, surface);
 		break;
 	}
 #endif
@@ -1144,9 +1136,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkWaylandSurfaceCreateInfoKHR wayland{ VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
 		wayland.flags = 0;
-		wayland.display = (wl_display *)winsysData1_;
-		wayland.surface = (wl_surface *)winsysData2_;
-		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		wayland.display = (wl_display *)data1;
+		wayland.surface = (wl_surface *)data2;
+		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, surface);
 		break;
 	}
 #endif
@@ -1336,15 +1328,28 @@ VkResult VulkanContext::ReinitSurface() {
 		delete [] plane_props;
 #endif
 		display.flags = 0;
-		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, &surface_);
+		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, surface);
 		break;
 	}
 #endif
 
 	default:
-		_assert_msg_(false, "Vulkan support for chosen window system (%s) not implemented", WindowSystemToString(winsys_));
+		_assert_msg_(false, "Vulkan support for chosen window system (%s) not implemented", WindowSystemToString(winsys));
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+	return retval;
+}
+
+VkResult VulkanContext::ReinitSurface() {
+	if (surface_ != VK_NULL_HANDLE) {
+		INFO_LOG(Log::G3D, "Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
+	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
+
+	VkResult retval = CreateSurface(winsys_, winsysData1_, winsysData2_, &surface_);
 
 	if (retval != VK_SUCCESS) {
 		init_error_ = StringFromFormat("Failed to create a Vulkan surface for window system %s: %s", WindowSystemToString(winsys_), VulkanResultToString(retval));
