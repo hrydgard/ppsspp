@@ -124,7 +124,8 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 	}
 
 	// Big keys, so they're easy to hit with a thumb. Always four to a row, whatever the width of
-	// the window, so the pad looks the same everywhere. An empty key is a gap.
+	// the window, so the pad looks the same everywhere. An empty key is a gap. (FILL_PARENT with a
+	// weight shares the row equally; a width of 0 would be a fixed size of 0.)
 	auto addRows = [&](ViewGroup *container, const std::vector<const char *> &keys) {
 		LinearLayout *row = nullptr;
 		for (size_t i = 0; i < keys.size(); i++) {
@@ -134,7 +135,7 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 			}
 			const char *key = keys[i];
 			if (!key[0]) {
-				row->Add(new Spacer(new LinearLayoutParams(0, WRAP_CONTENT, 1.0f)));
+				row->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 				continue;
 			}
 			std::string_view label = key;
@@ -145,7 +146,7 @@ void ScanValueEditor::CreateViews(UI::ViewGroup *parent, ScreenManager *screenMa
 			} else if (!strcmp(key, "Clr")) {
 				label = cw->T("Clear");
 			}
-			Choice *c = row->Add(new Choice(label, new LinearLayoutParams(0, WRAP_CONTENT, 1.0f)));
+			Choice *c = row->Add(new Choice(label, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 			c->SetCentered(true);
 			c->OnClick.Add([this, key](EventParams &) {
 				Key(key);
