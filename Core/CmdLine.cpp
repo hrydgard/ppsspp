@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 
@@ -51,6 +52,34 @@ enum class ParseParamResult {
 	BadValue,
 };
 
+// Decimal, or hex with 0x, optionally signed. Not base 0, which would read a leading 0 as octal.
+// Up to 0xFFFFFFFF is accepted so a full 32-bit mask can be given, and wraps into the int.
+static bool ParseIntParam(const std::string &value, int *out) {
+	const char *p = value.c_str();
+	bool negative = false;
+	if (*p == '-' || *p == '+') {
+		negative = *p == '-';
+		p++;
+	}
+	int base = 10;
+	if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+		base = 16;
+		p += 2;
+	}
+	// strtoull would take another sign or leading spaces here.
+	if (!isxdigit((unsigned char)*p)) {
+		return false;
+	}
+	char *end = nullptr;
+	errno = 0;
+	const unsigned long long magnitude = strtoull(p, &end, base);
+	if (*end != '\0' || errno == ERANGE || magnitude > (negative ? 0x80000000ULL : 0xFFFFFFFFULL)) {
+		return false;
+	}
+	*out = negative ? (int)(0 - (uint32_t)magnitude) : (int)(uint32_t)magnitude;
+	return true;
+}
+
 ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &param, const std::string &value) {
 	uint8_t *optionsPtr = reinterpret_cast<uint8_t *>(options);
 	switch (param.type) {
@@ -77,7 +106,7 @@ ParseParamResult SetValue(CommandLineOptions *options, const CommandLineParam &p
 	{
 		// Not std::stoi - that throws on junk, which takes the process down with no diagnostic.
 		int v;
-		if (sscanf(value.c_str(), "%d", &v) != 1) {
+		if (!ParseIntParam(value, &v)) {
 			PRINT_STDERR("Error: Invalid value for integer parameter --%s: '%s'.\n", param.longName, value.c_str());
 			return ParseParamResult::BadValue;
 		}

@@ -17,7 +17,7 @@ for it:
 | [docs/DebuggerThreading.md](docs/DebuggerThreading.md) | `Core_RunOnCPUThread` / `g_frameMutex` / shutdown-lock rules - required reading before touching debugger code |
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
-| [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests |
+| [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests, and running the tests that need the real firmware modules (`--disable-hle`, a firmware memstick) |
 | [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests, and replaying a dump on a real PSP |
 | [docs/sceGe.md](docs/sceGe.md) | How the firmware queues display lists, what SIGNAL and FINISH interrupts do and in which order, and how `ProcessDLQueue()` keeps that order |

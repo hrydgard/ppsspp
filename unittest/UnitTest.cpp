@@ -3391,6 +3391,33 @@ bool TestCmdLine() {
 		EXPECT_TRUE(options.memStickInserted.has_value());
 		EXPECT_FALSE(options.memStickInserted.value_or(true));
 	}
+	// Integers take decimal or 0x hex. A leading 0 is still decimal, and a full 32-bit mask wraps
+	// into the int rather than being refused.
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--disable-hle=0x110",
+			"--force-hle=0xFFFFFFFF",
+			"--cpu-mhz=0333",
+			"--resolution-scale=-2",
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		EXPECT_EQ_INT((int)options.Parse(argc, argv, CmdLineMode::Headless), (int)CommandLineParseResult::Continue);
+		EXPECT_EQ_INT(options.disableHLE.value_or(0), 0x110);
+		EXPECT_EQ_INT(options.forceHLE.value_or(0), -1);
+		EXPECT_EQ_INT(options.lockedCPUSpeed.value_or(0), 333);
+		EXPECT_EQ_INT(options.resolutionScale.value_or(0), -2);
+	}
+	// Trailing junk used to be ignored, so 0x110 quietly meant 0.
+	{
+		const char *bad[] = { "--disable-hle=0x110junk", "--disable-hle=12abc", "--disable-hle=0x", "--disable-hle= 5", "--disable-hle=0x100000000", "--disable-hle=--1" };
+		for (const char *arg : bad) {
+			const char *argv[] = { "ppsspp", arg };
+			CommandLineOptions options;
+			EXPECT_EQ_INT((int)options.Parse(ARRAY_SIZE(argv), argv, CmdLineMode::Headless), (int)CommandLineParseResult::Error);
+		}
+	}
 	// Test GL version override
 	{
 		const char *argv[] = {

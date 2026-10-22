@@ -169,6 +169,8 @@ void AvcDecoder::Flush() {
 	timings_.clear();
 	lastTiming_ = AvcTiming();
 	bufferingTick_ = 0;
+	lastRemovalTick_ = 0;
+	removalStep_ = 2;
 	firstTiming_ = true;
 	nextIndex_ = 0;
 	released_ = 0;
@@ -429,11 +431,24 @@ int AvcDecoder::DecodePictures(const u8 *data, int size) {
 		if (parser_->dts_ref_dts_delta != INT_MIN && parser_->pts_dts_delta != INT_MIN) {
 			timed = true;
 			if (parser_->dts_sync_point > 0) {
-				bufferingTick_ = firstTiming_ ? 0 : bufferingTick_ + parser_->dts_ref_dts_delta;
+				if (firstTiming_) {
+					bufferingTick_ = 0;
+				} else if (parser_->dts_ref_dts_delta > 0) {
+					bufferingTick_ += parser_->dts_ref_dts_delta;
+				} else {
+					// A new stream fed in without a flush (Burnout Legends' intro movies) starts its
+					// clock over. Carry on from the last access unit, or every picture after this
+					// one waits until the new clock catches up with the old one.
+					bufferingTick_ = lastRemovalTick_ + removalStep_;
+				}
 				removalTick = bufferingTick_;
 			} else {
 				removalTick = bufferingTick_ + parser_->dts_ref_dts_delta;
 			}
+			if (!firstTiming_ && removalTick > lastRemovalTick_) {
+				removalStep_ = removalTick - lastRemovalTick_;
+			}
+			lastRemovalTick_ = removalTick;
 			firstTiming_ = false;
 			outputTicks_[index] = removalTick + parser_->pts_dts_delta;
 			lastTiming_.picTiming = true;
