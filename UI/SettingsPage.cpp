@@ -24,6 +24,9 @@
 #include "UI/SettingsPage.h"
 
 std::string_view SettingText::Translate(I18NCat pageCat) const {
+	if (raw) {
+		return key;
+	}
 	return T(hasCat ? cat : pageCat, key, def ? def : "");
 }
 

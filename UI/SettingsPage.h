@@ -40,6 +40,12 @@ struct SettingText {
 	SettingText() {}
 	SettingText(const char *key) : key(key) {}
 	SettingText(I18NCat cat, const char *key, const char *def = nullptr) : cat(cat), key(key), def(def), hasCat(true) {}
+	// Shown as is, without translation (like module names).
+	static SettingText Raw(const char *text) {
+		SettingText t(text);
+		t.raw = true;
+		return t;
+	}
 
 	// Texts without a category use the page's.
 	std::string_view Translate(I18NCat pageCat) const;
@@ -50,6 +56,7 @@ struct SettingText {
 	const char *key = nullptr;
 	const char *def = nullptr;
 	bool hasCat = false;
+	bool raw = false;
 };
 
 enum class SettingType {

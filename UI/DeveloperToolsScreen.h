@@ -15,16 +15,18 @@ public:
 	const char *tag() const override { return "DeveloperTools"; }
 
 private:
-	void CreateTextureReplacementTab(UI::LinearLayout *parent);
-	void CreateGeneralTab(UI::LinearLayout *parent);
-	void CreateDumpFileTab(UI::LinearLayout *parent);
-	void CreateHLETab(UI::LinearLayout *parent);
-	void CreateMIPSTracerTab(UI::LinearLayout *list);
-	void CreateTestsTab(UI::LinearLayout *list);
-	void CreateAudioTab(UI::LinearLayout *list);
-	void CreateGraphicsTab(UI::LinearLayout *list);
-	void CreateNetworkTab(UI::LinearLayout *list);
-	void CreateUITab(UI::LinearLayout *list);
+	void PreCreateViews() override;
+
+	void BuildTextureReplacementPage(SettingsPage &page);
+	void BuildGeneralPage(SettingsPage &page);
+	void BuildDumpFilePage(SettingsPage &page);
+	void BuildHLEPage(SettingsPage &page);
+	void BuildMIPSTracerPage(SettingsPage &page);
+	void BuildTestsPage(SettingsPage &page);
+	void BuildAudioPage(SettingsPage &page);
+	void BuildGraphicsPage(SettingsPage &page);
+	void BuildNetworkPage(SettingsPage &page);
+	void BuildUIPage(SettingsPage &page);
 	void CreateCrashHistoryTab(UI::LinearLayout *list);
 
 	void OnLoggingChanged(UI::EventParams &e);
