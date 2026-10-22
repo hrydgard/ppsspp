@@ -620,7 +620,11 @@ std::vector<ModuleDataRange> __KernelModuleDataRanges() {
 		if (module->nm.text_addr == 0 || size == 0) {
 			continue;
 		}
-		ranges.push_back(ModuleDataRange{ start, size, std::string(module->nm.name, strnlen(module->nm.name, sizeof(module->nm.name))) });
+		ranges.push_back(ModuleDataRange{ start, size, std::string(module->nm.name, strnlen(module->nm.name, sizeof(module->nm.name))), false });
+	}
+	if (!ranges.empty()) {
+		auto lowest = std::min_element(ranges.begin(), ranges.end(), [](const ModuleDataRange &a, const ModuleDataRange &b) { return a.start < b.start; });
+		lowest->isMain = true;
 	}
 	return ranges;
 }

@@ -103,6 +103,20 @@ static bool TestValueScans() {
 	EXPECT_TRUE(scanner.NextScanOnBuffer(mem.data(), base, (u32)mem.size(), ScanCompare::Unchanged, v, v2));
 	EXPECT_EQ_INT((int)scanner.ResultCount(), 1);
 
+	// Skipping code: results inside excluded ranges are dropped, including the ends of a range
+	// that doesn't start or end on a 64-byte boundary.
+	EXPECT_TRUE(scanner.NewScanOnBuffer(mem.data(), base, (u32)mem.size(), ScanValueType::U32, ScanCompare::Unknown, v, v2));
+	scanner.ExcludeRanges({ { base + 0x100, 0x100 }, { base + 0x224, 0x88 } });
+	EXPECT_EQ_INT((int)scanner.ResultCount(), 4096 / 4 - 0x100 / 4 - 0x88 / 4);
+	EXPECT_TRUE(scanner.NextScanOnBuffer(mem.data(), base, (u32)mem.size(), ScanCompare::Unchanged, v, v2));
+	for (u32 addr : scanner.GetResults(4096)) {
+		EXPECT_FALSE(addr >= base + 0x100 && addr < base + 0x200);
+		EXPECT_FALSE(addr >= base + 0x224 && addr < base + 0x2AC);
+	}
+	// Ranges partly or wholly outside the scanned memory are fine.
+	scanner.ExcludeRanges({ { base - 0x10, 0x14 }, { base + 0x2000, 0x10000 } });
+	EXPECT_EQ_INT((int)scanner.ResultCount(), 4096 / 4 - 0x100 / 4 - 0x88 / 4 - 1);
+
 	// 8-bit scans every byte.
 	EXPECT_TRUE(scanner.NewScanOnBuffer(mem.data(), base, (u32)mem.size(), ScanValueType::U8, ScanCompare::Unknown, v, v2));
 	EXPECT_EQ_INT((int)scanner.ResultCount(), 4096);

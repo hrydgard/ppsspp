@@ -40,6 +40,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMap.h"
 #include "Core/MemoryScanner.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/RetroAchievements.h"
 #include "Core/System.h"
 #include "UI/MemoryScannerScreen.h"
@@ -54,6 +55,24 @@ static int s_compareFirst = (int)ScanCompare::Equal;
 static int s_compareNext = (int)ScanCompare::Equal;
 static std::string s_value;
 static std::string s_value2;
+// The module for Search in > Globals of one module. Empty means the main module.
+static std::string s_moduleName;
+
+static MemoryScanner::SearchIn ConfiguredSearchIn() {
+	const int v = g_Config.iMemoryScannerSearchIn;
+	if (v < 0 || v >= (int)MemoryScanner::SearchIn::COUNT) {
+		return MemoryScanner::SearchIn::UserMemoryNoCode;
+	}
+	return (MemoryScanner::SearchIn)v;
+}
+
+// In MemoryScanner::SearchIn order.
+static const char *g_searchInNames[] = {
+	"User memory except code",
+	"Globals of one module",
+	"All user memory",
+};
+static_assert(ARRAY_SIZE(g_searchInNames) == (int)MemoryScanner::SearchIn::COUNT, "search in names");
 
 static const char *g_typeNames[] = { "8-bit", "16-bit", "32-bit", "Float" };
 
@@ -77,6 +96,8 @@ static_assert(ARRAY_SIZE(g_compareNames) == (int)ScanCompare::COUNT, "compare na
 static std::string CurrentGameID() {
 	return g_paramSFO.GetDiscID();
 }
+
+static void AddModuleOnlyHint(UI::ViewGroup *parent);
 
 // ScanValueEditor
 
@@ -358,10 +379,8 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 	MemoryScanner &scanner = GetMemoryScanner();
 	const bool searching = scanner.ScanCount() > 0;
 
-	u32 start, size;
-	MemoryScanner::GetPSPScanRange(&start, &size);
 	// Wrapped, with some room at the sides: the range didn't fit the column in one line.
-	parent->Add(new TextView(StringFromFormat("%s: 0x%08X - 0x%08X (%u MB)", cw->T_cstr("User memory"), start, start + size, size >> 20), FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 12, 4))));
+	parent->Add(new TextView(AreaText(), FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4, 12, 4))));
 
 	if (!searching) {
 		parent->Add(new ItemHeader(cw->T("Value type")));
@@ -456,7 +475,13 @@ void MemoryScannerScreen::CreateControls(UI::ViewGroup *parent) {
 		});
 	}
 
-	parent->Add(new CheckBox(&g_Config.bMemoryScannerPause, cw->T("Pause emulation while the scanner is open")));
+	parent->Add(new Choice(cw->T("Scan options"), ImageID("I_GEAR")))->OnClick.Add([this](EventParams &e) {
+		ScanOptionsScreen *options = new ScanOptionsScreen();
+		if (e.v) {
+			options->SetPopupOrigin(e.v);
+		}
+		screenManager()->push(options);
+	});
 
 	status_ = parent->Add(new TextView(statusText_, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
 	if (statusIsError_) {
@@ -497,6 +522,9 @@ void MemoryScannerScreen::CreateResults(UI::ViewGroup *parent) {
 	const size_t count = scanner.ResultCount();
 	if (count == 0) {
 		parent->Add(new TextView(cw->T("No addresses found. Start a new search."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		if (scanner.SearchArea().searchIn == MemoryScanner::SearchIn::ModuleGlobals) {
+			AddModuleOnlyHint(parent);
+		}
 		return;
 	}
 
@@ -542,21 +570,32 @@ void MemoryScannerScreen::DoScan(bool first) {
 	// whether or not the scanner pauses it otherwise.
 	const double startTime = time_now_d();
 	bool ok;
+	MemoryScanner::Error error = MemoryScanner::Error::None;
 	if (first) {
 		scanner.SetGameID(CurrentGameID());
-		ok = scanner.NewScan(type, compare, value, value2);
+		ok = scanner.NewScan(type, compare, value, value2, ConfiguredSearchIn(), s_moduleName, &error);
 	} else {
-		ok = scanner.NextScan(compare, value, value2);
+		ok = scanner.NextScan(compare, value, value2, &error);
 	}
 	const int ms = (int)((time_now_d() - startTime) * 1000.0);
 
 	if (!ok) {
-		statusText_ = cw->T("Scan failed, game memory isn't available");
+		switch (error) {
+		case MemoryScanner::Error::NoModule:
+			statusText_ = cw->T("The chosen module isn't loaded. Pick another one in Scan options.");
+			break;
+		case MemoryScanner::Error::AreaChanged:
+			statusText_ = cw->T("The module moved or was unloaded since the search started. Start a new search.");
+			break;
+		default:
+			statusText_ = cw->T("Scan failed, game memory isn't available");
+			break;
+		}
 		statusIsError_ = true;
 	} else {
 		std::string countStr = StringFromFormat("%llu", (unsigned long long)scanner.ResultCount());
 		statusText_ = ApplySafeSubstitutions(cw->T("%1 addresses found (%2 ms)"), countStr, StringFromFormat("%d", ms));
-		statusIsError_ = false;
+		statusIsError_ = scanner.ResultCount() == 0;
 	}
 	RecreateViews();
 }
@@ -579,6 +618,118 @@ bool MemoryScannerScreen::key(const KeyInput &input) {
 void MemoryScannerScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// Values may have been set or frozen in the edit popup, or pointer chains found.
 	RecreateViews();
+}
+
+// Shown when a search in one module's globals found nothing.
+static void AddModuleOnlyHint(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	TextView *hint = parent->Add(new TextView(cw->T("ModuleOnlyHint", "Only one module's globals were searched. The value may be elsewhere: set Search in to 'User memory except code' in Scan options and start a new search."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+	hint->SetTextColor(0xFF40C0FF);
+}
+
+std::string MemoryScannerScreen::AreaText() const {
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+	const MemoryScanner &scanner = GetMemoryScanner();
+	MemoryScanner::Area area;
+	if (scanner.ScanCount() > 0) {
+		area = scanner.SearchArea();
+	} else {
+		// What a new search would cover.
+		MemoryScanner::Error error;
+		if (!MemoryScanner::GetPSPScanArea(ConfiguredSearchIn(), s_moduleName, &area, &error)) {
+			if (error == MemoryScanner::Error::NoModule) {
+				return std::string(cw->T("The chosen module isn't loaded. Pick another one in Scan options."));
+			}
+			return std::string(cw->T("Game memory isn't available"));
+		}
+	}
+	switch (area.searchIn) {
+	case MemoryScanner::SearchIn::ModuleGlobals:
+		return StringFromFormat("%s %s: 0x%08X - 0x%08X (%u KB)", cw->T_cstr("Globals of"), area.moduleName.c_str(), area.start, area.start + area.size, area.size >> 10);
+	case MemoryScanner::SearchIn::UserMemoryNoCode:
+		return StringFromFormat("%s: 0x%08X - 0x%08X (%u MB), %s", cw->T_cstr("User memory"), area.start, area.start + area.size, area.size >> 20, cw->T_cstr("code skipped"));
+	default:
+		return StringFromFormat("%s: 0x%08X - 0x%08X (%u MB)", cw->T_cstr("User memory"), area.start, area.start + area.size, area.size >> 20);
+	}
+}
+
+// ScanOptionsScreen
+
+ScanOptionsScreen::ScanOptionsScreen() : PopupScreen(T(I18NCat::CWCHEATS, "Scan options"), T(I18NCat::DIALOG, "Back")) {}
+
+void ScanOptionsScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+
+	ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+	LinearLayout *items = scroll->Add(new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	items->Add(new CheckBox(&g_Config.bMemoryScannerPause, cw->T("Pause emulation while the scanner is open")));
+
+	items->Add(new ItemHeader(cw->T("Search in")));
+	g_Config.iMemoryScannerSearchIn = (int)ConfiguredSearchIn();
+	PopupMultiChoice *searchIn = items->Add(new PopupMultiChoice(&g_Config.iMemoryScannerSearchIn, cw->T("Search in"), g_searchInNames, 0, ARRAY_SIZE(g_searchInNames), I18NCat::CWCHEATS, screenManager()));
+	searchIn->OnChoice.Add([this](EventParams &) {
+		RecreateViews();
+	});
+
+	std::string_view help;
+	switch (ConfiguredSearchIn()) {
+	case MemoryScanner::SearchIn::UserMemoryNoCode:
+		help = cw->T("SearchInNoCodeHelp", "Everywhere a value can be, but not in the game's code, where it almost never is. Values found in allocated memory may move later: use a pointer scan for those.");
+		break;
+	case MemoryScanner::SearchIn::ModuleGlobals:
+		help = cw->T("SearchInModuleHelp", "Only the globals (.data and .bss) of one module, which never move: plain cheats from these keep working. Faster, but many games keep their values elsewhere. Pointer scans only start from this module too.");
+		break;
+	default:
+		help = cw->T("SearchInAllHelp", "Everything, including code and read-only data.");
+		break;
+	}
+	items->Add(new TextView(help, FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+
+	if (ConfiguredSearchIn() == MemoryScanner::SearchIn::ModuleGlobals) {
+		// The game's modules, main first.
+		std::vector<ModuleDataRange> modules = __KernelModuleDataRanges();
+		std::stable_sort(modules.begin(), modules.end(), [](const ModuleDataRange &a, const ModuleDataRange &b) { return a.isMain && !b.isMain; });
+		std::vector<std::string> names;
+		std::vector<std::string> labels;
+		int selected = 0;
+		for (const ModuleDataRange &m : modules) {
+			if (m.name == s_moduleName) {
+				selected = (int)names.size();
+			}
+			names.push_back(m.name);
+			const std::string mainTag = m.isMain ? StringFromFormat(" (%s)", cw->T_cstr("main")) : std::string();
+			labels.push_back(StringFromFormat("%s%s  0x%08X - 0x%08X (%u KB)", m.name.c_str(), mainTag.c_str(), m.start, m.start + m.size, m.size >> 10));
+		}
+		if (names.empty()) {
+			items->Add(new TextView(cw->T("No game modules loaded"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+		} else {
+			if (!s_moduleName.empty() && std::find(names.begin(), names.end(), s_moduleName) == names.end()) {
+				// Not loaded right now. The main module is used until it is.
+				s_moduleName.clear();
+			}
+			const std::string current = labels[selected];
+			Choice *module = items->Add(new Choice(cw->T("Module"), current));
+			module->OnClick.Add([this, names, labels, selected](EventParams &e) {
+				auto cw = GetI18NCategory(I18NCat::CWCHEATS);
+				ListPopupScreen *list = new ListPopupScreen(cw->T("Module"), labels, selected, [this, names](int index) {
+					if (index >= 0 && index < (int)names.size()) {
+						s_moduleName = names[index];
+					}
+					RecreateViews();
+				});
+				if (e.v) {
+					list->SetPopupOrigin(e.v);
+				}
+				screenManager()->push(list);
+			});
+		}
+	}
+
+	TextView *note = items->Add(new TextView(cw->T("Search in applies from the next new search."), FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+	note->SetTextColor(0xFFC0C0C0);
 }
 
 // WatchList
@@ -974,6 +1125,9 @@ void PointerScanScreen::CreateResults(UI::ViewGroup *parent) {
 	const std::vector<PointerChain> &chains = pointers.Results();
 	if (chains.empty()) {
 		parent->Add(new TextView(cw->T("No pointer chains found. Try a larger depth or offset."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(4))));
+		if (!pointers.LastSettings().moduleName.empty()) {
+			AddModuleOnlyHint(parent);
+		}
 		return;
 	}
 
@@ -997,7 +1151,20 @@ void PointerScanScreen::DoScan() {
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	PointerScanner &pointers = GetPointerScanner();
 
-	if (PointerScanner::GetPSPStaticRanges().empty()) {
+	// With Search in set to one module, chains only start from its globals.
+	std::string moduleName;
+	if (ConfiguredSearchIn() == MemoryScanner::SearchIn::ModuleGlobals) {
+		MemoryScanner::Area area;
+		MemoryScanner::Error error;
+		if (!MemoryScanner::GetPSPScanArea(MemoryScanner::SearchIn::ModuleGlobals, s_moduleName, &area, &error)) {
+			statusText_ = cw->T("The chosen module isn't loaded. Pick another one in Scan options.");
+			statusIsError_ = true;
+			RecreateViews();
+			return;
+		}
+		moduleName = area.moduleName;
+	}
+	if (PointerScanner::GetPSPStaticRanges(moduleName).empty()) {
 		statusText_ = cw->T("Couldn't find the game's static data");
 		statusIsError_ = true;
 		RecreateViews();
@@ -1007,6 +1174,7 @@ void PointerScanScreen::DoScan() {
 	PointerScanner::Settings settings;
 	settings.maxDepth = s_pointerDepth;
 	settings.maxOffset = g_pointerOffsets[std::max(0, std::min(s_pointerOffsetIndex, (int)ARRAY_SIZE(g_pointerOffsets) - 1))];
+	settings.moduleName = moduleName;
 
 	// Like value scans, this runs on the emulation thread, so the game is stopped meanwhile.
 	const double startTime = time_now_d();
@@ -1020,7 +1188,7 @@ void PointerScanScreen::DoScan() {
 	} else {
 		std::string countStr = StringFromFormat("%llu", (unsigned long long)pointers.Results().size());
 		statusText_ = ApplySafeSubstitutions(cw->T("%1 pointer chains found (%2 ms)"), countStr, StringFromFormat("%d", ms));
-		statusIsError_ = false;
+		statusIsError_ = pointers.Results().empty();
 	}
 	RecreateViews();
 }

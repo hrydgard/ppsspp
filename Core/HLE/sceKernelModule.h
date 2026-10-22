@@ -237,6 +237,8 @@ struct ModuleDataRange {
 	u32 start;
 	u32 size;
 	std::string name;
+	// The game's main module: the first one loaded, so the lowest in user memory.
+	bool isMain;
 };
 std::vector<ModuleDataRange> __KernelModuleDataRanges();
 // For the next savestate load: code it leaves as it was, as (address, size). Its functions aren't

@@ -110,6 +110,8 @@ private:
 	void CreateControls(UI::ViewGroup *parent);
 	void CreateResults(UI::ViewGroup *parent);
 	void DoScan(bool first);
+	// What the current search covers, or a new one would.
+	std::string AreaText() const;
 
 	ScanValueEditor editor_;
 	WatchList watches_;
@@ -117,6 +119,16 @@ private:
 	double lastRefresh_ = 0.0;
 	std::string statusText_;
 	bool statusIsError_ = false;
+};
+
+// Pausing, and where scans look.
+class ScanOptionsScreen : public UI::PopupScreen {
+public:
+	ScanOptionsScreen();
+
+	const char *tag() const override { return "MemoryScannerOptions"; }
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 };
 
 // Changes the value at an address or at the end of a pointer chain, freezes it, or saves it as a

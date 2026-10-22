@@ -1660,7 +1660,7 @@ bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
 		}
 		// The memory scanner can let the game run behind it, to watch values change.
 		// (Scans themselves run on this thread, so the game never runs during one.)
-		const bool scannerOnTop = strcmp(topTag, "MemoryScanner") == 0 || strcmp(topTag, "MemoryScannerEdit") == 0 || strcmp(topTag, "PointerScan") == 0;
+		const bool scannerOnTop = strcmp(topTag, "MemoryScanner") == 0 || strcmp(topTag, "MemoryScannerEdit") == 0 || strcmp(topTag, "PointerScan") == 0 || strcmp(topTag, "MemoryScannerOptions") == 0;
 		if (scannerOnTop && !g_Config.bMemoryScannerPause) {
 			return true;
 		}

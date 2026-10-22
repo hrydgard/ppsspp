@@ -260,7 +260,6 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	CheckBox *scannerCheck = leftColumn->Add(new CheckBox(&g_Config.bEnableMemoryScanner, cw->T("Memory Scanner"), cw->T("Adds a button at the top of the game screen to search game memory for values")));
 	// Only works with cheats on, like the cheats themselves.
 	scannerCheck->SetEnabledFunc([]() { return g_Config.bEnableCheats; });
-	leftColumn->Add(new CheckBox(&g_Config.bMemoryScannerPause, cw->T("Pause emulation while the scanner is open")))->SetEnabledPtr(&g_Config.bEnableMemoryScanner);
 }
 
 void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {

@@ -458,27 +458,94 @@ bool MemoryScanner::NextScanOnBuffer(const u8 *mem, u32 base, u32 size, ScanComp
 	return true;
 }
 
-bool MemoryScanner::NewScan(ScanValueType type, ScanCompare compare, const ScanValue &value, const ScanValue &value2) {
-	u32 start, size;
-	GetPSPScanRange(&start, &size);
-	if (size == 0 || !Memory::IsValidRange(start, size)) {
+bool MemoryScanner::GetPSPScanArea(SearchIn searchIn, const std::string &moduleName, Area *area, Error *error) {
+	*area = Area();
+	area->searchIn = searchIn;
+	*error = Error::None;
+	if (searchIn == SearchIn::ModuleGlobals) {
+		for (const ModuleDataRange &r : __KernelModuleDataRanges()) {
+			if (moduleName.empty() ? r.isMain : r.name == moduleName) {
+				area->start = r.start;
+				area->size = r.size;
+				area->moduleName = r.name;
+				break;
+			}
+		}
+		if (area->size == 0) {
+			*error = Error::NoModule;
+			return false;
+		}
+	} else {
+		GetPSPScanRange(&area->start, &area->size);
+	}
+	if (area->size == 0 || !Memory::IsValidRange(area->start, area->size)) {
+		*error = Error::NoMemory;
 		return false;
 	}
-	return NewScanOnBuffer(Memory::GetPointerUnchecked(start), start, size, type, compare, value, value2);
+	if (searchIn == SearchIn::UserMemoryNoCode) {
+		area->excluded = __KernelModuleCodeRanges();
+	}
+	return true;
 }
 
-bool MemoryScanner::NextScan(ScanCompare compare, const ScanValue &value, const ScanValue &value2) {
-	u32 start, size;
-	GetPSPScanRange(&start, &size);
-	if (size == 0 || !Memory::IsValidRange(start, size)) {
+void MemoryScanner::ExcludeRanges(const std::vector<std::pair<u32, u32>> &ranges) {
+	for (const auto &r : ranges) {
+		const u64 rangeStart = r.first;
+		const u64 rangeEnd = (u64)r.first + r.second;
+		const u64 start = std::max<u64>(rangeStart, base_);
+		const u64 end = std::min<u64>(rangeEnd, (u64)base_ + size_);
+		for (u64 a = start; a < end; a++) {
+			const u32 off = (u32)(a - base_);
+			if ((off & 63) == 0 && a + 64 <= end) {
+				// A whole word at a time.
+				bits_[off >> 6] = 0;
+				a += 63;
+				continue;
+			}
+			bits_[off >> 6] &= ~(1ULL << (off & 63));
+		}
+	}
+	CountResults();
+}
+
+bool MemoryScanner::NewScan(ScanValueType type, ScanCompare compare, const ScanValue &value, const ScanValue &value2, SearchIn searchIn, const std::string &moduleName, Error *error) {
+	Area area;
+	if (!GetPSPScanArea(searchIn, moduleName, &area, error)) {
 		return false;
 	}
-	if (start != base_ || size != size_) {
-		// RAM size changed under us (different game?), results are meaningless now.
+	if (!NewScanOnBuffer(Memory::GetPointerUnchecked(area.start), area.start, area.size, type, compare, value, value2)) {
+		*error = Error::NoMemory;
+		return false;
+	}
+	area_ = area;
+	ExcludeRanges(area_.excluded);
+	return true;
+}
+
+bool MemoryScanner::NextScan(ScanCompare compare, const ScanValue &value, const ScanValue &value2, Error *error) {
+	Area area;
+	if (!GetPSPScanArea(area_.searchIn, area_.moduleName, &area, error)) {
+		if (*error == Error::NoModule) {
+			// The module the search was in is gone.
+			*error = Error::AreaChanged;
+		}
+		return false;
+	}
+	if (area.start != base_ || area.size != size_) {
+		// The module moved, or RAM size changed (different game?): the results are
+		// meaningless now.
 		Reset();
+		*error = Error::AreaChanged;
 		return false;
 	}
-	return NextScanOnBuffer(Memory::GetPointerUnchecked(start), start, size, compare, value, value2);
+	if (!NextScanOnBuffer(Memory::GetPointerUnchecked(area.start), area.start, area.size, compare, value, value2)) {
+		*error = Error::NoMemory;
+		return false;
+	}
+	// Modules loaded since the last scan may have brought new code.
+	area_.excluded = area.excluded;
+	ExcludeRanges(area_.excluded);
+	return true;
 }
 
 void MemoryScanner::Undo() {
@@ -502,6 +569,7 @@ void MemoryScanner::Reset() {
 	scanCount_ = 0;
 	base_ = 0;
 	size_ = 0;
+	area_ = Area();
 	gameID_.clear();
 }
 
@@ -682,10 +750,12 @@ PointerScanner &GetPointerScanner() {
 	return scanner;
 }
 
-std::vector<std::pair<u32, u32>> PointerScanner::GetPSPStaticRanges() {
+std::vector<std::pair<u32, u32>> PointerScanner::GetPSPStaticRanges(const std::string &moduleName) {
 	std::vector<std::pair<u32, u32>> ranges;
 	for (const ModuleDataRange &r : __KernelModuleDataRanges()) {
-		ranges.emplace_back(r.start, r.size);
+		if (moduleName.empty() || r.name == moduleName) {
+			ranges.emplace_back(r.start, r.size);
+		}
 	}
 	return ranges;
 }
@@ -832,7 +902,7 @@ bool PointerScanner::Scan(u32 target, ScanValueType type, const Settings &settin
 	if (size == 0 || !Memory::IsValidRange(start, size)) {
 		return false;
 	}
-	return ScanBuffer(Memory::GetPointerUnchecked(start), start, size, GetPSPStaticRanges(), target, type, settings);
+	return ScanBuffer(Memory::GetPointerUnchecked(start), start, size, GetPSPStaticRanges(settings.moduleName), target, type, settings);
 }
 
 size_t PointerScanner::Filter(u32 newTarget) {

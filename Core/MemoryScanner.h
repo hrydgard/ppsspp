@@ -118,14 +118,45 @@ public:
 	// pointer code (0x6) with one walk line (0x2) per pointer after the first.
 	static std::vector<std::string> MakeCwCheatLines(ScanValueType type, const PointerChain &chain, u32 bits);
 
-	// The range of PSP RAM that's scanned: user memory, from 0x08800000 to the end of RAM.
-	// This includes the extra 32MB of a PSP-2000+ when the game (or the HD remaster
-	// settings) enabled it, since g_MemorySize says how much RAM is mapped.
+	// All of user memory, from 0x08800000 to the end of RAM. This includes the extra 32MB of a
+	// PSP-2000+ when the game (or the HD remaster settings) enabled it, since g_MemorySize says
+	// how much RAM is mapped.
 	static void GetPSPScanRange(u32 *start, u32 *size);
 
-	// Scanning the emulated PSP's user memory. Return false if the memory isn't available.
-	bool NewScan(ScanValueType type, ScanCompare compare, const ScanValue &value, const ScanValue &value2);
-	bool NextScan(ScanCompare compare, const ScanValue &value, const ScanValue &value2);
+	// Where a search looks (the Search in scan option).
+	enum class SearchIn {
+		UserMemoryNoCode = 0,  // All of user memory, minus the modules' code.
+		ModuleGlobals = 1,     // One module's globals (.data and .bss), which never move.
+		AllUserMemory = 2,
+		COUNT,
+	};
+	// What a search covers.
+	struct Area {
+		SearchIn searchIn = SearchIn::UserMemoryNoCode;
+		u32 start = 0;
+		u32 size = 0;
+		// For ModuleGlobals.
+		std::string moduleName;
+		// Ranges left out, as (start, size): the modules' code.
+		std::vector<std::pair<u32, u32>> excluded;
+	};
+	enum class Error {
+		None,
+		NoMemory,       // Game memory isn't available.
+		NoModule,       // The module isn't loaded (or has no globals).
+		AreaChanged,    // The module moved or was unloaded since the search started.
+	};
+	// moduleName is for ModuleGlobals; empty means the main module.
+	static bool GetPSPScanArea(SearchIn searchIn, const std::string &moduleName, Area *area, Error *error);
+
+	// Scanning the emulated PSP's memory. The area is picked by a new scan and kept by next scans.
+	bool NewScan(ScanValueType type, ScanCompare compare, const ScanValue &value, const ScanValue &value2, SearchIn searchIn, const std::string &moduleName, Error *error);
+	bool NextScan(ScanCompare compare, const ScanValue &value, const ScanValue &value2, Error *error);
+	// The current search's area.
+	const Area &SearchArea() const { return area_; }
+
+	// Drops results in these ranges, as (start, size). Used for skipping code.
+	void ExcludeRanges(const std::vector<std::pair<u32, u32>> &ranges);
 
 	// The same, on any buffer. Used by the above, and by tests.
 	bool NewScanOnBuffer(const u8 *mem, u32 base, u32 size, ScanValueType type, ScanCompare compare, const ScanValue &value, const ScanValue &value2);
@@ -195,6 +226,7 @@ private:
 	std::vector<u8> snapshot_;
 	std::vector<u64> undoBits_;
 	size_t undoResultCount_ = 0;
+	Area area_;
 
 	std::vector<Freeze> freezes_;
 };
@@ -213,13 +245,15 @@ public:
 	struct Settings {
 		int maxDepth = 2;          // 1 to MAX_POINTER_DEPTH pointers.
 		u32 maxOffset = 0x1000;    // Largest offset from a pointer to what's used after it.
+		std::string moduleName;    // Chains only start in this module's globals, if set.
 	};
 	// Upper bounds, to keep a deep scan from using all the RAM. Truncated() says if hit.
 	static constexpr size_t MAX_RESULTS = 200000;
 	static constexpr size_t MAX_NODES_PER_LEVEL = 1000000;
 
 	// Static data ranges of the game, as (start, size).
-	static std::vector<std::pair<u32, u32>> GetPSPStaticRanges();
+	// The globals of the game's modules, or of the named one.
+	static std::vector<std::pair<u32, u32>> GetPSPStaticRanges(const std::string &moduleName);
 
 	bool Scan(u32 target, ScanValueType type, const Settings &settings);
 	// Keeps the chains that now lead to newTarget. Returns how many are left.

@@ -13,9 +13,32 @@ hardcore mode.
 
 ## What is scanned
 
-User memory, from `0x08800000` to the end of emulated RAM. Normally that's 24 MB, but on a
+**Scan options** > **Search in** picks it, for each new search. What the current search covers
+(or a new one would) is shown at the top of the scanner.
+
+- **User memory except code** (default): all of user memory, without the code of the game's
+  modules. A value is almost never in code, and changing code by mistake crashes games. Values
+  found in memory the game allocated may move later (new level, restart): use a pointer scan
+  for those.
+- **Globals of one module**: only the `.data` and `.bss` of one module, which never move, so
+  plain cheats made from them keep working. The main module (the game's EBOOT, the first one
+  loaded) is picked first; **Module** lists the others the game has loaded, with their size.
+  Pick the big one when the EBOOT only loads the real game from a PRX. Much faster, but many
+  games keep their values in allocated memory, and then nothing is found: the scanner says so
+  and suggests switching to the default. Pointer scans also only start from this module's
+  globals.
+- **All user memory**: everything, code and read-only data included.
+
+User memory goes from `0x08800000` to the end of emulated RAM. Normally that's 24 MB, but on a
 PSP-2000+ model, for games, homebrew or HD remasters that use the extra RAM, it goes up to
-`0x0C000000` (56 MB). The range is shown at the top of the scanner.
+`0x0C000000` (56 MB).
+
+Code means the `.text` of each module the game loaded as a module. Code a game copies into
+memory by itself isn't known, and is searched. Read-only data tables (item stats and such) are
+searched, so they can still be found.
+
+If the chosen module moves or is unloaded during a search, the next scan says so, and a new
+search is needed.
 
 Values are searched at their natural alignment: 8-bit at every byte, 16-bit every 2 bytes,
 32-bit and float every 4 bytes.
@@ -42,7 +65,7 @@ Values are searched at their natural alignment: 8-bit at every byte, 16-bit ever
 Only the addresses from the previous results are checked by a next scan. Results stay in RAM
 until a new search, or the game is closed, so you can close the scanner, play, and come back.
 
-The game is always stopped while a scan runs. Tick **Pause emulation while the scanner is
+The game is always stopped while a scan runs. Tick **Scan options** > **Pause emulation while the scanner is
 open** (on by default) to also keep it paused while browsing results. With it off, the game
 keeps running behind the scanner.
 
@@ -86,7 +109,8 @@ can be somewhere else every time. The game finds them through pointers, and a po
    far the value can be from where a pointer points, default `0x1000`), then **Scan for pointers
    to this address**.
    The scan only keeps chains that start in the static data (`.data`/`.bss`) of the game's
-   modules, since those stay at the same place. Code isn't searched: MIPS jump instructions
+   modules, since those stay at the same place (only the chosen module's, when **Search in** is
+   set to **Globals of one module**). Code isn't searched: MIPS jump instructions
    look exactly like pointers.
 3. The first scan usually finds many chains, and most of them are only right by chance.
    Change level, or restart the game (loading a savestate doesn't help: it restores the same
