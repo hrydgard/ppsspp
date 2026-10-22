@@ -768,7 +768,7 @@ static constexpr ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AndroidHwScale", SETTING(g_Config, iAndroidHwScale), 0, CfgFlag::DEFAULT),
 	ConfigSetting("HighQualityDepth", SETTING(g_Config, bHighQualityDepth), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("FrameSkip", SETTING(g_Config, iFrameSkip), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
-	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), &IsVREnabled, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), false, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
 	// Read before the new settings, which use them as defaults.
