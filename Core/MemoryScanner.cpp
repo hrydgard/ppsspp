@@ -463,10 +463,13 @@ bool MemoryScanner::GetPSPScanArea(SearchIn searchIn, const std::string &moduleN
 	area->searchIn = searchIn;
 	*error = Error::None;
 	if (searchIn == SearchIn::ModuleGlobals) {
-		for (const ModuleDataRange &r : __KernelModuleDataRanges()) {
+		for (const ModuleRange &r : __KernelModuleRanges()) {
+			if (r.kernel || r.dataSize == 0) {
+				continue;
+			}
 			if (moduleName.empty() ? r.isMain : r.name == moduleName) {
-				area->start = r.start;
-				area->size = r.size;
+				area->start = r.dataStart;
+				area->size = r.dataSize;
 				area->moduleName = r.name;
 				break;
 			}
@@ -483,7 +486,11 @@ bool MemoryScanner::GetPSPScanArea(SearchIn searchIn, const std::string &moduleN
 		return false;
 	}
 	if (searchIn == SearchIn::UserMemoryNoCode) {
-		area->excluded = __KernelModuleCodeRanges();
+		for (const ModuleRange &r : __KernelModuleRanges()) {
+			if (r.codeSize != 0) {
+				area->excluded.emplace_back(r.codeStart, r.codeSize);
+			}
+		}
 	}
 	return true;
 }
@@ -752,9 +759,12 @@ PointerScanner &GetPointerScanner() {
 
 std::vector<std::pair<u32, u32>> PointerScanner::GetPSPStaticRanges(const std::string &moduleName) {
 	std::vector<std::pair<u32, u32>> ranges;
-	for (const ModuleDataRange &r : __KernelModuleDataRanges()) {
+	for (const ModuleRange &r : __KernelModuleRanges()) {
+		if (r.kernel || r.dataSize == 0) {
+			continue;
+		}
 		if (moduleName.empty() || r.name == moduleName) {
-			ranges.emplace_back(r.start, r.size);
+			ranges.emplace_back(r.dataStart, r.dataSize);
 		}
 	}
 	return ranges;

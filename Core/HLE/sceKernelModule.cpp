@@ -607,23 +607,45 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 	return ranges;
 }
 
-std::vector<ModuleDataRange> __KernelModuleDataRanges() {
-	std::vector<ModuleDataRange> ranges;
+std::vector<ModuleRange> __KernelModuleRanges() {
+	std::vector<ModuleRange> ranges;
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		const PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
-		if (!module || module->isFake || (module->nm.attribute & 0x1000) != 0) {
+		if (!module || module->isFake) {
 			continue;
 		}
-		const u32 start = module->GetDataAddr();
-		const u32 size = module->nm.data_size + module->nm.bss_size;
-		if (module->nm.text_addr == 0 || size == 0) {
-			continue;
+		ModuleRange r{};
+		r.name = std::string(module->nm.name, strnlen(module->nm.name, sizeof(module->nm.name)));
+		r.kernel = (module->nm.attribute & 0x1000) != 0;
+		r.blockStart = module->memoryBlockAddr;
+		r.blockSize = module->memoryBlockSize;
+		if (module->textStart != 0 && module->textEnd >= module->textStart) {
+			u64 start = module->textStart;
+			u64 end = (u64)module->textEnd + 4;
+			// A stray section must not make other memory count as this module's code.
+			if (r.blockSize != 0) {
+				start = std::max<u64>(start, r.blockStart);
+				end = std::min<u64>(end, (u64)r.blockStart + r.blockSize);
+			}
+			if (end > start) {
+				r.codeStart = (u32)start;
+				r.codeSize = (u32)(end - start);
+			}
 		}
-		ranges.push_back(ModuleDataRange{ start, size, std::string(module->nm.name, strnlen(module->nm.name, sizeof(module->nm.name))), false });
+		if (module->nm.text_addr != 0) {
+			r.dataStart = module->GetDataAddr();
+			r.dataSize = module->nm.data_size + module->nm.bss_size;
+		}
+		ranges.push_back(r);
 	}
-	if (!ranges.empty()) {
-		auto lowest = std::min_element(ranges.begin(), ranges.end(), [](const ModuleDataRange &a, const ModuleDataRange &b) { return a.start < b.start; });
+	ModuleRange *lowest = nullptr;
+	for (ModuleRange &r : ranges) {
+		if (!r.kernel && r.dataSize != 0 && (!lowest || r.dataStart < lowest->dataStart)) {
+			lowest = &r;
+		}
+	}
+	if (lowest) {
 		lowest->isMain = true;
 	}
 	return ranges;

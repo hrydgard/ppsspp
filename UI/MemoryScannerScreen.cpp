@@ -691,18 +691,23 @@ void ScanOptionsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (ConfiguredSearchIn() == MemoryScanner::SearchIn::ModuleGlobals) {
 		// The game's modules, main first.
-		std::vector<ModuleDataRange> modules = __KernelModuleDataRanges();
-		std::stable_sort(modules.begin(), modules.end(), [](const ModuleDataRange &a, const ModuleDataRange &b) { return a.isMain && !b.isMain; });
+		std::vector<ModuleRange> modules;
+		for (const ModuleRange &m : __KernelModuleRanges()) {
+			if (!m.kernel && m.dataSize != 0) {
+				modules.push_back(m);
+			}
+		}
+		std::stable_sort(modules.begin(), modules.end(), [](const ModuleRange &a, const ModuleRange &b) { return a.isMain && !b.isMain; });
 		std::vector<std::string> names;
 		std::vector<std::string> labels;
 		int selected = 0;
-		for (const ModuleDataRange &m : modules) {
+		for (const ModuleRange &m : modules) {
 			if (m.name == s_moduleName) {
 				selected = (int)names.size();
 			}
 			names.push_back(m.name);
 			const std::string mainTag = m.isMain ? StringFromFormat(" (%s)", cw->T_cstr("main")) : std::string();
-			labels.push_back(StringFromFormat("%s%s  0x%08X - 0x%08X (%u KB)", m.name.c_str(), mainTag.c_str(), m.start, m.start + m.size, m.size >> 10));
+			labels.push_back(StringFromFormat("%s%s  0x%08X - 0x%08X (%u KB)", m.name.c_str(), mainTag.c_str(), m.dataStart, m.dataStart + m.dataSize, m.dataSize >> 10));
 		}
 		if (names.empty()) {
 			items->Add(new TextView(cw->T("No game modules loaded"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
@@ -731,6 +736,25 @@ void ScanOptionsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	TextView *note = items->Add(new TextView(cw->T("Search in applies from the next new search."), FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
 	note->SetTextColor(0xFFC0C0C0);
+
+	// Where each module is, which is what the Search in areas come from.
+	items->Add(new ItemHeader(cw->T("Game modules")));
+	for (const ModuleRange &m : __KernelModuleRanges()) {
+		std::string text = m.name;
+		if (m.isMain) {
+			text += StringFromFormat(" (%s)", cw->T_cstr("main"));
+		} else if (m.kernel) {
+			text += StringFromFormat(" (%s)", cw->T_cstr("kernel"));
+		}
+		auto range = [](u32 start, u32 size) {
+			return size != 0 ? StringFromFormat("0x%08X - 0x%08X", start, start + size) : std::string("-");
+		};
+		text += StringFromFormat("\n%s: %s\n%s: %s\n%s: %s",
+			cw->T_cstr("Module"), range(m.blockStart, m.blockSize).c_str(),
+			cw->T_cstr("Code"), range(m.codeStart, m.codeSize).c_str(),
+			cw->T_cstr("Globals"), range(m.dataStart, m.dataSize).c_str());
+		items->Add(new TextView(text, FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
+	}
 }
 
 // WatchList
