@@ -995,10 +995,12 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	g_screenManager->setUIContext(uiContext);
 	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
+	// Live before the queue is processed: a removal that comes in while the outputs' swapchains are being
+	// recreated has to wait for the next frame, as its surface may be gone once it returns.
+	SetOutputsLive(true);
 	// An output removed while there was no device can't be recreated, its surface may be gone.
 	ProcessOutputRequests();
 	g_screenManager->deviceRestored(g_draw);
-	SetOutputsLive(true);
 
 	g_audioBackend = System_CreateAudioBackend();
 	if (g_audioBackend) {
