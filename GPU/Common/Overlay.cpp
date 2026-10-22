@@ -172,7 +172,19 @@ void ReloadAllOverlayInfo() {
 	std::lock_guard<std::mutex> guard(g_overlayLock);
 	ScanOverlays(&g_overlayInfo);
 	g_overlayInfoLoaded = true;
-	UnloadActiveLocked();
+
+	// Keep the loaded overlay if its definition didn't change, so that rescanning (which the
+	// display layout screen does every time its views are recreated) doesn't cause a reload.
+	if (!g_activeId.empty()) {
+		auto iter = std::find_if(g_overlayInfo.begin(), g_overlayInfo.end(), [](const OverlayInfo &info) { return info.id == g_activeId; });
+		const bool unchanged = iter != g_overlayInfo.end() && !g_activeFailed &&
+			iter->imagePath == g_activeInfo.imagePath && iter->layer == g_activeInfo.layer &&
+			iter->holeFromIni == g_activeInfo.holeFromIni && iter->holeX == g_activeInfo.holeX &&
+			iter->holeY == g_activeInfo.holeY && iter->holeW == g_activeInfo.holeW && iter->holeH == g_activeInfo.holeH;
+		if (!unchanged) {
+			UnloadActiveLocked();
+		}
+	}
 }
 
 std::vector<OverlayInfo> GetAllOverlayInfo() {
@@ -216,6 +228,7 @@ bool ImportOverlayImage(const Path &source, std::string *id) {
 		return false;
 	}
 	INFO_LOG(Log::G3D, "Imported overlay %s as %s", source.c_str(), filename.c_str());
+	// The file name is new, so this can't affect the loaded overlay.
 	ReloadAllOverlayInfo();
 	*id = filename;
 	return true;
@@ -305,12 +318,15 @@ bool GetOverlayLayout(const DisplayLayoutConfig &config, float frameX, float fra
 	const float imgW = (float)g_activeImage->width;
 	const float imgH = (float)g_activeImage->height;
 
-	// Fit the overlay to the frame, keeping the aspect ratio, centered.
-	const float scale = std::min(frameW / imgW, frameH / imgH);
+	// Fit the overlay to the frame, keeping the aspect ratio. Then apply the display layout's scale
+	// and offset to the overlay, the same way they'd apply to the game without one, so moving and
+	// resizing the display moves the overlay (with the game inside it). This also keeps the portrait
+	// default of having the screen high up.
+	const float scale = std::min(frameW / imgW, frameH / imgH) * config.fDisplayScale;
 	layout->overlayW = imgW * scale;
 	layout->overlayH = imgH * scale;
-	layout->overlayX = frameX + (frameW - layout->overlayW) * 0.5f;
-	layout->overlayY = frameY + (frameH - layout->overlayH) * 0.5f;
+	layout->overlayX = frameX + frameW * config.fDisplayOffsetX - layout->overlayW * 0.5f;
+	layout->overlayY = frameY + frameH * config.fDisplayOffsetY - layout->overlayH * 0.5f;
 
 	layout->layer = g_activeInfo.layer;
 	layout->hasHole = g_activeHasHole;

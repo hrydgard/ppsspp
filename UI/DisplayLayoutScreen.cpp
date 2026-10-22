@@ -370,7 +370,11 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 		if (overlayIds.size() > 1) {
 			auto overlayChoice = leftColumn->Add(new PopupMultiChoiceDynamic(&config.sOverlay, gr->T("Overlay"), overlayNames, I18NCat::NONE, screenManager(), &overlayIds));
-			overlayChoice->OnChoice.Add([](UI::EventParams &) {
+			overlayChoice->OnChoice.Add([](UI::EventParams &e) {
+				// e.b is set if the value actually changed. Re-picking the current one shouldn't
+				// cause a reload, since that glitches the audio of a game running in the background.
+				if (!e.b)
+					return;
 				// The game rect may have moved, which matters for post shaders that run at output resolution.
 				NotifyPostChanges();
 			});

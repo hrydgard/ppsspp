@@ -33,10 +33,11 @@
 //      Layer=Foreground        ; or Background (drawn behind the game)
 //      Hole=0,0,640,362        ; optional, in image pixels. Auto-detected if missing.
 //
-// Placement: the overlay is fit to the screen (aspect preserved, centered). The hole is mapped
-// to the screen with the same scale and offset, and the PSP screen is then fit into the hole
-// using the normal display layout options (stretch, integer scale, aspect ratio).
-// The display offset and scale options are ignored while an overlay with a hole is active.
+// Placement: the overlay is fit to the screen (aspect preserved), then the display layout's scale
+// and offset are applied to it, like they normally are to the game. So moving or resizing the
+// display moves the overlay, and the portrait default (screen high up) works. The hole is mapped
+// with the same scale and offset, and the PSP screen is fit into the hole using the remaining
+// display options (stretch, integer scale, aspect ratio).
 
 #pragma once
 
@@ -86,7 +87,7 @@ struct OverlayLayout {
 	uint32_t generation = 0;
 };
 
-// Rescans the overlays folder. Also unloads the active overlay, so it gets reloaded from disk.
+// Rescans the overlays folder. The loaded overlay is kept unless its definition changed or it's gone.
 void ReloadAllOverlayInfo();
 std::vector<OverlayInfo> GetAllOverlayInfo();
 

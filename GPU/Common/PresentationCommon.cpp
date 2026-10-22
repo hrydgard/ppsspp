@@ -108,8 +108,8 @@ void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, fl
 
 	float scale = config.fDisplayScale;
 
-	// With an overlay that has a hole, the overlay is fit to the screen and the game is fit into
-	// the hole instead. The offset and scale options don't apply then, the overlay decides those.
+	// With an overlay that has a hole, the game is fit into the hole instead. The offset and scale
+	// options were already applied to the overlay itself, see GetOverlayLayout.
 	FRect frame = screenFrame;
 	OverlayLayout overlay;
 	const bool inOverlayHole = GetOverlayLayout(config, screenFrame.x, screenFrame.y, screenFrame.w, screenFrame.h, &overlay) && overlay.hasHole;
