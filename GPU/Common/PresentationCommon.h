@@ -118,9 +118,15 @@ public:
 	}
 	// Presents to another output than the primary, until called with nullptr.
 	void SetOutputOverride(const OutputParams *output) {
+		const bool changed = hasOutputOverride_ != (output != nullptr) || (output &&
+			(output->pixelWidth != outputOverride_.pixelWidth || output->pixelHeight != outputOverride_.pixelHeight || output->orientation != outputOverride_.orientation));
 		hasOutputOverride_ = output != nullptr;
 		if (output) {
 			outputOverride_ = *output;
+		}
+		// The post-shader framebuffers are sized for the output, so another one needs them rebuilt (in BeginFrame).
+		if (changed && usePostShader_) {
+			restorePostShader_ = true;
 		}
 	}
 	OutputParams GetOutput() const {

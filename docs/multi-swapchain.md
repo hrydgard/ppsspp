@@ -230,8 +230,8 @@ viewport to its own swapchain, so it shares the swapchain layer with the screen 
 
 `PresentationCommon` should get its output size and layout explicitly instead of from `g_display`.
 Mostly it already does, through `PSP_CoreParameter().pixelWidth/Height` and
-`UpdateDisplaySize`, and "auto" render resolution follows the same values, so it scales for the TV
-on its own. What still reads the global:
+`UpdateDisplaySize`. "Auto" render resolution follows the primary's size, not the TV's (not done). What
+still reads the global:
 
 - `GetScreenFrame` (insets, DPI)
 - the stretch logic in `CalculateDisplayOutputRect` (device orientation)
