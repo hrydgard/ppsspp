@@ -217,6 +217,8 @@ static uint64_t g_outputRequestsQueued = 0;
 static uint64_t g_outputRequestsDone = 0;
 // Whether the outputs have swapchains, between NativeInitGraphics and NativeShutdownGraphics.
 static bool g_outputsLive = false;
+// The thread that handles the requests, which mustn't wait for them.
+static std::thread::id g_outputRequestThread;
 static std::atomic<int> g_nextOutputId{1};
 
 static void ProcessOutputRequests() {
@@ -236,6 +238,7 @@ static void ProcessOutputRequests() {
 	}
 	std::lock_guard<std::mutex> guard(g_outputRequestLock);
 	g_outputRequestsDone = queued;
+	g_outputRequestThread = std::this_thread::get_id();
 	g_outputRequestsDoneCond.notify_all();
 }
 
@@ -2098,6 +2101,7 @@ void Native_RemoveOutput(int id) {
 bool Native_RemoveOutputAndWait(int id) {
 	Native_RemoveOutput(id);
 	std::unique_lock<std::mutex> lock(g_outputRequestLock);
+	_dbg_assert_msg_(std::this_thread::get_id() != g_outputRequestThread, "Waiting for output requests on the thread that handles them");
 	const uint64_t queued = g_outputRequestsQueued;
 	// Without a device, the outputs have no swapchains to let go of.
 	const bool done = g_outputRequestsDoneCond.wait_for(lock, std::chrono::seconds(3), [=] {

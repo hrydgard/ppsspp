@@ -235,6 +235,8 @@ struct MetalSwapchain {
 	bool drawn = false;  // Something has rendered to it.
 	// Replay side. Acquired by the first pass that renders to it, presented at the end of the frame.
 	id<CAMetalDrawable> drawable;
+	// The replayed frame nextDrawable gave none in. Not asked again that frame, as each try can wait a second.
+	uint64_t noDrawableFrame = UINT64_MAX;
 };
 
 struct MetalRecordedPass {
@@ -383,6 +385,7 @@ public:
 	void DestroySwapchain(MetalSwapchain *swapchain);
 	void Resize(MetalSwapchain *swapchain, int width, int height);
 	void Resize(int width, int height) { Resize(backbuffer_, width, height); }
+	bool InFrame() const { return inFrame_; }
 	int BackbufferWidth() const { return backbuffer_->width; }
 	int BackbufferHeight() const { return backbuffer_->height; }
 	MTLPixelFormat BackbufferFormat() const { return MTLPixelFormatBGRA8Unorm; }
@@ -556,6 +559,7 @@ private:
 	id<MTLBlitCommandEncoder> rtUploadBlit_;
 	id<MTLComputeCommandEncoder> rtUploadCompute_;
 	std::vector<MetalSwapchain *> rtAcquired_;  // Swapchains with a drawable to present.
+	uint64_t replayFrame_ = 0;  // Counts the presents replayed.
 	// Replay scratch, reused between chunks.
 	std::vector<MetalStep> rtSteps_;
 	size_t rtStepCount_ = 0;

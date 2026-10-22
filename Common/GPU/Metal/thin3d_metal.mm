@@ -1247,6 +1247,7 @@ void MetalDrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, A
 
 void MetalDrawContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {
 	_dbg_assert_(binding < (int)MAX_TEXTURE_SLOTS);
+	_dbg_assert_(fbo && !fbo->IsSwapchain());
 	MetalFramebuffer *fb = (MetalFramebuffer *)fbo;
 	boundTextures_[binding] = fb->msaaColor ? fb->msaaColor : fb->color;
 	boundThin3DTextures_[binding] = nullptr;
@@ -1263,6 +1264,8 @@ void MetalDrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 }
 
 Swapchain *MetalDrawContext::CreateSwapchain(const SwapchainDesc &desc, std::string *error) {
+	// Swapchains other than the primary come and go between frames.
+	_dbg_assert_(!rm_->InFrame());
 	if (desc.winsys != WINDOWSYSTEM_METAL_EXT) {
 		*error = "Metal swapchains need a CAMetalLayer";
 		return nullptr;
@@ -1278,15 +1281,20 @@ Swapchain *MetalDrawContext::CreateSwapchain(const SwapchainDesc &desc, std::str
 
 void MetalDrawContext::DestroySwapchain(Swapchain *swapchain) {
 	_dbg_assert_(swapchain && swapchain != primarySwapchain_);
+	_dbg_assert_(!rm_->InFrame());
 	MetalSwapchainFB *fb = (MetalSwapchainFB *)swapchain;
 	rm_->DestroySwapchain(fb->swapchain);
 	fb->swapchain = nullptr;
-	fb->Release();
+	// Nothing else may hold it, it no longer has a swapchain to be.
+	fb->ReleaseAssertLast();
 }
 
 void MetalDrawContext::ResizeSwapchain(Swapchain *swapchain, int width, int height) {
 	MetalSwapchain *metalSwapchain = ToSwapchain(swapchain);
 	_dbg_assert_(metalSwapchain);
+	// An offscreen one keeps its size, as there's no layer to resize.
+	_dbg_assert_(metalSwapchain->layer || swapchain == primarySwapchain_);
+	_dbg_assert_(swapchain == primarySwapchain_ || !rm_->InFrame());
 	rm_->Resize(metalSwapchain, width, height);
 	if (swapchain == primarySwapchain_) {
 		primarySwapchain_->SetSize(metalSwapchain->width, metalSwapchain->height);

@@ -926,12 +926,14 @@ id<MTLTexture> MetalRenderManager::ReplaySwapchainTexture(MetalSwapchain *swapch
 	if (!swapchain->layer) {
 		return swapchain->offscreen;
 	}
-	if (!swapchain->drawable) {
+	if (!swapchain->drawable && swapchain->noDrawableFrame != replayFrame_) {
 		@autoreleasepool {
 			swapchain->drawable = [swapchain->layer nextDrawable];
 		}
 		if (swapchain->drawable) {
 			rtAcquired_.push_back(swapchain);
+		} else {
+			swapchain->noDrawableFrame = replayFrame_;
 		}
 	}
 	return swapchain->drawable ? swapchain->drawable.texture : nil;
@@ -1039,6 +1041,7 @@ void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
 			swapchain->drawable = nil;
 		}
 		rtAcquired_.clear();
+		replayFrame_++;
 	}
 
 	dispatch_semaphore_t frameSemaphore = chunk->end == MetalChunkEnd::PRESENT ? frameSemaphore_ : nullptr;
