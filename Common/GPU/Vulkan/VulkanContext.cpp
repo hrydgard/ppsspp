@@ -239,6 +239,15 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 #if PPSSPP_VK_STATIC
 	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#elif PPSSPP_PLATFORM(MAC)
+	// Through the Khronos loader (like the SDK's, for the validation layers), MoltenVK is only
+	// listed if we ask for portability drivers.
+	if (IsInstanceExtensionAvailable(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+		inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
+		inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.data();
+		inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	}
 #endif
 
 #if SIMULATE_VULKAN_FAILURE == 2
@@ -880,6 +889,13 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		deviceFeatures_.enabled.scalarBlockLayout.scalarBlockLayout = deviceFeatures_.available.scalarBlockLayout.scalarBlockLayout;
 	}
 
+	// What MoltenVK can do of what full Vulkan can (like image view swizzles). Using any of it needs it enabled.
+	deviceFeatures_.enabled.portabilitySubset = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR };
+	if (extensionsLookup_.KHR_portability_subset) {
+		deviceFeatures_.enabled.portabilitySubset = deviceFeatures_.available.portabilitySubset;
+		deviceFeatures_.enabled.portabilitySubset.pNext = nullptr;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -910,6 +926,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			ChainStruct(features2, &deviceFeatures_.enabled.portabilitySubset);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
