@@ -177,12 +177,78 @@ void ScreenManager::switchToNext() {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
+	for (Output &output : outputs_) {
+		if (output.display.swapchain) {
+			draw_->DestroySwapchain(output.display.swapchain);
+			output.display.swapchain = nullptr;
+		}
+	}
+	// Outputs added before the device is restored get their swapchains then.
+	deviceLost_ = true;
 }
 
 void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 	draw_ = draw;
+	deviceLost_ = false;
 	for (auto &iter : stack_)
 		iter.screen->deviceRestored(draw);
+	for (Output &output : outputs_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(output.desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to recreate the swapchain for output %d: %s", output.display.id, error.c_str());
+		}
+	}
+}
+
+void ScreenManager::AddOutput(int id, OutputRole role, const Draw::SwapchainDesc &desc) {
+	Output output{};
+	output.display.id = id;
+	output.display.role = role;
+	output.desc = desc;
+	if (draw_ && !deviceLost_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to create the swapchain for output %d: %s", id, error.c_str());
+		}
+	}
+	INFO_LOG(Log::G3D, "Added output %d (%dx%d)", id, desc.width, desc.height);
+	outputs_.push_back(output);
+}
+
+void ScreenManager::ResizeOutput(int id, int width, int height) {
+	for (Output &output : outputs_) {
+		if (output.display.id == id) {
+			output.desc.width = width;
+			output.desc.height = height;
+			if (output.display.swapchain) {
+				draw_->ResizeSwapchain(output.display.swapchain, width, height);
+			}
+		}
+	}
+}
+
+void ScreenManager::RemoveOutput(int id) {
+	for (auto iter = outputs_.begin(); iter != outputs_.end(); ++iter) {
+		if (iter->display.id == id) {
+			if (iter->display.swapchain) {
+				draw_->DestroySwapchain(iter->display.swapchain);
+			}
+			outputs_.erase(iter);
+			INFO_LOG(Log::G3D, "Removed output %d", id);
+			return;
+		}
+	}
+}
+
+const OutputDisplay *ScreenManager::FindOutput(OutputRole role) const {
+	for (const Output &output : outputs_) {
+		if (output.display.role == role && output.display.swapchain) {
+			return &output.display;
+		}
+	}
+	return nullptr;
 }
 
 void ScreenManager::resized() {
@@ -211,6 +277,24 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 	}
 
 	afterPreRender();
+
+	// Secondary outputs. The topmost screen with something for one draws it, otherwise it's left cleared.
+	for (const Output &output : outputs_) {
+		Draw::Swapchain *swapchain = output.display.swapchain;
+		if (!swapchain) {
+			continue;
+		}
+		draw_->BindFramebufferAsRenderTarget(swapchain, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "Output");
+		int w, h;
+		draw_->GetFramebufferDimensions(swapchain, &w, &h);
+		draw_->SetViewport(Draw::Viewport{0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f});
+		draw_->SetScissorRect(0, 0, w, h);
+		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
+			if (iter->screen->renderOutput(output.display)) {
+				break;
+			}
+		}
+	}
 
 	// Now, start the final render pass. This is now the ONLY place where binding the backbuffer is allowed.
 	draw_->BindFramebufferAsRenderTarget(draw_->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");

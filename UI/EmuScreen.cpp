@@ -1643,14 +1643,14 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 
 	using namespace Draw;
 	skipBufferEffects_ = g_Config.bSkipBufferEffects;
+	UpdateGameOutput();
 	if (!skipBufferEffects_ && PSP_IsInited()) {
 		if (ShouldRunEmulation(mode)) {
 			// We need to run emulation here, and perform all the normal render passes.
 			return RunEmulation(false);
 		} else if (gpu && GPUIsBuffered()) {
 			// Need to check for gpu here, we might be in reset.
-			const DeviceOrientation orientation = GetDeviceOrientation();
-			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+			const DisplayLayoutConfig &displayLayoutConfig = GameLayoutConfig();
 			// We run just the post shaders.
 			gpu->PrepareCopyDisplayToOutput(displayLayoutConfig);
 			// Screens on top like reporting might want to take screenshots of existing framebuffers.
@@ -1658,6 +1658,38 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 		}
 	}
 	return ScreenRenderFlags::NONE;
+}
+
+// Sends the game to a Game output, if there is one. Not in non-buffered mode, which draws straight
+// into the backbuffer during emulation.
+void EmuScreen::UpdateGameOutput() {
+	const OutputDisplay *output = screenManager()->FindOutput(OutputRole::Game);
+	gameOnOutput_ = output && gpu && !skipBufferEffects_ && GPUIsBuffered();
+	if (!gpu) {
+		return;
+	}
+	if (!gameOnOutput_) {
+		gpu->SetPresentationOutput(nullptr);
+		return;
+	}
+	OutputParams params;
+	params.pixelWidth = output->swapchain->Width();
+	params.pixelHeight = output->swapchain->Height();
+	params.orientation = params.pixelHeight > params.pixelWidth * 1.1f ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
+	gameOutputOrientation_ = params.orientation;
+	gpu->SetPresentationOutput(&params);
+}
+
+const DisplayLayoutConfig &EmuScreen::GameLayoutConfig() const {
+	return g_Config.GetDisplayLayoutConfig(gameOnOutput_ ? gameOutputOrientation_ : GetDeviceOrientation());
+}
+
+bool EmuScreen::renderOutput(const OutputDisplay &output) {
+	if (output.role != OutputRole::Game || !gameOnOutput_ || !PSP_IsInited()) {
+		return false;
+	}
+	gpu->CopyDisplayToOutput(GameLayoutConfig());
+	return true;
 }
 
 ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
@@ -1677,13 +1709,12 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 		System_Notify(SystemNotification::KEEP_SCREEN_AWAKE);
 	}
 
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	const DisplayLayoutConfig &displayLayoutConfig = GameLayoutConfig();
 	// We might have a bad viewport after RunEmulation, reset.
 	Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
 
 	if (!skipBufferEffects_ && !ShouldRunEmulation(mode)) {
-		if (gpu) {
+		if (gpu && !gameOnOutput_) {
 			gpu->CopyDisplayToOutput(displayLayoutConfig);
 		}
 		draw->SetViewport(viewport);
@@ -1716,7 +1747,7 @@ ScreenRenderFlags EmuScreen::render(ScreenRenderMode mode) {
 	const bool skipBufferEffects = skipBufferEffects_;
 
 	// Gotta copy the output at some point. Also this is where we take the screenshot if needed.
-	if (gpu) {
+	if (gpu && !gameOnOutput_) {
 		gpu->CopyDisplayToOutput(displayLayoutConfig);
 	}
 
@@ -1771,8 +1802,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 
 	g_OSD.NudgeIngameNotifications();
 
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
+	const DisplayLayoutConfig &displayLayoutConfig = GameLayoutConfig();
 	__DisplaySetDisplayLayoutConfig(displayLayoutConfig);
 
 	DrawContext *draw = screenManager()->getDrawContext();

@@ -128,6 +128,10 @@ bool FramebufferManagerCommon::PresentedThisFrame() const {
 	return presentation_->PresentedThisFrame();
 }
 
+void FramebufferManagerCommon::SetPresentationOutput(const OutputParams *output) {
+	presentation_->SetOutputOverride(output);
+}
+
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	displayFramebufPtr_ = framebuf & 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(displayFramebufPtr_))

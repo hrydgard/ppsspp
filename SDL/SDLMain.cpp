@@ -28,6 +28,7 @@ SDLJoystick *joystick = NULL;
 #include "Common/System/System.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Core/CmdLine.h"
 #include "Core/EmuThread.h"
@@ -1437,7 +1438,64 @@ void UpdateCursor() {
 	SDL_SetCursor(g_builtinCursors[(int)curCursor]);
 }
 
+// --game-window: a second window showing just the game, for testing multiple outputs.
+static SDL_Window *g_gameWindow = nullptr;
+static int g_gameOutputId = 0;
+
+static void CreateGameWindow() {
+#if PPSSPP_PLATFORM(MAC)
+	if (g_Config.iGPUBackend != (int)GPUBackend::METAL) {
+		fprintf(stderr, "--game-window needs --graphics=metal\n");
+		return;
+	}
+	g_gameWindow = SDL_CreateWindow("PPSSPP game", 960, 544, SDL_WINDOW_METAL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+	if (!g_gameWindow) {
+		fprintf(stderr, "Error creating the game window: %s\n", SDL_GetError());
+		return;
+	}
+	SDL_MetalView metalView = SDL_Metal_CreateView(g_gameWindow);
+	int width = 0, height = 0;
+	SDL_GetWindowSizeInPixels(g_gameWindow, &width, &height);
+	Draw::SwapchainDesc desc{};
+	desc.winsys = WINDOWSYSTEM_METAL_EXT;
+	desc.data1 = SDL_Metal_GetLayer(metalView);
+	desc.width = width;
+	desc.height = height;
+	desc.tag = "GameWindow";
+	g_gameOutputId = Native_AddOutput(OutputRole::Game, desc);
+#else
+	fprintf(stderr, "--game-window is only implemented on Mac (Metal)\n");
+#endif
+}
+
+// Returns true if the event was for the game window, and has been handled. Keys still go to the emulator.
+static bool ProcessGameWindowEvent(const SDL_Event &event) {
+	if (!g_gameWindow || SDL_GetWindowFromEvent(&event) != g_gameWindow) {
+		return false;
+	}
+	switch (event.type) {
+	case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
+		Native_ResizeOutput(g_gameOutputId, event.window.data1, event.window.data2);
+		return true;
+	case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+		// The layer has to outlive the swapchain, so the window stays until we quit.
+		Native_RemoveOutput(g_gameOutputId);
+		SDL_HideWindow(g_gameWindow);
+		return true;
+	case SDL_EVENT_KEY_DOWN:
+	case SDL_EVENT_KEY_UP:
+	case SDL_EVENT_TEXT_INPUT:
+		return false;
+	default:
+		// Window events, and the mouse, which the UI in the main window would get the coordinates wrong for.
+		return true;
+	}
+}
+
 static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
+	if (ProcessGameWindowEvent(event)) {
+		return;
+	}
 	// SDL input uses window coordinates; convert to pixels before applying the UI scale.
 	float inputPixelDensity = SDL_GetWindowPixelDensity(window);
 	if (inputPixelDensity <= 0.0f) {
@@ -2288,6 +2346,10 @@ int main(int argc, char *argv[]) {
 	Native_UpdateScreenScale(initialPixelWidth, initialPixelHeight, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
+	if (cmdLineOptions.gameWindow.value_or(false)) {
+		CreateGameWindow();
+	}
 
 	char iconPath[PATH_MAX];
 #if defined(ASSETS_DIR)
