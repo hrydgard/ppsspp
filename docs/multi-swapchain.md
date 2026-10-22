@@ -1,6 +1,7 @@
 # Multiple swapchains (design)
 
-Status: implemented on Metal and Vulkan, used by iOS TV mode and `--game-window` on Mac.
+Status: implemented on Metal and Vulkan, used by iOS TV mode and `--game-window` (Mac, Linux and
+Windows).
 
 The first user is an iOS "TV mode": with AirPlay connected, the game runs full screen on the TV and the
 phone shows only the touch controls (and the menus). The same mechanism is meant to carry later uses:
@@ -159,9 +160,8 @@ For a non-pacing layer, skip the pass when `nextDrawable` would block.
 
 - **D3D11:** easy, and later. Creating the `IDXGISwapChain` moves from `D3D11Context` into the draw
   context, one per HWND, and `Present()` presents each one.
-- **OpenGL:** `multipleSwapchains = false` for now. Desktop GL could use one context with
-  `MakeCurrent(window_i)` before each window's pass and swap, which needs a per-surface default FBO
-  and swap function, and a surface ID in the PRESENT task. Nothing on the iOS path uses GL.
+- **OpenGL:** not supported, and not planned: `multipleSwapchains` stays false. With OpenGL, the
+  platforms keep their single-display behaviour (iOS mirrors to the TV).
 
 ## Frontend: outputs and roles
 
@@ -298,8 +298,9 @@ can be tested on its own.
    (with `--graphics=metal`). This tests most of the design in a fast loop, without AirPlay. Headless
    can add an offscreen second output, so frametests can check what it shows.
 4. **iOS TV mode,** on Metal, tested with the Apple TV.
-5. **Vulkan:** done, tested on the Mac (`--game-window`) and on iOS with MoltenVK. Linux SDL should
-   work as is, untested. Then D3D11, and Android (which needs the rotation).
+5. **Vulkan:** done, tested with `--game-window` on Mac, Linux (SDL) and Windows (a second Win32
+   window), and on iOS with MoltenVK. Then Android (Vulkan only, through `Presentation`), and D3D11
+   when something wants it.
 
 Open questions:
 - Does removing the external window resume mirroring?
