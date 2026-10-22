@@ -525,6 +525,10 @@ void GPUCommonHW::SetPresentationOutput(const OutputParams *output) {
 	framebufferManager_->SetPresentationOutput(output);
 }
 
+bool GPUCommonHW::PresentsToOtherOutput() const {
+	return framebufferManager_->PresentsToOtherOutput();
+}
+
 void GPUCommonHW::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 

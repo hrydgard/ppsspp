@@ -156,6 +156,8 @@ public:
 	// Presents the display to another output than the primary one, until called with nullptr. Set it
 	// before PrepareCopyDisplayToOutput, which lays out for it.
 	virtual void SetPresentationOutput(const OutputParams *output) {}
+	// Whether the game goes to another output than the primary (SetPresentationOutput), like a TV.
+	virtual bool PresentsToOtherOutput() const { return false; }
 
 	// Invalidate any cached content sourced from the specified range.
 	// If size = -1, invalidate everything.

@@ -129,6 +129,9 @@ public:
 			restorePostShader_ = true;
 		}
 	}
+	bool HasOutputOverride() const {
+		return hasOutputOverride_;
+	}
 	OutputParams GetOutput() const {
 		return hasOutputOverride_ ? outputOverride_ : PrimaryOutputParams(pixelWidth_, pixelHeight_);
 	}
