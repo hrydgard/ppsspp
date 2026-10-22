@@ -42,6 +42,8 @@ static bool g_launched = false;
 // Adds the view's layer as a Game output once it has a size, and keeps the output's size up to date.
 @interface ExternalDisplayViewController : UIViewController
 @property (nonatomic) int outputId;
+// A reference to the layer for the output's requests, which hold it unretained. Released once it's removed.
+@property (nonatomic) void *retainedLayer;
 @end
 
 @implementation ExternalDisplayViewController {
@@ -73,7 +75,8 @@ static bool g_launched = false;
 	}
 	Draw::SwapchainDesc desc{};
 	desc.winsys = WINDOWSYSTEM_METAL_EXT;
-	desc.data1 = (__bridge void *)self.view.layer;
+	self.retainedLayer = (void *)CFBridgingRetain(self.view.layer);
+	desc.data1 = self.retainedLayer;
 	desc.width = width;
 	desc.height = height;
 	desc.tag = "ExternalDisplay";
@@ -137,8 +140,16 @@ static bool g_launched = false;
 	}
 	ExternalDisplayViewController *viewController = (ExternalDisplayViewController *)self.window.rootViewController;
 	if (viewController.outputId) {
-		// The swapchain keeps the layer alive until the removal has gone through.
-		Native_RemoveOutput(viewController.outputId);
+		// The window and its layer go now, but the add may still be queued, so our reference to the layer has to
+		// stay until the removal has been handled. Waited for off the main thread, which the render thread may
+		// be waiting on. If that times out, the layer is kept, as the add may still come.
+		const int outputId = viewController.outputId;
+		void *layer = viewController.retainedLayer;
+		dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+			if (Native_RemoveOutputAndWait(outputId)) {
+				CFRelease(layer);
+			}
+		});
 	}
 	self.window = nil;
 }
