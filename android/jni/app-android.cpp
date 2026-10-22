@@ -593,8 +593,9 @@ static std::string QueryConfig(std::string_view query) {
 	} else if (query == "audioMixWithOthers") {
 		return g_Config.bAudioMixWithOthers ? "1" : "0";
 	} else if (query == "externalDisplayOutput") {
-		// Whether the game goes to a second display, see ExternalDisplayPresentation.java.
-		return g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.iExternalDisplay == (int)ExternalDisplayMode::SHOW_GAME ? "1" : "0";
+		// Whether the game goes to a second display, see ExternalDisplayPresentation.java. The running backend: the
+		// setting is already the new one while the restart prompt for a change is up.
+		return GetGPUBackend() == GPUBackend::VULKAN && g_Config.iExternalDisplay == (int)ExternalDisplayMode::SHOW_GAME ? "1" : "0";
 	} else {
 		return "";
 	}

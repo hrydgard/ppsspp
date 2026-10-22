@@ -24,6 +24,7 @@
 #include "Common/System/NativeApp.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/System.h"
 
 static NSString *const PPSSPPExternalDisplayUpdateNotification = @"PPSSPPExternalDisplayUpdate";
 
@@ -116,7 +117,8 @@ static bool g_launched = false;
 		return;
 	}
 	// Without a window, iOS mirrors the phone.
-	if (g_Config.iGPUBackend != (int)GPUBackend::METAL && g_Config.iGPUBackend != (int)GPUBackend::VULKAN) {
+	// The running backend: the setting is already the new one while the restart prompt for a change is up.
+	if (GetGPUBackend() != GPUBackend::METAL && GetGPUBackend() != GPUBackend::VULKAN) {
 		INFO_LOG(Log::G3D, "External display: mirroring, as the backend can't present to it");
 		return;
 	}
