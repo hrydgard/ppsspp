@@ -424,9 +424,9 @@ static int FrameTimingLimit() {
 		return 0;
 	// Can't slow down in hardcore mode.
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1)
-		return fixRate(g_Config.iFpsLimit1);
+		return fixRate(AltSpeedPercentToFps(g_Config.iAltSpeedPercent1));
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2)
-		return fixRate(g_Config.iFpsLimit2);
+		return fixRate(AltSpeedPercentToFps(g_Config.iAltSpeedPercent2));
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
 		return fixRate(PSP_CoreParameter().analogFpsLimit);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::DEBUGGER)

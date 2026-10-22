@@ -53,11 +53,13 @@ public:
 	template <class T>
 	T *Add(T *view) {
 		views_.push_back(view);
+		SetParentOf(view);
 		return view;
 	}
 	template <class T>
 	T *Insert(int index, T *view) {
 		views_.insert(views_.begin() + index, view);
+		SetParentOf(view);
 		return view;
 	}
 
@@ -107,6 +109,9 @@ public:
 protected:
 	std::string DescribeListUnordered(std::string_view heading) const;
 	std::string DescribeListOrdered(std::string_view heading) const;
+
+	// Anything that adds to views_ without Add or Insert must call this.
+	void SetParentOf(View *view) { view->parent_ = this; }
 
 	std::vector<View *> views_;
 	View *defaultFocusView_ = nullptr;

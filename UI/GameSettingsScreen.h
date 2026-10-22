@@ -89,9 +89,6 @@ private:
 	void ReadConfigTemporaries();
 
 	// Temporaries to convert setting types, cache enabled, etc.
-	int iAlternateSpeedPercent1_ = 0;
-	int iAlternateSpeedPercent2_ = 0;
-	int iAlternateSpeedPercentAnalog_ = 0;
 	int prevInflightFrames_ = -1;
 	bool enableReports_ = false;
 	bool analogSpeedMapped_ = false;
