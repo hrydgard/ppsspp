@@ -19,6 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/GPU/Shader.h"
+#include "Common/System/Display.h"
 
 struct CardboardSettings {
 	bool enabled;
@@ -50,9 +51,31 @@ struct FRect {
 struct Bounds;  // from geom2d
 struct DisplayLayoutConfig;
 
+// The surface the game is presented to.
+struct OutputParams {
+	int pixelWidth = 0;
+	int pixelHeight = 0;
+	// The safe area, in pixels.
+	float insetLeft = 0.0f;
+	float insetTop = 0.0f;
+	float insetRight = 0.0f;
+	float insetBottom = 0.0f;
+	DeviceOrientation orientation = DeviceOrientation::Landscape;
+	DisplayRotation rotation = DisplayRotation::ROTATE_0;
+	Lin::Matrix4x4 rotMatrix = Lin::Matrix4x4::identity();
+	// Whether SetOverrideScreenFrame (the ImGui debugger's dock node) applies.
+	bool useOverrideFrame = false;
+};
+
+// The primary output: g_display, with the system's safe area insets.
+OutputParams PrimaryOutputParams(int pixelWidth, int pixelHeight);
+
+FRect GetScreenFrame(bool ignoreInsets, const OutputParams &output);
+// On the primary output.
 FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight);
 void SetOverrideScreenFrame(const Bounds *bounds);
-struct DisplayLayoutConfig;
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation, DeviceOrientation outputOrientation);
+// On the primary output.
 void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
@@ -88,9 +111,20 @@ public:
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 
+	// The size of the primary output.
 	void UpdateDisplaySize(int w, int h) {
 		pixelWidth_ = w;
 		pixelHeight_ = h;
+	}
+	// Presents to another output than the primary, until called with nullptr.
+	void SetOutputOverride(const OutputParams *output) {
+		hasOutputOverride_ = output != nullptr;
+		if (output) {
+			outputOverride_ = *output;
+		}
+	}
+	OutputParams GetOutput() const {
+		return hasOutputOverride_ ? outputOverride_ : PrimaryOutputParams(pixelWidth_, pixelHeight_);
 	}
 
 	// NOTE: Should be un-rotated width/height.
@@ -157,9 +191,9 @@ protected:
 	bool BindSource(int binding, bool bindStereo);
 
 	bool PrepareOverlayTexture(const OverlayLayout &layout);
-	void DrawOverlay(const OverlayLayout &layout);
+	void DrawOverlay(const OverlayLayout &layout, const OutputParams &output);
 
-	void GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const;
+	void GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
 	Draw::DrawContext *draw_;
@@ -194,6 +228,8 @@ protected:
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
+	bool hasOutputOverride_ = false;
+	OutputParams outputOverride_;
 	int renderWidth_ = 0;
 	int renderHeight_ = 0;
 
