@@ -289,3 +289,6 @@ private:
 };
 
 PointerScanner &GetPointerScanner();
+
+// range minus the holes, as (start, size) pieces in order.
+std::vector<std::pair<u32, u32>> SubtractRanges(std::pair<u32, u32> range, std::vector<std::pair<u32, u32>> holes);

@@ -471,6 +471,8 @@ bool MemoryScanner::GetPSPScanArea(SearchIn searchIn, const std::string &moduleN
 				area->start = r.dataStart;
 				area->size = r.dataSize;
 				area->moduleName = r.name;
+				// Code can sit after the data too.
+				area->excluded = r.code;
 				break;
 			}
 		}
@@ -487,9 +489,7 @@ bool MemoryScanner::GetPSPScanArea(SearchIn searchIn, const std::string &moduleN
 	}
 	if (searchIn == SearchIn::UserMemoryNoCode) {
 		for (const ModuleRange &r : __KernelModuleRanges()) {
-			if (r.codeSize != 0) {
-				area->excluded.emplace_back(r.codeStart, r.codeSize);
-			}
+			area->excluded.insert(area->excluded.end(), r.code.begin(), r.code.end());
 		}
 	}
 	return true;
@@ -752,6 +752,28 @@ void MemoryScanner::ApplyFreezes() const {
 
 // Pointer scan
 
+std::vector<std::pair<u32, u32>> SubtractRanges(std::pair<u32, u32> range, std::vector<std::pair<u32, u32>> holes) {
+	std::sort(holes.begin(), holes.end());
+	std::vector<std::pair<u32, u32>> pieces;
+	u64 pos = range.first;
+	const u64 end = (u64)range.first + range.second;
+	for (const auto &hole : holes) {
+		const u64 holeStart = hole.first;
+		const u64 holeEnd = (u64)hole.first + hole.second;
+		if (holeEnd <= pos || holeStart >= end) {
+			continue;
+		}
+		if (holeStart > pos) {
+			pieces.emplace_back((u32)pos, (u32)(holeStart - pos));
+		}
+		pos = std::max(pos, holeEnd);
+	}
+	if (pos < end) {
+		pieces.emplace_back((u32)pos, (u32)(end - pos));
+	}
+	return pieces;
+}
+
 PointerScanner &GetPointerScanner() {
 	static PointerScanner scanner;
 	return scanner;
@@ -764,7 +786,10 @@ std::vector<std::pair<u32, u32>> PointerScanner::GetPSPStaticRanges(const std::s
 			continue;
 		}
 		if (moduleName.empty() || r.name == moduleName) {
-			ranges.emplace_back(r.dataStart, r.dataSize);
+			// Without the code in it: jump instructions look just like pointers.
+			for (const auto &piece : SubtractRanges({ r.dataStart, r.dataSize }, r.code)) {
+				ranges.push_back(piece);
+			}
 		}
 	}
 	return ranges;

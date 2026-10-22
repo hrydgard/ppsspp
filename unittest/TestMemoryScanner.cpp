@@ -117,6 +117,18 @@ static bool TestValueScans() {
 	scanner.ExcludeRanges({ { base - 0x10, 0x14 }, { base + 0x2000, 0x10000 } });
 	EXPECT_EQ_INT((int)scanner.ResultCount(), 4096 / 4 - 0x100 / 4 - 0x88 / 4 - 1);
 
+	// Static memory minus code: holes in any order, overlapping, or reaching past either end.
+	{
+		auto pieces = SubtractRanges({ 0x1000, 0x1000 }, { { 0x1800, 0x100 }, { 0x0F00, 0x200 }, { 0x1850, 0x100 }, { 0x1F00, 0x400 } });
+		EXPECT_EQ_INT((int)pieces.size(), 2);
+		EXPECT_EQ_HEX(pieces[0].first, 0x1100u);
+		EXPECT_EQ_HEX(pieces[0].second, 0x700u);
+		EXPECT_EQ_HEX(pieces[1].first, 0x1950u);
+		EXPECT_EQ_HEX(pieces[1].second, 0x5B0u);
+		EXPECT_EQ_INT((int)SubtractRanges({ 0x1000, 0x100 }, {}).size(), 1);
+		EXPECT_EQ_INT((int)SubtractRanges({ 0x1000, 0x100 }, { { 0x0, 0x2000 } }).size(), 0);
+	}
+
 	// 8-bit scans every byte.
 	EXPECT_TRUE(scanner.NewScanOnBuffer(mem.data(), base, (u32)mem.size(), ScanValueType::U8, ScanCompare::Unknown, v, v2));
 	EXPECT_EQ_INT((int)scanner.ResultCount(), 4096);

@@ -244,7 +244,7 @@ u32 PSPModule::GetMissingErrorCode() {
 }
 
 void PSPModule::DoState(PointerWrap &p) {
-	auto s = p.Section("Module", 1, 7);
+	auto s = p.Section("Module", 1, 8);
 	if (!s)
 		return;
 
@@ -297,6 +297,11 @@ void PSPModule::DoState(PointerWrap &p) {
 	} else if (p.mode == p.MODE_READ) {
 		pluginWaitingThread = 0;
 		startingPlugins.clear();
+	}
+	if (s >= 8) {
+		Do(p, codeSections);
+	} else if (p.mode == p.MODE_READ) {
+		codeSections.clear();
 	}
 
 	ModuleWaitingThread mwt = { 0 };
@@ -620,22 +625,40 @@ std::vector<ModuleRange> __KernelModuleRanges() {
 		r.kernel = (module->nm.attribute & 0x1000) != 0;
 		r.blockStart = module->memoryBlockAddr;
 		r.blockSize = module->memoryBlockSize;
-		if (module->textStart != 0 && module->textEnd >= module->textStart) {
-			u64 start = module->textStart;
-			u64 end = (u64)module->textEnd + 4;
-			// A stray section must not make other memory count as this module's code.
-			if (r.blockSize != 0) {
-				start = std::max<u64>(start, r.blockStart);
-				end = std::min<u64>(end, (u64)r.blockStart + r.blockSize);
-			}
-			if (end > start) {
-				r.codeStart = (u32)start;
-				r.codeSize = (u32)(end - start);
-			}
-		}
+		const u64 blockEnd = (u64)r.blockStart + r.blockSize;
+
 		if (module->nm.text_addr != 0) {
 			r.dataStart = module->GetDataAddr();
 			r.dataSize = module->nm.data_size + module->nm.bss_size;
+			// The module can reserve more static memory than its .data and .bss (Monster Hunter
+			// Portable 3rd HD has over 20 MB there): it's all part of the module, up to its end.
+			if (r.blockSize != 0 && r.dataStart >= r.blockStart && r.dataStart < blockEnd) {
+				r.dataSize = (u32)(blockEnd - r.dataStart);
+			}
+		}
+
+		// Clipped to the module, so a stray section can't make other memory count as code.
+		auto addCode = [&](u64 start, u64 end) {
+			if (r.blockSize != 0) {
+				start = std::max<u64>(start, r.blockStart);
+				end = std::min<u64>(end, blockEnd);
+			}
+			if (end > start) {
+				r.code.emplace_back((u32)start, (u32)(end - start));
+			}
+		};
+		if (!module->codeSections.empty()) {
+			for (size_t i = 0; i + 1 < module->codeSections.size(); i += 2) {
+				addCode(module->codeSections[i], (u64)module->codeSections[i] + module->codeSections[i + 1]);
+			}
+		} else if (module->textStart != 0 && module->textEnd >= module->textStart) {
+			// No sections known (savestate from before they were kept, or a module without
+			// section headers): the span, but not past the start of the data.
+			u64 end = (u64)module->textEnd + 4;
+			if (r.dataSize != 0 && r.dataStart > module->textStart) {
+				end = std::min<u64>(end, r.dataStart);
+			}
+			addCode(module->textStart, end);
 		}
 		ranges.push_back(r);
 	}
@@ -2072,6 +2095,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				module->textStart = start;
 			if (end > module->textEnd)
 				module->textEnd = end;
+			module->codeSections.push_back(start);
+			module->codeSections.push_back(len);
 
 			if (scan) {
 				insertSymbols = MIPSAnalyst::ScanForFunctions(start, end, insertSymbols);

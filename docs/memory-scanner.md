@@ -20,8 +20,9 @@ hardcore mode.
   modules. A value is almost never in code, and changing code by mistake crashes games. Values
   found in memory the game allocated may move later (new level, restart): use a pointer scan
   for those.
-- **Globals of one module**: only the `.data` and `.bss` of one module, which never move, so
-  plain cheats made from them keep working. The main module (the game's EBOOT, the first one
+- **Globals of one module**: only the static memory of one module (its `.data` and `.bss`, and
+  any other memory it reserves up to its end), which never moves, so plain cheats made from it
+  keep working. The main module (the game's EBOOT, the first one
   loaded) is picked first; **Module** lists the others the game has loaded, with their size.
   Pick the big one when the EBOOT only loads the real game from a PRX. Much faster, but many
   games keep their values in allocated memory, and then nothing is found: the scanner says so
@@ -33,9 +34,14 @@ User memory goes from `0x08800000` to the end of emulated RAM. Normally that's 2
 PSP-2000+ model, for games, homebrew or HD remasters that use the extra RAM, it goes up to
 `0x0C000000` (56 MB).
 
-Code means the `.text` of each module the game loaded as a module. Code a game copies into
-memory by itself isn't known, and is searched. Read-only data tables (item stats and such) are
-searched, so they can still be found.
+Code means the code sections of each module the game loaded as a module. Code a game copies
+into memory by itself isn't known, and is searched. Read-only data tables (item stats and such)
+are searched, so they can still be found.
+
+**Scan options** > **Game modules** lists every loaded module: its memory, each code section,
+and its globals. Some games reserve far more static memory than their `.data` and `.bss`
+(Monster Hunter Portable 3rd HD keeps over 20 MB there, between its data and one last code
+section), and all of it counts as globals.
 
 If the chosen module moves or is unloaded during a search, the next scan says so, and a new
 search is needed.

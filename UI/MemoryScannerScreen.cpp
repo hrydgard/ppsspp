@@ -749,10 +749,15 @@ void ScanOptionsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		auto range = [](u32 start, u32 size) {
 			return size != 0 ? StringFromFormat("0x%08X - 0x%08X", start, start + size) : std::string("-");
 		};
-		text += StringFromFormat("\n%s: %s\n%s: %s\n%s: %s",
-			cw->T_cstr("Module"), range(m.blockStart, m.blockSize).c_str(),
-			cw->T_cstr("Code"), range(m.codeStart, m.codeSize).c_str(),
-			cw->T_cstr("Globals"), range(m.dataStart, m.dataSize).c_str());
+		text += StringFromFormat("\n%s: %s", cw->T_cstr("Module"), range(m.blockStart, m.blockSize).c_str());
+		// Each code section, on its own line.
+		if (m.code.empty()) {
+			text += StringFromFormat("\n%s: -", cw->T_cstr("Code"));
+		}
+		for (const auto &code : m.code) {
+			text += StringFromFormat("\n%s: %s", cw->T_cstr("Code"), range(code.first, code.second).c_str());
+		}
+		text += StringFromFormat("\n%s: %s", cw->T_cstr("Globals"), range(m.dataStart, m.dataSize).c_str());
 		items->Add(new TextView(text, FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 4))));
 	}
 }

@@ -222,6 +222,9 @@ public:
 
 	u32 memoryBlockAddr = 0;
 	u32 memoryBlockSize = 0;
+	// The code sections, as (start, size) pairs. textStart..textEnd spans them all, which can
+	// include a lot of data between them.
+	std::vector<u32> codeSections;
 	u32 crc = 0;
 	PSPPointer<NativeModule> modulePtr{};
 	bool isFake = false;
@@ -240,9 +243,10 @@ struct ModuleRange {
 	bool isMain;
 	u32 blockStart;
 	u32 blockSize;
-	// The span of its code sections, inside the module.
-	u32 codeStart;
-	u32 codeSize;
+	// Its code, as (start, size), inside the module.
+	std::vector<std::pair<u32, u32>> code;
+	// Everything after the code segment to the end of the module: .data, .bss, and any other
+	// static memory the module reserves. Code inside it is listed in code.
 	u32 dataStart;
 	u32 dataSize;
 };
