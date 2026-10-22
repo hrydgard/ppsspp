@@ -522,6 +522,7 @@ private:
 	// that we really don't want in everything that uses VulkanContext.
 	void *winsysData1_ = nullptr;
 	void *winsysData2_ = nullptr;
+	// The window's current size in pixels, from the platform. Optional.
 	std::function<VkExtent2D()> cbGetDrawSize_;
 
 	VkInstance instance_ = VK_NULL_HANDLE;

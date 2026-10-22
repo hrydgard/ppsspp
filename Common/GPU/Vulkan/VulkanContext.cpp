@@ -1554,12 +1554,14 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 #if PPSSPP_PLATFORM(ANDROID)
 	// After an in-place rotation, the surface can report the new transform together with the previous
 	// orientation's extent. A Redmi 9A (PowerVR, Android 11) keeps doing it after surfaceChanged has given us the
-	// new size, so the swapchain stays wrong until the next rotation. The window size we were told about is
-	// current, so if the extent is exactly that transposed, it's stale.
-	if (g_display.pixel_xres > 0 && g_display.pixel_yres > 0 && g_display.pixel_xres != g_display.pixel_yres &&
-		currentExtent.width == (uint32_t)g_display.pixel_yres && currentExtent.height == (uint32_t)g_display.pixel_xres) {
+	// new size, so the swapchain stays wrong until the next rotation. The latest window size from surfaceChanged
+	// is current (g_display can lag behind it, until the render thread applies the resize), so if the extent is
+	// exactly that transposed, it's stale.
+	const VkExtent2D windowSize = cbGetDrawSize_ ? cbGetDrawSize_() : VkExtent2D{};
+	if (windowSize.width > 0 && windowSize.height > 0 && windowSize.width != windowSize.height &&
+		currentExtent.width == windowSize.height && currentExtent.height == windowSize.width) {
 		WARN_LOG(Log::G3D, "Surface extent %dx%d is the window transposed, probably stale after a rotation. Using %dx%d.",
-			currentExtent.width, currentExtent.height, g_display.pixel_xres, g_display.pixel_yres);
+			currentExtent.width, currentExtent.height, windowSize.width, windowSize.height);
 		std::swap(currentExtent.width, currentExtent.height);
 	}
 #endif
