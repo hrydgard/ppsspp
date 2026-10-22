@@ -117,6 +117,7 @@ public:
 
 private:
 	bool ForceHorizontalTabs() const override {return true; }
+	bool ShowSearchControls() const override { return false; }
 	int ListShaders(DebugShaderType shaderType, UI::LinearLayout *view);
 	void AddPipelineAnalysis(UI::LinearLayout *view);
 	void OnShaderClick(UI::EventParams &e);
