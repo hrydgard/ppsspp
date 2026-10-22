@@ -425,7 +425,8 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	list->Add(new ItemHeader(si->T("Slider test")));
 	list->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	static const char *positions[] = {"Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right", "None"};
+	// Same encoding as in GameSettingsScreen: None is -1.
+	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 
 	list->Add(new ItemHeader(si->T("Notification tests")));
 	list->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
@@ -476,8 +477,8 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	});
 
 	list->Add(new ItemHeader(ac->T("Notifications")));
-	list->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
-	list->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, 0, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
+	list->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
+	list->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
 
 #ifdef _DEBUG
 	list->Add(new CheckBox(&pretendIngame_, ac->T("Pretend to be in-game (for testing)")));
