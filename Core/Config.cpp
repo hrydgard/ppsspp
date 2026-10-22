@@ -1666,6 +1666,9 @@ void Config::PostLoadCleanup() {
 
 	// Three frames in flight showed no benefit over two, so the option is gone. Squash old values.
 	iInflightFrames = std::clamp(iInflightFrames, 1, 2);
+
+	// The touch layout editor divides by this, and loops forever drawing the grid if it's 0.
+	iTouchSnapGridSize = std::clamp(iTouchSnapGridSize, 2, 256);
 }
 
 void Config::PreSaveCleanup() {
