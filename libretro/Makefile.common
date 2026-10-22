@@ -557,6 +557,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
 	$(GPUCOMMONDIR)/FramebufferManagerCommon.cpp \
+	$(GPUCOMMONDIR)/Overlay.cpp \
 	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ReinterpretFramebuffer.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \

@@ -123,6 +123,7 @@
 #include "GPU/Common/DepthSwizzle.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Common/Overlay.h"
 #include "GPU/Math3D.h"
 
 #include "Common/File/AndroidContentURI.h"
@@ -3415,6 +3416,52 @@ bool TestLang() {
 	return true;
 }
 
+static bool TestOverlayHole() {
+	const int W = 64, H = 48;
+	std::vector<uint8_t> img(W * H * 4);
+	auto fill = [&](int x0, int y0, int x1, int y1, uint8_t a) {
+		for (int y = y0; y < y1; y++)
+			for (int x = x0; x < x1; x++)
+				img[(y * W + x) * 4 + 3] = a;
+	};
+	int x, y, w, h;
+
+	// Opaque frame with a transparent hole at 8,4 size 40x30 (contains the center 32,24).
+	fill(0, 0, W, H, 255);
+	fill(8, 4, 48, 34, 0);
+	EXPECT_TRUE(DetectOverlayHole(img.data(), W, H, &x, &y, &w, &h));
+	EXPECT_EQ_INT(x, 8);
+	EXPECT_EQ_INT(y, 4);
+	EXPECT_EQ_INT(w, 40);
+	EXPECT_EQ_INT(h, 30);
+
+	// A semi-transparent glare over the screen area and soft edges still count as the hole.
+	fill(20, 10, 40, 30, 200);
+	fill(7, 4, 8, 34, 128);
+	EXPECT_TRUE(DetectOverlayHole(img.data(), W, H, &x, &y, &w, &h));
+	EXPECT_EQ_INT(x, 7);
+	EXPECT_EQ_INT(w, 41);
+
+	// Fully transparent image: the hole is the whole image.
+	fill(0, 0, W, H, 0);
+	EXPECT_TRUE(DetectOverlayHole(img.data(), W, H, &x, &y, &w, &h));
+	EXPECT_EQ_INT(x, 0);
+	EXPECT_EQ_INT(y, 0);
+	EXPECT_EQ_INT(w, W);
+	EXPECT_EQ_INT(h, H);
+
+	// Hole not covering the center: no valid start point.
+	fill(0, 0, W, H, 255);
+	fill(0, 0, 30, 20, 0);
+	EXPECT_FALSE(DetectOverlayHole(img.data(), W, H, &x, &y, &w, &h));
+
+	// Tiny hole is rejected.
+	fill(0, 0, W, H, 255);
+	fill(30, 22, 36, 28, 0);
+	EXPECT_FALSE(DetectOverlayHole(img.data(), W, H, &x, &y, &w, &h));
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -3877,6 +3924,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(BlockShadow),
 	TEST_ITEM(ShaderGenerators),
 	TEST_ITEM(Path),
+	TEST_ITEM(OverlayHole),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),

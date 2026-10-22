@@ -271,6 +271,7 @@
     <ClInclude Include="Common\GPUStateUtils.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\Overlay.h" />
     <ClInclude Include="Common\PresentationCommon.h" />
     <ClInclude Include="Common\ShaderCommon.h" />
     <ClInclude Include="Common\ShaderId.h" />
@@ -378,6 +379,7 @@
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\Overlay.cpp" />
     <ClCompile Include="Common\PresentationCommon.cpp" />
     <ClCompile Include="Common\ShaderCommon.cpp" />
     <ClCompile Include="Common\ShaderId.cpp" />

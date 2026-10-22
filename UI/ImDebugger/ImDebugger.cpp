@@ -911,6 +911,7 @@ static void DrawInternals(ImConfig &cfg) {
 		{DIRECTORY_EXDATA, "EXDATA"},
 		{DIRECTORY_CUSTOM_SHADERS, "CUSTOM_SHADERS"},
 		{DIRECTORY_CUSTOM_THEMES, "CUSTOM_THEMES"},
+		{DIRECTORY_CUSTOM_OVERLAYS, "CUSTOM_OVERLAYS"},
 	};
 
 	if (ImGui::CollapsingHeader("GetSysDirectory")) {
