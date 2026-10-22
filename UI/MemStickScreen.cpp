@@ -442,6 +442,9 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 				nw->T("Error"),  // from the networking category of strings.
 				ms->T("MissingFileBrowserError", "This device is missing a file/folder browser. If you disabled the 'Files' app, please enable it and try again."),
 				di->T("More info"), di->T("Cancel"), [](bool ok) {
+					if (!ok) {
+						return;
+					}
 					System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/cant-pick-folder/");
 				}
 			));
@@ -450,7 +453,8 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 }
 
 void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (result == DialogResult::DR_OK) {
+	// Other popups, like the missing file browser error, also finish with DR_OK.
+	if (result == DialogResult::DR_OK && !strcmp(dialog->tag(), "ConfirmMemstickMove")) {
 		INFO_LOG(Log::System, "Confirmation screen done - moving on.");
 		// There's a screen manager bug if we call TriggerFinish directly.
 		// Can't be bothered right now, so we pick this up in update().
@@ -658,6 +662,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
 		// TODO: More precise errors.
 		error_ = ms->T("That folder doesn't work as a memstick folder.");
+		RecreateViews();
 		return;
 	}
 
