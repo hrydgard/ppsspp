@@ -7,6 +7,9 @@
 #endif
 
 #include <algorithm>
+#include <cstring>
+
+#include "ext/xxhash.h"
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
@@ -41,6 +44,15 @@ static bool IsRenderDocLoaded() {
 #endif
 }
 
+size_t TextCacheKeyHash::operator()(const TextCacheKey &key) const {
+	uint32_t maxWidthBits, scaleBits;
+	memcpy(&maxWidthBits, &key.maxWidth, sizeof(maxWidthBits));
+	memcpy(&scaleBits, &key.scale, sizeof(scaleBits));
+	uint64_t seed = ((uint64_t)key.style.sizePts << 48) | ((uint64_t)key.style.family << 40) | ((uint64_t)key.style.flags << 32) | (uint32_t)key.flags;
+	seed ^= (((uint64_t)maxWidthBits << 32) | scaleBits) * 0x9E3779B97F4A7C15ULL;
+	return (size_t)XXH3_64bits_withSeed(key.text.data(), key.text.size(), seed);
+}
+
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
 	dpiScale_ = CalculateDPIScale();
@@ -52,9 +64,25 @@ float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	return w;
 }
 
-void TextDrawer::WrapString(std::string &out, std::string_view str, float maxW, int flags) {
-	TextDrawerWordWrapper wrapper(this, str, maxW, flags);
-	out = wrapper.Wrapped();
+const TextCacheKey &TextDrawer::LookupKey(std::string_view str, int flags, float maxWidth, float scale) {
+	lookupKey_.text.assign(str.data(), str.size());
+	lookupKey_.style = fontStyle_;
+	lookupKey_.flags = flags;
+	lookupKey_.maxWidth = maxWidth;
+	lookupKey_.scale = scale;
+	return lookupKey_;
+}
+
+const std::string &TextDrawer::WrapString(std::string_view str, float maxW, int flags) {
+	// The wrapper measures in scaled units, so the result depends on the scale too.
+	auto [iter, inserted] = wrapCache_.try_emplace(LookupKey(str, flags, maxW, fontScaleX_));
+	TextWrapEntry &entry = iter->second;
+	entry.lastUsedFrame = frameCount_;
+	if (inserted) {
+		TextDrawerWordWrapper wrapper(this, str, maxW, flags);
+		entry.wrapped = wrapper.Wrapped();
+	}
+	return entry.wrapped;
 }
 
 void TextDrawer::SetFontScale(float xscale, float yscale) {
@@ -74,13 +102,12 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		return;
 	}
 
-	const CacheKeyType key{ std::string(str), fontStyle_ };
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto iter = cache_.find(key);
-	if (iter != cache_.end()) {
+	auto [iter, inserted] = cache_.try_emplace(LookupKey(str));
+	if (!inserted) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
 		if (!entry->texture) {
@@ -104,15 +131,15 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		entry = new TextStringEntry(frameCount_);
+		iter->second = std::make_unique<TextStringEntry>(frameCount_);
+		entry = iter->second.get();
 
 		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 		// because we need white. Well, we could using swizzle, but not all our backends support that.
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
 		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align, emoji)) {
-			// Nothing drawn. Store that fact in the cache.
-			cache_[key] = std::unique_ptr<TextStringEntry>(entry);
+			// Nothing drawn. The entry without a texture records that fact.
 			return;
 		}
 
@@ -127,7 +154,6 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		desc.tag = "TextDrawer";
 		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_PREMUL_ALPHA : Draw::TextureSwizzle::DEFAULT,
 		entry->texture = draw_->CreateTexture(desc);
-		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
 	_dbg_assert_(entry->texture);
@@ -156,26 +182,20 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 		str = str.substr(0, MAX_TEXT_LENGTH);
 	}
 
-	const CacheKeyType key{std::string(str), fontStyle_};
-
-	TextMeasureEntry *entry;
-	auto iter = sizeCache_.find(key);
-	if (iter != sizeCache_.end()) {
-		entry = iter->second.get();
-	} else {
-		entry = new TextMeasureEntry();
+	auto [iter, inserted] = sizeCache_.try_emplace(LookupKey(str));
+	TextMeasureEntry &entry = iter->second;
+	if (inserted) {
 		float extW, extH;
 		MeasureStringInternal(str, &extW, &extH);
-		entry->width = extW;
-		entry->height = extH;
+		entry.width = extW;
+		entry.height = extH;
 		// Hm, use the old calculation?
 		// int h = i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
-		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
 	}
 
-	entry->lastUsedFrame = frameCount_;
-	*w = entry->width * fontScaleX_ * dpiScale_;
-	*h = entry->height * fontScaleY_ * dpiScale_;
+	entry.lastUsedFrame = frameCount_;
+	*w = entry.width * fontScaleX_ * dpiScale_;
+	*h = entry.height * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align) {
@@ -190,9 +210,7 @@ void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *
 	MeasureString(str, &plainW, &plainH);
 
 	if (wrap && plainW > maxWidth) {
-		std::string toMeasure = std::string(str);
-		WrapString(toMeasure, toMeasure, maxWidth, wrap);
-		MeasureString(toMeasure, w, h);
+		MeasureString(WrapString(str, maxWidth, wrap), w, h);
 	} else {
 		*w = plainW;
 		*h = plainH;
@@ -221,12 +239,8 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const 
 		str = str.substr(0, MAX_TEXT_LENGTH);
 	}
 
-	std::string toDraw(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		WrapString(toDraw, str, bounds.w, wrap);
-	}
-	DrawString(target, toDraw, x, y, color, align);
+	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	DrawString(target, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, x, y, color, align);
 }
 
 bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor) {
@@ -235,12 +249,8 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 		str = str.substr(0, MAX_TEXT_LENGTH);
 	}
 
-	std::string toDraw(str);
-	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		WrapString(toDraw, str, bounds.w, wrap);
-	}
-	return DrawStringBitmap(bitmapData, entry, texFormat, toDraw, align, fullColor);
+	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	return DrawStringBitmap(bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, align, fullColor);
 }
 
 void TextDrawer::ClearCache() {
@@ -250,6 +260,7 @@ void TextDrawer::ClearCache() {
 	}
 	cache_.clear();
 	sizeCache_.clear();
+	wrapCache_.clear();
 	fontStyle_ = {};
 }
 
@@ -277,8 +288,16 @@ void TextDrawer::OncePerFrame() {
 		}
 
 		for (auto iter = sizeCache_.begin(); iter != sizeCache_.end(); ) {
-			if (frameCount_ - iter->second->lastUsedFrame > 100) {
+			if (frameCount_ - iter->second.lastUsedFrame > 100) {
 				iter = sizeCache_.erase(iter);
+			} else {
+				iter++;
+			}
+		}
+
+		for (auto iter = wrapCache_.begin(); iter != wrapCache_.end(); ) {
+			if (frameCount_ - iter->second.lastUsedFrame > 100) {
+				iter = wrapCache_.erase(iter);
 			} else {
 				iter++;
 			}
@@ -289,7 +308,9 @@ void TextDrawer::OncePerFrame() {
 size_t TextDrawer::GetCacheDataSize() const {
 	size_t sz = 0;
 	for (const auto &iter : cache_) {
-		sz += iter.second->texture->DataSize();
+		if (iter.second->texture) {
+			sz += iter.second->texture->DataSize();
+		}
 	}
 	return sz;
 }

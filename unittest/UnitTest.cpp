@@ -127,6 +127,7 @@
 
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
+#include "Common/Render/Text/draw_text.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -3475,6 +3476,74 @@ bool TestFatShortNames() {
 	return true;
 }
 
+// A TextDrawer whose "font" is ten units per byte and twenty per line, so we can test the
+// shared caching and wrapping logic without a platform font backend.
+class FakeTextDrawer : public TextDrawer {
+public:
+	FakeTextDrawer() : TextDrawer(nullptr) {}
+	void SetOrCreateFont(const FontStyle &style) override { fontStyle_ = style; }
+	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
+
+	int measureCalls = 0;
+
+protected:
+	void MeasureStringInternal(std::string_view str, float *w, float *h) override {
+		measureCalls++;
+		std::vector<std::string_view> lines;
+		SplitString(str, '\n', lines);
+		int maxLen = 0;
+		for (auto line : lines) {
+			maxLen = std::max(maxLen, (int)line.size());
+		}
+		*w = maxLen * 10.0f;
+		*h = lines.size() * 20.0f;
+	}
+	bool SupportsColorEmoji() const override { return false; }
+	void ClearFonts() override {}
+};
+
+bool TestTextDrawerCache() {
+	FakeTextDrawer drawer;
+	drawer.SetForcedDPIScale(1.0f);
+	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 20, FontStyleFlags::Default));
+
+	float w, h;
+	drawer.MeasureString("hello", &w, &h);
+	EXPECT_EQ_FLOAT(w, 50.0f);
+	EXPECT_EQ_FLOAT(h, 20.0f);
+	drawer.MeasureString("hello", &w, &h);
+	EXPECT_EQ_INT(drawer.measureCalls, 1);
+
+	// A different style is a different cache entry.
+	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 30, FontStyleFlags::Default));
+	drawer.MeasureString("hello", &w, &h);
+	EXPECT_EQ_INT(drawer.measureCalls, 2);
+
+	const std::string_view para = "The quick brown fox jumps over the lazy dog, and then it does it again, and again, until the dog finally gets up and leaves.";
+	drawer.MeasureStringRect(para, 200.0f, &w, &h, FLAG_WRAP_TEXT);
+	// The trailing space of a wrapped line is measured too.
+	EXPECT_TRUE(w <= 210.0f);
+	EXPECT_TRUE(h > 20.0f);
+	float w2, h2;
+	int callsBefore = drawer.measureCalls;
+	drawer.MeasureStringRect(para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
+	EXPECT_EQ_FLOAT(w, w2);
+	EXPECT_EQ_FLOAT(h, h2);
+	EXPECT_EQ_INT(drawer.measureCalls, callsBefore);
+
+	// Scaling the font changes where the text wraps.
+	drawer.SetFontScale(0.5f, 0.5f);
+	drawer.MeasureStringRect(para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
+	EXPECT_TRUE(h2 < h * 0.5f);
+	drawer.SetFontScale(1.0f, 1.0f);
+
+	drawer.MeasureStringRect(para, 200.0f, &w, &h, FLAG_ELLIPSIZE_TEXT);
+	EXPECT_EQ_FLOAT(h, 20.0f);
+	EXPECT_TRUE(w <= 200.0f);
+
+	return true;
+}
+
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -3786,6 +3855,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TextureReplacer),
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
+	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(QueueBuf),
