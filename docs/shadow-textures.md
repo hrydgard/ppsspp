@@ -125,6 +125,7 @@ image (same address, different hash), and look up what you see:
 | The same image at different addresses | The game loads it to different places | `ignoreAddress = true` (needs xxh32 or xxh64) |
 | The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping them with `[ignore]` |
 | Textures you'll never replace, made again for every map, menu or save slot (map tile atlases, thumbnails) | The game builds them from other textures | Put their address range in `[ignore]` (see [Ignoring textures](#ignoring-textures)) |
+| Byte-identical dumps of one image at different addresses, with `ignoreAddress` | From a build before dumps in `new/` were checked at start | Delete the copies, they won't come back |
 | You can't tell which texture a dump is | With `ignoreAddress`, or for palette dumps, the name doesn't say | Look the file up in `new/dumps.txt` |
 
 ### Each option, and which way to turn it
@@ -178,6 +179,9 @@ rare with xxh64.
 - Dumps are still named with the address they were first dumped from, and the address is dropped when the
   names in `[hashes]`, `[filtering]` and `[indexed]` and the files in the pack are matched. So you can still see
   where a texture is, and put that range in `[ignore]`. Packs with `00000000` addresses in their names still work.
+- A content is dumped once, named after the address it was first seen at. When dumping starts, the files already
+  in `new/` count as dumped with their address dropped, so a later session doesn't write a copy of one under the
+  address it's found at then. To get a texture dumped again, delete its file from `new/`.
 - An empty entry in `[hashes]` with only an address (`123456780000000000000000 =`) still stops dumping at that
   address. Entries with an address and a CLUT hash but no texture hash are ignored with `ignoreAddress`, since
   without the address they'd match that CLUT anywhere.

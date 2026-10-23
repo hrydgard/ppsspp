@@ -216,6 +216,9 @@ protected:
 	// With ignoreAddress, files are named with the address they were dumped from, and it's dropped here, when
 	// they're read: for [hashes] and the files found, [filtering] and [indexed].
 	void ApplyIgnoreAddress();
+	// Marks the dumps already in new/ as saved, so they aren't dumped again under another name. With ignoreAddress,
+	// a content found at another address than in an earlier session gets a different name.
+	void MarkExistingDumps();
 	// Adds a line for a written dump to new/dumps.txt, with what its name doesn't tell.
 	void LogDump(const std::string &hashfile, u32 addr, ReplacementCacheKey key, int texW, int texH, GETextureFormat fmt, const char *region);
 	float LookupReduceHashRange(int w, int h);

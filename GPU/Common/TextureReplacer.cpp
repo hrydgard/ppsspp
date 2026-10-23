@@ -34,6 +34,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
+#include "Common/File/DirListing.h"
 #include "Common/LogReporting.h"
 #include "Common/File/VFS/VFS.h"
 #include "Core/Util/PathUtil.h"
@@ -293,6 +294,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 
 	// After the override ini too, which can turn it on.
 	ApplyIgnoreAddress();
+	MarkExistingDumps();
 
 	vfs_ = dir;
 
@@ -704,6 +706,42 @@ void TextureReplacer::ApplyIgnoreAddress() {
 	};
 	zeroMap(filtering_);
 	zeroMap(indexed_);
+}
+
+void TextureReplacer::MarkExistingDumps() {
+	if (!saveEnabled_ || newTextureDir_.empty()) {
+		return;
+	}
+	std::vector<File::FileInfo> files;
+	File::GetFilesInDir(newTextureDir_, &files, "png");
+	int marked = 0;
+	for (const File::FileInfo &file : files) {
+		if (file.isDirectory) {
+			continue;
+		}
+		// <address><CLUT hash><texture hash>[_level][_indexed].png
+		std::string stem = file.name.substr(0, file.name.size() - 4);
+		if (endsWith(stem, "_indexed")) {
+			// Its CLUT hash is zero already, the same as IndexedSaveKey.
+			stem = stem.substr(0, stem.size() - 8);
+		}
+		if (stem.size() < 24 || (stem.size() > 24 && stem[24] != '_')) {
+			continue;
+		}
+		ReplacementCacheKey key(0, 0);
+		int level = 0;
+		if (sscanf(stem.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &level) < 2 || level < 0 || level >= (int)ARRAY_SIZE(SavedTextureCacheData::levelSaved)) {
+			continue;
+		}
+		if (ignoreAddress_) {
+			key.ZeroAddress();
+		}
+		savedCache_[key].levelSaved[level] = true;
+		marked++;
+	}
+	if (marked) {
+		INFO_LOG(Log::TexReplacement, "%d textures already dumped in %s", marked, newTextureDir_.c_str());
+	}
 }
 
 void TextureReplacer::LogDump(const std::string &hashfile, u32 addr, ReplacementCacheKey key, int texW, int texH, GETextureFormat fmt, const char *region) {
