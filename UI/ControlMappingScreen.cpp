@@ -528,34 +528,34 @@ void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents)
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
-	scrollContents->Add(new ItemHeader(co->T("Analog Settings")));
+	ChoiceGroup *analogSettings = scrollContents->Add(new ChoiceGroup(co->T("Analog Settings")));
 
 	// TODO: Would be nicer if these didn't pop up...
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, 0.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, 1.1f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, 0.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, 1.1f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
 	// Legacy circular toggle. Disabled when deadzone shape is set to Circle, since that already provides circular behavior.
-	CheckBox *circularCheck = scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
+	CheckBox *circularCheck = analogSettings->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
 	circularCheck->SetEnabledFunc([] {
 		return g_Config.iAnalogDeadzoneShape != 0;  // Disabled when shape is Circle (redundant)
 	});
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
 
 	// Advanced deadzone settings (Steam Input-style).
-	scrollContents->Add(new ItemHeader(co->T("Advanced Deadzone Settings")));
+	ChoiceGroup *deadzoneSettings = scrollContents->Add(new ChoiceGroup(co->T("Advanced Deadzone Settings")));
 
 	static const char *deadzoneShapes[] = { "Circle", "Square", "Cross" };
-	scrollContents->Add(new PopupMultiChoice(&g_Config.iAnalogDeadzoneShape, co->T("Deadzone shape"), deadzoneShapes, 0, ARRAY_SIZE(deadzoneShapes), I18NCat::CONTROLS, screenManager()));
+	deadzoneSettings->Add(new PopupMultiChoice(&g_Config.iAnalogDeadzoneShape, co->T("Deadzone shape"), deadzoneShapes, 0, ARRAY_SIZE(deadzoneShapes), I18NCat::CONTROLS, screenManager()));
 
-	PopupSliderChoiceFloat *axialDZ = scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAxialDeadzone, 0.0f, 0.5f, 0.0f, co->T("Axial anti-deadzone"), 0.01f, screenManager(), "/ 1.0"));
+	PopupSliderChoiceFloat *axialDZ = deadzoneSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAxialDeadzone, 0.0f, 0.5f, 0.0f, co->T("Axial anti-deadzone"), 0.01f, screenManager(), "/ 1.0"));
 	axialDZ->SetEnabledFunc([] {
 		return g_Config.iAnalogDeadzoneShape == 2;  // Only enabled for Cross shape
 	});
 
 	static const char *responseCurves[] = { "Linear", "Aggressive", "Relaxed", "Wide" };
-	scrollContents->Add(new PopupMultiChoice(&g_Config.iAnalogResponseCurve, co->T("Response curve"), responseCurves, 0, ARRAY_SIZE(responseCurves), I18NCat::CONTROLS, screenManager()));
+	deadzoneSettings->Add(new PopupMultiChoice(&g_Config.iAnalogResponseCurve, co->T("Response curve"), responseCurves, 0, ARRAY_SIZE(responseCurves), I18NCat::CONTROLS, screenManager()));
 
-	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
+	scrollContents->Add(new ChoiceGroup(""))->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
 }
 
 void AnalogCalibrationScreen::CreateContentViews(UI::ViewGroup *parent) {

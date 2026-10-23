@@ -165,9 +165,9 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	drivers->Add(new ItemHeader(gr->T("AdrenoTools driver manager")));
-	auto customDriverInstallChoice = drivers->Add(new Choice(gr->T("Install custom driver...")));
-	drivers->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
+	ChoiceGroup *driverManagerGroup = drivers->Add(new ChoiceGroup(gr->T("AdrenoTools driver manager")));
+	auto customDriverInstallChoice = driverManagerGroup->Add(new Choice(gr->T("Install custom driver...")));
+	driverManagerGroup->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
 	});
 
