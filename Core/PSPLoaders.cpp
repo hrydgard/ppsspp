@@ -694,6 +694,8 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 	if (!__PopsBootStartInit(fileLoader, gamePath, error_string)) {
 		return false;
 	}
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("PS1 support is still experimental. The game might not work, or there may be glitches."), 6.0f);
 	return true;
 }
 
