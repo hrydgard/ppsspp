@@ -1397,7 +1397,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	bSaveSettings = true;
 
 	IniFile iniFile;
-	if (!iniFile.Load(iniFilename_)) {
+	loadedFromFile_ = iniFile.Load(iniFilename_);
+	if (!loadedFromFile_) {
 		WARN_LOG(Log::Config, "Failed to read '%s'. Setting main config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
@@ -1446,6 +1447,18 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		const std::string &path = value;
 		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(Path(path))) {
 			vPinnedPaths.push_back(File::ResolvePath(path));
+		}
+	}
+
+	vShortcutUris.clear();
+	if (const Section *shortcuts = iniFile.GetSection("Shortcuts")) {
+		for (int i = 0; i < MAX_SHORTCUT_URIS; i++) {
+			char keyName[64];
+			snprintf(keyName, sizeof(keyName), "Uri%d", i);
+			std::string uri;
+			if (shortcuts->Get(keyName, &uri) && !uri.empty()) {
+				vShortcutUris.push_back(uri);
+			}
 		}
 	}
 
@@ -1571,6 +1584,18 @@ bool Config::Save(const char *saveReason) {
 			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "Path%d", (int)i);
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
+		}
+
+		if (vShortcutUris.empty()) {
+			iniFile.DeleteSection("Shortcuts");
+		} else {
+			Section *shortcuts = iniFile.GetOrCreateSection("Shortcuts");
+			shortcuts->Clear();
+			for (size_t i = 0; i < vShortcutUris.size(); ++i) {
+				char keyName[64];
+				snprintf(keyName, sizeof(keyName), "Uri%d", (int)i);
+				shortcuts->Set(keyName, vShortcutUris[i]);
+			}
 		}
 
 		if (!IsGameSpecific()) {
@@ -1839,6 +1864,19 @@ void Config::DismissUpgrade() {
 	INFO_LOG(Log::Config, "Upgrade dismissed for version %s", sUpgradeVersion.c_str());
 	sDismissedVersion = sUpgradeVersion;
 	sUpgradeMessage.clear();
+}
+
+bool Config::AddShortcutUri(std::string_view uri) {
+	auto iter = std::find(vShortcutUris.begin(), vShortcutUris.end(), uri);
+	const bool added = iter == vShortcutUris.end();
+	if (!added) {
+		vShortcutUris.erase(iter);
+	}
+	vShortcutUris.insert(vShortcutUris.begin(), std::string(uri));
+	if ((int)vShortcutUris.size() > MAX_SHORTCUT_URIS) {
+		vShortcutUris.resize(MAX_SHORTCUT_URIS);
+	}
+	return added;
 }
 
 void Config::SetSearchPath(const Path &searchPath) {

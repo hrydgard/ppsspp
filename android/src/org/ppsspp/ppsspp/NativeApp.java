@@ -82,6 +82,12 @@ public class NativeApp {
 	public static native void setAchievementsHostOverride(String host);
 	public static native void clearAchievementsHostOverride();
 	public static native String queryConfig(String queryName);
+	// The content URIs that the recent list, the remembered shortcuts and the settings still point at.
+	// Null if the config in memory may not be the user's (see HaveUsersConfig).
+	public static native String[] getReferencedUris();
+	// Remembers these as home screen shortcut targets, oldest first, and saves the config. Only call during
+	// Initialize. False if that didn't work out.
+	public static native boolean addShortcutUris(String[] uris);
 
 	public static native int getSelectedCamera();
 	public static native int getDisplayFramerateMode();

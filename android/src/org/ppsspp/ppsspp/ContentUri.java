@@ -2,6 +2,10 @@ package org.ppsspp.ppsspp;
 
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -10,6 +14,7 @@ import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.StructStatVfs;
+import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.annotation.Keep;
@@ -18,7 +23,13 @@ import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ContentUri {
 	private static final String TAG = "PpssppActivity";  // don't want to add yet another tag
@@ -414,6 +425,183 @@ public class ContentUri {
 
 		// Too early Android version
 		return -1;
+	}
+
+	// Android only lets an app keep so many persisted URI grants (512, or 128 before Android 11). When it
+	// goes over, the system drops the oldest ones, whatever they are. We take one for every single file
+	// picked (games loaded through the file picker, home screen shortcuts, sound effects) and never gave any
+	// back, so sooner or later the one dropped would be the folder the user set up as the memory stick.
+	//
+	// Two things at startup keep that from happening:
+	// * Re-take the grants for the folders we use (the memory stick, the Games tab, pinned folders, the Remote
+	//   ISO shared folder). That makes them the newest, so they're the last the system would drop.
+	// * Past half the limit, release the oldest single-file grants that nothing points at anymore. Folder
+	//   grants are never released. Home screen shortcuts can't be enumerated, so ppsspp.ini remembers the
+	//   ones most recently created or launched (Config::MAX_SHORTCUT_URIS), and those are spared too.
+	private static final String GRANT_TAG = "PPSSPPUriGrants";
+
+	private static boolean isTreeUri(Uri uri) {
+		// Same check as DocumentsContract.isTreeUri, which is API 24+.
+		List<String> segments = uri.getPathSegments();
+		return segments.size() >= 2 && "tree".equals(segments.get(0));
+	}
+
+	// True if something points at the grant's URI, or at something inside it (if it's a folder).
+	static boolean isReferenced(Uri grantUri, Set<String> referencedUris) {
+		final String uri = grantUri.toString();
+		if (referencedUris.contains(uri)) {
+			return true;
+		}
+		final String prefix = uri + "/";
+		for (String referenced : referencedUris) {
+			if (referenced.startsWith(prefix)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static int grantFlags(UriPermission grant) {
+		int flags = 0;
+		if (grant.isReadPermission()) {
+			flags |= Intent.FLAG_GRANT_READ_URI_PERMISSION;
+		}
+		if (grant.isWritePermission()) {
+			flags |= Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+		}
+		return flags;
+	}
+
+	// Returns the grants to release to get down to maxGrants, oldest first. Doesn't release anything.
+	static ArrayList<UriPermission> chooseGrantsToRelease(List<UriPermission> grants, int maxGrants, Set<String> referencedUris) {
+		ArrayList<UriPermission> toRelease = new ArrayList<>();
+		int excess = grants.size() - maxGrants;
+		if (excess <= 0) {
+			return toRelease;
+		}
+		ArrayList<UriPermission> oldestFirst = new ArrayList<>(grants);
+		Collections.sort(oldestFirst, (a, b) -> Long.compare(a.getPersistedTime(), b.getPersistedTime()));
+		for (UriPermission grant : oldestFirst) {
+			if (toRelease.size() >= excess) {
+				break;
+			}
+			if (isTreeUri(grant.getUri()) || isReferenced(grant.getUri(), referencedUris)) {
+				continue;
+			}
+			toRelease.add(grant);
+		}
+		return toRelease;
+	}
+
+	// Call once at startup, after the native side has loaded the config and been handed the queued shortcut URIs.
+	public static void manageUriGrants(Context context) {
+		try {
+			final ContentResolver resolver = context.getContentResolver();
+			final List<UriPermission> grants = resolver.getPersistedUriPermissions();
+			final int systemLimit = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? 512 : 128;
+			final int maxGrants = systemLimit / 2;
+			final String[] referenced = NativeApp.getReferencedUris();
+			if (referenced == null) {
+				// We can't tell what's in use, so leave everything alone.
+				Log.w(GRANT_TAG, "Don't have the user's config, not touching any of our " + grants.size() + " URI grants.");
+				return;
+			}
+			final Set<String> referencedUris = new HashSet<>(Arrays.asList(referenced));
+
+			int folders = 0;
+			for (UriPermission grant : grants) {
+				if (isTreeUri(grant.getUri())) {
+					folders++;
+				}
+			}
+			Log.i(GRANT_TAG, "Holding " + grants.size() + " persisted URI grants: " + folders + " folders, " + (grants.size() - folders)
+				+ " files. The system drops the oldest above " + systemLimit + ", we start releasing old files above " + maxGrants + ".");
+
+			// Release before re-taking: a take can make the system prune, which would leave our list out of date.
+			if (grants.size() > maxGrants) {
+				Log.i(GRANT_TAG, "The recent list, shortcuts and settings reference " + referencedUris.size() + " URIs.");
+				ArrayList<UriPermission> toRelease = chooseGrantsToRelease(grants, maxGrants, referencedUris);
+				int released = 0;
+				for (UriPermission grant : toRelease) {
+					Log.i(GRANT_TAG, "Releasing unused file grant: " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+					try {
+						resolver.releasePersistableUriPermission(grant.getUri(), grantFlags(grant));
+						released++;
+					} catch (Exception e) {
+						Log.w(GRANT_TAG, "Couldn't release " + grant.getUri() + ": " + e);
+					}
+				}
+				if (toRelease.isEmpty()) {
+					Log.w(GRANT_TAG, "Over our limit, but everything is a folder or still in use. Nothing to release.");
+				} else {
+					Log.i(GRANT_TAG, "Released " + released + " file grants, " + (grants.size() - released) + " remain.");
+				}
+			}
+
+			for (UriPermission grant : grants) {
+				if (!isTreeUri(grant.getUri())) {
+					continue;
+				}
+				if (!isReferenced(grant.getUri(), referencedUris)) {
+					Log.i(GRANT_TAG, "Folder grant (kept, not in use): " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+					continue;
+				}
+				// Taking a grant we already hold just moves its time up.
+				try {
+					resolver.takePersistableUriPermission(grant.getUri(), grantFlags(grant));
+					Log.i(GRANT_TAG, "Folder grant (in use, re-taken): " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+				} catch (Exception e) {
+					Log.w(GRANT_TAG, "Couldn't re-take folder grant " + grant.getUri() + ": " + e);
+				}
+			}
+		} catch (Exception e) {
+			Log.e(GRANT_TAG, "Exception while managing URI grants: " + e);
+		}
+	}
+
+	// ShortcutActivity can't write ppsspp.ini (the config isn't loaded there, and a running PpssppActivity would
+	// overwrite it), so the URIs of shortcuts created or launched wait here until the next startup hands them over.
+	private static final String SHORTCUT_PREFS = "PendingShortcutUris";
+	private static final String SHORTCUT_PREFS_KEY = "uris";
+	private static final int MAX_PENDING_SHORTCUT_URIS = 64;
+
+	private static ArrayList<String> readPendingShortcutUris(SharedPreferences prefs) {
+		ArrayList<String> uris = new ArrayList<>();
+		for (String uri : prefs.getString(SHORTCUT_PREFS_KEY, "").split("\n")) {
+			if (!uri.isEmpty()) {
+				uris.add(uri);
+			}
+		}
+		return uris;
+	}
+
+	public static void queueShortcutUri(Context context, String uri) {
+		if (uri == null || !uri.startsWith("content://")) {
+			return;
+		}
+		SharedPreferences prefs = context.getSharedPreferences(SHORTCUT_PREFS, Context.MODE_PRIVATE);
+		ArrayList<String> uris = readPendingShortcutUris(prefs);
+		uris.remove(uri);
+		uris.add(uri);  // Newest last.
+		while (uris.size() > MAX_PENDING_SHORTCUT_URIS) {
+			uris.remove(0);
+		}
+		prefs.edit().putString(SHORTCUT_PREFS_KEY, TextUtils.join("\n", uris)).commit();
+	}
+
+	// Call once at startup, after the native side has loaded the config.
+	public static void flushShortcutUris(Context context) {
+		SharedPreferences prefs = context.getSharedPreferences(SHORTCUT_PREFS, Context.MODE_PRIVATE);
+		ArrayList<String> uris = readPendingShortcutUris(prefs);
+		if (uris.isEmpty()) {
+			return;
+		}
+		if (!NativeApp.addShortcutUris(uris.toArray(new String[0]))) {
+			Log.w(GRANT_TAG, "Couldn't save " + uris.size() + " shortcut URIs to the config, keeping them for next time.");
+			return;
+		}
+		Log.i(GRANT_TAG, "Saved " + uris.size() + " shortcut URIs to the config.");
+		prefs.edit().remove(SHORTCUT_PREFS_KEY).commit();
 	}
 
 	@Keep
