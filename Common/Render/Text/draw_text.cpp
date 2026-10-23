@@ -3,11 +3,10 @@
 #if defined(__linux__) || defined(__FreeBSD__) && !defined(__ANDROID__)
 # include <dlfcn.h>
 #elif defined(_WIN32)
-# include <windows.h>
+# include "Common/CommonWindows.h"
 #endif
 
 #include <algorithm>
-#include <cmath>
 #include <cstring>
 
 #include "ext/xxhash.h"
@@ -45,13 +44,6 @@ static bool IsRenderDocLoaded() {
 	return false;
 #endif
 }
-
-// Drop shadow blur radius and offset as fractions of the font size, which is in UI units. The bitmap
-// has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
-static constexpr float SHADOW_BLUR = 1.0f / 7.0f;
-static constexpr float SHADOW_OFFSET = 1.0f / 16.0f;
-// Blurring thin strokes spreads them thin, so boost the shadow's alpha a bit (clamped).
-static constexpr float SHADOW_STRENGTH = 1.5f;
 
 size_t TextCacheKeyHash::operator()(const TextCacheKey &key) const {
 	uint32_t maxWidthBits, scaleBits;
@@ -274,11 +266,8 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 }
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
-	const float pixelsPerUnit = 1.0f / dpiScale_;
-	DropShadowParams params;
-	params.radius = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_BLUR * pixelsPerUnit));
-	params.offsetX = params.offsetY = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_OFFSET * pixelsPerUnit));
-	params.intensity = SHADOW_STRENGTH;
+	// The bitmap has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
+	const DropShadowParams params = UIDropShadowParams(1.0f / dpiScale_);
 	const int pad = params.Padding();
 
 	const int srcW = entry.bmWidth;

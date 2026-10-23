@@ -3697,7 +3697,7 @@ bool TestTextDrawerCache() {
 	EXPECT_EQ_INT((int)bitmap.size(), entry1.bmWidth * entry1.bmHeight * 4);
 	const uint32_t *pixels = (const uint32_t *)bitmap.data();
 	auto pixel = [&](int x, int y) { return pixels[(y + pad) * entry1.bmWidth + x + pad]; };
-	// The text stays opaque white, the shadow is black and partly transparent below-right of it, and the far corner is empty.
+	// The text stays opaque white, the shadow around it is black and partly transparent, and the far corner is empty.
 	EXPECT_EQ_INT(pixel(8, 8), 0xFFFFFFFF);
 	EXPECT_EQ_INT(pixel(12, 12) & 0x00FFFFFF, 0);
 	EXPECT_TRUE((pixel(12, 12) >> 24) > 0);
@@ -3708,7 +3708,7 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
-// The atlas shadow has no offset, so it pads the image evenly and stays symmetric around it.
+// The UI shadow has no offset, so it pads the image evenly and stays symmetric around it.
 bool TestAtlasDropShadow() {
 	Image img;
 	img.scale = 2.0f;
@@ -3718,7 +3718,7 @@ bool TestAtlasDropShadow() {
 			img.set1(x, y, 0xFFFFFFFF);
 		}
 	}
-	AddDropShadow(img, 3, 0.66f);
+	AddDropShadow(img, UIDropShadowParams(img.scale));
 	EXPECT_EQ_INT(img.w, 8 + 12);
 	EXPECT_EQ_INT(img.h, 8 + 12);
 	EXPECT_EQ_HEX(img.get1(6 + 3, 6 + 3), 0xFFFFFFFF);

@@ -38,6 +38,9 @@ struct DropShadowParams {
 	}
 };
 
+// The UI's shadow, used for both the atlas images and text, so the two match on screen.
+DropShadowParams UIDropShadowParams(float pixelsPerUnit);
+
 // src is premultiplied RGBA with alpha in the top byte. Writes it composited over its shadow to dst,
 // (w + 2 * padding) x (h + 2 * padding) pixels with the image centered. Since the shadow is black,
 // only alpha changes under the image.

@@ -20,6 +20,17 @@
 
 #include "Common/Render/DropShadow.h"
 
+// In UI units.
+static constexpr float UI_SHADOW_RADIUS = 3.0f;
+static constexpr float UI_SHADOW_INTENSITY = 0.66f;
+
+DropShadowParams UIDropShadowParams(float pixelsPerUnit) {
+	DropShadowParams params;
+	params.radius = std::max(1, (int)(UI_SHADOW_RADIUS * pixelsPerUnit));
+	params.intensity = UI_SHADOW_INTENSITY;
+	return params;
+}
+
 void CompositeDropShadow(const u32 *src, int w, int h, u32 *dst, int dstStride, const DropShadowParams &params) {
 	const int radius = std::max(1, params.radius);
 	const int pad = params.Padding();

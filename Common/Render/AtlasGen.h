@@ -5,6 +5,7 @@
 
 #include "Common/CommonTypes.h"
 
+#include "Common/Render/DropShadow.h"
 #include "Common/Render/TextureAtlas.h"
 
 struct ImageU8 {
@@ -92,7 +93,7 @@ struct Image {
 };
 
 // Slow.
-void AddDropShadow(Image &img, int shadowSize, float intensity);
+void AddDropShadow(Image &img, const DropShadowParams &params);
 
 // To improve filtering.
 void Add1PxTransparentBorder(Image &img);

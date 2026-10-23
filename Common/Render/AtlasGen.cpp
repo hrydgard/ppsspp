@@ -23,7 +23,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Render/AtlasGen.h"
-#include "Common/Render/DropShadow.h"
 
 typedef unsigned short u16;
 
@@ -241,10 +240,7 @@ void Add1PxTransparentBorder(Image &img) {
 	img.h += 2;
 }
 
-void AddDropShadow(Image &img, int shadowSize, float intensity) {
-	DropShadowParams params;
-	params.radius = std::max(1, (int)(shadowSize * img.scale));
-	params.intensity = intensity;
+void AddDropShadow(Image &img, const DropShadowParams &params) {
 	const int pad = params.Padding();
 	std::vector<u32> newData((img.w + pad * 2) * (img.h + pad * 2));
 	CompositeDropShadow(img.dat.data(), img.w, img.h, newData.data(), img.w + pad * 2, params);
