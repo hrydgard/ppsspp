@@ -369,40 +369,44 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 			gold->SetShine(true);
 		}
 		return;
-	}
+	} else {
+		ChoiceGroup *mainButtons = parent->Add(new ChoiceGroup("", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 12))));
 
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
-	}
-	parent->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
-	parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-
-	if (showGold) {
-		Choice *gold = parent->Add(new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Add([this](UI::EventParams &) {
-			LaunchBuyGold(this->screenManager());
-		});
-		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
-		gold->SetImageScale(0.6f);
-		gold->SetShine(true);
-	}
-
-	parent->Add(new Spacer(16.0));
-
-	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
-	// (The exit button previously created problems on Android, but now we allow it in landscape mode.)
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
-	parent->Add(new Choice(di->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
-		// Let's make sure the config was saved, since it may not have been.
-		if (!g_Config.Save("MainScreen::OnExit")) {
-			System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
+		if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			mainButtons->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 		}
-		UpdateUIState(UISTATE_EXIT);
-		// Request the framework to exit cleanly.
-		System_ExitApp();
-	});
+		mainButtons->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+		mainButtons->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+		mainButtons->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
+
+		if (showGold) {
+			Choice *gold = mainButtons->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+			gold->OnClick.Add([this](UI::EventParams &) {
+				LaunchBuyGold(this->screenManager());
+			});
+			gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
+			gold->SetImageScale(0.6f);
+			gold->SetShine(true);
+		}
+
+		// Exit button.
+
+		// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
+		// (The exit button previously created problems on Android, but now we allow it in landscape mode.)
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+		Choice *exitButton = parent->Add(new Choice(di->T("Exit")));
+		exitButton->OnClick.Add([](UI::EventParams &e) {
+			// Let's make sure the config was saved, since it may not have been.
+			if (!g_Config.Save("MainScreen::OnExit")) {
+				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
+			}
+			UpdateUIState(UISTATE_EXIT);
+			// Request the framework to exit cleanly.
+			System_ExitApp();
+		});
+		exitButton->SetRoundCorners(RoundCorners::All);
 #endif
+	}
 }
 
 void MainScreen::CreateViews() {
