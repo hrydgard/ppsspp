@@ -115,8 +115,9 @@ struct FileInfo;
 // Whether a .cue, .ccd or .mds describes a disc, by its contents.
 bool IsPS1DiscSheet(FileLoader *fileLoader);
 
-// Whether a CHD is of a CD (rather than a DVD, like a PSP disc).
-bool IsCDChd(FileLoader *fileLoader);
+// Whether a CHD is of a PS1 disc, by its volume descriptor. A PSP disc's can be a CD's too, as chdman
+// createcd makes them.
+bool IsPS1Chd(FileLoader *fileLoader);
 
 // The file names a cue sheet's FILE lines give.
 std::vector<std::string> CueSheetFileNames(const Path &cuePath);
