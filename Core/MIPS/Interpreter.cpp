@@ -334,10 +334,9 @@ namespace MIPSInt {
 
 		int rs = _RS;
 		int rd = _RD;
-		u32 addr = R(rs);
-		// The Media Engine ignores the target's low two bits: Sony's ME firmware keeps flags there.
-		if (mips->IsMediaEngine())
-			addr &= ~3;
+		// The CPUs ignore the target's low two bits (tests/cpu/jump/unaligned). Sony's ME firmware keeps
+		// flags there, and the PS1 emulator returns through such an address.
+		u32 addr = R(rs) & ~3;
 		switch (op & 0x3f) {
 		case 8: //jr
 			if (!mips->inDelaySlot)
