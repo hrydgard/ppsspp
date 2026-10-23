@@ -185,6 +185,9 @@ int FirmwareVersionToInt(std::string_view version);
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);
 
+// Whether that VSH's own player plays UMD Video discs.
+bool FirmwareVersionPlaysUmdVideo(std::string_view version);
+
 // Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
 // doesn't have would linger and still get loaded - so this replaces rather than overlays.
 //

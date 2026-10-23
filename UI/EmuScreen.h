@@ -18,6 +18,7 @@
 #pragma once
 
 #include <list>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -42,7 +43,8 @@ struct ImGuiContext;
 class EmuScreen : public UIScreen, protected ControlListener {
 public:
 	// mountIso, if set, is mounted on umd1: when filename is an ELF/PBP (like the VSH).
-	EmuScreen(const Path &filename, const Path &mountIso = Path());
+	// umdAutoboot overrides the VSH's UMD auto-start setting.
+	EmuScreen(const Path &filename, const Path &mountIso = Path(), std::optional<bool> umdAutoboot = std::nullopt);
 	~EmuScreen();
 
 	const char *tag() const override { return "Emu"; }
@@ -109,6 +111,7 @@ private:
 	bool bootIsReset_ = false;
 	Path gamePath_;
 	Path mountIso_;
+	std::optional<bool> umdAutoboot_;
 
 	bool quit_ = false;
 	std::string errorMessage_;

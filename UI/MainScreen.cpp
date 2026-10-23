@@ -58,8 +58,25 @@
 #include "Core/Util/DarwinFileSystemServices.h" // For the browser
 
 #include "Core/HLE/sceUmd.h"
+#include "Core/Util/PSARUnpack.h"
 
 bool MainScreen::showHomebrewTab = false;
+
+Path GetUmdVideoVSHPath() {
+	InstalledFirmwareInfo info;
+	ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
+	if (!info.hasVsh || !FirmwareVersionPlaysUmdVideo(info.version)) {
+		return Path();
+	}
+	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+}
+
+static void LaunchInEmuScreen(ScreenManager *screenManager, Screen *currentScreen, EmuScreen *emuScreen) {
+	if (currentScreen) {
+		screenManager->cancelScreensAbove(currentScreen);
+	}
+	screenManager->switchScreen(emuScreen);
+}
 
 static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, const Path &path) {
 	if (GamePacker::IsPacking(path)) {
@@ -87,9 +104,41 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
-			// We show info about it.
-			screenManager->push(new GameScreen(path, false));
+		{
+			// The XMB plays it, if there's one to boot. Otherwise we show info about it.
+			const Path vshPath = GetUmdVideoVSHPath();
+			if (vshPath.empty()) {
+				screenManager->push(new GameScreen(path, false));
+			} else {
+				LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, true));
+			}
 			return;
+		}
+		case IdentifiedFileType::PSP_ISO:
+		{
+			// A disc with both a game and video on it. The XMB would start the game by itself, so for
+			// the video, it comes up without auto-start and the disc waits in the Video column.
+			const Path vshPath = GetUmdVideoVSHPath();
+			if (vshPath.empty()) {
+				break;
+			}
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(path));
+			if (!fileLoader || !(DetectUmdDiscType(fileLoader.get()) & PSP_UMD_TYPE_VIDEO)) {
+				break;
+			}
+			auto ga = GetI18NCategory(I18NCat::GAME);
+			const std::vector<std::string> choices = { std::string(ga->T("Play game")), std::string(ga->T("Watch video in the XMB")) };
+			UI::ListPopupScreen *popup = new UI::ListPopupScreen(ga->T("This disc has both a game and video"), choices, -1, [=](int choice) {
+				if (choice == 0) {
+					LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(path));
+				} else if (choice == 1) {
+					LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, false));
+				}
+			});
+			popup->SetChoiceIcons({ { 0, ImageID("I_PLAY") }, { 1, ImageID("I_UMD_VIDEO_ISO") } });
+			screenManager->push(popup);
+			return;
+		}
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// Show the savedata popup, why not?
@@ -114,11 +163,8 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		default:
 			break;
 		}
-		if (currentScreen) {
-			screenManager->cancelScreensAbove(currentScreen);
-		}
 		// Otherwise let the EmuScreen take care of it, including error handling.
-		screenManager->switchScreen(new EmuScreen(path));
+		LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(path));
 	}
 }
 

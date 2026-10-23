@@ -54,6 +54,16 @@ Two separate things:
   and the Spider-Man 2 trailer on the EUR Video Demo Disc play with sound. What that player needed
   from our Media Engine HLE (per-picture SEI records, keyframe flags, field conversion in
   `sceMpegBaseCscAvc`) is in pspautotests `video/mpeg/avcdetail` and `video/mpeg/cscavc`.
+
+  Picking a UMD Video disc in the game list boots the XMB with the disc in the drive and UMD
+  auto-start forced on (`CoreParameter::umdAutoboot`), so it goes straight to the disc's menu. That
+  needs firmware 2.71 or later: 1.50, 2.00 and 2.60 crash in `video_plugin`/paf as soon as the disc
+  is in, and 2.50 refuses it, claiming the system software is version "." (all measured with
+  Bourne Supremacy). A disc with both a game and video asks which one; for video the XMB comes up
+  without auto-start, since auto-start runs the game. The disc type comes from the fourth field of
+  `UMD_DATA.BIN` (`G`, `V`, `A`), and `PSP_GAME` without `SYSDIR/EBOOT.BIN` doesn't count: some video
+  discs (Spider-Man) carry a `PSP_GAME` holding only a firmware update, and reporting those as game
+  discs made the XMB say "The disc could not be read."
 - **It then asked whether the region matched and we didn't answer.** `sceIoDevctl` `0x01E18030` is
   the region check, and unusually it answers through the *return value* (1 matches, 0 doesn't)
   rather than an output buffer. It was unimplemented, so the VSH read the failure as a mismatch and

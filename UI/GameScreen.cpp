@@ -367,7 +367,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 	leftColumn->Add(infoLayout);
 
-	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO && GetUmdVideoVSHPath().empty()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
 		leftColumn->Add(new NoticeView(NoticeLevel::INFO, er->T("PPSSPP doesn't support UMD Video."), ""));
 		leftColumn->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
@@ -553,10 +553,16 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	if (!inGame_ && FileTypeIsPlayable(info_->fileType)) {
+	// UMD Video plays in the XMB, with the disc in the drive.
+	const Path vshPath = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? GetUmdVideoVSHPath() : Path();
+	if (!inGame_ && (FileTypeIsPlayable(info_->fileType) || !vshPath.empty())) {
 		Choice *play = rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
-		play->OnClick.Add([this](UI::EventParams &e) {
-			screenManager()->switchScreen(new EmuScreen(gamePath_));
+		play->OnClick.Add([this, vshPath](UI::EventParams &e) {
+			if (vshPath.empty()) {
+				screenManager()->switchScreen(new EmuScreen(gamePath_));
+			} else {
+				screenManager()->switchScreen(new EmuScreen(vshPath, gamePath_, true));
+			}
 		});
 		// The file is being read, and maybe about to be replaced.
 		play->SetEnabled(!GamePacker::IsPacking(gamePath_));
