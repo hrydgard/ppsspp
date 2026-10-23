@@ -663,6 +663,10 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	if (g_CoreParameter.updateRecent) {
 		g_recentFiles.Add(g_CoreParameter.fileToStart.ToString());
+		// A UMD Video disc picked from the game list boots the XMB (which Add skips) to play it.
+		if (!g_CoreParameter.mountIso.empty() && g_CoreParameter.umdAutoboot.has_value()) {
+			g_recentFiles.Add(g_CoreParameter.mountIso.ToString());
+		}
 	}
 
 	// Update things that depend on game-specific config here.
