@@ -237,25 +237,29 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 			return false;
 		}
 		NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
+		delete[] file_data;
 		if (!image) {
 			return false;
 		}
-		delete[] file_data;
 
-		// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
-		// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
-		// We'll start with the latter, although the momentary memory requirements are higher.
+		// Each image is rasterized on its own (in parallel), into a buffer the size of its bounding box.
+		// nanosvg walks every scanline of the target for every visible shape, so rasterizing the whole
+		// SVG at once costs shapes * total area.
 		struct UsedShape {
 			float minX = 1000000.0f;
 			float maxX = -1000000.0f;
 			float minY = 1000000.0f;
 			float maxY = -1000000.0f;
+			std::vector<NSVGshape> shapes;  // Copies, see below.
 
 			void Merge(NSVGshape *shape) {
 				if (shape->bounds[0] < minX) minX = shape->bounds[0];
 				if (shape->bounds[1] < minY) minY = shape->bounds[1];
 				if (shape->bounds[2] > maxX) maxX = shape->bounds[2];
 				if (shape->bounds[3] > maxY) maxY = shape->bounds[3];
+				if (shape->flags & NSVG_FLAGS_VISIBLE) {
+					shapes.push_back(*shape);
+				}
 			}
 		};
 
@@ -278,10 +282,6 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 			shape = shape->next;
 		}
 
-		NSVGrasterizer *rast = NULL;
-		// Rasterize here, and add into image list.
-		rast = nsvgCreateRasterizer();
-
 		// If we can tell that the scale won't fit in a supported texture size, reduce it.
 		// This is a conservative check because the SVG has some empty space around the sub-images.
 		// TODO: Also, if we use multiple SVGs, this check isn't really right.
@@ -298,66 +298,76 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 		INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
 
-		char *svgImg = new char[svgWidth * svgHeight * 4];
-		memset(svgImg, 0, svgWidth * svgHeight * 4);
-		nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
-
-		// Now, loop through the shapes again and copy out the ones we care about.
-		for (const auto &[shapeId, bounds] : usedShapes) {
-			int index = GetImageIndex(imageIDs, imageCount, shapeId);
-			_dbg_assert_(index != -1);
-			if (index == -1) {
-				continue;
-			}
-
-			Image &img = (*images)[index];
-			if (!img.IsEmpty()) {
-				WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
-				continue;
-			}
-
-			int minX = std::max(0, (int)floorf(bounds.minX * scale));
-			int minY = std::max(0, (int)floorf(bounds.minY * scale));
-			int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
-			int maxY = std::min(svgHeight, (int)ceilf(bounds.maxY * scale));
-			int w = maxX - minX;
-			int h = maxY - minY;
-			if (w <= 0 || h <= 0) {
-				ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
-				continue;
-			}
-			img.resize(w, h);
-
-			for (int y = 0; y < h; y++) {
-				for (int x = 0; x < w; x++) {
-					int sx = minX + x;
-					int sy = minY + y;
-					const u32 *src = (u32 *)svgImg + (sy * svgWidth + sx);
-					u32 col = *src;
-					img.set1(x, y, col);
-				}
-			}
-
-			img.scale = scale;
-
-			if (SAVE_DEBUG_IMAGES) {
-				std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
-				WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
-				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
-			}
-
-			img.ConvertToPremultipliedAlpha();
+		if (SAVE_DEBUG_ATLAS) {
+			NSVGrasterizer *rast = nsvgCreateRasterizer();
+			std::vector<u8> svgImg(svgWidth * svgHeight * 4);
+			nsvgRasterize(rast, image, 0, 0, scale, svgImg.data(), svgWidth, svgHeight, svgWidth * 4);
+			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
+			pngSave(Path("../buttons_rasterized.png"), svgImg.data(), svgWidth, svgHeight, 4);
+			nsvgDeleteRasterizer(rast);
 		}
+
+		std::vector<std::pair<const std::string *, UsedShape *>> jobs;
+		jobs.reserve(usedShapes.size());
+		for (auto &[shapeId, used] : usedShapes) {
+			jobs.emplace_back(&shapeId, &used);
+		}
+
+		ParallelRangeLoop(&g_threadManager, [&](int start, int end) {
+			NSVGrasterizer *rast = nsvgCreateRasterizer();
+			for (int i = start; i < end; i++) {
+				const std::string &shapeId = *jobs[i].first;
+				UsedShape &used = *jobs[i].second;
+				int index = GetImageIndex(imageIDs, imageCount, shapeId);
+				_dbg_assert_(index != -1);
+				if (index == -1 || used.shapes.empty()) {
+					continue;
+				}
+
+				Image &img = (*images)[index];
+				if (!img.IsEmpty()) {
+					WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
+					continue;
+				}
+
+				int minX = std::max(0, (int)floorf(used.minX * scale));
+				int minY = std::max(0, (int)floorf(used.minY * scale));
+				int maxX = std::min(svgWidth, (int)ceilf(used.maxX * scale));
+				int maxY = std::min(svgHeight, (int)ceilf(used.maxY * scale));
+				int w = maxX - minX;
+				int h = maxY - minY;
+				if (w <= 0 || h <= 0) {
+					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
+					continue;
+				}
+				img.resize(w, h);
+
+				// The rasterizer only reads the shapes, so a list of copies of this image's shapes
+				// stands in for the whole SVG (whose shapes can't be hidden per thread).
+				for (size_t j = 0; j < used.shapes.size(); j++) {
+					used.shapes[j].next = j + 1 < used.shapes.size() ? &used.shapes[j + 1] : nullptr;
+				}
+				NSVGimage subImage{};
+				subImage.width = image->width;
+				subImage.height = image->height;
+				subImage.shapes = used.shapes.data();
+				nsvgRasterize(rast, &subImage, (float)-minX, (float)-minY, scale, (unsigned char *)img.dat.data(), w, h, w * 4);
+
+				img.scale = scale;
+
+				if (SAVE_DEBUG_IMAGES) {
+					std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
+					WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+					pngSave(Path(name), img.data(), img.width(), img.height(), 4);
+				}
+
+				img.ConvertToPremultipliedAlpha();
+			}
+			nsvgDeleteRasterizer(rast);
+		}, 0, (int)jobs.size(), 4, 0, TaskPriority::HIGH);
 
 		shapeCount = (int)usedShapes.size();
 
-		if (SAVE_DEBUG_ATLAS) {
-			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
-			pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
-		}
-		delete[] svgImg;
-
-		nsvgDeleteRasterizer(rast);
 		nsvgDelete(image);
 	}
 

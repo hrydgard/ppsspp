@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
+#include <cstring>
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #include "ext/stb/stb_rect_pack.h"
@@ -30,11 +31,13 @@ void Image::copyfrom(const Image &img, int ox, int oy, bool redToWhiteAlpha) {
 	assert(img.width() + ox <= width());
 	assert(img.height() + oy <= height());
 	for (int y = 0; y < (int)img.height(); y++) {
-		for (int x = 0; x < (int)img.width(); x++) {
-			if (!redToWhiteAlpha) {
-				set1(x + ox, y + oy, img.get1(x, y));
-			} else {
-				set1(x + ox, y + oy, 0x00FFFFFF | (img.get1(x, y) << 24));
+		const u32 *src = img.dat.data() + y * img.w;
+		u32 *dst = dat.data() + (y + oy) * w + ox;
+		if (!redToWhiteAlpha) {
+			memcpy(dst, src, img.w * sizeof(u32));
+		} else {
+			for (int x = 0; x < img.w; x++) {
+				dst[x] = 0x00FFFFFF | (src[x] << 24);
 			}
 		}
 	}
