@@ -487,6 +487,8 @@ static int CHDTrackSectorSize(std::string_view type) {
 // A CD CHD's tracks are in its metadata, one entry each, and its frames (2352 bytes of sector and 96 of
 // subcode) are in hunks of several. Each track's frames are padded to a multiple of four, and a pregap is
 // in them only if its type starts with V.
+//
+// NOTE: We can't re-use CHDFileBlockDevice here, because it doesn't support multiple tracks.
 bool PS1EbootFileLoader::OpenCHD(const Path &path) {
 	const int file = AddFile(path);
 	if (file < 0) {
@@ -547,15 +549,35 @@ bool PS1EbootFileLoader::OpenCHD(const Path &path) {
 	return true;
 }
 
-bool IsCDChd(FileLoader *fileLoader) {
+bool IsPS1Chd(FileLoader *fileLoader) {
 	std::string error;
 	chd_file *chd = OpenCHDThroughLoader(fileLoader, &error);
 	if (!chd) {
 		return false;
 	}
-	const bool cd = chd_get_header(chd)->unitbytes == CD_FRAME_SIZE;
+	const chd_header *header = chd_get_header(chd);
+	bool ps1 = false;
+	if (header->unitbytes == CD_FRAME_SIZE && header->hunkbytes % CD_FRAME_SIZE == 0) {
+		// The volume descriptor, in sector 16 of the first track, after its pregap if that's stored.
+		u32 frame = 16;
+		char meta[256]{};
+		int number = 0, frames = 0, pregap = 0;
+		char type[32]{}, subtype[32]{}, pgtype[32]{};
+		if (chd_get_metadata(chd, CDROM_TRACK_METADATA2_TAG, 0, meta, sizeof(meta) - 1, nullptr, nullptr, nullptr) == CHDERR_NONE &&
+			sscanf(meta, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d PREGAP:%d PGTYPE:%31s", &number, type, subtype, &frames, &pregap, pgtype) == 6 && pgtype[0] == 'V') {
+			frame += pregap;
+		}
+		const u32 framesPerHunk = header->hunkbytes / CD_FRAME_SIZE;
+		std::vector<u8> hunk(header->hunkbytes);
+		if (chd_read(chd, frame / framesPerHunk, hunk.data()) == CHDERR_NONE) {
+			const u8 *sector = hunk.data() + (frame % framesPerHunk) * CD_FRAME_SIZE;
+			const u8 *pvd = sector + (sector[15] == 1 ? 16 : 24);
+			// Every PS1 disc's system ID is PLAYSTATION. A PSP disc's is PSP GAME.
+			ps1 = memcmp(pvd, "\x01" "CD001", 6) == 0 && memcmp(pvd + 8, "PLAYSTATION", 11) == 0;
+		}
+	}
 	chd_close(chd);
-	return cd;
+	return ps1;
 }
 
 bool PS1EbootFileLoader::ParseCue(const Path &cuePath, const std::string &text) {

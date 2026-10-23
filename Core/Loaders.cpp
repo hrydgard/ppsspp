@@ -109,8 +109,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
-	if (extension == ".chd" && IsCDChd(fileLoader)) {
-		// PSP discs are DVDs, so a CD is a PS1 disc.
+	if (extension == ".chd" && IsPS1Chd(fileLoader)) {
 		return IdentifiedFileType::PSX_ISO;
 	}
 
