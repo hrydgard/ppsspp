@@ -1060,6 +1060,10 @@ static int sceKernelExitVSH(u32 paramPtr) {
 	}
 
 	INFO_LOG(Log::sceKernel, "sceKernelExitVSH");
+	// In a game, the same as sceKernelExitGame.
+	if (__KernelExitToVSH(currentMIPS)) {
+		return hleNoLog(0);
+	}
 	__KernelSwitchOffThread("VSH exited");
 	Core_Stop();
 

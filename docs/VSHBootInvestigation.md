@@ -48,6 +48,15 @@ Two separate things:
   6.61, to its title menu). In the app, the pause screen offers "Insert UMD" and "Eject UMD" while
   the XMB is running.
 
+  A disc game, or an EBOOT on the memory stick, that the XMB starts doesn't run inside the XMB's
+  session: `sceKernelLoadExec` asks the frontend to boot it (`PSP_RequestBoot`) and stops, and it
+  boots like a game picked from the game list, with its `PARAM.SFO`, compat flags, game config and
+  window title. Its `CoreParameter::launchedFromVSH` keeps the XMB's launch args, so exiting boots
+  the XMB again with whatever disc is in the drive, and the XMB comes back where it was without
+  auto-starting the disc. A disc whose executables are all zeroes (the EUR Video Demo Disc's
+  "game") still loads in place and fails back to the XMB. Under the debugger, the new boot starts
+  stopped, like the first one.
+
   UMD Video discs work too: the disc type comes from what's on the disc (`PSP_GAME`, `UMD_VIDEO`,
   `UMD_AUDIO`), the shell lists a video disc in the Video column, and selecting it hands it to the
   firmware's own player (`video_plugin`, `video_main_plugin`, with `mpeg_vsh.prx`). Bourne Supremacy

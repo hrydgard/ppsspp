@@ -559,7 +559,51 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	int statsLastFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
-	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
+
+	// The XMB starting a game, or a game going back to it: boot that, the way the app does, and keep
+	// going on the same clocks. False if nothing asked for it, or the boot failed.
+	bool rebootFailed = false;
+	auto rebootIfRequested = [&]() -> bool {
+		BootRequest request;
+		if (coreState != CORE_POWERDOWN || !PSP_TakeBootRequest(&request)) {
+			return false;
+		}
+		if (gpu) {
+			gpu->EndHostFrame();
+		}
+		if (draw) {
+			EndDrawFrame(draw);
+		}
+		PSP_Shutdown(true);
+		request.ApplyTo(&coreParameter);
+		std::string error;
+		if (PSP_InitStart(coreParameter)) {
+			while (PSP_InitUpdate(&error) == BootState::Booting) {
+				sleep_ms(1, "auto-test");
+			}
+		}
+		if (!PSP_IsInited()) {
+			fprintf(stderr, "Failed to boot '%s': %s\n", coreParameter.fileToStart.c_str(), error.c_str());
+			g_bootFailed = true;
+			rebootFailed = true;
+			return false;
+		}
+		System_Notify(SystemNotification::BOOT_DONE);
+		draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
+		if (draw) {
+			draw->BeginFrame(Draw::DebugFlags::NONE);
+		}
+		if (gpu) {
+			gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+		}
+		lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
+		// Like the first boot. A debugger script's pending stop didn't survive the reboot, so it
+		// gets a fresh one here.
+		coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
+		return true;
+	};
+
+	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU || rebootIfRequested()) {
 		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
 		// app. Without this, --state silently did nothing at all.
 		SaveState::Process();
@@ -665,6 +709,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			passed = false;
 			Core_Stop();
 		}
+	}
+
+	if (rebootFailed) {
+		return false;
 	}
 	if (gpu) {
 		gpu->EndHostFrame();

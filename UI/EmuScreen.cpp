@@ -323,6 +323,8 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = mountIso_;
 	coreParam.umdAutoboot = umdAutoboot_;
+	coreParam.launchedFromVSH = launchedFromVSH_;
+	coreParam.vshmainArgs = vshmainArgs_;
 	coreParam.mountRoot = g_Config.mountRoot;
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.headLess = false;
@@ -622,6 +624,8 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			gamePath_ = newGamePath;
 			mountIso_.clear();
 			umdAutoboot_.reset();
+			launchedFromVSH_.reset();
+			vshmainArgs_.clear();
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.
@@ -1418,6 +1422,23 @@ ViewLayoutMode EmuScreen::LayoutMode() const {
 }
 
 void EmuScreen::update() {
+	// The emulated system asking for a reboot: the XMB starting a game, or a game going back to it.
+	BootRequest request;
+	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_ && PSP_TakeBootRequest(&request)) {
+		Achievements::UnloadGame();
+		PSP_Shutdown(true);
+		screenManager()->cancelScreensAbove(this);
+		bootPending_ = true;
+		bootIsReset_ = false;
+		gamePath_ = request.fileToStart;
+		mountIso_ = request.mountIso;
+		// Coming back to the XMB mustn't auto-start the disc again.
+		umdAutoboot_.reset();
+		launchedFromVSH_ = request.launchedFromVSH;
+		vshmainArgs_ = request.vshmainArgs;
+		RecreateViews();
+	}
+
 	using namespace UI;
 
 	// This is where views are recreated.
@@ -1538,6 +1559,10 @@ bool EmuScreen::checkPowerDown() {
 	// This is for handling things like sceKernelExitGame().
 	// Also for REQUEST_STOP.
 	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_) {
+		if (PSP_HasBootRequest()) {
+			// Not powering down: update() boots what it asks for.
+			return false;
+		}
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
 		leaveGame();
 		return true;

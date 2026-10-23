@@ -57,6 +57,8 @@ static std::map<SceUID, u64> umdPausedWaits;
 
 bool g_UMDReplacePermit = false;
 bool UMDInserted = true;
+// The image a disc swap or insert put in the drive. Empty if it's still the one we booted with.
+static Path g_umdPath;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -81,6 +83,7 @@ void __UmdInit()
 	umdWaitingThreads.clear();
 	umdPausedWaits.clear();
 	g_UMDReplacePermit = false;
+	g_umdPath.clear();
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
@@ -519,6 +522,7 @@ void __UmdReplace(const Path &filepath) {
 	}
 
 	Achievements::ChangeUMD(filepath, fileLoader);
+	g_umdPath = filepath;
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.
@@ -541,6 +545,7 @@ bool __UmdInsert(const Path &filepath, std::string *error) {
 		return false;
 	}
 	Achievements::ChangeUMD(filepath, fileLoader);
+	g_umdPath = filepath;
 
 	CoreTiming::UnscheduleEvent(umdInsertChangeEvent, 1);
 	if (DriveCallbackPending()) {
@@ -572,6 +577,29 @@ void __UmdEject() {
 	UmdWakeThreads();
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, PSP_UMD_NOT_PRESENT | PSP_UMD_CHANGED);
+}
+
+Path __UmdGetPath() {
+	if (!UMDInserted) {
+		return Path();
+	}
+	if (!g_umdPath.empty()) {
+		return g_umdPath;
+	}
+	const CoreParameter &coreParam = PSP_CoreParameter();
+	if (!coreParam.mountIso.empty()) {
+		return coreParam.mountIso;
+	}
+	switch (coreParam.fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		return coreParam.fileToStart;
+	default:
+		// A homebrew or PS1 EBOOT, with no disc behind disc0:.
+		return Path();
+	}
 }
 
 bool __UmdIsInserted() {

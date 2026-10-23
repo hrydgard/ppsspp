@@ -29,6 +29,7 @@
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
+#include "Core/CoreParameter.h"
 #include "UI/ImDebugger/ImCommand.h"
 
 struct AxisInput;
@@ -112,6 +113,9 @@ private:
 	Path gamePath_;
 	Path mountIso_;
 	std::optional<bool> umdAutoboot_;
+	// The rest of a BootRequest from the emulated system (see PSP_RequestBoot).
+	std::optional<VSHLaunch> launchedFromVSH_;
+	std::vector<u8> vshmainArgs_;
 
 	bool quit_ = false;
 	std::string errorMessage_;

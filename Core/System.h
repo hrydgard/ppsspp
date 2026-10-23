@@ -79,6 +79,23 @@ BootState PollBootState();
 
 void PSP_Shutdown(bool success);
 
+// A boot the emulated system asks for itself: the XMB starting a game, or a game it started going
+// back to it. The core stops, and the frontend boots this like anything else, so the game gets its
+// PARAM.SFO, compat flags, game config and so on.
+struct BootRequest {
+	Path fileToStart;
+	Path mountIso;
+	std::optional<VSHLaunch> launchedFromVSH;
+	std::vector<u8> vshmainArgs;
+
+	void ApplyTo(CoreParameter *coreParam) const;
+};
+// Called on the CPU thread. Stops the core.
+void PSP_RequestBoot(const BootRequest &request);
+bool PSP_HasBootRequest();
+// For the frontend, once the core has stopped. Takes the pending request, if there is one.
+bool PSP_TakeBootRequest(BootRequest *request);
+
 FileLoader *PSP_LoadedFile();
 
 void PSP_RunLoopWhileState();
