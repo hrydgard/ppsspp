@@ -117,7 +117,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	bool isDiscImage = false;
 	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
 		isDiscImage = true;
-	} else if (extension == ".cue" || extension == ".ccd" || extension == ".mds") {
+	} else if (extension == ".cue" || extension == ".ccd" || extension == ".mds" || extension == ".m3u") {
 		// A PS1 disc, which boots as a converted EBOOT (see PS1EbootFileLoader).
 		return IsPS1DiscSheet(fileLoader) ? IdentifiedFileType::PSX_ISO : IdentifiedFileType::UNKNOWN;
 	} else if (extension == ".mdf") {

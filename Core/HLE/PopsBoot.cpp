@@ -20,6 +20,7 @@
 // Media Engine the manager's ME loop runs on. See docs/POPS.md.
 
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -27,6 +28,7 @@
 #include "ext/libkirk/amctrl.h"
 
 #include "Common/Serialize/Serializer.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
@@ -34,6 +36,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/Font/PGF.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
@@ -418,6 +421,294 @@ static bool SetsBlockSizeBefore(u32 addr, u32 textAddr) {
 	return false;
 }
 
+// The emulator's multi-disc strings, 14 for each of its 12 languages, as {length, UTF-16 pointer}: the HOME
+// menu's item, then three dialogs of a line each. A store game's PSTITLEIMG header has the key they're
+// descrambled with when a game has several discs (pops +29xxx in 6.60). A converted one has none, so the
+// descrambling is skipped and they're ours, from our translations. Each dialog's lines are left-aligned and
+// centred as a block. Its disc number is drawn over a gap in a line, at a position (one each for the
+// switch dialog, the disc picker's label and the confirmation) from a table of its own.
+enum {
+	DISC_MENU_ITEM = 0,
+	DISC_SWITCH = 1,  // The current disc, then 2-3.
+	DISC_LABEL = 4,
+	DISC_CONFIRM = 5,  // The disc it switches to, then 6-9.
+	DISC_RESET = 10,  // 10-13, the current disc on 11.
+	DISC_STRING_COUNT = 14,
+	POPS_LANGUAGES = 12,
+};
+
+// The dialog text is ltn0.pgf at this scale, and the label's at the second. The number positions are for
+// the firmware's English layout (the most lines each dialog has, the number on the first line of the switch
+// dialog and the confirmation and the second of the reset dialog), and are where it goes for it: measured
+// against the firmware's strings and positions (in each language that ltn0 has the glyphs for) and a
+// screenshot. The reset dialog has no position of its own: its number goes this far from the confirmation's.
+static const float DIALOG_TEXT_SCALE = 0.685f;
+static const float LABEL_TEXT_SCALE = 0.61f;
+static const float DIALOG_CENTER_X = 240.0f;
+static const float NUMBER_OFFSET_X = 4.0f;
+static const float LABEL_CENTER_X = 246.5f;
+static const float RESET_NUMBER_OFFSET_X = 31.0f;
+static const float MAX_LINE_WIDTH = 420.0f;
+static const int SWITCH_LINES = 2, SWITCH_NUMBER_Y = 95;
+static const int CONFIRM_LINES = 4, CONFIRM_NUMBER_Y = 88;
+static const int RESET_LINES = 4;
+static const int LABEL_NUMBER_Y = 160;
+
+// The width of text in ltn0.pgf's units, or -1 if a glyph is missing.
+static float TextWidth(const PGF &font, const std::u16string &text) {
+	float width = 0.0f;
+	for (char16_t c : text) {
+		PGFCharInfo info{};
+		if (!font.GetCharInfo(c, &info, -1)) {
+			return -1.0f;
+		}
+		width += info.sfp26AdvanceH / 64.0f;
+	}
+	return width;
+}
+
+// Words into lines no wider than maxWidth pixels, or none if a word is wider or a glyph is missing.
+static std::vector<std::u16string> WrapText(const PGF &font, const std::u16string &text, float maxWidth) {
+	std::vector<std::u16string> lines;
+	std::u16string line;
+	size_t pos = 0;
+	while (pos < text.size()) {
+		size_t end = text.find(u' ', pos);
+		if (end == std::u16string::npos) {
+			end = text.size();
+		}
+		const std::u16string word = text.substr(pos, end - pos);
+		const std::u16string candidate = line.empty() ? word : line + u" " + word;
+		const float width = TextWidth(font, candidate);
+		if (width < 0.0f) {
+			return {};
+		}
+		if (width * DIALOG_TEXT_SCALE <= maxWidth) {
+			line = candidate;
+		} else if (line.empty()) {
+			return {};
+		} else {
+			lines.push_back(line);
+			line = word;
+		}
+		pos = end + 1;
+	}
+	if (!line.empty()) {
+		lines.push_back(line);
+	}
+	return lines;
+}
+
+// Words into exactly count lines that fit the dialog, narrowing them until they split that way. The
+// dialogs are centred vertically by their number of lines, which the number's position is for.
+static std::vector<std::u16string> WrapToLines(const PGF &font, const std::u16string &text, int count) {
+	for (float width = MAX_LINE_WIDTH; width >= 40.0f; width -= 4.0f) {
+		std::vector<std::u16string> lines = WrapText(font, text, width);
+		if ((int)lines.size() == count) {
+			return lines;
+		}
+		if (lines.empty() || (int)lines.size() > count) {
+			break;
+		}
+	}
+	return {};
+}
+
+// A line with the disc number: %1 is a gap for it. Its text before the gap goes in prefix. False if it
+// has no %1, or glyphs the font hasn't.
+static bool NumberLine(const PGF &font, std::string_view text, std::u16string *line, std::u16string *prefix) {
+	const size_t gap = text.find("%1");
+	if (gap == std::string_view::npos) {
+		return false;
+	}
+	*prefix = ConvertUTF8ToUCS2(text.substr(0, gap));
+	*line = *prefix + u"    " + ConvertUTF8ToUCS2(text.substr(gap + 2));
+	return TextWidth(font, *line) >= 0.0f && TextWidth(font, *line) * DIALOG_TEXT_SCALE <= MAX_LINE_WIDTH;
+}
+
+struct DiscSwitchText {
+	std::u16string strings[DISC_STRING_COUNT];
+	s16 positions[3][2];
+};
+
+// The strings and number positions for one wording of them.
+static bool LayOutDiscSwitchText(const PGF &font, const std::function<std::string_view(const char *key)> &T, DiscSwitchText *out) {
+	std::u16string *s = out->strings;
+	s[DISC_MENU_ITEM] = ConvertUTF8ToUCS2(T("Switch Discs"));
+	if (TextWidth(font, s[DISC_MENU_ITEM]) < 0.0f) {
+		return false;
+	}
+
+	// Where the number goes in a dialog's line with the gap, in pixels.
+	auto gapX = [&](const std::u16string *lines, int count, const std::u16string &prefix) {
+		float widest = 0.0f;
+		for (int i = 0; i < count; i++) {
+			widest = std::max(widest, TextWidth(font, lines[i]));
+		}
+		return DIALOG_CENTER_X - DIALOG_TEXT_SCALE * widest / 2 + DIALOG_TEXT_SCALE * TextWidth(font, prefix) + NUMBER_OFFSET_X;
+	};
+	// A dialog: optionally a line, then the line with the gap, then text wrapped to the rest of its lines.
+	auto dialog = [&](int first, const char *lineBefore, const char *numberText, const char *restText, int lines, std::u16string *prefix) {
+		std::u16string line;
+		if (!NumberLine(font, T(numberText), &line, prefix)) {
+			return false;
+		}
+		std::vector<std::u16string> rest = WrapToLines(font, ConvertUTF8ToUCS2(T(restText)), lines - (lineBefore ? 2 : 1));
+		if (rest.empty()) {
+			return false;
+		}
+		int i = first;
+		if (lineBefore) {
+			s[i++] = ConvertUTF8ToUCS2(T(lineBefore));
+		}
+		s[i++] = line;
+		for (const std::u16string &r : rest) {
+			s[i++] = r;
+		}
+		return TextWidth(font, s[first]) >= 0.0f;
+	};
+
+	std::u16string prefix;
+	if (!dialog(DISC_SWITCH, nullptr, "The current disc is Disc %1.", "Select a disc to switch to.", SWITCH_LINES, &prefix)) {
+		return false;
+	}
+	out->positions[0][0] = (s16)gapX(&s[DISC_SWITCH], SWITCH_LINES, prefix);
+	out->positions[0][1] = SWITCH_NUMBER_Y;
+
+	if (!NumberLine(font, T("Disc %1"), &s[DISC_LABEL], &prefix)) {
+		return false;
+	}
+	out->positions[1][0] = (s16)(LABEL_CENTER_X + LABEL_TEXT_SCALE * (TextWidth(font, prefix) - TextWidth(font, s[DISC_LABEL]) / 2));
+	out->positions[1][1] = LABEL_NUMBER_Y;
+
+	std::u16string confirmPrefix, resetPrefix;
+	if (!dialog(DISC_CONFIRM, nullptr, "This will switch to Disc %1.", "If the game didn't ask for another disc, it might not be able to continue. Switch discs anyway?", CONFIRM_LINES, &confirmPrefix) ||
+		!dialog(DISC_RESET, "The game will be reset.", "The current disc is Disc %1.", "Select the disc to start after the reset.", RESET_LINES, &resetPrefix)) {
+		return false;
+	}
+	// The reset dialog's number goes where the confirmation's does, moved: pad the start of whichever of the two
+	// lines is short of that with spaces, to put their gaps as close to it as they go.
+	const std::u16string confirmLine = s[DISC_CONFIRM], resetLine = s[DISC_RESET + 1];
+	float best = 1e9f;
+	for (int confirmPad = 0; confirmPad < 24; confirmPad++) {
+		for (int resetPad = 0; resetPad < 24; resetPad++) {
+			if (confirmPad && resetPad) {
+				break;
+			}
+			std::u16string c[CONFIRM_LINES], r[RESET_LINES];
+			std::copy(s + DISC_CONFIRM, s + DISC_CONFIRM + CONFIRM_LINES, c);
+			std::copy(s + DISC_RESET, s + DISC_RESET + RESET_LINES, r);
+			c[0] = std::u16string(confirmPad, u' ') + confirmLine;
+			r[1] = std::u16string(resetPad, u' ') + resetLine;
+			if (TextWidth(font, c[0]) * DIALOG_TEXT_SCALE > MAX_LINE_WIDTH || TextWidth(font, r[1]) * DIALOG_TEXT_SCALE > MAX_LINE_WIDTH) {
+				continue;
+			}
+			const float confirmX = gapX(c, CONFIRM_LINES, std::u16string(confirmPad, u' ') + confirmPrefix);
+			const float resetX = gapX(r, RESET_LINES, std::u16string(resetPad, u' ') + resetPrefix);
+			const float error = fabsf(resetX - confirmX - RESET_NUMBER_OFFSET_X);
+			if (error < best) {
+				best = error;
+				out->positions[2][0] = (s16)confirmX;
+				s[DISC_CONFIRM] = c[0];
+				s[DISC_RESET + 1] = r[1];
+			}
+		}
+	}
+	out->positions[2][1] = CONFIRM_NUMBER_Y;
+	return best < 3.0f;
+}
+
+// Puts our strings and their number positions in the emulator's tables, in every language's row.
+static bool InstallDiscSwitchText(u32 stringTable, u32 positionTable) {
+	std::vector<u8> fontData;
+	PGF font;
+	if (pspFileSystem.ReadEntireFile("flash0:/font/ltn0.pgf", fontData, true) < 0 || !font.ReadPtr(fontData.data(), fontData.size())) {
+		WARN_LOG(Log::sceKernel, "POPS: no flash0:/font/ltn0.pgf to lay out the disc switching text with");
+		return false;
+	}
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	DiscSwitchText text;
+	if (!LayOutDiscSwitchText(font, [&](const char *key) { return sy->T(key); }, &text)) {
+		// The translation doesn't fit, or needs glyphs ltn0 hasn't: the English text does.
+		if (!LayOutDiscSwitchText(font, [](const char *key) { return std::string_view(key); }, &text)) {
+			return false;
+		}
+	}
+
+	u32 size = 0;
+	for (const std::u16string &s : text.strings) {
+		size += ((u32)s.size() * 2 + 3) & ~3;
+	}
+	u32 alloc = std::max(size, 4U);
+	const u32 strings = kernelMemory.Alloc(alloc, false, "PopsDiscText");
+	if (strings == (u32)-1) {
+		return false;
+	}
+	u32 ptr = strings;
+	u32 entries[DISC_STRING_COUNT][2];
+	for (int i = 0; i < DISC_STRING_COUNT; i++) {
+		const std::u16string &s = text.strings[i];
+		for (size_t c = 0; c < s.size(); c++) {
+			Memory::WriteUnchecked_U16(s[c], ptr + (u32)c * 2);
+		}
+		entries[i][0] = (u32)s.size();
+		entries[i][1] = s.empty() ? 0 : ptr;
+		ptr += ((u32)s.size() * 2 + 3) & ~3;
+	}
+	for (int lang = 0; lang < POPS_LANGUAGES; lang++) {
+		for (int i = 0; i < DISC_STRING_COUNT; i++) {
+			Memory::WriteUnchecked_U32(entries[i][0], stringTable + (lang * DISC_STRING_COUNT + i) * 8);
+			Memory::WriteUnchecked_U32(entries[i][1], stringTable + (lang * DISC_STRING_COUNT + i) * 8 + 4);
+		}
+		for (int i = 0; i < 3; i++) {
+			Memory::WriteUnchecked_U16(text.positions[i][0], positionTable + (lang * 3 + i) * 4);
+			Memory::WriteUnchecked_U16(text.positions[i][1], positionTable + (lang * 3 + i) * 4 + 2);
+		}
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, strings, size, "PopsDiscText");
+	INFO_LOG(Log::sceKernel, "POPS: disc numbers at %d,%d %d,%d %d,%d", text.positions[0][0], text.positions[0][1], text.positions[1][0], text.positions[1][1], text.positions[2][0], text.positions[2][1]);
+	return true;
+}
+
+// The address a lui at addr and an addiu after it make.
+static u32 LuiAddiuAddress(u32 addr) {
+	return (Memory::ReadUnchecked_U32(addr) << 16) + (s16)(Memory::ReadUnchecked_U32(addr + 4) & 0xFFFF);
+}
+
+// Finds the multi-disc strings' code in the emulator, and skips their descrambling for ours.
+static void PatchDiscSwitchText(u32 textAddr, u32 textSize) {
+	u32 stringTable = 0, positionTable = 0, decode = 0, decodeEnd = 0;
+	for (u32 addr = textAddr; addr + 0x20 < textAddr + textSize; addr += 4) {
+		auto at = [&](u32 offset) { return Memory::ReadUnchecked_U32(addr + offset); };
+		// The language's row: lang * 0x70 + table, into s7.
+		if (at(0) == 0x000219C0 && at(4) == 0x00021100 && at(8) == 0x00621823 && (at(12) >> 16) == 0x3C02 && (at(16) >> 16) == 0x2442 && at(20) == 0x0062B821) {
+			stringTable = LuiAddiuAddress(addr + 12);
+		}
+		// beq s7, zero, past the text; li s5, 0: then the descrambling, until bne t1, s0; addiu a1, a1, 8.
+		if (stringTable && !decode && (at(0) >> 16) == 0x12E0 && at(4) == 0x0000A821) {
+			decode = addr + 8;
+		}
+		if (decode && !decodeEnd && addr > decode && (at(0) >> 16) == 0x1530 && at(4) == 0x24A50008) {
+			decodeEnd = addr + 8;
+		}
+		// The number position, (lang * 3 + i) * 4 + table.
+		if (at(0) == 0x00031040 && at(4) == 0x00431021 && at(8) == 0x00501021 && (at(12) >> 16) == 0x3C03 && (at(16) >> 16) == 0x2463 && at(20) == 0x00021080) {
+			positionTable = LuiAddiuAddress(addr + 12);
+		}
+	}
+	if (!stringTable || !decode || !decodeEnd || !positionTable || decodeEnd - decode > 0x400) {
+		WARN_LOG(Log::sceKernel, "POPS: didn't find the disc switching text (%08x %08x-%08x %08x)", stringTable, decode, decodeEnd, positionTable);
+		return;
+	}
+	if (!InstallDiscSwitchText(stringTable, positionTable)) {
+		return;
+	}
+	Memory::WriteUnchecked_U32(0x10000000 | (((decodeEnd - (decode + 4)) >> 2) & 0xFFFF), decode);  // b decodeEnd
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), decode + 4);
+	currentMIPS->InvalidateICacheRangeDeferred(decode, 8);
+	INFO_LOG(Log::sceKernel, "POPS: disc switching text at %08x, numbers at %08x", stringTable, positionTable);
+}
+
 void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	// As CFW's popcorn does: the manual's name check always passes, and an ICON0 the emulator can't
 	// use reads as a blank one.
@@ -439,6 +730,7 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	if (!g_popsConvertedPBP) {
 		return;
 	}
+	PatchDiscSwitchText(textAddr, textSize);
 	if (!decodeStub) {
 		ERROR_LOG(Log::sceKernel, "POPS: the emulator doesn't import scePopsMan_0090B2C8, the disc won't read");
 		return;
@@ -524,6 +816,16 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 		// A converted PBP has no MACs. As popcorn does, take its data as authentic.
 		PatchReturn(base + PopsMan().checkMac, 0x24020001);  // li v0, 1
 		PatchReturn(base + PopsMan().checkMacExport, 0x24020001);
+		// With several discs, the disc header check (sceMeAudio_14447BA0) also compares the header with a
+		// MAC in the PSTITLEIMG header, by calling sceDrmBBMacFinal2 itself. That passes too.
+		const u32 headerCheck = KernelFindModuleExport("sceMeAudio", 0x14447BA0);
+		const u32 macFinal2 = KernelFindModuleImport("scePops_Manager", "sceAmctrl_driver", 0xF5186D8E);
+		for (u32 addr = headerCheck; headerCheck && macFinal2 && addr < headerCheck + 0x400; addr += 4) {
+			if (Memory::ReadUnchecked_U32(addr) == MIPS_MAKE_JAL(macFinal2)) {
+				Memory::WriteUnchecked_U32(0x24020000, addr);  // li v0, 0
+				currentMIPS->InvalidateICacheRangeDeferred(addr, 4);
+			}
+		}
 		if (PopsMan().licenseCall != 0) {
 			// It has no license, so the lookup can only fail.
 			Memory::WriteUnchecked_U32(0x24020000, base + PopsMan().licenseCall);  // li v0, 0

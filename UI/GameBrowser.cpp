@@ -1128,7 +1128,7 @@ void GameBrowser::Refresh() {
 		}
 	} else if (!listingPending_) {
 		std::vector<File::FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
+		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:m3u:bin:img:");
 		// PS1 discs: a .bin or .img shows up as its cue sheet or .ccd, when it has one.
 		RemoveDescribedDiscImages(&fileInfo);
 		for (size_t i = 0; i < fileInfo.size(); i++) {

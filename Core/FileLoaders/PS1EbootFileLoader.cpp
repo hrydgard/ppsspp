@@ -23,6 +23,8 @@
 #include "libchdr/cdrom.h"
 #include "libchdr/chd.h"
 
+#include "Common/Data/Text/I18n.h"
+#include "Common/File/AndroidContentURI.h"
 #include "Common/File/DirListing.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
@@ -152,7 +154,19 @@ bool IsPS1DiscSheet(FileLoader *fileLoader) {
 		const std::string upper = AsciiToUpper(text);
 		return upper.find("FILE") != std::string::npos && upper.find("TRACK") != std::string::npos;
 	}
+	if (ext == ".m3u") {
+		// A playlist of disc images, rather than of music.
+		for (const std::string &name : PlaylistFileNames(text)) {
+			if (IsPS1DiscImageExtension(Path(name).GetFileExtension())) {
+				return true;
+			}
+		}
+	}
 	return false;
+}
+
+bool IsPS1DiscImageExtension(const std::string &ext) {
+	return ext == ".cue" || ext == ".ccd" || ext == ".mds" || ext == ".chd" || ext == ".iso" || ext == ".bin" || ext == ".img" || ext == ".mdf";
 }
 
 std::vector<std::string> CueSheetFileNames(const Path &cuePath) {
@@ -197,6 +211,19 @@ Path FindCueSheetFor(const Path &imagePath) {
 
 void RemoveDescribedDiscImages(std::vector<File::FileInfo> *files) {
 	std::set<std::string> described;
+	// Discs a playlist lists, whatever their format, show up as the playlist.
+	std::set<std::string> inPlaylist;
+	for (const File::FileInfo &info : *files) {
+		if (info.isDirectory || info.fullName.GetFileExtension() != ".m3u") {
+			continue;
+		}
+		std::string text;
+		if (ReadSmallTextFile(info.fullName, &text)) {
+			for (const std::string &name : PlaylistFileNames(text)) {
+				inPlaylist.insert(AsciiToLower(Path(name).GetFilename()));
+			}
+		}
+	}
 	for (const File::FileInfo &info : *files) {
 		const std::string ext = info.fullName.GetFileExtension();
 		if (info.isDirectory || (ext != ".cue" && ext != ".ccd")) {
@@ -213,7 +240,13 @@ void RemoveDescribedDiscImages(std::vector<File::FileInfo> *files) {
 	}
 	files->erase(std::remove_if(files->begin(), files->end(), [&](const File::FileInfo &info) {
 		const std::string ext = info.fullName.GetFileExtension();
-		if (info.isDirectory || (ext != ".bin" && ext != ".img")) {
+		if (info.isDirectory) {
+			return false;
+		}
+		if (IsPS1DiscImageExtension(ext) && inPlaylist.count(AsciiToLower(info.name)) != 0) {
+			return true;
+		}
+		if (ext != ".bin" && ext != ".img") {
 			return false;
 		}
 		return info.size % SECTOR_SIZE != 0 || described.count(AsciiToLower(info.name)) != 0;
@@ -296,7 +329,7 @@ bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::funct
 	return false;
 }
 
-PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
+PS1Disc::PS1Disc(const Path &path) {
 	const std::string ext = path.GetFileExtension();
 	std::string text;
 	bool parsed = false;
@@ -374,19 +407,17 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 	}
 
 	ReadDiscID();
-	title_ = FileStem(path);
-	BuildHeaders();
 	INFO_LOG(Log::Loader, "PS1 disc %s: %s, %d tracks, %d sectors", path.c_str(), discID_.c_str(), (int)tracks_.size(), numSectors_);
 }
 
-PS1EbootFileLoader::~PS1EbootFileLoader() {
+PS1Disc::~PS1Disc() {
 	// It reads through files_.
 	if (chd_) {
 		chd_close(chd_);
 	}
 }
 
-int PS1EbootFileLoader::AddFile(const Path &path) {
+int PS1Disc::AddFile(const Path &path) {
 	FileLoader *loader = ConstructFileLoader(path);
 	if (!loader || !loader->Exists()) {
 		delete loader;
@@ -396,7 +427,7 @@ int PS1EbootFileLoader::AddFile(const Path &path) {
 	return (int)files_.size() - 1;
 }
 
-void PS1EbootFileLoader::AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize, bool byteSwapped, int stride) {
+void PS1Disc::AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize, bool byteSwapped, int stride) {
 	if (count != 0) {
 		extents_.push_back(Extent{ lba, count, file, offset, sectorSize, byteSwapped, stride ? stride : sectorSize });
 	}
@@ -406,7 +437,7 @@ void PS1EbootFileLoader::AddExtent(u32 lba, u32 count, int file, s64 offset, int
 // each with an extra block (pregap, length) and the image file's name. A track's length in sectors is
 // stored from its offset in the .mdf, from its pregap's start (but never before LBA 0), and anything
 // between tracks isn't stored.
-bool PS1EbootFileLoader::ParseMds(const Path &mdsPath, const std::string &data) {
+bool PS1Disc::ParseMds(const Path &mdsPath, const std::string &data) {
 	const u8 *d = (const u8 *)data.data();
 	const size_t size = data.size();
 	auto read32 = [&](size_t offset) -> u32 {
@@ -487,7 +518,7 @@ static int CHDTrackSectorSize(std::string_view type) {
 // A CD CHD's tracks are in its metadata, one entry each, and its frames (2352 bytes of sector and 96 of
 // subcode) are in hunks of several. Each track's frames are padded to a multiple of four, and a pregap is
 // in them only if its type starts with V.
-bool PS1EbootFileLoader::OpenCHD(const Path &path) {
+bool PS1Disc::OpenCHD(const Path &path) {
 	const int file = AddFile(path);
 	if (file < 0) {
 		return false;
@@ -558,7 +589,7 @@ bool IsCDChd(FileLoader *fileLoader) {
 	return cd;
 }
 
-bool PS1EbootFileLoader::ParseCue(const Path &cuePath, const std::string &text) {
+bool PS1Disc::ParseCue(const Path &cuePath, const std::string &text) {
 	struct CueTrack {
 		int number;
 		bool audio;
@@ -688,7 +719,7 @@ bool PS1EbootFileLoader::ParseCue(const Path &cuePath, const std::string &text) 
 	return !tracks_.empty();
 }
 
-bool PS1EbootFileLoader::ParseCcd(const Path &ccdPath, const std::string &text) {
+bool PS1Disc::ParseCcd(const Path &ccdPath, const std::string &text) {
 	const int file = AddFile(ccdPath.WithReplacedExtension(".img"));
 	if (file < 0) {
 		error_ = "Missing " + ccdPath.WithReplacedExtension(".img").GetFilename();
@@ -741,7 +772,7 @@ bool PS1EbootFileLoader::ParseCcd(const Path &ccdPath, const std::string &text) 
 	return true;
 }
 
-bool PS1EbootFileLoader::OpenBare(const Path &path) {
+bool PS1Disc::OpenBare(const Path &path) {
 	const int file = AddFile(path);
 	if (file < 0) {
 		return false;
@@ -765,7 +796,7 @@ bool PS1EbootFileLoader::OpenBare(const Path &path) {
 	return true;
 }
 
-bool PS1EbootFileLoader::ReadRawSectors(u32 lba, u32 count, u8 *out) {
+bool PS1Disc::ReadRawSectors(u32 lba, u32 count, u8 *out) {
 	bool ok = true;
 	while (count > 0) {
 		auto it = std::upper_bound(extents_.begin(), extents_.end(), lba, [](u32 lba, const Extent &e) { return lba < e.lba; });
@@ -825,7 +856,7 @@ bool PS1EbootFileLoader::ReadRawSectors(u32 lba, u32 count, u8 *out) {
 }
 
 // One sector's stored bytes (e.sectorSize of them) from an extent's file or the CHD.
-bool PS1EbootFileLoader::ReadSourceSector(const Extent &e, u32 index, u8 *out) {
+bool PS1Disc::ReadSourceSector(const Extent &e, u32 index, u8 *out) {
 	if (e.file >= 0) {
 		return files_[e.file]->ReadAt(e.offset + (s64)index * e.stride, e.sectorSize, out) == (size_t)e.sectorSize;
 	}
@@ -851,7 +882,7 @@ bool PS1EbootFileLoader::ReadSourceSector(const Extent &e, u32 index, u8 *out) {
 	return true;
 }
 
-bool PS1EbootFileLoader::ReadUserData(u32 lba, u8 *out) {
+bool PS1Disc::ReadUserData(u32 lba, u8 *out) {
 	u8 sector[SECTOR_SIZE];
 	if (!ReadRawSectors(lba, 1, sector)) {
 		return false;
@@ -861,7 +892,7 @@ bool PS1EbootFileLoader::ReadUserData(u32 lba, u8 *out) {
 }
 
 // The ID the disc boots by, from SYSTEM.CNF's BOOT line ("cdrom:\SLUS_007.13;1" is SLUS00713).
-void PS1EbootFileLoader::ReadDiscID() {
+void PS1Disc::ReadDiscID() {
 	discID_ = "SLUS00000";
 	u8 pvd[2048];
 	if (!ReadUserData(16, pvd) || memcmp(pvd, "\x01" "CD001", 6) != 0) {
@@ -921,37 +952,7 @@ void PS1EbootFileLoader::ReadDiscID() {
 	}
 }
 
-void PS1EbootFileLoader::BuildHeaders() {
-	ParamSFOData sfo;
-	sfo.SetValue("BOOTABLE", 1, 4);
-	sfo.SetValue("CATEGORY", "ME", 4);
-	sfo.SetValue("DISC_ID", discID_, 16);
-	sfo.SetValue("DISC_VERSION", "1.00", 8);
-	sfo.SetValue("PARENTAL_LEVEL", 1, 4);
-	sfo.SetValue("PSP_SYSTEM_VER", "3.01", 8);
-	sfo.SetValue("REGION", 0x8000, 4);
-	sfo.SetValue("TITLE", title_, 128);
-	u8 *sfoData = nullptr;
-	size_t sfoSize = 0;
-	sfo.WriteSFO(&sfoData, &sfoSize);
-
-	// PARAM.SFO, then no icons, pictures, sound or DATA.PSP.
-	const u32 sfoEnd = 0x28 + (u32)sfoSize;
-	psarOffset_ = (sfoEnd + 0xFFFF) & ~0xFFFF;
-	head_.assign(psarOffset_ + PSAR_HEADER_SIZE, 0);
-	u8 *pbp = head_.data();
-	memcpy(pbp, "\0PBP", 4);
-	u32_le *words = (u32_le *)pbp;
-	words[1] = 0x00010000;
-	words[2] = 0x28;
-	for (int i = 3; i < 9; i++) {
-		words[i] = sfoEnd;
-	}
-	words[9] = psarOffset_;
-	memcpy(pbp + 0x28, sfoData, sfoSize);
-	delete[] sfoData;
-
-	u8 *psar = pbp + psarOffset_;
+void PS1Disc::BuildHeader(const std::string &title, u8 *psar) const {
 	auto write32 = [&](u32 offset, u32 value) {
 		*(u32_le *)(psar + offset) = value;
 	};
@@ -987,10 +988,191 @@ void PS1EbootFileLoader::BuildHeaders() {
 	write32(0xBFC, PSAR_DATA_OFFSET);
 	write32(0x1220, end + 0x2D31);
 	write32(0x1228, 0x7FF);
-	memcpy(psar + 0x122C, title_.data(), std::min(title_.size(), (size_t)0x7F));
+	memcpy(psar + 0x122C, title.data(), std::min(title.size(), (size_t)0x7F));
 	write32(0x12AC, 3);
+}
 
-	size_ = (s64)psarOffset_ + end;
+void PS1Disc::Cancel() {
+	for (auto &file : files_) {
+		file->Cancel();
+	}
+}
+
+std::vector<std::string> PlaylistFileNames(std::string_view text) {
+	std::vector<std::string> names;
+	std::vector<std::string_view> lines;
+	SplitString(text, '\n', lines);
+	for (std::string_view line : lines) {
+		line = StripSpaces(line);
+		if (!line.empty() && line[0] != '#') {
+			names.emplace_back(line);
+		}
+	}
+	return names;
+}
+
+// The most discs a PSTITLEIMG lists.
+static const int MAX_DISCS = 5;
+// A multi-disc PSAR: the PSTITLEIMG header, then each disc's PSISOIMG on a boundary of this.
+static const u32 DISC_ALIGN = 0x8000;
+static const u32 TITLE_HEADER_SIZE = 0x400;
+
+// Whether reading this image takes other files than itself, which an app given only that one file
+// (an Android document, rather than a folder) can't open.
+static bool NeedsOtherFiles(const std::string &ext) {
+	return ext == ".cue" || ext == ".ccd" || ext == ".mds" || ext == ".m3u";
+}
+
+PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
+	const std::string ext = path.GetFileExtension();
+	if (path.Type() == PathType::CONTENT_URI && NeedsOtherFiles(ext) && !AndroidContentURI(path.ToString()).IsTreeURI()) {
+		auto er = GetI18NCategory(I18NCat::ERRORS);
+		error_ = er->T("PS1NeedsFolderAccess", "This game is made of several files, and PPSSPP was only given access to one of them. Add the folder it's in with Browse... on the Games tab, and start it from there.");
+		return;
+	}
+
+	std::vector<Path> discPaths;
+	if (ext == ".m3u") {
+		std::string text;
+		if (!ReadSmallTextFile(path, &text)) {
+			error_ = "Can't read " + path.GetFilename();
+			return;
+		}
+		for (const std::string &name : PlaylistFileNames(text)) {
+			const Path absolute(name);
+			discPaths.push_back(absolute.IsAbsolute() ? absolute : path.NavigateUp() / name);
+		}
+		if (discPaths.empty() || discPaths.size() > MAX_DISCS) {
+			error_ = StringFromFormat("A playlist lists 1 to %d discs: %s", MAX_DISCS, path.GetFilename().c_str());
+			return;
+		}
+	} else {
+		discPaths.push_back(path);
+	}
+	for (const Path &discPath : discPaths) {
+		discs_.emplace_back(new PS1Disc(discPath));
+		if (!discs_.back()->IsValid()) {
+			error_ = discs_.back()->Error();
+			return;
+		}
+	}
+	title_ = FileStem(path);
+	BuildHeaders();
+}
+
+PS1EbootFileLoader::~PS1EbootFileLoader() {}
+
+void PS1EbootFileLoader::BuildHeaders() {
+	ParamSFOData sfo;
+	sfo.SetValue("BOOTABLE", 1, 4);
+	sfo.SetValue("CATEGORY", "ME", 4);
+	sfo.SetValue("DISC_ID", DiscID(), 16);
+	sfo.SetValue("DISC_VERSION", "1.00", 8);
+	sfo.SetValue("PARENTAL_LEVEL", 1, 4);
+	sfo.SetValue("PSP_SYSTEM_VER", "3.01", 8);
+	sfo.SetValue("REGION", 0x8000, 4);
+	sfo.SetValue("TITLE", title_, 128);
+	u8 *sfoData = nullptr;
+	size_t sfoSize = 0;
+	sfo.WriteSFO(&sfoData, &sfoSize);
+
+	// PARAM.SFO, then no icons, pictures, sound or DATA.PSP.
+	const u32 sfoEnd = 0x28 + (u32)sfoSize;
+	psarOffset_ = (sfoEnd + 0xFFFF) & ~0xFFFF;
+	const bool multiDisc = discs_.size() > 1;
+	head_.assign(psarOffset_ + (multiDisc ? TITLE_HEADER_SIZE : 0), 0);
+	u8 *pbp = head_.data();
+	memcpy(pbp, "\0PBP", 4);
+	u32_le *words = (u32_le *)pbp;
+	words[1] = 0x00010000;
+	words[2] = 0x28;
+	for (int i = 3; i < 9; i++) {
+		words[i] = sfoEnd;
+	}
+	words[9] = psarOffset_;
+	memcpy(pbp + 0x28, sfoData, sfoSize);
+	delete[] sfoData;
+
+	// One disc's PSISOIMG starts the PSAR. With several, a PSTITLEIMG header lists them.
+	s64 offset = multiDisc ? DISC_ALIGN : 0;
+	s64 end = 0;
+	for (const auto &disc : discs_) {
+		discHeaders_.emplace_back(PSAR_HEADER_SIZE, 0);
+		disc->BuildHeader(title_, discHeaders_.back().data());
+		discOffsets_.push_back(offset);
+		end = offset + PSAR_DATA_OFFSET + (s64)disc->NumBlocks() * BLOCK_SIZE;
+		offset = (end + DISC_ALIGN - 1) & ~(s64)(DISC_ALIGN - 1);
+	}
+	size_ = psarOffset_ + end;
+
+	if (multiDisc) {
+		// The fields the emulator reads (pops +1B2F0 in 6.60): the disc offsets, the first disc's ID, and the
+		// title. The end of the last disc and its +0x2D31 are where a STARTDAT would follow, as in a PSISOIMG.
+		// The MACs a store game's header has, and the key its disc switching strings are descrambled with,
+		// stay zero: PopsBoot sees to both.
+		u8 *title = pbp + psarOffset_;
+		memcpy(title, "PSTITLEIMG000000", 16);
+		*(u32_le *)(title + 0x10) = (u32)end;
+		for (size_t i = 0; i < discs_.size(); i++) {
+			*(u32_le *)(title + 0x200 + 4 * i) = (u32)discOffsets_[i];
+		}
+		memcpy(title + 0x264, discHeaders_[0].data() + 0x400, 0x20);
+		*(u32_le *)(title + 0x284) = (u32)end + 0x2D31;
+		memcpy(title + 0x30C, title_.data(), std::min(title_.size(), (size_t)0x7F));
+	}
+
+	for (size_t i = 0; i < discs_.size(); i++) {
+		INFO_LOG(Log::Loader, "PS1 EBOOT %s: disc %d (%s) at PSAR+%llx", path_.c_str(), (int)i + 1, discs_[i]->DiscID().c_str(), (long long)discOffsets_[i]);
+	}
+}
+
+// Bytes from disc's PSISOIMG, at pos in it: the header, then the block index, then the blocks.
+size_t PS1EbootFileLoader::ReadDisc(int disc, s64 pos, size_t bytes, u8 *out) {
+	const std::vector<u8> &header = discHeaders_[disc];
+	const u32 numBlocks = discs_[disc]->NumBlocks();
+	const s64 indexStart = (s64)header.size();
+	if (pos < indexStart) {
+		const size_t n = std::min(bytes, (size_t)(indexStart - pos));
+		memcpy(out, header.data() + pos, n);
+		return n;
+	}
+	if (pos < PSAR_DATA_OFFSET) {
+		const u32 entry = (u32)((pos - indexStart) / PSAR_INDEX_ENTRY_SIZE);
+		const u32 within = (u32)((pos - indexStart) % PSAR_INDEX_ENTRY_SIZE);
+		u8 buf[PSAR_INDEX_ENTRY_SIZE]{};
+		if (entry < numBlocks) {
+			*(u32_le *)buf = entry * BLOCK_SIZE;
+			*(u16_le *)(buf + 4) = (u16)BLOCK_SIZE;
+		}
+		const size_t n = std::min(bytes, (size_t)(PSAR_INDEX_ENTRY_SIZE - within));
+		memcpy(out, buf + within, n);
+		return n;
+	}
+	const u32 block = (u32)((pos - PSAR_DATA_OFFSET) / BLOCK_SIZE);
+	const u32 within = (u32)((pos - PSAR_DATA_OFFSET) % BLOCK_SIZE);
+	if (block >= numBlocks) {
+		// Padding before the next disc.
+		memset(out, 0, bytes);
+		return bytes;
+	}
+	if (within < sizeof(STORED_HEADER)) {
+		const size_t n = std::min(bytes, sizeof(STORED_HEADER) - within);
+		memcpy(out, STORED_HEADER + within, n);
+		return n;
+	}
+	const u32 offset = within - sizeof(STORED_HEADER);
+	const size_t n = std::min(bytes, (size_t)(BLOCK_DATA_SIZE - offset));
+	const u32 lba = block * BLOCK_SECTORS + offset / SECTOR_SIZE;
+	if (offset % SECTOR_SIZE == 0 && n % SECTOR_SIZE == 0) {
+		discs_[disc]->ReadRawSectors(lba, (u32)(n / SECTOR_SIZE), out);
+	} else {
+		const u32 first = offset % SECTOR_SIZE;
+		const u32 sectors = (u32)((first + n + SECTOR_SIZE - 1) / SECTOR_SIZE);
+		std::vector<u8> buf((size_t)sectors * SECTOR_SIZE);
+		discs_[disc]->ReadRawSectors(lba, sectors, buf.data());
+		memcpy(out, buf.data() + first, n);
+	}
+	return n;
 }
 
 size_t PS1EbootFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
@@ -1001,42 +1183,25 @@ size_t PS1EbootFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, v
 	size_t remaining = (size_t)std::min((s64)(bytes * count), std::max(size_ - absolutePos, (s64)0));
 	const size_t total = remaining;
 	s64 pos = absolutePos;
-	const s64 indexStart = (s64)head_.size();
-	const s64 dataStart = (s64)psarOffset_ + PSAR_DATA_OFFSET;
 	while (remaining > 0) {
 		size_t n;
-		if (pos < indexStart) {
-			n = std::min(remaining, (size_t)(indexStart - pos));
+		if (pos < (s64)head_.size()) {
+			n = std::min(remaining, (size_t)((s64)head_.size() - pos));
 			memcpy(out, head_.data() + pos, n);
-		} else if (pos < dataStart) {
-			const u32 entry = (u32)((pos - indexStart) / PSAR_INDEX_ENTRY_SIZE);
-			const u32 within = (u32)((pos - indexStart) % PSAR_INDEX_ENTRY_SIZE);
-			u8 buf[PSAR_INDEX_ENTRY_SIZE]{};
-			if (entry < numBlocks_) {
-				*(u32_le *)buf = entry * BLOCK_SIZE;
-				*(u16_le *)(buf + 4) = (u16)BLOCK_SIZE;
-			}
-			n = std::min(remaining, (size_t)(PSAR_INDEX_ENTRY_SIZE - within));
-			memcpy(out, buf + within, n);
 		} else {
-			const u32 block = (u32)((pos - dataStart) / BLOCK_SIZE);
-			const u32 within = (u32)((pos - dataStart) % BLOCK_SIZE);
-			if (within < sizeof(STORED_HEADER)) {
-				n = std::min(remaining, sizeof(STORED_HEADER) - within);
-				memcpy(out, STORED_HEADER + within, n);
+			// The disc this falls in, or the zeroes before the first one.
+			const s64 psarPos = pos - psarOffset_;
+			int disc = (int)discOffsets_.size() - 1;
+			while (disc >= 0 && psarPos < discOffsets_[disc]) {
+				disc--;
+			}
+			if (disc < 0) {
+				n = std::min(remaining, (size_t)(discOffsets_[0] - psarPos));
+				memset(out, 0, n);
 			} else {
-				const u32 offset = within - sizeof(STORED_HEADER);
-				n = std::min(remaining, (size_t)(BLOCK_DATA_SIZE - offset));
-				const u32 lba = block * BLOCK_SECTORS + offset / SECTOR_SIZE;
-				if (offset % SECTOR_SIZE == 0 && n % SECTOR_SIZE == 0) {
-					ReadRawSectors(lba, (u32)(n / SECTOR_SIZE), out);
-				} else {
-					const u32 first = offset % SECTOR_SIZE;
-					const u32 sectors = (u32)((first + n + SECTOR_SIZE - 1) / SECTOR_SIZE);
-					std::vector<u8> buf((size_t)sectors * SECTOR_SIZE);
-					ReadRawSectors(lba, sectors, buf.data());
-					memcpy(out, buf.data() + first, n);
-				}
+				const s64 discEnd = disc + 1 < (int)discOffsets_.size() ? discOffsets_[disc + 1] : size_ - psarOffset_;
+				const size_t limit = std::min(remaining, (size_t)(discEnd - psarPos));
+				n = ReadDisc(disc, psarPos - discOffsets_[disc], limit, out);
 			}
 		}
 		out += n;
@@ -1047,7 +1212,7 @@ size_t PS1EbootFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, v
 }
 
 void PS1EbootFileLoader::Cancel() {
-	for (auto &file : files_) {
-		file->Cancel();
+	for (auto &disc : discs_) {
+		disc->Cancel();
 	}
 }

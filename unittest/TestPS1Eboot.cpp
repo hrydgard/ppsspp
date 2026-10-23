@@ -372,6 +372,53 @@ bool TestPS1Eboot() {
 	const std::vector<std::string> expectedNames = { "Alcohol.mdf", "Alcohol.mds", "Clone.ccd", "Cooked.iso", "Game.cue", "Loose.bin", "Pregap.cue", "Stripped.cue" };
 	EXPECT_TRUE(names == expectedNames);
 
+	// A playlist: a multi-disc EBOOT, a PSTITLEIMG listing each disc's PSISOIMG.
+	EXPECT_TRUE(File::WriteStringToFile(true, "# Two discs\r\nGame.cue\r\n\r\nClone.ccd\r\n", dir / "Two.m3u"));
+	{
+		std::unique_ptr<FileLoader> m3u(ConstructFileLoader(dir / "Two.m3u"));
+		std::string error;
+		EXPECT_TRUE(Identify_File(m3u.get(), &error) == IdentifiedFileType::PSX_ISO);
+
+		PS1EbootFileLoader eboot(dir / "Two.m3u");
+		EXPECT_TRUE(eboot.IsValid());
+		EXPECT_EQ_INT(eboot.NumDiscs(), 2);
+		EXPECT_TRUE(Identify_File(&eboot, &error) == IdentifiedFileType::PSP_PS1_PBP);
+		const u32 psar = Get32(&ReadAll(&eboot, 0, 0x28)[0x24]);
+		const std::vector<u8> title = ReadAll(&eboot, psar, 0x400);
+		EXPECT_EQ_MEM(&title[0], "PSTITLEIMG000000", 16);
+		EXPECT_EQ_MEM(&title[0x264], "_SLUS_12345", 12);
+		const u32 offsets[2] = { Get32(&title[0x200]), Get32(&title[0x204]) };
+		EXPECT_EQ_INT(offsets[0], 0x8000);
+		EXPECT_EQ_INT(offsets[1] % 0x8000, 0);
+		EXPECT_EQ_INT(Get32(&title[0x208]), 0);
+		const std::vector<u8> *discs[2] = { &disc, &data };
+		for (int i = 0; i < 2; i++) {
+			const s64 base = psar + offsets[i];
+			EXPECT_EQ_MEM(ReadAll(&eboot, base, 12).data(), "PSISOIMG0000", 12);
+			const std::vector<u8> expected = ExpectedBlocks(*discs[i]);
+			EXPECT_TRUE(ReadAll(&eboot, base + 0x100000, expected.size()) == expected);
+		}
+		const s64 end = offsets[1] + 0x100000 + (s64)ExpectedBlocks(data).size();
+		EXPECT_EQ_INT(Get32(&title[0x10]), end);
+		EXPECT_EQ_INT(eboot.FileSize(), psar + end);
+		// The gap between the discs reads as zeroes.
+		const s64 gapStart = psar + offsets[0] + 0x100000 + (s64)ExpectedBlocks(disc).size();
+		const std::vector<u8> gap = ReadAll(&eboot, gapStart, 16);
+		EXPECT_TRUE(gap == std::vector<u8>(16, 0));
+
+		// The browser shows the playlist, and not the discs it lists.
+		std::vector<File::FileInfo> listing;
+		File::GetFilesInDir(dir, &listing);
+		RemoveDescribedDiscImages(&listing);
+		bool hasPlaylist = false, hasDisc = false;
+		for (const File::FileInfo &info : listing) {
+			hasPlaylist = hasPlaylist || info.name == "Two.m3u";
+			hasDisc = hasDisc || info.name == "Game.cue" || info.name == "Clone.ccd";
+		}
+		EXPECT_TRUE(hasPlaylist && !hasDisc);
+	}
+	File::Delete(dir / "Two.m3u");
+
 	// Installing from a zip: the cue sheet and both its files, into a folder of their own.
 	const Path zipPath = dir / "Game.zip";
 	{

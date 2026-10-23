@@ -26,29 +26,22 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
-// A PS1 disc image (a cue sheet, a CloneCD .ccd, an Alcohol .mds, a CHD, or a bare .bin/.img/.iso) presented as a converted
-// PS1 EBOOT.PBP, the kind popstation makes, for the firmware's POPS to run. Only the headers are kept
-// in memory. The disc image is stored uncompressed, as stored DEFLATE blocks, so a read of it goes
-// straight to the image's files. See docs/POPS.md.
-class PS1EbootFileLoader : public FileLoader {
+// One PS1 disc image (a cue sheet, a CloneCD .ccd, an Alcohol .mds, a CHD, or a bare .bin/.img/.iso):
+// its tracks, and its sectors as raw 2352-byte ones, however the image stores them.
+class PS1Disc {
 public:
-	explicit PS1EbootFileLoader(const Path &path);
-	~PS1EbootFileLoader();
+	explicit PS1Disc(const Path &path);
+	~PS1Disc();
 
 	bool IsValid() const { return error_.empty(); }
-
-	bool Exists() override { return IsValid(); }
-	bool IsDirectory() override { return false; }
-	s64 FileSize() override { return size_; }
-	Path GetPath() const override { return path_; }
-	std::string GetFileExtension() const override { return ".pbp"; }
-	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
-	using FileLoader::ReadAt;
-	void Cancel() override;
-	std::string LatestError() const override { return error_; }
-
+	const std::string &Error() const { return error_; }
 	const std::string &DiscID() const { return discID_; }
-	const std::string &Title() const { return title_; }
+	u32 NumBlocks() const { return numBlocks_; }
+
+	// Its PSISOIMG header, up to the block index (PSAR_HEADER_SIZE bytes).
+	void BuildHeader(const std::string &title, u8 *psisoimg) const;
+	bool ReadRawSectors(u32 lba, u32 count, u8 *out);
+	void Cancel();
 
 private:
 	struct Track {
@@ -79,12 +72,9 @@ private:
 	void AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize, bool byteSwapped = false, int stride = 0);
 
 	bool ReadSourceSector(const Extent &e, u32 index, u8 *out);
-	bool ReadRawSectors(u32 lba, u32 count, u8 *out);
 	bool ReadUserData(u32 lba, u8 *out);
 	void ReadDiscID();
-	void BuildHeaders();
 
-	Path path_;
 	std::string error_;
 	std::vector<std::unique_ptr<FileLoader>> files_;
 	std::vector<Extent> extents_;
@@ -99,21 +89,64 @@ private:
 	u32 framesPerHunk_ = 0;
 
 	std::string discID_;
-	std::string title_;
-
-	// The PBP up to the PSAR's block index, then the index and the blocks, which are made on the fly.
-	std::vector<u8> head_;
-	u32 psarOffset_ = 0;
 	u32 numBlocks_ = 0;
+};
+
+// One or more PS1 discs presented as a converted PS1 EBOOT.PBP, the kind popstation makes, for the
+// firmware's POPS to run: one disc image, or an .m3u playlist of up to five, which become a multi-disc
+// EBOOT. Only the headers are kept in memory. The disc images are stored uncompressed, as stored DEFLATE
+// blocks, so a read of one goes straight to its files. See docs/POPS.md.
+class PS1EbootFileLoader : public FileLoader {
+public:
+	explicit PS1EbootFileLoader(const Path &path);
+	~PS1EbootFileLoader();
+
+	bool IsValid() const { return error_.empty(); }
+
+	bool Exists() override { return IsValid(); }
+	bool IsDirectory() override { return false; }
+	s64 FileSize() override { return size_; }
+	Path GetPath() const override { return path_; }
+	std::string GetFileExtension() const override { return ".pbp"; }
+	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
+	using FileLoader::ReadAt;
+	void Cancel() override;
+	std::string LatestError() const override { return error_; }
+
+	const std::string &DiscID() const { return discs_[0]->DiscID(); }
+	const std::string &Title() const { return title_; }
+	int NumDiscs() const { return (int)discs_.size(); }
+
+private:
+	void BuildHeaders();
+	size_t ReadDisc(int disc, s64 pos, size_t bytes, u8 *out);
+
+	Path path_;
+	std::string error_;
+	std::string title_;
+	std::vector<std::unique_ptr<PS1Disc>> discs_;
+
+	// The PBP up to the PSAR, then (with several discs) the PSTITLEIMG header. Each disc's PSISOIMG
+	// header follows at its offset in the PSAR, then its block index and blocks, made on the fly.
+	std::vector<u8> head_;
+	std::vector<std::vector<u8>> discHeaders_;
+	std::vector<s64> discOffsets_;
+	u32 psarOffset_ = 0;
 	s64 size_ = 0;
 };
+
+// The disc images an .m3u playlist lists, as written.
+std::vector<std::string> PlaylistFileNames(std::string_view text);
 
 namespace File {
 struct FileInfo;
 }
 
-// Whether a .cue, .ccd or .mds describes a disc, by its contents.
+// Whether a .cue, .ccd or .mds describes a disc, or an .m3u lists disc images, by its contents.
 bool IsPS1DiscSheet(FileLoader *fileLoader);
+
+// Whether a file with this extension can be (part of) a PS1 disc image.
+bool IsPS1DiscImageExtension(const std::string &ext);
 
 // Whether a CHD is of a CD (rather than a DVD, like a PSP disc).
 bool IsCDChd(FileLoader *fileLoader);
@@ -137,7 +170,7 @@ bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::funct
 // The cue sheet next to a disc image whose FILE lines name it, or an empty path.
 Path FindCueSheetFor(const Path &imagePath);
 
-// Removes the .bin and .img files from a directory listing that a cue sheet or .ccd in it describes, so
-// that each game shows up once, and those that can't be a raw disc image (a size that isn't a whole
-// number of sectors).
+// Removes the disc images from a directory listing that a playlist in it lists, and the .bin and .img
+// files that a cue sheet or .ccd in it describes, so that each game shows up once, and those that can't be
+// a raw disc image (a size that isn't a whole number of sectors).
 void RemoveDescribedDiscImages(std::vector<File::FileInfo> *files);
