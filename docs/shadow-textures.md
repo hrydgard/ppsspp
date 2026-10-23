@@ -92,9 +92,21 @@ You can also write such a region yourself, joining rectangles with `+`:
 `new/shadowranges.ini` copies your `[shadowranges]` lines with the same regions (largest first), and adds the
 regions made of parts that dumps used, so their replacements are found again.
 
-`[hashranges]` entries are tried like learned regions. They aren't written to `new/shadowranges.ini`, and
-nothing writes new ones. Keep in mind that with `shadowTextures` off, a hash range crops every texture at that
-address.
+### Fixed regions: `[hashranges]`
+
+A `[hashranges]` entry means everything at that address is the size it gives, the same as without shadow
+textures:
+
+```ini
+[hashranges]
+0x08da0990,256,256 = 256,256
+```
+
+- Every dump and key of that texture uses exactly that region, whatever its draws used. It's checked before
+  `[shadowranges]`, so an entry in both uses the hash range.
+- Nothing is learned for it, and it isn't written to `new/shadowranges.ini` (it stays in `textures.ini`).
+- Use it when one size is right for everything at an address, and `[shadowranges]` when there are several.
+- A hash range smaller than what's drawn cuts it, like without shadow textures, so only use sizes you're sure of.
 
 ## Options
 
@@ -144,7 +156,7 @@ image (same address, different hash), and look up what you see:
 | A sprite sheet is cut (only the frames that were drawn) | It was dumped with the region its draws sampled | Declare the full size under `[shadowranges]` |
 | A declared texture is dumped with trash at the edge | Nothing changed there while the dump waited, so the larger region was used | Raise `shadowSettleSeconds`, or declare only the smaller region for it. Transparent or one-color leftovers are left out by themselves |
 | An image in parts is dumped whole, with the data beside its parts | No listed region holds all of it | List each part under `[shadowranges]` (see [Images in parts](#images-in-parts)) |
-| Undeclared sheets dumped as half or quarter sheets | They were dumped with what their draws used | Declare the sheet's size under `[shadowranges]` |
+| Undeclared sheets dumped as half or quarter sheets | They were dumped with what their draws used | Declare the sheet's size under `[shadowranges]`, or under `[hashranges]` if every texture at that address is that size |
 | The same image in many colors | Each palette is its own texture | `saveIndexed = all` (or `true` with the texture in `[indexed]`) |
 | Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` and HD glyphs (see below) |
 | `over the memory budget, dumping early` in the log | Dumps were written before they settled | Raise `shadowMemoryMB` |

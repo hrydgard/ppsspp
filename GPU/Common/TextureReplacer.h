@@ -300,9 +300,11 @@ protected:
 		std::vector<std::vector<ShadowRegion>> declaredCombos;
 		// From [learnedshadowranges] and the dumps of this session.
 		std::vector<ShadowRegion> learned;
-		// From [hashranges] (0 or 1). Tried like the learned ones, but not written to shadowranges.ini.
+		// From [hashranges] (0 or 1). It fixes the region: every key and dump of this texture uses exactly it, over
+		// [shadowranges] and what's drawn.
 		std::vector<ShadowRegion> hashRange;
 		bool IsDeclared() const { return !declared.empty() || !declaredCombos.empty(); }
+		bool IsFixed() const { return !hashRange.empty(); }
 	};
 	// What the draws of one replacement key sampled, and the region it was hashed over.
 	struct ShadowKeyInfo {

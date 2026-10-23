@@ -1893,12 +1893,19 @@ u32 TextureReplacer::ComputeShadowHash(const ShadowHashParams &p, u16 *extentW, 
 	const bool seenKnown = !unbounded && !seen.Empty();
 
 	// Try the regions that dumps of this texture were made with, largest first. A region has to cover what draws
-	// sample, otherwise the replacement would leave out what's drawn.
-	const std::vector<ShadowRegion> candidates = ShadowLookupRegions(slot, p.w, p.h);
+	// sample, otherwise the replacement would leave out what's drawn. A hash range is the only one.
+	const std::vector<ShadowRegion> candidates = slot.IsFixed() ? slot.hashRange : ShadowLookupRegions(slot, p.w, p.h);
 	ShadowRegion chosen;
 	u32 hash = 0;
 	bool found = false;
-	for (const ShadowRegion &region : candidates) {
+	if (slot.IsFixed()) {
+		// Whatever is drawn, and whether it was dumped yet or not.
+		chosen = slot.hashRange[0];
+		hash = HashShadowRegion(checkp, available, p.bufw, chosen, p.fmt);
+		found = true;
+	}
+	for (size_t i = 0; !found && i < candidates.size(); i++) {
+		const ShadowRegion &region = candidates[i];
 		if (seenKnown && !region.Covers(seen, SHADOW_COVER_SLACK)) {
 			continue;
 		}
@@ -2477,7 +2484,11 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 
 	ShadowRegion region = seen;
 	std::vector<ShadowRegion> parts;
-	if (slot.IsDeclared()) {
+	if (slot.IsFixed()) {
+		// A hash range: exactly that, over [shadowranges].
+		region = slot.hashRange[0];
+		parts.push_back(region);
+	} else if (slot.IsDeclared()) {
 		parts = PickDeclaredParts(slot, variant, seen);
 		region = PartsBounds(parts);
 	} else {
@@ -2748,6 +2759,10 @@ void TextureReplacer::SaveShadowRanges() {
 		const int h = (int)(key & 0xFFFF);
 		if (slot->IsDeclared()) {
 			declared += regionLine(addr, w, h, slot->declared, slot->declaredCombos);
+			continue;
+		}
+		if (slot->IsFixed()) {
+			// It stays in [hashranges] in textures.ini, nothing is learned for it.
 			continue;
 		}
 		// A texture that was only ever dumped whole needs no line, the whole texture is always tried.
