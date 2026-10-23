@@ -84,7 +84,13 @@ private:
 	bool alignOpposite_ = false;
 	bool draggingBob_ = false;
 	bool mouseHover_ = false;
+	bool bobHover_ = false;  // Mouse is over the strip the bob moves in.
 	bool shadows_ = true;
+
+	// The bob fades out when the scroll view is left alone.
+	float bobAlpha_ = 1.0f;
+	double lastScrollActivity_ = 0.0;
+	double lastBobUpdate_ = 0.0;
 
 	float barDragStart_ = 0.0f;
 	float barDragOffset_ = 0.0f;
