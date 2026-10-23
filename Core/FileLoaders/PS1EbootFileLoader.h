@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -100,6 +101,18 @@ bool IsPS1CueOrCcd(FileLoader *fileLoader);
 
 // The file names a cue sheet's FILE lines give.
 std::vector<std::string> CueSheetFileNames(const Path &cuePath);
+std::vector<std::string> CueSheetFileNamesFromText(std::string_view text);
+
+// A file in an archive: its path there, and its size.
+struct ArchiveEntry {
+	std::string name;
+	s64 size;
+};
+
+// The files of a PS1 disc among an archive's, by their paths in it: a cue sheet and the files it names,
+// a .ccd with its .img (and .sub), or else the largest .bin or .img that's a whole number of sectors.
+// readText reads a small file from the archive.
+bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::function<bool(const std::string &name, std::string *text)> &readText, std::vector<std::string> *discFiles);
 
 // The cue sheet next to a disc image whose FILE lines name it, or an empty path.
 Path FindCueSheetFor(const Path &imagePath);

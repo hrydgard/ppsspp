@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "ext/libzip/zip.h"
+
 #include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
@@ -29,6 +31,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/Loaders.h"
+#include "Core/Util/GameManager.h"
 
 #include "UnitTest.h"
 
@@ -290,6 +293,46 @@ bool TestPS1Eboot() {
 	std::sort(names.begin(), names.end());
 	const std::vector<std::string> expectedNames = { "Clone.ccd", "Cooked.iso", "Game.cue", "Loose.bin", "Pregap.cue" };
 	EXPECT_TRUE(names == expectedNames);
+
+	// Installing from a zip: the cue sheet and both its files, into a folder of their own.
+	const Path zipPath = dir / "Game.zip";
+	{
+		int errorp = 0;
+		zip_t *z = zip_open(zipPath.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		const std::pair<const char *, const std::vector<u8> *> entries[] = {
+			{ "Game/Game (Track 1).bin", &data },
+			{ "Game/Game (Track 2).bin", &audio },
+		};
+		for (const auto &entry : entries) {
+			zip_source_t *source = zip_source_buffer(z, entry.second->data(), entry.second->size(), 0);
+			EXPECT_TRUE(zip_file_add(z, entry.first, source, ZIP_FL_ENC_UTF_8) >= 0);
+		}
+		zip_source_t *cueSource = zip_source_buffer(z, cue.data(), cue.size(), 0);
+		EXPECT_TRUE(zip_file_add(z, "Game/Game.cue", cueSource, ZIP_FL_ENC_UTF_8) >= 0);
+		zip_source_t *readme = zip_source_buffer(z, "hi", 2, 0);
+		EXPECT_TRUE(zip_file_add(z, "readme.txt", readme, ZIP_FL_ENC_UTF_8) >= 0);
+		EXPECT_TRUE(zip_close(z) == 0);
+	}
+	{
+		int errorp = 0;
+		zip_t *z = zip_open(zipPath.c_str(), 0, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		ZipFileInfo info{};
+		DetectZipFileContents(z, &info);
+		EXPECT_TRUE(info.contents == ZipFileContents::PSX_DISC);
+		EXPECT_EQ_INT(info.discFiles.size(), 3);
+		EXPECT_EQ_STR(info.discFiles[0], std::string("Game/Game.cue"));
+		const Path installDir = dir / "installed";
+		EXPECT_TRUE(File::CreateFullPath(installDir));
+		GameManager manager;
+		EXPECT_TRUE(manager.InstallZippedPS1Disc(z, info.discFiles, installDir));
+		zip_close(z);
+		PS1EbootFileLoader eboot(installDir / "Game" / "Game.cue");
+		if (!CheckEboot(eboot, disc, 2)) {
+			return false;
+		}
+	}
 
 	File::DeleteDirRecursively(dir);
 	return true;

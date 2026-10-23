@@ -192,6 +192,9 @@ extern const char *const UMD_VIDEO_MIN_FIRMWARE;
 // vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
 Path GetUmdVideoVSHPath();
 
+// Whether the installed firmware's POPS can run a PS1 disc image, as the converted EBOOT made from it.
+bool InstalledFirmwareRunsPS1Discs();
+
 // Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
 // doesn't have would linger and still get loaded - so this replaces rather than overlays.
 //

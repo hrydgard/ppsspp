@@ -599,6 +599,37 @@ bool DetectArchiveContents(VFSInterface *vfs, ZipFileInfo *info) {
 			return true;
 		}
 	}
+
+	// A PS1 disc in the root or one level down, as in a zip.
+	std::vector<ArchiveEntry> entries;
+	for (const File::FileInfo &file : listing) {
+		if (!file.isDirectory) {
+			entries.push_back(ArchiveEntry{ file.fullName.ToString(), (s64)file.size });
+			continue;
+		}
+		std::vector<File::FileInfo> subListing;
+		vfs->GetFileListing(file.fullName.ToString(), &subListing, nullptr);
+		for (const File::FileInfo &sub : subListing) {
+			if (!sub.isDirectory) {
+				entries.push_back(ArchiveEntry{ sub.fullName.ToString(), (s64)sub.size });
+			}
+		}
+	}
+	if (FindPS1DiscFiles(entries, [vfs](const std::string &name, std::string *text) {
+		size_t size = 0;
+		uint8_t *data = vfs->ReadFile(name, &size);
+		if (!data || size > 64 * 1024) {
+			delete[] data;
+			return false;
+		}
+		text->assign((const char *)data, size);
+		delete[] data;
+		return true;
+	}, &info->discFiles)) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
+		return true;
+	}
 	return false;
 }
 
@@ -633,6 +664,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	bool hasPRX = false;
 	bool hasPluginIni = false;
 	s64 totalFileSize = 0;
+	std::vector<ArchiveEntry> archiveEntries;  // In the root or one level down, where a disc image can be.
 
 	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
 	// is quite convenient and makes it easy to add shared heuristics.
@@ -659,6 +691,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 
 		int prevSlashLocation = -1;
 		int slashCount = countSlashes(lowerCaseName, &prevSlashLocation);
+		if (slashCount <= 1) {
+			archiveEntries.push_back(ArchiveEntry{ fileName, (s64)stat.size });
+		}
 		if (lowerCaseName.find("eboot.pbp") != std::string::npos) {
 			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
 				stripChars = prevSlashLocation + 1;
@@ -754,11 +789,23 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	info->ignoreMetaFiles = false;
 	info->totalFileSize = totalFileSize;
 
+	// A PS1 disc: a cue sheet or .ccd and its files, or a lone raw image, which only counts if nothing else does.
+	const bool isPS1Disc = FindPS1DiscFiles(archiveEntries, [z](const std::string &name, std::string *text) {
+		const zip_int64_t index = zip_name_locate(z, name.c_str(), 0);
+		zip_stat_t stat{};
+		return index >= 0 && zip_stat_index(z, index, 0, &stat) >= 0 && stat.size < 64 * 1024 && ZipExtractFileToMemory(z, (int)index, text);
+	}, &info->discFiles);
+	const std::string discExt = isPS1Disc ? Path(info->discFiles[0]).GetFileExtension() : "";
+	const bool isPS1DiscWithCue = discExt == ".cue" || discExt == ".ccd";
+
 	// Priority ordering for detecting the various kinds of zip file content.s
 	if (isPSPMemstickGame) {
 		info->contents = ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
 		info->contents = ZipFileContents::ISO_FILE;
+	} else if (isPS1DiscWithCue) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
 	} else if (isTexturePack) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
@@ -780,6 +827,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->contents = ZipFileContents::EXTRACTED_GAME;
 	} else if (hasPluginIni && hasPRX) {
 		info->contents = ZipFileContents::PRX_PLUGIN;
+	} else if (isPS1Disc) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}

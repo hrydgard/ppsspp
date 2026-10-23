@@ -243,6 +243,9 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		// Reverse logic.
 		return false;
+	case IdentifiedFileType::PSX_ISO:
+		// Through the firmware's POPS.
+		return InstalledFirmwareRunsPS1Discs();
 	default:
 		return true;
 	}

@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <map>
 #include <set>
 
 #include "Common/File/DirListing.h"
@@ -148,11 +149,15 @@ bool IsPS1CueOrCcd(FileLoader *fileLoader) {
 }
 
 std::vector<std::string> CueSheetFileNames(const Path &cuePath) {
-	std::vector<std::string> names;
 	std::string text;
 	if (!ReadSmallTextFile(cuePath, &text)) {
-		return names;
+		return {};
 	}
+	return CueSheetFileNamesFromText(text);
+}
+
+std::vector<std::string> CueSheetFileNamesFromText(std::string_view text) {
+	std::vector<std::string> names;
 	std::vector<std::string_view> lines;
 	SplitString(text, '\n', lines);
 	for (std::string_view line : lines) {
@@ -206,6 +211,77 @@ void RemoveDescribedDiscImages(std::vector<File::FileInfo> *files) {
 		}
 		return info.size % SECTOR_SIZE != 0 || described.count(AsciiToLower(info.name)) != 0;
 	}), files->end());
+}
+
+bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::function<bool(const std::string &name, std::string *text)> &readText, std::vector<std::string> *discFiles) {
+	std::map<std::string, std::string> byLowerName;
+	for (const ArchiveEntry &entry : entries) {
+		byLowerName[AsciiToLower(ReplaceAll(entry.name, "\\", "/"))] = entry.name;
+	}
+	auto find = [&](const std::string &name, std::string *found) {
+		auto it = byLowerName.find(AsciiToLower(ReplaceAll(name, "\\", "/")));
+		if (it == byLowerName.end()) {
+			return false;
+		}
+		*found = it->second;
+		return true;
+	};
+	auto extension = [](const std::string &name) {
+		const size_t dot = name.find_last_of("./");
+		return dot != std::string::npos && name[dot] == '.' ? AsciiToLower(name.substr(dot)) : std::string();
+	};
+
+	for (const ArchiveEntry &entry : entries) {
+		const std::string ext = extension(entry.name);
+		const std::string stem = entry.name.substr(0, entry.name.size() - ext.size());
+		const size_t slash = entry.name.find_last_of("/\\");
+		const std::string dir = slash == std::string::npos ? "" : entry.name.substr(0, slash + 1);
+		std::vector<std::string> files = { entry.name };
+		std::string found;
+		if (ext == ".cue") {
+			std::string text;
+			if (!readText(entry.name, &text)) {
+				continue;
+			}
+			const std::vector<std::string> names = CueSheetFileNamesFromText(text);
+			bool all = !names.empty();
+			for (const std::string &name : names) {
+				if (find(dir + name, &found) || (names.size() == 1 && (find(stem + ".bin", &found) || find(stem + ".img", &found)))) {
+					files.push_back(found);
+				} else {
+					all = false;
+				}
+			}
+			if (!all) {
+				continue;
+			}
+		} else if (ext == ".ccd") {
+			if (!find(stem + ".img", &found)) {
+				continue;
+			}
+			files.push_back(found);
+			if (find(stem + ".sub", &found)) {
+				files.push_back(found);
+			}
+		} else {
+			continue;
+		}
+		*discFiles = files;
+		return true;
+	}
+
+	const ArchiveEntry *largest = nullptr;
+	for (const ArchiveEntry &entry : entries) {
+		const std::string ext = extension(entry.name);
+		if ((ext == ".bin" || ext == ".img") && entry.size > 0 && entry.size % SECTOR_SIZE == 0 && (!largest || entry.size > largest->size)) {
+			largest = &entry;
+		}
+	}
+	if (largest) {
+		*discFiles = { largest->name };
+		return true;
+	}
+	return false;
 }
 
 PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {

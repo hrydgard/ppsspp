@@ -84,6 +84,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	switch (zipFileInfo_.contents) {
 	case ZipFileContents::ISO_FILE:
 	case ZipFileContents::PSP_GAME_DIR:
+	case ZipFileContents::PSX_DISC:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 
@@ -146,6 +147,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	switch (zipFileInfo_.contents) {
 	case ZipFileContents::ISO_FILE:
 	case ZipFileContents::PSP_GAME_DIR:
+	case ZipFileContents::PSX_DISC:
 	{
 		std::string_view question = iz->T("Install game from ZIP file?");
 
@@ -155,7 +157,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		}
 
-		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSX_DISC) {
 			const bool isInDownloads = File::IsProbablyInDownloadsFolder(zipPath_);
 			Path parent;
 			if (!isInDownloads && zipPath_.CanNavigateUp()) {

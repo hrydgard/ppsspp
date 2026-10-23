@@ -95,6 +95,9 @@ public:
 	// Extracts the contents of an open zip archive into dest. Exposed for testing.
 	// maxTotalSize limits the total decompressed size (zip bomb protection).
 	bool ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, int64_t maxTotalSize = 0x100000000ULL);
+	// Extracts a PS1 disc's files (ZipFileInfo::discFiles), into a folder of their own if there's more
+	// than one. Exposed for testing.
+	bool InstallZippedPS1Disc(struct zip *z, const std::vector<std::string> &files, const Path &destDir);
 
 private:
 	void InstallZipContents(ZipFileTask task);
