@@ -392,6 +392,9 @@ public:
 	bool bEnablePlugins;
 	bool bEnableFileHandlerPlugins;
 	int iCwCheatRefreshIntervalMs;
+	bool bEnableMemoryScanner;  // Shows the Memory Scanner button in-game (only while cheats are enabled).
+	bool bMemoryScannerPause;   // Pause emulation while the Memory Scanner is open.
+	int iMemoryScannerSearchIn;  // MemoryScanner::SearchIn: user memory without code, one module's globals, all user memory.
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
 	float fHomebrewScrollPosition;

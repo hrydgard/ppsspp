@@ -728,6 +728,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileLoaders/ZipFileLoader.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
+	       $(COREDIR)/MemoryScanner.cpp \
 	       $(COREDIR)/HDRemaster.cpp \
 	       $(COREDIR)/Instance.cpp \
 	       $(COREDIR)/Debugger/Breakpoints.cpp \

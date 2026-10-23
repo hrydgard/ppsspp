@@ -13,6 +13,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/CwCheat.h"
+#include "Core/MemoryScanner.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
@@ -262,6 +263,11 @@ void __CheatInit() {
 
 void __CheatShutdown() {
 	__CheatStop();
+	// Scan results and frozen values belong to the game that's shutting down.
+	GetMemoryScanner().Reset();
+	GetMemoryScanner().ClearFreezes();
+	// Pointer results are kept: filtering them after restarting the game is how they're narrowed
+	// down. They're dropped when a different game opens the scanner.
 }
 
 void __CheatDoState(PointerWrap &p) {
@@ -316,6 +322,8 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		g_Config.bReloadCheats = false;
 	}
 	cheatEngine->Run();
+	// Values frozen in the Memory Scanner are held like cheats, at the same interval.
+	GetMemoryScanner().ApplyFreezes();
 }
 
 CWCheatEngine::CWCheatEngine(std::string_view gameID) : gameID_(gameID) {
@@ -1057,8 +1065,6 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 							walkOffset = -walkOffset;
 						}
 						if (Memory::IsValidRange(base + walkOffset, 4)) {
-							// TODO: I've seen crashes here. Presumably an unaligned pointer just off the edge of memory.
-							// We should probably check pointer validity and invalidate the cheat if this happens.
 							base = Memory::ReadUnchecked_U32(base + walkOffset);
 							switch (line.part2 >> 28) {
 							case 0x2:
@@ -1069,6 +1075,9 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 								}
 								if (Memory::IsValidRange(base + walkOffset, 4)) {
 									base = Memory::ReadUnchecked_U32(base + walkOffset);
+								} else {
+									// See below.
+									type = -1;
 								}
 								break;
 
@@ -1076,6 +1085,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 								// Unexpected value in cheat line?
 								break;
 							}
+						} else {
+							// A pointer on the way is null or garbage (loading, menus). Skipping the step
+							// would write relative to the pointer before it, into some other object,
+							// so don't write at all.
+							type = -1;
 						}
 					}
 					break;

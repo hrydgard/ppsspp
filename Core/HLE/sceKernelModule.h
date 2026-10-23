@@ -222,6 +222,9 @@ public:
 
 	u32 memoryBlockAddr = 0;
 	u32 memoryBlockSize = 0;
+	// The code sections, as (start, size) pairs. textStart..textEnd spans them all, which can
+	// include a lot of data between them.
+	std::vector<u32> codeSections;
 	u32 crc = 0;
 	PSPPointer<NativeModule> modulePtr{};
 	bool isFake = false;
@@ -231,6 +234,23 @@ KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
 // The code of the loaded modules, as (address, size).
 std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges();
+// Where the loaded modules are, for the Memory Scanner: the whole module, its code, and its
+// globals (.data and .bss, where pointers to heap allocations are kept).
+struct ModuleRange {
+	std::string name;
+	bool kernel;
+	// The game's main module: the first user module loaded, so the lowest in user memory.
+	bool isMain;
+	u32 blockStart;
+	u32 blockSize;
+	// Its code, as (start, size), inside the module.
+	std::vector<std::pair<u32, u32>> code;
+	// Everything after the code segment to the end of the module: .data, .bss, and any other
+	// static memory the module reserves. Code inside it is listed in code.
+	u32 dataStart;
+	u32 dataSize;
+};
+std::vector<ModuleRange> __KernelModuleRanges();
 // For the next savestate load: code it leaves as it was, as (address, size). Its functions aren't
 // hashed again.
 void __KernelModuleSetUnchangedCodeOnLoad(std::vector<std::pair<u32, u32>> unchanged);

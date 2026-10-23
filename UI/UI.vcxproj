@@ -35,6 +35,7 @@
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
+    <ClCompile Include="MemoryScannerScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
     <ClCompile Include="DeveloperToolsScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
@@ -112,6 +113,7 @@
     <ClInclude Include="GamePacker.h" />
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
+    <ClInclude Include="MemoryScannerScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="IAPScreen.h" />
     <ClInclude Include="ImDebugger\ImCommand.h" />

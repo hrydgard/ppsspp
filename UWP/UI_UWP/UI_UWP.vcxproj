@@ -94,6 +94,7 @@
     <ClInclude Include="..\..\UI\ControlMappingScreen.h" />
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
+    <ClInclude Include="..\..\UI\MemoryScannerScreen.h" />
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
     <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
@@ -157,6 +158,7 @@
     <ClCompile Include="..\..\UI\ControlMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
+    <ClCompile Include="..\..\UI\MemoryScannerScreen.cpp" />
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
     <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
