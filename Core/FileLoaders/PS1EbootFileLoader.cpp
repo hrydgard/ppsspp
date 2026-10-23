@@ -1108,8 +1108,8 @@ void PS1EbootFileLoader::BuildHeaders() {
 	if (multiDisc) {
 		// The fields the emulator reads (pops +1B2F0 in 6.60): the disc offsets, the first disc's ID, and the
 		// title. The end of the last disc and its +0x2D31 are where a STARTDAT would follow, as in a PSISOIMG.
-		// The MACs a store game's header has, and the key its disc switching strings are descrambled with,
-		// stay zero: PopsBoot sees to both.
+		// The MACs a store game's header has stay zero (PopsBoot passes them), and so does the key its disc
+		// switching strings are descrambled with, which then only reverses PopsBoot's strings.
 		u8 *title = pbp + psarOffset_;
 		memcpy(title, "PSTITLEIMG000000", 16);
 		*(u32_le *)(title + 0x10) = (u32)end;

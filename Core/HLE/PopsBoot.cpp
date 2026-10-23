@@ -423,8 +423,8 @@ static bool SetsBlockSizeBefore(u32 addr, u32 textAddr) {
 
 // The emulator's multi-disc strings, 14 for each of its 12 languages, as {length, UTF-16 pointer}: the HOME
 // menu's item, then three dialogs of a line each. A store game's PSTITLEIMG header has the key they're
-// descrambled with when a game has several discs (pops +29xxx in 6.60). A converted one has none, so the
-// descrambling is skipped and they're ours, from our translations. Each dialog's lines are left-aligned and
+// descrambled with when a game has several discs (pops +29xxx in 6.60). A converted one's is zeros, which
+// only reverses them, and they're ours, from our translations. Each dialog's lines are left-aligned and
 // centred as a block. Its disc number is drawn over a gap in a line, at a position (one each for the
 // switch dialog, the disc picker's label and the confirmation) from a table of its own.
 enum {
@@ -629,9 +629,10 @@ static bool InstallDiscSwitchText(u32 stringTable, u32 positionTable, u32 resetT
 	u32 ptr = strings;
 	u32 entries[DISC_STRING_COUNT][2];
 	for (int i = 0; i < DISC_STRING_COUNT; i++) {
+		// Backwards: the descrambling reverses them, and with our header's key of zeros does nothing else.
 		const std::u16string &s = text.strings[i];
 		for (size_t c = 0; c < s.size(); c++) {
-			Memory::WriteUnchecked_U16(s[c], ptr + (u32)c * 2);
+			Memory::WriteUnchecked_U16(s[s.size() - 1 - c], ptr + (u32)c * 2);
 		}
 		entries[i][0] = (u32)s.size();
 		entries[i][1] = s.empty() ? 0 : ptr;
@@ -659,21 +660,14 @@ static u32 LuiAddiuAddress(u32 addr) {
 	return (Memory::ReadUnchecked_U32(addr) << 16) + (s16)(Memory::ReadUnchecked_U32(addr + 4) & 0xFFFF);
 }
 
-// Finds the multi-disc strings' code in the emulator, and skips their descrambling for ours.
+// Finds the multi-disc strings' tables in the emulator, and puts ours there.
 static void PatchDiscSwitchText(u32 textAddr, u32 textSize) {
-	u32 stringTable = 0, positionTable = 0, resetTable = 0, decode = 0, decodeEnd = 0;
+	u32 stringTable = 0, positionTable = 0, resetTable = 0;
 	for (u32 addr = textAddr; addr + 0x20 < textAddr + textSize; addr += 4) {
 		auto at = [&](u32 offset) { return Memory::ReadUnchecked_U32(addr + offset); };
-		// The language's row: lang * 0x70 + table, into s7.
-		if (at(0) == 0x000219C0 && at(4) == 0x00021100 && at(8) == 0x00621823 && (at(12) >> 16) == 0x3C02 && (at(16) >> 16) == 0x2442 && at(20) == 0x0062B821) {
+		// The language's row: lang * 0x70 + table (into s7 in 6.x, k0 in 5.x, the stack in 3.x).
+		if (!stringTable && at(0) == 0x000219C0 && at(4) == 0x00021100 && at(8) == 0x00621823 && (at(12) >> 16) == 0x3C02 && (at(16) >> 16) == 0x2442 && (at(20) & 0xFFFF07FF) == 0x00620021) {
 			stringTable = LuiAddiuAddress(addr + 12);
-		}
-		// beq s7, zero, past the text; li s5, 0: then the descrambling, until bne t1, s0; addiu a1, a1, 8.
-		if (stringTable && !decode && (at(0) >> 16) == 0x12E0 && at(4) == 0x0000A821) {
-			decode = addr + 8;
-		}
-		if (decode && !decodeEnd && addr > decode && (at(0) >> 16) == 0x1530 && at(4) == 0x24A50008) {
-			decodeEnd = addr + 8;
 		}
 		// The number position, (lang * 3 + i) * 4 + table.
 		if (at(0) == 0x00031040 && at(4) == 0x00431021 && at(8) == 0x00501021 && (at(12) >> 16) == 0x3C03 && (at(16) >> 16) == 0x2463 && at(20) == 0x00021080) {
@@ -684,17 +678,13 @@ static void PatchDiscSwitchText(u32 textAddr, u32 textSize) {
 			resetTable = LuiAddiuAddress(addr);
 		}
 	}
-	if (!stringTable || !decode || !decodeEnd || !positionTable || !resetTable || decodeEnd - decode > 0x400) {
-		WARN_LOG(Log::sceKernel, "POPS: didn't find the disc switching text (%08x %08x-%08x %08x %08x)", stringTable, decode, decodeEnd, positionTable, resetTable);
+	if (!stringTable || !positionTable || !resetTable) {
+		WARN_LOG(Log::sceKernel, "POPS: didn't find the disc switching text (%08x %08x %08x)", stringTable, positionTable, resetTable);
 		return;
 	}
-	if (!InstallDiscSwitchText(stringTable, positionTable, resetTable)) {
-		return;
+	if (InstallDiscSwitchText(stringTable, positionTable, resetTable)) {
+		INFO_LOG(Log::sceKernel, "POPS: disc switching text at %08x, numbers at %08x", stringTable, positionTable);
 	}
-	Memory::WriteUnchecked_U32(0x10000000 | (((decodeEnd - (decode + 4)) >> 2) & 0xFFFF), decode);  // b decodeEnd
-	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), decode + 4);
-	currentMIPS->InvalidateICacheRangeDeferred(decode, 8);
-	INFO_LOG(Log::sceKernel, "POPS: disc switching text at %08x, numbers at %08x", stringTable, positionTable);
 }
 
 void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
