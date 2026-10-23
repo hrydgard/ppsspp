@@ -272,6 +272,8 @@ add_library(Common STATIC
 	Profiler/Profiler.h
 	Render/AtlasGen.cpp
 	Render/AtlasGen.h
+	Render/DropShadow.cpp
+	Render/DropShadow.h
 	Render/TextureAtlas.cpp
 	Render/TextureAtlas.h
 	Render/DrawBuffer.cpp

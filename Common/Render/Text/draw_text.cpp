@@ -17,6 +17,7 @@
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
 
+#include "Common/Render/DropShadow.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_win.h"
 #include "Common/Render/Text/draw_text_cocoa.h"
@@ -45,9 +46,9 @@ static bool IsRenderDocLoaded() {
 #endif
 }
 
-// Drop shadow blur (sigma) and offset as fractions of the font size, which is in UI units. The bitmap
+// Drop shadow blur radius and offset as fractions of the font size, which is in UI units. The bitmap
 // has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
-static constexpr float SHADOW_BLUR = 1.0f / 14.0f;
+static constexpr float SHADOW_BLUR = 1.0f / 7.0f;
 static constexpr float SHADOW_OFFSET = 1.0f / 16.0f;
 // Blurring thin strokes spreads them thin, so boost the shadow's alpha a bit (clamped).
 static constexpr float SHADOW_STRENGTH = 1.5f;
@@ -273,85 +274,31 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 }
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
-	const bool srcColor = srcFormat == Draw::DataFormat::R8G8B8A8_UNORM;
 	const float pixelsPerUnit = 1.0f / dpiScale_;
-	const float sigma = std::max(0.5f, fontStyle_.sizePts * SHADOW_BLUR * pixelsPerUnit);
-	const int radius = (int)ceilf(sigma * 2.5f);
-	const int offset = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_OFFSET * pixelsPerUnit));
-	// Same padding on all sides, so the text stays centered in the bitmap.
-	const int pad = radius + offset;
+	DropShadowParams params;
+	params.radius = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_BLUR * pixelsPerUnit));
+	params.offsetX = params.offsetY = std::max(1, (int)roundf(fontStyle_.sizePts * SHADOW_OFFSET * pixelsPerUnit));
+	params.intensity = SHADOW_STRENGTH;
+	const int pad = params.Padding();
 
 	const int srcW = entry.bmWidth;
 	const int srcH = entry.bmHeight;
-	const int w = srcW + pad * 2;
-	const int h = srcH + pad * 2;
-
-	std::vector<float> kernel(radius * 2 + 1);
-	float kernelSum = 0.0f;
-	for (int i = -radius; i <= radius; i++) {
-		kernel[i + radius] = expf(-(float)(i * i) / (2.0f * sigma * sigma));
-		kernelSum += kernel[i + radius];
-	}
-	for (float &k : kernel) {
-		k /= kernelSum;
-	}
-
-	auto srcAlpha = [&](int x, int y) -> uint8_t {
-		return srcColor ? bitmapData[(y * srcW + x) * 4 + 3] : bitmapData[y * srcW + x];
-	};
-
-	// Blur the offset coverage, scattering each texel horizontally into rows, then the rows vertically.
-	std::vector<float> rows(w * srcH);
-	for (int y = 0; y < srcH; y++) {
-		for (int x = 0; x < srcW; x++) {
-			const uint8_t a = srcAlpha(x, y);
-			if (!a) {
-				continue;
-			}
-			const float fa = a * (1.0f / 255.0f);
-			float *dst = &rows[y * w + x + pad + offset - radius];
-			for (int i = 0; i <= radius * 2; i++) {
-				dst[i] += fa * kernel[i];
-			}
-		}
-	}
-	std::vector<float> shadow(w * h);
-	for (int y = 0; y < srcH; y++) {
-		const float *src = &rows[y * w];
-		for (int i = 0; i <= radius * 2; i++) {
-			float *dst = &shadow[(y + pad + offset - radius + i) * w];
-			const float k = kernel[i];
-			for (int x = 0; x < w; x++) {
-				dst[x] += src[x] * k;
-			}
+	std::vector<u32> src;
+	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+		src.resize(srcW * srcH);
+		memcpy(src.data(), bitmapData.data(), src.size() * sizeof(u32));
+	} else {
+		src.reserve(srcW * srcH);
+		for (uint8_t a : bitmapData) {
+			src.push_back(AlphaToPremul8888(a));
 		}
 	}
 
-	// Composite the (premultiplied) text over the black shadow. Only alpha changes, since the shadow adds no color.
-	const int bmWidth = (w + 3) & ~3;
-	const int bmHeight = (h + 3) & ~3;
-	std::vector<uint8_t> out(bmWidth * bmHeight * sizeof(uint32_t));
-	uint32_t *out32 = (uint32_t *)out.data();
-	for (int y = 0; y < h; y++) {
-		for (int x = 0; x < w; x++) {
-			const int sx = x - pad;
-			const int sy = y - pad;
-			uint32_t textColor = 0;
-			if (sx >= 0 && sx < srcW && sy >= 0 && sy < srcH) {
-				if (srcColor) {
-					memcpy(&textColor, &bitmapData[(sy * srcW + sx) * 4], sizeof(textColor));
-				} else {
-					textColor = AlphaToPremul8888(bitmapData[sy * srcW + sx]);
-				}
-			}
-			const uint32_t textAlpha = textColor >> 24;
-			const float shadowAlpha = std::min(1.0f, shadow[y * w + x] * SHADOW_STRENGTH);
-			const uint32_t alpha = textAlpha + (uint32_t)((255 - textAlpha) * shadowAlpha + 0.5f);
-			out32[y * bmWidth + x] = (alpha << 24) | (textColor & 0x00FFFFFF);
-		}
-	}
+	const int bmWidth = (srcW + pad * 2 + 3) & ~3;
+	const int bmHeight = (srcH + pad * 2 + 3) & ~3;
+	bitmapData.assign(bmWidth * bmHeight * sizeof(u32), 0);
+	CompositeDropShadow(src.data(), srcW, srcH, (u32 *)bitmapData.data(), bmWidth, params);
 
-	bitmapData = std::move(out);
 	entry.bmWidth = bmWidth;
 	entry.bmHeight = bmHeight;
 	entry.shadowPad = pad;

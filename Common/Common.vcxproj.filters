@@ -698,6 +698,9 @@
     <ClInclude Include="Render\AtlasGen.h">
       <Filter>Render</Filter>
     </ClInclude>
+    <ClInclude Include="Render\DropShadow.h">
+      <Filter>Render</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\nanosvg\src\nanosvg.h">
       <Filter>ext\nanosvg</Filter>
     </ClInclude>
@@ -1415,6 +1418,9 @@
     </ClCompile>
     <ClCompile Include="LoongArch64Emitter.cpp" />
     <ClCompile Include="Render\AtlasGen.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Render\DropShadow.cpp">
       <Filter>Render</Filter>
     </ClCompile>
     <ClCompile Include="UI\TabHolder.cpp">

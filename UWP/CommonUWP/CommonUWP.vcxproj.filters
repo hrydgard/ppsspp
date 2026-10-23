@@ -524,6 +524,9 @@
     <ClCompile Include="..\..\Common\Render\AtlasGen.cpp">
       <Filter>Render</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\Render\DropShadow.cpp">
+      <Filter>Render</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\UI\TabHolder.cpp">
       <Filter>UI</Filter>
     </ClCompile>
@@ -1075,6 +1078,9 @@
       <Filter>ext\imgui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\Render\AtlasGen.h">
+      <Filter>Render</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\Render\DropShadow.h">
       <Filter>Render</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\TabHolder.h">

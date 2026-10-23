@@ -128,6 +128,7 @@
 
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
+#include "Common/Render/AtlasGen.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
@@ -3707,6 +3708,32 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
+// The atlas shadow has no offset, so it pads the image evenly and stays symmetric around it.
+bool TestAtlasDropShadow() {
+	Image img;
+	img.scale = 2.0f;
+	img.resize(8, 8);
+	for (int y = 2; y < 6; y++) {
+		for (int x = 2; x < 6; x++) {
+			img.set1(x, y, 0xFFFFFFFF);
+		}
+	}
+	AddDropShadow(img, 3, 0.66f);
+	EXPECT_EQ_INT(img.w, 8 + 12);
+	EXPECT_EQ_INT(img.h, 8 + 12);
+	EXPECT_EQ_HEX(img.get1(6 + 3, 6 + 3), 0xFFFFFFFF);
+	EXPECT_EQ_HEX(img.get1(0, 0), 0);
+	for (int y = 0; y < img.h; y++) {
+		for (int x = 0; x < img.w; x++) {
+			EXPECT_EQ_HEX(img.get1(x, y), img.get1(img.w - 1 - x, img.h - 1 - y));
+		}
+	}
+	const u32 edge = img.get1(5, 10);
+	EXPECT_EQ_INT(edge & 0xFFFFFF, 0);
+	EXPECT_TRUE((edge >> 24) > 0 && (edge >> 24) < 0xA8);
+	return true;
+}
+
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -4020,6 +4047,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(TextDrawerCache),
+	TEST_ITEM(AtlasDropShadow),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(QueueBuf),
