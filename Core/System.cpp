@@ -92,6 +92,9 @@ enum CPUThreadState {
 MetaFileSystem pspFileSystem;
 ParamSFOData g_paramSFO;
 ParamSFOData g_paramSFORaw;
+
+static std::mutex g_bootRequestLock;
+static std::optional<BootRequest> g_bootRequest;
 static GlobalUIState globalUIState;
 CoreParameter g_CoreParameter;
 static FileLoader *g_loadedFile;
@@ -791,6 +794,12 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 
 	IncrementDebugCounter(DebugCounter::GAME_BOOT);
 
+	{
+		// One the frontend didn't act on (the user stopped the game instead) is stale now.
+		std::lock_guard<std::mutex> guard(g_bootRequestLock);
+		g_bootRequest.reset();
+	}
+
 	g_bootState = BootState::Booting;
 	g_loaderDone = false;
 	g_loaderFailed = false;
@@ -931,6 +940,38 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 
 BootState PollBootState() {
 	return g_bootState;
+}
+
+void BootRequest::ApplyTo(CoreParameter *coreParam) const {
+	coreParam->fileToStart = fileToStart;
+	coreParam->mountIso = mountIso;
+	coreParam->launchedFromVSH = launchedFromVSH;
+	coreParam->vshmainArgs = vshmainArgs;
+	coreParam->umdAutoboot.reset();
+}
+
+void PSP_RequestBoot(const BootRequest &request) {
+	INFO_LOG(Log::Loader, "Rebooting into %s (disc: %s)", request.fileToStart.c_str(), request.mountIso.c_str());
+	{
+		std::lock_guard<std::mutex> guard(g_bootRequestLock);
+		g_bootRequest = request;
+	}
+	Core_Stop();
+}
+
+bool PSP_HasBootRequest() {
+	std::lock_guard<std::mutex> guard(g_bootRequestLock);
+	return g_bootRequest.has_value();
+}
+
+bool PSP_TakeBootRequest(BootRequest *request) {
+	std::lock_guard<std::mutex> guard(g_bootRequestLock);
+	if (!g_bootRequest) {
+		return false;
+	}
+	*request = std::move(*g_bootRequest);
+	g_bootRequest.reset();
+	return true;
 }
 
 void PSP_Shutdown(bool success) {

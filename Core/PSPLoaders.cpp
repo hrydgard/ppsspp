@@ -657,7 +657,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 		g_Config.LoadGameConfig(discID);
 	}
 
-	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string);
+	// The XMB coming back from a game it launched gets the args it launched it with.
+	const std::vector<u8> &vshmainArgs = PSP_CoreParameter().vshmainArgs;
+	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string, vshmainArgs.empty() ? nullptr : &vshmainArgs);
 }
 
 // A PS1 EBOOT, run by the firmware's POPS manager, which loads its PS1 emulator for the game.

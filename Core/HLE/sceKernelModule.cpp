@@ -2579,7 +2579,7 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 	return true;
 }
 
-bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string) {
+bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs) {
 	std::vector<uint8_t> fileData;
 	if (pspFileSystem.ReadEntireFile(filename, fileData) < 0) {
 		ERROR_LOG(Log::Loader, "Failed to load executable %s - file doesn't exist", filename);
@@ -2588,7 +2588,7 @@ bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::
 		return false;
 	}
 
-	return __KernelLoadExecFromPtr(mips, fileData.data(), fileData.size(), filename, paramPtr, error_string);
+	return __KernelLoadExecFromPtr(mips, fileData.data(), fileData.size(), filename, paramPtr, error_string, hostArgs);
 }
 
 bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string) {
@@ -2649,6 +2649,51 @@ int __KernelGPUReplay(MIPSState *mips) {
 	return hleNoLog(result == GPURecord::ReplayResult::Break ? 1 : 0);
 }
 
+// The XMB starting a disc game or something on the memory stick. Rather than swapping it in under
+// the XMB's session, the frontend boots it like it boots anything, so it gets its PARAM.SFO, compat
+// flags, game config, window title and so on. False for anything else, which loads in place.
+static bool RebootFromVSHInto(const std::string &filename) {
+	// Some discs (the EUR Video Demo Disc) list a game whose executables are all zeroes. Loaded in
+	// place, that fails back to the XMB.
+	const auto isExecutable = [](const char *path) {
+		u8 head[4]{};
+		const int fd = pspFileSystem.OpenFile(path, FILEACCESS_READ);
+		if (fd < 0) {
+			return false;
+		}
+		const size_t read = pspFileSystem.ReadFile(fd, head, sizeof(head));
+		pspFileSystem.CloseFile(fd);
+		return read == sizeof(head) && (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F" "ELF", 4) == 0);
+	};
+
+	const Path disc = __UmdGetPath();
+	Path hostPath;
+	if (filename == "disc0:/PSP_GAME/SYSDIR/EBOOT.BIN" || filename == "disc0:/PSP_GAME/SYSDIR/BOOT.BIN") {
+		if (isExecutable("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN") || isExecutable("disc0:/PSP_GAME/SYSDIR/BOOT.BIN")) {
+			hostPath = disc;
+		}
+	} else if (startsWith(filename, "ms0:/PSP/GAME") && endsWithNoCase(filename, "/EBOOT.PBP")) {
+		hostPath = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT) / filename.substr(strlen("ms0:/"));
+		if (!File::Exists(hostPath)) {
+			WARN_LOG(Log::sceModule, "No %s for %s, starting it in place", hostPath.c_str(), filename.c_str());
+			return false;
+		}
+	}
+	if (hostPath.empty()) {
+		return false;
+	}
+
+	BootRequest request;
+	request.fileToStart = hostPath;
+	// Homebrew keeps the disc that's in the drive.
+	if (hostPath != disc) {
+		request.mountIso = disc;
+	}
+	request.launchedFromVSH = VSHLaunch{ PSP_CoreParameter().fileToStart, g_vshmainArgs };
+	PSP_RequestBoot(request);
+	return true;
+}
+
 int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 	std::string exec_filename = filename;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
@@ -2684,6 +2729,10 @@ int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 			g_vshmainArgs.assign(args, args + vshParam->vshmainArgsSize);
 		}
 		INFO_LOG(Log::sceModule, "Keeping %d bytes of vshmain args", (int)g_vshmainArgs.size());
+		if (RebootFromVSHInto(exec_filename)) {
+			__KernelSwitchOffThread("XMB started a game");
+			return hleLogInfo(Log::sceModule, 0, "rebooting into it");
+		}
 	}
 	std::string error_string;
 	if (!__KernelLoadExec(mips, exec_filename.c_str(), paramPtr, &error_string)) {
@@ -2700,9 +2749,34 @@ int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 	return hleLogDebug(Log::sceModule, 0);
 }
 
+// The XMB's args from when it launched a game tell it that it's coming back (and not to auto-start
+// the disc in the drive, say). vshmain's module_start only takes them (copying them into its state)
+// when they're 0x20 or 0x400 bytes and start with that size and then 0x20, which it doesn't write
+// itself.
+static std::vector<u8> VshmainReturnArgs(const std::vector<u8> &launchArgs) {
+	std::vector<u8> args = launchArgs;
+	if (args.size() >= 8) {
+		u32 header[2] = { (u32)args.size(), 0x20 };
+		memcpy(args.data(), header, sizeof(header));
+	}
+	return args;
+}
+
 bool __KernelExitToVSH(MIPSState *mips) {
-	// A session that started in the XMB, running a game it launched. The XMB itself exiting (power
-	// off) still ends the session.
+	// Normally the XMB launched this game by booting it, so it boots the XMB again.
+	const std::optional<VSHLaunch> &launchedFromVSH = PSP_CoreParameter().launchedFromVSH;
+	if (launchedFromVSH) {
+		BootRequest request;
+		request.fileToStart = launchedFromVSH->vshmain;
+		request.mountIso = __UmdGetPath();
+		request.vshmainArgs = VshmainReturnArgs(launchedFromVSH->vshmainArgs);
+		PSP_RequestBoot(request);
+		__KernelSwitchOffThread("back to the XMB");
+		return true;
+	}
+
+	// Otherwise it's something the XMB loaded in place, under its own session. The XMB itself
+	// exiting (power off) still ends the session.
 	if (PSP_CoreParameter().fileToStart.GetFilename() != "vshmain.prx" || g_runningVSH) {
 		return false;
 	}
@@ -2713,15 +2787,7 @@ bool __KernelExitToVSH(MIPSState *mips) {
 		ERROR_LOG(Log::sceModule, "Couldn't return to the VSH: no %s", vshmain);
 		return false;
 	}
-	// Its args from when it launched the game tell it that it's coming back (and not to auto-start
-	// the disc in the drive, say). vshmain's module_start only takes them (copying them into its
-	// state) when they're 0x20 or 0x400 bytes and start with that size and then 0x20, which it
-	// doesn't write itself.
-	std::vector<u8> args = g_vshmainArgs;
-	if (args.size() >= 8) {
-		u32 header[2] = { (u32)args.size(), 0x20 };
-		memcpy(args.data(), header, sizeof(header));
-	}
+	std::vector<u8> args = VshmainReturnArgs(g_vshmainArgs);
 	INFO_LOG(Log::sceModule, "Back to the VSH with %d bytes of vshmain args", (int)args.size());
 	if (!__KernelLoadExecFromPtr(mips, fileData.data(), fileData.size(), vshmain, 0, &error_string, args.empty() ? nullptr : &args)) {
 		ERROR_LOG(Log::sceModule, "Couldn't return to the VSH: %s", error_string.c_str());

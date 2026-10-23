@@ -19,6 +19,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "Common/File/Path.h"
 #include "Core/Compatibility.h"
@@ -31,6 +32,12 @@ enum GPUCore : int {
 	GPUCORE_VULKAN = 4,
 	GPUCORE_NULL = 5,  // Draws nothing, see GPU_Null.h.
 	GPUCORE_METAL = 6,
+};
+
+// The XMB session a game was started from.
+struct VSHLaunch {
+	Path vshmain;  // Host path of vshmain.prx.
+	std::vector<u8> vshmainArgs;  // What the XMB passed when it launched the game.
 };
 
 enum class FPSLimit {
@@ -71,6 +78,11 @@ struct CoreParameter {
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0:.
 	// Overrides the VSH's "UMD auto-start" setting (bVshUmdAutoboot) for this boot.
 	std::optional<bool> umdAutoboot;
+
+	// Set when the XMB started this game, which then boots the XMB again when it exits.
+	std::optional<VSHLaunch> launchedFromVSH;
+	// For a boot of vshmain.prx: what its module_start gets, which tells it it's coming back from a game.
+	std::vector<u8> vshmainArgs;
 
 	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
 
