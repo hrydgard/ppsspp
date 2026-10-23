@@ -280,6 +280,12 @@ public:
 
 	std::string sReportHost;
 	std::vector<std::string> vPinnedPaths;
+	// Android: the content URIs that home screen shortcuts were most recently created for or launched with, newest
+	// first. Their file grants are never released (see ContentUri.manageUriGrants).
+	std::vector<std::string> vShortcutUris;
+	static constexpr int MAX_SHORTCUT_URIS = 64;  // An eighth of Android's limit on persisted URI grants.
+	// Moves the URI to the front. Returns true if it wasn't in the list before.
+	bool AddShortcutUri(std::string_view uri);
 	std::string sLanguageIni;
 
 	std::string sIgnoreCompatSettings;
@@ -764,6 +770,8 @@ public:
 
 	bool HasGameConfig(std::string_view gameId);
 	bool IsGameSpecific() const { return !gameId_.empty(); }
+	// False if the last Load() couldn't read the ini (missing, or the memory stick isn't reachable) and fell back to defaults.
+	bool LoadedFromFile() const { return loadedFromFile_; }
 
 	void SetSearchPath(const Path &path);
 
@@ -830,6 +838,7 @@ private:
 	// Always the paths to the main configs, doesn't change with game-specific overlay.
 	Path iniFilename_;
 	Path controllerIniFilename_;
+	bool loadedFromFile_ = false;
 
 	Path searchPath_;
 	Path appendedConfigFileName_;

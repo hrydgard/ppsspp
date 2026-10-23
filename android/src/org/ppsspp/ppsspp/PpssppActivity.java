@@ -512,8 +512,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
 
-		// Needs the config, to know which files are still in use.
-		ContentUri.pruneUriGrants(this);
+		// Both need the config.
+		ContentUri.flushShortcutUris(this);
+		ContentUri.manageUriGrants(this);
 
 		sendInitialGrants();
 
@@ -746,6 +747,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "Found Shortcut Parameter in data, passing on: " + shortcutParam);
 			setShortcutParam(shortcutParam);
 		}
+		// So its file grant is kept (see ContentUri.manageUriGrants).
+		ContentUri.queueShortcutUri(this, getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 
 		String achievementsHostOverride = AchievementsHostOverrideReceiver.getAchievementsHostOverride(this);
 		if (achievementsHostOverride != null && !achievementsHostOverride.isEmpty()) {
@@ -2167,6 +2170,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else {
 			// Someone launched a shortcut while we were running....
 			setIntent(intent);
+			ContentUri.queueShortcutUri(this, intent.getStringExtra(SHORTCUT_EXTRA_KEY));
 			String value = parseIntent(intent);
 			if (value != null) {
 				// TODO: Actually send a command to the native code to launch the new game.

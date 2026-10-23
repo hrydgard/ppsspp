@@ -611,10 +611,19 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	return jresult;
 }
 
-// For ContentUri.pruneUriGrants. Anything that stores the URI of a single picked file should be checked
-// here, or the grant for it may eventually be released. Folders don't need to be, they're always kept.
+// For ContentUri.manageUriGrants. Anything that stores the URI of a picked file or folder should be listed
+// here, or the grant for it may eventually be released. A grant is kept if it's one of these, or a folder
+// one of these is in. Returns null if the config couldn't be read (say the memory stick is on an SD card
+// that isn't mounted), since then we don't know what's in use.
 extern "C" jobjectArray Java_org_ppsspp_ppsspp_NativeApp_getReferencedUris(JNIEnv *env, jclass) {
+	if (!g_Config.LoadedFromFile() || g_Config.memStickDirectory.empty()) {
+		return nullptr;
+	}
 	std::vector<std::string> uris = g_recentFiles.GetRecentFiles();
+	uris.push_back(g_Config.memStickDirectory.ToString());
+	uris.push_back(g_Config.currentDirectory.ToString());
+	uris.insert(uris.end(), g_Config.vPinnedPaths.begin(), g_Config.vPinnedPaths.end());
+	uris.insert(uris.end(), g_Config.vShortcutUris.begin(), g_Config.vShortcutUris.end());
 	uris.push_back(g_Config.sAchievementsUnlockAudioFile);
 	uris.push_back(g_Config.sAchievementsLeaderboardSubmitAudioFile);
 	uris.erase(std::remove_if(uris.begin(), uris.end(), [](const std::string &uri) {
@@ -630,6 +639,30 @@ extern "C" jobjectArray Java_org_ppsspp_ppsspp_NativeApp_getReferencedUris(JNIEn
 	}
 	env->DeleteLocalRef(stringClass);
 	return result;
+}
+
+// Only called from PpssppActivity.Initialize, before the render thread runs, so g_Config is ours to change.
+// Returns false if they couldn't be saved, so the Java side keeps them for next time.
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_addShortcutUris(JNIEnv *env, jclass, jobjectArray juris) {
+	if (!g_Config.LoadedFromFile() || g_Config.memStickDirectory.empty()) {
+		return false;
+	}
+	bool added = false;
+	const jsize count = env->GetArrayLength(juris);
+	// Oldest first, so the newest ends up at the front.
+	for (jsize i = 0; i < count; i++) {
+		jstring juri = (jstring)env->GetObjectArrayElement(juris, i);
+		std::string uri = GetJavaString(env, juri);
+		env->DeleteLocalRef(juri);
+		if (Android_IsContentUri(uri) && g_Config.AddShortcutUri(uri)) {
+			INFO_LOG(Log::System, "New home screen shortcut target: %s", uri.c_str());
+			added = true;
+		}
+	}
+	if (added) {
+		return g_Config.Save("ShortcutUrisAdded");
+	}
+	return true;
 }
 
 // Need to use raw Android logging before NativeInit.

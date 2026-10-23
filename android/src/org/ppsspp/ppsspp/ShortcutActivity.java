@@ -73,6 +73,8 @@ public class ShortcutActivity extends Activity {
 					// Some pickers don't hand out a persistable grant.
 					Log.w(TAG, "Couldn't take URI permission: " + e);
 				}
+				// So its grant is kept (see ContentUri.manageUriGrants).
+				ContentUri.queueShortcutUri(this, selectedFile.toString());
 				Log.i(TAG, "Browse file finished:" + selectedFile);
 				respondToShortcutRequest(selectedFile);  // finishes.
 				return;
