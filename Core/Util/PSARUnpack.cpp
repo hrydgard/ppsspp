@@ -1474,7 +1474,10 @@ static std::string ReadUpdaterVersionFromArchiveHeader() {
 }
 
 bool MountedDiscHasUpdater() {
-	return pspFileSystem.GetFileInfo(std::string("disc0:/") + UPDATE_PSAR_SUFFIX).exists;
+	// Plenty of discs keep the updater's files with nothing in them: UMD Video discs ship a 0-byte
+	// DATA.BIN next to a real PARAM.SFO, PSN releases zero-fill it. Only an actual archive counts.
+	std::vector<u8> head;
+	return ReadHeadFromMountedDisc(UPDATE_PSAR_SUFFIX, 4, &head) && head.size() == 4 && ReadU32(head.data()) == PSAR_MAGIC;
 }
 
 std::string ReadMountedDiscUpdaterVersion() {
