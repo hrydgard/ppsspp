@@ -127,7 +127,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 				break;
 			}
 			auto ga = GetI18NCategory(I18NCat::GAME);
-			const std::vector<std::string> choices = { std::string(ga->T("Play game")), std::string(ga->T("Watch video in the XMB")) };
+			const std::vector<std::string> choices = { std::string(ga->T("Play game")), std::string(ga->T("Watch video")) };
 			UI::ListPopupScreen *popup = new UI::ListPopupScreen(ga->T("This disc has both a game and video"), choices, -1, [=](int choice) {
 				if (choice == 0) {
 					LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(path));
