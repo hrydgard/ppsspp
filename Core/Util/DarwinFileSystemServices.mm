@@ -240,7 +240,7 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		panel.canChooseDirectories = allowDirectories;
 		switch (fileType) {
 		case BrowseFileType::BOOTABLE:
-			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"chd", @"pbp", @"elf", @"zip", @"ppdmp", @"prx", nil]];
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"chd", @"pbp", @"elf", @"zip", @"ppdmp", @"prx", @"cue", @"ccd", @"mds", @"mdf", @"bin", @"img", nil]];
 			break;
 		case BrowseFileType::SAVE_STATE:
 			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"ppst", nil]];

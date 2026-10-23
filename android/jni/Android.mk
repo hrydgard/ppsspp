@@ -690,6 +690,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileLoaders/DiskCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/HTTPFileLoader.cpp \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/PS1EbootFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RamCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/ZipFileLoader.cpp \
@@ -1131,6 +1132,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestSplineTessellation.cpp \
     $(SRC)/unittest/TestGEMath.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
+    $(SRC)/unittest/TestPS1Eboot.cpp \
     $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)

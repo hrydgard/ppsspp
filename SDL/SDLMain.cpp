@@ -743,8 +743,8 @@ AudioBackend *System_CreateAudioBackend() {
 static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType type) {
 	switch (type) {
 	case BrowseFileType::BOOTABLE:
-		filters.push_back("All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp)");
-		filters.push_back("*.pbp *.elf *.iso *.cso *.chd *.prx *.zip *.ppdmp");
+		filters.push_back("All supported file types (*.iso *.cso *.chd *.pbp *.elf *.prx *.zip *.ppdmp *.cue *.ccd *.mds *.mdf *.bin *.img)");
+		filters.push_back("*.pbp *.elf *.iso *.cso *.chd *.prx *.zip *.ppdmp *.cue *.ccd *.mds *.mdf *.bin *.img");
 		break;
 	case BrowseFileType::SAVE_STATE:
 		filters.push_back("Save state files (*.ppst)");

@@ -196,7 +196,10 @@ private:
 
 struct CHDImpl;
 
-struct ExtendedCoreFile;
+struct _chd_file;
+
+// Opens a CHD that's read through fileLoader, which has to outlive it. Null, and *error set, if it can't.
+struct _chd_file *OpenCHDThroughLoader(FileLoader *fileLoader, std::string *error);
 
 class CHDFileBlockDevice : public BlockDevice {
 public:
@@ -207,7 +210,6 @@ public:
 	u32 GetNumBlocks() const override { return numBlocks; }
 	bool IsDisc() const override { return true; }
 private:
-	struct ExtendedCoreFile *core_file_ = nullptr;
 	std::unique_ptr<CHDImpl> impl_;
 	u8 *readBuffer = nullptr;
 	u32 currentHunk = 0;

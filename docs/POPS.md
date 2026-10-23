@@ -58,6 +58,24 @@ A converted EBOOT (popstation and similar) has a plain disc image of DEFLATE blo
 does, the emulator's decoder calls go to an inflate, its CD audio index check takes the full-length branch,
 and the two MAC checks (+0A28, +0AB8) pass.
 
+## Disc images
+
+A PS1 disc image boots as the converted EBOOT it would make (`Core/FileLoaders/PS1EbootFileLoader.cpp`),
+which never exists as a whole. It takes a cue sheet (with any number of files, AUDIO tracks, INDEX 00
+and PREGAP), a CloneCD `.ccd` with its `.img`, an Alcohol 120% `.mds` with its `.mdf` (subchannel data
+skipped), a CD CHD (whose audio is big-endian), or a bare raw (2352-byte sector) `.bin`, `.img` or
+`.iso`, or a 2048-byte `.iso`, around whose user data Mode 2 Form 1 sectors are made (with no EDC/ECC).
+A bare image that a cue sheet next to it names, or that has a `.ccd` or `.mds` of the same name, is read
+through that. The disc ID is the one SYSTEM.CNF boots. The game browser shows each disc once, and a zip
+or 7z with one in it installs it (several files into a folder of their own).
+
+It's laid out as popstation lays out a PSISOIMG: the disc ID at +0x400, the TOC at +0x800, a block
+index at +0x4000 and the blocks from +0x100000, each of 16 sectors. The manager doesn't read the disc
+image of one whose blocks are its own uncompressed size (0x9300), so each block is a stored DEFLATE
+block, which the inflate above decodes: 0x9305 bytes, so reads of the image map straight onto its files.
+There are no icons, pictures or DATA.PSP, and none of the STARTDAT that follows a popstation image. The
+EBOOT is the only file in `host0:`.
+
 For any EBOOT, also as popcorn does: the manual's name check passes, and an ICON0 the emulator can't use
 (anything but an 80x80 PNG, such as a missing one or a PSP game's 144x80 one, which crashes it) reads as a
 blank 80x80 one.
@@ -78,5 +96,7 @@ The HOME button opens the emulator's menu. Savestates work.
 - The anti-LibCrypt word some PAL games need in a converted image (PSISOIMG + 0x12B0). ARK-4's popcorn has
   a table of them by disc ID, switched off. Converting tools can patch the image instead.
 - ARK-4's per-game CONFIG.BIN next to the EBOOT, copied over the image's config (PSISOIMG + 0x420).
+- Multi-disc games from disc images (PSTITLEIMG, which has up to five PSISOIMGs), and booting an image
+  straight from an archive.
 - A byte popcorn changes in reads of converted images (0x41B, from 0x27 to 0x55 when 0x41B-0x41E read
   27 19 22 41) without knowing why.

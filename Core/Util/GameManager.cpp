@@ -234,6 +234,19 @@ static std::string ZipReadFileByIndex(struct zip *z, int file_index) {
 	return buffer;
 }
 
+// Where a PS1 disc's files go: a folder of their own, named after the cue sheet or .ccd, when there's
+// more than one.
+static Path PS1DiscInstallDir(const Path &destDir, const std::vector<std::string> &files) {
+	if (files.size() <= 1) {
+		return destDir;
+	}
+	const Path first(files[0]);
+	const std::string name = first.GetFilename();
+	const Path dir = destDir / name.substr(0, name.size() - first.GetFileExtension().size());
+	File::CreateFullPath(dir);
+	return dir;
+}
+
 // Parameters need to be by value, since this is a thread func.
 void GameManager::InstallZipContents(ZipFileTask task) {
 	SetCurrentThreadName("InstallZipContents");
@@ -288,68 +301,81 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	if (task.zipFileInfo && task.zipFileInfo->archiveType == ArchiveType::SevenZ) {
 		Path destPath = task.destination;
 		g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
-		Path fn(task.zipFileInfo->isoFilename);
-		Path destFile = destPath / fn.GetFilename();
+		// An ISO, or a PS1 disc's files.
+		std::vector<std::string> names;
+		if (task.zipFileInfo->contents == ZipFileContents::PSX_DISC) {
+			names = task.zipFileInfo->discFiles;
+			destPath = PS1DiscInstallDir(destPath, names);
+		} else {
+			names.push_back(task.zipFileInfo->isoFilename);
+		}
 		const size_t blockSize = 1024 * 128;
 
 		SevenZipFileReader *reader = SevenZipFileReader::Create(task.fileName, "", true);
-		VFSFileReference *vfsRef = nullptr;
-		VFSOpenFile *vfsFile = nullptr;
-		FILE *f = nullptr;
-		bool success = false;
+		bool success = reader != nullptr;
 		bool writeFailed = false;
 		bool readFailed = false;
-		size_t totalSize = 0;
-		size_t bytesCopied = 0;
+		std::vector<Path> destFiles;
+		for (size_t n = 0; n < names.size() && success; n++) {
+			const std::string &name = names[n];
+			const Path destFile = destPath / Path(name).GetFilename();
+			VFSFileReference *vfsRef = reader->GetFile(name);
+			VFSOpenFile *vfsFile = nullptr;
+			FILE *f = nullptr;
+			size_t totalSize = 0;
+			size_t bytesCopied = 0;
+			success = false;
 
-		if (reader) {
-			vfsRef = reader->GetFile(task.zipFileInfo->isoFilename);
-		}
-		if (vfsRef) {
-			vfsFile = reader->OpenFileForRead(vfsRef, &totalSize);
-		}
-		if (vfsFile) {
-			f = File::OpenCFile(destFile, "wb");
-		}
-
-		if (f) {
-			std::vector<u8> buffer(blockSize);
-			while (bytesCopied < totalSize) {
-				size_t readSize = std::min(blockSize, totalSize - bytesCopied);
-				size_t bytesRead = reader->Read(vfsFile, buffer.data(), readSize);
-				if (bytesRead == 0) {
-					ERROR_LOG(Log::HLE, "Failed to stream extract 7z ISO '%s'", task.zipFileInfo->isoFilename.c_str());
-					readFailed = true;
-					break;
-				}
-
-				size_t written = fwrite(buffer.data(), 1, bytesRead, f);
-				if (written != bytesRead) {
-					ERROR_LOG(Log::HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bytesRead);
-					writeFailed = true;
-					break;
-				}
-
-				bytesCopied += bytesRead;
-				installProgress_ = totalSize > 0 ? (float)bytesCopied / (float)totalSize : 1.0f;
-				g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, installProgress_, 0.1f);
+			if (vfsRef) {
+				vfsFile = reader->OpenFileForRead(vfsRef, &totalSize);
+			}
+			if (vfsFile) {
+				f = File::OpenCFile(destFile, "wb");
 			}
 
-			success = bytesCopied == totalSize;
-			fclose(f);
-			f = nullptr;
-		}
+			if (f) {
+				destFiles.push_back(destFile);
+				std::vector<u8> buffer(blockSize);
+				while (bytesCopied < totalSize) {
+					size_t readSize = std::min(blockSize, totalSize - bytesCopied);
+					size_t bytesRead = reader->Read(vfsFile, buffer.data(), readSize);
+					if (bytesRead == 0) {
+						ERROR_LOG(Log::HLE, "Failed to stream extract 7z file '%s'", name.c_str());
+						readFailed = true;
+						break;
+					}
 
-		if (vfsFile) {
-			reader->CloseFile(vfsFile);
-		}
-		if (vfsRef) {
-			reader->ReleaseFile(vfsRef);
+					size_t written = fwrite(buffer.data(), 1, bytesRead, f);
+					if (written != bytesRead) {
+						ERROR_LOG(Log::HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bytesRead);
+						writeFailed = true;
+						break;
+					}
+
+					bytesCopied += bytesRead;
+					const float fileProgress = totalSize > 0 ? (float)bytesCopied / (float)totalSize : 1.0f;
+					installProgress_ = ((float)n + fileProgress) / (float)names.size();
+					g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, installProgress_, 0.1f);
+				}
+
+				success = bytesCopied == totalSize;
+				fclose(f);
+				f = nullptr;
+			}
+
+			if (vfsFile) {
+				reader->CloseFile(vfsFile);
+			}
+			if (vfsRef) {
+				reader->ReleaseFile(vfsRef);
+			}
 		}
 		delete reader;
 
 		if (!success) {
-			File::Delete(destFile);
+			for (const Path &destFile : destFiles) {
+				File::Delete(destFile);
+			}
 			if (writeFailed) {
 				SetInstallError(sy->T("Storage full"));
 			} else if (readFailed) {
@@ -404,6 +430,12 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 		INFO_LOG(Log::HLE, "Installing '%s' into '%s'", task.fileName.c_str(), task.destination.c_str());
 		// InstallZippedISO contains code to close z.
 		success = InstallZippedISO(z, zipInfo.isoFileIndex, task.destination);
+		break;
+	}
+	case ZipFileContents::PSX_DISC:
+	{
+		INFO_LOG(Log::HLE, "Installing PS1 disc '%s' into '%s'", task.fileName.c_str(), task.destination.c_str());
+		success = InstallZippedPS1Disc(z, zipInfo.discFiles, task.destination);
 		break;
 	}
 	case ZipFileContents::TEXTURE_PACK:
@@ -919,6 +951,46 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 	InstallDone();
 	ResetInstallError();
 	return true;
+}
+
+bool GameManager::InstallZippedPS1Disc(struct zip *z, const std::vector<std::string> &files, const Path &destDir) {
+	Path dir = destDir.empty() ? Path(g_Config.currentDirectory) : destDir;
+	dir = PS1DiscInstallDir(dir, files);
+
+	int64_t allBytes = 1;
+	std::vector<zip_int64_t> indices;
+	for (const std::string &file : files) {
+		const zip_int64_t index = zip_name_locate(z, file.c_str(), 0);
+		zip_stat_t zstat;
+		zip_stat_init(&zstat);
+		if (index < 0 || zip_stat_index(z, index, 0, &zstat) < 0) {
+			auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+			SetInstallError(iz->T("Zip archive corrupt"));
+			return false;
+		}
+		allBytes += zstat.size;
+		indices.push_back(index);
+	}
+
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.1f);
+	int64_t bytesCopied = 0;
+	bool success = true;
+	std::vector<Path> written;
+	for (size_t i = 0; i < files.size() && success; i++) {
+		const Path outFile = dir / Path(files[i]).GetFilename();
+		success = ExtractFile(z, (int)indices[i], outFile, &bytesCopied, allBytes);
+		written.push_back(outFile);
+	}
+	if (!success) {
+		for (const Path &file : written) {
+			File::Delete(file);
+		}
+	} else {
+		INFO_LOG(Log::IO, "Unzipped PS1 disc to '%s'", dir.c_str());
+	}
+	// The caller finishes the install.
+	return success;
 }
 
 bool GameManager::InstallZipOnThread(ZipFileTask task) {

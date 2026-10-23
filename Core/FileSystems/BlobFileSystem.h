@@ -17,9 +17,9 @@
 
 #pragma once
 
-// This is used for opening a debug file as a blob, and mounting it.
+// This is used for opening a file as a blob, and mounting it.
 // Importantly, uses a fileLoader for all access, so http:// URLs are supported.
-// As of writing, only used by GE dump replay.
+// Used by GE dump replay, and for the EBOOT a PS1 disc image is presented as.
 
 #include <map>
 #include <string>

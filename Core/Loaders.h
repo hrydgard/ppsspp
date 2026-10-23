@@ -19,6 +19,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
@@ -192,6 +193,8 @@ enum class ZipFileContents {
 	EXTRACTED_GAME,
 	SAVE_STATES,
 	PRX_PLUGIN,
+	// A PS1 disc image, which can be one file or several (a cue sheet and what it names).
+	PSX_DISC,
 };
 
 // TODO: Rename to ArchiveContentsInfo or something.
@@ -211,6 +214,7 @@ struct ZipFileInfo {
 	std::string mTime;
 	std::string iniContents;
 	std::string isoFilename; // Used by SevenZ only right now.
+	std::vector<std::string> discFiles;  // For PSX_DISC, the disc's files in the archive.
 	s64 totalFileSize = 0;
 
 	std::string contentName;

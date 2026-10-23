@@ -1061,19 +1061,14 @@ struct ExtendedCoreFile {
 	uint64_t seekPos;
 };
 
-CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
-	: BlockDevice(fileLoader), impl_(new CHDImpl()) {
-	Path paths[8];
-	paths[0] = fileLoader->GetPath();
-	int depth = 0;
-
-	core_file_ = new ExtendedCoreFile();
-	core_file_->core.argp = fileLoader;
-	core_file_->core.fsize = [](core_file *file) -> uint64_t {
+chd_file *OpenCHDThroughLoader(FileLoader *fileLoader, std::string *error) {
+	ExtendedCoreFile *coreFile = new ExtendedCoreFile();
+	coreFile->core.argp = fileLoader;
+	coreFile->core.fsize = [](core_file *file) -> uint64_t {
 		FileLoader *loader = (FileLoader *)file->argp;
 		return loader->FileSize();
 	};
-	core_file_->core.fseek = [](core_file *file, int64_t offset, int seekType) -> int {
+	coreFile->core.fseek = [](core_file *file, int64_t offset, int seekType) -> int {
 		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
 		switch (seekType) {
 		case SEEK_SET:
@@ -1093,7 +1088,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		}
 		return 0;
 	};
-	core_file_->core.fread = [](void *out_data, size_t size, size_t count, core_file *file) {
+	coreFile->core.fread = [](void *out_data, size_t size, size_t count, core_file *file) {
 		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
 		FileLoader *loader = (FileLoader *)file->argp;
 		uint64_t totalSize = size * count;
@@ -1101,11 +1096,23 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 		coreFile->seekPos += totalSize;
 		return size * count;
 	};
-	core_file_->core.fclose = [](core_file *file) {
+	coreFile->core.fclose = [](core_file *file) {
 		ExtendedCoreFile *coreFile = (ExtendedCoreFile *)file;
 		delete coreFile;
 		return 0;
 	};
+
+	chd_file *chd = nullptr;
+	chd_error err = chd_open_core_file(&coreFile->core, CHD_OPEN_READ, NULL, &chd);
+	if (err != CHDERR_NONE) {
+		*error = StringFromFormat("CHD error: %s: %s", fileLoader->GetPath().c_str(), chd_error_string(err));
+		return nullptr;
+	}
+	return chd;
+}
+
+CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
+	: BlockDevice(fileLoader), impl_(new CHDImpl()) {
 
 	/*
 	// TODO: Support parent/child CHD files.
@@ -1158,10 +1165,8 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	}
 	*/
 
-	chd_file *file = nullptr;
-	chd_error err = chd_open_core_file(&core_file_->core, CHD_OPEN_READ, NULL, &file);
-	if (err != CHDERR_NONE) {
-		errorString_ = StringFromFormat("CHD error: %s: %s", paths[depth].c_str(), chd_error_string(err));
+	chd_file *file = OpenCHDThroughLoader(fileLoader, &errorString_);
+	if (!file) {
 		return;
 	}
 
