@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "Common/File/Path.h"
@@ -68,6 +69,8 @@ struct CoreParameter {
 
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0:.
+	// Overrides the VSH's "UMD auto-start" setting (bVshUmdAutoboot) for this boot.
+	std::optional<bool> umdAutoboot;
 
 	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
 

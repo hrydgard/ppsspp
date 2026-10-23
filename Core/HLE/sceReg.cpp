@@ -9,6 +9,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 
 #define SYSTEM_REGISTRY "/system"
 #define REG_KEYNAME_SIZE 27
@@ -61,8 +62,13 @@ struct KeyValue {
 	const KeyValue *dirContents;  // intValue is the count.
 	// If set, an INT key reads this setting (as 0 or 1), even after the guest writes it: the VSH
 	// rewrites every key with its default at each boot, since category_version is below its schema.
-	const bool *boolSetting = nullptr;
+	bool (*boolSetting)() = nullptr;
 };
+
+static bool UmdAutoboot() {
+	// Forced on when a UMD Video disc picked from the game list boots the XMB.
+	return PSP_CoreParameter().umdAutoboot.value_or(g_Config.bVshUmdAutoboot);
+}
 
 // Guest-written registry values (sceRegCreateKey / sceRegSetKeyValue), keyed by category path
 // (no leading slash, e.g. "DATA/FONT") then key name. The static dump above is read-only, but
@@ -768,7 +774,7 @@ static const KeyValue tree_CONFIG_SYSTEM_CHARACTER_SET[] = {
 static const KeyValue tree_CONFIG_SYSTEM[] = {
 	{ "owner_name", ValueType::STR, "P939", 5 },
 	{ "backlight_brightness", ValueType::INT, "", (int)0x3 },  // decimal: 3
-	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, &g_Config.bVshUmdAutoboot },  // decimal: 1
+	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, &UmdAutoboot },  // decimal: 1
 	{ "usb_charge", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "umd_cache", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "usb_auto_connect", ValueType::INT, "", (int)0x1 },  // decimal: 1
@@ -1096,7 +1102,7 @@ static const MergedCategory &GetMergedCategory(const std::string &path) {
 
 	for (auto &kv : merged.keyvals) {
 		if (kv.boolSetting) {
-			kv.intValue = *kv.boolSetting ? 1 : 0;
+			kv.intValue = kv.boolSetting() ? 1 : 0;
 		}
 	}
 

@@ -1356,6 +1356,24 @@ bool FirmwareVersionSupportsVSH(std::string_view version) {
 	return FirmwareVersionToInt(version) >= 150;
 }
 
+// Measured by booting Bourne Supremacy with auto-start on: 2.71 through 6.61 reach its disc menu.
+// 1.50, 2.00 and 2.60 crash in video_plugin or paf as soon as the disc is in the drive, and 2.50
+// says the system software (version ".") is too old for it.
+const char *const UMD_VIDEO_MIN_FIRMWARE = "2.71";
+
+bool FirmwareVersionPlaysUmdVideo(std::string_view version) {
+	return FirmwareVersionSupportsVSH(version) && FirmwareVersionToInt(version) >= FirmwareVersionToInt(UMD_VIDEO_MIN_FIRMWARE);
+}
+
+Path GetUmdVideoVSHPath() {
+	InstalledFirmwareInfo info;
+	ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
+	if (!info.hasVsh || !FirmwareVersionPlaysUmdVideo(info.version)) {
+		return Path();
+	}
+	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+}
+
 std::string BundledUpdateInfo::Describe() const {
 	if (!present) {
 		return std::string();
@@ -1467,7 +1485,10 @@ static std::string ReadUpdaterVersionFromArchiveHeader() {
 }
 
 bool MountedDiscHasUpdater() {
-	return pspFileSystem.GetFileInfo(std::string("disc0:/") + UPDATE_PSAR_SUFFIX).exists;
+	// Plenty of discs keep the updater's files with nothing in them: UMD Video discs ship a 0-byte
+	// DATA.BIN next to a real PARAM.SFO, PSN releases zero-fill it. Only an actual archive counts.
+	std::vector<u8> head;
+	return ReadHeadFromMountedDisc(UPDATE_PSAR_SUFFIX, 4, &head) && head.size() == 4 && ReadU32(head.data()) == PSAR_MAGIC;
 }
 
 std::string ReadMountedDiscUpdaterVersion() {

@@ -417,6 +417,8 @@ void GameButton::Draw(UIContext &dc) {
 	if (ginfo->Ready(GameInfoFlags::ICON)) {
 		if (ginfo->icon.texture && drawBackground) {
 			texture = ginfo->icon.texture;
+			// The type icon is only for when there's no picture, and would be drawn on top of it.
+			imageIcon = ImageID::invalid();
 		} else if (drawBackground) {
 			// No icon, but drawBackground is set. Let's show a plain icon depending on type.
 			if (ginfo->fileType == IdentifiedFileType::PSP_ISO || ginfo->fileType == IdentifiedFileType::PSP_ISO_NP) {

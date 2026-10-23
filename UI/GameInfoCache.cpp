@@ -881,7 +881,8 @@ handleELF:
 
 				// Most UMDs carry a firmware updater, which is a source of things like the
 				// system fonts. Just note down what's there - unpacking it is a separate step.
-				if (flags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) {
+				// UMD Video discs only carry a placeholder (an empty DATA.BIN), so they're skipped.
+				if ((flags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) && fileType != IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
 					BundledUpdateInfo update;
 					ReadBundledUpdateInfo(&umd, "/", &update);
 					std::lock_guard<std::mutex> lock(info_->lock);
