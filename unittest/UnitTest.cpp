@@ -131,6 +131,7 @@
 
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
+#include "Common/Render/AtlasGen.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
@@ -3654,6 +3655,10 @@ public:
 	void SetOrCreateFont(const FontStyle &style) override { fontStyle_ = style; }
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
 
+	void TestDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) {
+		AddDropShadow(bitmapData, entry, srcFormat);
+	}
+
 	int measureCalls = 0;
 
 protected:
@@ -3711,6 +3716,61 @@ bool TestTextDrawerCache() {
 	EXPECT_EQ_FLOAT(h, 20.0f);
 	EXPECT_TRUE(w <= 200.0f);
 
+	// An 8x8 square of coverage in a 16x16 bitmap.
+	auto shadowTest = [&](float dpiScale, TextStringEntry &entry, std::vector<uint8_t> &bitmap) {
+		drawer.SetForcedDPIScale(dpiScale);
+		entry.width = entry.height = entry.bmWidth = entry.bmHeight = 16;
+		bitmap.assign(16 * 16, 0);
+		for (int y = 4; y < 12; y++) {
+			memset(&bitmap[y * 16 + 4], 0xFF, 8);
+		}
+		drawer.TestDropShadow(bitmap, entry, Draw::DataFormat::R8_UNORM);
+	};
+	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 24, FontStyleFlags::Default));
+	TextStringEntry entry1(0), entry2(0);
+	std::vector<uint8_t> bitmap;
+	shadowTest(1.0f, entry1, bitmap);
+	const int pad = entry1.shadowPad;
+	EXPECT_TRUE(pad > 0);
+	EXPECT_EQ_INT(entry1.width, 16);
+	EXPECT_TRUE(entry1.bmWidth >= 16 + pad * 2 && (entry1.bmWidth & 3) == 0);
+	EXPECT_EQ_INT((int)bitmap.size(), entry1.bmWidth * entry1.bmHeight * 4);
+	const uint32_t *pixels = (const uint32_t *)bitmap.data();
+	auto pixel = [&](int x, int y) { return pixels[(y + pad) * entry1.bmWidth + x + pad]; };
+	// The text stays opaque white, the shadow around it is black and partly transparent, and the far corner is empty.
+	EXPECT_EQ_INT(pixel(8, 8), 0xFFFFFFFF);
+	EXPECT_EQ_INT(pixel(12, 12) & 0x00FFFFFF, 0);
+	EXPECT_TRUE((pixel(12, 12) >> 24) > 0);
+	EXPECT_EQ_INT(pixel(-pad, -pad), 0);
+	// Higher DPI means more pixels per UI unit, so a bigger blur in pixels.
+	shadowTest(0.5f, entry2, bitmap);
+	EXPECT_TRUE(entry2.shadowPad > pad);
+	return true;
+}
+
+// The UI shadow has no offset, so it pads the image evenly and stays symmetric around it.
+bool TestAtlasDropShadow() {
+	Image img;
+	img.scale = 2.0f;
+	img.resize(8, 8);
+	for (int y = 2; y < 6; y++) {
+		for (int x = 2; x < 6; x++) {
+			img.set1(x, y, 0xFFFFFFFF);
+		}
+	}
+	AddDropShadow(img, UIDropShadowParams(img.scale));
+	EXPECT_EQ_INT(img.w, 8 + 12);
+	EXPECT_EQ_INT(img.h, 8 + 12);
+	EXPECT_EQ_HEX(img.get1(6 + 3, 6 + 3), 0xFFFFFFFF);
+	EXPECT_EQ_HEX(img.get1(0, 0), 0);
+	for (int y = 0; y < img.h; y++) {
+		for (int x = 0; x < img.w; x++) {
+			EXPECT_EQ_HEX(img.get1(x, y), img.get1(img.w - 1 - x, img.h - 1 - y));
+		}
+	}
+	const u32 edge = img.get1(5, 10);
+	EXPECT_EQ_INT(edge & 0xFFFFFF, 0);
+	EXPECT_TRUE((edge >> 24) > 0 && (edge >> 24) < 0xA8);
 	return true;
 }
 
@@ -4027,6 +4087,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(TextDrawerCache),
+	TEST_ITEM(AtlasDropShadow),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(UmdDiscType),

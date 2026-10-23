@@ -411,7 +411,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			if (!images[i].IsEmpty()) {
 				if (imageIDs[i].addShadow) {
 					// DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
-					AddDropShadow(images[i], 3, 0.66f);
+					AddDropShadow(images[i], UIDropShadowParams(images[i].scale));
 				} else {
 					// Make sure there are transparent pixels to filter from.
 					Add1PxTransparentBorder(images[i]);

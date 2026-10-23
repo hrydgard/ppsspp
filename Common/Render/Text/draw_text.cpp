@@ -3,6 +3,10 @@
 #if defined(__linux__) || defined(__FreeBSD__) && !defined(__ANDROID__)
 # include <dlfcn.h>
 #elif defined(_WIN32)
+// Not CommonWindows.h: its WIN32_LEAN_AND_MEAN leaves out what the Direct2D/DirectWrite headers in draw_text_uwp.h need.
+# ifndef NOMINMAX
+#  define NOMINMAX
+# endif
 # include <windows.h>
 #endif
 
@@ -16,6 +20,7 @@
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
 
+#include "Common/Render/DropShadow.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_win.h"
 #include "Common/Render/Text/draw_text_cocoa.h"
@@ -102,11 +107,12 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		return;
 	}
 
+	const bool dropShadow = (align & FLAG_DROP_SHADOW) != 0;
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto [iter, inserted] = cache_.try_emplace(LookupKey(str));
+	auto [iter, inserted] = cache_.try_emplace(LookupKey(str, align & FLAG_DROP_SHADOW));
 	if (!inserted) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -134,13 +140,20 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 		iter->second = std::make_unique<TextStringEntry>(frameCount_);
 		entry = iter->second.get();
 
+		// The shadow is built on the CPU from the text's coverage (or its colors, for emoji), and needs a color format.
+		const DataFormat bitmapFormat = dropShadow ? (emoji ? DataFormat::R8G8B8A8_UNORM : DataFormat::R8_UNORM) : texFormat;
+
 		// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
 		// because we need white. Well, we could using swizzle, but not all our backends support that.
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
-		if (!DrawStringBitmap(bitmapData, *entry, texFormat, str, align, emoji)) {
+		if (!DrawStringBitmap(bitmapData, *entry, bitmapFormat, str, align, emoji)) {
 			// Nothing drawn. The entry without a texture records that fact.
 			return;
+		}
+		if (dropShadow) {
+			AddDropShadow(bitmapData, *entry, bitmapFormat);
+			texFormat = DataFormat::R8G8B8A8_UNORM;
 		}
 
 		desc.initData.push_back(&bitmapData[0]);
@@ -162,11 +175,14 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	// Okay, the texture is bound, let's draw.
 	float w = (float)entry->width * (fontScaleX_ * dpiScale_);
 	float h = (float)entry->height * (fontScaleY_ * dpiScale_);
-	float u = (float)entry->width / (float)entry->bmWidth;
-	float v = (float)entry->height / (float)entry->bmHeight;
+	float u = (float)(entry->width + entry->shadowPad * 2) / (float)entry->bmWidth;
+	float v = (float)(entry->height + entry->shadowPad * 2) / (float)entry->bmHeight;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 
-	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, u, v, color);
+	// Align by the text, then grow the quad to include the shadow padding.
+	const float padX = entry->shadowPad * (fontScaleX_ * dpiScale_);
+	const float padY = entry->shadowPad * (fontScaleY_ * dpiScale_);
+	target.DrawTexRect(x - padX, y - padY, x + w + padX, y + h + padY, 0.0f, 0.0f, u, v, color);
 	target.Flush(true);
 }
 
@@ -251,6 +267,34 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	return DrawStringBitmap(bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, align, fullColor);
+}
+
+void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
+	// The bitmap has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
+	const DropShadowParams params = UIDropShadowParams(1.0f / dpiScale_);
+	const int pad = params.Padding();
+
+	const int srcW = entry.bmWidth;
+	const int srcH = entry.bmHeight;
+	std::vector<u32> src;
+	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+		src.resize(srcW * srcH);
+		memcpy(src.data(), bitmapData.data(), src.size() * sizeof(u32));
+	} else {
+		src.reserve(srcW * srcH);
+		for (uint8_t a : bitmapData) {
+			src.push_back(AlphaToPremul8888(a));
+		}
+	}
+
+	const int bmWidth = (srcW + pad * 2 + 3) & ~3;
+	const int bmHeight = (srcH + pad * 2 + 3) & ~3;
+	bitmapData.assign(bmWidth * bmHeight * sizeof(u32), 0);
+	CompositeDropShadow(src.data(), srcW, srcH, (u32 *)bitmapData.data(), bmWidth, params);
+
+	entry.bmWidth = bmWidth;
+	entry.bmHeight = bmHeight;
+	entry.shadowPad = pad;
 }
 
 void TextDrawer::ClearCache() {
