@@ -278,6 +278,9 @@ protected:
 		bool drawn = false;
 		bool unbounded = false;
 		ShadowRegion seen;
+		// The separate rectangles drawn, which seen is the bounds of. A texture can hold an image in two parts,
+		// with other data between or beside them.
+		std::vector<ShadowRegion> drawnParts;
 		double firstDrawn = 0.0;
 		double lastDrawn = 0.0;
 		double created = 0.0;
@@ -292,11 +295,14 @@ protected:
 		// From [shadowranges] in textures.ini. When there are any, dumps of this texture only use these, and
 		// nothing is learned for it. Largest first, like the others.
 		std::vector<ShadowRegion> declared;
+		// Regions made of several declared rectangles, hashed together: from [shadowranges] (written with +), and the
+		// ones dumps of this session used.
+		std::vector<std::vector<ShadowRegion>> declaredCombos;
 		// From [learnedshadowranges] and the dumps of this session.
 		std::vector<ShadowRegion> learned;
 		// From [hashranges] (0 or 1). Tried like the learned ones, but not written to shadowranges.ini.
 		std::vector<ShadowRegion> hashRange;
-		bool IsDeclared() const { return !declared.empty(); }
+		bool IsDeclared() const { return !declared.empty() || !declaredCombos.empty(); }
 	};
 	// What the draws of one replacement key sampled, and the region it was hashed over.
 	struct ShadowKeyInfo {
@@ -318,8 +324,20 @@ protected:
 	// Updates the volatile texels of a waiting content of a declared texture from its memory now.
 	void CheckShadowStability(ShadowVariant &variant);
 	bool ShadowRegionStable(const ShadowVariant &variant, const ShadowRegion &region) const;
-	// The region to dump a content of a declared texture with.
-	ShadowRegion PickDeclaredRegion(const ShadowSlot &slot, const ShadowVariant &variant, const ShadowRegion &seen) const;
+	// The region to dump a content of a declared texture with: one rectangle, or several hashed together.
+	std::vector<ShadowRegion> PickDeclaredParts(const ShadowSlot &slot, const ShadowVariant &variant, const ShadowRegion &seen) const;
+	// Of the declared regions covering something, largest first, the one to dump with.
+	ShadowRegion PickCovering(const std::vector<ShadowRegion> &covering, const ShadowVariant &variant) const;
+	// True if the texels of larger that aren't in smaller all have the same value, so they hold no image.
+	bool ExtraAreaUniform(const ShadowVariant &variant, const ShadowRegion &larger, const ShadowRegion &smaller) const;
+	// A texel of the captured copy, as stored (an index for CLUT formats). False for DXT, or outside the copy.
+	bool ShadowTexel(const ShadowVariant &variant, int x, int y, u32 *value) const;
+	static bool AddDrawnPart(std::vector<ShadowRegion> &parts, const ShadowRegion &region);
+	static ShadowRegion PartsBounds(const std::vector<ShadowRegion> &parts);
+	static std::string ShadowRegionString(const ShadowRegion &region);
+	static std::string PartsString(const std::vector<ShadowRegion> &parts);
+	static bool InParts(const std::vector<ShadowRegion> &parts, int x, int y);
+	u32 HashShadowParts(const u8 *base, u32 availableBytes, int bufw, const std::vector<ShadowRegion> &parts, GETextureFormat fmt);
 	bool ShadowKeyKnown(ReplacementCacheKey key);
 	ReplacementCacheKey NamingKey(u64 cachekey, u32 hash) const;
 	void CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH);
@@ -328,7 +346,9 @@ protected:
 	ShadowVariant *CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey);
 	std::unordered_map<ReplacementCacheKey, ShadowVariant>::iterator FindShadowVariant(u64 cachekey, u32 hash);
 	void EnforceShadowBudget(ReplacementCacheKey keep);
-	void CommitShadowIndexed(ShadowVariant &variant, ShadowRegion region, u32 hash);
+	void CommitShadowIndexed(ShadowVariant &variant, const std::vector<ShadowRegion> &parts, u32 hash);
+	// Remembers what a dump used, so its key is found again.
+	void NoteDumpRegion(ShadowSlot &slot, const std::vector<ShadowRegion> &parts);
 	void CommitShadow(ShadowVariant &variant);
 	void CommitAllShadows();
 	void SaveShadowRanges();
@@ -352,6 +372,7 @@ protected:
 		bool unbounded = false;
 		u64 cachekey = 0;
 		ShadowRegion seen;
+		std::vector<ShadowRegion> drawnParts;
 		bool drawn = false;
 		double firstDrawn = 0.0;
 	};
