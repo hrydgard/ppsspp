@@ -411,9 +411,13 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
 
+	// The CPUs ignore the target's low two bits (tests/cpu/jump/unaligned). Sony's ME firmware keeps
+	// flags there in its command table, and calls the entries as they are, and the PS1 emulator returns
+	// through such an address.
 	int destReg;
 	if (IsSyscall(delaySlotOp)) {
-		ir.Write(IROp::SetPC, 0, rs);
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
+		ir.Write(IROp::SetPC, 0, IRTEMP_LHS);
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
@@ -422,19 +426,17 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		// Account for the delay slot itself in total bytes.
 		js.compilerPC += 4;
 		return;  // Syscall (delay slot) wrote exit code.
-	} else if (delaySlotIsNice && !IsMediaEngine()) {
+	} else if (delaySlotIsNice) {
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
-		destReg = rs;  // Safe because FlushAll doesn't change any regs
+		// Safe because the delay slot doesn't change rs.
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
+		destReg = IRTEMP_LHS;
 		FlushAll();
 	} else {
-		// Bad delay slot. The Media Engine ignores the target's low two bits: Sony's ME firmware keeps
-		// flags there in its command table, and calls the entries as they are.
-		if (IsMediaEngine())
-			ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
-		else
-			ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+		// Bad delay slot.
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
 		destReg = IRTEMP_LHS;
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
