@@ -166,6 +166,13 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 // Mounts a disc image at umd0:, umd1:, umd: and disc0:, whether or not one was there.
 bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error);
 
+class IFileSystem;
+// What a disc holds, as PSP_UMD_TYPE_* bits (game, video, audio), or 0 if it's none of those.
+// root is prepended to the disc's paths, so "disc0:" reads the mounted disc through pspFileSystem.
+u32 DetectUmdDiscType(IFileSystem *fs, std::string_view root);
+// The same for a disc image file. 0 if it can't be opened as one.
+u32 DetectUmdDiscType(FileLoader *fileLoader);
+
 enum class ArchiveType {
 	ZIP,
 	SevenZ,

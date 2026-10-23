@@ -112,6 +112,9 @@
 #include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/HLE/sceUmd.h"
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
@@ -3302,6 +3305,43 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+bool TestUmdDiscType() {
+	const Path root = UnitTestTempPath("unittest_umd_disc_type");
+	// Builds a disc out of the given files (a trailing slash makes a directory) and detects its type.
+	auto detect = [&](const std::vector<std::pair<std::string, std::string>> &files) {
+		File::DeleteDirRecursively(root);
+		File::CreateDir(root);
+		for (const auto &[name, contents] : files) {
+			if (endsWith(name, "/")) {
+				File::CreateFullPath(root / name.substr(0, name.size() - 1));
+			} else {
+				File::CreateFullPath((root / name).NavigateUp());
+				File::WriteStringToFile(false, contents, root / name);
+			}
+		}
+		SequentialHandleAllocator handles;
+		DirectoryFileSystem fs(&handles, root);
+		return DetectUmdDiscType(&fs, "");
+	};
+
+	const u32 G = PSP_UMD_TYPE_GAME, V = PSP_UMD_TYPE_VIDEO, A = PSP_UMD_TYPE_AUDIO;
+	// UMD_DATA.BIN says what's there, as on the EUR Video Demo Disc.
+	EXPECT_EQ_INT(detect({ { "UMD_DATA.BIN", "UCJB-98302|4BCA8BE1C6F3904D|0002|GVA" }, { "PSP_GAME/SYSDIR/EBOOT.BIN", "x" }, { "UMD_VIDEO/", "" }, { "UMD_AUDIO/", "" } }), G | V | A);
+	EXPECT_EQ_INT(detect({ { "UMD_DATA.BIN", "THE_BOURNE_SUPREMACY_SKU1|6|0002|V" }, { "UMD_VIDEO/", "" } }), V);
+	// Scene releases append text after the type.
+	EXPECT_EQ_INT(detect({ { "UMD_DATA.BIN", "NPUH-10123|420B60F2BB73D289|0001|G             |\r\nPatched" }, { "PSP_GAME/SYSDIR/EBOOT.BIN", "x" } }), G);
+	// A video disc whose PSP_GAME is only a firmware update is no game (#22737), with or without UMD_DATA.BIN.
+	EXPECT_EQ_INT(detect({ { "PSP_GAME/SYSDIR/UPDATE/EBOOT.PBP", "x" }, { "UMD_VIDEO/", "" } }), V);
+	EXPECT_EQ_INT(detect({ { "UMD_DATA.BIN", "UMDV-12345|0000000000000000|0001|GV" }, { "PSP_GAME/SYSDIR/UPDATE/EBOOT.PBP", "x" }, { "UMD_VIDEO/", "" } }), V);
+	// Without UMD_DATA.BIN, the directories decide, and a lone PSP_GAME is a game whatever's in it.
+	EXPECT_EQ_INT(detect({ { "PSP_GAME/SYSDIR/EBOOT.BIN", "x" } }), G);
+	EXPECT_EQ_INT(detect({ { "PSP_GAME/SYSDIR/BOOT.BIN", "x" } }), G);
+	EXPECT_EQ_INT(detect({ { "README.TXT", "x" } }), 0);
+
+	File::DeleteDirRecursively(root);
+	return true;
+}
+
 bool TestGEDumpGameID() {
 	std::string id;
 	// PPSSPP's own dump names.
@@ -3989,6 +4029,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
+	TEST_ITEM(UmdDiscType),
 	TEST_ITEM(QueueBuf),
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),

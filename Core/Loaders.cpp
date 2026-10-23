@@ -30,6 +30,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
@@ -142,7 +143,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
 					ISOFileSystem umd(&hAlloc, bd);
-					if (umd.GetFileInfo("/PSP_GAME").exists) {
+					if (DetectUmdDiscType(&umd, "") & PSP_UMD_TYPE_GAME) {
 						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
 						*errorString = "UMD Video with PSP GAME data";
 						return IdentifiedFileType::PSP_ISO;
@@ -388,6 +389,66 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 		break;
 	}
 	return true;
+}
+
+u32 DetectUmdDiscType(IFileSystem *fs, std::string_view root) {
+	const auto exists = [&](std::string_view path) {
+		return fs->GetFileInfo(join(root, path)).exists;
+	};
+
+	u32 type = 0;
+	// Pressed discs carry UMD_DATA.BIN, "ULUS-10041|06B7CAAD47576766|0001|G", whose fourth field
+	// lists the content: G for a game, V for video, A for audio. The EUR Video Demo Disc says GVA.
+	const std::string umdDataPath = join(root, "/UMD_DATA.BIN");
+	if (fs->GetFileInfo(umdDataPath).exists) {
+		const int handle = fs->OpenFile(umdDataPath, FILEACCESS_READ);
+		if (handle >= 0) {
+			char data[128];
+			const size_t size = fs->ReadFile(handle, (u8 *)data, sizeof(data));
+			fs->CloseFile(handle);
+			std::vector<std::string_view> fields;
+			SplitString(std::string_view(data, size), '|', fields);
+			if (fields.size() >= 4) {
+				for (char c : fields[3]) {
+					switch (c) {
+					case 'G': type |= PSP_UMD_TYPE_GAME; break;
+					case 'V': type |= PSP_UMD_TYPE_VIDEO; break;
+					case 'A': type |= PSP_UMD_TYPE_AUDIO; break;
+					default: break;
+					}
+				}
+			}
+		}
+	}
+	if (type == 0) {
+		// Homebrew and patched images often have no UMD_DATA.BIN.
+		if (exists("/PSP_GAME")) {
+			type |= PSP_UMD_TYPE_GAME;
+		}
+		if (exists("/UMD_VIDEO")) {
+			type |= PSP_UMD_TYPE_VIDEO;
+		}
+		if (exists("/UMD_AUDIO")) {
+			type |= PSP_UMD_TYPE_AUDIO;
+		}
+	}
+	// Some video discs have a PSP_GAME holding nothing but a firmware update (SYSDIR/UPDATE), and
+	// the VSH refuses such a disc if we call it a game too (#22737).
+	if ((type & PSP_UMD_TYPE_GAME) && !exists("/PSP_GAME/SYSDIR/EBOOT.BIN") && (type & ~PSP_UMD_TYPE_GAME) != 0) {
+		type &= ~PSP_UMD_TYPE_GAME;
+	}
+	return type;
+}
+
+u32 DetectUmdDiscType(FileLoader *fileLoader) {
+	std::string error;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &error));
+	if (!bd) {
+		return 0;
+	}
+	SequentialHandleAllocator handles;
+	ISOFileSystem umd(&handles, bd);
+	return DetectUmdDiscType(&umd, "");
 }
 
 // Close the return value with ZipClose (if non-null, of course).
