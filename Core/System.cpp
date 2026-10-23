@@ -292,7 +292,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
 	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
-	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = "UMD Video ISOs are not supported by PPSSPP."; break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = std::string("UMD Video plays in the XMB, which needs PSP firmware ") + UMD_VIDEO_MIN_FIRMWARE + " or later."; break;
 	case IdentifiedFileType::UNKNOWN_BIN:
 	case IdentifiedFileType::UNKNOWN_ELF:
 	case IdentifiedFileType::UNKNOWN_ISO:
@@ -468,9 +468,10 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	{
-		ERROR_LOG(Log::Loader, "PPSSPP doesn't support UMD Video.");
+		// The game list boots the XMB for these, which plays them.
+		ERROR_LOG(Log::Loader, "UMD Video can't be booted directly, only played in the XMB");
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*errorString = er->T("PPSSPP doesn't support UMD Video.");
+		*errorString = ApplySafeSubstitutions(er->T("PSP firmware version %1 or later must be installed to play UMD video"), UMD_VIDEO_MIN_FIRMWARE);
 		return false;
 	}
 	default:

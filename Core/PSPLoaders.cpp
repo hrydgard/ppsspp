@@ -55,6 +55,7 @@
 #include "Core/PSPLoaders.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/PopsBoot.h"
+#include "Core/Util/PSARUnpack.h"
 
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {
@@ -474,7 +475,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		if (pspFileSystem.GetFileInfo("disc0:/SYSTEM.CNF;1").exists || pspFileSystem.GetFileInfo("disc0:/PSX.EXE;1").exists) {
 			*error_string = "PPSSPP plays PSP games, not PlayStation 1 or 2 games.";
 		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_VIDEO/PLAYLIST.UMD").exists) {
-			*error_string = "PPSSPP doesn't support UMD Video.";
+			*error_string = std::string("UMD Video plays in the XMB, which needs PSP firmware ") + UMD_VIDEO_MIN_FIRMWARE + " or later.";
 		} else if (pspFileSystem.GetFileInfo("disc0:/UMD_AUDIO/PLAYLIST.UMD").exists) {
 			*error_string = "PPSSPP doesn't support UMD Music.";
 		} else if (pspFileSystem.GetDirListing("disc0:/").empty()) {

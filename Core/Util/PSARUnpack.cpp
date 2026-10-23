@@ -1356,11 +1356,13 @@ bool FirmwareVersionSupportsVSH(std::string_view version) {
 	return FirmwareVersionToInt(version) >= 150;
 }
 
+// Measured by booting Bourne Supremacy with auto-start on: 2.71 through 6.61 reach its disc menu.
+// 1.50, 2.00 and 2.60 crash in video_plugin or paf as soon as the disc is in the drive, and 2.50
+// says the system software (version ".") is too old for it.
+const char *const UMD_VIDEO_MIN_FIRMWARE = "2.71";
+
 bool FirmwareVersionPlaysUmdVideo(std::string_view version) {
-	// Measured by booting Bourne Supremacy with auto-start on: 2.71 through 6.61 reach its disc menu.
-	// 1.50, 2.00 and 2.60 crash in video_plugin or paf as soon as the disc is in the drive, and
-	// 2.50 says the system software (version ".") is too old for it.
-	return FirmwareVersionSupportsVSH(version) && FirmwareVersionToInt(version) >= 271;
+	return FirmwareVersionSupportsVSH(version) && FirmwareVersionToInt(version) >= FirmwareVersionToInt(UMD_VIDEO_MIN_FIRMWARE);
 }
 
 std::string BundledUpdateInfo::Describe() const {

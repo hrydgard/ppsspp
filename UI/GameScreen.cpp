@@ -43,6 +43,7 @@
 #include "Core/Util/GameDB.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/Util/VideoPlayer.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/Background.h"
@@ -369,7 +370,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO && GetUmdVideoVSHPath().empty()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		leftColumn->Add(new NoticeView(NoticeLevel::INFO, er->T("PPSSPP doesn't support UMD Video."), ""));
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ApplySafeSubstitutions(er->T("PSP firmware version %1 or later must be installed to play UMD video"), UMD_VIDEO_MIN_FIRMWARE), ""));
 		leftColumn->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/umd-video/");
 		});
