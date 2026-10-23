@@ -233,7 +233,6 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	switch (fileType) {
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN:
-	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PS2_ISO:
 	case IdentifiedFileType::PS3_ISO:
 	case IdentifiedFileType::UNKNOWN_BIN:

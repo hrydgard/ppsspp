@@ -1425,6 +1425,7 @@ if(UNITTEST)
 		unittest/TestVertexJit.h
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
+		unittest/TestPS1Eboot.cpp
 		unittest/TestLzrc.cpp
 		unittest/TestCwCheat.cpp
 		unittest/TestMpegCsc.cpp

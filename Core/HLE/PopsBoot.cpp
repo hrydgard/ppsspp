@@ -235,6 +235,10 @@ static bool ReadDiscImage(const PBPReader &pbp, size_t size, u8 *out) {
 
 // The content ID (DATA.PSP + 0x560, as in the license) and the disc image's PGD header.
 static bool ReadPBPDrmHeaders(u8 *pgdHeader, u8 *contentId) {
+	// A converted one has no PGD, and one made from a disc image isn't at its path.
+	if (g_popsConvertedPBP) {
+		return false;
+	}
 	std::unique_ptr<FileLoader> loader(ConstructFileLoader(g_popsPBPPath));
 	PBPReader pbp(loader.get());
 	return pbp.IsValid() && pbp.ReadSubFile(PBP_EXECUTABLE_PSP, 0x560, 0x30, contentId) &&

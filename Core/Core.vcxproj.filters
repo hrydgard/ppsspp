@@ -619,6 +619,9 @@
     <ClCompile Include="FileLoaders\LocalFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
+    <ClCompile Include="FileLoaders\PS1EbootFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
     <ClCompile Include="FileLoaders\HTTPFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
@@ -1976,6 +1979,9 @@
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="FileLoaders\LocalFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\PS1EbootFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="FileLoaders\HTTPFileLoader.h">

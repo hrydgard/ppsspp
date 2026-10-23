@@ -38,6 +38,7 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/MemMap.h"
 #include "Core/Util/VideoPlayer.h"
 
@@ -1116,7 +1117,9 @@ void GameBrowser::Refresh() {
 		}
 	} else if (!listingPending_) {
 		std::vector<File::FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:");
+		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:bin:img:");
+		// PS1 discs: a .bin or .img shows up as its cue sheet or .ccd, when it has one.
+		RemoveDescribedDiscImages(&fileInfo);
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;

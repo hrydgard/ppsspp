@@ -33,6 +33,7 @@
 #include "Common/System/Request.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -597,6 +598,8 @@ public:
 		switch (fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		case IdentifiedFileType::PSP_PS1_PBP:
+		case IdentifiedFileType::PSX_ISO:
 			{
 				auto pbpLoader = info_->GetFileLoader();
 				if (fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
@@ -604,6 +607,9 @@ public:
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
 					}
+				} else if (fileType == IdentifiedFileType::PSX_ISO) {
+					// The EBOOT a PS1 disc image boots as, which has its title and disc ID.
+					pbpLoader.reset(new PS1EbootFileLoader(gamePath_));
 				}
 
 				if (!pbpLoader->Exists()) {

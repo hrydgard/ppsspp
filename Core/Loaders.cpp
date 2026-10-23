@@ -25,6 +25,7 @@
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/FileLoaders/RetryingFileLoader.h"
 #include "Core/FileLoaders/ZipFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -111,6 +112,9 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 	bool isDiscImage = false;
 	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
 		isDiscImage = true;
+	} else if (extension == ".cue" || extension == ".ccd") {
+		// A PS1 disc, which boots as a converted EBOOT (see PS1EbootFileLoader).
+		return IsPS1CueOrCcd(fileLoader) ? IdentifiedFileType::PSX_ISO : IdentifiedFileType::UNKNOWN;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
 	} else if (extension == ".ppdmp") {
@@ -302,6 +306,17 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader, IdentifiedFileType *
 			// Re-identify the file.
 			*fileType = Identify_File(fileLoader, errorString);
 		}
+	} else if (*fileType == IdentifiedFileType::PSX_ISO) {
+		// A PS1 disc image runs on the firmware's POPS, as a converted EBOOT made from it.
+		PS1EbootFileLoader *eboot = new PS1EbootFileLoader(fileLoader->GetPath());
+		if (!eboot->IsValid()) {
+			*errorString = eboot->LatestError();
+			delete eboot;
+			return fileLoader;
+		}
+		delete fileLoader;
+		*fileType = IdentifiedFileType::PSP_PS1_PBP;
+		return eboot;
 	} else if (*fileType == IdentifiedFileType::ARCHIVE_ZIP) {
 		// Handle zip files, take automatic action depending on contents.
 		// Can also return nullptr.

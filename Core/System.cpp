@@ -288,7 +288,12 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 
 	case IdentifiedFileType::ARCHIVE_7Z: *errorString = "7z file detected (Require 7-Zip)"; break;
 	case IdentifiedFileType::PSP_PKG: *errorString = "PKG game updates need to be installed, not booted."; break;
-	case IdentifiedFileType::PSX_ISO:  *errorString = "PSX game image detected."; break;
+	case IdentifiedFileType::PSX_ISO:
+		// It only gets here if it couldn't be made into an EBOOT, which says why.
+		if (errorString->empty()) {
+			*errorString = "PSX game image detected.";
+		}
+		break;
 	case IdentifiedFileType::PS2_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::PS3_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;

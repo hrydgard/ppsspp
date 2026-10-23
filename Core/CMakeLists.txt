@@ -612,6 +612,8 @@ add_library(Core STATIC
 	FileLoaders/HTTPFileLoader.h
 	FileLoaders/LocalFileLoader.cpp
 	FileLoaders/LocalFileLoader.h
+	FileLoaders/PS1EbootFileLoader.cpp
+	FileLoaders/PS1EbootFileLoader.h
 	FileLoaders/RamCachingFileLoader.cpp
 	FileLoaders/RamCachingFileLoader.h
 	FileLoaders/RetryingFileLoader.cpp
