@@ -823,6 +823,23 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		IdentifiedFileType fileType;
 		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
 
+		// UMD Video only plays in the XMB, so however it was asked for, boot that with the disc in
+		// the drive and auto-start on. Without a firmware that can, CPU_Init says what's needed.
+		if (fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+			const Path vshmain = GetUmdVideoVSHPath();
+			if (!vshmain.empty()) {
+				INFO_LOG(Log::Loader, "UMD Video: booting the XMB (%s) to play %s", vshmain.c_str(), filename.c_str());
+				delete loadedFile;
+				g_CoreParameter.mountIso = filename;
+				g_CoreParameter.fileToStart = vshmain;
+				if (!g_CoreParameter.umdAutoboot) {
+					g_CoreParameter.umdAutoboot = true;
+				}
+				filename = vshmain;
+				loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
+			}
+		}
+
 		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 			if (g_Config.bCacheFullIsoInRam) {
 				switch (fileType) {

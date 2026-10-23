@@ -189,6 +189,8 @@ bool FirmwareVersionSupportsVSH(std::string_view version);
 bool FirmwareVersionPlaysUmdVideo(std::string_view version);
 // The oldest firmware that does.
 extern const char *const UMD_VIDEO_MIN_FIRMWARE;
+// vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
+Path GetUmdVideoVSHPath();
 
 // Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
 // doesn't have would linger and still get loaded - so this replaces rather than overlays.

@@ -62,15 +62,6 @@
 
 bool MainScreen::showHomebrewTab = false;
 
-Path GetUmdVideoVSHPath() {
-	InstalledFirmwareInfo info;
-	ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
-	if (!info.hasVsh || !FirmwareVersionPlaysUmdVideo(info.version)) {
-		return Path();
-	}
-	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
-}
-
 static void LaunchInEmuScreen(ScreenManager *screenManager, Screen *currentScreen, EmuScreen *emuScreen) {
 	if (currentScreen) {
 		screenManager->cancelScreensAbove(currentScreen);

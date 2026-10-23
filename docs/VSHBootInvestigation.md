@@ -55,8 +55,9 @@ Two separate things:
   from our Media Engine HLE (per-picture SEI records, keyframe flags, field conversion in
   `sceMpegBaseCscAvc`) is in pspautotests `video/mpeg/avcdetail` and `video/mpeg/cscavc`.
 
-  Picking a UMD Video disc in the game list boots the XMB with the disc in the drive and UMD
-  auto-start forced on (`CoreParameter::umdAutoboot`), so it goes straight to the disc's menu. That
+  Booting a UMD Video disc (from the game list, the command line or anywhere else) boots the XMB
+  with the disc in the drive and UMD auto-start forced on (`CoreParameter::umdAutoboot`), so it
+  goes straight to the disc's menu. The swap happens in `PSP_InitStart`'s loader thread. That
   needs firmware 2.71 or later: 1.50, 2.00 and 2.60 crash in `video_plugin`/paf as soon as the disc
   is in, and 2.50 refuses it, claiming the system software is version "." (all measured with
   Bourne Supremacy). A disc with both a game and video asks which one; for video the XMB comes up

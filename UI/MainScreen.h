@@ -136,6 +136,3 @@ private:
 };
 
 void LaunchBuyGold(ScreenManager *screenManager);
-
-// vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
-Path GetUmdVideoVSHPath();
