@@ -435,9 +435,8 @@ public:
 	virtual bool SubviewFocused(View *view) { return false; }
 	virtual bool CanMoveFocus(FocusMove dir) const { return true; }
 
-	virtual void SetRoundCorners(RoundCorners corners) {
-		roundCorners_ = corners;
-	}
+	virtual void SetRoundCorners(RoundCorners corners) { roundCorners_ = corners; }
+	virtual RoundCorners GetRoundCorners() const { return roundCorners_; }
 
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 

@@ -832,7 +832,7 @@ void ChoiceGroup::Draw(UIContext &dc) {
 
 	if (!finished_) {
 		views_[0]->SetRoundCorners(RoundCorners::Top);
-		views_[views_.size() - 1]->SetRoundCorners(RoundCorners::Bottom);
+		views_[views_.size() - 1]->SetRoundCorners(views_[views_.size() - 1]->GetRoundCorners() | RoundCorners::Bottom);  // Makes it work with a single item.
 		finished_ = true;
 	}
 
