@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdlib>
 
 #include "Common/CommonTypes.h"
@@ -34,7 +33,9 @@ struct DropShadowParams {
 
 	// Room the shadow needs on each side of the image.
 	int Padding() const {
-		return radius + std::max(abs(offsetX), abs(offsetY));
+		const int x = abs(offsetX);
+		const int y = abs(offsetY);
+		return radius + (x > y ? x : y);
 	}
 };
 

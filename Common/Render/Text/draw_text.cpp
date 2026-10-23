@@ -3,7 +3,11 @@
 #if defined(__linux__) || defined(__FreeBSD__) && !defined(__ANDROID__)
 # include <dlfcn.h>
 #elif defined(_WIN32)
-# include "Common/CommonWindows.h"
+// Not CommonWindows.h: its WIN32_LEAN_AND_MEAN leaves out what the Direct2D/DirectWrite headers in draw_text_uwp.h need.
+# ifndef NOMINMAX
+#  define NOMINMAX
+# endif
+# include <windows.h>
 #endif
 
 #include <algorithm>
