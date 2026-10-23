@@ -7,6 +7,10 @@
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
 #include <UWP/UWPHelpers/StorageManager.h>
+#elif defined(_MSC_VER)
+#include <lm.h>
+#pragma comment(lib, "netapi32.lib")
+#define HAVE_NETSHAREENUM
 #endif
 #else
 #include <strings.h>
@@ -89,6 +93,57 @@ void ReadFileAttributes(FileInfo *fileInfo, const T &attrs) {
 		fileInfo->access |= 0111;  // Execute
 	}
 }
+
+#ifdef HAVE_NETSHAREENUM
+// Returns the server name if the path is just "//server", which can't be listed like a directory.
+static bool GetUNCServerName(const Path &path, std::wstring *server) {
+	const std::string &str = path.ToString();
+	if (str.size() < 3 || str[0] != '/' || str[1] != '/' || str[2] == '.' || str[2] == '?' || str.find('/', 2) != std::string::npos) {
+		return false;
+	}
+	*server = ConvertUTF8ToWString(str.substr(2));
+	return true;
+}
+
+// Lists the disk shares of a server as directories, skipping the admin ones like C$ and IPC$.
+static bool GetUNCServerShares(const Path &directory, const std::wstring &server, std::vector<FileInfo> *files, std::string_view prefix) {
+	bool success = false;
+	DWORD_PTR resumeHandle = 0;
+	NET_API_STATUS status;
+	do {
+		SHARE_INFO_1 *shares = nullptr;
+		DWORD count = 0;
+		DWORD total = 0;
+		status = NetShareEnum((LPWSTR)server.c_str(), 1, (LPBYTE *)&shares, MAX_PREFERRED_LENGTH, &count, &total, (LPDWORD)&resumeHandle);
+		if (status != NERR_Success && status != ERROR_MORE_DATA) {
+			WARN_LOG(Log::IO, "NetShareEnum failed for %s: %d", directory.c_str(), (int)status);
+			break;
+		}
+		success = true;
+		for (DWORD i = 0; i < count; i++) {
+			if ((shares[i].shi1_type & STYPE_MASK) != STYPE_DISKTREE || (shares[i].shi1_type & STYPE_SPECIAL)) {
+				continue;
+			}
+			std::string name = ConvertWStringToUTF8(shares[i].shi1_netname);
+			if (!startsWith(name, prefix)) {
+				continue;
+			}
+			FileInfo info;
+			info.name = name;
+			info.fullName = directory / name;
+			info.exists = true;
+			info.isDirectory = true;
+			info.isWritable = false;
+			info.size = 0;
+			files->push_back(info);
+		}
+		if (shares) {
+			NetApiBufferFree(shares);
+		}
+	} while (status == ERROR_MORE_DATA);
+	return success;
+}
+#endif
 
 #endif
 
@@ -283,6 +338,14 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		}
 		return files->size();
 	}
+#ifdef HAVE_NETSHAREENUM
+	std::wstring server;
+	if (GetUNCServerName(directory, &server)) {
+		bool success = GetUNCServerShares(directory, server, files, prefix);
+		std::sort(files->begin(), files->end());
+		return success;
+	}
+#endif
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 	std::wstring wpath = directory.ToWString();
