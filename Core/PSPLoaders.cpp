@@ -672,10 +672,23 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 		return false;
 	}
 
+	// Several discs from a playlist need the disc switching text PopsBoot puts in the emulator, which it
+	// only finds in 6.20 and later.
+	const PS1EbootFileLoader *discImage = dynamic_cast<PS1EbootFileLoader *>(fileLoader);
+	if (discImage && discImage->NumDiscs() > 1) {
+		InstalledFirmwareInfo info;
+		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
+		if (FirmwareVersionToInt(info.version) < 620) {
+			auto po = GetI18NCategory(I18NCat::POPS);
+			*error_string = po->T("PS1MultiDiscFirmware", "So far, PS1 games of several discs only run with firmware 6.20 or later. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+			return false;
+		}
+	}
+
 	// Its directory as host0:, as for a homebrew EBOOT. An EBOOT made from a disc image is the only file there.
 	const Path fullPath = fileLoader->GetPath();
 	std::string gamePath;
-	if (dynamic_cast<PS1EbootFileLoader *>(fileLoader)) {
+	if (discImage) {
 		pspFileSystem.Mount("host0:", std::make_shared<BlobFileSystem>(&pspFileSystem, fileLoader, "EBOOT.PBP"));
 		gamePath = "host0:/EBOOT.PBP";
 	} else {
@@ -694,8 +707,8 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 	if (!__PopsBootStartInit(fileLoader, gamePath, error_string)) {
 		return false;
 	}
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("PS1 support is still experimental. The game might not work, or there may be glitches."), 6.0f);
+	auto po = GetI18NCategory(I18NCat::POPS);
+	g_OSD.Show(OSDType::MESSAGE_WARNING, po->T("PS1 support is still experimental. The game might not work, or there may be glitches."), 6.0f);
 	return true;
 }
 

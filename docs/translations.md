@@ -46,6 +46,6 @@ from `Tools/langtool`:
 5. `cargo run -- validate` at the end, always. It checks that placeholders survived and exits
    non-zero if anything is off.
 
-The other mechanical jobs (renaming and moving keys, sorting sections) are langtool commands too -
-prefer them over editing the ini files by hand.
+The other mechanical jobs (renaming and moving keys, sorting sections, adding the section for a new
+`I18NCat` with `add-section`) are langtool commands too - prefer them over editing the ini files by hand.
 

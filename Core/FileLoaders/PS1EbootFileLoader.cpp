@@ -1026,8 +1026,8 @@ static bool NeedsOtherFiles(const std::string &ext) {
 PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 	const std::string ext = path.GetFileExtension();
 	if (path.Type() == PathType::CONTENT_URI && NeedsOtherFiles(ext) && !AndroidContentURI(path.ToString()).IsTreeURI()) {
-		auto er = GetI18NCategory(I18NCat::ERRORS);
-		error_ = er->T("PS1NeedsFolderAccess", "This game is made of several files, and PPSSPP was only given access to one of them. Add the folder it's in with Browse... on the Games tab, and start it from there.");
+		auto po = GetI18NCategory(I18NCat::POPS);
+		error_ = po->T("PS1NeedsFolderAccess", "This game is made of several files, and PPSSPP was only given access to one of them. Add the folder it's in with Browse... on the Games tab, and start it from there.");
 		return;
 	}
 

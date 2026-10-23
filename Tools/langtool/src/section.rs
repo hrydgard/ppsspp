@@ -203,7 +203,9 @@ impl Section {
             return true;
         }
 
-        println!("{}: failed to insert {line}", self.name);
+        // No lines yet, like a new section: before its empty line.
+        println!("{}: Inserting line {line}", self.name);
+        self.lines.insert(0, line.to_owned());
         true
     }
 

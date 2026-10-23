@@ -94,6 +94,10 @@ enum Command {
     SortSection {
         section: String,
     },
+    /// Adds an empty section to every file, in alphabetical order, for a new I18NCat.
+    AddSection {
+        section: String,
+    },
     RemoveKey {
         section: String,
         key: String,
@@ -942,6 +946,13 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 }
             }
             Command::SortSection { ref section } => sort_section(&mut target_ini, section).unwrap(),
+            Command::AddSection { ref section } => {
+                target_ini.insert_section_if_missing(&Section {
+                    name: section.clone(),
+                    title_line: format!("[{section}]"),
+                    lines: vec!["".into()],
+                });
+            }
             Command::RenameKey {
                 ref section,
                 ref old,

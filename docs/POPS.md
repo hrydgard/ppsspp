@@ -76,6 +76,29 @@ block, which the inflate above decodes: 0x9305 bytes, so reads of the image map 
 There are no icons, pictures or DATA.PSP, and none of the STARTDAT that follows a popstation image. The
 EBOOT is the only file in `host0:`.
 
+## Multi-disc games
+
+An `.m3u` playlist of up to five disc images (any of the formats above) makes a multi-disc EBOOT: a
+PSTITLEIMG header (0x400 bytes, with the disc offsets from +0x200, the first disc's ID at +0x264 and the
+title at +0x30C), then each disc's PSISOIMG on a 0x8000 boundary. All discs use the first one's ID for the
+memory card; each keeps its own, which the emulator's per-game fixes go by. The emulator resumes a game on
+the disc it was last on, and the HOME menu's Switch Discs (only when the game asks for another disc) and
+Reset Game change it.
+
+A store game's PSTITLEIMG header also has a MAC for each disc header, which the manager's disc header check
+compares when there are several discs (by calling sceDrmBBMacFinal2 itself, in the export that is 6.60's
+sceMeAudio_14447BA0), and at +0x28C the key the emulator's disc switching strings are descrambled with.
+A converted one has neither: every MAC the manager compares passes, and PopsBoot skips the descrambling and
+puts our strings, from our translations, in the emulator's table (14 for each of its 12 languages, as
+{length, UTF-16 pointer}). Each dialog's lines are left-aligned and centred as a block, in ltn0.pgf; the
+disc number is drawn over a gap, at a position from a table per language (one each for the switch dialog,
+the disc picker's label and the confirmation, and the reset dialog's as a move from the label's), which
+PopsBoot computes for our text. That code is found by its instructions in 6.20 to 6.61, so several discs
+need one of those; earlier versions have the same descrambling, compiled differently.
+
+On Android, a game of several files (a cue sheet, `.ccd`, `.mds` or playlist) only loads through a folder
+PPSSPP has access to, not as a single picked file.
+
 For any EBOOT, also as popcorn does: the manual's name check passes, and an ICON0 the emulator can't use
 (anything but an 80x80 PNG, such as a missing one or a PSP game's 144x80 one, which crashes it) reads as a
 blank 80x80 one.
@@ -96,7 +119,6 @@ The HOME button opens the emulator's menu. Savestates work.
 - The anti-LibCrypt word some PAL games need in a converted image (PSISOIMG + 0x12B0). ARK-4's popcorn has
   a table of them by disc ID, switched off. Converting tools can patch the image instead.
 - ARK-4's per-game CONFIG.BIN next to the EBOOT, copied over the image's config (PSISOIMG + 0x420).
-- Multi-disc games from disc images (PSTITLEIMG, which has up to five PSISOIMGs), and booting an image
-  straight from an archive.
+- Multi-disc games on firmware before 6.20, and booting an image straight from an archive.
 - A byte popcorn changes in reads of converted images (0x41B, from 0x27 to 0x55 when 0x41B-0x41E read
   27 19 22 41) without knowing why.
