@@ -433,8 +433,8 @@ public class ContentUri {
 	// back, so sooner or later the one dropped would be the folder the user set up as the memory stick.
 	//
 	// Two things at startup keep that from happening:
-	// * Re-take the grants for the folders we use (the memory stick, the Games tab, pinned folders). That
-	//   makes them the newest, so they're the last the system would drop.
+	// * Re-take the grants for the folders we use (the memory stick, the Games tab, pinned folders, the Remote
+	//   ISO shared folder). That makes them the newest, so they're the last the system would drop.
 	// * Past half the limit, release the oldest single-file grants that nothing points at anymore. Folder
 	//   grants are never released. Home screen shortcuts can't be enumerated, so ppsspp.ini remembers the
 	//   ones most recently created or launched (Config::MAX_SHORTCUT_URIS), and those are spared too.
@@ -503,17 +503,45 @@ public class ContentUri {
 			final String[] referenced = NativeApp.getReferencedUris();
 			if (referenced == null) {
 				// We can't tell what's in use, so leave everything alone.
-				Log.w(GRANT_TAG, "The config couldn't be loaded, not touching any of our " + grants.size() + " URI grants.");
+				Log.w(GRANT_TAG, "Don't have the user's config, not touching any of our " + grants.size() + " URI grants.");
 				return;
 			}
 			final Set<String> referencedUris = new HashSet<>(Arrays.asList(referenced));
 
 			int folders = 0;
 			for (UriPermission grant : grants) {
+				if (isTreeUri(grant.getUri())) {
+					folders++;
+				}
+			}
+			Log.i(GRANT_TAG, "Holding " + grants.size() + " persisted URI grants: " + folders + " folders, " + (grants.size() - folders)
+				+ " files. The system drops the oldest above " + systemLimit + ", we start releasing old files above " + maxGrants + ".");
+
+			// Release before re-taking: a take can make the system prune, which would leave our list out of date.
+			if (grants.size() > maxGrants) {
+				Log.i(GRANT_TAG, "The recent list, shortcuts and settings reference " + referencedUris.size() + " URIs.");
+				ArrayList<UriPermission> toRelease = chooseGrantsToRelease(grants, maxGrants, referencedUris);
+				int released = 0;
+				for (UriPermission grant : toRelease) {
+					Log.i(GRANT_TAG, "Releasing unused file grant: " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+					try {
+						resolver.releasePersistableUriPermission(grant.getUri(), grantFlags(grant));
+						released++;
+					} catch (Exception e) {
+						Log.w(GRANT_TAG, "Couldn't release " + grant.getUri() + ": " + e);
+					}
+				}
+				if (toRelease.isEmpty()) {
+					Log.w(GRANT_TAG, "Over our limit, but everything is a folder or still in use. Nothing to release.");
+				} else {
+					Log.i(GRANT_TAG, "Released " + released + " file grants, " + (grants.size() - released) + " remain.");
+				}
+			}
+
+			for (UriPermission grant : grants) {
 				if (!isTreeUri(grant.getUri())) {
 					continue;
 				}
-				folders++;
 				if (!isReferenced(grant.getUri(), referencedUris)) {
 					Log.i(GRANT_TAG, "Folder grant (kept, not in use): " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
 					continue;
@@ -526,24 +554,6 @@ public class ContentUri {
 					Log.w(GRANT_TAG, "Couldn't re-take folder grant " + grant.getUri() + ": " + e);
 				}
 			}
-			Log.i(GRANT_TAG, "Holding " + grants.size() + " persisted URI grants: " + folders + " folders, " + (grants.size() - folders)
-				+ " files. The system drops the oldest above " + systemLimit + ", we start releasing old files above " + maxGrants + ".");
-
-			if (grants.size() <= maxGrants) {
-				return;
-			}
-
-			Log.i(GRANT_TAG, "The recent list, shortcuts and settings reference " + referencedUris.size() + " URIs.");
-			ArrayList<UriPermission> toRelease = chooseGrantsToRelease(grants, maxGrants, referencedUris);
-			if (toRelease.isEmpty()) {
-				Log.w(GRANT_TAG, "Over our limit, but everything is a folder or still in use. Nothing to release.");
-				return;
-			}
-			for (UriPermission grant : toRelease) {
-				Log.i(GRANT_TAG, "Releasing unused file grant: " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
-				resolver.releasePersistableUriPermission(grant.getUri(), grantFlags(grant));
-			}
-			Log.i(GRANT_TAG, "Released " + toRelease.size() + " file grants, " + (grants.size() - toRelease.size()) + " remain.");
 		} catch (Exception e) {
 			Log.e(GRANT_TAG, "Exception while managing URI grants: " + e);
 		}

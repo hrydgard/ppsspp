@@ -78,6 +78,7 @@ struct JNIEnv {};
 #include "Common/System/Request.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -611,17 +612,32 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	return jresult;
 }
 
+// False if the config in memory may not be the user's: the ini couldn't be read (say the memory stick is on an
+// SD card that isn't mounted), or NativeInit couldn't reach the memory stick in memstick_dir.txt and fell
+// back to the default one, where an old ppsspp.ini may be lying around.
+static bool HaveUsersConfig() {
+	if (!g_Config.LoadedFromFile() || g_Config.memStickDirectory.empty()) {
+		return false;
+	}
+	const Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	if (!File::Exists(memstickDirFile)) {
+		return true;
+	}
+	std::string memstickDir;
+	return File::ReadTextFileToString(memstickDirFile, &memstickDir) && Path(memstickDir) == g_Config.memStickDirectory;
+}
+
 // For ContentUri.manageUriGrants. Anything that stores the URI of a picked file or folder should be listed
 // here, or the grant for it may eventually be released. A grant is kept if it's one of these, or a folder
-// one of these is in. Returns null if the config couldn't be read (say the memory stick is on an SD card
-// that isn't mounted), since then we don't know what's in use.
+// one of these is in. Returns null if we don't have the user's config, since then we don't know what's in use.
 extern "C" jobjectArray Java_org_ppsspp_ppsspp_NativeApp_getReferencedUris(JNIEnv *env, jclass) {
-	if (!g_Config.LoadedFromFile() || g_Config.memStickDirectory.empty()) {
+	if (!HaveUsersConfig()) {
 		return nullptr;
 	}
 	std::vector<std::string> uris = g_recentFiles.GetRecentFiles();
 	uris.push_back(g_Config.memStickDirectory.ToString());
 	uris.push_back(g_Config.currentDirectory.ToString());
+	uris.push_back(g_Config.sRemoteISOSharedDir);
 	uris.insert(uris.end(), g_Config.vPinnedPaths.begin(), g_Config.vPinnedPaths.end());
 	uris.insert(uris.end(), g_Config.vShortcutUris.begin(), g_Config.vShortcutUris.end());
 	uris.push_back(g_Config.sAchievementsUnlockAudioFile);
@@ -644,10 +660,10 @@ extern "C" jobjectArray Java_org_ppsspp_ppsspp_NativeApp_getReferencedUris(JNIEn
 // Only called from PpssppActivity.Initialize, before the render thread runs, so g_Config is ours to change.
 // Returns false if they couldn't be saved, so the Java side keeps them for next time.
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_addShortcutUris(JNIEnv *env, jclass, jobjectArray juris) {
-	if (!g_Config.LoadedFromFile() || g_Config.memStickDirectory.empty()) {
+	if (!HaveUsersConfig()) {
 		return false;
 	}
-	bool added = false;
+	const std::vector<std::string> before = g_Config.vShortcutUris;
 	const jsize count = env->GetArrayLength(juris);
 	// Oldest first, so the newest ends up at the front.
 	for (jsize i = 0; i < count; i++) {
@@ -656,10 +672,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_addShortcutUris(JNIEnv *env
 		env->DeleteLocalRef(juri);
 		if (Android_IsContentUri(uri) && g_Config.AddShortcutUri(uri)) {
 			INFO_LOG(Log::System, "New home screen shortcut target: %s", uri.c_str());
-			added = true;
 		}
 	}
-	if (added) {
+	// Also when only the order changed, so the ones launched lately aren't the first to go.
+	if (g_Config.vShortcutUris != before) {
 		return g_Config.Save("ShortcutUrisAdded");
 	}
 	return true;
