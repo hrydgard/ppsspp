@@ -113,30 +113,31 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	// that has flash0 mounted is worse - so while a game is running, this screen is read-only.
 	const bool gameRunning = PSP_IsInited();
 
-	Choice *launch = parent->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
-	launch->OnClick.Add([this](UI::EventParams &) {
-		LaunchVSH();
-	});
-	launch->SetEnabled(!gameRunning && info_.hasVsh && FirmwareVersionSupportsVSH(info_.version));
-
 	if (info_.hasVsh && !FirmwareVersionSupportsVSH(info_.version)) {
 		parent->Add(new NoticeView(NoticeLevel::WARN, sy->T("XMB unsupported"),
 			sy->T("XMBUnsupportedVersion", "Only firmware 6.61 can boot the XMB so far")));
 	}
 
+	ChoiceGroup *actions = parent->Add(new ChoiceGroup(""));
+	Choice *launch = actions->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
+	launch->OnClick.Add([this](UI::EventParams &) {
+		LaunchVSH();
+	});
+	launch->SetEnabled(!gameRunning && info_.hasVsh && FirmwareVersionSupportsVSH(info_.version));
+
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		Choice *install = parent->Add(new Choice(iz->T("Install PSP firmware update"), ImageID("I_FOLDER_UPLOAD")));
+		Choice *install = actions->Add(new Choice(iz->T("Install PSP firmware update"), ImageID("I_FOLDER_UPLOAD")));
 		install->OnClick.Add([this](UI::EventParams &) {
 			BrowseForUpdater();
 		});
 		install->SetEnabled(!gameRunning);
 	}
 
-	parent->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
+	actions->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
 		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	if (info_.anythingInstalled) {
-		Choice *erase = parent->Add(new Choice(sy->T("Uninstall firmware"), ImageID("I_TRASHCAN")));
+		Choice *erase = actions->Add(new Choice(sy->T("Uninstall firmware"), ImageID("I_TRASHCAN")));
 		erase->OnClick.Add([this](UI::EventParams &) {
 			AskToErase();
 		});
@@ -144,7 +145,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	}
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
-		parent->Add(new Choice(sy->T("Show firmware folder")))->OnClick.Add([this](UI::EventParams &) {
+		actions->Add(new Choice(sy->T("Show firmware folder")))->OnClick.Add([this](UI::EventParams &) {
 			System_LaunchUrl(LaunchUrlType::LOCAL_FOLDER, nandRoot_.ToString());
 		});
 	}
