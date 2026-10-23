@@ -445,7 +445,7 @@ const char *RoundRectCornerImageName(int radiusIndex, RoundRectStyle style) {
 	return names.names[radiusIndex][(int)style];
 }
 
-void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float radius, Color color, RoundRectStyle style) {
+void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float radius, Color color, RoundRectStyle style, RoundCorners corners) {
 	if (!atlas || x2 <= x1 || y2 <= y1) {
 		return;
 	}
@@ -502,9 +502,32 @@ void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float rad
 			if (xs[x + 1] <= xs[x] || (x == 1 && y == 1 && !filled)) {
 				continue;
 			}
+			if (x != 1 && y != 1) {
+				const RoundCorners corner = y == 0 ? (x == 0 ? RoundCorners::TopLeft : RoundCorners::TopRight) : (x == 0 ? RoundCorners::BottomLeft : RoundCorners::BottomRight);
+				if (!(corners & corner)) {
+					DrawSquareCorner(xs + x, ys + y, us + x, vs + y, x == 0 ? 0 : 1, y == 0 ? 0 : 1, image->u2, image->v2, color);
+					continue;
+				}
+			}
 			DrawTexRect(xs[x], ys[y], xs[x + 1], ys[y + 1], us[x], vs[y], us[x + 1], vs[y + 1], color);
 		}
 	}
+}
+
+// Splits the corner cell along the diagonal through its outer corner. The half along the horizontal
+// edge takes that edge's profile (the corner image's last column), the other half the vertical edge's
+// (the last row). That's exact coverage for a filled corner, and a mitred one for an outline.
+void DrawBuffer::DrawSquareCorner(const float *xs, const float *ys, const float *us, const float *vs, int ox, int oy, float edgeU, float edgeV, Color color) {
+	const float outerX = xs[ox], outerY = ys[oy];
+	const float innerX = xs[1 - ox], innerY = ys[1 - oy];
+	// Along the horizontal edge: u fixed, v by row.
+	V(outerX, outerY, color, edgeU, vs[oy]);
+	V(innerX, outerY, color, edgeU, vs[oy]);
+	V(innerX, innerY, color, edgeU, vs[1 - oy]);
+	// Along the vertical edge: v fixed, u by column.
+	V(outerX, outerY, color, us[ox], edgeV);
+	V(innerX, innerY, color, us[1 - ox], edgeV);
+	V(outerX, innerY, color, us[ox], edgeV);
 }
 
 void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
