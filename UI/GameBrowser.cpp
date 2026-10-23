@@ -78,7 +78,8 @@ static float ListTextRightMargin(GameBrowserViewMode viewMode) {
 	return 0.0f;
 }
 
-static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, GameBrowserViewMode viewMode, const UI::Style &style) {
+// In the list views, rightText (like a game ID) goes at the right edge, as for a game with a picture.
+static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, GameBrowserViewMode viewMode, const UI::Style &style, std::string_view rightText = {}) {
 	const bool gridStyle = viewMode == GameBrowserViewMode::GRID;
 	float tw, th;
 	dc.MeasureText(dc.GetFontStyle(), gridStyle ? g_Config.fGameGridScale : 1.0, gridStyle ? g_Config.fGameGridScale : 1.0, text, &tw, &th, 0);
@@ -122,6 +123,14 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 
 		float tx = textX;
 		int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode);
+		if (!rightText.empty()) {
+			float vw, vh;
+			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
+			availableWidth -= vw + 20;
+			dc.SetFontScale(0.7f, 0.7f);
+			dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 		if (availableWidth < tw) {
 			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
@@ -424,6 +433,8 @@ void GameButton::Draw(UIContext &dc) {
 			// No icon, but drawBackground is set. Let's show a plain icon depending on type.
 			if (ginfo->fileType == IdentifiedFileType::PSP_ISO || ginfo->fileType == IdentifiedFileType::PSP_ISO_NP) {
 				imageIcon = ImageID("I_UMD");
+			} else if (ginfo->fileType == IdentifiedFileType::PSX_ISO || ginfo->fileType == IdentifiedFileType::PSP_PS1_PBP) {
+				imageIcon = ImageID("I_PSX_ISO");
 			} else if (gamePath_.Type() == PathType::HTTP) {
 				imageIcon = ginfo->fileType == IdentifiedFileType::UNKNOWN ? ImageID("I_LINK_OUT_QUESTION") : ImageID("I_LINK_OUT");
 			} else {
@@ -550,7 +561,7 @@ void GameButton::Draw(UIContext &dc) {
 		if (down_) style = dc.GetTheme().itemDownStyle;
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, viewMode_, style);
+		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, viewMode_, style, g_Config.bShowIDOnGameIcon ? std::string_view(ginfo->id_version) : std::string_view());
 
 		if (overlayColor) {
 			dc.FillRect(Drawable(overlayColor), overlayBounds);

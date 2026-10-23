@@ -193,6 +193,13 @@ static bool CheckEboot(PS1EbootFileLoader &eboot, const std::vector<u8> &disc, u
 }
 
 bool TestPS1Eboot() {
+	// PS1 disc IDs have a region, as PSP ones do.
+	EXPECT_TRUE(DetectGameRegionFromID("SLUS00292") == GameRegion::USA);
+	EXPECT_TRUE(DetectGameRegionFromID("SCES00003") == GameRegion::EUROPE);
+	EXPECT_TRUE(DetectGameRegionFromID("SLPS00444") == GameRegion::JAPAN);
+	EXPECT_TRUE(DetectGameRegionFromID("SCKA20001") == GameRegion::KOREA);
+	EXPECT_TRUE(DetectGameRegionFromID("ULUS10041") == GameRegion::USA);
+
 	const Path dir = UnitTestTempPath("unittest_ps1eboot");
 	File::DeleteDirRecursively(dir);
 	EXPECT_TRUE(File::CreateFullPath(dir));
