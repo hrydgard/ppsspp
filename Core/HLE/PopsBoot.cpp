@@ -617,12 +617,12 @@ static bool InstallDiscSwitchText(u32 stringTable, u32 positionTable, u32 resetT
 		}
 	}
 
+	// Each ends in a zero, so an empty one is a string too: older emulators read its first character.
 	u32 size = 0;
 	for (const std::u16string &s : text.strings) {
-		size += ((u32)s.size() * 2 + 3) & ~3;
+		size += ((u32)s.size() * 2 + 2 + 3) & ~3;
 	}
-	u32 alloc = std::max(size, 4U);
-	const u32 strings = kernelMemory.Alloc(alloc, false, "PopsDiscText");
+	const u32 strings = kernelMemory.Alloc(size, false, "PopsDiscText");
 	if (strings == (u32)-1) {
 		return false;
 	}
@@ -634,9 +634,10 @@ static bool InstallDiscSwitchText(u32 stringTable, u32 positionTable, u32 resetT
 		for (size_t c = 0; c < s.size(); c++) {
 			Memory::WriteUnchecked_U16(s[s.size() - 1 - c], ptr + (u32)c * 2);
 		}
+		Memory::WriteUnchecked_U16(0, ptr + (u32)s.size() * 2);
 		entries[i][0] = (u32)s.size();
-		entries[i][1] = s.empty() ? 0 : ptr;
-		ptr += ((u32)s.size() * 2 + 3) & ~3;
+		entries[i][1] = ptr;
+		ptr += ((u32)s.size() * 2 + 2 + 3) & ~3;
 	}
 	for (int lang = 0; lang < POPS_LANGUAGES; lang++) {
 		for (int i = 0; i < DISC_STRING_COUNT; i++) {
