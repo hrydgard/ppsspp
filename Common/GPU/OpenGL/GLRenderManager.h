@@ -78,6 +78,10 @@ public:
 	int height;
 	GLuint colorDepth = 0;
 	bool z_stencil_;
+#ifdef __LIBRETRO__
+	GLRFramebuffer *vrRight = nullptr;
+	unsigned vrGeneration = 0;
+#endif
 
 private:
 	std::string tag_;

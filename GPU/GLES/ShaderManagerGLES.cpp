@@ -314,6 +314,10 @@ static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
 	else if (!is2D) hud = false;
 	//HUD has to be blended
 	else if (!gstate.isAlphaBlendEnabled()) hud = false;
+#ifdef __LIBRETRO__
+	// Untextured transition fades must cover the view, not be scaled with the HUD.
+	else if (!gstate.isTextureMapEnabled()) hud = false;
+#endif
 	//HUD cannot be rendered with clear color mask
 	else if (gstate.isClearModeColorMask()) hud = false;
 	//HUD cannot be rendered with depth color mask
@@ -361,7 +365,12 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		flatScreen = IsFlatVRScene();
 	}
 
+#ifdef __LIBRETRO__
+	// Blend and texture-enable changes can change HUD classification without dirtying uniforms.
+	if (!dirty && !useVR)
+#else
 	if (!dirty)
+#endif
 		return;
 
 	if (dirty & DIRTY_DEPAL) {

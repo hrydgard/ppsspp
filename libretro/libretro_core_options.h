@@ -655,6 +655,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_vr_mode",
+      "VR Mode (OpenGL/GLES)",
+      NULL,
+      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views and OpenGL 3 or OpenGL ES 3. Game compatibility varies.",
+      NULL,
+      "video",
+      {
+         { "Off", NULL },
+         { "Stereoscopic", NULL },
+         { "Immersive", NULL },
+         { NULL, NULL },
+      },
+      "Off"
+   },
+   {
       "ppsspp_enable_wlan",
       "Enable Networking/WLAN (Beta, may break games)",
       NULL,

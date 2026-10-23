@@ -1,9 +1,13 @@
 #include <mutex>
 
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include <atomic>
+#include "libretro/LibretroVR.h"
+#endif
 
 #include "Common/VR/VRBase.h"
-#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES || defined(__LIBRETRO__)
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #endif
 
@@ -51,7 +55,12 @@ static std::map<int, std::map<int, float> > pspAxis;
 static std::map<int, bool> pspKeys;  // key can be virtual, so not using the enum.
 
 static int vr3DGeometryCount = 0;
+#ifdef __LIBRETRO__
+// Fog colour is recorded on the emulation thread and consumed during GL replay.
+static std::atomic<long> vrCompat[VR_COMPAT_MAX]{};
+#else
 static long vrCompat[VR_COMPAT_MAX];
+#endif
 static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
@@ -133,9 +142,10 @@ VR app flow integration
 */
 
 bool IsVREnabled() {
-	// For now, let the OPENXR build flag control enablement.
-	// This will change.
-#ifdef OPENXR
+	// Standalone owns OpenXR; libretro uses frontend-supplied views.
+#ifdef __LIBRETRO__
+	return Libretro::VRActive();
+#elif defined(OPENXR)
 	return true;
 #else
 	return false;
@@ -461,7 +471,7 @@ bool UpdateVRKeys(const KeyInput &key) {
 ================================================================================
 */
 
-#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
+#if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES || defined(__LIBRETRO__)
 
 void PreprocessSkyplane(GLRStep* step) {
 
@@ -530,16 +540,24 @@ void* BindVRFramebuffer() {
 }
 
 bool StartVRRender() {
+#ifndef __LIBRETRO__
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
 		VR_InitRenderer(VR_GetEngine());
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
 
 	if (VR_InitFrame(VR_GetEngine())) {
+#else
+	if (Libretro::VRActive()) {
+#endif
 
 		// Get VR status
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+#ifdef __LIBRETRO__
+			Libretro::GetVRView(eye, &vrView[eye]);
+#else
 			vrView[eye] = VR_GetView(eye);
+#endif
 		}
 		UpdateVRViewMatrices();
 
@@ -585,6 +603,10 @@ bool StartVRRender() {
 			VR_SetConfig(VR_CONFIG_MODE, VR_MODE_MONO_SCREEN);
 		}
 		vr3DGeometryCount /= 2;
+#ifdef __LIBRETRO__
+		// Use this frame's mode when preparing uniforms for the emulation thread.
+		UpdateVRViewMatrices();
+#endif
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
@@ -611,12 +633,20 @@ void PostVRFrameRender() {
 }
 
 int GetVRFBOIndex() {
+#ifdef __LIBRETRO__
+	return Libretro::VREye();
+#else
 	return VR_GetConfig(VR_CONFIG_CURRENT_FBO);
+#endif
 }
 
 int GetVRPassesCount() {
+#ifdef __LIBRETRO__
+	return Libretro::VRActive() ? 2 : 1;
+#else
 	bool vrStereo = !PSP_CoreParameter().compat.vrCompat().ForceMono && g_Config.bEnableStereo;
 	return vrStereo ? 2 : 1;
+#endif
 }
 
 bool IsPassthroughSupported() {
