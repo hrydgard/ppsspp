@@ -816,6 +816,36 @@ std::string LinearLayoutList::DescribeText() const {
 	return DescribeListOrdered(u->T("List:"));
 }
 
+ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
+	: LinearLayout(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 8, 12))), title_(title) {
+	if (!title.empty()) {
+		Add(new ItemHeader(title));
+	}
+	SetSpacing(0.0f);
+}
+
+void ChoiceGroup::Draw(UIContext &dc) {
+	if (views_.empty()) {
+		LinearLayout::Draw(dc);
+		return;
+	}
+
+	if (!finished_) {
+		views_[0]->SetRoundCorners(RoundCorners::Top);
+		views_[views_.size() - 1]->SetRoundCorners(RoundCorners::Bottom);
+		finished_ = true;
+	}
+
+	// Draw a roundrect as background.
+	LinearLayout::Draw(dc);
+	// Draw a line under all items except the last.
+	/*
+	for (size_t i = 0; i < views_.size() - 1; i++) {
+		const Bounds &titleBounds = views_[i]->GetBounds();
+		dc.FillRect(dc.)
+	}*/
+}
+
 void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	if (views_.empty()) {
 		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);

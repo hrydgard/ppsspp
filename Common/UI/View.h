@@ -40,6 +40,8 @@ namespace Draw {
 	class Texture;
 }
 
+// pre-declare.
+enum class RoundCorners : uint8_t;
 
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
 namespace UI {
@@ -116,6 +118,9 @@ struct Theme {
 	uint32_t scrollbarColor;
 	uint32_t popupSliderColor;
 	uint32_t popupSliderFocusedColor;
+
+	// TODO: Should it be here?
+	float choiceRoundRadius = 16.0f;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -430,6 +435,10 @@ public:
 	virtual bool SubviewFocused(View *view) { return false; }
 	virtual bool CanMoveFocus(FocusMove dir) const { return true; }
 
+	virtual void SetRoundCorners(RoundCorners corners) {
+		roundCorners_ = corners;
+	}
+
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
 	bool HasFocus() const {
@@ -519,6 +528,7 @@ protected:
 	bool popupStyle_ = false;
 	bool hasAutoResult_ = false;
 	DialogResult autoResult_ = DR_OK;
+	RoundCorners roundCorners_{};
 
 private:
 	friend class ViewGroup;  // Sets parent_.

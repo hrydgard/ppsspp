@@ -143,7 +143,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 
 	if (!title.empty()) {
-		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(8, 0, 20, 0))));
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(12, 0, 20, 0))));
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 	}
@@ -307,7 +307,7 @@ void SettingHint::Draw(UIContext &dc) {
 	const bool enabled = setting_ ? setting_->IsEnabled() : true;
 	const UI::Style &style = enabled ? dc.GetTheme().itemStyle : dc.GetTheme().itemDisabledStyle;
 	SetTextColor(style.fgColor);  // bit hacky but works
-	dc.FillRect(style.background, bounds_);
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	UI::TextView::Draw(dc);
 }
 
