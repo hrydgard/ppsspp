@@ -451,6 +451,32 @@ u32 DetectUmdDiscType(FileLoader *fileLoader) {
 	return DetectUmdDiscType(&umd, "");
 }
 
+bool UmdHasBootableGame(FileLoader *fileLoader) {
+	std::string error;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &error));
+	if (!bd) {
+		return false;
+	}
+	SequentialHandleAllocator handles;
+	ISOFileSystem umd(&handles, bd);
+	for (const char *path : { "/PSP_GAME/SYSDIR/EBOOT.BIN", "/PSP_GAME/SYSDIR/BOOT.BIN" }) {
+		if (!umd.GetFileInfo(path).exists) {
+			continue;
+		}
+		const int handle = umd.OpenFile(path, FILEACCESS_READ);
+		if (handle < 0) {
+			continue;
+		}
+		u8 head[4]{};
+		const size_t read = umd.ReadFile(handle, head, sizeof(head));
+		umd.CloseFile(handle);
+		if (read == sizeof(head) && (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F" "ELF", 4) == 0)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // Close the return value with ZipClose (if non-null, of course).
 ZipContainer ZipOpenPath(const Path &fileName) {
 	ZipContainer z(fileName);

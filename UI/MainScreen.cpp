@@ -126,6 +126,11 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			if (!fileLoader || !(DetectUmdDiscType(fileLoader.get()) & PSP_UMD_TYPE_VIDEO)) {
 				break;
 			}
+			if (!UmdHasBootableGame(fileLoader.get())) {
+				// The game is only a placeholder, so there's just the video.
+				LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, false));
+				return;
+			}
 			auto ga = GetI18NCategory(I18NCat::GAME);
 			const std::vector<std::string> choices = { std::string(ga->T("Play game")), std::string(ga->T("Watch video")) };
 			UI::ListPopupScreen *popup = new UI::ListPopupScreen(ga->T("This disc has both a game and video"), choices, -1, [=](int choice) {

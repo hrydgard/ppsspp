@@ -172,6 +172,9 @@ class IFileSystem;
 u32 DetectUmdDiscType(IFileSystem *fs, std::string_view root);
 // The same for a disc image file. 0 if it can't be opened as one.
 u32 DetectUmdDiscType(FileLoader *fileLoader);
+// Whether the image's PSP_GAME has an actual executable. The EUR Video Demo Disc lists a game
+// (UMD_DATA.BIN says GVA) whose EBOOT.BIN and BOOT.BIN are all zeroes.
+bool UmdHasBootableGame(FileLoader *fileLoader);
 
 enum class ArchiveType {
 	ZIP,
