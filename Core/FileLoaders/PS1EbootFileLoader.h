@@ -19,13 +19,14 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
-// A PS1 disc image (a cue sheet, a CloneCD .ccd, or a bare .bin/.img/.iso) presented as a converted
+// A PS1 disc image (a cue sheet, a CloneCD .ccd, an Alcohol .mds, a CHD, or a bare .bin/.img/.iso) presented as a converted
 // PS1 EBOOT.PBP, the kind popstation makes, for the firmware's POPS to run. Only the headers are kept
 // in memory. The disc image is stored uncompressed, as stored DEFLATE blocks, so a read of it goes
 // straight to the image's files. See docs/POPS.md.
@@ -42,6 +43,7 @@ public:
 	Path GetPath() const override { return path_; }
 	std::string GetFileExtension() const override { return ".pbp"; }
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override;
+	using FileLoader::ReadAt;
 	void Cancel() override;
 	std::string LatestError() const override { return error_; }
 
@@ -55,21 +57,28 @@ private:
 		u32 start;  // Disc LBA of INDEX 01.
 		u32 pregap;  // Sectors before it that belong to the track (INDEX 00, or a generated PREGAP).
 	};
-	// A run of disc sectors, from a file or (file < 0) generated, all zeroes.
+	// A run of disc sectors, from a file, the CHD (CHD_SOURCE, offset in frames), or (GENERATED) all zeroes.
 	struct Extent {
 		u32 lba;
 		u32 count;
 		int file;
 		s64 offset;
 		int sectorSize;  // 2352 raw, 2336 without sync and header, 2048 user data only.
+		bool byteSwapped;  // CD audio in a CHD is big-endian.
+		int stride;  // Bytes from one sector to the next in a file, more than sectorSize with subchannel data.
 	};
+	static const int GENERATED = -1;
+	static const int CHD_SOURCE = -2;
 
 	bool ParseCue(const Path &cuePath, const std::string &text);
 	bool ParseCcd(const Path &ccdPath, const std::string &text);
 	bool OpenBare(const Path &path);
+	bool OpenCHD(const Path &path);
+	bool ParseMds(const Path &mdsPath, const std::string &data);
 	int AddFile(const Path &path);
-	void AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize);
+	void AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize, bool byteSwapped = false, int stride = 0);
 
+	bool ReadSourceSector(const Extent &e, u32 index, u8 *out);
 	bool ReadRawSectors(u32 lba, u32 count, u8 *out);
 	bool ReadUserData(u32 lba, u8 *out);
 	void ReadDiscID();
@@ -81,6 +90,13 @@ private:
 	std::vector<Extent> extents_;
 	std::vector<Track> tracks_;
 	u32 numSectors_ = 0;
+
+	// A CHD, read a hunk (several frames) at a time.
+	struct _chd_file *chd_ = nullptr;
+	std::mutex chdLock_;
+	std::vector<u8> hunk_;
+	u32 cachedHunk_ = 0xFFFFFFFF;
+	u32 framesPerHunk_ = 0;
 
 	std::string discID_;
 	std::string title_;
@@ -96,8 +112,11 @@ namespace File {
 struct FileInfo;
 }
 
-// Whether a .cue or .ccd describes a disc, by its contents.
-bool IsPS1CueOrCcd(FileLoader *fileLoader);
+// Whether a .cue, .ccd or .mds describes a disc, by its contents.
+bool IsPS1DiscSheet(FileLoader *fileLoader);
+
+// Whether a CHD is of a CD (rather than a DVD, like a PSP disc).
+bool IsCDChd(FileLoader *fileLoader);
 
 // The file names a cue sheet's FILE lines give.
 std::vector<std::string> CueSheetFileNames(const Path &cuePath);
@@ -110,7 +129,8 @@ struct ArchiveEntry {
 };
 
 // The files of a PS1 disc among an archive's, by their paths in it: a cue sheet and the files it names,
-// a .ccd with its .img (and .sub), or else the largest .bin or .img that's a whole number of sectors.
+// a .ccd with its .img (and .sub), an .mds with its .mdf, or else the largest .bin or .img that's a whole
+// number of sectors.
 // readText reads a small file from the archive.
 bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::function<bool(const std::string &name, std::string *text)> &readText, std::vector<std::string> *discFiles);
 

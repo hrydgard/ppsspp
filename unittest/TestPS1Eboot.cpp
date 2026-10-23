@@ -257,6 +257,20 @@ bool TestPS1Eboot() {
 		}
 	}
 
+	// MODE2/2336: sectors without their sync and header, which are made again.
+	{
+		std::vector<u8> stripped;
+		for (u32 s = 0; s < 40; s++) {
+			stripped.insert(stripped.end(), data.begin() + s * SECTOR + 16, data.begin() + (s + 1) * SECTOR);
+		}
+		EXPECT_TRUE(File::WriteDataToFile(false, stripped.data(), stripped.size(), dir / "Stripped.bin"));
+		EXPECT_TRUE(File::WriteStringToFile(true, "FILE \"Stripped.bin\" BINARY\n  TRACK 01 MODE2/2336\n    INDEX 01 00:00:00\n", dir / "Stripped.cue"));
+		PS1EbootFileLoader eboot(dir / "Stripped.cue");
+		if (!CheckEboot(eboot, data, 1)) {
+			return false;
+		}
+	}
+
 	// A CloneCD image, and a bare .iso of only the user data, whose sectors are made around it.
 	EXPECT_TRUE(File::WriteDataToFile(false, data.data(), data.size(), dir / "Clone.img"));
 	EXPECT_TRUE(File::WriteStringToFile(true, "[CloneCD]\r\nVersion=3\r\n[TRACK 1]\r\nMODE=2\r\nINDEX 1=0\r\n", dir / "Clone.ccd"));
@@ -278,6 +292,63 @@ bool TestPS1Eboot() {
 		}
 	}
 
+	// An Alcohol .mds and .mdf: sectors with 96 bytes of subchannel data after each, and an audio track
+	// whose 5 sectors of pregap are stored.
+	{
+		const u32 stride = SECTOR + 96;
+		const std::vector<u8> audio25 = MakeAudio(25);
+		std::vector<u8> mdf;
+		for (const std::vector<u8> *track : { &data, &audio25 }) {
+			for (size_t s = 0; s < track->size() / SECTOR; s++) {
+				mdf.insert(mdf.end(), track->begin() + s * SECTOR, track->begin() + (s + 1) * SECTOR);
+				mdf.resize(mdf.size() + 96, 0xAA);
+			}
+		}
+		EXPECT_TRUE(File::WriteDataToFile(false, mdf.data(), mdf.size(), dir / "Alcohol.mdf"));
+		std::vector<u8> mds(0x230, 0);
+		memcpy(&mds[0], "MEDIA DESCRIPTOR", 16);
+		Put32(&mds[0x50], 0x58);
+		mds[0x58 + 0x0A] = 5;
+		mds[0x58 + 0x0B] = 3;
+		Put32(&mds[0x58 + 0x14], 0x70);
+		const u8 points[5] = { 0xA0, 0xA1, 0xA2, 1, 2 };
+		for (int i = 0; i < 5; i++) {
+			u8 *b = &mds[0x70 + i * 0x50];
+			b[4] = points[i];
+			if (points[i] > 99) {
+				continue;
+			}
+			const bool audioTrack = points[i] == 2;
+			b[0] = audioTrack ? 0xA9 : 0xEC;
+			b[1] = 0x08;
+			Put32(b + 0x0C, audioTrack ? 0x208 : 0x200);
+			b[0x10] = stride & 0xFF;
+			b[0x11] = stride >> 8;
+			Put32(b + 0x24, audioTrack ? 45 : 0);
+			Put32(b + 0x28, audioTrack ? 40 * stride : 0);
+			Put32(b + 0x30, 1);
+			Put32(b + 0x34, 0x210);
+		}
+		Put32(&mds[0x200], 150);
+		Put32(&mds[0x204], 40);
+		Put32(&mds[0x208], 5);
+		Put32(&mds[0x20C], 25);
+		Put32(&mds[0x210], 0x220);
+		memcpy(&mds[0x220], "*.mdf", 6);
+		EXPECT_TRUE(File::WriteDataToFile(false, mds.data(), mds.size(), dir / "Alcohol.mds"));
+
+		std::vector<u8> mdsDisc = data;
+		mdsDisc.insert(mdsDisc.end(), audio25.begin(), audio25.end());
+		PS1EbootFileLoader eboot(dir / "Alcohol.mds");
+		if (!CheckEboot(eboot, mdsDisc, 2)) {
+			return false;
+		}
+		PS1EbootFileLoader fromMdf(dir / "Alcohol.mdf");
+		if (!CheckEboot(fromMdf, mdsDisc, 2)) {
+			return false;
+		}
+	}
+
 	// The browser shows each disc once: by its cue sheet or .ccd, and a .bin of its own only if it
 	// could be a disc image.
 	const std::vector<u8> loose(3 * SECTOR, 1);
@@ -291,7 +362,7 @@ bool TestPS1Eboot() {
 		names.push_back(info.name);
 	}
 	std::sort(names.begin(), names.end());
-	const std::vector<std::string> expectedNames = { "Clone.ccd", "Cooked.iso", "Game.cue", "Loose.bin", "Pregap.cue" };
+	const std::vector<std::string> expectedNames = { "Alcohol.mdf", "Alcohol.mds", "Clone.ccd", "Cooked.iso", "Game.cue", "Loose.bin", "Pregap.cue", "Stripped.cue" };
 	EXPECT_TRUE(names == expectedNames);
 
 	// Installing from a zip: the cue sheet and both its files, into a folder of their own.

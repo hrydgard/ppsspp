@@ -20,12 +20,16 @@
 #include <map>
 #include <set>
 
+#include "libchdr/cdrom.h"
+#include "libchdr/chd.h"
+
 #include "Common/File/DirListing.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/Swap.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/FileLoaders/PS1EbootFileLoader.h"
+#include "Core/FileSystems/BlockDevices.h"
 
 static const u32 SECTOR_SIZE = 2352;
 // The PSAR's disc image is in blocks of 16 sectors, each stored as one uncompressed DEFLATE block: a
@@ -133,13 +137,16 @@ static std::string_view NextToken(std::string_view *line) {
 	return token;
 }
 
-bool IsPS1CueOrCcd(FileLoader *fileLoader) {
+bool IsPS1DiscSheet(FileLoader *fileLoader) {
 	char buf[4096]{};
 	const size_t size = fileLoader->ReadAt(0, sizeof(buf) - 1, buf);
 	const std::string text(buf, size);
 	const std::string ext = fileLoader->GetFileExtension();
 	if (ext == ".ccd") {
 		return text.find("[CloneCD]") != std::string::npos;
+	}
+	if (ext == ".mds") {
+		return startsWith(text, "MEDIA DESCRIPTOR");
 	}
 	if (ext == ".cue") {
 		const std::string upper = AsciiToUpper(text);
@@ -263,6 +270,11 @@ bool FindPS1DiscFiles(const std::vector<ArchiveEntry> &entries, const std::funct
 			if (find(stem + ".sub", &found)) {
 				files.push_back(found);
 			}
+		} else if (ext == ".mds") {
+			if (!find(stem + ".mdf", &found)) {
+				continue;
+			}
+			files.push_back(found);
 		} else {
 			continue;
 		}
@@ -288,12 +300,20 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 	const std::string ext = path.GetFileExtension();
 	std::string text;
 	bool parsed = false;
-	if (ext == ".cue" || ext == ".ccd") {
+	if (ext == ".cue" || ext == ".ccd" || ext == ".mds") {
 		if (!ReadSmallTextFile(path, &text)) {
 			error_ = "Can't read " + path.GetFilename();
 			return;
 		}
-		parsed = ext == ".cue" ? ParseCue(path, text) : ParseCcd(path, text);
+		if (ext == ".cue") {
+			parsed = ParseCue(path, text);
+		} else if (ext == ".ccd") {
+			parsed = ParseCcd(path, text);
+		} else {
+			parsed = ParseMds(path, text);
+		}
+	} else if (ext == ".chd") {
+		parsed = OpenCHD(path);
 	} else {
 		// A bare image with a cue sheet or a .ccd next to it is described by that, which has its audio tracks.
 		Path cue = FindCueSheetFor(path);
@@ -301,9 +321,12 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 			cue = path.WithReplacedExtension(".cue");
 		}
 		const Path ccd = path.WithReplacedExtension(".ccd");
+		const Path mds = path.WithReplacedExtension(".mds");
 		if (ReadSmallTextFile(cue, &text) && ParseCue(cue, text)) {
 			parsed = true;
 		} else if (ReadSmallTextFile(ccd, &text) && ParseCcd(ccd, text)) {
+			parsed = true;
+		} else if (ReadSmallTextFile(mds, &text) && ParseMds(mds, text)) {
 			parsed = true;
 		} else {
 			files_.clear();
@@ -356,7 +379,12 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 	INFO_LOG(Log::Loader, "PS1 disc %s: %s, %d tracks, %d sectors", path.c_str(), discID_.c_str(), (int)tracks_.size(), numSectors_);
 }
 
-PS1EbootFileLoader::~PS1EbootFileLoader() {}
+PS1EbootFileLoader::~PS1EbootFileLoader() {
+	// It reads through files_.
+	if (chd_) {
+		chd_close(chd_);
+	}
+}
 
 int PS1EbootFileLoader::AddFile(const Path &path) {
 	FileLoader *loader = ConstructFileLoader(path);
@@ -368,10 +396,166 @@ int PS1EbootFileLoader::AddFile(const Path &path) {
 	return (int)files_.size() - 1;
 }
 
-void PS1EbootFileLoader::AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize) {
+void PS1EbootFileLoader::AddExtent(u32 lba, u32 count, int file, s64 offset, int sectorSize, bool byteSwapped, int stride) {
 	if (count != 0) {
-		extents_.push_back(Extent{ lba, count, file, offset, sectorSize });
+		extents_.push_back(Extent{ lba, count, file, offset, sectorSize, byteSwapped, stride ? stride : sectorSize });
 	}
+}
+
+// An Alcohol 120% .mds: a header, sessions (only the first is read) and their track blocks of 0x50 bytes,
+// each with an extra block (pregap, length) and the image file's name. A track's length in sectors is
+// stored from its offset in the .mdf, from its pregap's start (but never before LBA 0), and anything
+// between tracks isn't stored.
+bool PS1EbootFileLoader::ParseMds(const Path &mdsPath, const std::string &data) {
+	const u8 *d = (const u8 *)data.data();
+	const size_t size = data.size();
+	auto read32 = [&](size_t offset) -> u32 {
+		return offset + 4 <= size ? (d[offset] | (d[offset + 1] << 8) | (d[offset + 2] << 16) | ((u32)d[offset + 3] << 24)) : 0;
+	};
+	if (size < 0x58 || memcmp(d, "MEDIA DESCRIPTOR", 16) != 0) {
+		return false;
+	}
+	const u32 session = read32(0x50);
+	if (session + 0x18 > size) {
+		return false;
+	}
+	const u32 numBlocks = d[session + 0x0A];
+	const u32 trackBlocks = read32(session + 0x14);
+
+	int file = -1;
+	u32 lba = 0;
+	for (u32 i = 0; i < numBlocks; i++) {
+		const size_t b = trackBlocks + (size_t)i * 0x50;
+		if (b + 0x50 > size) {
+			return false;
+		}
+		const u8 point = d[b + 4];
+		if (point == 0 || point > 99) {
+			continue;
+		}
+		const u32 extra = read32(b + 0x0C);
+		const int stride = d[b + 0x10] | (d[b + 0x11] << 8);
+		const u32 start = read32(b + 0x24);
+		const s64 offset = (s64)read32(b + 0x28) | ((s64)read32(b + 0x2C) << 32);
+		const u32 pregap = read32(extra);
+		const u32 length = read32(extra + 4);
+		const int sectorSize = stride >= (int)SECTOR_SIZE ? (int)SECTOR_SIZE : stride;
+		if (sectorSize != (int)SECTOR_SIZE && sectorSize != 2336 && sectorSize != 2048) {
+			error_ = "Unsupported sector size in " + mdsPath.GetFilename();
+			return false;
+		}
+
+		if (file < 0) {
+			// "*.mdf" is the .mds's own name.
+			const u32 nameBlock = read32(b + 0x34);
+			const u32 nameOffset = read32(nameBlock);
+			std::string name;
+			for (u32 p = nameOffset; p < size && d[p] != 0; p += d[nameBlock + 4] ? 2 : 1) {
+				name.push_back((char)d[p]);
+			}
+			const Path mdf = startsWith(name, "*") ? mdsPath.WithReplacedExtension(name.size() > 1 ? name.substr(1) : ".mdf") : mdsPath.NavigateUp() / name;
+			file = AddFile(mdf);
+			if (file < 0) {
+				error_ = "Missing " + mdf.GetFilename();
+				return false;
+			}
+		}
+
+		const u32 first = start > pregap ? start - pregap : 0;
+		if (first < lba) {
+			return false;
+		}
+		AddExtent(lba, first - lba, GENERATED, 0, SECTOR_SIZE);
+		AddExtent(first, length, file, offset, sectorSize, false, stride);
+		lba = first + length;
+		tracks_.push_back(Track{ point, (d[b] & 0x0F) == 0x09, start, start - first });
+	}
+	return !tracks_.empty();
+}
+
+static int CHDTrackSectorSize(std::string_view type) {
+	if (type == "AUDIO" || type == "MODE1_RAW" || type == "MODE2_RAW") {
+		return 2352;
+	} else if (type == "MODE2" || type == "MODE2_FORM_MIX") {
+		return 2336;
+	} else if (type == "MODE1" || type == "MODE2_FORM1") {
+		return 2048;
+	}
+	return 0;
+}
+
+// A CD CHD's tracks are in its metadata, one entry each, and its frames (2352 bytes of sector and 96 of
+// subcode) are in hunks of several. Each track's frames are padded to a multiple of four, and a pregap is
+// in them only if its type starts with V.
+bool PS1EbootFileLoader::OpenCHD(const Path &path) {
+	const int file = AddFile(path);
+	if (file < 0) {
+		return false;
+	}
+	chd_ = OpenCHDThroughLoader(files_[file].get(), &error_);
+	if (!chd_) {
+		return false;
+	}
+	const chd_header *header = chd_get_header(chd_);
+	if (header->unitbytes != CD_FRAME_SIZE || header->hunkbytes % CD_FRAME_SIZE != 0) {
+		error_ = "Not a CD image: " + path.GetFilename();
+		return false;
+	}
+	framesPerHunk_ = header->hunkbytes / CD_FRAME_SIZE;
+	hunk_.resize(header->hunkbytes);
+
+	u32 lba = 0;
+	u32 frame = 0;
+	for (u32 i = 0; i < 99; i++) {
+		char meta[256]{};
+		uint32_t len = 0;
+		int number = 0, frames = 0, pregap = 0, postgap = 0;
+		char type[32]{}, subtype[32]{}, pgtype[32]{}, pgsub[32]{};
+		if (chd_get_metadata(chd_, CDROM_TRACK_METADATA2_TAG, i, meta, sizeof(meta) - 1, &len, nullptr, nullptr) == CHDERR_NONE) {
+			if (sscanf(meta, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d PREGAP:%d PGTYPE:%31s PGSUB:%31s POSTGAP:%d", &number, type, subtype, &frames, &pregap, pgtype, pgsub, &postgap) != 8) {
+				return false;
+			}
+		} else if (chd_get_metadata(chd_, CDROM_TRACK_METADATA_TAG, i, meta, sizeof(meta) - 1, &len, nullptr, nullptr) == CHDERR_NONE) {
+			if (sscanf(meta, "TRACK:%d TYPE:%31s SUBTYPE:%31s FRAMES:%d", &number, type, subtype, &frames) != 4) {
+				return false;
+			}
+		} else {
+			break;
+		}
+		const int sectorSize = CHDTrackSectorSize(type);
+		if (sectorSize == 0 || frames < 0 || pregap < 0 || postgap < 0 || pregap > frames + pregap) {
+			error_ = std::string("Unsupported track type in CHD: ") + type;
+			return false;
+		}
+		const bool audio = strcmp(type, "AUDIO") == 0;
+		const bool pregapStored = pgtype[0] == 'V';
+		if (!pregapStored) {
+			AddExtent(lba, pregap, GENERATED, 0, SECTOR_SIZE);
+			lba += pregap;
+		}
+		AddExtent(lba, frames, CHD_SOURCE, frame, sectorSize, audio);
+		tracks_.push_back(Track{ number, audio, pregapStored ? lba + pregap : lba, (u32)pregap });
+		lba += frames;
+		AddExtent(lba, postgap, GENERATED, 0, SECTOR_SIZE);
+		lba += postgap;
+		frame += (frames + CD_TRACK_PADDING - 1) / CD_TRACK_PADDING * CD_TRACK_PADDING;
+	}
+	if (tracks_.empty()) {
+		error_ = "No tracks in CHD: " + path.GetFilename();
+		return false;
+	}
+	return true;
+}
+
+bool IsCDChd(FileLoader *fileLoader) {
+	std::string error;
+	chd_file *chd = OpenCHDThroughLoader(fileLoader, &error);
+	if (!chd) {
+		return false;
+	}
+	const bool cd = chd_get_header(chd)->unitbytes == CD_FRAME_SIZE;
+	chd_close(chd);
+	return cd;
 }
 
 bool PS1EbootFileLoader::ParseCue(const Path &cuePath, const std::string &text) {
@@ -485,7 +669,7 @@ bool PS1EbootFileLoader::ParseCue(const Path &cuePath, const std::string &text) 
 			}
 			AddExtent(lba, split - fileSector, file, (s64)fileSector * cueFile.sectorSize, cueFile.sectorSize);
 			lba += split - fileSector;
-			AddExtent(lba, cueTrack.pregap, -1, 0, SECTOR_SIZE);
+			AddExtent(lba, cueTrack.pregap, GENERATED, 0, SECTOR_SIZE);
 			lba += cueTrack.pregap;
 			fileSector = split;
 
@@ -591,35 +775,46 @@ bool PS1EbootFileLoader::ReadRawSectors(u32 lba, u32 count, u8 *out) {
 		}
 		const Extent &e = *(it - 1);
 		const u32 run = std::min(count, e.lba + e.count - lba);
-		const s64 offset = e.offset + (s64)(lba - e.lba) * e.sectorSize;
-		if (e.file < 0) {
+		const u32 index = lba - e.lba;
+		if (e.file == GENERATED) {
 			memset(out, 0, (size_t)run * SECTOR_SIZE);
-		} else if (e.sectorSize == (int)SECTOR_SIZE) {
+		} else if (e.file >= 0 && e.sectorSize == (int)SECTOR_SIZE && e.stride == (int)SECTOR_SIZE) {
 			const size_t want = (size_t)run * SECTOR_SIZE;
-			const size_t got = files_[e.file]->ReadAt(offset, want, out);
+			const size_t got = files_[e.file]->ReadAt(e.offset + (s64)index * SECTOR_SIZE, want, out);
 			if (got < want) {
 				memset(out + got, 0, want - got);
 				ok = false;
 			}
+		} else if (e.file >= 0 && e.sectorSize == (int)SECTOR_SIZE) {
+			// Raw sectors with subchannel data after each: one read, then without it.
+			std::vector<u8> buf((size_t)run * e.stride);
+			const size_t got = files_[e.file]->ReadAt(e.offset + (s64)index * e.stride, buf.size(), buf.data());
+			if (got < buf.size()) {
+				memset(buf.data() + got, 0, buf.size() - got);
+				ok = false;
+			}
+			for (u32 i = 0; i < run; i++) {
+				memcpy(out + (size_t)i * SECTOR_SIZE, buf.data() + (size_t)i * e.stride, SECTOR_SIZE);
+			}
 		} else {
-			// Sectors without their sync and header (2336), or only their user data (2048, which can only
-			// be Mode 2 Form 1). The EDC and ECC of those stay zero.
+			// One at a time. Sectors without their sync and header (2336), or only their user data (2048,
+			// which can only be Mode 2 Form 1), get them made. The EDC and ECC of those stay zero.
 			for (u32 i = 0; i < run; i++) {
 				u8 *sector = out + (size_t)i * SECTOR_SIZE;
 				memset(sector, 0, SECTOR_SIZE);
-				memcpy(sector, SYNC, sizeof(SYNC));
-				LBAToMSF(lba + i, sector + 12);
-				sector[15] = 2;
-				u8 *data = sector + 16;
-				if (e.sectorSize == 2048) {
-					static const u8 subheader[8] = { 0, 0, 8, 0, 0, 0, 8, 0 };
-					memcpy(sector + 16, subheader, sizeof(subheader));
-					data = sector + 24;
+				u8 *data = sector;
+				if (e.sectorSize != (int)SECTOR_SIZE) {
+					memcpy(sector, SYNC, sizeof(SYNC));
+					LBAToMSF(lba + i, sector + 12);
+					sector[15] = 2;
+					data = sector + 16;
+					if (e.sectorSize == 2048) {
+						static const u8 subheader[8] = { 0, 0, 8, 0, 0, 0, 8, 0 };
+						memcpy(sector + 16, subheader, sizeof(subheader));
+						data = sector + 24;
+					}
 				}
-				const s64 pos = offset + (s64)i * e.sectorSize;
-				if (files_[e.file]->ReadAt(pos, e.sectorSize, data) != (size_t)e.sectorSize) {
-					ok = false;
-				}
+				ok = ReadSourceSector(e, index + i, data) && ok;
 			}
 		}
 		lba += run;
@@ -627,6 +822,33 @@ bool PS1EbootFileLoader::ReadRawSectors(u32 lba, u32 count, u8 *out) {
 		out += (size_t)run * SECTOR_SIZE;
 	}
 	return ok;
+}
+
+// One sector's stored bytes (e.sectorSize of them) from an extent's file or the CHD.
+bool PS1EbootFileLoader::ReadSourceSector(const Extent &e, u32 index, u8 *out) {
+	if (e.file >= 0) {
+		return files_[e.file]->ReadAt(e.offset + (s64)index * e.stride, e.sectorSize, out) == (size_t)e.sectorSize;
+	}
+	const u32 frame = (u32)e.offset + index;
+	const u32 hunk = frame / framesPerHunk_;
+	std::lock_guard<std::mutex> guard(chdLock_);
+	if (hunk != cachedHunk_) {
+		if (chd_read(chd_, hunk, hunk_.data()) != CHDERR_NONE) {
+			cachedHunk_ = 0xFFFFFFFF;
+			return false;
+		}
+		cachedHunk_ = hunk;
+	}
+	const u8 *src = hunk_.data() + (size_t)(frame % framesPerHunk_) * CD_FRAME_SIZE;
+	if (e.byteSwapped) {
+		for (int i = 0; i + 1 < e.sectorSize; i += 2) {
+			out[i] = src[i + 1];
+			out[i + 1] = src[i];
+		}
+	} else {
+		memcpy(out, src, e.sectorSize);
+	}
+	return true;
 }
 
 bool PS1EbootFileLoader::ReadUserData(u32 lba, u8 *out) {
