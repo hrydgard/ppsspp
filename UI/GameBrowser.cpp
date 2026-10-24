@@ -1043,7 +1043,7 @@ void GameBrowser::Refresh() {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
-		Choice *homeChoice = topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+		Choice *homeChoice = topBar->Add(new Choice(ImageID("I_HOME_ICON"), new LayoutParams(WRAP_CONTENT, 64.0f)));
 		homeChoice->SetRoundCorners(RoundCorners::All);
 		homeChoice->OnClick.Handle(this, &GameBrowser::OnHomeClick);
 		if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {

@@ -104,6 +104,7 @@ struct TouchControlConfig : public ConfigBlock {
 	constexpr TouchControlConfig() {
 		// Hide all extras and custom buttons by default.
 		touchRightAnalogStick.show = false;
+		touchHomeKey.show = false;
 		for (size_t i = 0; i < CUSTOM_BUTTON_COUNT; i++) {
 			touchCustom[i].show = false;
 		}
@@ -119,6 +120,7 @@ struct TouchControlConfig : public ConfigBlock {
 
 	ConfigTouchPos touchStartKey;
 	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchHomeKey;
 	ConfigTouchPos touchFastForwardKey;
 	ConfigTouchPos touchLKey;
 	ConfigTouchPos touchRKey;

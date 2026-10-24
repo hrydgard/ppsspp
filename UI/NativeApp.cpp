@@ -436,6 +436,7 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 		// Convert to drawlists.
 		ImGui::Render();
+		ImGui_ImplPlatform_SaveIni(false);
 		wantTextInput = io.WantTextInput;
 	} else {
 		uiContext->SetOverrideScreenFrame(nullptr);
@@ -1128,19 +1129,13 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceLost();
 	}
 
+	// The imgui context and the debugger outlive the graphics, so that their state survives Android
+	// switching away from the app. Save now anyway, since the app may be killed in the background.
 	if (imguiInited_) {
-		if (imDebugger_) {
-			imDebugger_->DeviceLost();
-		}
+		imDebugger_->DeviceLost();
+		imDebugger_->SaveConfig();
+		ImGui_ImplPlatform_SaveIni(true);
 		ImGui_ImplThin3d_DestroyDeviceObjects();
-		ImGui_ImplThin3d_Shutdown();
-		// Destroy the debugger here, while the things it refers to are still alive. If left to
-		// static destruction, ~ImDisasmView runs after Core's globals are gone and its
-		// g_disassemblyManager.clear() walks a destroyed map (and locks a destroyed mutex).
-		imDebugger_.reset();
-		ImGui::DestroyContext(ctx_);
-		ctx_ = nullptr;
-		imguiInited_ = false;
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -1977,6 +1972,19 @@ void NativeShutdown() {
 		g_screenManager->shutdown();
 		delete g_screenManager;
 		g_screenManager = nullptr;
+	}
+
+	if (imguiInited_) {
+		ImGui_ImplPlatform_SaveIni(true);
+		// The device objects went with NativeShutdownGraphics.
+		ImGui_ImplThin3d_Shutdown();
+		// Destroy the debugger here, while the things it refers to are still alive. If left to
+		// static destruction, ~ImDisasmView runs after Core's globals are gone and its
+		// g_disassemblyManager.clear() walks a destroyed map (and locks a destroyed mutex).
+		imDebugger_.reset();
+		ImGui::DestroyContext(ctx_);
+		ctx_ = nullptr;
+		imguiInited_ = false;
 	}
 
 	System_Notify(SystemNotification::BEFORE_CONFIG_SAVE_ON_EXIT);

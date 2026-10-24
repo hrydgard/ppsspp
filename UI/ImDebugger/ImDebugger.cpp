@@ -2656,6 +2656,10 @@ ImDebugger::ImDebugger() {
 }
 
 ImDebugger::~ImDebugger() {
+	SaveConfig();
+}
+
+void ImDebugger::SaveConfig() {
 	cfg_.SaveConfig(ConfigPath());
 }
 

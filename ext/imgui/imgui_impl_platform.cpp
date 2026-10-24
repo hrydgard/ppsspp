@@ -1,5 +1,6 @@
 #include "ext/imgui/imgui.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/System/Display.h"
@@ -10,6 +11,7 @@
 #include "imgui_impl_platform.h"
 
 static ImGuiMouseCursor g_cursor = ImGuiMouseCursor_Arrow;
+static Path g_iniPath;
 
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key) {
 	ImGuiIO &io = ImGui::GetIO();
@@ -86,10 +88,28 @@ void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch) {
 }
 
 void ImGui_ImplPlatform_Init(const Path &configPath) {
-	static char path[1024];
-	truncate_cpy(path, configPath.ToString());
-	ImGui::GetIO().IniFilename = path;
+	// imgui's own ini handling uses fopen, which can't reach a memstick behind an Android content URI.
+	g_iniPath = configPath;
+	ImGui::GetIO().IniFilename = nullptr;
 	ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	std::string data;
+	if (File::ReadTextFileToString(g_iniPath, &data)) {
+		ImGui::LoadIniSettingsFromMemory(data.data(), data.size());
+	}
+}
+
+void ImGui_ImplPlatform_SaveIni(bool force) {
+	ImGuiIO &io = ImGui::GetIO();
+	if (!force && !io.WantSaveIniSettings) {
+		return;
+	}
+	size_t size = 0;
+	const char *data = ImGui::SaveIniSettingsToMemory(&size);
+	if (!File::WriteDataToFile(true, data, size, g_iniPath)) {
+		WARN_LOG(Log::System, "Failed to save imgui settings to '%s'", g_iniPath.c_str());
+	}
+	io.WantSaveIniSettings = false;
 }
 
 void ImGui_ImplPlatform_AxisEvent(const AxisInput &axis) {

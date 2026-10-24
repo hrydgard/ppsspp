@@ -471,6 +471,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_SELECT, "Select"},
 	{CTRL_LTRIGGER, "L"},
 	{CTRL_RTRIGGER, "R"},
+	{CTRL_HOME, "Home"},
 
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
@@ -538,7 +539,6 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
 	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 
-	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
 	{CTRL_WLAN, "Wlan"},
 	{CTRL_REMOTE_HOLD, "Remote hold"},

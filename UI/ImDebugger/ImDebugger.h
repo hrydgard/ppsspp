@@ -190,6 +190,7 @@ public:
 		externalCommand_ = cmd;
 	}
 	void DeviceLost();
+	void SaveConfig();
 
 private:
 	Path ConfigPath();
