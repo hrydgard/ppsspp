@@ -36,6 +36,7 @@ for it:
 | [docs/shader-compilation.md](docs/shader-compilation.md) | Shader/pipeline compile stutter: where the time goes on MoltenVK (Metal's MSL compile, not glslang), the caches involved, how game-specific shaders are, and how to measure a cold start |
 | [docs/metal-backend.md](docs/metal-backend.md) | The Metal backend: shader translation, the render manager (recording, replay, pass merging), programmable blending, how it was tested against Vulkan, and what isn't done |
 | [docs/async-savestates.md](docs/async-savestates.md) | How savestate compression and file I/O run on a worker thread: the save/load/rewind pipelines, ordering, memory rules, what stays synchronous, and testing slots with the `game.state.*` debugger commands |
+| [docs/shadow-textures.md](docs/shadow-textures.md) | The experimental `shadowTextures` texture replacement option: region-limited replacement keys and held-back dumps |
 
 ## General instructions
 

@@ -810,11 +810,17 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				// At this point, data should be saveData, and not slow.
 				ReplacedTextureDecodeInfo replacedInfo;
 				replacedInfo.cachekey = entry->CacheKey();
-				replacedInfo.hash = entry->fullhash;
+				replacedInfo.hash = entry->replaceHash;
 				replacedInfo.addr = entry->addr;
 				replacedInfo.isVideo = IsVideo(entry->addr);
 				replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
+				// For shadow textures, which keep a copy of the texture's memory.
+				replacedInfo.bufw = entry->bufw;
+				replacedInfo.texW = 1 << (entry->dim & 0xF);
+				replacedInfo.texH = 1 << ((entry->dim >> 8) & 0xF);
+				replacedInfo.swizzled = gstate.isTextureSwizzled();
+				replacedInfo.texFormat = entry->format;
 				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
 		}

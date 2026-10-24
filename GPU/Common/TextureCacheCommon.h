@@ -181,8 +181,14 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
+	// The part of the texture from (0,0) the replacement covers (shadow textures only). Placed to fill padding.
+	u16 shadowRegionW;
 	u32 fullhash;
 	u32 cluthash;
+	// The hash in the replacement key. Equals fullhash, except with shadow textures, where it only covers
+	// shadowRegionW x shadowRegionH, and fullhash is just for noticing changes.
+	u32 replaceHash;
+	u16 shadowRegionH;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
@@ -393,6 +399,13 @@ public:
 
 	virtual void StartFrame();
 
+	// Draw engines call this for each draw with a texture, after ApplyTexture, while the vertex bounds are still set.
+	void NoteShadowDraw() {
+		if (shadowBinding_.valid) {
+			NoteShadowDrawSlow();
+		}
+	}
+
 	virtual void DeviceLost();
 	virtual void DeviceRestore(Draw::DrawContext *draw);
 
@@ -453,6 +466,10 @@ protected:
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
+	u32 ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u32 oldHash, u16 *regionW, u16 *regionH);
+	void NoteShadowDrawSlow();
+	// The contents of a [layered] texture, composed over its HD image.
+	ReplacedTexture *ComposeLayeredReplacement(TexCacheEntry *entry, int w, int h);
 
 	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer);
 
@@ -467,6 +484,27 @@ protected:
 
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
+
+	// The texture the last ApplyTexture bound, for shadow textures.
+	struct ShadowBinding {
+		bool valid = false;
+		bool swizzled = false;
+		u64 cachekey = 0;
+		u32 hash = 0;
+		u32 addr = 0;
+		u16 w = 0;
+		u16 h = 0;
+		GETextureFormat fmt = GE_TFMT_5650;
+	};
+	ShadowBinding shadowBinding_;
+	// The old key of an entry that's rebuilt because only its replacement key moved, so what its draws
+	// sampled carries over.
+	struct ShadowCarry {
+		bool valid = false;
+		u64 cachekey = 0;
+		u32 oldHash = 0;
+	};
+	ShadowCarry shadowCarry_;
 	FramebufferManagerCommon *framebufferManager_;
 	TextureShaderCache textureShaderCache_;
 	ClutTextureCache clutTextureCache_;

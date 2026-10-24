@@ -726,6 +726,10 @@ void DrawEngineMetal::Flush() {
 			// This catches the case of clearing a texture.
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
+		if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			// Shadow textures learn what part of the texture is drawn.
+			textureCache_->NoteShadowDraw();
+		}
 
 		Pipeline *pipeline = updatePipeline(true);
 		if (!pipeline || !ApplyState(pipeline, false, 0)) {
@@ -769,6 +773,10 @@ void DrawEngineMetal::Flush() {
 			textureNeedsApply = true;
 		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+		}
+		if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			// Shadow textures learn what part of the texture is drawn.
+			textureCache_->NoteShadowDraw();
 		}
 
 		SoftwareTransformResult result{};
