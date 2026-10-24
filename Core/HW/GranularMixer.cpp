@@ -65,14 +65,10 @@ static const float g_GranuleWindow[256] = {
 	0.0000216492f, 0.0000113187f, 0.0000050749f, 0.0000016272f
 };
 
-inline s16 clampfloat_s16(float f) {
+static inline s16 clampfloat_s16(float f) {
 	if (f <= -32767.0f) return -32767;
 	if (f >= 32767.0f) return 32767;
 	return (s16)f;
-}
-
-GranularMixer::GranularMixer() {
-	INFO_LOG(Log::Audio, "Mixer is initialized");
 }
 
 // Executed from sound stream thread

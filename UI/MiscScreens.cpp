@@ -469,7 +469,7 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 	uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alphaText);
 
 	// TEMPORARY: Round rect test. Fixed seed so they stay put between frames.
-	{
+	if (false) {
 		uint32_t seed = 12345;
 		auto rnd = [&seed]() {
 			seed = seed * 1664525 + 1013904223;
