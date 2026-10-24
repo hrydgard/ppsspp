@@ -74,8 +74,8 @@ void Path::Init(std::string_view str) {
 	}
 #endif
 
-	// Don't pop_back if it's just "/".
-	if (type_ == PathType::NATIVE && path_.size() > 1 && path_.back() == '/') {
+	// Don't pop_back if it's just "/", or on Windows "//", the network folder.
+	if (type_ == PathType::NATIVE && path_.size() > 1 && path_.back() == '/' && !IsNetworkRoot()) {
 		path_.pop_back();
 	}
 }
@@ -215,6 +215,11 @@ std::string Path::GetDirectory() const {
 		if (pos == 0) {
 			return "/";  // We're at the root.
 		}
+#if PPSSPP_PLATFORM(WINDOWS)
+		if (pos == 1 && path_[0] == '/' && path_.size() > 2) {
+			return "//";  // A server, which is in the network folder.
+		}
+#endif
 		return path_.substr(0, pos);
 #if PPSSPP_PLATFORM(WINDOWS)
 	} else if (path_.size() == 2 && path_[1] == ':') {
@@ -385,7 +390,7 @@ Path Path::GetRootVolume() const {
 		return Path(path);
 	}
 	// Support UNC and device paths.
-	if (path_[0] == '/' && path_[1] == '/') {
+	if (path_[0] == '/' && path_[1] == '/' && !IsNetworkRoot()) {
 		size_t next = 2;
 		if ((path_[2] == '.' || path_[2] == '?') && path_[3] == '/') {
 			// Device path, or "\\.\UNC" path, skip the dot and consider the device the root.

@@ -60,6 +60,14 @@ public:
 
 	bool Valid() const { return !path_.empty(); }
 	bool IsRoot() const { return path_ == "/"; }  // Special value - only path that can end in a slash.
+	// On Windows, "//" is the network folder that lists the servers, the other path that ends in a slash.
+	bool IsNetworkRoot() const {
+#if PPSSPP_PLATFORM(WINDOWS)
+		return path_ == "//";
+#else
+		return false;
+#endif
+	}
 
 	// Some std::string emulation for simplicity.
 	bool empty() const { return !Valid(); }

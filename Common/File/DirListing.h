@@ -41,7 +41,8 @@ enum {
 };
 
 // Note: extensionFilter is ignored for directories, so you can recurse.
-bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *extensionFilter = nullptr, int flags = 0, std::string_view prefix = std::string_view());
+// cancel is only checked while waiting for a network listing (Windows), which can take seconds.
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *extensionFilter = nullptr, int flags = 0, std::string_view prefix = std::string_view(), const bool *cancel = nullptr);
 std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const char *extensionFilter, std::string_view prefix);
 
 #ifdef _WIN32
