@@ -1328,7 +1328,10 @@ static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *in
 	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && instr->interpret != &Int_Syscall) {
 		// This is common for all IN_MEM/OUT_MEM funcs.
 		int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
-		u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
+		// Use the raw (possibly unaligned) effective address, matching the JIT/IR
+		// path, so memory breakpoints on byte/halfword accesses hit at their
+		// actual address instead of being silently dropped by 4-byte alignment.
+		u32 addr = mips->r[_RS(op)] + offset;
 		int sz = MIPSGetMemoryAccessSize(op);
 
 		if ((instr->flags & IN_MEM) != 0)
