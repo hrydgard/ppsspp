@@ -6,6 +6,9 @@
 #include <oboe/Oboe.h>
 
 #include "Common/Log.h"
+#include "Common/System/System.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "android/jni/OboeContext.h"
 
 // Owns the streams. Held by shared_ptr since after a disconnect, Oboe calls the error
@@ -13,7 +16,14 @@
 class OboeContext::Streams : public oboe::AudioStreamDataCallback, public oboe::AudioStreamErrorCallback, public std::enable_shared_from_this<OboeContext::Streams> {
 public:
 	Streams(AndroidAudioCallback cb, int framesPerBuffer, int sampleRate)
-		: audioCallback_(cb), framesPerBuffer_(framesPerBuffer), sampleRate_(sampleRate) {}
+		: audioCallback_(cb), framesPerBuffer_(framesPerBuffer), sampleRate_(sampleRate) {
+		// The setting isn't offered before Android 8.1, where AAudio isn't stable.
+		if (g_Config.iAndroidAudioApi == (int)AndroidAudioApi::AAUDIO && oboe::AudioStreamBuilder::isAAudioRecommended()) {
+			audioApi_ = oboe::AudioApi::AAudio;
+		}
+		// Global in Oboe, and only read when an AAudio stream is opened.
+		oboe::OboeExtensions::setMMapEnabled(g_Config.bAndroidAudioMMap);
+	}
 
 	bool StartOutput() {
 		std::lock_guard<std::mutex> guard(mutex_);
@@ -85,6 +95,7 @@ private:
 	bool OpenOutput() {
 		oboe::AudioStreamBuilder builder;
 		builder.setDirection(oboe::Direction::Output)
+			->setAudioApi(audioApi_)
 			->setPerformanceMode(oboe::PerformanceMode::LowLatency)
 			->setSharingMode(oboe::SharingMode::Shared)
 			->setUsage(oboe::Usage::Game)
@@ -109,16 +120,22 @@ private:
 			CloseStream(output_);
 			return Fail("Failed to start output stream", result);
 		}
-		INFO_LOG(Log::Audio, "Oboe: Output stream open: %s, %d Hz, %d frames per burst, buffer %d frames, %s, %s",
+		char info[256];
+		snprintf(info, sizeof(info), "%s%s, %d Hz, burst %d, buffer %d, %s, device %d",
 			oboe::convertToText(output_->getAudioApi()),
+			// Only ask AAudio. An OpenSL ES stream has no AAudio stream underneath.
+			output_->getAudioApi() == oboe::AudioApi::AAudio && oboe::OboeExtensions::isMMapUsed(output_.get()) ? " (MMAP)" : "",
 			output_->getSampleRate(), output_->getFramesPerBurst(), output_->getBufferSizeInFrames(),
-			oboe::convertToText(output_->getPerformanceMode()), oboe::convertToText(output_->getSharingMode()));
+			oboe::convertToText(output_->getPerformanceMode()), output_->getDeviceId());
+		INFO_LOG(Log::Audio, "Oboe: Output stream open: %s", info);
+		OboeContext::SetInfoString(info);
 		return true;
 	}
 
 	bool OpenInput() {
 		oboe::AudioStreamBuilder builder;
 		builder.setDirection(oboe::Direction::Input)
+			->setAudioApi(audioApi_)
 			->setSharingMode(oboe::SharingMode::Shared)
 			->setFormat(oboe::AudioFormat::I16)
 			->setFormatConversionAllowed(true)
@@ -159,6 +176,7 @@ private:
 	AndroidAudioCallback audioCallback_;
 	int framesPerBuffer_;
 	int sampleRate_;
+	oboe::AudioApi audioApi_ = oboe::AudioApi::OpenSLES;
 
 	std::mutex mutex_;
 	bool shutdown_ = false;

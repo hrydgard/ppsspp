@@ -879,9 +879,25 @@ bool DefaultAudioMixWithOthers() {
 #endif
 }
 
+static int DefaultAndroidAudioApi() {
+	// AAudio isn't stable before Android 8.1 (API 27), Oboe's own cutoff.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 27) {
+		return (int)AndroidAudioApi::OPENSLES;
+	}
+	// An Android 11 TV played nothing over Bluetooth when AAudio used MMAP, which should never
+	// be used for a Bluetooth route. OpenSL ES worked, also when the headset was connected mid-game.
+	// Latency on a TV is mostly the TV's own anyway.
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+		return (int)AndroidAudioApi::OPENSLES;
+	}
+	return (int)AndroidAudioApi::AAUDIO;
+}
+
 static constexpr ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", SETTING(g_Config, bEnableSound), true, CfgFlag::PER_GAME),
 	ConfigSetting("ExtraAudioBuffering", SETTING(g_Config, bExtraAudioBuffering), false, CfgFlag::DEFAULT),
+	ConfigSetting("AndroidAudioBackend", SETTING(g_Config, iAndroidAudioApi), &DefaultAndroidAudioApi, CfgFlag::DEFAULT),
+	ConfigSetting("AndroidAudioMMap", SETTING(g_Config, bAndroidAudioMMap), true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioBufferSize", SETTING(g_Config, iSDLAudioBufferSize), 256, CfgFlag::DEFAULT),
 
 	ConfigSetting("FillAudioGaps", SETTING(g_Config, bFillAudioGaps), true, CfgFlag::DEFAULT),

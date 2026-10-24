@@ -19,6 +19,7 @@ public:
 
 protected:
 	static void SetErrorString(const std::string &error);
+	static void SetInfoString(const std::string &info);
 	AndroidAudioCallback audioCallback;
 
 	int framesPerBuffer;
@@ -42,5 +43,9 @@ void AndroidAudio_Recording_Poll();
 void AndroidAudio_Recording_Clear();
 bool AndroidAudio_Pause(AndroidAudioState *state);
 bool AndroidAudio_Resume(AndroidAudioState *state);
+// Closes the streams and opens them again, to apply changed settings.
+bool AndroidAudio_Restart(AndroidAudioState *state);
 bool AndroidAudio_Shutdown(AndroidAudioState *state);
 const std::string AndroidAudio_GetErrorString(AndroidAudioState *state);
+// Describes the output stream that's open.
+const std::string AndroidAudio_GetInfoString(AndroidAudioState *state);

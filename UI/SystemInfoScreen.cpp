@@ -30,6 +30,12 @@
 #include "UI/OnScreenDisplay.h"
 #include "android/jni/app-android.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include "android/jni/AndroidAudio.h"
+
+extern AndroidAudioState *g_audioState;
+#endif
+
 void SystemInfoScreen::update() {
 	UITabbedBaseDialogScreen::update();
 	g_OSD.NudgeIngameNotifications();
@@ -433,6 +439,13 @@ void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
 		audioInformation->Add(new InfoItem(a->T("Audio Error"), error.empty() ? di->T("None") : error));
 	} else {
 		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+#if PPSSPP_PLATFORM(ANDROID)
+		// What actually got opened: the API, whether it's MMAP, the device's rate and buffers.
+		const std::string streamInfo = AndroidAudio_GetInfoString(g_audioState);
+		audioInformation->Add(new InfoItem(si->T("Stream format"), streamInfo.empty() ? di->T("None") : streamInfo));
+		const std::string error = AndroidAudio_GetErrorString(g_audioState);
+		audioInformation->Add(new InfoItem(a->T("Audio Error"), error.empty() ? di->T("None") : error));
+#endif
 	}
 	int framesPerBuffer = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
 	if (framesPerBuffer > 0) {
