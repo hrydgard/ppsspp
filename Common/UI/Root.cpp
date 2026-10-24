@@ -149,17 +149,20 @@ bool IsFocusMovementEnabled() {
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode) {
 	Bounds rootBounds = dc.GetLayoutBounds(layoutMode, immersiveMode);
-
-	MeasureSpec horiz(EXACTLY, rootBounds.w - (rootMargins.left + rootMargins.right));
-	MeasureSpec vert(EXACTLY, rootBounds.h - (rootMargins.top + rootMargins.bottom));
-
-	// Two phases - measure contents, layout.
-	root->Measure(dc, horiz, vert);
-	// Root has a specified size. Set it, then let root layout all its children.
 	rootBounds.x += rootMargins.left;
 	rootBounds.y += rootMargins.top;
 	rootBounds.w -= rootMargins.left + rootMargins.right;
 	rootBounds.h -= rootMargins.top + rootMargins.bottom;
+	LayoutViewHierarchy(dc, rootBounds, root);
+}
+
+void LayoutViewHierarchy(const UIContext &dc, const Bounds &rootBounds, ViewGroup *root) {
+	MeasureSpec horiz(EXACTLY, rootBounds.w);
+	MeasureSpec vert(EXACTLY, rootBounds.h);
+
+	// Two phases - measure contents, layout.
+	root->Measure(dc, horiz, vert);
+	// Root has a specified size. Set it, then let root layout all its children.
 	root->SetBounds(rootBounds);
 	root->Layout();
 }

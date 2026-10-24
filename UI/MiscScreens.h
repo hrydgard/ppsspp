@@ -99,6 +99,7 @@ enum class AfterLogoScreen {
 
 class LogoScreen : public UIBaseScreen {
 public:
+	bool LimitContentArea() const override { return false; }
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;

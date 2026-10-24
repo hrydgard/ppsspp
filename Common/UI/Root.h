@@ -35,6 +35,7 @@ class ViewGroup;
 View *FindTabOrderNeighbor(ViewGroup *root, View *focusedView, FocusMove direction);
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode);
+void LayoutViewHierarchy(const UIContext &dc, const Bounds &rootBounds, UI::ViewGroup *root);
 DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement = true);
 
 enum class KeyEventResult {

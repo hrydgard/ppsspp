@@ -157,6 +157,8 @@ private:
 
 class TouchTestScreen : public UIBaseDialogScreen {
 public:
+	// Shows touches where they are on the screen.
+	bool LimitContentArea() const override { return false; }
 	TouchTestScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {
 		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 			touches_[i].id = -1;

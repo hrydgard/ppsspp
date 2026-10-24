@@ -26,6 +26,8 @@ class ControlLayoutView;
 
 class TouchControlLayoutScreen : public UIBaseDialogScreen {
 public:
+	// The controls go where they will be in the game.
+	bool LimitContentArea() const override { return false; }
 	TouchControlLayoutScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 
 	void CreateViews() override;
