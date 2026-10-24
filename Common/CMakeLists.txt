@@ -278,6 +278,7 @@ add_library(Common STATIC
 	Render/TextureAtlas.h
 	Render/DrawBuffer.cpp
 	Render/DrawBuffer.h
+	Render/DrawEnum.h
 	Render/ManagedTexture.cpp
 	Render/ManagedTexture.h
 	Render/Text/Font.h

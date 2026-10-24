@@ -63,18 +63,18 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 				v.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
-			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight() + margins.vert(), vert, &measuredHeight_);
 			if (layoutParams_->width == WRAP_CONTENT)
-				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth() + margins.horiz(), horiz, &measuredWidth_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
 			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
 				h.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
-			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth() + margins.horiz(), horiz, &measuredWidth_);
 			if (layoutParams_->height == WRAP_CONTENT)
-				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight() + margins.vert(), vert, &measuredHeight_);
 		}
 
 		// The below seems misguided and leads to wrong sized scrollviews. Need to investigate if it's needed somewhere...
@@ -96,11 +96,11 @@ void ScrollView::Layout() {
 		return;
 	Bounds scrolled;
 
-	// Respect margins
+	// The child was measured inside its margins.
 	const Margins margins = GetMargins();
 
-	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
-	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
+	scrolled.w = views_[0]->GetMeasuredWidth();
+	scrolled.h = views_[0]->GetMeasuredHeight();
 
 	layoutScrollPos_ = ClampedScrollPos(scrollPos_);
 
@@ -111,7 +111,7 @@ void ScrollView::Layout() {
 				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - layoutScrollPos_;
+		scrolled.x = bounds_.x + margins.left - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -121,7 +121,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - layoutScrollPos_;
+		scrolled.y = bounds_.y + margins.top - layoutScrollPos_;
 		break;
 	}
 
@@ -259,7 +259,9 @@ float ScrollView::ChildSize() const {
 		// Avoid division by zero. This shouldn't happen, anyway.
 		return 1.0f;
 	}
-	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + extraSpace);
+	const Margins margins = GetMargins();
+	const float marginSize = orientation_ == ORIENT_VERTICAL ? margins.vert() : margins.horiz();
+	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + marginSize + extraSpace);
 }
 
 float ScrollView::ScrollMax() const {
@@ -422,7 +424,7 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target,
 			if (orientation_ == ORIENT_VERTICAL)
 				targetPos.y += mult * bounds_.h;
 			else
-				targetPos.x += mult * bounds_.x;
+				targetPos.x += mult * bounds_.w;
 
 			// Okay, which subview is closest to that?
 			best = vg->FindScrollNeighbor(view, targetPos, direction, best);

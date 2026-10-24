@@ -1043,9 +1043,13 @@ void GameBrowser::Refresh() {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
-		topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
+		Choice *homeChoice = topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+		homeChoice->SetRoundCorners(RoundCorners::All);
+		homeChoice->OnClick.Handle(this, &GameBrowser::OnHomeClick);
 		if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
-			topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
+			Choice *sdCardChoice = topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+			sdCardChoice->SetRoundCorners(RoundCorners::All);
+			sdCardChoice->OnClick.Handle(this, &GameBrowser::StorageClick);
 		}
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 		// Don't show a browse button, not meaningful to browse outside the documents folder it seems,
@@ -1056,16 +1060,22 @@ void GameBrowser::Refresh() {
 		// we show just the image, because we don't need to emphasize the button on Darwin
 		// (tvOS has no folder browser.)
 		if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+			Choice *browseChoice = topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+			browseChoice->SetRoundCorners(RoundCorners::All);
+			browseChoice->OnClick.Handle(this, &GameBrowser::BrowseClick);
 		}
 #else
 		if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 			// Collapse the button title on very small screens (Retroid Pocket) or portrait mode.
 			std::string_view browseTitle = (g_display.dp_xres <= 550 || portrait_) ? "" : mm->T("Browse");
-			topBar->Add(new Choice(browseTitle, ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+			Choice *browseChoice = topBar->Add(new Choice(browseTitle, ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+			browseChoice->SetRoundCorners(RoundCorners::All);
+			browseChoice->OnClick.Handle(this, &GameBrowser::BrowseClick);
 		}
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
-			topBar->Add(new Choice(mm->T("Enter Path"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([=](UI::EventParams &) {
+			Choice *enterPathChoice = topBar->Add(new Choice(mm->T("Enter Path"), new LayoutParams(WRAP_CONTENT, 64.0f)));
+			enterPathChoice->SetRoundCorners(RoundCorners::All);
+			enterPathChoice->OnClick.Add([=](UI::EventParams &) {
 				auto mm = GetI18NCategory(I18NCat::MAINMENU);
 				System_InputBoxGetString(token_, mm->T("Enter Path"), path_.GetPath().ToString(), false, [=](std::string_view responseString, int responseValue) {
 					this->SetPath(Path(responseString));
@@ -1078,7 +1088,9 @@ void GameBrowser::Refresh() {
 	}
 
 	if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
-		topBar->Add(new Choice(mm->T("Homebrew store"), ImageID("I_HOMEBREW_STORE"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
+		Choice *hbStore = topBar->Add(new Choice(mm->T("Homebrew store"), ImageID("I_HOMEBREW_STORE"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)));
+		hbStore->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
+		hbStore->SetRoundCorners(RoundCorners::All);
 	}
 
 	if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
@@ -1090,6 +1102,7 @@ void GameBrowser::Refresh() {
 		uploadChoice->SetEnabledFunc([this]() {
 			return !path_.GetPath().empty();
 		});
+		uploadChoice->SetRoundCorners(RoundCorners::All);
 	}
 
 	ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
@@ -1097,14 +1110,20 @@ void GameBrowser::Refresh() {
 	layoutChoice->AddChoice(ImageID("I_LINES"));
 	layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
 	layoutChoice->SetSelection((int)lastViewMode_, false);
+	layoutChoice->ApplyRoundCorners();
 	layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 	if (!isRecent) {
-		topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)))->OnClick.Add([=](UI::EventParams &e) {
+		Choice *rotateChoice = topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)));
+		rotateChoice->SetRoundCorners(RoundCorners::All);
+		rotateChoice->OnClick.Add([=](UI::EventParams &e) {
 			path_.Refresh();
 			refreshPending_ = true;
 		});
 	}
-	topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
+
+	Choice *gridSettingsChoice = topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)));
+	gridSettingsChoice->SetRoundCorners(RoundCorners::All);
+	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 	if (gridStyle) {
 		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));

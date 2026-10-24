@@ -245,7 +245,7 @@ void DisplayLayoutScreen::CreateViews() {
 	if (!portrait) {
 		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f));
 		leftColumn = new LinearLayout(ORIENT_VERTICAL);
-		leftColumn->padding.SetAll(8.0f);
+		leftColumn->SetPadding(Margins(8));
 		leftScrollView->Add(leftColumn);
 		leftScrollView->SetClickableBackground(true);
 		root_->Add(leftScrollView);
@@ -253,7 +253,7 @@ void DisplayLayoutScreen::CreateViews() {
 
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f));
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
-	rightColumn->padding.SetAll(8.0f);
+	rightColumn->SetPadding(Margins(8));
 	rightColumn->SetSpacing(0.0f);
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
@@ -324,7 +324,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(new ItemHeader(gr->T("PSP display rotation")));
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-		auto rotation = new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
+		PopupMultiChoice *rotation = rightColumn->Add(new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager()));
 		rotation->OnChoice.Add([this](UI::EventParams &) {
 			// Affects the presence of the Stretch checkbox.
 			RecreateViews();
@@ -334,8 +334,6 @@ void DisplayLayoutScreen::CreateViews() {
 		});
 		rotation->SetHideTitle(true);
 
-
-		rightColumn->Add(rotation);
 		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
 			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;
 		});

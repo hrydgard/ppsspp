@@ -8,6 +8,7 @@
 #include "Common/Math/geom2d.h"
 #include "Common/Input/GestureDetector.h"
 #include "Common/UI/View.h"
+#include "Common/Render/DrawEnum.h"
 
 class UIScreen;
 
@@ -123,15 +124,6 @@ protected:
 	bool exclusiveTouch_ = false;
 };
 
-// A frame layout contains a single child view (normally).
-// It simply centers the child view.
-class FrameLayout : public ViewGroup {
-public:
-	FrameLayout(LayoutParams *layoutParams = nullptr) : ViewGroup(layoutParams) {}
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
-	void Layout() override;
-};
-
 constexpr float NONE = -FLT_MAX;
 
 enum class Centering {
@@ -226,13 +218,28 @@ public:
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
+	// Space between the layout's edges and its children, on top of the children's own margins.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
+	// Where the children go along the layout direction when they don't fill it, as a group. Only the
+	// gravity's component along the layout direction is used (G_HCENTER or G_RIGHT when horizontal,
+	// G_VCENTER or G_BOTTOM when vertical). Each child's own gravity still places it across.
+	void SetContentGravity(Gravity gravity) {
+		contentGravity_ = gravity;
+	}
+
+	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
+
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
-	Margins padding;
 
 protected:
 	Orientation orientation_;
 private:
 	Margins defaultMargins_;
+	Margins padding_;
+	Gravity contentGravity_ = Gravity::G_TOPLEFT;
 	float spacing_ = 10.0f;
 };
 
@@ -256,18 +263,15 @@ public:
 
 private:
 	std::string title_;
-	bool finished_ = false;
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size
-// rows and columns. Items are not allowed to deviate from the set sizes.
-// Initially, only horizontal layout is supported.
+// rows and columns, filled row by row. Items are not allowed to deviate from the set sizes.
 struct GridLayoutSettings {
-	GridLayoutSettings() : orientation(ORIENT_HORIZONTAL), columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
+	GridLayoutSettings() : columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
 	GridLayoutSettings(int colW, int colH, int spac = 5)
-		: orientation(ORIENT_HORIZONTAL), columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
+		: columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
 
-	Orientation orientation;
 	int columnWidth;
 	int rowHeight;
 	int spacing;
@@ -281,8 +285,12 @@ public:
 	explicit GridLayoutParams(Gravity grav)
 		: LayoutParams(LP_GRID), gravity(grav) {
 	}
+	GridLayoutParams(Gravity grav, const Margins &mgn)
+		: LayoutParams(LP_GRID), gravity(grav), margins(mgn) {
+	}
 
 	Gravity gravity;
+	Margins margins;
 
 	static LayoutParamsType StaticType() {
 		return LP_GRID;
@@ -297,8 +305,14 @@ public:
 	void Layout() override;
 	std::string DescribeLog() const override { return "GridLayout: " + View::DescribeLog(); }
 
+	// Space between the layout's edges and the cells.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
+
 private:
 	GridLayoutSettings settings_;
+	Margins padding_;
 	int numColumns_ = 1;
 };
 

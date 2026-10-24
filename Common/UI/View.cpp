@@ -39,7 +39,7 @@ void MeasureBySpec(Size sz, float contentDim, MeasureSpec spec, float *measured)
 			*measured = std::max(spec.size, contentDim);
 		else
 			*measured = spec.size;
-	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
+	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && sz > spec.size)) {
 		*measured = spec.size;
 	} else {
 		*measured = sz;

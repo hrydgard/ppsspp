@@ -232,6 +232,9 @@ void PopupScreen::CreateViews() {
 
 		box_->Add(buttonRow);
 	}
+
+	// The popup layout isn't compatible with round corners.
+	box_->ApplyRoundCorners(RoundCorners::None);
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {

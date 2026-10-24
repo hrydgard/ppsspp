@@ -818,6 +818,9 @@
     <ClInclude Include="UI\ScreenManager.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="Render\DrawEnum.h">
+      <Filter>Render</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />

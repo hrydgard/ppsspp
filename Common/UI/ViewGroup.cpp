@@ -31,14 +31,14 @@ void ApplyGravity(const Bounds &outer, const Margins &margins, float w, float h,
 	switch ((Gravity)((int)gravity & (int)Gravity::G_HORIZMASK)) {
 	case Gravity::G_LEFT: inner.x = outer.x + margins.left; break;
 	case Gravity::G_RIGHT: inner.x = outer.x + outer.w - w - margins.right; break;
-	case Gravity::G_HCENTER: inner.x = outer.x + (outer.w - w) * 0.5f; break;
+	case Gravity::G_HCENTER: inner.x = outer.x + margins.left + (outer.w - margins.horiz() - w) * 0.5f; break;
 	default: break;
 	}
 
 	switch ((Gravity)((int)gravity & (int)Gravity::G_VERTMASK)) {
 	case Gravity::G_TOP: inner.y = outer.y + margins.top; break;
 	case Gravity::G_BOTTOM: inner.y = outer.y + outer.h - h - margins.bottom; break;
-	case Gravity::G_VCENTER: inner.y = outer.y + (outer.h - h) * 0.5f; break;
+	case Gravity::G_VCENTER: inner.y = outer.y + margins.top + (outer.h - margins.vert() - h) * 0.5f; break;
 	default: break;
 	}
 }
@@ -621,19 +621,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			MeasureSpec v = vert;
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
-			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding.vert());
-			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding.horiz() > horiz.size - weightZeroSum) {
+			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding_.vert());
+			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding_.horiz() > horiz.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, horiz, v - (float)margins.vert() - (float)padding.vert());
+				view->Measure(dc, horiz - (float)padding_.horiz(), v - (float)margins.vert() - (float)padding_.vert());
 			}
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
-			view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
-			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding.horiz() > vert.size - weightZeroSum) {
+			view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding_.vert() > vert.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), vert);
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), vert - (float)padding_.vert());
 			}
 		}
 
@@ -657,12 +657,12 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 	}
 
-	weightZeroSum += spacing_ * (numVisible - 1); // +(orientation_ == ORIENT_HORIZONTAL) ? padding.horiz() : padding.vert();
+	weightZeroSum += spacing_ * (numVisible - 1);
 
 	// Alright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		MeasureBySpec(layoutParams_->width, weightZeroSum + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, weightZeroSum + padding_.horiz(), horiz, &measuredWidth_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedWidth = measuredWidth_;
@@ -670,7 +670,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedWidth = horiz.size;
 		}
 
-		float usedWidth = 0.0f + padding.horiz();
+		float usedWidth = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -688,7 +688,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
-				float unit = (allowedWidth - weightZeroSum) / weightSum;
+				float unit = (allowedWidth - padding_.horiz() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -697,8 +697,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
 				}
-				view->Measure(dc, h, v - (float)margins.vert() - (float)padding.vert());
-				usedWidth += view->GetMeasuredWidth();
+				view->Measure(dc, h, v - (float)margins.vert() - (float)padding_.vert());
+				usedWidth += view->GetMeasuredWidth() + margins.horiz();
 				maxOther = std::max(maxOther, view->GetMeasuredHeight() + margins.vert());
 			}
 		}
@@ -708,9 +708,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->height, maxOther + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, maxOther + padding_.vert(), vert, &measuredHeight_);
 	} else {
-		MeasureBySpec(layoutParams_->height, weightZeroSum + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, weightZeroSum + padding_.vert(), vert, &measuredHeight_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedHeight = measuredHeight_;
@@ -718,7 +718,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedHeight = vert.size;
 		}
 
-		float usedHeight = 0.0f + padding.vert();
+		float usedHeight = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -736,7 +736,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
-				float unit = (allowedHeight - weightZeroSum) / weightSum;
+				float unit = (allowedHeight - padding_.vert() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -745,8 +745,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
 				}
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), v);
-				usedHeight += view->GetMeasuredHeight();
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), v);
+				usedHeight += view->GetMeasuredHeight() + margins.vert();
 				maxOther = std::max(maxOther, view->GetMeasuredWidth() + margins.horiz());
 			}
 		}
@@ -756,7 +756,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->width, maxOther + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, maxOther + padding_.horiz(), horiz, &measuredWidth_);
 	}
 }
 
@@ -768,13 +768,35 @@ void LinearLayout::Layout() {
 	float pos;
 
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		pos = bounds.x + padding.left;
-		itemBounds.y = bounds.y + padding.top;
-		itemBounds.h = measuredHeight_ - padding.vert();
+		pos = bounds.x + padding_.left;
+		itemBounds.y = bounds.y + padding_.top;
+		itemBounds.h = bounds.h - padding_.vert();
 	} else {
-		pos = bounds.y + padding.top;
-		itemBounds.x = bounds.x + padding.left;
-		itemBounds.w = measuredWidth_ - padding.horiz();
+		pos = bounds.y + padding_.top;
+		itemBounds.x = bounds.x + padding_.left;
+		itemBounds.w = bounds.w - padding_.horiz();
+	}
+
+	// Move the children as a group along the layout direction, if they don't fill it.
+	const Gravity contentGravity = (Gravity)((int)contentGravity_ & (int)(orientation_ == ORIENT_HORIZONTAL ? Gravity::G_HORIZMASK : Gravity::G_VERTMASK));
+	if (contentGravity != Gravity::G_TOPLEFT) {
+		float contentSize = 0.0f;
+		int numVisible = 0;
+		for (const View *view : views_) {
+			if (view->GetVisibility() == V_GONE)
+				continue;
+			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
+			const Margins margins = (linLayoutParams && linLayoutParams->HasMargins()) ? linLayoutParams->margins : defaultMargins_;
+			contentSize += orientation_ == ORIENT_HORIZONTAL ? view->GetMeasuredWidth() + margins.horiz() : view->GetMeasuredHeight() + margins.vert();
+			numVisible++;
+		}
+		if (numVisible > 0) {
+			contentSize += spacing_ * (numVisible - 1);
+		}
+		const float freeSpace = (orientation_ == ORIENT_HORIZONTAL ? bounds.w - padding_.horiz() : bounds.h - padding_.vert()) - contentSize;
+		if (freeSpace > 0.0f) {
+			pos += (contentGravity == Gravity::G_HCENTER || contentGravity == Gravity::G_VCENTER) ? freeSpace * 0.5f : freeSpace;
+		}
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -811,6 +833,29 @@ void LinearLayout::Layout() {
 	}
 }
 
+// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+// Ignores invisible views.
+void LinearLayout::ApplyRoundCorners(RoundCorners outerCorners) {
+	bool seenVisible = false;
+	View *lastVisible = nullptr;
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_GONE) {
+			continue;
+		}
+		if (!seenVisible) {
+			// First visible view, round the leading edge.
+			view->SetRoundCorners((RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top) & (u32)outerCorners));
+			seenVisible = true;
+		} else {
+			view->SetRoundCorners(RoundCorners::None);
+		}
+		lastVisible = view;
+	}
+	if (lastVisible) {
+		lastVisible->SetRoundCorners(lastVisible->GetRoundCorners() | (RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Right : RoundCorners::Bottom) & (u32)outerCorners));
+	}
+}
+
 std::string LinearLayoutList::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
@@ -830,51 +875,19 @@ void ChoiceGroup::Draw(UIContext &dc) {
 		return;
 	}
 
-	if (!finished_) {
-		views_[0]->SetRoundCorners(RoundCorners::Top);
-		views_[views_.size() - 1]->SetRoundCorners(views_[views_.size() - 1]->GetRoundCorners() | RoundCorners::Bottom);  // Makes it work with a single item.
-		finished_ = true;
-	}
+	// Maybe we should require the user to Finish() the ChoiceGroup instead of running this every frame.
+	// At least it's not recursive.
+	ApplyRoundCorners(RoundCorners::All);
 
 	// Draw a roundrect as background.
 	LinearLayout::Draw(dc);
-	// Draw a line under all items except the last.
+
+	// Draw a line under all items except the last (to be reconsidered as part of visual design work).
 	/*
 	for (size_t i = 0; i < views_.size() - 1; i++) {
 		const Bounds &titleBounds = views_[i]->GetBounds();
 		dc.FillRect(dc.)
 	}*/
-}
-
-void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	if (views_.empty()) {
-		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
-		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
-		return;
-	}
-
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		views_[i]->Measure(dc, horiz, vert);
-	}
-}
-
-void FrameLayout::Layout() {
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		float w = views_[i]->GetMeasuredWidth();
-		float h = views_[i]->GetMeasuredHeight();
-
-		Bounds bounds;
-		bounds.w = w;
-		bounds.h = h;
-
-		bounds.x = bounds_.x + (measuredWidth_ - w) * 0.5f;
-		bounds.y = bounds_.y + (measuredWidth_ - h) * 0.5f;
-		views_[i]->SetBounds(bounds);
-	}
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -895,6 +908,8 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 void AnchorLayout::MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
 		Size width = WRAP_CONTENT;
 		Size height = WRAP_CONTENT;
 
@@ -990,6 +1005,8 @@ static void ApplyAnchorLayoutParams(float measuredWidth, float measuredHeight, c
 
 void AnchorLayout::Layout() {
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
 		const AnchorLayoutParams *params = views_[i]->GetLayoutParams()->As<AnchorLayoutParams>();
 		Bounds vBounds;
 		ApplyAnchorLayoutParams(views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(), bounds_, params, &vBounds);
@@ -999,9 +1016,19 @@ void AnchorLayout::Layout() {
 }
 
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
-	: ViewGroup(layoutParams), settings_(settings) {
-	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(Log::UI, "GridLayout: Vertical layouts not yet supported");
+	: ViewGroup(layoutParams), settings_(settings) {}
+
+// Grid children are mostly given LinearLayoutParams, so take the margins from those too.
+static Margins GetGridChildMargins(const View *view) {
+	if (const GridLayoutParams *lp = view->GetLayoutParams()->As<GridLayoutParams>()) {
+		return lp->margins;
+	}
+	if (const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>()) {
+		if (lp->HasMargins()) {
+			return lp->margins;
+		}
+	}
+	return Margins(0);
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1010,28 +1037,29 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	int numItems = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() != V_GONE) {
-			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+			const Margins margins = GetGridChildMargins(views_[i]);
+			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth - margins.horiz()), MeasureSpec(measureType, settings_.rowHeight - margins.vert()));
 			numItems++;
 		}
 	}
 
 	// Use the max possible width so AT_MOST gives us the full size.
-	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing;
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing + padding_.horiz();
 	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
-	numColumns_ = (measuredWidth_ + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
-	if (!numColumns_) numColumns_ = 1;
+	numColumns_ = (measuredWidth_ - padding_.horiz() + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	if (numColumns_ <= 0) numColumns_ = 1;
 	int numRows = (numItems + (numColumns_ - 1)) / numColumns_;
 
-	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows;
+	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows + padding_.vert();
 
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
 
 void GridLayout::Layout() {
-	int y = 0;
-	int x = 0;
+	int y = padding_.top;
+	int x = padding_.left;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() == V_GONE)
@@ -1046,7 +1074,7 @@ void GridLayout::Layout() {
 		itemBounds.w = settings_.columnWidth;
 		itemBounds.h = settings_.rowHeight;
 
-		ApplyGravity(itemBounds, Margins(0.0f),
+		ApplyGravity(itemBounds, GetGridChildMargins(views_[i]),
 			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
 			grav, innerBounds);
 
@@ -1056,7 +1084,7 @@ void GridLayout::Layout() {
 		count++;
 		if (count == numColumns_) {
 			count = 0;
-			x = 0;
+			x = padding_.left;
 			y += itemBounds.h + settings_.spacing;
 		} else {
 			x += itemBounds.w + settings_.spacing;

@@ -495,6 +495,7 @@
     <ClInclude Include="Net\WebsocketServer.h" />
     <ClInclude Include="Profiler\Profiler.h" />
     <ClInclude Include="Render\AtlasGen.h" />
+    <ClInclude Include="Render\DrawEnum.h" />
     <ClInclude Include="Render\DropShadow.h" />
     <ClInclude Include="Render\DrawBuffer.h" />
     <ClInclude Include="Render\ManagedTexture.h" />

@@ -403,11 +403,13 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
 	}
 
+	ChoiceGroup *remoteSettings = new ChoiceGroup("");
+
 	UI::Choice *remoteServer = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
-	streamingSettings->Add(remoteServer);
+	remoteSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *remotePort = streamingSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 1, screenManager()));
+	PopupSliderChoice *remotePort = remoteSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 1, screenManager()));
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
@@ -416,11 +418,13 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 		remoteSubdirInput->OnChange.Handle(this, &RemoteISOScreen::OnChangeRemoteISOSubdir);
 		remoteSubdir = remoteSubdirInput;
 	}
-	streamingSettings->Add(remoteSubdir);
+	remoteSettings->Add(remoteSubdir);
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
+	ChoiceGroup *serverSettings = new ChoiceGroup("");
+
 	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
-	streamingSettings->Add(portChoice);
+	serverSettings->Add(portChoice);
 	portChoice->SetDisabledPtr(&serverRunning_);
 }
 
