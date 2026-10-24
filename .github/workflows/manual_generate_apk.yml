@@ -58,7 +58,7 @@ jobs:
       - name: Test androidGitVersion
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
-          gradle --quiet androidGitVersion
+          gradle tasks
       
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
