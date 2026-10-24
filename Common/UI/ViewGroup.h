@@ -267,14 +267,12 @@ private:
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size
-// rows and columns. Items are not allowed to deviate from the set sizes.
-// Initially, only horizontal layout is supported.
+// rows and columns, filled row by row. Items are not allowed to deviate from the set sizes.
 struct GridLayoutSettings {
-	GridLayoutSettings() : orientation(ORIENT_HORIZONTAL), columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
+	GridLayoutSettings() : columnWidth(100), rowHeight(50), spacing(5), fillCells(false) {}
 	GridLayoutSettings(int colW, int colH, int spac = 5)
-		: orientation(ORIENT_HORIZONTAL), columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
+		: columnWidth(colW), rowHeight(colH), spacing(spac), fillCells(false) {}
 
-	Orientation orientation;
 	int columnWidth;
 	int rowHeight;
 	int spacing;
@@ -288,8 +286,12 @@ public:
 	explicit GridLayoutParams(Gravity grav)
 		: LayoutParams(LP_GRID), gravity(grav) {
 	}
+	GridLayoutParams(Gravity grav, const Margins &mgn)
+		: LayoutParams(LP_GRID), gravity(grav), margins(mgn) {
+	}
 
 	Gravity gravity;
+	Margins margins;
 
 	static LayoutParamsType StaticType() {
 		return LP_GRID;

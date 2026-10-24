@@ -1016,9 +1016,19 @@ void AnchorLayout::Layout() {
 }
 
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
-	: ViewGroup(layoutParams), settings_(settings) {
-	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(Log::UI, "GridLayout: Vertical layouts not yet supported");
+	: ViewGroup(layoutParams), settings_(settings) {}
+
+// Grid children are mostly given LinearLayoutParams, so take the margins from those too.
+static Margins GetGridChildMargins(const View *view) {
+	if (const GridLayoutParams *lp = view->GetLayoutParams()->As<GridLayoutParams>()) {
+		return lp->margins;
+	}
+	if (const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>()) {
+		if (lp->HasMargins()) {
+			return lp->margins;
+		}
+	}
+	return Margins(0);
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -1027,7 +1037,8 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	int numItems = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() != V_GONE) {
-			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+			const Margins margins = GetGridChildMargins(views_[i]);
+			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth - margins.horiz()), MeasureSpec(measureType, settings_.rowHeight - margins.vert()));
 			numItems++;
 		}
 	}
@@ -1063,7 +1074,7 @@ void GridLayout::Layout() {
 		itemBounds.w = settings_.columnWidth;
 		itemBounds.h = settings_.rowHeight;
 
-		ApplyGravity(itemBounds, Margins(0.0f),
+		ApplyGravity(itemBounds, GetGridChildMargins(views_[i]),
 			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
 			grav, innerBounds);
 
