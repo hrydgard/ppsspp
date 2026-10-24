@@ -339,6 +339,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
+	{ 0x8f84fb657a6ba506, 1148, "syphonfilterls_fade", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "sceVfpuMatrix4Rot", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
@@ -362,6 +363,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9e6e007072b74503, 2028, "syphonfilterls_draw_trail", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x9f269daa6f0da803, 128, "sceGupScissor", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
+	{ 0xa0ec0ed83a53b883, 7304, "syphonfilter_steer", }, // Syphon Filter: Dark Mirror (US)
 	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)
 	{ 0x9b76c7f2a41aa805, 1752, "marvelalliance1_copy" }, // Marvel Ultimate alliance 1 (US)
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
