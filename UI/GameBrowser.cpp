@@ -1133,8 +1133,8 @@ void GameBrowser::Refresh() {
 		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
 		// PS1 discs: a .bin or .img shows up as its cue sheet or .ccd, when it has one.
 		RemoveDescribedDiscImages(&fileInfo);
-		// Servers aren't games, and probing one that's gone away can take seconds.
-		const bool probeDirs = !path_.GetPath().IsNetworkRoot();
+		// Drives and servers aren't games, and probing a server that's gone away can take seconds.
+		const bool probeDirs = !path_.GetPath().IsRoot() && !path_.GetPath().IsNetworkRoot();
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;

@@ -145,10 +145,11 @@ struct NetListing {
 // Network calls can block for a long time (half a minute for the shell's network folder, even after it
 // has found everything), and can't be cancelled. So run them on a thread of their own, and abandon it
 // when the deadline passes, or when it has found something and then gone quiet for a while.
-static bool ListNetworkWithTimeout(const Path &directory, std::function<bool(NetListing &)> func, std::vector<FileInfo> *files) {
+static bool ListNetworkWithTimeout(const Path &directory, std::function<bool(NetListing &)> func, std::vector<FileInfo> *files, const bool *cancel) {
 	// Servers turn up in the network folder after 2 to 6 seconds.
 	constexpr auto timeout = std::chrono::seconds(8);
 	constexpr auto quietTime = std::chrono::seconds(1);
+	constexpr auto cancelPollTime = std::chrono::milliseconds(20);
 	auto listing = std::make_shared<NetListing>();
 	std::thread([listing, func] {
 		SetCurrentThreadName("NetListing");
@@ -166,11 +167,15 @@ static bool ListNetworkWithTimeout(const Path &directory, std::function<bool(Net
 		if (!listing->files.empty()) {
 			wakeup = std::min(deadline, listing->lastAdd + quietTime);
 		}
-		if (std::chrono::steady_clock::now() >= wakeup) {
+		if (cancel && *cancel) {
+			return false;
+		}
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= wakeup) {
 			INFO_LOG(Log::IO, "Stopped waiting for the listing of %s, found %d entries", directory.c_str(), (int)listing->files.size());
 			break;
 		}
-		listing->cond.wait_until(guard, wakeup);
+		listing->cond.wait_until(guard, cancel ? std::min(wakeup, now + cancelPollTime) : wakeup);
 	}
 	files->insert(files->end(), listing->files.begin(), listing->files.end());
 	return listing->success || !listing->files.empty();
@@ -387,7 +392,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	return files;
 }
 
-bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix, const bool *cancel) {
 	if (LOG_IO) {
 		INFO_LOG(Log::IO, "GetFilesInDir '%s' (ext %s, prefix %.*s)", directory.ToVisualString().c_str(), filter, (int)prefix.size(), prefix.data());
 	}
@@ -452,11 +457,11 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 		if (server.empty()) {
 			success = ListNetworkWithTimeout(directory, [prefixCopy](NetListing &listing) {
 				return GetNetworkServers(prefixCopy, listing);
-			}, files);
+			}, files, cancel);
 		} else {
 			success = ListNetworkWithTimeout(directory, [directory, server, prefixCopy](NetListing &listing) {
 				return GetUNCServerShares(directory, server, prefixCopy, listing);
-			}, files);
+			}, files, cancel);
 		}
 		std::sort(files->begin(), files->end());
 		return success;

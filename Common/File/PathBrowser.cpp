@@ -115,6 +115,7 @@ PathBrowser::~PathBrowser() {
 		std::unique_lock<std::mutex> guard(pendingLock_);
 		pendingCancel_ = true;
 		pendingStop_ = true;
+		listingAbort_ = true;
 		pendingCond_.notify_all();
 	}
 	if (pendingThread_.joinable()) {
@@ -136,6 +137,10 @@ void PathBrowser::RestrictToRoot(const Path &root) {
 }
 
 void PathBrowser::HandlePath() {
+	// Asking for the path that's being listed again shouldn't restart it.
+	if (path_ != pendingPath_) {
+		listingAbort_ = true;
+	}
 	if (!path_.empty() && path_.ToString()[0] == '!') {
 		if (pendingActive_) {
 			pendingCancel_ = true;
@@ -171,6 +176,7 @@ void PathBrowser::HandlePath() {
 				break;
 			}
 			lastPath = pendingPath_;
+			listingAbort_ = false;
 			if (lastPath.Type() == PathType::HTTP) {
 				std::string userAgentCopy = userAgent_;
 				guard.unlock();
@@ -184,8 +190,13 @@ void PathBrowser::HandlePath() {
 			} else {
 				guard.unlock();
 				results.clear();
-				bool tempSuccess = File::GetFilesInDir(lastPath, &results, nullptr);
+				bool tempSuccess = File::GetFilesInDir(lastPath, &results, nullptr, 0, std::string_view(), &listingAbort_);
 				guard.lock();
+				if (listingAbort_) {
+					// We navigated away, maybe and back again, in which case this lists it again.
+					lastPath.clear();
+					continue;
+				}
 				success_ = tempSuccess;
 				if (!success_) {
 					WARN_LOG(Log::IO, "PathBrowser: Failed to list directory: %s", lastPath.c_str());
