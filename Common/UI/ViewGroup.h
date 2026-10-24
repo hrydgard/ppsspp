@@ -222,6 +222,12 @@ public:
 	void SetPadding(const Margins &padding) {
 		padding_ = padding;
 	}
+	// Where the children go along the layout direction when they don't fill it, as a group. Only the
+	// gravity's component along the layout direction is used (G_HCENTER or G_RIGHT when horizontal,
+	// G_VCENTER or G_BOTTOM when vertical). Each child's own gravity still places it across.
+	void SetContentGravity(Gravity gravity) {
+		contentGravity_ = gravity;
+	}
 
 	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
@@ -233,6 +239,7 @@ protected:
 private:
 	Margins defaultMargins_;
 	Margins padding_;
+	Gravity contentGravity_ = Gravity::G_TOPLEFT;
 	float spacing_ = 10.0f;
 };
 

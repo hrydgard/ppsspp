@@ -777,6 +777,28 @@ void LinearLayout::Layout() {
 		itemBounds.w = bounds.w - padding_.horiz();
 	}
 
+	// Move the children as a group along the layout direction, if they don't fill it.
+	const Gravity contentGravity = (Gravity)((int)contentGravity_ & (int)(orientation_ == ORIENT_HORIZONTAL ? Gravity::G_HORIZMASK : Gravity::G_VERTMASK));
+	if (contentGravity != Gravity::G_TOPLEFT) {
+		float contentSize = 0.0f;
+		int numVisible = 0;
+		for (const View *view : views_) {
+			if (view->GetVisibility() == V_GONE)
+				continue;
+			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
+			const Margins margins = (linLayoutParams && linLayoutParams->HasMargins()) ? linLayoutParams->margins : defaultMargins_;
+			contentSize += orientation_ == ORIENT_HORIZONTAL ? view->GetMeasuredWidth() + margins.horiz() : view->GetMeasuredHeight() + margins.vert();
+			numVisible++;
+		}
+		if (numVisible > 0) {
+			contentSize += spacing_ * (numVisible - 1);
+		}
+		const float freeSpace = (orientation_ == ORIENT_HORIZONTAL ? bounds.w - padding_.horiz() : bounds.h - padding_.vert()) - contentSize;
+		if (freeSpace > 0.0f) {
+			pos += (contentGravity == Gravity::G_HCENTER || contentGravity == Gravity::G_VCENTER) ? freeSpace * 0.5f : freeSpace;
+		}
+	}
+
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() == V_GONE)
 			continue;
