@@ -210,6 +210,7 @@ private:
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
 	bool wasInstalled_ = false;
+	GameManagerState lastState_ = GameManagerState::IDLE;
 };
 
 void ProductView::CreateViews() {
@@ -293,8 +294,13 @@ void ProductView::CreateViews() {
 }
 
 void ProductView::Update() {
-	if (wasInstalled_ != IsGameInstalled()) {
-		CreateViews();
+	// Installing or uninstalling is the only thing that changes it, so don't hit the disk every frame.
+	const GameManagerState state = g_GameManager.GetState();
+	if (state != lastState_) {
+		lastState_ = state;
+		if (state == GameManagerState::IDLE && wasInstalled_ != IsGameInstalled()) {
+			CreateViews();
+		}
 	}
 	if (installButton_) {
 		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);

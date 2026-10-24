@@ -20,6 +20,8 @@
 #include "ppsspp_config.h"
 
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Thread/Promise.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -188,6 +190,19 @@ void GameScreen::update() {
 		}
 	}
 
+	if (!lookupsStarted_ && (knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+		StartLookups();
+	}
+	if (lookupTask_ && lookupTask_->done) {
+		lookups_ = std::move(lookupTask_->result);
+		lookupTask_.reset();
+		if (lookupsPending_) {
+			lookupsPending_ = false;
+			StartLookups();
+		}
+		recreate = true;
+	}
+
 	// Has the user requested a CRC32?
 	if (CRC32string == "...") {
 		// Wait until the CRC32 is ready.  It might take time on some devices.
@@ -229,7 +244,7 @@ static bool FileTypeHasIcon(IdentifiedFileType fileType) {
 	}
 }
 
-static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
+static bool FileTypeIsPlayable(IdentifiedFileType fileType, bool firmwareRunsPS1Discs) {
 	switch (fileType) {
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN:
@@ -245,19 +260,44 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 		return false;
 	case IdentifiedFileType::PSX_ISO:
 		// Through the firmware's POPS.
-		return InstalledFirmwareRunsPS1Discs();
+		return firmwareRunsPS1Discs;
 	default:
 		return true;
 	}
 }
 
-void GameScreen::RefreshInstalledUpdate() {
-	hasInstalledUpdate_ = false;
-	// Homebrew reuses real disc IDs often enough that we'd get false positives.
-	if (isHomebrew_ || !(knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+void GameScreen::StartLookups() {
+	lookupsStarted_ = true;
+	if (lookupTask_) {
+		lookupsPending_ = true;
 		return;
 	}
-	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
+	lookupTask_ = std::make_shared<LookupTask>();
+	// Homebrew reuses real disc IDs often enough that we'd get false positives.
+	const std::string updateId = info_->region == GameRegion::HOMEBREW ? std::string() : info_->id;
+	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
+		[task = lookupTask_, id = info_->id, updateId, fileType = info_->fileType, lang = g_Config.sLanguageIni]() {
+		Lookups &result = task->result;
+		if (!updateId.empty()) {
+			result.hasInstalledUpdate = FindInstalledGameUpdate(updateId, &result.installedUpdate);
+		}
+		result.plugins = HLEPlugins::FindPlugins(id, lang);
+		if (fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+			result.umdVideoVSHPath = GetUmdVideoVSHPath();
+		} else if (fileType == IdentifiedFileType::PSX_ISO) {
+			result.firmwareRunsPS1Discs = InstalledFirmwareRunsPS1Discs();
+		}
+		// Everything above is published by this store.
+		task->done = true;
+	}));
+}
+
+void GameScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	// Could have been the firmware installer, or a deleted game update.
+	if (lookupsStarted_) {
+		StartLookups();
+	}
+	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
 }
 
 // Both panes use isHomebrew_, and which is created first depends on orientation.
@@ -370,7 +410,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 	leftColumn->Add(infoLayout);
 
-	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO && GetUmdVideoVSHPath().empty()) {
+	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO && !lookupTask_ && lookupsStarted_ && lookups_.umdVideoVSHPath.empty()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
 		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ApplySafeSubstitutions(er->T("PSP firmware version %1 or later must be installed to play UMD video"), UMD_VIDEO_MIN_FIRMWARE), ""));
 		leftColumn->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
@@ -510,24 +550,24 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	// An installed game update replaces the disc's executable, so it's worth saying so here -
 	// otherwise there's nothing in the UI to explain why a patched game is running.
-	RefreshInstalledUpdate();
-	if (hasInstalledUpdate_) {
+	const InstalledGameUpdate &installedUpdate = lookups_.installedUpdate;
+	if (lookups_.hasInstalledUpdate) {
 		infoLayout->Add(new ItemHeader(ga->T("Game update")));
-		std::string updateLine = installedUpdate_.title;
-		if (!installedUpdate_.appVer.empty()) {
-			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate_.appVer);
+		std::string updateLine = installedUpdate.title;
+		if (!installedUpdate.appVer.empty()) {
+			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate.appVer);
 			updateLine = updateLine.empty() ? version : updateLine + " - " + version;
 		}
 		if (updateLine.empty()) {
 			updateLine = ga->T("Installed");
 		}
-		updateLine += " - " + NiceSizeFormat(installedUpdate_.sizeOnDisk);
+		updateLine += " - " + NiceSizeFormat(installedUpdate.sizeOnDisk);
 		infoLayout->Add(new TextView(updateLine, ALIGN_LEFT, true))->SetBullet(true);
-		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate_.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
+		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
 	}
 
 	// Show plugin info_, if any. Later might add checkboxes.
-	auto plugins = HLEPlugins::FindPlugins(info_->id, g_Config.sLanguageIni);
+	const std::vector<HLEPlugins::PluginInfo> &plugins = lookups_.plugins;
 	if (!plugins.empty()) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		infoLayout->Add(new ItemHeader(sy->T("Plugins")));
@@ -558,8 +598,8 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	ChoiceGroup *choices = rightColumnItems->Add(new ChoiceGroup());
 
 	// UMD Video plays in the XMB, with the disc in the drive.
-	const Path vshPath = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? GetUmdVideoVSHPath() : Path();
-	if (!inGame_ && (FileTypeIsPlayable(info_->fileType) || !vshPath.empty())) {
+	const Path vshPath = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? lookups_.umdVideoVSHPath : Path();
+	if (!inGame_ && (FileTypeIsPlayable(info_->fileType, lookups_.firmwareRunsPS1Discs) || !vshPath.empty())) {
 		Choice *play = choices->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
 		play->OnClick.Add([this, vshPath](UI::EventParams &e) {
 			if (vshPath.empty()) {
@@ -693,8 +733,7 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
-	RefreshInstalledUpdate();
-	if (!inGame_ && hasInstalledUpdate_) {
+	if (!inGame_ && lookups_.hasInstalledUpdate) {
 		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete game update"), ImageID("I_TRASHCAN")));
 		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
 	}
@@ -735,9 +774,10 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 }
 
 void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
-	if (!hasInstalledUpdate_) {
+	if (!lookups_.hasInstalledUpdate) {
 		return;
 	}
+	const InstalledGameUpdate &installedUpdate = lookups_.installedUpdate;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
@@ -745,10 +785,10 @@ void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
 	prompt += "\n\n";
 	// Say exactly what disappears - for a digital game the folder holds the game itself, so only
 	// the update's executable goes.
-	prompt += GetFriendlyPath(installedUpdate_.sharesFolderWithGame ? installedUpdate_.pbootPath : installedUpdate_.folder);
+	prompt += GetFriendlyPath(installedUpdate.sharesFolderWithGame ? installedUpdate.pbootPath : installedUpdate.folder);
 
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
-	const InstalledGameUpdate update = installedUpdate_;
+	const InstalledGameUpdate update = installedUpdate;
 	screenManager()->push(
 		new UI::MessagePopupScreen(ga->T("Delete game update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 			[this, update](bool yes) {
