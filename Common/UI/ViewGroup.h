@@ -242,7 +242,21 @@ public:
 		: LinearLayout(orientation, layoutParams) {
 	}
 
+	// The only difference with a LinearLayout is the DescribeText, which is a list of the items in the layout.
+	// Not sure if we really need this.
 	std::string DescribeText() const override;
+};
+
+// These are pretty vertical LinearLayout, with a title and a roundrect background.
+class ChoiceGroup : public LinearLayout {
+public:
+	ChoiceGroup(std::string_view title, LayoutParams *layoutParams = nullptr);
+
+	void Draw(UIContext &dc) override;
+
+private:
+	std::string title_;
+	bool finished_ = false;
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size

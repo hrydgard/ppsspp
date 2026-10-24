@@ -37,7 +37,7 @@ struct OutputDisplay {
 	Draw::Swapchain *swapchain;  // nullptr while there's no draw context.
 };
 
-enum DialogResult {
+enum DialogResult : u8 {
 	DR_NONE,
 	DR_OK,
 	DR_CANCEL,

@@ -468,6 +468,37 @@ void LogoScreen::DrawForeground(UIContext &dc) {
 		alphaText = 3.0f - t;
 	uint32_t textColor = colorAlpha(dc.GetTheme().infoStyle.fgColor, alphaText);
 
+	// TEMPORARY: Round rect test. Fixed seed so they stay put between frames.
+	{
+		uint32_t seed = 12345;
+		auto rnd = [&seed]() {
+			seed = seed * 1664525 + 1013904223;
+			return (float)(seed >> 8) * (1.0f / 16777216.0f);
+		};
+		for (int i = 0; i < 24; i++) {
+			const float w = 20.0f + rnd() * 200.0f;
+			const float h = 20.0f + rnd() * 120.0f;
+			const float x = bounds.x + rnd() * (bounds.w - w);
+			const float y = bounds.y + rnd() * (bounds.h - h);
+			const float radius = 2.0f + rnd() * 20.0f;
+			const RoundRectStyle style = (RoundRectStyle)(int)(rnd() * (float)RoundRectStyle::COUNT);
+			const uint32_t color = 0x80000000 | ((uint32_t)(rnd() * 16777215.0f) & 0xFFFFFF);
+			const RoundCorners corners = (RoundCorners)(int)(rnd() * 16.0f);
+			dc.Draw()->DrawRoundRect(x, y, x + w, y + h, radius, color, style, corners);
+		}
+		// Every precomputed corner at its native size, one row per corner combination.
+		const RoundCorners combos[] = { RoundCorners::All, RoundCorners::Top, RoundCorners::Left, RoundCorners::TopLeft | RoundCorners::BottomRight, RoundCorners::None };
+		for (int c = 0; c < (int)std::size(combos); c++) {
+			for (int r = 0; r < ROUND_RECT_RADIUS_COUNT; r++) {
+				for (int s = 0; s < (int)RoundRectStyle::COUNT; s++) {
+					const float x = bounds.x + 10.0f + (r * (int)RoundRectStyle::COUNT + s) * 75.0f;
+					const float y = bounds.y + 10.0f + c * 80.0f;
+					dc.Draw()->DrawRoundRect(x, y, x + 70.0f, y + 70.0f, ROUND_RECT_RADII[r], 0xFFFFFFFF, (RoundRectStyle)s, combos[c]);
+				}
+			}
+		}
+	}
+
 	auto cr = GetI18NCategory(I18NCat::PSPCREDITS);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	char temp[256];

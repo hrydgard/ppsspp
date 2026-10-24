@@ -389,6 +389,24 @@ void UIContext::DrawTextShadowRect(std::string_view str, const Bounds &bounds, u
 	DrawTextRect(str, bounds, color, align);
 }
 
+void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius) {
+	FillRoundRect(drawable, bounds, radius, RoundCorners::All);
+}
+
+void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius, RoundCorners corners) {
+	// Only draw if alpha is non-zero.
+	if ((drawable.color & 0xFF000000) == 0)
+		return;
+	switch (drawable.type) {
+	case UI::DRAW_SOLID_COLOR:
+		uidrawbuffer_->DrawRoundRect(bounds, radius, drawable.color, RoundRectStyle::Filled, corners);
+		break;
+	default:
+		// Not supported
+		break;
+	}
+}
+
 void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 	// Only draw if alpha is non-zero.
 	if ((drawable.color & 0xFF000000) == 0)

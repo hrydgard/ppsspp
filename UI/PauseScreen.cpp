@@ -715,63 +715,68 @@ void GamePauseScreen::CreateViews() {
 	buttonColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
+	ChoiceGroup *topGroup = rightColumnItems->Add(new ChoiceGroup(""));
 	if (__KernelIsRunningVSH()) {
 		// The XMB notices discs coming and going by itself, like a PSP's.
 		if (__UmdIsInserted()) {
-			rightColumnItems->Add(new Choice(pa->T("Eject UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
+			topGroup->Add(new Choice(pa->T("Eject UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
 				__UmdEject();
 				RecreateViews();
 			});
 		} else {
-			rightColumnItems->Add(new Choice(pa->T("Insert UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
+			topGroup->Add(new Choice(pa->T("Insert UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
 				screenManager()->push(new UmdReplaceScreen(true));
 			});
 		}
 	} else if (getUMDReplacePermit()) {
-		rightColumnItems->Add(new Choice(pa->T("Switch UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
+		topGroup->Add(new Choice(pa->T("Switch UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
 			screenManager()->push(new UmdReplaceScreen());
 		});
 	}
 
 	if (!portrait) {
-		Choice *continueChoice = rightColumnItems->Add(new Choice(pa->T("Continue"), ImageID("I_PLAY")));
+		Choice *continueChoice = topGroup->Add(new Choice(pa->T("Continue"), ImageID("I_PLAY")));
 		root_->SetDefaultFocusView(continueChoice);
 		continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		rightColumnItems->Add(new Spacer(20.0));
 	}
 
+	if (topGroup->GetNumSubviews() == 0) {
+		topGroup->SetVisibility(V_GONE);
+	}
+
+	ChoiceGroup *mainGroup = rightColumnItems->Add(new ChoiceGroup(""));
 	if (g_paramSFO.IsValid() && g_Config.HasGameConfig(g_paramSFO.GetDiscID())) {
-		rightColumnItems->Add(new Choice(pa->T("Game Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		mainGroup->Add(new Choice(pa->T("Game Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
 		if (g_Config.HasGameConfig(g_paramSFO.GetValueString("DISC_ID"))) {
-			Choice *delGameConfig = rightColumnItems->Add(new Choice(pa->T("Delete Game Config"), ImageID("I_TRASHCAN")));
+			Choice *delGameConfig = mainGroup->Add(new Choice(pa->T("Delete Game Config"), ImageID("I_TRASHCAN")));
 			delGameConfig->OnClick.Handle(this, &GamePauseScreen::OnDeleteConfig);
 			delGameConfig->SetEnabled(!bootPending_);
 		}
 	} else if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		rightColumnItems->Add(new Choice(pa->T("Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
-		Choice *createGameConfig = rightColumnItems->Add(new Choice(pa->T("Create Game Config"), ImageID("I_GEAR_STAR")));
+		mainGroup->Add(new Choice(pa->T("Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
+		Choice *createGameConfig = mainGroup->Add(new Choice(pa->T("Create Game Config"), ImageID("I_GEAR_STAR")));
 		createGameConfig->OnClick.Handle(this, &GamePauseScreen::OnCreateConfig);
 		createGameConfig->SetEnabled(!bootPending_);
 	}
 
 	if (g_Config.bAchievementsEnable && Achievements::HasAchievementsOrLeaderboards()) {
-		rightColumnItems->Add(new Choice(ac->T("Achievements"), ImageID("I_ACHIEVEMENT")))->OnClick.Add([this](UI::EventParams &e) {
+		mainGroup->Add(new Choice(ac->T("Achievements"), ImageID("I_ACHIEVEMENT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new RetroAchievementsListScreen(gamePath_));
 		});
 	}
 
-	rightColumnItems->Add(new Choice(gr->T("Display layout & effects"), ImageID("I_DISPLAY")))->OnClick.Add([this](UI::EventParams &) -> void {
+	mainGroup->Add(new Choice(gr->T("Display layout & effects"), ImageID("I_DISPLAY")))->OnClick.Add([this](UI::EventParams &) -> void {
 		screenManager()->push(new DisplayLayoutScreen(gamePath_));
 	});
 	if (g_Config.bShowTouchControls) {
-		rightColumnItems->Add(new Choice(co->T("Edit touch control layout"), ImageID("I_CONTROLLER")))->OnClick.Add([this](UI::EventParams &) -> void {
+		mainGroup->Add(new Choice(co->T("Edit touch control layout"), ImageID("I_CONTROLLER")))->OnClick.Add([this](UI::EventParams &) -> void {
 			screenManager()->push(new TouchControlLayoutScreen(gamePath_));
 		});
 	}
 
 	if (g_Config.bEnableCheats && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+		mainGroup->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
@@ -779,9 +784,8 @@ void GamePauseScreen::CreateViews() {
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (!portrait) {
-		AddExtraOptions(rightColumnItems);
+		AddExtraOptions(mainGroup);
 	}
-	rightColumnItems->Add(new Spacer(20.0));
 	Choice *exit;
 	if (g_Config.bPauseMenuExitsEmulator) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -791,6 +795,7 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (portrait) {
+		rightColumnItems->Add(new Spacer(20.0));
 		UI::LinearLayout *exitRow = new UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 0)));
 		rightColumnItems->Add(exitRow);
 		exitRow->Add(exit);
@@ -801,7 +806,7 @@ void GamePauseScreen::CreateViews() {
 		exitRow->Add(continueChoice);
 		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 	} else {
-		rightColumnItems->Add(exit);
+		rightColumnItems->Add(new ChoiceGroup(""))->Add(exit);
 	}
 
 	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);

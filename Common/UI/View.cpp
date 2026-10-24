@@ -9,6 +9,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/Root.h"
@@ -212,9 +213,9 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 		}
 		bgColorLast_ = time_now_d();
 
-		dc.FillRect(Drawable(bgColor_->CurrentValue()), bounds_);
+		dc.FillRoundRect(Drawable(bgColor_->CurrentValue()), bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	} else {
-		dc.FillRect(style.background, bounds_);
+		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	}
 }
 
@@ -611,9 +612,9 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 void ItemHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall);
 
-	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().headerStyle;
-	dc.FillRect(style.background, bounds_);
-	dc.DrawText(text_, bounds_.x + 8, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().itemStyle;
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	dc.DrawText(text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
 

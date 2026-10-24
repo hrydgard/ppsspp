@@ -223,9 +223,9 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
-	leftColumn->Add(new ItemHeader(cw->T("Import Cheats")));
+	ChoiceGroup *importGroup = leftColumn->Add(new ChoiceGroup(cw->T("Import Cheats")));
 
-	leftColumn->Add(new Choice(cw->T("Download cheat database")))->OnClick.Add([this](UI::EventParams &) {
+	importGroup->Add(new Choice(cw->T("Download cheat database")))->OnClick.Add([this](UI::EventParams &) {
 		screenManager()->push(new CwCheatDownloadPopupScreen());
 	});
 
@@ -235,11 +235,11 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 
 	std::string title = StringFromFormat(cw->T_cstr("Import from %s"), "PSP/Cheats/cheat.db");
 
-	leftColumn->Add(new Choice(title))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
-	leftColumn->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
+	importGroup->Add(new Choice(title))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
+	importGroup->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
 
-	leftColumn->Add(new ItemHeader(di->T("Options")));
-	Choice *searchChoice = leftColumn->Add(new Choice(di->T("Search"), ImageID("I_SEARCH")));
+	ChoiceGroup *optionsGroup = leftColumn->Add(new ChoiceGroup(di->T("Options")));
+	Choice *searchChoice = optionsGroup->Add(new Choice(di->T("Search"), ImageID("I_SEARCH")));
 	searchChoice->OnClick.Add([this, searchChoice, screenManager = screenManager(), token = GetRequesterToken()](UI::EventParams &) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		AskForInput(screenManager, token, searchChoice, di->T("Search"), [this](const std::string &text, bool success) {
@@ -251,10 +251,10 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 		});
 	});
 #if !defined(MOBILE_DEVICE)
-	leftColumn->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
+	optionsGroup->Add(new Choice(cw->T("Edit Cheat File")))->OnClick.Handle(this, &CwCheatScreen::OnEditCheatFile);
 #endif
-	leftColumn->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnDisableAll);
-	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshIntervalMs, 1, 1000, 77, cw->T("Refresh interval"), 1, screenManager()))->SetFormat(di->T("%d ms"));
+	optionsGroup->Add(new Choice(di->T("Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnDisableAll);
+	optionsGroup->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshIntervalMs, 1, 1000, 77, cw->T("Refresh interval"), 1, screenManager()))->SetFormat(di->T("%d ms"));
 }
 
 void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {

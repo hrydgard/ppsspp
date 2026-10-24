@@ -162,10 +162,10 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
 	rightScroll->Add(vertLayout);
 	
-	vertLayout->Add(new ItemHeader(co->T("Button style")));
-	vertLayout->Add(new CheckBox(show, co->T("Visible")));
+	ChoiceGroup *styleSettings = vertLayout->Add(new ChoiceGroup(co->T("Button style")));
+	styleSettings->Add(new CheckBox(show, co->T("Visible")));
 
-	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
+	Choice *icon = styleSettings->Add(new Choice(co->T("Icon")));
 	icon->SetIconRight(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
 		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
@@ -175,7 +175,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		screenManager()->push(iconScreen);
 	});
 
-	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
+	Choice *shape = styleSettings->Add(new Choice(co->T("Shape")));
 	shape->SetIconRight(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
 		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
@@ -185,9 +185,9 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		screenManager()->push(shape);
 	});
 
-	vertLayout->Add(new ItemHeader(co->T("Button Binding")));
-	vertLayout->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
-	vertLayout->Add(new CheckBox(&(cfg->repeat), co->T("Repeat mode")));
+	ChoiceGroup *bindingSettings = vertLayout->Add(new ChoiceGroup(co->T("Button Binding")));
+	bindingSettings->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
+	bindingSettings->Add(new CheckBox(&(cfg->repeat), co->T("Repeat mode")));
 
 	const int cellSize = 400;
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);

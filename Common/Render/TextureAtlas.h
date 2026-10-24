@@ -143,6 +143,8 @@ struct Atlas {
 	int num_fonts = 0;
 	AtlasImage *images = nullptr;
 	int num_images = 0;
+	// Texels per UI unit that generated images were rasterized at. Not stored in metadata.
+	float dpiScale = 1.0f;
 
 	// These are inefficient linear searches, try not to call every frame.
 	const AtlasFont *getFont(FontID id) const;

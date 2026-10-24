@@ -92,11 +92,11 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	list->Add(new ItemHeader(dev->T("Texture Replacement")));
-	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
-	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+	ChoiceGroup *textureReplacement = list->Add(new ChoiceGroup(dev->T("Texture Replacement")));
+	textureReplacement->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
+	textureReplacement->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 
-	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
+	Choice *createTextureIni = textureReplacement->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
 	createTextureIni->SetEnabledFunc([&] {
 		if (!PSP_IsInited())
@@ -113,7 +113,7 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 		// Best string we have
-		list->Add(new Choice(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
+		textureReplacement->Add(new Choice(di->T("Show in folder")))->OnClick.Add([=](UI::EventParams &) {
 			Path path;
 			if (PSP_IsInited()) {
 				std::string gameID = g_paramSFO.GetDiscID();
@@ -127,7 +127,7 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	}
 
 	static const char *texLoadSpeeds[] = { "Slow (smooth)", "Medium", "Fast", "Instant (may stutter)" };
-	PopupMultiChoice *texLoadSpeed = list->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Replacement texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
+	PopupMultiChoice *texLoadSpeed = textureReplacement->Add(new PopupMultiChoice(&g_Config.iReplacementTextureLoadSpeed, dev->T("Replacement texture load speed"), texLoadSpeeds, 0, ARRAY_SIZE(texLoadSpeeds), I18NCat::DEVELOPER, screenManager()));
 	texLoadSpeed->SetChoiceIcon(3, ImageID("I_WARNING"));
 }
 
@@ -138,7 +138,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	list->Add(new ItemHeader(sy->T("CPU Core")));
+	ChoiceGroup *cpuSettings = list->Add(new ChoiceGroup(sy->T("CPU Core")));
 
 	bool canUseJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 	// iOS can now use JIT on all modes, apparently.
@@ -146,7 +146,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	// In iOS App Store builds, we disable the JIT.
 
 	static const char *cpuCores[] = { "Interpreter", "Dynarec/JIT (recommended)", "IR Interpreter", "JIT using IR" };
-	PopupMultiChoice *core = list->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
+	PopupMultiChoice *core = cpuSettings->Add(new PopupMultiChoice(&g_Config.iCpuCore, sy->T("CPU Core"), cpuCores, 0, ARRAY_SIZE(cpuCores), I18NCat::SYSTEM, screenManager()));
 	core->OnChoice.Add([=](UI::EventParams &e) {
 		OnJitAffectingSetting(e);
 		g_Config.NotifyUpdatedCpuCore();
@@ -159,24 +159,24 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
 	// look like the setting had vanished.
-	list->Add(new CheckBox(&g_Config.bEnableFPUExceptionTraps, dev->T("Enable FPU exceptions")));
+	cpuSettings->Add(new CheckBox(&g_Config.bEnableFPUExceptionTraps, dev->T("Enable FPU exceptions")));
 	// Experimental, so not translated yet.
-	list->Add(new CheckBox(&g_Config.bEmulateMediaEngine, dev->T("Enable ME emulation for homebrew")));
+	cpuSettings->Add(new CheckBox(&g_Config.bEmulateMediaEngine, dev->T("Enable ME emulation for homebrew")));
 
-	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
-	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
+	cpuSettings->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
+	cpuSettings->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
 
-	AddOverlayList(list, screenManager());
+	AddOverlayList(cpuSettings, screenManager());
 
-	list->Add(new ItemHeader(sy->T("General")));
+	ChoiceGroup *generalSettings = list->Add(new ChoiceGroup(sy->T("General")));
 
-	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
-	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams &e) {
+	generalSettings->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
+	generalSettings->Add(new Choice(dev->T("Logging Channels")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new LogConfigScreen());
 	});
-	list->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
+	generalSettings->Add(new CheckBox(&g_Config.bEnableFileLogging, dev->T("Log to file")))->SetEnabledPtr(&g_Config.bEnableLogging);
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
-		list->Add(new Choice(dev->T("Show log file in folder")))->OnClick.Add([](UI::EventParams &e) {
+		generalSettings->Add(new Choice(dev->T("Show log file in folder")))->OnClick.Add([](UI::EventParams &e) {
 			Path logFilePath = g_logManager.GetLogFilePath();
 			if (logFilePath.empty()) {
 				ERROR_LOG(Log::System, "No log file path configured.");
@@ -190,31 +190,31 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		});
 	}
 
-	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
+	generalSettings->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
+		generalSettings->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
-	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
+	generalSettings->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
 	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 
-	CheckBox *localDebugger = list->Add(new CheckBox(&g_Config.bRemoteDebuggerLocal, dev->T("Use locally hosted remote debugger")));
+	CheckBox *localDebugger = generalSettings->Add(new CheckBox(&g_Config.bRemoteDebuggerLocal, dev->T("Use locally hosted remote debugger")));
 	localDebugger->SetEnabledPtr(&allowDebugger_);
 
-	list->Add(new CheckBox(&g_Config.bAutoSaveLoadSymbols, dev->T("Auto save/load symbols")));
+	generalSettings->Add(new CheckBox(&g_Config.bAutoSaveLoadSymbols, dev->T("Auto save/load symbols")));
 
-	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
+	generalSettings->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
 
-	list->Add(new CheckBox(&g_Config.bShowSaveLoadIndicator, dev->T("Show indicator when saving/loading")));
+	generalSettings->Add(new CheckBox(&g_Config.bShowSaveLoadIndicator, dev->T("Show indicator when saving/loading")));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	static const char *framerateModes[] = { "Default", "Request 60 Hz", "Force 60Hz" };
-	PopupMultiChoice *framerateMode = list->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
+	PopupMultiChoice *framerateMode = generalSettings->Add(new PopupMultiChoice(&g_Config.iDisplayFramerateMode, gr->T("Framerate mode"), framerateModes, 0, ARRAY_SIZE(framerateModes), I18NCat::GRAPHICS, screenManager()));
 	framerateMode->SetEnabledFunc([]() { return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30; });
 	framerateMode->OnChoice.Add([](UI::EventParams &e) {
 		System_Notify(SystemNotification::FORCE_RECREATE_ACTIVITY);
@@ -222,8 +222,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
-	list->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""))->SetWrapText(true);
-	list->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
+	generalSettings->Add(new NoticeView(NoticeLevel::WARN, ms->T("Moving the memstick directory is NOT recommended on iOS"), ""))->SetWrapText(true);
+	generalSettings->Add(new Choice(sy->T("Set Memory Stick folder")))->OnClick.Add(
 		[=](UI::EventParams &) {
 		SetMemStickDirDarwin(GetRequesterToken());
 	});
@@ -232,12 +232,12 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	// Makes it easy to get savestates out of an iOS device. The file listing shown in MacOS doesn't allow
 	// you to descend into directories.
 #if PPSSPP_PLATFORM(IOS)
-	list->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
+	generalSettings->Add(new Choice(dev->T("Copy savestates to memstick root")))->OnClick.Handle(this, &DeveloperToolsScreen::OnCopyStatesToRoot);
 #endif
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	// Reuse strings to the max, heh.
-	list->Add(new Choice(ApplySafeSubstitutions("%1: ppsspp.ini", di->T("Copy to clipboard"))))->OnClick.Add([=](UI::EventParams &) {
+	generalSettings->Add(new Choice(ApplySafeSubstitutions("%1: ppsspp.ini", di->T("Copy to clipboard"))))->OnClick.Add([=](UI::EventParams &) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::string configStr = g_Config.GetConfigAsString();
 		if (!configStr.empty()) {
@@ -247,7 +247,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 
 #if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
-	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
+	generalSettings->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
 #endif
 }
 
@@ -255,12 +255,13 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Add([this](UI::EventParams &e) {
+	ChoiceGroup *tests = list->Add(new ChoiceGroup(""));
+	tests->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new TouchTestScreen(gamePath_));
 		// Handle touchscreen test event
 	});
-	// list->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
-	Choice *frameDumpTests = list->Add(new Choice(dev->T("Framedump tests")));
+	// tests->Add(new Choice(dev->T("Memstick Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnMemstickTest);
+	Choice *frameDumpTests = tests->Add(new Choice(dev->T("Framedump tests")));
 	frameDumpTests->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new FrameDumpTestScreen());
 	});
@@ -268,12 +269,12 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
 	// because the D3D drivers are generally solid enough to not need this type of investigation.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
+		tests->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
 
 	// Not useful enough to be made visible.
 	/*
-	auto memmapTest = list->Add(new Choice(dev->T("Memory map test")));
+	auto memmapTest = tests->Add(new Choice(dev->T("Memory map test")));
 	memmapTest->OnClick.Add([this](UI::EventParams &e) {
 		MemoryMapTest();
 	});
@@ -285,20 +286,21 @@ void DeveloperToolsScreen::CreateDumpFileTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	list->Add(new ItemHeader(dev->T("Dump files")));
-	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
-	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
-	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
-	list->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PBP_ISO, dev->T("ISO from PBP")));
+	ChoiceGroup *dumpSettings = list->Add(new ChoiceGroup(dev->T("Dump files")));
+	dumpSettings->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::EBOOT, dev->T("Dump Decrypted Eboot", "Dump Decrypted EBOOT.BIN (If Encrypted) When Booting Game")));
+	dumpSettings->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PRX, dev->T("PRX")));
+	dumpSettings->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::Atrac3, dev->T("Atrac3/3+")));
+	dumpSettings->Add(new BitCheckBox(&g_Config.iDumpFileTypes, (int)DumpFileType::PBP_ISO, dev->T("ISO from PBP")));
 }
 
 void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	list->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
+	ChoiceGroup *atracSettings = list->Add(new ChoiceGroup(""));
+	atracSettings->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
 
-	list->Add(new ItemHeader(dev->T("Disable HLE")));
+	ChoiceGroup *disableHLE = list->Add(new ChoiceGroup(dev->T("Disable HLE")));
 
 	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
 		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
@@ -307,13 +309,13 @@ void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 		if (!(flag & AlwaysDisableHLEFlags())) {
 			const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
 			if (meta) {
-				BitCheckBox *checkBox = list->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
+				BitCheckBox *checkBox = disableHLE->Add(new BitCheckBox(&g_Config.iDisableHLE, (int)flag, meta->modname));
 				checkBox->SetEnabled(!PSP_IsInited());
 			}
 		}
 	}
 
-	list->Add(new ItemHeader(dev->T("Force-enable HLE")));
+	ChoiceGroup *forceEnableHLE = list->Add(new ChoiceGroup(dev->T("Force-enable HLE")));
 
 	for (int i = 0; i < (int)DisableHLEFlags::Count; i++) {
 		DisableHLEFlags flag = (DisableHLEFlags)(1 << i);
@@ -322,7 +324,7 @@ void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 		if (flag & AlwaysDisableHLEFlags()) {
 			const HLEModuleMeta *meta = GetHLEModuleMetaByFlag(flag);
 			if (meta) {
-				BitCheckBox *checkBox = list->Add(new BitCheckBox(&g_Config.iForceEnableHLE, (int)flag, meta->modname));
+				BitCheckBox *checkBox = forceEnableHLE->Add(new BitCheckBox(&g_Config.iForceEnableHLE, (int)flag, meta->modname));
 				checkBox->SetEnabled(!PSP_IsInited());
 			}
 		}
@@ -332,17 +334,17 @@ void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	list->Add(new ItemHeader(dev->T("MIPSTracer")));
+	ChoiceGroup *tracerSettings = list->Add(new ChoiceGroup(dev->T("MIPSTracer")));
 
 	MIPSTracerEnabled_ = mipsTracer.tracing_enabled;
 	CheckBox *MIPSTracerEnabled = new CheckBox(&MIPSTracerEnabled_, dev->T("MIPSTracer enabled"));
-	list->Add(MIPSTracerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
+	tracerSettings->Add(MIPSTracerEnabled)->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerEnabled);
 	MIPSTracerEnabled->SetEnabledFunc([]() {
 		bool temp = g_Config.iCpuCore == static_cast<int>(CPUCore::IR_INTERPRETER) && PSP_IsInited();
 		return temp && Core_IsStepping() && coreState != CORE_POWERDOWN;
 	});
 
-	Choice *TraceDumpPath = list->Add(new Choice(dev->T("Select the file path for the trace")));
+	Choice *TraceDumpPath = tracerSettings->Add(new Choice(dev->T("Select the file path for the trace")));
 	TraceDumpPath->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerPathChanged);
 	TraceDumpPath->SetEnabledFunc([]() {
 		if (!PSP_IsInited())
@@ -350,9 +352,9 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 		return true;
 	});
 
-	list->Add(new InfoItem(dev->T("Current log file"), mipsTracer.get_logging_path()));
+	tracerSettings->Add(new InfoItem(dev->T("Current log file"), mipsTracer.get_logging_path()));
 
-	PopupSliderChoice* storage_capacity = list->Add(
+	PopupSliderChoice* storage_capacity = tracerSettings->Add(
 		new PopupSliderChoice(
 			&mipsTracer.in_storage_capacity, 0x4'0000, 0x40'0000, 0x10'0000, dev->T("Storage capacity"), 0x10000, screenManager()
 		)
@@ -362,7 +364,7 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 		INFO_LOG(Log::JIT, "User changed the tracer's storage capacity to 0x%x", mipsTracer.in_storage_capacity);
 	});
 
-	PopupSliderChoice* trace_max_size = list->Add(
+	PopupSliderChoice* trace_max_size = tracerSettings->Add(
 		new PopupSliderChoice(
 			&mipsTracer.in_max_trace_size, 0x1'0000, 0x40'0000, 0x10'0000, dev->T("Max allowed trace size"), 0x10000, screenManager()
 		)
@@ -372,28 +374,30 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 		INFO_LOG(Log::JIT, "User changed the tracer's max trace size to %d", mipsTracer.in_max_trace_size);
 	});
 
-	list->Add(new ItemHeader(dev->T("MIPSTracer actions")));
-	Choice *FlushTrace = list->Add(new Choice(dev->T("Flush the trace")));
+	ChoiceGroup *tracerActions = list->Add(new ChoiceGroup(dev->T("MIPSTracer actions")));
+	Choice *FlushTrace = tracerActions->Add(new Choice(dev->T("Flush the trace")));
 	FlushTrace->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerFlushTrace);
 
-	Choice *InvalidateJitCache = list->Add(new Choice(dev->T("Clear the JIT cache")));
+	Choice *InvalidateJitCache = tracerActions->Add(new Choice(dev->T("Clear the JIT cache")));
 	InvalidateJitCache->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearJitCache);
 
-	Choice *ClearMIPSTracer = list->Add(new Choice(dev->T("Clear the MIPSTracer")));
+	Choice *ClearMIPSTracer = tracerActions->Add(new Choice(dev->T("Clear the MIPSTracer")));
 	ClearMIPSTracer->OnClick.Handle(this, &DeveloperToolsScreen::OnMIPSTracerClearTracer);
 }
 
 void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	list->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
+	ChoiceGroup *audioSettings = list->Add(new ChoiceGroup(""));
+	audioSettings->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
 }
 
 void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	UIContext *uiContext = screenManager()->getUIContext();
-	list->Add(new Choice(dev->T("Reload UI atlas")))->OnClick.Add([uiContext](UI::EventParams &) {
+	ChoiceGroup *atlasGroup = list->Add(new ChoiceGroup(""));
+	atlasGroup->Add(new Choice(dev->T("Reload UI atlas")))->OnClick.Add([uiContext](UI::EventParams &) {
 		uiContext->InvalidateAtlas();
 	});
 
@@ -404,91 +408,96 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 
 	// TODO: Move most of these strings out of the SysInfo category.
 
-	list->Add(new ItemHeader(si->T("Icon cache")));
+	ChoiceGroup *iconCache = list->Add(new ChoiceGroup(si->T("Icon cache")));
 	IconCacheStats iconStats = g_iconCache.GetStats();
-	list->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
-	list->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
-	list->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
-	list->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
+	iconCache->Add(new InfoItem(si->T("Image data count"), StringFromFormat("%d", iconStats.cachedCount)));
+	iconCache->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", iconStats.textureCount)));
+	iconCache->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(iconStats.dataSize)));
+	iconCache->Add(new Choice(di->T("Clear")))->OnClick.Add([&](UI::EventParams &) {
 		g_iconCache.ClearData();
 		RecreateViews();
 	});
 
-	list->Add(new ItemHeader(si->T("Font cache")));
+	ChoiceGroup *fontCache = list->Add(new ChoiceGroup(si->T("Font cache")));
 	const TextDrawer *text = screenManager()->getUIContext()->Text();
 	if (text) {
-		list->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
-		list->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
+		fontCache->Add(new InfoItem(si->T("Texture count"), StringFromFormat("%d", text->GetStringCacheSize())));
+		fontCache->Add(new InfoItem(si->T("Data size"), NiceSizeFormat(text->GetCacheDataSize())));
 	}
 
-	list->Add(new ItemHeader(si->T("Slider test")));
-	list->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	ChoiceGroup *sliderTest = list->Add(new ChoiceGroup(si->T("Slider test")));
+	sliderTest->Add(new Slider(&testSliderValue_, 0, 100, 1, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	// Same encoding as in GameSettingsScreen: None is -1.
 	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 
-	list->Add(new ItemHeader(si->T("Notification tests")));
-	list->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
+	ChoiceGroup *notificationTests = list->Add(new ChoiceGroup(si->T("Notification tests")));
+	notificationTests->Add(new Choice(si->T("Error")))->OnClick.Add([&](UI::EventParams &) {
 		std::string str = "Error " + CodepointToUTF8(0x1F41B) + CodepointToUTF8(0x1F41C) + CodepointToUTF8(0x1F914);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, str);
 	});
-	list->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
+	notificationTests->Add(new Choice(si->T("Warning")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "Warning, a pretty long warning heading", "Some\nAdditional\nDetail, some of which is very, very long and wide and will need line wrapping on most screens.");
 	});
-	list->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
+	notificationTests->Add(new Choice(si->T("Info")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_INFO, "Info, info info info info info info info info info info");
 	});
 	// This one is clickable
-	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+	notificationTests->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Success", 0.0f, "clickable");
 		g_OSD.SetClickCallback("clickable", []() {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.google.com/");
 		});
 	});
-	list->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
+	notificationTests->Add(new Choice(sy->T("RetroAchievements")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "RetroAchievements warning", "", "I_RETROACHIEVEMENTS_LOGO");
 	});
-	list->Add(new ItemHeader(si->T("Progress tests")));
-	list->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
+	ChoiceGroup *progressTests = list->Add(new ChoiceGroup(si->T("Progress tests")));
+	progressTests->Add(new Choice(si->T("30%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 30, 0.0f);
 	});
-	list->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
+	progressTests->Add(new Choice(si->T("100%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 1, 100, 100, 1.0f);
 	});
-	list->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
+	progressTests->Add(new Choice(si->T("N/A%")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.SetProgressBar("testprogress", "Test Progress", 0, 0, 0, 0.0f);
 	});
-	list->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
+	progressTests->Add(new Choice(si->T("Success")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.RemoveProgressBar("testprogress", true, 0.5f);
 	});
-	list->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
+	progressTests->Add(new Choice(si->T("Failure")))->OnClick.Add([&](UI::EventParams &) {
 		g_OSD.RemoveProgressBar("testprogress", false, 0.5f);
 	});
-	list->Add(new ItemHeader(si->T("Achievement tests")));
-	list->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
+	ChoiceGroup *achievementTests = list->Add(new ChoiceGroup(si->T("Achievement tests")));
+	achievementTests->Add(new Choice(si->T("Leaderboard tracker: Show")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, "My leaderboard tracker", true);
 	});
-	list->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
+	achievementTests->Add(new Choice(si->T("Leaderboard tracker: Update")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, "Updated tracker", true);
 	});
-	list->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
+	achievementTests->Add(new Choice(si->T("Leaderboard tracker: Hide")))->OnClick.Add([=](UI::EventParams &) {
 		g_OSD.ShowLeaderboardTracker(1, "", false);
 	});
 
-	list->Add(new ItemHeader(ac->T("Notifications")));
-	list->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
-	list->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
+	ChoiceGroup *notificationSettings = list->Add(new ChoiceGroup(ac->T("Notifications")));
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
 
 #ifdef _DEBUG
-	list->Add(new CheckBox(&pretendIngame_, ac->T("Pretend to be in-game (for testing)")));
+	notificationSettings->Add(new CheckBox(&pretendIngame_, ac->T("Pretend to be in-game (for testing)")));
+#endif
+
+#if defined(_DEBUG) || PPSSPP_PLATFORM(ANDROID)
+	ChoiceGroup *crashTests = list->Add(new ChoiceGroup(ac->T("Assert")));
+#endif
+#ifdef _DEBUG
 	// Untranslated string because this is debug mode only, only for PPSSPP developers.
-	list->Add(new ItemHeader(ac->T("Assert")));
-	list->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
+	crashTests->Add(new Choice("Assert"))->OnClick.Add([=](UI::EventParams &) {
 		_dbg_assert_msg_(false, "Test assert message");
 	});
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
-	list->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
+	crashTests->Add(new Choice(si->T("Exception")))->OnClick.Add([&](UI::EventParams &) {
 		System_Notify(SystemNotification::TEST_JAVA_EXCEPTION);
 	});
 #endif
@@ -500,12 +509,12 @@ void DeveloperToolsScreen::CreateNetworkTab(UI::LinearLayout *list) {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 	auto nw = GetI18NCategory(I18NCat::NETWORKING);
-	list->Add(new ItemHeader(ms->T("Networking")));
-	list->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
+	ChoiceGroup *networkSettings = list->Add(new ChoiceGroup(ms->T("Networking")));
+	networkSettings->Add(new CheckBox(&g_Config.bDontDownloadInfraJson, dev->T("Don't download infra-dns.json")));
 	// This is shared between RemoteISO and the remote debugger.
-	list->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager()));
-	list->Add(new ItemHeader(nw->T("AdHoc server")));
-	list->Add(new CheckBox(&g_Config.bAdhocServerShowPlayerPorts, nw->T("Show player port numbers")));
+	networkSettings->Add(new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager()));
+	ChoiceGroup *adhocSettings = list->Add(new ChoiceGroup(nw->T("AdHoc server")));
+	adhocSettings->Add(new CheckBox(&g_Config.bAdhocServerShowPlayerPorts, nw->T("Show player port numbers")));
 }
 
 // TODO: Make this generic
@@ -521,26 +530,26 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	list->Add(new ItemHeader(sy->T("General")));
-	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
-	list->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
-	list->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
+	ChoiceGroup *generalSettings = list->Add(new ChoiceGroup(sy->T("General")));
+	generalSettings->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
+	generalSettings->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
+	generalSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 
-	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
+	auto displayRefreshRate = generalSettings->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(si->T("%d Hz"));
 
-	list->Add(new ItemHeader(dev->T("Vulkan")));
-	list->Add(new CheckBox(&g_Config.bVulkanDisableImplicitLayers, dev->T("Prevent loading overlays")));
+	ChoiceGroup *vulkanSettings = list->Add(new ChoiceGroup(dev->T("Vulkan")));
+	vulkanSettings->Add(new CheckBox(&g_Config.bVulkanDisableImplicitLayers, dev->T("Prevent loading overlays")));
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		list->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
+		vulkanSettings->Add(new CheckBox(&g_Config.bRenderMultiThreading, dev->T("Multi-threaded rendering"), ""))->OnClick.Add([](UI::EventParams &e) {
 			// TODO: Not translating yet. Will combine with other translations of settings that need restart.
 			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
 		});
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
+		auto driverChoice = vulkanSettings->Add(new Choice(gr->T("AdrenoTools driver manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {
 			screenManager()->push(new DriverManagerScreen(gamePath_));
 		});
@@ -548,22 +557,22 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 
 	static const char *depthRasterModes[] = { "Auto", "Low", "Off", "Always on" };
 
-	PopupMultiChoice *depthRasterMode = list->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
+	PopupMultiChoice *depthRasterMode = vulkanSettings->Add(new PopupMultiChoice(&g_Config.iDepthRasterMode, gr->T("Lens flare occlusion"), depthRasterModes, 0, ARRAY_SIZE(depthRasterModes), I18NCat::GRAPHICS, screenManager()));
 	depthRasterMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	depthRasterMode->SetDefault(DefaultDepthRaster());
 	depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
 
-	list->Add(new ItemHeader(dev->T("Ubershaders")));
+	ChoiceGroup *ubershaderSettings = list->Add(new ChoiceGroup(dev->T("Ubershaders")));
 	if (draw->GetShaderLanguageDesc().bitwiseOps && !draw->GetBugs().Has(Draw::Bugs::UNIFORM_INDEXING_BROKEN)) {
 		// If the above if fails, the checkbox is redundant since it'll be force disabled anyway.
-		list->Add(new CheckBox(&g_Config.bUberShaderVertex, dev->T("Vertex")));
+		ubershaderSettings->Add(new CheckBox(&g_Config.bUberShaderVertex, dev->T("Vertex")));
 	}
 
 	// Experimental, allow some VR features without OpenXR
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		auto vr = GetI18NCategory(I18NCat::VR);
-		list->Add(new ItemHeader(vr->T("Virtual reality")));
-		list->Add(new CheckBox(&g_Config.bForceVR, vr->T("VR camera")));
+		ChoiceGroup *vrSettings = list->Add(new ChoiceGroup(vr->T("Virtual reality")));
+		vrSettings->Add(new CheckBox(&g_Config.bForceVR, vr->T("VR camera")));
 	}
 
 	// Experimental, will move to main graphics settings later.
@@ -574,10 +583,10 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	};
 
 	if (multiViewSupported) {
-		list->Add(new ItemHeader(gr->T("Stereo rendering")));
-		list->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
+		ChoiceGroup *stereoSettings = list->Add(new ChoiceGroup(gr->T("Stereo rendering")));
+		stereoSettings->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
 
-		ChoiceWithValueDisplay *stereoShaderChoice = list->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, gr->T("Stereo display shader"), &PostShaderTranslateName));
+		ChoiceWithValueDisplay *stereoShaderChoice = stereoSettings->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, gr->T("Stereo display shader"), &PostShaderTranslateName));
 		stereoShaderChoice->SetEnabledFunc(enableStereo);
 		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -601,7 +610,7 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 					if (!keyExisted)
 						value = setting.value;
 
-					PopupSliderChoiceFloat *settingValue = list->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, ps->T(setting.name), setting.step, screenManager()));
+					PopupSliderChoiceFloat *settingValue = stereoSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, setting.value, ps->T(setting.name), setting.step, screenManager()));
 					settingValue->SetEnabledFunc([=] {
 						return !g_Config.bSkipBufferEffects && enableStereo();
 					});
@@ -616,14 +625,14 @@ void DeveloperToolsScreen::CreateCrashHistoryTab(UI::LinearLayout *list) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	std::vector<std::string> reports = Android_GetNativeCrashHistory(20);
-    list->Add(new ItemHeader(dev->T("Crash history")));
+	ChoiceGroup *crashHistory = list->Add(new ChoiceGroup(dev->T("Crash history")));
 	if (reports.empty()) {
-		list->Add(new TextView(di->T("None")));
+		crashHistory->Add(new TextView(di->T("None")));
 		return;
 	}
 	for (size_t i = 0; i < reports.size(); i++) {
 		std::string name = StringFromFormat("Crash %d", (int)i);
-		CollapsibleSection *section = list->Add(new CollapsibleSection(name));
+		CollapsibleSection *section = crashHistory->Add(new CollapsibleSection(name));
 		const std::string report = reports[i];
 		if (report.size() > 150) {
 			section->Add(new Choice(di->T("Copy to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([report](UI::EventParams&) {

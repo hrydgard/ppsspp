@@ -1,16 +1,25 @@
 #include <algorithm>
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 namespace UI {
 
 float ScrollView::lastScrollPosX = 0;
 float ScrollView::lastScrollPosY = 0;
+
+// How long the scroll bob stays after the last activity, and how fast it fades in and out.
+static constexpr double bobHoldTime = 1.0;
+static constexpr float bobFadeInTime = 0.1f;
+static constexpr float bobFadeOutTime = 0.5f;
+// Width of the strip along the right edge where the bob can be grabbed, and where hovering shows it.
+static constexpr float bobGrabWidth = 20.0f;
 
 ScrollView::ScrollView(Orientation orientation, LayoutParams *layoutParams)
 	: ViewGroup(layoutParams), orientation_(orientation) {
@@ -19,6 +28,9 @@ ScrollView::ScrollView(Orientation orientation, LayoutParams *layoutParams)
 	} else {
 		gesture_.SetGestureMask(GESTURE_DRAG_VERTICAL);
 	}
+	// Show the bob briefly when the view appears, so it's clear that it scrolls.
+	lastScrollActivity_ = time_now_d();
+	lastBobUpdate_ = lastScrollActivity_;
 }
 
 ScrollView::~ScrollView() {
@@ -158,6 +170,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 	if (input.flags & TouchInputFlags::MOUSE) {
 		// Kinda hacky, we should make a proper hover mechanism.
 		mouseHover_ = bounds_.Contains(input.x, input.y);
+		bobHover_ = mouseHover_ && orientation_ == ORIENT_VERTICAL && input.x >= bounds_.x2() - bobGrabWidth;
 	}
 
 	// Only the left button scrolls, but the children still get the rest, so they can see hovers and other buttons.
@@ -170,7 +183,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
 			float bobMargin = 3.0f;  // Add some extra margin for the touch.
-			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - 20.0f;
+			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - bobGrabWidth;
 			barDragStart_ = bob.offset;
 			barDragOffset_ = internalY - bob.offset;
 		}
@@ -334,13 +347,13 @@ void ScrollView::Draw(UIContext &dc) {
 
 	Bob bob = ComputeBob();
 
-	if (bob.show) {
+	if (bob.show && bobAlpha_ > 0.0f) {
 		Bounds bobBounds(bounds_.x2() - bob.thickness, bounds_.y + bob.offset, bob.thickness, bob.size);
 		uint32_t scrollBarColor = dc.GetTheme().scrollbarColor;
 		if (draggingBob_) {
 			scrollBarColor |= 0xFF000000;
 		}
-		dc.FillRect(Drawable(scrollBarColor), bobBounds);
+		dc.FillRect(Drawable(alphaMul(scrollBarColor, bobAlpha_)), bobBounds);
 	}
 }
 
@@ -454,6 +467,9 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 }
 
 void ScrollView::SetVisibility(Visibility visibility) {
+	if (visibility == V_VISIBLE && visibility_ != V_VISIBLE) {
+		lastScrollActivity_ = time_now_d();
+	}
 	ViewGroup::SetVisibility(visibility);
 
 	if (visibility == V_GONE && !rememberPos_) {
@@ -579,6 +595,18 @@ void ScrollView::Update() {
 	// We load some lists asynchronously, so don't update the position until it's loaded.
 	if (rememberPos_ && ClampedScrollPos(scrollPos_) != ClampedScrollPos(*rememberPos_)) {
 		*rememberPos_ = scrollPos_;
+	}
+
+	const double now = time_now_d();
+	const float dt = std::min((float)(now - lastBobUpdate_), 0.1f);
+	lastBobUpdate_ = now;
+	if (scrollPos_ != oldPos || draggingBob_ || scrollTouchId_ != -1 || bobHover_) {
+		lastScrollActivity_ = now;
+	}
+	if (now - lastScrollActivity_ < bobHoldTime) {
+		bobAlpha_ = std::min(1.0f, bobAlpha_ + dt / bobFadeInTime);
+	} else {
+		bobAlpha_ = std::max(0.0f, bobAlpha_ - dt / bobFadeOutTime);
 	}
 }
 
