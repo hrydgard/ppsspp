@@ -12,6 +12,7 @@
 
 class GPUDriverTestScreen : public UIBaseDialogScreen {
 public:
+	bool LimitContentArea() const override { return false; }
 	GPUDriverTestScreen();
 	~GPUDriverTestScreen();
 

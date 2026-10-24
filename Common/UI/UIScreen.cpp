@@ -58,7 +58,7 @@ void UIScreen::DoRecreateViews() {
 
 		// Update layout and refocus so things scroll into view.
 		// This is for resizing down, when focused on something now offscreen.
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), RootMargins(), root_, LayoutMode(), UseImmersiveMode());
+		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), GetContentBounds(*screenManager()->getUIContext()), root_);
 		UI::View *focused = UI::GetFocusedView();
 		if (focused) {
 			root_->SubviewFocused(focused);
@@ -128,6 +128,42 @@ Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
 	return dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode());
 }
 
+// On TVs and big monitors, controls out at the edges are hard to see and far apart. Grows with the
+// screen, from nothing at 600 high (or wide, if smaller) to the full inset at 1000, so resizing a window
+// doesn't make it jump.
+static float LargeScreenInset() {
+	const float fullInset = 40.0f;
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+		return fullInset;
+	}
+	const float size = (float)std::min(g_display.dp_xres, g_display.dp_yres);
+	return fullInset * std::clamp((size - 600.0f) / 400.0f, 0.0f, 1.0f);
+}
+
+Bounds UIScreen::GetContentBounds(const UIContext &dc) const {
+	const UI::Margins margins = RootMargins();
+	Bounds bounds = dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode());
+	bounds.x += margins.left;
+	bounds.y += margins.top;
+	bounds.w -= margins.horiz();
+	bounds.h -= margins.vert();
+	if (!LimitContentArea()) {
+		return bounds;
+	}
+
+	const float inset = LargeScreenInset();
+	bounds.x += inset;
+	bounds.y += inset;
+	bounds.w -= inset * 2.0f;
+	bounds.h -= inset * 2.0f;
+	const float maxWidth = MaxContentWidth();
+	if (maxWidth > 0.0f && bounds.w > maxWidth) {
+		bounds.x += (bounds.w - maxWidth) * 0.5f;
+		bounds.w = maxWidth;
+	}
+	return bounds;
+}
+
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 	// A screen rendered under a popup must keep its views: the popup's callbacks point into them (the choice
 	// that opened it, the value it writes to). update() recreates them once the screen is on top again.
@@ -137,7 +173,7 @@ ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {
-		UI::LayoutViewHierarchy(uiContext, RootMargins(), root_, LayoutMode(), UseImmersiveMode());
+		UI::LayoutViewHierarchy(uiContext, GetContentBounds(uiContext), root_);
 	}
 
 	uiContext.PushTransform({translation_, scale_, alpha_});

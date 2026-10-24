@@ -27,6 +27,8 @@ namespace UI {
 
 class CustomButtonMappingScreen : public UISimpleBaseDialogScreen {
 public:
+	// Places the button preview from the screen bounds.
+	bool LimitContentArea() const override { return false; }
 	CustomButtonMappingScreen(DeviceOrientation deviceOrientation, const Path &gamePath, int id) : UISimpleBaseDialogScreen(gamePath, SimpleDialogFlags::Default), deviceOrientation_(deviceOrientation), id_(id) {}
 
 	const char *tag() const override { return "CustomButton"; }
