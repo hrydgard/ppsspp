@@ -875,14 +875,14 @@ void ChoiceGroup::Draw(UIContext &dc) {
 		return;
 	}
 
-	if (!finished_) {
-		ApplyRoundCorners(RoundCorners::All);
-		finished_ = true;
-	}
+	// Maybe we should require the user to Finish() the ChoiceGroup instead of running this every frame.
+	// At least it's not recursive.
+	ApplyRoundCorners(RoundCorners::All);
 
 	// Draw a roundrect as background.
 	LinearLayout::Draw(dc);
-	// Draw a line under all items except the last.
+
+	// Draw a line under all items except the last (to be reconsidered as part of visual design work).
 	/*
 	for (size_t i = 0; i < views_.size() - 1; i++) {
 		const Bounds &titleBounds = views_[i]->GetBounds();

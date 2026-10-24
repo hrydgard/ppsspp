@@ -263,7 +263,6 @@ public:
 
 private:
 	std::string title_;
-	bool finished_ = false;
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size

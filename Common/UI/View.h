@@ -528,7 +528,7 @@ protected:
 	bool popupStyle_ = false;
 	bool hasAutoResult_ = false;
 	DialogResult autoResult_ = DR_OK;
-	RoundCorners roundCorners_ = RoundCorners::All;
+	RoundCorners roundCorners_ = RoundCorners::None;  // In the end this will be All, but we're not ready yet.
 
 private:
 	friend class ViewGroup;  // Sets parent_.
