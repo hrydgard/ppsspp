@@ -698,7 +698,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 					h.type = EXACTLY;
 				}
 				view->Measure(dc, h, v - (float)margins.vert() - (float)padding_.vert());
-				usedWidth += view->GetMeasuredWidth();
+				usedWidth += view->GetMeasuredWidth() + margins.horiz();
 				maxOther = std::max(maxOther, view->GetMeasuredHeight() + margins.vert());
 			}
 		}
@@ -746,7 +746,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 					v.type = EXACTLY;
 				}
 				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), v);
-				usedHeight += view->GetMeasuredHeight();
+				usedHeight += view->GetMeasuredHeight() + margins.vert();
 				maxOther = std::max(maxOther, view->GetMeasuredWidth() + margins.horiz());
 			}
 		}
@@ -770,11 +770,11 @@ void LinearLayout::Layout() {
 	if (orientation_ == ORIENT_HORIZONTAL) {
 		pos = bounds.x + padding_.left;
 		itemBounds.y = bounds.y + padding_.top;
-		itemBounds.h = measuredHeight_ - padding_.vert();
+		itemBounds.h = bounds.h - padding_.vert();
 	} else {
 		pos = bounds.y + padding_.top;
 		itemBounds.x = bounds.x + padding_.left;
-		itemBounds.w = measuredWidth_ - padding_.horiz();
+		itemBounds.w = bounds.w - padding_.horiz();
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
