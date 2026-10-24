@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/Swap.h"
 #include "Core/System.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -1564,6 +1565,53 @@ static int Hook_medievil_projectile_update(MIPSState *mips) {
 	return 0;
 }
 
+// Syphon Filter: Dark Mirror's actor steering (#22669). When a scripted move reaches its target, the
+// actor stops, the AI notices on the next update and only issues the next command (usually "face
+// this way") on the one after, so the actor coasts on for two updates before it turns. The turn
+// curves the slide, and if that carries the actor 1.0 from the target, the steering seeks the
+// target again and the actor spins around. At 60fps it coasts for 33ms, starts turning further from
+// the target, slides out and spins, and Gabe faces the wrong way in the in-mission cutscenes. At
+// 20fps it coasts for 0.1s and the poses match PSP footage, so hold the turn for 0.1s at any rate.
+struct SyphonFilterArrival {
+	u64 startUs;
+	u64 lastUs;
+	bool arrivedThisUpdate;
+};
+static std::unordered_map<u32, SyphonFilterArrival> syphonFilterArrivals;
+
+static int Hook_syphonfilter_steer_arrived(MIPSState *mips) {
+	// Runs on every update the actor is stopped inside the target radius.
+	const u64 now = CoreTiming::GetGlobalTimeUs();
+	auto iter = syphonFilterArrivals.find(mips->r[MIPS_REG_S2]);
+	// Also start over if the entry is stale (a savestate load, or a new actor at the same address).
+	if (iter == syphonFilterArrivals.end() || now - iter->second.lastUs > 200000) {
+		syphonFilterArrivals[mips->r[MIPS_REG_S2]] = { now, now, true };
+		return 0;
+	}
+	iter->second.lastUs = now;
+	iter->second.arrivedThisUpdate = true;
+	return 0;
+}
+
+static int Hook_syphonfilter_steer_turn_rate(MIPSState *mips) {
+	// Hooked where the turn rate (f20) is stored, which every update reaches.
+	auto iter = syphonFilterArrivals.find(mips->r[MIPS_REG_S2]);
+	if (iter == syphonFilterArrivals.end()) {
+		return 0;
+	}
+	SyphonFilterArrival &arrival = iter->second;
+	if (!arrival.arrivedThisUpdate) {
+		syphonFilterArrivals.erase(iter);
+		return 0;
+	}
+	arrival.arrivedThisUpdate = false;
+	// A bit under 0.1s, so that at 20fps the turn still starts on the second update after arriving.
+	if (CoreTiming::GetGlobalTimeUs() - arrival.startUs < 95000) {
+		mips->f[20] = 0.0f;
+	}
+	return 0;
+}
+
 static int Hook_resistance_update_trail(MIPSState *mips) {
 	// The trail adds a node on every update that its emitter's rate allows (one per update at most,
 	// and the explosion debris always allow one), and the effect's clock advances 1/60 per update
@@ -2101,6 +2149,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
 	{ "zuma_pad_analog", &Hook_zuma_pad_analog, 0, REPFLAG_HOOKENTER, 0x234 },
 	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOKENTER, 0x210 },
+	{ "syphonfilter_steer", &Hook_syphonfilter_steer_arrived, 0, REPFLAG_HOOKENTER, 0x13E8 },
+	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOKENTER, 0x1610 },
 	{}
 };
 
