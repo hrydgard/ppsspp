@@ -22,6 +22,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			c->OnClick.Add([](EventParams &e) {
 				e.bubbleResult = DR_BACK;
 			});
+			c->SetRoundCorners(RoundCorners::All);
 			container->Add(c);
 			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
 			tabScroll_->Add(tabStrip_);
@@ -31,6 +32,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 				menuChoice->OnClick.Add([contextMenuCallback](EventParams &e) {
 					contextMenuCallback();
 				});
+				menuChoice->SetRoundCorners(RoundCorners::All);
 				container->Add(menuChoice);
 			}
 			Add(container);
@@ -40,10 +42,11 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			Add(tabScroll_);
 		}
 	} else {
+		SetPadding(Margins(10, 0, 0, 0));
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
 		tabContainer_->Add(new Spacer(8.0f));
 		tabContainer_->SetSpacing(0.0f);
-		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
+		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
 		tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
 		tabScroll_->Add(tabStrip_);
@@ -68,7 +71,9 @@ void TabHolder::AddBack(UIScreen *parent) {
 	if (tabContainer_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		tabContainer_->Add(new UI::Spacer(8.0f));
-		tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
+		Choice *backButton = tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))));
+		backButton->SetRoundCorners(RoundCorners::All);
+		backButton->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
 	}
 }
 
