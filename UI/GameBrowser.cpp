@@ -1095,6 +1095,7 @@ void GameBrowser::Refresh() {
 	layoutChoice->AddChoice(ImageID("I_LINES"));
 	layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
 	layoutChoice->SetSelection((int)lastViewMode_, false);
+	layoutChoice->ApplyRoundCorners();
 	layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 	if (!isRecent) {
 		topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)))->OnClick.Add([=](UI::EventParams &e) {

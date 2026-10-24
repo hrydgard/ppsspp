@@ -324,7 +324,7 @@ void DisplayLayoutScreen::CreateViews() {
 		rightColumn->Add(new ItemHeader(gr->T("PSP display rotation")));
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-		auto rotation = new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager());
+		PopupMultiChoice *rotation = rightColumn->Add(new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager()));
 		rotation->OnChoice.Add([this](UI::EventParams &) {
 			// Affects the presence of the Stretch checkbox.
 			RecreateViews();
@@ -334,8 +334,6 @@ void DisplayLayoutScreen::CreateViews() {
 		});
 		rotation->SetHideTitle(true);
 
-
-		rightColumn->Add(rotation);
 		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
 			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;
 		});

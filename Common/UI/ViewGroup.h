@@ -8,6 +8,7 @@
 #include "Common/Math/geom2d.h"
 #include "Common/Input/GestureDetector.h"
 #include "Common/UI/View.h"
+#include "Common/Render/DrawEnum.h"
 
 class UIScreen;
 
@@ -226,6 +227,10 @@ public:
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
+
+	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
+
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
 	Margins padding;
 

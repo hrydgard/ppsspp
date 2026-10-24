@@ -615,6 +615,7 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 		sortOption_ = SavedataSortOption(e.a);
 		dataBrowser_->SetSortOption(sortOption_);
 	});
+	sortStrip->ApplyRoundCorners();
 	savedata->Add(sortStrip);
 
 	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
@@ -638,6 +639,7 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 		sortOption_ = SavedataSortOption(e.a);
 		stateBrowser_->SetSortOption(sortOption_);
 	});
+	sortStrip->ApplyRoundCorners();
 	savestate->Add(sortStrip);
 
 	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir));

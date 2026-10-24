@@ -811,6 +811,29 @@ void LinearLayout::Layout() {
 	}
 }
 
+// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+// Ignores invisible views.
+void LinearLayout::ApplyRoundCorners(RoundCorners outerCorners) {
+	bool seenVisible = false;
+	View *lastVisible = nullptr;
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_GONE) {
+			continue;
+		}
+		if (!seenVisible) {
+			// First visible view, round the leading edge.
+			view->SetRoundCorners((RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top) & (u32)outerCorners));
+			seenVisible = true;
+		} else {
+			view->SetRoundCorners(RoundCorners::None);
+		}
+		lastVisible = view;
+	}
+	if (lastVisible) {
+		lastVisible->SetRoundCorners(lastVisible->GetRoundCorners() | (RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Right : RoundCorners::Bottom) & (u32)outerCorners));
+	}
+}
+
 std::string LinearLayoutList::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
@@ -831,8 +854,7 @@ void ChoiceGroup::Draw(UIContext &dc) {
 	}
 
 	if (!finished_) {
-		views_[0]->SetRoundCorners(RoundCorners::Top);
-		views_[views_.size() - 1]->SetRoundCorners(views_[views_.size() - 1]->GetRoundCorners() | RoundCorners::Bottom);  // Makes it work with a single item.
+		ApplyRoundCorners(RoundCorners::All);
 		finished_ = true;
 	}
 

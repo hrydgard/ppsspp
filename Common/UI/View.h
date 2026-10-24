@@ -24,6 +24,7 @@
 
 #include "Common/Common.h"
 #include "Common/UI/Screen.h"  // for DialogResult
+#include "Common/Render/DrawEnum.h"  // for RoundCorners
 
 #undef small
 
@@ -527,7 +528,7 @@ protected:
 	bool popupStyle_ = false;
 	bool hasAutoResult_ = false;
 	DialogResult autoResult_ = DR_OK;
-	RoundCorners roundCorners_{};
+	RoundCorners roundCorners_ = RoundCorners::All;
 
 private:
 	friend class ViewGroup;  // Sets parent_.
@@ -766,6 +767,7 @@ public:
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+
 	std::string DescribeText() const override;
 	void SetCentered(bool c) {
 		centered_ = c;
@@ -783,6 +785,7 @@ public:
 		rightIconFlipH_ = flipH;
 		rightIconImage_ = iconImage;
 	}
+
 	// Only useful for things that extend Choice.
 	void SetHideTitle(bool hide) {
 		hideTitle_ = hide;

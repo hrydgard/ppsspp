@@ -649,15 +649,17 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	ChoiceGroup *systemIntegrationSettings = audioSettings->Add(new ChoiceGroup(""));  // Don't need a title.
 #if PPSSPP_PLATFORM(IOS)
-	CheckBox *respectSilentMode = audioSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
+	CheckBox *respectSilentMode = systemIntegrationSettings->Add(new CheckBox(&g_Config.bAudioRespectSilentMode, a->T("Respect silent mode")));
 	respectSilentMode->OnClick.Add([=](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
 	respectSilentMode->SetEnabledPtr(&g_Config.bEnableSound);
 #endif
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	CheckBox *mixWithOthers = audioSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
+
+	CheckBox *mixWithOthers = systemIntegrationSettings->Add(new CheckBox(&g_Config.bAudioMixWithOthers, a->T("Mix audio with other apps")));
 	mixWithOthers->OnClick.Add([=](EventParams &e) {
 		System_Notify(SystemNotification::AUDIO_MODE_CHANGED);
 	});
@@ -703,7 +705,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 		g_BackgroundAudio.SFX().Play(UI::UISound::ACHIEVEMENT_UNLOCKED, achievementVolume);
 	});
 
-	ChoiceGroup *uiSoundSettings = audioSettings->Add(new ChoiceGroup(a->T("UI sound")));
+	ChoiceGroup *uiSoundSettings = audioSettings->Add(new ChoiceGroup(""));
 
 	uiSoundSettings->Add(new CheckBox(&g_Config.bUISound, a->T("UI sound")));
 	PopupSliderChoice *uiVolume = uiSoundSettings->Add(new PopupSliderChoice(&g_Config.iUIVolume, 0, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iUIVolume), a->T("UI volume"), screenManager()));
