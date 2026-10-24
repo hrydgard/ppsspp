@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,6 +27,8 @@ public class ShortcutActivity extends Activity {
 	private static final String TAG = "PPSSPP";
 
 	private static final int RESULT_OPEN_DOCUMENT = 2;
+	// xxxhdpi launcher icon size.
+	private static final int MAX_ICON_SIZE = 192;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -133,19 +136,21 @@ public class ShortcutActivity extends Activity {
 				// Try to create a PNG from the iconData.
 				Bitmap bmp = BitmapFactory.decodeByteArray(iconData, 0, iconData.length);
 				if (bmp != null) {
-					// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio.
-					Bitmap paddedBitmap = Bitmap.createBitmap(
-						bmp.getWidth(), bmp.getWidth(),
-						Bitmap.Config.ARGB_8888);
+					// Pad the bitmap into a square, to keep it a nice 2:1 aspect ratio. The icon travels
+					// in the result intent, which has to fit in a binder transaction (1MB, shared), so
+					// scale big ones down to launcher icon size.
+					int size = Math.min(bmp.getWidth(), MAX_ICON_SIZE);
+					float scale = (float)size / bmp.getWidth();
+					Bitmap paddedBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
 					Canvas canvas = new Canvas(paddedBitmap);
 					canvas.drawARGB(0, 0, 0, 0);
-					int y = (bmp.getWidth() - bmp.getHeight()) / 2;
+					int height = Math.round(bmp.getHeight() * scale);
+					int y = (size - height) / 2;
 					if (y < 0) {
 						// To be safe from wacky-aspect-ratio bitmaps.
 						y = 0;
 					}
-					canvas.drawBitmap(bmp, 0, y, new Paint(Paint.FILTER_BITMAP_FLAG));
-					// Bitmap scaledBitmap = Bitmap.createScaledBitmap(bmp, 144, 72, true);
+					canvas.drawBitmap(bmp, null, new Rect(0, y, size, y + height), new Paint(Paint.FILTER_BITMAP_FLAG));
 					responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, paddedBitmap);
 					bmp.recycle();
 				}
@@ -172,6 +177,16 @@ public class ShortcutActivity extends Activity {
 			finish();
 		} catch (Exception e) {
 			NativeApp.reportException(e, "Error finishing respondToShortcutRequest");
+			// Most likely the icon didn't fit in the transaction. Without this the result stays set, and
+			// the next finish (like from the back gesture) throws the same thing, uncaught.
+			responseIntent.removeExtra(Intent.EXTRA_SHORTCUT_ICON);
+			setResult(RESULT_OK, responseIntent);
+			try {
+				finish();
+			} catch (Exception e2) {
+				NativeApp.reportException(e2, "Error finishing respondToShortcutRequest without the icon");
+				setResult(RESULT_CANCELED);
+			}
 		}
 		Log.i(TAG, "End of respondToShortcutRequest");
 	}
