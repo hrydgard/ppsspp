@@ -165,6 +165,8 @@ class MockPSP;
 
 class VisualMappingScreen : public UIBaseDialogScreen {
 public:
+	// Places the controller picture from the screen bounds.
+	bool LimitContentArea() const override { return false; }
 	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 
 	const char *tag() const override { return "VisualMapping"; }
