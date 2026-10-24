@@ -91,6 +91,7 @@ void SingleControlMapper::Refresh() {
 		{ "Triangle", ImageID("I_TRIANGLE") },
 		{ "Start",    ImageID("I_START")    },
 		{ "Select",   ImageID("I_SELECT")   },
+		{ "Home",     ImageID("I_HOME")     },
 		{ "L",        ImageID("I_L")        },
 		{ "R",        ImageID("I_R")        }
 	};

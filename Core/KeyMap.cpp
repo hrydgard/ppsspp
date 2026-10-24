@@ -469,9 +469,9 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_TRIANGLE, "Triangle"},
 	{CTRL_START, "Start"},
 	{CTRL_SELECT, "Select"},
-	{CTRL_HOME, "Home"},
 	{CTRL_LTRIGGER, "L"},
 	{CTRL_RTRIGGER, "R"},
+	{CTRL_HOME, "Home"},
 
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
