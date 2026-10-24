@@ -945,14 +945,15 @@ fn drain_pending(socket: &mut WebSocket<TcpStream>, secs: f64) {
         match socket.read() {
             // print_incoming takes the ticket off PENDING.
             Ok(Message::Text(text)) => print_incoming(&text),
+            Ok(Message::Close(_)) => break,
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
-            Err(_) => return,
+            Err(_) => break,
         }
     }
     if pending_count() > 0 {
         eprintln!(
-            "! exiting with {} request(s) still unanswered after {}s - their replies were lost",
+            "! exiting with {} request(s) still unanswered (drain budget {}s) - their replies were lost",
             pending_count(),
             secs
         );
@@ -1084,13 +1085,13 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             }
             Ok(Message::Close(frame)) => {
                 println!("\n[connection closed by PPSSPP: {frame:?}]");
-                return Ok(!failed && !pending_failed());
+                return Ok(!failed && !pending_failed() && pending_count() == 0);
             }
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
             Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
                 println!("\n[connection closed]");
-                return Ok(!failed && !pending_failed());
+                return Ok(!failed && !pending_failed() && pending_count() == 0);
             }
             Err(e) => {
                 eprintln!("\n[connection error: {e}]");
