@@ -1612,6 +1612,48 @@ static int Hook_syphonfilter_steer_turn_rate(MIPSState *mips) {
 	return 0;
 }
 
+// Syphon Filter: Logan's Shadow's screen fades (#22669). An in-mission cutscene starts on a black
+// screen held for a number of updates given by the cutscene (12 at the start of Episode 1 Part 4)
+// before the fade in. The scene's setup moves the actors meanwhile, at a speed set in time. At 60fps
+// the hold is over in 0.2s and Gabe is seen sliding across the room to his start position, while on
+// the PSP it lasts about 0.6s and the fade starts as he gets there. Count the hold at 20fps.
+struct SyphonFilterFadeHold {
+	u64 startUs;
+	u64 lastUs;
+	s16 frames;
+	s16 expected;
+};
+static std::unordered_map<u32, SyphonFilterFadeHold> syphonFilterFadeHolds;
+
+static int Hook_syphonfilterls_fade_hold(MIPSState *mips) {
+	// Hooked where the countdown at 0x5E is loaded, to be decremented and tested for > 0.
+	const u32 obj = mips->r[MIPS_REG_S0];
+	const u32 addr = obj + 0x5E;
+	if (!Memory::IsValidRange(addr, 2)) {
+		return 0;
+	}
+	const s16 count = (s16)Memory::ReadUnchecked_U16(addr);
+	const u64 now = CoreTiming::GetGlobalTimeUs();
+	auto iter = syphonFilterFadeHolds.find(obj);
+	if (count <= 0) {
+		if (iter != syphonFilterFadeHolds.end()) {
+			syphonFilterFadeHolds.erase(iter);
+		}
+		return 0;
+	}
+	// A count we didn't leave behind is a new hold (or a savestate load).
+	if (iter == syphonFilterFadeHolds.end() || count != iter->second.expected || now - iter->second.lastUs > 200000) {
+		syphonFilterFadeHolds[obj] = { now, now, count, (s16)(count - 1) };
+		return 0;
+	}
+	SyphonFilterFadeHold &hold = iter->second;
+	hold.lastUs = now;
+	const s16 left = (s16)std::max<s64>(1, hold.frames - (s64)((now - hold.startUs) / 50000));
+	Memory::WriteUnchecked_U16((u16)left, addr);
+	hold.expected = left - 1;
+	return 0;
+}
+
 static int Hook_resistance_update_trail(MIPSState *mips) {
 	// The trail adds a node on every update that its emitter's rate allows (one per update at most,
 	// and the explosion debris always allow one), and the effect's clock advances 1/60 per update
@@ -2151,6 +2193,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOKENTER, 0x210 },
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_arrived, 0, REPFLAG_HOOKENTER, 0x13E8 },
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOKENTER, 0x1610 },
+	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x78 },
+	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x18C },
 	{}
 };
 

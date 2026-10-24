@@ -339,6 +339,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
+	{ 0x8f84fb657a6ba506, 1148, "syphonfilterls_fade", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "sceVfpuMatrix4Rot", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
