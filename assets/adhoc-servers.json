@@ -234,6 +234,18 @@
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "http://psp.andexplaystream.online/data.json"
+		},
+		{
+			"name": "SWAENET",
+			"host": "132.226.189.224",
+			"discord": "https://discord.gg/CgZxfHA8ZC",
+			"web": "http://132.226.189.224:8888/",
+			"location": "Mumbai,India",
+			"location-emoji": "🇮🇳",
+			"description": "Indian adhoc relay from SWAEYERS community",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "http://132.226.189.224:8888/data.json",
+			"icon": "http://132.226.189.224:8888/assets/favicon.svg"
 		}
 	]
 }

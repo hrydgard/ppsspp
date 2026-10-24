@@ -200,7 +200,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 		std::string nname = ConvertWStringToUTF8(name);
 
-		NOTICE_LOG(Log::G3D, "Font family: %s", nname.c_str());
+		// INFO_LOG(Log::G3D, "Font family: %s", nname.c_str());
 
 		names->Release();
 		family->Release();
