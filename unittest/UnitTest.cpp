@@ -2685,6 +2685,15 @@ static bool TestPath() {
 	EXPECT_EQ_STR(Path(R"(\\host\share\filename)").GetRootVolume().ToString(), std::string("//host"));
 	EXPECT_EQ_STR(Path(R"(\\?\UNC\share\filename)").GetRootVolume().ToString(), std::string("//?/UNC"));
 	EXPECT_EQ_STR(Path(R"(\\?\C:\share\filename)").GetRootVolume().ToString(), std::string("//?/C:"));
+
+	// The network folder, and navigating through it.
+	EXPECT_TRUE(Path(R"(\\)").IsNetworkRoot());
+	EXPECT_EQ_STR(Path(R"(\\host\share)").NavigateUp().ToString(), std::string("//host"));
+	EXPECT_EQ_STR(Path(R"(\\host)").NavigateUp().ToString(), std::string("//"));
+	EXPECT_TRUE(Path("//").CanNavigateUp());
+	EXPECT_EQ_STR(Path("//").NavigateUp().ToString(), std::string("/"));
+	EXPECT_EQ_STR((Path("//") / "host").ToString(), std::string("//host"));
+	EXPECT_EQ_STR(Path("//").GetRootVolume().ToString(), std::string("/"));
 #endif
 
 	std::string computedPath;
