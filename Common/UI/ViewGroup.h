@@ -124,15 +124,6 @@ protected:
 	bool exclusiveTouch_ = false;
 };
 
-// A frame layout contains a single child view (normally).
-// It simply centers the child view.
-class FrameLayout : public ViewGroup {
-public:
-	FrameLayout(LayoutParams *layoutParams = nullptr) : ViewGroup(layoutParams) {}
-	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
-	void Layout() override;
-};
-
 constexpr float NONE = -FLT_MAX;
 
 enum class Centering {

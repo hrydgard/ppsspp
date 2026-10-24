@@ -868,37 +868,6 @@ void ChoiceGroup::Draw(UIContext &dc) {
 	}*/
 }
 
-void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
-	if (views_.empty()) {
-		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
-		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
-		return;
-	}
-
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		views_[i]->Measure(dc, horiz, vert);
-	}
-}
-
-void FrameLayout::Layout() {
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		float w = views_[i]->GetMeasuredWidth();
-		float h = views_[i]->GetMeasuredHeight();
-
-		Bounds bounds;
-		bounds.w = w;
-		bounds.h = h;
-
-		bounds.x = bounds_.x + (measuredWidth_ - w) * 0.5f;
-		bounds.y = bounds_.y + (measuredWidth_ - h) * 0.5f;
-		views_[i]->SetBounds(bounds);
-	}
-}
-
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
