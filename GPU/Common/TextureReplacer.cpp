@@ -604,33 +604,44 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 }
 
 void TextureReplacer::ParseIgnore(const std::string &key) {
+	// start[-end][,w,h][,clut:hash]
 	std::vector<std::string> parts;
 	SplitString(key, ',', parts, true);
+	auto parseHex = [](std::string text, u32 *value) {
+		if (!startsWith(text, "0x") && !startsWith(text, "0X")) {
+			text = "0x" + text;
+		}
+		return TryParse(text, value);
+	};
+
+	IgnoreRange ignore;
 	std::vector<std::string> range;
 	if (!parts.empty()) {
 		SplitString(parts[0], '-', range, true);
 	}
-	auto parseAddr = [](std::string text, u32 *addr) {
-		if (!startsWith(text, "0x") && !startsWith(text, "0X")) {
-			text = "0x" + text;
-		}
-		return TryParse(text, addr);
-	};
-
-	IgnoreRange ignore;
-	u32 w = 0;
-	u32 h = 0;
-	bool valid = (parts.size() == 1 || parts.size() == 3) && (range.size() == 1 || range.size() == 2);
-	valid = valid && parseAddr(range[0], &ignore.start);
+	bool valid = range.size() == 1 || range.size() == 2;
+	valid = valid && parseHex(range[0], &ignore.start);
 	ignore.end = ignore.start;
 	if (valid && range.size() == 2) {
-		valid = parseAddr(range[1], &ignore.end) && ignore.end >= ignore.start;
+		valid = parseHex(range[1], &ignore.end) && ignore.end >= ignore.start;
 	}
-	if (valid && parts.size() == 3) {
-		valid = TryParse(parts[1], &w) && TryParse(parts[2], &h) && w > 0 && h > 0 && w <= 1024 && h <= 1024;
+
+	std::vector<std::string> sizeParts;
+	for (size_t i = 1; valid && i < parts.size(); i++) {
+		if (startsWithNoCase(parts[i], "clut:")) {
+			valid = !ignore.hasClut && parseHex(parts[i].substr(5), &ignore.clut);
+			ignore.hasClut = true;
+		} else {
+			sizeParts.push_back(parts[i]);
+		}
+	}
+	u32 w = 0;
+	u32 h = 0;
+	if (valid && !sizeParts.empty()) {
+		valid = sizeParts.size() == 2 && TryParse(sizeParts[0], &w) && TryParse(sizeParts[1], &h) && w > 0 && h > 0 && w <= 1024 && h <= 1024;
 	}
 	if (!valid) {
-		ERROR_LOG(Log::TexReplacement, "Ignoring invalid [ignore] entry %s, expecting 0x08800000-0x08900000 or 0x08812340, optionally followed by ,w,h", key.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid [ignore] entry %s, expecting 0x08800000-0x08900000 or 0x08812340, optionally followed by ,w,h and ,clut:1234abcd", key.c_str());
 		return;
 	}
 	// The same as in the names of dumps.
@@ -641,12 +652,20 @@ void TextureReplacer::ParseIgnore(const std::string &key) {
 	ignoreRanges_.push_back(ignore);
 }
 
-bool TextureReplacer::IsIgnoredTexture(u32 addr, int w, int h) const {
-	addr &= 0x3FFFFFFF;
+bool TextureReplacer::IsIgnoredTexture(u64 cachekey, int w, int h) const {
+	const u32 addr = (u32)(cachekey >> 32) & 0x3FFFFFFF;
+	const u32 clut = (u32)(cachekey & 0xFFFFFFFF);
 	for (const IgnoreRange &ignore : ignoreRanges_) {
-		if (addr >= ignore.start && addr <= ignore.end && (ignore.w == 0 || (ignore.w == w && ignore.h == h))) {
-			return true;
+		if (addr < ignore.start || addr > ignore.end) {
+			continue;
 		}
+		if (ignore.w != 0 && (ignore.w != w || ignore.h != h)) {
+			continue;
+		}
+		if (ignore.hasClut && ignore.clut != clut) {
+			continue;
+		}
+		return true;
 	}
 	return false;
 }
@@ -678,8 +697,17 @@ void TextureReplacer::ApplyIgnoreAddress() {
 			continue;
 		}
 		if (key.ContentsHash() == 0) {
-			// Address and CLUT only. Without the address it would match that CLUT anywhere, so it's dropped.
-			WARN_LOG(Log::TexReplacement, "%s in [hashes] has no texture hash, it's ignored with ignoreAddress", HashName(key, 0).c_str());
+			if (value.empty()) {
+				// "Don't dump this CLUT at this address", which needs the address too.
+				IgnoreRange ignore;
+				ignore.start = ignore.end = key.Address();
+				ignore.hasClut = true;
+				ignore.clut = key.ClutHash();
+				ignoreRanges_.push_back(ignore);
+			} else {
+				// Without the address it would match that CLUT anywhere.
+				WARN_LOG(Log::TexReplacement, "%s in [hashes] has no texture hash, it's ignored with ignoreAddress", HashName(key, 0).c_str());
+			}
 			continue;
 		}
 		ReplacementCacheKey zeroed = key;
@@ -1062,7 +1090,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 		return it->second.texture;
 	}
 
-	if (IsIgnoredTexture(replacementKey.Address(), w, h)) {
+	if (IsIgnoredTexture(replacementKey.cachekey, w, h)) {
 		// Marked as not found, for faster lookup next time.
 		cache_.emplace(std::make_pair(replacementKey, ReplacedTextureRef{}));
 		return nullptr;
@@ -1224,7 +1252,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) co
 		return false;
 	if (replacedInfo.isVideo)
 		return false;
-	if (IsIgnoredTexture(replacedInfo.addr, replacedInfo.texW, replacedInfo.texH))
+	if (IsIgnoredTexture(replacedInfo.cachekey, replacedInfo.texW, replacedInfo.texH))
 		return false;
 
 	return true;
@@ -3270,9 +3298,11 @@ saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) c
 
 [ignore]
 # Textures at these addresses are neither dumped nor replaced, also with ignoreAddress. An address, or a range
-# (both ends included), optionally followed by a size. new/dumps.txt has the address and size of each dump.
+# (both ends included), optionally followed by a size and the CLUT hash (the middle 8 digits of a dump's key in
+# new/dumps.txt). new/dumps.txt has the address and size of each dump.
 # Example: 0x09a00000-0x09c00000 =
 # Example: 0x08b31020,32,16 =
+# Example: 0x08d70930,clut:1b187b35 =
 
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);

@@ -160,9 +160,10 @@ public:
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
 
-	// Textures matched by [ignore] (address ranges, optionally a size) are neither dumped nor replaced.
-	// w and h of 0 match only entries without a size.
-	bool IsIgnoredTexture(u32 addr, int w, int h) const;
+	// Textures matched by [ignore] (address ranges, optionally a size and a CLUT hash) are neither dumped nor
+	// replaced. cachekey is the texture cache's (address and CLUT hash, as in dump names). w and h of 0 match only
+	// entries without a size.
+	bool IsIgnoredTexture(u64 cachekey, int w, int h) const;
 
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
@@ -422,6 +423,9 @@ protected:
 		u32 end = 0;  // Inclusive.
 		u16 w = 0;  // 0 for any size.
 		u16 h = 0;
+		// The second 8 digits of a name, the CLUT hash (for textures without a palette, the size).
+		bool hasClut = false;
+		u32 clut = 0;
 	};
 	std::vector<IgnoreRange> ignoreRanges_;
 	bool dumpLogStarted_ = false;

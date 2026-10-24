@@ -163,6 +163,7 @@ image (same address, different hash), and look up what you see:
 | The same image at different addresses | The game loads it to different places | `ignoreAddress = true` (needs xxh32 or xxh64) |
 | The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping them with `[ignore]` |
 | Textures you'll never replace, made again for every map, menu or save slot (map tile atlases, thumbnails) | The game builds them from other textures | Put their address range in `[ignore]` (see [Ignoring textures](#ignoring-textures)) |
+| Only one palette at an address gives bad dumps | | `[ignore]` that address with `clut:` and its CLUT hash from `new/dumps.txt` |
 | Byte-identical dumps of one image at different addresses, with `ignoreAddress` | From a build before dumps in `new/` were checked at start | Delete the copies, they won't come back |
 | You can't tell which texture a dump is | With `ignoreAddress`, or for palette dumps, the name doesn't say | Look the file up in `new/dumps.txt` |
 
@@ -220,9 +221,10 @@ rare with xxh64.
 - A content is dumped once, named after the address it was first seen at. When dumping starts, the files already
   in `new/` count as dumped with their address dropped, so a later session doesn't write a copy of one under the
   address it's found at then. To get a texture dumped again, delete its file from `new/`.
-- An empty entry in `[hashes]` with only an address (`123456780000000000000000 =`) still stops dumping at that
-  address. Entries with an address and a CLUT hash but no texture hash are ignored with `ignoreAddress`, since
-  without the address they'd match that CLUT anywhere.
+- Empty entries in `[hashes]` with only an address (`123456780000000000000000 =`), or an address and a CLUT hash
+  (`08d709301b187b3500000000 =`), still stop dumping that, the same as the `[ignore]` entries `0x12345678` and
+  `0x08d70930,clut:1b187b35`. Other entries without a texture hash are skipped with `ignoreAddress`, since without
+  the address they'd match too much.
 
 ## Ignoring textures
 
@@ -234,12 +236,19 @@ they're neither dumped nor replaced:
 [ignore]
 0x09a00000-0x09c00000 =
 0x08b31020,32,16 =
+0x08d70930,clut:1b187b35 =
 ```
 
-- An entry is an address, or a range of addresses with both ends included, optionally followed by a size. With
-  a size, only textures of that size there are ignored, so a range can hold thumbnails you ignore and other
-  textures you keep.
+- An entry is an address, or a range of addresses with both ends included, optionally followed by a size and a
+  CLUT hash. With a size, only textures of that size there are ignored, so a range can hold thumbnails you ignore
+  and other textures you keep.
+- With `clut:`, only textures with that CLUT hash there are ignored, for a palette that only ever gives bad
+  dumps at an address you otherwise keep. It's the middle 8 digits of the dump's `key` in `new/dumps.txt` (palette
+  dumps have zeros there in their names). Ignoring one palette of a texture saved with `saveIndexed` doesn't stop
+  its dump when it's drawn with another palette.
 - It works the same with `ignoreAddress` on or off.
+- Keeping all of this in `[ignore]` instead of `[hashes]` leaves `[hashes]` for replacements, and the section can
+  be deleted from the pack you release, since nothing in it gets replaced.
 - Use it instead of `[hashes]` entries without an address and texture hash, like `000000000000070700000000 =`.
   For textures without a palette, the middle 8 digits of a name are the texture's size, not a CLUT hash
   (`0707` is 128x128), so an entry like that stops dumping every 128x128 texture of the game.
