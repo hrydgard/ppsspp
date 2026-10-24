@@ -297,8 +297,14 @@ public:
 	void Layout() override;
 	std::string DescribeLog() const override { return "GridLayout: " + View::DescribeLog(); }
 
+	// Space between the layout's edges and the cells.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
+
 private:
 	GridLayoutSettings settings_;
+	Margins padding_;
 	int numColumns_ = 1;
 };
 

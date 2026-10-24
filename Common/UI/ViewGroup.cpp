@@ -1007,22 +1007,22 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	}
 
 	// Use the max possible width so AT_MOST gives us the full size.
-	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing;
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing + padding_.horiz();
 	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
-	numColumns_ = (measuredWidth_ + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
-	if (!numColumns_) numColumns_ = 1;
+	numColumns_ = (measuredWidth_ - padding_.horiz() + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	if (numColumns_ <= 0) numColumns_ = 1;
 	int numRows = (numItems + (numColumns_ - 1)) / numColumns_;
 
-	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows;
+	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows + padding_.vert();
 
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
 
 void GridLayout::Layout() {
-	int y = 0;
-	int x = 0;
+	int y = padding_.top;
+	int x = padding_.left;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() == V_GONE)
@@ -1047,7 +1047,7 @@ void GridLayout::Layout() {
 		count++;
 		if (count == numColumns_) {
 			count = 0;
-			x = 0;
+			x = padding_.left;
 			y += itemBounds.h + settings_.spacing;
 		} else {
 			x += itemBounds.w + settings_.spacing;
