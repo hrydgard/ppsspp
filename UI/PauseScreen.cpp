@@ -711,10 +711,9 @@ void GamePauseScreen::CreateViews() {
 		root_->Add(buttonColumnScroll);
 	}
 
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new ChoiceGroupList(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	buttonColumn->Add(rightColumnItems);
 
-	rightColumnItems->SetSpacing(0.0f);
 	ChoiceGroup *topGroup = rightColumnItems->Add(new ChoiceGroup(""));
 	if (__KernelIsRunningVSH()) {
 		// The XMB notices discs coming and going by itself, like a PSP's.
@@ -795,7 +794,6 @@ void GamePauseScreen::CreateViews() {
 	}
 
 	if (portrait) {
-		rightColumnItems->Add(new Spacer(20.0));
 		UI::LinearLayout *exitRow = new UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 0)));
 		rightColumnItems->Add(exitRow);
 		exitRow->Add(exit);

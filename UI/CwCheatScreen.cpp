@@ -222,8 +222,9 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
+	ChoiceGroupList *groups = leftColumn->Add(new ChoiceGroupList());
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
-	ChoiceGroup *importGroup = leftColumn->Add(new ChoiceGroup(cw->T("Import Cheats")));
+	ChoiceGroup *importGroup = groups->Add(new ChoiceGroup(cw->T("Import Cheats")));
 
 	importGroup->Add(new Choice(cw->T("Download cheat database")))->OnClick.Add([this](UI::EventParams &) {
 		screenManager()->push(new CwCheatDownloadPopupScreen());
@@ -238,7 +239,7 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 	importGroup->Add(new Choice(title))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 	importGroup->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
 
-	ChoiceGroup *optionsGroup = leftColumn->Add(new ChoiceGroup(di->T("Options")));
+	ChoiceGroup *optionsGroup = groups->Add(new ChoiceGroup(di->T("Options")));
 	Choice *searchChoice = optionsGroup->Add(new Choice(di->T("Search"), ImageID("I_SEARCH")));
 	searchChoice->OnClick.Add([this, searchChoice, screenManager = screenManager(), token = GetRequesterToken()](UI::EventParams &) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);

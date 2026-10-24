@@ -442,7 +442,8 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	}
 
 	using namespace UI;
-	ChoiceGroup *settingsGroup = viewGroup->Add(new ChoiceGroup(di->T("Settings")));
+	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
+	ChoiceGroup *settingsGroup = groups->Add(new ChoiceGroup(di->T("Settings")));
 	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([this](UI::EventParams &e) -> void {
 		Achievements::UpdateSettings();
 		RecreateViews();
@@ -450,7 +451,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
-	ChoiceGroup *linksGroup = viewGroup->Add(new ChoiceGroup(di->T("Links")));
+	ChoiceGroup *linksGroup = groups->Add(new ChoiceGroup(di->T("Links")));
 	linksGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
 	});
@@ -466,7 +467,8 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 	viewGroup->Add(new PaneTitleBar(Path(), ac->T("Customize"), "/docs/reference/retro-achievements/"));
 
 	using namespace UI;
-	ChoiceGroup *soundSettings = viewGroup->Add(new ChoiceGroup(ac->T("Sound Effects")));
+	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
+	ChoiceGroup *soundSettings = groups->Add(new ChoiceGroup(ac->T("Sound Effects")));
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		soundSettings->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
 		soundSettings->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
@@ -478,7 +480,7 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 
 	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 
-	ChoiceGroup *notificationSettings = viewGroup->Add(new ChoiceGroup(ac->T("Notifications")));
+	ChoiceGroup *notificationSettings = groups->Add(new ChoiceGroup(ac->T("Notifications")));
 	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardStartedOrFailedPos, ac->T("Leaderboard attempt started or failed"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardSubmittedPos, ac->T("Leaderboard result submitted"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
@@ -494,7 +496,7 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 
 	using namespace UI;
 	viewGroup->Add(new PaneTitleBar(Path(), sy->T("Developer Tools"), "/docs/reference/retro-achievements/"));
-	ChoiceGroup *devSettings = viewGroup->Add(new ChoiceGroup(""));
+	ChoiceGroup *devSettings = viewGroup->Add(new ChoiceGroupList())->Add(new ChoiceGroup(""));
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	devSettings->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 #endif

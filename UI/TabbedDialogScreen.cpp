@@ -130,7 +130,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 			AddTab("GameSettingsSearch", ms->T("Search"), ImageID("I_SEARCH"), [this](UI::LinearLayout *searchSettings) {
 				auto se = GetI18NCategory(I18NCat::SEARCH);
 
-				ChoiceGroup *searchGroup = searchSettings->Add(new ChoiceGroup(se->T("Find settings")));
+				ChoiceGroup *searchGroup = searchSettings->Add(new ChoiceGroupList())->Add(new ChoiceGroup(se->T("Find settings")));
 				searchGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &searchFilter_, se->T("Filter"), "", 64, screenManager()))->OnChange.Add([this](UI::EventParams &e) {
 					System_PostUIMessage(UIMessage::GAMESETTINGS_SEARCH, StripSpaces(searchFilter_));
 				});
@@ -185,6 +185,36 @@ void UITabbedBaseDialogScreen::SetCurrentTab(int tab) {
 	tabHolder_->SetCurrentTab(tab);
 }
 
+// Hides the views in the group that don't match the filter, and returns whether any did. Groups that can't
+// be focused (like ChoiceGroups) are searched recursively and stay visible if anything in them matches.
+// Other views that can't be focused (headings, notices) are shown only when something after them matches.
+static bool ApplySearchFilterToGroup(UI::ViewGroup *group, int firstIndex, const std::string &filter) {
+	using namespace UI;
+	bool anyMatch = false;
+	View *lastHeading = nullptr;
+	for (int i = firstIndex; i < group->GetNumSubviews(); ++i) {
+		View *v = group->GetViewByIndex(i);
+		bool match;
+		if (v->IsViewGroup() && !v->CanBeFocused()) {
+			match = ApplySearchFilterToGroup((ViewGroup *)v, 0, filter);
+		} else if (!v->CanBeFocused()) {
+			lastHeading = v;
+			v->SetVisibility(filter.empty() ? V_VISIBLE : V_GONE);
+			continue;
+		} else {
+			std::string label = v->DescribeText();
+			std::transform(label.begin(), label.end(), label.begin(), tolower);
+			match = label.find(filter) != label.npos;
+		}
+		if (match && lastHeading) {
+			lastHeading->SetVisibility(V_VISIBLE);
+		}
+		v->SetVisibility((filter.empty() || match) ? V_VISIBLE : V_GONE);
+		anyMatch = anyMatch || match;
+	}
+	return anyMatch;
+}
+
 void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	using namespace UI;
 	// GAMESETTINGS_SEARCH is broadcast to every screen, including ones whose views don't exist yet.
@@ -222,24 +252,8 @@ void UITabbedBaseDialogScreen::ApplySearchFilter() {
 			continue;
 		}
 
-		bool tabMatches = searchFilter_.empty();
-
-		UI::View *lastHeading = nullptr;
-		for (int i = 1; i < tabContents->GetNumSubviews(); ++i) {
-			UI::View *v = tabContents->GetViewByIndex(i);
-			if (!v->CanBeFocused()) {
-				lastHeading = v;
-			}
-
-			std::string label = v->DescribeText();
-			std::transform(label.begin(), label.end(), label.begin(), tolower);
-			bool match = v->CanBeFocused() && label.find(searchFilter_) != label.npos;
-			tabMatches = tabMatches || match;
-
-			if (match && lastHeading)
-				lastHeading->SetVisibility(UI::V_VISIBLE);
-			v->SetVisibility((searchFilter_.empty() || match) ? UI::V_VISIBLE : UI::V_GONE);
-		}
+		// The first view is the tab's title.
+		const bool tabMatches = ApplySearchFilterToGroup((ViewGroup *)tabContents, 1, searchFilter_) || searchFilter_.empty();
 		tabHolder_->EnableTab(t, tabMatches);
 		matches = matches || tabMatches;
 	}

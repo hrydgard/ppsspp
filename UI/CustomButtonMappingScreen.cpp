@@ -159,7 +159,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 	root__->Add(rightScroll);
 
-	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *vertLayout = new ChoiceGroupList(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	rightScroll->Add(vertLayout);
 	
 	ChoiceGroup *styleSettings = vertLayout->Add(new ChoiceGroup(co->T("Button style")));

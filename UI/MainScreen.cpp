@@ -370,7 +370,11 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		}
 		return;
 	} else {
-		ChoiceGroup *mainButtons = parent->Add(new ChoiceGroup("", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 12))));
+		ChoiceGroupList *buttons = parent->Add(new ChoiceGroupList());
+		buttons->SetPadding(Margins(0));
+		buttons->SetSpacing(12.0f);
+
+		ChoiceGroup *mainButtons = buttons->Add(new ChoiceGroup(""));
 
 		if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 			mainButtons->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
@@ -394,7 +398,7 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 		// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
 		// (The exit button previously created problems on Android, but now we allow it in landscape mode.)
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
-		Choice *exitButton = parent->Add(new Choice(di->T("Exit")));
+		Choice *exitButton = buttons->Add(new Choice(di->T("Exit")));
 		exitButton->OnClick.Add([](UI::EventParams &e) {
 			// Let's make sure the config was saved, since it may not have been.
 			if (!g_Config.Save("MainScreen::OnExit")) {

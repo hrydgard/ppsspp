@@ -96,11 +96,12 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 
 	GamepadUpdateOpacity(1.0f);
 
+	ChoiceGroupList *groups = settings->Add(new ChoiceGroupList());
 	auto enabledFunc = [=]() -> bool {
 		return g_Config.iTiltInputType != 0;
 	};
 
-	ChoiceGroup *setupSettings = settings->Add(new ChoiceGroup(co->T("Tilt control setup")));
+	ChoiceGroup *setupSettings = groups->Add(new ChoiceGroup(co->T("Tilt control setup")));
 	CheckBox *enabled = setupSettings->Add(new CheckBox(&g_Config.bTiltInputEnabled, co->T("Enabled")));
 	PopupMultiChoice *typeChoice = setupSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()));
 	if (g_Config.iTiltInputType != 0) {
@@ -117,7 +118,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	if (System_GetPropertyBool(SYSPROP_HAS_GYRO)) {
 		setupSettings->Add(new CheckBox(&g_Config.bTiltUseGyro, co->T("Use gyroscope")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	}
-	ChoiceGroup *calibrationSettings = settings->Add(new ChoiceGroup(co->T("Calibration")));
+	ChoiceGroup *calibrationSettings = groups->Add(new ChoiceGroup(co->T("Calibration")));
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
 	calibrate->SetEnabledPtr(&g_Config.bTiltInputEnabled);
@@ -125,7 +126,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	SettingHint *calibrationInfo = new SettingHint(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."), calibrate);
 	calibrationSettings->Add(calibrationInfo);
 
-	ChoiceGroup *sensitivitySettings = settings->Add(new ChoiceGroup(co->T("Sensitivity")));
+	ChoiceGroup *sensitivitySettings = groups->Add(new ChoiceGroup(co->T("Sensitivity")));
 	if (TiltTypeIsAnalog(g_Config.iTiltInputType)) {
 		sensitivitySettings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltAnalogDeadzoneRadius, 0.0f, 0.8f, 0.0f, co->T("Deadzone radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 		sensitivitySettings->Add(new PopupSliderChoiceFloat(&g_Config.fTiltInverseDeadzone, 0.0f, 0.8f, 0.0f, co->T("Low end radius"), 0.02f, screenManager(), "/ 1.0"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
@@ -134,7 +135,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	sensitivitySettings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityX, 0, 100, 60, co->T("Tilt Sensitivity along X axis"), screenManager(), "%"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	sensitivitySettings->Add(new PopupSliderChoice(&g_Config.iTiltSensitivityY, 0, 100, 60, co->T("Tilt Sensitivity along Y axis"), screenManager(), "%"))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 
-	ChoiceGroup *invertSettings = settings->Add(new ChoiceGroup(co->T("Invert Axes")));
+	ChoiceGroup *invertSettings = groups->Add(new ChoiceGroup(co->T("Invert Axes")));
 	invertSettings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 	invertSettings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")))->SetEnabledPtr(&g_Config.bTiltInputEnabled);
 }
