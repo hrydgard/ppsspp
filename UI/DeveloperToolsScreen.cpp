@@ -649,41 +649,41 @@ void DeveloperToolsScreen::CreateTabs() {
 	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
 	AddTab("General", sy->T("General"), [this](UI::LinearLayout *parent) {
-		CreateGeneralTab(parent);
+		CreateGeneralTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("TextureReplacement", dev->T("Texture Replacement"), [this](UI::LinearLayout *parent) {
-		CreateTextureReplacementTab(parent);
+		CreateTextureReplacementTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("Graphics", ms->T("Graphics"), [this](UI::LinearLayout *parent) {
-		CreateGraphicsTab(parent);
+		CreateGraphicsTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("Networking", ms->T("Networking"), [this](UI::LinearLayout *parent) {
-		CreateNetworkTab(parent);
+		CreateNetworkTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("Audio", ms->T("Audio"), [this](UI::LinearLayout *parent) {
-		CreateAudioTab(parent);
+		CreateAudioTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("Tests", dev->T("Tests"), [this](UI::LinearLayout *parent) {
-		CreateTestsTab(parent);
+		CreateTestsTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("UI", dev->T("UI"), [this](UI::LinearLayout *parent) {
-		CreateUITab(parent);
+		CreateUITab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("DumpFiles", dev->T("Dump files"), [this](UI::LinearLayout *parent) {
-		CreateDumpFileTab(parent);
+		CreateDumpFileTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 	AddTab("HLE", dev->T("HLE"), [this](UI::LinearLayout *parent) {
-		CreateHLETab(parent);
+		CreateHLETab(parent->Add(new UI::ChoiceGroupList()));
 	});
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
 	AddTab("MIPSTracer", dev->T("MIPSTracer"), [this](UI::LinearLayout *parent) {
-		CreateMIPSTracerTab(parent);
+		CreateMIPSTracerTab(parent->Add(new UI::ChoiceGroupList()));
 	});
 #endif
 //#if PPSSPP_PLATFORM(ANDROID) 
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
 		AddTab("Crash history", dev->T("Crash history"), [this](UI::LinearLayout *parent) {
-			CreateCrashHistoryTab(parent);
+			CreateCrashHistoryTab(parent->Add(new UI::ChoiceGroupList()));
 		});
 	}
 //#endif

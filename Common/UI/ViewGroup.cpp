@@ -862,11 +862,17 @@ std::string LinearLayoutList::DescribeText() const {
 }
 
 ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
-	: LinearLayout(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 8, 12))), title_(title) {
+	: LinearLayout(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)), title_(title) {
 	if (!title.empty()) {
 		Add(new ItemHeader(title));
 	}
 	SetSpacing(0.0f);
+}
+
+ChoiceGroupList::ChoiceGroupList(LayoutParams *layoutParams)
+	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
+	SetPadding(Margins(12, 12, 8, 12));
+	SetSpacing(24.0f);
 }
 
 void ChoiceGroup::Draw(UIContext &dc) {

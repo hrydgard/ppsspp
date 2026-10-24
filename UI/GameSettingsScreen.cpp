@@ -246,43 +246,43 @@ void GameSettingsScreen::CreateTabs() {
 	AddTab("GameSettingsGraphics", ms->T("Graphics"), ImageID("I_DISPLAY"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("Graphics"), "graphics", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		CreateGraphicsSettings(parent);
+		CreateGraphicsSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	AddTab("GameSettingsControls", ms->T("Controls"), ImageID("I_CONTROLLER"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("Controls"), "controls"));
-		CreateControlsSettings(parent);
+		CreateControlsSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	AddTab("GameSettingsAudio", ms->T("Audio"), ImageID("I_SPEAKER_MAX"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("Audio"), "audio"));
-		CreateAudioSettings(parent);
+		CreateAudioSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	AddTab("GameSettingsNetworking", ms->T("Networking"), ImageID("I_WIFI"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("Networking"), "network"));
-		CreateNetworkingSettings(parent);
+		CreateNetworkingSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	AddTab("GameSettingsTools", ms->T("Tools"), ImageID("I_TOOLS"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("Tools"), "tools"));
-		CreateToolsSettings(parent);
+		CreateToolsSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	AddTab("GameSettingsSystem", ms->T("System"), ImageID("I_PSP"), [this](UI::LinearLayout *parent) {
 		auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 		parent->Add(new PaneTitleBar(gamePath_, ms->T("System"), "system"));
-		CreateSystemSettings(parent);
+		CreateSystemSettings(parent->Add(new ChoiceGroupList()));
 	});
 
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 	if ((deviceType == DEVICE_TYPE_VR) || g_Config.bForceVR) {
 		AddTab("GameSettingsVR", ms->T("VR"), ImageID::invalid(), [this](UI::LinearLayout *parent) {
-			CreateVRSettings(parent);
+			CreateVRSettings(parent->Add(new ChoiceGroupList()));
 		});
 	}
 }

@@ -665,9 +665,9 @@ void GameButton::Draw(UIContext &dc) {
 		Style infoStyle = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().itemStyle;
 		if (infoButtonDown_) {
 			infoStyle = dc.GetTheme().itemDownStyle;
-			dc.FillRect(infoStyle.background, infoBounds);
+			dc.FillRoundRect(infoStyle.background, infoBounds, dc.GetTheme().choiceRoundRadius);
 		} else if (HasFocus() && infoSelected_) {
-			dc.FillRect(infoStyle.background, infoBounds);
+			dc.FillRoundRect(infoStyle.background, infoBounds, dc.GetTheme().choiceRoundRadius);
 		}
 		dc.Draw()->DrawImage(ImageID("I_INFO"), infoBounds.centerX(), infoBounds.centerY(), 1.0f, infoStyle.fgColor, ALIGN_CENTER);
 	}

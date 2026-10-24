@@ -255,6 +255,7 @@ public:
 };
 
 // These are pretty vertical LinearLayout, with a title and a roundrect background.
+// They have no margins: put them in a ChoiceGroupList, or another layout that spaces them out.
 class ChoiceGroup : public LinearLayout {
 public:
 	ChoiceGroup(std::string_view title, LayoutParams *layoutParams = nullptr);
@@ -263,6 +264,12 @@ public:
 
 private:
 	std::string title_;
+};
+
+// A vertical list that spaces out the ChoiceGroups in it and keeps them off its edges.
+class ChoiceGroupList : public LinearLayoutList {
+public:
+	ChoiceGroupList(LayoutParams *layoutParams = nullptr);
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size
