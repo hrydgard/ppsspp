@@ -288,7 +288,7 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 				// exactly what they saw before; see client.config.set for why it can't be the
 				// default.
 				if (client_info.acknowledgeDeferred)
-					ws->Send(DebuggerDeferredEvent(event, root));
+					ws->Send(DebuggerDeferredEvent(event, root, req.RepliesLater()));
 				// Poll more frequently for a second in case this triggers something.
 				highActivity = 1000;
 			}

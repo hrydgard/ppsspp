@@ -88,6 +88,18 @@ stay that way: an extra message would break a client that correlates purely by
 ticket, and it can't reuse the request's event name because for
 `input.buttons.press` that is exactly what the real, later answer looks like.
 
+A `deferred` event with `"replyFollows": true` means the outcome will arrive as
+a message carrying the request's ticket - the response, or an `error` - so keep
+waiting for that ticket. That holds for `input.buttons.press`,
+`gpu.stats.get`, `gpu.record.dump` and the `game.state.*` operations sent with
+`wait`. Without the field, the outcome (if any) is a ticketless broadcast.
+
+```json
+-> { "event": "game.state.save", "path": "a.ppst", "wait": true, "ticket": 8 }
+<- { "event": "deferred", "for": "game.state.save", "replyFollows": true, "ticket": 8 }
+<- { "event": "game.state.save", "message": "Saved State", "metadata": "", "ticket": 8 }
+```
+
 Errors look like this:
 ```json
 { "event": "error", "message": "...", "level": 2, "ticket": 1 }
