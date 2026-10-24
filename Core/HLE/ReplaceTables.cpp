@@ -2278,6 +2278,8 @@ void Replacement_Init() {
 void Replacement_Shutdown() {
 	RestoreReplacedInstructions(0, 0xFFFFFFFF);
 	replacementNameLookup.clear();
+	syphonFilterArrivals.clear();
+	syphonFilterFadeHolds.clear();
 }
 
 void Replacement_SetBlockShadowHook(u32 value) {
