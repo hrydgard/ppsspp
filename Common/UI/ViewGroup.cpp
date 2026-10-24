@@ -621,19 +621,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			MeasureSpec v = vert;
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
-			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding.vert());
-			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding.horiz() > horiz.size - weightZeroSum) {
+			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding_.vert());
+			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding_.horiz() > horiz.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, horiz, v - (float)margins.vert() - (float)padding.vert());
+				view->Measure(dc, horiz - (float)padding_.horiz(), v - (float)margins.vert() - (float)padding_.vert());
 			}
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
-			view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
-			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding.horiz() > vert.size - weightZeroSum) {
+			view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding_.vert() > vert.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), vert);
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), vert - (float)padding_.vert());
 			}
 		}
 
@@ -657,12 +657,12 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 	}
 
-	weightZeroSum += spacing_ * (numVisible - 1); // +(orientation_ == ORIENT_HORIZONTAL) ? padding.horiz() : padding.vert();
+	weightZeroSum += spacing_ * (numVisible - 1);
 
 	// Alright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		MeasureBySpec(layoutParams_->width, weightZeroSum + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, weightZeroSum + padding_.horiz(), horiz, &measuredWidth_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedWidth = measuredWidth_;
@@ -670,7 +670,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedWidth = horiz.size;
 		}
 
-		float usedWidth = 0.0f + padding.horiz();
+		float usedWidth = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -688,7 +688,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
-				float unit = (allowedWidth - weightZeroSum) / weightSum;
+				float unit = (allowedWidth - padding_.horiz() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -697,7 +697,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
 				}
-				view->Measure(dc, h, v - (float)margins.vert() - (float)padding.vert());
+				view->Measure(dc, h, v - (float)margins.vert() - (float)padding_.vert());
 				usedWidth += view->GetMeasuredWidth();
 				maxOther = std::max(maxOther, view->GetMeasuredHeight() + margins.vert());
 			}
@@ -708,9 +708,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->height, maxOther + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, maxOther + padding_.vert(), vert, &measuredHeight_);
 	} else {
-		MeasureBySpec(layoutParams_->height, weightZeroSum + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, weightZeroSum + padding_.vert(), vert, &measuredHeight_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedHeight = measuredHeight_;
@@ -718,7 +718,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedHeight = vert.size;
 		}
 
-		float usedHeight = 0.0f + padding.vert();
+		float usedHeight = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -736,7 +736,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
-				float unit = (allowedHeight - weightZeroSum) / weightSum;
+				float unit = (allowedHeight - padding_.vert() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -745,7 +745,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
 				}
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), v);
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), v);
 				usedHeight += view->GetMeasuredHeight();
 				maxOther = std::max(maxOther, view->GetMeasuredWidth() + margins.horiz());
 			}
@@ -756,7 +756,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->width, maxOther + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, maxOther + padding_.horiz(), horiz, &measuredWidth_);
 	}
 }
 
@@ -768,13 +768,13 @@ void LinearLayout::Layout() {
 	float pos;
 
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		pos = bounds.x + padding.left;
-		itemBounds.y = bounds.y + padding.top;
-		itemBounds.h = measuredHeight_ - padding.vert();
+		pos = bounds.x + padding_.left;
+		itemBounds.y = bounds.y + padding_.top;
+		itemBounds.h = measuredHeight_ - padding_.vert();
 	} else {
-		pos = bounds.y + padding.top;
-		itemBounds.x = bounds.x + padding.left;
-		itemBounds.w = measuredWidth_ - padding.horiz();
+		pos = bounds.y + padding_.top;
+		itemBounds.x = bounds.x + padding_.left;
+		itemBounds.w = measuredWidth_ - padding_.horiz();
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {

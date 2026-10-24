@@ -227,17 +227,21 @@ public:
 	void SetSpacing(float spacing) {
 		spacing_ = spacing;
 	}
+	// Space between the layout's edges and its children, on top of the children's own margins.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
 
 	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
 
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
-	Margins padding;
 
 protected:
 	Orientation orientation_;
 private:
 	Margins defaultMargins_;
+	Margins padding_;
 	float spacing_ = 10.0f;
 };
 
