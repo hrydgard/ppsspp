@@ -27,6 +27,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 
@@ -98,11 +99,31 @@ static int kuKernelCall(u32 func, u32 argsAddr) {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
+static int kuKernelIcacheInvalidateAll(MIPSState *mips) {
+	mips->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+// Copies the module's SceModule (the pspsdk struct, 0x9C bytes) out to mod.
+static int kuKernelFindModuleByName(const char *name, u32 modAddr) {
+	if (!name || !Memory::IsValidRange(modAddr, 0x9C)) {
+		return hleLogError(Log::sceKernel, -1, "bad arguments");
+	}
+	const u32 found = __KernelFindModuleByName(name);
+	if (!found || !Memory::IsValidRange(found, 0x9C)) {
+		return hleLogDebug(Log::sceKernel, -2, "%s not loaded", name);
+	}
+	Memory::Memcpy(modAddr, found, 0x9C, "kuKernelFindModuleByName");
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
 const HLEFunction KUBridge[] =
 {
 	{ 0x4C25EA72, &WrapI_CUU<kuKernelLoadModule>, "kuKernelLoadModule", 'i', "sxx" },
 	{ 0x24331850, &WrapI_V<kuKernelGetModel>, "kuKernelGetModel", 'i', "" },
 	{ 0x9060F69D, &WrapI_UU<kuKernelCall>, "kuKernelCall", 'i', "xx" },
+	{ 0x219DE4D2, &WrapI_V<kuKernelIcacheInvalidateAll>, "kuKernelIcacheInvalidateAll", 'i', "" },
+	{ 0x4B321167, &WrapI_CU<kuKernelFindModuleByName>, "kuKernelFindModuleByName", 'i', "sx" },
 };
 
 void Register_KUBridge() {

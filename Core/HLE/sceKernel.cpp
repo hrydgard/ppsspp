@@ -27,6 +27,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/KUBridge.h"
+#include "Core/HLE/SystemCtrl.h"
 #include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -162,6 +163,7 @@ void __KernelInit()
 	__VaudioInit();
 	__CheatInit();
 	__KUBridgeInit();
+	__SystemCtrlInit();
 	MeCore::KernelInit();
 	__HeapInit();
 	__DmacInit();
@@ -303,6 +305,7 @@ void __KernelDoState(PointerWrap &p)
 		__MpegBaseDoState(p);
 		__VideocodecDoState(p);
 		__KUBridgeDoState(p);
+		__SystemCtrlDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
 		__PowerDoState(p);
@@ -382,6 +385,10 @@ void sceKernelExitGameWithStatus()
 
 u32 sceKernelDevkitVersion()
 {
+	// The XMB from the NAND is that firmware, whatever the setting says.
+	if (const u32 vshVersion = __KernelVSHDevkitVersion()) {
+		return hleLogDebug(Log::sceKernel, vshVersion, "NAND firmware");
+	}
 	int firmwareVersion = g_Config.iFirmwareVersion;
 	int major = firmwareVersion / 100;
 	int minor = (firmwareVersion / 10) % 10;

@@ -245,6 +245,8 @@ bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::st
 bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs = nullptr);
 // The VSH (the XMB) is what's running, not a game it launched.
 bool __KernelIsRunningVSH();
+// While the XMB runs, the devkit version of the firmware in the NAND (from its version.txt), else 0.
+u32 __KernelVSHDevkitVersion();
 // What sceKernelExitGame does in a game the XMB launched, as on a PSP: back to the XMB, by booting it
 // again. False if the XMB didn't launch this.
 bool __KernelExitToVSH(MIPSState *mips);
@@ -280,8 +282,19 @@ u32 sceKernelQueryLoadCoreCB();
 
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
-void Register_SystemCtrlForKernel();
-void Register_SystemCtrlForUser();
+// The parts of custom firmware's SystemCtrlForKernel (see SystemCtrl.cpp) that work on loaded
+// modules. Called from HLE.
+u32 sctrlHENSetStartModuleHandler(u32 handlerAddr);
+u32 sctrlHENFindDriver(const char *drvname);
+u32 sctrlHENFindFunction(const char *moduleName, const char *libraryName, u32 nid);
+int sctrlHookImportByNID(u32 modPtr, const char *library, u32 nid, u32 func);
+void sctrlHENPatchSyscall(u32 addr, u32 newAddr);
+
+// The module struct of a loaded module with that name, or 0. Not an HLE call.
+u32 __KernelFindModuleByName(const char *name);
+// If stubAddr is a stub sctrlHENFindFunction made for an HLE function, sends all its imports to
+// newAddr (now and later), as patching the function itself would. Not an HLE call.
+bool __KernelHijackHLEFunction(u32 stubAddr, u32 newAddr);
 
 // Expose for use by KUBridge.
 u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 optionAddr);

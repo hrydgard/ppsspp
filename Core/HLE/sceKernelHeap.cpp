@@ -13,6 +13,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Util/BlockAllocator.h"
+#include "Core/HLE/SystemCtrl.h"
 
 static const u32 KERNEL_HEAP_BLOCK_HEADER_SIZE = 8;
 static const bool g_fromBottom = false;
@@ -278,6 +279,10 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
 	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
 	{ 0x310802A9, &WrapI_U<SysMemForKernel_310802A9>,              "SysMemForKernel_310802A9",           'i', "x",     HLE_KERNEL_SYSCALL },
+	// The 6.60 NIDs of these two, which CFW modules (ARK-4's vshctrl) import.
+	{ 0x7158CE7E, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
+	{ 0xF12A62F7, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
+	{ 0xEF29061C, &WrapU_V<sceKernelGetGameInfo>,                  "sceKernelGetGameInfo",               'x', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

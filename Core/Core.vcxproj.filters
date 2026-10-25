@@ -679,6 +679,9 @@
     <ClCompile Include="HLE\KUBridge.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\SystemCtrl.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceSysreg.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -2027,6 +2030,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HLE\KUBridge.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\SystemCtrl.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceSysreg.h">
