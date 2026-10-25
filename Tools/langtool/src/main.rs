@@ -950,7 +950,15 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
             Command::AddNewKey {
                 ref section,
                 ref key,
-            } => add_new_key(&mut target_ini, section, key, key, false).unwrap(),
+            } => {
+                // The placeholder is the English string. That's the key itself for most keys,
+                // but not for ones like "PacketRelayHint", which would otherwise show up as-is.
+                let english = reference_ini
+                    .get_section(section)
+                    .and_then(|s| s.get_value(key))
+                    .unwrap_or_else(|| key.clone());
+                add_new_key(&mut target_ini, section, key, &english, false).unwrap()
+            }
             Command::AddNewKeyAI {
                 ref section,
                 ref key,

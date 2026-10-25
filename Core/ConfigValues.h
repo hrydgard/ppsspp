@@ -153,6 +153,11 @@ enum class AudioSyncMode {
 	CLASSIC_PITCH = 1,
 };
 
+enum class AndroidAudioApi {
+	AAUDIO = 0,
+	OPENSLES = 1,
+};
+
 // TODO: We can make this more fine-grained.
 enum class RestoreSettingsBits : int {
 	SETTINGS = 1,

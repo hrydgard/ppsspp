@@ -447,6 +447,9 @@ public:
 	int iAltSpeedVolume;
 
 	bool bExtraAudioBuffering;  // For bluetooth
+	// Android only.
+	int iAndroidAudioApi;  // AndroidAudioApi
+	bool bAndroidAudioMMap;
 	std::string sAudioDevice;
 	bool bAutoSwitchAudioDevice;
 	bool bUseOldAtrac;

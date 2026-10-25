@@ -792,6 +792,23 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 #if PPSSPP_PLATFORM(ANDROID)
 	CheckBox *extraAudio = audioBackendSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
 
+	auto restartAudio = [](UI::EventParams &) {
+		AndroidAudio_Restart(g_audioState);
+	};
+	// AAudio isn't stable before Android 8.1, so there it's always OpenSL ES.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
+		static const char *audioApis[] = { "AAudio", "OpenSL ES" };
+		PopupMultiChoice *audioApi = audioBackendSettings->Add(new PopupMultiChoice(&g_Config.iAndroidAudioApi, a->T("Audio API"), audioApis, 0, ARRAY_SIZE(audioApis), I18NCat::AUDIO, screenManager()));
+		audioApi->OnChoice.Add(restartAudio);
+		audioBackendSettings->Add(new SettingHint(a->T("AudioApiHint", "Try the other one if you have no sound or other audio problems."), audioApi));
+
+		CheckBox *mmap = audioBackendSettings->Add(new CheckBox(&g_Config.bAndroidAudioMMap, a->T("Low-latency audio (MMAP)")));
+		mmap->OnClick.Add(restartAudio);
+		mmap->SetEnabledFunc([]() {
+			return g_Config.iAndroidAudioApi == (int)AndroidAudioApi::AAUDIO;
+		});
+		audioBackendSettings->Add(new SettingHint(a->T("AudioMMapHint", "Lowest audio delay. On some devices, it causes silence over Bluetooth or other connected audio devices. Turn it off if you get no sound."), mmap));
+	}
 	// Show Oboe debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);
 	if (!audioErrorStr.empty()) {
