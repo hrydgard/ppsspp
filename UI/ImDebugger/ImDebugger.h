@@ -235,8 +235,9 @@ private:
 	bool keyboardShown_ = false;
 };
 
-// Platform hook for the "force keyboard" toggle. The callback is called with true to show the soft keyboard and
-// false to hide it. Does nothing until a platform sets it, so it is safe on all platforms.
+// Optional override for the "force keyboard" toggle. The callback is called with true to show the soft keyboard and
+// false to hide it. Android already has a built-in implementation (Android_SetKeyboardForced in app-android.cpp),
+// so this is only needed on other platforms.
 void ImDebugger_SetSoftKeyboardHook(std::function<void(bool show)> hook);
 
 // Simple custom controls and utilities.

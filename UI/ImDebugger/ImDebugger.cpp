@@ -86,6 +86,22 @@ static constexpr bool kIsMobilePlatform = PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLA
 // Defined further down (see ImDebugger_SetSoftKeyboardHook).
 static std::function<void(bool)> g_softKeyboardHook;
 
+#if PPSSPP_PLATFORM(ANDROID)
+void Android_SetKeyboardForced(bool forced);  // Defined in android/jni/app-android.cpp.
+#endif
+
+// Shows or hides the soft keyboard. A hook set through ImDebugger_SetSoftKeyboardHook takes priority; otherwise
+// Android uses its built-in implementation, and other platforms do nothing.
+static void ApplySoftKeyboard(bool show) {
+	if (g_softKeyboardHook) {
+		g_softKeyboardHook(show);
+		return;
+	}
+#if PPSSPP_PLATFORM(ANDROID)
+	Android_SetKeyboardForced(show);
+#endif
+}
+
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	if (ImGui::BeginMenu("Show in memory viewer")) {
 		for (int i = 0; i < 4; i++) {
@@ -2665,8 +2681,8 @@ ImDebugger::ImDebugger() {
 }
 
 ImDebugger::~ImDebugger() {
-	if (keyboardShown_ && g_softKeyboardHook) {
-		g_softKeyboardHook(false);
+	if (keyboardShown_) {
+		ApplySoftKeyboard(false);
 	}
 	SaveConfig();
 }
@@ -2741,9 +2757,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		g_Config.bShowImDebugger = false;
 		if (keyboardShown_) {
 			keyboardShown_ = false;
-			if (g_softKeyboardHook) {
-				g_softKeyboardHook(false);
-			}
+			ApplySoftKeyboard(false);
 		}
 	};
 
@@ -3126,9 +3140,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		const bool wantKeyboard = cfg_.forceKeyboard && g_Config.bShowImDebugger;
 		if (wantKeyboard != keyboardShown_) {
 			keyboardShown_ = wantKeyboard;
-			if (g_softKeyboardHook) {
-				g_softKeyboardHook(wantKeyboard);
-			}
+			ApplySoftKeyboard(wantKeyboard);
 		}
 	}
 
