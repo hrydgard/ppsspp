@@ -84,6 +84,9 @@ void __UmdInit()
 	umdPausedWaits.clear();
 	g_UMDReplacePermit = false;
 	g_umdPath.clear();
+	// The XMB ejects the disc when it boots without one, and the next game boot mustn't inherit
+	// the empty drive.
+	UMDInserted = true;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
