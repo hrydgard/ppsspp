@@ -101,7 +101,7 @@ static bool ImHook_IsMobileDevice() {
 
 // Shows or hides the platform's on-screen keyboard.
 static void ImHook_ShowSoftKeyboard(bool show) {
-	System_NotifyUIEvent(show ? UIEvent::TEXT_GOTFOCUS : UIEvent::TEXT_LOSTFOCUS);
+	System_NotifyUIEvent(show ? UIEventNotification::TEXT_GOTFOCUS : UIEventNotification::TEXT_LOSTFOCUS);
 }
 
 enum class ImStepKind {
@@ -112,9 +112,9 @@ enum class ImStepKind {
 
 static void ImHook_CpuStep(ImStepKind kind) {
 	switch (kind) {
-	case ImStepKind::Into: Core_RequestCPUStep(CPUStepType::Into, 0); break;
-	case ImStepKind::Over: Core_RequestCPUStep(CPUStepType::Over, 0); break;
-	case ImStepKind::Out: Core_RequestCPUStep(CPUStepType::Out, 0); break;
+	case ImStepKind::Into: Core_RequestCPUStep(CPUStepType::Into); break;
+	case ImStepKind::Over: Core_RequestCPUStep(CPUStepType::Over); break;
+	case ImStepKind::Out: Core_RequestCPUStep(CPUStepType::Out); break;
 	}
 }
 
