@@ -610,7 +610,7 @@ if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 endif()
 
 if(USE_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
-	find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
+	find_package(FFmpeg REQUIRED avcodec avformat avutil swscale)
 	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
 	# Check if we need to use const AVCodec
 	set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})

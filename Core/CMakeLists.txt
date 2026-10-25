@@ -756,7 +756,6 @@ if(FFmpeg_FOUND)
 		FFmpeg::avcodec
 		FFmpeg::avformat
 		FFmpeg::avutil
-		FFmpeg::swresample
 		FFmpeg::swscale
 		${ZLIB_LIBRARY}
 	)
