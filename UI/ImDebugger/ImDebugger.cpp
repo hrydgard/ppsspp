@@ -92,6 +92,8 @@ static std::function<void(bool)> g_softKeyboardHook;
 
 #if PPSSPP_PLATFORM(ANDROID)
 void Android_SetKeyboardForced(bool forced);  // Defined in android/jni/app-android.cpp.
+void Android_SetKeyboardPersist(bool persist);  // Whether the keyboard comes back after an app switch.
+bool Android_ConsumeAppPaused();  // True once after the app was paused (switched away from).
 #endif
 
 // Shows or hides the soft keyboard. A hook set through ImDebugger_SetSoftKeyboardHook takes priority; otherwise
@@ -3035,7 +3037,8 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::Separator();
 			ImGui::MenuItem("Quick scroll bar", nullptr, &cfg_.quickScrollEnabled);
-			ImGui::MenuItem("Force on-screen keyboard", nullptr, &cfg_.forceKeyboard);
+			ImGui::MenuItem("Show keyboard toggle", nullptr, &cfg_.showKeyboardToggle);
+			ImGui::MenuItem("Keep keyboard after switching apps", nullptr, &cfg_.keyboardPersist);
 			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
 			endMenu();
 		}
@@ -3134,14 +3137,28 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		}
 
 		// Soft keyboard toggle (like the keyboard button in Winlator).
-		ImGui::MenuItem("Kbd", nullptr, &cfg_.forceKeyboard);
+		if (cfg_.showKeyboardToggle) {
+			ImGui::MenuItem(cfg_.forceKeyboard ? "Keyboard" : "Kbd", nullptr, &cfg_.forceKeyboard);
+		}
 
 		ImGui::EndMainMenuBar();
 	}
 
 	// Force the soft keyboard to show while the debugger is open (the platform side is a hook, see ImDebugger.h).
 	{
-		const bool wantKeyboard = cfg_.forceKeyboard && g_Config.bShowImDebugger;
+#if PPSSPP_PLATFORM(ANDROID)
+		// If the keyboard shouldn't survive an app switch, turn it off once we've been away.
+		if (Android_ConsumeAppPaused() && !cfg_.keyboardPersist) {
+			cfg_.forceKeyboard = false;
+		}
+		const int persist = cfg_.keyboardPersist ? 1 : 0;
+		if (persist != keyboardPersistSent_) {
+			keyboardPersistSent_ = persist;
+			Android_SetKeyboardPersist(persist != 0);
+		}
+#endif
+		// Hiding the toggle turns the keyboard off too, otherwise there'd be no way to dismiss it.
+		const bool wantKeyboard = cfg_.forceKeyboard && cfg_.showKeyboardToggle && g_Config.bShowImDebugger;
 		if (wantKeyboard != keyboardShown_) {
 			keyboardShown_ = wantKeyboard;
 			ApplySoftKeyboard(wantKeyboard);
@@ -3675,5 +3692,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("quickScrollEnabled", &quickScrollEnabled, true);
 	sync.Sync("quickScrollCollapsed", &quickScrollCollapsed, false);
 	sync.Sync("forceKeyboard", &forceKeyboard, false);
+	sync.Sync("showKeyboardToggle", &showKeyboardToggle, true);
+	sync.Sync("keyboardPersist", &keyboardPersist, true);
 	sync.Sync("compactMenu", &compactMenu, false);
 }

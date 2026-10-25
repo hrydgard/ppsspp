@@ -135,7 +135,9 @@ struct ImConfig {
 	// Touch / mobile helpers.
 	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
 	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
-	bool forceKeyboard = false;         // Ask the platform to show the soft keyboard (see ImDebugger_SetSoftKeyboardHook).
+	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to show the soft keyboard (see ImDebugger_SetSoftKeyboardHook).
+	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
+	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.
 	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
 
 
@@ -233,6 +235,7 @@ private:
 	ImGuiID quickScrollTarget_ = 0;
 	// Whether we last asked the platform to show the soft keyboard.
 	bool keyboardShown_ = false;
+	int keyboardPersistSent_ = -1;  // Last "keep keyboard after app switch" value sent to the platform.
 };
 
 // Optional override for the "force keyboard" toggle. The callback is called with true to show the soft keyboard and
