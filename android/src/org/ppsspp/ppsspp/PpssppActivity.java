@@ -1630,7 +1630,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else {
 			input.setInputType(InputType.TYPE_CLASS_TEXT);
 		}
-		input.setImeOptions(EditorInfo.IME_ACTION_DONE);
+		// In landscape, keyboards otherwise go fullscreen with an edit box of their own, covering the dialog.
+		input.setImeOptions(EditorInfo.IME_ACTION_DONE | EditorInfo.IME_FLAG_NO_EXTRACT_UI | EditorInfo.IME_FLAG_NO_FULLSCREEN);
 		input.setText(defaultText);
 		input.setFocusableInTouchMode(true);
 		input.requestFocus();
@@ -1680,7 +1681,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		dlg.setCancelable(true);
 		Window wnd = dlg.getWindow();
 		if (wnd != null) {
-			wnd.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE);
+			// Moves the dialog up out of the keyboard's way.
+			wnd.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
 		}
 		try {
 			dlg.show();
