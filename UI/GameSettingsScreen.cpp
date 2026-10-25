@@ -695,7 +695,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	altVolume->SetZeroLabel(a->T("Mute"));
 
-	PopupSliderChoice *achievementVolume = volumeSettings->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iAchievementVolume), ac->T("Achievement sound volume"), screenManager()));
+	PopupSliderChoice *achievementVolume = volumeSettings->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, Config::GetDefaultValueInt(&g_Config.iAchievementVolume), T(I18NCat::AUDIO, "Achievement sound volume"), screenManager()));
 	achievementVolume->SetFormat("%d%%");
 	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	achievementVolume->SetZeroLabel(a->T("Mute"));
