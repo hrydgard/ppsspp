@@ -17,6 +17,13 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   `I` = s64, `v` = void.
 - For functions of genuinely unknown purpose (only known by NID), name them `<moduleName>_<NID>` and stub them with
   `return hleLogError(Log::HLE, 0, "UNIMPL");` - an established pattern (see `scePauth.cpp`, `sceOpenPSID.cpp`).
+- **A function with a different NID in each firmware version gets one table entry, with the 6.60/6.61 NID.**
+  Kernel and driver NIDs were renumbered at several releases, so an XMB or firmware module from another version
+  imports the same function under another NID. Don't add a duplicate table entry per NID: put a row in
+  `hleKernelNids` in `Core/HLE/HLETables.cpp`, which `GetHLENidAlias()` uses to map each generation's NID to the
+  first column when an import is resolved. To find a function's NID in each version, disassemble the exporting
+  module from each firmware dump (`--re-module`, see [reverse-engineering.md](reverse-engineering.md)) and match the
+  function by its body. A full set of dumps is in `D:\PSP ISO\FirmwareVersions` on the main dev machine.
 - **New modules must be registered at the very end** of the registration function in `Core/HLE/HLETables.cpp` (look for
   the `// add new modules here.` comment near the end of that function) - not inserted alphabetically/logically among
   the existing `Register_*()` calls. Module registration order affects numeric IDs used in savestates, so inserting a

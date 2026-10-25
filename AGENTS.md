@@ -262,7 +262,8 @@ writing BMPs (and when reading BMP references). `TranslateDebugBufferToCompare` 
 HLE module implementations live in `Core/HLE/sce<ModuleName>.cpp` / `.h`, as a `const HLEFunction
 <name>[]` table registered via `RegisterHLEModule()`. Both the function table and the `Register_*()`
 calls are append-only - see Core Safety Checks above, which is what breaks old savestates silently
-if ignored.
+if ignored. A kernel/driver function whose NID differs between firmware versions gets one entry
+(the 6.60 NID) plus a row in `hleKernelNids` in `HLETables.cpp`, never one duplicate entry per NID.
 
 Also: a new `.cpp`/`.c` file has to be added to **seven** build files (CMake, Core.vcxproj + filters,
 the two UWP projects, `android/jni/Android.mk`, `libretro/Makefile.common`); headers to the first five.
