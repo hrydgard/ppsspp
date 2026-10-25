@@ -924,6 +924,33 @@ bool TestMemBlockInfoSaveState() {
 	return true;
 }
 
+bool TestMemBlockInfoRangeWrap() {
+	MemBlockInfoInit();
+	MemBlockOverrideDetailed();
+
+	// Sizes come from the game. One that wraps around 32 bits used to leave a slab that ends
+	// before it starts, hidden from lookups, and later marks crashed on it.
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x08800800, 0xFFFFF000, "Wrap", 4);
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x3FFFF000, 0x2000, "PastEnd", 7);
+
+	auto findWrite = [](uint32_t addr, const char *tag) {
+		std::vector<MemBlockInfo> results = FindMemInfoByFlag(MemBlockFlags::WRITE, addr, 1);
+		return results.size() == 1 && results[0].tag == tag && results[0].start + results[0].size > results[0].start;
+	};
+	EXPECT_TRUE(findWrite(0x08800800, "Wrap"));
+	EXPECT_TRUE(findWrite(0x20000000, "Wrap"));
+	EXPECT_TRUE(findWrite(0x3FFFFFFF, "PastEnd"));
+
+	// Splitting the clamped slab again works too.
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x08900000, 0x1000, "Inside", 6);
+	EXPECT_TRUE(findWrite(0x08900000, "Inside"));
+	EXPECT_TRUE(findWrite(0x08901000, "Wrap"));
+
+	MemBlockReleaseDetailed();
+	MemBlockInfoShutdown();
+	return true;
+}
+
 // Covers BreakpointManager::ChangeBreakPointAddress(), which the ImDebugger uses to relocate a
 // breakpoint the user is editing. Only the pure bookkeeping is exercised here - there's no JIT in
 // this build, so the cache invalidation it also does is a no-op.
@@ -4055,6 +4082,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(MemBlockInfoRangeWrap),
 	TEST_ITEM(Serializer),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
