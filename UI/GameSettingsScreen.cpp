@@ -701,33 +701,6 @@ void GameSettingsScreen::dialogFinished(const Screen *dialog, DialogResult resul
 	}
 }
 
-void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
-	if (yes) {
-		Path memstickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
-		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
-
-		// Already, create away.
-		if (!File::Exists(Path(pendingMemstickFolder_))) {
-			File::CreateFullPath(Path(pendingMemstickFolder_));
-		}
-		if (!File::WriteDataToFile(true, "1", 1, Path(testWriteFile))) {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), testWriteFile, 5.0);
-			return;
-		}
-		File::Delete(Path(testWriteFile));
-
-		if (!File::WriteDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile)) {
-			WARN_LOG(Log::System, "Failed to write memstick folder to '%s'", memstickDirFile.c_str());
-		} else {
-			// Save so the settings, at least, are transferred.
-			g_Config.memStickDirectory = Path(pendingMemstickFolder_);
-			g_Config.Save("MemstickPathChanged");
-		}
-		screenManager()->RecreateAllViews();
-	}
-}
-
 void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath) {
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.

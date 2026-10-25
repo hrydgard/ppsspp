@@ -47,7 +47,6 @@ public:
 
 protected:
 	void CallbackRestoreDefaults(bool yes);
-	void CallbackMemstickFolder(bool yes);
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	void CreateTabs() override;
@@ -99,9 +98,6 @@ private:
 
 	// edit the game-specific settings and restore the global settings after exiting
 	bool editGameSpecificThenRestore_ = false;
-
-	// Android-only
-	std::string pendingMemstickFolder_;
 };
 
 class GestureMappingScreen : public UITabbedBaseDialogScreen {
