@@ -81,8 +81,11 @@
 static ImVec4 g_normalTextColor;
 
 // On phones the compact single-dropdown menu is always used.
-static constexpr bool kIsMobilePlatform = PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS);
-
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+static constexpr bool kIsMobilePlatform = true;
+#else
+static constexpr bool kIsMobilePlatform = false;
+#endif
 // Defined further down (see ImDebugger_SetSoftKeyboardHook).
 static std::function<void(bool)> g_softKeyboardHook;
 
