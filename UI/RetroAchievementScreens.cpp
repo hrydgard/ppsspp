@@ -496,7 +496,7 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 
 	using namespace UI;
 	viewGroup->Add(new PaneTitleBar(Path(), sy->T("Developer Tools"), "/docs/reference/retro-achievements/"));
-	ChoiceGroup *devSettings = viewGroup->Add(new ChoiceGroupList())->Add(new ChoiceGroup(""));
+	ChoiceGroup *devSettings = viewGroup->Add(new ChoiceGroupList())->Add(new ChoiceGroup());
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	devSettings->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 #endif

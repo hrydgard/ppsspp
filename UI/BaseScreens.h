@@ -30,6 +30,5 @@ protected:
 	bool UseImmersiveMode() const override;
 
 	void sendMessage(UIMessage message, const char *value) override;
-	void AddStandardBack(UI::ViewGroup *parent);
 	Path gamePath_;
 };

@@ -345,7 +345,7 @@ private:
 	const bool portrait_;
 };
 
-void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
+void MainScreen::CreateMainButtons(UI::LinearLayout *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -368,13 +368,14 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 			gold->SetImageScale(0.6f);  // for the left icon.
 			gold->SetShine(true);
 		}
+		parent->ApplyRoundCorners();
 		return;
 	} else {
 		ChoiceGroupList *buttons = parent->Add(new ChoiceGroupList());
 		buttons->SetPadding(Margins(0));
 		buttons->SetSpacing(12.0f);
 
-		ChoiceGroup *mainButtons = buttons->Add(new ChoiceGroup(""));
+		ChoiceGroup *mainButtons = buttons->Add(new ChoiceGroup());
 
 		if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 			mainButtons->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);

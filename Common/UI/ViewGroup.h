@@ -230,6 +230,7 @@ public:
 	}
 
 	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+	// Note that if the view's spacing is not 0.0f, all views will get the rounded corners since they will appear separate.
 	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
 
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
@@ -258,7 +259,7 @@ public:
 // They have no margins: put them in a ChoiceGroupList, or another layout that spaces them out.
 class ChoiceGroup : public LinearLayout {
 public:
-	ChoiceGroup(std::string_view title, LayoutParams *layoutParams = nullptr);
+	ChoiceGroup(std::string_view title = "", LayoutParams *layoutParams = nullptr);
 
 	void Draw(UIContext &dc) override;
 

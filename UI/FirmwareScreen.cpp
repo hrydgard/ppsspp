@@ -119,14 +119,14 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 			sy->T("XMBUnsupportedVersion", "Only firmware 6.61 can boot the XMB so far")));
 	}
 
-	ChoiceGroup *launchGroup = groups->Add(new ChoiceGroup(""));
+	ChoiceGroup *launchGroup = groups->Add(new ChoiceGroup());
 	Choice *launch = launchGroup->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
 
-	ChoiceGroup *settings = groups->Add(new ChoiceGroup(""));
+	ChoiceGroup *settings = groups->Add(new ChoiceGroup());
 	settings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
 		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
-	ChoiceGroup *actions = groups->Add(new ChoiceGroup(""));
+	ChoiceGroup *actions = groups->Add(new ChoiceGroup());
 	launch->OnClick.Add([this](UI::EventParams &) {
 		LaunchVSH();
 	});

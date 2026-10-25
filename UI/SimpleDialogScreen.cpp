@@ -156,7 +156,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 		if (flags_ & TwoPaneFlags::NoTopbarInLandscape) {
 			// We still need a back button.
-			settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+			Choice *backButton = settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+			backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+			backButton->SetRoundCorners();
 			settingsPane->Add(new Spacer(8.0f));
 		}
 		CreateSettingsViews(settingsPane);

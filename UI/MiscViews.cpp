@@ -61,6 +61,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		backButton_->OnClick.Add([](UI::EventParams &e) {
 			e.bubbleResult = DR_BACK;
 		});
+		backButton_->SetRoundCorners();
 	} else {
 		Add(new Spacer(4.0f));
 	}
@@ -78,6 +79,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		contextMenuButton_->OnClick.Add([this](UI::EventParams &e) {
 			this->OnContextMenuClick.Trigger(e);
 		});
+		contextMenuButton_->SetRoundCorners();
 	}
 }
 
@@ -299,7 +301,7 @@ void GameInfoBGView::Draw(UIContext &dc) {
 SettingHint::SettingHint(std::string_view text, UI::View *setting)
 	: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)), setting_(setting) {
 	SetTextSize(UI::TextSize::Tiny);
-	SetPadding(UI::Margins(14, 0, 12, 8));
+	SetPadding(UI::Margins(12, 0, 12, 8));
 	SetAlign(FLAG_WRAP_TEXT);
 }
 
@@ -307,7 +309,9 @@ void SettingHint::Draw(UIContext &dc) {
 	const bool enabled = setting_ ? setting_->IsEnabled() : true;
 	const UI::Style &style = enabled ? dc.GetTheme().itemStyle : dc.GetTheme().itemDisabledStyle;
 	SetTextColor(style.fgColor);  // bit hacky but works
-	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	if (setting_) {
+		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	}
 	UI::TextView::Draw(dc);
 }
 

@@ -36,6 +36,7 @@ struct CommandLineOptions {
 	// --graphics=null: headless only, see GPU_Null.h.
 	std::optional<bool> nullGraphics;
 	std::optional<bool> enableLogging;
+	std::optional<bool> skipLogo;
 	std::optional<LogLevel> logLevel;  // Override log level with this.
 	std::optional<std::string> log;
 	std::vector<std::string> bootFilenames;

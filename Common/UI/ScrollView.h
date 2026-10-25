@@ -52,6 +52,8 @@ public:
 private:
 	Margins GetMargins() const;
 	float ChildSize() const;  // in the scrolled direction
+	// How far the view reaches into the bottom inset (like a navigation bar).
+	float BottomInsetOverlap() const;
 	float ScrollMax() const;
 	float HardClampedScrollPos(float pos) const;
 

@@ -246,13 +246,17 @@ bool ScrollView::Touch(const TouchInput &input) {
 	}
 }
 
+float ScrollView::BottomInsetOverlap() const {
+	const float insetStart = g_display.dp_yres - System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+	return std::max(0.0f, bounds_.y2() - insetStart);
+}
+
 float ScrollView::ChildSize() const {
 	float extraSpace = 0.0f;
 
 	if (orientation_ == ORIENT_VERTICAL) {
-		if (bounds_.y2() >= g_display.dp_yres - 1) {
-			extraSpace = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
-		}
+		// Let the end of the contents scroll up out of the bottom inset.
+		extraSpace = BottomInsetOverlap();
 	}
 
 	if (views_.empty()) {
@@ -320,7 +324,7 @@ void ScrollView::Draw(UIContext &dc) {
 
 	// Same at the bottom. (we check against the common UI layout mode)
 	const float y2 = dc.GetLayoutBounds(ViewLayoutMode::IgnoreBottomInset, false).y2();
-	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
+	if (shadows_ && bounds_.y2() < y2 && BottomInsetOverlap() <= 0.0f && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;

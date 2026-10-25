@@ -255,7 +255,7 @@ void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	ChoiceGroup *tests = list->Add(new ChoiceGroup(""));
+	ChoiceGroup *tests = list->Add(new ChoiceGroup());
 	tests->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new TouchTestScreen(gamePath_));
 		// Handle touchscreen test event
@@ -297,7 +297,7 @@ void DeveloperToolsScreen::CreateHLETab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	ChoiceGroup *atracSettings = list->Add(new ChoiceGroup(""));
+	ChoiceGroup *atracSettings = list->Add(new ChoiceGroup());
 	atracSettings->Add(new CheckBox(&g_Config.bUseOldAtrac, dev->T("Use the old sceAtrac implementation")));
 
 	ChoiceGroup *disableHLE = list->Add(new ChoiceGroup(dev->T("Disable HLE")));
@@ -388,7 +388,7 @@ void DeveloperToolsScreen::CreateMIPSTracerTab(UI::LinearLayout *list) {
 void DeveloperToolsScreen::CreateAudioTab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	ChoiceGroup *audioSettings = list->Add(new ChoiceGroup(""));
+	ChoiceGroup *audioSettings = list->Add(new ChoiceGroup());
 	audioSettings->Add(new CheckBox(&g_Config.bForceFfmpegForAudioDec, dev->T("Use FFMPEG for all compressed audio")));
 }
 
@@ -396,7 +396,7 @@ void DeveloperToolsScreen::CreateUITab(UI::LinearLayout *list) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	UIContext *uiContext = screenManager()->getUIContext();
-	ChoiceGroup *atlasGroup = list->Add(new ChoiceGroup(""));
+	ChoiceGroup *atlasGroup = list->Add(new ChoiceGroup());
 	atlasGroup->Add(new Choice(dev->T("Reload UI atlas")))->OnClick.Add([uiContext](UI::EventParams &) {
 		uiContext->InvalidateAtlas();
 	});

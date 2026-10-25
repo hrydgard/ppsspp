@@ -92,6 +92,7 @@ protected:
 
 class SettingHint : public UI::TextView {
 public:
+	// If setting is null, it's a "global hint", used outside of ChoiceGroups, usually after one.
 	SettingHint(std::string_view text, UI::View *setting);
 	std::string DescribeText() const override { return setting_ ? setting_->DescribeText() : ""; }  // So that descriptions show up in searches under their parent views
 	void Draw(UIContext &dc) override;

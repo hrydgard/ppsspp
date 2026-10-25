@@ -757,9 +757,14 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	cmdLineOptions.ApplyToConfig();
 	g_cmdLineOptions = cmdLineOptions;
 
+	if (cmdLineOptions.skipLogo.value_or(false)) {
+		skipLogo = true;
+	}
+
 	boot_filename.clear();
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
 		boot_filename = g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+		skipLogo = true;
 	}
 	boot_mountIso = cmdLineOptions.mountIso.has_value() ? Path(cmdLineOptions.mountIso.value()) : Path();
 
@@ -895,8 +900,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
 		g_screenManager->switchScreen(new EmuScreen(boot_filename, boot_mountIso));
-	} else {
+	} else if (!skipLogo) {
 		g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
+	} else {
+		g_screenManager->switchScreen(new MainScreen());
 	}
 
 	g_screenManager->SetBackgroundOverlayScreens(new BackgroundScreen(), new OSDOverlayScreen());
