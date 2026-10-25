@@ -3,8 +3,6 @@
 #include <vector>
 #include <string>
 #include <set>
-#include <map>
-#include <utility>
 
 #include "ext/imgui/imgui.h"
 
@@ -35,7 +33,6 @@
 class MIPSDebugInterface;
 class GPUCommon;
 struct ImConfig;
-struct ImGuiWindow;
 
 // Snapshot of the MIPS CPU and other things we want to show diffs off.
 struct ImSnapshotState {
@@ -96,7 +93,6 @@ struct ImConfig {
 	bool audioOutOpen;
 	bool paramSFOOpen;
 	bool jitViewerOpen;
-	bool settingsOpen;  // The debugger's own "Debugger settings" window.
 
 	// HLE explorer settings
 	// bool filterByUsed = true;
@@ -135,17 +131,12 @@ struct ImConfig {
 
 	float fbViewerZoom = 1.0f;
 
-	// ---- Appearance, accessibility and touch usability (saved in the [Settings] section) ----
-	// Defaults that depend on the device (touch-friendly sizes, gestures...) are set in SyncConfig.
-	int uiTheme = 0;             // 0 = keep the app's colors, 1 = Dark, 2 = Light, 3 = High contrast
-	int uiScalePercent = 100;    // Text and spacing scale, 50..250
-	bool touchFriendly = false;  // Bigger touch targets, thicker scrollbars, larger spacing
-	bool touchGestures = false;  // Drag on empty space to scroll, long-press = right click
-	bool autoMaximize = false;   // A single newly opened window fills the screen
-	bool keepOnScreen = true;    // Never let a window get lost off-screen
-	bool showToolbar = true;     // Bottom bar with run/step/keyboard buttons
-	int menuMode = 0;            // 0 = automatic, 1 = always compact, 2 = always full
-	bool autoKeyboard = true;    // Show the on-screen keyboard when a text field gets focus
+	// Touch / mobile usability. Saved in the "Settings" section of imdebugger.ini.
+	bool touchMode = true;          // Big touch targets, compact menu bar + menu panel. Defaults to on for mobile devices.
+	bool scrollAssistOpen = true;   // Floating quick-scroll buttons (Top / PgUp / Up / Down / PgDn / End).
+	int touchScalePct = 100;        // 70..200, scales padding, scrollbars and grab sizes in touch mode.
+	// Not saved: we don't want the keyboard to pop up by itself on the next launch.
+	bool forceKeyboard = false;
 
 
 	// We use a separate ini file from the main PPSSPP config.
@@ -153,6 +144,17 @@ struct ImConfig {
 	void SaveConfig(const Path &iniFile);
 
 	void SyncConfig(IniFile *ini, bool save);
+};
+
+// Finger-drag scrolling with a bit of inertia for the *current* ImGui window.
+// Call Update() once per frame from inside the (child) window that should scroll, before
+// submitting its contents. Only use it in windows made of simple buttons/selectables, since
+// a drag cancels whatever widget the finger started on.
+struct ImTouchScroller {
+	bool armed = false;
+	bool dragging = false;
+	float velocity = 0.0f;
+	void Update();
 };
 
 struct Track;
@@ -189,22 +191,6 @@ private:
 	bool AutoScroll = true;  // Keep scrolling if already at the bottom.
 };
 
-// One entry per toggleable debugger window. This single table drives the full menu bar,
-// the compact menu and the touch-friendly window launcher, so they can never go out of sync.
-struct ImWindowEntry {
-	const char *category;
-	const char *label;
-	bool *open;
-	bool needsGame;        // Only available while a game is loaded.
-	bool separatorBefore;  // Draw a separator above this entry in menus.
-};
-
-enum class ImArrangeAction {
-	None,
-	Tile,
-	ToggleMaximize,
-};
-
 class ImDebugger {
 public:
 	ImDebugger();
@@ -224,44 +210,22 @@ public:
 	void DeviceLost();
 	void SaveConfig();
 
-	// Show/hide the on-screen keyboard (same as the "Keyboard" toggle in the menu bar).
-	void ToggleKeyboard() { keyboardToggleRequested_ = true; }
-	bool IsKeyboardShown() const { return keyboardShown_; }
-
 private:
 	Path ConfigPath();
 
-	// ---- Menus and chrome ----
-	void BuildWindowRegistry();
-	void DrawMenuBar(CoreState coreState, bool showDebugger, bool allowSaveStates);
-	void DrawFileMenu(bool allowSaveStates);
-	void DrawEmulationMenu();
-	void DrawViewMenu();
-	void DrawDebugMenu(CoreState coreState);
-	void DrawSymbolFileItems();
-	void DrawWindowCategoryMenu(const char *category, bool inGame);
-	void DrawRunBreakItem(CoreState coreState);
-	void DrawToolbar(CoreState coreState);
-	void DrawLauncher();
-	void DrawSettings();
-	void CloseDebugger();
-	void CloseAllWindows();
+	// Touch-friendly UI.
+	void DrawTouchMenuBar(bool showDebugger, CoreState coreState);
+	void DrawTouchMenuPanel(bool showDebugger, bool allowSaveStates, CoreState coreState);
+	void DrawScrollAssist();
+	void SetForcedKeyboard(bool on);
 
-	// ---- Appearance ----
-	void ApplyAppearance();
-
-	// ---- Window management / touch input (all run at the end of Frame) ----
-	void ProcessArrangeRequest();
-	void AutoMaximizeNewWindow();
-	void KeepWindowsOnScreen();
-	void TileWindows();
-	void SetMaximized(ImGuiWindow *window, bool maximize);
-	void HandleTouchScroll();
-	void HandleLongPress();
-
-	// ---- On-screen keyboard ----
-	void SetSoftKeyboard(bool show);
-	void UpdateKeyboard();
+	ImTouchScroller panelScroll_;
+	char windowFilter_[64]{};
+	bool menuPanelRequested_ = false;
+	bool keyboardForced_ = false;
+	bool scrollAssistCollapsed_ = false;
+	ImGuiID scrollTargetId_ = 0;       // Last window the user interacted with (the target of the scroll buttons).
+	ImGuiID scrollAssistRootId_ = 0;
 
 	RequesterToken reqToken_;
 
@@ -288,43 +252,6 @@ private:
 	ImConfig cfg_{};
 
 	ImCommand externalCommand_;
-
-	// Window registry (see ImWindowEntry).
-	std::vector<ImWindowEntry> windows_;
-
-	// Appearance state.
-	ImGuiStyle baseStyle_;
-	float baseFontScale_ = 1.0f;
-	float baseEm_ = 0.0f;
-	bool baseMoveFromTitleBar_ = false;
-	bool baseCaptured_ = false;
-	bool appearanceDirty_ = true;
-
-	// Launcher state.
-	bool launcherOpen_ = false;
-	bool launcherStayOpen_ = false;
-	char launcherFilter_[64]{};
-
-	// Window management state.
-	ImArrangeAction pendingArrange_ = ImArrangeAction::None;
-	std::map<ImGuiID, std::pair<ImVec2, ImVec2>> savedRects_;  // window id -> (pos, size) before maximizing
-	ImGuiID lastToolWindowId_ = 0;
-	int frameCounter_ = 0;
-
-	// Touch gesture state.
-	ImGuiID touchScrollWindow_ = 0;
-	ImGuiID touchScrollTargetX_ = 0;
-	ImGuiID touchScrollTargetY_ = 0;
-	bool touchScrolling_ = false;
-	bool longPressFired_ = false;
-	bool rightReleasePending_ = false;
-
-	// On-screen keyboard state.
-	bool keyboardShown_ = false;
-	bool keyboardForced_ = false;  // Shown manually through the toggle; stays until toggled off.
-	bool keyboardToggleRequested_ = false;
-	bool prevWantTextInput_ = false;
-	int keyboardHideCountdown_ = 0;  // Debounces hide when focus moves between two text fields.
 };
 
 // Simple custom controls and utilities.
