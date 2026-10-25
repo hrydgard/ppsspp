@@ -360,7 +360,7 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
 #endif
 
-	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), 1, CfgFlag::DEFAULT),
+	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), (int)BackgroundAnimation::WAVE, CfgFlag::DEFAULT),
 	ConfigSetting("TransparentBackground", SETTING(g_Config, bTransparentBackground), true, CfgFlag::DEFAULT),
 	ConfigSetting("UITint", SETTING(g_Config, fUITint), 0.0, CfgFlag::DEFAULT),
 	ConfigSetting("UISaturation", SETTING(g_Config, fUISaturation), &DefaultUISaturation, CfgFlag::DEFAULT),
