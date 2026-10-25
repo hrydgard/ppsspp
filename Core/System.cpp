@@ -456,12 +456,19 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		break;
 	}
 	case IdentifiedFileType::PSP_ELF:
+	{
 		homebrew = true;
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
 			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
+		// The XMB is an ELF too, with no title of its own.
+		const std::string vshTitle = GetVSHTitle(fileLoader->GetPath());
+		if (!vshTitle.empty()) {
+			gameTitle = vshTitle;
+		}
 		break;
+	}
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		// Try to grab the disc ID from the filename or GE dump.
 		if (DiscIDFromGEDumpPath(g_CoreParameter.fileToStart, fileLoader, &geDumpDiscID)) {

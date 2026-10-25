@@ -191,6 +191,9 @@ bool FirmwareVersionPlaysUmdVideo(std::string_view version);
 extern const char *const UMD_VIDEO_MIN_FIRMWARE;
 // vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
 Path GetUmdVideoVSHPath();
+// What the XMB is called in the game list and the window title, like "XMB 6.61" (untranslated), if path is a
+// firmware's vshmain.prx. Empty otherwise.
+std::string GetVSHTitle(const Path &path);
 
 // Whether the installed firmware's POPS can run a PS1 disc image, as the converted EBOOT made from it.
 bool InstalledFirmwareRunsPS1Discs();
