@@ -77,6 +77,25 @@ bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across m
 platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
 test by name instead (skip `Jit`) to still get real coverage.
 
+## FFmpeg
+
+Every build compiles FFmpeg (3.0.2, from the source tree in the `ffmpeg/` submodule) itself; the
+prebuilt libraries and build scripts in that submodule are no longer used. There is no configure
+step. `ext/ffmpeg-build/` has:
+
+- `config.h`, kept by hand, standing in for the one configure writes. All assembly and
+  arch-specific code is off; the few platform differences are preprocessor checks at the top.
+  A component (decoder, demuxer, ...) is enabled by its `CONFIG_` line there.
+- `sources.mk`, the one list of files to compile, used by every build system: CMake reads it,
+  `android/jni/Android.mk`, `libretro/Makefile` and `libretro/jni/Android.mk` include it, and
+  `update_vcxproj.py` copies it into `ffmpeg.vcxproj` and `UWP/ffmpeg_UWP/ffmpeg_UWP.vcxproj`.
+  Run that script after changing the list.
+
+A file missing from the list shows up as an unresolved `ff_..._decoder` (or similar) at link time.
+FFmpeg relies on the compiler dropping calls in `if (CONFIG_...)` blocks, which MSVC only does
+when optimizing and without `/Zc:inline`, so the MSVC builds of FFmpeg are optimized in Debug
+too. CMake still links the system's FFmpeg with `-DUSE_SYSTEM_FFMPEG=ON`, or one in `FFMPEG_DIR`.
+
 ## UWP build
 
 UWP has its own solution, `UWP\PPSSPP_UWP.sln`. Build the app with `/t:PPSSPP_UWP` (or a single
@@ -121,7 +140,8 @@ with `-DIOS_PLATFORM=TVOS`, which sets `TVOS`.
   then `xcrun devicectl manage pair --device <identifier>` and enter the code it shows.
 - `./b.sh --tvos --libretro` (and `./b.sh --ios --libretro`) build the libretro cores. tvOS has no
   `sigaltstack`, among other things, so this is the build that catches it.
-- There's no tvOS simulator build: FFmpeg has no tvOS simulator libraries.
+- There's no tvOS simulator build. FFmpeg having no tvOS simulator libraries was what stopped it,
+  which no longer applies now that it's built from source, but nobody has tried since.
 - tvOS apps have no persistent storage except about 500 KB of `NSUserDefaults`. Anything else may be
   purged, so the memory stick is in Caches for now.
 
