@@ -224,6 +224,9 @@ endif()
 # FFMPEG_DIR is asked for.
 if(USE_FFMPEG AND NOT USE_SYSTEM_FFMPEG AND NOT FFMPEG_DIR)
 	set(BUILD_BUNDLED_FFMPEG ON)
+	# First on the include path, ahead of any other FFmpeg's headers that come along with another
+	# library's include directory (Homebrew's, for one).
+	include_directories(BEFORE ext/ffmpeg)
 else()
 	set(BUILD_BUNDLED_FFMPEG OFF)
 endif()
