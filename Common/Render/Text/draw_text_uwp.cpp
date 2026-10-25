@@ -262,6 +262,7 @@ TextDrawerUWP::~TextDrawerUWP() {
 }
 
 void TextDrawerUWP::SetOrCreateFont(const FontStyle &style) {
+	_dbg_assert_(style.sizePts > 0);
 	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		fontStyle_ = style;

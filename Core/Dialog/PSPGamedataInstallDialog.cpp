@@ -58,7 +58,7 @@ static std::vector<std::string> GetPSPFileList(std::string_view dirpath) {
 
 int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "A game install request is already running, not starting a new one");
+		ERROR_LOG(Log::sceUtility, "A game install request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -83,7 +83,7 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	if (allFilesSize == 0) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Game install with no files / data");
+		ERROR_LOG(Log::sceUtility, "Game install with no files / data");
 		// Getting a lot of reports of this from patched football games. Can probably ignore. https://report.ppsspp.org/logs/kind/793
 		return -1;
 	}
@@ -152,7 +152,7 @@ void PSPGamedataInstallDialog::OpenNextFile() {
 	currentInputFile = pspFileSystem.OpenFile(inputFileName, FILEACCESS_READ);
 	if (currentInputFile < 0) {
 		// TODO: Generate an error code?
-		ERROR_LOG_REPORT(Log::sceUtility, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
+		ERROR_LOG(Log::sceUtility, "Unable to read from install file: %s", inFileNames[readFiles].c_str());
 		++readFiles;
 		currentInputFile = 0;
 		return;

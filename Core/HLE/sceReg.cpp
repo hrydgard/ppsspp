@@ -1274,8 +1274,9 @@ int sceRegRemoveCategory(int regHandle, const char *name) {
 	return hleLogError(Log::sceReg, 0, "UNIMPL");
 }
 
+// Not very interesting, called after writes.
 int sceRegFlushCategory(int regHandle) {
-	return hleLogError(Log::sceReg, 0, "UNIMPL");
+	return hleLogDebug(Log::sceReg, 0, "UNIMPL");
 }
 
 // Key level

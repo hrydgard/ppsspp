@@ -281,7 +281,10 @@ void UIContext::MeasureText(const FontStyle &style, float scaleX, float scaleY, 
 		textDrawer_->SetFontScale(scaleX, scaleY);
 		textDrawer_->MeasureString(str, x, y);
 		if (switchFont) {
-			textDrawer_->SetOrCreateFont(*fontStyle_);
+			// Check for bad "old font".
+			if (fontStyle_ && fontStyle_->sizePts > 0) {
+				textDrawer_->SetOrCreateFont(*fontStyle_);
+			}
 		}
 	}
 }

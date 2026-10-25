@@ -584,26 +584,26 @@ static int sceAudioGetInputLength() {
 }
 
 static u32 sceAudioRoutingSetMode(u32 mode) {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingSetMode(%08x)", mode);
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetMode(%08x)", mode);
 	int previousMode = defaultRoutingMode;
 	defaultRoutingMode = mode;
 	return previousMode;
 }
 
 static u32 sceAudioRoutingGetMode() {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingGetMode()");
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetMode()");
 	return defaultRoutingMode;
 }
 
 static u32 sceAudioRoutingSetVolumeMode(u32 mode) {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingSetVolumeMode(%08x)", mode);
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode(%08x)", mode);
 	int previousMode = defaultRoutingVolMode;
 	defaultRoutingVolMode = mode;
 	return previousMode;
 }
 
 static u32 sceAudioRoutingGetVolumeMode() {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingGetVolumeMode()");
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetVolumeMode()");
 	return defaultRoutingVolMode;
 }
 

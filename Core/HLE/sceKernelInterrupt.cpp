@@ -734,8 +734,7 @@ struct PspIntrHandlerOptionParam {
 	u32 max_clock_hi;      //+34
 };  //=38
 
-static int QueryIntrHandlerInfo()
-{
+static int QueryIntrHandlerInfo() {
 	ERROR_LOG_REPORT(Log::sceIntc, "QueryIntrHandlerInfo()");
 	return 0;
 }

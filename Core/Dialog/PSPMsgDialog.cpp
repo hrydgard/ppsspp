@@ -52,7 +52,7 @@ bool PSPMsgDialog::UseAutoStatus() {
 int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
+		ERROR_LOG(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -65,16 +65,15 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 	messageDialogAddr = paramAddr;
 
-	int size = Memory::ReadUnchecked_U32(paramAddr);
+	const int size = Memory::ReadUnchecked_U32(paramAddr);
 	memset(&messageDialog, 0, sizeof(messageDialog));
 	// Only copy the right size to support different request format
-	Memory::Memcpy(&messageDialog,paramAddr,size);
+	Memory::Memcpy(&messageDialog, paramAddr, size);
 
 	// debug info
-	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
-	if(optionsNotCoded)
-	{
-		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
+	const int unsupportedOptionBits = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
+	if (unsupportedOptionBits) {
+		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", unsupportedOptionBits);
 	}
 
 	flag = 0;

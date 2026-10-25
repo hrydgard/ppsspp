@@ -81,7 +81,7 @@ public:
 		}
 
 		if (!dl->interruptsEnabled) {
-			ERROR_LOG_REPORT(Log::sceGe, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG(Log::sceGe, "Unable to run GE interrupt: list has interrupts disabled, should not happen");
 			return false;
 		}
 
@@ -172,7 +172,7 @@ public:
 
 		DisplayList* dl = gpu->getList(intrdata.listid);
 		if (!dl->interruptsEnabled) {
-			ERROR_LOG_REPORT(Log::sceGe, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
+			ERROR_LOG(Log::sceGe, "Unable to finish GE interrupt: list has interrupts disabled, should not happen");
 			return;
 		}
 
@@ -185,7 +185,7 @@ public:
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(Log::sceGe, "Weird DL status after signal suspend %x", dl->status);
 				if (newState != PSP_GE_DL_STATE_RUNNING) {
-					DEBUG_LOG_REPORT(Log::sceGe, "GE Interrupt: newState might be %d", newState);
+					DEBUG_LOG(Log::sceGe, "GE Interrupt: newState might be %d", newState);
 				}
 
 				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
@@ -346,7 +346,7 @@ void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason) 
 		listWaitingThreads[waitId].push_back(__KernelGetCurThread());
 		waitType = WAITTYPE_GELISTSYNC;
 	} else {
-		ERROR_LOG_REPORT(Log::sceGe, "__GeWaitCurrentThread: bad wait type");
+		ERROR_LOG(Log::sceGe, "__GeWaitCurrentThread: bad wait type");
 		return;
 	}
 
@@ -371,7 +371,7 @@ bool __GeTriggerWait(GPUSyncType type, SceUID waitId) {
 	else if (type == GPU_SYNC_LIST || (WaitType)type == WAITTYPE_GELISTSYNC)
 		return __GeTriggerWait(WAITTYPE_GELISTSYNC, waitId, listWaitingThreads[waitId]);
 	else
-		ERROR_LOG_REPORT(Log::sceGe, "__GeTriggerWait: bad wait type");
+		ERROR_LOG(Log::sceGe, "__GeTriggerWait: bad wait type");
 	return false;
 }
 
@@ -521,10 +521,10 @@ static int sceGeBreak(u32 mode, u32 unknownPtr) {
 	}
 	// Not sure what this is supposed to be for...
 	if ((int)unknownPtr < 0 || (int)(unknownPtr + 16) < 0) {
-		WARN_LOG_REPORT(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
+		WARN_LOG(Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): invalid ptr", mode, unknownPtr);
 		return SCE_KERNEL_ERROR_PRIV_REQUIRED;
 	} else if (unknownPtr != 0) {
-		WARN_LOG_REPORT_ONCE(gebreak_unkptr, Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
+		WARN_LOG_ONCE(gebreak_unkptr, Log::sceGe, "sceGeBreak(mode=%d, unknown=%08x): unknown ptr (%s)", mode, unknownPtr, Memory::IsValidAddress(unknownPtr) ? "valid" : "invalid");
 	}
 
 	//mode => 0 : current dlist 1: all drawing
@@ -670,7 +670,7 @@ static u32 sceGeGetCmd(int cmd) {
 }
 
 static int sceGeGetStack(int index, u32 stackPtr) {
-	return hleReportWarning(Log::sceGe, gpu->GetStack(index, stackPtr));
+	return hleLogWarning(Log::sceGe, gpu->GetStack(index, stackPtr));
 }
 
 static u32 sceGeEdramSetAddrTranslation(u32 new_size) {

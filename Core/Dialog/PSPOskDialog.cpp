@@ -210,15 +210,14 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	}
 	const int check = CheckRequest(oskPtr, { 0x40, 0x44 });
 	if (check < 0) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
 		return check;
 	}
 
 	oskParams = oskPtr;
 	// Seems to crash.
-	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData)))
-	{
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData))) {
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
