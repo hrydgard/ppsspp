@@ -22,22 +22,28 @@
 #include <mutex>
 #include <thread>
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/PopupScreens.h"
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
+#include "UI/SettingsPagesDialogScreen.h"
 #include "UI/TabbedDialogScreen.h"
 
 class Path;
+class SettingsPage;
 
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
-class GameSettingsScreen : public UITabbedBaseDialogScreen {
+class GameSettingsScreen : public SettingsPagesDialogScreen {
 public:
 	GameSettingsScreen(const Path &gamePath, std::string gameID = "", bool editThenRestore = false);
 	~GameSettingsScreen();
 
 	const char *tag() const override { return "GameSettings"; }
+
+	// Opens on the developer tools page.
+	void OpenDeveloperTools();
 
 protected:
 	void CallbackRestoreDefaults(bool yes);
@@ -45,19 +51,23 @@ protected:
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	void CreateTabs() override;
-	bool ShowSearchControls() const override { return true; }
 
 private:
 	void PreCreateViews() override;
 
-	void CreateGraphicsSettings(UI::ViewGroup *graphicsSettings);
-	void CreateControlsSettings(UI::ViewGroup *tools);
-	void CreateAudioSettings(UI::ViewGroup *audioSettings);
-	void CreateNetworkingSettings(UI::ViewGroup *networkingSettings);
-	void CreateToolsSettings(UI::ViewGroup *tools);
-	void CreateSystemSettings(UI::ViewGroup *systemSettings);
-	void CreateVRSettings(UI::ViewGroup *vrSettings);
-	UI::View *AddNicknameChoice(UI::ViewGroup *parent);
+	// One per tab.
+	struct PageDef {
+		const char *tag;
+		const char *title;  // In MAINSETTINGS.
+		const char *icon;
+		const char *helpTag;  // If null, there's no help button.
+		I18NCat cat;
+		void (*build)(SettingsPage *page);  // Null for the System tab, which the screen builds.
+	};
+	static const std::vector<PageDef> &PageDefs();
+
+	void BuildSystemSettings(SettingsPage *page);
+
 
 	std::string gameID_;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -72,10 +82,6 @@ private:
 	// Global settings handlers
 	void OnChangeBackground(UI::EventParams &e);
 	void OnRestoreDefaultSettings(UI::EventParams &e);
-	void OnRenderingBackend(UI::EventParams &e);
-	void OnRenderingDevice(UI::EventParams &e);
-	void OnInflightFramesChoice(UI::EventParams &e);
-	void OnAudioDevice(UI::EventParams &e);
 	void OnJitAffectingSetting(UI::EventParams &e);
 	void OnShowMemstickScreen(UI::EventParams &e);
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
@@ -85,13 +91,11 @@ private:
 	void OnImmersiveModeChange(UI::EventParams &e);
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
-	void TriggerRestartOrDo(std::function<void()> callback);
+	void RestartOrDo(std::function<void()> callback) override;
 	void ReadConfigTemporaries();
 
 	// Temporaries to convert setting types, cache enabled, etc.
-	int prevInflightFrames_ = -1;
 	bool enableReports_ = false;
-	bool analogSpeedMapped_ = false;
 
 	// edit the game-specific settings and restore the global settings after exiting
 	bool editGameSpecificThenRestore_ = false;
@@ -106,7 +110,6 @@ public:
 
 	void CreateTabs() override;
 	const char *tag() const override { return "GestureMapping"; }
-	bool ShowSearchControls() const override { return false; }
 protected:
 	void CreateGestureTab(UI::LinearLayout *parent, int zoneIndex, bool portrait);
 };

@@ -87,6 +87,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/ConfigSettings.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -3217,6 +3218,30 @@ bool TestVolumeFunc() {
 	return true;
 }
 
+// The info setters have to work in constant expressions, since the config tables are constexpr.
+static constexpr const char *testChoices[] = { "Off", "On", "Auto" };
+static constexpr ConfigSetting testSliderSetting = ConfigSetting("TestSlider", ConfigSettingOffset<int>{ 0 }, 50, CfgFlag::DEFAULT)
+	.Label(I18NCat::AUDIO, "Test slider").Range(0, 100, 5).Units("%").ZeroLabel("Off").NegativeLabel("Disabled");
+static_assert(testSliderSetting.Info().HasRange() && !testSliderSetting.Info().HasChoices());
+static_assert(testSliderSetting.Info().zeroLabel && testSliderSetting.Info().negativeLabel);
+static constexpr ConfigSetting testChoiceSetting = ConfigSetting("TestChoice", ConfigSettingOffset<int>{ 0 }, 1, CfgFlag::DEFAULT)
+	.Label(I18NCat::AUDIO, "Test choice").Choices(testChoices, 1);
+static_assert(testChoiceSetting.Info().choiceCount == 3 && testChoiceSetting.Info().choiceMin == 1 && !testChoiceSetting.Info().HasRange());
+
+bool TestConfigSettings() {
+	g_Config.Init();
+
+	const ConfigSettingRef *ref = Config::FindSetting(&g_Config.iUIVolume);
+	EXPECT_TRUE(ref && ref->setting->IniKey() == "UIVolume");
+	EXPECT_EQ_INT(Config::GetDefaultValueInt(&g_Config.iUIVolume), 75);
+
+	// Blocks that reset as a whole, where the default can depend on which block it is.
+	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutLandscape.fDisplayOffsetY), 0.5f);
+	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutPortrait.fDisplayOffsetY), 0.25f);
+	EXPECT_EQ_INT(Config::GetDefaultValueInt(&g_Config.gestureControls[1].iSwipeUp), 0);
+	return true;
+}
+
 bool TestLinAlg() {
 	static const float m1[16] = {
 		1, 2, 3, 4,
@@ -4080,6 +4105,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SIMD),
 	TEST_ITEM(CrossSIMD),
 	TEST_ITEM(VolumeFunc),
+	TEST_ITEM(ConfigSettings),
 	TEST_ITEM(SplitSearch),
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),

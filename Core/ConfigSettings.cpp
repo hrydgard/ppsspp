@@ -8,8 +8,16 @@
 #include "Core/ConfigValues.h"
 #include "Core/Config.h"
 
+void ConfigSettingTableError() {
+	_dbg_assert_msg_(false, "ConfigSetting info setter used on the wrong kind of setting");
+}
+
 bool ConfigSetting::PerGame(void *ptr) {
-	return g_Config.IsGameSpecific() && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr].second->PerGame();
+	if (!g_Config.IsGameSpecific()) {
+		return false;
+	}
+	const ConfigSettingRef *ref = Config::FindSetting(ptr);
+	return ref && ref->setting->PerGame();
 }
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {

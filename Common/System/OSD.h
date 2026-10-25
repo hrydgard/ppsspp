@@ -84,6 +84,9 @@ public:
 	// Call every frame to keep the sidebar visible. Otherwise it'll fade out.
 	void NudgeIngameNotifications();
 	float IngameAlpha() const;
+	// Shows the in-game notifications outside a game too, for testing how they look.
+	void SetPretendIngame(bool pretend) { pretendIngame_ = pretend; }
+	bool PretendIngame() const { return pretendIngame_; }
 
 	// Fades out everything related to achievements. Should be used on game shutdown.
 	void ClearAchievementStuff();
@@ -128,6 +131,7 @@ private:
 	std::mutex mutex_;
 
 	double sideBarShowTime_ = 0.0;
+	bool pretendIngame_ = false;
 };
 
 extern OnScreenDisplay g_OSD;
