@@ -18,91 +18,38 @@
 
 #include "ppsspp_config.h"
 
-#include <algorithm>
-#include <set>
+#include <functional>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "Common/Net/Resolve.h"
-#include "Common/Audio/AudioBackend.h"
-#include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/Render/DrawBuffer.h"
-#include "Common/UI/Root.h"
+#include "Common/Common.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/File/Path.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/System/Request.h"
+#include "Common/System/System.h"
+#include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
-#include "Common/UI/Context.h"
-#include "Common/UI/Notice.h"
-#include "Common/UI/ScreenManager.h"
-#include "Common/Render/ManagedTexture.h"
-#include "Common/VR/PPSSPPVR.h"
-#include "Common/BitSet.h"
-#include "Common/System/Display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
-#include "Common/System/Request.h"
-#include "Common/System/OSD.h"
-#include "Common/System/NativeApp.h"
-#include "Common/Data/Color/RGBAUtil.h"
-#include "Common/Data/Text/I18n.h"
-#include "Common/Data/Encoding/Utf8.h"
-#include "Common/UI/PopupScreens.h"
-#include "UI/EmuScreen.h"
-#include "UI/GameSettingsScreen.h"
-#include "UI/Settings/MainSettingsPages.h"
-#include "UI/SettingsPage.h"
-#include "UI/GameInfoCache.h"
-#include "UI/GamepadEmu.h"
-#include "UI/ControlMappingScreen.h"
-#include "UI/DevScreens.h"
-#include "UI/DeveloperSettingsPages.h"
-#include "UI/DisplayLayoutScreen.h"
-#include "UI/FirmwareScreen.h"
-#include "UI/RemoteISOScreen.h"
-#include "UI/SavedataScreen.h"
-#include "UI/SystemInfoScreen.h"
-#include "UI/TouchControlLayoutScreen.h"
-#include "UI/TouchControlVisibilityScreen.h"
-#include "UI/TiltAnalogSettingsScreen.h"
-#include "UI/MemStickScreen.h"
-#include "UI/Theme.h"
-#include "UI/RetroAchievementScreens.h"
-#include "UI/OnScreenDisplay.h"
-#include "UI/DiscordIntegration.h"
-#include "UI/Background.h"
-#include "UI/BackgroundAudio.h"
-#include "UI/MiscViews.h"
-#include "UI/AdhocServerScreen.h"
-
-#include "Common/File/FileUtil.h"
-#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/KeyMap.h"
-#include "Core/TiltEventProcessor.h"
 #include "Core/Instance.h"
-#include "Core/System.h"
+#include "Core/KeyMap.h"
 #include "Core/Reporting.h"
-#include "Core/HLE/sceUsbCam.h"
-#include "Core/HLE/sceUsbMic.h"
-#include "Core/HLE/sceUtility.h"
-#include "Core/Util/PortManager.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/GPU.h"
+#include "UI/AdhocServerScreen.h"
+#include "UI/GameInfoCache.h"
+#include "UI/GamepadEmu.h"
+#include "UI/GameSettingsScreen.h"
+#include "UI/MiscViews.h"
+#include "UI/Settings/MainSettingsPages.h"
+#include "UI/Theme.h"
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
-#endif
-
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-#pragma warning(disable:4091)  // workaround bug in VS2015 headers
-#include "Windows/MainWindow.h"
-#include <shlobj.h>
-#include "Windows/W32Util/ShellUtil.h"
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-
-#include "android/jni/AndroidAudio.h"
-#include "Common/File/AndroidStorage.h"
-
-extern AndroidAudioState *g_audioState;
-
 #endif
 
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
