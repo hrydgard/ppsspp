@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <set>
+#include <functional>
 
 #include "ext/imgui/imgui.h"
 
@@ -131,12 +132,11 @@ struct ImConfig {
 
 	float fbViewerZoom = 1.0f;
 
-	// Touch / mobile usability. Saved in the "Settings" section of imdebugger.ini.
-	bool touchMode = true;          // Big touch targets, compact menu bar + menu panel. Defaults to on for mobile devices.
-	bool scrollAssistOpen = true;   // Floating quick-scroll buttons (Top / PgUp / Up / Down / PgDn / End).
-	int touchScalePct = 100;        // 70..200, scales padding, scrollbars and grab sizes in touch mode.
-	// Not saved: we don't want the keyboard to pop up by itself on the next launch.
-	bool forceKeyboard = false;
+	// Touch / mobile helpers.
+	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
+	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
+	bool forceKeyboard = false;         // Ask the platform to show the soft keyboard (see ImDebugger_SetSoftKeyboardHook).
+	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
 
 
 	// We use a separate ini file from the main PPSSPP config.
@@ -144,17 +144,6 @@ struct ImConfig {
 	void SaveConfig(const Path &iniFile);
 
 	void SyncConfig(IniFile *ini, bool save);
-};
-
-// Finger-drag scrolling with a bit of inertia for the *current* ImGui window.
-// Call Update() once per frame from inside the (child) window that should scroll, before
-// submitting its contents. Only use it in windows made of simple buttons/selectables, since
-// a drag cancels whatever widget the finger started on.
-struct ImTouchScroller {
-	bool armed = false;
-	bool dragging = false;
-	float velocity = 0.0f;
-	void Update();
 };
 
 struct Track;
@@ -212,20 +201,7 @@ public:
 
 private:
 	Path ConfigPath();
-
-	// Touch-friendly UI.
-	void DrawTouchMenuBar(bool showDebugger, CoreState coreState);
-	void DrawTouchMenuPanel(bool showDebugger, bool allowSaveStates, CoreState coreState);
-	void DrawScrollAssist();
-	void SetForcedKeyboard(bool on);
-
-	ImTouchScroller panelScroll_;
-	char windowFilter_[64]{};
-	bool menuPanelRequested_ = false;
-	bool keyboardForced_ = false;
-	bool scrollAssistCollapsed_ = false;
-	ImGuiID scrollTargetId_ = 0;       // Last window the user interacted with (the target of the scroll buttons).
-	ImGuiID scrollAssistRootId_ = 0;
+	void DrawQuickScroll();
 
 	RequesterToken reqToken_;
 
@@ -252,7 +228,16 @@ private:
 	ImConfig cfg_{};
 
 	ImCommand externalCommand_;
+
+	// Quick scroll strip: the last debugger window the user touched (ImGui window ID).
+	ImGuiID quickScrollTarget_ = 0;
+	// Whether we last asked the platform to show the soft keyboard.
+	bool keyboardShown_ = false;
 };
+
+// Platform hook for the "force keyboard" toggle. The callback is called with true to show the soft keyboard and
+// false to hide it. Does nothing until a platform sets it, so it is safe on all platforms.
+void ImDebugger_SetSoftKeyboardHook(std::function<void(bool show)> hook);
 
 // Simple custom controls and utilities.
 void ImClickableValue(const char *id, uint32_t value, ImControl &control, ImCmd cmd);
