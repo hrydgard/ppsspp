@@ -73,6 +73,13 @@ typedef struct
 // on a PSP needs it (seed is its secure install ID then).
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed = nullptr, const u32 *fuseId = nullptr);
 
+// Modules flashed on a real PSP are "signchecked": their key data at 0x80..0x150 is re-encrypted
+// with that console's per-console key. pspDecryptPRX undoes it when given the Fuse ID. This tells
+// whether a header that failed to decrypt is likely to be one (so the user can be told to set it).
+bool pspLooksSignChecked(const u8 *header);
+// The reverse of what pspDecryptPRX undoes, as the firmware does when flashing. For tests.
+bool pspSignCheckHeader(u8 *header, const u32 *fuseId);
+
 // A module installed by the DRM BB install utility (sceKernelLoadModuleDNAS) is a PGD around a type 3
 // PRX, both keyed to the console by its Fuse ID and to the game by the secure install ID it passes.
 // Replaces data with the PGD's contents; false if it doesn't open with these.
