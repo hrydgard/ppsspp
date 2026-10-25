@@ -36,7 +36,7 @@
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
-    <ClCompile Include="DeveloperToolsScreen.cpp" />
+    <ClCompile Include="DeveloperSettingsPages.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
@@ -78,6 +78,12 @@
     <ClCompile Include="SystemInfoScreen.cpp" />
     <ClCompile Include="TabbedDialogScreen.cpp" />
     <ClCompile Include="SettingsPage.cpp" />
+    <ClCompile Include="Settings\GraphicsPage.cpp" />
+    <ClCompile Include="Settings\ControlsPage.cpp" />
+    <ClCompile Include="Settings\AudioPage.cpp" />
+    <ClCompile Include="Settings\NetworkingPage.cpp" />
+    <ClCompile Include="Settings\ToolsPage.cpp" />
+    <ClCompile Include="Settings\VRPage.cpp" />
     <ClCompile Include="SettingsPagesDialogScreen.cpp" />
     <ClCompile Include="SimpleDialogScreen.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
@@ -101,7 +107,7 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />
     <ClInclude Include="DebugOverlay.h" />
-    <ClInclude Include="DeveloperToolsScreen.h" />
+    <ClInclude Include="DeveloperSettingsPages.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
@@ -143,6 +149,7 @@
     <ClInclude Include="SystemInfoScreen.h" />
     <ClInclude Include="TabbedDialogScreen.h" />
     <ClInclude Include="SettingsPage.h" />
+    <ClInclude Include="Settings\MainSettingsPages.h" />
     <ClInclude Include="SettingsPagesDialogScreen.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />

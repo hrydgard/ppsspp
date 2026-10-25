@@ -63,6 +63,13 @@ list(APPEND UISource
 	TabbedDialogScreen.cpp
 	SettingsPage.h
 	SettingsPage.cpp
+	Settings/MainSettingsPages.h
+	Settings/GraphicsPage.cpp
+	Settings/ControlsPage.cpp
+	Settings/AudioPage.cpp
+	Settings/NetworkingPage.cpp
+	Settings/ToolsPage.cpp
+	Settings/VRPage.cpp
 	SettingsPagesDialogScreen.h
 	SettingsPagesDialogScreen.cpp
 	GameScreen.h
@@ -71,8 +78,8 @@ list(APPEND UISource
 	GamePacker.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
-	DeveloperToolsScreen.h
-	DeveloperToolsScreen.cpp
+	DeveloperSettingsPages.h
+	DeveloperSettingsPages.cpp
 	DriverManagerScreen.h
 	DriverManagerScreen.cpp
 	GPUDriverTestScreen.h

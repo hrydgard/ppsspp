@@ -1025,6 +1025,12 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \
   $(SRC)/UI/SettingsPage.cpp \
+  $(SRC)/UI/Settings/GraphicsPage.cpp \
+  $(SRC)/UI/Settings/ControlsPage.cpp \
+  $(SRC)/UI/Settings/AudioPage.cpp \
+  $(SRC)/UI/Settings/NetworkingPage.cpp \
+  $(SRC)/UI/Settings/ToolsPage.cpp \
+  $(SRC)/UI/Settings/VRPage.cpp \
   $(SRC)/UI/SettingsPagesDialogScreen.cpp \
   $(SRC)/UI/AdhocServerScreen.cpp \
   $(SRC)/UI/SimpleDialogScreen.cpp \
@@ -1048,7 +1054,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/UploadScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
-  $(SRC)/UI/DeveloperToolsScreen.cpp \
+  $(SRC)/UI/DeveloperSettingsPages.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \

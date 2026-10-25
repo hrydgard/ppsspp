@@ -47,7 +47,7 @@
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp">
+    <ClCompile Include="..\..\UI\DeveloperSettingsPages.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\DevScreens.cpp">
@@ -134,6 +134,24 @@
     <ClCompile Include="..\..\UI\SettingsPage.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\GraphicsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\ControlsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\AudioPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\NetworkingPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\ToolsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\VRPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\SettingsPagesDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -209,7 +227,7 @@
     <ClInclude Include="..\..\UI\CwCheatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h">
+    <ClInclude Include="..\..\UI\DeveloperSettingsPages.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\DevScreens.h">
@@ -296,6 +314,9 @@
     <ClInclude Include="..\..\UI\SettingsPage.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\Settings\MainSettingsPages.h">
+      <Filter>Settings</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\SettingsPagesDialogScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -327,6 +348,9 @@
     </Filter>
     <Filter Include="Screens">
       <UniqueIdentifier>{38b8413d-438d-4197-9db8-7bd123fc7431}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Settings">
+      <UniqueIdentifier>{5898f2e1-ea5b-45dc-a02d-17a4de26650b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
