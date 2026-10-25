@@ -2702,6 +2702,15 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	const CoreState coreState = ::coreState;
 
 	const bool showDebugger = g_Config.bShowImDebugger && PSP_IsInited();  // This will be separated from showing the IM UI in general.
+	// The debugger got hidden some other way (hotkey, settings...): drop the keyboard so it's off when reopened.
+	if (!g_Config.bShowImDebugger && cfg_.forceKeyboard) {
+		cfg_.forceKeyboard = false;
+		if (keyboardShown_) {
+			keyboardShown_ = false;
+			ApplySoftKeyboard(false);
+		}
+	}
+
 	const bool allowSaveStates = !Achievements::HardcoreModeActive() && PSP_IsInited() && (!IsNetworkConnected() || g_Config.bAllowSavestateWhileConnected);
 
 	if (Achievements::HardcoreModeActive()) {
@@ -2761,6 +2770,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	};
 	auto closeDebugger = [&]() {
 		g_Config.bShowImDebugger = false;
+		cfg_.forceKeyboard = false;  // So the keyboard doesn't pop back up when the debugger is reopened.
 		if (keyboardShown_) {
 			keyboardShown_ = false;
 			ApplySoftKeyboard(false);
