@@ -233,6 +233,9 @@
    d="m 20.003686,15.425178 -4.588999,-4.577262 -0.0308,3.553627 -4.535971,3e-6 v 2.072375 l 4.535971,-2e-6 0.031,3.529868 z"
    style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.35133"
    sodipodi:nodetypes="cccccccc" /><path
+   id="I_CHEVRON_RIGHT"
+   style="fill:#ffffff;fill-opacity:1;stroke:none"
+   d="M 42.7172,1.7828 L 46.4343,5.5000 L 42.7172,9.2172 L 43.2828,9.7828 L 47.5657,5.5000 L 43.2828,1.2172 Z" /><path
    sodipodi:nodetypes="cccccccc"
    style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.35133"
    d="m 26.009856,20.003745 4.57727,-4.589002 -3.55364,-0.03085 v -4.535978 l -2.07237,4e-6 v 4.535977 l -3.52987,0.03089 z"

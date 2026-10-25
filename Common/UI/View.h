@@ -565,6 +565,9 @@ public:
 
 	void FocusChanged(FocusFlags focusFlags) override;
 
+	// Outlines it, to point it out without the keyboard focus (which would turn on keyboard navigation).
+	void SetHighlighted(bool highlighted) { highlighted_ = highlighted; }
+
 	Event OnClick;
 
 protected:
@@ -579,6 +582,7 @@ protected:
 	int downCountDown_ = 0;
 	bool dragging_ = false;
 	bool down_ = false;
+	bool highlighted_ = false;
 };
 
 // TODO: Very similar to Choice, should probably merge them.

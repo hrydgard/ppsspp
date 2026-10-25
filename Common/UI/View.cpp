@@ -217,6 +217,9 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 	} else {
 		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	}
+	if (highlighted_) {
+		dc.Draw()->DrawRoundRect(bounds_, dc.GetTheme().choiceRoundRadius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
+	}
 }
 
 void Clickable::ClickInternal() {

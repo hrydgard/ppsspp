@@ -891,12 +891,14 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new TouchTestScreen(Path()));
-		}
-		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
+		} else if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new DeveloperToolsScreen(Path()));
+		} else {
+			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
+			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
