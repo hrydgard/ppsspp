@@ -3138,7 +3138,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 		// Soft keyboard toggle (like the keyboard button in Winlator).
 		if (cfg_.showKeyboardToggle) {
-			ImGui::MenuItem(cfg_.forceKeyboard ? "Keyboard" : "Kbd", nullptr, &cfg_.forceKeyboard);
+			ImGui::MenuItem(cfg_.forceKeyboard ? "Hide Keyboard" : "Show Keyboard", nullptr, &cfg_.forceKeyboard);
 		}
 
 		ImGui::EndMainMenuBar();
