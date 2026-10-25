@@ -674,7 +674,7 @@ bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address) {
 	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
 	if (nib == 0)
 	{
-		WARN_LOG_REPORT(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
+		WARN_LOG(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
 		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), address); //patched out?
 		Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
@@ -688,7 +688,7 @@ bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address) {
 	}
 	else
 	{
-		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
+		ERROR_LOG(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
 		return false;
 	}
 }
@@ -1221,7 +1221,7 @@ void CallSyscallWithPC(MIPSState *mips, MIPSOpcode op, u32 pc) {
 	} else {
 		// We haven't incremented the stack yet.
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
-		ERROR_LOG_REPORT(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
+		ERROR_LOG(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
 	if (collectStats) {

@@ -545,7 +545,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	// Check alignment
 	// TODO Check the context and stack alignement too
 	if (((listpc | stall) & 3) != 0 || !Memory::IsValidAddress(listpc)) {
-		ERROR_LOG_REPORT(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
+		ERROR_LOG(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
@@ -1249,7 +1249,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 		currentList->pc = target - 4;
 #ifdef _DEBUG
 		if (!Memory::IsValidAddress(currentList->pc)) {
-			ERROR_LOG_REPORT(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
+			ERROR_LOG(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
 			UpdateState(GPUSTATE_ERROR);
 		}
 #endif
@@ -1331,7 +1331,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						UpdatePC(currentList->pc, target);
@@ -1358,9 +1358,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						// TODO: This might save/restore other state...
@@ -1379,7 +1379,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					if (currentList->stackptr == 0) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[--currentList->stackptr];
@@ -1392,7 +1392,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				}
 				break;
 			default:
-				ERROR_LOG_REPORT(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+				ERROR_LOG(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 				break;
 			}
 			// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?

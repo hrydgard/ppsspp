@@ -420,7 +420,7 @@ RiscVReg RiscVRegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return (RiscVReg)mr[mipsReg].nReg;
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -440,7 +440,7 @@ RiscVReg RiscVRegCache::RPtr(IRReg mipsReg) {
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -451,7 +451,7 @@ RiscVReg RiscVRegCache::F(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return (RiscVReg)mr[mipsReg + 32].nReg;
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in riscv reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in riscv reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

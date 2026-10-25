@@ -758,7 +758,7 @@ LoongArch64Reg LoongArch64RegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return (LoongArch64Reg)mr[mipsReg].nReg;
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -778,7 +778,7 @@ LoongArch64Reg LoongArch64RegCache::RPtr(IRReg mipsReg) {
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -789,7 +789,7 @@ LoongArch64Reg LoongArch64RegCache::F(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return (LoongArch64Reg)mr[mipsReg + 32].nReg;
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in LoongArch64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

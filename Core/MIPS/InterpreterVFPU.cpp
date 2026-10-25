@@ -144,8 +144,8 @@ static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, 
 
 		if (!constants) {
 			if (regnum >= n) {
-				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
+				// We handle this now, let's log anyway.
+				ERROR_LOG(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)
@@ -939,7 +939,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vf2h with invalid elements");
+			ERROR_LOG(Log::CPU, "vf2h with invalid elements");
 			break;
 		}
 		ApplyPrefixD(mips, reinterpret_cast<float *>(d), outsize);
@@ -1009,7 +1009,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vus2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vus2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1035,7 +1035,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vs2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vs2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -2202,7 +2202,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vcrsp/vqmul with invalid elements");
+			ERROR_LOG(Log::CPU, "vcrsp/vqmul with invalid elements");
 			break;
 		}
 

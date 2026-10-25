@@ -142,8 +142,7 @@ static u32 sceKernelPartitionMaxFreeMemSize(int partitionId) {
 	return hleLogWarning(Log::sceKernel, allocator->GetLargestFreeBlockSize());
 }
 
-static u32 sceKernelGetUidmanCB()
-{
+static u32 sceKernelGetUidmanCB() {
 	ERROR_LOG_REPORT(Log::sceKernel, "UNIMP sceKernelGetUidmanCB");
 	return 0;
 }

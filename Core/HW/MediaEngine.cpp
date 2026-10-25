@@ -248,13 +248,13 @@ bool MediaEngine::SetupStreams() {
 #ifdef USE_FFMPEG
 	const u32 magic = *(u32_le *)&m_mpegheader[0];
 	if (magic != PSMF_MAGIC) {
-		WARN_LOG_REPORT(Log::ME, "Could not setup streams, bad magic: %08x", magic);
+		WARN_LOG(Log::ME, "Could not setup streams, bad magic: %08x", magic);
 		return false;
 	}
 	int numStreams = *(u16_be *)&m_mpegheader[0x80];
 	if (numStreams <= 0 || numStreams > 8) {
 		// Looks crazy.  Let's bail out and let FFmpeg handle it.
-		WARN_LOG_REPORT(Log::ME, "Could not setup streams, unexpected stream count: %d", numStreams);
+		WARN_LOG(Log::ME, "Could not setup streams, unexpected stream count: %d", numStreams);
 		return false;
 	}
 
@@ -319,7 +319,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
-		WARN_LOG_REPORT(Log::ME, "Bad video stream %d", m_videoStream);
+		WARN_LOG(Log::ME, "Bad video stream %d", m_videoStream);
 		m_videoStream = -1;
 	}
 
@@ -541,13 +541,13 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
-			WARN_LOG_REPORT(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
+			WARN_LOG(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = avcodec_alloc_context3(pCodec);
 		int paramResult = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
 		if (paramResult < 0) {
-			WARN_LOG_REPORT(Log::ME, "Failed to prepare context parameters: %08x", paramResult);
+			WARN_LOG(Log::ME, "Failed to prepare context parameters: %08x", paramResult);
 			return false;
 		}
 #else
@@ -887,7 +887,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 
 	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -939,7 +939,7 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
@@ -978,7 +978,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 
 	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -1039,7 +1039,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
@@ -1103,7 +1103,7 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int16_t *buffer = (int16_t *)Memory::GetPointerWriteRangeOrException(bufferPtr, 8192);
 	if (buffer == nullptr) {
-		ERROR_LOG_REPORT(Log::ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
+		ERROR_LOG(Log::ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
 	if (!m_demux) {
 		return 0;

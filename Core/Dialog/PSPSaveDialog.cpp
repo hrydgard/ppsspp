@@ -115,7 +115,7 @@ PSPSaveDialog::~PSPSaveDialog() {
 int PSPSaveDialog::Init(int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "A save request is already running, not starting a new one");
+		ERROR_LOG(Log::sceUtility, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
