@@ -130,11 +130,15 @@ Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
 
 // On TVs and big monitors, controls out at the edges are hard to see and far apart. Grows with the
 // screen, from nothing at 600 high (or wide, if smaller) to the full inset at 1000, so resizing a window
-// doesn't make it jump.
+// doesn't make it jump. Phones and tablets are held close, and have their own system insets.
 static float LargeScreenInset() {
 	const float fullInset = 40.0f;
-	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+	const int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	if (deviceType == DEVICE_TYPE_TV) {
 		return fullInset;
+	}
+	if (deviceType == DEVICE_TYPE_MOBILE) {
+		return 0.0f;
 	}
 	const float size = (float)std::min(g_display.dp_xres, g_display.dp_yres);
 	return fullInset * std::clamp((size - 600.0f) / 400.0f, 0.0f, 1.0f);
