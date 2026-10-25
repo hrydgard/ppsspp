@@ -551,7 +551,6 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 #if defined(_WIN32)
 	page->Header("Recording");
 	page->Setting(&g_Config.bDumpFrames);
-	page->Setting(&g_Config.bUseFFV1);
 	page->Setting(&g_Config.bDumpVideoOutput);
 	page->Setting(&g_Config.bDumpAudio);
 	page->Setting(&g_Config.bSaveLoadResetsAVdumping);

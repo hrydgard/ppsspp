@@ -131,9 +131,8 @@ bool AVIDump::CreateAVI() {
 #else
 	s_codec_context = avcodec_alloc_context3(codec);
 #endif
-	s_codec_context->codec_id = g_Config.bUseFFV1 ? AV_CODEC_ID_FFV1 : s_format_context->oformat->video_codec;
-	if (!g_Config.bUseFFV1)
-		s_codec_context->codec_tag = MKTAG('X', 'V', 'I', 'D');  // Force XVID FourCC for better compatibility
+	// Lossless. For lossy footage, capture the output with a screen recorder instead.
+	s_codec_context->codec_id = AV_CODEC_ID_FFV1;
 	s_codec_context->codec_type = AVMEDIA_TYPE_VIDEO;
 	s_codec_context->bit_rate = 400000;
 	s_codec_context->width = s_width;
@@ -141,7 +140,7 @@ bool AVIDump::CreateAVI() {
 	s_codec_context->time_base.num = 1001;
 	s_codec_context->time_base.den = 60000;
 	s_codec_context->gop_size = 12;
-	s_codec_context->pix_fmt = g_Config.bUseFFV1 ? AV_PIX_FMT_BGRA : AV_PIX_FMT_YUV420P;
+	s_codec_context->pix_fmt = AV_PIX_FMT_BGRA;
 
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(57, 48, 101)
 	if (avcodec_parameters_from_context(s_stream->codecpar, s_codec_context) < 0)

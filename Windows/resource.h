@@ -278,7 +278,6 @@
 #define ID_GEDBG_COPYALL                 40163
 #define ID_GEDBG_WATCH                   40164
 #define ID_FILE_DUMPFRAMES               40165
-#define ID_FILE_USEFFV1                  40166
 #define ID_FILE_DUMPAUDIO                40167
 #define ID_HELP_GITHUB                   40168
 #define IDC_GEDBG_RECORD                 40169
