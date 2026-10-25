@@ -70,7 +70,7 @@ Follow the workflow in docs/translations.md. Run langtool from
    translations, check what you're about to replace first. The section has to exist already.
 
 4. `cargo run -- add-new-key "<Section>" "<Key>"` - **always, every language file ends up with the
-   key.** This writes `Key = Key` (plain English, no `# same as English` marker, so it still reads
+   key.** This writes the English string from `en_US.ini` (no `# same as English` marker, so it still reads
    as outstanding work) into every language you skipped, and leaves the ones you translated alone.
    A missing key would fall back to the English string at runtime anyway, but then it looks exactly
    like a translated one in the files, and translators can't see what's left to do.

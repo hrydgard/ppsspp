@@ -37,8 +37,9 @@ from `Tools/langtool`:
    already have human translations, and that the section has to exist already - langtool won't create
    one.
 4. `cargo run -- add-new-key <Section> "<Key>"` gives every language you skipped the English string
-   as a placeholder - `Key = Key`, with no `# same as English` marker, so it still reads as
-   outstanding work - and leaves the translated ones untouched. Always do this: every language file
+   as a placeholder - the key's value in en_US.ini, usually the key itself, with no
+   `# same as English` marker, so it still reads as outstanding work - and leaves the translated
+   ones untouched. Always do this: every language file
    should end up with the key. A missing key falls back to English at runtime anyway, but in the
    files it's indistinguishable from a translated one, so translators can't see what's left.
    `copy-missing-lines` does the same job across every key in the repo at once, which is a different
