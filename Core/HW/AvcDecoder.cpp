@@ -376,6 +376,16 @@ void AvcDecoder::Release() {
 	if (timing != timings_.end()) {
 		pic.timing = timing->second;
 		timings_.erase(timing);
+		// ffmpeg puts the two fields of a pair together into one frame, stamped with the first's
+		// access unit. The second is the next unit in decode order, the opposite field.
+		auto second = timings_.find(d.index + 1);
+		const int ps = pic.timing.picStruct;
+		if ((ps == 1 || ps == 2) && second != timings_.end() && second->second.picStruct == 3 - ps) {
+			pic.fieldPair = true;
+			pic.secondField = second->second;
+			timings_.erase(second);
+			outputTicks_.erase(d.index + 1);
+		}
 	}
 	pictures_.push_back(pic);
 #endif

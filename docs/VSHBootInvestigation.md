@@ -63,6 +63,10 @@ Two separate things:
   and the Spider-Man 2 trailer on the EUR Video Demo Disc play with sound. What that player needed
   from our Media Engine HLE (per-picture SEI records, keyframe flags, field conversion in
   `sceMpegBaseCscAvc`) is in pspautotests `video/mpeg/avcdetail` and `video/mpeg/cscavc`.
+  Interlaced discs (Family Guy and The Dark Knight are coded as separate field pictures, bottom
+  field first) are shown a field per vsync. The player takes the field order from the two SEI
+  records of each picture, one per field, so a field pair has to come with both (see
+  `PublishPictureInfo()`).
 
   Booting a UMD Video disc (from the game list, the command line or anywhere else) boots the XMB
   with the disc in the drive and UMD auto-start forced on (`CoreParameter::umdAutoboot`), so it
