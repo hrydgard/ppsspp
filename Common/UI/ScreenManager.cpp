@@ -389,11 +389,6 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		}
 
 		getUIContext()->Flush();
-
-		if (postRenderCb_) {
-			// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-			postRenderCb_(getUIContext(), postRenderUserdata_);
-		}
 	} else {
 		ERROR_LOG(Log::UI, "No current screen!");
 	}
