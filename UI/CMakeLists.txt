@@ -68,6 +68,7 @@ list(APPEND UISource
 	Settings/ControlsPage.cpp
 	Settings/AudioPage.cpp
 	Settings/NetworkingPage.cpp
+	Settings/SystemPage.cpp
 	Settings/ToolsPage.cpp
 	Settings/VRPage.cpp
 	SettingsPagesDialogScreen.h
