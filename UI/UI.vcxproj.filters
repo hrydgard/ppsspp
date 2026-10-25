@@ -105,6 +105,24 @@
     <ClCompile Include="SettingsPage.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="Settings\GraphicsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings\ControlsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings\AudioPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings\NetworkingPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings\ToolsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Settings\VRPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
     <ClCompile Include="SettingsPagesDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -275,6 +293,9 @@
     <ClInclude Include="SettingsPage.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="Settings\MainSettingsPages.h">
+      <Filter>Settings</Filter>
+    </ClInclude>
     <ClInclude Include="SettingsPagesDialogScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -344,6 +365,9 @@
   <ItemGroup>
     <Filter Include="Screens">
       <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Settings">
+      <UniqueIdentifier>{16cf6f47-da0b-421f-99a3-c934d3edc1a4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Views">
       <UniqueIdentifier>{071baa63-c681-4ad6-945b-e126645d1b55}</UniqueIdentifier>
