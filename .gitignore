@@ -143,7 +143,6 @@ compile_commands.json
 .cache/
 build
 libretro/obj/local
-libretro/obj-ffmpeg
 
 ppsspp_retroachievements.dat
 RACache

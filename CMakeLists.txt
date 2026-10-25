@@ -220,7 +220,7 @@ if(USE_SYSTEM_MINIUPNPC)
 	add_compile_definitions(USE_SYSTEM_MINIUPNPC)
 endif()
 
-# FFmpeg is built from the sources in ffmpeg/ (see ext/ffmpeg-build), unless the system's or one in
+# FFmpeg is built from the sources in ext/ffmpeg (see its README.md), unless the system's or one in
 # FFMPEG_DIR is asked for.
 if(USE_FFMPEG AND NOT USE_SYSTEM_FFMPEG AND NOT FFMPEG_DIR)
 	set(BUILD_BUNDLED_FFMPEG ON)

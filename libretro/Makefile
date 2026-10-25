@@ -42,7 +42,7 @@ endif
 
 # Dirs
 CORE_DIR			= ..
-FFMPEGDIR		= $(CORE_DIR)/ffmpeg
+FFMPEGDIR		= $(CORE_DIR)/ext/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
@@ -401,14 +401,12 @@ ifneq ($(platform), emscripten)
 	BUILD_FFMPEG := 1
 endif
 
-# FFmpeg, built from the sources in ffmpeg/ (see ext/ffmpeg-build). Its own include directories go
-# first, so its config.h wins over the other config.h files on the include path. The objects get
-# their own directory, away from any an old configure build left in the source tree.
+# FFmpeg, from the sources in ext/ffmpeg (see its README.md). Its own include directories go first,
+# so its config.h wins over the other config.h files on the include path.
 ifeq ($(BUILD_FFMPEG), 1)
 	include $(CORE_DIR)/ext/ffmpeg-build/sources.mk
-	FFMPEG_OBJDIR := obj-ffmpeg
-	FFMPEG_OBJECTS := $(addprefix $(FFMPEG_OBJDIR)/,$(FFMPEG_SOURCES:.c=.o))
-	FFMPEG_CFLAGS := -I$(CORE_DIR)/ext/ffmpeg-build -I$(CORE_DIR)/ext/ffmpeg-build/include -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+	FFMPEG_OBJECTS := $(addprefix $(FFMPEGDIR)/,$(FFMPEG_SOURCES:.c=.o))
+	FFMPEG_CFLAGS := -I$(CORE_DIR)/ext/ffmpeg-build -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 	ifneq (,$(findstring msvc,$(platform)))
 		FFMPEG_CFLAGS += -D_USE_MATH_DEFINES -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_WARNINGS
 		# FFmpeg leaves calls to disabled components for the compiler to drop, which MSVC only does
@@ -422,9 +420,9 @@ ifeq ($(BUILD_FFMPEG), 1)
 	ifeq ($(STATIC_LINKING), 1)
 		OBJECTS += $(FFMPEG_OBJECTS)
 	else ifneq (,$(findstring msvc,$(platform)))
-		FFMPEG_LIB := $(FFMPEG_OBJDIR)/ffmpeg.lib
+		FFMPEG_LIB := $(FFMPEGDIR)/ffmpeg.lib
 	else
-		FFMPEG_LIB := $(FFMPEG_OBJDIR)/libffmpeg.a
+		FFMPEG_LIB := $(FFMPEGDIR)/libffmpeg.a
 	endif
 endif
 
@@ -497,14 +495,13 @@ all: $(TARGET)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $(OBJOUT)$@ $<
 
-$(FFMPEG_OBJDIR)/%.o: $(FFMPEGDIR)/%.c
-	@mkdir -p $(dir $@)
+$(FFMPEG_OBJECTS): %.o: %.c
 	$(CC) $(FFMPEG_CFLAGS) $(CFLAGS) $(FFMPEG_CFLAGS_LAST) -c $(OBJOUT)$@ $<
 
-$(FFMPEG_OBJDIR)/ffmpeg.lib: $(FFMPEG_OBJECTS)
+$(FFMPEGDIR)/ffmpeg.lib: $(FFMPEG_OBJECTS)
 	lib.exe -nologo -out:$@ $^
 
-$(FFMPEG_OBJDIR)/libffmpeg.a: $(FFMPEG_OBJECTS)
+$(FFMPEGDIR)/libffmpeg.a: $(FFMPEG_OBJECTS)
 	rm -f $@
 	$(AR) rcs $@ $^
 

@@ -76,7 +76,6 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
-      # Only the FFmpeg sources, not the prebuilt libraries. See the script.
       - name: Check out submodules
         shell: bash
         run: |

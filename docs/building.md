@@ -79,22 +79,12 @@ test by name instead (skip `Jit`) to still get real coverage.
 
 ## FFmpeg
 
-Every build compiles FFmpeg (3.0.2, from the source tree in the `ffmpeg/` submodule) itself; the
-prebuilt libraries and build scripts in that submodule are no longer used. There is no configure
-step. `ext/ffmpeg-build/` has:
-
-- `config.h`, kept by hand, standing in for the one configure writes. All assembly and
-  arch-specific code is off; the few platform differences are preprocessor checks at the top.
-  A component (decoder, demuxer, ...) is enabled by its `CONFIG_` line there.
-- `sources.mk`, the one list of files to compile, used by every build system: CMake reads it,
-  `android/jni/Android.mk`, `libretro/Makefile` and `libretro/jni/Android.mk` include it, and
-  `update_vcxproj.py` copies it into `ffmpeg.vcxproj` and `UWP/ffmpeg_UWP/ffmpeg_UWP.vcxproj`.
-  Run that script after changing the list.
-
-A file missing from the list shows up as an unresolved `ff_..._decoder` (or similar) at link time.
-FFmpeg relies on the compiler dropping calls in `if (CONFIG_...)` blocks, which MSVC only does
-when optimizing and without `/Zc:inline`, so the MSVC builds of FFmpeg are optimized in Debug
-too. CMake still links the system's FFmpeg with `-DUSE_SYSTEM_FFMPEG=ON`, or one in `FFMPEG_DIR`.
+Every build compiles FFmpeg (3.0.2) itself, from the copy vendored into `ext/ffmpeg`. There's no
+configure step: `ext/ffmpeg-build` has a hand-kept `config.h` and `sources.mk`, the one list of
+files that every build system uses. After changing the list, run `ext/ffmpeg-build/update_vcxproj.py`
+to copy it into the VS projects. How it works, how to add a codec and why it's done this way are in
+`ext/ffmpeg/README.md`. CMake still links the system's FFmpeg with `-DUSE_SYSTEM_FFMPEG=ON`, or one
+in `FFMPEG_DIR`.
 
 ## UWP build
 

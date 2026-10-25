@@ -27,8 +27,6 @@ jobs:
         mkdir -p /tmp/$PKGNAME
         mv * /tmp/$PKGNAME
         mv /tmp/$PKGNAME .
-        find $PKGNAME/ffmpeg -name '*.a' -delete || true
-        find $PKGNAME/ffmpeg -name '*.lib' -delete || true
         find $PKGNAME/ext -name '*.dylib' -delete || true
         find $PKGNAME/ext -name '*.lib' -delete || true
         find $PKGNAME/ext -name '*.so.*' -delete || true

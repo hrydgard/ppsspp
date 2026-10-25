@@ -18,8 +18,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/OpenXR-SDK/include \
   $(LOCAL_PATH)/../../ext/zstd/lib \
   $(LOCAL_PATH)/../../ext/zlib \
-  $(LOCAL_PATH)/../../ext/ffmpeg-build/include \
-  $(LOCAL_PATH)/../../ffmpeg \
+  $(LOCAL_PATH)/../../ext/ffmpeg \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \

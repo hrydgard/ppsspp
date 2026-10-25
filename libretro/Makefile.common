@@ -1,6 +1,6 @@
 HAVE_LIBRETRO_VFS ?= 1
 
-FFMPEGDIR		= $(CORE_DIR)/ffmpeg
+FFMPEGDIR		= $(CORE_DIR)/ext/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
@@ -29,7 +29,6 @@ INCFLAGS += \
 	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
-	-I$(EXTDIR)/ffmpeg-build/include \
 	-I$(FFMPEGDIR) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \

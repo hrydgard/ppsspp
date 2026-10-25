@@ -36,7 +36,6 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg sources, not the prebuilt libraries. See the script.
     - name: Check out submodules
       shell: bash
       run: .github/checkout-submodules.sh
@@ -126,7 +125,6 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg sources, not the prebuilt libraries. See the script.
     - name: Check out submodules
       shell: bash
       run: .github/checkout-submodules.sh
@@ -164,7 +162,6 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg sources, not the prebuilt libraries. See the script.
     - name: Check out submodules
       shell: bash
       run: .github/checkout-submodules.sh
@@ -346,7 +343,6 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg sources, not the prebuilt libraries. See the script.
     - name: Check out submodules
       shell: bash
       run: .github/checkout-submodules.sh
@@ -592,7 +588,6 @@ jobs:
       run: |
         chown -R $(id -u):$(id -g) $PWD
 
-    # Only the FFmpeg sources, not the prebuilt libraries. See the script.
     - name: Check out submodules
       run: |
         .github/checkout-submodules.sh

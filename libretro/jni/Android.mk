@@ -7,7 +7,7 @@ endif
 
 COREFLAGS  := -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
 CORE_DIR   := ../..
-FFMPEGDIR  := $(CORE_DIR)/ffmpeg
+FFMPEGDIR  := $(CORE_DIR)/ext/ffmpeg
 WITH_DYNAREC := 1
 
 ifeq ($(TARGET_ARCH),arm64)
@@ -28,12 +28,12 @@ ifeq ($(TARGET_ARCH),x86_64)
   COREFLAGS += -D_ARCH_64 -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
 endif
 
-# FFmpeg, built from the sources in ffmpeg/. See ext/ffmpeg-build.
+# FFmpeg, from the sources in ext/ffmpeg. See its README.md.
 include $(CLEAR_VARS)
 include $(CORE_DIR)/ext/ffmpeg-build/sources.mk
 LOCAL_MODULE := libffmpeg
 LOCAL_SRC_FILES := $(addprefix $(FFMPEGDIR)/,$(FFMPEG_SOURCES))
-LOCAL_CFLAGS := -O2 -I$(CORE_DIR)/ext/ffmpeg-build -I$(CORE_DIR)/ext/ffmpeg-build/include -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
+LOCAL_CFLAGS := -O2 -I$(CORE_DIR)/ext/ffmpeg-build -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
