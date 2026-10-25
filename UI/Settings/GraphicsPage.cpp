@@ -93,6 +93,49 @@ static void OnRenderingDevice(SettingsPageHost *host) {
 	}
 }
 
+static void BuildSpeedHacksPage(SettingsPage *page) {
+	using namespace UI;
+
+	page->Header();
+
+	page->Setting(&g_Config.iFrameSkip).EnabledFunc([] {
+		return !g_Config.bAutoFrameSkip;
+	}).Setup([](View *view) {
+		PopupMultiChoice *choice = static_cast<PopupMultiChoice *>(view);
+		choice->SetChoicesUntranslated(1, choice->NumChoices() - 1);
+	});
+
+	page->Setting(&g_Config.bAutoFrameSkip);
+
+	page->Header();
+
+	page->Setting(&g_Config.bSkipBufferEffects).Disabled(&g_Config.bSoftwareRendering);
+	page->Hint({I18NCat::GRAPHICS, "RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"});
+
+	page->Setting(&g_Config.iSkipGPUReadbackMode).Disabled(&g_Config.bSoftwareRendering).Setup([](View *view) {
+		static_cast<PopupMultiChoice *>(view)->SetDefault(0);
+	});
+
+	page->Setting(&g_Config.iDepthRasterMode).Disabled(&g_Config.bSoftwareRendering).Setup([](View *view) {
+		PopupMultiChoice *depthRasterMode = static_cast<PopupMultiChoice *>(view);
+		depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
+		depthRasterMode->SetDefault(DefaultDepthRaster());
+		if (g_Config.iDepthRasterMode != 3)
+			depthRasterMode->HideChoice(3);
+	});
+}
+
+static void BuildCardboardVRPage(SettingsPage *page) {
+	page->Header();
+
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+
+	page->Setting(&config.bEnableCardboardVR);
+	page->Setting(&config.iCardboardScreenSize).Enabled(&config.bEnableCardboardVR);
+	page->Setting(&config.iCardboardXShift).Enabled(&config.bEnableCardboardVR);
+	page->Setting(&config.iCardboardYShift).Enabled(&config.bEnableCardboardVR);
+}
+
 void BuildGraphicsSettings(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
@@ -257,32 +300,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 		page->Setting(&g_Config.iAnalogAltSpeedPercent);
 	}
 
-	page->Header({ I18NCat::GRAPHICS, "Speed Hacks", "Speed Hacks (can cause rendering errors!)" });
+	page->Header();
+	page->Link({I18NCat::GRAPHICS, "Speed Hacks"}, I18NCat::GRAPHICS, &BuildSpeedHacksPage);
 
-	page->Setting(&g_Config.iFrameSkip).EnabledFunc([] {
-		return !g_Config.bAutoFrameSkip;
-	}).Setup([](View *view) {
-		PopupMultiChoice *choice = static_cast<PopupMultiChoice *>(view);
-		choice->SetChoicesUntranslated(1, choice->NumChoices() - 1);
-	});
-
-	page->Setting(&g_Config.bAutoFrameSkip);
-
-	page->Setting(&g_Config.bSkipBufferEffects).Disabled(&g_Config.bSoftwareRendering);
-	page->Hint({ I18NCat::GRAPHICS, "RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games" });
-
-	page->Setting(&g_Config.iSkipGPUReadbackMode).Disabled(&g_Config.bSoftwareRendering).Setup([](View *view) {
-		static_cast<PopupMultiChoice *>(view)->SetDefault(0);
-	});
-
-	page->Setting(&g_Config.iDepthRasterMode).Disabled(&g_Config.bSoftwareRendering).Setup([](View *view) {
-		PopupMultiChoice *depthRasterMode = static_cast<PopupMultiChoice *>(view);
-		depthRasterMode->SetChoiceIcon(3, ImageID("I_WARNING"));  // It's a performance trap.
-		depthRasterMode->SetDefault(DefaultDepthRaster());
-		if (g_Config.iDepthRasterMode != 3)
-			depthRasterMode->HideChoice(3);
-	});
-
+	page->Header();
 	page->Setting(&g_Config.iBloomHack).EnabledFunc([] {
 		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
 	});
@@ -355,12 +376,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	// If you enabled it through the ini, you can see this. Useful for testing.
 	bool showCardboardSettings = config.bEnableCardboardVR;
 #endif
+	// showCardboardSettings = true;  // for testing ONLY
 	if (showCardboardSettings) {
-		page->Header("Cardboard VR Settings");
-		page->Setting(&config.bEnableCardboardVR);
-		page->Setting(&config.iCardboardScreenSize).Enabled(&config.bEnableCardboardVR);
-		page->Setting(&config.iCardboardXShift).Enabled(&config.bEnableCardboardVR);
-		page->Setting(&config.iCardboardYShift).Enabled(&config.bEnableCardboardVR);
+		page->Header();
+		page->Link({I18NCat::GRAPHICS, "Cardboard VR Settings"}, I18NCat::GRAPHICS, &BuildCardboardVRPage);
 	}
 
 	page->Header("Overlay Information");

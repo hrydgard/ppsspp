@@ -273,6 +273,26 @@ static void OnRestoreDefaultSettings(SettingsPageHost *host, SystemPageState *st
 	}
 }
 
+// Using SYSTEM translations
+static void BuildPSPSettingsPage(SettingsPage *page) {
+	SettingsPageHost *host = page->Host();
+
+	page->Header("PSP Settings");
+
+	// The ordering here is simply mapping directly to PSP_SYSTEMPARAM_LANGUAGE_*.
+	page->Setting(&g_Config.iLanguage);
+	page->Setting(&g_Config.iPSPModel).EnabledFunc([] {
+		return !PSP_IsInited();
+	});
+	page->Custom("Nickname", [host](UI::ViewGroup *parent) {
+		return AddNicknameChoice(host, parent);
+	});
+	page->Setting(&g_Config.bDayLightSavings);
+	page->Setting(&g_Config.iDateFormat);
+	page->Setting(&g_Config.iTimeFormat);
+	page->Setting(&g_Config.iButtonPreference);
+}
+
 void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	using namespace UI;
 
@@ -379,6 +399,9 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 		page->Setting(&g_Config.fUITint).LiveUpdate().Setup(noDropShadow);
 		page->Setting(&g_Config.fUISaturation).LiveUpdate().Setup(noDropShadow);
 	}
+
+	page->Header();
+	page->Link({I18NCat::SYSTEM, "PSP Settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
 
 	page->Header("PSP Memory Stick");
 
@@ -524,21 +547,6 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	page->Header("Cheats");
 	page->Setting(&g_Config.bEnableCheats);
 	page->Setting(&g_Config.bEnablePlugins);
-
-	page->Header("PSP Settings");
-
-	// The ordering here is simply mapping directly to PSP_SYSTEMPARAM_LANGUAGE_*.
-	page->Setting(&g_Config.iLanguage);
-	page->Setting(&g_Config.iPSPModel).EnabledFunc([] {
-		return !PSP_IsInited();
-	});
-	page->Custom("Nickname", [host](UI::ViewGroup *parent) {
-		return AddNicknameChoice(host, parent);
-	});
-	page->Setting(&g_Config.bDayLightSavings);
-	page->Setting(&g_Config.iDateFormat);
-	page->Setting(&g_Config.iTimeFormat);
-	page->Setting(&g_Config.iButtonPreference);
 
 #if defined(_WIN32)
 	page->Header("Recording");
