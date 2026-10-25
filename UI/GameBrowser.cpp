@@ -405,7 +405,11 @@ void GameButton::Draw(UIContext &dc) {
 	ImageID imageIcon = ImageID::invalid();
 	bool drawBackground = true;
 	switch (ginfo->fileType) {
-	case IdentifiedFileType::PSP_ELF: imageIcon = ImageID("I_APP"); drawBackground = false; break;
+	case IdentifiedFileType::PSP_ELF:
+		imageIcon = ImageID("I_APP");
+		// The XMB is an ELF too, but has an icon.
+		drawBackground = ginfo->region == GameRegion::VSH;
+		break;
 	case IdentifiedFileType::UNKNOWN_ELF: imageIcon = ImageID("I_APP"); drawBackground = false; break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: imageIcon = ImageID("I_DISPLAY"); break;
 	case IdentifiedFileType::PSX_ISO:

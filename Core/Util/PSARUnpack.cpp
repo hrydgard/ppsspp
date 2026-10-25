@@ -1383,6 +1383,19 @@ Path GetUmdVideoVSHPath() {
 	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 }
 
+std::string GetVSHTitle(const Path &path) {
+	if (!equalsNoCase(path.GetFilename(), "vshmain.prx")) {
+		return std::string();
+	}
+	// The firmware it's from: flash0:/vsh/module/vshmain.prx has flash0:/vsh/etc/version.txt.
+	InstalledFirmwareInfo info;
+	std::string versionTxt;
+	if (File::ReadTextFileToString(path.NavigateUp().NavigateUp() / "etc/version.txt", &versionTxt)) {
+		ParseVersionTxt(versionTxt, &info);
+	}
+	return info.version.empty() ? std::string("XMB") : "XMB " + info.version;
+}
+
 std::string BundledUpdateInfo::Describe() const {
 	if (!present) {
 		return std::string();
