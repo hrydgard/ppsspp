@@ -394,8 +394,6 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::SYSTEM, "Screenshot mode").Choices(screenshotModeNames),
 	ConfigSetting("ScreenshotsAsPNG", SETTING(g_Config, bScreenshotsAsPNG), false, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Screenshots as PNG"),
-	ConfigSetting("UseFFV1", SETTING(g_Config, bUseFFV1), false, CfgFlag::DEFAULT)
-		.Label(I18NCat::SYSTEM, "Use Lossless Video Codec (FFV1)"),
 	ConfigSetting("DumpFrames", SETTING(g_Config, bDumpFrames), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Record Display"),
 	ConfigSetting("DumpVideoOutput", SETTING(g_Config, bDumpVideoOutput), false, CfgFlag::DEFAULT)

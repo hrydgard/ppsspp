@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8EC3AD69-CD1B-4A74-8C16-648E10D51196}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>ffmpeg</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\..\Windows\fix_2017.props" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <!-- FFmpeg leaves calls to disabled components in if (CONFIG_...) blocks for the compiler to drop,
+       which MSVC only does when optimizing, so Debug is optimized too (without the runtime checks,
+       which don't combine with that). It also doesn't with /Zc:inline (RemoveUnreferencedCodeData),
+       in at least wavdec.c. The sources come from sources.mk, via update_vcxproj.py. -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAs>CompileAsC</CompileAs>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <BasicRuntimeChecks>Default</BasicRuntimeChecks>
+      <SupportJustMyCode>false</SupportJustMyCode>
+      <RemoveUnreferencedCodeData>false</RemoveUnreferencedCodeData>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SDLCheck>false</SDLCheck>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\ffmpeg;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>HAVE_AV_CONFIG_H;_ISOC99_SOURCE;_USE_MATH_DEFINES;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup Label="Sources">
+    <ClCompile Include="..\ffmpeg\libavcodec\aacadtsdec.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\aacdec.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\aacps_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\aacpsdsp_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\aacsbr.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\aactab.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\allcodecs.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\atrac.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\atrac3.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\atrac3plus.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\atrac3plusdec.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\atrac3plusdsp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\audioconvert.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\avpacket.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\bitstream.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\bitstream_filter.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\cabac.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\codec_desc.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\dct.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\dct32_fixed.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\dct32_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\error_resilience.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\exif.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\fft_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\ffv1.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\ffv1enc.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\frame_thread_encoder.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\golomb.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_cabac.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_cavlc.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_direct.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_loopfilter.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_mb.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_parser.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_picture.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_ps.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_refs.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_sei.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264_slice.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264chroma.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264dsp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264idct.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264pred.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\h264qpel.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\imdct15.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\imgconvert.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\kbdwin.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mathtables.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mdct_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\me_cmp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpeg4audio.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudio.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudio_parser.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodata.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodec_fixed.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodecheader.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodsp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodsp_data.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodsp_fixed.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\mpegaudiodsp_float.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\options.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\parser.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\profiles.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\pthread.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\pthread_frame.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\pthread_slice.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\rangecoder.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\raw.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\rdft.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\resample.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\sbrdsp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\simple_idct.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\sinewin.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\startcode.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\tiff_common.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\utils.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavcodec\videodsp.c" ObjectFileName="$(IntDir)libavcodec\" />
+    <ClCompile Include="..\ffmpeg\libavformat\aacdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\allformats.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\apetag.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\avidec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\avienc.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\avio.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\aviobuf.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\avlanguage.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\file.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\format.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\h263dec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\h264dec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\id3v1.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\id3v2.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\img2.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\isom.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\m4vdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\metadata.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\mp3dec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\mpeg.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\mpegtsenc.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\mpegvideodec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\mux.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\oma.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\omadec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\options.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\pcm.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\pcmdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\pmpdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\rawdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\replaygain.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\riff.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\riffdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\riffenc.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\utils.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavformat\wavdec.c" ObjectFileName="$(IntDir)libavformat\" />
+    <ClCompile Include="..\ffmpeg\libavutil\avstring.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\bprint.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\buffer.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\channel_layout.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\cpu.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\crc.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\des.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\dict.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\display.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\error.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\eval.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\fifo.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\file.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\file_open.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\float_dsp.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\frame.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\imgutils.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\log.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\log2_tab.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\mathematics.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\mem.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\opt.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\parseutils.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\pixdesc.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\random_seed.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\rational.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\reverse.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\samplefmt.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\sha.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\stereo3d.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\time.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libavutil\utils.c" ObjectFileName="$(IntDir)libavutil\" />
+    <ClCompile Include="..\ffmpeg\libswscale\alphablend.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\gamma.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\hscale.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\hscale_fast_bilinear.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\input.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\options.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\output.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\rgb2rgb.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\slice.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\swscale.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\swscale_unscaled.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\utils.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\vscale.c" ObjectFileName="$(IntDir)libswscale\" />
+    <ClCompile Include="..\ffmpeg\libswscale\yuv2rgb.c" ObjectFileName="$(IntDir)libswscale\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="config.h" />
+    <ClInclude Include="..\ffmpeg\libavutil\avconfig.h" />
+    <ClInclude Include="..\ffmpeg\libavutil\ffversion.h" />
+    <None Include="sources.mk" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

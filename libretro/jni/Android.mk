@@ -7,60 +7,34 @@ endif
 
 COREFLAGS  := -DSTACK_LINE_READER_BUFFER_SIZE=1024 -DHAVE_DLFCN_H
 CORE_DIR   := ../..
-FFMPEGDIR  := $(CORE_DIR)/ffmpeg
-FFMPEGLIBS += libavformat libavcodec libavutil libswresample libswscale
+FFMPEGDIR  := $(CORE_DIR)/ext/ffmpeg
 WITH_DYNAREC := 1
 
 ifeq ($(TARGET_ARCH),arm64)
   COREFLAGS += -D_ARCH_64
   HAVE_NEON := 1
-  FFMPEGLIBDIR := $(FFMPEGDIR)/android/arm64/lib
-  FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/arm64/include
 endif
 
 ifeq ($(TARGET_ARCH),arm)
   COREFLAGS += -D__arm__ -DARM_ASM -D_ARCH_32 -mfpu=neon
   HAVE_NEON := 1
-  FFMPEGLIBDIR := $(FFMPEGDIR)/android/armv7/lib
-  FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/armv7/include
 endif
 
 ifeq ($(TARGET_ARCH),x86)
   COREFLAGS += -D_ARCH_32 -D_M_IX86 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
-  FFMPEGLIBDIR := $(FFMPEGDIR)/android/x86/lib
-  FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/x86/include
 endif
 
 ifeq ($(TARGET_ARCH),x86_64)
   COREFLAGS += -D_ARCH_64 -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
-  FFMPEGLIBDIR := $(FFMPEGDIR)/android/x86_64/lib
-  FFMPEGINCFLAGS := -I$(FFMPEGDIR)/android/x86_64/include
 endif
 
+# FFmpeg, from the sources in ext/ffmpeg. See its README.md.
 include $(CLEAR_VARS)
-LOCAL_MODULE    := libavformat
-LOCAL_SRC_FILES := $(FFMPEGLIBDIR)/libavformat.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libavcodec
-LOCAL_SRC_FILES := $(FFMPEGLIBDIR)/libavcodec.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libavutil
-LOCAL_SRC_FILES := $(FFMPEGLIBDIR)/libavutil.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libswresample
-LOCAL_SRC_FILES := $(FFMPEGLIBDIR)/libswresample.a
-include $(PREBUILT_STATIC_LIBRARY)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE    := libswscale
-LOCAL_SRC_FILES := $(FFMPEGLIBDIR)/libswscale.a
-include $(PREBUILT_STATIC_LIBRARY)
+include $(CORE_DIR)/ext/ffmpeg-build/sources.mk
+LOCAL_MODULE := libffmpeg
+LOCAL_SRC_FILES := $(addprefix $(FFMPEGDIR)/,$(FFMPEG_SOURCES))
+LOCAL_CFLAGS := -O2 -I$(CORE_DIR)/ext/ffmpeg-build -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
+include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 
@@ -77,6 +51,6 @@ LOCAL_SRC_FILES = $(SOURCES_CXX) $(SOURCES_C) $(ASMFILES)
 LOCAL_CPPFLAGS := -Wall -std=c++17 $(COREFLAGS) -DSPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $(DEFINES)
 LOCAL_CFLAGS := -O2 -DANDROID $(COREFLAGS) $(DEFINES)
 LOCAL_LDLIBS += -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
-LOCAL_STATIC_LIBRARIES += $(FFMPEGLIBS)
+LOCAL_STATIC_LIBRARIES += libffmpeg
 
 include $(BUILD_SHARED_LIBRARY)

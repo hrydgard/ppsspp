@@ -1016,6 +1016,16 @@ LOCAL_CFLAGS := -O3
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/zlib
 include $(BUILD_STATIC_LIBRARY)
 
+# FFmpeg, from the sources in ext/ffmpeg. See its README.md.
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build/sources.mk
+LOCAL_MODULE := libffmpeg
+LOCAL_SRC_FILES := $(addprefix $(SRC)/ext/ffmpeg/,$(FFMPEG_SOURCES))
+LOCAL_CFLAGS := -O3 -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
+include $(BUILD_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd oboe

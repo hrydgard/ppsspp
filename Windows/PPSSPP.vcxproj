@@ -183,7 +183,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
@@ -194,8 +194,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX86</TargetMachine>
@@ -221,7 +220,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -233,8 +232,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <LargeAddressAware>true</LargeAddressAware>
@@ -255,7 +253,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
@@ -267,8 +265,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(ProjectName).pdb</ProgramDatabaseFile>
       <LargeAddressAware>true</LargeAddressAware>
@@ -295,7 +292,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -303,8 +300,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -344,15 +340,14 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/x86_64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -386,15 +381,14 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>../ffmpeg/Windows/aarch64/include;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../ext/ffmpeg;../ext;../common;..;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;avcodec.lib;avformat.lib;avutil.lib;swresample.lib;swscale.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OptimizeReferences>true</OptimizeReferences>
@@ -1257,6 +1251,9 @@
     </ProjectReference>
     <ProjectReference Include="..\ext\libkirk\libkirk.vcxproj">
       <Project>{3baae095-e0ab-4b0e-b5df-ce39c8ae31de}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\ext\ffmpeg-build\ffmpeg.vcxproj">
+      <Project>{8ec3ad69-cd1b-4a74-8c16-648e10d51196}</Project>
     </ProjectReference>
     <ProjectReference Include="..\ext\libzstd.vcxproj">
       <Project>{8bfd8150-94d5-4bf9-8a50-7bd9929a0850}</Project>

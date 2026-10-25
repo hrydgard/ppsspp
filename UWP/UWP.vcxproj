@@ -76,8 +76,8 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|ARM64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -101,8 +101,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -126,8 +126,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|ARM64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/ARM64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\arm; $(VCInstallDir)\lib\arm</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -152,8 +152,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -177,8 +177,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -202,8 +202,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'UWP Gold|x64'">
     <Link>
-      <AdditionalDependencies>xinputuap.lib;libavcodec.a;libavformat.a;libavutil.a;libswresample.a;libswscale.a;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>../ffmpeg/Windows10/x64/lib;%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
+      <AdditionalDependencies>xinputuap.lib;d2d1.lib;d3d11.lib;dxgi.lib;windowscodecs.lib;dwrite.lib; %(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories); $(VCInstallDir)\lib\store\amd64; $(VCInstallDir)\lib\amd64</AdditionalLibraryDirectories>
       <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
     </Link>
     <ClCompile>
@@ -436,6 +436,9 @@
     </ProjectReference>
     <ProjectReference Include="libkirk_UWP\libkirk_UWP.vcxproj">
       <Project>{2f911c05-b341-4291-8bf5-09edecbdd5f5}</Project>
+    </ProjectReference>
+    <ProjectReference Include="ffmpeg_UWP\ffmpeg_UWP.vcxproj">
+      <Project>{ac641628-9afd-4bb0-8def-026f253b7020}</Project>
     </ProjectReference>
     <ProjectReference Include="libzstd_UWP\libzstd_UWP.vcxproj">
       <Project>{75286959-e7a2-4cbe-8b95-bf05c9c540fe}</Project>

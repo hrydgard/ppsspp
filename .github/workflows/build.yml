@@ -36,10 +36,9 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg libraries this build uses. See the script.
     - name: Check out submodules
       shell: bash
-      run: .github/checkout-submodules.sh ${{ matrix.platform == 'x64' && '/Windows/x86_64/' || '/Windows/aarch64/' }} /WindowsInclude/
+      run: .github/checkout-submodules.sh
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
@@ -126,10 +125,9 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg libraries this build uses. See the script.
     - name: Check out submodules
       shell: bash
-      run: .github/checkout-submodules.sh /Windows10/x64/ /WindowsInclude/
+      run: .github/checkout-submodules.sh
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
@@ -164,10 +162,9 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg libraries this build uses. See the script.
     - name: Check out submodules
       shell: bash
-      run: .github/checkout-submodules.sh /Windows/${{ matrix.arch == 'x64' && 'x86_64' || 'x86' }}/
+      run: .github/checkout-submodules.sh
 
     # Needs a real MSYS2 (make, bash, cygpath) - the one preinstalled on the runner image isn't on
     # PATH and has no make. path-type: inherit keeps the Windows PATH, which the Makefile needs for
@@ -234,13 +231,11 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest
           id: clang-normal
-          ffmpeg: /linux/x86_64/
         - os: ubuntu-26.04
           cc: gcc
           cxx: g++
           args: ./b.sh --headless --unittest
           id: gcc-normal
-          ffmpeg: /linux/x86_64/
 
         # Gives the headless tests an arm64 host to run the CPU backends on - the arm64 JIT is a
         # different backend from the x86-64 one, and nothing else in the matrix tests it on Linux.
@@ -250,7 +245,6 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest
           id: clang-arm64
-          ffmpeg: /linux/aarch64/
 
         - os: ubuntu-26.04
           extra: android
@@ -258,35 +252,30 @@ jobs:
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
           id: android-arm64
-          ffmpeg: /android/arm64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
           id: android-arm32
-          ffmpeg: /android/armv7/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
           id: android-x86_64
-          ffmpeg: /android/x86_64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=arm64-v8a OPENXR=1
           id: android-vr
-          ffmpeg: /android/arm64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro_android ppsspp_libretro
           id: android-libretro
-          ffmpeg: /android/
 
         - os: ubuntu-26.04
           extra: libretro
@@ -294,14 +283,12 @@ jobs:
           cxx: g++
           args: make -C libretro -f Makefile -j2
           id: gcc-libretro
-          ffmpeg: /linux/x86_64/
         - os: ubuntu-26.04
           extra: libretro
           cc: clang
           cxx: clang++
           args: make -C libretro -f Makefile -j2
           id: clang-libretro
-          ffmpeg: /linux/x86_64/
 
         - os: ubuntu-26.04
           extra: loongarch64
@@ -309,7 +296,6 @@ jobs:
           cxx: g++
           args: ./b.sh --loongarch64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: loongarch64
-          ffmpeg: /linux/loongarch64/
 
         - os: ubuntu-26.04
           extra: riscv64
@@ -317,7 +303,6 @@ jobs:
           cxx: g++
           args: ./b.sh --riscv64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: riscv64
-          ffmpeg: /linux/riscv64/
 
         - os: macos-latest
           extra: test
@@ -325,28 +310,24 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest --no-png
           id: macos
-          ffmpeg: /macosx/universal/
         - os: macos-latest
           extra: libretro_mac
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro
           id: macos-libretro
-          ffmpeg: /macosx/universal/
         - os: macos-latest
           extra: ios
           cc: clang
           cxx: clang++
           args: ./b-ios.sh
           id: ios
-          ffmpeg: /ios/universal/
         - os: macos-latest
           extra: tvos
           cc: clang
           cxx: clang++
           args: ./b-tvos.sh
           id: tvos
-          ffmpeg: /tvos/arm64/
         # One job for both, since only five macOS jobs run at once and the rest wait in line.
         - os: macos-latest
           extra: libretro_ios_tvos
@@ -357,16 +338,14 @@ jobs:
           # (CFLAGS from the environment doesn't work: the toolchain file overrides it.)
           args: export CMAKE_ARGS="-DCMAKE_C_FLAGS=-fno-define-target-os-macros -DCMAKE_CXX_FLAGS=-fno-define-target-os-macros" && ./b.sh --ios --libretro && ./b.sh --tvos --libretro
           id: ios-tvos-libretro
-          ffmpeg: /ios/universal/ /tvos/arm64/
 
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v7
 
-    # Only the FFmpeg libraries this build uses. See the script.
     - name: Check out submodules
       shell: bash
-      run: .github/checkout-submodules.sh ${{ matrix.ffmpeg }}
+      run: .github/checkout-submodules.sh
 
     - name: Fetch tags for macOS releases
       if: runner.os == 'macOS'
@@ -609,10 +588,9 @@ jobs:
       run: |
         chown -R $(id -u):$(id -g) $PWD
 
-    # The FFmpeg sources, which this builds, without the prebuilt libraries. See the script.
     - name: Check out submodules
       run: |
-        .github/checkout-submodules.sh '/*' '!/Windows/' '!/Windows10/' '!/WindowsInclude/' '!/android/' '!/blackberry/' '!/ios/' '!/linux/' '!/macosx/' '!/symbian/' '!/tvos/' '!/wiiu/'
+        .github/checkout-submodules.sh
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
@@ -620,33 +598,6 @@ jobs:
         key: alpine
         # See the other ccache setup.
         save: ${{ github.ref == 'refs/heads/master' }}
-
-    # The prebuilt Linux FFmpeg is linked against glibc, so this builds it for musl, into the same
-    # folder. That takes a few minutes, so the result is cached until FFmpeg, its build script
-    # or Alpine changes.
-    - name: FFmpeg cache key
-      id: ffmpeg-key
-      run: |
-        echo "key=alpine-ffmpeg-$(cat /etc/alpine-release)-$(git rev-parse HEAD:ffmpeg)-$(sha1sum ffmpeg/linux_x86-64.sh | cut -c1-12)" >> $GITHUB_OUTPUT
-
-    - name: Restore FFmpeg
-      id: ffmpeg-cache
-      uses: actions/cache/restore@v6.1.0
-      with:
-        path: ffmpeg/linux/x86_64
-        key: ${{ steps.ffmpeg-key.outputs.key }}
-
-    - name: Compile ffmpeg
-      if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
-      run: |
-        cd ffmpeg && ./linux_x86-64.sh
-
-    - name: Save FFmpeg
-      if: steps.ffmpeg-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
-      uses: actions/cache/save@v6.1.0
-      with:
-        path: ffmpeg/linux/x86_64
-        key: ${{ steps.ffmpeg-key.outputs.key }}
 
     - name: Build for testing
       run: |

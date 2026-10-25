@@ -263,7 +263,6 @@ namespace MainWindow {
 
 		// Movie menu
 		TranslateMenuItem(menu, ID_FILE_DUMPFRAMES);
-		TranslateMenuItem(menu, ID_FILE_USEFFV1);
 		TranslateMenuItem(menu, ID_FILE_DUMP_VIDEO_OUTPUT);
 		TranslateMenuItem(menu, ID_FILE_DUMPAUDIO);
 
@@ -965,10 +964,6 @@ namespace MainWindow {
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			break;
 
-		case ID_FILE_USEFFV1:
-			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
-			break;
-
 		case ID_FILE_DUMP_VIDEO_OUTPUT:
 			g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput;
 			break;
@@ -1049,7 +1044,6 @@ namespace MainWindow {
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
-		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
 		CHECKITEM(ID_FILE_DUMP_VIDEO_OUTPUT, g_Config.bDumpVideoOutput);
 		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
 		CHECKITEM(ID_OPTIONS_SKIP_BUFFER_EFFECTS, g_Config.bSkipBufferEffects);
