@@ -197,29 +197,45 @@ LogManager::~LogManager() {
 }
 
 void LogManager::SetFileLogPath(const Path &filename) {
-	std::lock_guard<std::mutex> lk(logFileLock_);
-	if (fp_ && filename == logFilename_) {
-		// All good
-		return;
-	}
+	// A copy, since the caller may pass logFilename_.
+	const Path path = filename;
+	{
+		std::lock_guard<std::mutex> lk(logFileLock_);
+		if (fp_ && path == logFilename_) {
+			// All good
+			return;
+		}
 
-	if (fp_) {
-		fclose(fp_);
-		fp_ = nullptr;
-	}
+		if (fp_) {
+			fclose(fp_);
+			fp_ = nullptr;
+		}
 
-	if (!filename.empty()) {
-		logFilename_ = Path(filename);
-
-		if (outputs_ & LogOutput::File) {
-			File::CreateFullPath(logFilename_.NavigateUp());
-			fp_ = File::OpenCFile(logFilename_, "at");
-			logFileOpenFailed_ = fp_ == nullptr;
-			if (logFileOpenFailed_) {
-				printf("Failed to open log file %s\n", logFilename_.c_str());
-			}
+		if (path.empty()) {
+			return;
+		}
+		logFilename_ = path;
+		if (!(outputs_ & LogOutput::File)) {
+			return;
 		}
 	}
+
+	// Not under logFileLock_: creating and opening the file can log, and logging takes that lock.
+	File::CreateFullPath(path.NavigateUp());
+	FILE *fp = File::OpenCFile(path, "at");
+
+	std::lock_guard<std::mutex> lk(logFileLock_);
+	logFileOpenFailed_ = fp == nullptr;
+	if (!fp) {
+		printf("Failed to open log file %s\n", path.c_str());
+		return;
+	}
+	if (fp_ || !(logFilename_ == path)) {
+		// Another call got in while we were opening.
+		fclose(fp);
+		return;
+	}
+	fp_ = fp;
 }
 
 void LogManager::SaveConfig(Section *section) {

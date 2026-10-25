@@ -884,6 +884,33 @@ bool TestSerializer() {
 	return true;
 }
 
+bool TestLogFileOpen() {
+	// Creating the log file's folder logs, which used to deadlock on the log file lock.
+	const Path dir = UnitTestTempPath("unittest_log_file");
+	File::DeleteDirRecursively(dir);
+	const Path logPath = dir / "sub" / "log.txt";
+
+	const LogOutput outputs = g_logManager.GetOutputsEnabled();
+	const LogLevel ioLevel = g_logManager.GetLogLevel(Log::IO);
+	const bool ioEnabled = g_logManager.GetLogChannel(Log::IO)->enabled;
+	g_logManager.SetLogLevel(Log::IO, LogLevel::LVERBOSE);
+	g_logManager.SetEnabled(Log::IO, true);
+
+	g_logManager.SetFileLogPath(logPath);
+	g_logManager.EnableOutput(LogOutput::File);
+	INFO_LOG(Log::IO, "Log file test");
+	bool exists = File::Exists(logPath);
+
+	g_logManager.SetOutputsEnabled(outputs);
+	g_logManager.SetFileLogPath(Path());
+	g_logManager.SetLogLevel(Log::IO, ioLevel);
+	g_logManager.SetEnabled(Log::IO, ioEnabled);
+	File::DeleteDirRecursively(dir);
+
+	EXPECT_TRUE(exists);
+	return true;
+}
+
 bool TestMemBlockInfoSaveState() {
 	MemBlockInfoInit();
 	MemBlockOverrideDetailed();
@@ -4083,6 +4110,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(MemBlockInfoRangeWrap),
+	TEST_ITEM(LogFileOpen),
 	TEST_ITEM(Serializer),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
