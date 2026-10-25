@@ -24,7 +24,6 @@
 #endif
 
 static BadAccessHandler g_badAccessHandler;
-static void *altStack = nullptr;
 
 void SetupCRT(bool suppressDialogs) {
 #if defined(_MSC_VER)
@@ -190,8 +189,6 @@ void UninstallExceptionHandler() {
 
 static struct sigaction old_sa_segv;
 static struct sigaction old_sa_bus;
-static stack_t old_signal_stack{};
-static bool old_signal_stack_valid = false;
 
 // Hand the signal on to whatever was installed before us. Returning from a fault handler just
 // re-runs the faulting instruction, so for anything we can't deal with this is the only exit
@@ -265,33 +262,11 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTra
 	}
 	g_badAccessHandler = badAccessHandler;
 
-#if PPSSPP_PLATFORM(TVOS)
-	// tvOS has no sigaltstack, so the handler runs on the faulting thread's stack.
-	INFO_LOG(Log::System, "Installed exception handler (no alt stack).");
-#else
-	size_t altStackSize = SIGSTKSZ;
+	// No sigaltstack of our own: it's per thread, and this runs on the loading thread, while the faults
+	// come from the CPU thread. The handler runs on the faulting thread's stack, or on its alternate
+	// stack if it has one (bionic gives every thread one).
+	INFO_LOG(Log::System, "Installed exception handler");
 
-	// Add some extra room.
-	altStackSize += 65536;
-
-	INFO_LOG(Log::System, "Installed exception handler. stack size: %d", (int)altStackSize);
-
-	stack_t signal_stack{};
-	if (sigaltstack(nullptr, &old_signal_stack) == 0) {
-		old_signal_stack_valid = true;
-	}
-	altStack = malloc(altStackSize);
-#ifdef __FreeBSD__
-	signal_stack.ss_sp = (char*)altStack;
-#else
-	signal_stack.ss_sp = altStack;
-#endif
-	signal_stack.ss_size = altStackSize;
-	signal_stack.ss_flags = 0;
-	if (sigaltstack(&signal_stack, nullptr)) {
-		_assert_msg_(false, "sigaltstack failed");
-	}
-#endif
 	struct sigaction sa{};
 	sa.sa_handler = nullptr;
 	sa.sa_sigaction = &sigsegv_handler;
@@ -306,22 +281,6 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTra
 void UninstallExceptionHandler() {
 	if (!g_badAccessHandler) {
 		return;
-	}
-#if !PPSSPP_PLATFORM(TVOS)
-	if (old_signal_stack_valid) {
-		// Darwin fails with ENOMEM on a size below MINSIGSTKSZ, even with SS_DISABLE.
-		if ((old_signal_stack.ss_flags & SS_DISABLE) && old_signal_stack.ss_size < MINSIGSTKSZ) {
-			old_signal_stack.ss_size = MINSIGSTKSZ;
-		}
-		if (0 != sigaltstack(&old_signal_stack, nullptr)) {
-			ERROR_LOG(Log::System, "Could not restore previous signal altstack");
-		}
-		old_signal_stack_valid = false;
-	}
-#endif
-	if (altStack) {
-		free(altStack);
-		altStack = nullptr;
 	}
 	sigaction(SIGSEGV, &old_sa_segv, nullptr);
 #ifdef __APPLE__
