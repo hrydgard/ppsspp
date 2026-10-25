@@ -1842,6 +1842,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			inputMethodManager.hideSoftInputFromWindow(surfView.getWindowToken(), 0);
 			return true;
+		} else if (command.equals("forceKeyboard") && mSurfaceView != null) {
+			// "1" = keep the soft keyboard up (and let it type into the game), "0" = hide it again.
+			mSurfaceView.setKeyboardForced(params.equals("1"));
+			return true;
 		} else if (command.equals("inputbox")) {
 			String title = "Input";
 			String defString = "";
