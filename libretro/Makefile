@@ -417,7 +417,15 @@ ifeq ($(BUILD_FFMPEG), 1)
 	else
 		FFMPEG_CFLAGS_LAST := -w -Werror=implicit-function-declaration
 	endif
-	OBJECTS += $(FFMPEG_OBJECTS)
+	# Linked as a library of its own, since with all these objects the link command line gets too
+	# long for Windows.
+	ifeq ($(STATIC_LINKING), 1)
+		OBJECTS += $(FFMPEG_OBJECTS)
+	else ifneq (,$(findstring msvc,$(platform)))
+		FFMPEG_LIB := $(FFMPEG_OBJDIR)/ffmpeg.lib
+	else
+		FFMPEG_LIB := $(FFMPEG_OBJDIR)/libffmpeg.a
+	endif
 endif
 
 ifeq ($(DEBUG), 1)
@@ -493,18 +501,25 @@ $(FFMPEG_OBJDIR)/%.o: $(FFMPEGDIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(FFMPEG_CFLAGS) $(CFLAGS) $(FFMPEG_CFLAGS_LAST) -c $(OBJOUT)$@ $<
 
+$(FFMPEG_OBJDIR)/ffmpeg.lib: $(FFMPEG_OBJECTS)
+	lib.exe -nologo -out:$@ $^
+
+$(FFMPEG_OBJDIR)/libffmpeg.a: $(FFMPEG_OBJECTS)
+	rm -f $@
+	$(AR) rcs $@ $^
+
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $(OBJOUT)$@ $<
 
-$(TARGET): $(OBJECTS)
+$(TARGET): $(OBJECTS) $(FFMPEG_LIB)
 ifeq ($(STATIC_LINKING), 1)
 	$(AR) rcs $(TARGET) $(OBJECTS)
 else
-	$(LD) $(LINKOUT)$@ $(OBJECTS) $(LDFLAGS) $(GL_LIB)
+	$(LD) $(LINKOUT)$@ $(OBJECTS) $(FFMPEG_LIB) $(LDFLAGS) $(GL_LIB)
 endif
 
 clean:
-	rm -f $(filter-out $(CORE_DIR)/ext/zstd/lib/decompress/huf_decompress_amd64.S,$(OBJECTS)) $(TARGET)
+	rm -f $(filter-out $(CORE_DIR)/ext/zstd/lib/decompress/huf_decompress_amd64.S,$(OBJECTS)) $(FFMPEG_OBJECTS) $(FFMPEG_LIB) $(TARGET)
 
 .PHONY: clean
 
