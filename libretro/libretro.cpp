@@ -1,4 +1,5 @@
 #include "ppsspp_config.h"
+#include "libretro/LibretroVR.h"
 #include <array>
 #include <cstring>
 #include <cassert>
@@ -521,6 +522,17 @@ static void check_variables(CoreParameter &coreParam)
    int iTexScalingLevel_prev;
    int iMultiSampleLevel_prev;
    bool bDisplayCropTo16x9_prev;
+
+   var.key = "ppsspp_vr_mode";
+   VRMode vrMode = VRMode::Off;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+      if (!strcmp(var.value, "Stereoscopic")) {
+         vrMode = VRMode::Stereoscopic;
+      } else if (!strcmp(var.value, "Immersive")) {
+         vrMode = VRMode::Immersive;
+      }
+   }
+   SetVRMode(vrMode);
 
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
@@ -1324,6 +1336,15 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
    PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
 
+	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES) {
+		// Reserve room for both eyes so changing VR mode needs no context reset.
+		info->geometry.max_width *= 2;
+		if (VRActive()) {
+			info->geometry.base_width *= 2;
+			info->geometry.aspect_ratio *= 2.0f;
+		}
+	}
+
    // The frame is smaller than the backbuffer then, so this goes after setting pixelWidth/Height.
    if (presentedDSStretch != DSStretch::Off)
    {
@@ -1336,6 +1357,10 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
 void Libretro::GetFrameSize(unsigned *width, unsigned *height)
 {
+	if (VRActive()) {
+		*width *= 2;
+		return;
+	}
    DSStretch stretch = DSStretch::Off;
    if (gpu && PSP_CoreParameter().gpuCore == GPUCORE_SOFTWARE)
       stretch = static_cast<SoftGPU *>(gpu)->PresentedDarkStalkersNative();
@@ -1610,6 +1635,10 @@ void retro_unload_game(void) {
 		PSP_Shutdown(true);
 	g_VFS.Clear();
 
+	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES && ctx->GetDrawContext()) {
+		Libretro::DestroyVR();
+	}
+
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
@@ -1782,6 +1811,11 @@ void retro_run(void) {
 
    // Process input.
    retro_input();
+
+   // The shared VR renderer's camera state is consumed by the emulation thread.
+   if (useEmuThread && (Libretro::VRRequested() || Libretro::VRActive()))
+      EmuThreadPause();
+   Libretro::UpdateVR();
 
    // Handle thread pumping.
    if (useEmuThread) {
@@ -1990,6 +2024,8 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
 
 int64_t System_GetPropertyInt(SystemProperty prop) {
    switch (prop) {
+      case SYSPROP_DEVICE_TYPE:
+         return Libretro::VRRequested() && g_Config.iGPUBackend == (int)GPUBackend::OPENGL ? DEVICE_TYPE_VR : DEVICE_TYPE_DESKTOP;
       case SYSPROP_AUDIO_SAMPLE_RATE:
          return SAMPLERATE;
 #if PPSSPP_PLATFORM(ANDROID)

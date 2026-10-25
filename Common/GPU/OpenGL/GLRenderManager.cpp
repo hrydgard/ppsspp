@@ -4,6 +4,9 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include "libretro/LibretroVR.h"
+#endif
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -475,6 +478,15 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		frameData.profile.cpuStartTime = time_now_d();
 	}
 
+#ifdef __LIBRETRO__
+	if (Libretro::VRActive() && !skipGLCalls_) {
+		for (int eye = 0; eye < 2; ++eye) {
+			Libretro::BeginVREye(eye);
+			queueRunner_.RunSteps(task.steps, frameData, false, eye == 0, false);
+		}
+		Libretro::EndVREyes();
+	} else
+#endif
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {

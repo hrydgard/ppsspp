@@ -6,6 +6,9 @@
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/Math/math_util.h"
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include "libretro/LibretroVR.h"
+#endif
 
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -709,6 +712,66 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		return;
 	}
 
+#ifdef __LIBRETRO__
+	if (Libretro::VRActive()) {
+		// Keep framebuffer history per eye, including display buffers from earlier frames.
+		// Resolve before rendering: creating a target changes GL bindings.
+		auto resolve = [&](GLRFramebuffer *&fb) {
+			if (!fb) {
+				return;
+			}
+			if (!fb->vrRight) {
+				fb->vrRight = new GLRFramebuffer(caps_, fb->width, fb->height, fb->z_stencil_, fb->Tag());
+				GLRInitStep init{GLRInitStepType::CREATE_FRAMEBUFFER};
+				init.create_framebuffer.framebuffer = fb->vrRight;
+				InitCreateFramebuffer(init);
+			}
+			if (fb->vrGeneration != Libretro::VRGeneration()) {
+				fbo_bind_fb_target(true, fb->handle);
+				fbo_bind_fb_target(false, fb->vrRight->handle);
+				glDisable(GL_SCISSOR_TEST);
+				GLbitfield mask = GL_COLOR_BUFFER_BIT;
+				if (fb->z_stencil_) {
+					mask |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+				}
+				glBlitFramebuffer(0, 0, fb->width, fb->height, 0, 0, fb->width, fb->height, mask, GL_NEAREST);
+				if (scissorTestOn_) {
+					glEnable(GL_SCISSOR_TEST);
+				}
+				fb->vrGeneration = Libretro::VRGeneration();
+			}
+			if (!keepSteps) {
+				fb = fb->vrRight;
+			}
+		};
+		for (auto step : steps) {
+			switch (step->stepType) {
+			case GLRStepType::RENDER:
+				resolve(step->render.framebuffer);
+				for (auto &command : step->commands) {
+					if (command.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
+						resolve(command.bind_fb_texture.framebuffer);
+					}
+				}
+				break;
+			case GLRStepType::COPY:
+				resolve(step->copy.src);
+				resolve(step->copy.dst);
+				break;
+			case GLRStepType::BLIT:
+				resolve(step->blit.src);
+				resolve(step->blit.dst);
+				break;
+			case GLRStepType::READBACK:
+				resolve(step->readback.src);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+#endif
+
 	size_t totalRenderCount = 0;
 	for (auto &step : steps) {
 		if (step->stepType == GLRStepType::RENDER) {
@@ -1405,6 +1468,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			int alignment;
 			Thin3DFormatToGLFormatAndType(c.texture_subimage.format, internalFormat, format, type, alignment);
 			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, format, type, c.texture_subimage.data);
+#ifdef __LIBRETRO__
+			if (Libretro::RetainVRCommands()) {
+				break;
+			}
+#endif
 			if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(c.texture_subimage.data);
 			} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
@@ -1712,9 +1780,11 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
+#ifndef __LIBRETRO__
 		if (IsVREnabled()) {
 			BindVRFramebuffer();
 		}
+#endif
 		// Backbuffer is now bound.
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1888,6 +1958,9 @@ std::string GLQueueRunner::GetGLString(int name) const {
 }
 
 GLRFramebuffer::~GLRFramebuffer() {
+#ifdef __LIBRETRO__
+	delete vrRight;
+#endif
 	if (handle == 0 && z_stencil_buffer == 0 && z_buffer == 0 && stencil_buffer == 0)
 		return;
 

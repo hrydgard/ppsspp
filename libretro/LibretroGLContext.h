@@ -3,6 +3,7 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "libretro/LibretroGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
+#include "libretro/LibretroVR.h"
 
 class LibretroGLContext : public LibretroHWRenderContext {
 public:
@@ -21,13 +22,18 @@ public:
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *error_message) override;
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;
-	void SetRenderTarget() override {
+	void SetRenderTarget() override {}
+	bool ThreadFrame() override {
 		extern GLuint g_defaultFBO;
 		g_defaultFBO = hw_render_.get_current_framebuffer();
+		return renderManager_->ThreadFrame();
+	}
+	void SwapBuffers() override {
+		Libretro::PresentVR(hw_render_.get_current_framebuffer());
+		LibretroHWRenderContext::SwapBuffers();
 	}
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
-	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
 	bool ThreadFramePending() override { return renderManager_->HasQueuedThreadWork(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
 
