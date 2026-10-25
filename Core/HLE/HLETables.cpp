@@ -439,6 +439,7 @@ void RegisterAllModules() {
 	Register_PopsBootCalls();
 	Register_sceVaudio_driver();
 	Register_sceNetApctl_lib();
+	Register_sceMeCore_driver();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
