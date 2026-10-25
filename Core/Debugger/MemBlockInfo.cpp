@@ -127,6 +127,14 @@ MemSlabMap::~MemSlabMap() {
 }
 
 bool MemSlabMap::Mark(uint32_t addr, uint32_t size, uint64_t ticks, uint32_t pc, bool allocated, const char *tag, size_t tagLen) {
+	if (addr >= MAX_SIZE) {
+		return false;
+	}
+	// The size comes from the game. If addr + size wraps, Split() makes a slab that ends before it
+	// starts, and a later FillHeads() on it writes far outside heads_.
+	if (size > MAX_SIZE - addr) {
+		size = MAX_SIZE - addr;
+	}
 	uint32_t end = addr + size;
 	Slab *slab = FindSlab(addr);
 	Slab *firstMatch = nullptr;
@@ -430,11 +438,8 @@ void MemSlabMap::FillHeads(Slab *slab) {
 	}
 
 	// Now replace all the rest - we definitely cover the start of them.
-	Slab **next = &heads_[slice + 1];
-	// We want to set slice + 1 through endSlice, inclusive.
-	size_t c = endSlice - slice;
-	for (size_t i = 0; i < c; ++i) {
-		next[i] = slab;
+	for (uint32_t i = slice + 1; i <= endSlice; ++i) {
+		heads_[i] = slab;
 	}
 }
 

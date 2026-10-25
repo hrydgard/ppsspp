@@ -957,7 +957,6 @@ void NativeClearAchievementsHostOverride() {
 	});
 }
 
-void CallbackPostRender(UIContext *dc, void *userdata);
 bool CreateGlobalPipelines();
 
 // TODO: Add faster special case for channels == 2.
@@ -1009,7 +1008,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	}
 
 	g_screenManager->setUIContext(uiContext);
-	g_screenManager->setPostRenderCallback(&CallbackPostRender, nullptr);
 	// Live before the queue is processed: a removal that comes in while the outputs' swapchains are being
 	// recreated has to wait for the next frame, as its surface may be gone once it returns.
 	SetOutputsLive(true);
@@ -1186,10 +1184,6 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	}
 
 	INFO_LOG(Log::System, "NativeShutdownGraphics end");
-}
-
-void CallbackPostRender(UIContext *dc, void *userdata) {
-	ScreenshotNotifyEndOfFrame(dc->GetDrawContext());
 }
 
 static void SendMouseDeltaAxis();
@@ -1405,6 +1399,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 			runImDebugger(g_draw);
 		});
 		renderImDebugger(g_draw);
+		// Last, since the readback ends the backbuffer pass. Nothing can draw after it.
+		ScreenshotNotifyEndOfFrame(g_draw);
 		if (g_screenManager->getUIContext()->Text()) {
 			g_screenManager->getUIContext()->Text()->OncePerFrame();
 		}

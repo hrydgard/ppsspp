@@ -29,8 +29,6 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
-typedef void (*PostRenderCallback)(UIContext *ui, void *userdata);
-
 class ScreenManager {
 public:
 	virtual ~ScreenManager();
@@ -44,11 +42,6 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 	Draw::DrawContext *getDrawContext() { return draw_; }
-
-	void setPostRenderCallback(PostRenderCallback cb, void *userdata) {
-		postRenderCb_ = cb;
-		postRenderUserdata_ = userdata;
-	}
 
 	ScreenRenderFlags Render(std::function<void()> afterPreRender);
 	void resized();
@@ -109,9 +102,6 @@ private:
 
 	UIContext *uiContext_ = nullptr;
 	Draw::DrawContext *draw_ = nullptr;
-
-	PostRenderCallback postRenderCb_ = nullptr;
-	void *postRenderUserdata_ = nullptr;
 
 	const Screen *dialogFinished_ = nullptr;
 	DialogResult dialogResult_{};

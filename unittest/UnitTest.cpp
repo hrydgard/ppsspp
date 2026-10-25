@@ -884,6 +884,33 @@ bool TestSerializer() {
 	return true;
 }
 
+bool TestLogFileOpen() {
+	// Creating the log file's folder logs, which used to deadlock on the log file lock.
+	const Path dir = UnitTestTempPath("unittest_log_file");
+	File::DeleteDirRecursively(dir);
+	const Path logPath = dir / "sub" / "log.txt";
+
+	const LogOutput outputs = g_logManager.GetOutputsEnabled();
+	const LogLevel ioLevel = g_logManager.GetLogLevel(Log::IO);
+	const bool ioEnabled = g_logManager.GetLogChannel(Log::IO)->enabled;
+	g_logManager.SetLogLevel(Log::IO, LogLevel::LVERBOSE);
+	g_logManager.SetEnabled(Log::IO, true);
+
+	g_logManager.SetFileLogPath(logPath);
+	g_logManager.EnableOutput(LogOutput::File);
+	INFO_LOG(Log::IO, "Log file test");
+	bool exists = File::Exists(logPath);
+
+	g_logManager.SetOutputsEnabled(outputs);
+	g_logManager.SetFileLogPath(Path());
+	g_logManager.SetLogLevel(Log::IO, ioLevel);
+	g_logManager.SetEnabled(Log::IO, ioEnabled);
+	File::DeleteDirRecursively(dir);
+
+	EXPECT_TRUE(exists);
+	return true;
+}
+
 bool TestMemBlockInfoSaveState() {
 	MemBlockInfoInit();
 	MemBlockOverrideDetailed();
@@ -918,6 +945,33 @@ bool TestMemBlockInfoSaveState() {
 	NotifyMemInfo(MemBlockFlags::ALLOC, 0x08800100, 0x10, "SplitTag", 8);
 	auto results = FindMemInfo(0x08800000, 0x20000);
 	EXPECT_TRUE(!results.empty());
+
+	MemBlockReleaseDetailed();
+	MemBlockInfoShutdown();
+	return true;
+}
+
+bool TestMemBlockInfoRangeWrap() {
+	MemBlockInfoInit();
+	MemBlockOverrideDetailed();
+
+	// Sizes come from the game. One that wraps around 32 bits used to leave a slab that ends
+	// before it starts, hidden from lookups, and later marks crashed on it.
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x08800800, 0xFFFFF000, "Wrap", 4);
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x3FFFF000, 0x2000, "PastEnd", 7);
+
+	auto findWrite = [](uint32_t addr, const char *tag) {
+		std::vector<MemBlockInfo> results = FindMemInfoByFlag(MemBlockFlags::WRITE, addr, 1);
+		return results.size() == 1 && results[0].tag == tag && results[0].start + results[0].size > results[0].start;
+	};
+	EXPECT_TRUE(findWrite(0x08800800, "Wrap"));
+	EXPECT_TRUE(findWrite(0x20000000, "Wrap"));
+	EXPECT_TRUE(findWrite(0x3FFFFFFF, "PastEnd"));
+
+	// Splitting the clamped slab again works too.
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x08900000, 0x1000, "Inside", 6);
+	EXPECT_TRUE(findWrite(0x08900000, "Inside"));
+	EXPECT_TRUE(findWrite(0x08901000, "Wrap"));
 
 	MemBlockReleaseDetailed();
 	MemBlockInfoShutdown();
@@ -4055,6 +4109,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
+	TEST_ITEM(MemBlockInfoRangeWrap),
+	TEST_ITEM(LogFileOpen),
 	TEST_ITEM(Serializer),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
