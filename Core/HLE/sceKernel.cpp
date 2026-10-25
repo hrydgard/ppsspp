@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "zlib.h"
+
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Log/LogManager.h"
 #include "Common/System/OSD.h"
@@ -22,6 +24,7 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
+#include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -1162,11 +1165,42 @@ void Register_ExceptionManagerForKernel()
 	RegisterHLEModule("ExceptionManagerForKernel", ARRAY_SIZE(ExceptionManagerForKernel), ExceptionManagerForKernel);
 }
 
+// Raw deflate (no zlib or gzip header), as the kernel's ISO drivers use for CSO blocks.
+// The input length isn't passed, so the stream's own final block ends it. If nextAddr is set,
+// it receives the address just past the compressed data.
+static int sceKernelDeflateDecompress(u32 destAddr, u32 destSize, u32 srcAddr, u32 nextAddr) {
+	if (!Memory::IsValidRange(destAddr, destSize) || !Memory::IsValidAddress(srcAddr)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad address");
+	}
+	if (nextAddr && !Memory::IsValidRange(nextAddr, 4)) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad next pointer");
+	}
+
+	z_stream stream{};
+	stream.next_in = (Bytef *)Memory::GetPointerOrException(srcAddr);
+	stream.avail_in = (uInt)Memory::ClampValidSizeAt(srcAddr, Memory::g_MemorySize);
+	stream.next_out = (Bytef *)Memory::GetPointerWriteOrException(destAddr);
+	stream.avail_out = (uInt)destSize;
+	if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "inflateInit2 failed");
+	}
+	int err = inflate(&stream, Z_FINISH);
+	inflateEnd(&stream);
+	if (err != Z_STREAM_END) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "inflate failed (%d)", err);
+	}
+
+	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, (u32)stream.total_out, "KernelDeflate");
+	if (nextAddr)
+		Memory::WriteUnchecked_U32(srcAddr + (u32)stream.total_in, nextAddr);
+	return hleLogDebug(Log::sceKernel, (int)stream.total_out);
+}
+
 // Seen in some homebrew
 const HLEFunction UtilsForKernel[] = {
 	{0xC2DF770E, WrapI_UI<sceKernelIcacheInvalidateRange>,           "sceKernelIcacheInvalidateRange",            'i', "xi",     HLE_KERNEL_SYSCALL },
 	{0X78934841, nullptr,                                            "sceKernelGzipDecompress",                   '?', ""        },
-	{0XE8DB3CE6, nullptr,                                            "sceKernelDeflateDecompress",                '?', ""        },
+	{0XE8DB3CE6, &WrapI_UUUU<sceKernelDeflateDecompress>,            "sceKernelDeflateDecompress",                'i', "xxxx",   HLE_KERNEL_SYSCALL },
 	{0X840259F1, &WrapI_UIU<sceKernelUtilsSha1Digest>,               "sceKernelUtilsSha1Digest",                  '?', ""        },
 	{0X9E5C5086, nullptr,                                            "sceKernelUtilsMd5BlockInit",                '?', ""        },
 	{0X61E1E525, nullptr,                                            "sceKernelUtilsMd5BlockUpdate",              '?', ""        },
