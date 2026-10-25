@@ -32,8 +32,9 @@
 #endif
 
 // The iOS app links MoltenVK statically and calls Vulkan directly. Everywhere else (including the
-// iOS libretro core), we load the functions at runtime into the pointers below.
-#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
+// iOS libretro core), we load the functions at runtime into the pointers below. The simulator build
+// has no MoltenVK at all (it uses Metal), so it takes the runtime path, which finds no library.
+#if PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(IOS_SIMULATOR) && !defined(__LIBRETRO__)
 #define PPSSPP_VK_STATIC 1
 #else
 #define VK_NO_PROTOTYPES
