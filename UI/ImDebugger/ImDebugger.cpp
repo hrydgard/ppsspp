@@ -86,6 +86,7 @@ static constexpr bool kIsMobilePlatform = true;
 #else
 static constexpr bool kIsMobilePlatform = false;
 #endif
+
 // Defined further down (see ImDebugger_SetSoftKeyboardHook).
 static std::function<void(bool)> g_softKeyboardHook;
 
@@ -3420,10 +3421,20 @@ void ImDebugger::DrawQuickScroll() {
 	}
 	const char *targetName = target ? target->RootWindow->Name : nullptr;
 
-	// The CPU disassembly is custom drawn (not ImGui scrolling), so it goes through its own API.
+	// The CPU disassembly and the memory viewers are custom drawn (not ImGui scrolling). Top/End go through their
+	// own goto APIs, the other buttons send key presses that those views already handle for hardware keyboards.
 	const bool isDisasm = targetName && !strcmp(targetName, disasm_.Title());
-	ImGuiWindow *scrollWin = (target && !isDisasm) ? FindScrollableWindow(target) : nullptr;
-	const bool canScroll = isDisasm || scrollWin;
+	int memIndex = -1;
+	for (int i = 0; targetName && i < 4; i++) {
+		if (!strcmp(targetName, ImMemWindow::Title(i))) {
+			memIndex = i;
+			break;
+		}
+	}
+	const bool isCustomView = isDisasm || memIndex >= 0;
+	ImGuiWindow *scrollWin = (target && !isCustomView) ? FindScrollableWindow(target) : nullptr;
+	const bool canScroll = target != nullptr;                       // Page/line buttons: scroll, or send keys.
+	const bool canJump = isDisasm || memIndex >= 0 || scrollWin;    // Top/End need a known range.
 
 	const float em = ImGui::GetFontSize();
 	const float margin = ImGui::GetStyle().ItemSpacing.x;
@@ -3459,63 +3470,78 @@ void ImDebugger::DrawQuickScroll() {
 			}
 
 			const float lineH = ImGui::GetTextLineHeightWithSpacing();
-			// Scroll amount in pixels (ImGui windows) or lines (disassembly) for one press.
-			float pageY = 0.0f;
-			int pageLines = 1;
-			if (scrollWin) {
-				pageY = ImMax(lineH, scrollWin->InnerRect.GetHeight() - lineH * 2.0f);
-			} else if (target) {
-				pageLines = ImMax(1, (int)(target->InnerRect.GetHeight() / lineH) - 2);
-			}
+			const float pageY = scrollWin ? ImMax(lineH, scrollWin->InnerRect.GetHeight() - lineH * 2.0f) : 0.0f;
 
-			// Positive = towards higher addresses (down). If this is reversed in your ImDisasmView::ScrollRelative, flip it here.
-			constexpr int kDisasmDown = 1;
 			const u32 ramStart = 0x08000000;
 			const u32 ramEnd = 0x08000000 + (u32)Memory::g_MemorySize - 4;
 
-			enum class Scroll { NONE, TOP, PAGE_UP, UP, DOWN, PAGE_DOWN, END };
-			Scroll action = Scroll::NONE;
+			auto scrollBy = [&](float dy) {
+				// Build on any pending target so held buttons accumulate.
+				const float base = scrollWin->ScrollTarget.y < FLT_MAX ? scrollWin->ScrollTarget.y : scrollWin->Scroll.y;
+				ImGui::SetScrollY(scrollWin, ImClamp(base + dy, 0.0f, scrollWin->ScrollMax.y));
+			};
+			// Custom views: act like the user pressed the key. Up/Down then move the highlighted line and only scroll
+			// the view when the highlight leaves the screen.
+			auto tapKey = [&](ImGuiKey key) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;  // Otherwise it would snap straight back to PC while stepping.
+				}
+				ImGui::FocusWindow(target);  // Give the keypress back to the view the user was looking at.
+				io.AddKeyEvent(key, true);
+				io.AddKeyEvent(key, false);
+			};
 
-			if (ImGui::Button("Top", btnSize)) action = Scroll::TOP;
-			ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);  // Hold to keep scrolling.
-			if (ImGui::Button("PgUp", btnSize)) action = Scroll::PAGE_UP;
-			if (ImGui::Button("Up", btnSize)) action = Scroll::UP;
-			if (ImGui::Button("Down", btnSize)) action = Scroll::DOWN;
-			if (ImGui::Button("PgDn", btnSize)) action = Scroll::PAGE_DOWN;
-			ImGui::PopItemFlag();
-			if (ImGui::Button("End", btnSize)) action = Scroll::END;
-
-			if (!canScroll) {
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("Top", btnSize)) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramStart);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramStart);
+				} else if (scrollWin) {
+					ImGui::SetScrollY(scrollWin, 0.0f);
+				}
+			}
+			if (!canJump) {
 				ImGui::EndDisabled();
 			}
 
-			if (action != Scroll::NONE) {
+			ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);  // Hold to keep scrolling.
+			if (ImGui::Button("PgUp", btnSize)) {
+				if (scrollWin) scrollBy(-pageY); else tapKey(ImGuiKey_PageUp);
+			}
+			if (ImGui::Button("Up", btnSize)) {
+				if (scrollWin) scrollBy(-lineH * 3.0f); else tapKey(ImGuiKey_UpArrow);
+			}
+			if (ImGui::Button("Down", btnSize)) {
+				if (scrollWin) scrollBy(lineH * 3.0f); else tapKey(ImGuiKey_DownArrow);
+			}
+			if (ImGui::Button("PgDn", btnSize)) {
+				if (scrollWin) scrollBy(pageY); else tapKey(ImGuiKey_PageDown);
+			}
+			ImGui::PopItemFlag();
+
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("End", btnSize)) {
 				if (isDisasm) {
-					ImDisasmView &view = disasm_.View();
-					view.followPC_ = false;  // Otherwise it would snap straight back to PC while stepping.
-					switch (action) {
-					case Scroll::TOP: view.gotoAddr(ramStart); break;
-					case Scroll::END: view.gotoAddr(ramEnd); break;
-					case Scroll::PAGE_UP: view.ScrollRelative(-kDisasmDown * pageLines); break;
-					case Scroll::PAGE_DOWN: view.ScrollRelative(kDisasmDown * pageLines); break;
-					case Scroll::UP: view.ScrollRelative(-kDisasmDown * 3); break;
-					case Scroll::DOWN: view.ScrollRelative(kDisasmDown * 3); break;
-					default: break;
-					}
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramEnd);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramEnd & ~0xFu);
 				} else if (scrollWin) {
-					const float cur = scrollWin->Scroll.y;
-					float next = cur;
-					switch (action) {
-					case Scroll::TOP: next = 0.0f; break;
-					case Scroll::END: next = scrollWin->ScrollMax.y; break;
-					case Scroll::PAGE_UP: next = cur - pageY; break;
-					case Scroll::PAGE_DOWN: next = cur + pageY; break;
-					case Scroll::UP: next = cur - lineH * 3.0f; break;
-					case Scroll::DOWN: next = cur + lineH * 3.0f; break;
-					default: break;
-					}
-					ImGui::SetScrollY(scrollWin, ImClamp(next, 0.0f, scrollWin->ScrollMax.y));
+					ImGui::SetScrollY(scrollWin, scrollWin->ScrollMax.y);
 				}
+			}
+			if (!canJump) {
+				ImGui::EndDisabled();
+			}
+
+			if (!canScroll) {
+				ImGui::EndDisabled();
 			}
 
 			// Show which window the buttons act on.
