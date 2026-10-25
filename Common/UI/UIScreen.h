@@ -84,6 +84,7 @@ protected:
 
 	bool recreateViews_ = true;
 	DeviceOrientation lastOrientation_ = DeviceOrientation::Landscape;
+	ViewLayoutMode lastLayoutMode_ = ViewLayoutMode::ApplyInsets;
 };
 
 class UIDialogScreen : public UIScreen {

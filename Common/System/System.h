@@ -194,6 +194,8 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_SAFE_INSET_RIGHT,
 	SYSPROP_DISPLAY_SAFE_INSET_TOP,
 	SYSPROP_DISPLAY_SAFE_INSET_BOTTOM,
+	// How far down the screen the side insets are needed (they're for something in a top corner), or -1.
+	SYSPROP_DISPLAY_SIDE_INSETS_BOTTOM,
 	SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT,
 
 	SYSPROP_DEVICE_TYPE,

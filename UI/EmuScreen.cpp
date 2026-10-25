@@ -1418,7 +1418,7 @@ void EmuScreen::OpenChat(bool focus) {
 int GetChatMessageCount();
 
 ViewLayoutMode EmuScreen::LayoutMode() const {
-	return ViewLayoutMode::ApplyInsets;
+	return TouchControlsLayoutMode();
 }
 
 void EmuScreen::update() {
@@ -2022,10 +2022,11 @@ void EmuScreen::renderUI() {
 
 	if (PSP_IsInited()) {
 		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::CONTROL) {
-			DrawControlMapperOverlay(ctx, GetLayoutBounds(*ctx), g_controlMapper);
+			DrawControlMapperOverlay(ctx, ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, UseImmersiveMode()), g_controlMapper);
 		}
 		if (g_Config.iShowStatusFlags) {
-			DrawFPS(ctx, GetLayoutBounds(*ctx));
+			// Top right, so it can't skip the side insets like the controls can.
+			DrawFPS(ctx, ctx->GetLayoutBounds(ViewLayoutMode::ApplyInsets, UseImmersiveMode()));
 		}
 	}
 

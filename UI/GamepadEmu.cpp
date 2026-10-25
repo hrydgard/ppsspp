@@ -998,6 +998,15 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 	}
 }
 
+ViewLayoutMode TouchControlsLayoutMode() {
+	// The only control the defaults put in the top third is the centered menu button.
+	const float sideInsetsBottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SIDE_INSETS_BOTTOM);
+	if (sideInsetsBottom >= 0.0f && sideInsetsBottom < g_display.dp_yres / 3.0f) {
+		return ViewLayoutMode::IgnoreSideInsets;
+	}
+	return ViewLayoutMode::ApplyInsets;
+}
+
 UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper) {
 	using namespace UI;
 	return new GamepadEmuView(config, xres, yres, pause, controlMapper, new UI::LayoutParams(UI::FILL_PARENT, UI::FILL_PARENT));

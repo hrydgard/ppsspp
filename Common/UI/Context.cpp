@@ -162,6 +162,10 @@ Bounds UIContext::GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode)
 	case ViewLayoutMode::IgnoreBottomInset:
 		bottom = 0.0f;
 		break;
+	case ViewLayoutMode::IgnoreSideInsets:
+		left = 0.0f;
+		right = 0.0f;
+		break;
 	}
 
 	// The side insets are only evened out in landscape. In portrait, a camera cutout is at the top, so a

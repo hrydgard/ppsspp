@@ -682,6 +682,7 @@ extern float g_safeInsetLeft;
 extern float g_safeInsetRight;
 extern float g_safeInsetTop;
 extern float g_safeInsetBottom;
+extern float g_sideInsetsBottom;
 
 - (void)viewSafeAreaInsetsDidChange {
 	[super viewSafeAreaInsetsDidChange];
@@ -724,6 +725,42 @@ extern float g_safeInsetBottom;
 		g_safeInsetRight = std::max(g_safeInsetRight, cornerInset);
 	}
 #endif
+
+	const CGFloat sideInsetsBottom = [self sideInsetsBottom];
+	g_sideInsetsBottom = sideInsetsBottom < 0.0 ? -1.0f : sideInsetsBottom * scale;
+}
+
+// How far down the screen the side insets are needed, in points, or -1 if all the way. Side insets
+// come from occlusions like the camera, and on the iPhone Duo's cover screen that's a box in the top
+// right corner, which the touch controls don't need to avoid.
+- (CGFloat)sideInsetsBottom {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 270100
+	if (@available(iOS 27.1, *)) {
+		UIEdgeInsets safe = self.view.safeAreaInsets;
+		if (safe.left <= 0.0 && safe.right <= 0.0) {
+			return -1.0;
+		}
+		const CGFloat width = self.view.bounds.size.width;
+		bool leftExplained = safe.left <= 0.0;
+		bool rightExplained = safe.right <= 0.0;
+		CGFloat bottom = 0.0;
+		for (UIViewReservedRegion *region in [self.view reservedRegionsOfKind:UIViewReservedRegionKind.occlusionRegionKind]) {
+			const CGRect frame = region.frame;
+			const bool onLeft = safe.left > 0.0 && CGRectGetMinX(frame) < safe.left;
+			const bool onRight = safe.right > 0.0 && CGRectGetMaxX(frame) > width - safe.right;
+			if (onLeft || onRight) {
+				leftExplained |= onLeft;
+				rightExplained |= onRight;
+				bottom = std::max(bottom, CGRectGetMaxY(frame));
+			}
+		}
+		// An inset with no occlusion behind it (like the home indicator's) could be anywhere.
+		if (leftExplained && rightExplained) {
+			return bottom;
+		}
+	}
+#endif
+	return -1.0;
 }
 
 - (void)shareText:(NSString *)text {
@@ -861,13 +898,14 @@ static NSSet<UIPress *> *NonKeyboardPresses(NSSet<UIPress *> *presses) {
 // backbuffer matching the view while it animates.
 - (void)viewDidLayoutSubviews {
 	[super viewDidLayoutSubviews];
+	// A rotation doesn't always change the system's insets, but it can change ours. And the reserved
+	// regions can show up after the size and insets have settled.
+	[self updateSafeInsets];
 	CGSize size = self.view.bounds.size;
 	if (size.width <= 0.0 || size.height <= 0.0 || CGSizeEqualToSize(size, lastLayoutSize_)) {
 		return;
 	}
 	lastLayoutSize_ = size;
-	// A rotation doesn't always change the system's insets, but it can change ours.
-	[self updateSafeInsets];
 #if !PPSSPP_PLATFORM(TVOS)
 	if (self.view.window.windowScene) {
 		[cameraHelper setInterfaceOrientation:self.view.window.windowScene.interfaceOrientation];

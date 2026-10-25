@@ -586,6 +586,10 @@ void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save("TouchControlLayoutScreen::onFinish");
 }
 
+ViewLayoutMode TouchControlLayoutScreen::LayoutMode() const {
+	return TouchControlsLayoutMode();
+}
+
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
 	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
 
