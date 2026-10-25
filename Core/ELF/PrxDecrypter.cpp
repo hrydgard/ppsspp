@@ -345,6 +345,17 @@ static const u32 g_key_INDEXDAT1xx[] = {
 		0xA34D8C80, 0x962B235D, 0x3E420548, 0x09CF9FFE, 0xD4883F5C, 0xD90E9CB5,
 		0x00AEF4E9, 0xF0886DE9, 0x62A58A5B, 0x52A55546, 0x971941B5, 0xF5B79FAC};
 
+// The blocks inside the 1.00 updater's DATA.PSAR (a version 1 archive) carry this tag. Stored raw,
+// as in 1.50's mesg_led.prx, which keeps its tags and keys in a table: this one follows tag
+// 0x06000000 at 0x2028 of the decrypted module.
+static const u32 g_keyUPDATER_PSAR_100[] = {
+		0x8C121584, 0x80D783A8, 0xDB881EEF, 0x239661BC, 0xFC88F32B, 0xDEB53FE5,
+		0x6BA05A98, 0xDB550ADE, 0x3644F8F2, 0x5594D1EB, 0x933E394A, 0x02E33D7C,
+		0xF5E78812, 0xEBC1F0F8, 0xC68D1B25, 0x442B1EB8, 0x7E6AB7A5, 0x924639D0,
+		0x07DE716D, 0x102FB897, 0x53DDBA18, 0x982B07C6, 0x0D748A24, 0xFE5D645C,
+		0x4367E78E, 0xA1B39693, 0x12ECA8A1, 0x4458FBC4, 0x9C0A55FC, 0xFA37301E,
+		0x03D32454, 0x31BD92E2, 0xF7EA0323, 0x09DE73E7, 0x7983B33B, 0x0E8517DA};
+
 // The blocks inside an official updater's DATA.PSAR carry this tag. See Core/Util/PSARUnpack.cpp.
 static const u32 g_keyUPDATER_PSAR[] = {
 		0x77B757DE, 0xEE62DD17, 0x5D03787B, 0x59CA8644, 0x93F68D20, 0x21819328,
@@ -403,7 +414,8 @@ static const TAG_INFO g_tagInfo[] =
 	{ 0x207BBF2F, g_keyUNK1, 0x5A, 0x5A },
 	{ 0x09000000, g_key_GAMESHARE1xx, 0x4C },
 	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E },
-	{ 0x0E000000, g_keyUPDATER_PSAR, 0x51, 0x00, true }
+	{ 0x0E000000, g_keyUPDATER_PSAR, 0x51, 0x00, true },
+	{ 0x06000000, g_keyUPDATER_PSAR_100, 0x49, 0x00, true },
 };
 
 static const TAG_INFO *GetTagInfo(u32 tagFind)

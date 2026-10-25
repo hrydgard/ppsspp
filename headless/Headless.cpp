@@ -1060,7 +1060,8 @@ int main(int argc, const char* argv[]) {
 			stats.compressionCounts[(int)PSARCompression::KL3E],
 			stats.compressionCounts[(int)PSARCompression::LZR],
 			stats.compressionCounts[(int)PSARCompression::Unknown]);
-		return ok ? 0 : 1;
+		// A walk that got to the end can still have failed on every file, so count those too.
+		return ok && stats.failed == 0 ? 0 : 1;
 	}
 
 	// Same deal for installing a game update package.
