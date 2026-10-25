@@ -125,7 +125,8 @@ struct SceAudiocodecCodec {
 
 		// AAC (0x1003). The input frame size is 0x609 when flag2c is nonzero and 0x600 when it is
 		// zero, and the output size 0x2000 when flag2d is set (avcodec.prx decodeUtility). Init
-		// sends extra ME commands for either flag (0x95, 0x97), which fail on the firmware tested.
+		// sends extra ME commands for either flag (0x95, 0x97), which fail unless the ME was booted
+		// for the VSH (sceMeBootStart).
 		struct {
 			// 0x28  One of the AAC rates from 8000 to 96000 (not 12000 or 7350), or Init fails.
 			u32 sampleRate;
@@ -148,6 +149,7 @@ struct SceAudiocodecCodec {
 void __AudioCodecInit();
 void __AudioCodecShutdown();
 void Register_sceAudiocodec();
+void Register_sceMeCore_driver();
 void __sceAudiocodecDoState(PointerWrap &p);
 
 class AudioDecoder;

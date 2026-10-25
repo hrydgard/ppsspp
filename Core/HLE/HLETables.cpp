@@ -250,7 +250,7 @@ static const int numModules = ARRAY_SIZE(moduleList);
 // function touches (where popsman.prx was rewritten, 5.55 and 4.05, the call sites alone get some wrong).
 static const struct {
 	const char *module;
-	u32 nids[5];  // 6.60-6.61, 6.30-6.39, 6.00-6.20, 5.01-5.55, 3.95-4.05
+	u32 nids[8];  // 6.60-6.61, 6.30-6.39, 6.00-6.20, 5.01-5.55, 3.95-4.05, 3.80-3.90, 3.71-3.73, 2.80-3.52
 } hleKernelNids[] = {
 	{ "InitForKernel",      { 0x9D33A110, 0xEE67E450, 0x977A0F90, 0,          0          } },  // InitForKernel_9D33A110
 	{ "LoadExecForKernel",  { 0xC3474C2A, 0xFCD765C9, 0x29413885, 0x9C9BB2D8, 0x63D88393 } },  // sceKernelExitVSHKernel
@@ -268,6 +268,7 @@ static const struct {
 	{ "sceGe_driver",       { 0x5D28A52B, 0x670F15ED, 0xF489E74B, 0,          0          } },
 	{ "sceGe_driver",       { 0xAFE6C9EF, 0xD8A53104, 0x7E2381D2, 0,          0          } },
 	{ "sceHprm_driver",     { 0xB2BEADB8, 0xADE4B1F4, 0x62CDFB12, 0,          0          } },
+	{ "sceMeCore_driver",   { 0x5DFF5C50, 0x99E4DBFA, 0x3A2E60BB, 0x051C1601, 0x8988AD49, 0xD857CF93, 0xC287AD90, 0x47DB48C2 } },  // sceMeBootStart
 	{ "sceImpose_driver",   { 0xB497314D, 0x3FE74F52, 0x8F1AC24D, 0,          0          } },  // sceImpose_driver_B497314D
 	{ "sceImpose_driver",   { 0x0F067E16, 0x44F17A7A, 0x55864BD7, 0x0BBCA0BF, 0xCD1291FD } },  // sceImposeChanges
 	{ "sceImpose_driver",   { 0x5557F4E2, 0xEBC850AC, 0x4D849B71, 0xA516434B, 0x869EB4A8 } },  // sceImposeGetBatteryIconStatus
@@ -439,6 +440,7 @@ void RegisterAllModules() {
 	Register_PopsBootCalls();
 	Register_sceVaudio_driver();
 	Register_sceNetApctl_lib();
+	Register_sceMeCore_driver();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

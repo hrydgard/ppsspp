@@ -90,6 +90,13 @@ Two separate things:
 - **Photo**: folders under `PICTURE/` list with thumbnails, and JPEG and PNG open full screen (R
   for the next one).
 - **Music**: MP3 plays. SensMe stops at 8002013A.
+- **Video**: the memory stick list is read from `ms0:/VIDEO` and `ms0:/MP_ROOT`, not `PSP/VIDEO`.
+  H.264/AAC MP4 and Motion JPEG AVI (PCM or u-law audio) play. The player boots the ME in mode 3
+  (`sceMeBootStart`), which is what lets AAC Init take the flags it sets; renders Motion JPEG
+  through `sceMpegBaseYCrCbCopyVme`/`sceMpegBaseCscVme`; and plays audio through a vaudio channel
+  that hands each buffer to the ME (`sceVaudio_E8E78DC8`, then `sceVaudio_504E4745` many times a
+  second). Its Motion JPEG thumbnails replace the frame's Huffman tables with the standard ones, so
+  a file encoded with optimised tables (ffmpeg's default) gets a garbled thumbnail.
 - **Settings**: the menus open. System Information shows "-" for the MAC address: wlan.prx reads it
   from IdStorage key 0x44, and IdStorage is left failing on purpose (see below).
 - **Network**: the browser and the online manuals reach their Network Connection screen once

@@ -19,6 +19,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
+#include "Core/ConfigValues.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
@@ -45,6 +46,8 @@ static std::map<u32, int> g_at3PlusFrameBytes;
 static std::map<u32, int> g_primingFrames;
 
 static bool oldStateLoaded = false;
+// What sceMeBootStart booted the ME for. Games get mode 2, the VSH mode 3.
+static int g_meBootMode = 2;
 
 static_assert(sizeof(SceAudiocodecCodec) == 128);
 // Games allocate this structure and the ME writes into it, so every offset is load-bearing.
@@ -111,8 +114,8 @@ static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
 // ------------------------------------------------
 // Sample rate is at offset 0x28. The input frame size is 0x609 when the byte at 0x2c is nonzero
 // and 0x600 when it is zero (avcodec.prx decodeUtility, case 0x1003); the output size comes from
-// the byte at 0x2d and is 0x1000 or 0x2000. Setting the byte at 0x2c alone (to 1) fails Init on
-// hardware, so something else has to go with it.
+// the byte at 0x2d and is 0x1000 or 0x2000. Either byte fails Init in a game, though (see
+// sceAudiocodecInit).
 
 // MP3 (0x1002)
 // ------------------------------------------------
@@ -269,6 +272,7 @@ void __AudioCodecInit() {
 	// game around for the next one to find.
 	clearDecoders();
 	oldStateLoaded = false;
+	g_meBootMode = 2;
 }
 
 void __AudioCodecShutdown() {
@@ -405,8 +409,13 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 			// Refused before it gets to the ME.
 			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_UNSUPPORTED, "bad AAC sample rate %d", ctx->fmt.aac.sampleRate);
 		}
-		// Either flag makes Init send another ME command (0x95, 0x97), and both fail.
-		if (ctx->fmt.aac.flag2c || ctx->fmt.aac.flag2d) {
+		// Either flag makes Init send another ME command (0x95, 0x97). Both fail with the ME booted
+		// for games (pspautotests audio/audiocodec/context), but the VSH's video player sets 0x2d on
+		// anything newer than a PSP-1000, and 0x2c for 24 and 48 kHz (msvideo_main_plugin.prx), and
+		// plays those files. It runs with the ME booted in mode 3, which differs from the games'
+		// mode 2 only by the argument to ME command 0x185 (me_wrapper.prx), so that's taken to be
+		// what turns them on.
+		if ((ctx->fmt.aac.flag2c || ctx->fmt.aac.flag2d) && g_meBootMode != 3) {
 			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_UNSUPPORTED, "AAC flags %02x %02x", ctx->fmt.aac.flag2c, ctx->fmt.aac.flag2d), InitUs(codec, ctx));
 		}
 		primingFrames = 2;
@@ -935,12 +944,37 @@ void Register_sceAudiocodec() {
 	RegisterHLEModule("sceAudiocodec", ARRAY_SIZE(sceAudiocodec), sceAudiocodec);
 }
 
+// Reboots the ME with the firmware image for a mode, 1-4 (me_wrapper.prx). Its module_start boots
+// mode 2, which is what games run with, and the VSH asks for 3 through sceVshBridge. Modes 2 and 3
+// share an image and then send ME command 0x185 with 0 or 1. From the PSP-2000 on, every mode but 2
+// is taken as 3. Only the mode is modelled.
+static int sceMeBootStart(int mode) {
+	if (mode < 1 || mode > 4) {
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_INVALID_INDEX, "bad mode");
+	}
+	if (Memory::g_PSPModel != PSP_MODEL_FAT && mode != 2) {
+		mode = 3;
+	}
+	g_meBootMode = mode;
+	return hleLogDebug(Log::ME, 0);
+}
+
+const HLEFunction sceMeCore_driver[] = {
+	// Other firmware versions' NIDs are aliased to this one (hleKernelNids in HLETables.cpp).
+	{0X5DFF5C50, &WrapI_I<sceMeBootStart>,               "sceMeBootStart",            'i', "i", HLE_KERNEL_SYSCALL },
+};
+
+void Register_sceMeCore_driver() {
+	RegisterHLEModule("sceMeCore_driver", ARRAY_SIZE(sceMeCore_driver), sceMeCore_driver);
+}
+
 void __sceAudiocodecDoState(PointerWrap &p){
-	auto s = p.Section("AudioList", 0, 3);
+	auto s = p.Section("AudioList", 0, 4);
 	if (!s) {
 		if (p.mode == PointerWrap::MODE_READ) {
 			clearDecoders();
 			oldStateLoaded = true;
+			g_meBootMode = 2;
 		}
 		return;
 	}
@@ -1016,5 +1050,10 @@ void __sceAudiocodecDoState(PointerWrap &p){
 		Do(p, g_primingFrames);
 	} else if (p.mode == PointerWrap::MODE_READ) {
 		g_primingFrames.clear();
+	}
+	if (s >= 4) {
+		Do(p, g_meBootMode);
+	} else {
+		g_meBootMode = 2;
 	}
 }

@@ -17,6 +17,10 @@ You need this whenever the answer to "what does the hardware actually do?" isn't
   On macOS it lives in `~/pspdev` by default and is *not* on `PATH`, so prefix commands with
   `PATH="$HOME/pspdev/bin:$PATH"` or export it once per shell. On macOS you also need
   `brew install libusb-compat`; on Windows, the libusbK driver via Zadig.
+- **On Windows, all of it runs in WSL**, not in Git Bash or PowerShell: the toolchain is in WSL's
+  `~/pspdev`, and the PSP is passed through to WSL with usbipd-win (see "Under WSL" below). Run
+  `gentest.py`, `pspsh` and `make` with `wsl.exe bash -lc '...'` from the repo's `/mnt/c/...` path.
+  `usbipd.exe list` on the Windows side shows whether the PSP ("PSP Type B") is attached to WSL.
 
 Ask the user to connect the PSP and start PSPLink - you can't do it for them. To confirm it's
 there before touching anything else:

@@ -542,6 +542,7 @@ tests_good = [
   "umd/callbacks/umd",
   "umd/wait/wait",
   "umd/register",
+  "video/mpeg/cscvme",
   "video/mpeg/ringbuffer/avail",
   "video/mpeg/ringbuffer/construct",
   "video/mpeg/ringbuffer/destruct",

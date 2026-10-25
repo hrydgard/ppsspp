@@ -757,7 +757,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	cmdLineOptions.ApplyToConfig();
 	g_cmdLineOptions = cmdLineOptions;
 
-	if (cmdLineOptions.skipLogo.value_or(false)) {
+	// A debugger client drives the app from a script, and the logo only gets in its way.
+	if (cmdLineOptions.skipLogo.value_or(false) || cmdLineOptions.DebuggerPort().has_value()) {
 		skipLogo = true;
 	}
 

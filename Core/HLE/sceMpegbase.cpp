@@ -30,6 +30,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
+#include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMpeg.h"
@@ -282,6 +283,44 @@ bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	return true;
 }
 
+// The layout sceMpegBaseCscVme takes: the two fields as plain planes, luma in buffers 0 and 1 and
+// each field's Cb and Cr in 2 and 3, and 4 and 5 (pspautotests video/mpeg/cscvme). Woven back
+// into a frame here, with each field's chroma on its own rows, as MpegBaseCscFields expects.
+static bool ReadVmeFields(const u32 *buffers, int width, int height,
+	const u8 **luma, const u8 **cb, const u8 **cr) {
+	const int width2 = width >> 1;
+	const int fieldHeight = height >> 1;
+	const int fieldChromaHeight = fieldHeight >> 1;
+	const size_t lumaBytes = (size_t)width * height;
+	const size_t chromaBytes = (size_t)width2 * (height >> 1);
+	const u8 *src[6];
+	for (int i = 0; i < 6; i++) {
+		src[i] = MpegBaseFramePointer(buffers[i], i < 2 ? width * fieldHeight : width2 * fieldChromaHeight);
+		if (!src[i]) {
+			return false;
+		}
+	}
+	if (g_untileScratch.size() < lumaBytes + chromaBytes * 2) {
+		g_untileScratch.resize(lumaBytes + chromaBytes * 2);
+	}
+	u8 *l = g_untileScratch.data();
+	u8 *b = l + lumaBytes;
+	u8 *r = b + chromaBytes;
+	for (int parity = 0; parity < 2; parity++) {
+		for (int y = 0; y < fieldHeight; y++) {
+			memcpy(l + (size_t)(y * 2 + parity) * width, src[parity] + (size_t)y * width, width);
+		}
+		for (int y = 0; y < fieldChromaHeight; y++) {
+			memcpy(b + (size_t)(y * 2 + parity) * width2, src[2 + parity * 2] + (size_t)y * width2, width2);
+			memcpy(r + (size_t)(y * 2 + parity) * width2, src[3 + parity * 2] + (size_t)y * width2, width2);
+		}
+	}
+	*luma = l;
+	*cb = b;
+	*cr = r;
+	return true;
+}
+
 static u32 YCbCrToPixel(int y, int cbv, int crv, int pixelMode) {
 	const int c = y - 16, d = cbv - 128, e = crv - 128;
 	int r = (298 * c + 409 * e + 128) >> 8;
@@ -463,7 +502,8 @@ void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 // the bottom field's 1, 3, 5..., which is how the ME lays them out (buffers 4/5 and 6/7), and why a
 // caller that copied only the top field's buffers can convert it.
 static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, int bufferWidth, int bpp,
-	const u8 *luma, const u8 *cb, const u8 *cr, int width, int height, int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	const u8 *luma, const u8 *cb, const u8 *cr, int width, int height, int rangeX, int rangeY, int rangeWidth, int rangeHeight,
+	bool scalar = false) {
 	const u32 rowBytes = (u32)(bufferWidth * bpp);
 	const int width2 = width >> 1;
 	const int fieldHeight = height >> 1;
@@ -496,7 +536,8 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 			memcpy(fieldCr + (size_t)y * width2, cr + (size_t)(y * 2 + parity) * width2, width2);
 		}
 		scratch.resize((size_t)rows * rowBytes);
-		MpegCscRange(scratch.data(), bufferWidth, g_mpegBasePixelMode, fieldLuma, fieldCb, fieldCr, width,
+		auto convert = scalar ? &MpegCscRangeScalar : &MpegCscRange;
+		convert(scratch.data(), bufferWidth, g_mpegBasePixelMode, fieldLuma, fieldCb, fieldCr, width,
 			rangeX, first, rangeWidth, rows);
 
 		for (int k = 0; k < rows; k++) {
@@ -517,11 +558,18 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 	}
 
 	const u32 extent = (bufferRGB2 != 0 ? (u32)((rangeHeight + 1) >> 1) : (u32)rangeHeight) * rowBytes;
+	const bool second = bufferRGB2 != 0 && bufferRGB2 != bufferRGB && !topFieldOnly;
+	// Fields packed back to back (as the VSH's Motion JPEG player has them) are one picture to the
+	// GPU. Telling it about them separately makes the first a framebuffer of its own, and a texture
+	// over the whole picture stops at it.
+	const bool adjacent = second && bufferRGB2 == bufferRGB + extent;
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, extent, "MpegBaseCsc");
-	gpu->PerformWriteFormattedFromMemory(bufferRGB, extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
-	if (bufferRGB2 != 0 && bufferRGB2 != bufferRGB && !topFieldOnly) {
+	gpu->PerformWriteFormattedFromMemory(bufferRGB, adjacent ? extent * 2 : extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
+	if (second) {
 		NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB2, extent, "MpegBaseCsc");
-		gpu->PerformWriteFormattedFromMemory(bufferRGB2, extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
+		if (!adjacent) {
+			gpu->PerformWriteFormattedFromMemory(bufferRGB2, extent, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
+		}
 	}
 	const int cscUs = std::max(1, PowerScaleFromDefaultClock((int)(2400LL * rangeWidth * rowsWritten / (480 * 272))));
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x/%08x stride %d, %s",
@@ -667,6 +715,39 @@ static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 bufferRGB2, u32 rangeAddr, 
 	return MpegBaseCscRange(bufferRGB, bufferRGB2, cscAddr, bufferWidth, rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
+// Takes the same arguments as sceMpegBaseCscAvc, with a descriptor for planar fields (see
+// ReadVmeFields) and the same dimensions in macroblocks. The official name isn't known; JPCSP calls
+// it this. The rows land as they do for sceMpegBaseCscAvc with two buffers or none: the fields packed
+// into one each, or woven together in the first. The VSH's video player passes the second buffer
+// right after the first, with the top half of a picture as the first field and the bottom half as
+// the second, so its picture comes out whole. The colours match our scalar conversion exactly
+// (pspautotests video/mpeg/cscvme), and the frames are small, so that's what this uses.
+static int sceMpegBaseCscVme(u32 bufferRGB, u32 bufferRGB2, int bufferWidth, u32 cscAddr) {
+	if (!Memory::IsValidRange(cscAddr, 0x28)) {
+		return hleLogError(Log::Mpeg, -1, "bad csc struct pointer");
+	}
+	if (bufferWidth == 0) {
+		bufferWidth = g_mpegBaseBufferWidth;
+	}
+	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
+	u32 buffers[6];
+	for (int i = 0; i < 6; i++) {
+		buffers[i] = csc->buffer[i];
+	}
+	const int width = csc->width << 4;
+	const int height = csc->height << 4;
+	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
+		return hleLogError(Log::Mpeg, -1, "unreasonable frame size %dx%d", width, height);
+	}
+	const u8 *luma, *cb, *cr;
+	if (!ReadVmeFields(buffers, width, height, &luma, &cb, &cr)) {
+		return hleLogError(Log::Mpeg, -1, "YCbCr buffers not readable");
+	}
+	const int bpp = g_mpegBasePixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	return MpegBaseCscFields(bufferRGB, bufferRGB2, false, bufferWidth, bpp, luma, cb, cr, width, height,
+		0, 0, std::min(width, bufferWidth), height, true);
+}
+
 // Moves a decoded frame between two sets of buffers. Both arguments are descriptors; what gets
 // copied is the pixels they point at, not the descriptors.
 //
@@ -681,15 +762,19 @@ static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
 		return hleLogError(Log::Mpeg, -1, "bad descriptor pointer");
 	}
 
-	// The destination descriptor carries the dimensions in macroblocks (as the colour conversion's
-	// does); the stack-built source descriptor states them in pixels, so read the destination.
-	const int width = dst->width << 4;
-	const int height = dst->height << 4;
+	// The size comes from the source descriptor, in pixels, which is how sceVideocodec states it.
+	// The destination's can hold anything (the VSH's video player leaves it unset).
+	const int width = src->width;
+	const int height = src->height;
 	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
 		return hleLogError(Log::Mpeg, -1, "unreasonable frame size %dx%d", width, height);
 	}
 	int sizes[8];
 	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+	// mpegbase.prx's own limit.
+	if (sizes[0] > 0xBFF40) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_SIZE, "frame too large (%dx%d)", width, height);
+	}
 
 	int copied = 0;
 	for (int i = 0; i < 8; i++) {
@@ -713,6 +798,45 @@ static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
 	return hleLogDebug(Log::Mpeg, 0, "flags %d, %dx%d, %d bytes", flags, width, height, copied);
 }
 
+// sceMpegBaseYCrCbCopy for the six buffers sceMpegBaseCscVme takes (official name unknown, JPCSP's).
+// Bit 0 of the flags copies buffers 0, 2 and 3 (the first field), bit 1 buffers 1, 4 and 5. The sizes
+// are worked out as mpegbase_260.prx does it (08001210), from the source descriptor's height and
+// width in pixels, and run a little past the planes they cover (pspautotests video/mpeg/cscvme).
+static int sceMpegBaseYCrCbCopyVme(u32 dstAddr, u32 srcAddr, int flags) {
+	if (!Memory::IsValidRange(dstAddr, 0x28) || !Memory::IsValidRange(srcAddr, 0x28)) {
+		return hleLogError(Log::Mpeg, -1, "bad descriptor pointer");
+	}
+	auto dst = PSPPointer<SceMp4AvcCscStruct>::Create(dstAddr);
+	auto src = PSPPointer<SceMp4AvcCscStruct>::Create(srcAddr);
+	const u32 height = src->height;
+	const u32 width = src->width;
+	const u32 blocks = (width >> 4) + ((width & 0x7F) == 0x50 ? 3 : 2);
+	const u32 lumaSize = blocks * height * 8;
+	const u32 chromaSize = blocks * height * 2;
+	if (lumaSize > 0xBFF40) {
+		return hleLogError(Log::Mpeg, SCE_KERNEL_ERROR_INVALID_SIZE, "frame too large (%dx%d)", width, height);
+	}
+
+	int copied = 0;
+	for (int i = 0; i < 6; i++) {
+		const int bit = (i == 0 || i == 2 || i == 3) ? 1 : 2;
+		if (!(flags & bit)) {
+			continue;
+		}
+		const u32 size = i < 2 ? lumaSize : chromaSize;
+		const u8 *from = MpegBaseFramePointer(src->buffer[i], size);
+		if (!from) {
+			return hleLogError(Log::Mpeg, -1, "source buffer %d not readable", i);
+		}
+		if (!Memory::IsValidRange(dst->buffer[i], size)) {
+			return hleLogError(Log::Mpeg, -1, "destination buffer %d (%08x, %d bytes) not writable", i, (u32)dst->buffer[i], size);
+		}
+		Memory::MemcpyUnchecked(dst->buffer[i], from, size);
+		copied += size;
+	}
+	return hleLogDebug(Log::Mpeg, 0, "flags %d, %dx%d, %d bytes", flags, width, height, copied);
+}
+
 const HLEFunction sceMpegbase[] =
 {
 	{0XBEA18F91, &WrapU_U<sceMpegBasePESpacketCopy>,           "sceMpegBasePESpacketCopy",           'x', "x"      },
@@ -722,6 +846,8 @@ const HLEFunction sceMpegbase[] =
 	{0X304882E1, &WrapU_UUUIU<sceMpegBaseCscAvcRange>,         "sceMpegBaseCscAvcRange",             'x', "xxxix"  },
 	{0X7AC0321A, &WrapI_UUI<sceMpegBaseYCrCbCopy>,             "sceMpegBaseYCrCbCopy",               'i', "xxi"    },
 	{0XAC9E717E, &WrapI_IU<sceMpegBaseCscInitMatrix>,          "sceMpegBaseCscInitMatrix",           'i', "ix"     },
+	{0XBE45C284, &WrapI_UUI<sceMpegBaseYCrCbCopyVme>,          "sceMpegBaseYCrCbCopyVme",            'i', "xxi"    },
+	{0XCE8EB837, &WrapI_UUIU<sceMpegBaseCscVme>,               "sceMpegBaseCscVme",                  'i', "xxix"   },
 };
 
 void Register_sceMpegbase()
