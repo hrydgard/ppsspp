@@ -21,8 +21,10 @@ public:
 		if (g_Config.iAndroidAudioApi == (int)AndroidAudioApi::AAUDIO && oboe::AudioStreamBuilder::isAAudioRecommended()) {
 			audioApi_ = oboe::AudioApi::AAudio;
 		}
-		// Global in Oboe, and only read when an AAudio stream is opened.
-		oboe::OboeExtensions::setMMapEnabled(g_Config.bAndroidAudioMMap);
+		// Global in Oboe, and only read when an AAudio stream is opened. Never enable it beyond what
+		// the device's aaudio.mmap_policy allows: setMMapEnabled(true) forces the policy to AUTO, and
+		// a Xiaomi Pad 5 Pro (Android 13) got stuck on a blank screen at launch after we started doing that.
+		oboe::OboeExtensions::setMMapEnabled(g_Config.bAndroidAudioMMap && oboe::OboeExtensions::isMMapSupported());
 	}
 
 	bool StartOutput() {
