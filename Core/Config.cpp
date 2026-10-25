@@ -482,7 +482,6 @@ static constexpr ConfigSetting generalSettings[] = {
 	// Current settings tabs
 	// Decided for now that these should not be saved, so commented out from here. Still saved within the session, of course.
 	// ConfigSetting("SettingsCurrentTab", SETTING(g_Config, iSettingsCurrentTab), 0, CfgFlag::DEFAULT),
-	// ConfigSetting("DeveloperSettingsCurrentTab", SETTING(g_Config, iDeveloperSettingsCurrentTab), 0, CfgFlag::DEFAULT),
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	ConfigSetting("TopMost", SETTING(g_Config, bTopMost), false, CfgFlag::DEFAULT),

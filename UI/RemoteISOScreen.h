@@ -38,7 +38,6 @@ protected:
 
 	void CreateConnectTab(UI::ViewGroup *viewGroup);
 	void CreateSettingsTab(UI::ViewGroup *viewGroup);
-	bool ShowSearchControls() const override { return false; }
 
 	void update() override;
 

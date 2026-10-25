@@ -77,6 +77,8 @@
     <ClCompile Include="AudioCommon.cpp" />
     <ClCompile Include="SystemInfoScreen.cpp" />
     <ClCompile Include="TabbedDialogScreen.cpp" />
+    <ClCompile Include="SettingsPage.cpp" />
+    <ClCompile Include="SettingsPagesDialogScreen.cpp" />
     <ClCompile Include="SimpleDialogScreen.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
@@ -140,6 +142,8 @@
     <ClInclude Include="Store.h" />
     <ClInclude Include="SystemInfoScreen.h" />
     <ClInclude Include="TabbedDialogScreen.h" />
+    <ClInclude Include="SettingsPage.h" />
+    <ClInclude Include="SettingsPagesDialogScreen.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />

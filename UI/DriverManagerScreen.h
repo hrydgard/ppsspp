@@ -16,7 +16,6 @@ public:
 
 protected:
 	void CreateTabs() override;
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void OnCustomDriverInstall(UI::EventParams &e);

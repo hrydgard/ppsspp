@@ -143,7 +143,6 @@
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
-#include "UI/DeveloperToolsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
@@ -895,7 +894,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
 			g_screenManager->switchScreen(new MainScreen());
-			g_screenManager->push(new DeveloperToolsScreen(Path()));
+			GameSettingsScreen *settings = new GameSettingsScreen(Path());
+			settings->OpenDeveloperTools();
+			g_screenManager->push(settings);
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

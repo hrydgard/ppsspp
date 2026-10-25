@@ -133,6 +133,10 @@ private:
 	int textureHeight_ = 0;
 };
 
+UI::View *CreateGameIconView(const Path &gamePath, UI::LayoutParams *layoutParams) {
+	return new SimpleGameIconView(gamePath, layoutParams);
+}
+
 PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) 
 	: UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
 	using namespace UI;

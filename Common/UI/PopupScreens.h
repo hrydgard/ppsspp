@@ -316,6 +316,7 @@ public:
 	void HideChoice(int c) {
 		hidden_.insert(c);
 	}
+	int NumChoices() const { return numChoices_; }
 	bool IsChoiceHidden(int c) const {
 		return hidden_.find(c) != hidden_.end();
 	}

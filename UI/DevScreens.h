@@ -148,7 +148,6 @@ public:
 	const char *tag() const override { return "FrameDumpTest"; }
 
 private:
-	bool ShowSearchControls() const override { return false; }
 
 	std::vector<std::string> files_;
 	std::shared_ptr<http::Request> listing_;

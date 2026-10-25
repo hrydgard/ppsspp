@@ -18,7 +18,6 @@ public:
 	void resized() override { RecreateViews(); }
 
 protected:
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void CreateDeviceInfoTab(UI::LinearLayout *deviceInfo);

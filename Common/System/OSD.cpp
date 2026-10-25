@@ -35,6 +35,9 @@ void OnScreenDisplay::NudgeIngameNotifications() {
 }
 
 float OnScreenDisplay::IngameAlpha() const {
+	if (pretendIngame_) {
+		return 1.0f;
+	}
 	double timeSinceNudge = time_now_d() - sideBarShowTime_;
 
 	// Fade out in 1/4 second, 0.1s after the last nudge.

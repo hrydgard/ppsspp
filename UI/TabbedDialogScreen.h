@@ -43,29 +43,20 @@ protected:
 	virtual void PreCreateViews() {}
 	virtual void CreateTabs() = 0;
 	virtual void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {}
-	virtual bool ShowSearchControls() const { return true; }
 	virtual void EnsureTabs();
 	virtual bool UsePopupMenuInPortrait() const { return false; }
 	virtual bool ForceHorizontalTabs() const { return false; }
 
+	// The tab to show first, after CreateTabs, if not the saved one (-1).
+	virtual int InitialTab() { return -1; }
+	virtual void TabChanged(int tab) {}
+
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);
 
-	void sendMessage(UIMessage message, const char *value) override;
-
-private:
-	void ApplySearchFilter();
-
 	UI::TabHolder *tabHolder_ = nullptr;
-	UI::TextView *filterNotice_ = nullptr;
-	UI::Choice *clearSearchChoice_ = nullptr;
-	UI::TextView *noSearchResults_ = nullptr;
-
-	// If we recreate the views while this is active we show it again
-	std::string oldSettingInfo_;
-	std::string searchFilter_;
-
 	int *currentTabSetting_ = nullptr;
 
+private:
 	TabDialogFlags flags_ = TabDialogFlags::Default;
 };

@@ -48,6 +48,9 @@ private:
 	bool animated_ = true;
 };
 
+// The icon of the game, for showing that settings are game-specific.
+UI::View *CreateGameIconView(const Path &gamePath, UI::LayoutParams *layoutParams);
+
 // Title at the top of a scrolling pane of settings. May later include a back button, but currently doesn't.
 // The gamePath_ is used to draw the icon of the game who's settings are currently being edited.
 // settingsCategory is used to build the help URL.

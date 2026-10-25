@@ -105,7 +105,6 @@ protected:
 	void CreateTabs() override;
 	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
 
-	bool ShowSearchControls() const override { return false; }
 	
 private:
 	void OnSavedataButtonClick(UI::EventParams &e);

@@ -102,6 +102,12 @@
     <ClCompile Include="TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="SettingsPage.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="SettingsPagesDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="SimpleDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -264,6 +270,12 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TabbedDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SettingsPage.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SettingsPagesDialogScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="RetroAchievementScreens.h">

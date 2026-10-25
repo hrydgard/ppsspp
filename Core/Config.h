@@ -471,7 +471,6 @@ public:
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
 	int iSettingsCurrentTab;
-	int iDeveloperSettingsCurrentTab;
 
 	std::string sThemeName;
 
