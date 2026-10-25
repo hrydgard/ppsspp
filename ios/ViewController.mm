@@ -685,7 +685,10 @@ extern float g_safeInsetBottom;
 
 - (void)viewSafeAreaInsetsDidChange {
 	[super viewSafeAreaInsetsDidChange];
+	[self updateSafeInsets];
+}
 
+- (void)updateSafeInsets {
 	// Converts points to pixels, the same way updateResolutionWithView does.
 	CGFloat scale = [self displayScaleForView:self.view];
 
@@ -709,6 +712,18 @@ extern float g_safeInsetBottom;
 		g_safeInsetTop = self.view.safeAreaInsets.top * scale;
 		g_safeInsetBottom = self.view.safeAreaInsets.bottom * scale;
 	}
+
+#if !PPSSPP_PLATFORM(TVOS)
+	// Screens bigger than an iPhone's (an iPad, the iPhone Duo's inner screen) report no side insets in
+	// landscape despite big rounded corners, so keep the content out of them. A fixed physical size, so
+	// UI scaling doesn't change it.
+	CGSize size = self.view.bounds.size;
+	if (size.width > size.height && size.height > 600.0) {
+		const float cornerInset = 38.0f * scale;
+		g_safeInsetLeft = std::max(g_safeInsetLeft, cornerInset);
+		g_safeInsetRight = std::max(g_safeInsetRight, cornerInset);
+	}
+#endif
 }
 
 - (void)shareText:(NSString *)text {
@@ -851,6 +866,8 @@ static NSSet<UIPress *> *NonKeyboardPresses(NSSet<UIPress *> *presses) {
 		return;
 	}
 	lastLayoutSize_ = size;
+	// A rotation doesn't always change the system's insets, but it can change ours.
+	[self updateSafeInsets];
 #if !PPSSPP_PLATFORM(TVOS)
 	if (self.view.window.windowScene) {
 		[cameraHelper setInterfaceOrientation:self.view.window.windowScene.interfaceOrientation];
