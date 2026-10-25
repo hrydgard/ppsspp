@@ -17,6 +17,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/libzip \
   $(LOCAL_PATH)/../../ext/OpenXR-SDK/include \
   $(LOCAL_PATH)/../../ext/zstd/lib \
+  $(LOCAL_PATH)/../../ext/zlib \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \
@@ -27,7 +28,9 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)
 
 LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build
-LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
+# Whole, since the prebuilt FFmpeg libraries on LOCAL_LDLIBS come after it on the link line and use it too.
+LOCAL_WHOLE_STATIC_LIBRARIES := libzlib
+LOCAL_LDLIBS := -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
   # Prettier stack traces are nice on other platforms.
   # Maybe we can switch to storing the pre-stripped builds at some point.
