@@ -960,6 +960,7 @@ static int sceMeBootStart(int mode) {
 }
 
 const HLEFunction sceMeCore_driver[] = {
+	// Other firmware versions' NIDs are aliased to this one (hleKernelNids in HLETables.cpp).
 	{0X5DFF5C50, &WrapI_I<sceMeBootStart>,               "sceMeBootStart",            'i', "i", HLE_KERNEL_SYSCALL },
 };
 
