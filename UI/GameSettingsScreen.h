@@ -27,6 +27,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
+#include "UI/Settings/MainSettingsPages.h"
 #include "UI/SettingsPagesDialogScreen.h"
 #include "UI/TabbedDialogScreen.h"
 
@@ -46,7 +47,6 @@ public:
 	void OpenDeveloperTools();
 
 protected:
-	void CallbackRestoreDefaults(bool yes);
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	void CreateTabs() override;
@@ -61,40 +61,15 @@ private:
 		const char *icon;
 		const char *helpTag;  // If null, there's no help button.
 		I18NCat cat;
-		void (*build)(SettingsPage *page);  // Null for the System tab, which the screen builds.
+		void (*build)(SettingsPage *page);  // Null for the System tab, which also takes systemState_.
 	};
 	static const std::vector<PageDef> &PageDefs();
 
-	void BuildSystemSettings(SettingsPage *page);
-
-
 	std::string gameID_;
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	void CheckMemstickInstallState();
-
-	bool installed_ = false;
-	bool otherinstalled_ = false;
-	bool memstickMyDocEnabled_ = false;
-	bool memstickOtherEnabled_ = false;
-#endif
-
-	// Global settings handlers
-	void OnChangeBackground(UI::EventParams &e);
-	void OnRestoreDefaultSettings(UI::EventParams &e);
-	void OnJitAffectingSetting(UI::EventParams &e);
-	void OnShowMemstickScreen(UI::EventParams &e);
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	void OnMemoryStickMyDoc(UI::EventParams &e);
-	void OnMemoryStickOther(UI::EventParams &e);
-#endif
-	void OnImmersiveModeChange(UI::EventParams &e);
-	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
 	void RestartOrDo(std::function<void()> callback) override;
-	void ReadConfigTemporaries();
 
-	// Temporaries to convert setting types, cache enabled, etc.
-	bool enableReports_ = false;
+	SystemPageState systemState_;
 
 	// edit the game-specific settings and restore the global settings after exiting
 	bool editGameSpecificThenRestore_ = false;

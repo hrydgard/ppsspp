@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 namespace UI {
 class View;
 class ViewGroup;
@@ -25,13 +27,31 @@ class ViewGroup;
 class SettingsPage;
 class SettingsPageHost;
 
-// The settings screen's tabs, except System, which needs more of the screen.
+// The settings screen's tabs.
 void BuildGraphicsSettings(SettingsPage *page);
 void BuildControlsSettings(SettingsPage *page);
 void BuildAudioSettings(SettingsPage *page);
 void BuildNetworkingSettings(SettingsPage *page);
 void BuildToolsSettings(SettingsPage *page);
 void BuildVRSettings(SettingsPage *page);
+
+// What the System tab edits that isn't a config setting. The settings screen keeps it, and writes
+// enableReports back when it closes.
+struct SystemPageState {
+	bool enableReports = false;
+	// Windows: where the memstick is, and which of the two checkboxes can be changed.
+	bool installed = false;
+	bool otherinstalled = false;
+	bool memstickMyDocEnabled = false;
+	bool memstickOtherEnabled = false;
+};
+
+void BuildSystemSettings(SettingsPage *page, SystemPageState *state);
+// Also called after restoring defaults, so the old values aren't written back over them.
+void ReadSystemPageState(SystemPageState *state);
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+void CheckMemstickInstallState(SystemPageState *state);
+#endif
 
 // The nickname is shown on both the Networking and System tabs.
 UI::View *AddNicknameChoice(SettingsPageHost *host, UI::ViewGroup *parent);
