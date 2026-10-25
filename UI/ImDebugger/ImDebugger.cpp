@@ -3050,43 +3050,17 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Show keyboard toggle", nullptr, &cfg_.showKeyboardToggle);
 			ImGui::MenuItem("Keep keyboard after switching apps", nullptr, &cfg_.keyboardPersist);
 			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
+			ImGui::SetNextItemWidth(em * 10.0f);
+			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
 			endMenu();
 		}
 	};
 
-	// "Windows": lists the open debugger windows. Tap one to bring it to the front (and un-collapse it).
-	// Handy on a phone, where windows pile up on top of each other.
-	auto menuWindows = [&]() {
-		if (!beginMenu("Windows")) {
-			return;
-		}
-		std::vector<ImGuiWindow *> open;
-		for (ImGuiWindow *w : ImGui::GetCurrentContext()->Windows) {
-			if (w->WasActive && !w->ParentWindow && w->Name[0] != '#' &&
-				!(w->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip | ImGuiWindowFlags_ChildWindow | ImGuiWindowFlags_ChildMenu))) {
-				open.push_back(w);
-			}
-		}
-		std::sort(open.begin(), open.end(), [](const ImGuiWindow *a, const ImGuiWindow *b) { return strcmp(a->Name, b->Name) < 0; });
-		ImGuiWindow *toFocus = nullptr;  // Applied after the loop: focusing reorders the window list.
-		for (ImGuiWindow *w : open) {
-			if (ImGui::MenuItem(w->Name)) {
-				toFocus = w;
-			}
-		}
-		if (open.empty()) {
-			ImGui::BeginDisabled();
-			ImGui::TextUnformatted("No windows open");
-			ImGui::EndDisabled();
-		}
-		if (toFocus) {
-			ImGui::SetWindowCollapsed(toFocus->Name, false);
-			ImGui::FocusWindow(toFocus);
-		}
-		endMenu();
-	};
-
 	if (ImGui::BeginMainMenuBar()) {
+		// Keep the first button clear of rounded screen corners / camera cutouts.
+		if (cfg_.barLeftMargin > 0) {
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + em * (float)cfg_.barLeftMargin / 100.0f);
+		}
 		switch (coreState) {
 		case CoreState::CORE_STEPPING_CPU:
 			if (ImGui::MenuItem(">> Run")) {
@@ -3101,8 +3075,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		default:
 			break;
 		}
-
-		menuWindows();
 
 		if (compactMenu) {
 			if (beginMenu("Menu")) {
@@ -3148,7 +3120,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 		// Soft keyboard toggle (like the keyboard button in Winlator).
 		if (cfg_.showKeyboardToggle) {
-			ImGui::MenuItem(cfg_.forceKeyboard ? "Hide Keyboard" : "Show Keyboard", nullptr, &cfg_.forceKeyboard);
+			ImGui::MenuItem(cfg_.forceKeyboard ? "Keyboard" : "Kbd", nullptr, &cfg_.forceKeyboard);
 		}
 
 		ImGui::EndMainMenuBar();
@@ -3705,4 +3677,5 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("showKeyboardToggle", &showKeyboardToggle, true);
 	sync.Sync("keyboardPersist", &keyboardPersist, true);
 	sync.Sync("compactMenu", &compactMenu, false);
+	sync.Sync("barLeftMargin", &barLeftMargin, kIsMobilePlatform ? 200 : 0);
 }

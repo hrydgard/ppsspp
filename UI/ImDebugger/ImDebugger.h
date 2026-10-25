@@ -138,6 +138,7 @@ struct ImConfig {
 	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to show the soft keyboard (see ImDebugger_SetSoftKeyboardHook).
 	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
 	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.
+	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
 	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
 
 
