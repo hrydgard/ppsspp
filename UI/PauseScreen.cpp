@@ -714,7 +714,7 @@ void GamePauseScreen::CreateViews() {
 	LinearLayout *rightColumnItems = new ChoiceGroupList(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	buttonColumn->Add(rightColumnItems);
 
-	ChoiceGroup *topGroup = rightColumnItems->Add(new ChoiceGroup(""));
+	ChoiceGroup *topGroup = rightColumnItems->Add(new ChoiceGroup());
 	if (__KernelIsRunningVSH()) {
 		// The XMB notices discs coming and going by itself, like a PSP's.
 		if (__UmdIsInserted()) {
@@ -743,7 +743,7 @@ void GamePauseScreen::CreateViews() {
 		topGroup->SetVisibility(V_GONE);
 	}
 
-	ChoiceGroup *mainGroup = rightColumnItems->Add(new ChoiceGroup(""));
+	ChoiceGroup *mainGroup = rightColumnItems->Add(new ChoiceGroup());
 	if (g_paramSFO.IsValid() && g_Config.HasGameConfig(g_paramSFO.GetDiscID())) {
 		mainGroup->Add(new Choice(pa->T("Game Settings"), ImageID("I_GEAR")))->OnClick.Handle(this, &GamePauseScreen::OnGameSettings);
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
@@ -804,7 +804,7 @@ void GamePauseScreen::CreateViews() {
 		exitRow->Add(continueChoice);
 		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 	} else {
-		rightColumnItems->Add(new ChoiceGroup(""))->Add(exit);
+		rightColumnItems->Add(new ChoiceGroup())->Add(exit);
 	}
 
 	exit->OnClick.Handle(this, &GamePauseScreen::OnExit);

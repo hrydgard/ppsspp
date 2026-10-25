@@ -97,6 +97,8 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	GamepadUpdateOpacity(1.0f);
 
 	ChoiceGroupList *groups = settings->Add(new ChoiceGroupList());
+	groups->SetSpacing(12.0f);
+
 	auto enabledFunc = [=]() -> bool {
 		return g_Config.iTiltInputType != 0;
 	};

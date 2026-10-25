@@ -169,12 +169,6 @@ void UIBaseScreen::sendMessage(UIMessage message, const char *value) {
 	HandleCommonMessages(message, value, screenManager(), this);
 }
 
-void UIBaseDialogScreen::AddStandardBack(UI::ViewGroup *parent) {
-	using namespace UI;
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	parent->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-}
-
 PromptScreen::PromptScreen(const Path &gamePath, std::string_view message, std::string_view yesButtonText, std::string_view noButtonText, std::function<void(bool)> callback)
 	: UIBaseDialogScreen(gamePath), message_(message), callback_(callback) {
 	yesButtonText_ = yesButtonText;
@@ -608,6 +602,9 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		right = columns->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(columnWidth, FILL_PARENT, Margins(10))));
 		right->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 	}
+
+	left->ApplyRoundCorners();
+	right->ApplyRoundCorners();
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {

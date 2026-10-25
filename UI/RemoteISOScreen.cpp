@@ -403,7 +403,7 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
 	}
 
-	ChoiceGroup *remoteSettings = remoteisoSettings->Add(new ChoiceGroup(""));
+	ChoiceGroup *remoteSettings = remoteisoSettings->Add(new ChoiceGroup());
 
 	UI::Choice *remoteServer = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
 	remoteSettings->Add(remoteServer);
@@ -421,7 +421,7 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 	remoteSettings->Add(remoteSubdir);
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	ChoiceGroup *serverSettings = remoteisoSettings->Add(new ChoiceGroup(""));
+	ChoiceGroup *serverSettings = remoteisoSettings->Add(new ChoiceGroup());
 
 	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
 	serverSettings->Add(portChoice);
