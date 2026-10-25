@@ -76,13 +76,13 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
-      # Only the FFmpeg libraries this build uses. See the script.
+      # Only the FFmpeg sources, not the prebuilt libraries. See the script.
       - name: Check out submodules
         shell: bash
         run: |
           # The container runs as another user than the one that owns the checkout.
           git config --global --add safe.directory '*'
-          .github/checkout-submodules.sh /linux/${{ matrix.id }}/
+          .github/checkout-submodules.sh
 
       # Only master saves the cache (see build.yml), so restoring and saving are separate.
       - name: Set up ccache for ${{ matrix.id }}

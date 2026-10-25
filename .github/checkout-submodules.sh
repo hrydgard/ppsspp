@@ -1,11 +1,11 @@
 #!/bin/bash
 # Checks out the submodules like actions/checkout's "submodules: recursive" does, except that of
-# FFmpeg, which holds prebuilt libraries for every platform (1.5 GB), only the given paths are
-# fetched. They're sparse checkout patterns relative to ffmpeg/, like /linux/x86_64/. The source
-# tree's headers always come along, since some builds have the ffmpeg folder on the include path.
+# FFmpeg, which also holds prebuilt libraries for every platform (1.5 GB), only the library sources
+# the build compiles (see ext/ffmpeg-build) are fetched. Any arguments are more sparse checkout
+# patterns relative to ffmpeg/, like /linux/x86_64/.
 #
 # Run from the repository root, after a checkout without submodules:
-#   .github/checkout-submodules.sh /linux/x86_64/
+#   .github/checkout-submodules.sh
 
 set -e
 
@@ -21,7 +21,7 @@ sha=$(git rev-parse HEAD:ffmpeg)
 url=$(git config -f .gitmodules submodule.ffmpeg.url)
 git -C ffmpeg init -q
 git -C ffmpeg remote add origin "$url"
-git -C ffmpeg sparse-checkout set --no-cone '/*.h' '/lib*/**/*.h' "$@"
+git -C ffmpeg sparse-checkout set --no-cone '/lib*/**/*.[ch]' '/compat/**' "$@"
 git -C ffmpeg fetch -q --depth 1 --filter=blob:none origin "$sha"
 git -C ffmpeg checkout -q FETCH_HEAD
 du -sh ffmpeg
