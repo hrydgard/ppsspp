@@ -29,8 +29,8 @@ INCFLAGS += \
 	-I$(EXTDIR)/cpu_features/include \
 	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
+	-I$(EXTDIR)/ffmpeg-build/include \
 	-I$(FFMPEGDIR) \
-	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
 	-I$(EXTDIR)/armips/ext/filesystem/include \

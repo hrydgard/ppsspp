@@ -53,18 +53,11 @@ EXTDIR			= $(CORE_DIR)/ext
 
 TARGET_NAME := ppsspp
 
-FFMPEGINCFLAGS :=
-FFMPEGLIBDIR :=
-FFMPEGLIBS :=
-
 # Unix
 ifneq (,$(findstring unix,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.so
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	fpic = -fPIC
 	ifneq (,$(findstring gles,$(platform)))
 		GLES = 1
@@ -97,9 +90,6 @@ else ifneq (,$(findstring arm64,$(platform)))
 	TARGET_ARCH = arm64
 	fpic := -fPIC
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/aarch64/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/aarch64/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	INCFLAGS += -I.
 	HAVE_NEON=1
 	ifneq (,$(findstring gles,$(platform)))
@@ -124,9 +114,6 @@ else ifneq (,$(findstring imx6,$(platform)))
 	PLATFORM_EXT = unix
 	TARGET_ARCH = arm
 	HAVE_NEON=1
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	LDFLAGS += -lrt -ldl
 
 # OS X
@@ -143,9 +130,6 @@ else ifneq (,$(findstring osx,$(platform)))
    LDFLAGS += -stdlib=libc++
 	fpic = -fPIC
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/macosx/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/macosx/universal/lib
-	FFMPEGLDFLAGS += -liconv -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	PLATCFLAGS += -D__MACOSX__
 	GL_LIB := -framework OpenGL
 	PLATFORM_EXT = darwin
@@ -169,9 +153,6 @@ else ifneq (,$(findstring ios,$(platform)))
    MINVERSION :=
 	HAVE_NEON = 1
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/ios/universal/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	ifeq ($(IOSSDK),)
 		IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
@@ -205,9 +186,6 @@ else ifeq ($(platform), tvos-arm64)
    MINVERSION :=
 	HAVE_NEON = 1
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/ios/universal/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	ifeq ($(IOSSDK),)
 		IOSSDK := $(shell xcodebuild -version -sdk appletvos Path)
@@ -240,9 +218,6 @@ else ifneq (,$(findstring android,$(platform)))
 	CFLAGS += -DANDROID
 	LDFLAGS += -llog -lGLESv2 -lEGL
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/android/armv7/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/android/armv7/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	PLATFORM_EXT = android
 
@@ -272,9 +247,6 @@ else ifneq (,$(findstring armv,$(platform)))
 	TARGET_ARCH = armv7
 	fpic := -fPIC
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	INCFLAGS += -I.
 	ifneq (,$(findstring gles,$(platform)))
 		GLES := 1
@@ -393,16 +365,13 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	PATH := $(PATH):$(shell IFS=$$'\n'; cygpath "$(VsInstallRoot)/Common7/IDE")
 
 	export INCLUDE := $(INCLUDE);$(WindowsSDKSharedIncludeDir);$(WindowsSDKUCRTIncludeDir);$(WindowsSDKUMIncludeDir);$(WindowsSDKWinRTIncludeDir)
-	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir);$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
+	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir)
 	TARGET := $(TARGET_NAME)_libretro.dll
 	PSS_STYLE :=2
 	LDFLAGS += -DLL
 	PLATFORM_EXT = win32
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib Iphlpapi.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib advapi32.lib winmm.lib gdi32.lib Iphlpapi.lib
 
 # Windows
 else ifneq (,$(findstring win,$(platform)))
@@ -412,8 +381,6 @@ else ifneq (,$(findstring win,$(platform)))
 	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32
 	GL_LIB := -lopengl32
 	PLATFORM_EXT = win32
-   FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
-   FFMPEGLDFLAGS += -lavformat -lavcodec -lavutil -lswresample -lswscale
    fpic = -fPIC
 	CC = gcc
 	CXX = g++
@@ -431,6 +398,26 @@ COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DM
 ifneq ($(platform), emscripten)
 	# ffmpeg does not work with emscripten
 	COREFLAGS += -DUSE_FFMPEG
+	BUILD_FFMPEG := 1
+endif
+
+# FFmpeg, built from the sources in ffmpeg/ (see ext/ffmpeg-build). Its own include directories go
+# first, so its config.h wins over the other config.h files on the include path. The objects get
+# their own directory, away from any an old configure build left in the source tree.
+ifeq ($(BUILD_FFMPEG), 1)
+	include $(CORE_DIR)/ext/ffmpeg-build/sources.mk
+	FFMPEG_OBJDIR := obj-ffmpeg
+	FFMPEG_OBJECTS := $(addprefix $(FFMPEG_OBJDIR)/,$(FFMPEG_SOURCES:.c=.o))
+	FFMPEG_CFLAGS := -I$(CORE_DIR)/ext/ffmpeg-build -I$(CORE_DIR)/ext/ffmpeg-build/include -I$(FFMPEGDIR) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+	ifneq (,$(findstring msvc,$(platform)))
+		FFMPEG_CFLAGS += -D_USE_MATH_DEFINES -D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_WARNINGS
+		# FFmpeg leaves calls to disabled components for the compiler to drop, which MSVC only does
+		# when optimizing.
+		FFMPEG_CFLAGS_LAST := -O2 -W0
+	else
+		FFMPEG_CFLAGS_LAST := -w -Werror=implicit-function-declaration
+	endif
+	OBJECTS += $(FFMPEG_OBJECTS)
 endif
 
 ifeq ($(DEBUG), 1)
@@ -470,10 +457,10 @@ ifeq (,$(findstring msvc,$(platform)))
 # same on every CPU. Elsewhere (the vertex decoder, say) they're fine.
 $(filter $(COREDIR)/MIPS/%,$(SOURCES_CXX:.cpp=.o)): CXXFLAGS += -ffp-contract=off
 endif
-CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
-CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
-LDFLAGS		+= $(FFMPEGLDFLAGS) $(fpic)
+LDFLAGS		+= $(fpic)
 ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))
    LDFLAGS	+= -lpthread
 endif
@@ -501,6 +488,10 @@ all: $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $(OBJOUT)$@ $<
+
+$(FFMPEG_OBJDIR)/%.o: $(FFMPEGDIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(FFMPEG_CFLAGS) $(CFLAGS) $(FFMPEG_CFLAGS_LAST) -c $(OBJOUT)$@ $<
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $(OBJOUT)$@ $<
