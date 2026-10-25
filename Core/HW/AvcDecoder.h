@@ -46,6 +46,10 @@ struct AvcPicture {
 	int width = 0;
 	int height = 0;
 	AvcTiming timing;
+	// For a picture coded as two fields (each its own access unit), the second one's timing.
+	// timing is then the first field's.
+	bool fieldPair = false;
+	AvcTiming secondField;
 };
 
 // An H.264 decoder for sceVideocodec, which is a low level interface to the PSP Media Engine.

@@ -367,7 +367,14 @@ static void WriteSeiRecord(u32 addr, const AvcTiming &timing) {
 // Per-picture records, which the VSH's UMD Video player reads and games' mpeg.prx doesn't. Given a
 // buffer at CTX_PICTURE_INFO, the ME points a picture descriptor's +0x24 and +0x28 at two 0xA4-byte
 // records for it, 0x148 bytes per picture; without one both stay 0 (pspautotests
-// video/mpeg/avcdetail). The first is the picture's SEI record; the second stayed zero there.
+// video/mpeg/avcdetail). The first is the picture's SEI record; the second stayed zero there, for a
+// stream of frames. For a picture coded as two fields, the UMD Video player (video_main_plugin.prx,
+// 08843338) takes pic_struct 1 or 2 from the first record to mean a field pair, and shows the top
+// field first when the first record's output time (cpb_removal_delay + dpb_output_delay) is earlier
+// than the second's. So a pair gets one record per field, the top field's first. That's inferred
+// from the player, not tested on hardware. With the second record left empty, the player showed
+// the top field first, and a bottom-field-first disc (Family Guy, The Dark Knight) ran each pair
+// backwards in time.
 static void PublishPictureInfo(u32 ctxAddr, u32 yuvStructAddr, int slot, const AvcPicture &pic) {
 	const u32 descAddr = yuvStructAddr + slot * PICTURE_DESCRIPTOR_SIZE;
 	const u32 records = Memory::ReadUnchecked_U32(ctxAddr + CTX_PICTURE_INFO);
@@ -376,8 +383,14 @@ static void PublishPictureInfo(u32 ctxAddr, u32 yuvStructAddr, int slot, const A
 		return;
 	}
 	const u32 record = records + slot * 2 * SEI_RECORD_SIZE;
-	WriteSeiRecord(record, pic.timing);
-	Memory::Memset(record + SEI_RECORD_SIZE, 0, SEI_RECORD_SIZE, "VideocodecPictureInfo");
+	if (pic.fieldPair) {
+		const bool topFirst = pic.timing.picStruct == 1;
+		WriteSeiRecord(record, topFirst ? pic.timing : pic.secondField);
+		WriteSeiRecord(record + SEI_RECORD_SIZE, topFirst ? pic.secondField : pic.timing);
+	} else {
+		WriteSeiRecord(record, pic.timing);
+		Memory::Memset(record + SEI_RECORD_SIZE, 0, SEI_RECORD_SIZE, "VideocodecPictureInfo");
+	}
 	Memory::WriteUnchecked_U32(record, descAddr + 0x24);
 	Memory::WriteUnchecked_U32(record + SEI_RECORD_SIZE, descAddr + 0x28);
 }
