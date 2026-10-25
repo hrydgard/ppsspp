@@ -763,14 +763,7 @@ if(FFmpeg_FOUND)
 elseif(BUILD_BUNDLED_FFMPEG)
 	target_compile_definitions(Core PRIVATE USE_FFMPEG=1)
 	set_target_properties(Core PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
-	target_link_libraries(Core
-		avcodec
-		avformat
-		avutil
-		swresample
-		swscale
-		${ZLIB_LIBRARY}
-	)
+	target_link_libraries(Core ffmpeg)
 endif()
 
 # Discord integration
