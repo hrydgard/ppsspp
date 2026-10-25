@@ -619,7 +619,9 @@ bool PSARReader::Init(std::string *error) {
 		return false;
 	}
 
-	// The first block is a text record ending in the firmware version, e.g. "...,6.61".
+	// The first block is a text record ending in the firmware version, e.g. "...,6.61". In a version
+	// 1 archive it's only numbers (1.00's: the build, 106, and the record count, 214) and this finds
+	// no text, so UnpackPSAR() takes the version from the firmware's version.txt instead.
 	const char *text = (const char *)block_.data() + 0x10;
 	const size_t textLen = strnlen(text, PSAR_ENTRY_SIZE - 0x10);
 	const std::string_view firstLine(text, textLen);
@@ -729,7 +731,12 @@ void PSARReader::EnsureContents() {
 	if (entryCompression_ == PSARCompression::Zlib) {
 		entryData_.resize(contentExpandedSize_);
 		uLongf destLen = contentExpandedSize_;
-		const int zResult = uncompress(entryData_.data(), &destLen, block2_.data(), decoded);
+		uLong sourceLen = decoded;
+		int zResult = uncompress2(entryData_.data(), &destLen, block2_.data(), &sourceLen);
+		// Handle zip streams missing their Adler-32 checksum.
+		if (zResult == Z_BUF_ERROR && sourceLen == (uLong)decoded && destLen == contentExpandedSize_ && decrypted_) {
+			zResult = Z_OK;
+		}
 		if (zResult != Z_OK || destLen != contentExpandedSize_) {
 			WARN_LOG(Log::Loader, "PSAR: inflate failed for '%s' (%d)", entryName_.c_str(), zResult);
 			entryData_.clear();
@@ -860,6 +867,8 @@ private:
 	bool quit_ = false;
 };
 
+static void ParseVersionTxt(std::string_view contents, InstalledFirmwareInfo *info);
+
 bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
 	PSARUnpackStats localStats;
 	if (!stats) {
@@ -988,6 +997,15 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 		}
 
 		realName = CanonicalFlashPath(realName);
+
+		// A version 1 archive (1.00) has no version record, so take it from the firmware's own
+		// version.txt, whether or not a filter wants that file.
+		if (stats->firmwareVersion.empty() && equalsNoCase(realName, "flash0:/vsh/etc/version.txt")) {
+			const std::vector<u8> &data = reader.entryData();
+			InstalledFirmwareInfo info;
+			ParseVersionTxt(std::string_view((const char *)data.data(), data.size()), &info);
+			stats->firmwareVersion = info.version;
+		}
 
 		if (realName.empty()) {
 			// No list claimed this one. Still worth writing out under its short name, but a

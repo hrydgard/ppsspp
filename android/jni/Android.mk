@@ -993,6 +993,29 @@ LOCAL_MODULE := libzstd
 LOCAL_SRC_FILES := $(LIBZSTD_FILES)
 include $(BUILD_STATIC_LIBRARY)
 
+# The bundled zlib, rather than the NDK's, which is too old for some of what we use (uncompress2).
+include $(CLEAR_VARS)
+LOCAL_MODULE := libzlib
+LOCAL_SRC_FILES := \
+  $(SRC)/ext/zlib/adler32.c \
+  $(SRC)/ext/zlib/compress.c \
+  $(SRC)/ext/zlib/crc32.c \
+  $(SRC)/ext/zlib/deflate.c \
+  $(SRC)/ext/zlib/gzclose.c \
+  $(SRC)/ext/zlib/gzlib.c \
+  $(SRC)/ext/zlib/gzread.c \
+  $(SRC)/ext/zlib/gzwrite.c \
+  $(SRC)/ext/zlib/infback.c \
+  $(SRC)/ext/zlib/inffast.c \
+  $(SRC)/ext/zlib/inflate.c \
+  $(SRC)/ext/zlib/inftrees.c \
+  $(SRC)/ext/zlib/trees.c \
+  $(SRC)/ext/zlib/uncompr.c \
+  $(SRC)/ext/zlib/zutil.c
+LOCAL_CFLAGS := -O3
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/zlib
+include $(BUILD_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd oboe
