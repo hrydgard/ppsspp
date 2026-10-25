@@ -65,6 +65,7 @@ private:
 };
 
 struct ConfigSetting;
+struct ConfigSettingRef;
 
 struct ConfigSectionMeta {
 	ConfigBlock *configBlock;
@@ -97,6 +98,7 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	bool InternalRotationIsPortrait() const;
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
+	std::unique_ptr<ConfigBlock> NewDefault(std::string_view blockName) const override;
 	size_t Size() const override { return sizeof(DisplayLayoutConfig); }  // For sanity checks
 };
 
@@ -146,6 +148,7 @@ struct TouchControlConfig : public ConfigBlock {
 
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
+	std::unique_ptr<ConfigBlock> NewDefault(std::string_view blockName) const override;
 	size_t Size() const override { return sizeof(TouchControlConfig); }  // For sanity checks
 };
 
@@ -164,6 +167,7 @@ struct GestureControlConfig : public ConfigBlock {
 
 	bool CanResetToDefault() const override { return true; }
 	bool ResetToDefault(std::string_view blockName) override;
+	std::unique_ptr<ConfigBlock> NewDefault(std::string_view blockName) const override;
 	size_t Size() const override { return sizeof(GestureControlConfig); }  // For sanity checks
 };
 
@@ -813,7 +817,10 @@ public:
 		return orientation == DeviceOrientation::Portrait ? touchControlsPortrait : touchControlsLandscape;
 	}
 
-	static int GetDefaultValueInt(int *configSetting);
+	// Finds the setting a pointer into g_Config (or one of its blocks) points to. Null if it isn't one.
+	static const ConfigSettingRef *FindSetting(const void *ptr);
+	static int GetDefaultValueInt(const int *configSetting);
+	static float GetDefaultValueFloat(const float *configSetting);
 
 	void DoNotSaveSetting(void *configSetting) {
 		settingsNotToSave_.push_back(configSetting);
@@ -828,7 +835,7 @@ private:
 
 	friend struct ConfigSetting;
 
-	static std::map<const void *, std::pair<const ConfigBlock *, const ConfigSetting *>> &getPtrLUT();
+	static std::map<const void *, ConfigSettingRef> &getPtrLUT();
 
 	// Applies defaults for missing settings.
 	void ReadAllSettings(const IniFile &iniFile);

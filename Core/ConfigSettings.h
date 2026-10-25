@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "Common/Data/Text/I18n.h"
 #include "Core/ConfigValues.h"
 
 class Path;
@@ -27,6 +28,38 @@ template <class T>
 struct ConfigSettingOffset {
 	uint32_t offset;
 };
+
+// What a setting means, for the UI: its name, and which values make sense. Set with the chained
+// setters on ConfigSetting. All texts are translation keys in the label's category.
+struct ConfigSettingInfo {
+	I18NCat cat = I18NCat::NONE;
+	const char *label = nullptr;
+	const char *labelDefault = nullptr;  // English text, if the key isn't it.
+
+	// Int settings, with the values choiceMin and up.
+	const char *const *choices = nullptr;
+	int choiceCount = 0;
+	int choiceMin = 0;
+
+	// Int and float settings.
+	float minValue = 0.0f;
+	float maxValue = 0.0f;
+	float step = 0.0f;
+	const char *units = nullptr;
+
+	// Int settings: texts shown instead of 0 (like "Unlimited") and negative values (like "Disabled").
+	const char *zeroLabel = nullptr;
+	const char *negativeLabel = nullptr;
+
+	// Called when the UI changes the value, for what has to happen because of the new value.
+	void (*onChanged)() = nullptr;
+
+	constexpr bool HasRange() const { return maxValue > minValue; }
+	constexpr bool HasChoices() const { return choiceCount > 0; }
+};
+
+// Called when a setter is used wrongly. It isn't constexpr, so in a constexpr table that's a compile error.
+void ConfigSettingTableError();
 
 struct ConfigSetting {
 	enum class Type {
@@ -143,6 +176,56 @@ struct ConfigSetting {
 	constexpr ConfigSetting(std::string_view iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigSettingOffset<ConfigTouchPos> v, TouchPosDefaultCallback def, CfgFlag flags) noexcept
 		: ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(Type::TYPE_TOUCH_POS), iniKey_(iniX), flags_(flags), defaultCallback_(def), offset_(v.offset) {}
 
+	// Chained setters for the info. Each returns a modified copy, so they can be used in constexpr tables.
+	constexpr ConfigSetting Label(I18NCat cat, const char *label, const char *labelDefault = nullptr) const {
+		ConfigSetting s = *this;
+		s.info_.cat = cat;
+		s.info_.label = label;
+		s.info_.labelDefault = labelDefault;
+		return s;
+	}
+	// Int values from minValue and up.
+	template <size_t N>
+	constexpr ConfigSetting Choices(const char *const (&names)[N], int minValue = 0) const {
+		Check(type_ == Type::TYPE_INT && !info_.HasChoices() && !info_.HasRange());
+		ConfigSetting s = *this;
+		s.info_.choices = names;
+		s.info_.choiceCount = (int)N;
+		s.info_.choiceMin = minValue;
+		return s;
+	}
+	constexpr ConfigSetting Range(float minValue, float maxValue, float step = 0.0f) const {
+		Check((type_ == Type::TYPE_INT || type_ == Type::TYPE_FLOAT) && !info_.HasChoices() && maxValue > minValue);
+		ConfigSetting s = *this;
+		s.info_.minValue = minValue;
+		s.info_.maxValue = maxValue;
+		s.info_.step = step;
+		return s;
+	}
+	constexpr ConfigSetting Units(const char *units) const {
+		Check(type_ == Type::TYPE_INT || type_ == Type::TYPE_FLOAT);
+		ConfigSetting s = *this;
+		s.info_.units = units;
+		return s;
+	}
+	constexpr ConfigSetting OnChanged(void (*func)()) const {
+		ConfigSetting s = *this;
+		s.info_.onChanged = func;
+		return s;
+	}
+	constexpr ConfigSetting ZeroLabel(const char *label) const {
+		Check(type_ == Type::TYPE_INT);
+		ConfigSetting s = *this;
+		s.info_.zeroLabel = label;
+		return s;
+	}
+	constexpr ConfigSetting NegativeLabel(const char *label) const {
+		Check(type_ == Type::TYPE_INT);
+		ConfigSetting s = *this;
+		s.info_.negativeLabel = label;
+		return s;
+	}
+
 	bool ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const;
 
 	// Yes, this can be const because what's modified is not the ConfigSetting struct, but the value which is stored elsewhere.
@@ -164,6 +247,14 @@ struct ConfigSetting {
 		_dbg_assert_(type_ == Type::TYPE_INT);
 		return defaultCallback_.i ? defaultCallback_.i() : default_.i;
 	}
+	float GetDefaultFloat() const {
+		_dbg_assert_(type_ == Type::TYPE_FLOAT);
+		return defaultCallback_.f ? defaultCallback_.f() : default_.f;
+	}
+
+	constexpr const ConfigSettingInfo &Info() const {
+		return info_;
+	}
 
 	std::string_view IniKey() const {
 		return iniKey_;
@@ -179,12 +270,18 @@ struct ConfigSetting {
 	// Returns false if per-game settings are not currently used
 	static bool PerGame(void *ptr);
 
-	const void *GetVoidPtr(ConfigBlock *configBlock) const {
-		char *configBlockBase = (char *)configBlock;
+	const void *GetVoidPtr(const ConfigBlock *configBlock) const {
+		const char *configBlockBase = (const char *)configBlock;
 		return (const void *)(configBlockBase + offset_);
 	}
 
 private:
+	static constexpr void Check(bool ok) {
+		if (!ok) {
+			ConfigSettingTableError();
+		}
+	}
+
 	std::string_view iniKey_;
 	CfgFlag flags_;
 	DefaultValue default_{};
@@ -194,4 +291,13 @@ private:
 	// We only support transform for ints.
 	std::string (*translateTo_)(int) = nullptr;
 	int (*translateFrom_)(const std::string &) = nullptr;
+
+	ConfigSettingInfo info_{};
+};
+
+// Where a setting lives: the block instance it's in, and the name of that block's ini section.
+struct ConfigSettingRef {
+	ConfigBlock *block;
+	const ConfigSetting *setting;
+	std::string_view section;
 };

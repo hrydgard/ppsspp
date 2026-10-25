@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <string_view>
 #ifndef _MSC_VER
@@ -32,6 +33,8 @@ struct ConfigBlock {
 	virtual bool CanResetToDefault() const { return false; }
 	// If a block returns false here (like Config itself does), resetting to default will happen by the old per-setting mechanism.
 	virtual bool ResetToDefault(std::string_view blockName) { return false; }
+	// For blocks that can reset themselves: a new block with the defaults of the named one, to read defaults from.
+	virtual std::unique_ptr<ConfigBlock> NewDefault(std::string_view blockName) const { return nullptr; }
 	virtual size_t Size() const { return sizeof(ConfigBlock); }  // For sanity checks
 };
 
