@@ -313,6 +313,12 @@ void System_ShowKeyboard() {
 	PushCommand("showKeyboard", "");
 }
 
+// Used by the ImDebugger "Kbd" toggle. Unlike System_ShowKeyboard, this keeps the keyboard up until turned off,
+// and lets it type into the game view (see NativeSurfaceView.setKeyboardForced).
+void Android_SetKeyboardForced(bool forced) {
+	PushCommand("forceKeyboard", forced ? "1" : "0");
+}
+
 void System_Vibrate(int length_ms) {
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%d", length_ms);
