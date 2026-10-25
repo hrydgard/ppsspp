@@ -21,6 +21,8 @@ public class NativeSurfaceView extends SurfaceView {
 	// When set, the view pretends to be a text editor so Android will really show the soft keyboard for it
 	// (a plain SurfaceView is ignored by showSoftInput), and typed text is passed on to the native side.
 	private boolean keyboardForced = false;
+	// Bring the keyboard back by itself when the app regains focus (after an app switch).
+	private boolean keyboardPersist = true;
 
 	public NativeSurfaceView(Context context) {
 		super(context);
@@ -34,6 +36,10 @@ public class NativeSurfaceView extends SurfaceView {
 		}
 		NativeApp.processTouchEvent(ev);
 		return true;
+	}
+
+	public void setKeyboardPersist(boolean persist) {
+		keyboardPersist = persist;
 	}
 
 	// Must be called on the UI thread.
@@ -71,7 +77,7 @@ public class NativeSurfaceView extends SurfaceView {
 	@Override
 	public void onWindowFocusChanged(boolean hasWindowFocus) {
 		super.onWindowFocusChanged(hasWindowFocus);
-		if (hasWindowFocus && keyboardForced) {
+		if (hasWindowFocus && keyboardForced && keyboardPersist) {
 			requestFocus();
 			showKeyboardSoon();
 		}

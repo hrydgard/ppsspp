@@ -1846,6 +1846,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// "1" = keep the soft keyboard up (and let it type into the game), "0" = hide it again.
 			mSurfaceView.setKeyboardForced(params.equals("1"));
 			return true;
+		} else if (command.equals("keyboardPersist") && mSurfaceView != null) {
+			// "1" = bring the forced keyboard back after an app switch, "0" = don't.
+			mSurfaceView.setKeyboardPersist(params.equals("1"));
+			return true;
 		} else if (command.equals("inputbox")) {
 			String title = "Input";
 			String defString = "";
