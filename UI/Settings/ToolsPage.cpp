@@ -19,7 +19,7 @@
 #include "Common/System/System.h"
 #include "Common/UI/ScreenManager.h"
 #include "Common/UI/View.h"
-#include "UI/DeveloperToolsScreen.h"
+#include "UI/DeveloperSettingsPages.h"
 #include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/RetroAchievementScreens.h"

@@ -41,7 +41,7 @@
 #include "Core/Util/PathUtil.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "UI/GPUDriverTestScreen.h"
-#include "UI/DeveloperToolsScreen.h"
+#include "UI/DeveloperSettingsPages.h"
 #include "UI/DevScreens.h"
 #include "UI/DriverManagerScreen.h"
 #include "UI/DisplayLayoutScreen.h"

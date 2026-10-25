@@ -159,7 +159,7 @@
     <ClCompile Include="ImDebugger\ImConsole.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
-    <ClCompile Include="DeveloperToolsScreen.cpp">
+    <ClCompile Include="DeveloperSettingsPages.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="UIAtlas.cpp" />
@@ -329,7 +329,7 @@
     <ClInclude Include="ImDebugger\ImConsole.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
-    <ClInclude Include="DeveloperToolsScreen.h">
+    <ClInclude Include="DeveloperSettingsPages.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="UIAtlas.h" />

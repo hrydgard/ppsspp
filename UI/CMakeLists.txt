@@ -78,8 +78,8 @@ list(APPEND UISource
 	GamePacker.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
-	DeveloperToolsScreen.h
-	DeveloperToolsScreen.cpp
+	DeveloperSettingsPages.h
+	DeveloperSettingsPages.cpp
 	DriverManagerScreen.h
 	DriverManagerScreen.cpp
 	GPUDriverTestScreen.h

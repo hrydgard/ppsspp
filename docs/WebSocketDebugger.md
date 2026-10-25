@@ -294,7 +294,7 @@ file - this is just an index.
 ## Enabling it
 
 - **UI**: Settings > Tools > Developer Tools > "Allow remote debugger"
-  checkbox (`UI/DeveloperToolsScreen.cpp`). The "Local Server Port" slider on
+  checkbox (`UI/DeveloperSettingsPages.cpp`). The "Local Server Port" slider on
   the Networking screen sets the port (shared with Remote ISO sharing; `0` =
   auto-pick).
 - **Config**: `RemoteDebuggerOnStartup=true` in `ppsspp.ini`

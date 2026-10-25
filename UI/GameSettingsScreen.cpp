@@ -50,7 +50,7 @@
 #include "UI/GamepadEmu.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DevScreens.h"
-#include "UI/DeveloperToolsScreen.h"
+#include "UI/DeveloperSettingsPages.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
