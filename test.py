@@ -656,6 +656,7 @@ tests_next = [
   "modules/unloadfill/unloadfill",
   "net/http/http",
   "net/inet/bind",
+  "net/inet/poll",
   "net/primary/ether",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 

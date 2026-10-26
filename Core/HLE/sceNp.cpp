@@ -125,7 +125,8 @@ bool NpAuthProcessEvents() {
 		return false;
 	}
 
-	auto& args = npAuthEvents.front();
+	// Copy it, the pop below destroys the element.
+	auto args = npAuthEvents.front();
 	auto& id = args.data[0];
 	auto& result = args.data[1];
 	auto& argAddr = args.data[2];
