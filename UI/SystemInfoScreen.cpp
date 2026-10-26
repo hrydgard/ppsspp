@@ -129,7 +129,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([draw](UI::EventParams &e) { CopySummaryToClipboard(draw); });
+	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([this](UI::EventParams &e) { CopySummaryToClipboard(screenManager()->getDrawContext()); });
 	systemInfo->Add(new InfoItem(si->T("System Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
