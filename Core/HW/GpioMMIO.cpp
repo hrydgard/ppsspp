@@ -123,7 +123,8 @@ public:
 		switch (offset) {
 		case 0x008:
 		{
-			*value = (data_[dataIndex_] << 8) | data_[dataIndex_ + 1];
+			// Writes can move the index anywhere.
+			*value = (dataIndex_ >= 0 && dataIndex_ + 1 < DATA_SIZE) ? (data_[dataIndex_] << 8) | data_[dataIndex_ + 1] : 0;
 			dataIndex_ += 2;
 			if (dataIndex_ > responseLen_) {
 				dataIndex_ = 0;
@@ -162,7 +163,8 @@ public:
 				data_[dataIndex_] = (value >> 8) & 0xFF;
 				data_[dataIndex_ + 1] = value & 0xFF;
 			}
-			dataIndex_ += 2;
+			if (dataIndex_ < DATA_SIZE)
+				dataIndex_ += 2;
 			break;
 		default:
 			break;
@@ -184,6 +186,9 @@ public:
 			return;
 		DoArray(p, data_, DATA_SIZE);
 		Do(p, dataIndex_);
+		if (p.mode == PointerWrap::MODE_READ && (dataIndex_ < 0 || dataIndex_ > DATA_SIZE)) {
+			dataIndex_ = 0;
+		}
 		Do(p, responseLen_);
 		Do(p, dataExhausted_);
 		Do(p, alarm_);

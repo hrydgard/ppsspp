@@ -289,7 +289,8 @@ private:
 		const bool separate = (output & 1) != 0;
 		d.csc[(0x160 - 0x120) / 4] &= ~1;
 		d.intTCStatus |= 2;
-		if (width == 0 || height == 0 || stride < width) {
+		// A wider stride than any framebuffer would only overflow the size math below.
+		if (width == 0 || height == 0 || stride < width || stride > 4096) {
 			ERROR_LOG(Log::ME, "DMACplus: bad colour space conversion %dx%d, stride %d", width, height, stride);
 			return;
 		}

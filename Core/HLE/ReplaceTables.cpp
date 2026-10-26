@@ -294,10 +294,15 @@ static int Replace_memcpy_swizzled(MIPSState *mips) {
 			gpu->PerformReadbackToMemory(srcPtr, pitch * h);
 		}
 	}
-	u8 *dstp = Memory::GetPointerWriteRangeOrException(destPtr, pitch * h);
-	const u8 *srcp = Memory::GetPointerRangeOrException(srcPtr, pitch * h);
+	// The loops go in whole 16x8 blocks, so they can touch more than pitch * h.
+	const u64 rows = ((u64)h + 7) & ~7ULL;
+	const u64 cols = ((u64)pitch + 15) & ~15ULL;
+	const u64 dstSize = rows * cols;
+	const u64 srcSize = rows ? (rows - 1) * pitch + cols : 0;
+	u8 *dstp = dstSize <= 0xFFFFFFFF ? Memory::GetPointerWriteRangeOrException(destPtr, (u32)dstSize) : nullptr;
+	const u8 *srcp = srcSize <= 0xFFFFFFFF ? Memory::GetPointerRangeOrException(srcPtr, (u32)srcSize) : nullptr;
 
-	if (dstp && srcp) {
+	if (dstp && srcp && h != 0 && pitch != 0) {
 		const u8 *ysrcp = srcp;
 		for (u32 y = 0; y < h; y += 8) {
 			const u8 *xsrcp = ysrcp;
@@ -761,12 +766,15 @@ static int Hook_godseaterburst_depthmask_5551(MIPSState *mips) {
 	uint32_t depthBuffer = mips->r[MIPS_REG_T2];
 	uint32_t byteStride = mips->r[MIPS_REG_A2];
 	uint32_t height = mips->r[MIPS_REG_T1];
-	uint32_t size = byteStride * height;
+	const u64 size64 = (u64)byteStride * height;
+	if (size64 > 0xFFFFFFFF)
+		return 0;
+	uint32_t size = (uint32_t)size64;
 
 	if (!Memory::IsVRAMAddress(colorBuffer) || !Memory::IsValidRange(colorBuffer, size))
 		return 0;
 	if (depthBuffer != 0) {
-		if (!Memory::IsVRAMAddress(colorBuffer) || !Memory::IsValidRange(depthBuffer, size))
+		if (!Memory::IsVRAMAddress(depthBuffer) || !Memory::IsValidRange(depthBuffer, size))
 			return 0;
 
 		// This is added to read from the linearized mirror.

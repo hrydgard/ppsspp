@@ -77,7 +77,8 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	if (!samples)
 		return;
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
-	frameTimeEstimate_ = 1.0f / fpsEstimate;
+	// The estimate is 0 until a second has gone by.
+	frameTimeEstimate_ = 1.0f / std::max(fpsEstimate, 1.0f);
 
 	smoothedReadSize_ = smoothedReadSize_ == 0 ? num_samples : (smoothedReadSize_ * 0.95f + num_samples * 0.05f);
 
@@ -262,7 +263,8 @@ void GranularMixer::Dequeue(Granule *granule) {
 	/*if (!looping && !smoothedQueueSize_ < granule_queue_size / 2) {
 		// Repeat a single block occasionally to make sure we have a reasonably sized queue.
 		next_tail = tail;
-	} else*/ if (next_tail == head) {
+	} else*/ if (next_tail == head || tail == head) {
+		// Empty (or about to be). tail == head would read the granule being written next.
 		// Only fill gaps when running to prevent stutter on pause.
 		CoreState state = coreState;
 		const bool is_running = state == CORE_RUNNING_CPU || state == CORE_RUNNING_GE;
