@@ -69,6 +69,8 @@ Result g_lastResult;
 
 void RunJob(Job *job) {
 	SetCurrentThreadName("GamePacker");
+	// Games in Android's scoped storage are read and written through JNI.
+	AndroidJNIThreadContext jniContext;
 	INFO_LOG(Log::Loader, "GamePacker: %s %s -> %s", job->toISO ? "Extracting" : "Compressing", job->file.c_str(), job->writeOutput.c_str());
 
 	auto progress = [job](float p) {
