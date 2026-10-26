@@ -48,14 +48,24 @@ static u32 sceHprmUnregisterCallback() {
 	return hleLogError(Log::HLE, 0, "UNIMPL");
 }
 
+// The latch is 4 x u32 (make, break, press, release). We don't support the headphone remote
+// buttons, so it's all zeroes.
+static void WriteEmptyLatch(u32 latchAddr) {
+	if (!Memory::IsValid4AlignedRange(latchAddr, 16)) {
+		return;
+	}
+	for (int i = 0; i < 4; i++) {
+		Memory::WriteUnchecked_U32(0, latchAddr + i * 4);
+	}
+}
+
 static u32 sceHprmPeekLatch(u32 latchAddr) {
-	return hleLogDebug(Log::HLE,0, "latchAddr %08x", latchAddr);
+	WriteEmptyLatch(latchAddr);
+	return hleLogDebug(Log::HLE, 0, "latchAddr %08x", latchAddr);
 }
 
 static u32 sceHprmReadLatch(u32 latchAddr) {
-	// Real hardware/JPCSP: 4 x u32 output struct, dummied out to all-zero (nothing held/pressed).
-	for (int i = 0; i < 4; i++)
-		Memory::WriteOrException_U32(0, latchAddr + i * 4);
+	WriteEmptyLatch(latchAddr);
 	return hleLogDebug(Log::HLE, 0, "latchAddr %08x", latchAddr);
 }
 
