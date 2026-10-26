@@ -4,6 +4,9 @@
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="NativeApp.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
+    <ClCompile Include="ImposeHome.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="EmuScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -195,6 +198,9 @@
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="OnScreenDisplay.h" />
+    <ClInclude Include="ImposeHome.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>

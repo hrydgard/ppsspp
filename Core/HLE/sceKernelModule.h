@@ -248,6 +248,13 @@ bool __KernelIsRunningVSH();
 // What sceKernelExitGame does in a game the XMB launched, as on a PSP: back to the XMB, by booting it
 // again. False if the XMB didn't launch this.
 bool __KernelExitToVSH(MIPSState *mips);
+// Whether the running game can quit back to the XMB, the way the HOME button's quit screen does it:
+// the XMB launched it (and it's not the PS1 emulator, whose HOME menu is its own).
+bool __KernelCanExitToVSH();
+// Quits the running game back to the XMB from outside a syscall (the host's HOME screen, or after
+// the game's exit callback returned): asks the frontend to boot the XMB, which stops the core.
+// False if __KernelCanExitToVSH() is.
+bool __KernelRequestExitToVSH();
 // Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.
 SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr);
 bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string);

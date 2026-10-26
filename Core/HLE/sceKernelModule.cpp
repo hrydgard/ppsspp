@@ -2762,6 +2762,44 @@ static std::vector<u8> VshmainReturnArgs(const std::vector<u8> &launchArgs) {
 	return args;
 }
 
+// For a game the XMB booted, or loaded in place under its own session: the boot that takes it back
+// to the XMB. False otherwise (or for the XMB itself, or the PS1 emulator, which has its own HOME menu
+// with its own way out).
+static bool GetExitToVSHRequest(BootRequest *request) {
+	if (g_runningVSH || PopsBootActive()) {
+		return false;
+	}
+	const std::optional<VSHLaunch> &launchedFromVSH = PSP_CoreParameter().launchedFromVSH;
+	if (launchedFromVSH) {
+		request->fileToStart = launchedFromVSH->vshmain;
+		request->vshmainArgs = VshmainReturnArgs(launchedFromVSH->vshmainArgs);
+	} else if (PSP_CoreParameter().fileToStart.GetFilename() == "vshmain.prx") {
+		// Loaded in place: the XMB's own boot file is what we started from.
+		request->fileToStart = PSP_CoreParameter().fileToStart;
+		request->vshmainArgs = VshmainReturnArgs(g_vshmainArgs);
+	} else {
+		return false;
+	}
+	request->mountIso = __UmdGetPath();
+	return true;
+}
+
+bool __KernelCanExitToVSH() {
+	BootRequest request;
+	return GetExitToVSHRequest(&request);
+}
+
+bool __KernelRequestExitToVSH() {
+	BootRequest request;
+	if (!GetExitToVSHRequest(&request)) {
+		return false;
+	}
+	INFO_LOG(Log::sceModule, "Quitting the game: back to the XMB");
+	// Stops the core; the frontend then boots the XMB like anything else.
+	PSP_RequestBoot(request);
+	return true;
+}
+
 bool __KernelExitToVSH(MIPSState *mips) {
 	// Normally the XMB launched this game by booting it, so it boots the XMB again.
 	const std::optional<VSHLaunch> &launchedFromVSH = PSP_CoreParameter().launchedFromVSH;

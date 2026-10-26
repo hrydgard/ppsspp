@@ -322,6 +322,19 @@ static u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz) {
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
+bool __RtcGetCurrentLocalTime(ScePspDateTime *t) {
+	PSPTimeval tv;
+	__RtcTimeOfDay(&tv);
+	time_t sec = (time_t)tv.tv_sec;
+	const tm *local = localtime(&sec);
+	if (!local) {
+		return false;
+	}
+	__RtcTmToPspTime(*t, local);
+	t->microsecond = tv.tv_usec;
+	return true;
+}
+
 static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr) {
 	auto pt = PSPPointer<ScePspDateTime>::Create(pspTimePtr);
 

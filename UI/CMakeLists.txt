@@ -43,6 +43,8 @@ list(APPEND UISource
 	DisplayLayoutScreen.h
 	EmuScreen.h
 	EmuScreen.cpp
+	ImposeHome.h
+	ImposeHome.cpp
 	GameInfoCache.h
 	GameInfoCache.cpp
 	IAPScreen.cpp
