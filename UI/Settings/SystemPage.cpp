@@ -293,34 +293,9 @@ static void BuildPSPSettingsPage(SettingsPage *page) {
 	page->Setting(&g_Config.iButtonPreference);
 }
 
-void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
+static void BuildUISettingsPage(SettingsPage *page) {
 	using namespace UI;
-
 	SettingsPageHost *host = page->Host();
-
-	page->Header("UI");
-
-	page->Custom("Language", [host](UI::ViewGroup *parent) -> UI::View * {
-		auto langCodeToName = [](std::string_view value) -> std::string {
-			auto &mapping = GetLangValuesMapping();
-			auto iter = mapping.find(value);
-			if (iter != mapping.end()) {
-				return iter->second.first;
-			}
-			return std::string(value);
-		};
-
-		Choice *language = parent->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, T(I18NCat::SYSTEM, "Language"), langCodeToName));
-		language->OnClick.Add([host](UI::EventParams &e) {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			auto langScreen = new NewLanguageScreen(sy->T("Language"));
-			// The actual switching is handled in OnCompleted in NewLanguageScreen.
-			if (e.v)
-				langScreen->SetPopupOrigin(e.v);
-			host->PageScreenManager()->push(langScreen);
-		});
-		return language;
-	});
 
 #if PPSSPP_PLATFORM(IOS)
 	static const char *indicator[] = {
@@ -399,6 +374,40 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 		page->Setting(&g_Config.fUITint).LiveUpdate().Setup(noDropShadow);
 		page->Setting(&g_Config.fUISaturation).LiveUpdate().Setup(noDropShadow);
 	}
+}
+
+void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
+	using namespace UI;
+
+	SettingsPageHost *host = page->Host();
+
+	page->Header();
+	page->Link({I18NCat::SYSTEM, "UI"}, I18NCat::SYSTEM, &BuildUISettingsPage);
+
+	page->Header();
+
+	page->Custom("Language", [host](UI::ViewGroup *parent) -> UI::View * {
+		auto langCodeToName = [](std::string_view value) -> std::string {
+			auto &mapping = GetLangValuesMapping();
+			auto iter = mapping.find(value);
+			if (iter != mapping.end()) {
+				return iter->second.first;
+			}
+			return std::string(value);
+		};
+
+		ChoiceWithValueDisplay *language = parent->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, T(I18NCat::SYSTEM, "Language"), langCodeToName));
+		language->SetIconLeft(ImageID("I_LANGUAGE"));
+		language->OnClick.Add([host](UI::EventParams &e) {
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			auto langScreen = new NewLanguageScreen(sy->T("Language"));
+			// The actual switching is handled in OnCompleted in NewLanguageScreen.
+			if (e.v)
+				langScreen->SetPopupOrigin(e.v);
+			host->PageScreenManager()->push(langScreen);
+		});
+		return language;
+	});
 
 	page->Header();
 	page->Link({I18NCat::SYSTEM, "PSP Settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);

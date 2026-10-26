@@ -206,6 +206,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_ARCHIVE_RAR", false},
 	{"I_DOWNLOAD", false},
 	{"I_NETWORK", false},
+	{"I_LANGUAGE", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
