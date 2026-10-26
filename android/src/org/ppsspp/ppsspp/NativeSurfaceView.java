@@ -83,6 +83,16 @@ public class NativeSurfaceView extends SurfaceView {
 		}
 	}
 
+	// Back is offered to the view before the keyboard sees it, but only while the keyboard is up. Tell the native side
+	// so its keyboard toggle follows (the keyboard itself is hidden by the system as usual).
+	@Override
+	public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+		if (keyboardForced && keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
+			NativeApp.sendMessageFromJava("keyboardDismissed", "");
+		}
+		return super.onKeyPreIme(keyCode, event);
+	}
+
 	@Override
 	public boolean onCheckIsTextEditor() {
 		return keyboardForced;
