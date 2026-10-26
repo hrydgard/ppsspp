@@ -169,9 +169,10 @@ GPU_Metal::~GPU_Metal() {
 
 u32 GPU_Metal::CheckGPUFeatures() const {
 	u32 features = GPUCommonHW::CheckGPUFeatures();
-	MetalRenderManager *rm = (MetalRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	// The packed 16-bit formats (B5G6R5Unorm and friends) only exist on Apple GPUs.
-	if (rm->IsAppleGPU()) {
+	uint32_t fmt4444 = draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16);
+	uint32_t fmt1555 = draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16);
+	uint32_t fmt565 = draw_->GetDataFormatSupport(Draw::DataFormat::R5G6B5_UNORM_PACK16);
+	if ((fmt4444 & Draw::FMT_TEXTURE) && (fmt565 & Draw::FMT_TEXTURE) && (fmt1555 & Draw::FMT_TEXTURE)) {
 		features |= GPU_USE_16BIT_FORMATS;
 	}
 	return CheckGPUFeaturesLate(features);

@@ -56,6 +56,10 @@ static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	case DataFormat::R32_FLOAT: return MTLPixelFormatR32Float;
 	case DataFormat::R32G32_FLOAT: return MTLPixelFormatRG32Float;
 	case DataFormat::R32G32B32A32_FLOAT: return MTLPixelFormatRGBA32Float;
+	// Metal names packed channels from the lowest bits up, so these are the same bit layouts.
+	case DataFormat::R5G6B5_UNORM_PACK16: return MTLPixelFormatB5G6R5Unorm;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return MTLPixelFormatBGR5A1Unorm;
+	case DataFormat::A4R4G4B4_UNORM_PACK16: return MTLPixelFormatABGR4Unorm;
 	case DataFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
 	case DataFormat::BC2_UNORM_BLOCK: return MTLPixelFormatBC2_RGBA;
 	case DataFormat::BC3_UNORM_BLOCK: return MTLPixelFormatBC3_RGBA;
@@ -724,6 +728,15 @@ uint32_t MetalDrawContext::GetDataFormatSupport(DataFormat fmt) const {
 			break;
 		}
 		return supported ? (support | FMT_TEXTURE) : support;
+	}
+	switch (fmt) {
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+		// Only Apple GPUs have the packed 16-bit formats, and the iOS simulator doesn't, despite reporting one.
+		return (rm_->IsAppleGPU() && !PPSSPP_PLATFORM(IOS_SIMULATOR)) ? (support | FMT_TEXTURE) : support;
+	default:
+		break;
 	}
 	support |= FMT_TEXTURE | FMT_BLIT;
 	switch (fmt) {
