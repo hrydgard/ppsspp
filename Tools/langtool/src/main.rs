@@ -13,6 +13,7 @@ mod chatgpt;
 mod claude;
 use clap::Parser;
 
+mod scan;
 mod util;
 mod validate;
 
@@ -130,6 +131,12 @@ enum Command {
     },
     /// Check every translated string against the English one, see validate.rs.
     Validate,
+    /// List the lookups in the C++ source whose key isn't in en_US.ini, see scan.rs.
+    FindMissingKeys {
+        /// List the lookups whose key or category is only known at runtime instead.
+        #[arg(long)]
+        dynamic: bool,
+    },
 }
 
 fn copy_missing_lines(
@@ -794,6 +801,11 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
         }
     }
 
+    if let Command::FindMissingKeys { dynamic } = &cmd {
+        scan::find_missing_keys("../..", &reference_ini, *dynamic);
+        return;
+    }
+
     if let Command::FinishLanguageWithAI { language, section } = &cmd {
         if let Some(ai) = &ai {
             let target_ini_filename = format!("{root}/{language}.ini");
@@ -894,6 +906,7 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 language: _,
                 section: _,
             } => {}
+            Command::FindMissingKeys { .. } => {}
             Command::FixupRefKeys => {
                 if is_reference {
                     fixup_keys(&target_ini, dry_run).unwrap();

@@ -50,3 +50,7 @@ from `Tools/langtool`:
 The other mechanical jobs (renaming and moving keys, sorting sections) are langtool commands too -
 prefer them over editing the ini files by hand.
 
+To find strings the code looks up but en_US.ini doesn't have, run `cargo run -- find-missing-keys`.
+Before adding one, check whether the key is already in a different section - that usually means the
+code asks the wrong category, and the fix is in the code.
+
