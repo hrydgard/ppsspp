@@ -110,6 +110,7 @@
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -4600,6 +4601,92 @@ bool TestUIFocusNavigation() {
 	return true;
 }
 
+// Spacers with fixed sizes, so measuring needs nothing from the context.
+bool TestUIFlowLayout() {
+	using namespace UI;
+
+	UIContext dc;
+	auto add = [](FlowLayout *parent, float w, float h, LinearLayoutParams *lp = nullptr) {
+		if (!lp) {
+			lp = new LinearLayoutParams(w, h);
+		}
+		return parent->Add(new Spacer(lp));
+	};
+	auto expectBounds = [](const View *view, float x, float y, float w, float h) {
+		const Bounds &b = view->GetBounds();
+		return b.x == x && b.y == y && b.w == w && b.h == h;
+	};
+
+	{
+		// Wraps at the width left inside the padding, and the padding goes around the rows.
+		FlowLayout root(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		root.SetPadding(Margins(10, 5, 20, 15));
+		root.SetSpacing(10.0f);
+		root.SetRowSpacing(4.0f);
+		Spacer *a = add(&root, 80, 30);
+		Spacer *b = add(&root, 80, 30);
+		Spacer *c = add(&root, 80, 30);
+		root.Measure(dc, MeasureSpec(AT_MOST, 200.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		EXPECT_EQ_FLOAT(root.GetMeasuredWidth(), 200.0f);
+		EXPECT_EQ_FLOAT(root.GetMeasuredHeight(), 84.0f);
+		root.SetBounds(Bounds(0, 0, 200, 84));
+		root.Layout();
+		EXPECT_TRUE(expectBounds(a, 10, 5, 80, 30));
+		EXPECT_TRUE(expectBounds(b, 100, 5, 80, 30));
+		EXPECT_TRUE(expectBounds(c, 10, 39, 80, 30));
+	}
+
+	{
+		// A weighted child takes what's left of its row, and children's margins count.
+		FlowLayout root(new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		root.SetSpacing(0.0f);
+		Spacer *a = add(&root, 0, 0, new LinearLayoutParams(100, 20, Margins(5)));
+		Spacer *b = add(&root, 0, 0, new LinearLayoutParams(50, 20, 1.0f));
+		root.Measure(dc, MeasureSpec(EXACTLY, 300.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		EXPECT_EQ_FLOAT(root.GetMeasuredHeight(), 30.0f);
+		root.SetBounds(Bounds(0, 0, 300, 30));
+		root.Layout();
+		EXPECT_TRUE(expectBounds(a, 5, 5, 100, 20));
+		EXPECT_TRUE(expectBounds(b, 110, 0, 190, 20));
+	}
+
+	{
+		// Row gravity places a row with space left over, inside the padding.
+		FlowLayout root(new LayoutParams(FILL_PARENT, WRAP_CONTENT));
+		root.SetPadding(Margins(10, 0));
+		root.SetSpacing(10.0f);
+		root.SetRowGravity(Gravity::G_RIGHT);
+		Spacer *a = add(&root, 100, 20);
+		Spacer *b = add(&root, 100, 20);
+		root.Measure(dc, MeasureSpec(EXACTLY, 300.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		root.SetBounds(Bounds(0, 0, 300, 20));
+		root.Layout();
+		EXPECT_TRUE(expectBounds(a, 80, 0, 100, 20));
+		EXPECT_TRUE(expectBounds(b, 190, 0, 100, 20));
+	}
+
+	{
+		// Without a width limit everything is on one row, and a child too wide for any row is
+		// squeezed to fit inside the padding.
+		FlowLayout root(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		root.SetPadding(Margins(10));
+		add(&root, 100, 20);
+		add(&root, 100, 20);
+		root.Measure(dc, MeasureSpec(UNSPECIFIED, 0.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		EXPECT_EQ_FLOAT(root.GetMeasuredWidth(), 225.0f);
+		EXPECT_EQ_FLOAT(root.GetMeasuredHeight(), 40.0f);
+
+		FlowLayout narrow(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		narrow.SetPadding(Margins(10));
+		Spacer *wide = narrow.Add(new Spacer(150.0f, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		narrow.Measure(dc, MeasureSpec(AT_MOST, 100.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		EXPECT_EQ_FLOAT(wide->GetMeasuredWidth(), 80.0f);
+		EXPECT_EQ_FLOAT(narrow.GetMeasuredWidth(), 100.0f);
+	}
+
+	return true;
+}
+
 bool TestTextureReplacer();
 
 static bool TestQueueBuf() {
@@ -4774,6 +4861,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TextureReplacer),
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
+	TEST_ITEM(UIFlowLayout),
 	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
