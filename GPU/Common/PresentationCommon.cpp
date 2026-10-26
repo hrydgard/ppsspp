@@ -599,8 +599,7 @@ void PresentationCommon::CreateDeviceObjects() {
 	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
 	texColorBlend_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc, true);
 	overlayVdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-
-	restorePostShader_ = false;
+	// Not resetting restorePostShader_: after a device loss, BeginFrame uses it to bring the post-shader back.
 }
 
 template <typename T>

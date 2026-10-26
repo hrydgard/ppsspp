@@ -133,6 +133,10 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 void DrawEngineVulkan::DeviceLost() {
 	DestroyDeviceObjects();
 	DirtyAllUBOs();
+	// The pipelines and views these point to are gone (BeginFrame resets them too, but a flush could come first).
+	lastPipeline_ = nullptr;
+	boundDepal_ = VK_NULL_HANDLE;
+	boundSecondary_ = VK_NULL_HANDLE;
 	draw_ = nullptr;
 }
 

@@ -407,6 +407,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level,
 
 void TextureCacheGLES::DeviceLost() {
 	TextureCacheCommon::DeviceLost();
+	lastBoundTexture_ = nullptr;
 	draw_ = nullptr;
 	render_ = nullptr;
 }
