@@ -50,6 +50,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	case SystemRequestType::MOVE_TO_TRASH: return "MOVE_TO_TRASH";
 	case SystemRequestType::IAP_RESTORE_PURCHASES: return "IAP_RESTORE_PURCHASES";
 	case SystemRequestType::IAP_MAKE_PURCHASE: return "IAP_MAKE_PURCHASE";
+	case SystemRequestType::SET_SOFT_KEYBOARD_FORCED: return "SET_SOFT_KEYBOARD_FORCED";
 	default: return "N/A";
 	}
 }

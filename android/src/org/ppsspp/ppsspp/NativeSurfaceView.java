@@ -22,7 +22,7 @@ public class NativeSurfaceView extends SurfaceView {
 	// (a plain SurfaceView is ignored by showSoftInput), and typed text is passed on to the native side.
 	private boolean keyboardForced = false;
 	// Bring the keyboard back by itself when the app regains focus (after an app switch).
-	private boolean keyboardPersist = true;
+	private boolean keyboardPersist = false;
 
 	public NativeSurfaceView(Context context) {
 		super(context);
@@ -38,13 +38,10 @@ public class NativeSurfaceView extends SurfaceView {
 		return true;
 	}
 
-	public void setKeyboardPersist(boolean persist) {
-		keyboardPersist = persist;
-	}
-
 	// Must be called on the UI thread.
-	public void setKeyboardForced(boolean forced) {
+	public void setKeyboardForced(boolean forced, boolean persist) {
 		keyboardForced = forced;
+		keyboardPersist = persist;
 		InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
 		if (imm == null) {
 			return;
@@ -88,9 +85,17 @@ public class NativeSurfaceView extends SurfaceView {
 	@Override
 	public boolean onKeyPreIme(int keyCode, KeyEvent event) {
 		if (keyboardForced && keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP) {
-			NativeApp.sendMessageFromJava("keyboardDismissed", "");
+			NativeApp.sendMessageFromJava("softKeyboardHidden", "");
 		}
 		return super.onKeyPreIme(keyCode, event);
+	}
+
+	// Called from the activity's onStop. Without persistence, switching to another app ends the forced keyboard.
+	public void onActivityStopped() {
+		if (keyboardForced && !keyboardPersist) {
+			setKeyboardForced(false, false);
+			NativeApp.sendMessageFromJava("softKeyboardHidden", "");
+		}
 	}
 
 	@Override

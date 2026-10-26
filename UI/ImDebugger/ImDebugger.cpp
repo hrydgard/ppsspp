@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <functional>
 #include <cstring>
 #include "ppsspp_config.h"
 
@@ -86,28 +85,6 @@ static constexpr bool kIsMobilePlatform = true;
 #else
 static constexpr bool kIsMobilePlatform = false;
 #endif
-
-// Defined further down (see ImDebugger_SetSoftKeyboardHook).
-static std::function<void(bool)> g_softKeyboardHook;
-
-#if PPSSPP_PLATFORM(ANDROID)
-void Android_SetKeyboardForced(bool forced);  // Defined in android/jni/app-android.cpp.
-void Android_SetKeyboardPersist(bool persist);  // Whether the keyboard comes back after an app switch.
-bool Android_ConsumeAppPaused();  // True once after the app was paused (switched away from).
-bool Android_ConsumeKeyboardDismissed();  // True once after the user closed the keyboard with Back.
-#endif
-
-// Shows or hides the soft keyboard. A hook set through ImDebugger_SetSoftKeyboardHook takes priority; otherwise
-// Android uses its built-in implementation, and other platforms do nothing.
-static void ApplySoftKeyboard(bool show) {
-	if (g_softKeyboardHook) {
-		g_softKeyboardHook(show);
-		return;
-	}
-#if PPSSPP_PLATFORM(ANDROID)
-	Android_SetKeyboardForced(show);
-#endif
-}
 
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	if (ImGui::BeginMenu("Show in memory viewer")) {
@@ -2688,10 +2665,25 @@ ImDebugger::ImDebugger() {
 }
 
 ImDebugger::~ImDebugger() {
-	if (keyboardShown_) {
-		ApplySoftKeyboard(false);
-	}
+	UpdateSoftKeyboard(false);
 	SaveConfig();
+}
+
+// Called every frame. The platform is only told about changes.
+void ImDebugger::UpdateSoftKeyboard(bool debuggerVisible) {
+	// Hiding the toggle turns the keyboard off too, otherwise there'd be no way to dismiss it.
+	const bool show = debuggerVisible && cfg_.forceKeyboard && cfg_.showKeyboardToggle;
+	if (show == keyboardShown_ && (!show || cfg_.keyboardPersist == keyboardPersistSent_)) {
+		return;
+	}
+	keyboardShown_ = show;
+	keyboardPersistSent_ = cfg_.keyboardPersist;
+	System_SetSoftKeyboardForced(show, cfg_.keyboardPersist);
+}
+
+void ImDebugger::OnHidden() {
+	cfg_.forceKeyboard = false;  // So the keyboard doesn't pop back up when the debugger is reopened.
+	UpdateSoftKeyboard(false);
 }
 
 void ImDebugger::SaveConfig() {
@@ -2703,15 +2695,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	const CoreState coreState = ::coreState;
 
 	const bool showDebugger = g_Config.bShowImDebugger && PSP_IsInited();  // This will be separated from showing the IM UI in general.
-	// The debugger got hidden some other way (hotkey, settings...): drop the keyboard so it's off when reopened.
-	if (!g_Config.bShowImDebugger && cfg_.forceKeyboard) {
-		cfg_.forceKeyboard = false;
-		if (keyboardShown_) {
-			keyboardShown_ = false;
-			ApplySoftKeyboard(false);
-		}
-	}
-
 	const bool allowSaveStates = !Achievements::HardcoreModeActive() && PSP_IsInited() && (!IsNetworkConnected() || g_Config.bAllowSavestateWhileConnected);
 
 	if (Achievements::HardcoreModeActive()) {
@@ -2756,6 +2739,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	const float em = ImGui::GetFontSize();
 	const bool compactMenu = cfg_.compactMenu || ImGui::GetIO().DisplaySize.x < em * 46.0f;
 	const float rowExtra = compactMenu ? em * 0.2f : 0.0f;  // Slightly taller rows for fingers.
+	const bool hasSoftKeyboard = System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
 
 	auto beginMenu = [&](const char *label) -> bool {
 		if (!ImGui::BeginMenu(label)) {
@@ -2771,11 +2755,6 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	};
 	auto closeDebugger = [&]() {
 		g_Config.bShowImDebugger = false;
-		cfg_.forceKeyboard = false;  // So the keyboard doesn't pop back up when the debugger is reopened.
-		if (keyboardShown_) {
-			keyboardShown_ = false;
-			ApplySoftKeyboard(false);
-		}
 	};
 
 	auto menuFile = [&]() {
@@ -3048,8 +3027,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::Separator();
 			ImGui::MenuItem("Quick scroll bar", nullptr, &cfg_.quickScrollEnabled);
-			ImGui::MenuItem("Show keyboard toggle", nullptr, &cfg_.showKeyboardToggle);
-			ImGui::MenuItem("Keep keyboard after switching apps", nullptr, &cfg_.keyboardPersist);
+			if (hasSoftKeyboard) {
+				ImGui::MenuItem("Show keyboard toggle", nullptr, &cfg_.showKeyboardToggle);
+				ImGui::MenuItem("Keep keyboard after switching apps", nullptr, &cfg_.keyboardPersist);
+			}
 			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
 			ImGui::SetNextItemWidth(em * 10.0f);
 			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
@@ -3120,38 +3101,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		}
 
 		// Soft keyboard toggle (like the keyboard button in Winlator).
-		if (cfg_.showKeyboardToggle) {
+		if (hasSoftKeyboard && cfg_.showKeyboardToggle) {
 			ImGui::MenuItem(cfg_.forceKeyboard ? "Hide Keyboard" : "Show Keyboard", nullptr, &cfg_.forceKeyboard);
 		}
 
 		ImGui::EndMainMenuBar();
 	}
 
-	// Force the soft keyboard to show while the debugger is open (the platform side is a hook, see ImDebugger.h).
-	{
-#if PPSSPP_PLATFORM(ANDROID)
-		// If the keyboard shouldn't survive an app switch, turn it off once we've been away.
-		if (Android_ConsumeAppPaused() && !cfg_.keyboardPersist) {
-			cfg_.forceKeyboard = false;
-		}
-		// The keyboard was closed from the system (Back button): keep the toggle in sync.
-		if (Android_ConsumeKeyboardDismissed()) {
-			cfg_.forceKeyboard = false;
-		}
-		const int persist = cfg_.keyboardPersist ? 1 : 0;
-		if (persist != keyboardPersistSent_) {
-			keyboardPersistSent_ = persist;
-			Android_SetKeyboardPersist(persist != 0);
-		}
-#endif
-		// Hiding the toggle turns the keyboard off too, otherwise there'd be no way to dismiss it.
-		const bool wantKeyboard = cfg_.forceKeyboard && cfg_.showKeyboardToggle && g_Config.bShowImDebugger;
-		if (wantKeyboard != keyboardShown_) {
-			keyboardShown_ = wantKeyboard;
-			ApplySoftKeyboard(wantKeyboard);
-		}
-	}
-
+	UpdateSoftKeyboard(true);
 
 	if (cfg_.demoOpen) {
 		ImGui::ShowDemoWindow(&cfg_.demoOpen);
@@ -3382,15 +3339,9 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		luaConsole_.Draw(cfg_);
 	}
 
-	if (g_Config.bShowImDebugger && cfg_.quickScrollEnabled) {
+	if (cfg_.quickScrollEnabled) {
 		DrawQuickScroll();
 	}
-}
-
-// Platform hook for forcing the soft keyboard. Left empty by default (no-op), so this builds on every platform.
-// Android: set it from native code to call InputMethodManager.showSoftInput / hideSoftInputFromWindow via the activity.
-void ImDebugger_SetSoftKeyboardHook(std::function<void(bool show)> hook) {
-	g_softKeyboardHook = std::move(hook);
 }
 
 // ---- Quick scroll strip ----

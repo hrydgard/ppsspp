@@ -1210,6 +1210,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		mSensorManager.unregisterListener(this);
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 
+		if (mSurfaceView != null) {
+			mSurfaceView.onActivityStopped();
+		}
+
 		// After a finish() and a quick relaunch, this comes after the new activity's onStart, and the audio and
 		// the location updates are its now.
 		if (checkCurrent("pausing audio and location in onStop")) {
@@ -1845,12 +1849,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			inputMethodManager.hideSoftInputFromWindow(surfView.getWindowToken(), 0);
 			return true;
 		} else if (command.equals("forceKeyboard") && mSurfaceView != null) {
-			// "1" = keep the soft keyboard up (and let it type into the game), "0" = hide it again.
-			mSurfaceView.setKeyboardForced(params.equals("1"));
-			return true;
-		} else if (command.equals("keyboardPersist") && mSurfaceView != null) {
-			// "1" = bring the forced keyboard back after an app switch, "0" = don't.
-			mSurfaceView.setKeyboardPersist(params.equals("1"));
+			// "on" = keep the soft keyboard up (and let it type into the game), "persist" = also bring it back after
+			// an app switch, "off" = hide it again.
+			mSurfaceView.setKeyboardForced(!params.equals("off"), params.equals("persist"));
 			return true;
 		} else if (command.equals("inputbox")) {
 			String title = "Input";

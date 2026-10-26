@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <set>
-#include <functional>
 
 #include "ext/imgui/imgui.h"
 
@@ -135,7 +134,7 @@ struct ImConfig {
 	// Touch / mobile helpers.
 	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
 	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
-	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to show the soft keyboard (see ImDebugger_SetSoftKeyboardHook).
+	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to keep the soft keyboard up.
 	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
 	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.
 	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
@@ -202,9 +201,17 @@ public:
 	void DeviceLost();
 	void SaveConfig();
 
+	// Call every frame the debugger isn't shown, instead of Frame().
+	void OnHidden();
+	// The platform closed the forced soft keyboard (Back, or an app switch without "keep keyboard").
+	void OnSoftKeyboardHidden() {
+		cfg_.forceKeyboard = false;
+	}
+
 private:
 	Path ConfigPath();
 	void DrawQuickScroll();
+	void UpdateSoftKeyboard(bool debuggerVisible);
 
 	RequesterToken reqToken_;
 
@@ -236,13 +243,8 @@ private:
 	ImGuiID quickScrollTarget_ = 0;
 	// Whether we last asked the platform to show the soft keyboard.
 	bool keyboardShown_ = false;
-	int keyboardPersistSent_ = -1;  // Last "keep keyboard after app switch" value sent to the platform.
+	bool keyboardPersistSent_ = false;
 };
-
-// Optional override for the "force keyboard" toggle. The callback is called with true to show the soft keyboard and
-// false to hide it. Android already has a built-in implementation (Android_SetKeyboardForced in app-android.cpp),
-// so this is only needed on other platforms.
-void ImDebugger_SetSoftKeyboardHook(std::function<void(bool show)> hook);
 
 // Simple custom controls and utilities.
 void ImClickableValue(const char *id, uint32_t value, ImControl &control, ImCmd cmd);
