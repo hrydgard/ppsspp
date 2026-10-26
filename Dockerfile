@@ -6,7 +6,6 @@ COPY . /src
 
 RUN apk add build-base wget git bash cmake python3 glu-dev sdl3-dev sdl3_ttf-dev fribidi-dev
 
-RUN cd src/ffmpeg && ./linux_x86-64.sh
 RUN cd src && ./b.sh --headless
 
 # Second stage
