@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cstring>
+#include "ppsspp_config.h"
 
 
 #include "ext/imgui/imgui_internal.h"
@@ -76,6 +78,13 @@
 #include "UI/PauseScreen.h"
 
 static ImVec4 g_normalTextColor;
+
+// Phones default to the compact menu, and to a bar left margin to keep the first button clear of rounded screen corners.
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+static constexpr bool kIsMobilePlatform = true;
+#else
+static constexpr bool kIsMobilePlatform = false;
+#endif
 
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	if (ImGui::BeginMenu("Show in memory viewer")) {
@@ -2656,7 +2665,25 @@ ImDebugger::ImDebugger() {
 }
 
 ImDebugger::~ImDebugger() {
+	UpdateSoftKeyboard(false);
 	SaveConfig();
+}
+
+// Called every frame. The platform is only told about changes.
+void ImDebugger::UpdateSoftKeyboard(bool debuggerVisible) {
+	// Hiding the toggle turns the keyboard off too, otherwise there'd be no way to dismiss it.
+	const bool show = debuggerVisible && cfg_.forceKeyboard && cfg_.showKeyboardToggle;
+	if (show == keyboardShown_ && (!show || cfg_.keyboardPersist == keyboardPersistSent_)) {
+		return;
+	}
+	keyboardShown_ = show;
+	keyboardPersistSent_ = cfg_.keyboardPersist;
+	System_SetSoftKeyboardForced(show, cfg_.keyboardPersist);
+}
+
+void ImDebugger::OnHidden() {
+	cfg_.forceKeyboard = false;  // So the keyboard doesn't pop back up when the debugger is reopened.
+	UpdateSoftKeyboard(false);
 }
 
 void ImDebugger::SaveConfig() {
@@ -2706,8 +2733,40 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 	ImControl control{};
 
-	if (ImGui::BeginMainMenuBar()) {
-		if (ImGui::BeginMenu("File")) {
+	// ---- Menu bar ----
+	// Compact layout (chosen, or on narrow screens): [Break/Run] [Menu] [Close] [status], where "Menu" is one dropdown
+	// holding every menu as a cascading submenu. Otherwise the same menus are side by side.
+	const float em = ImGui::GetFontSize();
+	const bool compactMenu = cfg_.compactMenu || ImGui::GetIO().DisplaySize.x < em * 46.0f;
+	const float rowExtra = compactMenu ? em * 0.2f : 0.0f;  // Slightly taller rows for fingers.
+	const bool hasSoftKeyboard = System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
+
+	// The bar's height follows the frame padding. The item spacing is grown to match, so that the menu titles can be
+	// hit anywhere in the bar's height (a selectable reaches half the item spacing beyond its text).
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const ImVec2 framePadding = style.FramePadding;
+	const ImVec2 itemSpacing = style.ItemSpacing;
+	const float barPadY = framePadding.y + ImGui::GetFrameHeight() * ((float)cfg_.barHeight / 100.0f - 1.0f) * 0.5f;
+
+	// Menus get the normal style back.
+	auto beginMenu = [&](const char *label) -> bool {
+		if (!ImGui::BeginMenu(label)) {
+			return false;
+		}
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, framePadding);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacing.x, itemSpacing.y + rowExtra));
+		return true;
+	};
+	auto endMenu = [&]() {
+		ImGui::PopStyleVar(2);  // Must be popped before EndMenu(), the popup window checks the style stack.
+		ImGui::EndMenu();
+	};
+	auto closeDebugger = [&]() {
+		g_Config.bShowImDebugger = false;
+	};
+
+	auto menuFile = [&]() {
+		if (beginMenu("File")) {
 			if (ImGui::MenuItem("Load")) {
 				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view responseString, int) {
 					Path path(responseString);
@@ -2762,10 +2821,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			if (ImGui::MenuItem("Exit")) {
 				System_ExitApp();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Emulation")) {
+	auto menuEmulation = [&]() {
+		if (beginMenu("Emulation")) {
 			if (ImGui::MenuItem("Pause")) {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			}
@@ -2776,10 +2837,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 			}
 			ImGui::Separator();
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("View")) {
+	auto menuView = [&]() {
+		if (beginMenu("View")) {
 			if (PSP_IsInited()) {
 				ImGui::BeginDisabled();  // Can't change this setting while running.
 			}
@@ -2787,10 +2850,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			if (PSP_IsInited()) {
 				ImGui::EndDisabled();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Debug")) {
+	auto menuDebug = [&]() {
+		if (beginMenu("Debug")) {
 			if (PSP_IsInited()) {
 				switch (coreState) {
 				case CoreState::CORE_STEPPING_CPU:
@@ -2833,126 +2898,122 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Close")) {
-				g_Config.bShowImDebugger = false;
+				closeDebugger();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		/*
-		if (ImGui::BeginMenu("Options")) {
-			ImGui::EndMenu();
+	auto menuDebuggerWindows = [&]() {
+		if (beginMenu("Core")) {
+			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
+			endMenu();
 		}
-		*/
-
-		if (showDebugger) {
-			if (ImGui::BeginMenu("Core")) {
-				ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
-				ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("CPU")) {
-				ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
-				ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
-				ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
-				ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
-				ImGui::Separator();
-				ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
-				ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
-				ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
-				ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Symbols")) {
-				ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
-				ImGui::Separator();
-
-				if (ImGui::MenuItem("Load .ppmap...")) {
-					System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->LoadSymbolMap(path)) {
-							ERROR_LOG(Log::Common, "Failed to load symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Save .ppmap...")) {
-					System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->SaveSymbolMap(path)) {
-							ERROR_LOG(Log::Common, "Failed to save symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Load No$ .sym...")) {
-					System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->LoadNocashSym(path)) {
-							ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Save No$ .sym...")) {
-					System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->SaveNocashSym(path)) {
-							ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
-						}
-					});
-				}
-				ImGui::Separator();
-				ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
-				if (ImGui::MenuItem("Reset symbol map")) {
-					g_symbolMap->Clear();
-					// NotifyDebuggerMapLoaded();
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Memory")) {
-				for (int i = 0; i < 4; i++) {
-					char title[64];
-					snprintf(title, sizeof(title), "Memory %d", i + 1);
-					ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
-				}
-				ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("OS HLE")) {
-				ImGui::MenuItem("HLE module browser", nullptr, &cfg_.hleModulesOpen);
-				ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
-				ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
-				ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
-				ImGui::MenuItem("Modules", nullptr, &cfg_.modulesOpen);
-				ImGui::MenuItem("Utility Modules", nullptr, &cfg_.utilityModulesOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Graphics")) {
-				ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
-				ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
-				ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
-				ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
-				ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
-				ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
-				ImGui::MenuItem("Pixel Viewer", nullptr, &cfg_.pixelViewerOpen);
-				// More to come here...
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Audio/Video")) {
-				ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
-				ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
-				ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
-				ImGui::Separator();
-				ImGui::MenuItem("Audio output / buffer", nullptr, &cfg_.audioOutOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Network")) {
-				ImGui::MenuItem("ApCtl", nullptr, &cfg_.apctlOpen);
-				ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
-				ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
-				ImGui::MenuItem("AdHoc", nullptr, &cfg_.adhocOpen);
-				ImGui::EndMenu();
-			}
+		if (beginMenu("CPU")) {
+			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
+			ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
+			ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
+			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
+			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
+			ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
+			endMenu();
 		}
+		if (beginMenu("Symbols")) {
+			ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
+			ImGui::Separator();
 
-		if (ImGui::BeginMenu("Tools")) {
+			if (ImGui::MenuItem("Load .ppmap...")) {
+				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to load symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Save .ppmap...")) {
+				System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to save symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Load No$ .sym...")) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Save No$ .sym...")) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
+					}
+				});
+			}
+			ImGui::Separator();
+			ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
+			if (ImGui::MenuItem("Reset symbol map")) {
+				g_symbolMap->Clear();
+				// NotifyDebuggerMapLoaded();
+			}
+			endMenu();
+		}
+		if (beginMenu("Memory")) {
+			for (int i = 0; i < 4; i++) {
+				char title[64];
+				snprintf(title, sizeof(title), "Memory %d", i + 1);
+				ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
+			}
+			ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
+			endMenu();
+		}
+		if (beginMenu("OS HLE")) {
+			ImGui::MenuItem("HLE module browser", nullptr, &cfg_.hleModulesOpen);
+			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
+			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
+			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
+			ImGui::MenuItem("Modules", nullptr, &cfg_.modulesOpen);
+			ImGui::MenuItem("Utility Modules", nullptr, &cfg_.utilityModulesOpen);
+			endMenu();
+		}
+		if (beginMenu("Graphics")) {
+			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
+			ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
+			ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
+			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
+			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
+			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
+			ImGui::MenuItem("Pixel Viewer", nullptr, &cfg_.pixelViewerOpen);
+			// More to come here...
+			endMenu();
+		}
+		if (beginMenu("Audio/Video")) {
+			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
+			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
+			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("Audio output / buffer", nullptr, &cfg_.audioOutOpen);
+			endMenu();
+		}
+		if (beginMenu("Network")) {
+			ImGui::MenuItem("ApCtl", nullptr, &cfg_.apctlOpen);
+			ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
+			ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
+			ImGui::MenuItem("AdHoc", nullptr, &cfg_.adhocOpen);
+			endMenu();
+		}
+	};
+
+	auto menuTools = [&]() {
+		if (beginMenu("Tools")) {
 			ImGui::MenuItem("Lua Console", nullptr, &cfg_.luaConsoleOpen);
 			ImGui::MenuItem("Log", nullptr, &cfg_.logOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
@@ -2963,18 +3024,36 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			}
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Atrac Tool", nullptr, &cfg_.atracToolOpen);
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Misc")) {
+	auto menuMisc = [&]() {
+		if (beginMenu("Misc")) {
 			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
-			ImGui::EndMenu();
+			ImGui::Separator();
+			ImGui::MenuItem("Quick scroll bar", nullptr, &cfg_.quickScrollEnabled);
+			if (hasSoftKeyboard) {
+				ImGui::MenuItem("Show keyboard toggle", nullptr, &cfg_.showKeyboardToggle);
+				ImGui::MenuItem("Keep keyboard after switching apps", nullptr, &cfg_.keyboardPersist);
+			}
+			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
+			ImGui::SetNextItemWidth(em * 10.0f);
+			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
+			ImGui::SetNextItemWidth(em * 10.0f);
+			ImGui::SliderInt("Bar height", &cfg_.barHeight, 100, 250, "%d%%");
+			endMenu();
 		}
+	};
 
-		if (ImGui::MenuItem("Close")) {
-			g_Config.bShowImDebugger = false;
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(framePadding.x, barPadY));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacing.x, barPadY * 2.0f));
+	if (ImGui::BeginMainMenuBar()) {
+		// Keep the first button clear of rounded screen corners / camera cutouts.
+		if (cfg_.barLeftMargin > 0) {
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + em * (float)cfg_.barLeftMargin / 100.0f);
 		}
 		switch (coreState) {
 		case CoreState::CORE_STEPPING_CPU:
@@ -2990,8 +3069,59 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		default:
 			break;
 		}
+
+		if (compactMenu) {
+			if (beginMenu("Menu")) {
+				menuFile();
+				menuEmulation();
+				menuView();
+				menuDebug();
+				if (showDebugger) {
+					menuDebuggerWindows();
+				}
+				menuTools();
+				menuMisc();
+				endMenu();
+			}
+		} else {
+			menuFile();
+			menuEmulation();
+			menuView();
+			menuDebug();
+			if (showDebugger) {
+				menuDebuggerWindows();
+			}
+			menuTools();
+			menuMisc();
+		}
+
+		if (ImGui::MenuItem("Close")) {
+			closeDebugger();
+		}
+
+		// Core state indicator.
+		ImGui::AlignTextToFramePadding();
+		switch (coreState) {
+		case CoreState::CORE_RUNNING_CPU:
+			ImGui::TextColored(ImVec4(0.30f, 0.90f, 0.30f, 1.0f), "Running");
+			break;
+		case CoreState::CORE_STEPPING_CPU:
+			ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.20f, 1.0f), "Stepping");
+			break;
+		default:
+			break;
+		}
+
+		// Soft keyboard toggle (like the keyboard button in Winlator).
+		if (hasSoftKeyboard && cfg_.showKeyboardToggle) {
+			ImGui::MenuItem(cfg_.forceKeyboard ? "Hide Keyboard" : "Show Keyboard", nullptr, &cfg_.forceKeyboard);
+		}
+
 		ImGui::EndMainMenuBar();
 	}
+	ImGui::PopStyleVar(2);
+
+	UpdateSoftKeyboard(true);
 
 	if (cfg_.demoOpen) {
 		ImGui::ShowDemoWindow(&cfg_.demoOpen);
@@ -3221,6 +3351,176 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	if (cfg_.luaConsoleOpen) {
 		luaConsole_.Draw(cfg_);
 	}
+
+	if (cfg_.quickScrollEnabled) {
+		DrawQuickScroll();
+	}
+}
+
+// ---- Quick scroll strip ----
+
+// The window to scroll, or the nearest parent that actually has something to scroll.
+static ImGuiWindow *FindScrollableWindow(ImGuiWindow *window) {
+	while (window) {
+		if (window->ScrollMax.y > 0.0f) {
+			return window;
+		}
+		window = window->ParentWindow;
+	}
+	return nullptr;
+}
+
+void ImDebugger::DrawQuickScroll() {
+	ImGuiContext &g = *ImGui::GetCurrentContext();
+	ImGuiIO &io = ImGui::GetIO();
+
+	// Remember the last real debugger window the user touched. Tapping the strip moves focus to the strip itself,
+	// so we keep the previous target instead of following focus. Menus, popups and the strip itself are skipped
+	// (their names start with "##").
+	ImGuiWindow *nav = g.NavWindow;
+	if (nav && nav->RootWindow && nav->RootWindow->Name[0] != '#' &&
+		!(nav->RootWindow->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip))) {
+		quickScrollTarget_ = nav->ID;
+	}
+
+	ImGuiWindow *target = quickScrollTarget_ ? ImGui::FindWindowByID(quickScrollTarget_) : nullptr;
+	if (target && !target->WasActive) {
+		target = nullptr;  // Window was closed.
+	}
+	const char *targetName = target ? target->RootWindow->Name : nullptr;
+
+	// The CPU disassembly and the memory viewers are custom drawn (not ImGui scrolling). Top/End go through their
+	// own goto APIs, the other buttons send key presses that those views already handle for hardware keyboards.
+	const bool isDisasm = targetName && !strcmp(targetName, disasm_.Title());
+	int memIndex = -1;
+	for (int i = 0; targetName && i < 4; i++) {
+		if (!strcmp(targetName, ImMemWindow::Title(i))) {
+			memIndex = i;
+			break;
+		}
+	}
+	const bool isCustomView = isDisasm || memIndex >= 0;
+	ImGuiWindow *scrollWin = (target && !isCustomView) ? FindScrollableWindow(target) : nullptr;
+	const bool canScroll = target != nullptr;                       // Page/line buttons: scroll, or send keys.
+	const bool canJump = isDisasm || memIndex >= 0 || scrollWin;    // Top/End need a known range.
+
+	const float em = ImGui::GetFontSize();
+	const float margin = ImGui::GetStyle().ItemSpacing.x;
+	const float gap = em * 0.15f;
+	const float avail = io.DisplaySize.y - ImGui::GetFrameHeight() * 2.0f;
+	const float btnH = ImClamp(avail / 14.0f, em * 1.15f, em * 1.4f);  // Thin buttons.
+	const ImVec2 btnSize(em * 3.0f, btnH);
+
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(1.0f, 0.5f));
+	ImGui::SetNextWindowBgAlpha(0.7f);
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(gap * 2.0f, gap * 2.0f));
+	if (ImGui::Begin("##QuickScroll", nullptr, flags)) {
+		// Keep the strip above the debugger windows, even after the user clicks one of them.
+		ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(gap, 0.0f));
+
+		if (cfg_.quickScrollCollapsed) {
+			if (ImGui::Button("<", ImVec2(em * 1.4f, btnH * 2.0f))) {
+				cfg_.quickScrollCollapsed = false;
+			}
+		} else {
+			if (ImGui::Button(">", ImVec2(btnSize.x, btnH))) {
+				cfg_.quickScrollCollapsed = true;
+			}
+
+			if (!canScroll) {
+				ImGui::BeginDisabled();
+			}
+
+			const float lineH = ImGui::GetTextLineHeightWithSpacing();
+			const float pageY = scrollWin ? ImMax(lineH, scrollWin->InnerRect.GetHeight() - lineH * 2.0f) : 0.0f;
+
+			const u32 ramStart = 0x08000000;
+			const u32 ramEnd = 0x08000000 + (u32)Memory::g_MemorySize - 4;
+
+			auto scrollBy = [&](float dy) {
+				// Build on any pending target so held buttons accumulate.
+				const float base = scrollWin->ScrollTarget.y < FLT_MAX ? scrollWin->ScrollTarget.y : scrollWin->Scroll.y;
+				ImGui::SetScrollY(scrollWin, ImClamp(base + dy, 0.0f, scrollWin->ScrollMax.y));
+			};
+			// Custom views: act like the user pressed the key. Up/Down then move the highlighted line and only scroll
+			// the view when the highlight leaves the screen.
+			auto tapKey = [&](ImGuiKey key) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;  // Otherwise it would snap straight back to PC while stepping.
+				}
+				ImGui::FocusWindow(target);  // Give the keypress back to the view the user was looking at.
+				io.AddKeyEvent(key, true);
+				io.AddKeyEvent(key, false);
+			};
+
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("Top", btnSize)) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramStart);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramStart);
+				} else if (scrollWin) {
+					ImGui::SetScrollY(scrollWin, 0.0f);
+				}
+			}
+			if (!canJump) {
+				ImGui::EndDisabled();
+			}
+
+			ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);  // Hold to keep scrolling.
+			if (ImGui::Button("PgUp", btnSize)) {
+				if (scrollWin) scrollBy(-pageY); else tapKey(ImGuiKey_PageUp);
+			}
+			if (ImGui::Button("Up", btnSize)) {
+				if (scrollWin) scrollBy(-lineH * 3.0f); else tapKey(ImGuiKey_UpArrow);
+			}
+			if (ImGui::Button("Down", btnSize)) {
+				if (scrollWin) scrollBy(lineH * 3.0f); else tapKey(ImGuiKey_DownArrow);
+			}
+			if (ImGui::Button("PgDn", btnSize)) {
+				if (scrollWin) scrollBy(pageY); else tapKey(ImGuiKey_PageDown);
+			}
+			ImGui::PopItemFlag();
+
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("End", btnSize)) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramEnd);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramEnd & ~0xFu);
+				} else if (scrollWin) {
+					ImGui::SetScrollY(scrollWin, scrollWin->ScrollMax.y);
+				}
+			}
+			if (!canJump) {
+				ImGui::EndDisabled();
+			}
+
+			if (!canScroll) {
+				ImGui::EndDisabled();
+			}
+
+			// Show which window the buttons act on.
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + btnSize.x);
+			ImGui::TextDisabled("%s", targetName ? targetName : "(tap a window)");
+			ImGui::PopTextWrapPos();
+		}
+		ImGui::PopStyleVar(2);  // FramePadding, ItemSpacing - before End().
+	}
+	ImGui::End();
+	ImGui::PopStyleVar();  // WindowPadding
 }
 
 void ImDebugger::Snapshot(MIPSState *mips) {
@@ -3340,4 +3640,12 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
 	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
+	sync.Sync("quickScrollEnabled", &quickScrollEnabled, true);
+	sync.Sync("quickScrollCollapsed", &quickScrollCollapsed, false);
+	sync.Sync("forceKeyboard", &forceKeyboard, false);
+	sync.Sync("showKeyboardToggle", &showKeyboardToggle, true);
+	sync.Sync("keyboardPersist", &keyboardPersist, true);
+	sync.Sync("compactMenu", &compactMenu, kIsMobilePlatform);
+	sync.Sync("barLeftMargin", &barLeftMargin, kIsMobilePlatform ? 200 : 0);
+	sync.Sync("barHeight", &barHeight, kIsMobilePlatform ? 166 : 100);
 }

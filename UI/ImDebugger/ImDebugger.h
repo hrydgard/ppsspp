@@ -131,6 +131,16 @@ struct ImConfig {
 
 	float fbViewerZoom = 1.0f;
 
+	// Touch / mobile helpers.
+	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
+	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
+	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to keep the soft keyboard up.
+	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
+	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.
+	int barHeight = 100;                // Menu bar height, in percent of the normal frame height (taller is easier to hit by touch).
+	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
+	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
+
 
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);
@@ -192,8 +202,17 @@ public:
 	void DeviceLost();
 	void SaveConfig();
 
+	// Call every frame the debugger isn't shown, instead of Frame().
+	void OnHidden();
+	// The platform closed the forced soft keyboard (Back, or an app switch without "keep keyboard").
+	void OnSoftKeyboardHidden() {
+		cfg_.forceKeyboard = false;
+	}
+
 private:
 	Path ConfigPath();
+	void DrawQuickScroll();
+	void UpdateSoftKeyboard(bool debuggerVisible);
 
 	RequesterToken reqToken_;
 
@@ -220,6 +239,12 @@ private:
 	ImConfig cfg_{};
 
 	ImCommand externalCommand_;
+
+	// Quick scroll strip: the last debugger window the user touched (ImGui window ID).
+	ImGuiID quickScrollTarget_ = 0;
+	// Whether we last asked the platform to show the soft keyboard.
+	bool keyboardShown_ = false;
+	bool keyboardPersistSent_ = false;
 };
 
 // Simple custom controls and utilities.

@@ -105,6 +105,8 @@ enum class SystemRequestType {
 	IAP_MAKE_PURCHASE,
 
 	OPEN_DISPLAY_SETTINGS,
+
+	SET_SOFT_KEYBOARD_FORCED,
 };
 
 // Run a closure on the main thread. Used to safely implement UI that runs on another thread.
@@ -324,6 +326,7 @@ enum class UIMessage {
 	SAVE_FRAME_DUMP,
 	ADHOC_SERVER_LIST_CHANGED,
 	SAVESTATE_SLOT_SAVED,  // A slot's save state file was written.
+	SOFT_KEYBOARD_HIDDEN,  // The platform closed a soft keyboard forced by System_SetSoftKeyboardForced.
 };
 
 std::string System_GetProperty(SystemProperty prop);

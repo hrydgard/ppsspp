@@ -440,6 +440,9 @@ void runImDebugger(Draw::DrawContext *draw) {
 	} else {
 		uiContext->SetOverrideScreenFrame(nullptr);
 		SetOverrideScreenFrame(nullptr);
+		if (imDebugger_) {
+			imDebugger_->OnHidden();
+		}
 	}
 
 	// Enable text input (needed for KeyInputFlags::CHAR events) only while an imgui text field is active.
@@ -1518,6 +1521,11 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		return true;
 	} else if (message == UIMessage::SAVE_FRAME_DUMP) {
 		SaveFrameDump();
+		return true;
+	} else if (message == UIMessage::SOFT_KEYBOARD_HIDDEN) {
+		if (imDebugger_) {
+			imDebugger_->OnSoftKeyboardHidden();
+		}
 		return true;
 	} else {
 		return false;

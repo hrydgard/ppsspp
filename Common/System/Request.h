@@ -208,6 +208,14 @@ enum class TextInputUser {
 };
 void System_SetTextInputWanted(TextInputUser user, bool wanted);
 
+// Keeps the soft keyboard up (typing as key and char events) until called with false. With keepAfterAppSwitch,
+// it comes back after switching to another app and back, otherwise the platform drops it then. When the platform
+// closes it, it posts UIMessage::SOFT_KEYBOARD_HIDDEN. Only Android implements this so far, though other platforms
+// with SYSPROP_KEYBOARD_IS_SOFT should.
+inline void System_SetSoftKeyboardForced(bool forced, bool keepAfterAppSwitch) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SET_SOFT_KEYBOARD_FORCED, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)forced, (int64_t)keepAfterAppSwitch);
+}
+
 inline void System_SetKeepScreenBright(bool keepScreenBright) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_KEEP_SCREEN_BRIGHT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)keepScreenBright);
 }
