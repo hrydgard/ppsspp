@@ -411,6 +411,14 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
+void GamePauseScreen::sendMessage(UIMessage message, const char *value) {
+	UIBaseDialogScreen::sendMessage(message, value);
+	if (message == UIMessage::SAVESTATE_SLOT_SAVED) {
+		// A save started before the screen opened has finished writing, so its slot needs updating.
+		RecreateViews();
+	}
+}
+
 GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	: UIBaseDialogScreen(filename), bootPending_(bootPending) {
 	// So we can tell if something blew up while on the pause screen.

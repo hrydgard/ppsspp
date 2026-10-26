@@ -36,6 +36,7 @@ public:
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 	const char *tag() const override { return "GamePause"; }
 
