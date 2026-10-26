@@ -347,6 +347,11 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 	} else if (item.disabledPtr) {
 		view->SetDisabledPtr(item.disabledPtr);
 	}
+	if (item.opensScreen) {
+		if (UI::Choice *choice = dynamic_cast<UI::Choice *>(view)) {
+			choice->SetIconRight(ImageID("I_CHEVRON_RIGHT"));
+		}
+	}
 	if (item.setup) {
 		item.setup(view);
 	}

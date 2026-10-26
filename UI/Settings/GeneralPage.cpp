@@ -154,6 +154,12 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
+	// Shared with achievements.
+	page->Header();
+	page->Setting(&g_Config.iNotificationPos);
+	page->Setting(&g_Config.bShowSaveLoadIndicator);
+
+	page->Header();
 	// The UI context is looked up when used, since it's recreated along with the graphics.
 	page->Setting(&g_Config.iUIScaleFactor).OnChange([host](UI::EventParams &e) {
 		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
@@ -162,6 +168,7 @@ static void BuildUISettingsPage(SettingsPage *page) {
 		NativeResized();
 	});
 
+	page->Header();
 	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
 	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
@@ -175,13 +182,9 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	}
 
 	page->Setting(&g_Config.bTransparentBackground);
-
-	// Shared with achievements.
-
-	page->Setting(&g_Config.iNotificationPos);
-
 	page->Setting(&g_Config.iBackgroundAnimation);
 
+	page->Header();
 	page->Custom("Theme", [host](UI::ViewGroup *parent) -> UI::View * {
 		PopupMultiChoiceDynamic *theme = parent->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, T(I18NCat::SYSTEM, "Theme"), GetThemeInfoNames(), I18NCat::THEMES, host->PageScreenManager()));
 		theme->OnChoice.Add([](EventParams &e) {

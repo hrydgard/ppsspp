@@ -125,11 +125,15 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	// bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 	// deviceSpecs->Add(new TopBar(*screenManager()->getUIContext(), portrait ? TopBarFlags::Portrait : TopBarFlags::Default, si->T("Device Info")));
 
-	UI::CollapsibleSection *systemInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("System Information")));
+	ChoiceGroupList *groups = deviceSpecs->Add(new ChoiceGroupList());
+
+	Choice *copy = groups->Add(new ChoiceGroup())->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")));
+	copy->OnClick.Add([this](UI::EventParams &e) { CopySummaryToClipboard(screenManager()->getDrawContext()); });
+
+	ChoiceGroup *systemInfo = groups->Add(new ChoiceGroup(si->T("System Information")));
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	systemInfo->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([this](UI::EventParams &e) { CopySummaryToClipboard(screenManager()->getDrawContext()); });
 	systemInfo->Add(new InfoItem(si->T("System Name"), System_GetProperty(SYSPROP_NAME)));
 #if PPSSPP_PLATFORM(ANDROID)
 	systemInfo->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
@@ -148,7 +152,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		systemInfo->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
 	}
 
-	UI::CollapsibleSection *cpuInfo = deviceSpecs->Add(new UI::CollapsibleSection(si->T("CPU Information")));
+	ChoiceGroup *cpuInfo = groups->Add(new ChoiceGroup(si->T("CPU Information")));
 
 	// Don't bother showing the CPU name if we don't have one.
 	if (!equals(cpu_info.brand_string, "Unknown")) {
@@ -162,7 +166,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	cpuInfo->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
 #endif
 
-	CollapsibleSection *gpuInfo = deviceSpecs->Add(new CollapsibleSection(si->T("GPU Information")));
+	ChoiceGroup *gpuInfo = groups->Add(new ChoiceGroup(si->T("GPU Information")));
 
 	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
 	std::string_view apiName = gr->T(apiNameKey);
@@ -217,7 +221,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	if (draw->GetDataFormatSupport(Draw::DataFormat::BC7_UNORM_BLOCK)) texCompressionFormats += "BC7 ";
 	gpuInfo->Add(new InfoItem(si->T("Compressed texture formats"), texCompressionFormats));
 
-	CollapsibleSection *osInformation = deviceSpecs->Add(new CollapsibleSection(si->T("OS Information")));
+	ChoiceGroup *osInformation = groups->Add(new ChoiceGroup(si->T("OS Information")));
 	osInformation->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())));
 	osInformation->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #if PPSSPP_PLATFORM(ANDROID)
@@ -231,7 +235,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 	osInformation->Add(new InfoItem(si->T("HTTPS supported"), System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? di->T("Yes") : di->T("No")));
 
-	CollapsibleSection *displayInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Display Information")));
+	ChoiceGroup *displayInfo = groups->Add(new ChoiceGroup(si->T("Display Information")));
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)
 	displayInfo->Add(new InfoItem(si->T("Native resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
@@ -273,7 +277,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T_cstr("%0.2f Hz"), displayHz)));
 
 	if (displayHz < 55.0f) {
-		displayInfo->Add(new NoticeView(NoticeLevel::WARN, ApplySafeSubstitutions(gr->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), ""));
+		groups->Add(new NoticeView(NoticeLevel::WARN, ApplySafeSubstitutions(gr->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), ""));
 	}
 
 	std::string presentModes;
@@ -286,7 +290,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	}
 	displayInfo->Add(new InfoItem(si->T("Present modes"), presentModes));
 
-	CollapsibleSection *versionInfo = deviceSpecs->Add(new CollapsibleSection(si->T("Version Information")));
+	ChoiceGroup *versionInfo = groups->Add(new ChoiceGroup(si->T("Version Information")));
 	std::string apiVersion;
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		if (gl_extensions.IsGLES) {
@@ -312,11 +316,11 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 		// We're in-game, and can determine these.
 		// TODO: Call a static version of GPUCommon::CheckGPUFeatures() and derive them here directly.
 
-		CollapsibleSection *gpuFlags = deviceSpecs->Add(new CollapsibleSection(si->T("GPU Flags")));
+		ChoiceGroup *gpuFlags = groups->Add(new ChoiceGroup(si->T("GPU Flags")));
 
 		for (int i = 0; i < 32; i++) {
 			if (gstate_c.Use((1 << i))) {
-				gpuFlags->Add(new TextView(GpuUseFlagToString(i), new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
+				gpuFlags->Add(new InfoItem(GpuUseFlagToString(i), ""));
 			}
 		}
 	}
@@ -330,21 +334,21 @@ void SystemInfoScreen::CreateStorageTab(UI::LinearLayout *storage) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	storage->Add(new ItemHeader(si->T("Directories")));
+	ChoiceGroup *directories = storage->Add(new ChoiceGroupList())->Add(new ChoiceGroup(si->T("Directories")));
 	// Intentionally non-translated
-	storage->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
-	storage->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToVisualString()));
-	storage->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToVisualString()));
-	storage->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
+	directories->Add(new InfoItem("MemStickDirectory", g_Config.memStickDirectory.ToVisualString()));
+	directories->Add(new InfoItem("InternalDataDirectory", g_Config.internalDataDirectory.ToVisualString()));
+	directories->Add(new InfoItem("AppCacheDir", g_Config.appCacheDirectory.ToVisualString()));
+	directories->Add(new InfoItem("DefaultCurrentDir", g_Config.defaultCurrentDirectory.ToVisualString()));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	storage->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
+	directories->Add(new InfoItem("ExtFilesDir", g_extFilesDir));
 	bool scoped = System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
-	storage->Add(new InfoItem("Scoped Storage", scoped ? di->T("Yes") : di->T("No")));
+	directories->Add(new InfoItem("Scoped Storage", scoped ? di->T("Yes") : di->T("No")));
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
 		// This flag is only relevant on Android API 30+.
-		storage->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
+		directories->Add(new InfoItem("IsStoragePreservedLegacy", Android_IsExternalStoragePreservedLegacy() ? di->T("Yes") : di->T("No")));
 	}
 #endif
 }
@@ -354,7 +358,7 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	buildConfig->Add(new ItemHeader(si->T("Build Configuration")));
+	ChoiceGroupList *groups = buildConfig->Add(new ChoiceGroupList());
 	std::string installerName = System_GetProperty(SYSPROP_INSTALLER_NAME);
 	if (installerName.empty()) {
 		installerName = "N/A";
@@ -392,7 +396,7 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 		{std::string(si->T("Installer")), installerName},
 	};
 
-	buildConfig->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([buildConfigItems](UI::EventParams &e) {
+	groups->Add(new ChoiceGroup())->Add(new Choice(si->T("Copy summary to clipboard"), ImageID("I_FILE_COPY")))->OnClick.Add([buildConfigItems](UI::EventParams &e) {
 		std::string buildConfigStr;
 		for (auto &item : buildConfigItems) {
 			buildConfigStr += item.first + ": " + item.second + "\n";
@@ -403,8 +407,16 @@ void SystemInfoScreen::CreateBuildConfigTab(UI::LinearLayout *buildConfig) {
 		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), si->T("Build Configuration")), 0.0f, "copyToClip");
 	});
 
+	ChoiceGroup *configGroup = groups->Add(new ChoiceGroup(si->T("Build Configuration")));
 	for (auto &item : buildConfigItems) {
-		buildConfig->Add(new InfoItem(item.first, item.second));
+		configGroup->Add(new InfoItem(item.first, item.second));
+	}
+}
+
+// For lists of names, like extensions.
+static void AddNames(UI::ViewGroup *group, const std::vector<std::string> &names) {
+	for (const std::string &name : names) {
+		group->Add(new UI::InfoItem(name, ""));
 	}
 }
 
@@ -413,11 +425,8 @@ void SystemInfoScreen::CreateCPUExtensionsTab(UI::LinearLayout *cpuExtensions) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	cpuExtensions->Add(new ItemHeader(si->T("CPU Extensions")));
-	std::vector<std::string> exts = cpu_info.Features();
-	for (std::string &ext : exts) {
-		cpuExtensions->Add(new TextView(ext, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	ChoiceGroup *group = cpuExtensions->Add(new ChoiceGroupList())->Add(new ChoiceGroup(si->T("CPU Extensions")));
+	AddNames(group, cpu_info.Features());
 }
 
 void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
@@ -427,7 +436,7 @@ void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto a = GetI18NCategory(I18NCat::AUDIO);
 
-	CollapsibleSection *audioInformation = audio->Add(new CollapsibleSection(si->T("Audio Information")));
+	ChoiceGroup *audioInformation = audio->Add(new ChoiceGroupList())->Add(new ChoiceGroup(si->T("Audio Information")));
 	extern AudioBackend *g_audioBackend;
 
 	if (g_audioBackend) {
@@ -463,19 +472,19 @@ void SystemInfoScreen::CreateDriverBugsTab(UI::LinearLayout *driverBugs) {
 
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 
-	driverBugs->Add(new ItemHeader(si->T("Driver bugs")));
+	ChoiceGroup *group = driverBugs->Add(new ChoiceGroupList())->Add(new ChoiceGroup(si->T("Driver bugs")));
 
 	bool anyDriverBugs = false;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 	for (int i = 0; i < (int)draw->GetBugs().MaxBugIndex(); i++) {
 		if (draw->GetBugs().Has(i)) {
 			anyDriverBugs = true;
-			driverBugs->Add(new InfoItem(draw->GetBugs().GetBugName(i), ""));
+			group->Add(new InfoItem(draw->GetBugs().GetBugName(i), ""));
 		}
 	}
 
 	if (!anyDriverBugs) {
-		driverBugs->Add(new InfoItem(si->T("No GPU driver bugs detected"), ""));
+		group->Add(new InfoItem(si->T("No GPU driver bugs detected"), ""));
 	}
 }
 
@@ -485,30 +494,28 @@ void SystemInfoScreen::CreateOpenGLExtsTab(UI::LinearLayout *gpuExtensions) {
 	auto si = GetI18NCategory(I18NCat::SYSINFO);
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
+	ChoiceGroupList *groups = gpuExtensions->Add(new ChoiceGroupList());
+
+	std::string_view title;
 	if (!gl_extensions.IsGLES) {
-		gpuExtensions->Add(new ItemHeader(si->T("OpenGL Extensions")));
+		title = si->T("OpenGL Extensions");
 	} else if (gl_extensions.GLES3) {
-		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 3.0 Extensions")));
+		title = si->T("OpenGL ES 3.0 Extensions");
 	} else {
-		gpuExtensions->Add(new ItemHeader(si->T("OpenGL ES 2.0 Extensions")));
+		title = si->T("OpenGL ES 2.0 Extensions");
 	}
 
 	std::vector<std::string> exts;
 	SplitString(g_all_gl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
-	for (auto &extension : exts) {
-		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(groups->Add(new ChoiceGroup(title)), exts);
 
 	exts.clear();
 	SplitString(g_all_egl_extensions, ' ', exts);
 	std::sort(exts.begin(), exts.end());
 
 	// If there aren't any EGL extensions, no need to show the tab.
-	gpuExtensions->Add(new ItemHeader(si->T("EGL Extensions")));
-	for (auto &extension : exts) {
-		gpuExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(groups->Add(new ChoiceGroup(si->T("EGL Extensions"))), exts);
 }
 
 void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
@@ -520,52 +527,34 @@ void SystemInfoScreen::CreateVulkanExtsTab(UI::LinearLayout *gpuExtensions) {
 
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
-	CollapsibleSection *vulkanFeatures = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Features")));
+	ChoiceGroupList *groups = gpuExtensions->Add(new ChoiceGroupList());
+	ChoiceGroup *vulkanFeatures = groups->Add(new ChoiceGroup(si->T("Vulkan Features")));
 
 	// TODO: This one belongs under its own header. And this is Vulkan "pre-rotation" really.
 	vulkanFeatures->Add(new InfoItem(gr->T("Display rotation"), StringFromFormat("%d°", (int)g_display.rotation * 90)));
+	AddNames(vulkanFeatures, draw->GetFeatureList());
 
-	std::vector<std::string> features = draw->GetFeatureList();
-	for (const auto &feature : features) {
-		vulkanFeatures->Add(new TextView(feature, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(groups->Add(new ChoiceGroup(si->T("Present modes"))), draw->GetPresentModeList(di->T("Current")));
+	AddNames(groups->Add(new ChoiceGroup(si->T("Display Color Formats"))), draw->GetSurfaceFormatList());
 
-	CollapsibleSection *presentModes = gpuExtensions->Add(new CollapsibleSection(si->T("Present modes")));
-	for (const auto &mode : draw->GetPresentModeList(di->T("Current"))) {
-		presentModes->Add(new TextView(mode, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
-
-	CollapsibleSection *colorFormats = gpuExtensions->Add(new CollapsibleSection(si->T("Display Color Formats")));
-	for (const auto &format : draw->GetSurfaceFormatList()) {
-		colorFormats->Add(new TextView(format, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
-
-	CollapsibleSection *enabledExtensions = gpuExtensions->Add(new CollapsibleSection(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
+	ChoiceGroup *enabledExtensions = groups->Add(new ChoiceGroup(std::string(si->T("Vulkan Extensions")) + " (" + std::string(di->T("Enabled")) + ")"));
 	std::vector<std::string> extensions = draw->GetExtensionList(true, true);
 	std::sort(extensions.begin(), extensions.end());
-	for (auto &extension : extensions) {
-		enabledExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(enabledExtensions, extensions);
 	// Also get instance extensions
 	enabledExtensions->Add(new ItemHeader(si->T("Instance")));
 	extensions = draw->GetExtensionList(false, true);
 	std::sort(extensions.begin(), extensions.end());
-	for (auto &extension : extensions) {
-		enabledExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(enabledExtensions, extensions);
 
-	CollapsibleSection *vulkanExtensions = gpuExtensions->Add(new CollapsibleSection(si->T("Vulkan Extensions")));
+	ChoiceGroup *vulkanExtensions = groups->Add(new ChoiceGroup(si->T("Vulkan Extensions")));
 	extensions = draw->GetExtensionList(true, false);
 	std::sort(extensions.begin(), extensions.end());
-	for (auto &extension : extensions) {
-		vulkanExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(vulkanExtensions, extensions);
 
 	vulkanExtensions->Add(new ItemHeader(si->T("Instance")));
 	// Also get instance extensions
 	extensions = draw->GetExtensionList(false, false);
 	std::sort(extensions.begin(), extensions.end());
-	for (auto &extension : extensions) {
-		vulkanExtensions->Add(new TextView(extension, FLAG_DYNAMIC_ASCII, true, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
-	}
+	AddNames(vulkanExtensions, extensions);
 }

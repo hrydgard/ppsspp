@@ -387,29 +387,40 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 
 	viewGroup->Add(new PaneTitleBar(Path(), sy->T("RetroAchievements"), "/docs/reference/retro-achievements/"));
 
+	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
+
 	if (!g_Config.bAchievementsEnable) {
 		viewGroup->Add(new NoticeView(NoticeLevel::INFO, ac->T("Achievements are disabled"), "", new LinearLayoutParams(Margins(5))));
 	} else if (Achievements::IsLoggedIn()) {
 		const rc_client_user_t *info = rc_client_get_user_info(Achievements::GetClient());
 
+		ChoiceGroup *group = groups->Add(new ChoiceGroup());
+
+		// Hm, we should show a proper player "badge" with the icon and all here.
+
 		// In the future, RetroAchievements will support display names. Prepare for that.
 		if (strcmp(info->display_name, info->username) != 0) {
-			viewGroup->Add(new InfoItem(ac->T("Name"), info->display_name));
+			group->Add(new InfoItem(ac->T("Name"), info->display_name));
 		}
-		viewGroup->Add(new InfoItem(di->T("Username"), info->username));
+		group->Add(new InfoItem(di->T("Username"), info->username));
+
 		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
-		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
+		group->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 			Achievements::Logout();
 		});
 	} else {
 		std::string errorMessage;
+
+
 		if (Achievements::LoginProblems(&errorMessage)) {
 			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
-			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			actions->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 				Achievements::Logout();
 			});
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
-			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			actions->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
 				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](std::string_view value, int) {
@@ -422,9 +433,11 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			});
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
-			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
-			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
-			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
+			ChoiceGroup *data = groups->Add(new ChoiceGroup());
+			data->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
+			data->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			Choice *loginButton = actions->Add(new Choice(di->T("Log in")));
 			loginButton->OnClick.Add([this](UI::EventParams &) -> void {
 				if (!g_Config.sAchievementsUserName.empty() && !password_.empty()) {
 					Achievements::LoginAsync(g_Config.sAchievementsUserName.c_str(), password_.c_str());
@@ -436,13 +449,15 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 				return !g_Config.sAchievementsUserName.empty() && !password_.empty();
 			});
 		}
-		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([](UI::EventParams &) -> void {
+		ChoiceGroup *reg = groups->Add(new ChoiceGroup());
+		Choice *regLink = reg->Add(new Choice(ac->T("Register on www.retroachievements.org")));
+		regLink->OnClick.Add([](UI::EventParams &) -> void {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 		});
+		regLink->SetIconRight(ImageID("I_LINK_OUT"));
 	}
 
 	using namespace UI;
-	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
 	ChoiceGroup *settingsGroup = groups->Add(new ChoiceGroup(di->T("Settings")));
 	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([this](UI::EventParams &e) -> void {
 		Achievements::UpdateSettings();
@@ -452,12 +467,16 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
 	ChoiceGroup *linksGroup = groups->Add(new ChoiceGroup(di->T("Links")));
-	linksGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
+	Choice *webSite = linksGroup->Add(new Choice(ac->T("RetroAchievements website")));
+	webSite->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
 	});
-	linksGroup->Add(new Choice(ac->T("How to use RetroAchievements"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
+	webSite->SetIconRight(ImageID("I_LINK_OUT"));
+	Choice *howToUse = linksGroup->Add(new Choice(ac->T("How to use RetroAchievements")));
+	howToUse->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 	});
+	howToUse->SetIconRight(ImageID("I_LINK_OUT"));
 }
 
 void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGroup) {

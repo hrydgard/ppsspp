@@ -44,17 +44,17 @@ void BuildToolsSettings(SettingsPage *page) {
 	}
 
 	// These were moved here so use the wrong translation objects, to avoid having to change all inis... This isn't a sustainable situation :P
-	page->Choice({ I18NCat::SAVEDATA, "Savedata Manager" }).OnClick([host](UI::EventParams &) {
+	page->Choice({ I18NCat::SAVEDATA, "Savedata Manager" }).OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new SavedataScreen(host->PageGamePath()));
 	});
-	page->Choice({ I18NCat::DEVELOPER, "System Information" }).OnClick([host](UI::EventParams &) {
+	page->Choice({ I18NCat::DEVELOPER, "System Information" }).OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new SystemInfoScreen(host->PageGamePath()));
 	});
 	page->Link({ I18NCat::SYSTEM, "Developer Tools" }, I18NCat::DEVELOPER, &BuildDeveloperToolsPage);
-	page->Choice({ I18NCat::REMOTEISO, "Remote disc streaming" }).OnClick([host](UI::EventParams &) {
+	page->Choice({ I18NCat::REMOTEISO, "Remote disc streaming" }).OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new RemoteISOScreen(host->PageGamePath()));
 	});
-	page->Choice({ I18NCat::SYSTEM, "PSP Firmware" }).OnClick([host](UI::EventParams &) {
+	page->Choice({ I18NCat::SYSTEM, "PSP Firmware" }).OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new FirmwareScreen(host->PageGamePath()));
 	});
 }

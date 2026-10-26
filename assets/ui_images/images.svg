@@ -23,9 +23,9 @@
      inkscape:pagecheckerboard="true"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
-     inkscape:zoom="1.4142136"
-     inkscape:cx="596.09102"
-     inkscape:cy="196.22213"
+     inkscape:zoom="5.6568544"
+     inkscape:cx="181.63805"
+     inkscape:cy="75.041705"
      inkscape:window-width="3840"
      inkscape:window-height="2071"
      inkscape:window-x="-9"
@@ -235,7 +235,7 @@
    sodipodi:nodetypes="cccccccc" /><path
    id="I_CHEVRON_RIGHT"
    style="fill:#ffffff;fill-opacity:1;stroke:none"
-   d="M 42.7172,1.7828 L 46.4343,5.5000 L 42.7172,9.2172 L 43.2828,9.7828 L 47.5657,5.5000 L 43.2828,1.2172 Z" /><path
+   d="m 39.396143,36.53696 3.7171,3.7172 -3.7171,3.7172 0.5656,0.5656 4.2829,-4.2828 -4.2829,-4.2828 z" /><path
    sodipodi:nodetypes="cccccccc"
    style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.35133"
    d="m 26.009856,20.003745 4.57727,-4.589002 -3.55364,-0.03085 v -4.535978 l -2.07237,4e-6 v 4.535977 l -3.52987,0.03089 z"
@@ -1610,7 +1610,10 @@
    d="m 62.461606,39.302413 c -0.753981,-0.1748 -1.476177,-0.630835 -2.099917,-1.089089 0.72842,-0.796806 1.213546,-1.785464 1.398042,-2.849164 h 1.024441 V 34.577645 H 60.178825 V 33.708538 H 59.39231 v 0.869107 H 56.785 v 0.786515 h 1.026403 c 0.183633,1.06359 0.668091,2.052309 1.396072,2.849164 -0.67075,0.491187 -1.439227,0.832515 -2.253378,1.000851 0,0 0.133685,0.790822 0.08455,0.786519 1.009176,-0.166537 1.932502,-0.6318 2.74691,-1.238777 0.703585,0.551781 1.589134,1.019727 2.457574,1.232569 m 0.417273,0.353345 -1.370512,3.617987 h 1.016576 l 0.530906,-1.525849 h 2.544387 l 0.536796,1.525849 h 1.026436 l -2.475563,-6.55366 h -0.703931 l -0.825847,2.186524 M 60.971234,35.36416 c -0.163402,0.873748 -0.572676,1.68275 -1.179783,2.332026 -0.60755,-0.648958 -1.016897,-1.458099 -1.179778,-2.332026 z m 2.196509,6.157559 0.949722,-2.719387 0.941856,2.719387 z"
    id="I_LANGUAGE"
    style="fill:#ffffff;fill-opacity:1;stroke-width:0.19663"
-   sodipodi:nodetypes="ccccccccccccccccccccccccccccccccccc" /></g><style
+   sodipodi:nodetypes="ccccccccccccccccccccccccccccccccccc" /><path
+   id="I_CHEVRON_LEFT"
+   style="fill:#ffffff;fill-opacity:1;stroke:none"
+   d="m 49.998024,36.583735 -3.7171,3.7172 3.7171,3.7172 -0.5656,0.5656 -4.2829,-4.2828 4.2829,-4.2828 z" /></g><style
      type="text/css"
      id="style1">
 	.st0{fill:#000000;}

@@ -575,7 +575,7 @@ protected:
 	// the event.
 	// Use it for checking/unchecking checkboxes, etc.
 	virtual void ClickInternal();
-	void DrawBG(UIContext &dc, const Style &style);
+	void DrawBG(UIContext &dc, const Style &style, float radius);
 
 	CallbackColorTween *bgColor_ = nullptr;
 	float bgColorLast_ = 0.0f;

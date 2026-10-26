@@ -204,7 +204,7 @@ Clickable::Clickable(LayoutParams *layoutParams)
 	bgColor_->Persist();
 }
 
-void Clickable::DrawBG(UIContext &dc, const Style &style) {
+void Clickable::DrawBG(UIContext &dc, const Style &style, float radius) {
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		if (time_now_d() - bgColorLast_ >= 0.25f) {
 			bgColor_->Reset(style.background.color);
@@ -212,13 +212,12 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
 		}
 		bgColorLast_ = time_now_d();
-
-		dc.FillRoundRect(Drawable(bgColor_->CurrentValue()), bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+		dc.FillRoundRect(Drawable(bgColor_->CurrentValue()), bounds_, radius, roundCorners_);
 	} else {
-		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+		dc.FillRoundRect(style.background, bounds_, radius, roundCorners_);
 	}
 	if (highlighted_) {
-		dc.Draw()->DrawRoundRect(bounds_, dc.GetTheme().choiceRoundRadius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
+		dc.Draw()->DrawRoundRect(bounds_, radius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
 	}
 }
 
@@ -437,7 +436,7 @@ void ClickableItem::Draw(UIContext &dc) {
 		style = dc.GetTheme().itemDownStyle;
 	}
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 }
 
 void Choice::ClickInternal() {
@@ -493,7 +492,7 @@ void Choice::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
@@ -584,9 +583,14 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
-	UI::Style style = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().infoStyle;
+	UI::Style style;
+	if (HasFocus()) {
+		style = dc.GetTheme().itemFocusedStyle;
+	} else {
+		style = dc.GetTheme().itemStyle;
+	}
 
-	dc.FillRect(style.background, bounds_);
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 
 	int paddingX = 12;
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
@@ -597,8 +601,9 @@ void InfoItem::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
+	// The info item should not look too clickable even if it has a background. Make the right side dimmed a little.
 	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
-	dc.DrawTextRect(rightText_, rightBounds, style.fgColor, ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
+	dc.DrawTextRect(rightText_, rightBounds, alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
 }
 
 std::string InfoItem::DescribeText() const {
@@ -648,7 +653,7 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	float xoff = 37.0f;
 
@@ -802,7 +807,7 @@ void CheckBox::Draw(UIContext &dc) {
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
@@ -941,7 +946,8 @@ void Button::Draw(UIContext &dc) {
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius * 0.5f);  // Smaller radius since button is smaller than choice.
+
 	float tw, th;
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
 	tw *= scale_;
@@ -1012,7 +1018,7 @@ void RadioButton::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	dc.Flush();
 	dc.BeginNoTex();

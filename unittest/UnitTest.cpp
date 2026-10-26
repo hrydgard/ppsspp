@@ -33,19 +33,26 @@
 // build/unittest EscapeMenuString
 
 #include "ppsspp_config.h"
-
 #include <typeinfo>
 
-#include <algorithm>
+// To avoid warnings, this should go first.
+#include "Common/Net/SocketCompat.h"
+
 #include <atomic>
+#include <cmath>
+#include <algorithm>
+#include <memory>
 #include <cstdio>
 #include <cstdlib>
-#include <cmath>
-#include <memory>
 #include <vector>
 #include <string>
 #include <sstream>
+
+#include <map>
 #include <unordered_map>
+#include <set>
+#include <list>
+
 
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
@@ -90,16 +97,13 @@
 #include "Core/ConfigSettings.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/Serialize/SerializeList.h"
-#include <map>
-#include <set>
-#include <list>
+
 #include "Core/CmdLine.h"
 #include "Core/System.h"
 #include "Common/Data/Collections/Hashmaps.h"
@@ -135,7 +139,6 @@
 #include "Common/Render/AtlasGen.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Net/Resolve.h"
-#include "Common/Net/SocketCompat.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"

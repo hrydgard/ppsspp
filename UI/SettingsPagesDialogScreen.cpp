@@ -151,13 +151,14 @@ void SettingsPagesDialogScreen::CreateSettingsTabContents(int settingsTab, UI::L
 void SettingsPagesDialogScreen::CreateNavBar(UI::ViewGroup *parent, int settingsTab, const std::vector<std::string> &titles, const std::string &helpTag) {
 	using namespace UI;
 	const SettingsTab &tab = settingsTabs_[settingsTab];
-	LinearLayout *bar = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT, Margins(0, 0, 8, 0))));
-	bar->SetPadding(Margins(12, 8, 12, 8));
-	bar->SetSpacing(0.0f);
+	const Margins barPadding(12, 0, 8, 0);
+	LinearLayout *bar = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT, Margins(0, 8))));
+	bar->SetPadding(barPadding);
+	bar->SetSpacing(8.0f);
 
 	// When stacked in portrait, there's no other back button, so it's always there, and leaves the screen from the root page.
 	if (stacked_ || !searchText_.empty() || !pagePaths_[tab.tag].empty()) {
-		Choice *backButton = bar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		Choice *backButton = bar->Add(new Choice(ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
 		backButton->SetRoundCorners(RoundCorners::All);
 		backButton->OnClick.Add([this, settingsTab](UI::EventParams &) {
 			if (!GoBack(settingsTab)) {
@@ -165,11 +166,13 @@ void SettingsPagesDialogScreen::CreateNavBar(UI::ViewGroup *parent, int settings
 			}
 		});
 	}
+
 	// Portrait has no room for the whole path, and the back button goes up it.
 	int firstShownTitle = stacked_ ? (int)titles.size() - 1 : 0;
 	for (int i = firstShownTitle; i < (int)titles.size(); i++) {
 		if (i > firstShownTitle) {
-			bar->Add(new TextView(">", new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(4, 0, 4, 0))));
+			ImageView *separator = bar->Add(new ImageView(ImageID("I_CHEVRON_RIGHT"), "", new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(4, 0, 4, 0))));
+			separator->SetScale(0.66f);
 		}
 		if (i == (int)titles.size() - 1) {
 			SimpleTextView *title = bar->Add(new SimpleTextView(titles[i], new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
