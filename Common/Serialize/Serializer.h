@@ -198,6 +198,7 @@ public:
 		ERROR_BAD_FILE,
 		ERROR_BROKEN_STATE,
 		ERROR_BAD_ALLOC,
+		ERROR_FILE_MISSING,
 	};
 
 	// May fail badly if ptr doesn't point to valid data. On failure, errorString is the title of the
@@ -292,13 +293,13 @@ public:
 	template<class T>
 	static Error Load(const Path &filename, std::string *gitVersion, T& _class, std::string *failureReason)
 	{
-		// LoadFile names the failures it can tell apart. A truncated or corrupt file isn't one of them,
-		// and isn't necessarily from another version either.
+		// failureReason is the section LoadPtr failed in. A truncated or corrupt file isn't necessarily
+		// from another version.
 		failureReason->clear();
 
 		u8 *ptr = nullptr;
 		size_t sz;
-		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
+		Error error = LoadFile(filename, gitVersion, ptr, sz);
 		if (error == ERROR_NONE) {
 			failureReason->clear();
 			error = LoadPtr(ptr, sz, _class, failureReason);
@@ -358,7 +359,7 @@ public:
 
 	// The file half of Load() and Save(), for doing it away from the state itself. LoadFile hands back
 	// a new[]'d buffer; SaveFile takes ownership of a malloc'd one (as from MeasureAndSavePtr).
-	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
+	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz);
 	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 
 private:

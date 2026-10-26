@@ -370,7 +370,7 @@ void InstallZipScreen::update() {
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
 			if (doneView_) {
-				doneView_->SetLevelAndText(NoticeLevel::ERROR, iz->T(err));
+				doneView_->SetLevelAndText(NoticeLevel::ERROR, err);
 				doneView_->SetVisibility(Visibility::V_VISIBLE);
 			}
 		} else if (installStarted_) {

@@ -178,10 +178,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
 	if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove, progressReporter)) {
 		// TODO: Handle failure listing files.
-		const char *error = "Failed to read old directory";
-		INFO_LOG(Log::System, "%s", error);
-		progressReporter.SetProgress(ms->T(error));
-		return new MoveResult{ false, error };
+		INFO_LOG(Log::System, "Failed to read old directory");
+		progressReporter.SetProgress(ms->T("Failed to read old directory"));
+		return new MoveResult{ false, "Failed to read old directory" };
 	}
 
 	bool dryRun = false;  // Useful for debugging. Probably want to remove the MoveChildrenFast path above to test it.

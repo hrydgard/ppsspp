@@ -465,11 +465,10 @@ static bool CompressZstd(const u8 *data, size_t size, std::vector<u8> *out) {
 	return !ZSTD_isError(remaining);
 }
 
-CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
+CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz) {
 	if (!File::Exists(filename)) {
-		*failureReason = "LoadStateDoesntExist";
 		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
-		return ERROR_BAD_FILE;
+		return ERROR_FILE_MISSING;
 	}
 
 	File::IOFile pFile(filename, "rb");
