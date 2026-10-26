@@ -192,7 +192,7 @@ static void BuildGeneralPage(SettingsPage *page) {
 		return parent->GetViewByIndex(parent->GetNumSubviews() - 1);
 	});
 
-	page->Header({ I18NCat::SYSTEM, "General" });
+	page->Header({ I18NCat::MAINSETTINGS, "General" });
 
 	page->Bool(&g_Config.bEnableLogging, "Enable Logging").OnChange(&OnLoggingChanged);
 	page->Choice("Logging Channels").OnClick([host](UI::EventParams &e) {
@@ -523,7 +523,7 @@ static void BuildGraphicsPage(SettingsPage *page) {
 
 	Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
 
-	page->Header({ I18NCat::SYSTEM, "General" });
+	page->Header({ I18NCat::MAINSETTINGS, "General" });
 	page->Setting(&g_Config.bVendorBugChecksEnabled);
 	page->Setting(&g_Config.bShaderCache);
 	page->Setting(&g_Config.bHardwareTransform);
@@ -648,7 +648,7 @@ void BuildDeveloperToolsPage(SettingsPage *page) {
 		page->Link(title, I18NCat::DEVELOPER, build);
 	};
 
-	link({ I18NCat::SYSTEM, "General" }, &BuildGeneralPage);
+	link({ I18NCat::MAINSETTINGS, "General" }, &BuildGeneralPage);
 	link({ I18NCat::DEVELOPER, "Texture Replacement" }, &BuildTextureReplacementPage);
 	link({ I18NCat::MAINSETTINGS, "Graphics" }, &BuildGraphicsPage);
 	link({ I18NCat::MAINSETTINGS, "Networking" }, &BuildNetworkPage);

@@ -170,107 +170,8 @@ static void OnMemoryStickOther(SystemPageState *state) {
 
 #endif
 
-static void OnImmersiveModeChange() {
-	System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
-	if (g_Config.iAndroidHwScale != 0) {
-		System_RecreateActivity();
-	}
-}
-
-static void OnSustainedPerformanceModeChange() {
-	System_Notify(SystemNotification::SUSTAINED_PERF_CHANGE);
-}
-
 static void OnJitAffectingSetting() {
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
-}
-
-static void OnChangeBackground(SettingsPageHost *host) {
-	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
-	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
-
-	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		INFO_LOG(Log::UI, "Clearing background image.");
-		// The button is in clear mode.
-		File::Delete(bgPng);
-		File::Delete(bgJpg);
-		UIBackgroundShutdown();
-		host->RecreatePageViews();
-		return;
-	}
-
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	System_BrowseForImage(host->PageRequesterToken(), sy->T("Set UI background..."), bgJpg, [host](std::string_view value, int converted) {
-		if (converted == 1) {
-			// The platform code converted and saved the file to the desired path already.
-			INFO_LOG(Log::UI, "Platform converted the file: %.*s", STR_VIEW(value));
-		} else if (!value.empty()) {
-			Path path(value);
-
-			// Check the file format. Don't rely on the file extension here due to scoped storage URLs.
-			FILE *f = File::OpenCFile(path, "rb");
-			uint8_t buffer[8];
-			ImageFileType type = ImageFileType::UNKNOWN;
-			if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
-				type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
-			}
-			if (f) {
-				fclose(f);
-			}
-
-			std::string filename;
-			switch (type) {
-			case ImageFileType::JPEG:
-				filename = "background.jpg";
-				break;
-			case ImageFileType::PNG:
-				filename = "background.png";
-				break;
-			default:
-				break;
-			}
-
-			if (!filename.empty()) {
-				Path dest = GetSysDirectory(DIRECTORY_SYSTEM) / filename;
-				File::Copy(path, dest);
-				if (path.FilePathContainsNoCase("temp_import.jpg")) {
-					INFO_LOG(Log::UI, "Deleting temp file: %s", GetFriendlyPath(path).c_str());
-					File::Delete(path);
-				}
-			} else {
-				auto sy = GetI18NCategory(I18NCat::SYSTEM);
-				g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Only JPG and PNG images are supported"), path.GetFilename(), 5.0);
-			}
-		}
-		// It will init again automatically.  We can't init outside a frame on Vulkan.
-		UIBackgroundShutdown();
-		host->RecreatePageViews();
-	});
-
-	// Change to a browse or clear button.
-}
-
-static void CallbackRestoreDefaults(SystemPageState *state, bool yes) {
-	if (yes) {
-		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS);
-		ReadSystemPageState(state);
-	}
-	System_Notify(SystemNotification::UI);
-}
-
-static void OnRestoreDefaultSettings(SettingsPageHost *host, SystemPageState *state) {
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	if (g_Config.IsGameSpecific()) {
-		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		auto sy = GetI18NCategory(I18NCat::SYSTEM);
-		host->PageScreenManager()->push(
-			new UI::MessagePopupScreen(sy->T("Restore Default Settings"), dev->T("RestoreGameDefaultSettings", "Are you sure you want to restore the game-specific settings back to the ppsspp defaults?\n"),
-				di->T("OK"), di->T("Cancel"), [state](bool yes) { CallbackRestoreDefaults(state, yes); }));
-	} else {
-		std::string_view title = sy->T("Restore Default Settings");
-		host->PageScreenManager()->push(new RestoreSettingsScreen(title));
-	}
 }
 
 // Using SYSTEM translations
@@ -293,121 +194,10 @@ static void BuildPSPSettingsPage(SettingsPage *page) {
 	page->Setting(&g_Config.iButtonPreference);
 }
 
-static void BuildUISettingsPage(SettingsPage *page) {
-	using namespace UI;
-	SettingsPageHost *host = page->Host();
-
-#if PPSSPP_PLATFORM(IOS)
-	static const char *indicator[] = {
-		"Swipe once to switch app (indicator auto-hides)",
-		"Swipe twice to switch app (indicator stays visible)"
-	};
-	page->Setting(&g_Config.iAppSwitchMode);
-
-	{
-		// Note: On iPhone, iOS hides the status bar in landscape no matter what this is set to.
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
-			System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
-		});
-	}
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-	// Hide Immersive Mode on pre-kitkat Android
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
-			OnImmersiveModeChange();
-		});
-	}
-#endif
-
-	UIContext *ctx = host->PageScreenManager()->getUIContext();
-	page->Setting(&g_Config.iUIScaleFactor).OnChange([ctx](UI::EventParams &e) {
-		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
-		g_display.Recalculate(-1, -1, -1, -1, dpiMul);
-		ctx->InvalidateAtlas();
-		NativeResized();
-	});
-
-	const Path bgPng = GetSysDirectory(DIRECTORY_SYSTEM) / "background.png";
-	const Path bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) / "background.jpg";
-	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
-		page->Choice("Clear UI background").OnClick([host](UI::EventParams &e) {
-			OnChangeBackground(host);
-		});
-	} else if (System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER) || System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		page->Choice("Set UI background...").OnClick([host](UI::EventParams &e) {
-			OnChangeBackground(host);
-		});
-	}
-
-	page->Setting(&g_Config.bTransparentBackground);
-
-	// Shared with achievements.
-
-	page->Setting(&g_Config.iNotificationPos);
-
-	page->Setting(&g_Config.iBackgroundAnimation);
-
-	page->Custom("Theme", [host](UI::ViewGroup *parent) -> UI::View * {
-		PopupMultiChoiceDynamic *theme = parent->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, T(I18NCat::SYSTEM, "Theme"), GetThemeInfoNames(), I18NCat::THEMES, host->PageScreenManager()));
-		theme->OnChoice.Add([](EventParams &e) {
-			UpdateTheme();
-			// Reset the tint/saturation if the theme changed.
-			if (e.b) {
-				g_Config.fUITint = 0.0f;
-				g_Config.fUISaturation = 1.0f;
-			}
-		});
-		return theme;
-	});
-
-	Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
-
-	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
-		// We use shaders without tint capability on hardware with this driver bug.
-		auto noDropShadow = [](View *view) {
-			static_cast<PopupSliderChoiceFloat *>(view)->SetHasDropShadow(false);
-		};
-		page->Setting(&g_Config.fUITint).LiveUpdate().Setup(noDropShadow);
-		page->Setting(&g_Config.fUISaturation).LiveUpdate().Setup(noDropShadow);
-	}
-}
-
 void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	using namespace UI;
 
 	SettingsPageHost *host = page->Host();
-
-	page->Header();
-	page->Link({I18NCat::SYSTEM, "UI"}, I18NCat::SYSTEM, &BuildUISettingsPage);
-
-	page->Header();
-
-	page->Custom("Language", [host](UI::ViewGroup *parent) -> UI::View * {
-		auto langCodeToName = [](std::string_view value) -> std::string {
-			auto &mapping = GetLangValuesMapping();
-			auto iter = mapping.find(value);
-			if (iter != mapping.end()) {
-				return iter->second.first;
-			}
-			return std::string(value);
-		};
-
-		ChoiceWithValueDisplay *language = parent->Add(new ChoiceWithValueDisplay(&g_Config.sLanguageIni, T(I18NCat::SYSTEM, "Language"), langCodeToName));
-		language->SetIconLeft(ImageID("I_LANGUAGE"));
-		language->OnClick.Add([host](UI::EventParams &e) {
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			auto langScreen = new NewLanguageScreen(sy->T("Language"));
-			// The actual switching is handled in OnCompleted in NewLanguageScreen.
-			if (e.v)
-				langScreen->SetPopupOrigin(e.v);
-			host->PageScreenManager()->push(langScreen);
-		});
-		return language;
-	});
 
 	page->Header();
 	page->Link({I18NCat::SYSTEM, "PSP Settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
@@ -473,11 +263,6 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	page->Setting(&g_Config.bMemStickInserted);
 	page->Setting(&g_Config.iMemStickSizeGB);
 
-	page->Header("Help the PPSSPP team");
-	page->Bool(&state->enableReports, "Enable Compatibility Server Reports").EnabledFunc([]() {
-		return Reporting::IsSupported();
-	});
-
 	page->Header("Emulation");
 
 	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
@@ -504,45 +289,6 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	});
 
 	page->Setting(&g_Config.iRewindSnapshotInterval);
-
-	page->Header("General");
-
-	page->Setting(&g_Config.iAskForExitConfirmationAfterSeconds);
-
-	if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
-		// Display rotation
-		page->Custom({ I18NCat::CONTROLS, "Screen Rotation" }, [host](UI::ViewGroup *parent) -> UI::View * {
-			AddRotationPicker(host->PageScreenManager(), parent, true);
-			return parent->GetViewByIndex(parent->GetNumSubviews() - 1);
-		});
-	}
-
-	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
-		page->Setting(&g_Config.bSustainedPerformanceMode).OnChange([](UI::EventParams &e) {
-			OnSustainedPerformanceModeChange();
-		});
-	}
-
-	page->Choice("Restore Default Settings").OnClick([host, state](UI::EventParams &e) {
-		OnRestoreDefaultSettings(host, state);
-	});
-
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
-		page->Setting(&g_Config.bBypassOSKWithKeyboard);
-
-	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
-		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
-			return !PSP_IsInited();
-		});
-	}
-
-	page->Setting(&g_Config.bCheckForNewVersion);
-	page->Setting(&g_Config.bScreenshotsAsPNG);
-	page->Setting(&g_Config.iScreenshotMode);
-	// TODO: Make this setting available on Mac too.
-#if PPSSPP_PLATFORM(WINDOWS) || (defined (SDL) && !defined(MOBILE_DEVICE))
-	page->Setting(&g_Config.bPauseOnLostFocus);
-#endif
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
 	if (cameraList.size() >= 1) {

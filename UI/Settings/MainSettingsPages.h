@@ -35,8 +35,8 @@ void BuildNetworkingSettings(SettingsPage *page);
 void BuildToolsSettings(SettingsPage *page);
 void BuildVRSettings(SettingsPage *page);
 
-// What the System tab edits that isn't a config setting. The settings screen keeps it, and writes
-// enableReports back when it closes.
+// What the General and System tabs edit that isn't a config setting. The settings screen keeps it, and
+// writes enableReports back when it closes.
 struct SystemPageState {
 	bool enableReports = false;
 	// Windows: where the memstick is, and which of the two checkboxes can be changed.
@@ -46,6 +46,7 @@ struct SystemPageState {
 	bool memstickOtherEnabled = false;
 };
 
+void BuildGeneralSettings(SettingsPage *page, SystemPageState *state);
 void BuildSystemSettings(SettingsPage *page, SystemPageState *state);
 // Also called after restoring defaults, so the old values aren't written back over them.
 void ReadSystemPageState(SystemPageState *state);

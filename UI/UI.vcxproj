@@ -82,6 +82,7 @@
     <ClCompile Include="Settings\ControlsPage.cpp" />
     <ClCompile Include="Settings\AudioPage.cpp" />
     <ClCompile Include="Settings\NetworkingPage.cpp" />
+    <ClCompile Include="Settings\GeneralPage.cpp" />
     <ClCompile Include="Settings\SystemPage.cpp" />
     <ClCompile Include="Settings\ToolsPage.cpp" />
     <ClCompile Include="Settings\VRPage.cpp" />

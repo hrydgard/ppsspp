@@ -196,6 +196,7 @@
     <ClCompile Include="..\..\UI\Settings\ControlsPage.cpp" />
     <ClCompile Include="..\..\UI\Settings\AudioPage.cpp" />
     <ClCompile Include="..\..\UI\Settings\NetworkingPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\GeneralPage.cpp" />
     <ClCompile Include="..\..\UI\Settings\SystemPage.cpp" />
     <ClCompile Include="..\..\UI\Settings\ToolsPage.cpp" />
     <ClCompile Include="..\..\UI\Settings\VRPage.cpp" />
