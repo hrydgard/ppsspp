@@ -336,32 +336,34 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 
 	using namespace UI;
 
+	ChoiceGroupList *list = tab->Add(new ChoiceGroupList());
+
 	PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
 	if (status != PERMISSION_STATUS_GRANTED) {
 		// Proceed with local network functionality
-		tab->Add(new Choice(T(I18NCat::NETWORKING, "Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
+		list->Add(new Choice(T(I18NCat::NETWORKING, "Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
 			System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
 		});
 		return;
 	}
 
 	if (serverRunning_) {
-		tab->Add(new NoticeView(NoticeLevel::SUCCESS, ri->T("Currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new NoticeView(NoticeLevel::SUCCESS, ri->T("Currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	} else {
-		tab->Add(new NoticeView(NoticeLevel::INFO, ri->T("Not currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new NoticeView(NoticeLevel::INFO, ri->T("Not currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	}
 
 	if ((RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::RECENT) {
-		tab->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	} else {
-		tab->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + GetFriendlyPath(Path(g_Config.sRemoteISOSharedDir)), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + GetFriendlyPath(Path(g_Config.sRemoteISOSharedDir)), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	}
-	tab->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-	firewallWarning_ = tab->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	list->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	firewallWarning_ = list->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_->SetTextColor(0xFF0000FF);
 	firewallWarning_->SetVisibility(V_GONE);
 
-	ChoiceGroup *group = tab->Add(new ChoiceGroup());
+	ChoiceGroup *group = list->Add(new ChoiceGroup());
 
 	Choice *browseChoice = new Choice(ri->T("Browse Games"));
 	group->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);

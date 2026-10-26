@@ -53,18 +53,18 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto st = GetI18NCategory(I18NCat::STORE);  // Borrow "Size" from here, like GameScreen does.
 
-	LinearLayout *content = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	ChoiceGroupList *list = parent->Add(new ChoiceGroupList());
 
 	if (!info_.anythingInstalled) {
-		content->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"),
+		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"),
 			sy->T("FirmwareSources", "PPSSPP has its own replacements for the PSP's system files, so a firmware is optional. Installing one gets you the real fonts, and lets you launch the XMB. Most game discs carry a firmware updater - open a game's info screen to install from it.")));
-		content->Add(new TextWithImage(ImageID("I_FOLDER"), GetFriendlyPath(nandRoot_)));
+		list->Add(new TextWithImage(ImageID("I_FOLDER"), GetFriendlyPath(nandRoot_)));
 		return;
 	}
 
 	if (!info_.version.empty()) {
 		std::string versionLine = std::string(sy->T("Firmware version")) + ": " + info_.version;
-		content->Add(new TextView(versionLine, ALIGN_LEFT, false))->SetBig(true);
+		list->Add(new TextView(versionLine, ALIGN_LEFT, false))->SetBig(true);
 		if (!info_.buildDate.empty() || !info_.target.empty()) {
 			std::string details = info_.buildDate;
 			if (!info_.target.empty()) {
@@ -73,12 +73,12 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 				}
 				details += info_.target;
 			}
-			content->Add(new TextView(details, ALIGN_LEFT, false));
+			list->Add(new TextView(details, ALIGN_LEFT, false));
 		}
 	} else {
 		// No flash0:/vsh/etc/version.txt, so this isn't a full firmware - most likely just the
 		// fonts, which is what installing from a running game's disc leaves behind.
-		content->Add(new NoticeView(NoticeLevel::INFO, sy->T("Partial firmware installed"),
+		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("Partial firmware installed"),
 			sy->T("Some system files are present, but not a complete firmware")));
 	}
 
@@ -86,7 +86,7 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	// off a game's disc, and rows reading "Kernel modules: 0 / XMB: No" say nothing useful.
 	const bool fullFirmware = info_.kernelModuleCount > 0;
 
-	content->Add(new ItemHeader(sy->T("Contents")));
+	ChoiceGroup *content = list->Add(new ChoiceGroup(sy->T("Contents")));
 	content->Add(new InfoItem(sy->T("Fonts"), info_.fontCount));
 	if (fullFirmware) {
 		content->Add(new InfoItem(sy->T("Kernel modules"), info_.kernelModuleCount));
@@ -98,9 +98,6 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 		content->Add(new InfoItem(sy->T("Files"), info_.fileCount));
 	}
 	content->Add(new InfoItem(st->T("Size"), NiceSizeFormat(info_.totalSize)));
-
-	content->Add(new ItemHeader(iz->T("Install into folder")));
-	content->Add(new TextView(GetFriendlyPath(nandRoot_), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 }
 
 void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
