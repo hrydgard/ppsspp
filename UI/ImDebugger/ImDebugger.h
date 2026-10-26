@@ -132,6 +132,8 @@ struct ImConfig {
 	float fbViewerZoom = 1.0f;
 
 	// Touch / mobile helpers.
+	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
+	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
 	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
 	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
 
@@ -198,6 +200,7 @@ public:
 
 private:
 	Path ConfigPath();
+	void DrawQuickScroll();
 
 	RequesterToken reqToken_;
 
@@ -224,6 +227,9 @@ private:
 	ImConfig cfg_{};
 
 	ImCommand externalCommand_;
+
+	// Quick scroll strip: the last debugger window the user touched (ImGui window ID).
+	ImGuiID quickScrollTarget_ = 0;
 };
 
 // Simple custom controls and utilities.

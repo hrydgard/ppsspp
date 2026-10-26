@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include "ppsspp_config.h"
 
 
@@ -3006,6 +3007,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::Separator();
+			ImGui::MenuItem("Quick scroll bar", nullptr, &cfg_.quickScrollEnabled);
 			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
 			ImGui::SetNextItemWidth(em * 10.0f);
 			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
@@ -3306,6 +3308,176 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	if (cfg_.luaConsoleOpen) {
 		luaConsole_.Draw(cfg_);
 	}
+
+	if (g_Config.bShowImDebugger && cfg_.quickScrollEnabled) {
+		DrawQuickScroll();
+	}
+}
+
+// ---- Quick scroll strip ----
+
+// The window to scroll, or the nearest parent that actually has something to scroll.
+static ImGuiWindow *FindScrollableWindow(ImGuiWindow *window) {
+	while (window) {
+		if (window->ScrollMax.y > 0.0f) {
+			return window;
+		}
+		window = window->ParentWindow;
+	}
+	return nullptr;
+}
+
+void ImDebugger::DrawQuickScroll() {
+	ImGuiContext &g = *ImGui::GetCurrentContext();
+	ImGuiIO &io = ImGui::GetIO();
+
+	// Remember the last real debugger window the user touched. Tapping the strip moves focus to the strip itself,
+	// so we keep the previous target instead of following focus. Menus, popups and the strip itself are skipped
+	// (their names start with "##").
+	ImGuiWindow *nav = g.NavWindow;
+	if (nav && nav->RootWindow && nav->RootWindow->Name[0] != '#' &&
+		!(nav->RootWindow->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip))) {
+		quickScrollTarget_ = nav->ID;
+	}
+
+	ImGuiWindow *target = quickScrollTarget_ ? ImGui::FindWindowByID(quickScrollTarget_) : nullptr;
+	if (target && !target->WasActive) {
+		target = nullptr;  // Window was closed.
+	}
+	const char *targetName = target ? target->RootWindow->Name : nullptr;
+
+	// The CPU disassembly and the memory viewers are custom drawn (not ImGui scrolling). Top/End go through their
+	// own goto APIs, the other buttons send key presses that those views already handle for hardware keyboards.
+	const bool isDisasm = targetName && !strcmp(targetName, disasm_.Title());
+	int memIndex = -1;
+	for (int i = 0; targetName && i < 4; i++) {
+		if (!strcmp(targetName, ImMemWindow::Title(i))) {
+			memIndex = i;
+			break;
+		}
+	}
+	const bool isCustomView = isDisasm || memIndex >= 0;
+	ImGuiWindow *scrollWin = (target && !isCustomView) ? FindScrollableWindow(target) : nullptr;
+	const bool canScroll = target != nullptr;                       // Page/line buttons: scroll, or send keys.
+	const bool canJump = isDisasm || memIndex >= 0 || scrollWin;    // Top/End need a known range.
+
+	const float em = ImGui::GetFontSize();
+	const float margin = ImGui::GetStyle().ItemSpacing.x;
+	const float gap = em * 0.15f;
+	const float avail = io.DisplaySize.y - ImGui::GetFrameHeight() * 2.0f;
+	const float btnH = ImClamp(avail / 14.0f, em * 1.15f, em * 1.4f);  // Thin buttons.
+	const ImVec2 btnSize(em * 3.0f, btnH);
+
+	ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - margin, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(1.0f, 0.5f));
+	ImGui::SetNextWindowBgAlpha(0.7f);
+	const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings |
+		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(gap * 2.0f, gap * 2.0f));
+	if (ImGui::Begin("##QuickScroll", nullptr, flags)) {
+		// Keep the strip above the debugger windows, even after the user clicks one of them.
+		ImGui::BringWindowToDisplayFront(ImGui::GetCurrentWindow());
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(gap, gap));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(gap, 0.0f));
+
+		if (cfg_.quickScrollCollapsed) {
+			if (ImGui::Button("<", ImVec2(em * 1.4f, btnH * 2.0f))) {
+				cfg_.quickScrollCollapsed = false;
+			}
+		} else {
+			if (ImGui::Button(">", ImVec2(btnSize.x, btnH))) {
+				cfg_.quickScrollCollapsed = true;
+			}
+
+			if (!canScroll) {
+				ImGui::BeginDisabled();
+			}
+
+			const float lineH = ImGui::GetTextLineHeightWithSpacing();
+			const float pageY = scrollWin ? ImMax(lineH, scrollWin->InnerRect.GetHeight() - lineH * 2.0f) : 0.0f;
+
+			const u32 ramStart = 0x08000000;
+			const u32 ramEnd = 0x08000000 + (u32)Memory::g_MemorySize - 4;
+
+			auto scrollBy = [&](float dy) {
+				// Build on any pending target so held buttons accumulate.
+				const float base = scrollWin->ScrollTarget.y < FLT_MAX ? scrollWin->ScrollTarget.y : scrollWin->Scroll.y;
+				ImGui::SetScrollY(scrollWin, ImClamp(base + dy, 0.0f, scrollWin->ScrollMax.y));
+			};
+			// Custom views: act like the user pressed the key. Up/Down then move the highlighted line and only scroll
+			// the view when the highlight leaves the screen.
+			auto tapKey = [&](ImGuiKey key) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;  // Otherwise it would snap straight back to PC while stepping.
+				}
+				ImGui::FocusWindow(target);  // Give the keypress back to the view the user was looking at.
+				io.AddKeyEvent(key, true);
+				io.AddKeyEvent(key, false);
+			};
+
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("Top", btnSize)) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramStart);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramStart);
+				} else if (scrollWin) {
+					ImGui::SetScrollY(scrollWin, 0.0f);
+				}
+			}
+			if (!canJump) {
+				ImGui::EndDisabled();
+			}
+
+			ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);  // Hold to keep scrolling.
+			if (ImGui::Button("PgUp", btnSize)) {
+				if (scrollWin) scrollBy(-pageY); else tapKey(ImGuiKey_PageUp);
+			}
+			if (ImGui::Button("Up", btnSize)) {
+				if (scrollWin) scrollBy(-lineH * 3.0f); else tapKey(ImGuiKey_UpArrow);
+			}
+			if (ImGui::Button("Down", btnSize)) {
+				if (scrollWin) scrollBy(lineH * 3.0f); else tapKey(ImGuiKey_DownArrow);
+			}
+			if (ImGui::Button("PgDn", btnSize)) {
+				if (scrollWin) scrollBy(pageY); else tapKey(ImGuiKey_PageDown);
+			}
+			ImGui::PopItemFlag();
+
+			if (!canJump) {
+				ImGui::BeginDisabled();
+			}
+			if (ImGui::Button("End", btnSize)) {
+				if (isDisasm) {
+					disasm_.View().followPC_ = false;
+					disasm_.View().gotoAddr(ramEnd);
+				} else if (memIndex >= 0) {
+					mem_[memIndex].GotoAddr(ramEnd & ~0xFu);
+				} else if (scrollWin) {
+					ImGui::SetScrollY(scrollWin, scrollWin->ScrollMax.y);
+				}
+			}
+			if (!canJump) {
+				ImGui::EndDisabled();
+			}
+
+			if (!canScroll) {
+				ImGui::EndDisabled();
+			}
+
+			// Show which window the buttons act on.
+			ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + btnSize.x);
+			ImGui::TextDisabled("%s", targetName ? targetName : "(tap a window)");
+			ImGui::PopTextWrapPos();
+		}
+		ImGui::PopStyleVar(2);  // FramePadding, ItemSpacing - before End().
+	}
+	ImGui::End();
+	ImGui::PopStyleVar();  // WindowPadding
 }
 
 void ImDebugger::Snapshot(MIPSState *mips) {
@@ -3425,6 +3597,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
 	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
+	sync.Sync("quickScrollEnabled", &quickScrollEnabled, true);
+	sync.Sync("quickScrollCollapsed", &quickScrollCollapsed, false);
 	sync.Sync("compactMenu", &compactMenu, kIsMobilePlatform);
 	sync.Sync("barLeftMargin", &barLeftMargin, kIsMobilePlatform ? 200 : 0);
 }
