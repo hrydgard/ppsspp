@@ -201,6 +201,10 @@ static int ComputeAtracStateAndInitSecondBuffer(SceAtracIdInfo *info, u32 readSi
 }
 
 int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bufferAddr, int readSize, int bufferSize) {
+	// The frame size comes from the file, and InitLengthAndLoop divides by it.
+	if (wave->blockAlign <= 0) {
+		return SCE_ERROR_ATRAC_BAD_CODEC_PARAMS;
+	}
 	(ctx->info).numChan = (char)wave->numChans;
 	const int extraSamples = (ctx->info).codec == 0x1001 ? 0x45 : 0x170;
 	(ctx->info).firstValidSample = extraSamples + wave->firstSampleOffset;
@@ -1020,6 +1024,9 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 	CreateDecoder(info.codec, info.sampleSize, info.numChan, jointStereo_);
 
 	outputChannels_ = outputChannels;
+	// Sized for the old frame size and channel count.
+	delete[] decodeTemp_;
+	decodeTemp_ = nullptr;
 
 	INFO_LOG(Log::Atrac,
 		"Atrac: sampleSize: %d buffer: %08x bufferByte: %d firstValidSample: %d\n"
@@ -1150,6 +1157,8 @@ void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	info.numChan = params.encodedChannels;
 	outputChannels_ = params.outputChannels;
 	info.sampleSize = params.bytesPerFrame;
+	delete[] decodeTemp_;
+	decodeTemp_ = nullptr;
 	info.dataOff = 0;
 	info.decodePos = 0;
 	info.state = ATRAC_STATUS_LOW_LEVEL;
@@ -1255,13 +1264,21 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 			return;
 		}
 
-		// Compute the part sizes using the current size.
+		// Compute the part sizes using the current size. The game can shrink the buffer under us,
+		// so keep both parts inside the assembly buffer.
 		int part1Size = sas_.bufSize[sas_.curBuffer] - sas_.streamOffset;
-		int part2Size = info.sampleSize - part1Size;
 		_dbg_assert_(part1Size >= 0);
-		if (part1Size >= 0) {
+		part1Size = std::clamp(part1Size, 0, (int)info.sampleSize);
+		int part2Size = info.sampleSize - part1Size;
+		if (part1Size > 0) {
 			// Grab the partial packet, before we switch over to the other buffer.
-			Memory::Memcpy(assembly, sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset, part1Size);
+			const u32 part1Addr = sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset;
+			if (!Memory::IsValidRange(part1Addr, part1Size)) {
+				ERROR_LOG(Log::Atrac, "SAS: bad buffer %08x", part1Addr);
+				*finish = 1;
+				return;
+			}
+			Memory::MemcpyUnchecked(assembly, part1Addr, part1Size);
 		}
 
 		// Check if we hit the end.

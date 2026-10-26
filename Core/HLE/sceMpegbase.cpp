@@ -595,6 +595,10 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int buff
 	if (bufferWidth == 0) {
 		bufferWidth = g_mpegBaseBufferWidth;
 	}
+	// The stride goes into the output size and row addresses, so keep that math in range.
+	if (bufferWidth < 0 || bufferWidth > 4096) {
+		return hleLogError(Log::Mpeg, -1, "bad buffer width %d", bufferWidth);
+	}
 
 	u32 buffers[8]{};
 	for (int i = 0; i < 8; i++) {
@@ -730,6 +734,10 @@ static int sceMpegBaseCscVme(u32 bufferRGB, u32 bufferRGB2, int bufferWidth, u32
 	}
 	if (bufferWidth == 0) {
 		bufferWidth = g_mpegBaseBufferWidth;
+	}
+	// The stride goes into the output size and row addresses, so keep that math in range.
+	if (bufferWidth < 0 || bufferWidth > 4096) {
+		return hleLogError(Log::Mpeg, -1, "bad buffer width %d", bufferWidth);
 	}
 	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
 	u32 buffers[6];
