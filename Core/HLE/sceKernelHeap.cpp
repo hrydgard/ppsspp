@@ -102,7 +102,10 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 		return hleLogError(Log::sceKernel, 0, "invalid heapId");
 	}
 
-	// There's 8 bytes at the end of every block, reserved.
+	// There's 8 bytes at the end of every block, reserved. Don't let that wrap (sysmem/kernel/heap).
+	if ((u32)size > 0xFFFFFF00) {
+		return hleLogError(Log::sceKernel, 0, "invalid size %08x", size);
+	}
 	u32 memSize = KERNEL_HEAP_BLOCK_HEADER_SIZE + size;
 	u32 addr = heap->alloc.Alloc(memSize, true);
 	if (addr == (u32)-1) {
@@ -184,6 +187,9 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 		}
 	}
 	// There's 8 bytes at the end of every block, reserved.
+	if (memSize > 0xFFFFFF00) {
+		return hleLogError(Log::sceKernel, 0, "invalid size %08x", memSize);
+	}
 	memSize += 8;
 	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
 	if (addr == (u32)-1) {

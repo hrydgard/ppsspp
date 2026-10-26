@@ -347,6 +347,7 @@ tests_good = [
   "misc/deadbeef",
   "modules/cutrel/cutrel",
   "modules/cutrel/kernel/cutrel",
+  "modules/idlist/idlist",
   "modules/loadrace/loadrace",
   "modules/startoptions/startoptions",
   "modules/unresolved/unresolved",

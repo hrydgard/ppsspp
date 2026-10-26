@@ -3838,14 +3838,21 @@ static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 
 static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
 {
-	ERROR_LOG(Log::sceModule, "UNTESTED sceKernelGetModuleIdList(%08x, %i, %08x)", resultBuffer, resultBufferSize, idCountAddr);
-	
+	// pspautotests modules/idlist: the size is in bytes, a partial entry at the end still gets
+	// written, and the count covers every module whether it fit or not.
+	if (resultBuffer == 0 || (int)resultBufferSize < 0) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad buffer");
+	}
+
 	int idCount = 0;
 	u32 resultBufferOffset = 0;
 
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
 		if (!module->isFake || liedAboutThisModule(module)) {
 			if (resultBufferOffset < resultBufferSize) {
 				Memory::WriteOrException_U32(module->GetUID(), resultBuffer + resultBufferOffset);
@@ -3856,8 +3863,7 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	}
 
 	Memory::WriteOrException_U32(idCount, idCountAddr);
-	
-	return hleNoLog(0);
+	return hleLogDebug(Log::sceModule, 0);
 }
 
 bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize) {
