@@ -154,11 +154,11 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-	UIContext *ctx = host->PageScreenManager()->getUIContext();
-	page->Setting(&g_Config.iUIScaleFactor).OnChange([ctx](UI::EventParams &e) {
+	// The UI context is looked up when used, since it's recreated along with the graphics.
+	page->Setting(&g_Config.iUIScaleFactor).OnChange([host](UI::EventParams &e) {
 		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
 		g_display.Recalculate(-1, -1, -1, -1, dpiMul);
-		ctx->InvalidateAtlas();
+		host->PageScreenManager()->getUIContext()->InvalidateAtlas();
 		NativeResized();
 	});
 

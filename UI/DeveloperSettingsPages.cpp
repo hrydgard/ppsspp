@@ -403,9 +403,9 @@ static void BuildUIPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-	UIContext *uiContext = host->PageScreenManager()->getUIContext();
-	page->Choice("Reload UI atlas").OnClick([uiContext](UI::EventParams &) {
-		uiContext->InvalidateAtlas();
+	// Looked up when clicked, the UI context is recreated along with the graphics.
+	page->Choice("Reload UI atlas").OnClick([host](UI::EventParams &) {
+		host->PageScreenManager()->getUIContext()->InvalidateAtlas();
 	});
 
 	// TODO: Move most of these strings out of the SysInfo category.
