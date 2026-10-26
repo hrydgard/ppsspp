@@ -929,6 +929,130 @@ void ChoiceGroup::Draw(UIContext &dc) {
 	}*/
 }
 
+static Margins FlowLayoutMargins(const View *view) {
+	const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+	return (lp && lp->HasMargins()) ? lp->margins : Margins(0);
+}
+
+static float FlowLayoutWeight(const View *view) {
+	const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+	return lp ? lp->weight : 0.0f;
+}
+
+void FlowLayout::BuildRows(float maxWidth, std::vector<Row> *rows) const {
+	rows->clear();
+	Row row{};
+	bool rowOpen = false;
+	for (size_t i = 0; i < views_.size(); i++) {
+		const View *view = views_[i];
+		if (view->GetVisibility() == V_GONE)
+			continue;
+		const Margins margins = FlowLayoutMargins(view);
+		const float w = view->GetMeasuredWidth() + margins.horiz();
+		const float h = view->GetMeasuredHeight() + margins.vert();
+		if (rowOpen && row.width + spacing_ + w > maxWidth) {
+			rows->push_back(row);
+			rowOpen = false;
+		}
+		if (!rowOpen) {
+			row = Row{ i, i + 1, w, h, FlowLayoutWeight(view) };
+			rowOpen = true;
+		} else {
+			row.end = i + 1;
+			row.width += spacing_ + w;
+			row.height = std::max(row.height, h);
+			row.weightSum += FlowLayoutWeight(view);
+		}
+	}
+	if (rowOpen) {
+		rows->push_back(row);
+	}
+}
+
+void FlowLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	// Without a width limit, everything goes on one row.
+	float maxWidth = INFINITY;
+	if (horiz.type != UNSPECIFIED) {
+		maxWidth = std::max(0.0f, horiz.size - padding_.horiz());
+	}
+	if (layoutParams_->width > 0.0f) {
+		maxWidth = std::min(maxWidth, std::max(0.0f, layoutParams_->width - padding_.horiz()));
+	}
+
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_GONE)
+			continue;
+		const Margins margins = FlowLayoutMargins(view);
+		view->Measure(dc, MeasureSpec(UNSPECIFIED, 0.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		if (view->GetMeasuredWidth() + margins.horiz() > maxWidth) {
+			// Too wide even for a row of its own, so let it wrap its text or shrink.
+			view->Measure(dc, MeasureSpec(AT_MOST, std::max(0.0f, maxWidth - margins.horiz())), MeasureSpec(UNSPECIFIED, 0.0f));
+		}
+	}
+
+	std::vector<Row> rows;
+	BuildRows(maxWidth, &rows);
+
+	float contentWidth = 0.0f;
+	float contentHeight = 0.0f;
+	for (const Row &row : rows) {
+		contentWidth = std::max(contentWidth, row.width);
+		contentHeight += row.height;
+	}
+	if (!rows.empty()) {
+		contentHeight += rowSpacing_ * (rows.size() - 1);
+	}
+
+	MeasureBySpec(layoutParams_->width, contentWidth + padding_.horiz(), horiz, &measuredWidth_);
+	MeasureBySpec(layoutParams_->height, contentHeight + padding_.vert(), vert, &measuredHeight_);
+}
+
+void FlowLayout::Layout() {
+	const float maxWidth = bounds_.w - padding_.horiz();
+	std::vector<Row> rows;
+	BuildRows(maxWidth, &rows);
+
+	float y = bounds_.y + padding_.top;
+	for (const Row &row : rows) {
+		const float leftover = std::max(0.0f, maxWidth - row.width);
+		float x = bounds_.x + padding_.left;
+		if (row.weightSum <= 0.0f) {
+			const Gravity rowGravity = (Gravity)((int)rowGravity_ & (int)Gravity::G_HORIZMASK);
+			if (rowGravity == Gravity::G_RIGHT) {
+				x += leftover;
+			} else if (rowGravity == Gravity::G_HCENTER) {
+				x += leftover * 0.5f;
+			}
+		}
+
+		for (size_t i = row.first; i < row.end; i++) {
+			View *view = views_[i];
+			if (view->GetVisibility() == V_GONE)
+				continue;
+			const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+			const Margins margins = FlowLayoutMargins(view);
+			const float weight = FlowLayoutWeight(view);
+			const Gravity gravity = lp ? (Gravity)((int)lp->gravity & (int)Gravity::G_VERTMASK) : Gravity::G_TOP;
+
+			float w = view->GetMeasuredWidth() + margins.horiz();
+			float innerWidth = view->GetMeasuredWidth();
+			if (weight > 0.0f && row.weightSum > 0.0f) {
+				w += leftover * weight / row.weightSum;
+				innerWidth = w - margins.horiz();
+			}
+
+			Bounds itemBounds(x, y, w, row.height);
+			Bounds innerBounds;
+			ApplyGravity(itemBounds, margins, innerWidth, view->GetMeasuredHeight(), gravity, innerBounds);
+			view->SetBounds(innerBounds);
+			view->Layout();
+
+			x += w + spacing_;
+		}
+		y += row.height + rowSpacing_;
+	}
+}
+
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
 	MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
