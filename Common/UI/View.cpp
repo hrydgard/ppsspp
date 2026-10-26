@@ -604,8 +604,9 @@ void InfoItem::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
+	// The info item should not look too clickable even if it has a background. Make the right side dimmed a little.
 	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
-	dc.DrawTextRect(rightText_, rightBounds, style.fgColor, ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
+	dc.DrawTextRect(rightText_, rightBounds, alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
 }
 
 std::string InfoItem::DescribeText() const {

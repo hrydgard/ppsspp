@@ -233,8 +233,6 @@ static void BuildGeneralPage(SettingsPage *page) {
 		host->PageScreenManager()->push(new GPIGPOScreen(T(I18NCat::DEVELOPER, "GPI/GPO switches/LEDs")));
 	});
 
-	page->Setting(&g_Config.bShowSaveLoadIndicator);
-
 #if PPSSPP_PLATFORM(ANDROID)
 	page->Setting(&g_Config.iDisplayFramerateMode).EnabledFunc([]() {
 		return System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30;
