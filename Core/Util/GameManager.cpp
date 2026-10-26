@@ -264,7 +264,6 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 
 	auto st = GetI18NCategory(I18NCat::STORE);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	std::string urlExtension = task.url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
@@ -285,8 +284,8 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 
 		if (!success) {
 			ERROR_LOG(Log::HLE, "Raw ISO install failed");
-			// This shouldn't normally happen at all (only when putting ISOs in a store, which is not a normal use case), so skipping the translation string
-			SetInstallError("Failed to install raw ISO");
+			// This shouldn't normally happen at all (only when putting ISOs in a store, which is not a normal use case).
+			SetInstallError(I18NCat::INSTALLZIP, "Installation failed");
 		}
 		if (task.deleteAfter) {
 			File::Delete(task.fileName);
@@ -377,12 +376,11 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 				File::Delete(destFile);
 			}
 			if (writeFailed) {
-				SetInstallError(sy->T("Storage full"));
+				SetInstallError(I18NCat::SYSTEM, "Storage full");
 			} else if (readFailed) {
-				auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
-				SetInstallError(iz->T("Zip archive corrupt"));
+				SetInstallError(I18NCat::INSTALLZIP, "Zip archive corrupt");
 			} else {
-				SetInstallError(sy->T("Unable to open zip file"));
+				SetInstallError(I18NCat::SYSTEM, "Unable to open zip file");
 			}
 		}
 
@@ -400,7 +398,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	ZipContainer z = ZipOpenPath(task.fileName);
 	if (!z) {
 		g_OSD.RemoveProgressBar("install", false, 1.5f);
-		SetInstallError(sy->T("Unable to open zip file"));
+		SetInstallError(I18NCat::SYSTEM, "Unable to open zip file");
 		installProgress_ = 1.0f;
 		InstallDone();
 		return;
@@ -479,7 +477,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	}
 	default:
 		ERROR_LOG(Log::HLE, "File not a PSP game, no EBOOT.PBP found.");
-		SetInstallError(sy->T("Not a PSP game"));
+		SetInstallError(I18NCat::SYSTEM, "Not a PSP game");
 		break;
 	}
 
@@ -503,23 +501,22 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
-	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
 	struct zip_stat zstat;
 	zip_stat_init(&zstat);
 	if (zip_stat_index(z, iniIndex, 0, &zstat) != 0) {
-		SetInstallError(iz->T("Zip archive corrupt"));
+		SetInstallError(I18NCat::INSTALLZIP, "Zip archive corrupt");
 		return false;
 	}
 
 	if (zstat.size >= 32 * 1024 * 1024) {
-		SetInstallError(iz->T("Texture pack doesn't support install"));
+		SetInstallError(I18NCat::INSTALLZIP, "Texture pack doesn't support install");
 		return false;
 	}
 
 	std::string buffer = ZipReadFileByIndex(z, iniIndex);
 	if (buffer.empty()) {
-		SetInstallError(iz->T("Zip archive corrupt"));
+		SetInstallError(I18NCat::INSTALLZIP, "Zip archive corrupt");
 		return false;
 	}
 
@@ -529,7 +526,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 
 	auto games = ini.GetOrCreateSection("games")->ToMap();
 	if (games.empty()) {
-		SetInstallError(iz->T("Texture pack doesn't support install"));
+		SetInstallError(I18NCat::INSTALLZIP, "Texture pack doesn't support install");
 		return false;
 	}
 
@@ -546,7 +543,7 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 	}
 	// The ID comes from the archive and becomes a directory name.
 	if (!IsSafePathComponent(gameID)) {
-		SetInstallError(iz->T("Texture pack doesn't support install"));
+		SetInstallError(I18NCat::INSTALLZIP, "Texture pack doesn't support install");
 		return false;
 	}
 
@@ -555,10 +552,18 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 	return true;
 }
 
-void GameManager::SetInstallError(std::string_view err) {
+void GameManager::SetInstallError(I18NCat cat, const char *key) {
 	installProgress_ = 0.0f;
-	installError_ = err;
+	installErrorCat_ = cat;
+	installErrorKey_ = key;
 	InstallDone();
+}
+
+std::string GameManager::GetInstallError() const {
+	if (!installErrorKey_) {
+		return "";
+	}
+	return std::string(T(installErrorCat_, installErrorKey_));
 }
 
 std::string GameManager::GetGameID(const Path &path) const {
@@ -722,7 +727,6 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 	int64_t allBytes = 0;
 	int64_t bytesCopied = 0;
 
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	// Reject parent-directory ("..") components both before and after removing
 	// the archive's common prefix. Either form could escape the destination.
@@ -795,7 +799,7 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 				// exceed the limit. Check before adding to avoid overflow.
 				if ((int64_t)zstat.size > maxTotalSize || allBytes > maxTotalSize - (int64_t)zstat.size) {
 					ERROR_LOG(Log::HLE, "Bailing: zip contents too large (%d bytes), limit %d", (int)allBytes, (int)maxTotalSize);
-					SetInstallError(sy->T("Too large"));
+					SetInstallError(I18NCat::SYSTEM, "Too large");
 					goto bail;
 				}
 				allBytes += (int64_t)zstat.size;
@@ -845,7 +849,7 @@ bail:
 	for (auto const &iter : createdDirs) {
 		File::DeleteDir(iter);
 	}
-	SetInstallError(sy->T("Storage full"));
+	SetInstallError(I18NCat::SYSTEM, "Storage full");
 	return false;
 }
 
@@ -853,7 +857,6 @@ bool GameManager::InstallMemstickZip(const Path &zipfile, const Path &dest, cons
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
 	// Not using File::Copy() so we can report progress.
 	FILE *inf = File::OpenCFile(zipfile, "rb");
@@ -863,7 +866,7 @@ bool GameManager::InstallMemstickZip(const Path &zipfile, const Path &dest, cons
 	allBytes = (size_t)File::GetFileSize(inf);
 	FILE *outf = File::OpenCFile(dest, "wb");
 	if (!outf) {
-		SetInstallError(sy->T("Storage full"));
+		SetInstallError(I18NCat::SYSTEM, "Storage full");
 		fclose(inf);
 		return false;
 	}
@@ -890,7 +893,7 @@ bool GameManager::InstallMemstickZip(const Path &zipfile, const Path &dest, cons
 	if (bytesCopied < allBytes) {
 		File::Delete(dest);
 		g_OSD.RemoveProgressBar("install", false, 0.5f);
-		SetInstallError(sy->T("Storage full"));
+		SetInstallError(I18NCat::SYSTEM, "Storage full");
 		return false;
 	}
 
@@ -964,8 +967,7 @@ bool GameManager::InstallZippedPS1Disc(struct zip *z, const std::vector<std::str
 		zip_stat_t zstat;
 		zip_stat_init(&zstat);
 		if (index < 0 || zip_stat_index(z, index, 0, &zstat) < 0) {
-			auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
-			SetInstallError(iz->T("Zip archive corrupt"));
+			SetInstallError(I18NCat::INSTALLZIP, "Zip archive corrupt");
 			return false;
 		}
 		allBytes += zstat.size;
@@ -1012,7 +1014,6 @@ void GameManager::InstallPkgContents(Path pkgPath, bool deleteAfter) {
 	AndroidJNIThreadContext context;  // Destructor detaches.
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
 	g_OSD.SetProgressBar("install", di->T("Installing..."), 0.0f, 1.0f, 0.0f, 0.1f);
 
@@ -1022,9 +1023,9 @@ void GameManager::InstallPkgContents(Path pkgPath, bool deleteAfter) {
 	PkgReader reader;
 	if (!loader || !reader.Open(loader.get(), &error)) {
 		ERROR_LOG(Log::HLE, "PKG install failed: %s", error.c_str());
-		SetInstallError(iz->T("This PKG file isn't a PSP game update"));
+		SetInstallError(I18NCat::INSTALLZIP, "This PKG file isn't a PSP game update");
 	} else if (!reader.Info().isGameUpdate) {
-		SetInstallError(iz->T("This PKG file isn't a PSP game update"));
+		SetInstallError(I18NCat::INSTALLZIP, "This PKG file isn't a PSP game update");
 	} else {
 		const Path destination = GetSysDirectory(DIRECTORY_GAME) / reader.Info().discId;
 		success = InstallPkg(reader, destination, [this](float progress) {
@@ -1034,7 +1035,7 @@ void GameManager::InstallPkgContents(Path pkgPath, bool deleteAfter) {
 		}, &error);
 		if (!success) {
 			ERROR_LOG(Log::HLE, "PKG install failed: %s", error.c_str());
-			SetInstallError(iz->T("Failed to install the game update"));
+			SetInstallError(I18NCat::INSTALLZIP, "Failed to install the game update");
 		}
 	}
 
@@ -1084,7 +1085,7 @@ bool GameManager::UninstallGameOnThread(const std::string &name) {
 
 void GameManager::ResetInstallError() {
 	if (!InstallInProgress()) {
-		installError_.clear();
+		installErrorKey_ = nullptr;
 	}
 }
 

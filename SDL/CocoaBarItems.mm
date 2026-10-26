@@ -362,7 +362,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
         Core_Resume();
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Switch UMD") to:menu action:^{
-        System_BrowseForFile(NON_EPHEMERAL_TOKEN, T(I18NCat::MAINMENU, "Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
+        System_BrowseForFile(NON_EPHEMERAL_TOKEN, T(I18NCat::DESKTOPUI, "Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
             // The callback runs on the emu thread.
             __UmdReplace(Path(value));
         });

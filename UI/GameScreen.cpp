@@ -695,7 +695,7 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 
 	RefreshInstalledUpdate();
 	if (!inGame_ && hasInstalledUpdate_) {
-		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete Game Update"), ImageID("I_TRASHCAN")));
+		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete game update"), ImageID("I_TRASHCAN")));
 		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
 	}
 
@@ -750,7 +750,7 @@ void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 	const InstalledGameUpdate update = installedUpdate_;
 	screenManager()->push(
-		new UI::MessagePopupScreen(ga->T("Delete Game Update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+		new UI::MessagePopupScreen(ga->T("Delete game update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 			[this, update](bool yes) {
 		if (!yes) {
 			return;

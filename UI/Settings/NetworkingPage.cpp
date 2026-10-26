@@ -226,7 +226,7 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	page->Setting(&g_Config.bAdhocRelayModeEnetPdpReliable).EnabledFunc([] {
 		return !PSP_IsInited() && g_Config.bAdhocUseUdp;
 	});
-	page->Hint("When disabled, packet loss on datagram adhoc sockets will be exposed to game's netcode. Keep this enabled if you don't know what that means.");
+	page->Hint("When disabled, packet loss on datagram adhoc sockets will be exposed to the game's netcode. Keep this enabled if you don't know what that means.");
 
 	page->Header("Infrastructure");
 	if (g_Config.sInfrastructureUsername.empty()) {

@@ -386,8 +386,8 @@ namespace MainWindow {
 	}
 
 	static void UmdSwitchAction(RequesterToken token) {
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
+		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
+		System_BrowseForFile(token, des->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});

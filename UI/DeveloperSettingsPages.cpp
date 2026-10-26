@@ -244,8 +244,8 @@ static void BuildGeneralPage(SettingsPage *page) {
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
-	page->Custom({ I18NCat::MAINSETTINGS, "Moving the memstick directory is NOT recommended on iOS" }, [](UI::ViewGroup *parent) -> UI::View * {
-		NoticeView *notice = parent->Add(new NoticeView(NoticeLevel::WARN, T(I18NCat::MAINSETTINGS, "Moving the memstick directory is NOT recommended on iOS"), ""));
+	page->Custom({ I18NCat::MEMSTICK, "Moving the memstick directory is NOT recommended on iOS" }, [](UI::ViewGroup *parent) -> UI::View * {
+		NoticeView *notice = parent->Add(new NoticeView(NoticeLevel::WARN, T(I18NCat::MEMSTICK, "Moving the memstick directory is NOT recommended on iOS"), ""));
 		notice->SetWrapText(true);
 		return notice;
 	});
@@ -379,7 +379,7 @@ static void BuildMIPSTracerPage(SettingsPage *page) {
 		return true;
 	});
 
-	page->Info("Current log file", mipsTracer.get_logging_path());
+	page->Info("Current trace file", mipsTracer.get_logging_path());
 
 	page->IntSlider(&mipsTracer.in_storage_capacity, 0x4'0000, 0x40'0000, "Storage capacity").Default(0x10'0000).Step(0x10000).Format("0x%x asm opcodes").OnChange([](UI::EventParams &) {
 		INFO_LOG(Log::JIT, "User changed the tracer's storage capacity to 0x%x", mipsTracer.in_storage_capacity);
@@ -530,7 +530,7 @@ static void BuildGraphicsPage(SettingsPage *page) {
 
 	page->Setting(&g_Config.iDisplayRefreshRate);
 
-	page->Header("Vulkan");
+	page->Header({ I18NCat::GRAPHICS, "Vulkan" });
 	page->Setting(&g_Config.bVulkanDisableImplicitLayers);
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
@@ -654,7 +654,7 @@ void BuildDeveloperToolsPage(SettingsPage *page) {
 	link({ I18NCat::MAINSETTINGS, "Networking" }, &BuildNetworkPage);
 	link({ I18NCat::MAINSETTINGS, "Audio" }, &BuildAudioPage);
 	link({ I18NCat::DEVELOPER, "Tests" }, &BuildTestsPage);
-	link({ I18NCat::DEVELOPER, "UI" }, &BuildUIPage);
+	link({ I18NCat::SYSTEM, "UI" }, &BuildUIPage);
 	link({ I18NCat::DEVELOPER, "Dump files" }, &BuildDumpFilePage);
 	link({ I18NCat::DEVELOPER, "HLE" }, &BuildHLEPage);
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
@@ -744,7 +744,7 @@ static void OnMIPSTracerPathChanged(SettingsPageHost *host) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	System_BrowseForFileSave(
 		host->PageRequesterToken(),
-		dev->T("Select the log file"),
+		dev->T("Select the trace file"),
 		"trace.txt",
 		BrowseFileType::ANY,
 		[host](std::string_view value, int) {

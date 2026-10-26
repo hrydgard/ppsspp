@@ -443,7 +443,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("textures.ini filenames may not be cross - platform(banned characters)"), badFilenames, 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("textures.ini filenames may not be cross-platform (banned characters)"), badFilenames, 6.0f);
 		WARN_LOG(Log::TexReplacement, "Potentially bad filenames: %s", badFilenames.c_str());
 	}
 

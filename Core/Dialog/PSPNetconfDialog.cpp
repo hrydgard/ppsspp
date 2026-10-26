@@ -232,10 +232,12 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		}
 		else {
 			std::string channel = std::to_string(g_Config.iWlanAdhocChannel);
-			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC)
-				channel = "Automatic";
+			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+				// The WLAN Channel setting's name for it.
+				channel = T(I18NCat::NETWORKING, "Auto");
+			}
 
-			DisplayMessage2(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), std::string(di->T("Channel:")) + std::string(" ") + std::string(di->T(channel)));
+			DisplayMessage2(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), std::string(di->T("Channel:")) + std::string(" ") + channel);
 
 			// Only Join mode is showing Cancel button on KHBBS and the button will fade out before the dialog is fading out, probably because it's already connected thus can't be canceled anymore
 			if (request.netAction == NETCONF_JOIN_ADHOC)

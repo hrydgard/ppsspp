@@ -2124,7 +2124,7 @@ void EmuScreen::AutoLoadSaveState() {
 			if (status == SaveState::Status::FAILURE) {
 				autoLoadFailed_ = true;
 			} else {
-				std::string msg = std::string(sy->T("Auto Load Savestate")) + ": " + StringFromFormat("%d", autoSlot);
+				std::string msg = std::string(sy->T("Auto load savestate")) + ": " + StringFromFormat("%d", autoSlot);
 				g_OSD.Show(OSDType::MESSAGE_SUCCESS, msg, 2.0f, "autoload");
 			}
 		});

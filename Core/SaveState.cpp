@@ -125,7 +125,6 @@ struct PendingRead {
 	std::unique_ptr<u8[]> buffer;
 	size_t size = 0;
 	std::string gitVersion;
-	std::string failureReason;
 	// "PPSSPP <version>" from the header, for the failure message.
 	std::string savedBy;
 };
@@ -1300,7 +1299,7 @@ int g_screenshotFailures;
 			op.read = std::make_shared<PendingRead>();
 			RunOnWorker([read = op.read, path = op.path]() {
 				u8 *buffer = nullptr;
-				read->error = CChunkFileReader::LoadFile(path, &read->gitVersion, buffer, read->size, &read->failureReason);
+				read->error = CChunkFileReader::LoadFile(path, &read->gitVersion, buffer, read->size);
 				read->buffer.reset(buffer);
 				if (read->error == CChunkFileReader::ERROR_NONE) {
 					read->savedBy = read->gitVersion.empty() ? "" : "PPSSPP " + read->gitVersion;
@@ -1323,7 +1322,7 @@ int g_screenshotFailures;
 		std::string metadata;
 
 		if (read.error != CChunkFileReader::ERROR_NONE) {
-			message = read.failureReason.empty() ? std::string(i18nLoadFailure) : std::string(sc->T(read.failureReason, i18nLoadFailure));
+			message = read.error == CChunkFileReader::ERROR_FILE_MISSING ? std::string(sc->T("LoadStateDoesntExist")) : std::string(i18nLoadFailure);
 			metadata = read.savedBy;
 			if (op.callback) {
 				op.callback(Status::FAILURE, message, metadata);
