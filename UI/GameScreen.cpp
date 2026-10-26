@@ -553,13 +553,14 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
-	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
+
+	ChoiceGroup *choices = rightColumnItems->Add(new ChoiceGroup());
 
 	// UMD Video plays in the XMB, with the disc in the drive.
 	const Path vshPath = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? GetUmdVideoVSHPath() : Path();
 	if (!inGame_ && (FileTypeIsPlayable(info_->fileType) || !vshPath.empty())) {
-		Choice *play = rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
+		Choice *play = choices->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
 		play->OnClick.Add([this, vshPath](UI::EventParams &e) {
 			if (vshPath.empty()) {
 				screenManager()->switchScreen(new EmuScreen(gamePath_));
@@ -575,27 +576,27 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		if (info_->hasConfig) {
 			// Only show the Game Settings button here if the game has a config. Always showing it
 			// is confusing since it'll just control the global settings.
-			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
+			Choice *btnGameSettings = choices->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
 			btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
 
-			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config"), ImageID("I_TRASHCAN")));
+			Choice *btnDeleteGameConfig = choices->Add(new Choice(ga->T("Delete Game Config"), ImageID("I_TRASHCAN")));
 			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
 		} else {
-			Choice *btnCreateGameConfig = rightColumnItems->Add(new Choice(ga->T("Create Game Config"), ImageID("I_GEAR_STAR")));
+			Choice *btnCreateGameConfig = choices->Add(new Choice(ga->T("Create Game Config"), ImageID("I_GEAR_STAR")));
 			btnCreateGameConfig->OnClick.Handle(this, &GameScreen::OnCreateConfig);
 		}
 	}
 
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
-		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+		choices->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
 
 	const bool packing = GamePacker::IsPacking(gamePath_);
 	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) && !packing) {
-		rightColumnItems->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
+		choices->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
 			Reporting::QueueCRC(gamePath_);
 			CRC32string = "...";  // signal that we're waiting for it. Kinda ugly.
 		});
