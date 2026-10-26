@@ -143,7 +143,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
-	page->Header("Rendering Mode");
+	page->Header("Rendering");
 
 #if !PPSSPP_PLATFORM(UWP)
 	page->Setting(&g_Config.iGPUBackend).Setup([host](View *view) {
@@ -241,12 +241,18 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	}
 #endif
 
-	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-
 	page->Setting(&g_Config.bReplaceTextures);
+
+	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
 
 	page->Header("Display");
 
+	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
+	page->Choice("Display layout & effects").OnClick([host](UI::EventParams &) {
+		host->PageScreenManager()->push(new DisplayLayoutScreen(host->PageGamePath()));
+	});
+
+	// Fullscreen mode
 	if (deviceType != DEVICE_TYPE_VR) {
 #if !defined(MOBILE_DEVICE)
 		page->Setting(&g_Config.bFullScreen);
@@ -266,12 +272,9 @@ void BuildGraphicsSettings(SettingsPage *page) {
 			});
 		}
 #endif
-		// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-		page->Choice("Display layout & effects").OnClick([host](UI::EventParams &) {
-			host->PageScreenManager()->push(new DisplayLayoutScreen(host->PageGamePath()));
-		});
 	}
 
+	// VSync, low latency display
 	// If only one mode is supported (like FIFO on iOS), no need to show the options.
 	if (CountSetBits((u32)draw->GetDeviceCaps().presentModesSupported) > 1) {
 		// Immediate means non-synchronized, tearing.
@@ -291,6 +294,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 			}
 		}
 	}
+	page->Setting(&g_Config.bRenderDuplicateFrames).EnabledFunc([] {
+		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
+	});
+	page->Hint({I18NCat::GRAPHICS, "RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"});
 
 	page->Header("Frame Rate Control");
 
@@ -309,11 +316,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	});
 	page->Hint("Reduces artifacts");
 
-	page->Header("Performance");
-	page->Setting(&g_Config.bRenderDuplicateFrames).EnabledFunc([] {
-		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
-	});
-	page->Hint({ I18NCat::GRAPHICS, "RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates" });
+	page->Header("Latency");
 
 	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
 		// Changing it needs a restart, so the value in use is the one the page was built with.
