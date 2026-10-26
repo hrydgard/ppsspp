@@ -584,9 +584,16 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
-	UI::Style style = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().infoStyle;
+	UI::Style style;
+	if (HasFocus()) {
+		style = dc.GetTheme().itemFocusedStyle;
+	} else if (showBG_) {
+		style = dc.GetTheme().itemStyle;
+	} else {
+		style = dc.GetTheme().infoStyle;
+	}
 
-	dc.FillRect(style.background, bounds_);
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 
 	int paddingX = 12;
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
