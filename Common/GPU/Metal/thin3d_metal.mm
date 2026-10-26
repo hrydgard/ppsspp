@@ -38,6 +38,9 @@ namespace Draw {
 
 static constexpr int THIN3D_TEXTURE_BINDING_BASE = 1;
 
+// The BC formats only exist from iOS 16.4. GetDataFormatSupport checks for that before they're used.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
 static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	switch (format) {
 	case DataFormat::R8_UNORM: return MTLPixelFormatR8Unorm;
@@ -77,6 +80,7 @@ static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	default: return MTLPixelFormatInvalid;
 	}
 }
+#pragma clang diagnostic pop
 
 static MTLVertexFormat DataFormatToMetalVertex(DataFormat format) {
 	switch (format) {
@@ -733,8 +737,9 @@ uint32_t MetalDrawContext::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::R5G6B5_UNORM_PACK16:
 	case DataFormat::A1R5G5B5_UNORM_PACK16:
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		// Only Apple GPUs have the packed 16-bit formats, and the iOS simulator doesn't, despite reporting one.
-		return (rm_->IsAppleGPU() && !PPSSPP_PLATFORM(IOS_SIMULATOR)) ? (support | FMT_TEXTURE) : support;
+		// Only Apple GPUs have the packed 16-bit formats. Metal documents them from Apple1 up, but the iOS
+		// simulator reports Apple2 and doesn't have them, so require Apple3 (A9, which iOS 15 needs anyway).
+		return [device_ supportsFamily:MTLGPUFamilyApple3] ? (support | FMT_TEXTURE) : support;
 	default:
 		break;
 	}
