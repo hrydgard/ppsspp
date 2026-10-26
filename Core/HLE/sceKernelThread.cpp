@@ -599,7 +599,7 @@ PSPAction *__KernelCreateAction(int actionType) {
 
 void MipsCall::DoState(PointerWrap &p)
 {
-	auto s = p.Section("MipsCall", 1);
+	auto s = p.Section("MipsCall", 1, 2);
 	if (!s)
 		return;
 
@@ -624,11 +624,14 @@ void MipsCall::DoState(PointerWrap &p)
 	Do(p, savedId);
 	Do(p, reschedAfter);
 
-	int actionTypeID = 0;
+	// Action type 0 is a real type (ActionAfterMipsCall, the first one registered), so version 1 lost
+	// those actions. Version 2 marks "no action" with -1.
+	const int noAction = s >= 2 ? -1 : 0;
+	int actionTypeID = noAction;
 	if (doAfter != NULL)
 		actionTypeID = doAfter->actionTypeID;
 	Do(p, actionTypeID);
-	if (actionTypeID != 0)
+	if (actionTypeID != noAction)
 	{
 		if (p.mode == p.MODE_READ)
 			doAfter = __KernelCreateAction(actionTypeID);
