@@ -331,6 +331,13 @@ bool Android_ConsumeAppPaused() {
 	return g_appWasPaused.exchange(false);
 }
 
+// Set when the user closed the soft keyboard with the Back button, so the debugger can untick its toggle.
+static std::atomic<bool> g_keyboardDismissed{false};
+
+bool Android_ConsumeKeyboardDismissed() {
+	return g_keyboardDismissed.exchange(false);
+}
+
 void System_Vibrate(int length_ms) {
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%d", length_ms);
@@ -1462,6 +1469,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "permission_granted") {
 		SetPermissionStatusFromJava(prm, PERMISSION_STATUS_GRANTED);
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
+	} else if (msg == "keyboardDismissed") {
+		g_keyboardDismissed = true;
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
 	} else if (msg == "safe_insets") {
