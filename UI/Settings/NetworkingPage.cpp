@@ -40,11 +40,24 @@
 class MacAddressChooser : public UI::LinearLayout {
 public:
 	MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr);
+	void Update() override {
+		UI::LinearLayout::Update();
+		// Propagate rounding flags. TODO: Figure out a more general way.
+		if (macInput_) {
+			macInput_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomLeft));
+		}
+		if (randomize_) {
+			randomize_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomRight));
+		}
+	}
+private:
+	UI::PopupTextInputChoice *macInput_ = nullptr;
+	UI::Choice *randomize_ = nullptr;
 };
 
 MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::string *value, std::string_view title, ScreenManager *screenManager, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
-	SetSpacing(5.0f);
+	SetSpacing(0.0f);
 	if (!layoutParams) {
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
@@ -52,14 +65,16 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	std::string initialValue = *value;
-	Add(new PopupTextInputChoice(token, value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)))->OnChange.Add([=](UI::EventParams &e) {
+	macInput_ = Add(new PopupTextInputChoice(token, value, title, g_Config.sMACAddress, 17, screenManager, new LinearLayoutParams(1.0f)));
+	macInput_->OnChange.Add([=](UI::EventParams &e) {
 		// Validate the chosen address, and restore to initialValue if bad.
 		if (g_Config.sMACAddress.size() != 17) {
 			// TODO: Alert the user
 			*value = initialValue;
 		}
 	});
-	Add(new Choice(n->T("Randomize"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
+	randomize_ = Add(new Choice(n->T("Randomize"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
+	randomize_->OnClick.Add([=](UI::EventParams &) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
@@ -101,11 +116,33 @@ UI::View *AddNicknameChoice(SettingsPageHost *host, UI::ViewGroup *parent) {
 	return nickname;
 }
 
+static void BuildChatSettingsPage(SettingsPage *page) {
+	using namespace UI;
+	SettingsPageHost *host = page->Host();
+
+	page->Header("Chat");
+	page->Setting(&g_Config.bEnableNetworkChat);
+	page->Setting(&g_Config.iChatButtonPosition).Enabled(&g_Config.bEnableNetworkChat);
+	page->Setting(&g_Config.iChatScreenPosition).Enabled(&g_Config.bEnableNetworkChat);
+	page->Setting(&g_Config.bChatTimestamps).Enabled(&g_Config.bEnableNetworkChat);
+
+	page->Header("Quick chat");
+	page->Setting(&g_Config.bEnableQuickChat).Enabled(&g_Config.bEnableNetworkChat);
+
+	for (int i = 0; i < 5; i++) {
+		page->Custom("Quick chat %1", [host, i](UI::ViewGroup *parent) -> UI::View * {
+			return parent->Add(new PopupTextInputChoice(host->PageRequesterToken(), &g_Config.sQuickChat[i], ApplySafeSubstitutions(T(I18NCat::NETWORKING, "Quick chat %1"), i + 1), "", 32, host->PageScreenManager()));
+		}).EnabledFunc([] {
+			return g_Config.bEnableQuickChat && g_Config.bEnableNetworkChat;
+		});
+	}
+}
+
 void BuildNetworkingSettings(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-	page->Header({ I18NCat::MAINSETTINGS, "Networking" });
+	page->Header();
 
 	page->Choice("Quick start guide for multiplayer", ImageID("I_LINK_OUT")).OnClick([](EventParams &e) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
@@ -227,22 +264,8 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	page->Setting(&g_Config.bUPnPUseOriginalPort).Enabled(&g_Config.bEnableUPnP);
 	page->Hint({ I18NCat::NETWORKING, "UseOriginalPort Tip", "May not work for all devices or games, see wiki." });
 
-	page->Header("Chat");
-	page->Setting(&g_Config.bEnableNetworkChat);
-	page->Setting(&g_Config.iChatButtonPosition).Enabled(&g_Config.bEnableNetworkChat);
-	page->Setting(&g_Config.iChatScreenPosition).Enabled(&g_Config.bEnableNetworkChat);
-	page->Setting(&g_Config.bChatTimestamps).Enabled(&g_Config.bEnableNetworkChat);
-
-	page->Header("Quick chat");
-	page->Setting(&g_Config.bEnableQuickChat).Enabled(&g_Config.bEnableNetworkChat);
-
-	for (int i = 0; i < 5; i++) {
-		page->Custom("Quick chat %1", [host, i](UI::ViewGroup *parent) -> UI::View * {
-			return parent->Add(new PopupTextInputChoice(host->PageRequesterToken(), &g_Config.sQuickChat[i], ApplySafeSubstitutions(T(I18NCat::NETWORKING, "Quick chat %1"), i + 1), "", 32, host->PageScreenManager()));
-		}).EnabledFunc([] {
-			return g_Config.bEnableQuickChat && g_Config.bEnableNetworkChat;
-		});
-	}
+	page->Header();
+	page->Link({I18NCat::NETWORKING, "Chat"}, I18NCat::NETWORKING, &BuildChatSettingsPage);
 
 	page->Header({ I18NCat::NETWORKING, "Misc", "Misc (default = compatibility)" });
 	page->Choice("Open PPSSPP Multiplayer Wiki Page", ImageID("I_LINK_OUT")).OnClick([](EventParams &e) {

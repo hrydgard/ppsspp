@@ -39,6 +39,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceUsbCam.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
@@ -153,32 +154,6 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-#if PPSSPP_PLATFORM(IOS)
-	static const char *indicator[] = {
-		"Swipe once to switch app (indicator auto-hides)",
-		"Swipe twice to switch app (indicator stays visible)"
-	};
-	page->Setting(&g_Config.iAppSwitchMode);
-
-	{
-		// Note: On iPhone, iOS hides the status bar in landscape no matter what this is set to.
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
-			System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
-		});
-	}
-#endif
-
-#if PPSSPP_PLATFORM(ANDROID)
-	// Hide Immersive Mode on pre-kitkat Android
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
-		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
-			OnImmersiveModeChange();
-		});
-	}
-#endif
-
 	UIContext *ctx = host->PageScreenManager()->getUIContext();
 	page->Setting(&g_Config.iUIScaleFactor).OnChange([ctx](UI::EventParams &e) {
 		const float dpiMul = UIScaleFactorToMultiplier(g_Config.iUIScaleFactor);
@@ -239,9 +214,6 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 	SettingsPageHost *host = page->Host();
 
 	page->Header();
-	page->Link({I18NCat::SYSTEM, "UI"}, I18NCat::SYSTEM, &BuildUISettingsPage);
-
-	page->Header();
 
 	page->Custom("Language", [host](UI::ViewGroup *parent) -> UI::View * {
 		auto langCodeToName = [](std::string_view value) -> std::string {
@@ -266,16 +238,50 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		return language;
 	});
 
-	page->Header({ I18NCat::MAINSETTINGS, "General" });
+	page->Header();
+	page->Link({I18NCat::SYSTEM, "UI"}, I18NCat::SYSTEM, &BuildUISettingsPage);
 
-	page->Setting(&g_Config.iAskForExitConfirmationAfterSeconds);
-
+	page->Header();
 	if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 		// Display rotation
-		page->Custom({ I18NCat::CONTROLS, "Screen Rotation" }, [host](UI::ViewGroup *parent) -> UI::View * {
+		page->Custom({I18NCat::CONTROLS, "Screen Rotation"}, [host](UI::ViewGroup *parent) -> UI::View * {
 			AddRotationPicker(host->PageScreenManager(), parent, true);
 			return parent->GetViewByIndex(parent->GetNumSubviews() - 1);
 		});
+	}
+
+#if PPSSPP_PLATFORM(IOS)
+	static const char *indicator[] = {
+		"Swipe once to switch app (indicator auto-hides)",
+		"Swipe twice to switch app (indicator stays visible)"
+	};
+	page->Setting(&g_Config.iAppSwitchMode);
+
+	{
+		// Note: On iPhone, iOS hides the status bar in landscape no matter what this is set to.
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
+			System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
+		});
+	}
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	// Hide Immersive Mode on pre-kitkat Android
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+		page->Setting(&config.bImmersiveMode).OnChange([](EventParams &e) {
+			OnImmersiveModeChange();
+		});
+	}
+#endif
+	page->Setting(&g_Config.iAskForExitConfirmationAfterSeconds);
+	// TODO: Make this setting available on Mac too.
+#if PPSSPP_PLATFORM(WINDOWS) || (defined (SDL) && !defined(MOBILE_DEVICE))
+	page->Setting(&g_Config.bPauseOnLostFocus);
+#endif
+	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
+		page->Setting(&g_Config.bBypassOSKWithKeyboard);
 	}
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE)) {
@@ -284,26 +290,45 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		});
 	}
 
+	page->Setting(&g_Config.bCheckForNewVersion);
+
+	page->Header();
 	page->Choice("Restore Default Settings").OnClick([host, state](UI::EventParams &e) {
 		OnRestoreDefaultSettings(host, state);
 	});
 
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD))
-		page->Setting(&g_Config.bBypassOSKWithKeyboard);
+	page->Header({I18NCat::SAVEDATA, "Save states"});  // Borrow this string from the savedata manager
 
-	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
-		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
-			return !PSP_IsInited();
-		});
+	page->Setting(&g_Config.bEnableStateUndo);
+	page->Setting(&g_Config.bConfirmLoadState);
+
+	page->Setting(&g_Config.iSaveStateSlotCount);
+
+	// NOTE: We will soon support more states, but we'll keep this niche feature limited to the first five.
+	page->Setting(&g_Config.iAutoLoadSaveState).Setup([](View *view) {
+		if (g_Config.iAutoLoadSaveState != 1) {
+			static_cast<PopupMultiChoice *>(view)->HideChoice(1);  // Hide "Oldest Save" if not using that mode. It doesn't make sense.
+		}
+	});
+
+	page->Setting(&g_Config.iRewindSnapshotInterval);
+
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		page->Header({I18NCat::GRAPHICS, "Camera"});
+		page->Setting(&g_Config.sCameraDevice, std::move(cameraList));
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+		page->Setting(&g_Config.bCameraMirrorHorizontal);
+#endif
 	}
 
-	page->Setting(&g_Config.bCheckForNewVersion);
+	page->Header("Cheats");
+	page->Setting(&g_Config.bEnableCheats);
+	page->Setting(&g_Config.bEnablePlugins);
+
+	page->Header();
 	page->Setting(&g_Config.bScreenshotsAsPNG);
 	page->Setting(&g_Config.iScreenshotMode);
-	// TODO: Make this setting available on Mac too.
-#if PPSSPP_PLATFORM(WINDOWS) || (defined (SDL) && !defined(MOBILE_DEVICE))
-	page->Setting(&g_Config.bPauseOnLostFocus);
-#endif
 
 	page->Header("Help the PPSSPP team");
 	page->Bool(&state->enableReports, "Enable Compatibility Server Reports").EnabledFunc([]() {

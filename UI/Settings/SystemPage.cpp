@@ -40,7 +40,6 @@
 #include "Common/UI/View.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -270,38 +269,15 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	});
 	page->Setting(&g_Config.bIgnoreBadMemAccess);
 
+	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
+		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
+			return !PSP_IsInited();
+		});
+	}
+
 	page->Setting(&g_Config.iIOTimingMethod);
 	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip);
 	page->Setting(&g_Config.iLockedCPUSpeed);
-
-	page->Header({ I18NCat::SAVEDATA, "Save states" });  // Borrow this string from the savedata manager
-
-	page->Setting(&g_Config.bEnableStateUndo);
-	page->Setting(&g_Config.bConfirmLoadState);
-
-	page->Setting(&g_Config.iSaveStateSlotCount);
-
-	// NOTE: We will soon support more states, but we'll keep this niche feature limited to the first five.
-	page->Setting(&g_Config.iAutoLoadSaveState).Setup([](View *view) {
-		if (g_Config.iAutoLoadSaveState != 1) {
-			static_cast<PopupMultiChoice *>(view)->HideChoice(1);  // Hide "Oldest Save" if not using that mode. It doesn't make sense.
-		}
-	});
-
-	page->Setting(&g_Config.iRewindSnapshotInterval);
-
-	std::vector<std::string> cameraList = Camera::getDeviceList();
-	if (cameraList.size() >= 1) {
-		page->Header({ I18NCat::GRAPHICS, "Camera" });
-		page->Setting(&g_Config.sCameraDevice, std::move(cameraList));
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-		page->Setting(&g_Config.bCameraMirrorHorizontal);
-#endif
-	}
-
-	page->Header("Cheats");
-	page->Setting(&g_Config.bEnableCheats);
-	page->Setting(&g_Config.bEnablePlugins);
 
 #if defined(_WIN32)
 	page->Header("Recording");
