@@ -361,16 +361,18 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 	firewallWarning_->SetTextColor(0xFF0000FF);
 	firewallWarning_->SetVisibility(V_GONE);
 
+	ChoiceGroup *group = tab->Add(new ChoiceGroup());
+
 	Choice *browseChoice = new Choice(ri->T("Browse Games"));
-	tab->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
+	group->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
 	if (WebServerStopping(WebServerFlags::DISCS)) {
-		tab->Add(new Choice(ri->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
+		group->Add(new Choice(ri->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
 		browseChoice->SetEnabled(false);
 	} else if (!WebServerStopped(WebServerFlags::DISCS)) {
-		tab->Add(new Choice(ri->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
+		group->Add(new Choice(ri->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
 		browseChoice->SetEnabled(false);
 	} else {
-		tab->Add(new Choice(ri->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
+		group->Add(new Choice(ri->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 		browseChoice->SetEnabled(true);
 	}
 }
