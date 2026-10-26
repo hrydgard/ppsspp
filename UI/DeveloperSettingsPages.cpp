@@ -379,7 +379,7 @@ static void BuildMIPSTracerPage(SettingsPage *page) {
 		return true;
 	});
 
-	page->Info("Current log file", mipsTracer.get_logging_path());
+	page->Info("Current trace file", mipsTracer.get_logging_path());
 
 	page->IntSlider(&mipsTracer.in_storage_capacity, 0x4'0000, 0x40'0000, "Storage capacity").Default(0x10'0000).Step(0x10000).Format("0x%x asm opcodes").OnChange([](UI::EventParams &) {
 		INFO_LOG(Log::JIT, "User changed the tracer's storage capacity to 0x%x", mipsTracer.in_storage_capacity);
@@ -744,7 +744,7 @@ static void OnMIPSTracerPathChanged(SettingsPageHost *host) {
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 	System_BrowseForFileSave(
 		host->PageRequesterToken(),
-		dev->T("Select the log file"),
+		dev->T("Select the trace file"),
 		"trace.txt",
 		BrowseFileType::ANY,
 		[host](std::string_view value, int) {
