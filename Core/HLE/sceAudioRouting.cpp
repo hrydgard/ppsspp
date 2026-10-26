@@ -35,7 +35,7 @@ static int sceAudioRoutingGetMode() {
 static int sceAudioRoutingSetVolumeMode(int mode) {
 	INFO_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode %d", mode);
 	int previousMode = audioRoutineVolumeMode;
-	audioRoutineVolumeMode = audioRoutingMode;
+	audioRoutineVolumeMode = mode;
 	return previousMode;
 }
 

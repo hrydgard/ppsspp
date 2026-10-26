@@ -94,6 +94,8 @@ void __UsbCamShutdown() {
 	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
 		Camera::stopCapture();
 	}
+	// Capture can still deliver a frame after stopCapture(), on its own thread.
+	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	delete[] videoBuffer;
 	videoBuffer = nullptr;
 	delete config;
@@ -422,7 +424,9 @@ void Camera::onCameraDeviceChange() {
 	}
 }
 
+// Called from the capture thread.
 int Camera::getMaxFrameSize() {
+	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	int framesize = 0;
 	if (config) {
 		if (config->type == Camera::ConfigType::CfVideoEx) {

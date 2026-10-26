@@ -26,6 +26,12 @@
 #include "Core/HLE/sceSfmt19937.h"
 
 
+// The library indexes its state with idx, which lives in game memory.
+static bool ValidSfmtIndex(u32 sfmt) {
+	const sfmt_t *psfmt = (const sfmt_t *)Memory::GetPointerUnchecked(sfmt);
+	return psfmt->idx >= 0 && psfmt->idx <= SFMT_N32;
+}
+
 static int sceSfmt19937InitGenRand(u32 sfmt, u32 seed) {
 	if (!Memory::IsValidAddress(sfmt)) {
 		ERROR_LOG(Log::HLE, "sceSfmt19937InitGenRand(sfmt=%08x, seed=%08x) - bad address(es)", sfmt, seed);
@@ -54,7 +60,7 @@ static int sceSfmt19937InitByArray(u32 sfmt, u32 seeds, int seedslen) {
 }
 
 static u32 sceSfmt19937GenRand32(u32 sfmt) {
-	if (!Memory::IsValidAddress(sfmt)) {
+	if (!Memory::IsValidAddress(sfmt) || !ValidSfmtIndex(sfmt)) {
 		ERROR_LOG(Log::HLE, "sceSfmt19937GenRand32(sfmt=%08x)  - bad address(es)", sfmt);
 		return -1;
 	}
@@ -67,7 +73,7 @@ static u32 sceSfmt19937GenRand32(u32 sfmt) {
 }
 
 static u64 sceSfmt19937GenRand64(u32 sfmt) {
-	if (!Memory::IsValidAddress(sfmt)) {
+	if (!Memory::IsValidAddress(sfmt) || !ValidSfmtIndex(sfmt)) {
 		ERROR_LOG(Log::HLE, "sceSfmt19937GenRand64(sfmt=%08x)  - bad address(es)", sfmt);
 		return -1;
 	}
@@ -80,7 +86,8 @@ static u64 sceSfmt19937GenRand64(u32 sfmt) {
 }
 
 static int sceSfmt19937FillArray32(u32 sfmt, u32 array, int arraylen) {
-	if (!Memory::IsValidAddress(sfmt) || !Memory::IsValidAddress(array) || !Memory::IsValidAddress(array + 4 * (arraylen - 1))) {
+	// The library fills whole blocks, and needs at least a state's worth of them.
+	if (arraylen < SFMT_N32 || (arraylen % 4) != 0 || !Memory::IsValidAddress(sfmt) || !Memory::IsValidAddress(array) || !Memory::IsValidAddress(array + 4 * (arraylen - 1))) {
 		ERROR_LOG(Log::HLE, "sceSfmt19937FillArray32(sfmt=%08x, ar=%08x, arlen=%08x)  - bad address(es)", sfmt, array, arraylen);
 		return -1;
 	}
@@ -94,7 +101,8 @@ static int sceSfmt19937FillArray32(u32 sfmt, u32 array, int arraylen) {
 }
 
 static int sceSfmt19937FillArray64(u32 sfmt, u32 array, int arraylen) {
-	if (!Memory::IsValidAddress(sfmt) || !Memory::IsValidAddress(array) || !Memory::IsValidAddress(array + 8 * (arraylen - 1))) {
+	// The library fills whole blocks, and needs at least a state's worth of them.
+	if (arraylen < SFMT_N64 || (arraylen % 2) != 0 || !Memory::IsValidAddress(sfmt) || !Memory::IsValidAddress(array) || !Memory::IsValidAddress(array + 8 * (arraylen - 1))) {
 		ERROR_LOG(Log::HLE, "sceSfmt19937FillArray64(sfmt=%08x, ar=%08x, arlen=%08x)  - bad address(es)", sfmt, array, arraylen);
 		return -1;
 	}

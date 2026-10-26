@@ -168,6 +168,10 @@ void __UsbMicDoState(PointerWrap &p) {
 	Do(p, waitingThreads);
 	Do(p, isNeedInput);
 	Do(p, curSampleRate);
+	if (curSampleRate == 0) {
+		// Old states could have one, from before __MicInput checked it.
+		curSampleRate = 44100;
+	}
 	Do(p, curChannels);
 	Do(p, micState);
 	if (s > 1) {
@@ -433,6 +437,14 @@ void Microphone::onMicDeviceChange() {
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block) {
+	// sceAudioInput and the camera mic pass these straight through. The wait below divides by the
+	// rate, and the size sizes a host buffer. Not tested on the PSP.
+	if (sampleRate == 0) {
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
+	}
+	if (maxSamples == 0 || maxSamples > 0x100000) {
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
+	}
 	if (micPolling && curSampleRate != sampleRate) {
 		Microphone::stopMic();
 	}

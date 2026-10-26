@@ -43,7 +43,9 @@ static inline int getScaleValue(u32 channelsNum) {
 
 // What is this??
 static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, u32 inputAddr, u32 outputAddr) {
-	if (Memory::IsValidRange(inputAddr, channelsNum * 4) && Memory::IsValidRange(outputAddr, samplesNum * sizeof(s16) * 2)) {
+	// The sizes could wrap in 32 bits.
+	if ((u64)channelsNum * 4 <= 0xFFFFFFFF && (u64)samplesNum * sizeof(s16) * 2 <= 0xFFFFFFFF &&
+		Memory::IsValidRange(inputAddr, channelsNum * 4) && Memory::IsValidRange(outputAddr, samplesNum * sizeof(s16) * 2)) {
 		int scaleval = getScaleValue(channelsNum);
 		s16_le *outbuf = (s16_le *)Memory::GetPointerWriteUnchecked(outputAddr);
 		memset(outbuf, 0, samplesNum * sizeof(s16) * 2);
