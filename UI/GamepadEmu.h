@@ -179,6 +179,8 @@ struct TouchControlConfig;
 
 // Initializes the layout from Config. if a default layout does not exist, it sets up default values
 void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);
+// Lets the controls use the full width when the side insets don't reach down to them.
+ViewLayoutMode TouchControlsLayoutMode();
 UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper);
 
 const int D_pad_Radius = 50;

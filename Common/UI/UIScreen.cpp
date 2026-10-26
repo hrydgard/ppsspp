@@ -45,6 +45,7 @@ void UIScreen::DoRecreateViews() {
 	delete root_;
 	root_ = nullptr;
 	SetCreatingViews(true);
+	lastLayoutMode_ = LayoutMode();
 	CreateViews();
 	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
 	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
@@ -102,6 +103,10 @@ void UIScreen::update() {
 	if (orientation != lastOrientation_) {
 		RecreateViews();
 		lastOrientation_ = orientation;
+	}
+	// Views can be laid out for the bounds they were created in (like the touch controls).
+	if (LayoutMode() != lastLayoutMode_) {
+		RecreateViews();
 	}
 
 	DoRecreateViews();

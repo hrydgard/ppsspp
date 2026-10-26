@@ -39,7 +39,8 @@ public:
 	const char *tag() const override { return "TouchControlLayout"; }
 
 protected:
-	ViewLayoutMode LayoutMode() const override { return ViewLayoutMode::ApplyInsets; }
+	// The same as EmuScreen's, so the controls go where they will be in the game.
+	ViewLayoutMode LayoutMode() const override;
 	void OnReset(UI::EventParams &e);
 	void OnMode(UI::EventParams &e);
 

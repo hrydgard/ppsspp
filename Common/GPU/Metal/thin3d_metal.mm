@@ -38,6 +38,9 @@ namespace Draw {
 
 static constexpr int THIN3D_TEXTURE_BINDING_BASE = 1;
 
+// The BC formats only exist from iOS 16.4. GetDataFormatSupport checks for that before they're used.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
 static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	switch (format) {
 	case DataFormat::R8_UNORM: return MTLPixelFormatR8Unorm;
@@ -56,6 +59,10 @@ static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	case DataFormat::R32_FLOAT: return MTLPixelFormatR32Float;
 	case DataFormat::R32G32_FLOAT: return MTLPixelFormatRG32Float;
 	case DataFormat::R32G32B32A32_FLOAT: return MTLPixelFormatRGBA32Float;
+	// Metal names packed channels from the lowest bits up, so these are the same bit layouts.
+	case DataFormat::R5G6B5_UNORM_PACK16: return MTLPixelFormatB5G6R5Unorm;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: return MTLPixelFormatBGR5A1Unorm;
+	case DataFormat::A4R4G4B4_UNORM_PACK16: return MTLPixelFormatABGR4Unorm;
 	case DataFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
 	case DataFormat::BC2_UNORM_BLOCK: return MTLPixelFormatBC2_RGBA;
 	case DataFormat::BC3_UNORM_BLOCK: return MTLPixelFormatBC3_RGBA;
@@ -73,6 +80,7 @@ static MTLPixelFormat DataFormatToMetal(DataFormat format) {
 	default: return MTLPixelFormatInvalid;
 	}
 }
+#pragma clang diagnostic pop
 
 static MTLVertexFormat DataFormatToMetalVertex(DataFormat format) {
 	switch (format) {
@@ -724,6 +732,16 @@ uint32_t MetalDrawContext::GetDataFormatSupport(DataFormat fmt) const {
 			break;
 		}
 		return supported ? (support | FMT_TEXTURE) : support;
+	}
+	switch (fmt) {
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+	case DataFormat::A4R4G4B4_UNORM_PACK16:
+		// Only Apple GPUs have the packed 16-bit formats. Metal documents them from Apple1 up, but the iOS
+		// simulator reports Apple2 and doesn't have them, so require Apple3 (A9, which iOS 15 needs anyway).
+		return [device_ supportsFamily:MTLGPUFamilyApple3] ? (support | FMT_TEXTURE) : support;
+	default:
+		break;
 	}
 	support |= FMT_TEXTURE | FMT_BLIT;
 	switch (fmt) {

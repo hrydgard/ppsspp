@@ -74,6 +74,7 @@ enum class ViewLayoutMode {
 	ApplyInsets = 0,   // For gameplay, option #1
 	IgnoreInsets,  // For gameplay, option #2
 	IgnoreBottomInset,
+	IgnoreSideInsets,
 };
 
 enum class QueuedEventType : u8 {

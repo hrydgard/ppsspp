@@ -249,6 +249,7 @@ float g_safeInsetLeft = 0.0;
 float g_safeInsetRight = 0.0;
 float g_safeInsetTop = 0.0;
 float g_safeInsetBottom = 0.0;
+float g_sideInsetsBottom = -1.0;
 
 static bool g_jitAvailable = true;
 
@@ -322,6 +323,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 		return g_safeInsetTop * g_display.dpi_scale_y;
 	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
 		return g_safeInsetBottom * g_display.dpi_scale_y;
+	case SYSPROP_DISPLAY_SIDE_INSETS_BOTTOM:
+		return g_sideInsetsBottom < 0.0f ? -1.0f : g_sideInsetsBottom * g_display.dpi_scale_y;
 	default:
 		return -1;
 	}
