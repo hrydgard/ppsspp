@@ -1190,6 +1190,8 @@
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HW\MeMMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
     <ClCompile Include="HW\PopsMMIO.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -1679,6 +1681,9 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="Util\PPGeDraw.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\KL4E.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\PSARUnpack.h">
@@ -2213,6 +2218,8 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\MeMMIO.h">
+      <Filter>HW</Filter>
+    </ClInclude>
     <ClInclude Include="HW\PopsMMIO.h">
       <Filter>HW</Filter>
     </ClInclude>
