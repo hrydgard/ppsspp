@@ -40,10 +40,10 @@ void BuildControlsSettings(SettingsPage *page) {
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	page->Header({ I18NCat::MAINSETTINGS, "Controls" });
-	page->Choice("Control mapping").OnClick([host](UI::EventParams &e) {
+	page->Choice("Control mapping").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new ControlMappingScreen(host->PageGamePath()));
 	});
-	page->Choice("Calibrate analog stick").OnClick([host](UI::EventParams &e) {
+	page->Choice("Calibrate analog stick").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new AnalogCalibrationScreen(host->PageGamePath()));
 	});
 
@@ -70,7 +70,7 @@ void BuildControlsSettings(SettingsPage *page) {
 				host->PageScreenManager()->push(new TiltAnalogSettingsScreen(host->PageGamePath()));
 			});
 			return customizeTilt;
-		});
+		}).OpensScreen();
 	} else if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_VR) {  // TODO: This seems like a regression
 		page->Setting(&g_Config.bHapticFeedback);
 	}
@@ -83,10 +83,10 @@ void BuildControlsSettings(SettingsPage *page) {
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		page->Header("On-screen touch controls");
 		page->Setting(&g_Config.bShowTouchControls);
-		page->Choice("Edit touch control layout").OnClick([host](UI::EventParams &e) {
+		page->Choice("Edit touch control layout").OpensScreen().OnClick([host](UI::EventParams &e) {
 			host->PageScreenManager()->push(new TouchControlLayoutScreen(host->PageGamePath()));
 		}).Enabled(&g_Config.bShowTouchControls);
-		page->Choice("Gesture mapping").OnClick([host](UI::EventParams &e) {
+		page->Choice("Gesture mapping").OpensScreen().OnClick([host](UI::EventParams &e) {
 			host->PageScreenManager()->push(new GestureMappingScreen(host->PageGamePath()));
 		}).Enabled(&g_Config.bShowTouchControls);
 

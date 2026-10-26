@@ -157,6 +157,8 @@ struct SettingItem {
 	void (*configOnChanged)() = nullptr;
 	// For tweaks the description doesn't cover, called after the view is created.
 	std::function<void(UI::View *)> setup;
+	// Choice or Custom (if its view is a Choice) that opens another screen: shows the same chevron as a Link.
+	bool opensScreen = false;
 
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
 	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
@@ -164,6 +166,7 @@ struct SettingItem {
 	SettingItem &OnChange(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &OnClick(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &Setup(std::function<void(UI::View *)> func) { setup = std::move(func); return *this; }
+	SettingItem &OpensScreen() { opensScreen = true; return *this; }
 	SettingItem &Default(int value) { defaultValue = value; hasDefault = true; return *this; }
 	SettingItem &Step(int value) { step = value; return *this; }
 	SettingItem &Format(std::string_view fmt) { format = fmt; return *this; }

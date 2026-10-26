@@ -182,7 +182,7 @@ static void BuildGeneralPage(SettingsPage *page) {
 	// Experimental, so not translated yet.
 	page->Setting(&g_Config.bEmulateMediaEngine);
 
-	page->Choice("JIT debug tools").OnClick([host](UI::EventParams &e) {
+	page->Choice("JIT debug tools").OpensScreen().OnClick([host](UI::EventParams &e) {
 		OnJitDebugTools(host);
 	});
 	page->Setting(&g_Config.bShowDeveloperMenu);
@@ -195,7 +195,7 @@ static void BuildGeneralPage(SettingsPage *page) {
 	page->Header({ I18NCat::MAINSETTINGS, "General" });
 
 	page->Bool(&g_Config.bEnableLogging, "Enable Logging").OnChange(&OnLoggingChanged);
-	page->Choice("Logging Channels").OnClick([host](UI::EventParams &e) {
+	page->Choice("Logging Channels").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new LogConfigScreen());
 	});
 	page->Setting(&g_Config.bEnableFileLogging).Enabled(&g_Config.bEnableLogging);
@@ -283,10 +283,10 @@ static void BuildTestsPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-	page->Choice("Touchscreen Test").OnClick([host](UI::EventParams &e) {
+	page->Choice("Touchscreen Test").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new TouchTestScreen(host->PageGamePath()));
 	});
-	page->Choice("Framedump tests").OnClick([host](UI::EventParams &e) {
+	page->Choice("Framedump tests").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new FrameDumpTestScreen());
 	}).EnabledFunc([] {
 		return !PSP_IsInited();
@@ -294,7 +294,7 @@ static void BuildTestsPage(SettingsPage *page) {
 	// For now, we only implement GPU driver tests for Vulkan and OpenGL. This is simply
 	// because the D3D drivers are generally solid enough to not need this type of investigation.
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		page->Choice("GPU Driver Test").OnClick([host](UI::EventParams &e) {
+		page->Choice("GPU Driver Test").OpensScreen().OnClick([host](UI::EventParams &e) {
 			OnGPUDriverTest(host);
 		});
 	}
@@ -541,7 +541,7 @@ static void BuildGraphicsPage(SettingsPage *page) {
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		page->Choice({ I18NCat::GRAPHICS, "AdrenoTools driver manager" }).OnClick([host](UI::EventParams &e) {
+		page->Choice({ I18NCat::GRAPHICS, "AdrenoTools driver manager" }).OpensScreen().OnClick([host](UI::EventParams &e) {
 			host->PageScreenManager()->push(new DriverManagerScreen(host->PageGamePath()));
 		});
 	}

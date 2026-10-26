@@ -233,7 +233,7 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 				host->PageScreenManager()->push(new MemStickScreen(false));
 			});
 			return memstickPath;
-		}).EnabledFunc([] {
+		}).OpensScreen().EnabledFunc([] {
 			return !PSP_IsInited();
 		});
 	};

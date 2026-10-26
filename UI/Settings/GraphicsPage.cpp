@@ -250,7 +250,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Header("Display");
 
 	// Display Layout Editor: To avoid overlapping touch controls on large tablets, meet geeky demands for integer zoom/unstretched image etc.
-	page->Choice("Display layout & effects").OnClick([host](UI::EventParams &) {
+	page->Choice("Display layout & effects").OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new DisplayLayoutScreen(host->PageGamePath()));
 	});
 
