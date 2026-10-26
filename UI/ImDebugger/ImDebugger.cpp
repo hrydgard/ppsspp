@@ -94,6 +94,7 @@ static std::function<void(bool)> g_softKeyboardHook;
 void Android_SetKeyboardForced(bool forced);  // Defined in android/jni/app-android.cpp.
 void Android_SetKeyboardPersist(bool persist);  // Whether the keyboard comes back after an app switch.
 bool Android_ConsumeAppPaused();  // True once after the app was paused (switched away from).
+bool Android_ConsumeKeyboardDismissed();  // True once after the user closed the keyboard with Back.
 #endif
 
 // Shows or hides the soft keyboard. A hook set through ImDebugger_SetSoftKeyboardHook takes priority; otherwise
@@ -3131,6 +3132,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 #if PPSSPP_PLATFORM(ANDROID)
 		// If the keyboard shouldn't survive an app switch, turn it off once we've been away.
 		if (Android_ConsumeAppPaused() && !cfg_.keyboardPersist) {
+			cfg_.forceKeyboard = false;
+		}
+		// The keyboard was closed from the system (Back button): keep the toggle in sync.
+		if (Android_ConsumeKeyboardDismissed()) {
 			cfg_.forceKeyboard = false;
 		}
 		const int persist = cfg_.keyboardPersist ? 1 : 0;
