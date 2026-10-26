@@ -149,7 +149,7 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 class GameButton : public UI::Clickable {
 public:
 	GameButton(const Path &gamePath, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams = nullptr)
-		: UI::Clickable(layoutParams), viewMode_(viewMode), gridStyle_(viewMode == GameBrowserViewMode::GRID), gamePath_(gamePath) {}
+		: UI::Clickable(layoutParams), viewMode_(viewMode), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -164,18 +164,21 @@ public:
 		return filename;
 	}
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		if (gridStyle_) {
+		switch (viewMode_) {
+		case GameBrowserViewMode::GRID:
 			w = 144 * g_Config.fGameGridScale;
 			h = 80 * g_Config.fGameGridScale;
-		} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
+			break;
+		case GameBrowserViewMode::LARGE_LIST:
 			w = 500;
 			h = LARGE_LIST_ICON_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2;
-		} else {
+			break;
+		default:  // List
 			w = 500;
 			h = 50;
+			break;
 		}
 	}
-
 	const Path &GamePath() const { return gamePath_; }
 
 	void SetHoldEnabled(bool hold) {
@@ -342,9 +345,8 @@ private:
 		return true;
 	}
 
-	GameBrowserViewMode viewMode_;
-	bool gridStyle_;
-	Path gamePath_;
+	const GameBrowserViewMode viewMode_;
+	const Path gamePath_;
 	std::string title_;
 
 	// The ICON1.PMF video, played in place of the icon in the large list, like the XMB does.
@@ -381,10 +383,9 @@ void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVi
 }
 
 void GameButton::Draw(UIContext &dc) {
-	const bool largeList = viewMode_ == GameBrowserViewMode::LARGE_LIST;
 	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
 	// touch or the mouse, getting a video to play without launching the game was too fiddly.
-	const bool wantVideo = largeList && HasFocus() && pmf_player_available();
+	const bool wantVideo = viewMode_ == GameBrowserViewMode::LARGE_LIST && HasFocus() && pmf_player_available();
 
 	GameInfoFlags infoFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON;
 	if (wantVideo) {
@@ -470,9 +471,9 @@ void GameButton::Draw(UIContext &dc) {
 
 	int x = bounds_.x;
 	int y = bounds_.y;
-	int w = gridStyle_ ? bounds_.w : 144;
+	int w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
 	int h = bounds_.h;
-	if (largeList) {
+	if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
 		x += LARGE_LIST_LEFT_PAD;
 		y += LARGE_LIST_PAD;
 		w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
@@ -481,7 +482,7 @@ void GameButton::Draw(UIContext &dc) {
 	const float textX = ListTextX(viewMode_);
 
 	const bool rowFocused = HasFocus() && !infoSelected_;
-	if (!gridStyle_ || !texture) {
+	if (viewMode_ != GameBrowserViewMode::GRID || !texture) {
 		if (rowFocused)
 			style = down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemFocusedStyle;
 
@@ -514,12 +515,12 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	int txOffset = down_ ? 4 : 0;
-	if (!gridStyle_) txOffset = 0;
+	if (viewMode_ != GameBrowserViewMode::GRID) txOffset = 0;
 
 	// Render button
 	int dropsize = 10;
 	if (texture) {
-		if (!gridStyle_ && !largeList) {
+		if (viewMode_ == GameBrowserViewMode::LIST) {
 			x += 4;
 		}
 		if (txOffset) {
@@ -546,7 +547,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
-	if (gridStyle_ && g_Config.bShowIDOnGameIcon && ginfo->fileType != IdentifiedFileType::PSP_ELF && !ginfo->id_version.empty()) {
+	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && ginfo->fileType != IdentifiedFileType::PSP_ELF && !ginfo->id_version.empty()) {
 		std::string_view idStr = ginfo->id_version;
 		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			auto ga = GetI18NCategory(I18NCat::GAME);
@@ -580,7 +581,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 		dc.RebindTexture();
 		dc.SetFontStyle(dc.GetTheme().uiFont);
-		if (!gridStyle_) {
+		if (viewMode_ != GameBrowserViewMode::GRID) {
 			float tw, th;
 			dc.Draw()->Flush();
 			dc.PushScissor(bounds_);
@@ -630,9 +631,9 @@ void GameButton::Draw(UIContext &dc) {
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
 		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR_SMALL"));
 		if (gearImage) {
-			if (gridStyle_) {
+			if (viewMode_ == GameBrowserViewMode::GRID) {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
-			} else if (largeList) {
+			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_LEFT_PAD, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, y, 1.0f);
@@ -652,10 +653,10 @@ void GameButton::Draw(UIContext &dc) {
 		};
 		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
 		if (image) {
-			if (gridStyle_) {
+			if (viewMode_ == GameBrowserViewMode::GRID) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (image->w + 5) * g_Config.fGameGridScale,
 					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
-			} else if (largeList) {
+			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - image->w - 5) * g_Config.fGameGridScale,
 					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
@@ -686,7 +687,7 @@ void GameButton::Draw(UIContext &dc) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		const Bounds iconBounds(x, y, w, h);
 		dc.FillRect(Drawable(0xD0505050), iconBounds);
-		const float scale = gridStyle_ || largeList ? 0.8f * g_Config.fGameGridScale : 0.6f;
+		const float scale = viewMode_ == GameBrowserViewMode::GRID || viewMode_ == GameBrowserViewMode::LARGE_LIST ? 0.8f * g_Config.fGameGridScale : 0.6f;
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.SetFontScale(scale, scale);
 		const std::string text = std::string(ga->T("Compressing...")) + StringFromFormat("\n%d%%", (int)(packStatus.progress * 100.0f));
@@ -1123,7 +1124,7 @@ void GameBrowser::Refresh() {
 	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 	if (gridStyle) {
-		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
+		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
 	} else {
 		UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gl->SetSpacing(4.0f);
