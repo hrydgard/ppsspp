@@ -184,6 +184,9 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 		}
 	}
 	// There's 8 bytes at the end of every block, reserved.
+	if (memSize > 0xFFFFFF00) {
+		return hleLogError(Log::sceKernel, 0, "invalid size %08x", memSize);
+	}
 	memSize += 8;
 	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
 	if (addr == (u32)-1) {

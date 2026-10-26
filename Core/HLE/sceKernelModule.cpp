@@ -3846,8 +3846,12 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
 		if (!module->isFake || liedAboutThisModule(module)) {
-			if (resultBufferOffset < resultBufferSize) {
+			// Only whole entries.
+			if (resultBufferOffset + 4 <= resultBufferSize) {
 				Memory::WriteOrException_U32(module->GetUID(), resultBuffer + resultBufferOffset);
 				resultBufferOffset += 4;
 			}

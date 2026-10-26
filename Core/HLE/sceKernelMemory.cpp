@@ -73,7 +73,8 @@ u32 FPL::GetMissingErrorCode() {
 
 int FPL::FindFreeBlock() {
 	for (int i = 0; i < nf.numBlocks; i++) {
-		int b = nextBlock++ % nf.numBlocks;
+		int b = nextBlock % nf.numBlocks;
+		nextBlock = b + 1;
 		if (!blocks[b]) {
 			return b;
 		}
@@ -117,9 +118,10 @@ void FPL::DoState(PointerWrap &p) {
 	FplWaitingThread dv = { 0 };
 	Do(p, waitingThreads, dv);
 	Do(p, pausedWaits);
-	// It's taken modulo the block count, but a negative one stays negative.
+	// It's taken modulo the block count, but a negative one stays negative. Older versions let it
+	// overflow, so just restart the search.
 	if (p.mode == p.MODE_READ && nextBlock < 0) {
-		p.SetError(p.ERROR_FAILURE);
+		nextBlock = 0;
 	}
 }
 
@@ -1829,25 +1831,20 @@ void __KernelTlsplThreadEnd(SceUID threadID)
 			tls->waitingThreads.erase(std::remove(tls->waitingThreads.begin(), tls->waitingThreads.end(), threadID), tls->waitingThreads.end());
 	}
 
-	// Unlock all pools the thread had locked.
+	// Unlock all pools the thread had locked. Freeing mutates the map, so collect them first.
+	std::vector<SceUID> lockedIDs;
 	auto locked = tlsplThreadEndChecks.equal_range(threadID);
-	for (TlsplMap::iterator iter = locked.first; iter != locked.second; ++iter)
-	{
-		SceUID tlsID = iter->second;
-		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
-
-		if (tls)
-		{
-			__KernelFreeTls(tls, threadID);
-
-			// Restart the loop, freeing mutated it.
-			locked = tlsplThreadEndChecks.equal_range(threadID);
-			iter = locked.first;
-			if (locked.first == locked.second)
-				break;
-		}
+	for (TlsplMap::iterator iter = locked.first; iter != locked.second; ++iter) {
+		lockedIDs.push_back(iter->second);
 	}
 	tlsplThreadEndChecks.erase(locked.first, locked.second);
+
+	for (SceUID tlsID : lockedIDs) {
+		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
+		if (tls) {
+			__KernelFreeTls(tls, threadID);
+		}
+	}
 }
 
 SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr) {
