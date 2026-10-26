@@ -400,9 +400,9 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 
 		// In the future, RetroAchievements will support display names. Prepare for that.
 		if (strcmp(info->display_name, info->username) != 0) {
-			group->Add(new InfoItem(ac->T("Name"), info->display_name))->SetShowBG(true);
+			group->Add(new InfoItem(ac->T("Name"), info->display_name));
 		}
-		group->Add(new InfoItem(di->T("Username"), info->username))->SetShowBG(true);
+		group->Add(new InfoItem(di->T("Username"), info->username));
 
 		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
 		group->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {

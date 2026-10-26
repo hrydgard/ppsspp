@@ -880,16 +880,12 @@ public:
 	void SetRightText(std::string_view text) {
 		rightText_ = text;
 	}
-	void SetShowBG(bool showBG) {
-		showBG_ = showBG;
-	}
 protected:
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 
 private:
 	std::string text_;
 	std::string rightText_;
-	bool showBG_ = false;
 };
 
 class AbstractChoiceWithValueDisplay : public Choice {

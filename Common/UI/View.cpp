@@ -587,10 +587,8 @@ void InfoItem::Draw(UIContext &dc) {
 	UI::Style style;
 	if (HasFocus()) {
 		style = dc.GetTheme().itemFocusedStyle;
-	} else if (showBG_) {
-		style = dc.GetTheme().itemStyle;
 	} else {
-		style = dc.GetTheme().infoStyle;
+		style = dc.GetTheme().itemStyle;
 	}
 
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
