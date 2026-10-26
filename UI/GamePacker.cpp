@@ -393,7 +393,7 @@ public:
 		if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
 		if (down_) style = dc.GetTheme().itemDownStyle;
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
-		DrawBG(dc, style);
+		DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 		const float iconX = bounds_.x + 30.0f;
 		dc.Draw()->DrawImage(ImageID(checked_ ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY"), iconX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);

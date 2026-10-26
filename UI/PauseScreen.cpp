@@ -305,6 +305,7 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 
 	saveStateButton_ = buttons->Add(new Button(pa->T("Save State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 	saveStateButton_->OnClick.Handle(this, &SaveSlotView::OnSaveState);
+	saveStateButton_->SetRoundCorners();
 	fv->OnClick.Add([this](UI::EventParams &e) {
 		e.v = this;
 		OnScreenshotClicked.Trigger(e);
@@ -314,6 +315,7 @@ SaveSlotView::SaveSlotView(std::string_view saveStatePrefix, int slot, UI::Layou
 		if (!Achievements::HardcoreModeActive()) {
 			loadStateButton_ = buttons->Add(new Button(pa->T("Load State"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
 			loadStateButton_->OnClick.Handle(this, &SaveSlotView::OnLoadState);
+			loadStateButton_->SetRoundCorners();
 		}
 
 		std::string nameStr = SaveState::GetSlotCustomName(saveStatePrefix_, slot_);
@@ -622,11 +624,13 @@ void GamePauseScreen::CreateViews() {
 				networkInfo->Add(new TextView(std::string(nw->T("Infrastructure server provided by:"))));
 				networkInfo->Add(new TextView(dnsConfig.revivalTeam));
 				if (!dnsConfig.revivalTeamURL.empty()) {
-					networkInfo->Add(new Button(dnsConfig.revivalTeamURL))->OnClick.Add([&dnsConfig](UI::EventParams &e) {
+					Button *visitUrl = networkInfo->Add(new Button(dnsConfig.revivalTeamURL));
+					visitUrl->OnClick.Add([&dnsConfig](UI::EventParams &e) {
 						if (!dnsConfig.revivalTeamURL.empty()) {
 							System_LaunchUrl(LaunchUrlType::BROWSER_URL, dnsConfig.revivalTeamURL.c_str());
 						}
 					});
+					visitUrl->SetRoundCorners();
 				}
 			}
 		} else if (NetAdhocctl_GetState() >= ADHOCCTL_STATE_CONNECTED) {
