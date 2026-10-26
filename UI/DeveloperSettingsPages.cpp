@@ -244,8 +244,8 @@ static void BuildGeneralPage(SettingsPage *page) {
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
-	page->Custom({ I18NCat::MAINSETTINGS, "Moving the memstick directory is NOT recommended on iOS" }, [](UI::ViewGroup *parent) -> UI::View * {
-		NoticeView *notice = parent->Add(new NoticeView(NoticeLevel::WARN, T(I18NCat::MAINSETTINGS, "Moving the memstick directory is NOT recommended on iOS"), ""));
+	page->Custom({ I18NCat::MEMSTICK, "Moving the memstick directory is NOT recommended on iOS" }, [](UI::ViewGroup *parent) -> UI::View * {
+		NoticeView *notice = parent->Add(new NoticeView(NoticeLevel::WARN, T(I18NCat::MEMSTICK, "Moving the memstick directory is NOT recommended on iOS"), ""));
 		notice->SetWrapText(true);
 		return notice;
 	});
@@ -530,7 +530,7 @@ static void BuildGraphicsPage(SettingsPage *page) {
 
 	page->Setting(&g_Config.iDisplayRefreshRate);
 
-	page->Header("Vulkan");
+	page->Header({ I18NCat::GRAPHICS, "Vulkan" });
 	page->Setting(&g_Config.bVulkanDisableImplicitLayers);
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
@@ -654,7 +654,7 @@ void BuildDeveloperToolsPage(SettingsPage *page) {
 	link({ I18NCat::MAINSETTINGS, "Networking" }, &BuildNetworkPage);
 	link({ I18NCat::MAINSETTINGS, "Audio" }, &BuildAudioPage);
 	link({ I18NCat::DEVELOPER, "Tests" }, &BuildTestsPage);
-	link({ I18NCat::DEVELOPER, "UI" }, &BuildUIPage);
+	link({ I18NCat::SYSTEM, "UI" }, &BuildUIPage);
 	link({ I18NCat::DEVELOPER, "Dump files" }, &BuildDumpFilePage);
 	link({ I18NCat::DEVELOPER, "HLE" }, &BuildHLEPage);
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)

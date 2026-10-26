@@ -605,7 +605,7 @@ void ConfirmMemstickMoveScreen::update() {
 
 		if (result) {
 			if (result->success) {
-				progressReporter_.SetProgress(ms->T("Done!"));
+				progressReporter_.SetProgress(T(I18NCat::DIALOG, "Done!"));
 				INFO_LOG(Log::System, "Move data task finished successfully!");
 				// Succeeded!
 				FinishFolderMove();

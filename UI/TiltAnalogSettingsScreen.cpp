@@ -104,7 +104,7 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	};
 
 	ChoiceGroup *setupSettings = groups->Add(new ChoiceGroup(co->T("Tilt control setup")));
-	CheckBox *enabled = setupSettings->Add(new CheckBox(&g_Config.bTiltInputEnabled, co->T("Enabled")));
+	CheckBox *enabled = setupSettings->Add(new CheckBox(&g_Config.bTiltInputEnabled, T(I18NCat::DIALOG, "Enabled")));
 	PopupMultiChoice *typeChoice = setupSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), g_tiltTypes, 0, g_numTiltTypes, I18NCat::CONTROLS, screenManager()));
 	if (g_Config.iTiltInputType != 0) {
 		typeChoice->HideChoice(0);   // The null choice is no longer relevant since we added an enabled toggle

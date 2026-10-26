@@ -640,7 +640,7 @@ void FrameDumpTestScreen::CreateTabs() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	AddTab("General", dev->T("Dumps"), [this](UI::LinearLayout *parent) {
+	AddTab("General", di->T("Dumps"), [this](UI::LinearLayout *parent) {
 		ChoiceGroup *dumps = parent->Add(new ChoiceGroupList())->Add(new ChoiceGroup("GE Frame Dumps"));
 
 		for (auto &file : files_) {
