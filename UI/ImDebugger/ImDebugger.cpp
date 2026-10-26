@@ -2741,16 +2741,24 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	const float rowExtra = compactMenu ? em * 0.2f : 0.0f;  // Slightly taller rows for fingers.
 	const bool hasSoftKeyboard = System_GetPropertyBool(SYSPROP_KEYBOARD_IS_SOFT);
 
+	// The bar's height follows the frame padding. The item spacing is grown to match, so that the menu titles can be
+	// hit anywhere in the bar's height (a selectable reaches half the item spacing beyond its text).
+	const ImGuiStyle &style = ImGui::GetStyle();
+	const ImVec2 framePadding = style.FramePadding;
+	const ImVec2 itemSpacing = style.ItemSpacing;
+	const float barPadY = framePadding.y + ImGui::GetFrameHeight() * ((float)cfg_.barHeight / 100.0f - 1.0f) * 0.5f;
+
+	// Menus get the normal style back.
 	auto beginMenu = [&](const char *label) -> bool {
 		if (!ImGui::BeginMenu(label)) {
 			return false;
 		}
-		const ImGuiStyle &st = ImGui::GetStyle();
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(st.ItemSpacing.x, st.ItemSpacing.y + rowExtra));
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, framePadding);
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacing.x, itemSpacing.y + rowExtra));
 		return true;
 	};
 	auto endMenu = [&]() {
-		ImGui::PopStyleVar();  // Must be popped before EndMenu(), the popup window checks the style stack.
+		ImGui::PopStyleVar(2);  // Must be popped before EndMenu(), the popup window checks the style stack.
 		ImGui::EndMenu();
 	};
 	auto closeDebugger = [&]() {
@@ -3034,10 +3042,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
 			ImGui::SetNextItemWidth(em * 10.0f);
 			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
+			ImGui::SetNextItemWidth(em * 10.0f);
+			ImGui::SliderInt("Bar height", &cfg_.barHeight, 100, 250, "%d%%");
 			endMenu();
 		}
 	};
 
+	ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(framePadding.x, barPadY));
+	ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(itemSpacing.x, barPadY * 2.0f));
 	if (ImGui::BeginMainMenuBar()) {
 		// Keep the first button clear of rounded screen corners / camera cutouts.
 		if (cfg_.barLeftMargin > 0) {
@@ -3107,6 +3119,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 		ImGui::EndMainMenuBar();
 	}
+	ImGui::PopStyleVar(2);
 
 	UpdateSoftKeyboard(true);
 
@@ -3634,4 +3647,5 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("keyboardPersist", &keyboardPersist, true);
 	sync.Sync("compactMenu", &compactMenu, kIsMobilePlatform);
 	sync.Sync("barLeftMargin", &barLeftMargin, kIsMobilePlatform ? 200 : 0);
+	sync.Sync("barHeight", &barHeight, kIsMobilePlatform ? 166 : 100);
 }

@@ -137,6 +137,7 @@ struct ImConfig {
 	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to keep the soft keyboard up.
 	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
 	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.
+	int barHeight = 100;                // Menu bar height, in percent of the normal frame height (taller is easier to hit by touch).
 	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
 	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
 
