@@ -175,8 +175,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 
 #if (PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(TVOS)) || PPSSPP_PLATFORM(ANDROID)
 	// Showing the game there needs a second swapchain. Otherwise the system mirrors the screen.
-	page->Setting(&g_Config.iExternalDisplay).EnabledFunc([draw] {
-		return draw->GetDeviceCaps().multipleSwapchains;
+	// Looked up each time: the draw context is replaced when Android loses the surface, and this page isn't rebuilt.
+	page->Setting(&g_Config.iExternalDisplay).EnabledFunc([host] {
+		Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
+		return draw && draw->GetDeviceCaps().multipleSwapchains;
 	}).OnChange([previous = g_Config.iExternalDisplay](UI::EventParams &e) mutable {
 		// Picking the current value again would rebuild the TV's output for nothing (iOS starts over on a change).
 		if (g_Config.iExternalDisplay == previous) {

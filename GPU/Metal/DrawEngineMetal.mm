@@ -178,6 +178,10 @@ void DrawEngineMetal::DeviceLost() {
 	}
 	boundSecondary_ = nil;
 	boundDepal_ = nil;
+	// Allocated from the old render manager's push buffer.
+	baseUBO_ = MetalPushAlloc{};
+	lightUBO_ = MetalPushAlloc{};
+	uboFrame_ = (uint64_t)-1;
 	draw_ = nullptr;
 	rm_ = nullptr;
 }

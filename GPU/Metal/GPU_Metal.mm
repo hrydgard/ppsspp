@@ -214,6 +214,12 @@ void GPU_Metal::DeviceLost() {
 
 void GPU_Metal::DeviceRestore(Draw::DrawContext *draw) {
 	GPUCommonHW::DeviceRestore(draw);
+
+	// DeviceLost saved the cache and then threw everything away. Load it again, or the next save would
+	// overwrite the file with only what gets drawn from now on.
+	if (shaderCachePath_.Valid()) {
+		LoadCache(shaderCachePath_);
+	}
 }
 
 void GPU_Metal::GetStats(StringWriter &w) {

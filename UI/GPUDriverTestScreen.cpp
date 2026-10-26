@@ -239,60 +239,47 @@ GPUDriverTestScreen::GPUDriverTestScreen() {
 }
 
 GPUDriverTestScreen::~GPUDriverTestScreen() {
-	if (discardWriteDepthStencil_)
-		discardWriteDepthStencil_->Release();
-	if (discardWriteDepth_)
-		discardWriteDepth_->Release();
-	if (discardWriteStencil_)
-		discardWriteStencil_->Release();
+	DestroyDeviceObjects();
+}
 
-	if (drawTestStencilEqualDepthAlways_)
-		drawTestStencilEqualDepthAlways_->Release();
-	if (drawTestStencilNotEqualDepthAlways_)
-		drawTestStencilNotEqualDepthAlways_->Release();
-	if (drawTestStencilEqual_)
-		drawTestStencilEqual_->Release();
-	if (drawTestStencilNotEqual_)
-		drawTestStencilNotEqual_->Release();
-	if (drawTestStencilAlwaysDepthLessEqual_)
-		drawTestStencilAlwaysDepthLessEqual_->Release();
-	if (drawTestStencilAlwaysDepthGreater_)
-		drawTestStencilAlwaysDepthGreater_->Release();
-	if (drawTestDepthLessEqual_)
-		drawTestDepthLessEqual_->Release();
-	if (drawTestDepthGreater_)
-		drawTestDepthGreater_->Release();
+template <class T>
+static void ReleaseAndClear(T *&obj) {
+	if (obj) {
+		obj->Release();
+		obj = nullptr;
+	}
+}
 
-	if (discardFragShader_)
-		discardFragShader_->Release();
+void GPUDriverTestScreen::deviceLost() {
+	UIBaseDialogScreen::deviceLost();
+	DestroyDeviceObjects();
+}
 
-	// Shader test
-	if (adrenoLogicDiscardPipeline_)
-		adrenoLogicDiscardPipeline_->Release();
-	if (flatShadingPipeline_)
-		flatShadingPipeline_->Release();
-
-	if (adrenoLogicDiscardFragShader_)
-		adrenoLogicDiscardFragShader_->Release();
-	if (adrenoLogicDiscardVertShader_)
-		adrenoLogicDiscardVertShader_->Release();
-	if (flatFragShader_)
-		flatFragShader_->Release();
-	if (flatVertShader_)
-		flatVertShader_->Release();
-
-	if (samplerNearest_)
-		samplerNearest_->Release();
+// Everything is created again on the next draw, from the new draw context.
+void GPUDriverTestScreen::DestroyDeviceObjects() {
+	ReleaseAndClear(discardWriteDepthStencil_);
+	ReleaseAndClear(discardWriteDepth_);
+	ReleaseAndClear(discardWriteStencil_);
+	ReleaseAndClear(drawTestStencilEqualDepthAlways_);
+	ReleaseAndClear(drawTestStencilNotEqualDepthAlways_);
+	ReleaseAndClear(drawTestStencilEqual_);
+	ReleaseAndClear(drawTestStencilNotEqual_);
+	ReleaseAndClear(drawTestStencilAlwaysDepthLessEqual_);
+	ReleaseAndClear(drawTestStencilAlwaysDepthGreater_);
+	ReleaseAndClear(drawTestDepthLessEqual_);
+	ReleaseAndClear(drawTestDepthGreater_);
+	ReleaseAndClear(discardFragShader_);
+	ReleaseAndClear(adrenoLogicDiscardPipeline_);
+	ReleaseAndClear(flatShadingPipeline_);
+	ReleaseAndClear(adrenoLogicDiscardFragShader_);
+	ReleaseAndClear(adrenoLogicDiscardVertShader_);
+	ReleaseAndClear(flatFragShader_);
+	ReleaseAndClear(flatVertShader_);
+	ReleaseAndClear(samplerNearest_);
 }
 
 void GPUDriverTestScreen::CreateViews() {
 	using namespace Draw;
-
-	if (!samplerNearest_) {
-		DrawContext *draw = screenManager()->getDrawContext();
-		SamplerStateDesc nearestDesc{};
-		samplerNearest_ = draw->CreateSamplerState(nearestDesc);
-	}
 
 	// Don't bother with views for now.
 	using namespace UI;
@@ -631,6 +618,10 @@ void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 }
 
 void GPUDriverTestScreen::DrawForeground(UIContext &dc) {
+	if (!samplerNearest_) {
+		Draw::SamplerStateDesc nearestDesc{};
+		samplerNearest_ = screenManager()->getDrawContext()->CreateSamplerState(nearestDesc);
+	}
 	switch (tabHolder_->GetCurrentTab()) {
 	case 0:
 		DiscardTest(dc);

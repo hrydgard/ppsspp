@@ -612,6 +612,7 @@ void ShaderManagerGLES::Clear() {
 	linkedShaderCache_.clear();
 	fsCache_.Clear();
 	vsCache_.Clear();
+	lastShader_ = nullptr;
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
 

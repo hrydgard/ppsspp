@@ -18,12 +18,14 @@ public:
 
 	void CreateViews() override;
 	void DrawForeground(UIContext &dc) override;
+	void deviceLost() override;
 
 	const char *tag() const override { return "GPUDriverTest"; }
 
 private:
 	void DiscardTest(UIContext &dc);
 	void ShaderTest(UIContext &dc);
+	void DestroyDeviceObjects();
 
 	// Common objects
 	Draw::SamplerState *samplerNearest_ = nullptr;
