@@ -131,6 +131,10 @@ struct ImConfig {
 
 	float fbViewerZoom = 1.0f;
 
+	// Touch / mobile helpers.
+	int barLeftMargin = 0;              // Empty space left of the first bar button, in percent of the text height (keeps it clear of rounded screen corners).
+	bool compactMenu = false;           // Always use the single "Menu" dropdown (it's also chosen automatically on narrow screens).
+
 
 	// We use a separate ini file from the main PPSSPP config.
 	void LoadConfig(const Path &iniFile);

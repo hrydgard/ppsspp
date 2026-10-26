@@ -1,4 +1,5 @@
 #include <algorithm>
+#include "ppsspp_config.h"
 
 
 #include "ext/imgui/imgui_internal.h"
@@ -76,6 +77,13 @@
 #include "UI/PauseScreen.h"
 
 static ImVec4 g_normalTextColor;
+
+// Phones default to the compact menu, and to a bar left margin to keep the first button clear of rounded screen corners.
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+static constexpr bool kIsMobilePlatform = true;
+#else
+static constexpr bool kIsMobilePlatform = false;
+#endif
 
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
 	if (ImGui::BeginMenu("Show in memory viewer")) {
@@ -2706,8 +2714,31 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 	ImControl control{};
 
-	if (ImGui::BeginMainMenuBar()) {
-		if (ImGui::BeginMenu("File")) {
+	// ---- Menu bar ----
+	// Compact layout (chosen, or on narrow screens): [Break/Run] [Menu] [Close] [status], where "Menu" is one dropdown
+	// holding every menu as a cascading submenu. Otherwise the same menus are side by side.
+	const float em = ImGui::GetFontSize();
+	const bool compactMenu = cfg_.compactMenu || ImGui::GetIO().DisplaySize.x < em * 46.0f;
+	const float rowExtra = compactMenu ? em * 0.2f : 0.0f;  // Slightly taller rows for fingers.
+
+	auto beginMenu = [&](const char *label) -> bool {
+		if (!ImGui::BeginMenu(label)) {
+			return false;
+		}
+		const ImGuiStyle &st = ImGui::GetStyle();
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(st.ItemSpacing.x, st.ItemSpacing.y + rowExtra));
+		return true;
+	};
+	auto endMenu = [&]() {
+		ImGui::PopStyleVar();  // Must be popped before EndMenu(), the popup window checks the style stack.
+		ImGui::EndMenu();
+	};
+	auto closeDebugger = [&]() {
+		g_Config.bShowImDebugger = false;
+	};
+
+	auto menuFile = [&]() {
+		if (beginMenu("File")) {
 			if (ImGui::MenuItem("Load")) {
 				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view responseString, int) {
 					Path path(responseString);
@@ -2762,10 +2793,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			if (ImGui::MenuItem("Exit")) {
 				System_ExitApp();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Emulation")) {
+	auto menuEmulation = [&]() {
+		if (beginMenu("Emulation")) {
 			if (ImGui::MenuItem("Pause")) {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 			}
@@ -2776,10 +2809,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
 			}
 			ImGui::Separator();
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("View")) {
+	auto menuView = [&]() {
+		if (beginMenu("View")) {
 			if (PSP_IsInited()) {
 				ImGui::BeginDisabled();  // Can't change this setting while running.
 			}
@@ -2787,10 +2822,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			if (PSP_IsInited()) {
 				ImGui::EndDisabled();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Debug")) {
+	auto menuDebug = [&]() {
+		if (beginMenu("Debug")) {
 			if (PSP_IsInited()) {
 				switch (coreState) {
 				case CoreState::CORE_STEPPING_CPU:
@@ -2833,126 +2870,122 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Close")) {
-				g_Config.bShowImDebugger = false;
+				closeDebugger();
 			}
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		/*
-		if (ImGui::BeginMenu("Options")) {
-			ImGui::EndMenu();
+	auto menuDebuggerWindows = [&]() {
+		if (beginMenu("Core")) {
+			ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
+			ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
+			endMenu();
 		}
-		*/
-
-		if (showDebugger) {
-			if (ImGui::BeginMenu("Core")) {
-				ImGui::MenuItem("Scheduler", nullptr, &cfg_.schedulerOpen);
-				ImGui::MenuItem("Time", nullptr, &cfg_.timeOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("CPU")) {
-				ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
-				ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
-				ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
-				ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
-				ImGui::Separator();
-				ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
-				ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
-				ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
-				ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Symbols")) {
-				ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
-				ImGui::Separator();
-
-				if (ImGui::MenuItem("Load .ppmap...")) {
-					System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->LoadSymbolMap(path)) {
-							ERROR_LOG(Log::Common, "Failed to load symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Save .ppmap...")) {
-					System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->SaveSymbolMap(path)) {
-							ERROR_LOG(Log::Common, "Failed to save symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Load No$ .sym...")) {
-					System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->LoadNocashSym(path)) {
-							ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
-						}
-					});
-				}
-				if (ImGui::MenuItem("Save No$ .sym...")) {
-					System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
-						Path path(responseString);
-						if (!g_symbolMap->SaveNocashSym(path)) {
-							ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
-						}
-					});
-				}
-				ImGui::Separator();
-				ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
-				if (ImGui::MenuItem("Reset symbol map")) {
-					g_symbolMap->Clear();
-					// NotifyDebuggerMapLoaded();
-				}
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Memory")) {
-				for (int i = 0; i < 4; i++) {
-					char title[64];
-					snprintf(title, sizeof(title), "Memory %d", i + 1);
-					ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
-				}
-				ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("OS HLE")) {
-				ImGui::MenuItem("HLE module browser", nullptr, &cfg_.hleModulesOpen);
-				ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
-				ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
-				ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
-				ImGui::MenuItem("Modules", nullptr, &cfg_.modulesOpen);
-				ImGui::MenuItem("Utility Modules", nullptr, &cfg_.utilityModulesOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Graphics")) {
-				ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
-				ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
-				ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
-				ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
-				ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
-				ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
-				ImGui::MenuItem("Pixel Viewer", nullptr, &cfg_.pixelViewerOpen);
-				// More to come here...
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Audio/Video")) {
-				ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
-				ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
-				ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
-				ImGui::Separator();
-				ImGui::MenuItem("Audio output / buffer", nullptr, &cfg_.audioOutOpen);
-				ImGui::EndMenu();
-			}
-			if (ImGui::BeginMenu("Network")) {
-				ImGui::MenuItem("ApCtl", nullptr, &cfg_.apctlOpen);
-				ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
-				ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
-				ImGui::MenuItem("AdHoc", nullptr, &cfg_.adhocOpen);
-				ImGui::EndMenu();
-			}
+		if (beginMenu("CPU")) {
+			ImGui::MenuItem("CPU debugger", nullptr, &cfg_.disasmOpen);
+			ImGui::MenuItem("GPR regs", nullptr, &cfg_.gprOpen);
+			ImGui::MenuItem("FPR regs", nullptr, &cfg_.fprOpen);
+			ImGui::MenuItem("VFPU regs", nullptr, &cfg_.vfpuOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("Callstacks", nullptr, &cfg_.callstackOpen);
+			ImGui::MenuItem("Breakpoints", nullptr, &cfg_.breakpointsOpen);
+			ImGui::MenuItem("Watch", nullptr, &cfg_.watchOpen);
+			ImGui::MenuItem("JIT viewer", nullptr, &cfg_.jitViewerOpen);
+			endMenu();
 		}
+		if (beginMenu("Symbols")) {
+			ImGui::MenuItem("Symbol browser", nullptr, &cfg_.symbolsOpen);
+			ImGui::Separator();
 
-		if (ImGui::BeginMenu("Tools")) {
+			if (ImGui::MenuItem("Load .ppmap...")) {
+				System_BrowseForFile(reqToken_, "Load PPSSPP symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to load symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Save .ppmap...")) {
+				System_BrowseForFileSave(reqToken_, "Save PPSSPP symbol map", "symbols.ppmap", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveSymbolMap(path)) {
+						ERROR_LOG(Log::Common, "Failed to save symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Load No$ .sym...")) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->LoadNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
+					}
+				});
+			}
+			if (ImGui::MenuItem("Save No$ .sym...")) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+					Path path(responseString);
+					if (!g_symbolMap->SaveNocashSym(path)) {
+						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
+					}
+				});
+			}
+			ImGui::Separator();
+			ImGui::MenuItem("Compress .ppmap files", nullptr, &g_Config.bCompressSymbols);
+			if (ImGui::MenuItem("Reset symbol map")) {
+				g_symbolMap->Clear();
+				// NotifyDebuggerMapLoaded();
+			}
+			endMenu();
+		}
+		if (beginMenu("Memory")) {
+			for (int i = 0; i < 4; i++) {
+				char title[64];
+				snprintf(title, sizeof(title), "Memory %d", i + 1);
+				ImGui::MenuItem(title, nullptr, &cfg_.memViewOpen[i]);
+			}
+			ImGui::MenuItem("Memory Dumper", nullptr, &cfg_.memDumpOpen);
+			endMenu();
+		}
+		if (beginMenu("OS HLE")) {
+			ImGui::MenuItem("HLE module browser", nullptr, &cfg_.hleModulesOpen);
+			ImGui::MenuItem("File System Browser", nullptr, &cfg_.filesystemBrowserOpen);
+			ImGui::MenuItem("Kernel Objects", nullptr, &cfg_.kernelObjectsOpen);
+			ImGui::MenuItem("Threads", nullptr, &cfg_.threadsOpen);
+			ImGui::MenuItem("Modules", nullptr, &cfg_.modulesOpen);
+			ImGui::MenuItem("Utility Modules", nullptr, &cfg_.utilityModulesOpen);
+			endMenu();
+		}
+		if (beginMenu("Graphics")) {
+			ImGui::MenuItem("GE Debugger", nullptr, &cfg_.geDebuggerOpen);
+			ImGui::MenuItem("GE State", nullptr, &cfg_.geStateOpen);
+			ImGui::MenuItem("GE Vertices", nullptr, &cfg_.geVertsOpen);
+			ImGui::MenuItem("Display Output", nullptr, &cfg_.displayOpen);
+			ImGui::MenuItem("Textures", nullptr, &cfg_.texturesOpen);
+			ImGui::MenuItem("Framebuffers", nullptr, &cfg_.framebuffersOpen);
+			ImGui::MenuItem("Pixel Viewer", nullptr, &cfg_.pixelViewerOpen);
+			// More to come here...
+			endMenu();
+		}
+		if (beginMenu("Audio/Video")) {
+			ImGui::MenuItem("SasAudio mixer", nullptr, &cfg_.sasAudioOpen);
+			ImGui::MenuItem("Raw audio channels", nullptr, &cfg_.audioChannelsOpen);
+			ImGui::MenuItem("AV Decoder contexts", nullptr, &cfg_.mediaDecodersOpen);
+			ImGui::Separator();
+			ImGui::MenuItem("Audio output / buffer", nullptr, &cfg_.audioOutOpen);
+			endMenu();
+		}
+		if (beginMenu("Network")) {
+			ImGui::MenuItem("ApCtl", nullptr, &cfg_.apctlOpen);
+			ImGui::MenuItem("Sockets", nullptr, &cfg_.socketsOpen);
+			ImGui::MenuItem("NP", nullptr, &cfg_.npOpen);
+			ImGui::MenuItem("AdHoc", nullptr, &cfg_.adhocOpen);
+			endMenu();
+		}
+	};
+
+	auto menuTools = [&]() {
+		if (beginMenu("Tools")) {
 			ImGui::MenuItem("Lua Console", nullptr, &cfg_.luaConsoleOpen);
 			ImGui::MenuItem("Log", nullptr, &cfg_.logOpen);
 			ImGui::MenuItem("Log channels", nullptr, &cfg_.logConfigOpen);
@@ -2963,18 +2996,27 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			}
 			ImGui::MenuItem("Struct viewer", nullptr, &cfg_.structViewerOpen);
 			ImGui::MenuItem("Atrac Tool", nullptr, &cfg_.atracToolOpen);
-			ImGui::EndMenu();
+			endMenu();
 		}
+	};
 
-		if (ImGui::BeginMenu("Misc")) {
+	auto menuMisc = [&]() {
+		if (beginMenu("Misc")) {
 			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
-			ImGui::EndMenu();
+			ImGui::Separator();
+			ImGui::MenuItem("Compact menu", nullptr, &cfg_.compactMenu);
+			ImGui::SetNextItemWidth(em * 10.0f);
+			ImGui::SliderInt("Bar left margin", &cfg_.barLeftMargin, 0, 600, "%d%%");  // Percent of the text height.
+			endMenu();
 		}
+	};
 
-		if (ImGui::MenuItem("Close")) {
-			g_Config.bShowImDebugger = false;
+	if (ImGui::BeginMainMenuBar()) {
+		// Keep the first button clear of rounded screen corners / camera cutouts.
+		if (cfg_.barLeftMargin > 0) {
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + em * (float)cfg_.barLeftMargin / 100.0f);
 		}
 		switch (coreState) {
 		case CoreState::CORE_STEPPING_CPU:
@@ -2990,6 +3032,49 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		default:
 			break;
 		}
+
+		if (compactMenu) {
+			if (beginMenu("Menu")) {
+				menuFile();
+				menuEmulation();
+				menuView();
+				menuDebug();
+				if (showDebugger) {
+					menuDebuggerWindows();
+				}
+				menuTools();
+				menuMisc();
+				endMenu();
+			}
+		} else {
+			menuFile();
+			menuEmulation();
+			menuView();
+			menuDebug();
+			if (showDebugger) {
+				menuDebuggerWindows();
+			}
+			menuTools();
+			menuMisc();
+		}
+
+		if (ImGui::MenuItem("Close")) {
+			closeDebugger();
+		}
+
+		// Core state indicator.
+		ImGui::AlignTextToFramePadding();
+		switch (coreState) {
+		case CoreState::CORE_RUNNING_CPU:
+			ImGui::TextColored(ImVec4(0.30f, 0.90f, 0.30f, 1.0f), "Running");
+			break;
+		case CoreState::CORE_STEPPING_CPU:
+			ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.20f, 1.0f), "Stepping");
+			break;
+		default:
+			break;
+		}
+
 		ImGui::EndMainMenuBar();
 	}
 
@@ -3340,4 +3425,6 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
 	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
+	sync.Sync("compactMenu", &compactMenu, kIsMobilePlatform);
+	sync.Sync("barLeftMargin", &barLeftMargin, kIsMobilePlatform ? 200 : 0);
 }
