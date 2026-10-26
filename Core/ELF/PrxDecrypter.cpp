@@ -1368,6 +1368,85 @@ static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
+////////// Signcheck //////////
+
+// When the firmware writes a module to flash0 (the updater, or a CFW installer such as ARK-4 or
+// PRO-C flashing modules on a real PSP), it "signchecks" it first: the 0xD0 bytes of key data
+// at 0x80..0x150 are XORed, encrypted with KIRK command 5 and XORed again, and memlmd undoes that
+// before decrypting. Command 5 uses the per-console key, so a signchecked module only opens with
+// the Fuse ID of the PSP it was flashed on, and a NAND dumped from a real PSP has its modules in
+// this form - while the same modules unpacked from an updater PSAR don't. Everything from 0x150 on
+// is untouched. Keys and layout from psardumper (Dark_AleX, Davee, Proxima), via John Kelley's
+// pspdecrypt.
+static const u8 g_signcheckKeys0[0x10] = {
+	0x71, 0xF6, 0xA8, 0x31, 0x1E, 0xE0, 0xFF, 0x1E, 0x50, 0xBA, 0x6C, 0xD2, 0x98, 0x2D, 0xD6, 0x2D,
+};
+static const u8 g_signcheckKeys1[0x10] = {
+	0xAA, 0x85, 0x4D, 0xB0, 0xFF, 0xCA, 0x47, 0xEB, 0x38, 0x7F, 0xD7, 0xE4, 0x3D, 0x62, 0xB0, 0x10,
+};
+
+// Reverses the signcheck on a 0x150-byte ~PSP header in place.
+static bool UnsignCheckHeader(KirkState *kirk, u8 *header) {
+	u8 enc[sizeof(KIRK_AES128CBC_HEADER) + 0xD0];
+	KIRK_AES128CBC_HEADER *aes = reinterpret_cast<KIRK_AES128CBC_HEADER *>(enc);
+	u8 *data = enc + sizeof(KIRK_AES128CBC_HEADER);
+	aes->mode = KIRK_MODE_DECRYPT_CBC;
+	aes->unk_4 = 0;
+	aes->unk_8 = 0;
+	aes->keyseed = 0x100;
+	aes->data_size = 0xD0;
+	for (int i = 0; i < 0xD0; i++) {
+		data[i] = header[0x80 + i] ^ g_signcheckKeys1[i & 0xF];
+	}
+	// Command 8 writes its output from the start of the buffer, over the KIRK header.
+	if (kirk_sceUtilsBufferCopyWithRange(kirk, enc, sizeof(enc), enc, sizeof(enc), KIRK_CMD_DECRYPT_IV_FUSE) != 0) {
+		return false;
+	}
+	for (int i = 0; i < 0xD0; i++) {
+		enc[i] ^= g_signcheckKeys0[i & 0xF];
+	}
+	memcpy(header + 0x80, enc + 0x40, 0x90);
+	memcpy(header + 0x110, enc, 0x40);
+	return true;
+}
+
+bool pspSignCheckHeader(u8 *header, const u32 *fuseId) {
+	KirkState kirk{};
+	kirk_init2(&kirk, (u8 *)"PrxDecrypter", 12, fuseId[0], fuseId[1]);
+	u8 enc[sizeof(KIRK_AES128CBC_HEADER) + 0xD0];
+	KIRK_AES128CBC_HEADER *aes = reinterpret_cast<KIRK_AES128CBC_HEADER *>(enc);
+	u8 *data = enc + sizeof(KIRK_AES128CBC_HEADER);
+	aes->mode = KIRK_MODE_ENCRYPT_CBC;
+	aes->unk_4 = 0;
+	aes->unk_8 = 0;
+	aes->keyseed = 0x100;
+	aes->data_size = 0xD0;
+	memcpy(data, header + 0x110, 0x40);
+	memcpy(data + 0x40, header + 0x80, 0x90);
+	for (int i = 0; i < 0xD0; i++) {
+		data[i] ^= g_signcheckKeys0[i & 0xF];
+	}
+	if (kirk_sceUtilsBufferCopyWithRange(&kirk, enc, sizeof(enc), enc, sizeof(enc), KIRK_CMD_ENCRYPT_IV_FUSE) != 0) {
+		return false;
+	}
+	for (int i = 0; i < 0xD0; i++) {
+		header[0x80 + i] = data[i] ^ g_signcheckKeys1[i & 0xF];
+	}
+	return true;
+}
+
+bool pspLooksSignChecked(const u8 *header) {
+	// A signchecked header is noise from 0x80 on, so its tag is one we don't know and the area
+	// every unsigned type leaves zero (0xD4..0x104 - type 9 keeps a signature after that) isn't.
+	const u32 tag = (u32)*(const u32_le *)&header[0xD0];
+	if (GetTagInfo(tag) || GetTagInfo2(tag)) {
+		return false;
+	}
+	return std::any_of(header + 0xD4, header + 0x104, [](u8 x) { return x != 0; });
+}
+
+static int pspDecryptPRXUnsigned(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed);
+
 int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u32 *fuseId)
 {
 	// Every type below reads the tag at 0xD0, the size at 0xB0 and key data as far as 0x150, and
@@ -1386,6 +1465,36 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u
 	} else {
 		kirk_init(&kirk);
 	}
+
+	// Keep the header: some callers decrypt in place, and a type that gets far enough writes
+	// a KIRK header over it before failing.
+	u8 header[sizeof(PSP_Header)];
+	memcpy(header, inbuf, sizeof(header));
+
+	int res = pspDecryptPRXUnsigned(&kirk, inbuf, outbuf, size, seed);
+	if (res >= 0 || !fuseId || !pspLooksSignChecked(header)) {
+		return res;
+	}
+
+	// Flashed on a real PSP - undo the signcheck with its Fuse ID and try again.
+	std::vector<u8> unsigned_(size);
+	memcpy(unsigned_.data(), header, sizeof(header));
+	memcpy(unsigned_.data() + sizeof(header), inbuf + sizeof(header), size - sizeof(header));
+	if (!UnsignCheckHeader(&kirk, unsigned_.data())) {
+		return res;
+	}
+	const int unsignedRes = pspDecryptPRXUnsigned(&kirk, unsigned_.data(), outbuf, size, seed);
+	if (unsignedRes >= 0) {
+		INFO_LOG(Log::Loader, "Decrypted a signchecked PRX using the Fuse ID");
+		return unsignedRes;
+	}
+	WARN_LOG(Log::Loader, "PRX looks signchecked, but doesn't decrypt with the configured Fuse ID");
+	return res;
+}
+
+static int pspDecryptPRXUnsigned(KirkState *kirk_, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+{
+	KirkState &kirk = *kirk_;
 
 	// Type 3 tags are only ever type 3, and the others would fail on its header anyway.
 	const TAG_INFO2 *pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);

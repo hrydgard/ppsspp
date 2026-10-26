@@ -87,6 +87,7 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "SystemCtrl.h"
 #include "PopsBoot.h"
 #include "sceAmctrl.h"
 #include "sceNetInet.h"
@@ -169,6 +170,7 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 	{0x696594C8, &WrapU_V<sceKernelQueryLoadCoreCB>,                 "sceKernelQueryLoadCoreCB660",             'x', "",       HLE_KERNEL_SYSCALL },
+	{0xF6B1BF0F, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },  // 6.60's NID
 };
 
 
@@ -302,6 +304,7 @@ static const struct {
 	{ "SysMemForKernel",    { 0x310802A9, 0x25A760F0, 0x02AEA33F, 0,          0          } },  // SysMemForKernel_310802A9
 	{ "SysMemForKernel",    { 0xF12A62F7, 0x52B54B93, 0xFEB5C72B, 0x950BCB31, 0x5136926D } },
 	{ "SysMemForKernel",    { 0xFDC97D28, 0xF2FEAFD5, 0xA4AC3934, 0,          0          } },
+	{ "SysMemForKernel",    { 0xEF29061C, 0,          0,          0,          0,          0,          0,          0xCD617A94 } },  // sceKernelGetGameInfo
 };
 
 u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {
@@ -441,6 +444,10 @@ void RegisterAllModules() {
 	Register_sceVaudio_driver();
 	Register_sceNetApctl_lib();
 	Register_sceMeCore_driver();
+	Register_SystemCtrlGuestCalls();
+	Register_SysclibForUser();
+	Register_ArkCtrl();
+	Register_SystemCtrlHardware();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

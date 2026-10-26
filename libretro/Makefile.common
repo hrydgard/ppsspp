@@ -761,6 +761,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
+	       $(COREDIR)/HLE/SystemCtrl.cpp \
 	       $(COREDIR)/HLE/sceSysreg.cpp \
 	       $(COREDIR)/HLE/NetInetConstants.cpp \
 	       $(COREDIR)/HLE/SocketManager.cpp \

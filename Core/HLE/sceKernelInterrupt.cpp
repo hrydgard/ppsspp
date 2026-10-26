@@ -1013,7 +1013,8 @@ static u32 sysclib_strchr(u32 src, int c) {
 		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
-	size_t cpos = str.find(str, c);
+	// Like the C function, finding the terminator gives a pointer to it.
+	size_t cpos = (char)c == '\0' ? str.size() : str.find((char)c);
 	if (cpos == std::string::npos) {
 		return hleLogVerbose(Log::sceKernel, 0);
 	}
@@ -1025,7 +1026,7 @@ static u32 sysclib_strrchr(u32 src, int c) {
 		return hleLogError(Log::sceKernel, 0, "invalid address");
 	}
 	const std::string str = Memory::GetCharPointer(src);
-	size_t cpos = str.rfind(str, c);
+	size_t cpos = (char)c == '\0' ? str.size() : str.rfind((char)c);
 	if (cpos == std::string::npos) {
 		return hleLogVerbose(Log::sceKernel, 0);
 	}
@@ -1034,6 +1035,10 @@ static u32 sysclib_strrchr(u32 src, int c) {
 
 static u32 sysclib_toupper(u32 c) {
 	return hleLogVerbose(Log::sceKernel, toupper(c));
+}
+
+static u32 sysclib_tolower(u32 c) {
+	return hleLogVerbose(Log::sceKernel, tolower(c));
 }
 
 const HLEFunction SysclibForKernel[] =
@@ -1056,6 +1061,7 @@ const HLEFunction SysclibForKernel[] =
 	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 	{0XC2145E80, &WrapI_UIU<sysclib_snprintf>,                 "snprintf",                            'i', "xx",     HLE_KERNEL_SYSCALL },
 	{0x90C5573D, &WrapU_UU<sysclib_strnlen>,                   "strnlen",                             'x', "xx",     HLE_KERNEL_SYSCALL },
+	{0x3EC5BBF6, &WrapU_U<sysclib_tolower>,                    "tolower",                             'x', "x",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()

@@ -752,6 +752,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/KUBridge.cpp \
+  $(SRC)/Core/HLE/SystemCtrl.cpp \
   $(SRC)/Core/HLE/sceSysreg.cpp \
   $(SRC)/Core/HLE/NetInetConstants.cpp \
   $(SRC)/Core/HLE/SocketManager.cpp \

@@ -65,6 +65,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/SystemCtrl.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/PopsBoot.h"
@@ -156,6 +157,25 @@ static u32 g_startModuleHandler = 0;
 
 // LoadCore's control block, for sceKernelQueryLoadCoreCB. Made on first use.
 static u32 g_loadCoreCB = 0;
+
+// Import hooking done by custom firmware modules (ARK-4's vshctrl) through SystemCtrlForKernel.
+// Import stubs a CFW rewrote with sctrlHookImportByNID, and the first word it wrote: relinking
+// imports (another module loading, a savestate) must leave those alone, but not a new module that
+// has since been loaded over the same memory.
+static std::map<u32, u32> g_hookedImportStubs;
+// sctrlHENPatchSyscall's redirects of a function's user-mode imports, as stubAddr = the new target.
+static std::vector<FuncSymbolImport> g_syscallRedirects;
+// Callable stubs handed out by sctrlHENFindFunction for HLE functions, which have no address of
+// their own. stubAddr is the stub.
+static std::vector<FuncSymbolImport> g_hleFunctionStubs;
+// HLE functions a CFW hijacked (sctrlHENHijackFunction on one of those stubs), which on the PSP
+// patches the function itself: every import of it, kernel or user, goes to stubAddr.
+static std::vector<FuncSymbolImport> g_hijackRedirects;
+// The main module's thread, until a start-module handler is registered (or the next LoadExec).
+static SceUID g_mainModuleThread;
+static SceUID g_mainModuleThreadModule;
+// Where it starts, before a trampoline for a start-module handler went in front.
+static u32 g_mainModuleEntry;
 
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting = false);
 
@@ -492,6 +512,8 @@ struct SceKernelLMOption {
 	char creserved[2];
 };
 
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
+
 struct SceKernelSMOption {
 	SceSize_le size;
 	SceUID_le mpidstack;
@@ -541,9 +563,47 @@ u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 
 // Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;
+// The NAND firmware's sceKernelDevkitVersion, while the XMB runs. 0 until asked for.
+static u32 g_vshDevkitVersion = 0;
 // What the XMB passed as vshmain args when it launched the running game, to hand back on exit.
 // Survives the kernel reset that LoadExec does, so it isn't cleared with the rest of this file's state.
 static std::vector<u8> g_vshmainArgs;
+
+u32 __KernelVSHDevkitVersion() {
+	if (!g_runningVSH) {
+		return 0;
+	}
+	if (g_vshDevkitVersion == 0) {
+		// version.txt's "system:57716@release_660,0x06060010:" line has it as the firmware reports it,
+		// "release:6.61:" in the usual form. 1 if neither, so we don't read it again.
+		g_vshDevkitVersion = 1;
+		std::vector<u8> data;
+		if (pspFileSystem.ReadEntireFile("flash0:/vsh/etc/version.txt", data, true) >= 0) {
+			const std::string text(data.begin(), data.end());
+			std::vector<std::string_view> lines;
+			SplitString(text, '\n', lines);
+			for (std::string_view line : lines) {
+				line = StripSpaces(line);
+				if (startsWith(line, "system:")) {
+					const size_t hex = line.find(",0x");
+					if (hex != std::string_view::npos) {
+						const u32 value = (u32)strtoul(std::string(line.substr(hex + 3, 8)).c_str(), nullptr, 16);
+						if (value > 0x01000000) {
+							g_vshDevkitVersion = value;
+							break;
+						}
+					}
+				} else if (startsWith(line, "release:") && line.size() >= strlen("release:") + 4) {
+					const std::string_view v = line.substr(strlen("release:"));
+					if (v[1] == '.' && isdigit(v[0]) && isdigit(v[2]) && isdigit(v[3])) {
+						g_vshDevkitVersion = ((v[0] - '0') << 24) | ((v[2] - '0') << 16) | ((v[3] - '0') << 8) | 0x10;
+					}
+				}
+			}
+		}
+	}
+	return g_vshDevkitVersion > 1 ? g_vshDevkitVersion : 0;
+}
 
 bool __KernelIsRunningVSH() {
 	return g_runningVSH;
@@ -608,7 +668,7 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 7);
+	auto s = p.Section("sceKernelModule", 1, 10);
 	if (!s)
 		return;
 
@@ -663,6 +723,43 @@ void __KernelModuleDoState(PointerWrap &p) {
 		g_loadCoreCB = 0;
 	}
 
+	// Before the imports get relinked below, which needs to know about these.
+	if (s >= 8) {
+		Do(p, g_hookedImportStubs);
+		FuncSymbolImport fsi = { {0} };
+		Do(p, g_syscallRedirects, fsi);
+		Do(p, g_hleFunctionStubs, fsi);
+		for (auto &sym : g_syscallRedirects) {
+			TerminateLoadedCString(p, sym.moduleName);
+		}
+		for (auto &sym : g_hleFunctionStubs) {
+			TerminateLoadedCString(p, sym.moduleName);
+		}
+		Do(p, g_mainModuleThread);
+		Do(p, g_mainModuleThreadModule);
+		if (s >= 9) {
+			Do(p, g_hijackRedirects, fsi);
+			for (auto &sym : g_hijackRedirects) {
+				TerminateLoadedCString(p, sym.moduleName);
+			}
+		} else if (p.mode == p.MODE_READ) {
+			g_hijackRedirects.clear();
+		}
+		if (s >= 10) {
+			Do(p, g_mainModuleEntry);
+		} else if (p.mode == p.MODE_READ) {
+			g_mainModuleEntry = 0;
+		}
+	} else if (p.mode == p.MODE_READ) {
+		g_hijackRedirects.clear();
+		g_hookedImportStubs.clear();
+		g_syscallRedirects.clear();
+		g_hleFunctionStubs.clear();
+		g_mainModuleThread = 0;
+		g_mainModuleThreadModule = 0;
+		g_mainModuleEntry = 0;
+	}
+
 	if (p.mode == p.MODE_READ) {
 		u32 error;
 		// We process these late, since they depend on loadedModules for interlinking.
@@ -704,6 +801,15 @@ void __KernelModuleShutdown() {
 	g_vshModulesToStart.clear();
 	g_vshModuleStarting = 0;
 	g_loadCoreCB = 0;
+	g_startModuleHandler = 0;
+	g_vshDevkitVersion = 0;
+	g_hookedImportStubs.clear();
+	g_syscallRedirects.clear();
+	g_hleFunctionStubs.clear();
+	g_hijackRedirects.clear();
+	g_mainModuleThread = 0;
+	g_mainModuleThreadModule = 0;
+	g_mainModuleEntry = 0;
 	MIPSAnalyst::Reset();
 	HLEPlugins::Unload();
 }
@@ -901,7 +1007,47 @@ static bool FuncImportIsHLE(std::string_view module, u32 nid) {
 	return GetHLEFunc(module, nid) != nullptr;
 }
 
+// On the PSP, user modules call other modules through the syscall table, which a CFW can patch
+// (sctrlHENPatchSyscall) to send every user-mode caller of a function somewhere else. Kernel
+// modules link directly and are unaffected.
+static bool IsUserModeStub(u32 stubAddr) {
+	const u32 addr = stubAddr & 0x3FFFFFFF;
+	return addr >= PSP_GetUserMemoryBase() && addr < PSP_GetUserMemoryEnd();
+}
+
+static const FuncSymbolImport *FindRedirect(const std::vector<FuncSymbolImport> &redirects, const char *moduleName, u32 nid) {
+	for (const FuncSymbolImport &redirect : redirects) {
+		if (redirect.nid == nid && !strncmp(redirect.moduleName, moduleName, KERNELOBJECT_MAX_NAME_LENGTH)) {
+			return &redirect;
+		}
+	}
+	return nullptr;
+}
+
 void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule) {
+	// A CFW hooked this import - keep it, unless another module has been loaded over it since.
+	auto hooked = g_hookedImportStubs.find(func.stubAddr);
+	if (hooked != g_hookedImportStubs.end()) {
+		if (Memory::IsValidRange(func.stubAddr, 8) && Memory::ReadUnchecked_U32(func.stubAddr) == hooked->second) {
+			return;
+		}
+		g_hookedImportStubs.erase(hooked);
+	}
+	if (const FuncSymbolImport *redirect = FindRedirect(g_hijackRedirects, func.moduleName, func.nid)) {
+		INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x (sctrlHENHijackFunction)", importingModule, func.moduleName, func.nid, redirect->stubAddr);
+		WriteFuncStub(func.stubAddr, redirect->stubAddr);
+		currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
+		return;
+	}
+	if (IsUserModeStub(func.stubAddr)) {
+		if (const FuncSymbolImport *redirect = FindRedirect(g_syscallRedirects, func.moduleName, func.nid)) {
+			INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x (sctrlHENPatchSyscall)", importingModule, func.moduleName, func.nid, redirect->stubAddr);
+			WriteFuncStub(func.stubAddr, redirect->stubAddr);
+			currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
+			return;
+		}
+	}
+
 	bool shouldHLE = ShouldHLEModuleByImportName(func.moduleName);
 
 	// Prioritize HLE implementations, if we should HLE this.
@@ -1478,6 +1624,93 @@ static std::string ResolveVshModelModule(const char *path) {
 	return std::string(path);
 }
 
+// ARK-4 keeps its modules in FLASH0.ARK, a list of (u32 size, u8 name length, name, data) after
+// a u32 count, which its boot code mounts over flash0 - so they win over a copy in flash0 itself,
+// which a NAND that ARK was once flashed to fully may still have. name is the path in flash0.
+static bool ReadArkFlash0Archive(std::string_view name, std::vector<u8> &data) {
+	std::vector<u8> ark;
+	if (pspFileSystem.ReadEntireFile("ms0:/PSP/SAVEDATA/ARK_01234/FLASH0.ARK", ark, true) < 0 || ark.size() < 4) {
+		return false;
+	}
+	size_t pos = 4;
+	while (pos + 5 <= ark.size()) {
+		const u32 size = ark[pos] | (ark[pos + 1] << 8) | (ark[pos + 2] << 16) | ((u32)ark[pos + 3] << 24);
+		const u8 nameLen = ark[pos + 4];
+		pos += 5;
+		if (pos + nameLen + (size_t)size > ark.size()) {
+			break;
+		}
+		const std::string_view entry((const char *)&ark[pos], nameLen);
+		pos += nameLen;
+		if (equalsNoCase(entry, name)) {
+			data.assign(ark.begin() + pos, ark.begin() + pos + size);
+			INFO_LOG(Log::sceModule, "Using %.*s from FLASH0.ARK", STR_VIEW(name));
+			return true;
+		}
+		pos += size;
+	}
+	return false;
+}
+
+// A module load from flash0 that ARK's FLASH0.ARK has a file for (vshctrl loads XMB Control so).
+static bool ReadArkFlash0Override(std::string_view path, std::vector<u8> &data) {
+	return startsWith(path, "flash0:") && ReadArkFlash0Archive(path.substr(strlen("flash0:")), data);
+}
+
+static bool ReadArkFlash0File(const char *name, std::vector<u8> &data) {
+	if (ReadArkFlash0Archive(name, data)) {
+		return true;
+	}
+	if (pspFileSystem.ReadEntireFile(std::string("flash0:") + name, data, true) >= 0) {
+		INFO_LOG(Log::sceModule, "Using %s from flash0", name);
+		return true;
+	}
+	return false;
+}
+
+// On a PSP running ARK-4, its systemctrl comes up at boot and loads vshctrl ahead of the shell,
+// which then patches the shell's modules as they start (the System Information line, ISOs in the
+// game list, ...). We don't run the boot chain, so SystemCtrlForKernel is HLE (SystemCtrl.cpp)
+// and only vshctrl itself is loaded, where ARK's patched pspbtcnf has it: right before vshbridge.
+static void LoadArkVshCtrl() {
+	std::vector<u8> data;
+	if (!ReadArkFlash0File("/kd/ark_vshctrl.prx", data)) {
+		return;
+	}
+	bool tryLoadExec = false;
+	const u32 moduleId = KernelLoadModuleFromData("flash0:/kd/ark_vshctrl.prx", data, 0, nullptr, &tryLoadExec);
+	if ((int)moduleId <= 0) {
+		WARN_LOG(Log::sceModule, "ARK-4's vshctrl is there but didn't load: %08x", moduleId);
+		return;
+	}
+	INFO_LOG(Log::sceModule, "Loaded ARK-4's vshctrl");
+	g_vshModulesToStart.push_back(moduleId);
+
+	// What version to say we are: whatever this ARK's own systemctrl would.
+	std::vector<u8> systemctrl;
+	if (ReadArkFlash0File("/kd/ark_systemctrl.prx", systemctrl)) {
+		__SystemCtrlReadArkVersion(systemctrl);
+	}
+}
+
+// ARK-5 (PSP-Arkfive) adds XMB Control, which its VSH menu needs. Its vshctrl loads it when
+// vsh_module starts, through a StartModule hook (sctrlSetStartModuleExtra) we don't run; its Vita
+// boot configuration has it last, before vshmain, as here.
+static void LoadArkXmbCtrl() {
+	std::vector<u8> data;
+	if (!ReadArkFlash0File("/kd/ark_xmbctrl.prx", data)) {
+		return;
+	}
+	bool tryLoadExec = false;
+	const u32 moduleId = KernelLoadModuleFromData("flash0:/kd/ark_xmbctrl.prx", data, 0, nullptr, &tryLoadExec);
+	if ((int)moduleId <= 0) {
+		WARN_LOG(Log::sceModule, "ARK's XMB Control is there but didn't load: %08x", moduleId);
+		return;
+	}
+	INFO_LOG(Log::sceModule, "Loaded ARK's XMB Control");
+	g_vshModulesToStart.push_back(moduleId);
+}
+
 static void LoadVshKernelModules() {
 	// These 11 are small, simple kernel drivers (a few KB to ~100KB of code each) that don't
 	// declare their own module_start_thread_stacksize, so each start thread gets the kernel
@@ -1515,6 +1748,8 @@ static void LoadVshKernelModules() {
 		LoadVshKernelModule("flash0:/vsh/module/heaparea1.prx", true);
 	}
 
+	LoadArkVshCtrl();
+
 	static const char *const vshUiKernelModulePaths[] = {
 		"flash0:/kd/vshbridge.prx",
 		"flash0:/vsh/module/paf.prx",
@@ -1524,6 +1759,8 @@ static void LoadVshKernelModules() {
 	for (const char *path : vshUiKernelModulePaths) {
 		LoadVshKernelModule(path, true);
 	}
+
+	LoadArkXmbCtrl();
 }
 
 // filename is only used for dumping/metadata.
@@ -1676,6 +1913,12 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
+		// Modules from a NAND dumped off a real PSP are signchecked to that console (see
+		// pspLooksSignChecked), so they need its Fuse ID even when the caller has none for us.
+		u32 configFuseId[2];
+		if (!fuseId && pspParseFuseId(g_Config.sFuseID, configFuseId)) {
+			fuseId = configFuseId;
+		}
 		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed, fuseId);
 		// If decryption got us nowhere, the PRX may simply not be encrypted - in which case the ELF
 		// starts right after the header. Check the source buffer, not the destination: on the paths
@@ -1685,12 +1928,24 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			decryptedSize = head->psp_size - 0x150;
 			memcpy(newptr, in + 0x150, decryptedSize);
 			// In this case it's definitely not compressed. Added assert below.
+		} else if (decryptedSize <= 0 && isCompressed && head->psp_size >= 0x150 + 2 && in[0x150] == 0x1F && in[0x151] == 0x8B) {
+			// Not encrypted, just gzipped. Custom firmware (PRO, ARK-4) ships its own modules like
+			// this, under a tag of its own its loader knows not to decrypt.
+			decryptedSize = head->psp_size - 0x150;
+			memcpy(newptr, in + 0x150, decryptedSize);
 		}
 
 		// Don't accept ELFs over 24MB, ones bigger than the buffer we allocated for them - nor ones
 		// with negative size, of course.
 		if (decryptedSize < 0 || decryptedSize > 24 * 1024 * 1024 || decryptedSize > (int)maxElfSize) {
-			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
+			if (decryptedSize < 0 && pspLooksSignChecked(in)) {
+				// Not corrupt - flashed on a real PSP (CFW installers do this too), and keyed to it.
+				*error_string = fuseId
+					? "PRX is signchecked to a different PSP than the Fuse ID set (FuseID in ppsspp.ini)"
+					: "PRX is signchecked to the PSP it was flashed on - set that PSP's Fuse ID (FuseID in ppsspp.ini, 12 hex digits)";
+			} else {
+				*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable decrypted size: %d", (u32)decryptedSize);
+			}
 			delete [] newptr;
 			module->Cleanup();
 			kernelObjects.Destroy<PSPModule>(module->GetUID());
@@ -2417,6 +2672,9 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+	g_mainModuleThread = threadID;
+	g_mainModuleThreadModule = m->GetUID();
+	g_mainModuleEntry = 0;
 }
 
 u32 __KernelGetModuleGP(SceUID uid) {
@@ -2672,6 +2930,18 @@ static bool RebootFromVSHInto(const std::string &filename) {
 		if (isExecutable("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN") || isExecutable("disc0:/PSP_GAME/SYSDIR/BOOT.BIN")) {
 			hostPath = disc;
 		}
+	} else if (startsWith(filename, "ms0:/") && (endsWithNoCase(filename, ".iso") || endsWithNoCase(filename, ".cso") ||
+		endsWithNoCase(filename, ".zso") || endsWithNoCase(filename, ".chd"))) {
+		// A disc image, which CFW (ARK-4's vshctrl) lists in the game menu and launches like this.
+		hostPath = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT) / filename.substr(strlen("ms0:/"));
+		if (!File::Exists(hostPath)) {
+			return false;
+		}
+		BootRequest request;
+		request.fileToStart = hostPath;
+		request.launchedFromVSH = VSHLaunch{ PSP_CoreParameter().fileToStart, g_vshmainArgs };
+		PSP_RequestBoot(request);
+		return true;
 	} else if (startsWith(filename, "ms0:/PSP/GAME") && endsWithNoCase(filename, "/EBOOT.PBP")) {
 		hostPath = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT) / filename.substr(strlen("ms0:/"));
 		if (!File::Exists(hostPath)) {
@@ -2837,7 +3107,6 @@ bool __KernelExitToVSH(MIPSState *mips) {
 	return true;
 }
 
-static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
 
 // What sceKernelLoadModule does once the file has been read: decrypt the module, place it in memory
 // and link it. Returns the module's UID or an error. Logs directly rather than through hleLog*,
@@ -2845,7 +3114,7 @@ static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &file
 // as a module.
 static u32 KernelLoadModuleFromFile(const char *name, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec) {
 	std::vector<uint8_t> fileData;
-	if (pspFileSystem.ReadEntireFile(name, fileData) < 0) {
+	if (!ReadArkFlash0Override(name, fileData) && pspFileSystem.ReadEntireFile(name, fileData) < 0) {
 		ERROR_LOG(Log::Loader, "sceKernelLoadModule(%s): file does not exist", name);
 		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
@@ -2957,6 +3226,11 @@ u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 option
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
+	std::vector<u8> arkModule;
+	if (ReadArkFlash0Override(name, arkModule)) {
+		info.exists = true;
+		info.size = arkModule.size();
+	}
 	if (!info.exists) {
 		const u32 error = hleLogError(Log::Loader, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
 		return hleDelayResult(error, "module loaded", 500);
@@ -3140,21 +3414,112 @@ static int ResolveModuleThreadParams(const PSPModule *module, u32 priority, u32 
 // Utawarerumono Portable's run as the game's EBOOT loader and hook module startup through this to
 // patch each module (e.g. the Exillusion engine's JIS table) before it starts. NID and behavior
 // per JPCSP's SystemCtrlForKernel module and its sceKernelLoadModuleDisc commit.
-static u32 sctrlHENSetStartModuleHandler(u32 handlerAddr) {
+// A custom-firmware loader registered a start-module handler (sctrlHENSetStartModuleHandler).
+// Run it just before module_start with a pointer to the module's native struct, from a
+// trampoline the way the CFW and JPCSP's ModuleMgrForUser do. It goes in the unused lower
+// part of the thread's k0 exception-scratch area: above the initial stack pointer (so the
+// handler's own frames can't reach it) and below the fields FillStack wrote at k0 + 0xC0.
+// The thread mustn't have run yet.
+static void InstallStartModuleHandlerCall(PSPModule *module, SceUID threadID, u32 entryAddr = 0) {
+	if (g_startModuleHandler == 0 || !module->modulePtr.IsValid()) {
+		return;
+	}
+	u32 threadError;
+	PSPThread *startThread = kernelObjects.Get<PSPThread>(threadID, threadError);
+	u32 k0 = startThread ? startThread->context.r[MIPS_REG_K0] : 0;
+	if (!startThread || !Memory::IsValidRange(k0 + 0x80, 0x30)) {
+		return;
+	}
+	if (entryAddr == 0) {
+		entryAddr = startThread->context.pc;
+	}
+	u32 tramp = k0 + 0x80;
+	// Split the module struct pointer into LUI/ADDIU halves (ADDIU sign-extends).
+	const u32 modPtr = module->modulePtr.ptr;
+	s32 lo = (s16)(modPtr & 0xFFFF);
+	u32 hi = ((u32)(modPtr - lo)) >> 16;
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, -16), tramp + 0x00);
+	Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A0 << 16) | (MIPS_REG_SP << 21) | 0x0, tramp + 0x04);  // sw a0, 0(sp)
+	Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A1 << 16) | (MIPS_REG_SP << 21) | 0x4, tramp + 0x08);  // sw a1, 4(sp)
+	Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_RA << 16) | (MIPS_REG_SP << 21) | 0x8, tramp + 0x0C);  // sw ra, 8(sp)
+	Memory::WriteUnchecked_U32(MIPS_MAKE_LUI(MIPS_REG_A0, hi), tramp + 0x10);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(g_startModuleHandler), tramp + 0x14);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_A0, lo & 0xFFFF), tramp + 0x18);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A0, MIPS_REG_SP, 0), tramp + 0x1C);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A1, MIPS_REG_SP, 4), tramp + 0x20);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 8), tramp + 0x24);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_J(entryAddr), tramp + 0x28);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), tramp + 0x2C);
+	// Thread stacks get reused, so an older trampoline may already be compiled here.
+	currentMIPS->InvalidateICacheRangeDeferred(tramp, 0x30);
+	NotifyMemInfo(MemBlockFlags::WRITE, tramp, 0x30, "ModuleStartTrampoline");
+	startThread->context.pc = tramp;
+	startThread->nt.entrypoint = tramp;
+	DEBUG_LOG(Log::sceModule, "Installed start module handler %08x for %s (module struct %08x) at %08x", g_startModuleHandler, module->nm.name, modPtr, tramp);
+}
+
+u32 sctrlHENSetStartModuleHandler(u32 handlerAddr) {
 	u32 previous = g_startModuleHandler;
 	g_startModuleHandler = handlerAddr;
+
+	// The main module's thread is made before anything it loads can register a handler. On the
+	// VSH that's vsh_module, which ARK's vshctrl (and ARK-5's XMB Control) patch, and which hasn't
+	// started yet when they register: the shell's kernel modules start first. Each registration
+	// redoes its trampoline, so it calls the newest handler, which calls the ones before it.
+	u32 error;
+	PSPModule *mainModule = kernelObjects.Get<PSPModule>(g_mainModuleThreadModule, error);
+	PSPThread *mainThread = g_mainModuleThread ? kernelObjects.Get<PSPThread>(g_mainModuleThread, error) : nullptr;
+	if (handlerAddr && mainModule && mainThread && mainThread->context.pc == mainThread->nt.entrypoint &&
+		mainThread->nt.status != THREADSTATUS_DORMANT && mainModule->nm.status == MODULE_STATUS_STARTED) {
+		if (g_mainModuleEntry == 0) {
+			g_mainModuleEntry = mainThread->context.pc;
+		}
+		InstallStartModuleHandlerCall(mainModule, g_mainModuleThread, g_mainModuleEntry);
+		INFO_LOG(Log::sceModule, "sctrlHENSetStartModuleHandler: %s hasn't run yet, so it gets the handler too", mainModule->GetName());
+	} else {
+		// It has run (or there's none), so no later handler gets it.
+		g_mainModuleThread = 0;
+	}
 	return hleLogInfo(Log::sceModule, previous, "handler %08x", handlerAddr);
 }
 
 // NID 0x78E46415, per JPCSP's SystemCtrlForKernel. Imported by CLANNAD's chfont.prx to look up
 // a driver by name; since no real driver patching is done, always report it as found.
-static u32 sctrlHENFindDriver(const char *drvname) {
+u32 sctrlHENFindDriver(const char *drvname) {
 	return hleLogInfo(Log::sceModule, 0, "driver %s", drvname ? drvname : "(null)");
 }
 
 // The custom firmware's lookup of a loaded module's export, by module and library name (either may
-// be left out) and NID. Only modules loaded as code have exports to find.
-static u32 sctrlHENFindFunction(const char *moduleName, const char *libraryName, u32 nid) {
+// be left out) and NID.
+// A stub that makes the syscall for an HLE function, which CFW modules can call: functions we HLE
+// have no address (ARK's vshctrl wraps sceCtrlReadBufferPositive through one). 0 if none.
+static u32 HLEFunctionStub(const char *libraryName, u32 nid) {
+	for (const FuncSymbolImport &stub : g_hleFunctionStubs) {
+		if (stub.nid == nid && !strncmp(stub.moduleName, libraryName, KERNELOBJECT_MAX_NAME_LENGTH)) {
+			return stub.stubAddr;
+		}
+	}
+	u32 stubSize = 8;
+	const u32 stubAddr = kernelMemory.Alloc(stubSize, false, "CFW HLE stub");
+	if (stubAddr == (u32)-1 || !WriteHLESyscall(libraryName, nid, stubAddr)) {
+		return 0;
+	}
+	FuncSymbolImport stub{};
+	truncate_cpy(stub.moduleName, libraryName);
+	stub.nid = nid;
+	stub.stubAddr = stubAddr;
+	g_hleFunctionStubs.push_back(stub);
+	currentMIPS->InvalidateICacheRangeDeferred(stubAddr, 8);
+	return stubAddr;
+}
+
+u32 sctrlHENFindFunction(const char *moduleName, const char *libraryName, u32 nid) {
+	// A few firmware driver functions wait on hardware we don't emulate. A CFW gets ours instead.
+	if (const char *hleLibrary = libraryName ? __SystemCtrlHardwareLibrary(libraryName, nid) : nullptr) {
+		const u32 stub = HLEFunctionStub(hleLibrary, nid);
+		return hleLogDebug(Log::sceModule, stub, "%s instead", hleLibrary);
+	}
+
 	u32 error;
 	for (SceUID moduleId : loadedModules) {
 		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
@@ -3167,7 +3532,154 @@ static u32 sctrlHENFindFunction(const char *moduleName, const char *libraryName,
 			}
 		}
 	}
+
+	// The module name is the firmware's, which HLE doesn't go by - the library is what matters.
+	if (libraryName && GetHLEFunc(libraryName, nid)) {
+		if (const u32 stub = HLEFunctionStub(libraryName, nid)) {
+			return hleLogDebug(Log::sceModule, stub, "HLE stub");
+		}
+	}
 	return hleLogWarning(Log::sceModule, 0, "not found");
+}
+
+// Adds (or replaces) a redirect of a function's user-mode imports (or with allModes, all of them),
+// and applies it to the modules loaded so far. Returns how many imports it rewrote.
+static int RedirectImports(const char *moduleName, u32 nid, u32 newAddr, bool allModes) {
+	FuncSymbolImport redirect{};
+	truncate_cpy(redirect.moduleName, moduleName);
+	redirect.nid = nid;
+	redirect.stubAddr = newAddr;
+	std::vector<FuncSymbolImport> &redirects = allModes ? g_hijackRedirects : g_syscallRedirects;
+	redirects.erase(std::remove_if(redirects.begin(), redirects.end(), [&](const FuncSymbolImport &r) {
+		return r.nid == nid && !strncmp(r.moduleName, redirect.moduleName, KERNELOBJECT_MAX_NAME_LENGTH);
+	}), redirects.end());
+	redirects.push_back(redirect);
+
+	int count = 0;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
+		for (const FuncSymbolImport &import : module->importedFuncs) {
+			if (import.nid == nid && !strncmp(import.moduleName, redirect.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) &&
+				(allModes || IsUserModeStub(import.stubAddr)) && g_hookedImportStubs.find(import.stubAddr) == g_hookedImportStubs.end()) {
+				INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x", module->GetName(), moduleName, nid, newAddr);
+				WriteFuncStub(import.stubAddr, newAddr);
+				currentMIPS->InvalidateICacheRangeDeferred(import.stubAddr, 8);
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
+// Imports that firmware code makes from inside an export we HLE. Callers of the export get our
+// implementation and never run that code, so hooking the import means hooking the export.
+static const struct {
+	const char *module;
+	const char *library;
+	u32 nid;
+	const char *exportLibrary;
+	u32 exportNid;
+} g_importsInsideHLEExports[] = {
+	// vshCtrlReadBufferPositive, the XMB's way to read the pad. ARK-4 hooks it for its VSH menu.
+	{ "sceVshBridge_Driver", "sceCtrl_driver", 0xBE30CED0, "sceVshBridge", 0xC6395C03 },
+};
+
+bool __KernelHijackHLEFunction(u32 stubAddr, u32 newAddr) {
+	for (const FuncSymbolImport &stub : g_hleFunctionStubs) {
+		if ((stub.stubAddr & 0x3FFFFFFF) == (stubAddr & 0x3FFFFFFF)) {
+			const int count = RedirectImports(stub.moduleName, stub.nid, newAddr, true);
+			INFO_LOG(Log::sceModule, "%s/%08x is HLE, so its imports go to %08x (%d so far)", stub.moduleName, stub.nid, newAddr, count);
+			return true;
+		}
+	}
+	return false;
+}
+
+static PSPModule *FindModuleByNativePtr(u32 modPtr) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (module && module->modulePtr.ptr != 0 && (module->modulePtr.ptr & 0x3FFFFFFF) == (modPtr & 0x3FFFFFFF)) {
+			return module;
+		}
+	}
+	return nullptr;
+}
+
+// Points one of a module's imports somewhere else: func, or for func <= 0xFFFF a stub returning
+// that value (ARK-4 systemctrl's hooknids.c). The real one uses a syscall where a user module's
+// import goes to kernel code, which only matters for privileges - a jump does the same here.
+int sctrlHookImportByNID(u32 modPtr, const char *library, u32 nid, u32 func) {
+	PSPModule *module = modPtr ? FindModuleByNativePtr(modPtr) : nullptr;
+	if (!module || !library) {
+		return hleLogError(Log::sceModule, -1, "bad module or library");
+	}
+	for (const auto &inside : g_importsInsideHLEExports) {
+		if (func > 0xFFFF && inside.nid == nid && !strcmp(inside.library, library) && !strcmp(inside.module, module->GetName())) {
+			const int count = RedirectImports(inside.exportLibrary, inside.exportNid, func, false);
+			INFO_LOG(Log::sceModule, "sctrlHookImportByNID: %s/%08x is inside HLE, so %s/%08x goes to %08x (%d imports so far)", library, nid, inside.exportLibrary, inside.exportNid, func, count);
+		}
+	}
+	for (const FuncSymbolImport &import : module->importedFuncs) {
+		if (import.nid != nid || strncmp(import.moduleName, library, KERNELOBJECT_MAX_NAME_LENGTH) != 0) {
+			continue;
+		}
+		if (!Memory::IsValid4AlignedRange(import.stubAddr, 8) || (func > 0xFFFF && !Memory::IsValid4AlignedAddress(func))) {
+			return hleLogError(Log::sceModule, -1, "bad stub or target");
+		}
+		if (func <= 0xFFFF) {
+			Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), import.stubAddr);
+			Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V0, MIPS_REG_ZERO, func), import.stubAddr + 4);  // li v0, func (as ARK does)
+		} else {
+			WriteFuncStub(import.stubAddr, func);
+		}
+		g_hookedImportStubs[import.stubAddr] = Memory::ReadUnchecked_U32(import.stubAddr);
+		currentMIPS->InvalidateICacheRangeDeferred(import.stubAddr, 8);
+		return hleLogInfo(Log::sceModule, 0, "%s now goes to %08x", module->GetName(), func);
+	}
+	// ARK would try its table of NIDs that changed between firmware versions here.
+	return hleLogWarning(Log::sceModule, -2, "%s doesn't import it", module->GetName());
+}
+
+// Redirects every user-mode call of the function at addr - a module's export, or one of our
+// stubs from sctrlHENFindFunction - to newAddr, now and for modules loaded later.
+void sctrlHENPatchSyscall(u32 addr, u32 newAddr) {
+	FuncSymbolImport redirect{};
+	bool found = false;
+	for (const FuncSymbolImport &stub : g_hleFunctionStubs) {
+		if ((stub.stubAddr & 0x3FFFFFFF) == (addr & 0x3FFFFFFF)) {
+			redirect = stub;
+			found = true;
+			break;
+		}
+	}
+	u32 error;
+	for (auto it = loadedModules.begin(); !found && addr != 0 && it != loadedModules.end(); ++it) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(*it, error);
+		if (!module) {
+			continue;
+		}
+		for (const FuncSymbolExport &func : module->exportedFuncs) {
+			if ((func.symAddr & 0x3FFFFFFF) == (addr & 0x3FFFFFFF)) {
+				truncate_cpy(redirect.moduleName, func.moduleName);
+				redirect.nid = func.nid;
+				found = true;
+				break;
+			}
+		}
+	}
+	if (!found || !Memory::IsValid4AlignedAddress(newAddr)) {
+		WARN_LOG(Log::sceModule, "sctrlHENPatchSyscall(%08x, %08x): no function there", addr, newAddr);
+		hleNoLogVoid();
+		return;
+	}
+	const int count = RedirectImports(redirect.moduleName, redirect.nid, newAddr, false);
+	INFO_LOG(Log::sceModule, "sctrlHENPatchSyscall: %s/%08x now goes to %08x (%d imports so far)", redirect.moduleName, redirect.nid, newAddr, count);
+	hleNoLogVoid();
 }
 
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
@@ -3200,41 +3712,7 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
-		if (g_startModuleHandler != 0 && module->modulePtr.IsValid()) {
-			// A custom-firmware loader registered a start-module handler (sctrlHENSetStartModuleHandler).
-			// Run it just before module_start with a pointer to the module's native struct, from a
-			// trampoline the way the CFW and JPCSP's ModuleMgrForUser do. It goes in the unused lower
-			// part of the thread's k0 exception-scratch area: above the initial stack pointer (so the
-			// handler's own frames can't reach it) and below the fields FillStack wrote at k0 + 0xC0.
-			u32 threadError;
-			PSPThread *startThread = kernelObjects.Get<PSPThread>(threadID, threadError);
-			u32 k0 = startThread ? startThread->context.r[MIPS_REG_K0] : 0;
-			if (startThread && Memory::IsValidRange(k0 + 0x80, 0x30)) {
-				u32 tramp = k0 + 0x80;
-				// Split the module struct pointer into LUI/ADDIU halves (ADDIU sign-extends).
-				const u32 modPtr = module->modulePtr.ptr;
-				s32 lo = (s16)(modPtr & 0xFFFF);
-				u32 hi = ((u32)(modPtr - lo)) >> 16;
-				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, -16), tramp + 0x00);
-				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A0 << 16) | (MIPS_REG_SP << 21) | 0x0, tramp + 0x04);  // sw a0, 0(sp)
-				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A1 << 16) | (MIPS_REG_SP << 21) | 0x4, tramp + 0x08);  // sw a1, 4(sp)
-				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_RA << 16) | (MIPS_REG_SP << 21) | 0x8, tramp + 0x0C);  // sw ra, 8(sp)
-				Memory::WriteUnchecked_U32(MIPS_MAKE_LUI(MIPS_REG_A0, hi), tramp + 0x10);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(g_startModuleHandler), tramp + 0x14);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_A0, lo & 0xFFFF), tramp + 0x18);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A0, MIPS_REG_SP, 0), tramp + 0x1C);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A1, MIPS_REG_SP, 4), tramp + 0x20);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 8), tramp + 0x24);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_J(entryAddr), tramp + 0x28);
-				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), tramp + 0x2C);
-				// Thread stacks get reused, so an older trampoline may already be compiled here.
-				currentMIPS->InvalidateICacheRangeDeferred(tramp, 0x30);
-				NotifyMemInfo(MemBlockFlags::WRITE, tramp, 0x30, "ModuleStartTrampoline");
-				startThread->context.pc = tramp;
-				startThread->nt.entrypoint = tramp;
-				DEBUG_LOG(Log::sceModule, "Installed start module handler %08x for %s (module struct %08x) at %08x", g_startModuleHandler, module->nm.name, modPtr, tramp);
-			}
-		}
+		InstallStartModuleHandlerCall(module, threadID);
 
 		if (needsWait) {
 			*needsWait = true;
@@ -3605,6 +4083,17 @@ u32 sceKernelQueryLoadCoreCB() {
 	return hleLogInfo(Log::sceModule, g_loadCoreCB);
 }
 
+u32 __KernelFindModuleByName(const char *name) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (module && !module->isFake && strcmp(name, module->nm.name) == 0) {
+			return module->modulePtr.ptr;
+		}
+	}
+	return 0;
+}
+
 u32 sceKernelFindModuleByName(const char *name)
 {
 	u32 error;
@@ -3614,14 +4103,14 @@ u32 sceKernelFindModuleByName(const char *name)
 			continue;
 		if (strcmp(name, module->nm.name) == 0) {
 			if (!module->isFake) {
-				INFO_LOG(Log::sceModule, "%d = sceKernelFindModuleByName(%s)", module->modulePtr.ptr, name);
-				return hleLogInfo(Log::sceModule, module->modulePtr.ptr);
+				// Debug: on the XMB, ARK's vshctrl asks for its VSH menu on every pad read.
+				return hleLogDebug(Log::sceModule, module->modulePtr.ptr);
 			} else {
 				return hleDelayResult(hleLogWarning(Log::sceModule, 0, "Module Fake"), "Module Fake", 1000 * 1000);
 			}
 		}
 	}
-	return hleLogWarning(Log::sceModule, 0, "Module Not Found");
+	return hleLogDebug(Log::sceModule, 0, "Module Not Found");
 }
 
 // The id in question here is a file handle.
@@ -3970,6 +4459,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x939E4270, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModuleForKernel",            'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x3FF74DF1, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x387E3CA9, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
+	{0xE5D6087B, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },  // 6.60's NID
 };
 
 void Register_ModuleMgrForUser() {
@@ -3980,20 +4470,3 @@ void Register_ModuleMgrForKernel() {
 	RegisterHLEModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);
 }
 
-static const HLEFunction SystemCtrlForKernel[] = {
-	{0x1C90BECB, &WrapU_U<sctrlHENSetStartModuleHandler>, "sctrlHENSetStartModuleHandler", 'x', "x", HLE_KERNEL_SYSCALL},
-	{0x78E46415, &WrapU_C<sctrlHENFindDriver>,            "sctrlHENFindDriver",              'x', "s", HLE_KERNEL_SYSCALL},
-	{0x159AF5CC, &WrapU_CCU<sctrlHENFindFunction>,        "sctrlHENFindFunction",            'x', "ssx", HLE_KERNEL_SYSCALL},
-};
-
-static const HLEFunction SystemCtrlForUser[] = {
-	{0x159AF5CC, &WrapU_CCU<sctrlHENFindFunction>,        "sctrlHENFindFunction",            'x', "ssx"},
-};
-
-void Register_SystemCtrlForKernel() {
-	RegisterHLEModule("SystemCtrlForKernel", ARRAY_SIZE(SystemCtrlForKernel), SystemCtrlForKernel);
-}
-
-void Register_SystemCtrlForUser() {
-	RegisterHLEModule("SystemCtrlForUser", ARRAY_SIZE(SystemCtrlForUser), SystemCtrlForUser);
-}

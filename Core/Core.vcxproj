@@ -474,6 +474,7 @@
     <ClCompile Include="HLE\AtracCtx.cpp" />
     <ClCompile Include="HLE\AtracCtx2.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
+    <ClCompile Include="HLE\SystemCtrl.cpp" />
     <ClCompile Include="HLE\sceSysreg.cpp" />
     <ClCompile Include="HLE\NetInetConstants.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
@@ -853,6 +854,7 @@
     <ClInclude Include="HLE\HLEUtil.h" />
     <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
+    <ClInclude Include="HLE\SystemCtrl.h" />
     <ClInclude Include="HLE\sceSysreg.h" />
     <ClInclude Include="HLE\NetInetConstants.h" />
     <ClInclude Include="HLE\Plugins.h" />
