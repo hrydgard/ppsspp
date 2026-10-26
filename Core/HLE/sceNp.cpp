@@ -426,13 +426,13 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
 		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_UNKNOWN, "Missing npOnlineId");
 	}
 
-	int result = length;
-	Memory::Memset(bufferAddr, 0, length, "NpAuthGetTicket");
+	// Built here and copied out, since the buffer can be shorter than the ticket.
+	u8 ticketBuf[0xF0 + sizeof(SceNpTicketHeader)]{};
 	SceNpTicket ticket = {};
 	// Dummy Login ticket returned as Login response. Dummy ticket contents were taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
 	ticket.header.version = TICKET_VER_2_1;
 	ticket.header.size = 0xF0; // size excluding the header
-	u8* buf = Memory::GetPointerWriteOrException(bufferAddr + sizeof(ticket));
+	u8 *buf = ticketBuf + sizeof(ticket);
 	int ofs = 0;
 	ofs += writeTicketParam(buf, PARAM_TYPE_STRING_ASCII, "\x4c\x47\x56\x3b\x81\x39\x4a\x22\xd8\x6b\xc1\x57\x71\x6e\xfd\xb8\xab\x63\xcc\x51", 20); // 20 random letters, token key or SceNpSignature?
 	ofs += writeTicketU32Param(buf + ofs, PARAM_TYPE_INT, 0x0100); // a flags?
@@ -445,7 +445,10 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
 	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npOnlineId.c_str(), 32); // username (pre-cut to 16 chars)
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npCountryCode, 4); // SceNpCountryCode ? ie. "fr" + 00 02
 	ofs += writeTicketStringParam(buf + ofs, PARAM_TYPE_STRING, npRegionCode, 4); // 2-char code? related to country/lang code? ie. "c9" + 00 00
-	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, npServiceId.c_str(), 24);
+	// Copies 24 bytes, so pad the ID out to that.
+	std::string serviceId = npServiceId;
+	serviceId.resize(24, '\0');
+	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, serviceId.c_str(), 24);
 	int status = 0;
 	if (npParentalControl == PARENTAL_CONTROL_ENABLED) {
 		status |= STATUS_ACCOUNT_PARENTAL_CONTROL_ENABLED;
@@ -456,16 +459,22 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_NULL);
 	ticket.section.type = SECTION_TYPE_BODY;
 	ticket.section.size = ofs;
-	Memory::Memcpy(bufferAddr, &ticket, sizeof(SceNpTicket), "NpAuthGetTicket");
+	memcpy(ticketBuf, &ticket, sizeof(SceNpTicket));
 	SceNpTicketSection footer = { SECTION_TYPE_FOOTER, 32 }; // footer section? ie. 32-bytes on version 2.1 containing 4-chars ASCII + 20-chars ASCII
-	Memory::Memcpy(bufferAddr + sizeof(ticket) + ofs, &footer, sizeof(SceNpTicketSection), "NpAuthGetTicket");
+	memcpy(buf + ofs, &footer, sizeof(SceNpTicketSection));
 	ofs += sizeof(footer);
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, "\x34\xcd\x3c\xa9", 4);
 	ofs += writeTicketParam(buf + ofs, PARAM_TYPE_STRING_ASCII, "\x3a\x4b\x42\x66\x92\xda\x6b\x7c\xb7\x4c\xe8\xd9\x4f\x2b\x77\x15\x91\xb8\xa4\xa9", 20); // 20 random letters, token key or SceNpSignature?
-	// includes Language list?
-	Memory::Memset(bufferAddr + sizeof(ticket) + ofs, 0, 36);
+	// includes Language list? (36 zero bytes, left by the initializer)
+	_dbg_assert_(sizeof(ticket) + ofs + 36 == sizeof(ticketBuf));
 
-	result = ticket.header.size + sizeof(ticket.header); // dummy ticket is 248 bytes
+	// The dummy ticket is 248 bytes. Like JPCSP's real ticket path, copy what fits.
+	const u32 result = std::min(length, (u32)sizeof(ticketBuf));
+	if (!Memory::IsValidRange(bufferAddr, length)) {
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid buffer");
+	}
+	Memory::Memset(bufferAddr, 0, length, "NpAuthGetTicket");
+	Memory::Memcpy(bufferAddr, ticketBuf, result, "NpAuthGetTicket");
 
 	return hleLogWarning(Log::sceNet, result);
 }
@@ -511,28 +520,61 @@ int sceNpAuthDestroyRequest(int requestId)
 int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 bufferPtr)
 {
 	const u32 PARAM_BUFFER_MAX_SIZE = 256;
+	if (!Memory::IsValidRange(bufferPtr, PARAM_BUFFER_MAX_SIZE)) {
+		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT, "bad buffer");
+	}
 	Memory::Memset(bufferPtr, 0, PARAM_BUFFER_MAX_SIZE); // JPCSP: This clear is always done, even when an error is returned
 	if (paramNum < 0 || paramNum >= NUMBER_PARAMETERS) {
 		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT);
 	}
 
-	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointerOrException(ticketBufPtr);
-	u32 inbuf = ticketBufPtr;
-	inbuf += sizeof(ticket->header);
-	inbuf += ticket->section.size + sizeof(ticket->section);
-	u32 outbuf = bufferPtr;
-	for (int i = 0; i < paramNum; i++) {
-		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointerOrException(inbuf);
-		u32 sz = (u32)sizeof(SceNpTicketParamData) + ticketParam->length;
-		Memory::Memcpy(outbuf, inbuf, sz);
-		DEBUG_LOG(Log::sceNet, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, static_cast<unsigned int>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));
-		outbuf += sz;
-		inbuf += sz;
-		if (outbuf - bufferPtr >= PARAM_BUFFER_MAX_SIZE || inbuf - ticketBufPtr >= (u32)ticketLen)
-			break;
-	}
+	// Like JPCSP: the params follow the header and the body section delimiter, and only the value of
+	// the one asked for is returned.
+	const u32 ticketEnd = ticketBufPtr + (u32)std::max(ticketLen, 0);
+	u32 inbuf = ticketBufPtr + (u32)sizeof(SceNpTicket);
+	for (int i = 0; ; i++) {
+		if (inbuf + sizeof(SceNpTicketParamData) > ticketEnd || !Memory::IsValidRange(inbuf, sizeof(SceNpTicketParamData))) {
+			return hleLogWarning(Log::sceNet, 0, "Ticket ends before param %d", paramNum);
+		}
+		SceNpTicketParamData param;
+		Memory::Memcpy(&param, inbuf, sizeof(param));
+		const u32 valuePtr = inbuf + (u32)sizeof(param);
+		const u32 length = param.length;
+		inbuf = valuePtr + length;
+		if (i < paramNum) {
+			continue;
+		}
 
-	return hleLogWarning(Log::sceNet, 0);
+		if (inbuf > ticketEnd || !Memory::IsValidRange(valuePtr, length)) {
+			return hleLogWarning(Log::sceNet, 0, "Param %d runs past the ticket", paramNum);
+		}
+		DEBUG_LOG(Log::sceNet, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, paramNum, (u32)param.type, length);
+		switch ((u16)param.type) {
+		case PARAM_TYPE_INT:
+			if (length >= 4) {
+				u32_be value;
+				Memory::Memcpy(&value, valuePtr, sizeof(value));
+				Memory::WriteUnchecked_U32(value, bufferPtr);
+			}
+			break;
+		case PARAM_TYPE_LONG:
+		case PARAM_TYPE_DATE:
+			if (length >= 8) {
+				u64_be value;
+				Memory::Memcpy(&value, valuePtr, sizeof(value));
+				Memory::WriteUnchecked_U64(value, bufferPtr);
+			}
+			break;
+		case PARAM_TYPE_STRING:
+		case PARAM_TYPE_STRING_ASCII:
+			// At most 255 bytes, leaving the terminator from the clear above.
+			Memory::Memcpy(bufferPtr, valuePtr, std::min(length, PARAM_BUFFER_MAX_SIZE - 1), "NpAuthGetTicketParam");
+			break;
+		default:
+			break;
+		}
+		return hleLogDebug(Log::sceNet, 0);
+	}
 }
 
 const HLEFunction sceNpAuth[] = {
