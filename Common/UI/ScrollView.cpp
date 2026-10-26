@@ -298,7 +298,7 @@ void ScrollView::Draw(UIContext &dc) {
 	}
 
 	dc.PushScissor(bounds_);
-	dc.FillRect(bg_, bounds_);
+	dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius, GetRoundCorners());
 
 	// For debugging layout issues, this can be useful.
 	// dc.FillRect(Drawable(0x60FF00FF), bounds_);

@@ -241,11 +241,11 @@ void DisplayLayoutScreen::CreateViews() {
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 	bool internalPortrait = config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
 
-	LinearLayout *leftColumn;
+	ChoiceGroupList *leftColumn = nullptr;
 	if (!portrait) {
 		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f));
-		leftColumn = new LinearLayout(ORIENT_VERTICAL);
-		leftColumn->SetPadding(Margins(8));
+		leftColumn = new ChoiceGroupList();
+		leftColumn->SetSpacing(12.0f);
 		leftScrollView->Add(leftColumn);
 		leftScrollView->SetClickableBackground(true);
 		root_->Add(leftScrollView);
@@ -255,6 +255,7 @@ void DisplayLayoutScreen::CreateViews() {
 	ChoiceGroupList *rightColumn = new ChoiceGroupList();
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
+	rightScrollView->SetRoundCorners();
 	root_->Add(rightScrollView);
 
 	Choice *back = rightColumn->Add(new ChoiceGroup())->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
@@ -381,8 +382,10 @@ void DisplayLayoutScreen::CreateViews() {
 			overlayNames.push_back(config.sOverlay);
 			overlayIds.push_back(config.sOverlay);
 		}
+
+		ChoiceGroup *overlayGroup = leftColumn->Add(new ChoiceGroup());
 		if (overlayIds.size() > 1) {
-			auto overlayChoice = leftColumn->Add(new PopupMultiChoiceDynamic(&config.sOverlay, gr->T("Overlay"), overlayNames, I18NCat::NONE, screenManager(), &overlayIds));
+			auto overlayChoice = overlayGroup->Add(new PopupMultiChoiceDynamic(&config.sOverlay, gr->T("Overlay"), overlayNames, I18NCat::NONE, screenManager(), &overlayIds));
 			overlayChoice->OnChoice.Add([](UI::EventParams &e) {
 				// e.b is set if the value actually changed. Re-picking the current one shouldn't
 				// cause a reload, since that glitches the audio of a game running in the background.
@@ -394,7 +397,7 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 
 		// Just pick any PNG: it's copied into the overlays folder and everything is auto-detected.
-		Choice *browseOverlay = leftColumn->Add(new Choice(gr->T("Load overlay image...")));
+		Choice *browseOverlay = overlayGroup->Add(new Choice(gr->T("Load overlay image...")));
 		const DeviceOrientation orientation = GetDeviceOrientation();
 		browseOverlay->OnClick.Add([this, orientation](UI::EventParams &) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -425,6 +428,8 @@ void DisplayLayoutScreen::CreateViews() {
 		return g_Config.bStereoRendering && multiViewSupported;
 	};
 
+	leftColumn->ApplyRoundCorners();
+
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
@@ -454,6 +459,7 @@ void DisplayLayoutScreen::CreateViews() {
 			postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
 		} else {
 			postProcChoice_ = shaderRow->Add(new Choice(ImageID("I_PLUS")));
+			postProcChoice_->SetRoundCorners(RoundCorners::Bottom);
 		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
