@@ -551,8 +551,10 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	if (System_GetPropertyBool(SYSPROP_CAN_READ_BATTERY_PERCENTAGE)) {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
 			const int percentage = System_GetPropertyInt(SYSPROP_BATTERY_PERCENTAGE);
-			// Just plain append battery. Add linebreak?
-			w.F(" Battery: %d%%", percentage);
+			// Just plain append battery. Add linebreak? Nothing without a battery.
+			if (percentage >= 0) {
+				w.F(" Battery: %d%%", percentage);
+			}
 		}
 	}
 

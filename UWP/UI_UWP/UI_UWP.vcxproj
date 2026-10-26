@@ -101,6 +101,7 @@
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
     <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
     <ClInclude Include="..\..\UI\EmuScreen.h" />
+    <ClInclude Include="..\..\UI\ImposeHome.h" />
     <ClInclude Include="..\..\UI\GameBrowser.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
@@ -167,6 +168,7 @@
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImposeHome.cpp" />
     <ClCompile Include="..\..\UI\GameBrowser.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />

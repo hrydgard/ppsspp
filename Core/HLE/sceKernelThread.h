@@ -533,8 +533,9 @@ int sceKernelRegisterExitCallback(SceUID cbId);
 // Dispatch the exit callback registered via sceKernelRegisterExitCallback on its registering thread,
 // so the game has a chance to clean up before we shut down. Returns false if no callback can be
 // dispatched (none registered, the thread is gone, etc.) - in that case, the host should proceed
-// to power down immediately.
-bool __KernelInvokeRegisteredExitCallback();
+// to power down immediately. With toVSH (the HOME button's quit screen), a callback that returns
+// without exiting itself ends in the XMB rather than powering down.
+bool __KernelInvokeRegisteredExitCallback(bool toVSH = false);
 // True while a previously-invoked exit callback hasn't yet returned. The host should keep running
 // emulation while this is true, and only tear down after it goes false (or after a timeout).
 bool __KernelIsExitCallbackPending();

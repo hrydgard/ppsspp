@@ -18,6 +18,7 @@
 #pragma once
 
 #include <list>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,6 +37,7 @@ struct AxisInput;
 struct DisplayLayoutConfig;
 
 class AsyncImageFileView;
+class ImposeHomeScreen;
 class ChatMenu;
 class ImDebugger;
 struct ImCommand;
@@ -171,6 +173,9 @@ private:
 	DeviceOrientation gameOutputOrientation_ = DeviceOrientation::Landscape;
 
 	uint32_t clearColor_ = 0;
+
+	// The HOME button's quit screen (as impose draws it on a PSP).
+	std::unique_ptr<ImposeHomeScreen> imposeHome_;
 };
 
 bool MustRunBehind();

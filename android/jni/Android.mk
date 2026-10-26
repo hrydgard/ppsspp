@@ -1054,6 +1054,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/DriverManagerScreen.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
+  $(SRC)/UI/ImposeHome.cpp \
   $(SRC)/UI/GameBrowser.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \

@@ -59,6 +59,9 @@
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\ImposeHome.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\EmuScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -240,6 +243,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\DriverManagerScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImposeHome.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\EmuScreen.h">

@@ -401,9 +401,13 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 	{
 		SYSTEM_POWER_STATUS status{};
 		if (GetSystemPowerStatus(&status)) {
+			// -1 without a battery (a desktop), like SDL_GetPowerInfo.
+			if (status.BatteryFlag == 128 || status.BatteryFlag == 255) {
+				return -1;
+			}
 			return status.BatteryLifePercent < 255 ? status.BatteryLifePercent : 100;
 		} else {
-			return 100;
+			return -1;
 		}
 	}
 	default:
