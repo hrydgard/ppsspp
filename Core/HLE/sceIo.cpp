@@ -681,8 +681,9 @@ void __IoInit() {
 	lastMemStickFatState = MemoryStick_FatState();
 }
 
+// Savestates call this, also while stepping, when a plain SyncThread() wouldn't wait.
 void __IoWaitForAsync() {
-	ioManager.SyncThread();
+	ioManager.SyncThread(true);
 }
 
 void __IoShutdown() {
@@ -2774,7 +2775,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	case 0x04100001: {
 		u8 keybuf[16];
 		u8 *key_ptr;
-		u8 pgd_header[0x90];
+		// Zeroed in case the file is shorter.
+		u8 pgd_header[0x90]{};
 		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {

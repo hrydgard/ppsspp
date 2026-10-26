@@ -1310,7 +1310,8 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 
 	const int keyLen = 27; // 27 bytes per key name, including null terminator. For some reason?!?
 
-	if (!Memory::IsValidRange(bufAddr, num * keyLen)) {
+	// num * keyLen could overflow.
+	if (num < 0 || (u64)num * keyLen > 0xFFFFFFFF || !Memory::IsValidRange(bufAddr, num * keyLen)) {
 		return hleLogError(Log::sceReg, -1, "bad output addr");
 	}
 
@@ -1322,7 +1323,7 @@ int sceRegGetKeys(int catHandle, u32 bufAddr, int num) {
 
 	count = std::min(count, num);
 
-	for (int i = 0; i < num; i++) {
+	for (int i = 0; i < count; i++) {
 		char *dest = (char *)Memory::GetPointerWriteOrException(bufAddr + i * keyLen);
 		strncpy(dest, keyvals[i].name.c_str(), keyLen);
 	}
@@ -1444,7 +1445,8 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 		Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
 		return hleLogDebug(Log::sceReg, 0, "value: '%s'", keyval.strValue);
 	case ValueType::INT:
-		Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
+		if (size >= sizeof(u32))
+			Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
 		return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
 	case ValueType::DIR:
 	case ValueType::FAIL:
