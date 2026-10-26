@@ -129,6 +129,8 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 				Memory::MemcpyUnchecked(lli->pDst, src, lli->iSize);
 				copied += lli->iSize;
 			} else {
+				// Padding? Not sure what this is about. Doesn't seem to have any ill effects though.
+				// Seen in the Kosmodrones homebrew.
 				WARN_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy: %d bytes to %08x went nowhere",
 					(int)lli->iSize, (u32)lli->pDst);
 			}

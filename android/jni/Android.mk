@@ -1063,6 +1063,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/Settings/ControlsPage.cpp \
   $(SRC)/UI/Settings/AudioPage.cpp \
   $(SRC)/UI/Settings/NetworkingPage.cpp \
+  $(SRC)/UI/Settings/GeneralPage.cpp \
   $(SRC)/UI/Settings/SystemPage.cpp \
   $(SRC)/UI/Settings/ToolsPage.cpp \
   $(SRC)/UI/Settings/VRPage.cpp \

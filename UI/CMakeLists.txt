@@ -70,6 +70,7 @@ list(APPEND UISource
 	Settings/ControlsPage.cpp
 	Settings/AudioPage.cpp
 	Settings/NetworkingPage.cpp
+	Settings/GeneralPage.cpp
 	Settings/SystemPage.cpp
 	Settings/ToolsPage.cpp
 	Settings/VRPage.cpp

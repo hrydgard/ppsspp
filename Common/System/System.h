@@ -121,6 +121,7 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
 
 // This will get muddy with multi-screen support :/ But this will always be the type of the main device.
+// Actually we now have multi-screen and we consider the second screen a TV. Doesn't really change things.
 // These are the return values from System_GetPropertyInt(SYSPROP_DEVICE_TYPE).
 enum SystemDeviceType {
 	DEVICE_TYPE_MOBILE = 0,  // phones and pads
@@ -320,6 +321,7 @@ enum class UIMessage {
 	RECENT_FILES_CHANGED,
 	SAVE_FRAME_DUMP,
 	ADHOC_SERVER_LIST_CHANGED,
+	SAVESTATE_SLOT_SAVED,  // A slot's save state file was written.
 };
 
 std::string System_GetProperty(SystemProperty prop);

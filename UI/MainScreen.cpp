@@ -1020,12 +1020,8 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->SetSpacing(0.0f);
 
 	// Same order as GameBrowserViewMode.
-	static const char *viewModes[] = { "Grid", "List", "Large list" };
-	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView1, mm->T("Recent"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
-	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView2, mm->T("Games"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
-	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView3, mm->T("Homebrew & Demos"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
-	PopupMultiChoice *beziersChoice = items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
+	items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
 	items->Add(new ItemHeader(sy->T("Icon size")));
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);

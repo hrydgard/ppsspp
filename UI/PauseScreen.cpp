@@ -411,6 +411,14 @@ void GamePauseScreen::update() {
 	SetVRAppMode(VRAppMode::VR_MENU_MODE);
 }
 
+void GamePauseScreen::sendMessage(UIMessage message, const char *value) {
+	UIBaseDialogScreen::sendMessage(message, value);
+	if (message == UIMessage::SAVESTATE_SLOT_SAVED) {
+		// A save started before the screen opened has finished writing, so its slot needs updating.
+		RecreateViews();
+	}
+}
+
 GamePauseScreen::GamePauseScreen(const Path &filename, bool bootPending)
 	: UIBaseDialogScreen(filename), bootPending_(bootPending) {
 	// So we can tell if something blew up while on the pause screen.
@@ -516,6 +524,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 	if (buttonRow->GetNumSubviews() == 0) {
 		delete buttonRow;
 	} else {
+		buttonRow->ApplyRoundCorners();
 		*extraRow = buttonRow;
 	}
 }
@@ -711,7 +720,9 @@ void GamePauseScreen::CreateViews() {
 		root_->Add(buttonColumnScroll);
 	}
 
-	LinearLayout *rightColumnItems = new ChoiceGroupList(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	rightColumnItems->SetSpacing(12.0f);
+
 	buttonColumn->Add(rightColumnItems);
 
 	ChoiceGroup *topGroup = rightColumnItems->Add(new ChoiceGroup());
@@ -792,6 +803,7 @@ void GamePauseScreen::CreateViews() {
 	} else {
 		exit = new Choice(pa->T("Exit to menu"), ImageID("I_EXIT"));
 	}
+	exit->SetRoundCorners();
 
 	if (portrait) {
 		UI::LinearLayout *exitRow = new UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 0, 0)));
@@ -800,6 +812,7 @@ void GamePauseScreen::CreateViews() {
 		exit->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
 		Choice *continueChoice = new Choice(pa->T("Continue"), ImageID("I_PLAY"));
 		continueChoice->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		continueChoice->SetRoundCorners();
 		root_->SetDefaultFocusView(continueChoice);
 		exitRow->Add(continueChoice);
 		continueChoice->ReplaceLayoutParams(new UI::LinearLayoutParams(1.0f, Gravity::G_VCENTER));
@@ -811,24 +824,26 @@ void GamePauseScreen::CreateViews() {
 	exit->SetEnabled(!bootPending_);
 
 	if (middleColumn) {
-		middleColumn->SetSpacing(portrait ? 8.0f : 0.0f);
+		middleColumn->SetSpacing(portrait ? 12.0f : 0.0f);
 		playButton_ = middleColumn->Add(new Choice(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE_LINE") : ImageID("I_PLAY_LINE"), new LinearLayoutParams(64, 64)));
 		playButton_->OnClick.Add([this](UI::EventParams &e) {
 			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
 			playButton_->SetIconLeft(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE_LINE") : ImageID("I_PLAY_LINE"));
 		});
+		playButton_->SetRoundCorners();
 
 		bool mustRunBehind = MustRunBehind();
 		playButton_->SetEnabled(!mustRunBehind);
 
 		if (!portrait) {
-			middleColumn->Add(new Spacer(20.0f));
+			middleColumn->Add(new Spacer(12.0f));
 		}
 
 		Choice *infoButton = middleColumn->Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams(64, 64)));
 		infoButton->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
+		infoButton->SetRoundCorners();
 
 		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			AddRotationPicker(screenManager(), middleColumn, false);
@@ -839,6 +854,7 @@ void GamePauseScreen::CreateViews() {
 			menuButton->OnClick.Add([this, menuButton, portrait](UI::EventParams &e) {
 				ShowContextMenu(menuButton, portrait);
 			});
+			menuButton->SetRoundCorners();
 		}
 	} else {
 		playButton_ = nullptr;

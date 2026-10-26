@@ -54,17 +54,6 @@ protected:
 private:
 	void PreCreateViews() override;
 
-	// One per tab.
-	struct PageDef {
-		const char *tag;
-		const char *title;  // In MAINSETTINGS.
-		const char *icon;
-		const char *helpTag;  // If null, there's no help button.
-		I18NCat cat;
-		void (*build)(SettingsPage *page);  // Null for the System tab, which also takes systemState_.
-	};
-	static const std::vector<PageDef> &PageDefs();
-
 	std::string gameID_;
 
 	void RestartOrDo(std::function<void()> callback) override;

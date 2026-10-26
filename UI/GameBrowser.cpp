@@ -1025,28 +1025,19 @@ void GameBrowser::Refresh() {
 	Clear();
 	search_.searchStates.clear();
 
-	Add(new Spacer(1.0f));
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	gameList_ = nullptr;
 
-	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0)));
+	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
 	Add(topBar);
 
-	const bool pathOnSeparateLine = g_display.dp_xres < 1050 || portrait_;
 	// Recent isn't a real folder, so it gets no path or refresh.
 	const bool isRecent = path_.GetPath().ToString() == "!RECENT";
 
 	std::string pathStr = path_.GetPath().IsNetworkRoot() ? std::string(mm->T("Network")) : GetFriendlyPath(path_.GetPath(), aliasMatch_, aliasDisplay_);
 
-	if (pathOnSeparateLine && !isRecent) {
-		Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0))));
-	}
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
-		if (!pathOnSeparateLine) {
-			topBar->Add(new Spacer(2.0f));
-			topBar->Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-		}
 		Choice *homeChoice = topBar->Add(new Choice(ImageID("I_HOME_ICON"), new LayoutParams(WRAP_CONTENT, 64.0f)));
 		homeChoice->SetRoundCorners(RoundCorners::All);
 		homeChoice->OnClick.Handle(this, &GameBrowser::OnHomeClick);
@@ -1087,8 +1078,10 @@ void GameBrowser::Refresh() {
 				});
 		}
 #endif
-	} else if (!pathOnSeparateLine || isRecent) {
-		topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
+	}
+
+	if (!isRecent) {
+		Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0))));
 	}
 
 	if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {

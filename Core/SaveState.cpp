@@ -1174,6 +1174,8 @@ int g_screenshotFailures;
 					g_Config.Save("Saving config for savestate last save undo");
 				}
 				g_filesStale = true;
+				// The pause screen may have listed the slots before the file was there.
+				System_PostUIMessage(UIMessage::SAVESTATE_SLOT_SAVED);
 			}
 		} else {
 			if (result == CChunkFileReader::ERROR_BROKEN_STATE) {

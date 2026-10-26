@@ -246,14 +246,6 @@ static int DefaultUIScaleFactor() {
 #endif
 }
 
-static int DefaultScreenRotation() {
-#if PPSSPP_PLATFORM(ANDROID)
-	return ROTATION_LOCKED_HORIZONTAL;
-#else
-	return ROTATION_AUTO;
-#endif
-}
-
 #if defined(__GNUC__) || defined(__clang__)
 // offsetof on classes with virtual functions (like ConfigBlock) is conditionally supported, and our compilers do support it.
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
@@ -465,7 +457,7 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::SYSTEM, "Ask for exit confirmation after seconds").Range(0, 1200).Units("s").ZeroLabel("Off"),
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), &DefaultScreenRotation, CfgFlag::DEFAULT),
+	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), ROTATION_AUTO, CfgFlag::DEFAULT),
 #endif
 
 	ConfigSetting("BackgroundAnimation", SETTING(g_Config, iBackgroundAnimation), (int)BackgroundAnimation::WAVE, CfgFlag::DEFAULT)

@@ -120,6 +120,9 @@
     <ClCompile Include="Settings\NetworkingPage.cpp">
       <Filter>Settings</Filter>
     </ClCompile>
+    <ClCompile Include="Settings\GeneralPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
     <ClCompile Include="Settings\SystemPage.cpp">
       <Filter>Settings</Filter>
     </ClCompile>

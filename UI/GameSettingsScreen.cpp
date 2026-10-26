@@ -115,37 +115,46 @@ void GameSettingsScreen::PreCreateViews() {
 #endif
 }
 
-const std::vector<GameSettingsScreen::PageDef> &GameSettingsScreen::PageDefs() {
-	static const std::vector<PageDef> pages = {
-		{ "GameSettingsGraphics", "Graphics", "I_DISPLAY", "graphics", I18NCat::GRAPHICS, &BuildGraphicsSettings },
-		{ "GameSettingsControls", "Controls", "I_CONTROLLER", "controls", I18NCat::CONTROLS, &BuildControlsSettings },
-		{ "GameSettingsAudio", "Audio", "I_SPEAKER_MAX", "audio", I18NCat::AUDIO, &BuildAudioSettings },
-		{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
-		{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
-		{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr },
-		{ "GameSettingsVR", "VR", nullptr, nullptr, I18NCat::VR, &BuildVRSettings },
-	};
-	return pages;
-}
+// One per tab.
+struct PageDef {
+	const char *tag;
+	const char *title;  // In MAINSETTINGS.
+	const char *icon;
+	const char *helpTag;  // If null, there's no help button.
+	I18NCat cat;
+	// Null for the tabs that also take systemState_, given instead.
+	void (*build)(SettingsPage *page);
+	void (*buildWithState)(SettingsPage *page, SystemPageState *state);
+};
+
+static const PageDef pageDefs[] = {
+	{ "GameSettingsGeneral", "General", "I_SLIDERS", nullptr, I18NCat::SYSTEM, nullptr, &BuildGeneralSettings },
+	{ "GameSettingsControls", "Controls", "I_CONTROLLER", "controls", I18NCat::CONTROLS, &BuildControlsSettings },
+	{ "GameSettingsGraphics", "Graphics", "I_DISPLAY", "graphics", I18NCat::GRAPHICS, &BuildGraphicsSettings },
+	{ "GameSettingsAudio", "Audio", "I_SPEAKER_MAX", "audio", I18NCat::AUDIO, &BuildAudioSettings },
+	{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
+	{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
+	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings },
+	{ "GameSettingsVR", "VR", nullptr, nullptr, I18NCat::VR, &BuildVRSettings },
+};
 
 void GameSettingsScreen::CreateTabs() {
 	using namespace UI;
-	auto ms = GetI18NCategory(I18NCat::MAINSETTINGS);
 
-	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
-	bool showVR = deviceType == DEVICE_TYPE_VR || g_Config.bForceVR;
+	const SystemDeviceType deviceType = (SystemDeviceType)System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
+	const bool showVR = deviceType == DEVICE_TYPE_VR || g_Config.bForceVR;
 
-	for (const PageDef &def : PageDefs()) {
+	for (const PageDef &def : pageDefs) {
 		if (def.build == &BuildVRSettings && !showVR) {
 			continue;
 		}
 		std::function<void(SettingsPage *)> build = def.build;
 		if (!build) {
-			build = [this](SettingsPage *page) {
-				BuildSystemSettings(page, &systemState_);
+			build = [this, buildWithState = def.buildWithState](SettingsPage *page) {
+				buildWithState(page, &systemState_);
 			};
 		}
-		AddSettingsTab(def.tag, ms->T(def.title), def.icon ? ImageID(def.icon) : ImageID::invalid(), def.cat, build, def.helpTag);
+		AddSettingsTab(def.tag, T(I18NCat::MAINSETTINGS, def.title), def.icon ? ImageID(def.icon) : ImageID::invalid(), def.cat, build, def.helpTag);
 	}
 }
 
