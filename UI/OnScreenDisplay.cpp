@@ -46,6 +46,9 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		}
 		return;
 	} else {
+		if (!(entry.flags & OSDMessageFlags::Transparent)) {
+			dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+		}
 		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime);
 	}
 }
@@ -424,6 +427,17 @@ ViewLayoutMode OSDOverlayScreen::LayoutMode() const {
 	return ViewLayoutMode::ApplyInsets;
 }
 
+// Inside the background, like the text padding of a Choice.
+static const float g_noticeViewPadding = 8.0f;
+
+NoticeView::NoticeView(NoticeLevel level, std::string_view text, std::string_view detailsText, UI::LayoutParams *layoutParams)
+	: InertView(layoutParams), level_(level), text_(text), detailsText_(detailsText) {
+	if (!layoutParams) {
+		layoutParams_->width = UI::FILL_PARENT;
+		layoutParams_->height = UI::WRAP_CONTENT;
+	}
+}
+
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
 	float layoutWidth = layoutParams_->width;
 	if (layoutWidth < 0) {
@@ -432,12 +446,12 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 	}
 	ApplyBoundBySpec(layoutWidth, horiz);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
-	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_, g_noticeViewPadding);
 }
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f);
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f, g_noticeViewPadding, roundCorners_);
 	dc.PopScissor();
 }
