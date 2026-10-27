@@ -660,8 +660,12 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+	Button *decrease = lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)));
+	decrease->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
+	decrease->SetRoundCorners();
+	Button *increase = lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)));
+	increase->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+	increase->SetRoundCorners();
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -676,12 +680,14 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
+		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
+		reset->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
 			UpdateTextBox();
 			changing_ = false;
 		});
+		reset->SetRoundCorners();
 	}
 
 	if (!negativeLabel_.empty())

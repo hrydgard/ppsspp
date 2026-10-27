@@ -663,6 +663,7 @@ void ListView::CreateAllItems() {
 			OnItemCallback(i, e);
 		});
 	}
+	linLayout_->ApplyRoundCorners();
 }
 
 void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
