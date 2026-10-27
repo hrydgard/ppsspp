@@ -79,9 +79,10 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext, Application *applica
 std::thread EmuThread_Start(GraphicsContext *graphicsContext, Application *application, std::function<bool(GraphicsContext *)> frame) {
 	INFO_LOG(Log::System, "EmuTread_Start");
 	_dbg_assert_(g_emuThreadState == EmuThreadState::STOPPED);
-	std::thread emuThread = std::thread(&EmuThreadFunc, graphicsContext, application, frame);
+	// Before the emu thread exists: ThreadStart sets up state that NativeInitGraphics reads (the GL
+	// strings for reporting), and resets the exit flags the emu thread sets.
 	graphicsContext->ThreadStart();
-	return emuThread;
+	return std::thread(&EmuThreadFunc, graphicsContext, application, frame);
 }
 
 // This is useful when the render thread is in control.
