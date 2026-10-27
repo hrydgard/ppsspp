@@ -38,6 +38,7 @@
 
 // TODO: Determine how many handlers we can actually have
 const size_t MAX_APCTL_HANDLERS = 32;
+const size_t MAX_APCTL_GAME_HANDLERS = 2; // Through sceNetApctlAddHandler (pspautotests net/inet/offline)
 
 typedef void(*sceNetApctlHandler)(int oldState, int newState, int event, int error, void* pArg);
 
