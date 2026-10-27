@@ -241,27 +241,25 @@ void DisplayLayoutScreen::CreateViews() {
 	DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
 	bool internalPortrait = config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180;
 
-	LinearLayout *leftColumn;
+	ChoiceGroupList *leftColumn = nullptr;
 	if (!portrait) {
 		ScrollView *leftScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(420.0f, FILL_PARENT, 0.f, 0.f, NONE, 0.f));
-		leftColumn = new LinearLayout(ORIENT_VERTICAL);
-		leftColumn->SetPadding(Margins(8));
+		leftColumn = new ChoiceGroupList();
+		leftColumn->SetSpacing(12.0f);
 		leftScrollView->Add(leftColumn);
 		leftScrollView->SetClickableBackground(true);
 		root_->Add(leftScrollView);
 	}
 
 	ScrollView *rightScrollView = new ScrollView(ORIENT_VERTICAL, new AnchorLayoutParams(300.0f, FILL_PARENT, NONE, 0.f, 0.f, 0.f));
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL);
-	rightColumn->SetPadding(Margins(8));
-	rightColumn->SetSpacing(0.0f);
+	ChoiceGroupList *rightColumn = new ChoiceGroupList();
 	rightScrollView->Add(rightColumn);
 	rightScrollView->SetClickableBackground(true);
+	rightScrollView->SetRoundCorners();
 	root_->Add(rightScrollView);
 
-	Choice *back = rightColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+	Choice *back = rightColumn->Add(new ChoiceGroup())->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	rightColumn->Add(new Spacer(12.0f));
 
 	LinearLayout *bottomControls;
 	if (portrait) {
@@ -279,23 +277,23 @@ void DisplayLayoutScreen::CreateViews() {
 	rightColumn->SetBG(backgroundWithAlpha);
 
 	if (!IsVREnabled()) {
+		ChoiceGroup *scaleGroup = rightColumn->Add(new ChoiceGroup());
+
 		if (portrait == internalPortrait) {
 			// Stretch doesn't make sense in portrait mode (looks crazy), so we only show it in landscape mode.
 			// Vice versa if internal is portrait.
-			auto stretch = new CheckBox(&config.bDisplayStretch, gr->T("Stretch"));
+			auto stretch = scaleGroup->Add(new CheckBox(&config.bDisplayStretch, gr->T("Stretch")));
 			stretch->SetDisabledPtr(&config.bDisplayIntegerScale);
-			rightColumn->Add(stretch);
 		}
 
-		PopupSliderChoiceFloat *aspectRatio = new PopupSliderChoiceFloat(&config.fDisplayAspectRatio, 0.1f, 2.0f, 1.0f, gr->T("Aspect Ratio"), screenManager());
-		rightColumn->Add(aspectRatio);
+		PopupSliderChoiceFloat *aspectRatio = scaleGroup->Add(new PopupSliderChoiceFloat(&config.fDisplayAspectRatio, 0.1f, 2.0f, 1.0f, gr->T("Aspect Ratio"), screenManager()));
 		aspectRatio->SetEnabledFunc([&config]() {
 			return !config.bDisplayStretch && !config.bDisplayIntegerScale;
 		});
 		aspectRatio->SetHasDropShadow(false);
 		aspectRatio->SetLiveUpdate(true);
 
-		rightColumn->Add(new CheckBox(&config.bDisplayIntegerScale, gr->T("Integer scale factor")));
+		scaleGroup->Add(new CheckBox(&config.bDisplayIntegerScale, gr->T("Integer scale factor")));
 
 		bool supportsInsets = false;
 #if PPSSPP_PLATFORM(ANDROID)
@@ -313,18 +311,17 @@ void DisplayLayoutScreen::CreateViews() {
 			insetTop != 0.0f ||
 			insetRight != 0.0f ||
 			insetBottom != 0.0f) && (insetLeft != insetTop || insetRight != insetBottom)) {
-			rightColumn->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
+			scaleGroup->Add(new CheckBox(&config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 		}
 
 		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
-			rightColumn->Add(new Spacer(12.0f));
 			AddRotationPicker(screenManager(), rightColumn, true);
 		}
 
-		rightColumn->Add(new ItemHeader(gr->T("PSP display rotation")));
+		ChoiceGroup *pspRotationGroup = rightColumn->Add(new ChoiceGroup(gr->T("PSP display rotation")));
 
 		static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-		PopupMultiChoice *rotation = rightColumn->Add(new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager()));
+		PopupMultiChoice *rotation = pspRotationGroup->Add(new PopupMultiChoice(&config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), I18NCat::CONTROLS, screenManager()));
 		rotation->OnChoice.Add([this](UI::EventParams &) {
 			// Affects the presence of the Stretch checkbox.
 			RecreateViews();
@@ -334,13 +331,11 @@ void DisplayLayoutScreen::CreateViews() {
 		});
 		rotation->SetHideTitle(true);
 
-		rightColumn->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
+		pspRotationGroup->Add(new CheckBox(&config.bRotateControlsWithScreen, gr->T("Rotate controls")))->SetEnabledFunc([&config]() -> bool {
 			return (!g_Config.bSkipBufferEffects || g_Config.bSoftwareRendering) && config.iInternalScreenRotation != 1;
 		});
 
-		rightColumn->Add(new Spacer(12.0f));
-
-		Choice *center = new Choice(di->T("Reset"));
+		Choice *center = rightColumn->Add(new ChoiceGroup())->Add(new Choice(di->T("Reset")));
 		center->OnClick.Add([this, &config, portrait](UI::EventParams &) {
 			// Hm, not really ideal to have to use strings here.
 			// The overlay is a choice of its own, not part of the size/position, so keep it.
@@ -350,7 +345,6 @@ void DisplayLayoutScreen::CreateViews() {
 			// Which checkboxes are shown depends on the rotation.
 			RecreateViews();
 		});
-		rightColumn->Add(center);
 
 		mode_ = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		mode_->AddChoice(sy->T("Off"));
@@ -359,6 +353,7 @@ void DisplayLayoutScreen::CreateViews() {
 		mode_->SetSelection(0, false);
 		// The game goes to another output, like a TV, which doesn't use this layout.
 		mode_->SetEnabled(screenManager()->FindOutput(OutputRole::Game) == nullptr);
+		mode_->ApplyRoundCorners();
 		bottomControls->Add(mode_);
 	}
 
@@ -387,8 +382,10 @@ void DisplayLayoutScreen::CreateViews() {
 			overlayNames.push_back(config.sOverlay);
 			overlayIds.push_back(config.sOverlay);
 		}
+
+		ChoiceGroup *overlayGroup = leftColumn->Add(new ChoiceGroup());
 		if (overlayIds.size() > 1) {
-			auto overlayChoice = leftColumn->Add(new PopupMultiChoiceDynamic(&config.sOverlay, gr->T("Overlay"), overlayNames, I18NCat::NONE, screenManager(), &overlayIds));
+			auto overlayChoice = overlayGroup->Add(new PopupMultiChoiceDynamic(&config.sOverlay, gr->T("Overlay"), overlayNames, I18NCat::NONE, screenManager(), &overlayIds));
 			overlayChoice->OnChoice.Add([](UI::EventParams &e) {
 				// e.b is set if the value actually changed. Re-picking the current one shouldn't
 				// cause a reload, since that glitches the audio of a game running in the background.
@@ -400,7 +397,7 @@ void DisplayLayoutScreen::CreateViews() {
 		}
 
 		// Just pick any PNG: it's copied into the overlays folder and everything is auto-detected.
-		Choice *browseOverlay = leftColumn->Add(new Choice(gr->T("Load overlay image...")));
+		Choice *browseOverlay = overlayGroup->Add(new Choice(gr->T("Load overlay image...")));
 		const DeviceOrientation orientation = GetDeviceOrientation();
 		browseOverlay->OnClick.Add([this, orientation](UI::EventParams &) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -431,6 +428,8 @@ void DisplayLayoutScreen::CreateViews() {
 		return g_Config.bStereoRendering && multiViewSupported;
 	};
 
+	leftColumn->ApplyRoundCorners();
+
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 
 	std::set<std::string> alreadyAddedShader;
@@ -460,6 +459,7 @@ void DisplayLayoutScreen::CreateViews() {
 			postProcChoice_ = shaderRow->Add(new ChoiceWithValueDisplay(&shaderNames_[i], "", &PostShaderTranslateName, new LinearLayoutParams(1.0f)));
 		} else {
 			postProcChoice_ = shaderRow->Add(new Choice(ImageID("I_PLUS")));
+			postProcChoice_->SetRoundCorners(RoundCorners::Bottom);
 		}
 		postProcChoice_->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);

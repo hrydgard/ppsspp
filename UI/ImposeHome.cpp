@@ -625,12 +625,14 @@ void ImposeHomeScreen::Choose(bool quit) {
 		return;
 	}
 	// Like a PSP: the game's exit callback first, so it can clean up (and usually calls
-	// sceKernelExitGame itself). Without one, the game is just ended. The game still gets no input
-	// meanwhile, and "Please wait..." stays up until it's gone.
+	// sceKernelExitGame itself). Without one, the game is just ended.
+	//
+	// The game still shouldn't get input meanwhile (TODO: though nothing enforces this?)
+	// and "Please wait..." stays up until it's gone.
 	state_ = State::QUITTING;
 	if (!__KernelIsExitCallbackPending() && __KernelInvokeRegisteredExitCallback(__KernelCanExitToVSH())) {
 		INFO_LOG(Log::System, "HOME: quitting, running the game's exit callback");
-		deadline_ = time_now_d() + 10.0;
+		exitDeadline_ = time_now_d() + 4.0;
 	} else {
 		FinishQuit();
 	}
@@ -647,7 +649,7 @@ void ImposeHomeScreen::FinishQuit() {
 }
 
 ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
-	// A quit chosen by touch since the last update.
+	// A quit chosen since the last update.
 	if (pendingAction_ != Action::NONE) {
 		return TakeAction();
 	}
@@ -659,14 +661,14 @@ ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
 		}
 		lastButtons_ = 0;
 		if (!PSP_IsInited()) {
-			deadline_ = -1.0;
+			exitDeadline_ = -1.0;
 		}
 		return Action::NONE;
 	}
 
 	// A game whose exit callback never gets round to exiting: quit it anyway.
-	if (deadline_ >= 0.0 && time_now_d() > deadline_) {
-		deadline_ = -1.0;
+	if (exitDeadline_ >= 0.0 && time_now_d() > exitDeadline_) {
+		exitDeadline_ = -1.0;
 		WARN_LOG(Log::System, "HOME: the exit callback didn't end the game, quitting it");
 		FinishQuit();
 		return TakeAction();
@@ -683,7 +685,7 @@ ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
 
 	switch (state_) {
 	case State::CLOSED:
-		if ((pressed & CTRL_HOME) && deadline_ < 0.0 && Available()) {
+		if ((pressed & CTRL_HOME) && exitDeadline_ < 0.0 && Available()) {
 			Open();
 		}
 		break;
@@ -716,20 +718,6 @@ ImposeHomeScreen::Action ImposeHomeScreen::TakeAction() {
 	Action action = pendingAction_;
 	pendingAction_ = Action::NONE;
 	return action;
-}
-
-bool ImposeHomeScreen::Touch(const TouchInput &touch) {
-	if ((touch.flags & TouchInputFlags::DOWN) && state_ == State::ASKING) {
-		if (yesBounds_.Contains(touch.x, touch.y)) {
-			yes_ = true;
-			Choose(true);
-		} else if (noBounds_.Contains(touch.x, touch.y)) {
-			yes_ = false;
-			Choose(false);
-		}
-	}
-	// Let releases through, so nothing on the touch controls stays held. Everything else is ours.
-	return !(touch.flags & TouchInputFlags::UP);
 }
 
 void ImposeHomeScreen::Draw(UIContext &dc, const Bounds &screen) {

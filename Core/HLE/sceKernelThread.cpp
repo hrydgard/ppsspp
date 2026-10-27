@@ -3496,10 +3496,10 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 				// Already paused when the callback was notified.
 				thread->waitPausedForCallback = false;
 			} else if (cbId > 0 && (thread->nt.status & THREADSTATUS_WAIT) != 0) {
-				if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL) {
+				if (waitTypeFuncs[thread->nt.waitType].beginFunc) {
 					waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
 				} else {
-					ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d", thread->nt.waitType);
+					ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d (%s)", thread->nt.waitType, WaitTypeToString(thread->nt.waitType));
 				}
 			}
 
@@ -3658,10 +3658,11 @@ void __KernelReturnFromMipsCall(MIPSState *mips) {
 	cur->currentMipscallId = call->savedId;
 
 	if (cur->nt.waitType != WAITTYPE_NONE && (cur->nt.status & THREADSTATUS_WAIT) != 0 && call->cbId > 0) {
-		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
+		if (waitTypeFuncs[cur->nt.waitType].endFunc) {
 			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
-		else
-			ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
+		} else {
+			ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d (%s)", cur->nt.waitType, WaitTypeToString(cur->nt.waitType));
+		}
 	}
 
 	// If the wait ended (or there was none), the thread never gave up the CPU, so it shouldn't
