@@ -141,6 +141,7 @@
 #include "UI/DevScreens.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
@@ -900,6 +901,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			GameSettingsScreen *settings = new GameSettingsScreen(Path());
 			settings->OpenDeveloperTools();
 			g_screenManager->push(settings);
+		} else if (equals(cmdLineOptions.startScreen.value(), "firmware")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new FirmwareScreen(Path()));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
