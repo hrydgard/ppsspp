@@ -16,11 +16,11 @@ public:
 	TextDrawerWin32(Draw::DrawContext *draw);
 	~TextDrawerWin32();
 
-	void SetOrCreateFont(const FontStyle &style) override;
-	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
-	void MeasureStringInternal(std::string_view str, float *w, float *h) override;
+	void EnsureFont(const FontStyle &style) override;
+	void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) override;
+	bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
 

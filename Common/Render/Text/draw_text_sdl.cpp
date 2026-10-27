@@ -297,13 +297,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 #endif
 }
 
-uint32_t TextDrawerSDL::CheckMissingGlyph(std::string_view text) {
-	auto iter = fontMap_.find(fontStyle_);
-	if (iter == fontMap_.end()) {
-		return 0;
-	}
-
-	TTF_Font *font = iter->second.first;
+uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text) {
 	if (!font) {
 		return 0;
 	}
@@ -360,10 +354,8 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	return -1;
 }
 
-void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+void TextDrawerSDL::EnsureFont(const FontStyle &style) {
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
 
@@ -387,13 +379,12 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 	}
 
 	fontMap_[style] = std::make_pair(font, fileData);
-	fontStyle_ = style;
 }
 
-void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float *h) {
+void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
 	*w = 1.0f;
 	*h = 1.0f;
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter == fontMap_.end()) {
 		return;
 	}
@@ -408,10 +399,10 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 		str = reorderedStr;
 	}
 
-	uint32_t missingGlyph = CheckMissingGlyph(str);
+	uint32_t missingGlyph = CheckMissingGlyph(font, str);
 
 	if (missingGlyph) {
-		const int ptSize = static_cast<int>(fontStyle_.sizePts / dpiScale_ * 1.25f);
+		const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
 		const int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
 		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
 			font = fallbackFonts_[fallbackFont];
@@ -445,7 +436,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 	*h = (float)extH;
 }
 
-bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	_dbg_assert_(!fullColor)
 
 	if (str.empty()) {
@@ -453,7 +444,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	auto fontIter = fontMap_.find(fontStyle_);
+	auto fontIter = fontMap_.find(style);
 	if (fontIter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Font style not in map");
 		return false;
@@ -478,7 +469,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		processedStr.push_back(' ');
 	}
 
-	uint32_t missingGlyph = CheckMissingGlyph(processedStr);
+	uint32_t missingGlyph = CheckMissingGlyph(font, processedStr);
 
 	if (missingGlyph) {
 		const int ptSize = static_cast<int>(TTF_GetFontSize(font));

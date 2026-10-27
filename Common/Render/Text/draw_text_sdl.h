@@ -19,18 +19,18 @@ public:
 	TextDrawerSDL(Draw::DrawContext *draw);
 	~TextDrawerSDL();
 
-	void SetOrCreateFont(const FontStyle &style) override;
-	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
-	void MeasureStringInternal(std::string_view str, float *w, float *h) override;
+	void EnsureFont(const FontStyle &style) override;
+	void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) override;
+	bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
 
 private:
 	void PrepareFallbackFonts(std::string_view locale);
-	uint32_t CheckMissingGlyph(std::string_view text);
+	uint32_t CheckMissingGlyph(TTF_Font *font, std::string_view text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 
 	std::map<FontStyle, std::pair<TTF_Font *, uint8_t *>> fontMap_;

@@ -71,16 +71,14 @@ public:
 	virtual ~TextDrawer() = default;
 
 	virtual bool IsReady() const { return true; }
-	virtual void SetOrCreateFont(const FontStyle &style) = 0;
 
-	void SetFontScale(float xscale, float yscale);
-	void MeasureString(std::string_view str, float *w, float *h);
-	void MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align = ALIGN_TOPLEFT);
-
-	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
-	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);
-	virtual bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
-	bool DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
+	// The font and scale are passed to each call. The fonts are created as they're first used.
+	void MeasureString(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *w, float *h);
+	void MeasureStringRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *w, float *h, int align = ALIGN_TOPLEFT);
+	void DrawString(DrawBuffer &target, const FontStyle &style, float scaleX, float scaleY, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
+	void DrawStringRect(DrawBuffer &target, const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, uint32_t color, int align);
+	// Rasterizes at scale 1, wrapping to bounds as if drawn at scale.
+	bool DrawStringBitmapRect(const FontStyle &style, float scale, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
 	// Use for housekeeping like throwing out old strings.
 	void OncePerFrame();
 
@@ -102,8 +100,11 @@ public:
 protected:
 	TextDrawer(Draw::DrawContext *draw);
 
-	// Implementations of this must handle multi-line strings.
-	virtual void MeasureStringInternal(std::string_view str, float *w, float *h) = 0;
+	// Creates the font for style, if it isn't already.
+	virtual void EnsureFont(const FontStyle &style) = 0;
+	// Implementations of these must handle multi-line strings. EnsureFont has been called for style.
+	virtual void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) = 0;
+	virtual bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
 
 	void ClearCache();
 
@@ -111,7 +112,7 @@ protected:
 	virtual void ClearFonts() = 0;
 
 	// Wraps and/or ellipsizes, caching the result. The reference stays valid until the next OncePerFrame.
-	const std::string &WrapString(std::string_view str, float maxWidth, int flags);
+	const std::string &WrapString(const FontStyle &style, float scale, std::string_view str, float maxWidth, int flags);
 
 	// v has the 8-bit alpha.
 	static u16 AlphaToPremul4444(u32 v) {
@@ -143,17 +144,14 @@ protected:
 	Draw::DrawContext *draw_;
 
 	int frameCount_ = 0;
-	float fontScaleX_ = 1.0f;
-	float fontScaleY_ = 1.0f;
 	float dpiScale_ = 1.0f;
 	bool ignoreGlobalDpi_ = false;
-	FontStyle fontStyle_{};
 
 	// We will clamp strings to this length to avoid various degenenerate behaviors.k
 	static constexpr size_t MAX_TEXT_LENGTH = 16384;
 
 	// Fills in and returns lookupKey_, which reuses its string buffer, so a cache hit doesn't allocate.
-	const TextCacheKey &LookupKey(std::string_view str, int flags = 0, float maxWidth = 0.0f, float scale = 0.0f);
+	const TextCacheKey &LookupKey(const FontStyle &style, std::string_view str, int flags = 0, float maxWidth = 0.0f, float scale = 0.0f);
 	void AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const;
 
 	TextCacheKey lookupKey_;
@@ -165,13 +163,15 @@ protected:
 
 class TextDrawerWordWrapper : public WordWrapper {
 public:
-	TextDrawerWordWrapper(TextDrawer *drawer, std::string_view str, float maxW, int flags)
-		: WordWrapper(str, maxW, flags), drawer_(drawer) {}
+	TextDrawerWordWrapper(TextDrawer *drawer, const FontStyle &style, float scale, std::string_view str, float maxW, int flags)
+		: WordWrapper(str, maxW, flags), drawer_(drawer), style_(style), scale_(scale) {}
 
 protected:
 	float MeasureWidth(std::string_view str) override;
 
 	TextDrawer *drawer_;
+	FontStyle style_;
+	float scale_;
 };
 
 // The backends can use this to query the filenames of the fonts.

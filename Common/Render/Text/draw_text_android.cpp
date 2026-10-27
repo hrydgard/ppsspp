@@ -58,12 +58,10 @@ bool TextDrawerAndroid::IsReady() const {
 	return cls_textRenderer != nullptr && method_measureText != nullptr && method_renderText != nullptr;
 }
 
-void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
+void TextDrawerAndroid::EnsureFont(const FontStyle &style) {
 	// We will only use the default font but just for consistency let's still involve
 	// the font name.
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
 
@@ -98,11 +96,10 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
 	fontMap_[style] = entry;
-	fontStyle_ = style;
 }
 
-void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	auto iter = fontMap_.find(fontStyle_);
+void TextDrawerAndroid::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
+	auto iter = fontMap_.find(style);
 	if (iter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Missing font");
 		*w = 1.0f;
@@ -127,13 +124,13 @@ void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, fl
 	*h = (float)(size & 0xFFFF);
 }
 
-bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerAndroid::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Missing font");
 		return false;
