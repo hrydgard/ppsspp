@@ -59,6 +59,7 @@ private:
 		std::atomic<bool> done{};
 		InstalledFirmwareInfo info;
 		std::string eraseError;
+		bool erased = false;
 	};
 
 	Path nandRoot_;

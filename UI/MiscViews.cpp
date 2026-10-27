@@ -553,6 +553,10 @@ PMFVideoTexture::~PMFVideoTexture() {
 	}
 }
 
+bool PMFVideoTexture::ReachedEnd() const {
+	return pmf_reached_end(player_);
+}
+
 void PMFVideoTexture::DeviceLost() {
 	if (curFrame_) {
 		curFrame_->Release();
