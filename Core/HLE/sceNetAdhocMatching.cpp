@@ -17,6 +17,7 @@
 
 
 #include "Core/HLE/sceNetAdhocMatching.h"
+#include "Core/System.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/NetAdhocCommon.h"
 
@@ -1882,8 +1883,11 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
 	if (item == NULL) {
-		// return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-		return hleLogDebug(Log::sceNet, 0);
+		// GTA: VCS gets stuck unable to choose host/join otherwise.
+		if (PSP_CoreParameter().compat.flags().MatchingStartUnknownIdSucceeds) {
+			return hleLogDebug(Log::sceNet, 0, "faking success");
+		}
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid id");
 	}
 
 	if (item->running) {
@@ -2132,10 +2136,11 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
 
 	if (peer == NULL) {
-		// Peer not found
-		//return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
-		// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
-		return hleLogDebug(Log::sceNet, 0);
+		// Soulcalibur: Broken Destiny calls this over and over when the other player has gone, unless it succeeds.
+		if (PSP_CoreParameter().compat.flags().MatchingCancelUnknownTargetSucceeds) {
+			return hleLogDebug(Log::sceNet, 0, "faking success");
+		}
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 	}
 
 	// Valid Peer Mode

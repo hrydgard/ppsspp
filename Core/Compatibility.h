@@ -137,6 +137,8 @@ struct CompatFlags {
 	bool ColorPickingDrawSyncReadback;
 	bool SeparateLogicOpDraws;
 	bool SnapHalfPixelSprites;
+	bool MatchingCancelUnknownTargetSucceeds;
+	bool MatchingStartUnknownIdSucceeds;
 	CompatFramebuffer FixedFramebuffer;
 	uint32_t NativeResolutionFramebuffer;
 };

@@ -171,6 +171,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ColorPickingDrawSyncReadback", &flags_.ColorPickingDrawSyncReadback);
 	CheckSetting(iniFile, gameID, "SeparateLogicOpDraws", &flags_.SeparateLogicOpDraws);
 	CheckSetting(iniFile, gameID, "SnapHalfPixelSprites", &flags_.SnapHalfPixelSprites);
+	CheckSetting(iniFile, gameID, "MatchingCancelUnknownTargetSucceeds", &flags_.MatchingCancelUnknownTargetSucceeds);
+	CheckSetting(iniFile, gameID, "MatchingStartUnknownIdSucceeds", &flags_.MatchingStartUnknownIdSucceeds);
 	CheckSetting(iniFile, gameID, "FixedFramebuffer", &flags_.FixedFramebuffer);
 	CheckSetting(iniFile, gameID, "NativeResolutionFramebuffer", &flags_.NativeResolutionFramebuffer);
 }
