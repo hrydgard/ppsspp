@@ -42,6 +42,10 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
+	// Text drawn before anything set a style uses the theme's.
+	if (fontStyle_->sizePts <= 0 && theme) {
+		*fontStyle_ = theme->uiFont;
+	}
 	if (atlasInvalid_ || !uitexture_) {
 		if (uitexture_) {
 			uitexture_->Release();
@@ -266,10 +270,6 @@ void UIContext::SetFontScale(float scaleX, float scaleY) {
 
 void UIContext::SetFontStyle(const FontStyle &fontStyle) {
 	*fontStyle_ = fontStyle;
-	if (textDrawer_) {
-		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
-		textDrawer_->SetOrCreateFont(fontStyle);
-	}
 }
 
 static FontID AtlasFontFromStyle(const FontStyle &style) {
@@ -314,8 +314,7 @@ void UIContext::DrawText(std::string_view str, float x, float y, uint32_t color,
 		if (useFontTexture)
 			Flush();
 	} else {
-		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
-		textDrawer_->DrawString(*Draw(), str, x, y, color, align);
+		textDrawer_->DrawString(*Draw(), *fontStyle_, fontScaleX_, fontScaleY_, str, x, y, color, align);
 	}
 	RebindTexture();
 }
@@ -340,11 +339,10 @@ void UIContext::DrawTextRect(std::string_view str, const Bounds &bounds, uint32_
 		if (useFontTexture)
 			Flush();
 	} else {
-		textDrawer_->SetFontScale(fontScaleX_, fontScaleY_);
 		Bounds rounded = bounds;
 		rounded.x = floorf(rounded.x);
 		rounded.y = floorf(rounded.y);
-		textDrawer_->DrawStringRect(*Draw(), str, rounded, color, align);
+		textDrawer_->DrawStringRect(*Draw(), *fontStyle_, fontScaleX_, fontScaleY_, str, rounded, color, align);
 	}
 	RebindTexture();
 }

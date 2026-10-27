@@ -71,25 +71,14 @@ public:
 	virtual ~TextDrawer() = default;
 
 	virtual bool IsReady() const { return true; }
-	// Sets the font and scale that drawing uses.
-	void SetOrCreateFont(const FontStyle &style);
-	void SetFontScale(float xscale, float yscale);
 
-	// Measuring doesn't depend on the current font and scale.
+	// The font and scale are passed to each call. The fonts are created as they're first used.
 	void MeasureString(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *w, float *h);
 	void MeasureStringRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *w, float *h, int align = ALIGN_TOPLEFT);
-	// In the current font and scale.
-	void MeasureString(std::string_view str, float *w, float *h) {
-		MeasureString(fontStyle_, fontScaleX_, fontScaleY_, str, w, h);
-	}
-	void MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align = ALIGN_TOPLEFT) {
-		MeasureStringRect(fontStyle_, fontScaleX_, fontScaleY_, str, maxWidth, w, h, align);
-	}
-
-	void DrawString(DrawBuffer &target, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
-	void DrawStringRect(DrawBuffer &target, std::string_view str, const Bounds &bounds, uint32_t color, int align);
-	virtual bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
-	bool DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
+	void DrawString(DrawBuffer &target, const FontStyle &style, float scaleX, float scaleY, std::string_view str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT);
+	void DrawStringRect(DrawBuffer &target, const FontStyle &style, float scaleX, float scaleY, std::string_view str, const Bounds &bounds, uint32_t color, int align);
+	// Rasterizes at scale 1, wrapping to bounds as if drawn at scale.
+	bool DrawStringBitmapRect(const FontStyle &style, float scale, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor);
 	// Use for housekeeping like throwing out old strings.
 	void OncePerFrame();
 
@@ -113,8 +102,9 @@ protected:
 
 	// Creates the font for style, if it isn't already.
 	virtual void EnsureFont(const FontStyle &style) = 0;
-	// Implementations of this must handle multi-line strings. EnsureFont has been called for style.
+	// Implementations of these must handle multi-line strings. EnsureFont has been called for style.
 	virtual void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) = 0;
+	virtual bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) = 0;
 
 	void ClearCache();
 
@@ -154,11 +144,8 @@ protected:
 	Draw::DrawContext *draw_;
 
 	int frameCount_ = 0;
-	float fontScaleX_ = 1.0f;
-	float fontScaleY_ = 1.0f;
 	float dpiScale_ = 1.0f;
 	bool ignoreGlobalDpi_ = false;
-	FontStyle fontStyle_{};
 
 	// We will clamp strings to this length to avoid various degenenerate behaviors.k
 	static constexpr size_t MAX_TEXT_LENGTH = 16384;

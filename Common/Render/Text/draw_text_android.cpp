@@ -124,13 +124,13 @@ void TextDrawerAndroid::MeasureStringInternal(const FontStyle &style, std::strin
 	*h = (float)(size & 0xFFFF);
 }
 
-bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerAndroid::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Missing font");
 		return false;

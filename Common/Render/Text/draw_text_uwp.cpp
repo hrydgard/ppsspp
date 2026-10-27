@@ -300,7 +300,7 @@ void TextDrawerUWP::MeasureStringInternal(const FontStyle &style, std::string_vi
 	*h = (int)(metrics.height + 1.0f);
 }
 
-bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -310,7 +310,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	SIZE size;
 
 	IDWriteTextFormat *format = nullptr;
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
 	}

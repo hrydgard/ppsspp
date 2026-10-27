@@ -436,7 +436,7 @@ void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_vi
 	*h = (float)extH;
 }
 
-bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	_dbg_assert_(!fullColor)
 
 	if (str.empty()) {
@@ -444,7 +444,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	auto fontIter = fontMap_.find(fontStyle_);
+	auto fontIter = fontMap_.find(style);
 	if (fontIter == fontMap_.end()) {
 		ERROR_LOG(Log::G3D, "Font style not in map");
 		return false;

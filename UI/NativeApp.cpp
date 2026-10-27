@@ -1005,10 +1005,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ui_draw2d.Init(g_draw, texColorPipeline);
 
 	uiContext->Init(g_draw, texColorPipeline, colorPipeline, &ui_draw2d);
-	if (uiContext->Text()) {
-		// This seems unnecessary.
-		// uiContext->Text()->SetOrCreateFont(FontStyle(FontID::invalid(), FontFamily::SansSerif, 20, FontStyleFlags::Default));
-	}
 
 	g_screenManager->setUIContext(uiContext);
 	// Live before the queue is processed: a removal that comes in while the outputs' swapchains are being

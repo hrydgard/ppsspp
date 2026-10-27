@@ -154,14 +154,14 @@ void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_
 	*h = extH;
 }
 
-bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}

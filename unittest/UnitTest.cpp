@@ -3744,18 +3744,16 @@ bool TestFatShortNames() {
 class FakeTextDrawer : public TextDrawer {
 public:
 	FakeTextDrawer() : TextDrawer(nullptr) {}
-	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
 
 	void TestDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) {
 		AddDropShadow(bitmapData, entry, srcFormat);
 	}
 
-	const FontStyle &CurrentStyle() const { return fontStyle_; }
-
 	int measureCalls = 0;
 
 protected:
 	void EnsureFont(const FontStyle &style) override {}
+	bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
 	void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) override {
 		measureCalls++;
 		std::vector<std::string_view> lines;
@@ -3774,49 +3772,40 @@ protected:
 bool TestTextDrawerCache() {
 	FakeTextDrawer drawer;
 	drawer.SetForcedDPIScale(1.0f);
-	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 20, FontStyleFlags::Default));
+	const FontStyle font20(FontFamily::SansSerif, 20, FontStyleFlags::Default);
+	const FontStyle font30(FontFamily::SansSerif, 30, FontStyleFlags::Default);
 
 	float w, h;
-	drawer.MeasureString("hello", &w, &h);
+	drawer.MeasureString(font20, 1.0f, 1.0f, "hello", &w, &h);
 	EXPECT_EQ_FLOAT(w, 50.0f);
 	EXPECT_EQ_FLOAT(h, 20.0f);
-	drawer.MeasureString("hello", &w, &h);
+	drawer.MeasureString(font20, 1.0f, 1.0f, "hello", &w, &h);
 	EXPECT_EQ_INT(drawer.measureCalls, 1);
 
-	// A different style is a different cache entry.
-	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 30, FontStyleFlags::Default));
-	drawer.MeasureString("hello", &w, &h);
+	// A different style is a different cache entry, but a different scale isn't.
+	drawer.MeasureString(font30, 1.0f, 1.0f, "hello", &w, &h);
+	EXPECT_EQ_INT(drawer.measureCalls, 2);
+	drawer.MeasureString(font30, 2.0f, 2.0f, "hello", &w, &h);
+	EXPECT_EQ_FLOAT(w, 100.0f);
 	EXPECT_EQ_INT(drawer.measureCalls, 2);
 
-	// Measuring in another style and scale leaves the current ones alone.
-	const FontStyle small(FontFamily::SansSerif, 10, FontStyleFlags::Default);
-	drawer.MeasureString(small, 2.0f, 2.0f, "hello", &w, &h);
-	EXPECT_EQ_FLOAT(w, 100.0f);
-	EXPECT_EQ_INT(drawer.measureCalls, 3);
-	EXPECT_TRUE(drawer.CurrentStyle() == FontStyle(FontFamily::SansSerif, 30, FontStyleFlags::Default));
-	drawer.MeasureString("hello", &w, &h);
-	EXPECT_EQ_FLOAT(w, 50.0f);
-	EXPECT_EQ_INT(drawer.measureCalls, 3);
-
 	const std::string_view para = "The quick brown fox jumps over the lazy dog, and then it does it again, and again, until the dog finally gets up and leaves.";
-	drawer.MeasureStringRect(para, 200.0f, &w, &h, FLAG_WRAP_TEXT);
+	drawer.MeasureStringRect(font30, 1.0f, 1.0f, para, 200.0f, &w, &h, FLAG_WRAP_TEXT);
 	// The trailing space of a wrapped line is measured too.
 	EXPECT_TRUE(w <= 210.0f);
 	EXPECT_TRUE(h > 20.0f);
 	float w2, h2;
 	int callsBefore = drawer.measureCalls;
-	drawer.MeasureStringRect(para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
+	drawer.MeasureStringRect(font30, 1.0f, 1.0f, para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
 	EXPECT_EQ_FLOAT(w, w2);
 	EXPECT_EQ_FLOAT(h, h2);
 	EXPECT_EQ_INT(drawer.measureCalls, callsBefore);
 
 	// Scaling the font changes where the text wraps.
-	drawer.SetFontScale(0.5f, 0.5f);
-	drawer.MeasureStringRect(para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
+	drawer.MeasureStringRect(font30, 0.5f, 0.5f, para, 200.0f, &w2, &h2, FLAG_WRAP_TEXT);
 	EXPECT_TRUE(h2 < h * 0.5f);
-	drawer.SetFontScale(1.0f, 1.0f);
 
-	drawer.MeasureStringRect(para, 200.0f, &w, &h, FLAG_ELLIPSIZE_TEXT);
+	drawer.MeasureStringRect(font30, 1.0f, 1.0f, para, 200.0f, &w, &h, FLAG_ELLIPSIZE_TEXT);
 	EXPECT_EQ_FLOAT(h, 20.0f);
 	EXPECT_TRUE(w <= 200.0f);
 
@@ -3830,7 +3819,6 @@ bool TestTextDrawerCache() {
 		}
 		drawer.TestDropShadow(bitmap, entry, Draw::DataFormat::R8_UNORM);
 	};
-	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 24, FontStyleFlags::Default));
 	TextStringEntry entry1(0), entry2(0);
 	std::vector<uint8_t> bitmap;
 	shadowTest(1.0f, entry1, bitmap);

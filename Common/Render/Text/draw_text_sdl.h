@@ -19,11 +19,11 @@ public:
 	TextDrawerSDL(Draw::DrawContext *draw);
 	~TextDrawerSDL();
 
-	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 protected:
 	void EnsureFont(const FontStyle &style) override;
 	void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) override;
+	bool DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override;
 
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
