@@ -578,18 +578,34 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			killAdhocctlClient(true, adhocctl_guard);
 		}
 
-		// either the call actually got a wouldblock, or the client is not ready
-		// in the case of connection/login failure, we still do a timeout first
 		if (call_status == ADHOCCTL_CALL_WOULDBLOCK) {
+			bool retry = true;
 			u64 now = (u64)(time_now_d() * 1000000.0);
-			if (now - adhocctlStartTime <= static_cast<u64>(adhocDefaultTimeout) + 500) {
+			if (now - adhocctlStartTime > static_cast<u64>(adhocDefaultTimeout) + 500) {
+				retry = false;
+			}
+
+			if (!isAdhocctlNeedLogin && !adhocctlHandle) {
+				// login attempt in friendFinder thread triggered by setting isAdhocctlNeedLogin before WaitBlockingAdhocctlSocket has already failed
+				// isAdhocctlNeedLogin was set to true during init/login, scan and connect
+				retry = false;
+			}
+
+			if (retry) {
 				// Try again in another 0.5ms until timedout.
 				CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, adhocctlNotifyEvent, userdata);
 				return;
 			} else {
-				result = SCE_NET_ADHOCCTL_ERROR_BUSY;
+				// we fake success for login (sceNetAdhocctlInit), for others we return busy
+				// https://github.com/hrydgard/ppsspp/commit/23efd22efbc7a43522d8200f5a3ea7af809ffd06
+				// https://github.com/hrydgard/ppsspp/issues/22806
+				if (req.opcode != OPCODE_LOGIN) {
+					result = SCE_NET_ADHOCCTL_ERROR_BUSY;
+				}
 			}
 		}
+
+		// ADHOCCTL_CALL_SUCCESS
 	}
 	else
 		result = SCE_NET_ADHOCCTL_ERROR_WLAN_SWITCH_OFF;
