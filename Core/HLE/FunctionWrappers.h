@@ -922,12 +922,15 @@ template<auto func> void WrapI_ICI(MIPSState *mips) {
 }
 
 template<auto func> void WrapI_IVVVVUI(MIPSState *mips) {
-  u32 retval = HLECall<int(int, void *, void *, void *, void *, u32, int), func>(mips, PARAM(0), Memory::GetPointerWriteOrException(PARAM(1)), Memory::GetPointerWriteOrException(PARAM(2)), Memory::GetPointerWriteOrException(PARAM(3)), Memory::GetPointerWriteOrException(PARAM(4)), PARAM(5), PARAM(6) );
+  // Any of the pointers may be NULL (sceNetAdhocPdpRecv takes NULL for the sender), so don't fault on it.
+  auto ptr = [](u32 addr) -> void * { return addr ? Memory::GetPointerWriteOrException(addr) : nullptr; };
+  u32 retval = HLECall<int(int, void *, void *, void *, void *, u32, int), func>(mips, PARAM(0), ptr(PARAM(1)), ptr(PARAM(2)), ptr(PARAM(3)), ptr(PARAM(4)), PARAM(5), PARAM(6) );
   RETURN(retval);
 }
 
 template<auto func> void WrapI_ICUVIII(MIPSState *mips) {
-  u32 retval = HLECall<int(int, const char *, u32, void *, int, int, int), func>(mips, PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), Memory::GetPointerWriteOrException(PARAM(3)), PARAM(4), PARAM(5), PARAM(6));
+  // The buffer may be NULL (sceNetAdhocPdpSend with a length of 0 is fine with that), so don't fault on it.
+  u32 retval = HLECall<int(int, const char *, u32, void *, int, int, int), func>(mips, PARAM(0), Memory::GetCharPointer(PARAM(1)), PARAM(2), PARAM(3) ? Memory::GetPointerWriteOrException(PARAM(3)) : nullptr, PARAM(4), PARAM(5), PARAM(6));
   RETURN(retval);
 }
 
