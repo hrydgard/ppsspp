@@ -26,6 +26,11 @@ static inline const char *DeNull(const char *ptr) {
 
 static const float g_atlasIconSize = 36.0f;
 
+// Inside the background, enough to keep the contents clear of the rounded corners.
+static float NoticeViewPadding(const UIContext &dc) {
+	return dc.GetTheme().choiceRoundRadius * 0.5f;
+}
+
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float maxWidth, float *width, float *height, float *height1) {
 	if (entry.type == OSDType::ACHIEVEMENT_UNLOCKED) {
@@ -34,7 +39,7 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 		*width = std::min(maxWidth, 550.0f);
 		*height1 = *height;
 	} else {
-		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, maxWidth, width, height, height1);
+		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, maxWidth, width, height, height1, NoticeViewPadding(dc));
 	}
 }
 
@@ -49,7 +54,7 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		if (!(entry.flags & OSDMessageFlags::Transparent)) {
 			dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 		}
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, 0.0f, dc.GetTheme().choiceRoundRadius * 0.75f);
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, NoticeViewPadding(dc), dc.GetTheme().choiceRoundRadius * 0.75f);
 	}
 }
 
@@ -425,11 +430,6 @@ void OSDOverlayScreen::update() {
 ViewLayoutMode OSDOverlayScreen::LayoutMode() const {
 	// Need the full insets to avoid notifications appearing out of any bounds.
 	return ViewLayoutMode::ApplyInsets;
-}
-
-// Inside the background, enough to keep the contents clear of the rounded corners.
-static float NoticeViewPadding(const UIContext &dc) {
-	return dc.GetTheme().choiceRoundRadius * 0.5f;
 }
 
 NoticeView::NoticeView(NoticeLevel level, std::string_view text, std::string_view detailsText, UI::LayoutParams *layoutParams)
