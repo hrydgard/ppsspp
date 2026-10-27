@@ -1557,18 +1557,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 
 		saveNameListData = param->saveNameList;
 
-		// Get number of fileName in array
-		saveDataListCount = 0;
-		while (saveNameListData[saveDataListCount][0] != 0) {
+		// Get number of fileName in array. Counted on the side, so a rejected name leaves the
+		// count at 0 to match the list Clear() freed (a savestate walks that many entries).
+		int count = 0;
+		while (saveNameListData[count][0] != 0) {
 			// saveName entries become part of host filesystem paths; reject
 			// path separators and bare dot components (path traversal).
-			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[saveDataListCount]);
+			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[count]);
 			if (HasPathTraversal(entry)) {
 				ERROR_LOG(Log::sceUtility, "SavedataParam: invalid saveName in list: %s", std::string(entry).c_str());
 				return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 			}
-			saveDataListCount++;
+			count++;
 		}
+		saveDataListCount = count;
 
 		if (saveDataListCount > 0) {
 			hasMultipleFileName = true;
@@ -2015,6 +2017,9 @@ void SavedataParam::DoState(PointerWrap &p) {
 
 	// pspParam is handled in PSPSaveDialog.
 	Do(p, selectedSave);
+	if (p.mode != p.MODE_READ && !saveDataList) {
+		saveDataListCount = 0;
+	}
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ) {
