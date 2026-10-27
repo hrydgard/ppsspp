@@ -297,6 +297,46 @@ hardware preserves the original case in `d_name` (`readme.txt`) where PPSSPP upp
 uppercase 8.3 (`readme.txt` -> `README~1.TXT`, `MiXeD.txt` -> `MIXED~1.TXT`) where PPSSPP only does
 so on a collision.
 
+## Tests that need two PSPs
+
+The ad hoc tests in `tests/net/adhoc/pair` and `tests/net/inet/pair` need two consoles talking to each
+other. Each test is two programs, `X_host` and `X_client`, built from one `X.inc`, each with its own
+`.expected`. They print only relative facts ("peer", "local"), so the files don't depend on which
+console ran which side.
+
+Both PSPs are connected over USB, each with its own bridge, and the second bridge needs its own base
+port (a bridge takes 8 ports from its base, so 3001 is taken) and its own root, so the two consoles'
+`__testoutput.txt` don't collide:
+
+```bash
+cd pspautotests && usbhostfs_pc -b 3000 &
+cd pspautotests/tests && usbhostfs_pc -b 4000 . &
+```
+
+Which console each bridge claims isn't up to you, and can change after a reconnect; check with
+`pspsh -p 3000 -e pspver`. Then record both sides at once:
+
+```bash
+python3 tests/net/adhoc/pair/record.py --host-port 3000 basic
+python3 tests/net/adhoc/pair/record.py --host-port 3000 net/inet/pair/lan
+```
+
+This is the one case where two test programs run at once - one per console, never two on one PSP.
+Things learned the hard way:
+
+- **Sync the two sides, don't sleep.** `pair.h` has `pairSync(step)`, which exchanges step numbers over a
+  PDP port until both sides have reached the same point. Anything that depends on how fast the other
+  side gets somewhere is a flaky test.
+- **Print buckets, not counts or times.** Radio loss and timing vary: print "45 or more of 50", "1-2s".
+- **Run each pair test twice** and diff the results before believing them.
+- **make doesn't track `.inc` and header dependencies by itself**; the Makefiles here add them. Without
+  that, a change to `pair.h` silently runs the old binary.
+- **Real access points need slack.** The first unicast to a new IP can be lost while ARP resolves, and a
+  weak signal stalls TCP for seconds.
+
+To run the same tests on several PPSSPP instances, see `Tools/adhoc_multi.py` and
+[pspautotests.md](pspautotests.md#multi-console-ad-hoc-tests).
+
 ## Committing
 
 `pspautotests` is a git submodule, so a new test is two commits:

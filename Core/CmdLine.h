@@ -194,6 +194,12 @@ struct CommandLineOptions {
 	std::optional<bool> printEqualLines;
 	// Headless: print flips per emulated second at the end, counted from the loaded state (if any).
 	std::optional<bool> frameStats;
+	// Headless: which of several instances running at once this is (sets PPSSPP_ID, and with it the
+	// instance's 127.0.0.N address and MAC), and whether to run at PSP speed rather than flat out.
+	// Both are for ad hoc tests where instances talk to each other.
+	std::optional<int> instance;
+	std::optional<bool> realtime;
+	std::optional<bool> adhocServer;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
