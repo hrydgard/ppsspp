@@ -58,6 +58,11 @@ enum class UISound {
 	TOGGLE_OFF,
 	ACHIEVEMENT_UNLOCKED,
 	LEADERBOARD_SUBMITTED,
+	// Only with the PSP firmware's sounds (UISoundStyle::FIRMWARE_ALL), silent otherwise.
+	SYSTEM_OK,     // With success notifications.
+	SYSTEM_ERROR,  // With error notifications.
+	SCREENSHOT,    // The camera's shutter.
+	GAME_BOOT,     // The PSP's game start intro's audio, set while it plays (GameBootAnimation).
 	COUNT,
 };
 

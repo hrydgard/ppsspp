@@ -47,6 +47,10 @@ public:
 	// screen: where the PSP's 480x272 display is, in UI coordinates.
 	void Draw(UIContext &dc, const Bounds &screen);
 	bool IsOpen() const { return state_ != State::CLOSED; }
+	// Open, or showing the volume bar over the game after a volume key. Draw while this is true.
+	bool IsVisible() const;
+	// Whether there's a firmware dump to take the PSP's own art from (HomeScreenStyle::FIRMWARE).
+	static bool FirmwareArtAvailable();
 	void Close();
 	void DeviceLost();
 
@@ -58,6 +62,7 @@ private:
 	};
 
 	void Open();
+	bool UseFirmwareArt();
 	void Choose(bool quit);
 	void FinishQuit();
 	Action TakeAction();
@@ -67,6 +72,8 @@ private:
 	uint32_t lastButtons_ = 0;
 	// After choosing Yes, while the game's exit callback runs: when to stop waiting and quit anyway.
 	double exitDeadline_ = -1.0;
+	// Until when the volume bar shows over the game.
+	double volumeBarUntil_ = -1.0;
 	Action pendingAction_ = Action::NONE;
 	// Where Yes and No were last drawn, for touch.
 	Bounds yesBounds_{};

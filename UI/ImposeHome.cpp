@@ -42,6 +42,10 @@
 #include "Core/HLE/sceUtility.h"
 #include "UI/ImposeHome.h"
 
+static Path ImposeRSCPath() {
+	return g_Config.nandRootDirectory / "flash0/kd/resource/impose.rsc";
+}
+
 // The artwork of the PSP's own HOME screen ("Do you want to quit the game?"), from the installed
 // firmware's flash0:/kd/resource/impose.rsc. impose.prx has no font, so every string is a
 // prerendered bitmap, one set per system language, each with its place on the 480x272 screen.
@@ -117,6 +121,9 @@ public:
 	void DrawStatusBar(UIContext &dc, const Bounds &screen, int month, int day, int hour, int minute, bool dayFirst, bool twelveHour, int batteryPercent);
 	// The lines above and below the question, and the volume bar (volume 0-30) when volume >= 0.
 	void DrawFrame(UIContext &dc, const Bounds &screen, int volume);
+	// Just the volume bar (volume 0-30), which impose also shows over a game when the volume keys
+	// are pressed.
+	void DrawVolumeBar(UIContext &dc, const Bounds &screen, int volume);
 	// The same text, for drawing it without the firmware's glyphs: "12/31 9:05" or "31/12 9:05 PM".
 	static std::string ClockText(int month, int day, int hour, int minute, bool dayFirst, bool twelveHour);
 	// Which battery level impose.prx shows for a charge (0 full .. 3 empty).
@@ -236,7 +243,7 @@ bool ImposeArt::Load(int pspLanguage) {
 	if (g_Config.nandRootDirectory.empty()) {
 		return false;
 	}
-	const Path path = g_Config.nandRootDirectory / "flash0/kd/resource/impose.rsc";
+	const Path path = ImposeRSCPath();
 	std::string contents;
 	if (!File::ReadBinaryFileToString(path, &contents)) {
 		INFO_LOG(Log::System, "No %s, drawing the HOME screen ourselves", path.c_str());
@@ -574,9 +581,36 @@ void ImposeArt::DrawFrame(UIContext &dc, const Bounds &screen, int volume) {
 	at(Item::LINE, 80, 96);
 	at(Item::LINE, 80, 175);
 	if (volume >= 0) {
-		at(Item::SPEAKER, 28, 223);
-		for (int i = 0; i < 30; i++) {
-			at(i < volume ? Item::VOLUME_SET : Item::VOLUME_UNSET, 62 + 12 * i, 223);
+		DrawVolumeBar(dc, screen, volume);
+	}
+}
+
+void ImposeArt::DrawVolumeBar(UIContext &dc, const Bounds &screen, int volume) {
+	const float sx = screen.w / PSP_W;
+	const float sy = screen.h / PSP_H;
+	auto at = [&](Item item, int x, int y) {
+		const Sprite &s = sprites_[(int)item];
+		Draw(dc, item, Bounds(screen.x + x * sx, screen.y + y * sy, s.w * sx, s.h * sy));
+	};
+	at(Item::SPEAKER, 28, 223);
+	for (int i = 0; i < 30; i++) {
+		at(i < volume ? Item::VOLUME_SET : Item::VOLUME_UNSET, 62 + 12 * i, 223);
+	}
+}
+
+// The volume bar without the firmware's art: the speaker, then a bar per step set and a dot per
+// step not, where impose puts them.
+static void DrawPlainVolumeBar(UIContext &dc, const Bounds &screen, int volume) {
+	const float sx = screen.w / 480.0f;
+	const float sy = screen.h / 272.0f;
+	auto PSPRect = [&](float x, float y, float w, float h) { return Bounds(screen.x + x * sx, screen.y + y * sy, w * sx, h * sy); };
+	const Bounds speaker = PSPRect(28, 223, 32, 28);
+	dc.Draw()->DrawImage(ImageID(volume > 0 ? "I_SPEAKER" : "I_SPEAKER_OFF"), speaker.centerX(), speaker.y + 12.0f * sy, 22.0f * sy / 32.0f, 0xFFFFFFFF, ALIGN_CENTER);
+	for (int i = 0; i < 30; i++) {
+		if (i < volume) {
+			dc.FillRect(UI::Drawable(0xFFFFFFFF), PSPRect(64.5f + 12 * i, 228, 3, 14));
+		} else {
+			dc.FillRect(UI::Drawable(0xFFC5C5C5), PSPRect(65 + 12 * i, 239, 2, 2));
 		}
 	}
 }
@@ -599,6 +633,9 @@ static uint32_t ConfirmButton() {
 	const bool circle = PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm || g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CIRCLE;
 	return circle ? CTRL_CIRCLE : CTRL_CROSS;
 }
+
+// How long impose shows the volume bar over a game after a volume key.
+static constexpr double VOLUME_BAR_SECONDS = 2.0;
 
 // Our game volume (0-100) as the PSP's volume steps (0-30), which the volume bar shows.
 static int VolumeStep() {
@@ -660,6 +697,7 @@ ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
 			Close();
 		}
 		lastButtons_ = 0;
+		volumeBarUntil_ = -1.0;
 		if (!PSP_IsInited()) {
 			exitDeadline_ = -1.0;
 		}
@@ -683,6 +721,14 @@ ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
 		return Action::NONE;
 	}
 
+	// The volume keys move the volume a step, which is our game volume. In a game impose shows the
+	// volume bar for a moment; on the quit screen, it's always there.
+	if ((pressed & (CTRL_VOL_UP | CTRL_VOL_DOWN)) && state_ != State::QUITTING) {
+		const int step = std::clamp(VolumeStep() + ((pressed & CTRL_VOL_UP) ? 1 : -1), 0, 30);
+		g_Config.iGameVolume = (step * VOLUMEHI_FULL + 15) / 30;
+		volumeBarUntil_ = time_now_d() + VOLUME_BAR_SECONDS;
+	}
+
 	switch (state_) {
 	case State::CLOSED:
 		if ((pressed & CTRL_HOME) && exitDeadline_ < 0.0 && Available()) {
@@ -695,11 +741,6 @@ ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
 		const uint32_t cancel = confirm == CTRL_CIRCLE ? CTRL_CROSS : CTRL_CIRCLE;
 		if (pressed & (CTRL_LEFT | CTRL_RIGHT)) {
 			yes_ = !yes_;
-		}
-		// The volume keys move the volume bar a step, which is our game volume.
-		if (pressed & (CTRL_VOL_UP | CTRL_VOL_DOWN)) {
-			const int step = std::clamp(VolumeStep() + ((pressed & CTRL_VOL_UP) ? 1 : -1), 0, 30);
-			g_Config.iGameVolume = (step * VOLUMEHI_FULL + 15) / 30;
 		}
 		if (pressed & confirm) {
 			Choose(yes_);
@@ -720,8 +761,38 @@ ImposeHomeScreen::Action ImposeHomeScreen::TakeAction() {
 	return action;
 }
 
+bool ImposeHomeScreen::IsVisible() const {
+	return IsOpen() || time_now_d() < volumeBarUntil_;
+}
+
+bool ImposeHomeScreen::UseFirmwareArt() {
+	if (g_Config.iHomeScreenStyle != (int)HomeScreenStyle::FIRMWARE) {
+		return false;
+	}
+	if (!art_) {
+		art_ = std::make_unique<ImposeArt>();
+	}
+	return art_->Load(GetPSPLanguage());
+}
+
 void ImposeHomeScreen::Draw(UIContext &dc, const Bounds &screen) {
 	using Item = ImposeArt::Item;
+
+	if (state_ == State::CLOSED) {
+		// Only the volume bar, over the game, on the gray impose draws behind it.
+		const float sx = screen.w / 480.0f;
+		const float sy = screen.h / 272.0f;
+		dc.Flush();
+		dc.RebindTexture();
+		dc.FillRect(UI::Drawable(ImposeArt::BACKGROUND), Bounds(screen.x + 24 * sx, screen.y + 221 * sy, 400 * sx, 30 * sy));
+		if (UseFirmwareArt()) {
+			art_->DrawVolumeBar(dc, screen, VolumeStep());
+		} else {
+			DrawPlainVolumeBar(dc, screen, VolumeStep());
+		}
+		dc.Flush();
+		return;
+	}
 
 	const float sx = screen.w / 480.0f;
 	const float sy = screen.h / 272.0f;
@@ -753,10 +824,7 @@ void ImposeHomeScreen::Draw(UIContext &dc, const Bounds &screen) {
 	// The volume bar shows our game volume, in the PSP's 30 steps.
 	const int volume = VolumeStep();
 
-	if (!art_) {
-		art_ = std::make_unique<ImposeArt>();
-	}
-	if (art_->Load(GetPSPLanguage())) {
+	if (UseFirmwareArt()) {
 		ImposeArt &art = *art_;
 		if (haveTime) {
 			art.DrawStatusBar(dc, screen, now.month, now.day, now.hour, now.minute, dayFirst, twelveHour, batteryPercent);
@@ -825,16 +893,7 @@ void ImposeHomeScreen::Draw(UIContext &dc, const Bounds &screen) {
 	yesBounds_ = PSPRect(190, 146, 32, 18);
 	noBounds_ = PSPRect(258, 146, 32, 18);
 	if (asking) {
-		// Volume bar: the speaker, then a bar per step set and a dot per step not.
-		const Bounds speaker = PSPRect(28, 223, 32, 28);
-		dc.Draw()->DrawImage(ImageID(volume > 0 ? "I_SPEAKER" : "I_SPEAKER_OFF"), speaker.centerX(), speaker.y + 12.0f * sy, 22.0f * sy / 32.0f, 0xFFFFFFFF, ALIGN_CENTER);
-		for (int i = 0; i < 30; i++) {
-			if (i < volume) {
-				dc.FillRect(UI::Drawable(0xFFFFFFFF), PSPRect(64.5f + 12 * i, 228, 3, 14));
-			} else {
-				dc.FillRect(UI::Drawable(0xFFC5C5C5), PSPRect(65 + 12 * i, 239, 2, 2));
-			}
-		}
+		DrawPlainVolumeBar(dc, screen, volume);
 
 		FitText(di->T("Do you want to quit the game?"), PSPRect(40, 112, 400, 19), 0xFFFFFFFF, ALIGN_HCENTER);
 		const Bounds &selected = yes_ ? yesBounds_ : noBounds_;
@@ -863,6 +922,10 @@ ImposeHomeScreen::ImposeHomeScreen() {}
 
 ImposeHomeScreen::~ImposeHomeScreen() {
 	Close();
+}
+
+bool ImposeHomeScreen::FirmwareArtAvailable() {
+	return !g_Config.nandRootDirectory.empty() && File::Exists(ImposeRSCPath());
 }
 
 void ImposeHomeScreen::DeviceLost() {

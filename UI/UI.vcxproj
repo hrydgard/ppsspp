@@ -30,6 +30,8 @@
     <ClCompile Include="AdhocServerScreen.cpp" />
     <ClCompile Include="Background.cpp" />
     <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="FirmwareSounds.cpp" />
+    <ClCompile Include="GameBootAnimation.cpp" />
     <ClCompile Include="BaseScreens.cpp" />
     <ClCompile Include="ChatScreen.cpp" />
     <ClCompile Include="ControlMappingScreen.cpp" />
@@ -105,6 +107,8 @@
     <ClInclude Include="AudioCommon.h" />
     <ClInclude Include="Background.h" />
     <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="FirmwareSounds.h" />
+    <ClInclude Include="GameBootAnimation.h" />
     <ClInclude Include="BaseScreens.h" />
     <ClInclude Include="ChatScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />

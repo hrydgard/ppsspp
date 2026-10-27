@@ -59,6 +59,8 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="FirmwareSounds.cpp" />
+    <ClCompile Include="GameBootAnimation.cpp" />
     <ClCompile Include="ShareFiles.cpp" />
     <ClCompile Include="ReportScreen.cpp">
       <Filter>Screens</Filter>
@@ -256,6 +258,8 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="FirmwareSounds.h" />
+    <ClInclude Include="GameBootAnimation.h" />
     <ClInclude Include="ShareFiles.h" />
     <ClInclude Include="ReportScreen.h">
       <Filter>Screens</Filter>

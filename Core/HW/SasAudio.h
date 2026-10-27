@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "Common/CommonTypes.h"
 #include "Core/HW/BufferQueue.h"
 #include "Core/HW/SasReverb.h"
@@ -112,6 +114,9 @@ public:
 	void DoState(PointerWrap &p);
 
 	u32 GetReadPtr() const { return read_; }
+
+	// Decodes a whole VAG body (without the header) from host memory, up to the end flag. No looping.
+	static void DecodeAll(const u8 *data, size_t size, std::vector<s16> *out);
 
 private:
 	s16 samples[28]{};
