@@ -90,6 +90,9 @@ set(aemu_postoffice_server_obj
 	aemu_postoffice/server_cpp/session.cpp
 	aemu_postoffice/server_cpp/semaphore.cpp
 	aemu_postoffice/server_cpp/log.cpp
+	aemu_postoffice/server_cpp/common.cpp
+	aemu_postoffice/server_cpp/enet.cpp
+	aemu_postoffice/server_cpp/snapshot.cpp
 )
 
 if(WIN32)
@@ -108,10 +111,6 @@ add_library(aemu_postoffice_server STATIC
 	${aemu_postoffice_server_obj}
 )
 
-set_target_properties(aemu_postoffice_server
-	PROPERTIES
-	CXX_STANDARD 20
-)
 
 set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "" FORCE)
