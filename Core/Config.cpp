@@ -754,6 +754,8 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
+	// On normal boots, this is where the Vulkan driver gets loaded the first time, in this check.
+	// That's a bit weird actually. But at least the config is loaded.
 	if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
 		return false;
 	return true;
@@ -920,6 +922,7 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "External display").Choices(externalDisplayNames),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	ConfigSetting("CustomDriver", SETTING(g_Config, sCustomDriver), "", CfgFlag::DEFAULT),
+	ConfigSetting("AdrenoDriverVars", SETTING(g_Config, iAdrenoEnvVars), 0, CfgFlag::DEFAULT),
 #endif
 	ConfigSetting("DisabledGraphicsBackends", SETTING(g_Config, sDisabledGPUBackends), "", CfgFlag::DEFAULT),
 	ConfigSetting("VulkanDevice", SETTING(g_Config, sVulkanDevice), "", CfgFlag::DEFAULT)
@@ -2049,6 +2052,12 @@ void Config::PostLoadCleanup() {
 	// Enforce D3D11.
 	iGPUBackend = (int)GPUBackend::DIRECT3D11;
 #endif
+
+	// IsBackendEnabled below triggers a Vulkan driver load. So we must first apply the environment vars for custom drivers,
+	// so the environment variables are set on load. Not super pretty.
+	if (!g_Config.sCustomDriver.empty()) {
+		VulkanApplyCustomDriverEnvVars((AdrenoEnvVar)g_Config.iAdrenoEnvVars);
+	}
 
 	if (!IsBackendEnabled((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default", iGPUBackend);

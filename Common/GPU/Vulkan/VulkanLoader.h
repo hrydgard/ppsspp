@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include "Common/GPU/Vulkan/VulkanDriverVars.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #define VK_USE_PLATFORM_ANDROID_KHR
@@ -285,6 +286,8 @@ struct VulkanExtensions {
 	bool EXT_full_screen_exclusive;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
+
+void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars);
 
 // Way to do a quick check before even attempting to load.
 void VulkanSetNativeLibDir(std::string_view nativeLibDir);

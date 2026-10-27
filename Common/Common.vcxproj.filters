@@ -821,6 +821,9 @@
     <ClInclude Include="Render\DrawEnum.h">
       <Filter>Render</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Vulkan\VulkanDriverVars.h">
+      <Filter>GPU\Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ABI.cpp" />
