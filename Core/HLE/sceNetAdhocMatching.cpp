@@ -651,7 +651,9 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 			DataToHexString(10, 0, (u8*)opt, optlen, &hellohex);
 			DEBUG_LOG(Log::sceNet, "HELLO Dump (%d bytes):\n%s", optlen, hellohex.c_str());
 
-			// Spawn Hello Event. FIXME: HELLO event should not be triggered in the middle of joining? This will cause Bleach 7 to Cancel the join request
+			// Spawn Hello Event. Not from a peer in the middle of joining: on the PSP a client gets no hellos from
+			// the host it's asking to join (pspautotests net/adhoc/pair/matching3), and Bleach 7 cancels the join
+			// if it gets one.
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_HELLO, sendermac, optlen, opt);
 		}
 	}
@@ -2670,7 +2672,9 @@ void __NetMatchingCallbacks() { //(int matchingId)
 		}
 		DEBUG_LOG(Log::sceNet, "AdhocMatching - Remaining Events: %zu", matchingEvents.size());
 		auto peer = findPeer(context, (SceNetEtherAddr*)Memory::GetPointerOrException(args[2]));
-		// Discard HELLO Events when in the middle of joining, as some games (ie. Super Pocket Tennis) might tried to join again (TODO: Need to confirm whether sceNetAdhocMatchingSelectTarget supposed to be blocking the current thread or not)
+		// Discard HELLO events from a peer in the middle of joining: on the PSP a client gets none from the host
+		// it's asking to join (pspautotests net/adhoc/pair/matching3), and Super Pocket Tennis tries to join
+		// again if it gets one.
 		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
 			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointerOrException(args[2])).c_str());
 

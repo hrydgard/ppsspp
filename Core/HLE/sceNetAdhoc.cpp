@@ -2626,7 +2626,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 										DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
 
 										// Success
-										return 0; // sent; // MotorStorm will try to resend if return value is not 0
+										return 0; // 0, not the length, as on the PSP (pspautotests net/adhoc/pdp). MotorStorm resends otherwise.
 									}
 
 									// Non-Blocking
@@ -2636,8 +2636,8 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 									// Does PDP can Timeout? There is no concept of Timeout when sending UDP due to no ACK, but might happen if the socket buffer is full, not sure about PDP since some games did use the timeout arg
 									return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "timeout?"); // SCE_NET_ADHOC_ERROR_INVALID_ADDR;
 								}
-								VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u (faking success)\n", id, getLocalPort(pdpsocket.id), mac2str(daddr).c_str(), ntohs(target.sin_port));
-								return 0; // faking success
+								VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u (nobody there)\n", id, getLocalPort(pdpsocket.id), mac2str(daddr).c_str(), ntohs(target.sin_port));
+								return 0; // The PSP sends it into the air and returns 0 (pspautotests net/adhoc/pdp).
 							}
 
 							// Broadcast Target
@@ -2975,7 +2975,7 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 						*sport = ntohs(sin.sin_port) - portOffset;
 
 						// Save Length
-						*len = received; // Kurok homebrew seems to use the new value of len than returned value as data length
+						*len = received; // The PSP writes the received length back (pspautotests net/adhoc/pdp).
 
 						// Update last recv timestamp, may cause disconnection not detected properly tho
 						peerlock.lock();
@@ -2987,7 +2987,7 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 						//_freeNetworkLock();
 
 						// Return Success. According to pspsdk-1.0+beta2 returned value is Number of bytes received, but JPCSP returning 0?
-						return 0; //received; // Returning number of bytes received will cause KH BBS unable to see the game event/room
+						return 0; // 0, not the length, as on the PSP (pspautotests net/adhoc/pdp). KH BBS can't see rooms otherwise.
 					}
 
 					// Free Network Lock
@@ -3427,7 +3427,8 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 		int us = adhocDefaultDelay;
 		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
-			// TODO: Valhalla Knights 2 need handler notification, but need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
+			// Returns 0 and reports ALREADY_CONNECTED through the handlers, as on the PSP (pspautotests
+			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event.
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 			hleEatMicro(500);
 			return hleLogDebug(Log::sceNet, 0);
@@ -4592,7 +4593,8 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	*slot = internal;
 	INFO_LOG(Log::sceNet, "%s: created ptp socket with id %d", __func__, i + 1);
 
-	// Initiate PtpConnect (ie. The Warriors seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+	// PtpOpen starts connecting by itself: on the PSP the client is ESTABLISHED right after it (pspautotests
+	// net/adhoc/ptp). The Warriors sends without calling PtpConnect.
 	NetAdhocPtp_Connect(i + 1, 0, 1, false);
 
 	return i + 1;
@@ -4763,7 +4765,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(tcpsocket, 1);
 
-								// Initiate PtpConnect (ie. The Warriors seems to try to PtpSend right after PtpOpen without trying to PtpConnect first)
+								// PtpOpen starts connecting by itself, as on the PSP (see ptp_open_postoffice).
 								// TODO: Need to handle ECONNREFUSED better on non-Windows, if there are games that never called PtpConnect and only relies on [blocking?] PtpOpen to get connected
 								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
 
@@ -4947,7 +4949,8 @@ static int sceNetAdhocPtpAccept(MIPSState *mips, int id, u32 peerMacAddrPtr, u32
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// TODO: Validate Arguments. GTA:VCS seems to use 0/null for the peerPortPtr, and Bomberman Panic Bomber is using null/0 on both peerMacAddrPtr & peerPortPtr, so i guess it's optional.
+		// The peer's address and port are both optional (pspautotests net/adhoc/alerts passes NULL for
+		// both). GTA: VCS and Bomberman Panic Bomber leave them out.
 		if (true) { // FIXME: Not sure what kind of arguments considered as invalid (need to be tested on a homebrew), might be the flag?
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
@@ -5051,7 +5054,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 			}
 
-			// Phantasy Star Portable 2 will try to reconnect even when previous connect already success, so we should return success too if it's already connected
+			// Connecting a connected socket returns 0 on the PSP (pspautotests net/adhoc/alerts). Phantasy Star
+			// Portable 2 does that.
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
 				return 0;
 

@@ -1049,7 +1049,7 @@ static int sceNetInit(MIPSState *mips, u32 poolSize, u32 calloutPri, u32 callout
 
 	INFO_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, mips->pc);
 	
-	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
+	netMallocStat.pool = poolSize - 0x20; // 0x1FFE0 for a 0x20000 pool, as on the PSP (pspautotests net/inet/offline)
 	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
 	netMallocStat.free = netMallocStat.pool; // Dummy free size, we should set this high enough to prevent any issue (ie. Vantage Master Portable), this is probably the only field being checked by games?
 
