@@ -67,7 +67,7 @@ static bool SupportsCustomDriver() {
 
 static bool SupportsCustomDriver() {
 #ifdef _DEBUG
-	return false;  // change to true to debug driver installation on other platforms
+	return false;  // change to true to debug driver installation on other platforms. DO NOT commit as true.
 #else
 	return false;
 #endif

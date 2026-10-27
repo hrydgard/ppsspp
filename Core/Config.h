@@ -301,6 +301,7 @@ public:
 	int iGPUBackend;
 	int iExternalDisplay;  // ExternalDisplayMode
 	std::string sCustomDriver;
+	int iAdrenoEnvVars;  // AdrenoEnvVars
 	std::string sFailedGPUBackends;  // NOT stored in ppsspp.ini anymore!
 	std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.

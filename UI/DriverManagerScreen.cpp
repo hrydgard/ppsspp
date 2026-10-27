@@ -3,6 +3,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
+#include "Common/GPU/Vulkan/VulkanDriverVars.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/UI/PopupScreens.h"
@@ -165,11 +166,20 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
-	ChoiceGroup *driverManagerGroup = drivers->Add(new ChoiceGroupList())->Add(new ChoiceGroup(gr->T("AdrenoTools driver manager")));
+	ChoiceGroupList *groups = drivers->Add(new ChoiceGroupList());
+
+	ChoiceGroup *driverManagerGroup = groups->Add(new ChoiceGroup(gr->T("AdrenoTools driver manager")));
 	auto customDriverInstallChoice = driverManagerGroup->Add(new Choice(gr->T("Install custom driver...")));
 	driverManagerGroup->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
 	});
+
+	ChoiceGroup *adrenoEnvVarGroup = groups->Add(new ChoiceGroup(gr->T("Turnip driver flags")));
+	int count = 0;
+	const AdrenoEnvVarDef *adrenoEnvVarDefs = GetAdrenoEnvVarDefs(&count);
+	for (int i = 0; i < count; i++) {
+		adrenoEnvVarGroup->Add(new BitCheckBox(&g_Config.iAdrenoEnvVars, (int)adrenoEnvVarDefs[i].var, adrenoEnvVarDefs[i].name));
+	}
 
 	customDriverInstallChoice->OnClick.Handle(this, &DriverManagerScreen::OnCustomDriverInstall);
 

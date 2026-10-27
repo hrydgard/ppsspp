@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <cstdlib>
 
 #include "Core/Config.h"
 #include "Common/Data/Format/JSONReader.h"
@@ -384,6 +385,8 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 
 			File::CreateDir(tempDir);
 			File::CreateDir(fileRedirectDir);
+
+			// Driver workaround through environment variables must have been applied before this (AdrenoEnvVar).
 
 			lib = adrenotools_open_libvulkan(
 				RTLD_NOW | RTLD_LOCAL, ADRENOTOOLS_DRIVER_FILE_REDIRECT | ADRENOTOOLS_DRIVER_CUSTOM,
@@ -1007,3 +1010,35 @@ const char *VulkanResultToString(VkResult res) {
 		return temp;
 	}
 }
+
+static const AdrenoEnvVarDef adrenoEnvVarDefs[] = {
+	{"enable_tp_ubwc_flag_hint", AdrenoEnvVar::enable_tp_ubwc_flag_hint},
+	{"storage_8bit", AdrenoEnvVar::storage_8bit},
+};
+
+const AdrenoEnvVarDef *GetAdrenoEnvVarDefs(int *count) {
+	*count = ARRAY_SIZE(adrenoEnvVarDefs);
+	return adrenoEnvVarDefs;
+}
+
+void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars) {
+	std::string FD_DEV_FEATURES;
+	for (int i = 0; i < ARRAY_SIZE(adrenoEnvVarDefs); i++) {
+		const char *value = (envVars & adrenoEnvVarDefs[i].var) ? "1" : "0";
+		if (!FD_DEV_FEATURES.empty()) {
+			FD_DEV_FEATURES += ",";
+		}
+		FD_DEV_FEATURES += adrenoEnvVarDefs[i].name;
+		FD_DEV_FEATURES += "=";
+		FD_DEV_FEATURES += value;
+	}
+
+	// Simply set the environment variable, AdrenoTools will pick it up.
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
+	setenv("FD_DEV_FEATURES", FD_DEV_FEATURES.c_str(), 1);  // 1 = overwrite existing value
+#else
+	WARN_LOG(Log::G3D, "VulkanApplyCustomDriverEnvVars: Not supported on this platform. (%s)", FD_DEV_FEATURES.c_str());
+#endif
+}
+
+const AdrenoEnvVarDef *GetAdrenoEnvVarDefs(int *count);
