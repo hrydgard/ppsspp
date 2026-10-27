@@ -3744,17 +3744,19 @@ bool TestFatShortNames() {
 class FakeTextDrawer : public TextDrawer {
 public:
 	FakeTextDrawer() : TextDrawer(nullptr) {}
-	void SetOrCreateFont(const FontStyle &style) override { fontStyle_ = style; }
 	bool DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) override { return false; }
 
 	void TestDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) {
 		AddDropShadow(bitmapData, entry, srcFormat);
 	}
 
+	const FontStyle &CurrentStyle() const { return fontStyle_; }
+
 	int measureCalls = 0;
 
 protected:
-	void MeasureStringInternal(std::string_view str, float *w, float *h) override {
+	void EnsureFont(const FontStyle &style) override {}
+	void MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) override {
 		measureCalls++;
 		std::vector<std::string_view> lines;
 		SplitString(str, '\n', lines);
@@ -3785,6 +3787,16 @@ bool TestTextDrawerCache() {
 	drawer.SetOrCreateFont(FontStyle(FontFamily::SansSerif, 30, FontStyleFlags::Default));
 	drawer.MeasureString("hello", &w, &h);
 	EXPECT_EQ_INT(drawer.measureCalls, 2);
+
+	// Measuring in another style and scale leaves the current ones alone.
+	const FontStyle small(FontFamily::SansSerif, 10, FontStyleFlags::Default);
+	drawer.MeasureString(small, 2.0f, 2.0f, "hello", &w, &h);
+	EXPECT_EQ_FLOAT(w, 100.0f);
+	EXPECT_EQ_INT(drawer.measureCalls, 3);
+	EXPECT_TRUE(drawer.CurrentStyle() == FontStyle(FontFamily::SansSerif, 30, FontStyleFlags::Default));
+	drawer.MeasureString("hello", &w, &h);
+	EXPECT_EQ_FLOAT(w, 50.0f);
+	EXPECT_EQ_INT(drawer.measureCalls, 3);
 
 	const std::string_view para = "The quick brown fox jumps over the lazy dog, and then it does it again, and again, until the dog finally gets up and leaves.";
 	drawer.MeasureStringRect(para, 200.0f, &w, &h, FLAG_WRAP_TEXT);

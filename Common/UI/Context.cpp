@@ -284,19 +284,7 @@ void UIContext::MeasureText(const FontStyle &style, float scaleX, float scaleY, 
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
 		Draw()->MeasureText(AtlasFontFromStyle(style), str, x, y);
 	} else {
-		// Switching fonts costs two lookups, and most measuring is done in the current style.
-		const bool switchFont = !(style == *fontStyle_);
-		if (switchFont) {
-			textDrawer_->SetOrCreateFont(style);
-		}
-		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureString(str, x, y);
-		if (switchFont) {
-			// Check for bad "old font".
-			if (fontStyle_ && fontStyle_->sizePts > 0) {
-				textDrawer_->SetOrCreateFont(*fontStyle_);
-			}
-		}
+		textDrawer_->MeasureString(style, scaleX, scaleY, str, x, y);
 	}
 }
 
@@ -307,16 +295,7 @@ void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scal
 		Draw()->SetFontScale(scaleX * sizeFactor, scaleY * sizeFactor);
 		Draw()->MeasureTextRect(AtlasFontFromStyle(style), str, maxWidth, x, y, align);
 	} else {
-		// Switching fonts costs two lookups, and most measuring is done in the current style.
-		const bool switchFont = !(style == *fontStyle_);
-		if (switchFont) {
-			textDrawer_->SetOrCreateFont(style);
-		}
-		textDrawer_->SetFontScale(scaleX, scaleY);
-		textDrawer_->MeasureStringRect(str, maxWidth, x, y, align);
-		if (switchFont) {
-			textDrawer_->SetOrCreateFont(*fontStyle_);
-		}
+		textDrawer_->MeasureStringRect(style, scaleX, scaleY, str, maxWidth, x, y, align);
 	}
 }
 

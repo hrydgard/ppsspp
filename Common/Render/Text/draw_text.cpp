@@ -65,29 +65,34 @@ TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 
 float TextDrawerWordWrapper::MeasureWidth(std::string_view str) {
 	float w, h;
-	drawer_->MeasureString(str, &w, &h);
+	drawer_->MeasureString(style_, scale_, scale_, str, &w, &h);
 	return w;
 }
 
-const TextCacheKey &TextDrawer::LookupKey(std::string_view str, int flags, float maxWidth, float scale) {
+const TextCacheKey &TextDrawer::LookupKey(const FontStyle &style, std::string_view str, int flags, float maxWidth, float scale) {
 	lookupKey_.text.assign(str.data(), str.size());
-	lookupKey_.style = fontStyle_;
+	lookupKey_.style = style;
 	lookupKey_.flags = flags;
 	lookupKey_.maxWidth = maxWidth;
 	lookupKey_.scale = scale;
 	return lookupKey_;
 }
 
-const std::string &TextDrawer::WrapString(std::string_view str, float maxW, int flags) {
+const std::string &TextDrawer::WrapString(const FontStyle &style, float scale, std::string_view str, float maxW, int flags) {
 	// The wrapper measures in scaled units, so the result depends on the scale too.
-	auto [iter, inserted] = wrapCache_.try_emplace(LookupKey(str, flags, maxW, fontScaleX_));
+	auto [iter, inserted] = wrapCache_.try_emplace(LookupKey(style, str, flags, maxW, scale));
 	TextWrapEntry &entry = iter->second;
 	entry.lastUsedFrame = frameCount_;
 	if (inserted) {
-		TextDrawerWordWrapper wrapper(this, str, maxW, flags);
+		TextDrawerWordWrapper wrapper(this, style, scale, str, maxW, flags);
 		entry.wrapped = wrapper.Wrapped();
 	}
 	return entry.wrapped;
+}
+
+void TextDrawer::SetOrCreateFont(const FontStyle &style) {
+	EnsureFont(style);
+	fontStyle_ = style;
 }
 
 void TextDrawer::SetFontScale(float xscale, float yscale) {
@@ -112,7 +117,7 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 
 	TextStringEntry *entry;
 
-	auto [iter, inserted] = cache_.try_emplace(LookupKey(str, align & FLAG_DROP_SHADOW));
+	auto [iter, inserted] = cache_.try_emplace(LookupKey(fontStyle_, str, align & FLAG_DROP_SHADOW));
 	if (!inserted) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -186,7 +191,7 @@ void TextDrawer::DrawString(DrawBuffer &target, std::string_view str, float x, f
 	target.Flush(true);
 }
 
-void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
+void TextDrawer::MeasureString(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *w, float *h) {
 	if (str.empty()) {
 		*w = 0.0f;
 		*h = 0.0f;
@@ -198,11 +203,12 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 		str = str.substr(0, MAX_TEXT_LENGTH);
 	}
 
-	auto [iter, inserted] = sizeCache_.try_emplace(LookupKey(str));
+	auto [iter, inserted] = sizeCache_.try_emplace(LookupKey(style, str));
 	TextMeasureEntry &entry = iter->second;
 	if (inserted) {
-		float extW, extH;
-		MeasureStringInternal(str, &extW, &extH);
+		EnsureFont(style);
+		float extW = 0.0f, extH = 0.0f;
+		MeasureStringInternal(style, str, &extW, &extH);
 		entry.width = extW;
 		entry.height = extH;
 		// Hm, use the old calculation?
@@ -210,11 +216,11 @@ void TextDrawer::MeasureString(std::string_view str, float *w, float *h) {
 	}
 
 	entry.lastUsedFrame = frameCount_;
-	*w = entry.width * fontScaleX_ * dpiScale_;
-	*h = entry.height * fontScaleY_ * dpiScale_;
+	*w = entry.width * scaleX * dpiScale_;
+	*h = entry.height * scaleY * dpiScale_;
 }
 
-void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *w, float *h, int align) {
+void TextDrawer::MeasureStringRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *w, float *h, int align) {
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 
 	// Clamp the size to something sane.
@@ -223,10 +229,10 @@ void TextDrawer::MeasureStringRect(std::string_view str, float maxWidth, float *
 	}
 
 	float plainW, plainH;
-	MeasureString(str, &plainW, &plainH);
+	MeasureString(style, scaleX, scaleY, str, &plainW, &plainH);
 
 	if (wrap && plainW > maxWidth) {
-		MeasureString(WrapString(str, maxWidth, wrap), w, h);
+		MeasureString(style, scaleX, scaleY, WrapString(style, scaleX, str, maxWidth, wrap), w, h);
 	} else {
 		*w = plainW;
 		*h = plainH;
@@ -256,7 +262,7 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, std::string_view str, const 
 	}
 
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	DrawString(target, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, x, y, color, align);
+	DrawString(target, wrap ? std::string_view(WrapString(fontStyle_, fontScaleX_, str, bounds.w, wrap)) : str, x, y, color, align);
 }
 
 bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, const Bounds &bounds, int align, bool fullColor) {
@@ -266,7 +272,7 @@ bool TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 	}
 
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	return DrawStringBitmap(bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(str, bounds.w, wrap)) : str, align, fullColor);
+	return DrawStringBitmap(bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(fontStyle_, fontScaleX_, str, bounds.w, wrap)) : str, align, fullColor);
 }
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {

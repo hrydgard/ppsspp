@@ -117,19 +117,15 @@ TextDrawerWin32::~TextDrawerWin32() {
 	delete ctx_;
 }
 
-void TextDrawerWin32::SetOrCreateFont(const FontStyle &style) {
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+void TextDrawerWin32::EnsureFont(const FontStyle &style) {
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-
 	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_);
-	fontStyle_ = style;
 }
 
-void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	auto iter = fontMap_.find(fontStyle_);
+void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	} else {

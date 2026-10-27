@@ -261,21 +261,17 @@ TextDrawerUWP::~TextDrawerUWP() {
 	delete ctx_;
 }
 
-void TextDrawerUWP::SetOrCreateFont(const FontStyle &style) {
+void TextDrawerUWP::EnsureFont(const FontStyle &style) {
 	_dbg_assert_(style.sizePts > 0);
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-
 	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_, m_dwriteFactory, m_fontCollection);
-	fontStyle_ = style;
 }
 
-void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float *h) {
+void TextDrawerUWP::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
 	IDWriteTextFormat *format = nullptr;
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
 	}
