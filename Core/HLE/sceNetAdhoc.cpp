@@ -5390,7 +5390,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, mips->pc);
 
-	int * len = (int *)Memory::GetPointerOrException(dataSizeAddr);
+	int * len = dataSizeAddr ? (int *)Memory::GetPointerOrException(dataSizeAddr) : nullptr;
 	const char * data = Memory::GetCharPointer(dataAddr);
 	// Library is initialized
 	if (netAdhocInited) {

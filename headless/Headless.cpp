@@ -55,6 +55,7 @@
 #include "Core/CmdLine.h"
 #include "Common/Net/HTTPRequest.h"
 #include "Core/Config.h"
+#include "Core/Instance.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
@@ -431,6 +432,8 @@ struct AutoTestOptions {
 	bool bench;
 	bool printEqualLines;
 	bool frameStats;
+	// Keep emulated time from running ahead of the wall clock (--realtime).
+	bool realtime;
 	// What --disable-hle asked for, or 0 if it was not passed. Only an explicit request binds:
 	// sceMpeg and sceMp4 run the firmware module by default now and fall back to the HLE wherever
 	// none is installed, which must not fail every run on such a machine.
@@ -656,6 +659,15 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 
 		// Finer steps when input is scripted, so short presses land.
 		int blockTicks = (int)usToCycles(1000000 / (opt.presses.empty() ? 10 : 60));
+		if (opt.realtime) {
+			// Display flips are the only thing that paces headless otherwise, and a test that doesn't
+			// draw never flips, so the emulated clock would race ahead of instances it talks to.
+			blockTicks = (int)usToCycles(1000);
+			const double ahead = emulatedElapsed - (time_now_d() - startTime);
+			if (ahead > 0.001) {
+				sleep_ms((int)(std::min(ahead, 0.05) * 1000.0), "realtime");
+			}
+		}
 		PSP_RunLoopFor(blockTicks);
 
 		// If we were rendering, this might be a nice time to do something about it.
@@ -952,6 +964,7 @@ int main(int argc, const char* argv[]) {
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
 	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
 	testOptions.frameStats = cmdLineOptions.frameStats.value_or(false);
+	testOptions.realtime = cmdLineOptions.realtime.value_or(false);
 	// BUTTONS is a sceCtrl mask (hex with 0x), DURATION defaults to 0.15s.
 	if (cmdLineOptions.pressScript.has_value()) {
 		std::vector<std::string> items;
@@ -1178,6 +1191,9 @@ int main(int argc, const char* argv[]) {
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
+	// Instances talking to each other over ad hoc need their own 127.0.0.N address and MAC, which come
+	// from PPSSPP_ID. Headless doesn't run the instance counter the app uses to pick one.
+	PPSSPP_ID = (uint8_t)cmdLineOptions.instance.value_or(1);
 
 	// pspautotests is plain homebrew PRXes so do not ship user libraries that a retail disc may carry. 
 	// So we must use HLE, unless we install firmware.
@@ -1320,7 +1336,8 @@ int main(int argc, const char* argv[]) {
 	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
 	coreParameter.pixelWidth = 480 * coreParameter.renderScaleFactor;
 	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
-	coreParameter.fastForward = true;
+	// Ad hoc tests between instances wait for each other over the real network, so they need PSP speed.
+	coreParameter.fastForward = !cmdLineOptions.realtime.value_or(false);
 
 #if PPSSPP_PLATFORM(IOS)
 	// GetExeDirectory() knows nothing on iOS, but argv[0] is the executable inside the .app,
