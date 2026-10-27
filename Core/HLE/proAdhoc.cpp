@@ -1570,7 +1570,8 @@ int friendFinder() {
 		// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
 		if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
 			netAdhocGameModeEntered = false;
-			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOC_ERROR_TIMEOUT);
+			// adhocctl's own TIMEOUT (pspautotests net/adhoc/gamemode).
+			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_TIMEOUT);
 		}
 
 		auto friend_finder_wait = [] {
