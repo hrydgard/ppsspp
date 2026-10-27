@@ -145,7 +145,9 @@ static int chatMessageGeneration = 0;
 static int chatMessageCount = 0;
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
-	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
+	// Ignoring the 1st byte: games overwrite it (Gran Turismo changes the unicast bit, Street Riders sets it to
+	// 00 when sending PDP). On a PSP, whose MACs start with 00, that's harmless; PS Vitas' don't, so the aemu
+	// plugin ignores it too.
 	return (memcmp(((const char*)addr1)+1, ((const char*)addr2)+1, ETHER_ADDR_LEN-1) == 0);
 }
 
