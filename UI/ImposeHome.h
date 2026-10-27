@@ -66,7 +66,7 @@ private:
 	bool yes_ = false;  // Which option is highlighted.
 	uint32_t lastButtons_ = 0;
 	// After choosing Yes, while the game's exit callback runs: when to stop waiting and quit anyway.
-	double deadline_ = -1.0;
+	double exitDeadline_ = -1.0;
 	Action pendingAction_ = Action::NONE;
 	// Where Yes and No were last drawn, for touch.
 	Bounds yesBounds_{};

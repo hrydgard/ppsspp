@@ -151,6 +151,14 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		});
 	}
 
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	Choice *moreInfo = groups->Add(new ChoiceGroup())->Add(new Choice(di->T("More info")));
+	moreInfo->OnClick.Add([](UI::EventParams &) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/getting-started/how-to-run-the-vsh/");
+	});
+	moreInfo->SetIconRight(ImageID("I_LINK_OUT"));
+
 	if (gameRunning) {
 		groups->Add(new NoticeView(NoticeLevel::INFO,
 			sy->T("FirmwareNeedsNoGame", "Stop the game to change the installed firmware"), ""));
