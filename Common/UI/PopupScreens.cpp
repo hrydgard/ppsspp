@@ -192,6 +192,7 @@ void PopupScreen::CreateViews() {
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
 	box_->SetSpacing(0.0f);
+	box_->SetPadding(Margins(8));
 
 	if (!title_.empty()) {
 		View *title = new PopupHeader(title_);
