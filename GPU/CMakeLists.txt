@@ -219,7 +219,7 @@ set(GPU_SOURCES
 # from an archive, which sidesteps the GNU ld single-pass archive-ordering problem a normal
 # two-way STATIC dependency would hit. Core links this PUBLICLY so consumers of Core get it.
 add_library(GPU OBJECT ${GPU_SOURCES})
-target_compile_features(GPU PUBLIC cxx_std_17)
+target_compile_features(GPU PUBLIC cxx_std_20)
 
 if(LIBRETRO)
 	target_include_directories(GPU PRIVATE ${CMAKE_SOURCE_DIR}/libretro/libretro-common/include)

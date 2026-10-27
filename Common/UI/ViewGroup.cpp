@@ -1121,7 +1121,7 @@ CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *lay
 	SetSpacing(0.0f);
 
 	header_ = Add(new CollapsibleHeader(open_, title));
-	header_->OnClick.Add([=](UI::EventParams &) {
+	header_->OnClick.Add([=, this](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.
 		UpdateVisibility();

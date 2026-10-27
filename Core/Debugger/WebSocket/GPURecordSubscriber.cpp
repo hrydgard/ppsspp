@@ -72,7 +72,7 @@ void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
 		haveGPU = PSP_GetBootState() == BootState::Complete && gpu != nullptr;
 		if (!haveGPU)
 			return;
-		started = gpu->GetRecorder()->RecordNextFrame([=](const Path &filename) {
+		started = gpu->GetRecorder()->RecordNextFrame([=, this](const Path &filename) {
 			lastFilename_ = filename;
 			pending_ = false;
 		});

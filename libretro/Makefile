@@ -441,9 +441,9 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++17
+   CXXFLAGS += -std=c++20
 else
-   CXXFLAGS += -std:c++17
+   CXXFLAGS += -std:c++20
 endif
 
 ### Finalize ###

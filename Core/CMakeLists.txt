@@ -743,7 +743,7 @@ if(NOT HTTPS_NOT_AVAILABLE)
 	target_link_libraries(Core naett)
 endif()
 
-target_compile_features(Core PUBLIC cxx_std_17)
+target_compile_features(Core PUBLIC cxx_std_20)
 
 if(FFmpeg_FOUND)
 	target_compile_definitions(Core PRIVATE USE_FFMPEG=1)

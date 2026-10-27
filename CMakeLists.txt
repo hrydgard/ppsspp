@@ -5,7 +5,7 @@ enable_testing()
 
 #This is supposed to work but doesn't!
 if(NOT ANDROID)
-	set(CMAKE_CXX_STANDARD 17)
+	set(CMAKE_CXX_STANDARD 20)
 	set(CMAKE_CXX_STANDARD_REQUIRED ON)
 endif()
 
@@ -464,7 +464,7 @@ if(NOT MSVC)
 	endif()
 
 	if(ANDROID)
-		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++17>")
+		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++20>")
 	endif()
 	if(CLANG)
 		# Before C++23, libc++ headers pull in many others just for old code that relied on it
