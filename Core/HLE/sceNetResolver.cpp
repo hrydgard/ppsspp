@@ -85,6 +85,17 @@ static int sceNetResolverTerm() {
 
 // TODO: Add DoState, store the ID gen and active resolvers.
 
+// Checked after the resolver ID (pspautotests net/inet/offline).
+static int CheckNtoAArgs(u32 hostnamePtr, u32 inAddrPtr) {
+	if (!Memory::IsValidAddress(hostnamePtr) || !Memory::IsValidRange(inAddrPtr, 4)) {
+		return SCE_NET_RESOLVER_ERROR_INVALID_PTR;
+	}
+	if (Memory::ReadUnchecked_U8(hostnamePtr) == 0) {
+		return 0x80410418;  // An empty name.
+	}
+	return 0;
+}
+
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
@@ -133,6 +144,10 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
+	if (int error = CheckNtoAArgs(hostnamePtr, inAddrPtr)) {
+		return hleLogError(Log::sceNet, error);
+	}
+
 	for (int attempt = 0; attempt < retry; ++attempt) {
 		const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
 		if (status >= 0) {
@@ -152,6 +167,10 @@ static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inA
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
+	if (int error = CheckNtoAArgs(hostnamePtr, inAddrPtr)) {
+		return hleLogError(Log::sceNet, error);
+	}
+
 	const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
 	return hleLogDebugOrError(Log::sceNet, status);
 }
@@ -161,6 +180,14 @@ static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
 	}
 
+	// pspautotests net/inet/offline
+	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
+	if (!Memory::IsValidRange(unknown, 4)) {
+		return hleLogError(Log::sceNet, 0x80410419, "NULL status");
+	}
+
     // TODO: Implement after confirming that this returns the state of resolver.isRunning
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
@@ -168,6 +195,10 @@ static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
 static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
 	if (!g_netResolverInitialized) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	}
+
+	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
 	// TODO: Implement after confirming that this blocks current thread until resolver.isRunning flips to false
@@ -193,7 +224,11 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	if (!Memory::IsValidRange(resolverIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
 
-	if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
+	// A buffer is required (pspautotests net/inet/offline).
+	if (!Memory::IsValidAddress(bufferPtr))
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_PTR, "Invalid buffer: %08x", bufferPtr);
+
+	if (bufferLen < 1)
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
 	// Outrun calls this without init. Something else must have initialized it, unclear what.
@@ -223,7 +258,8 @@ static int sceNetResolverStop(u32 resolverId) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
-	if (resolverIter->second.isRunning) {
+	// Nothing to stop (pspautotests net/inet/offline).
+	if (!resolverIter->second.isRunning) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
 	}
 
