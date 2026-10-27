@@ -62,19 +62,23 @@ struct NetResolver {
 static int g_currentNetResolverId = 1;
 static std::unordered_map<u32, NetResolver> g_netResolvers;
 
-// NOTE: It starts as true, needed for Outrun 2006.
-static bool g_netResolverInitialized = true;
+// Only decides what a second sceNetResolverInit returns: the other calls work without Init, also
+// after Term (pspautotests net/inet/offline). Outrun 2006 relies on that.
+static bool g_netResolverInitialized = false;
 
 static int sceNetResolverInit() {
 	// Hardcoded mHostToAlias entries here have been moved to the infra-dns.json file.
+	if (g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, 0x80000020, "already initialized");
+	}
 	g_netResolverInitialized = true;
 	return hleLogInfo(Log::sceNet, 0);
 }
 
-// Also called on savestate load, so go back to the boot state, where it's running.
+// Also called on savestate load, so go back to the boot state.
 void __NetResolverShutdown() {
 	g_netResolvers.clear();
-	g_netResolverInitialized = true;
+	g_netResolverInitialized = false;
 }
 
 static int sceNetResolverTerm() {
@@ -135,10 +139,6 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 }
 
 static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
@@ -158,10 +158,6 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 }
 
 static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
@@ -176,10 +172,6 @@ static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inA
 }
 
 static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	// pspautotests net/inet/offline
 	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
@@ -193,10 +185,6 @@ static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
 }
 
 static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
@@ -206,17 +194,11 @@ static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
 }
 
 static int sceNetResolverStartAtoN(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
     // TODO: Implement via getnameinfo
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverStartAtoNAsync(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
@@ -231,7 +213,6 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	if (bufferLen < 1)
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
-	// Outrun calls this without init. Something else must have initialized it, unclear what.
 
 	// TODO: Consider using SceUidManager instead of this 1-indexed id - not sure what the PSP does. Actually, probably not using SceUID.
 	// TODO: Implement SCE_NET_RESOLVER_ERROR_ID_MAX (possibly 32?)
@@ -248,10 +229,6 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 }
 
 static int sceNetResolverStop(u32 resolverId) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	const auto resolverIter = g_netResolvers.find(resolverId);
 
 	if (resolverIter == g_netResolvers.end()) {
@@ -268,10 +245,6 @@ static int sceNetResolverStop(u32 resolverId) {
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	const auto resolverIter = g_netResolvers.find(resolverId);
 	if (resolverIter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
