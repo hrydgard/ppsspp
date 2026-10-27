@@ -49,14 +49,14 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		if (!(entry.flags & OSDMessageFlags::Transparent)) {
 			dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 		}
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, 0.0f, dc.GetTheme().choiceRoundRadius * 0.5f);
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, 0.0f, dc.GetTheme().choiceRoundRadius * 0.75f);
 	}
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
-	const float radius = dc.GetTheme().choiceRoundRadius * 0.5f;
+	const float radius = dc.GetTheme().choiceRoundRadius * 0.75f;
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	uint32_t progressBackgroundColor = colorAlpha(0xa08070, alpha);
 
@@ -101,7 +101,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	UI::Drawable background = UI::Drawable(backgroundColor);
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-	dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.5f);
+	dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.75f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);

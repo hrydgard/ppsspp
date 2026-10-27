@@ -598,7 +598,7 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	if (style != AchievementRenderStyle::LISTED) {
 		// On-screen notification.
 		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-		dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.5f);
+		dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.75f);
 	} else {
 		dc.FillRect(background, bounds);
 	}
