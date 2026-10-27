@@ -69,7 +69,7 @@ const int *Arm64IRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int 
 		count = ARRAY_SIZE(allocationOrder);
 		return allocationOrder;
 	} else if (type == MIPSLoc::FREG) {
-		base = S0 - NUM_X_REGS;
+		base = S0 - (int)NUM_X_REGS;
 
 		// We don't really need four temps, probably.
 		// We start with S8 for call flushes.

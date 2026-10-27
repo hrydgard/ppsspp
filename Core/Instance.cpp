@@ -168,11 +168,12 @@ void InitInstanceCounter() {
 		// so next keeps climbing across runs and eventually wraps this uint8_t. ID 0 is not a
 		// valid instance - it fails the IsFirstInstance() check, which quietly disables config
 		// saving - so skip past it.
-		if (++buf->next == 0) {
+		buf->next = (uint8_t)(buf->next + 1);
+		if (buf->next == 0) {
 			buf->next = 1;
 		}
 		PPSSPP_ID = buf->next;
-		buf->total++;
+		buf->total = (uint8_t)(buf->total + 1);
 	});
 	if (!success) {
 		PPSSPP_ID = 1;
@@ -181,7 +182,7 @@ void InitInstanceCounter() {
 
 void ShutdownInstanceCounter() {
 	UpdateInstanceCounter([](volatile InstanceInfo *buf) {
-		buf->total--;
+		buf->total = (uint8_t)(buf->total - 1);
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
