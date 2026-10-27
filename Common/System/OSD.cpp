@@ -64,6 +64,10 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 
 	INFO_LOG(Log::UI, "OSD: %.*s (%.*s)", STR_VIEW(text), STR_VIEW(text2));
 
+	if (showCallback_) {
+		showCallback_(type, id);
+	}
+
 	// Automatic duration based on type.
 	if (duration_s <= 0.0f) {
 		switch (type) {

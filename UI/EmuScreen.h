@@ -38,6 +38,7 @@ struct DisplayLayoutConfig;
 
 class AsyncImageFileView;
 class ImposeHomeScreen;
+class GameBootAnimation;
 class ChatMenu;
 class ImDebugger;
 struct ImCommand;
@@ -176,6 +177,8 @@ private:
 
 	// The HOME button's quit screen (as impose draws it on a PSP).
 	std::unique_ptr<ImposeHomeScreen> imposeHome_;
+	// The PSP's game start intro, while a game boots (see GameBootAnimation).
+	std::unique_ptr<GameBootAnimation> gameBoot_;
 };
 
 bool MustRunBehind();

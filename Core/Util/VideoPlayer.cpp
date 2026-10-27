@@ -51,6 +51,7 @@ struct PMFPlayer {
 	int audio_stream_idx;
 	double last_pts;
 	int64_t frame_count; // Fallback for missing PTS
+	bool reached_end;
 };
 
 // --- Custom IO Callbacks ---
@@ -206,10 +207,15 @@ bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgba_b
 	}
 
 	// EOF Reached: Seek to start and reset local counters
+	ps->reached_end = true;
 	av_seek_frame(ps->fmt_ctx, ps->video_stream_idx, 0, AVSEEK_FLAG_BACKWARD);
 	avcodec_flush_buffers(ps->video_ctx);
 	ps->last_pts = -1.0;
 	return false;
+}
+
+bool pmf_reached_end(PMFPlayer* ps) {
+	return ps && ps->reached_end;
 }
 
 void pmf_deinit(PMFPlayer* ps) {
@@ -257,5 +263,6 @@ void pmf_destroy(PMFPlayer* ps) {}
 int pmf_init(PMFPlayer* ps, const uint8_t* data, size_t size, int* out_w, int* out_h) { return -1; }
 bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgb_buffer) { return false; }
 void pmf_deinit(PMFPlayer* ps) {}
+bool pmf_reached_end(PMFPlayer* ps) { return true; }
 
 #endif

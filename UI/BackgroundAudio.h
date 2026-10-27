@@ -30,9 +30,14 @@ public:
 	void Init();
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
 	void Play(UI::UISound sfx, float volume);
+	// Stops it if it's playing.
+	void Stop(UI::UISound sfx);
 
 	void UpdateSample(UI::UISound sound, Sample *sample);
 	void LoadDefaultSample(UI::UISound sound);
+	// Loads the samples again, in the background: after a firmware is installed or removed, since
+	// its sounds replace the navigation ones.
+	void ReloadSamples();
 
 	std::vector<std::unique_ptr<Sample>> samples_;
 
@@ -45,7 +50,12 @@ public:
 
 	// This can be called on a thread.
 	void LoadSamplesOnThread();
+
+	// Whether the PSP firmware's extra sounds are loaded (UISoundStyle::FIRMWARE_ALL, with a
+	// firmware): then the system dialogs in games get its sounds too.
+	bool FirmwareExtras() const { return firmwareExtras_; }
 private:
+	std::atomic<bool> firmwareExtras_{ false };
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;
