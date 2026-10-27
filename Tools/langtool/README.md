@@ -42,6 +42,17 @@ the patterns in `src/scan.rs` and nothing else. Technical names that are never t
 
 Keys built at runtime can't be checked. `find-missing-keys --dynamic` lists those lookups instead.
 
+## Importing translations
+
+```bash
+cargo run -- import-language sv_SE translations.ini
+```
+
+Merges a file laid out like a language file (section headers, `key = translation`, keyed like
+en_US.ini) into one language. Each string goes through the same checks as AI output and is written
+with a `# AI translated` comment, or `# same as English` if it's identical to the English string.
+Keys missing from the target file are reported, not added.
+
 ## AI translation
 
 Some commands (`add-new-key-ai`, `add-new-key-value-ai`, `finish-language-with-ai`) use an LLM to
