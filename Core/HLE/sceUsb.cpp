@@ -76,6 +76,12 @@ static void UsbWaitExecTimeout(u64 userdata, int cycleslate) {
 	u32 error;
 	SceUID threadID = (SceUID)userdata;
 
+	// The thread may have stopped waiting on USB since (for example, released), keeping the event.
+	if (__KernelGetWaitID(threadID, WAITTYPE_USB, error) == 0 || error != 0) {
+		HLEKernel::RemoveWaitingThread(waitingThreads, threadID);
+		return;
+	}
+
 	PSPPointer<int> timeout = PSPPointer<int>::Create(__KernelGetWaitTimeoutPtr(threadID, error));
 	if (timeout.IsValid())
 		*timeout = 0;
@@ -91,7 +97,8 @@ static void UsbUpdateState() {
 	for (size_t i = 0; i < waitingThreads.size(); ++i) {
 		SceUID threadID = waitingThreads[i];
 		int state = __KernelGetWaitID(threadID, WAITTYPE_USB, error);
-		if (error != 0)
+		// 0 means it's not in a USB wait anymore. Waits always have a nonzero state.
+		if (error != 0 || state == 0)
 			continue;
 
 		u32 mode = __KernelGetWaitValue(threadID, error);
@@ -109,6 +116,7 @@ static void UsbUpdateState() {
 			}
 
 			__KernelResumeThreadFromWait(threadID, UsbCurrentState());
+			wokeThreads = true;
 		}
 	}
 

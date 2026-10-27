@@ -114,7 +114,16 @@ extern AudioSRCChannel g_audioSRC;
 bool SRCFrequencyAllowed(int freq);
 
 // The two routing modes are globals rather than per-channel; they get their own little block.
+void __AudioRoutingInit();
+
+extern bool audioInputInited;
 void __AudioRoutingDoState(PointerWrap &p);
+
+// sceAudioRouting exports the same four functions.
+int sceAudioRoutingSetMode(int mode);
+int sceAudioRoutingGetMode();
+int sceAudioRoutingSetVolumeMode(int mode);
+int sceAudioRoutingGetVolumeMode();
 
 void Register_sceAudio();
 

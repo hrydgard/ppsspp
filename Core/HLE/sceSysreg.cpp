@@ -168,7 +168,9 @@ static int sceKernelUnregisterSysEventHandler(u32 handler) {
 	if (!MeCore::g_meState)
 		return hleLogWarning(Log::ME, 0, "no handlers");
 	u32 *link = &MeCore::g_meState->sysEventHandlers;
-	while (*link && Memory::IsValidRange(*link, 0x40)) {
+	// The list is in guest memory, so a loop in it shouldn't hang us.
+	int count = 0;
+	while (*link && Memory::IsValid4AlignedRange(*link, 0x40) && count++ < 0x10000) {
 		if (*link == handler) {
 			*link = Memory::ReadUnchecked_U32(handler + 0x18);
 			return hleLogDebug(Log::ME, 0);

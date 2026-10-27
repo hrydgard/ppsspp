@@ -168,6 +168,10 @@ void __UsbMicDoState(PointerWrap &p) {
 	Do(p, waitingThreads);
 	Do(p, isNeedInput);
 	Do(p, curSampleRate);
+	if (curSampleRate == 0) {
+		// Old states could have one, from before __MicInput checked it.
+		curSampleRate = 44100;
+	}
 	Do(p, curChannels);
 	Do(p, micState);
 	if (s > 1) {
@@ -433,6 +437,14 @@ void Microphone::onMicDeviceChange() {
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block) {
+	// The camera mic passes these straight through (sceAudioInput checks them first). The wait below
+	// divides by the rate, and the size sizes a host buffer.
+	if (sampleRate == 0) {
+		return SCE_ERROR_USBMIC_INVALID_SAMPLERATE;
+	}
+	if (maxSamples == 0 || maxSamples > 0x100000) {
+		return SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES;
+	}
 	if (micPolling && curSampleRate != sampleRate) {
 		Microphone::stopMic();
 	}
@@ -472,9 +484,11 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);
 	DEBUG_LOG(Log::HLE, "MicInputBlocking: blocking thread(%d)", (int)__KernelGetCurThread());
-	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
+	// The wait value is what the thread gets back when it's woken.
+	const u32 result = type == CAMERAMIC ? size : maxSamples;
+	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, result, 0, false, "blocking microphone");
 
-	return type == CAMERAMIC ? size : maxSamples;
+	return result;
 }
 
 // A non-blocking input keeps filling its buffer from addAudioData() after it returns.

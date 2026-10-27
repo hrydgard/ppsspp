@@ -373,7 +373,7 @@ static void sceCccEncodeUTF16(u32 dstAddrAddr, u32 ucs)
 	}
 	DEBUG_LOG(Log::sceMisc, "sceCccEncodeUTF16(%08x, U+%04x)", dstAddrAddr, ucs);
 	// Anything above 0x10FFFF is unencodable, and 0xD800 - 0xDFFF are reserved for surrogate pairs.
-	if (ucs > 0x10FFFF || (ucs & 0xD800) == 0xD800)
+	if (ucs > 0x10FFFF || (ucs & 0xF800) == 0xD800)
 		ucs = errorUTF16;
 	*dstp += UTF16LE::encode(*dstp, ucs);
 }

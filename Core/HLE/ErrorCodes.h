@@ -4,6 +4,7 @@
 
 enum PSPErrorCode : u32 {
 	SCE_KERNEL_ERROR_OK                               = 0,
+	SCE_KERNEL_ERROR_NOT_INITIALIZED                  = 0x80000001,  // Name guessed, from sceAudioInput before init.
 	SCE_KERNEL_ERROR_BAD_ARGUMENT                     = 0x80000004,  // Maybe
 	SCE_KERNEL_ERROR_ALREADY                          = 0x80000020,
 	SCE_KERNEL_ERROR_BUSY                             = 0x80000021,
@@ -373,6 +374,7 @@ enum PSPErrorCode : u32 {
 	SCE_ERROR_AUDIO_INVALID_FREQUENCY                 = 0x8026000A,
 	SCE_ERROR_AUDIO_INVALID_VOLUME                    = 0x8026000B,
 	SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED          = 0x80268002,
+	SCE_ERROR_AUDIO_ROUTING_INVALID_MODE              = 0x802C01FE,
 
 	SCE_ERROR_USBMIC_INVALID_MAX_SAMPLES              = 0x80243806,
 	SCE_ERROR_USBMIC_INVALID_SAMPLERATE               = 0x8024380A,

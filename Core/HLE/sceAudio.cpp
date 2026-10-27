@@ -33,10 +33,11 @@
 
 const u32 PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
 const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
-const int AUDIO_ROUTING_SPEAKER_OFF = 0;
-const int AUDIO_ROUTING_SPEAKER_ON = 1;
-int defaultRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
-int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
+// Both read 0 at boot on a PSP.
+int defaultRoutingMode = 0;
+int defaultRoutingVolMode = 0;
+// sceAudioInput fails until sceAudioInputInit.
+bool audioInputInited = false;
 
 // Only still here to read savestates written before the channels held buffer pointers.
 struct AudioChannelWaitInfo {
@@ -155,6 +156,11 @@ void AudioSRCChannel::DoState(PointerWrap &p) {
 	Do(p, frac);
 	Do(p, completion);
 	Do(p, waitingThreads);
+}
+
+void __AudioRoutingInit() {
+	defaultRoutingMode = 0;
+	defaultRoutingVolMode = 0;
 }
 
 void __AudioRoutingDoState(PointerWrap &p) {
@@ -543,7 +549,25 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	return hleLogDebug(Log::sceAudio, __AudioSRCEnqueueBlocking(g_audioSRC, buf, vol));
 }
 
+// From pspautotests audio/sceaudio/input. The size is checked first.
+static int AudioInputCheck(u32 maxSamples, u32 sampleRate) {
+	if (!audioInputInited) {
+		return SCE_KERNEL_ERROR_NOT_INITIALIZED;
+	}
+	if (maxSamples == 0 || (maxSamples & 63) != 0 || maxSamples >= 0x80000000) {
+		return SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED;
+	}
+	if (sampleRate != 44100 && sampleRate != 22050 && sampleRate != 11025) {
+		return SCE_ERROR_AUDIO_INVALID_FREQUENCY;
+	}
+	return 0;
+}
+
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	int error = AudioInputCheck(maxSamples, sampleRate);
+	if (error != 0) {
+		return hleLogError(Log::HLE, error);
+	}
 	if (!Memory::IsValidAddress(bufAddr)) {
 		return hleLogError(Log::HLE, -1, "invalid address");
 	}
@@ -551,6 +575,13 @@ static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 }
 
 static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
+	int error = AudioInputCheck(maxSamples, sampleRate);
+	if (error != 0) {
+		return hleLogError(Log::HLE, error);
+	}
+	if (bufAddr == 0) {
+		return hleLogWarning(Log::HLE, 0, "NULL buffer");
+	}
 	if (!Memory::IsValidAddress(bufAddr)) {
 		return hleLogError(Log::HLE, -1, "invalid address");
 	}
@@ -561,11 +592,14 @@ static int sceAudioInput(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
 
 static int sceAudioInputInit(int unknown1, int gain, int unknown2) {
 	ERROR_LOG(Log::HLE, "UNIMPL sceAudioInputInit: unknown1: %d, gain: %d, unknown2: %d", unknown1, gain, unknown2);
-	return 0;
+	audioInputInited = true;
+	// Takes about 3ms on a PSP.
+	return hleDelayResult(0, "audio input init", 3000);
 }
 
 static int sceAudioInputInitEx(u32 paramAddr) {
 	ERROR_LOG(Log::HLE, "UNIMPL sceAudioInputInitEx: paramAddr: %08x", paramAddr);
+	audioInputInited = true;
 	return 0;
 }
 
@@ -583,28 +617,31 @@ static int sceAudioGetInputLength() {
 	return ret;
 }
 
-static u32 sceAudioRoutingSetMode(u32 mode) {
-	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetMode(%08x)", mode);
+// Ranges and return values from pspautotests audio/sceaudio/routing. Also exported as sceAudioRouting.
+int sceAudioRoutingSetMode(int mode) {
+	if (mode < 0 || mode > 3) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_ROUTING_INVALID_MODE, "invalid mode");
+	}
 	int previousMode = defaultRoutingMode;
 	defaultRoutingMode = mode;
-	return previousMode;
+	return hleLogInfo(Log::sceAudio, previousMode);
 }
 
-static u32 sceAudioRoutingGetMode() {
-	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetMode()");
-	return defaultRoutingMode;
+int sceAudioRoutingGetMode() {
+	return hleLogDebug(Log::sceAudio, defaultRoutingMode);
 }
 
-static u32 sceAudioRoutingSetVolumeMode(u32 mode) {
-	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode(%08x)", mode);
-	int previousMode = defaultRoutingVolMode;
+// Unlike SetMode, this returns 0 rather than the previous mode.
+int sceAudioRoutingSetVolumeMode(int mode) {
+	if (mode < 0 || mode > 1) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_ROUTING_INVALID_MODE, "invalid mode");
+	}
 	defaultRoutingVolMode = mode;
-	return previousMode;
+	return hleLogInfo(Log::sceAudio, 0);
 }
 
-static u32 sceAudioRoutingGetVolumeMode() {
-	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetVolumeMode()");
-	return defaultRoutingVolMode;
+int sceAudioRoutingGetVolumeMode() {
+	return hleLogDebug(Log::sceAudio, defaultRoutingVolMode);
 }
 
 const HLEFunction sceAudio[] =
@@ -653,10 +690,10 @@ const HLEFunction sceAudio[] =
 	{0XA633048E, &WrapI_V<sceAudioPollInputEnd>,            "sceAudioPollInputEnd",          'i', ""    },
 	{0X87B2E651, &WrapI_V<sceAudioWaitInputEnd>,            "sceAudioWaitInputEnd",          'i', ""    },
 
-	{0X36FD8AA9, &WrapU_U<sceAudioRoutingSetMode>,          "sceAudioRoutingSetMode",        'x', "x"   },
-	{0X39240E7D, &WrapU_V<sceAudioRoutingGetMode>,          "sceAudioRoutingGetMode",        'x', ""    },
-	{0XBB548475, &WrapU_U<sceAudioRoutingSetVolumeMode>,    "sceAudioRoutingSetVolumeMode",  'x', "x"   },
-	{0X28235C56, &WrapU_V<sceAudioRoutingGetVolumeMode>,    "sceAudioRoutingGetVolumeMode",  'x', ""    },
+	{0X36FD8AA9, &WrapI_I<sceAudioRoutingSetMode>,          "sceAudioRoutingSetMode",        'i', "i"   },
+	{0X39240E7D, &WrapI_V<sceAudioRoutingGetMode>,          "sceAudioRoutingGetMode",        'i', ""    },
+	{0XBB548475, &WrapI_I<sceAudioRoutingSetVolumeMode>,    "sceAudioRoutingSetVolumeMode",  'i', "i"   },
+	{0X28235C56, &WrapI_V<sceAudioRoutingGetVolumeMode>,    "sceAudioRoutingGetVolumeMode",  'i', ""    },
 
 };
 
