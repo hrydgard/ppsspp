@@ -112,6 +112,8 @@ void __AudioInit() {
 		g_audioChans[i].clear();
 	}
 	g_audioSRC.clear();
+	__AudioRoutingInit();
+	audioInputInited = false;
 
 	mixBuffer = new s32[hwBlockSize * 2];
 	clampedMixBuffer = new s16[hwBlockSize * 2];
@@ -121,7 +123,7 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceAudio", 1, 4);
+	auto s = p.Section("sceAudio", 1, 5);
 	if (!s)
 		return;
 
@@ -196,6 +198,12 @@ void __AudioDoState(PointerWrap &p) {
 		Do(p, mixerDMABusy);
 	} else {
 		mixerDMABusy = false;
+	}
+	if (s >= 5) {
+		Do(p, audioInputInited);
+	} else {
+		// A game that was already capturing had initialized it.
+		audioInputInited = true;
 	}
 	// For older states the routing modes were read back once per channel, above.
 

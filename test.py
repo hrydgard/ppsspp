@@ -173,6 +173,8 @@ tests_good = [
   "audio/blocking/vaudio",
   "audio/sceaudio/reserve",
   "audio/sceaudio/datalen",
+  "audio/sceaudio/input",
+  "audio/sceaudio/routing",
   "audio/output2/changelength",
   "audio/output2/release",
   "audio/output2/reserve",
