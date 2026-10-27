@@ -59,4 +59,4 @@ uint32_t GetNoticeBackgroundColor(NoticeLevel type);
 // padding is added around the contents, inside the background. Pass the same to both.
 void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1, float padding = 0.0f);
 // Doesn't draw a drop shadow, floating notices draw their own.
-void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding = 0.0f, RoundCorners corners = RoundCorners::None);
+void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding = 0.0f, float radius = 0.0f, RoundCorners corners = RoundCorners::All);
