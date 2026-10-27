@@ -54,7 +54,8 @@ bool NpMatching2ProcessEvents() {
 		return false;
 	}
 
-	auto& args = npMatching2Events.front();
+	// Copy it, the pop below destroys the element.
+	auto args = npMatching2Events.front();
 	auto& event = args.data[0];
 	auto& stat = args.data[1];
 	auto& serverIdPtr = args.data[2];
@@ -72,10 +73,14 @@ bool NpMatching2ProcessEvents() {
 	}
 
 	// Per npMatching2 function callback
-	u32* inStruct = (u32*)Memory::GetPointerOrException(inStructPtr);
-	if (Memory::IsValidAddress(inStruct[0])) {
-		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointerOrException(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
-		hleEnqueueCall(inStruct[0], 7, args.data);
+	// The opt param is optional.
+	if (Memory::IsValid4AlignedRange(inStructPtr, 8)) {
+		const u32 funcAddr = Memory::ReadUnchecked_U32(inStructPtr);
+		if (Memory::IsValidAddress(funcAddr)) {
+			const u32 serverId = Memory::IsValid4AlignedAddress(serverIdPtr) ? Memory::ReadUnchecked_U32(serverIdPtr) : 0;
+			DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", serverId, event, stat, funcAddr, Memory::ReadUnchecked_U32(inStructPtr + 4));
+			hleEnqueueCall(funcAddr, 7, args.data);
+		}
 	}
 	return true;
 }

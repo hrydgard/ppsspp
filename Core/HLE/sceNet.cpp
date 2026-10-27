@@ -812,7 +812,8 @@ void __NetApctlCallbacks()
 
 	// How AP works probably like this: Game use sceNetApctl function -> sceNetApctl let the hardware know and do their's thing and have a new State -> Let the game know the resulting State through Event on their handler
 	if (!apctlEvents.empty()) {
-		auto& args = apctlEvents.front();
+		// Copy it, the pop below destroys the element.
+		auto args = apctlEvents.front();
 		auto& oldState = args.data[0];
 		auto& newState = args.data[1];
 		auto& event = args.data[2];

@@ -71,13 +71,15 @@ static int sceNetResolverInit() {
 	return hleLogInfo(Log::sceNet, 0);
 }
 
+// Also called on savestate load, so go back to the boot state, where it's running.
 void __NetResolverShutdown() {
 	g_netResolvers.clear();
-	g_netResolverInitialized = false;
+	g_netResolverInitialized = true;
 }
 
 static int sceNetResolverTerm() {
-	__NetResolverShutdown();
+	g_netResolvers.clear();
+	g_netResolverInitialized = false;
 	return hleLogInfo(Log::sceNet, 0);
 }
 
