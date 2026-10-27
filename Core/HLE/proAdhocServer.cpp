@@ -501,12 +501,12 @@ void login_user_stream(int fd, uint32_t ip)
 		SceNetAdhocctlUserNode * u = _db_user;
 		while(u != NULL && u->resolver.ip != ip) u = u->next;
 
-		if (u != NULL) { // IP Already existed
-			WARN_LOG(Log::sceNet, "AdhocServer: Already Existing IP: %s\n", ip2str(*(in_addr*)&u->resolver.ip).c_str());
+		// Players sharing an IP (behind one NAT, or instances on one machine) are told apart by MAC
+		// through the relay. In P2P mode, only one of them can play.
+		if (u != NULL) {
+			INFO_LOG(Log::sceNet, "AdhocServer: Another user from IP %s", ip2str(*(in_addr*)&u->resolver.ip).c_str());
 		}
 
-		// Unique IP Address
-		else //if(u == NULL)
 		{
 			// Allocate User Node Memory
 			SceNetAdhocctlUserNode * user = (SceNetAdhocctlUserNode *)malloc(sizeof(SceNetAdhocctlUserNode));
