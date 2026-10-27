@@ -2074,7 +2074,7 @@ static void aemu_postoffice_server_log(const char *format, ...) {
 	va_start(args, format);
 	int len = vsnprintf(log_buf, sizeof(log_buf), format, args);
 	va_end(args);
-	if (len < 1024 && log_buf[len - 1] == '\n') {
+	if (len > 0 && len < (int)sizeof(log_buf) && log_buf[len - 1] == '\n') {
 		log_buf[len - 1] = '\0';
 	}
 	INFO_LOG(Log::sceNet, "%s", log_buf);
@@ -2094,6 +2094,9 @@ void __NetAdhocInit() {
 	if (adhocServerThread.joinable()) {
 		adhocServerThread.join();
 	}
+	if (relayThread.joinable()) {
+		relayThread.join();
+	}
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
@@ -2111,15 +2114,22 @@ void __NetAdhocInit() {
 			 * from ppsspp's adhocctl server
 			 */
 			config.strict_mode = false;
+			// One worker per pool is plenty for a server that sees a handful of players.
+			config.num_threads = 1;
 
 			aemu_postoffice_server::Server relay_server(config);
+			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
+				// Most likely another relay already has the port.
+				WARN_LOG(Log::sceNet, "RelayServer: Couldn't listen on TCP port %u", config.port);
+				return;
+			}
 
-			UPnP_Add(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
+			UPnP_Add(IP_PROTOCOL_TCP, config.port);
 
-			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", AEMU_POSTOFFICE_PORT);
+			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", config.port);
 
 			while (adhocServerRunning) {
-				auto now = std::chrono::high_resolution_clock::now();
+				auto start = std::chrono::steady_clock::now();
 				auto pump_status = relay_server.pump();
 				auto wait_time = std::chrono::milliseconds(8);
 				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
@@ -2128,15 +2138,12 @@ void __NetAdhocInit() {
 				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE) {
 					wait_time = std::chrono::milliseconds(100);
 				}
-				auto time_taken = now - std::chrono::high_resolution_clock::now();
-				if (time_taken < wait_time) {
-					std::this_thread::sleep_for(wait_time - time_taken);
-				}
+				std::this_thread::sleep_until(start + wait_time);
 			}
 
 			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
 
-			UPnP_Remove(IP_PROTOCOL_TCP, AEMU_POSTOFFICE_PORT);
+			UPnP_Remove(IP_PROTOCOL_TCP, config.port);
 		});
 	}
 }
@@ -2157,10 +2164,6 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer && isLocalServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
-		}
-
-		if (serverHasRelay && g_Config.bEnableAdhocServer && isLocalServer) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
 		}
 
 		if (g_Config.bEnableWlan) {
