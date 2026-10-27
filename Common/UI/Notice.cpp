@@ -92,7 +92,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 	*height = std::max(heightSum, iconH + m) + padding * 2.0f;
 }
 
-void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding, RoundCorners corners) {
+void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding, float radius, RoundCorners corners) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -100,7 +100,7 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	if (!(flags & OSDMessageFlags::Transparent)) {
-		dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius, corners);
+		dc.FillRoundRect(background, bounds, radius, corners);
 	}
 	bounds = bounds.Expand(-padding);
 

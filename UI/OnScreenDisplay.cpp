@@ -49,13 +49,14 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		if (!(entry.flags & OSDMessageFlags::Transparent)) {
 			dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 		}
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime);
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, 0.0f, dc.GetTheme().choiceRoundRadius * 0.5f);
 	}
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
+	const float radius = dc.GetTheme().choiceRoundRadius * 0.5f;
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	uint32_t progressBackgroundColor = colorAlpha(0xa08070, alpha);
 
@@ -68,20 +69,19 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &en
 		float ratio = (float)(entry.progress - entry.minValue) / (float)entry.maxValue;
 
 		Bounds boundLeft = bounds;
-		Bounds boundRight = bounds;
-
 		boundLeft.w *= ratio;
-		boundRight.x += ratio * boundRight.w;
-		boundRight.w *= (1.0f - ratio);
 
-		dc.FillRect(progressBackground, boundLeft);
-		dc.FillRect(background, boundRight);
+		// Clip the progress part, so its rounded corners match the background's at any width.
+		dc.FillRoundRect(background, bounds, radius);
+		dc.PushScissor(boundLeft);
+		dc.FillRoundRect(progressBackground, bounds, radius);
+		dc.PopScissor();
 	} else {
 		// Indeterminate spinner
 		float alpha = cos(time_now_d() * 5.0) * 0.5f + 0.5f;
 		uint32_t pulse = colorBlend(backgroundColor, progressBackgroundColor, alpha);
 		UI::Drawable background = UI::Drawable(pulse);
-		dc.FillRect(background, bounds);
+		dc.FillRoundRect(background, bounds, radius);
 	}
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -101,7 +101,7 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	UI::Drawable background = UI::Drawable(backgroundColor);
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-	dc.FillRect(background, bounds);
+	dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.5f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
@@ -454,6 +454,6 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f, NoticeViewPadding(dc), roundCorners_);
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f, NoticeViewPadding(dc), dc.GetTheme().choiceRoundRadius, roundCorners_);
 	dc.PopScissor();
 }
