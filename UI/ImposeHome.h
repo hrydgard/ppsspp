@@ -44,8 +44,6 @@ public:
 	// Once a frame. running: the game is running (booted, CPU running, no reboot pending).
 	// onTop: EmuScreen is the top screen, so the HOME screen may take input.
 	Action Update(bool running, bool onTop);
-	// Touch input while open. True if it took it.
-	bool Touch(const TouchInput &touch);
 	// screen: where the PSP's 480x272 display is, in UI coordinates.
 	void Draw(UIContext &dc, const Bounds &screen);
 	bool IsOpen() const { return state_ != State::CLOSED; }

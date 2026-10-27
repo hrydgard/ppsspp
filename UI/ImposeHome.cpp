@@ -647,7 +647,7 @@ void ImposeHomeScreen::FinishQuit() {
 }
 
 ImposeHomeScreen::Action ImposeHomeScreen::Update(bool running, bool onTop) {
-	// A quit chosen by touch since the last update.
+	// A quit chosen since the last update.
 	if (pendingAction_ != Action::NONE) {
 		return TakeAction();
 	}
@@ -716,20 +716,6 @@ ImposeHomeScreen::Action ImposeHomeScreen::TakeAction() {
 	Action action = pendingAction_;
 	pendingAction_ = Action::NONE;
 	return action;
-}
-
-bool ImposeHomeScreen::Touch(const TouchInput &touch) {
-	if ((touch.flags & TouchInputFlags::DOWN) && state_ == State::ASKING) {
-		if (yesBounds_.Contains(touch.x, touch.y)) {
-			yes_ = true;
-			Choose(true);
-		} else if (noBounds_.Contains(touch.x, touch.y)) {
-			yes_ = false;
-			Choose(false);
-		}
-	}
-	// Let releases through, so nothing on the touch controls stays held. Everything else is ours.
-	return !(touch.flags & TouchInputFlags::UP);
 }
 
 void ImposeHomeScreen::Draw(UIContext &dc, const Bounds &screen) {
