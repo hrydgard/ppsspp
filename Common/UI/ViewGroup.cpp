@@ -187,7 +187,11 @@ void ViewGroup::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 	}
 
-	dc.FillRect(bg_, bounds_);
+	if (roundCorners_ != RoundCorners::None) {
+		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	} else {
+		dc.FillRect(bg_, bounds_);
+	}
 	for (View *view : views_) {
 		if (view->GetVisibility() == V_VISIBLE) {
 			// Check if bounds are in current scissor rectangle.

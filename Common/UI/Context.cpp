@@ -393,7 +393,8 @@ void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds
 		uidrawbuffer_->DrawRoundRect(bounds, radius, drawable.color, RoundRectStyle::Filled, corners);
 		break;
 	default:
-		// Not supported
+		// Not supported, draw it square.
+		FillRect(drawable, bounds);
 		break;
 	}
 }

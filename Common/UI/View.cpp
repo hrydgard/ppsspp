@@ -734,7 +734,7 @@ void PopupHeader::Draw(UIContext &dc) {
 	}
 
 	// Header background
-	dc.FillRect(dc.GetTheme().popupTitleStyle.background, bounds_);
+	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	// Header title text
 	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	// Underline
