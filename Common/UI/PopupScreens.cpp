@@ -230,6 +230,10 @@ void PopupScreen::CreateViews() {
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		}
 
+		// The buttons have margins between them, so round them all.
+		for (int i = 0; i < buttonRow->GetNumSubviews(); i++) {
+			buttonRow->GetViewByIndex(i)->SetRoundCorners(RoundCorners::All);
+		}
 		box_->Add(buttonRow);
 	}
 
