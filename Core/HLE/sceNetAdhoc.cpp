@@ -2244,14 +2244,9 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 
 	StartFriendFinder();
 
-	// Need to make sure to be connected to Adhoc Server (indicated by networkInited) before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
-	int us = adhocDefaultDelay;
-	if (g_Config.bEnableWlan && !g_adhocServerConnected) {
-		AdhocctlRequest dummyreq = { OPCODE_LOGIN, {0} };
-		return hleLogDebugOrWarn(Log::sceNet, WaitBlockingAdhocctlSocket(dummyreq, us, "adhocctl init"));
-	}
-	// Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
-	hleEatMicro(us);
+	// Init doesn't wait for the login to the Adhoc Server, and a Create, Connect or Scan right after it
+	// works, as on a PSP (pspautotests net/adhoc/ctlinit): those requests wait for the login instead.
+	hleEatMicro(adhocDefaultDelay);
 
 	return hleLogDebug(Log::sceNet, 0);
 }

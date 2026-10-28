@@ -1399,6 +1399,8 @@ static std::atomic<bool> adhocctlLoginDone(false);
 static void *adhocctlLoginHandle = nullptr;
 static bool adhocctlLoginRunning = false;
 static bool adhocServerResolved = false;
+// Whether the client has logged in since friendFinderStart(), so the next login is after a lost connection.
+static bool adhocctlLoggedIn = false;
 static uint64_t lastAdhocctlPing = 0;
 
 static void ResolveAdhocServer() {
@@ -1523,6 +1525,12 @@ static void FinishAdhocctlLogin() {
 
 	g_adhocServerConnected = true;
 	INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
+	if (!adhocctlLoggedIn) {
+		// The first login after sceNetAdhocctlInit. A request the game made meanwhile is waiting for it,
+		// and still busy.
+		adhocctlLoggedIn = true;
+		return;
+	}
 	// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
 	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
 	netAdhocGameModeEntered = false;
@@ -1531,6 +1539,7 @@ static void FinishAdhocctlLogin() {
 
 void friendFinderStart() {
 	adhocServerResolved = false;
+	adhocctlLoggedIn = false;
 	lastAdhocctlPing = 0;
 	INFO_LOG(Log::sceNet, "FriendFinder: Begin");
 }
