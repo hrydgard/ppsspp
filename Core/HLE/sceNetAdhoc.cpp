@@ -894,9 +894,8 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 			return -1;
 	}
 
-	// At this point we assumed that the packet is a valid PPSSPP packet
-	if (ret > 0 && *req.length > 0)
-		memcpy(req.buffer, dummyPeekBuf64k, std::min(ret, *req.length));
+	// At this point we assumed that the packet is a valid PPSSPP packet. A datagram larger than the
+	// buffer isn't copied at all (pspautotests net/adhoc/pdp).
 
 	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
 	if (ret >= 0 && ret <= *req.length) {
@@ -3036,9 +3035,7 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 				if (received != SOCKET_ERROR && *len < received) {
 					INFO_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
-					if (received > 0 && *len > 0)
-						memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
-
+					// A datagram larger than the buffer stays queued, and isn't copied (pspautotests net/adhoc/pdp).
 					// Return the actual available data size
 					*len = received;
 
