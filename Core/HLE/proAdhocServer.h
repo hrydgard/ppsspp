@@ -262,6 +262,9 @@ struct SceNetAdhocctlGroupNode {
 
 	// Double-Linked Player List
 	SceNetAdhocctlUserNode * player;
+
+	// Made up when the group is created, and kept while it lasts
+	SceNetEtherAddr bssid;
 };
 
 // User Count

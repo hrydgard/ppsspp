@@ -2258,8 +2258,7 @@ int getNicknameCount(const char * nickname)
 	// Counter
 	int count = 0;
 
-	// Local Nickname Matches
-	if (strncmp((char *)&parameter.nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
+	// The console itself isn't in the peer list (pspautotests net/adhoc/pair/basic).
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;

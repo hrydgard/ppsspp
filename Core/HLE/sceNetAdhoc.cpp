@@ -1462,7 +1462,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	internal->data.ptp.laddr = adhocSockets[idx]->data.ptp.laddr;
 	internal->data.ptp.lport = adhocSockets[idx]->data.ptp.lport;
 	internal->data.ptp.paddr = mac_cpy;
-	internal->data.ptp.pport = port_cpy;
+	internal->data.ptp.pport = reverse_port_simple(port_cpy);
 	internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 	internal->data.ptp.rcv_sb_cc = adhocSockets[idx]->data.ptp.rcv_sb_cc;
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
@@ -4055,16 +4055,11 @@ static int sceNetAdhocctlGetNameByAddr(MIPSState *mips, const char *mac, u32 nam
 			SceNetEtherAddr localmac;
 			getLocalMac(&localmac);
 
-			// Local MAC Matches
+			// The console itself isn't in the peer list: NO_ENTRY, and the name isn't written (pspautotests
+			// net/adhoc/pair/basic).
 			if (isMacMatch(&localmac, (const SceNetEtherAddr*)mac))
 			{
-				// Write Data
-				*nickname = parameter.nickname;
-
-				DEBUG_LOG(Log::sceNet, "sceNetAdhocctlGetNameByAddr - [PlayerName:%s]", (char*)nickname);
-
-				// Return Success
-				return 0;
+				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_NO_ENTRY, "local MAC");
 			}
 
 			// Multithreading Lock
@@ -4120,7 +4115,9 @@ int sceNetAdhocctlGetPeerInfo(MIPSState *mips, const char *mac, int size, u32 pe
 	}
 	// Library initialized
 	if (netAdhocctlInited) {
-		if ((size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) || (buf == NULL)) return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
+		if (buf == NULL) return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
+		// A size too small for the entry gives the ad hoc library's INVALID_BUFLEN (pspautotests net/adhoc/pair/basic).
+		if (size < (int)sizeof(SceNetAdhocctlPeerInfoEmu)) return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_BUFLEN, "buffer too small");
 
 		int retval = SCE_NET_ADHOC_ERROR_NO_ENTRY; // -1;
 
@@ -6735,24 +6732,8 @@ static int sceNetAdhocctlGetAddrByName(MIPSState *mips, const char *nickName, u3
 				// Minimum Space available
 				if (requestcount > 0)
 				{
-					// Local Nickname Matches
-					if (strncmp((char *)&parameter.nickname.data, nickName, ADHOCCTL_NICKNAME_LEN) == 0)
-					{
-						// Get Local IP Address
-						sockaddr_in addr;
-						SceNetEtherAddr mac;
-
-						getLocalIp(&addr);
-						buf[discovered].nickname = parameter.nickname;
-						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
-						getLocalMac(&mac);
-						buf[discovered].mac_addr = mac;
-						buf[discovered].flags = 0x0400;
-						u64 lastrecv = std::max(0LL, static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
-						buf[discovered++].last_recv = lastrecv;
-
-						DEBUG_LOG(Log::sceNet, "Peer [%s][%s][%s][%llu]", mac2str(&mac).c_str(), ip2str(addr.sin_addr).c_str(), nickName, lastrecv);
-					}
+					// The console itself isn't in the peer list, so it's never found here (pspautotests
+					// net/adhoc/pair/basic).
 
 					// Peer Reference
 					SceNetAdhocctlPeerInfo * peer = friends;
