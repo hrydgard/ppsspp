@@ -24,6 +24,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <condition_variable>
 #include <mutex>
 #include <cstring>
 
@@ -1401,7 +1402,45 @@ static bool adhocctlLoginRunning = false;
 static bool adhocServerResolved = false;
 // Whether the client has logged in since friendFinderStart(), so the next login is after a lost connection.
 static bool adhocctlLoggedIn = false;
+// Guarded by adhocctlMutex, since the keepalive thread pings too.
 static uint64_t lastAdhocctlPing = 0;
+
+// The poll only runs while emulation does, so while it's paused (the pause menu, a debugger) this
+// keeps the server from dropping the client, as the old friendFinder thread did.
+static std::thread adhocctlKeepaliveThread;
+static std::mutex adhocctlKeepaliveMutex;
+static std::condition_variable adhocctlKeepaliveCond;
+static bool adhocctlKeepaliveStop = false;
+
+static void AdhocctlKeepalive() {
+	SetCurrentThreadName("AdhocctlKeepalive");
+	while (true) {
+		{
+			std::unique_lock<std::mutex> lock(adhocctlKeepaliveMutex);
+			adhocctlKeepaliveCond.wait_for(lock, std::chrono::milliseconds(500), [] { return adhocctlKeepaliveStop; });
+			if (adhocctlKeepaliveStop) {
+				return;
+			}
+		}
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		const uint64_t now = time_now_d() * 1000000.0;
+		// A failed ping is left for the poll to notice and handle.
+		if (adhocctlHandle && static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT && adhocctl_ping(adhocctlHandle) == ADHOCCTL_CALL_SUCCESS) {
+			lastAdhocctlPing = now;
+		}
+	}
+}
+
+static void StopAdhocctlKeepalive() {
+	{
+		std::lock_guard<std::mutex> lock(adhocctlKeepaliveMutex);
+		adhocctlKeepaliveStop = true;
+	}
+	adhocctlKeepaliveCond.notify_one();
+	if (adhocctlKeepaliveThread.joinable()) {
+		adhocctlKeepaliveThread.join();
+	}
+}
 
 static void ResolveAdhocServer() {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
@@ -1540,11 +1579,19 @@ static void FinishAdhocctlLogin() {
 void friendFinderStart() {
 	adhocServerResolved = false;
 	adhocctlLoggedIn = false;
-	lastAdhocctlPing = 0;
+	{
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		lastAdhocctlPing = 0;
+	}
+	// In case the client was dropped without friendFinderStop(), as __NetAdhocInit() does.
+	StopAdhocctlKeepalive();
+	adhocctlKeepaliveStop = false;
+	adhocctlKeepaliveThread = std::thread(AdhocctlKeepalive);
 	INFO_LOG(Log::sceNet, "FriendFinder: Begin");
 }
 
 void friendFinderStop() {
+	StopAdhocctlKeepalive();
 	// friendFinderRunning is already false, which makes a login in progress give up.
 	if (adhocctlLoginThread.joinable()) {
 		adhocctlLoginThread.join();
