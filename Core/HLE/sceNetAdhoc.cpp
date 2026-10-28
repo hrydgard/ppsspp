@@ -2133,14 +2133,12 @@ void __NetAdhocInit() {
 			while (adhocServerRunning) {
 				auto start = std::chrono::steady_clock::now();
 				auto pump_status = relay_server.pump();
-				auto wait_time = std::chrono::milliseconds(8);
 				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
 					break;
 				}
-				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE) {
-					wait_time = std::chrono::milliseconds(100);
-				}
-				std::this_thread::sleep_until(start + wait_time);
+				// Every hop through the relay waits for the next pump, so keep them close together. Idle
+				// (nobody connected) too, since that's when a game's first connection comes in.
+				std::this_thread::sleep_until(start + std::chrono::milliseconds(1));
 			}
 
 			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
