@@ -3994,21 +3994,9 @@ int sceNetAdhocctlGetPeerInfo(MIPSState *mips, const char *mac, int size, u32 pe
 
 		int retval = SCE_NET_ADHOC_ERROR_NO_ENTRY; // -1;
 
-		// Local MAC
+		// The local MAC isn't in the peer list, so NO_ENTRY (pspautotests net/adhoc/adhocctl).
 		if (isLocalMAC(maddr)) {
-			SceNetAdhocctlNickname nickname;
-
-			truncate_cpy((char*)&nickname.data, ADHOCCTL_NICKNAME_LEN, g_Config.sNickName);
-			buf->next = 0;
-			buf->nickname = nickname;
-			buf->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0; // last char need to be null-terminated char
-			buf->mac_addr = *maddr;
-			buf->flags = 0x0400;
-			buf->padding = 0;
-			buf->last_recv = std::max(0LL, static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
-
-			// Success
-			retval = 0;
+			retval = SCE_NET_ADHOC_ERROR_NO_ENTRY;
 		}
 		// Find Peer by MAC
 		else
