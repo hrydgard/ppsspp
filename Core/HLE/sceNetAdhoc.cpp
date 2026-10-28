@@ -1676,17 +1676,17 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 int DoBlockingAdhocPollSocket(AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
 	int ret = PollAdhocSocket(sds, req.id, 0, 0);
-	if (ret <= 0) {
+	if (ret < 0) {
+		// A disconnected socket or a poll alert ends the wait at once.
+		ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
+	} else if (ret == 0) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		// POSIX poll using negative timeout for indefinitely blocking, not sure about PSP's AdhocPollSocket tho since most of PSP's sceNet API using 0 for indefinitely blocking.
+		// A timeout of 0 waits forever, like the rest of sceNet.
 		if (static_cast<int>(req.timeout) <= 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
-		else if (ret < 0)
-			ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
-		// FIXME: Does AdhocPollSocket can return any error code other than SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT?
-		//else
-		//	ret = SCE_NET_ADHOC_ERROR_TIMEOUT;
+		// Nothing to report by the timeout (pspautotests net/adhoc/poll).
+		ret = SCE_NET_ADHOC_ERROR_TIMEOUT;
 	}
 	result = ret;
 
@@ -3253,6 +3253,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	tmout.tv_sec = timeout / 1000000; // seconds
 	tmout.tv_usec = (timeout % 1000000); // microseconds
 	int affectedsockets = 0;
+	// A disconnected socket makes the call return EXCEPTION_EVENT, whatever else is ready.
+	bool disconnected = false;
 	if (!serverHasRelay)
 		affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
 	if (affectedsockets >= 0) {
@@ -3285,19 +3287,31 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
 
-				if (sock->type == SOCK_PTP) {
-					// FIXME: Should we also make use "retry_interval" for ADHOC_EV_ACCEPT, similar to ADHOC_EV_CONNECT ?
-					if ((sds[i].events & ADHOC_EV_ACCEPT) && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-						if (serverHasRelay) {
-							if (postoffice_can_recv_or_listen_has_request(sds[i].id - 1))
-								sds[i].revents |= ADHOC_EV_ACCEPT;
-						} else {
-							if (FD_ISSET(fd, &readfds))
-								sds[i].revents |= ADHOC_EV_ACCEPT;
-						}
+				// What listening and connected PTP sockets report on a PSP (pspautotests net/adhoc/poll):
+				// SEND and FLUSH always, CONNECT once connected, and ACCEPT or RECV when there's something
+				// to take. A connection whose peer has closed reports DISCONNECT alone.
+				const bool readable = serverHasRelay ? postoffice_can_recv_or_listen_has_request(sds[i].id - 1) : FD_ISSET(fd, &readfds);
+				// A connection PtpOpen started may have come up since anything looked at it.
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && FD_ISSET(fd, &writefds)) {
+					struct sockaddr_in peer;
+					socklen_t peerLen = sizeof(peer);
+					if (getpeername(fd, (struct sockaddr *)&peer, &peerLen) == 0) {
+						sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 					}
+				}
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+					sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_ACCEPT : 0)) & sds[i].events;
+				} else if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
+					char peek;
+					if (!serverHasRelay && readable && recv(fd, &peek, 1, MSG_PEEK | MSG_NOSIGNAL) == 0) {
+						sds[i].revents = ADHOC_EV_DISCONNECT;
+						disconnected = true;
+					} else {
+						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
+					}
+				} else if (sock->type == SOCK_PTP) {
 					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
-					else if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
+					if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
 						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
 
 						sds[i].revents |= ADHOC_EV_CONNECT;
@@ -3306,7 +3320,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 					// Raise ADHOC_EV_DISCONNECT, ADHOC_EV_DELETE, ADHOC_EV_INVALID on revents regardless of events as needed (similar to POLLHUP, POLLERR, and POLLNVAL on posix poll)
 					if (sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED) {
 						if (sock->attemptCount > 0) {
-							sds[i].revents |= ADHOC_EV_DISCONNECT; // remote peer has closed the socket
+							sds[i].revents = ADHOC_EV_DISCONNECT; // remote peer has closed the socket
+							disconnected = true;
 						}
 					}
 				}
@@ -3334,6 +3349,9 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 		*/
 		affectedsockets = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
 	}
+	if (disconnected) {
+		return SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
+	}
 	return affectedsockets;
 }
 
@@ -3354,9 +3372,12 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 		{
 			// Socket Check
 			for (int i = 0; i < count; i++) {
-				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > MAX_SOCKET || adhocSockets[sds[i].id - 1] == NULL)
+				// Invalid Socket. A PSP puts INVALID in the first entry, whichever one is invalid
+				// (pspautotests net/adhoc/poll).
+				if (sds[i].id < 1 || sds[i].id > MAX_SOCKET || adhocSockets[sds[i].id - 1] == NULL) {
+					sds[0].revents = ADHOC_EV_INVALID;
 					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID, "invalid socket id");
+				}
 			}
 
 			// Nonblocking Mode
