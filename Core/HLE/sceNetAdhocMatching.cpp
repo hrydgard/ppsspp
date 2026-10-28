@@ -1925,10 +1925,13 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
 	netAdhocMatchingValidateLoopMemory();
 	std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-	matchingThreads[item->matching_thid] = hleCall(ThreadManForUser, int, sceKernelCreateThread, thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
+	// Created and started without rescheduling, like adhocctl's thread: starting it through
+	// sceKernelStartThread switched threads inside this call, and the game got the thread's ID back
+	// instead of 0 (pspautotests net/adhoc/matching).
+	matchingThreads[item->matching_thid] = __KernelCreateThread(thrname.c_str(), __KernelGetCurThreadModuleId(), matchingThreadHackAddr, evthPri, evthStack, PSP_THREAD_ATTR_USER, 0, true);
 	//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
 	if (matchingThreads[item->matching_thid] > 0) {
-		hleCall(ThreadManForUser, int, sceKernelStartThread, matchingThreads[item->matching_thid], 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
+		__KernelStartThread(matchingThreads[item->matching_thid], 0, 0);
 		//item->matchingThread->Start(matchingId, 0);
 	}
 
