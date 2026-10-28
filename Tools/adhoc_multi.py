@@ -8,9 +8,10 @@
 # binds to 127.0.0.N, so on macOS the loopback aliases have to exist first:
 #   sudo ifconfig lo0 alias 127.0.0.2 up   (and .3, .4, ... for more clients)
 #
-# With --relay, the instances instead use an aemu_postoffice server already running on this machine
-# (adhocctl on 27312, relay on 27313; see ext/aemu_postoffice/hosting.md), in relay mode. The relay
-# tells players apart by MAC, so they can all share 127.0.0.1 and no aliases are needed.
+# With --relay, the instances use the relay in relay mode (on 27313, next to adhocctl on 27312). The host's
+# built-in server runs one, unless an aemu_postoffice server is already running on this machine (see
+# ext/aemu_postoffice/hosting.md). The relay tells players apart by MAC, so they can all share 127.0.0.1
+# and no aliases are needed.
 #
 # Usage: python3 Tools/adhoc_multi.py [--headless PATH] [--relay] net/adhoc/pair/basic [more tests...]
 
@@ -66,7 +67,7 @@ def run_test(headless, test, extra, relay_ini):
 			"--graphics=software", "--memstick=" + memstick, "--realtime", "--instance=%d" % (i + 1)]
 		if relay_ini:
 			cmd.append("--appendconfig=" + relay_ini)
-		elif i == 0:
+		if i == 0:
 			cmd.append("--adhoc-server")
 		cmd += extra
 		cmd.append(os.path.join(TESTS_DIR, "%s_%s.prx" % (test, role)))

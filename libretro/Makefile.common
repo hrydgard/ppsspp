@@ -695,13 +695,24 @@ SOURCES_CXX += \
 	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_cpp.cpp \
 	       $(EXTDIR)/aemu_postoffice/client/delay_impl_cpp.cpp \
 	       $(EXTDIR)/aemu_postoffice/client/log_impl_ppsspp.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/server.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/session.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/semaphore.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/log.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/common.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/enet.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/snapshot.cpp \
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/sock_impl_windows.c
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/native_socket_windows.cpp
 else
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/sock_impl_linux.c
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/native_socket_linux.cpp
 endif
 
 SOURCES_CXX += \

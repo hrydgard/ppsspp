@@ -64,6 +64,8 @@
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
 #include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
+#include "ext/aemu_postoffice/server_cpp/server.h"
+#include "ext/aemu_postoffice/server_cpp/log.h"
 
 #ifdef _WIN32
 #undef errno
@@ -102,6 +104,7 @@ bool trackingRelayFailure = false;
 bool relayDisabled = false;
 bool relayFirstConnect = true;
 bool g_serverListLoaded = false;
+std::thread relayThread;
 
 int gameModeNotifyEvent = -1;
 
@@ -349,6 +352,10 @@ void __NetAdhocShutdown() {
 	adhocServerRunning = false;
 	if (adhocServerThread.joinable()) {
 		adhocServerThread.join();
+	}
+
+	if (relayThread.joinable()) {
+		relayThread.join();
 	}
 
 	NetAdhocctl_Term();
@@ -2061,6 +2068,18 @@ void __AdhocNotifInit() {
 	sendTargetPeers.clear();
 }
 
+static void aemu_postoffice_server_log(const char *format, ...) {
+	char log_buf[1024] = {0};
+	va_list args;
+	va_start(args, format);
+	int len = vsnprintf(log_buf, sizeof(log_buf), format, args);
+	va_end(args);
+	if (len > 0 && len < (int)sizeof(log_buf) && log_buf[len - 1] == '\n') {
+		log_buf[len - 1] = '\0';
+	}
+	INFO_LOG(Log::sceNet, "%s", log_buf);
+}
+
 void __NetAdhocInit() {
 	friendFinderRunning = false;
 	netAdhocInited = false;
@@ -2075,9 +2094,59 @@ void __NetAdhocInit() {
 	if (adhocServerThread.joinable()) {
 		adhocServerThread.join();
 	}
+	if (relayThread.joinable()) {
+		relayThread.join();
+	}
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
 		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
+
+		// relay thread
+		relayThread = std::thread([] () {
+			SetCurrentThreadName("AEMUPostoffice");
+
+			aemu_postoffice_server::LOG = aemu_postoffice_server_log;
+
+			struct aemu_postoffice_server::config config;
+			/*
+			 * strict mode requires adhocctl data to be fed into the relay, either from
+			 * aemu_postoffice's implementation of adhocctl, or by constructing the snapshot
+			 * from ppsspp's adhocctl server
+			 */
+			config.strict_mode = false;
+			// One worker per pool is plenty for a server that sees a handful of players.
+			config.num_threads = 1;
+			// The port the relay client connects to.
+			config.port = AEMU_POSTOFFICE_PORT;
+
+			aemu_postoffice_server::Server relay_server(config);
+			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
+				// Most likely another relay already has the port.
+				WARN_LOG(Log::sceNet, "RelayServer: Couldn't listen on TCP port %u", config.port);
+				return;
+			}
+
+			UPnP_Add(IP_PROTOCOL_TCP, config.port);
+
+			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", config.port);
+
+			while (adhocServerRunning) {
+				auto start = std::chrono::steady_clock::now();
+				auto pump_status = relay_server.pump();
+				auto wait_time = std::chrono::milliseconds(8);
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
+					break;
+				}
+				if (pump_status == aemu_postoffice_server::ServerPumpStatus::IDLE) {
+					wait_time = std::chrono::milliseconds(100);
+				}
+				std::this_thread::sleep_until(start + wait_time);
+			}
+
+			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
+
+			UPnP_Remove(IP_PROTOCOL_TCP, config.port);
+		});
 	}
 }
 
@@ -2097,10 +2166,6 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer && isLocalServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
-		}
-
-		if (serverHasRelay && g_Config.bEnableAdhocServer && isLocalServer) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
 		}
 
 		if (g_Config.bEnableWlan) {

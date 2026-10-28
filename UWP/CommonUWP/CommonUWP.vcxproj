@@ -247,6 +247,15 @@
     <ClInclude Include="..\..\ext\aemu_postoffice\client\enet.h" />
     <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.h" />
     <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\server.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\session.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\log.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\common.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\enet.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\native_socket.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\config.h" />
     <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h" />
     <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\..\ext\at3_standalone\atrac.h" />
@@ -438,6 +447,30 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\enet.c" />
     <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.c" />
     <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.c" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\server.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\session.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\log.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\common.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\enet.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\native_socket_windows.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp" />

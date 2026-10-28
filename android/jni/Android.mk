@@ -819,6 +819,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/aemu_postoffice/client/enet.c \
   $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl.c \
   $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl_mem.c \
+  $(SRC)/ext/aemu_postoffice/server_cpp/server.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/session.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/semaphore.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/log.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/common.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/enet.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/snapshot.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/native_socket_linux.cpp \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceNetApctl.cpp \
   $(SRC)/Core/HLE/sceNetInet.cpp \
