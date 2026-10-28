@@ -2310,6 +2310,24 @@ static bool HasFreeAdhocSocketSlot() {
 	return false;
 }
 
+// A free local port for a PDP socket created on port 0, in the range a PSP picks from (0x1000-0x7FFF).
+static uint16_t get_unused_pdp_port() {
+	for (int tries = 0; tries < 1000; tries++) {
+		uint16_t test_port = 0x1000 + rand() % 0x7000;
+		bool used = false;
+		for (int i = 0; i < MAX_SOCKET; i++) {
+			if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP && adhocSockets[i]->data.pdp.lport == test_port) {
+				used = true;
+				break;
+			}
+		}
+		if (!used) {
+			return test_port;
+		}
+	}
+	return 0x1000;
+}
+
 int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool postoffice_enet_pdp_reliable) {
 	if (!g_Config.bEnableWlan) {
 		return -1;
@@ -2356,10 +2374,12 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 
 	bool isClient = false;
 
-	// sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+	// Port 0 gets a free port in 0x1000-0x7FFF, as on a PSP (pspautotests net/adhoc/limits). Picking it
+	// here rather than letting the host choose also keeps the port offset from turning it into a fixed
+	// port (Phantasy Star Portable 2 creates several on port 0).
 	if (port == 0) {
 		isClient = true;
-		port = -static_cast<int>(portOffset);
+		port = get_unused_pdp_port();
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
@@ -2422,6 +2442,15 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 
 	// Bound Socket to local Port
 	int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
+	// A port picked for port 0 may be taken on the host; pick another.
+	for (int tries = 0; iResult != 0 && isClient && tries < 16; tries++) {
+		port = get_unused_pdp_port();
+		requestedport = static_cast<int>(port + static_cast<int>(portOffset));
+		if (requestedport == 0)
+			requestedport = 65535;
+		addr.sin_port = htons(requestedport);
+		iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
+	}
 
 	if (iResult != 0) {
 		DEBUG_LOG(Log::sceNet, "%s: sock bind failed", __func__);
