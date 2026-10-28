@@ -548,29 +548,19 @@ void deleteFriendByIP(uint32_t ip) {
 	}
 }
 
+// A PSP hands out matching context IDs in increasing order, 1 to 15 and around again (pspautotests
+// net/adhoc/matching). There can't be more than 15 contexts.
+static int nextMatchingId = 1;
+
 int findFreeMatchingID() {
-	// Minimum Matching ID
-	int min = 1;
-
-	// Maximum Matching ID
-	int max = 0;
-
-	// Find highest Matching ID
-	SceNetAdhocMatchingContext * item = contexts; 
-	for (; item != NULL; item = item->next) {
-		// New Maximum
-		if (max < item->id) max = item->id;
+	for (int n = 0; n < 15; n++) {
+		int id = (nextMatchingId - 1 + n) % 15 + 1;
+		if (findMatchingContext(id) == NULL) {
+			nextMatchingId = id % 15 + 1;
+			return id;
+		}
 	}
-
-	// Find unoccupied ID
-	int i = min; 
-	for (; i < max; i++) {
-		// Found unoccupied ID
-		if (findMatchingContext(i) == NULL) return i;
-	}
-
-	// Append at virtual end
-	return max + 1;
+	return 16;
 }
 
 SceNetAdhocMatchingContext * findMatchingContext(int id) {
