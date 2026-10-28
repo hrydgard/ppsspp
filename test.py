@@ -673,6 +673,7 @@ tests_next = [
   "net/inet/bind",
   "net/inet/poll",
   "net/inet/errors",
+  "net/inet/errnothread",
   "net/inet/offline",
   "net/inet/options",
   "net/inet/stats",

@@ -713,7 +713,7 @@ void netValidateLoopMemory() {
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1, 8);
+	auto s = p.Section("sceNet", 1, 9);
 	if (!s)
 		return;
 
@@ -781,7 +781,7 @@ void __NetDoState(PointerWrap &p) {
 		apctlEvents.clear();
 		apctlProdCodeAddr = 0;
 	}
-	__NetInetDoState(p, s >= 8);
+	__NetInetDoState(p, s >= 8, s >= 9);
 
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
