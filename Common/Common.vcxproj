@@ -294,6 +294,15 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\enet.h" />
     <ClInclude Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl.h" />
     <ClInclude Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\server.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\session.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\semaphore.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\log.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\common.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\enet.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\snapshot.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\native_socket.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\server_cpp\config.h" />
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
@@ -637,6 +646,54 @@
       <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
       <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
       <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\server.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\session.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\semaphore.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\log.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\common.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\enet.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\snapshot.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\ext\aemu_postoffice\server_cpp\native_socket_windows.cpp">
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <UndefinePreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">_CRTDBG_MAP_ALLOC</UndefinePreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
     </ClCompile>
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\ext\at3_standalone\atrac3.cpp" />
