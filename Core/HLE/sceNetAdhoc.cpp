@@ -3313,6 +3313,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 
 				if (sock->flags & ADHOC_F_ALERTPOLL) {
 					sock->alerted_flags |= ADHOC_F_ALERTPOLL;
+					// Reported as ALERT alone (pspautotests net/adhoc/alerts).
+					sds[i].revents = ADHOC_EV_ALERT;
 
 					return SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 				}
@@ -5140,16 +5142,25 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = flag;
 
+			// A connection PtpOpen started may have come up since.
+			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay) {
+				struct sockaddr_in peer;
+				socklen_t peerLen = sizeof(peer);
+				if (getpeername(ptpsocket.id, (struct sockaddr *)&peer, &peerLen) == 0) {
+					ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+				}
+			}
+
+			// Connecting a connected socket returns 0 on the PSP, even with the connect alert set (pspautotests
+			// net/adhoc/alerts). Phantasy Star Portable 2 does that.
+			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
+				return 0;
+
 			if (socket->flags & ADHOC_F_ALERTCONNECT) {
 				socket->alerted_flags |= ADHOC_F_ALERTCONNECT;
 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 			}
-
-			// Connecting a connected socket returns 0 on the PSP (pspautotests net/adhoc/alerts). Phantasy Star
-			// Portable 2 does that.
-			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
-				return 0;
 
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
@@ -5918,7 +5929,9 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = nonblock;
 
-			if (socket->flags & ADHOC_F_ALERTFLUSH) {
+			// A flush with nothing left to send returns 0 even with the flush alert set (pspautotests
+			// net/adhoc/alerts). Data sent on a connected socket is already with the host.
+			if ((socket->flags & ADHOC_F_ALERTFLUSH) && ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
 				socket->alerted_flags |= ADHOC_F_ALERTFLUSH;
 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
