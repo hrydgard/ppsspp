@@ -1057,6 +1057,8 @@ endif
 
 SOURCES_CXX += \
 		$(LIBRETRODIR)/libretro.cpp \
+		$(LIBRETRODIR)/LibretroNetpacket.cpp \
+		$(LIBRETRODIR)/NetpacketAdhoc.cpp \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
 		$(LIBRETRODIR)/LibretroGLContext.cpp \
 		$(LIBRETRODIR)/LibretroGLCoreContext.cpp

@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
 #include "libretro/LibretroVR.h"
+#include "libretro/LibretroNetpacket.h"
 #include <array>
 #include <cstring>
 #include <cassert>
@@ -1156,6 +1157,7 @@ static void check_variables(CoreParameter &coreParam)
    if (resetHWContext)
       ((LibretroHWRenderContext *)ctx)->ContextReset();
 
+   Libretro::NetpacketConfig();
    set_variable_visibility();
 }
 
@@ -1566,6 +1568,11 @@ bool retro_load_game(const struct retro_game_info *game) {
       return false;
    }
 
+   if (!Libretro::NetpacketInit(environ_cb)) {
+      ERROR_LOG(Log::System, "This frontend does not support the Netpacket interface. Disable RetroArch Netplay in core options.\n");
+      return false;
+   }
+
    retro_check_backend();
 
    ctx       = LibretroGraphicsContext::CreateGraphicsContext();
@@ -1635,6 +1642,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 }
 
 void retro_unload_game(void) {
+   Libretro::NetpacketStop();
    if (Libretro::useEmuThread) {
       Libretro::EmuThreadStop();
    }
@@ -1643,6 +1651,7 @@ void retro_unload_game(void) {
 	// A failed boot has already shut down.
 	if (PollBootState() != BootState::Off)
 		PSP_Shutdown(true);
+	Libretro::NetpacketShutdown();
 	g_VFS.Clear();
 
 	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES && ctx->GetDrawContext()) {
@@ -1765,6 +1774,7 @@ static void retro_input(void) {
 
 // Called every frame by retroarch.
 void retro_run(void) {
+   Libretro::NetpacketPoll();
    if (g_pendingBoot) {
       BootState state = PSP_InitUpdate(&g_bootErrorString);
       switch (state) {
@@ -1855,6 +1865,8 @@ bool retro_load_game_special(unsigned type, const struct retro_game_info *info, 
 
 size_t retro_serialize_size(void)
 {
+   if (Libretro::NetpacketEnabled())
+      return 0;
    if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
 
@@ -1868,6 +1880,8 @@ size_t retro_serialize_size(void)
 }
 
 bool retro_serialize(void *data, size_t size) {
+   if (Libretro::NetpacketEnabled())
+      return false;
    if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
 
@@ -1893,6 +1907,8 @@ bool retro_serialize(void *data, size_t size) {
 }
 
 bool retro_unserialize(const void *data, size_t size) {
+   if (Libretro::NetpacketEnabled())
+      return false;
    // The HW renderer isn't ready on first pass.
    // So we save the data until we are ready to use it.
    if (!gpu) {
@@ -2094,7 +2110,11 @@ void System_Notify(SystemNotification notification) {
    }
 }
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
-void System_PostUIMessage(UIMessage message, std::string_view param) {}
+void System_PostUIMessage(UIMessage message, std::string_view param) {
+   // Game-specific PPSSPP configs are loaded during boot, after core options.
+   if (message == UIMessage::CONFIG_LOADED)
+      Libretro::NetpacketConfig();
+}
 void System_RunOnMainThread(std::function<void()>) {}
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}

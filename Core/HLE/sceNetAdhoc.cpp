@@ -61,6 +61,7 @@
 #include "Core/HLE/proAdhocServer.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/NetAdhocCommon.h"
+#include "Core/HLE/NetAdhocTransport.h"
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
 #include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
@@ -548,15 +549,15 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		if (adhocctlHandle) {
 			switch(req.opcode) {
 			case OPCODE_CONNECT:{
-				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
+				call_status = g_netAdhocTransport.ctlConnect(adhocctlHandle, (char *)req.group.data);
 				break;
 			}
 			case OPCODE_SCAN:{
-				call_status = adhocctl_scan(adhocctlHandle);
+				call_status = g_netAdhocTransport.ctlScan(adhocctlHandle);
 				break;
 			}
 			case OPCODE_DISCONNECT:{
-				call_status = adhocctl_disconnect(adhocctlHandle);
+				call_status = g_netAdhocTransport.ctlDisconnect(adhocctlHandle);
 				break;
 			}
 			case OPCODE_LOGIN:{
@@ -753,7 +754,7 @@ static void *pdp_postoffice_recover(int idx) {
 	getLocalMac(&local_mac);
 
 	int state;
-	internal->postofficeHandle = pdp_create_v4(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), netAdhocUseUdp, internal->postofficePdpEnetReliable, NULL, NULL, &state);
+	internal->postofficeHandle = g_netAdhocTransport.pdpCreate(&addr, (const char *)&local_mac, offset_port_simple(internal->data.pdp.lport), netAdhocUseUdp, internal->postofficePdpEnetReliable, NULL, NULL, &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed creating pdp socket on aemu postoffice library, %d", __func__, state);
 		handle_relay_connect_failure();
@@ -771,9 +772,9 @@ static int pdp_peek_next_size_postoffice(int idx) {
 	if (pdp_sock == NULL) {
 		return 0;
 	}
-	int peek_status = pdp_peek_next_size(pdp_sock);
+	int peek_status = g_netAdhocTransport.pdpPeek(pdp_sock);
 	if (peek_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-		pdp_delete(internal->postofficeHandle);
+		g_netAdhocTransport.pdpDelete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return 0;
 	}
@@ -791,10 +792,10 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	SceNetEtherAddr saddr_copy = {0};
 	int len_copy = *len;
 
-	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
+	int pdp_recv_status = g_netAdhocTransport.pdpRecv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		handle_relay_connect_failure();
-		pdp_delete(internal->postofficeHandle);
+		g_netAdhocTransport.pdpDelete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
 	}
@@ -974,10 +975,10 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 	SceNetEtherAddr fixed_daddr = *daddr;
 	fixGameMac(&fixed_daddr);
 
-	int pdp_send_status = pdp_send(pdp_sock, (const char *)&fixed_daddr, offset_port_simple(dport), (char *)data, len, true);
+	int pdp_send_status = g_netAdhocTransport.pdpSend(pdp_sock, (const char *)&fixed_daddr, offset_port_simple(dport), (char *)data, len, true);
 	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		handle_relay_connect_failure();
-		pdp_delete(internal->postofficeHandle);
+		g_netAdhocTransport.pdpDelete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
 		return SOCKET_ERROR;
 	}
@@ -1072,7 +1073,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
 
-	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
+	int ptp_send_status = g_netAdhocTransport.ptpSend(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		// this is not necessarily a relay failure, could simply be the other side disconnecting
@@ -1185,7 +1186,7 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 
 	int len_copy = *len;
 
-	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
+	int ptp_recv_status = g_netAdhocTransport.ptpRecv(internal->postofficeHandle, (char *)data, &len_copy, true);
 	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		// this is not necessarily a relay failure, could simply be the other side disconnecting
@@ -1296,7 +1297,7 @@ static void *ptp_listen_postoffice_recover(int idx) {
 	addr.port = htons(AEMU_POSTOFFICE_PORT);
 
 	int state;
-	internal->postofficeHandle = ptp_listen_v4(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, netAdhocUseUdp, NULL, NULL, &state);
+	internal->postofficeHandle = g_netAdhocTransport.ptpListen(&addr, (const char*)&internal->data.ptp.laddr, internal->data.ptp.lport + portOffset, netAdhocUseUdp, NULL, NULL, &state);
 
 	if (state != AEMU_POSTOFFICE_CLIENT_OK) {
 		ERROR_LOG(Log::sceNet, "%s: failed recovering ptp listen socket, %d", __func__, state);
@@ -1320,11 +1321,11 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	int state = 0;
 	int port_cpy = 0;
 	SceNetEtherAddr mac_cpy = {0};
-	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, NULL, NULL, &state);
+	void *new_ptp_socket = g_netAdhocTransport.ptpAccept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, NULL, NULL, &state);
 	if (new_ptp_socket == NULL) {
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 			handle_relay_connect_failure();
-			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
+			g_netAdhocTransport.ptpListenClose(adhocSockets[idx]->postofficeHandle);
 			adhocSockets[idx]->postofficeHandle = NULL;
 			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 		}
@@ -1341,7 +1342,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: critical: ran out of heap memory while accepting new connection", __func__);
-		ptp_close(new_ptp_socket);
+		g_netAdhocTransport.ptpClose(new_ptp_socket);
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
@@ -1368,7 +1369,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	}
 
 	if (slot == NULL) {
-		ptp_close(new_ptp_socket);
+		g_netAdhocTransport.ptpClose(new_ptp_socket);
 		free(internal);
 		ERROR_LOG(Log::sceNet, "%s: critical: cannot find an empty mapper slot", __func__);
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
@@ -1478,7 +1479,7 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			int state;
 			SceNetEtherAddr fixed_daddr = internal->data.ptp.paddr;
 			fixGameMac(&fixed_daddr);
-			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), netAdhocUseUdp, NULL, NULL, &state);
+			void *ptp_socket = g_netAdhocTransport.ptpConnect(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), netAdhocUseUdp, NULL, NULL, &state);
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
@@ -1851,7 +1852,7 @@ static void SetupAdhocRelayMode() {
 	netAdhocUseUdp = g_Config.bAdhocUseUdp;
 	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
-	init_aemu_postoffice(netAdhocUseUdp);
+	g_netAdhocTransport.init(netAdhocUseUdp);
 
 	if (netAdhocUseUdp) {
 		aemuPostofficeEnetPumping = true;
@@ -1860,7 +1861,7 @@ static void SetupAdhocRelayMode() {
 				// no std::chrono::high_resolution_clock::now() in msvc.....
 				static const double target_interval = 1.0 / 120;
 				double begin = time_now_d();
-				int pump_status = pump_enet_aemu_postoffice();
+				int pump_status = g_netAdhocTransport.pump();
 				if (pump_status == 1) {
 					double time_spent = time_now_d() - begin;
 					if (target_interval > time_spent) {
@@ -2038,9 +2039,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 				aemuPostofficeEnetPumping = false;
 				aemuPostofficeEnetThread.join();
 				// one more pump to best effort send the final disconnects
-				pump_enet_aemu_postoffice();
+				g_netAdhocTransport.pump();
 			}
-			deinit_aemu_postoffice();
+			g_netAdhocTransport.deinit();
 		}
 	}
 }
@@ -3058,10 +3059,10 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 			if (ptp_listen_handle == NULL) {
 				return false;
 			}
-			int has_request = ptp_listen_has_request(ptp_listen_handle);
+			int has_request = g_netAdhocTransport.ptpPending(ptp_listen_handle);
 			if (has_request == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 				internal->postofficeHandle = NULL;
-				ptp_listen_close(ptp_listen_handle);
+				g_netAdhocTransport.ptpListenClose(ptp_listen_handle);
 				return false;
 			}
 			if (has_request) {
@@ -3072,7 +3073,7 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 			if (ptp_handle == NULL) {
 				return false;
 			}
-			int peek_len = ptp_peek_next_size(ptp_handle);
+			int peek_len = g_netAdhocTransport.ptpPeek(ptp_handle);
 			if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 				return false;
 			}
@@ -3085,10 +3086,10 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 		if (pdp_handle == NULL) {
 			return false;
 		}
-		int peek_len = pdp_buffered_data_size(pdp_handle);
+		int peek_len = g_netAdhocTransport.pdpBuffered(pdp_handle);
 		if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 			internal->postofficeHandle = NULL;
-			pdp_delete(pdp_handle);
+			g_netAdhocTransport.pdpDelete(pdp_handle);
 			return false;
 		}
 		if (peek_len > 0) {
@@ -3105,21 +3106,21 @@ static bool postoffice_can_send(int idx) {
 		if (ptp_handle == NULL) {
 			return false;
 		}
-		if (ptp_is_dead(ptp_handle)) {
+		if (g_netAdhocTransport.ptpDead(ptp_handle)) {
 			return false;
 		}
-		return ptp_send_buf_not_full(ptp_handle);
+		return g_netAdhocTransport.ptpWritable(ptp_handle);
 	} else {
 		void *pdp_handle = pdp_postoffice_recover(idx);
 		if (pdp_handle == NULL) {
 			return false;
 		}
-		if (pdp_is_dead(pdp_handle)) {
+		if (g_netAdhocTransport.pdpDead(pdp_handle)) {
 			internal->postofficeHandle = NULL;
-			pdp_delete(pdp_handle);
+			g_netAdhocTransport.pdpDelete(pdp_handle);
 			return false;
 		}
-		return pdp_send_buf_not_full(pdp_handle);
+		return g_netAdhocTransport.pdpWritable(pdp_handle);
 	}
 	return false;
 }
@@ -3326,7 +3327,7 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 static int pdp_delete_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
-		pdp_delete(internal->postofficeHandle);
+		g_netAdhocTransport.pdpDelete(internal->postofficeHandle);
 	}
 	adhocSockets[idx] = NULL;
 	free(internal);
@@ -3642,7 +3643,7 @@ u32 NetAdhocctl_Disconnect() {
 			adhocctlMutex.lock();
 			enum adhocctl_call_status status = ADHOCCTL_CALL_SUCCESS;
 			if (adhocctlHandle != NULL) {
-				status = adhocctl_disconnect(adhocctlHandle);
+				status = g_netAdhocTransport.ctlDisconnect(adhocctlHandle);
 			}
 			adhocctlMutex.unlock();
 			if (status == ADHOCCTL_CALL_ERROR) {
@@ -4190,10 +4191,10 @@ int NetAdhoc_Term() {
 			aemuPostofficeEnetPumping = false;
 			aemuPostofficeEnetThread.join();
 			// give enet one last pump so that sockets there were closed in deleteAllAdhocSockets sends at least one disconnect packet to the server
-			pump_enet_aemu_postoffice();
+			g_netAdhocTransport.pump();
 		}
 
-		deinit_aemu_postoffice();
+		g_netAdhocTransport.deinit();
 
 		netAdhocInited = false;
 		//return hleLogSuccessInfoI(Log::sceNet, 0);
@@ -4262,7 +4263,7 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 					if (serverHasRelay) {
 						void *postofficeHandle = pdp_postoffice_recover(j);
 						if (postofficeHandle != NULL) {
-							sock->data.pdp.rcv_sb_cc = pdp_buffered_data_size(postofficeHandle);
+							sock->data.pdp.rcv_sb_cc = g_netAdhocTransport.pdpBuffered(postofficeHandle);
 						}
 					} else {
 						sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
@@ -4385,7 +4386,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 
 					if (serverHasRelay) {
 						if (sock->postofficeHandle != NULL) {
-							sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
+							sock->data.ptp.rcv_sb_cc = g_netAdhocTransport.ptpPeek(sock->postofficeHandle);
 						} else {
 							sock->data.ptp.rcv_sb_cc = 0;
 						}
@@ -5197,9 +5198,9 @@ static int ptp_close_postoffice(int idx) {
 	void *socket = internal->postofficeHandle;
 	if (socket != NULL) {
 		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-			ptp_listen_close(socket);
+			g_netAdhocTransport.ptpListenClose(socket);
 		} else {
-			ptp_close(socket);
+			g_netAdhocTransport.ptpClose(socket);
 		}
 	}
 	adhocSockets[idx] = NULL;

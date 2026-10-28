@@ -58,6 +58,7 @@
 #include "Core/HLE/sceNetInet.h"
 #include "Core/HLE/sceNetResolver.h"
 #include "Core/HLE/NetAdhocCommon.h"
+#include "Core/HLE/NetAdhocTransport.h"
 
 #include "Core/MIPS/MIPSCodeUtils.h" // for macros to implement __CreateHLELoop
 
@@ -1093,7 +1094,9 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	}
 
 	u8 *addr = Memory::GetPointerWriteUnchecked(addrAddr);
-	if (PPSSPP_ID > 1) {
+	if (g_netAdhocTransport.getLocalMac) {
+		g_netAdhocTransport.getLocalMac(addr);
+	} else if (PPSSPP_ID > 1) {
 		Memory::Memset(addrAddr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 		addr[0] &= 0xfc;

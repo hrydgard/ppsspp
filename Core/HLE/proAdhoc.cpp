@@ -57,6 +57,7 @@
 #include "proAdhoc.h"
 
 #include "Core/HLE/NetAdhocCommon.h"
+#include "Core/HLE/NetAdhocTransport.h"
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
 #include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
@@ -70,6 +71,8 @@
 // Missing toolchain define
 #define INADDR_NONE 0xFFFFFFFF
 #endif
+
+NetAdhocTransport g_netAdhocTransport;
 
 uint16_t portOffset;
 uint32_t minSocketTimeoutUS;
@@ -452,14 +455,14 @@ void deleteAllAdhocSockets() {
 					void *socket = sock->postofficeHandle;
 					if (socket != NULL) {
 						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-							ptp_listen_close(socket);
+							g_netAdhocTransport.ptpListenClose(socket);
 						} else {
-							ptp_close(socket);
+							g_netAdhocTransport.ptpClose(socket);
 						}
 					}
 				} else {
 					if (sock->postofficeHandle != NULL) {
-						pdp_delete(sock->postofficeHandle);
+						g_netAdhocTransport.pdpDelete(sock->postofficeHandle);
 					}
 				}
 			} else {
@@ -1336,7 +1339,7 @@ void sendChat(std::string_view chatString) {
 				// logic has to be updated in the future if later adhocctl protocol supports longer messages
 				char buf[64];
 				truncate_cpy(buf, chatString);
-				enum adhocctl_call_status chat_send_status = adhocctl_chat(adhocctlHandle, buf);
+				enum adhocctl_call_status chat_send_status = g_netAdhocTransport.ctlChat(adhocctlHandle, buf);
 				if (chat_send_status != ADHOCCTL_CALL_SUCCESS) {
 					ERROR_LOG(Log::sceNet, "adhocctl client failed while sending chat message");
 					killAdhocctlClient(true, adhocctl_guard);
@@ -1384,7 +1387,7 @@ void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lo
 
 	g_adhocServerConnected = false;
 
-	destroy_adhocctl_session(adhocctlHandle);
+	g_netAdhocTransport.ctlDestroy(adhocctlHandle);
 	adhocctlHandle = NULL;
 
 	// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
@@ -1475,7 +1478,7 @@ int friendFinder() {
 		getLocalMac(&address);
 
 		// Connect to Adhoc Server
-		void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp, should_abort_adhocctl_connection, NULL);
+		void *new_adhocctl_handle = g_netAdhocTransport.ctlCreate(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp, should_abort_adhocctl_connection, NULL);
 
 		if (!new_adhocctl_handle) {
 			ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
@@ -1600,7 +1603,7 @@ int friendFinder() {
 			// Ping Server
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
 			if (static_cast<s64>(now - lastping) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
-				enum adhocctl_call_status ping_status = adhocctl_ping(adhocctlHandle);
+				enum adhocctl_call_status ping_status = g_netAdhocTransport.ctlPing(adhocctlHandle);
 
 				if (ping_status != ADHOCCTL_CALL_SUCCESS) {
 					ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during ping");
@@ -1614,7 +1617,7 @@ int friendFinder() {
 				}
 			}
 
-			adhocctl_get_event(adhocctlHandle, &adhocctl_event);
+			g_netAdhocTransport.ctlEvent(adhocctlHandle, &adhocctl_event);
 			if (adhocctl_event.type == ADHOCCTL_CLIENT_EVENT_ERROR) {
 				ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during event fetch");
 				killAdhocctlClient(true, adhocctl_guard);
@@ -2013,6 +2016,10 @@ bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask) {
 }
 
 void getLocalMac(SceNetEtherAddr * addr) {
+	if (g_netAdhocTransport.getLocalMac) {
+		g_netAdhocTransport.getLocalMac(addr->data);
+		return;
+	}
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {

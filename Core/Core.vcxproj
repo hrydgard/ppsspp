@@ -991,6 +991,7 @@
     <ClInclude Include="HLE\sceNet.h" />
     <ClInclude Include="HLE\sceNet_lib.h" />
     <ClInclude Include="HLE\NetAdhocCommon.h" />
+    <ClInclude Include="HLE\NetAdhocTransport.h" />
     <ClInclude Include="HLE\sceNetAdhoc.h" />
     <ClInclude Include="HLE\sceNetAdhocMatching.h" />
     <ClInclude Include="HLE\sceNp.h" />

@@ -670,6 +670,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Off"
    },
    {
+      "ppsspp_retroarch_netplay",
+      "RetroArch Netplay (Experimental, Restart)",
+      NULL,
+      "Route PSP ad hoc multiplayer through RetroArch Netplay. Enable on all players, restart content, and connect the RetroArch session before opening the game wireless menu. Overrides WLAN, MAC, PRO server, relay and port settings. Requires frontend Netpacket support.",
+      NULL,
+      "network",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_enable_wlan",
       "Enable Networking/WLAN (Beta, may break games)",
       NULL,

@@ -1878,6 +1878,9 @@
     <ClInclude Include="HLE\NetAdhocCommon.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\NetAdhocTransport.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceNetAdhoc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
