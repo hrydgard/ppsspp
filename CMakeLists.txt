@@ -634,7 +634,8 @@ if(USE_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
 	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
 endif()
 
-find_package(ZLIB)
+# 1.2.9 for uncompress2 (Core/Util/PSARUnpack.cpp). Older system zlibs (Ubuntu 16.04's) get the bundled one.
+find_package(ZLIB 1.2.9)
 if(ZLIB_FOUND AND NOT ANDROID)
 	include_directories(${ZLIB_INCLUDE_DIR})
 	add_compile_definitions(SHARED_ZLIB)

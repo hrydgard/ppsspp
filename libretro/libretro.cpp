@@ -9,6 +9,16 @@
 #include <cstdlib>
 #include <mutex>
 
+// Puts the exact compiler version in the build log, to see what libretro's buildbot runs. Clang reports
+// this pragma as a warning, so only MSVC and GCC.
+#define LIBRETRO_STRINGIFY2(x) #x
+#define LIBRETRO_STRINGIFY(x) LIBRETRO_STRINGIFY2(x)
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma message("Compiler: MSVC " LIBRETRO_STRINGIFY(_MSC_FULL_VER) ", _MSVC_LANG " LIBRETRO_STRINGIFY(_MSVC_LANG))
+#elif defined(__GNUC__) && !defined(__clang__)
+#pragma message("Compiler: GCC " __VERSION__ ", __cplusplus " LIBRETRO_STRINGIFY(__cplusplus))
+#endif
+
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "Common/Log/LogManager.h"
