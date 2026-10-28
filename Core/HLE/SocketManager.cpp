@@ -42,6 +42,13 @@ InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketS
 	inetSock->type = type;
 	inetSock->protocol = protocol;
 	inetSock->nonblocking = false;
+	// TCP and UDP defaults from pspautotests net/inet/options. Other types get UDP's.
+	const bool stream = type == PSP_NET_INET_SOCK_STREAM;
+	inetSock->sndBuf = stream ? 16384 : 9216;
+	inetSock->rcvBuf = stream ? 16384 : 41600;
+	inetSock->sndLowat = 2048;
+	inetSock->rcvLowat = 1;
+	inetSock->ipTtl = 64;
 	*returned_errno = 0;
 	return inetSock;
 }
@@ -74,15 +81,12 @@ InetSocket *SocketManager::AdoptSocket(int *index, SOCKET hostSocket, const Inet
 
 	*index = i;
 	InetSocket *inetSock = inetSockets_ + i;
-	*inetSock = {};
+	// Options and all, like BSD's sonewconn().
+	*inetSock = *derive;
 	inetSock->sock = hostSocket;
-	inetSock->state = derive->state;
-	inetSock->domain = derive->domain;
-	inetSock->type = derive->type;
-	inetSock->protocol = derive->protocol;
-	inetSock->nonblocking = derive->nonblocking;  // should we inherit blocking state?
-	inetSock->recvTimeoutUs = derive->recvTimeoutUs;
-	inetSock->sendTimeoutUs = derive->sendTimeoutUs;
+	inetSock->addr.clear();
+	inetSock->port = 0;
+	inetSock->upnpPort = 0;
 	return inetSock;
 }
 
