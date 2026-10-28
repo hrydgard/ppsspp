@@ -2116,6 +2116,8 @@ void __NetAdhocInit() {
 			config.strict_mode = false;
 			// One worker per pool is plenty for a server that sees a handful of players.
 			config.num_threads = 1;
+			// The port the relay client connects to.
+			config.port = AEMU_POSTOFFICE_PORT;
 
 			aemu_postoffice_server::Server relay_server(config);
 			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
