@@ -5781,6 +5781,10 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
 			}
 
+			// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
+			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED && socket->attemptCount > 0)
+				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+
 			// Not Connected
 			return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_CONNECTED, "not connected");
 		}
@@ -5909,6 +5913,10 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 					// Disconnected
 					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
 				}
+
+				// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
+				if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED && socket->attemptCount > 0)
+					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
 
 				// Not Connected
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_CONNECTED, "not connected");
