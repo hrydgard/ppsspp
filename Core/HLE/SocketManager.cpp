@@ -87,6 +87,9 @@ InetSocket *SocketManager::AdoptSocket(int *index, SOCKET hostSocket, const Inet
 	inetSock->addr.clear();
 	inetSock->port = 0;
 	inetSock->upnpPort = 0;
+	inetSock->boundPort = 0;
+	inetSock->tcpClosed = false;
+	inetSock->listening = false;
 	return inetSock;
 }
 
