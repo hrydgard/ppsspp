@@ -534,39 +534,43 @@ struct HostSocketReady {
 };
 
 // Returns how many of the checks came back ready, like select(), or -1 with socket_errno set.
-// Elsewhere select() can't take a descriptor numbered FD_SETSIZE or above, so this uses poll(), mapped
-// as select() would see it. A hung-up socket counts as writable too: macOS reports a refused connect
-// as just POLLHUP, which its select() shows as writable. Winsock's select() has no such limit, just one of FD_SETSIZE (64)
-// sockets per set, so it's called on groups of that many.
+// Outside Windows, select() can't take a descriptor numbered FD_SETSIZE or above, so this uses poll(),
+// mapped as select() would see it. A hung-up socket counts as writable too: macOS reports a refused
+// connect as just POLLHUP, which its select() shows as writable.
 static int CheckHostSockets(HostSocketReady *checks, int count) {
 	int ready = 0;
 #if defined(_WIN32)
-	for (int start = 0; start < count; start += FD_SETSIZE) {
-		const int n = std::min(count - start, (int)FD_SETSIZE);
-		fd_set rd, wr, ex;
-		FD_ZERO(&rd);
-		FD_ZERO(&wr);
-		FD_ZERO(&ex);
-		bool anyRd = false, anyWr = false, anyEx = false;
-		for (int i = start; i < start + n; i++) {
-			if (checks[i].read) { FD_SET(checks[i].sock, &rd); anyRd = true; }
-			if (checks[i].write) { FD_SET(checks[i].sock, &wr); anyWr = true; }
-			if (checks[i].except) { FD_SET(checks[i].sock, &ex); anyEx = true; }
+	if (count > FD_SETSIZE) {
+		// Winsock's select() takes 64 sockets a set. No game is known to need more.
+		ERROR_LOG(Log::sceNet, "Checking only %d of %d sockets", (int)FD_SETSIZE, count);
+		for (int i = FD_SETSIZE; i < count; i++) {
+			checks[i].read = checks[i].write = checks[i].except = false;
 		}
-		if (!anyRd && !anyWr && !anyEx) {
-			// Winsock's select() fails on empty sets.
-			continue;
-		}
-		timeval tmout = { 0, 0 };
-		if (select(0, anyRd ? &rd : nullptr, anyWr ? &wr : nullptr, anyEx ? &ex : nullptr, &tmout) < 0) {
-			return -1;
-		}
-		for (int i = start; i < start + n; i++) {
-			checks[i].read = checks[i].read && FD_ISSET(checks[i].sock, &rd);
-			checks[i].write = checks[i].write && FD_ISSET(checks[i].sock, &wr);
-			checks[i].except = checks[i].except && FD_ISSET(checks[i].sock, &ex);
-			ready += checks[i].read + checks[i].write + checks[i].except;
-		}
+		count = FD_SETSIZE;
+	}
+	fd_set rd, wr, ex;
+	FD_ZERO(&rd);
+	FD_ZERO(&wr);
+	FD_ZERO(&ex);
+	bool anyRd = false, anyWr = false, anyEx = false;
+	for (int i = 0; i < count; i++) {
+		if (checks[i].read) { FD_SET(checks[i].sock, &rd); anyRd = true; }
+		if (checks[i].write) { FD_SET(checks[i].sock, &wr); anyWr = true; }
+		if (checks[i].except) { FD_SET(checks[i].sock, &ex); anyEx = true; }
+	}
+	if (!anyRd && !anyWr && !anyEx) {
+		// Winsock's select() fails on empty sets.
+		return 0;
+	}
+	timeval tmout = { 0, 0 };
+	if (select(0, anyRd ? &rd : nullptr, anyWr ? &wr : nullptr, anyEx ? &ex : nullptr, &tmout) < 0) {
+		return -1;
+	}
+	for (int i = 0; i < count; i++) {
+		checks[i].read = checks[i].read && FD_ISSET(checks[i].sock, &rd);
+		checks[i].write = checks[i].write && FD_ISSET(checks[i].sock, &wr);
+		checks[i].except = checks[i].except && FD_ISSET(checks[i].sock, &ex);
+		ready += checks[i].read + checks[i].write + checks[i].except;
 	}
 #else
 	std::vector<pollfd> fds(count);
