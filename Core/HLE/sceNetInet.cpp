@@ -59,6 +59,29 @@ static int UpdateErrnoFromHost(int threadID, int hostErrno, const char *func) {
 	return lastErrno;
 }
 
+// A descriptor that isn't open fails the call with -1 and EBADF (pspautotests net/inet/errors).
+static int InetBadSocket(int socket, const char *func) {
+	UpdateErrnoFromHost(__KernelGetCurThread(), EBADF, func);
+	return hleLogError(Log::sceNet, -1, "Bad socket #%d", socket);
+}
+
+// For errors that PPSSPP decides on itself rather than the host, in the PSP's numbering. A blocked
+// call retried later passes the thread it's for, which isn't the current one.
+static void SetInetErrno(int pspErrno, const char *func, SceUID threadID = __KernelGetCurThread()) {
+	DEBUG_LOG(Log::sceNet, "errno set to %s in %s", convertInetErrno2str(pspErrno), func);
+	g_inetLastErrno[threadID] = pspErrno;
+}
+
+// Game memory that a host call will read or write directly. Fails with EFAULT rather than letting
+// the host run past the end of it.
+static bool InetValidRange(u32 ptr, u32 size, const char *func, SceUID threadID = __KernelGetCurThread()) {
+	if (size == 0 || Memory::IsValidRange(ptr, size)) {
+		return true;
+	}
+	SetInetErrno(ERROR_INET_EFAULT, func, threadID);
+	return false;
+}
+
 bool netInetInited = false;
 
 // A blocking call waiting for its sockets. Host sockets are always non-blocking: rather than block
@@ -158,11 +181,12 @@ static int sceNetInetGetPspError(MIPSState *mips) {
 }
 
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
-	if (!Memory::IsValidAddress(inAddrPtr)) {
+	const int hostAf = convertSocketDomainPSP2Host(af);
+	if (!Memory::IsValidRange(inAddrPtr, hostAf == AF_INET6 ? 16 : 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
 
-	int retval = inet_pton(convertSocketDomainPSP2Host(af), hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
+	int retval = inet_pton(hostAf, hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
 	// Note that inet_pton can set errno!
 	if (retval < 0) {
 		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
@@ -172,7 +196,7 @@ static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
 }
 
 static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
-	if (!Memory::IsValidAddress(inAddrPtr)) {
+	if (!Memory::IsValidRange(inAddrPtr, 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
 
@@ -185,15 +209,16 @@ static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
 // TODO: Need to find out whether it's possible to get partial output or not, since Coded Arms Contagion is using a small bufsize(4)
 static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsize) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetInetNtop(%i, %08x, %08x, %d)", af, srcInAddrPtr, dstBufPtr, bufsize);
-	if (!Memory::IsValidAddress(srcInAddrPtr)) {
+	const int hostAf = convertSocketDomainPSP2Host(af);
+	if (!Memory::IsValidRange(srcInAddrPtr, hostAf == AF_INET6 ? 16 : 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg");
 	}
-	if (!Memory::IsValidAddress(dstBufPtr) || bufsize < 1/*8*/) { // usually 8 or 16, but Coded Arms Contagion is using bufsize = 4
+	if (!Memory::IsValidRange(dstBufPtr, bufsize) || bufsize < 1/*8*/) { // usually 8 or 16, but Coded Arms Contagion is using bufsize = 4
 		UpdateErrnoFromHost(__KernelGetCurThread(), ENOSPC, __FUNCTION__);
 		return hleLogError(Log::sceNet, 0, "invalid arg");
 	}
 
-	if (inet_ntop(convertSocketDomainPSP2Host(af), Memory::GetCharPointer(srcInAddrPtr), (char*)Memory::GetCharPointer(dstBufPtr), bufsize) == NULL) {
+	if (inet_ntop(hostAf, Memory::GetCharPointer(srcInAddrPtr), (char*)Memory::GetCharPointer(dstBufPtr), bufsize) == NULL) {
 		//return hleLogDebug(Log::sceNet, 0, "invalid arg?"); // Temporarily commented out in case it's allowed to have partial output
 	}
 	return hleLogDebug(Log::sceNet, dstBufPtr, "%s", safe_string(Memory::GetCharPointer(dstBufPtr)));
@@ -233,7 +258,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	SockAddrIN4 saddr{};
@@ -257,7 +282,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	SockAddrIN4 saddr{};
@@ -606,6 +631,14 @@ static void __NetInetWaitPoll(u64 userdata, int cyclesLate) {
 
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
 int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
+	for (u32 ptr : { readfdsPtr, writefdsPtr, exceptfdsPtr }) {
+		if (ptr && !InetValidRange(ptr, sizeof(SceNetInetFdSet), __FUNCTION__)) {
+			return hleLogError(Log::sceNet, -1, "bad fd set %08x", ptr);
+		}
+	}
+	if (timeoutPtr && !InetValidRange(timeoutPtr, sizeof(SceNetInetTimeval), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad timeout %08x", timeoutPtr);
+	}
 	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
 
 	if (nfds > 256) {
@@ -635,18 +668,13 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 
 int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, mips->pc);
-	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr);
-
 	if (nfds > FD_SETSIZE)
 		nfds = FD_SETSIZE;
-
-	for (int i = 0; i < (s32)nfds; i++) {
-		if (fdarray[i].fd < 0) {
-			// In Unix, this is OK and means it the fd should be ignored, except fdarray[i].revents should be zeroed.
-			UpdateErrnoFromHost(__KernelGetCurThread(), EINVAL, __FUNCTION__);
-			return hleLogError(Log::sceNet, -1, "invalid socket id");
-		}
+	if (!InetValidRange(fdsPtr, nfds * (u32)sizeof(SceNetInetPollfd), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad fds %08x", fdsPtr);
 	}
+	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr);
+	// A negative fd isn't open, so it gets POLLNVAL like any other (pspautotests net/inet/polledge).
 
 	const u32 args[] = { fdsPtr, nfds };
 	// In milliseconds, like POSIX poll() (pspautotests net/inet/blocking). Negative waits for as long as it takes.
@@ -664,7 +692,11 @@ int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) {
 static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
+	}
+
+	if (!InetValidRange(bufPtr, bufLen, __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad buffer %08x, %d bytes", bufPtr, bufLen);
 	}
 
 	const u32 args[] = { (u32)socket, bufPtr, bufLen, flags };
@@ -685,7 +717,10 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
+	}
+	if (!InetValidRange(bufPtr, bufLen, __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad buffer %08x, %d bytes", bufPtr, bufLen);
 	}
 
 	std::string datahex;
@@ -710,6 +745,17 @@ static int sceNetInetSocket(MIPSState *mips, int domain, int type, int protocol)
 	INFO_LOG(Log::sceNet, "sceNetInetSocket(%d, %d, %d) at %08x - Socket: Domain = %s, Type = %s, Protocol = %s",
 		domain, type, protocol, mips->pc, inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
+	// Anything but an AF_INET TCP, UDP or raw socket, with a protocol that fits, is EPROTONOSUPPORT
+	// (pspautotests net/inet/errors).
+	const bool typeOk = type == PSP_NET_INET_SOCK_STREAM || type == PSP_NET_INET_SOCK_DGRAM || type == PSP_NET_INET_SOCK_RAW;
+	const bool protocolOk = protocol == 0 || type == PSP_NET_INET_SOCK_RAW ||
+		(type == PSP_NET_INET_SOCK_STREAM && protocol == PSP_NET_INET_IPPROTO_TCP) ||
+		(type == PSP_NET_INET_SOCK_DGRAM && protocol == PSP_NET_INET_IPPROTO_UDP);
+	if (domain != PSP_NET_INET_AF_INET || !typeOk || !protocolOk) {
+		SetInetErrno(ERROR_INET_EPROTONOSUPPORT, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "unsupported socket %d, %d, %d", domain, type, protocol);
+	}
+
 	int socket;
 	int hostErrno = 0;
 	InetSocket *inetSock = g_socketManager.CreateSocket(&socket, &hostErrno, SocketState::UsedNetInet, domain, type, protocol);
@@ -732,7 +778,7 @@ static int sceNetInetSocket(MIPSState *mips, int domain, int type, int protocol)
 static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	const u32 optval = Memory::IsValid4AlignedAddress(optvalPtr) ? Memory::ReadUnchecked_U32(optvalPtr) : 0;
@@ -818,9 +864,12 @@ static int sceNetInetGetsockopt(MIPSState *mips, int socket, int level, int optn
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
+	if (!InetValidRange(optlenPtr, 4, __FUNCTION__) || !InetValidRange(optvalPtr, Memory::ReadUnchecked_U32(optlenPtr), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad optval %08x or optlen %08x", optvalPtr, optlenPtr);
+	}
 	u32_le* optval = (u32_le*)Memory::GetPointerOrException(optvalPtr);
 	socklen_t* optlen = (socklen_t*)Memory::GetPointerOrException(optlenPtr);
 	DEBUG_LOG(Log::sceNet, "SockOpt: Level = %s, OptName = %s", inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str());
@@ -883,10 +932,23 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
+	if (!InetValidRange(namePtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad address %08x", namePtr);
+	}
 	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointerOrException(namePtr);
+	// (Only lengths under 16 have been seen to fail. 4.4BSD fails any but 16.)
+	if (namelen < (int)sizeof(SceNetInetSockaddr)) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "namelen %d", namelen);
+	}
+	if (name->sa_family != PSP_NET_INET_AF_INET && ((const SceNetInetSockaddrIn *)name)->sin_addr != INADDR_ANY) {
+		// Not found among the local addresses, whose family is compared too (pspautotests net/inet/errors).
+		SetInetErrno(ERROR_INET_EADDRNOTAVAIL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "family %d", name->sa_family);
+	}
 	SockAddrIN4 saddr{};
 	// TODO: Should've created convertSockaddrPSP2Host (and Host2PSP too) function as it's being used pretty often, thus fixing a bug on it will be tedious when scattered all over the places
 	saddr.addr.sa_family = name->sa_family;
@@ -976,11 +1038,14 @@ static InetTry TryConnectDone(SceUID threadID, const u32 *args) {
 static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	// Still using warn log here so it stands out in the log
 
+	if (!InetValidRange(sockAddrPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad address %08x", sockAddrPtr);
+	}
 	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetPointerOrException(sockAddrPtr);
 	SockAddrIN4 saddr{};
 	int dstlen = std::min(sockAddrLen > 0 ? sockAddrLen : 0, static_cast<int>(sizeof(saddr)));
@@ -1017,7 +1082,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 static int sceNetInetListen(int socket, int backlog) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	int retval = listen(inetSock->sock, (backlog == PSP_NET_INET_SOMAXCONN ? SOMAXCONN : backlog));
@@ -1076,7 +1141,11 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
+	}
+
+	if ((addrPtr && !InetValidRange(addrPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) || (addrLenPtr && !InetValidRange(addrLenPtr, 4, __FUNCTION__))) {
+		return hleLogError(Log::sceNet, -1, "bad address %08x or length %08x", addrPtr, addrLenPtr);
 	}
 
 	const u32 args[] = { (u32)socket, addrPtr, addrLenPtr };
@@ -1096,15 +1165,19 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 static int sceNetInetShutdown(int socket, int how) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	// Convert HOW from PSP to Host
-	int hostHow = how;
+	int hostHow;
 	switch (how) {
 	case PSP_NET_INET_SHUT_RD: hostHow = SHUT_RD; break;
 	case PSP_NET_INET_SHUT_WR: hostHow = SHUT_WR; break;
 	case PSP_NET_INET_SHUT_RDWR: hostHow = SHUT_RDWR; break;
+	default:
+		// pspautotests net/inet/errors and states.
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "bad how %d", how);
 	}
 
 	int retVal = shutdown(inetSock->sock, hostHow);  // no translation
@@ -1114,7 +1187,7 @@ static int sceNetInetShutdown(int socket, int how) {
 static int sceNetInetSocketAbort(int socket) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	// FIXME: either using shutdown/close or select? probably using select if blocking mode is being simulated with non-blocking
@@ -1125,7 +1198,7 @@ static int sceNetInetSocketAbort(int socket) {
 static int sceNetInetClose(int socket) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	g_socketManager.Close(inetSock);
@@ -1136,7 +1209,7 @@ static int sceNetInetClose(int socket) {
 static int sceNetInetCloseWithRST(int socket) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	// Based on http://deepix.github.io/2016/10/21/tcprst.html
@@ -1189,7 +1262,14 @@ static InetTry TryRecvFrom(SceUID threadID, const u32 *args) {
 static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
+	}
+
+	if (!InetValidRange(bufferPtr, (u32)len, __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad buffer %08x, %d bytes", bufferPtr, len);
+	}
+	if ((fromPtr && !InetValidRange(fromPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) || (fromlenPtr && !InetValidRange(fromlenPtr, 4, __FUNCTION__))) {
+		return hleLogError(Log::sceNet, -1, "bad address %08x or length %08x", fromPtr, fromlenPtr);
 	}
 
 	const u32 args[] = { (u32)socket, bufferPtr, (u32)len, (u32)flags, fromPtr, fromlenPtr };
@@ -1274,7 +1354,18 @@ static InetTry TrySendTo(SceUID threadID, const u32 *args) {
 static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 toPtr, int tolen) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
+	}
+	if (!InetValidRange(bufferPtr, (u32)len, __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad buffer %08x, %d bytes", bufferPtr, len);
+	}
+	if (toPtr && !InetValidRange(toPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) {
+		return hleLogError(Log::sceNet, -1, "bad address %08x", toPtr);
+	}
+	if (toPtr && tolen < (int)sizeof(SceNetInetSockaddr)) {
+		// Decided here, since Winsock says EFAULT (pspautotests net/inet/msg).
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "tolen %d", tolen);
 	}
 
 	std::string datahex;
@@ -1300,17 +1391,46 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	// Note: sendmsg is concatenating iovec buffers before sending it, and send/sendto is just a wrapper for sendmsg according to https://stackoverflow.com/questions/4258834/how-sendmsg-works
 	int retval = -1;
-	if (!Memory::IsValidAddress(msghdrPtr)) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), EFAULT, __FUNCTION__);
+	if (!InetValidRange(msghdrPtr, sizeof(InetMsghdr), __FUNCTION__)) {
 		return hleLogError(Log::sceNet, retval);
 	}
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
+	// Everything below that the host reads from the game's memory.
+	if (pspMsghdr->msg_iovlen < 0) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, retval, "bad msg_iovlen %d", (int)pspMsghdr->msg_iovlen);
+	}
+	// In 64 bits, so a huge count can't wrap around to a small size.
+	const u64 iovBytes = (u64)pspMsghdr->msg_iovlen * sizeof(SceNetIovec);
+	if ((pspMsghdr->msg_name && !InetValidRange(pspMsghdr->msg_name, sizeof(SceNetInetSockaddr), __FUNCTION__)) ||
+		(pspMsghdr->msg_iov && !InetValidRange(pspMsghdr->msg_iov, iovBytes > 0xFFFFFFFF ? 0xFFFFFFFF : (u32)iovBytes, __FUNCTION__)) ||
+		(pspMsghdr->msg_control && !InetValidRange(pspMsghdr->msg_control, pspMsghdr->msg_controllen, __FUNCTION__))) {
+		return hleLogError(Log::sceNet, retval, "bad pointer in msghdr");
+	}
+	if (pspMsghdr->msg_iov) {
+		const SceNetIovec *pspIov = (const SceNetIovec *)Memory::GetPointerUnchecked(pspMsghdr->msg_iov);
+		for (int i = 0; i < pspMsghdr->msg_iovlen; i++) {
+			if (pspIov[i].iov_base && !InetValidRange(pspIov[i].iov_base, pspIov[i].iov_len, __FUNCTION__)) {
+				return hleLogError(Log::sceNet, retval, "bad iov[%d] %08x, %d bytes", i, (u32)pspIov[i].iov_base, (u32)pspIov[i].iov_len);
+			}
+		}
+	}
+	// Any control data fails it, as does an address shorter than a sockaddr_in, on UDP and TCP alike
+	// (pspautotests net/inet/msg).
+	if (pspMsghdr->msg_control && pspMsghdr->msg_controllen) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, retval, "control data, %d bytes", (int)pspMsghdr->msg_controllen);
+	}
+	if (pspMsghdr->msg_name && pspMsghdr->msg_namelen < sizeof(SceNetInetSockaddr)) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, retval, "namelen %d", (int)pspMsghdr->msg_namelen);
+	}
 	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	SockAddrIN4 saddr{};
@@ -1505,13 +1625,12 @@ static int sceNetInetRecvmsg(MIPSState *mips, int socket, u32 msghdrPtr, int fla
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+		return InetBadSocket(socket, __FUNCTION__);
 	}
 
 	// Reference: http://www.masterraghu.com/subjects/np/introduction/unix_network_programming_v1.3/ch14lev1sec5.html
 	int retval = -1;
-	if (!Memory::IsValidAddress(msghdrPtr)) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), EFAULT, __FUNCTION__);
+	if (!InetValidRange(msghdrPtr, sizeof(InetMsghdr), __FUNCTION__)) {
 		return hleLogError(Log::sceNet, retval);
 	}
 	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
