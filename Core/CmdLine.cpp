@@ -257,6 +257,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(instance), CmdParamType::Int, "instance", '\0', "Run as instance N of several talking to each other over ad hoc (own 127.0.0.N address and MAC)", CmdLineMode::Headless},
 	{POFF(realtime), CmdParamType::Bool, "realtime", '\0', "Run at PSP speed instead of as fast as possible", CmdLineMode::Headless},
 	{POFF(adhocServer), CmdParamType::Bool, "adhoc-server", '\0', "Run the built-in ad hoc server"},
+	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
 	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1: when booting an ELF/PBP or --vsh"},
@@ -572,6 +573,10 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (adhocServer.has_value()) {
 		g_Config.bEnableAdhocServer = adhocServer.value();
 		g_Config.DoNotSaveSetting(&g_Config.bEnableAdhocServer);
+	}
+	if (lagSync.has_value()) {
+		g_Config.bForceLagSync = lagSync.value();
+		g_Config.DoNotSaveSetting(&g_Config.bForceLagSync);
 	}
 	if (fuseId.has_value()) {
 		g_Config.sFuseID = fuseId.value();
