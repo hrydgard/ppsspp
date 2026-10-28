@@ -142,6 +142,10 @@ void __NetAdhocDoState(PointerWrap &p);
 
 // TODO: expose it via "sceNetAdhocctl.h"
 void __UpdateAdhocctlHandlers(u32 flags, u32 error);
+// Drops queued events of one kind that haven't been delivered yet.
+void __DropAdhocctlEvents(u32 flags);
+// Leaves the server's group without an event, after entering game mode timed out.
+void NetAdhocctl_GameModeTimedOut();
 
 bool __NetAdhocConnected();
 
