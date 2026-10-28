@@ -117,6 +117,9 @@ struct BreakpointHit {
 // hit is optional detail for the breakpoint kinds, forwarded to the debugger. Only stored when
 // the break actually takes effect, so a rejected Core_Break() can't leave a stale one behind.
 void Core_Break(BreakReason reason, u32 relatedAddress = 0, const BreakpointHit *hit = nullptr);
+// While stepping: reports a stop for reason without running, for a run whose stop condition already
+// holds (cpu.runUntilTime with a time that's already passed), so a debugger waiting for the stop gets one.
+void Core_ReportBreakWithoutRunning(BreakReason reason, u32 relatedAddress = 0);
 
 // Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();

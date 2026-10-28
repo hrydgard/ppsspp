@@ -712,6 +712,22 @@ void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 }
 
+void Core_ReportBreakWithoutRunning(BreakReason reason, u32 relatedAddress) {
+	if (coreState != CORE_STEPPING_CPU) {
+		return;
+	}
+	std::lock_guard<std::mutex> lock(g_stepMutex);
+	if (!g_cpuStepCommand.empty()) {
+		// A step is about to run, and its own stop will be reported.
+		return;
+	}
+	g_breakReason = reason;
+	g_breakHit = BreakpointHit{};
+	g_cpuStepCommand.reason = reason;
+	g_cpuStepCommand.relatedAddr = relatedAddress;
+	steppingCounter++;
+}
+
 // Free-threaded (or at least should be)
 void Core_Resume() {
 	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
