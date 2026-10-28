@@ -118,6 +118,7 @@ enum class InetWaitOp : int {
 	SendTo,
 	Accept,
 	Connect,
+	RecvMsg,
 };
 
 struct InetWait {
@@ -480,6 +481,7 @@ static InetTry TryRecvFrom(SceUID threadID, const u32 *args);
 static InetTry TrySendTo(SceUID threadID, const u32 *args);
 static InetTry TryAccept(SceUID threadID, const u32 *args);
 static InetTry TryConnectDone(SceUID threadID, const u32 *args);
+static InetTry TryRecvMsg(SceUID threadID, const u32 *args);
 
 // The host socket behind a guest one, or false if there's none. Unlike GetHostSocketFromInetSocket,
 // doesn't assert, since a socket can be closed while a call waits for it, and works on Windows,
@@ -770,6 +772,7 @@ static InetTry TryInetOp(InetWaitOp op, SceUID threadID, const u32 *args, bool f
 	case InetWaitOp::SendTo: return TrySendTo(threadID, args);
 	case InetWaitOp::Accept: return TryAccept(threadID, args);
 	case InetWaitOp::Connect: return TryConnectDone(threadID, args);
+	case InetWaitOp::RecvMsg: return TryRecvMsg(threadID, args);
 	default: return { -1, false, 0 };
 	}
 }
@@ -1652,7 +1655,8 @@ static InetTry TrySendTo(SceUID threadID, const u32 *args) {
 	else {
 		// FIXME: On non-Windows(including PSP too?) broadcast to INADDR_BROADCAST(255.255.255.255) might not be received by the sender itself when binded to specific IP (ie. 192.168.0.2) or INADDR_BROADCAST.
 		//        Meanwhile, it might be received by itself when binded to subnet (ie. 192.168.0.255) or INADDR_ANY(0.0.0.0).
-		retval = sendto(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
+		// Without a destination, it's a send() on a connected socket. Linux fails an address of length 0.
+		retval = sendto(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, dst ? (struct sockaddr*)&saddr.addr : nullptr, dst ? dstlen : 0);
 	}
 	if (retval < 0) {
 		const int hostErrno = socket_errno;
@@ -1701,228 +1705,133 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 	return hleLogDebug(Log::sceNet, attempt.result);
 }
 
-// Similar to POSIX's sendmsg or Winsock2's WSASendMsg? Are their packets compatible one another?
-// Games using this: The Warrior's Code
-static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
-	// Note: sendmsg is concatenating iovec buffers before sending it, and send/sendto is just a wrapper for sendmsg according to https://stackoverflow.com/questions/4258834/how-sendmsg-works
-	int retval = -1;
-	if (!InetValidRange(msghdrPtr, sizeof(InetMsghdr), __FUNCTION__)) {
-		return hleLogError(Log::sceNet, retval);
-	}
+#if defined(_WIN32)
+typedef WSABUF HostIovec;
+#else
+typedef iovec HostIovec;
+#endif
 
+// Reads a game's msghdr, checking that everything the host will read or write through it is in game
+// memory, and builds the host's buffer list from msg_iov. Fails with errno set.
+static bool ReadInetMsghdr(u32 msghdrPtr, InetMsghdr *msg, std::vector<HostIovec> *iov, const char *func, SceUID threadID) {
+	if (!InetValidRange(msghdrPtr, sizeof(InetMsghdr), func, threadID)) {
+		return false;
+	}
+	*msg = *(const InetMsghdr *)Memory::GetPointerUnchecked(msghdrPtr);
+	if (msg->msg_iovlen < 0) {
+		SetInetErrno(ERROR_INET_EINVAL, func, threadID);
+		return false;
+	}
+	// In 64 bits, so a huge count can't wrap around to a small size.
+	const u64 iovBytes = (u64)msg->msg_iovlen * sizeof(SceNetIovec);
+	if ((msg->msg_name && !InetValidRange(msg->msg_name, sizeof(SceNetInetSockaddr), func, threadID)) ||
+		(msg->msg_iov && !InetValidRange(msg->msg_iov, iovBytes > 0xFFFFFFFF ? 0xFFFFFFFF : (u32)iovBytes, func, threadID)) ||
+		(msg->msg_control && !InetValidRange(msg->msg_control, msg->msg_controllen, func, threadID))) {
+		return false;
+	}
+	iov->assign(msg->msg_iov ? msg->msg_iovlen : 0, HostIovec{});
+	for (size_t i = 0; i < iov->size(); i++) {
+		const SceNetIovec &pspIov = ((const SceNetIovec *)Memory::GetPointerUnchecked(msg->msg_iov))[i];
+		if (!pspIov.iov_base) {
+			continue;
+		}
+		if (!InetValidRange(pspIov.iov_base, pspIov.iov_len, func, threadID)) {
+			return false;
+		}
+		char *base = (char *)Memory::GetPointerUnchecked(pspIov.iov_base);
+#if defined(_WIN32)
+		(*iov)[i].buf = base;
+		(*iov)[i].len = pspIov.iov_len;
+#else
+		(*iov)[i].iov_base = base;
+		(*iov)[i].iov_len = pspIov.iov_len;
+#endif
+	}
+	return true;
+}
+
+// Games using this: The Warrior's Code.
+// Any control data fails it with EINVAL, as does an address shorter than a sockaddr_in, on UDP and
+// TCP alike (pspautotests net/inet/msg).
+static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	InetSocket *inetSock;
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	InetMsghdr msg;
+	std::vector<HostIovec> iov;
+	if (!ReadInetMsghdr(msghdrPtr, &msg, &iov, __FUNCTION__, __KernelGetCurThread())) {
+		return hleLogError(Log::sceNet, -1, "bad msghdr");
+	}
+	if (msg.msg_control && msg.msg_controllen) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "control data, %d bytes", (int)msg.msg_controllen);
+	}
+	if (msg.msg_name && msg.msg_namelen < sizeof(SceNetInetSockaddr)) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "namelen %d", (int)msg.msg_namelen);
+	}
+	// Sending no buffers sends an empty datagram. macOS fails a msghdr without any with EMSGSIZE.
+	if (iov.empty()) {
+		iov.push_back(HostIovec{});
+	}
+	const int hostFlags = convertMSGFlagsPSP2Host(flags & ~PSP_NET_INET_MSG_DONTWAIT) | MSG_NOSIGNAL;
 
-	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
-	// Everything below that the host reads from the game's memory.
-	if (pspMsghdr->msg_iovlen < 0) {
-		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval, "bad msg_iovlen %d", (int)pspMsghdr->msg_iovlen);
-	}
-	// In 64 bits, so a huge count can't wrap around to a small size.
-	const u64 iovBytes = (u64)pspMsghdr->msg_iovlen * sizeof(SceNetIovec);
-	if ((pspMsghdr->msg_name && !InetValidRange(pspMsghdr->msg_name, sizeof(SceNetInetSockaddr), __FUNCTION__)) ||
-		(pspMsghdr->msg_iov && !InetValidRange(pspMsghdr->msg_iov, iovBytes > 0xFFFFFFFF ? 0xFFFFFFFF : (u32)iovBytes, __FUNCTION__)) ||
-		(pspMsghdr->msg_control && !InetValidRange(pspMsghdr->msg_control, pspMsghdr->msg_controllen, __FUNCTION__))) {
-		return hleLogError(Log::sceNet, retval, "bad pointer in msghdr");
-	}
-	if (pspMsghdr->msg_iov) {
-		const SceNetIovec *pspIov = (const SceNetIovec *)Memory::GetPointerUnchecked(pspMsghdr->msg_iov);
-		for (int i = 0; i < pspMsghdr->msg_iovlen; i++) {
-			if (pspIov[i].iov_base && !InetValidRange(pspIov[i].iov_base, pspIov[i].iov_len, __FUNCTION__)) {
-				return hleLogError(Log::sceNet, retval, "bad iov[%d] %08x, %d bytes", i, (u32)pspIov[i].iov_base, (u32)pspIov[i].iov_len);
-			}
-		}
-	}
-	// Any control data fails it, as does an address shorter than a sockaddr_in, on UDP and TCP alike
-	// (pspautotests net/inet/msg).
-	if (pspMsghdr->msg_control && pspMsghdr->msg_controllen) {
-		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval, "control data, %d bytes", (int)pspMsghdr->msg_controllen);
-	}
-	if (pspMsghdr->msg_name && pspMsghdr->msg_namelen < sizeof(SceNetInetSockaddr)) {
-		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval, "namelen %d", (int)pspMsghdr->msg_namelen);
-	}
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
-	flgs = convertMSGFlagsPSP2Host(flgs);
 	SockAddrIN4 saddr{};
-#if defined(_WIN32)
-	WSAMSG hdr;
-	WSACMSGHDR* chdr = NULL;
-	size_t iovecsize = sizeof(WSABUF);
-	WSABUF* iov = (WSABUF*)malloc(pspMsghdr->msg_iovlen * iovecsize);
-#else
-	msghdr hdr;
-	cmsghdr* chdr = nullptr;
-	size_t iovecsize = sizeof(iovec);
-	iovec* iov = (iovec*)malloc(pspMsghdr->msg_iovlen * iovecsize);
-#endif
-	if (iov == NULL) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), ENOBUFS, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval);
-	}
-	memset(iov, 0, pspMsghdr->msg_iovlen * iovecsize);
-	memset(&hdr, 0, sizeof(hdr));
-	if (pspMsghdr->msg_name != 0) {
-		SceNetInetSockaddr* pspSaddr = (SceNetInetSockaddr*)Memory::GetPointerOrException(pspMsghdr->msg_name);
+	int namelen = 0;
+	if (msg.msg_name) {
+		const SceNetInetSockaddr *pspSaddr = (const SceNetInetSockaddr *)Memory::GetPointerUnchecked(msg.msg_name);
 		saddr.addr.sa_family = pspSaddr->sa_family;
-		size_t datalen = std::min(pspMsghdr->msg_namelen - (sizeof(pspSaddr->sa_len) + sizeof(pspSaddr->sa_family)), sizeof(saddr.addr.sa_data));
-		memcpy(saddr.addr.sa_data, pspSaddr->sa_data, datalen);
-		DEBUG_LOG(Log::sceNet, "SendMsg: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
-#if defined(_WIN32)
-		hdr.name = &saddr.addr;
-		hdr.namelen = static_cast<int>(datalen + sizeof(saddr.addr.sa_family));
-#else
-		hdr.msg_name = &saddr.addr;
-		hdr.msg_namelen = static_cast<int>(datalen + sizeof(saddr.addr.sa_family));
-#endif
+		memcpy(saddr.addr.sa_data, pspSaddr->sa_data, sizeof(pspSaddr->sa_data));
+		// In the host's terms: its sockaddr_in is 16 bytes everywhere, though macOS's sa_family is a single byte.
+		namelen = std::min((int)msg.msg_namelen, (int)sizeof(saddr.in));
 	}
+
+	auto sendOnce = [&]() -> int {
 #if defined(_WIN32)
-	hdr.lpBuffers = iov;
-	hdr.dwBufferCount = pspMsghdr->msg_iovlen;
-#else
-	hdr.msg_iov = iov;
-	hdr.msg_iovlen = pspMsghdr->msg_iovlen;
-#endif
-	if (pspMsghdr->msg_iov != 0) {
-		SceNetIovec* pspIov = (SceNetIovec*)Memory::GetPointerOrException(pspMsghdr->msg_iov);
-		for (int i = 0; i < pspMsghdr->msg_iovlen; i++) {
-			if (pspIov[i].iov_base != 0) {
-#if defined(_WIN32)
-				iov[i].buf = (char*)Memory::GetPointerOrException(pspIov[i].iov_base);
-				iov[i].len = pspIov[i].iov_len;
-#else
-				iov[i].iov_base = (char*)Memory::GetPointerOrException(pspIov[i].iov_base);
-				iov[i].iov_len = pspIov[i].iov_len;
-#endif
-			}
+		// WSASendMsg() only takes datagram sockets, and without control data this does the same.
+		DWORD sent = 0;
+		if (WSASendTo(inetSock->sock, iov.data(), (DWORD)iov.size(), &sent, hostFlags, msg.msg_name ? &saddr.addr : nullptr, namelen, nullptr, nullptr) == SOCKET_ERROR) {
+			return -1;
 		}
-	}
-	// Control's Level (ie. host's SOL_SOCKET to/from psp's PSP_NET_INET_SOL_SOCKET) and Type (ie. SCM_RIGHTS) might need to be converted to be cross-platform
-	if (pspMsghdr->msg_control != 0) {
-#if defined(_WIN32)
-		chdr = (WSACMSGHDR*)malloc(pspMsghdr->msg_controllen);
+		return (int)sent;
 #else
-		chdr = (cmsghdr*)malloc(pspMsghdr->msg_controllen);
+		msghdr hdr{};
+		hdr.msg_name = msg.msg_name ? &saddr.addr : nullptr;
+		hdr.msg_namelen = namelen;
+		hdr.msg_iov = iov.data();
+		hdr.msg_iovlen = iov.size();
+		return (int)sendmsg(inetSock->sock, &hdr, hostFlags);
 #endif
-		if (chdr == NULL) {
-			UpdateErrnoFromHost(__KernelGetCurThread(), ENOBUFS, __FUNCTION__);
-			free(iov);
-			return hleLogError(Log::sceNet, retval);
-		}
-		InetCmsghdr* pspCmsghdr = (InetCmsghdr*)Memory::GetPointerOrException(pspMsghdr->msg_control);
-		// TODO: Convert InetCmsghdr into platform-specific struct as they're affected by 32/64bit
-		memcpy(chdr, pspCmsghdr, pspMsghdr->msg_controllen);
-#if defined(_WIN32)
-		hdr.Control.buf = (char*)chdr; // (char*)pspCmsghdr;
-		hdr.Control.len = pspMsghdr->msg_controllen;
-		// Note: Many existing implementations of CMSG_FIRSTHDR never look at msg_controllen and just return the value of cmsg_control.
-		if (pspMsghdr->msg_controllen >= sizeof(InetCmsghdr)) {
-			// TODO: Creates our own CMSG_* macros (32-bit version of it, similar to the one on PSP) to avoid alignment/size issue that can lead to memory corruption/out of bound issue.
-			for (WSACMSGHDR* cmsgptr = WSA_CMSG_FIRSTHDR(&hdr); cmsgptr != NULL; cmsgptr = WSA_CMSG_NXTHDR(&hdr, cmsgptr)) {
-				if (cmsgptr->cmsg_len < sizeof(WSACMSGHDR))
-					break;
-				cmsgptr->cmsg_type = convertCMsgTypePSP2Host(cmsgptr->cmsg_type, cmsgptr->cmsg_level);
-				cmsgptr->cmsg_level = convertSockoptLevelPSP2Host(cmsgptr->cmsg_level);
-			}
-		}
-#else
-		hdr.msg_control = (char*)chdr; // (char*)pspCmsghdr;
-		hdr.msg_controllen = pspMsghdr->msg_controllen;
-		// Note: Many existing implementations of CMSG_FIRSTHDR never look at msg_controllen and just return the value of cmsg_control.
-		if (pspMsghdr->msg_controllen >= sizeof(InetCmsghdr)) {
-			for (cmsghdr* cmsgptr = CMSG_FIRSTHDR(&hdr); cmsgptr != NULL; cmsgptr = CMSG_NXTHDR(&hdr, cmsgptr)) {
-				// Some CMSG_NXTHDR implementations return the same header again for a zero length.
-				if (cmsgptr->cmsg_len < sizeof(cmsghdr))
-					break;
-				cmsgptr->cmsg_type = convertCMsgTypePSP2Host(cmsgptr->cmsg_type, cmsgptr->cmsg_level);
-				cmsgptr->cmsg_level = convertSockoptLevelPSP2Host(cmsgptr->cmsg_level);
-			}
-		}
-#endif
-	}
-	// Flags (ie. PSP_NET_INET_MSG_OOB) might need to be converted to be cross-platform
-#if defined(_WIN32)
-	hdr.dwFlags = convertMSGFlagsPSP2Host(pspMsghdr->msg_flags & ~PSP_NET_INET_MSG_DONTWAIT) | MSG_NOSIGNAL;
-#else
-	hdr.msg_flags = convertMSGFlagsPSP2Host(pspMsghdr->msg_flags & ~PSP_NET_INET_MSG_DONTWAIT) | MSG_NOSIGNAL;
-#endif
-	unsigned long sent = 0;
-	bool isBcast = isBroadcastIP(saddr.in.sin_addr.s_addr);
-	// Broadcast/Multicast, use real broadcast/multicast if there is no one in peerlist
-	if (isBcast && getActivePeerCount() > 0) {
-		// Acquire Peer Lock
-		peerlock.lock();
-		SceNetAdhocctlPeerInfo* peer = friends;
-		for (; peer != NULL; peer = peer->next) {
-			// Does Skipping sending to timed out friends could cause desync when players moving group at the time MP game started?
-			if (peer->last_recv == 0)
+	};
+
+	int retval;
+	if (msg.msg_name && isBroadcastIP(saddr.in.sin_addr.s_addr) && getActivePeerCount() > 0) {
+		// To each ad hoc peer instead, as in sceNetInetSendto.
+		std::lock_guard<std::recursive_mutex> guard(peerlock);
+		for (SceNetAdhocctlPeerInfo *peer = friends; peer != nullptr; peer = peer->next) {
+			if (peer->last_recv == 0) {
 				continue;
-
+			}
 			saddr.in.sin_addr.s_addr = peer->ip_addr;
-#if defined(_WIN32)
-			int result = WSASendMsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
-			if (static_cast<int>(sent) > retval)
-				retval = sent;
-#else
-			size_t result = sendmsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL);
-			if (static_cast<int>(result) > retval)
-				retval = result;
-#endif
-			if (retval != SOCKET_ERROR) {
-				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
-			} else {
+			if (sendOnce() < 0) {
 				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Socket error %d", socket_errno);
+			} else {
+				DEBUG_LOG(Log::sceNet, "SendMsg(BC): Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 			}
 		}
-		// Free Peer Lock
-		peerlock.unlock();
-		// TODO: Calculate number of bytes supposed to be sent
-		retval = std::max(retval, 0); // Broadcast always success?
-	}
-	// Unicast or real broadcast/multicast
-	else {
-		// FIXME: On non-Windows(including PSP too?) broadcast to INADDR_BROADCAST(255.255.255.255) might not be received by the sender itself when binded to specific IP (ie. 192.168.0.2) or INADDR_BROADCAST.
-		//        Meanwhile, it might be received by itself when binded to subnet (ie. 192.168.0.255) or INADDR_ANY(0.0.0.0).
-		/*if (isBcast) {
-			// TODO: Replace Broadcast with Multicast to be more consistent across platform
-			// Replace Limited Broadcast(255.255.255.255) with Direct Broadcast(ie. 192.168.0.255) for accurate targetting when there are multiple interfaces, to avoid receiving it's own broadcasted data through IP 169.254.x.x on Windows (which is not recognized as it's own IP by the game)
-			// Get Local IP Address
-			sockaddr_in sockAddr{};
-			getLocalIp(&sockAddr);
-			// Change the last number to 255 to indicate a common broadcast address (the accurate way should be: ip | (~subnetmask))
-			((u8*)&sockAddr.sin_addr.s_addr)[3] = 255;
-			saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
-			DEBUG_LOG(Log::sceNet, "SendMsg(BC): Address Replacement = %s", ip2str(saddr.in.sin_addr).c_str());
-		}*/
+		retval = 0;
+		for (const HostIovec &v : iov) {
 #if defined(_WIN32)
-		int result = WSASendMsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL, &sent, NULL, NULL);
-		if (result != SOCKET_ERROR)
-			retval = sent;
+			retval += (int)v.len;
 #else
-		retval = sendmsg(inetSock->sock, &hdr, flgs | MSG_NOSIGNAL);
+			retval += (int)v.iov_len;
 #endif
+		}
+	} else {
+		retval = sendOnce();
 	}
-	free(chdr);
-	free(iov);
-	/*  // Example with 1 Msg buffer and without CMsg
-		msghdr msg;
-		iovec iov[1];
-		int buflen = pspMsghdr->msg_iovlen;
-		char* buf = (char*)malloc(buflen);
 
-		memset(&msg, 0, sizeof(msg));
-		msg.msg_iov = iov;
-		msg.msg_iovlen = 1;
-		iov[0].iov_base = buf;
-		iov[0].iov_len = buflen;
-
-		retval = sendmsg(inetSock->sock, &msg, flags);
-		free(buf);
-	*/
 	if (retval < 0) {
 		const int hostErrno = socket_errno;
 		SetSendErrno(__KernelGetCurThread(), inetSock, hostErrno, __FUNCTION__);
@@ -1931,53 +1840,98 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		}
 		return hleLogError(Log::sceNet, retval);
 	}
-	return hleLogInfo(Log::sceNet, retval); // returns number of bytes sent?
+	return hleLogInfo(Log::sceNet, retval);
 }
 
-// Similar to POSIX's recvmsg or Mswsock's WSARecvMsg? Are their packets compatible one another?
-// Games using this: World of Poker
-static int sceNetInetRecvmsg(MIPSState *mips, int socket, u32 msghdrPtr, int flags) {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, mips->pc);
+// args: socket, msghdr, flags.
+static InetTry TryRecvMsg(SceUID threadID, const u32 *args) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetRecvmsg");
+		return { -1, false, 0 };
+	}
+	InetMsghdr msg;
+	std::vector<HostIovec> iov;
+	if (!ReadInetMsghdr(args[1], &msg, &iov, "sceNetInetRecvmsg", threadID)) {
+		return { -1, false, 0 };
+	}
+	const int hostFlags = convertMSGFlagsPSP2Host(args[2] & ~PSP_NET_INET_MSG_DONTWAIT) | MSG_NOSIGNAL;
 
+	SockAddrIN4 saddr{};
+	int hostNameLen;
+	int outFlags = 0;
+	int retval;
+#if defined(_WIN32)
+	DWORD received = 0;
+	DWORD wsaFlags = hostFlags;
+	INT fromLen = sizeof(saddr);
+	if (WSARecvFrom(inetSock->sock, iov.data(), (DWORD)iov.size(), &received, &wsaFlags, &saddr.addr, &fromLen, nullptr, nullptr) == SOCKET_ERROR) {
+		if (WSAGetLastError() == WSAEMSGSIZE) {
+			// A datagram too big for the buffers, which are filled.
+			retval = 0;
+			for (const HostIovec &v : iov) {
+				retval += (int)v.len;
+			}
+			outFlags = MSG_TRUNC;
+		} else {
+			retval = -1;
+		}
+	} else {
+		retval = (int)received;
+	}
+	hostNameLen = fromLen;
+#else
+	msghdr hdr{};
+	hdr.msg_name = &saddr.addr;
+	hdr.msg_namelen = sizeof(saddr);
+	hdr.msg_iov = iov.data();
+	hdr.msg_iovlen = iov.size();
+	retval = (int)recvmsg(inetSock->sock, &hdr, hostFlags);
+	hostNameLen = (int)hdr.msg_namelen;
+	outFlags = hdr.msg_flags;
+#endif
+	if (retval < 0) {
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { retval, true, hostErrno };
+		}
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetRecvmsg");
+		return { retval, false, 0 };
+	}
+
+	InetMsghdr *pspMsghdr = (InetMsghdr *)Memory::GetPointerUnchecked(args[1]);
+	// TCP gets no address, and namelen 0. Nothing receives control data (pspautotests net/inet/msg).
+	if (msg.msg_name) {
+		if (inetSock->type != PSP_NET_INET_SOCK_STREAM && hostNameLen > 0) {
+			WriteSockaddrToPSP(saddr, msg.msg_name, args[1] + (u32)offsetof(InetMsghdr, msg_namelen));
+		} else {
+			pspMsghdr->msg_namelen = 0;
+		}
+	}
+	pspMsghdr->msg_controllen = 0;
+	pspMsghdr->msg_flags = convertMSGFlagsHost2PSP(outFlags & MSG_TRUNC);
+	return { retval, false, 0 };
+}
+
+// Games using this: World of Poker.
+static int sceNetInetRecvmsg(MIPSState *mips, int socket, u32 msghdrPtr, int flags) {
 	InetSocket *inetSock;
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
-	// Reference: http://www.masterraghu.com/subjects/np/introduction/unix_network_programming_v1.3/ch14lev1sec5.html
-	int retval = -1;
-	if (!InetValidRange(msghdrPtr, sizeof(InetMsghdr), __FUNCTION__)) {
-		return hleLogError(Log::sceNet, retval);
+	const u32 args[] = { (u32)socket, msghdrPtr, (u32)flags };
+	InetTry attempt = TryRecvMsg(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::RecvMsg, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, flags, false))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
+		}
+		return hleLogDebug(Log::sceNet, InetWouldBlockResult(InetWaitOp::RecvMsg, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__), "EAGAIN");
 	}
-	InetMsghdr* pspMsghdr = (InetMsghdr*)Memory::GetPointerOrException(msghdrPtr);
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
-	flgs = convertMSGFlagsPSP2Host(flgs);
-	SockAddrIN4 saddr{};
-#if defined(_WIN32)
-	WSAMSG hdr;
-	WSACMSGHDR* chdr = NULL;
-	size_t iovecsize = sizeof(WSABUF);
-	WSABUF* iov = (WSABUF*)malloc(pspMsghdr->msg_iovlen * iovecsize);
-#else
-	msghdr hdr;
-	cmsghdr* chdr = nullptr;
-	size_t iovecsize = sizeof(iovec);
-	iovec* iov = (iovec*)malloc(pspMsghdr->msg_iovlen * iovecsize);
-#endif
-	if (iov == NULL) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), ENOBUFS, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval);
+	if (attempt.result < 0) {
+		return hleLogError(Log::sceNet, attempt.result);
 	}
-	memset(iov, 0, pspMsghdr->msg_iovlen * iovecsize);
-	memset(&hdr, 0, sizeof(hdr));
-
-	// TODO: Do similar to the already working sceNetInetSendmsg but in reverse
-	//if (pspMsghdr->msg_name != 0) { ... }
-
-	//UNFINISHED
-	free(iov);
-
-	return hleLogError(Log::sceNet, retval); // returns number of bytes received?
+	return hleLogInfo(Log::sceNet, attempt.result);
 }
 
 // TODO: fix retmasks

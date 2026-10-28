@@ -356,6 +356,7 @@ tests_good = [
   "net/inet/blocking",
   "net/inet/addr",
   "net/inet/options",
+  "net/inet/msg",
   "net/inet/limits",
   "net/inet/polledge",
   "misc/libc",
