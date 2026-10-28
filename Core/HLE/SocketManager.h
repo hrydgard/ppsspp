@@ -24,6 +24,15 @@ struct InetSocket {
 	// SO_RCVTIMEO and SO_SNDTIMEO, for the blocking calls we wait for in emulated time. 0 is forever.
 	u32 recvTimeoutUs;
 	u32 sendTimeoutUs;
+	// The other socket-level options, as the game sees them. Only a few are passed on to the host socket.
+	u32 soOptions;  // PSP_NET_INET_SO_* flags, like BSD's so_options.
+	int lingerTime;
+	int sndBuf;
+	int rcvBuf;
+	int sndLowat;
+	int rcvLowat;
+	// IP_TTL, kept here since the host's default differs (Windows' is 128, the PSP's 64).
+	int ipTtl;
 	// The port bind() asked UPnP to forward, removed on close. 0 if none.
 	u16 upnpPort;
 	// Metadata for debug use only.
