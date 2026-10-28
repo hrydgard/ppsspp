@@ -72,6 +72,24 @@ static void SetInetErrno(int pspErrno, const char *func, SceUID threadID = __Ker
 	g_inetLastErrno[threadID] = pspErrno;
 }
 
+// socket(), close() and setsockopt() clear errno when they succeed (pspautotests net/inet/errors and
+// options). Whether the other calls do hasn't been checked.
+static void ClearInetErrno() {
+	g_inetLastErrno[__KernelGetCurThread()] = 0;
+}
+
+// The PSP keeps errno in a record per thread, made by the thread's first call. Until then,
+// sceNetInetGetErrno says there's none (pspautotests net/inet/errnothread).
+static void InetThreadSeen() {
+	g_inetLastErrno.emplace(__KernelGetCurThread(), 0);
+}
+
+// A socket the game names in a call, which also counts as the thread's first call.
+static bool GetCallSocket(int socket, InetSocket **inetSock) {
+	InetThreadSeen();
+	return g_socketManager.GetInetSocket(socket, inetSock);
+}
+
 // Game memory that a host call will read or write directly. Fails with EFAULT rather than letting
 // the host run past the end of it.
 static bool InetValidRange(u32 ptr, u32 size, const char *func, SceUID threadID = __KernelGetCurThread()) {
@@ -126,7 +144,7 @@ void __NetInetInit() {
 	eventInetWaitPoll = CoreTiming::RegisterEvent("NetInetWaitPoll", &__NetInetWaitPoll);
 }
 
-void __NetInetDoState(PointerWrap &p, bool hasState) {
+void __NetInetDoState(PointerWrap &p, bool hasState, bool hasErrno) {
 	if (hasState) {
 		Do(p, g_inetWaits);
 		Do(p, eventInetWaitPoll);
@@ -134,7 +152,35 @@ void __NetInetDoState(PointerWrap &p, bool hasState) {
 		g_inetWaits.clear();
 		eventInetWaitPoll = -1;
 	}
+	if (hasErrno) {
+		Do(p, g_inetLastErrno);
+	} else if (p.mode == p.MODE_READ) {
+		g_inetLastErrno.clear();
+	}
 	CoreTiming::RestoreRegisterEvent(eventInetWaitPoll, "NetInetWaitPoll", &__NetInetWaitPoll);
+}
+
+static const char *InetSocketUPnPProtocol(const InetSocket *inetSock) {
+	return inetSock->type == PSP_NET_INET_SOCK_STREAM ? IP_PROTOCOL_TCP : IP_PROTOCOL_UDP;
+}
+
+// Closes a socket, and removes the port forward its bind() set up, unless another socket still
+// has the port (through SO_REUSEPORT).
+static void CloseInetSocket(InetSocket *inetSock) {
+	if (inetSock->upnpPort) {
+		bool shared = false;
+		for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < SocketManager::VALID_INET_SOCKET_COUNT; i++) {
+			const InetSocket &other = g_socketManager.Sockets()[i];
+			if (&other != inetSock && other.state == SocketState::UsedNetInet && other.upnpPort == inetSock->upnpPort && other.type == inetSock->type) {
+				shared = true;
+				break;
+			}
+		}
+		if (!shared) {
+			UPnP_Remove(InetSocketUPnPProtocol(inetSock), inetSock->upnpPort);
+		}
+	}
+	g_socketManager.Close(inetSock);
 }
 
 void __NetInetShutdown() {
@@ -143,6 +189,12 @@ void __NetInetShutdown() {
 	}
 
 	netInetInited = false;
+	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < SocketManager::VALID_INET_SOCKET_COUNT; i++) {
+		const InetSocket &inetSock = g_socketManager.Sockets()[i];
+		if (inetSock.state == SocketState::UsedNetInet && inetSock.upnpPort) {
+			UPnP_Remove(InetSocketUPnPProtocol(&inetSock), inetSock.upnpPort);
+		}
+	}
 	g_socketManager.CloseAll();
 	g_inetLastErrno.clear();
 }
@@ -162,8 +214,11 @@ static int sceNetInetTerm() {
 }
 
 static int sceNetInetGetErrno(MIPSState *mips) {
-	int threadID = __KernelGetCurThread();
-	const int lastErrno = g_inetLastErrno[threadID];
+	const auto it = g_inetLastErrno.find(__KernelGetCurThread());
+	if (it == g_inetLastErrno.end()) {
+		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "no call on this thread yet");
+	}
+	const int lastErrno = it->second;
 
 	if (lastErrno == ERROR_INET_EAGAIN) {
 		return hleLogVerbose(Log::sceNet, lastErrno, "returning %s at %08x", convertInetErrno2str(lastErrno), mips->pc);
@@ -257,7 +312,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	}
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -281,7 +336,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	}
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -308,11 +363,21 @@ static InetTry TryConnectDone(SceUID threadID, const u32 *args);
 // where SOCKET is unsigned and can't be checked for -1 with < 0.
 static bool GetHostSocket(int socket, SOCKET *hostSocket) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return false;
 	}
 	*hostSocket = inetSock->sock;
 	return true;
+}
+
+// Sets errno for a failed send. An unconnected UDP socket sending without an address is EDESTADDRREQ,
+// which Winsock calls ENOTCONN (pspautotests net/inet/errors and msg).
+static void SetSendErrno(SceUID threadID, const InetSocket *inetSock, int hostErrno, const char *func) {
+	if (inetSock->type != PSP_NET_INET_SOCK_STREAM && hostErrno == ENOTCONN) {
+		SetInetErrno(ERROR_INET_EDESTADDRREQ, func, threadID);
+	} else {
+		UpdateErrnoFromHost(threadID, hostErrno, func);
+	}
 }
 
 static bool IsWouldBlock(int hostErrno) {
@@ -538,7 +603,7 @@ static InetTry TrySend(SceUID threadID, const u32 *args) {
 		if (IsWouldBlock(hostErrno)) {
 			return { retval, true, hostErrno };
 		}
-		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetSend");
+		SetSendErrno(threadID, inetSock, hostErrno, "sceNetInetSend");
 	}
 	return { retval, false, 0 };
 }
@@ -631,6 +696,7 @@ static void __NetInetWaitPoll(u64 userdata, int cyclesLate) {
 
 // FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
 int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
+	InetThreadSeen();
 	for (u32 ptr : { readfdsPtr, writefdsPtr, exceptfdsPtr }) {
 		if (ptr && !InetValidRange(ptr, sizeof(SceNetInetFdSet), __FUNCTION__)) {
 			return hleLogError(Log::sceNet, -1, "bad fd set %08x", ptr);
@@ -668,6 +734,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 
 int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, mips->pc);
+	InetThreadSeen();
 	if (nfds > FD_SETSIZE)
 		nfds = FD_SETSIZE;
 	if (!InetValidRange(fdsPtr, nfds * (u32)sizeof(SceNetInetPollfd), __FUNCTION__)) {
@@ -691,7 +758,7 @@ int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) {
 
 static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -716,7 +783,7 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 	if (!InetValidRange(bufPtr, bufLen, __FUNCTION__)) {
@@ -772,12 +839,13 @@ static int sceNetInetSocket(MIPSState *mips, int domain, int type, int protocol)
 	setSockReuseAddrPort(inetSock->sock);
 	// Disable Connection Reset error on UDP to avoid strange behavior
 	setUDPConnReset(inetSock->sock, false);
+	ClearInetErrno();
 	return hleLogDebug(Log::sceNet, socket);
 }
 
-static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
+static int InetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -859,11 +927,19 @@ static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optn
 	return hleLogDebug(Log::sceNet, retval);
 }
 
+static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
+	const int result = InetSetsockopt(mips, socket, level, optname, optvalPtr, optlen);
+	if (result >= 0) {
+		ClearInetErrno();
+	}
+	return result;
+}
+
 static int sceNetInetGetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, u32 optlenPtr) {
 	WARN_LOG(Log::sceNet, "sceNetInetGetsockopt(%i, %i, %i, %08x, %08x) at %08x", socket, level, optname, optvalPtr, optlenPtr, mips->pc);
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -931,7 +1007,7 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 	INFO_LOG(Log::sceNet, "sceNetInetBind(%i, %08x, %i) at %08x", socket, namePtr, namelen, mips->pc);
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -993,8 +1069,15 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 	// Enable Port-forwarding
 
 	// Check the socket type/protocol for SOCK_STREAM/SOCK_DGRAM or IPPROTO_TCP/IPPROTO_UDP instead of forwarding both protocols like in ANR2ME's original change.
+	// Port 0 is a port the host picks, which there's no point forwarding.
 	unsigned short port = ntohs(saddr.in.sin_port);
-	UPnP_Add((inetSock->type == PSP_NET_INET_SOCK_STREAM) ? IP_PROTOCOL_TCP : IP_PROTOCOL_UDP, port, port);
+	if (port != 0) {
+		if (inetSock->upnpPort && inetSock->upnpPort != port) {
+			UPnP_Remove(InetSocketUPnPProtocol(inetSock), inetSock->upnpPort);
+		}
+		UPnP_Add(InetSocketUPnPProtocol(inetSock), port, port);
+		inetSock->upnpPort = port;
+	}
 
 	// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending DGRAM from incorrect port issue on Android
 	/*saddr.in.sin_addr.s_addr = g_adhocServerIP.in.sin_addr.s_addr;
@@ -1037,7 +1120,7 @@ static InetTry TryConnectDone(SceUID threadID, const u32 *args) {
 
 static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1081,7 +1164,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 
 static int sceNetInetListen(int socket, int backlog) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1123,9 +1206,9 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 	int newSocketId;
 	InetSocket *newInetSocket = g_socketManager.AdoptSocket(&newSocketId, newHostSocket, inetSock);
 	if (!newInetSocket) {
-		// Ran out of space. Shouldn't really happen.
 		ERROR_LOG(Log::sceNet, "Accept: out of socket IDs");
-		UpdateErrnoFromHost(threadID, ENOMEM, "sceNetInetAccept");
+		closesocket(newHostSocket);
+		UpdateErrnoFromHost(threadID, EMFILE, "sceNetInetAccept");
 		return { -1, false, 0 };
 	}
 
@@ -1140,7 +1223,7 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 
 static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1164,7 +1247,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 
 static int sceNetInetShutdown(int socket, int how) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1186,7 +1269,7 @@ static int sceNetInetShutdown(int socket, int how) {
 
 static int sceNetInetSocketAbort(int socket) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1197,18 +1280,19 @@ static int sceNetInetSocketAbort(int socket) {
 
 static int sceNetInetClose(int socket) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
-	g_socketManager.Close(inetSock);
+	CloseInetSocket(inetSock);
+	ClearInetErrno();
 	return hleLogInfo(Log::sceNet, 0);
 }
 
 // TODO: How is this different than just sceNetInetClose?
 static int sceNetInetCloseWithRST(int socket) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1217,7 +1301,7 @@ static int sceNetInetCloseWithRST(int socket) {
 	sl.l_onoff = 1;		// non-zero value enables linger option in kernel
 	sl.l_linger = 0;	// timeout interval in seconds
 	setsockopt(inetSock->sock, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
-	g_socketManager.Close(inetSock);
+	CloseInetSocket(inetSock);
 	return hleLogInfo(Log::sceNet, 0);
 }
 
@@ -1261,7 +1345,7 @@ static InetTry TryRecvFrom(SceUID threadID, const u32 *args) {
 
 static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1344,7 +1428,7 @@ static InetTry TrySendTo(SceUID threadID, const u32 *args) {
 		if (IsWouldBlock(hostErrno)) {
 			return { retval, true, hostErrno };
 		}
-		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetSendto");
+		SetSendErrno(threadID, inetSock, hostErrno, "sceNetInetSendto");
 		return { retval, false, 0 };
 	}
 	DEBUG_LOG(Log::sceNet, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
@@ -1353,7 +1437,7 @@ static InetTry TrySendTo(SceUID threadID, const u32 *args) {
 
 static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 toPtr, int tolen) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 	if (!InetValidRange(bufferPtr, (u32)len, __FUNCTION__)) {
@@ -1396,7 +1480,7 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 	}
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
@@ -1609,11 +1693,12 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 		free(buf);
 	*/
 	if (retval < 0) {
-		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
+		const int hostErrno = socket_errno;
+		SetSendErrno(__KernelGetCurThread(), inetSock, hostErrno, __FUNCTION__);
+		if (IsWouldBlock(hostErrno)) {
 			return hleLogDebug(Log::sceNet, retval, "EAGAIN");
-		} else {
-			return hleLogError(Log::sceNet, retval);
 		}
+		return hleLogError(Log::sceNet, retval);
 	}
 	return hleLogInfo(Log::sceNet, retval); // returns number of bytes sent?
 }
@@ -1624,7 +1709,7 @@ static int sceNetInetRecvmsg(MIPSState *mips, int socket, u32 msghdrPtr, int fla
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, mips->pc);
 
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 

@@ -221,6 +221,7 @@ enum {
 #define	ERROR_INET_EACCES			13	// Permission denied 
 #define	ERROR_INET_EFAULT			14	// Bad address 
 #define	ERROR_INET_EINVAL			22	// Invalid argument 
+#define	ERROR_INET_EMFILE			24	// Too many open files (pspautotests net/inet/errors)
 #define	ERROR_INET_ENOSPC			28	// No space left on device
 #define	ERROR_INET_EPIPE			32	// Broken pipe
 #define	ERROR_INET_ENOMSG			35	// No message of desired type

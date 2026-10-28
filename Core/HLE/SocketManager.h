@@ -24,6 +24,8 @@ struct InetSocket {
 	// SO_RCVTIMEO and SO_SNDTIMEO, for the blocking calls we wait for in emulated time. 0 is forever.
 	u32 recvTimeoutUs;
 	u32 sendTimeoutUs;
+	// The port bind() asked UPnP to forward, removed on close. 0 if none.
+	u16 upnpPort;
 	// Metadata for debug use only.
 	std::string addr;
 	int port;
@@ -53,6 +55,10 @@ public:
 	}
 
 private:
+	int FindFreeSlot();
+
+	// The last number handed out. Numbers go round-robin from there.
+	int lastSlot_ = 0;
 	// We use this array from MIN_VALID_INET_SOCKET and forward. It's probably not a good idea to return 0 as a socket.
 	InetSocket inetSockets_[VALID_INET_SOCKET_COUNT];
 };

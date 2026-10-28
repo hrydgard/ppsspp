@@ -805,6 +805,8 @@ int convertInetErrnoHost2PSP(int error) {
 		return ERROR_INET_EFAULT;
 	case EINVAL:
 		return ERROR_INET_EINVAL;
+	case EMFILE:
+		return ERROR_INET_EMFILE;
 	case ENOSPC:
 		return ERROR_INET_ENOSPC;
 	case EPIPE:
@@ -872,6 +874,22 @@ int convertInetErrnoHost2PSP(int error) {
 		return ERROR_INET_EMSGSIZE;
 	case ENETRESET:
 		return ERROR_INET_ENETRESET;
+	case EDESTADDRREQ:
+		return ERROR_INET_EDESTADDRREQ;
+#else
+	// The ones above, by their Winsock names.
+	case WSAENOBUFS:
+		return ERROR_INET_ENOBUFS;
+	case WSAEPROTOTYPE:
+		return ERROR_INET_EPROTOTYPE;
+	case WSAENOPROTOOPT:
+		return ERROR_INET_ENOPROTOOPT;
+	case WSAEMSGSIZE:
+		return ERROR_INET_EMSGSIZE;
+	case WSAENETRESET:
+		return ERROR_INET_ENETRESET;
+	case WSAEDESTADDRREQ:
+		return ERROR_INET_EDESTADDRREQ;
 #endif
 	default:
 		break;
@@ -889,6 +907,7 @@ const char *convertInetErrno2str(int error) {
 	case ERROR_INET_EACCES: return "EACCES";
 	case ERROR_INET_EFAULT: return "EFAULT";
 	case ERROR_INET_EINVAL: return "EINVAL";
+	case ERROR_INET_EMFILE: return "EMFILE";
 	case ERROR_INET_ENOSPC: return "ENOSPC";
 	case ERROR_INET_EPIPE: return "EPIPE";
 	case ERROR_INET_ENOMSG: return "ENOMSG";
@@ -918,6 +937,7 @@ const char *convertInetErrno2str(int error) {
 	case ERROR_INET_ESOCKTNOSUPPORT: return "ESOCKTNOSUPPORT";
 	case ERROR_INET_EADDRNOTAVAIL: return "EADDRNOTAVAIL";
 	case ERROR_INET_ENETRESET: return "ENETRESET";
+	case ERROR_INET_EDESTADDRREQ: return "EDESTADDRREQ";
 	case ERROR_INET_EISCONN: return "EISCONN";
 	case ERROR_INET_ENOTCONN: return "ENOTCONN";
 	case ERROR_INET_EAGAIN: return "EAGAIN";
