@@ -61,17 +61,21 @@ AdhocServerRelayMode = 1
 def run_test(headless, test, extra, relay_ini):
 	roles = roles_of(test)
 	memstick = os.path.join(os.path.dirname(headless), "memstick")
+	# A test that hasn't been recorded on PSPs yet has no expected files; then just show what each instance prints.
+	compare = all(os.path.exists(os.path.join(TESTS_DIR, "%s_%s.expected" % (test, role))) for role in roles)
 	procs = []
 	for i, role in enumerate(roles):
-		cmd = [headless, "--root", os.path.join(ROOT, "pspautotests") + "/", "--compare", "--timeout-wall=%d" % TIMEOUT,
+		cmd = [headless, "--root", os.path.join(ROOT, "pspautotests") + "/", "--timeout-wall=%d" % TIMEOUT,
 			"--graphics=software", "--memstick=" + memstick, "--realtime", "--instance=%d" % (i + 1)]
+		if compare:
+			cmd.append("--compare")
 		if relay_ini:
 			cmd.append("--appendconfig=" + relay_ini)
 		if i == 0:
 			cmd.append("--adhoc-server")
 		cmd += extra
 		cmd.append(os.path.join(TESTS_DIR, "%s_%s.prx" % (test, role)))
-		procs.append((role, subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)))
+		procs.append((role, subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT if compare else subprocess.DEVNULL)))
 		if i == 0:
 			# Let the host's built-in server come up before the clients log in to it.
 			time.sleep(1.0)
@@ -79,6 +83,11 @@ def run_test(headless, test, extra, relay_ini):
 	passed = True
 	for role, proc in procs:
 		out, _ = proc.communicate(timeout=TIMEOUT + 30)
+		if not compare:
+			print("OUTPUT %s_%s (no expected file):" % (test, role))
+			sys.stdout.write(out.decode("utf-8", "replace"))
+			passed = False
+			continue
 		ok = proc.returncode == 0
 		passed = passed and ok
 		print("%s %s_%s" % ("PASS" if ok else "FAIL", test, role))
