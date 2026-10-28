@@ -17,6 +17,7 @@
 
 
 #include "Core/HLE/sceNetAdhocMatching.h"
+#include "Core/System.h"
 #include "Core/HLE/sceNetAdhoc.h"
 #include "Core/HLE/NetAdhocCommon.h"
 
@@ -650,7 +651,9 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 			DataToHexString(10, 0, (u8*)opt, optlen, &hellohex);
 			DEBUG_LOG(Log::sceNet, "HELLO Dump (%d bytes):\n%s", optlen, hellohex.c_str());
 
-			// Spawn Hello Event. FIXME: HELLO event should not be triggered in the middle of joining? This will cause Bleach 7 to Cancel the join request
+			// Spawn Hello Event. Not from a peer in the middle of joining: on the PSP a client gets no hellos from
+			// the host it's asking to join (pspautotests net/adhoc/pair/matching3), and Bleach 7 cancels the join
+			// if it gets one.
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_HELLO, sendermac, optlen, opt);
 		}
 	}
@@ -1609,6 +1612,9 @@ int NetAdhocMatching_Stop(int matchingId) {
 
 int sceNetAdhocMatchingStop(MIPSState *mips, int matchingId) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStop(%i) at %08x", matchingId, mips->pc);
+	if (!findMatchingContext(matchingId)) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid id");
+	}
 
 	return NetAdhocMatching_Stop(matchingId);
 }
@@ -1680,6 +1686,14 @@ int NetAdhocMatching_Delete(int matchingId) {
 
 int sceNetAdhocMatchingDelete(MIPSState *mips, int matchingId) {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+	SceNetAdhocMatchingContext *item = findMatchingContext(matchingId);
+	if (!item) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid id");
+	}
+	// It has to be stopped first (pspautotests net/adhoc/matching).
+	if (item->running) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_IS_RUNNING, "still running");
+	}
 
 	NetAdhocMatching_Delete(matchingId);
 
@@ -1756,13 +1770,19 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_MAXNUM, "adhoc matching invalid maxnum");
 	}
 
-	if (rxbuflen < 1) {
+	// The limits below are from pspautotests net/adhoc/matching.
+	if (rxbuflen < 6 * maxnum + 4) {
 		// Invalid Receive Buffer Size
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
 	}
 
 	if (mode < 1 || mode > 3) {
-		// InvalidERROR_NET_Arguments
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_MODE, "adhoc matching invalid mode");
+	}
+
+	// Only a client may leave the hello and keep-alive intervals at 0.
+	const bool sendsHello = mode == PSP_ADHOC_MATCHING_MODE_PARENT || mode == PSP_ADHOC_MATCHING_MODE_P2P;
+	if ((sendsHello && (hello_int == 0 || keepalive_int == 0)) || init_count < 0 || rexmt_int == 0) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhoc matching invalid arg");
 	}
 
@@ -1772,6 +1792,15 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 		// Port Match found
 		if (item->port == port)
 			return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_PORT_IN_USE, "adhoc matching port in use");
+	}
+
+	// At most 15 contexts at a time (pspautotests net/adhoc/limits).
+	int contextCount = 0;
+	for (item = contexts; item != NULL; item = item->next) {
+		contextCount++;
+	}
+	if (contextCount >= 15) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_ID_NOT_AVAIL, "too many contexts");
 	}
 
 	// Allocate Context Memory
@@ -1856,8 +1885,15 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
 	if (item == NULL) {
-		// return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID; //Faking success to prevent GTA:VCS from stuck unable to choose host/join menu
-		return hleLogDebug(Log::sceNet, 0);
+		// GTA: VCS gets stuck unable to choose host/join otherwise.
+		if (PSP_CoreParameter().compat.flags().MatchingStartUnknownIdSucceeds) {
+			return hleLogDebug(Log::sceNet, 0, "faking success");
+		}
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid id");
+	}
+
+	if (item->running) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_IS_RUNNING, "already running");
 	}
 
 	//sceNetAdhocMatchingSetHelloOpt(matchingId, optLen, optDataAddr); //SetHelloOpt only works when context is running
@@ -1921,9 +1957,10 @@ static int sceNetAdhocMatchingStart(MIPSState *mips, int matchingId, int evthPri
 	return retval;
 }
 
-// With params for Partition ID for the event & input handler stack
-static int sceNetAdhocMatchingStart2(MIPSState *mips, int matchingId, int evthPri, int evthPartitionId, int evthStack, int inthPri, int inthPartitionId, int inthStack, int optLen, u32 optDataAddr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart2(%i, %i, %i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr, mips->pc);
+// With params for Partition ID for the event & input handler stack. Each comes after its stack size
+// (pspautotests net/adhoc/matching).
+static int sceNetAdhocMatchingStart2(MIPSState *mips, int matchingId, int evthPri, int evthStack, int evthPartitionId, int inthPri, int inthStack, int inthPartitionId, int optLen, u32 optDataAddr) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart2(%i, %i, %i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, evthPartitionId, inthPri, inthStack, inthPartitionId, optLen, optDataAddr, mips->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2101,10 +2138,11 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
 
 	if (peer == NULL) {
-		// Peer not found
-		//return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
-		// Faking success to prevent the game (ie. Soul Calibur) to repeatedly calling this function when the other player is disconnected
-		return hleLogDebug(Log::sceNet, 0);
+		// Soulcalibur: Broken Destiny calls this over and over when the other player has gone, unless it succeeds.
+		if (PSP_CoreParameter().compat.flags().MatchingCancelUnknownTargetSucceeds) {
+			return hleLogDebug(Log::sceNet, 0, "faking success");
+		}
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_UNKNOWN_TARGET, "adhocmatching unknown target");
 	}
 
 	// Valid Peer Mode
@@ -2173,12 +2211,17 @@ int sceNetAdhocMatchingGetHelloOpt(int matchingId, u32 optLenAddr, u32 optDataAd
 
 	SceNetAdhocMatchingContext * item = findMatchingContext(matchingId);
 
+	if (item != NULL && !item->running) {
+		peerlock.unlock();
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "not running");
+	}
+
 	if (item != NULL) {
-		// Get OptData
-		*optlen = item->hellolen;
-		if ((*optlen > 0) && Memory::IsValidAddress(optDataAddr)) {
+		// Copies at most the game's buffer size, and leaves the length alone (pspautotests net/adhoc/matching).
+		const int copyLen = std::min((int)*optlen, (int)item->hellolen);
+		if (copyLen > 0 && Memory::IsValidRange(optDataAddr, copyLen)) {
 			uint8_t * optdata = Memory::GetPointerWriteUnchecked(optDataAddr);
-			memcpy(optdata, item->hello, *optlen);
+			memcpy(optdata, item->hello, copyLen);
 		}
 		//else return SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG;
 	}
@@ -2629,7 +2672,9 @@ void __NetMatchingCallbacks() { //(int matchingId)
 		}
 		DEBUG_LOG(Log::sceNet, "AdhocMatching - Remaining Events: %zu", matchingEvents.size());
 		auto peer = findPeer(context, (SceNetEtherAddr*)Memory::GetPointerOrException(args[2]));
-		// Discard HELLO Events when in the middle of joining, as some games (ie. Super Pocket Tennis) might tried to join again (TODO: Need to confirm whether sceNetAdhocMatchingSelectTarget supposed to be blocking the current thread or not)
+		// Discard HELLO events from a peer in the middle of joining: on the PSP a client gets none from the host
+		// it's asking to join (pspautotests net/adhoc/pair/matching3), and Super Pocket Tennis tries to join
+		// again if it gets one.
 		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
 			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointerOrException(args[2])).c_str());
 

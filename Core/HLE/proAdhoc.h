@@ -525,7 +525,7 @@ typedef struct SceNetAdhocMatchingContext {
 
 // End of psp definitions
 
-const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
+const size_t MAX_ADHOCCTL_HANDLERS = 4; // pspautotests net/adhoc/adhocctl
 const size_t MAX_MATCHING_HANDLERS = 32; //4
 
 enum {
