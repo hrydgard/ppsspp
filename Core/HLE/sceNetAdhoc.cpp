@@ -121,6 +121,10 @@ static int PspEventDelayUs(u32 flags) {
 	}
 }
 
+// A PSP returns from Create, Connect, Join and Scan within about 30 µs (pspautotests net/adhoc/timing).
+// The request goes out to the server then, and the call returns once it's sent.
+static const int ADHOCCTL_REQUEST_US = 30;
+
 static int RemainingEventDelayUs(u32 flags) {
 	s64 left = (s64)(adhocctlRequestTimeUs + PspEventDelayUs(flags)) - (s64)CoreTiming::GetGlobalTimeUs();
 	return left > 0 ? (int)left : 0;
@@ -3638,7 +3642,7 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 
 			if (friendFinderRunning) {
 				AdhocctlRequest req = { OPCODE_SCAN, {0} };
-				return hleLogDebugOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, us, "adhocctl scan"));
+				return hleLogDebugOrError(Log::sceNet, WaitBlockingAdhocctlSocket(req, ADHOCCTL_REQUEST_US, "adhocctl scan"));
 			}
 			else {
 				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
@@ -4114,10 +4118,9 @@ int NetAdhocctl_Create(const char *groupName) {
 				//setConnectionStatus(1);
 
 				// Wait for Status to be connected to prevent Ford Street Racing from Failed to create game session
-				int us = adhocDefaultDelay;
 				if (friendFinderRunning) {
 					AdhocctlRequest req = { OPCODE_CONNECT, parameter.group_name };
-					return WaitBlockingAdhocctlSocket(req, us, "adhocctl connect");
+					return WaitBlockingAdhocctlSocket(req, ADHOCCTL_REQUEST_US, "adhocctl connect");
 				}
 				//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
 				else {
@@ -4134,7 +4137,7 @@ int NetAdhocctl_Create(const char *groupName) {
 					}
 				}
 
-				hleEatMicro(us);
+				hleEatMicro(adhocDefaultDelay);
 				// Return Success
 				// FIXME: When tested using JPCSP + official prx files it seems sceNetAdhocctlCreate switching to a different thread for at least 100ms after returning success and before executing the next line.
 				return 0;
