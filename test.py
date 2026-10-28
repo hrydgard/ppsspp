@@ -357,6 +357,7 @@ tests_good = [
   "net/inet/addr",
   "net/inet/options",
   "net/inet/limits",
+  "net/inet/polledge",
   "misc/libc",
   "misc/sdkver",
   "misc/testgp",

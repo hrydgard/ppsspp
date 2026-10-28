@@ -29,6 +29,10 @@
 #ifdef __MINGW32__
 #include <mswsock.h>
 #endif
+#ifndef _WIN32
+#include <poll.h>
+#endif
+#include <vector>
 
 // This is the PSP networking errno.
 // It has a separate value per-thread, hence the map.
@@ -521,75 +525,116 @@ static void ZeroInetFdSets(u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr) {
 	}
 }
 
+// A host socket to check without waiting: in, what to check for, and out, what it's ready for.
+struct HostSocketReady {
+	SOCKET sock;
+	bool read;
+	bool write;
+	bool except;
+};
+
+// Returns how many of the checks came back ready, like select(), or -1 with socket_errno set.
+// Outside Windows, select() can't take a descriptor numbered FD_SETSIZE or above, so this uses poll(),
+// mapped as select() would see it. A hung-up socket counts as writable too: macOS reports a refused
+// connect as just POLLHUP, which its select() shows as writable.
+static int CheckHostSockets(HostSocketReady *checks, int count) {
+	int ready = 0;
+#if defined(_WIN32)
+	if (count > FD_SETSIZE) {
+		// Winsock's select() takes 64 sockets a set. No game is known to need more.
+		ERROR_LOG(Log::sceNet, "Checking only %d of %d sockets", (int)FD_SETSIZE, count);
+		for (int i = FD_SETSIZE; i < count; i++) {
+			checks[i].read = checks[i].write = checks[i].except = false;
+		}
+		count = FD_SETSIZE;
+	}
+	fd_set rd, wr, ex;
+	FD_ZERO(&rd);
+	FD_ZERO(&wr);
+	FD_ZERO(&ex);
+	bool anyRd = false, anyWr = false, anyEx = false;
+	for (int i = 0; i < count; i++) {
+		if (checks[i].read) { FD_SET(checks[i].sock, &rd); anyRd = true; }
+		if (checks[i].write) { FD_SET(checks[i].sock, &wr); anyWr = true; }
+		if (checks[i].except) { FD_SET(checks[i].sock, &ex); anyEx = true; }
+	}
+	if (!anyRd && !anyWr && !anyEx) {
+		// Winsock's select() fails on empty sets.
+		return 0;
+	}
+	timeval tmout = { 0, 0 };
+	if (select(0, anyRd ? &rd : nullptr, anyWr ? &wr : nullptr, anyEx ? &ex : nullptr, &tmout) < 0) {
+		return -1;
+	}
+	for (int i = 0; i < count; i++) {
+		checks[i].read = checks[i].read && FD_ISSET(checks[i].sock, &rd);
+		checks[i].write = checks[i].write && FD_ISSET(checks[i].sock, &wr);
+		checks[i].except = checks[i].except && FD_ISSET(checks[i].sock, &ex);
+		ready += checks[i].read + checks[i].write + checks[i].except;
+	}
+#else
+	std::vector<pollfd> fds(count);
+	for (int i = 0; i < count; i++) {
+		fds[i].fd = checks[i].sock;
+		fds[i].events = (checks[i].read ? POLLIN : 0) | (checks[i].write ? POLLOUT : 0) | (checks[i].except ? POLLPRI : 0);
+	}
+	if (count > 0 && poll(fds.data(), count, 0) < 0) {
+		return -1;
+	}
+	for (int i = 0; i < count; i++) {
+		const short revents = fds[i].revents;
+		if (revents & POLLNVAL) {
+			errno = EBADF;
+			return -1;
+		}
+		checks[i].read = checks[i].read && (revents & (POLLIN | POLLHUP | POLLERR));
+		checks[i].write = checks[i].write && (revents & (POLLOUT | POLLERR | POLLHUP));
+		// macOS adds POLLPRI to POLLHUP when the peer closes, with nothing for select() to report.
+		checks[i].except = checks[i].except && (revents & POLLPRI) && !(revents & POLLHUP);
+		ready += checks[i].read + checks[i].write + checks[i].except;
+	}
+#endif
+	return ready;
+}
+
 // args: nfds, readfds, writefds, exceptfds. The sets are only overwritten with the result when
 // something is ready, so they still hold the request between attempts.
 static InetTry TrySelect(SceUID threadID, const u32 *args, bool firstTry) {
 	const int nfds = (int)args[0];
-	SceNetInetFdSet	*readfds = args[1] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[1]) : nullptr;
-	SceNetInetFdSet	*writefds = args[2] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[2]) : nullptr;
-	SceNetInetFdSet	*exceptfds = args[3] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[3]) : nullptr;
-
-	// First, translate the specified fd_sets to host sockets.
-
-	fd_set rdfds, wrfds, exfds;
-	FD_ZERO(&rdfds);
-	FD_ZERO(&wrfds);
-	FD_ZERO(&exfds);
-
-	int rdcnt = 0, wrcnt = 0, excnt = 0;
-
-	int maxHostSocket = 0;
-
-	// Save the mapping during setup.
-	SOCKET hostSockets[256]{};
-
-	struct {
-		SceNetInetFdSet *set;
-		fd_set *hostSet;
-		int *count;
-		const char *name;
-	} sets[] = {
-		{ readfds, &rdfds, &rdcnt, "read" },
-		{ writefds, &wrfds, &wrcnt, "write" },
-		{ exceptfds, &exfds, &excnt, "except" },
+	SceNetInetFdSet *sets[3] = {
+		args[1] ? (SceNetInetFdSet *)Memory::GetPointerWriteOrException(args[1]) : nullptr,
+		args[2] ? (SceNetInetFdSet *)Memory::GetPointerWriteOrException(args[2]) : nullptr,
+		args[3] ? (SceNetInetFdSet *)Memory::GetPointerWriteOrException(args[3]) : nullptr,
 	};
 
+	HostSocketReady checks[PSP_NET_INET_FD_SETSIZE];
+	int guestFds[PSP_NET_INET_FD_SETSIZE];
+	int count = 0;
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-		for (auto &set : sets) {
-			if (!set.set || !NetInetFD_ISSET(i, set.set)) {
-				continue;
-			}
-			SOCKET sock;
-			if (!GetHostSocket(i, &sock)) {
-				if (firstTry) {
-					ERROR_LOG(Log::sceNet, "Bad socket #%d in %s fds", i, set.name);
-				}
-				continue;
-			}
-			hostSockets[i] = sock;
-			if ((int)sock > maxHostSocket)
-				maxHostSocket = (int)sock;
-			if (*set.count < FD_SETSIZE) {
-				FD_SET(sock, set.hostSet); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
-				(*set.count)++;
-			} else if (firstTry) {
-				ERROR_LOG(Log::sceNet, "Hit set size (%s)", set.name);
-			}
+		bool want[3];
+		for (int s = 0; s < 3; s++) {
+			want[s] = sets[s] && NetInetFD_ISSET(i, sets[s]);
 		}
+		if (!want[0] && !want[1] && !want[2]) {
+			continue;
+		}
+		SOCKET sock;
+		if (!GetHostSocket(i, &sock)) {
+			// Fails, leaving the sets alone (pspautotests net/inet/polledge).
+			UpdateErrnoFromHost(threadID, EBADF, "sceNetInetSelect");
+			return { -1, false, 0 };
+		}
+		checks[count] = { sock, want[0], want[1], want[2] };
+		guestFds[count] = i;
+		count++;
 	}
 
-	// Unlikely to hit these.
-	_dbg_assert_(rdcnt < FD_SETSIZE);
-	_dbg_assert_(wrcnt < FD_SETSIZE);
-	_dbg_assert_(excnt < FD_SETSIZE);
-
-	if (rdcnt + wrcnt + excnt == 0) {
-		// Nothing to check: a select() used as a sleep. Winsock's select() fails on empty sets.
+	if (count == 0) {
+		// Nothing to check: a select() used as a sleep.
 		return { 0, true, EAGAIN };
 	}
 
-	timeval tmout = { 0, 0 };
-	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, &tmout);
+	const int retval = CheckHostSockets(checks, count);
 	if (retval == 0) {
 		return { 0, true, EAGAIN };
 	}
@@ -599,18 +644,16 @@ static InetTry TrySelect(SceUID threadID, const u32 *args, bool firstTry) {
 	}
 
 	// Convert the results back to PSP fd_sets.
-	for (auto &set : sets) {
-		if (set.set) {
-			NetInetFD_ZERO(set.set);
+	for (auto *set : sets) {
+		if (set) {
+			NetInetFD_ZERO(set);
 		}
 	}
-	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-		if (hostSockets[i] == 0) {
-			continue;
-		}
-		for (auto &set : sets) {
-			if (set.set && FD_ISSET(hostSockets[i], set.hostSet)) {
-				NetInetFD_SET(i, set.set);
+	for (int i = 0; i < count; i++) {
+		const bool ready[3] = { checks[i].read, checks[i].write, checks[i].except };
+		for (int s = 0; s < 3; s++) {
+			if (ready[s]) {
+				NetInetFD_SET(guestFds[i], sets[s]);
 			}
 		}
 	}
@@ -622,60 +665,49 @@ static InetTry TryPoll(SceUID threadID, const u32 *args) {
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(args[0]); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
 	const int nfds = (int)args[1];
 
-	int maxHostFd = 0;
+	std::vector<HostSocketReady> checks(nfds);
+	std::vector<bool> open(nfds);
 	int hostCount = 0;
-	int closedCount = 0;
-	fd_set readfds{}, writefds{}, exceptfds{};
-	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 	for (int i = 0; i < nfds; i++) {
 		SOCKET hostSocket;
 		fdarray[i].revents = 0;
-		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
-			// Not open, reported as POLLNVAL below.
-			closedCount++;
-			continue;
+		open[i] = GetHostSocket(fdarray[i].fd, &hostSocket);
+		if (open[i]) {
+			const int events = fdarray[i].events;
+			checks[hostCount++] = { hostSocket, (events & (INET_POLLRDNORM | INET_POLLIN)) != 0, (events & (INET_POLLWRNORM | INET_POLLOUT)) != 0, (events & (INET_POLLRDBAND | INET_POLLPRI)) != 0 };
 		}
-		hostCount++;
-		if ((int)hostSocket > maxHostFd) {
-			maxHostFd = (int)hostSocket;
-		}
-		FD_SET(hostSocket, &readfds);
-		FD_SET(hostSocket, &writefds);
-		FD_SET(hostSocket, &exceptfds);
 	}
 
-	if (hostCount == 0 && closedCount == 0) {
-		// Winsock's select() fails on empty sets.
+	if (nfds == 0) {
 		return { 0, true, EAGAIN };
 	}
-
-	if (hostCount > 0) {
-		timeval tmout = { 0, 0 };
-		if (select(maxHostFd + 1, &readfds, &writefds, &exceptfds, &tmout) < 0) {
-			UpdateErrnoFromHost(threadID, EINTR, "sceNetInetPoll");
-			return { -1, false, 0 };
-		}
+	if (CheckHostSockets(checks.data(), hostCount) < 0) {
+		UpdateErrnoFromHost(threadID, socket_errno, "sceNetInetPoll");
+		return { -1, false, 0 };
 	}
 
 	int retval = 0;
+	int check = 0;
 	for (int i = 0; i < nfds; i++) {
-		SOCKET hostSocket;
-		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
+		if (!open[i]) {
 			// As on hardware (pspautotests net/inet/poll).
 			fdarray[i].revents = INET_POLLNVAL;
 			retval++;
 			continue;
 		}
-		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(hostSocket, &readfds))
-			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN); //POLLIN_SET
-		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(hostSocket, &writefds))
-			fdarray[i].revents |= (INET_POLLWRNORM | INET_POLLOUT); //POLLOUT_SET
+		// Only what was asked for: no POLLHUP or POLLERR, even for a peer that closed or reset the
+		// connection (pspautotests net/inet/polledge).
+		const HostSocketReady &ready = checks[check++];
+		if (ready.read)
+			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN);
+		if (ready.write)
+			fdarray[i].revents |= (INET_POLLWRNORM | INET_POLLOUT);
+		if (ready.except)
+			fdarray[i].revents |= (INET_POLLRDBAND | INET_POLLPRI);
 		fdarray[i].revents &= fdarray[i].events;
-		if (FD_ISSET(hostSocket, &exceptfds))
-			fdarray[i].revents |= (INET_POLLRDBAND | INET_POLLPRI | INET_POLLERR); //POLLEX_SET; // Can be raised on revents regardless of events bitmask?
 		if (fdarray[i].revents)
 			retval++;
-		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x, availToRecv: %d", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents, (int)getAvailToRecv(fdarray[i].fd));
+		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents);
 	}
 	if (retval == 0) {
 		return { 0, true, EAGAIN };
@@ -855,8 +887,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, mips->pc);
 	InetThreadSeen();
-	if (nfds > FD_SETSIZE)
-		nfds = FD_SETSIZE;
+	if (nfds > PSP_NET_INET_FD_SETSIZE)
+		nfds = PSP_NET_INET_FD_SETSIZE;
 	if (!InetValidRange(fdsPtr, nfds * (u32)sizeof(SceNetInetPollfd), __FUNCTION__)) {
 		return hleLogError(Log::sceNet, -1, "bad fds %08x", fdsPtr);
 	}
@@ -1305,13 +1337,8 @@ static InetTry TryConnectDone(SceUID threadID, const u32 *args) {
 		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetConnect");
 		return { -1, false, 0 };
 	}
-	fd_set wrfds, exfds;
-	FD_ZERO(&wrfds);
-	FD_ZERO(&exfds);
-	FD_SET(inetSock->sock, &wrfds);
-	FD_SET(inetSock->sock, &exfds);
-	timeval tmout = { 0, 0 };
-	int ready = select((int)inetSock->sock + 1, nullptr, &wrfds, &exfds, &tmout);
+	HostSocketReady check = { inetSock->sock, false, true, true };
+	int ready = CheckHostSockets(&check, 1);
 	if (ready == 0) {
 		return { -1, true, EINPROGRESS };
 	}
