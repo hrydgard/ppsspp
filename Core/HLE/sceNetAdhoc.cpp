@@ -83,6 +83,9 @@ s32 netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
 bool netAdhocDiscoverIsStopping = false;
 SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
 u32 netAdhocDiscoverBufAddr = 0;
+// How many Updates have run since InitStart, and since Stop (pspautotests net/adhoc/discover).
+static int netAdhocDiscoverUpdates = 0;
+static int netAdhocDiscoverStopUpdates = 0;
 
 bool netAdhocGameModeEntered = false;
 
@@ -6697,6 +6700,9 @@ int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
 	// FIXME: Most AdhocDiscover syscalls will return 0x80410005 if (sceKernelCheckThreadStack_user() < 0x00000FE0), AdhocDiscover seems to be storing some data in the stack, while we use global variables for these
 	if (sceKernelCheckThreadStack(mips) < 0x00000FE0)
 		return 0x80410005;
+	// Already running (pspautotests net/adhoc/discover).
+	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
+		return hleLogError(Log::sceNet, 0x80411301, "already started");
 	// TODO: Allocate internal buffer/struct (on the stack?) to be returned on sceNetAdhocDiscoverUpdate (the struct may contains WLAN channel from sceUtilityGetSystemParamInt at offset 0xA0 ?), setup adhocctl state callback handler to detects state change (using sceNetAdhocctl_lib_F8BABD85(stateCallbackFunction=0x09F436F8, adhocctlStateCallbackArg=0x0) on JPCSP+prx)
 	u32 bufSize = 256; // dummy size, not sure how large it supposed to be, may be at least 0x3c bytes like in param->unknown2 ?
 	if (netAdhocDiscoverBufAddr == 0) {
@@ -6750,9 +6756,11 @@ int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Result   : %08x", netAdhocDiscoverParam->result);
 
 	// TODO: Check whether we're already in the correct group and change the status and result accordingly
+	// The result field is only written when it finishes (pspautotests net/adhoc/discover).
 	netAdhocDiscoverIsStopping = false;
 	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
-	netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND;
+	netAdhocDiscoverUpdates = 0;
+	netAdhocDiscoverStopUpdates = 0;
 	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
 	return hleLogInfo(Log::sceNet, 0);
 }
@@ -6831,8 +6839,9 @@ int sceNetAdhocDiscoverRequestSuspend(MIPSState *mips)
 	// if (ret >= 0)
 	// 	Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA4);
 	// return ret;
-	// Since we don't know what this supposed to do, and we currently don't have a working AdhocDiscover yet, may be we should cancel the progress for now?
-	netAdhocDiscoverIsStopping = true;
+	// While discovering with nobody else around, a PSP refuses (pspautotests net/adhoc/discover).
+	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
+		return hleLogError(Log::sceNet, 0x80411303, "can't suspend");
 	return hleLogError(Log::sceNet, 0);
 }
 
@@ -6842,13 +6851,25 @@ int sceNetAdhocDiscoverUpdate(MIPSState *mips) {
 		return 0x80410005;
 
 	// TODO: Use switch case for each Step
+	// What a PSP does with nobody to find (pspautotests net/adhoc/discover): adhocctl goes into the
+	// DISCOVER state after the first Update. After a Stop, one Update later adhocctl is back to
+	// DISCONNECTED and its handlers get DISCONNECT, and one more later the status is COMPLETED with the
+	// result cancelled.
 	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS) {
-		//u64 now = CoreTiming::GetGlobalTimeUsScaled();
-		if (netAdhocDiscoverIsStopping /*|| now >= netAdhocDiscoverStartTime + DISCOVER_DURATION_US*/) {
-			// Fake a successful completion after some time (or when detecting another player in the same Group?)
-			netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
-			if (netAdhocDiscoverParam)
-				netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED; // netAdhocDiscoverIsStopping ? NET_ADHOC_DISCOVER_RESULT_CANCELED : NET_ADHOC_DISCOVER_RESULT_PEER_FOUND;
+		if (!netAdhocDiscoverIsStopping) {
+			if (++netAdhocDiscoverUpdates == 2 && adhocctlState == ADHOCCTL_STATE_DISCONNECTED)
+				adhocctlState = ADHOCCTL_STATE_DISCOVER;
+		} else {
+			netAdhocDiscoverStopUpdates++;
+			if (netAdhocDiscoverStopUpdates == 2) {
+				if (adhocctlState == ADHOCCTL_STATE_DISCOVER)
+					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+			} else if (netAdhocDiscoverStopUpdates >= 3) {
+				netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
+				if (netAdhocDiscoverParam)
+					netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
+			}
 		}
 	}
 	return hleDelayResult(hleLogDebug(Log::sceNet, 0/*netAdhocDiscoverBufAddr*/), "adhoc discover update", 300); // FIXME: Based on JPCSP+prx, it seems to be returning a pointer to the internal buffer/struct (only when status = 1 ?), But when i stepped the code it returns 0 (might be a bug on JPCSP LLE Logging?)
