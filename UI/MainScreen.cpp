@@ -189,12 +189,23 @@ static bool IsTempPath(const Path &str) {
 	return false;
 }
 
+// Leaving a game creates a new MainScreen, which should come back on the tab the game was
+// launched from. The default tab setting is only for the first one after startup.
+static int g_lastMainScreenTab = -1;
+// Tab indices shift when the Recent tab isn't shown, so the saved tab only applies if this matches.
+static bool g_lastMainScreenHadRecent = false;
+
 MainScreen::MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
 	packGeneration_ = GamePacker::Generation();
 }
 
 MainScreen::~MainScreen() {
+	// RemoteISOBrowseScreen derives from us, but with tabs of its own.
+	if (tabHolder_ && createdMainTabs_) {
+		g_lastMainScreenTab = tabHolder_->GetCurrentTab();
+		g_lastMainScreenHadRecent = recentTabShown_;
+	}
 	g_BackgroundAudio.SetGame(Path());
 }
 
@@ -445,6 +456,8 @@ void MainScreen::CreateViews() {
 	if (showRecent) {
 		CreateRecentTab();
 	}
+	recentTabShown_ = showRecent;
+	createdMainTabs_ = true;
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
@@ -457,7 +470,9 @@ void MainScreen::CreateViews() {
 			remoteBrowser->SetHomePath(remotePath);
 		}
 
-		if (g_recentFiles.HasAny()) {
+		if (g_lastMainScreenTab >= 0 && g_lastMainScreenHadRecent == showRecent) {
+			tabHolder_->SetCurrentTab(g_lastMainScreenTab, true);
+		} else if (g_recentFiles.HasAny()) {
 			tabHolder_->SetCurrentTab(std::clamp(g_Config.iDefaultTab, 0, g_Config.bRemoteTab ? 3 : 2), true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);	
