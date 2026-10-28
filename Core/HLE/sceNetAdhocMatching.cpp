@@ -1024,6 +1024,11 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	SceNetEtherAddr mac;
 	memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
 
+	// A child accepted just after another already has it from its accept packet's sibling list.
+	if (findPeer(context, &mac) != NULL || isMacMatch(&mac, &context->mac)) {
+		return;
+	}
+
 	// Allocate Memory
 	SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
