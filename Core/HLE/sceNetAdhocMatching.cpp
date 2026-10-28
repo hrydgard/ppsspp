@@ -436,10 +436,9 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 	// Free Memory
 	free(send);
 
-	// Remove Busy Bit from Peer
-	peer->sending = 0;
-
-	// Spawn Data Event
+	// The aemu protocol has no acknowledgement, so DATA_ACK is made here. The peer stays busy until
+	// it's delivered: a SendData before that gets DATA_BUSY, as on a PSP (pspautotests
+	// net/adhoc/pair/matching).
 	spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DATA_ACK, mac, 0, NULL);
 }
 
@@ -558,8 +557,10 @@ void sendByePacket(SceNetAdhocMatchingContext * context) {
 	// Iterate Peers
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next) {
-		// Peer of Interest
-		if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS) {
+		// Peer of Interest. A client also says bye to a host it has left, which a PSP's host gets
+		// (pspautotests net/adhoc/pair/matching).
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_PARENT || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS ||
+			(context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_OFFER)) {
 			// Bye Opcode
 			uint8_t opcode = PSP_ADHOC_MATCHING_PACKET_BYE;
 
@@ -671,6 +672,12 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		return;
 	}
 
+	// The host takes the request, but the game isn't told (see dropNextJoin). That's only seen for a
+	// peer the host didn't know yet: one it had already denied gets its REQUEST (pspautotests
+	// net/adhoc/pair/matching2 and matching3).
+	const bool silent = context->dropNextJoin && findPeer(context, sendermac) == NULL;
+	context->dropNextJoin = false;
+
 	// We still got a unoccupied slot in our room (Parent / P2P)
 	if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && countChildren(context) < (context->maxpeers - 1)) || (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && findP2P(context) == NULL)) {
 		// Complete Packet Header available
@@ -692,7 +699,9 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 				// If we got the peer in the table already and are a parent, there is nothing left to be done.
 				// This is because the only way a parent can know of a child is via a join request...
 				// If we thus know of a possible child, then we already had a previous join request thus no need for double tapping.
-				if (peer != NULL && peer->lastping != 0 && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+				// A peer whose earlier request was cancelled or denied can ask again (pspautotests net/adhoc/pair/matching2).
+				if (peer != NULL && peer->lastping != 0 && context->mode == PSP_ADHOC_MATCHING_MODE_PARENT &&
+					(peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)) {
 					WARN_LOG(Log::sceNet, "Join Event(2) Ignored");
 					return;
 				}
@@ -723,7 +732,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 						peerlock.unlock();
 
 						// Spawn Request Event
-						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
+						if (!silent) spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
 
 						// Return Success
 						return;
@@ -739,7 +748,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
 					// Spawn Request Event
-					spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
+					if (!silent) spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
 
 					// Return Success
 					return;
@@ -828,14 +837,11 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			addMember(context, &context->mac);
 		}
 
-		// IMPORTANT! The Event Order here is ok!
-		// Internally the Event Stack appends to the front, so the order will be switched around.
+		// Spawn Accept Event
+		spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ACCEPT, sendermac, optlen, opt);
 
 		// Spawn Established Event
 		spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, sendermac, 0, NULL);
-
-		// Spawn Accept Event
-		spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ACCEPT, sendermac, optlen, opt);
 	}
 }
 
@@ -886,9 +892,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			// Spawn Deny Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
-			// Delete Peer from List
-			//deletePeer(context, peer);
-			peer->lastping = 0;
+			// Back to a host it only knows from its hellos: they keep coming, there's no TIMEOUT, and it can
+			// ask again (pspautotests net/adhoc/pair/matching2 and matching3).
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
 		}
 
 		// Kicked from Room
@@ -915,9 +921,8 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			// Spawn Request Cancel Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 
-			// Delete Peer from List
-			//deletePeer(context, peer);
-			peer->lastping = 0;
+			// No longer a request: accepting it gives TARGET_NOT_READY (pspautotests net/adhoc/pair/matching2).
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
 		}
 
 		// Leave Room
@@ -925,9 +930,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			// Spawn Leave / Kick Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 
-			// Delete Peer from List
-			//deletePeer(context, peer);
-			peer->lastping = 0;
+			// No longer a member, and no TIMEOUT for it later; it's still known, so its BYE arrives when
+			// it stops (pspautotests net/adhoc/pair/matching).
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
 		}
 	}
 
@@ -941,9 +946,9 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			// Spawn Deny Event
 			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 
-			// FIXME: Delete Peer from List?
-			// Instead of removing the peer immediately, we should let it timedout, otherwise inviter in Crazy Taxi will wait forever without getting timedout, since handleTimeout need the peer data to exist.
-			peer->lastping = 0;
+			// Back to a peer it only knows from its hellos, as in client mode: no TIMEOUT, and it can ask again
+			// (pspautotests net/adhoc/pair/matching3).
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
 		}
 
 		// Kicked from Room
@@ -1115,7 +1120,7 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 	}
 
 	// P2P or Child Bye. FIXME: Should we allow BYE Event to intervene joining process of Parent-Child too just like P2P Mode? (ie. Crazy Taxi uses P2P Mode)
-	if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
+	if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_OFFER)) ||
 		(context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
 		(context->mode == PSP_ADHOC_MATCHING_MODE_P2P &&
 		(peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_OFFER || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
@@ -1206,7 +1211,7 @@ int matchingEventThread(int matchingId) {
 					// Lock again
 					//context->eventlock->lock();
 
-					// Pop event stack from front (this should be queue instead of stack?)
+					// Pop the event queue from the front
 					context->event_stack = msg->next;
 					free(msg);
 					msg = NULL;
@@ -1386,7 +1391,7 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 
 						//context->inputlock->lock(); // Lock again
 
-						// Pop input stack from front (this should be queue instead of stack?)
+						// Pop the input queue from the front
 						context->input_stack = msg->next;
 						free(msg);
 						msg = context->input_stack;
@@ -1522,7 +1527,7 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 					// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
 					//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
 
-					// Pop input stack from front (this should be queue instead of stack?)
+					// Pop the input queue from the front
 					context->input_stack = msg->next;
 					free(msg);
 					msg = context->input_stack;
@@ -2036,7 +2041,8 @@ static int sceNetAdhocMatchingSelectTarget(MIPSState *mips, int matchingId, cons
 	if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 	// Host Mode
 	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
-		// Already Connected
+		// Already Connected. Right after accepting, it's still in progress (pspautotests net/adhoc/pair/matching).
+		if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && peer->accepting) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_REQUEST_IN_PROGRESS, "adhocmatching request in progress");
 		if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_ALREADY_ESTABLISHED, "adhocmatching already established");
 
 		// Not enough space
@@ -2046,8 +2052,7 @@ static int sceNetAdhocMatchingSelectTarget(MIPSState *mips, int matchingId, cons
 		if (peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
 			// Accept Peer in Group
 			peer->state = PSP_ADHOC_MATCHING_PEER_CHILD;
-
-			// Sending order may need to be reversed since Stack appends to the front, so the order will be switched around.
+			peer->accepting = 1;
 
 			// Tell Children about new Sibling
 			sendBirthMessage(context, peer);
@@ -2167,17 +2172,20 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 		(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)) ||
 		(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && (peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST)))
 	{
-		// Notify other Children of Death
-		if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1) {
-			// Send Death Message
-			sendDeathMessage(context, peer);
-		}
+		const bool notifyDeath = context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1;
 
 		// Mark Peer as Canceled
 		peer->state = PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS;
 
-		// Send Cancel Event to Peer
+		// Send Cancel Event to Peer. This goes first: the death message also sends the peer a BYE, which
+		// would make a kicked client see DISCONNECT instead of LEAVE (pspautotests net/adhoc/pair/matching2).
 		sendCancelMessage(context, peer, optLen, opt);
+
+		// Notify other Children of Death
+		if (notifyDeath) {
+			// Send Death Message
+			sendDeathMessage(context, peer);
+		}
 
 		// Delete Peer from List
 		// Can't delete here, Threads still need this data.
@@ -2317,6 +2325,10 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 		//context->hello = NULL;
 	}
 
+	// The first join request after this, from a client the host doesn't know yet, never reaches the game
+	// on a PSP, even if the client has seen the new hello (pspautotests net/adhoc/pair/matching2).
+	context->dropNextJoin = true;
+
 	// Return Success
 	return hleLogDebug(Log::sceNet, 0);
 }
@@ -2390,8 +2402,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		int filledpeers = 0;
 
 		if (requestedpeers > 0) {
-			// Add Self-Peer first, unless if there is existing Parent/P2P peer
-			if (peercount == 1 || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD) {
+			// The console itself comes first, also for a client (pspautotests net/adhoc/pair/matching)
+			{
 				// Add Local MAC
 				buf2[filledpeers++].mac_addr = context->mac;
 
@@ -2480,13 +2492,6 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 								buf2[filledpeers++].mac_addr = peer->mac;
 
 								DEBUG_LOG(Log::sceNet, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
-							}
-							// Self Peer
-							else if (peer->state == 0) {
-								// Add Local MAC
-								buf2[filledpeers++].mac_addr = peer->mac;
-
-								DEBUG_LOG(Log::sceNet, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
 							}
 
 						}
@@ -2621,12 +2626,12 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	}
 
 	// Peer is sending
+	// On a PSP, the data still arrives, but there's no DATA_ACK for it, and the peer can send again at
+	// once (pspautotests net/adhoc/pair/matching2). Our data has already gone out; while sending is set,
+	// its DATA_ACK hasn't been delivered, so it's discarded when it comes up.
 	if (peer->sending) {
-		// Set Peer as Bulk Idle
 		peer->sending = 0;
-
-		// Stop Bulk Data Sending (if in progress)
-		abortBulkTransfer(context, peer);
+		peer->ackAborted = 1;
 	}
 
 	// Return Success
@@ -2692,9 +2697,22 @@ void __NetMatchingCallbacks() { //(int matchingId)
 		// Discard HELLO events from a peer in the middle of joining: on the PSP a client gets none from the host
 		// it's asking to join (pspautotests net/adhoc/pair/matching3), and Super Pocket Tennis tries to join
 		// again if it gets one.
-		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
+		const bool abortedAck = args[1] == PSP_ADHOC_MATCHING_EVENT_DATA_ACK && peer != NULL && peer->ackAborted;
+		if (abortedAck) {
+			peer->ackAborted = 0;
+			if (Memory::IsValidAddress(args[2])) {
+				userMemory.Free(args[2]);
+			}
+			matchingEvents.pop_front();
+		} else if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
 			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointerOrException(args[2])).c_str());
 
+			if (args[1] == PSP_ADHOC_MATCHING_EVENT_DATA_ACK && peer != NULL) {
+				peer->sending = 0;
+			}
+			if (args[1] == PSP_ADHOC_MATCHING_EVENT_ESTABLISHED && peer != NULL) {
+				peer->accepting = 0;
+			}
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetData(args[0], args[1], args[2]);
 			hleEnqueueCall(args[5], 5, args, after);
@@ -2702,6 +2720,9 @@ void __NetMatchingCallbacks() { //(int matchingId)
 		}
 		else {
 			DEBUG_LOG(Log::sceNet, "AdhocMatching - Discarding Callback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(args[2])).c_str());
+			if (Memory::IsValidAddress(args[2])) {
+				userMemory.Free(args[2]);
+			}
 			matchingEvents.pop_front();
 		}
 	}

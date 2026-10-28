@@ -834,9 +834,13 @@ void linkEVMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->eventlock->lock();
 
-	// Link Message
-	message->next = context->event_stack;
-	context->event_stack = message;
+	// Append, so events are delivered in the order they happened
+	message->next = NULL;
+	ThreadMessage **tail = &context->event_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->eventlock->unlock();
@@ -852,9 +856,13 @@ void linkIOMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->inputlock->lock();
 
-	// Link Message
-	message->next = context->input_stack;
-	context->input_stack = message;
+	// Append, so packets go out in the order they were queued (pspautotests net/adhoc/pair/matching2)
+	message->next = NULL;
+	ThreadMessage **tail = &context->input_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->inputlock->unlock();
@@ -965,17 +973,6 @@ void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMembe
 {
 	// Send Bulk Data Message
 	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK, datalen, data);
-}
-
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer)
-{
-	// Send Bulk Data Abort Message
-	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK_ABORT, 0, NULL);
 }
 
 /**
