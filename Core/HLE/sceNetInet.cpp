@@ -235,19 +235,129 @@ static int sceNetInetGetPspError(MIPSState *mips) {
 	return hleLogInfo(Log::sceNet, error, "returning %s converted to %08x at %08x", convertInetErrno2str(lastErrno), error, mips->pc);
 }
 
+// The address parsers work like 4.4BSD's, which the host's may not (pspautotests net/inet/addr).
+// Both stop at a space, so "1.2.3.4 " is accepted.
+
+// inet_aton(): one to four parts, each decimal, octal (leading 0) or hex (0x), the last one filling
+// the remaining bytes, so "1.2.3", "16909060" and "0x7f.1" are all addresses. Returns the address in
+// network byte order.
+static bool InetParseAton(const char *str, u32 *addr) {
+	u32 parts[4];
+	int count = 0;
+	const char *p = str;
+	while (true) {
+		if (!isdigit((unsigned char)*p)) {
+			return false;
+		}
+		int base = 10;
+		if (*p == '0') {
+			p++;
+			base = 8;
+			if (*p == 'x' || *p == 'X') {
+				p++;
+				base = 16;
+			}
+		}
+		u64 value = 0;
+		while (true) {
+			const unsigned char c = *p;
+			int digit;
+			if (isdigit(c)) {
+				digit = c - '0';
+				if (digit >= base) {
+					return false;
+				}
+			} else if (base == 16 && isxdigit(c)) {
+				digit = tolower(c) - 'a' + 10;
+			} else {
+				break;
+			}
+			value = value * base + digit;
+			if (value > 0xFFFFFFFF) {
+				return false;
+			}
+			p++;
+		}
+		parts[count++] = (u32)value;
+		if (*p != '.') {
+			break;
+		}
+		if (count == 4) {
+			return false;
+		}
+		p++;
+	}
+	if (*p != '\0' && !isspace((unsigned char)*p)) {
+		return false;
+	}
+
+	// All but the last part are single bytes, and the last fills what's left.
+	static const u32 lastMax[4] = { 0xFFFFFFFF, 0xFFFFFF, 0xFFFF, 0xFF };
+	u32 value = 0;
+	for (int i = 0; i < count - 1; i++) {
+		if (parts[i] > 0xFF) {
+			return false;
+		}
+		value |= parts[i] << (24 - 8 * i);
+	}
+	if (parts[count - 1] > lastMax[count - 1]) {
+		return false;
+	}
+	value |= parts[count - 1];
+	*addr = htonl(value);
+	return true;
+}
+
+// inet_pton() for AF_INET: exactly four decimal bytes, without leading zeros.
+static bool InetParsePton4(const char *str, u32 *addr) {
+	u8 bytes[4];
+	const char *p = str;
+	for (int i = 0; i < 4; i++) {
+		if (i > 0) {
+			if (*p != '.') {
+				return false;
+			}
+			p++;
+		}
+		if (!isdigit((unsigned char)*p)) {
+			return false;
+		}
+		if (*p == '0' && isdigit((unsigned char)p[1])) {
+			return false;
+		}
+		int value = 0;
+		while (isdigit((unsigned char)*p)) {
+			value = value * 10 + (*p - '0');
+			if (value > 255) {
+				return false;
+			}
+			p++;
+		}
+		bytes[i] = (u8)value;
+	}
+	if (*p != '\0' && !isspace((unsigned char)*p)) {
+		return false;
+	}
+	memcpy(addr, bytes, sizeof(bytes));
+	return true;
+}
+
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
-	const int hostAf = convertSocketDomainPSP2Host(af);
-	if (!Memory::IsValidRange(inAddrPtr, hostAf == AF_INET6 ? 16 : 4)) {
+	if (af != PSP_NET_INET_AF_INET) {
+		// INET6 too (pspautotests net/inet/addr).
+		SetInetErrno(ERROR_INET_EAFNOSUPPORT, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "unsupported family %d", af);
+	}
+	if (!Memory::IsValidRange(inAddrPtr, 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
 
-	int retval = inet_pton(hostAf, hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
-	// Note that inet_pton can set errno!
-	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval);
+	u32 addr;
+	if (!hostname || !InetParsePton4(hostname, &addr)) {
+		return hleLogDebug(Log::sceNet, 0, "not an address");
 	}
-	return hleLogDebug(Log::sceNet, retval);
+	Memory::WriteUnchecked_U32(addr, inAddrPtr);
+	return hleLogDebug(Log::sceNet, 1);
 }
 
 static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
@@ -255,39 +365,45 @@ static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
 
-	// TODO: Wait what, we're calling pton in aton?
-	int retval = inet_pton(AF_INET, hostname, (void*)Memory::GetPointerOrException(inAddrPtr));
-	// inet_aton() returns nonzero if the address is valid, zero if not.
-	return hleLogDebug(Log::sceNet, retval);
+	u32 addr;
+	if (!hostname || !InetParseAton(hostname, &addr)) {
+		return hleLogDebug(Log::sceNet, 0, "not an address");
+	}
+	Memory::WriteUnchecked_U32(addr, inAddrPtr);
+	return hleLogDebug(Log::sceNet, 1);
 }
 
-// TODO: Need to find out whether it's possible to get partial output or not, since Coded Arms Contagion is using a small bufsize(4)
+// Returns dst, or 0 with errno set: ENOSPC when the string and its terminator don't fit, leaving dst
+// untouched, and EAFNOSUPPORT for anything but AF_INET (pspautotests net/inet/addr).
 static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsize) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceNetInetInetNtop(%i, %08x, %08x, %d)", af, srcInAddrPtr, dstBufPtr, bufsize);
-	const int hostAf = convertSocketDomainPSP2Host(af);
-	if (!Memory::IsValidRange(srcInAddrPtr, hostAf == AF_INET6 ? 16 : 4)) {
-		return hleLogError(Log::sceNet, 0, "invalid arg");
+	if (af != PSP_NET_INET_AF_INET) {
+		SetInetErrno(ERROR_INET_EAFNOSUPPORT, __FUNCTION__);
+		return hleLogError(Log::sceNet, 0, "unsupported family %d", af);
 	}
-	if (!Memory::IsValidRange(dstBufPtr, bufsize) || bufsize < 1/*8*/) { // usually 8 or 16, but Coded Arms Contagion is using bufsize = 4
-		UpdateErrnoFromHost(__KernelGetCurThread(), ENOSPC, __FUNCTION__);
+	if (!Memory::IsValidRange(srcInAddrPtr, 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg");
 	}
 
-	if (inet_ntop(hostAf, Memory::GetCharPointer(srcInAddrPtr), (char*)Memory::GetCharPointer(dstBufPtr), bufsize) == NULL) {
-		//return hleLogDebug(Log::sceNet, 0, "invalid arg?"); // Temporarily commented out in case it's allowed to have partial output
+	const u8 *src = Memory::GetPointerUnchecked(srcInAddrPtr);
+	char str[16];
+	const int len = snprintf(str, sizeof(str), "%u.%u.%u.%u", src[0], src[1], src[2], src[3]);
+	if ((u32)len + 1 > bufsize) {
+		SetInetErrno(ERROR_INET_ENOSPC, __FUNCTION__);
+		return hleLogDebug(Log::sceNet, 0, "%s doesn't fit in %d bytes", str, bufsize);
 	}
-	return hleLogDebug(Log::sceNet, dstBufPtr, "%s", safe_string(Memory::GetCharPointer(dstBufPtr)));
+	if (!Memory::IsValidRange(dstBufPtr, len + 1)) {
+		return hleLogError(Log::sceNet, 0, "invalid arg");
+	}
+	Memory::MemcpyUnchecked(dstBufPtr, str, len + 1);
+	return hleLogDebug(Log::sceNet, dstBufPtr, "%s", str);
 }
 
 static u32_le sceNetInetInetAddr(const char *hostname) {
-	if (hostname == nullptr || hostname[0] == '\0') {
-		return hleLogError(Log::sceNet, INADDR_NONE, "invalid arg");
+	u32 addr;
+	if (!hostname || !InetParseAton(hostname, &addr)) {
+		return hleLogDebug(Log::sceNet, INADDR_NONE, "not an address");
 	}
-
-	u32 retval = INADDR_NONE; // inet_addr(hostname); // deprecated?
-	inet_pton(AF_INET, hostname, &retval); // Alternative to the deprecated inet_addr
-
-	return hleLogDebug(Log::sceNet, retval);
+	return hleLogDebug(Log::sceNet, addr);
 }
 
 // The PSP fills in a whole SceNetInetSockaddr (sa_len 16) and copies as much of it as namelen
@@ -321,7 +437,10 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	int retval = getpeername(inetSock->sock, (sockaddr*)&saddr, &len);
 	DEBUG_LOG(Log::sceNet, "Getpeername: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
+		// 4.4BSD checks for a connection first, so it's ENOTCONN where macOS says EINVAL, once the
+		// peer has closed it (pspautotests net/inet/errors).
+		const int hostErrno = socket_errno;
+		UpdateErrnoFromHost(__KernelGetCurThread(), hostErrno == EINVAL ? ENOTCONN : hostErrno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
 
@@ -1185,13 +1304,10 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 		return { -1, false, 0 };
 	}
 
-	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(args[1]);
-	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(args[2]);
+	// The game's address is written afterwards, as much of it as its length allows.
 	SockAddrIN4 saddr{};
-	if (srclen)
-		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
-
-	int newHostSocket = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, srclen);
+	socklen_t hostLen = sizeof(saddr);
+	int newHostSocket = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, &hostLen);
 	if (newHostSocket < 0) {
 		const int hostErrno = socket_errno;
 		if (IsWouldBlock(hostErrno)) {
@@ -1212,10 +1328,9 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 		return { -1, false, 0 };
 	}
 
-	if (src) {
-		src->sa_family = saddr.addr.sa_family;
-		memcpy(src->sa_data, saddr.addr.sa_data, sizeof(src->sa_data));
-		src->sa_len = srclen ? *srclen : 0;
+	if (args[1] && args[2]) {
+		// pspautotests net/inet/tcp.
+		WriteSockaddrToPSP(saddr, args[1], args[2]);
 	}
 	DEBUG_LOG(Log::sceNet, "Accept: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	return { newSocketId, false, 0 };
@@ -1313,14 +1428,12 @@ static InetTry TryRecvFrom(SceUID threadID, const u32 *args) {
 		return { -1, false, 0 };
 	}
 
-	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(args[4]);
-	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(args[5]);
+	// The game's address is written afterwards, as in TryAccept.
 	SockAddrIN4 saddr{};
-	if (srclen)
-		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
+	socklen_t hostLen = sizeof(saddr);
 	int flgs = args[3] & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointerOrException(args[1]), (int)args[2], flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
+	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointerOrException(args[1]), (int)args[2], flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, &hostLen);
 	if (retval < 0) {
 		const int hostErrno = socket_errno;
 		if (IsWouldBlock(hostErrno)) {
@@ -1330,10 +1443,9 @@ static InetTry TryRecvFrom(SceUID threadID, const u32 *args) {
 		return { retval, false, 0 };
 	}
 
-	if (src) {
-		src->sa_family = saddr.addr.sa_family;
-		memcpy(src->sa_data, saddr.addr.sa_data, sizeof(src->sa_data));
-		src->sa_len = srclen ? *srclen : 0;
+	if (args[4] && args[5]) {
+		// pspautotests net/inet/udp.
+		WriteSockaddrToPSP(saddr, args[4], args[5]);
 	}
 
 	std::string datahex;
