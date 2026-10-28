@@ -96,6 +96,36 @@ std::map<int, AdhocctlHandler> adhocctlHandlers;
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
 int adhocctlPollEvent = -1;
+// When the game made its last request to the Adhoc Server, in emulated time. Its event isn't delivered
+// earlier than on a PSP (see PspEventDelayUs).
+static u64 adhocctlRequestTimeUs = 0;
+// Whether the server has us in a group. The state the game sees only changes when the event is
+// delivered, so a Disconnect can come while a Create or Connect is still on its way.
+static bool adhocctlInServerGroup = false;
+
+// How long after the request a PSP delivers an event (pspautotests net/adhoc/timing and
+// net/adhoc/pair/timing). The state changes along with it. Over the internet the server's answer can
+// come later, and then the event waits for it.
+static int PspEventDelayUs(u32 flags) {
+	switch (flags) {
+	case ADHOCCTL_EVENT_CONNECT:
+		switch (adhocConnectionType) {
+		case ADHOC_CREATE: return 1110000;
+		case ADHOC_JOIN: return 530000;
+		// Connect looks for the group first: about 3.5 s to join one, 4 s to create it.
+		default: return getActivePeerCount() > 0 ? 3500000 : 4000000;
+		}
+	case ADHOCCTL_EVENT_SCAN: return 1015000;
+	case ADHOCCTL_EVENT_DISCONNECT: return 105000;
+	default: return 0;
+	}
+}
+
+static int RemainingEventDelayUs(u32 flags) {
+	s64 left = (s64)(adhocctlRequestTimeUs + PspEventDelayUs(flags)) - (s64)CoreTiming::GetGlobalTimeUs();
+	return left > 0 ? (int)left : 0;
+}
+
 int adhocSocketNotifyEvent = -1;
 std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
@@ -571,6 +601,9 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 			switch(req.opcode) {
 			case OPCODE_CONNECT:{
 				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
+				if (call_status == ADHOCCTL_CALL_SUCCESS) {
+					adhocctlInServerGroup = true;
+				}
 				break;
 			}
 			case OPCODE_SCAN:{
@@ -682,6 +715,7 @@ int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* re
 
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
 	adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+	adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
 	__KernelWaitCurThread(WAITTYPE_NET, uid, request.opcode, 0, false, reason);
@@ -1910,6 +1944,7 @@ static void StartFriendFinder() {
 static void StopFriendFinder() {
 	friendFinderRunning = false;
 	friendFinderStop();
+	adhocctlInServerGroup = false;
 
 	int32_t peercount = 0;
 	freeFriendsRecursive(friends, &peercount);
@@ -1920,7 +1955,7 @@ static void StopFriendFinder() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 11);
+	auto s = p.Section("sceNetAdhoc", 1, 12);
 	if (!s)
 		return;
 
@@ -2019,8 +2054,15 @@ void __NetAdhocDoState(PointerWrap &p) {
 		adhocctlPollEvent = -1;
 	}
 	CoreTiming::RestoreRegisterEvent(adhocctlPollEvent, "__AdhocctlPoll", __AdhocctlPoll);
+	if (s >= 12) {
+		Do(p, adhocctlRequestTimeUs);
+	} else {
+		adhocctlRequestTimeUs = 0;
+	}
 
 	if (p.mode == p.MODE_READ) {
+		// The login after a load starts outside any group.
+		adhocctlInServerGroup = false;
 		// Discard leftover events
 		{
 			std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
@@ -3762,15 +3804,15 @@ u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
-		// We might need to have at least 16ms (1 frame?) delay before the game calls the next Adhocctl syscall for Tekken 6 not to stuck when exiting Lobby
-		hleEatMicro(16667);
-
 		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
+		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing).
+		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 
 		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) {
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || adhocctlInServerGroup) {
+			adhocctlInServerGroup = false;
 			isAdhocctlBusy = true;
 
 			// Clear Network Name
@@ -3865,7 +3907,7 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 int NetAdhocctl_Term() {
 	if (netAdhocctlInited) {
-		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED) {
+		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || adhocctlInServerGroup) {
 			// Note: This might block current thread if the first attempt to send OPCODE_DISCONNECT to AdhocServer failed with EAGAIN error
 			if (netAdhocGameModeEntered)
 				NetAdhocctl_ExitGameMode();
@@ -3876,6 +3918,7 @@ int NetAdhocctl_Term() {
 		// Stop the adhocctl client
 		friendFinderRunning = false;
 		friendFinderStop();
+		adhocctlInServerGroup = false;
 
 		// TODO: May need to block current thread to make sure all Adhocctl callbacks have been fully executed before terminating Adhoc PSPThread (ie. threadAdhocID).
 
@@ -6304,18 +6347,15 @@ void __NetTriggerCallbacks()
 			switch (flags) {
 			case ADHOCCTL_EVENT_CONNECT:
 				newState = ADHOCCTL_STATE_CONNECTED;
-				if (adhocConnectionType == ADHOC_CREATE)
-					delayus = adhocEventDelay; // May affects Dissidia 012 and GTA VCS
-				else if (adhocConnectionType == ADHOC_CONNECT)
-					delayus = adhocEventDelay / 2;
+				delayus = RemainingEventDelayUs(flags);
 				break;
-			case ADHOCCTL_EVENT_SCAN: // notified only when scan completed?
+			case ADHOCCTL_EVENT_SCAN:
 				newState = ADHOCCTL_STATE_DISCONNECTED;
-				//delayus = adhocEventDelay / 2;
+				delayus = RemainingEventDelayUs(flags);
 				break;
 			case ADHOCCTL_EVENT_DISCONNECT:
 				newState = ADHOCCTL_STATE_DISCONNECTED;
-				delayus = adhocDefaultDelay; // Tekken 5 expects AdhocctlDisconnect to be done within ~17ms (a frame?)
+				delayus = RemainingEventDelayUs(flags);
 				break;
 			case ADHOCCTL_EVENT_GAME:
 			{
