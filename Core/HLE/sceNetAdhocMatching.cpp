@@ -1973,6 +1973,15 @@ static int sceNetAdhocMatchingStart2(MIPSState *mips, int matchingId, int evthPr
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
+	// A tiny stack size (where a partition was passed) gives STACKSIZE_TOO_SHORT, then a bad partition
+	// INVALID_ID (pspautotests net/adhoc/matching). How small a stack still works isn't known; 0x1000 does.
+	if (evthStack < 0x100 || inthStack < 0x100) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_STACKSIZE_TOO_SHORT, "stack size too short");
+	}
+	if (evthPartitionId < 1 || evthPartitionId > 6 || inthPartitionId < 1 || inthPartitionId > 6) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ID, "invalid partition");
+	}
+
 	int retval = NetAdhocMatching_Start(matchingId, evthPri, evthPartitionId, evthStack, inthPri, inthPartitionId, inthStack, optLen, optDataAddr);
 	// Give a little time to make sure matching Threads are ready before the game use the next sceNet functions, should've checked for status instead of guessing the time?
 	hleEatMicro(adhocMatchingEventDelay);
