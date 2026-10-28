@@ -697,6 +697,15 @@ void __NetShutdown() {
 	}
 }
 
+// How long each step of connecting to the access point takes. On a PSP that has connected before
+// (an open network, pspautotests net/inet/timing), Connect is in JOINING after 11 ms, GETTING_IP after
+// about 2.6 s and GOT_IP after about 3.6 s (6.6 s the first time, getting the address taking longer),
+// and Disconnect is back in DISCONNECTED after 1.1 s. Games wait for it anyway, so this is quicker.
+constexpr int APCTL_JOINING_DELAY_US = 10000;
+constexpr int APCTL_GETTING_IP_DELAY_US = 1250000;
+constexpr int APCTL_GOT_IP_DELAY_US = 500000;
+constexpr int APCTL_DISCONNECT_DELAY_US = 500000;
+
 static void __UpdateApctlHandlers(u32 oldState, u32 newState, u32 flag, u32 error) {
 	std::lock_guard<std::recursive_mutex> apctlGuard(apctlEvtMtx);
 	apctlEvents.push_back({ oldState, newState, flag, error });
@@ -823,10 +832,13 @@ void __NetApctlCallbacks()
 		apctlEvents.pop_front();
 
 		// Adjust delay according to current event.
-		if (event == PSP_NET_APCTL_EVENT_CONNECT_REQUEST || event == PSP_NET_APCTL_EVENT_GET_IP || event == PSP_NET_APCTL_EVENT_SCAN_REQUEST || event == PSP_NET_APCTL_EVENT_ESTABLISHED)
-			delayus = adhocEventDelay;
-		else
-			delayus = adhocEventPollDelay;
+		switch (event) {
+		case PSP_NET_APCTL_EVENT_CONNECT_REQUEST: delayus = APCTL_JOINING_DELAY_US; break;
+		case PSP_NET_APCTL_EVENT_ESTABLISHED: delayus = APCTL_GETTING_IP_DELAY_US; break;
+		case PSP_NET_APCTL_EVENT_GET_IP: delayus = APCTL_GOT_IP_DELAY_US; break;
+		case PSP_NET_APCTL_EVENT_SCAN_REQUEST: delayus = adhocEventDelay; break;
+		default: delayus = adhocEventPollDelay; break;
+		}
 
 		// Do we need to change the oldState? even if there was error?
 		if (error == 0)
@@ -838,22 +850,23 @@ void __NetApctlCallbacks()
 		// Need to make sure netApctlState is updated before calling the callback's mipscall so the game can GetState()/GetInfo() within their handler's subroutine and make use the new State/Info
 		// Should we update NewState & Error accordingly to Event before executing the mipscall ? sceNetApctl* functions might want to set the error value tho, so we probably should leave it untouched, right?
 		//error = 0;
+		// Each next event starts from the state this one ends in.
 		switch (event) {
 		case PSP_NET_APCTL_EVENT_CONNECT_REQUEST:
 			newState = PSP_NET_APCTL_STATE_JOINING; // Should we set the State to PSP_NET_APCTL_STATE_DISCONNECTED if there was error?
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 }); // Should we use PSP_NET_APCTL_EVENT_EAP_AUTH if securityType is not NONE?
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 }); // Should we use PSP_NET_APCTL_EVENT_EAP_AUTH if securityType is not NONE?
 			break;
 
 		case PSP_NET_APCTL_EVENT_ESTABLISHED:
 			newState = PSP_NET_APCTL_STATE_GETTING_IP;
 			// FIXME: Official prx seems to return ERROR 0x80410280 on the next event when using invalid connection profile to Connect?
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_GET_IP, 0 });
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_GET_IP, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_GET_IP:
@@ -863,21 +876,21 @@ void __NetApctlCallbacks()
 
 		case PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST:
 			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
-			delayus = adhocDefaultDelay / 2; // FIXME: Similar to Adhocctl Disconnect, we probably need to change the state within a frame-time (or less to be safer)
+			delayus = APCTL_DISCONNECT_DELAY_US;
 			break;
 
 		case PSP_NET_APCTL_EVENT_SCAN_REQUEST:
 			newState = PSP_NET_APCTL_STATE_SCANNING;
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_SCAN_COMPLETE, 0 });
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_SCAN_COMPLETE, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_SCAN_COMPLETE:
 			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
 			if (error == 0)
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_SCAN_STOP, 0 });
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_SCAN_STOP, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_SCAN_STOP:
@@ -887,25 +900,25 @@ void __NetApctlCallbacks()
 		case PSP_NET_APCTL_EVENT_EAP_AUTH: // Is this suppose to happen between JOINING and ESTABLISHED ?
 			newState = PSP_NET_APCTL_STATE_EAP_AUTH;
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_KEY_EXCHANGE, 0 }); // not sure if KEY_EXCHANGE is the next step after AUTH or not tho
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_KEY_EXCHANGE, 0 }); // not sure if KEY_EXCHANGE is the next step after AUTH or not tho
 			break;
 
 		case PSP_NET_APCTL_EVENT_KEY_EXCHANGE: // Is this suppose to happen between JOINING and ESTABLISHED ?
 			newState = PSP_NET_APCTL_STATE_KEY_EXCHANGE;
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 });
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_ESTABLISHED, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_RECONNECT:
 			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
 			if (error != 0)
-				apctlEvents.push_front({ oldState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
+				apctlEvents.push_front({ newState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_ERROR, error });
 			else
-				apctlEvents.push_front({ oldState, newState, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0 });
+				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_CONNECT_REQUEST, 0 });
 			break;
 
 		case PSP_NET_APCTL_EVENT_ERROR:
@@ -1575,8 +1588,8 @@ int sceNetApctlDisconnect() {
 
 	// Discards any pending events so we can disconnect immediately
 	apctlEvents.clear();
-	__UpdateApctlHandlers(netApctlState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
-	// TODO: Blocks current thread and wait for a state change, but the state should probably need to be changed within 1 frame-time (~16ms) 
+	// The state stays as it is until the event, APCTL_DISCONNECT_DELAY_US later, sets it to DISCONNECTED.
+	__UpdateApctlHandlers(netApctlState, netApctlState, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
 	return hleLogInfo(Log::sceNet, 0);
 }
 
