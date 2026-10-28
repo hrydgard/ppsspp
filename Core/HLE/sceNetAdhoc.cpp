@@ -840,6 +840,29 @@ static int pdp_peek_next_size_postoffice(int idx) {
 	return peek_status;
 }
 
+// Out of any group (from the moment Disconnect is called): a PSP's radio then reaches nobody, and nobody
+// reaches it.
+static bool offAdhocNetwork() {
+	return !adhocctlInServerGroup;
+}
+
+static bool isLocalMac(const SceNetEtherAddr *mac) {
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	return isMacMatch(&localMac, mac);
+}
+
+// A PTP connection to a peer that has left the group fails once the retransmissions would have run out:
+// rexmt_int * rexmt_cnt after it left (pspautotests net/adhoc/pair/vanish).
+static bool ptpPeerGone(const AdhocSocket *sock) {
+	u64 leftAt = peerLeftAt(&sock->data.ptp.paddr);
+	if (leftAt == 0) {
+		return false;
+	}
+	u64 giveUpUs = (u64)std::max(0, sock->retry_interval) * (u64)std::max(1, sock->retry_count);
+	return CoreTiming::GetGlobalTimeUsScaled() - leftAt >= giveUpUs;
+}
+
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
@@ -859,6 +882,10 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 		return SOCKET_ERROR;
 	}
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
+		return SOCKET_ERROR;
+	}
+	// Out of the group, nothing from anyone else reaches us (pspautotests net/adhoc/pair/vanish).
+	if (offAdhocNetwork() && !isLocalMac(&saddr_copy)) {
 		return SOCKET_ERROR;
 	}
 
@@ -1030,6 +1057,11 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 		return SOCKET_ERROR;
 	}
 
+	// Out of the group, it goes into the air and reaches nobody (pspautotests net/adhoc/pair/vanish).
+	if (offAdhocNetwork() && !isLocalMac(daddr)) {
+		return 0;
+	}
+
 	SceNetEtherAddr fixed_daddr = *daddr;
 	fixGameMac(&fixed_daddr);
 
@@ -1124,6 +1156,14 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	if (internal->postofficeHandle == NULL) {
 		// this should only happen on ptp_open sockets, where ptp_connect is still in progress on another thread
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+
+	// Out of the group, the send succeeds and the data goes nowhere (pspautotests net/adhoc/pair/vanish).
+	if (offAdhocNetwork()) {
+		return 0;
+	}
+	if (ptpPeerGone(internal)) {
+		return SOCKET_ERROR;
 	}
 
 	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX) {
@@ -1240,6 +1280,15 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	if (internal->postofficeHandle == NULL) {
 		// this should only happen on ptp_open sockets, where ptp_connect is still in progress on another thread
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+
+	// Out of the group, nothing arrives, and the connection doesn't fail either (pspautotests
+	// net/adhoc/pair/vanish).
+	if (offAdhocNetwork()) {
+		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+	if (ptpPeerGone(internal)) {
+		return SOCKET_ERROR;
 	}
 
 	int len_copy = *len;
@@ -1403,6 +1452,10 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		ptp_close(new_ptp_socket);
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
+	memset(internal, 0, sizeof(AdhocSocket));
+	internal->retry_interval = adhocSockets[idx]->retry_interval;
+	internal->retry_count = adhocSockets[idx]->retry_count;
+	internal->attemptCount = 1; // Connected, so a closed socket reports DISCONNECTED (as the native accept does)
 
 	internal->type = SOCK_PTP;
 	internal->postofficeHandle = new_ptp_socket;
@@ -2346,6 +2399,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	if (internal == NULL) {
 		return hleLogDebug(Log::sceNet, ERROR_NET_NO_SPACE, "net no space");
 	}
+	memset(internal, 0, sizeof(AdhocSocket));
 
 	internal->type = SOCK_PDP;
 	internal->postofficeHandle = NULL;
@@ -4764,12 +4818,15 @@ static uint16_t get_random_unused_ptp_port() {
 	return test_port;
 }
 
-static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize) {
+static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize, uint32_t rexmt_int, int rexmt_cnt) {
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: ran out of heap memory trying to open ptp socket", __func__);
 		return ERROR_NET_NO_SPACE;
 	}
+	memset(internal, 0, sizeof(AdhocSocket));
+	internal->retry_interval = rexmt_int;
+	internal->retry_count = rexmt_cnt;
 
 	internal->type = SOCK_PTP;
 	internal->postofficeHandle = NULL;
@@ -4877,7 +4934,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int >= 0 && rexmt_cnt >= 0) {
 				if (serverHasRelay)
-					return ptp_open_postoffice(saddr, sport, daddr, dport, bufsize);
+					return ptp_open_postoffice(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt);
 
 				// Create Infrastructure Socket (?)
 				// Socket is remapped through adhocSockets
@@ -5492,7 +5549,7 @@ static int sceNetAdhocPtpClose(MIPSState *mips, int id, int unknown) {
 	return NetAdhocPtp_Close(id, unknown);
 }
 
-static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize) {
+static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize, uint32_t rexmt_int, int rexmt_cnt) {
 	if (relayDisabled) {
 		return ERROR_NET_NO_SPACE;
 	}
@@ -5503,6 +5560,9 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 		ERROR_LOG(Log::sceNet, "%s: out of heap memory when creating ptp listen socket", __func__);
 		return ERROR_NET_NO_SPACE;
 	}
+	memset(internal, 0, sizeof(AdhocSocket));
+	internal->retry_interval = rexmt_int;
+	internal->retry_count = rexmt_cnt;
 
 	internal->postofficeHandle = NULL;
 	internal->type = SOCK_PTP;
@@ -5596,7 +5656,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 			if (bufsize > 0 && rexmt_int >= 0 && rexmt_cnt >= 0 && backlog >= 0)
 			{
 				if (serverHasRelay)
-					return ptp_listen_postoffice(saddr, sport, bufsize);
+					return ptp_listen_postoffice(saddr, sport, bufsize, rexmt_int, rexmt_cnt);
 
 				// Create Infrastructure Socket (?)
 				// Socket is remapped through adhocSockets

@@ -228,6 +228,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   
   u32_le ip_addr; // internal use only
   u16_le port_offset; // IP-specific port offset (internal use only)
+  u64_le left_at; // When the server said it left the group, or 0 (internal use only)
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -387,6 +388,9 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 
   // The send was aborted with AbortSendData, so its DATA_ACK is discarded.
   s32_le ackAborted;
+
+  // Data was sent to a peer that has left the group: DATA_TIMEOUT at this time instead of DATA_ACK.
+  u64_le dataTimeoutAt;
 } SceNetAdhocMatchingMemberInternal;
 
 
@@ -1332,6 +1336,9 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * @return true on success
  */
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
+
+// When the server said this peer left the group, or 0 if it's there (or unknown).
+u64 peerLeftAt(const SceNetEtherAddr *mac);
 
 /**
  * Fix mac address if the game messed with the first byte

@@ -63,6 +63,10 @@ void ZeroNetAdhocMatchingThreads() {
 
 int netAdhocMatchingStarted = 0;
 
+// Added to the PSP's timeout for a silent peer, for latency over the internet. 0 keeps the hardware's
+// timeout: it already allows keepalive_int * init_count of silence.
+static constexpr u64 MATCHING_TIMEOUT_EXTRA_US = 0;
+
 
 void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
@@ -439,7 +443,23 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 	// The aemu protocol has no acknowledgement, so DATA_ACK is made here. The peer stays busy until
 	// it's delivered: a SendData before that gets DATA_BUSY, as on a PSP (pspautotests
 	// net/adhoc/pair/matching).
+	// A peer that has left the group can't acknowledge, so DATA_TIMEOUT comes once the retransmissions
+	// have run out (pspautotests net/adhoc/pair/vanish).
+	if (peerLeftAt(mac) != 0) {
+		peer->dataTimeoutAt = CoreTiming::GetGlobalTimeUsScaled() + (u64)context->resend_int * (u64)std::max(1, context->resendcounter);
+		return;
+	}
 	spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DATA_ACK, mac, 0, NULL);
+}
+
+static void handleDataTimeouts(SceNetAdhocMatchingContext *context, u64 now) {
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+	for (SceNetAdhocMatchingMemberInternal *peer = context->peerlist; peer != NULL; peer = peer->next) {
+		if (peer->dataTimeoutAt != 0 && now >= peer->dataTimeoutAt) {
+			peer->dataTimeoutAt = 0;
+			spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT, &peer->mac, 0, NULL);
+		}
+	}
 }
 
 /**
@@ -1328,6 +1348,8 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 						}
 				}
 
+				handleDataTimeouts(context, now);
+
 				// Ping Required
 				if (context->keepalive_int > 0) {
 					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int)) {
@@ -1838,8 +1860,9 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 			context->hello_int = hello_int; // client might set this to 0
 			if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 			context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
-			context->timeout = (((u64)(keepalive_int)+(u64)rexmt_int) * (u64)init_count);
-			context->timeout += 500000; // For internet play we need higher timeout than what the game wanted
+			// With keepalive 500ms and 5 tries, a PSP times out a silent peer within 3 seconds
+			// (pspautotests net/adhoc/pair/vanish).
+			context->timeout = (u64)context->keepalive_int * (u64)std::max(1, init_count) + MATCHING_TIMEOUT_EXTRA_US;
 			context->handler = handler;
 			context->peerPort = new std::map<SceNetEtherAddr, u16_le>();
 
@@ -2697,7 +2720,7 @@ void __NetMatchingCallbacks() { //(int matchingId)
 		} else if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
 			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointerOrException(args[2])).c_str());
 
-			if (args[1] == PSP_ADHOC_MATCHING_EVENT_DATA_ACK && peer != NULL) {
+			if ((args[1] == PSP_ADHOC_MATCHING_EVENT_DATA_ACK || args[1] == PSP_ADHOC_MATCHING_EVENT_DATA_TIMEOUT) && peer != NULL) {
 				peer->sending = 0;
 			}
 			if (args[1] == PSP_ADHOC_MATCHING_EVENT_ESTABLISHED && peer != NULL) {
