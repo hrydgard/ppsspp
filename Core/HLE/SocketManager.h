@@ -31,10 +31,19 @@ struct InetSocket {
 	int rcvBuf;
 	int sndLowat;
 	int rcvLowat;
-	// IP_TTL, kept here since the host's default differs (Windows' is 128, the PSP's 64).
-	int ipTtl;
 	// The port bind() asked UPnP to forward, removed on close. 0 if none.
 	u16 upnpPort;
+	// What the game bound the socket to, for telling when a port is in use. boundPort is 0 if it hasn't
+	// bound one itself. boundAddr is in network byte order.
+	u32 boundAddr;
+	u16 boundPort;
+	// A TCP socket whose protocol control block 4.4BSD has thrown away: after shutting down the sending
+	// side while not connected, or a failed connect. Most calls on it then fail with EINVAL.
+	bool tcpClosed;
+	// Whether a listen() on it succeeded.
+	bool listening;
+	// IP_TTL, kept here since the host's default differs (Windows' is 128, the PSP's 64).
+	int ipTtl;
 	// Metadata for debug use only.
 	std::string addr;
 	int port;

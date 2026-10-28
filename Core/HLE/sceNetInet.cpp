@@ -495,6 +495,54 @@ static bool GetHostSocket(int socket, SOCKET *hostSocket) {
 	return true;
 }
 
+static bool IsTcpSocket(const InetSocket *inetSock) {
+	return inetSock->type == PSP_NET_INET_SOCK_STREAM;
+}
+
+static bool IsHostSocketConnected(const InetSocket *inetSock) {
+	SockAddrIN4 peer{};
+	socklen_t len = sizeof(peer);
+	return getpeername(inetSock->sock, &peer.addr, &len) == 0;
+}
+
+// The host's port, 0 if it hasn't bound one, by itself or on request.
+static u16 HostSocketPort(const InetSocket *inetSock) {
+	SockAddrIN4 local{};
+	socklen_t len = sizeof(local);
+	if (getsockname(inetSock->sock, &local.addr, &len) < 0) {
+		return 0;
+	}
+	return ntohs(local.in.sin_port);
+}
+
+// A call on a TCP socket whose control block is gone (see InetSocket::tcpClosed).
+static int InetTcpClosed(int socket, const char *func) {
+	SetInetErrno(ERROR_INET_EINVAL, func);
+	return hleLogError(Log::sceNet, -1, "socket #%d has no TCP state left", socket);
+}
+
+// Whether another socket has the port, as 4.4BSD's in_pcbbind() decides (pspautotests net/inet/reuse):
+// without SO_REUSEADDR or SO_REUSEPORT, a socket on that port whose address is the same or either
+// is INADDR_ANY; with one, only the same address. Then SO_REUSEPORT on both lets them share. The host
+// sockets all have both options, for running several instances, so the host can't tell.
+static bool IsInetPortInUse(const InetSocket *inetSock, u32 addr, u16 port) {
+	const bool wildcard = (inetSock->soOptions & (PSP_NET_INET_SO_REUSEADDR | PSP_NET_INET_SO_REUSEPORT)) == 0;
+	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < SocketManager::VALID_INET_SOCKET_COUNT; i++) {
+		const InetSocket &other = g_socketManager.Sockets()[i];
+		// A socket without TCP state has given its port up, as 4.4BSD's in_pcbdetach() does.
+		if (&other == inetSock || other.state != SocketState::UsedNetInet || other.boundPort != port || IsTcpSocket(&other) != IsTcpSocket(inetSock) || other.tcpClosed) {
+			continue;
+		}
+		if (other.boundAddr != addr && (!wildcard || (other.boundAddr != INADDR_ANY && addr != INADDR_ANY))) {
+			continue;
+		}
+		if ((inetSock->soOptions & other.soOptions & PSP_NET_INET_SO_REUSEPORT) == 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
 // Sets errno for a failed send. An unconnected UDP socket sending without an address is EDESTADDRREQ,
 // which Winsock calls ENOTCONN (pspautotests net/inet/errors and msg).
 static void SetSendErrno(SceUID threadID, const InetSocket *inetSock, int hostErrno, const char *func) {
@@ -1261,15 +1309,25 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 		return hleLogError(Log::sceNet, -1, "bad address %08x", namePtr);
 	}
 	SceNetInetSockaddr* name = (SceNetInetSockaddr*)Memory::GetPointerOrException(namePtr);
-	// (Only lengths under 16 have been seen to fail. 4.4BSD fails any but 16.)
-	if (namelen < (int)sizeof(SceNetInetSockaddr)) {
-		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
-		return hleLogError(Log::sceNet, -1, "namelen %d", namelen);
+	// In 4.4BSD's in_pcbbind() order (pspautotests net/inet/errors and reuse).
+	if (IsTcpSocket(inetSock) && inetSock->tcpClosed) {
+		return InetTcpClosed(socket, __FUNCTION__);
 	}
-	if (name->sa_family != PSP_NET_INET_AF_INET && ((const SceNetInetSockaddrIn *)name)->sin_addr != INADDR_ANY) {
-		// Not found among the local addresses, whose family is compared too (pspautotests net/inet/errors).
+	// (Only lengths under 16 have been seen to fail. 4.4BSD fails any but 16.)
+	if (inetSock->boundPort != 0 || HostSocketPort(inetSock) != 0 || namelen < (int)sizeof(SceNetInetSockaddr)) {
+		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "already bound, or namelen %d", namelen);
+	}
+	const u32 requestedAddr = ((const SceNetInetSockaddrIn *)name)->sin_addr;
+	const u16 requestedPort = ntohs(((const SceNetInetSockaddrIn *)name)->sin_port);
+	if (name->sa_family != PSP_NET_INET_AF_INET && requestedAddr != INADDR_ANY) {
+		// Not found among the local addresses, whose family is compared too.
 		SetInetErrno(ERROR_INET_EADDRNOTAVAIL, __FUNCTION__);
 		return hleLogError(Log::sceNet, -1, "family %d", name->sa_family);
+	}
+	if (requestedPort != 0 && IsInetPortInUse(inetSock, requestedAddr, requestedPort)) {
+		SetInetErrno(ERROR_INET_EADDRINUSE, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "port %d in use", requestedPort);
 	}
 	SockAddrIN4 saddr{};
 	// TODO: Should've created convertSockaddrPSP2Host (and Host2PSP too) function as it's being used pretty often, thus fixing a bug on it will be tedious when scattered all over the places
@@ -1310,6 +1368,8 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 		return hleLogError(Log::sceNet, retval);
 	}
 	changeBlockingMode(inetSock->sock, 1);
+	inetSock->boundAddr = requestedAddr;
+	inetSock->boundPort = requestedPort;
 	// Update binded port number if it was 0 (any port)
 	memcpy(name->sa_data, saddr.addr.sa_data, sizeof(name->sa_data));
 	// Enable Port-forwarding
@@ -1354,6 +1414,7 @@ static InetTry TryConnectDone(SceUID threadID, const u32 *args) {
 	}
 	if (sockError != 0) {
 		UpdateErrnoFromHost(threadID, sockError, "sceNetInetConnect");
+		inetSock->tcpClosed = IsTcpSocket(inetSock);
 		return { -1, false, 0 };
 	}
 	return { 0, false, 0 };
@@ -1370,6 +1431,15 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	if (!InetValidRange(sockAddrPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) {
 		return hleLogError(Log::sceNet, -1, "bad address %08x", sockAddrPtr);
 	}
+	if (IsTcpSocket(inetSock) && inetSock->tcpClosed) {
+		return InetTcpClosed(socket, __FUNCTION__);
+	}
+	if (inetSock->listening) {
+		// Decided here, since Winsock fails it with WSAEINVAL, which looks like "in progress", and Linux
+		// with EISCONN (pspautotests net/inet/states).
+		SetInetErrno(ERROR_INET_EOPNOTSUPP, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "listening");
+	}
 	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetPointerOrException(sockAddrPtr);
 	SockAddrIN4 saddr{};
 	int dstlen = std::min(sockAddrLen > 0 ? sockAddrLen : 0, static_cast<int>(sizeof(saddr)));
@@ -1378,7 +1448,12 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 
 	int retval = connect(inetSock->sock, (struct sockaddr*)&saddr.addr, dstlen);
 	int hostErrno = socket_errno;
-	if (retval < 0 && connectInProgress(hostErrno)) {
+	if (retval < 0 && hostErrno == EALREADY && IsHostSocketConnected(inetSock)) {
+		// Done by now, though the host hasn't noticed. The PSP's loopback connects at once, so a second
+		// connect is EISCONN there (pspautotests net/inet/states).
+		hostErrno = EISCONN;
+	}
+	if (retval < 0 && connectInProgress(hostErrno) && hostErrno != EALREADY) {
 		// A blocking socket waits for the connection to be made, or to fail.
 		const u32 args[] = { (u32)socket };
 		if (StartInetWait(InetWaitOp::Connect, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, 0, true))) {
@@ -1386,6 +1461,10 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 		}
 	}
 	if (retval < 0) {
+		if (IsTcpSocket(inetSock) && !connectInProgress(hostErrno) && hostErrno != EISCONN) {
+			// A failed connect throws away the TCP state (pspautotests net/inet/errors).
+			inetSock->tcpClosed = true;
+		}
 		int pspErrno = UpdateErrnoFromHost(__KernelGetCurThread(), hostErrno, __FUNCTION__);
 		if (connectInProgress(hostErrno))
 			retval = hleLogDebug(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
@@ -1409,11 +1488,27 @@ static int sceNetInetListen(int socket, int backlog) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
+	if (IsTcpSocket(inetSock)) {
+		if (inetSock->tcpClosed) {
+			return InetTcpClosed(socket, __FUNCTION__);
+		}
+		if (IsHostSocketConnected(inetSock)) {
+			// 4.4BSD makes a listener of it, which the host won't (pspautotests net/inet/states).
+			return hleLogWarning(Log::sceNet, 0, "listen on a connected socket, ignored");
+		}
+		if (HostSocketPort(inetSock) == 0) {
+			// The PSP binds one itself, as macOS and Linux do. Winsock fails instead.
+			SockAddrIN4 any{};
+			any.in.sin_family = AF_INET;
+			bind(inetSock->sock, &any.addr, sizeof(any.in));
+		}
+	}
 	int retval = listen(inetSock->sock, (backlog == PSP_NET_INET_SOMAXCONN ? SOMAXCONN : backlog));
 	if (retval < 0) {
 		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
 		return hleLogError(Log::sceNet, retval);
 	}
+	inetSock->listening = true;
 
 	return hleLogInfo(Log::sceNet, retval);
 }
@@ -1423,6 +1518,10 @@ static InetTry TryAccept(SceUID threadID, const u32 *args) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
 		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetAccept");
+		return { -1, false, 0 };
+	}
+	if (IsTcpSocket(inetSock) && inetSock->tcpClosed) {
+		SetInetErrno(ERROR_INET_EINVAL, "sceNetInetAccept", threadID);
 		return { -1, false, 0 };
 	}
 
@@ -1488,20 +1587,32 @@ static int sceNetInetShutdown(int socket, int how) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
 
-	// Convert HOW from PSP to Host
+	// As in 4.4BSD's soshutdown(), it can only fail on a bad how or a TCP socket with no state left
+	// (pspautotests net/inet/errors and states).
 	int hostHow;
 	switch (how) {
 	case PSP_NET_INET_SHUT_RD: hostHow = SHUT_RD; break;
 	case PSP_NET_INET_SHUT_WR: hostHow = SHUT_WR; break;
 	case PSP_NET_INET_SHUT_RDWR: hostHow = SHUT_RDWR; break;
 	default:
-		// pspautotests net/inet/errors and states.
 		SetInetErrno(ERROR_INET_EINVAL, __FUNCTION__);
 		return hleLogError(Log::sceNet, -1, "bad how %d", how);
 	}
+	if (IsTcpSocket(inetSock)) {
+		if (inetSock->tcpClosed) {
+			return InetTcpClosed(socket, __FUNCTION__);
+		}
+		if (how != PSP_NET_INET_SHUT_RD && !IsHostSocketConnected(inetSock)) {
+			// Shutting down the sending side of an unconnected socket closes it. The host's shutdown
+			// still runs, to wake a thread waiting in accept() or connect().
+			inetSock->tcpClosed = true;
+		}
+	}
 
-	int retVal = shutdown(inetSock->sock, hostHow);  // no translation
-	return hleLogInfo(Log::sceNet, retVal);
+	if (shutdown(inetSock->sock, hostHow) < 0) {
+		DEBUG_LOG(Log::sceNet, "Host shutdown failed: %d", socket_errno);
+	}
+	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetInetSocketAbort(int socket) {
