@@ -95,6 +95,7 @@ std::deque<std::pair<u32, u32>> adhocctlEvents;
 std::map<int, AdhocctlHandler> adhocctlHandlers;
 int adhocctlNotifyEvent = -1;
 int adhocctlStateEvent = -1;
+int adhocctlPollEvent = -1;
 int adhocSocketNotifyEvent = -1;
 std::map<int, AdhocctlRequest> adhocctlRequests;
 std::map<u64, AdhocSocketRequest> adhocSocketRequests;
@@ -528,6 +529,16 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	if (error == 0) {
 		DEBUG_LOG(Log::sceNet, "GameMode: Resuming Thread %d after Master Deleted (Result = %08x)", threadID, waitVal);
 		__KernelResumeThreadFromWait(threadID, waitVal);
+	}
+}
+
+// How often the adhocctl client looks at what the Adhoc Server sent, in emulated time.
+static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
+
+static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
+	friendFinderPoll();
+	if (friendFinderRunning) {
+		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
 	}
 }
 
@@ -1885,25 +1896,20 @@ static void SetupAdhocRelayMode() {
 }
 
 static void StartFriendFinder() {
-	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 	if (!friendFinderRunning) {
-		// Set before the thread starts, not by it: shutting down before it got going used to clear
-		// the flag first, and then the thread set it again and never stopped, hanging the join.
-		if (friendFinderThread.joinable()) {
-			friendFinderThread.join();
-		}
+		friendFinderStart();
 		friendFinderRunning = true;
-		friendFinderThread = std::thread(friendFinder);
+	}
+	if (!CoreTiming::IsScheduled(adhocctlPollEvent)) {
+		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US), adhocctlPollEvent, 0);
 	}
 }
 
-// Stops the friendFinder thread and drops the connection to the Adhoc Server, leaving the PSP side
+// Stops the adhocctl client and drops the connection to the Adhoc Server, leaving the PSP side
 // (handlers, AdhocThread) alone.
 static void StopFriendFinder() {
 	friendFinderRunning = false;
-	if (friendFinderThread.joinable()) {
-		friendFinderThread.join();
-	}
+	friendFinderStop();
 
 	int32_t peercount = 0;
 	freeFriendsRecursive(friends, &peercount);
@@ -1914,7 +1920,7 @@ static void StopFriendFinder() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 10);
+	auto s = p.Section("sceNetAdhoc", 1, 11);
 	if (!s)
 		return;
 
@@ -2007,6 +2013,12 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// The login after a load sends it, so a state loaded into a fresh boot needs it.
 		p.DoVoid(&product_code, (int)sizeof(product_code));
 	}
+	if (s >= 11) {
+		Do(p, adhocctlPollEvent);
+	} else {
+		adhocctlPollEvent = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(adhocctlPollEvent, "__AdhocctlPoll", __AdhocctlPoll);
 
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -2040,6 +2052,10 @@ void __NetAdhocDoState(PointerWrap &p) {
 			}
 			isAdhocctlNeedLogin = false;
 		}
+		// A state from before the poll event, or one saved with the client stopped, has none queued.
+		if (netAdhocctlInited) {
+			StartFriendFinder();
+		}
 		if (!netAdhocInited && cur_netAdhocInited) {
 			// cleanup adhoc
 			if (aemuPostofficeEnetThread.joinable()) {
@@ -2063,6 +2079,7 @@ void __AdhocNotifInit() {
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
 	gameModeNotifyEvent = CoreTiming::RegisterEvent("__GameModeNotify", __GameModeNotify);
 	adhocctlStateEvent = CoreTiming::RegisterEvent("__AdhocctlState", __AdhocctlState);
+	adhocctlPollEvent = CoreTiming::RegisterEvent("__AdhocctlPoll", __AdhocctlPoll);
 
 	adhocctlRequests.clear();
 	adhocSocketRequests.clear();
@@ -2090,7 +2107,7 @@ void __NetAdhocInit() {
 	__AdhocServerInit();
 
 	// Create built-in AdhocServer Thread. The flag is set here rather than by the thread, so that a
-	// shutdown that clears it before the thread gets going can't be undone (see friendFinder).
+	// shutdown that clears it before the thread gets going can't be undone.
 	adhocServerRunning = false;
 	if (adhocServerThread.joinable()) {
 		adhocServerThread.join();
@@ -3861,11 +3878,9 @@ int NetAdhocctl_Term() {
 				NetAdhocctl_Disconnect();
 		}
 
-		// Terminate Adhoc Threads
+		// Stop the adhocctl client
 		friendFinderRunning = false;
-		if (friendFinderThread.joinable()) {
-			friendFinderThread.join();
-		}
+		friendFinderStop();
 
 		// TODO: May need to block current thread to make sure all Adhocctl callbacks have been fully executed before terminating Adhoc PSPThread (ie. threadAdhocID).
 

@@ -780,7 +780,6 @@ extern int adhocctlId; // for tracking whether there was an instance swap
 extern std::mutex adhocctlMutex;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
-extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
 extern AdhocSocket* adhocSockets[MAX_SOCKET];
 
@@ -968,13 +967,13 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullpt
 
 void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
-/**
- * Friend Finder Thread (Receives Peer Information)
- * @param args Length of argp in Bytes (Unused)
- * @param argp Argument (Unused)
- * @return Unused Value - Return 0
- */
-int friendFinder();
+// The adhocctl client: logs in to the Adhoc Server (on a thread of its own) and handles what the
+// server sends. friendFinderPoll() runs on the CPU thread, from a CoreTiming event, while
+// friendFinderRunning is set.
+void friendFinderStart();
+void friendFinderPoll();
+// Call after clearing friendFinderRunning.
+void friendFinderStop();
 
 /**
 * Find Free Matching ID
