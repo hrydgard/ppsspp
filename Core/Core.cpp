@@ -254,10 +254,11 @@ void Core_RegisterDebugOutputListeners(std::function<void(DebugOutputChannel, st
 }
 
 void Core_SendDebugOutput(LogLevel level, std::string_view string) {
+	// Logged even with a listener: headless only passes the listener's output on when it collects a
+	// test's output, and these are crash reports.
+	GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	if (g_debugOutputListener) {
 		g_debugOutputListener(DebugOutputChannel::Debug, string);
-	} else {
-		GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	}
 }
 
