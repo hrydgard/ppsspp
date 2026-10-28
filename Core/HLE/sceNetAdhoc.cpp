@@ -330,6 +330,7 @@ static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
+static int FindFreeAdhocSocketSlot();
 int FlushPtpSocket(int socketId);
 int RecreatePtpSocket(int ptpId);
 int NetAdhocGameMode_DeleteMaster();
@@ -1367,11 +1368,9 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -2281,11 +2280,9 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 
 	AdhocSocket **free_slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			free_slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		free_slot = &adhocSockets[i];
 	}
 	if (free_slot == NULL) {
 		free(internal);
@@ -2301,6 +2298,26 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 }
 
 // Out of socket IDs is its own error (pspautotests net/adhoc/limits).
+// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), so the search for a free
+// slot starts after the last one handed out, and wraps around. Returns MAX_SOCKET when all are taken.
+static int nextAdhocSocketSlot = 0;
+
+static int FindFreeAdhocSocketSlot() {
+	for (int n = 0; n < MAX_SOCKET; n++) {
+		int i = (nextAdhocSocketSlot + n) % MAX_SOCKET;
+		if (adhocSockets[i] == NULL) {
+			nextAdhocSocketSlot = (i + 1) % MAX_SOCKET;
+			return i;
+		}
+	}
+	return MAX_SOCKET;
+}
+
+// A PSP uses up an ID on a create that fails its address or port check.
+static void SkipAdhocSocketId() {
+	nextAdhocSocketSlot = (nextAdhocSocketSlot + 1) % MAX_SOCKET;
+}
+
 static bool HasFreeAdhocSocketSlot() {
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		if (adhocSockets[i] == NULL) {
@@ -2348,12 +2365,15 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	const SceNetEtherAddr *requestedMac = (const SceNetEtherAddr *)mac;
+	// These three failures use up a socket ID on a PSP (pspautotests net/adhoc/pdp).
 	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE || isZeroMAC(requestedMac) || (requestedMac->data[0] & 1) != 0) {
 		DEBUG_LOG(Log::sceNet, "%s: invalid mac address supplied", __func__);
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_INVALID_ADDR;
 	}
 
 	if (port == 0xFFFF) {
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_INVALID_PORT;
 	}
 
@@ -2367,8 +2387,8 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	if (isPDPPortInUse(port)) {
-		// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 		DEBUG_LOG(Log::sceNet, "%s: port in-use", __func__);
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_PORT_IN_USE;
 	}
 
@@ -2486,7 +2506,7 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	// Find Free Translator Index
 	// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 	int i = 0;
-	for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+	i = FindFreeAdhocSocketSlot();
 
 	if (i >= MAX_SOCKET) {
 		DEBUG_LOG(Log::sceNet, "%s: out of slot when allocating internal socket tracking", __func__);
@@ -4690,11 +4710,9 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -4741,9 +4759,11 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
 	}
 	if (netAdhocInited && (isZeroMAC(saddr) || (saddr->data[0] & 1) != 0 || isZeroMAC(daddr))) {
+		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address");
 	}
 	if (netAdhocInited && (dport == 0 || dport == 0xFFFF)) {
+		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_PORT, "invalid port");
 	}
 	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
@@ -4845,7 +4865,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 							// Find Free Translator ID
 							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 							int i = 0;
-							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+							i = FindFreeAdhocSocketSlot();
 
 							// Found Free Translator ID
 							if (i < MAX_SOCKET) {
@@ -4961,7 +4981,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 				// Find Free Translator ID
 				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 				int i = 0;
-				for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+				i = FindFreeAdhocSocketSlot();
 
 				// Found Free Translator ID
 				if (i < MAX_SOCKET) {
@@ -5419,11 +5439,9 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -5567,7 +5585,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 								// Find Free Translator ID
 								// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 								int i = 0;
-								for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+								i = FindFreeAdhocSocketSlot();
 
 								// Found Free Translator ID
 								if (i < MAX_SOCKET) {
