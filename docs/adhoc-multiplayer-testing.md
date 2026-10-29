@@ -44,9 +44,28 @@ stops sending for a few seconds drops it, as it would drop a paused PSP.
 
 Find the way by hand first: `start`, then `press` and `shot` one step at a time, and look at each
 screenshot. Then write the steps down in a file, `<game>_<stage>.txt`, with a comment saying where it
-starts and ends. The scripts for particular games aren't kept in this repo. Waits are wall-clock seconds, which with lag sync are emulated seconds
-too. Leave generous waits: a title screen that's left too long may start an attract demo, but a press
-that comes before a menu is ready just gets lost.
+starts and ends. The scripts for particular games aren't kept in this repo.
+
+Fixed `wait`s (wall-clock seconds, which with lag sync are emulated seconds too) are fine for menus
+that react at once. Loading screens and intro movies take a different time on every run, though, and a
+press that comes before a menu is ready is simply lost, so wait for the screen instead:
+
+```
+until title.png --box 130,170 --press start --every 3   # press START every 3 s until the region matches
+until --pixel 20,30 --color ff0000 -i 2                  # or until one pixel has that color
+```
+
+`until` takes screenshots until each selected instance shows the reference image at `--box` (a mean
+difference of up to `--tolerance` per channel, 12 by default, so moving backgrounds still match). When
+it gives up (`--timeout`, 60 s), it saves the screens it saw as `until_failed_N.png`. Make references
+with `crop SHOT.png X,Y,W,H OUT.png` from a screenshot of the screen you want, and keep them next to the
+script: paths in a script are relative to it. A title screen left alone too long may start an attract
+demo, so don't wait for one without pressing.
+
+To see what a game does, `log sceNet debug` turns a log channel up, and `watch SECONDS NAME` collects
+each instance's log messages meanwhile into `NAME_N.log` (the debugger only sends log messages to
+clients that are connected). That works without `--log`, which slows the instances down enough to
+throw a script's timing off.
 
 ## Setting it up by hand
 

@@ -26,6 +26,7 @@ import socket
 import struct
 import subprocess
 import sys
+import threading
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -36,7 +37,7 @@ DEFAULT_MEMSTICK = os.path.expanduser("~/.config/ppsspp")
 class Debugger:
 	"""A minimal WebSocket client for PPSSPP's debugger, standard library only."""
 
-	def __init__(self, port):
+	def __init__(self, port, logs=False):
 		self.sock = socket.create_connection(("127.0.0.1", port), timeout=30)
 		key = base64.b64encode(os.urandom(16)).decode()
 		self.sock.sendall(("GET /debugger HTTP/1.1\r\nHost: 127.0.0.1:%d\r\nUpgrade: websocket\r\n"
@@ -52,7 +53,7 @@ class Debugger:
 			raise ConnectionError("debugger refused the WebSocket upgrade: %r" % response[:80])
 		self.buffer = response.split(b"\r\n\r\n", 1)[1]
 		self.ticket = 0
-		self.send("broadcast.config.set", disallowed={"logger": True, "input": True})
+		self.send("broadcast.config.set", disallowed={"logger": not logs, "input": True})
 
 	def close(self):
 		try:
@@ -267,18 +268,28 @@ def cmd_wait(args):
 	time.sleep(args.seconds)
 
 
+def grab_png(inst, attempts=3):
+	# An instance busy loading can be slow to answer; try again rather than end a long script.
+	for attempt in range(attempts):
+		try:
+			dbg = Debugger(inst["port"])
+			dbg.stop_cpu()
+			answer = dbg.request("gpu.buffer.screenshot", type="uri")
+			dbg.resume_cpu()
+			dbg.close()
+			return base64.b64decode(answer["uri"].split(",", 1)[1])
+		except (TimeoutError, socket.timeout):
+			if attempt == attempts - 1:
+				raise
+
+
 def cmd_shot(args):
 	session = load_session(args)
 	files = []
 	for inst in selected(session, args.i):
-		dbg = Debugger(inst["port"])
-		dbg.stop_cpu()
-		answer = dbg.request("gpu.buffer.screenshot", type="uri")
-		dbg.resume_cpu()
-		dbg.close()
 		path = os.path.join(args.dir, "%s_%d.png" % (args.name, inst["n"]))
 		with open(path, "wb") as f:
-			f.write(base64.b64decode(answer["uri"].split(",", 1)[1]))
+			f.write(grab_png(inst))
 		files.append(path)
 	try:
 		from PIL import Image
@@ -306,6 +317,100 @@ def cmd_stats(args):
 			stats["fps"]["actual"], stats["vblanksPerSecond"]["actual"]))
 
 
+def parse_ints(text, count):
+	values = [int(v) for v in text.split(",")]
+	if len(values) != count:
+		sys.exit("Expected %d comma-separated numbers, got %r" % (count, text))
+	return values
+
+
+def script_path(args, path):
+	# Paths in a script are relative to the script.
+	return path if os.path.isabs(path) else os.path.join(getattr(args, "base", "."), path)
+
+
+def screen_matches(args, image):
+	from PIL import Image, ImageChops, ImageStat
+	if args.pixel:
+		x, y = parse_ints(args.pixel, 2)
+		want = bytes.fromhex(args.color)
+		have = image.convert("RGB").getpixel((x, y))
+		return max(abs(a - b) for a, b in zip(have, want)) <= args.tolerance
+	ref = Image.open(script_path(args, args.ref)).convert("RGB")
+	x, y = parse_ints(args.box, 2)[:2] if args.box else (0, 0)
+	region = image.convert("RGB").crop((x, y, x + ref.width, y + ref.height))
+	diff = ImageStat.Stat(ImageChops.difference(region, ref)).mean
+	return sum(diff) / len(diff) <= args.tolerance
+
+
+def cmd_until(args):
+	# Waits until every selected instance shows something, optionally pressing a button meanwhile.
+	import io
+	from PIL import Image
+	if not args.pixel and not args.ref:
+		sys.exit("until needs a reference image or --pixel")
+	session = load_session(args)
+	waiting = list(selected(session, args.i))
+	end = time.time() + args.timeout
+	last_press = 0.0
+	while waiting:
+		if time.time() > end:
+			for inst in waiting:
+				path = os.path.join(args.dir, "until_failed_%d.png" % inst["n"])
+				with open(path, "wb") as f:
+					f.write(grab_png(inst))
+			sys.exit("until: instances %s never matched; their screens are in until_failed_N.png" % ",".join(str(i["n"]) for i in waiting))
+		if args.press and time.time() - last_press >= args.every:
+			for inst in waiting:
+				dbg = Debugger(inst["port"])
+				dbg.send("input.buttons.press", button=args.press, duration=6)
+				dbg.close()
+			last_press = time.time()
+		waiting = [inst for inst in waiting if not screen_matches(args, Image.open(io.BytesIO(grab_png(inst))))]
+		if waiting:
+			time.sleep(args.poll)
+
+
+def cmd_crop(args):
+	from PIL import Image
+	x, y, w, h = parse_ints(args.box, 4)
+	Image.open(args.image).crop((x, y, x + w, y + h)).save(args.out)
+	print("%s: %dx%d at %d,%d (use --box %d,%d)" % (args.out, w, h, x, y, x, y))
+
+
+def cmd_log(args):
+	session = load_session(args)
+	for inst in selected(session, args.i):
+		dbg = Debugger(inst["port"])
+		dbg.request("log.channel.set", channel=args.channel, level=args.level, enabled=True)
+		dbg.close()
+
+
+def cmd_watch(args):
+	# Log messages only go to debugger clients that are connected, so collect them for a while.
+	session = load_session(args)
+
+	def collect(inst):
+		path = os.path.join(args.dir, "%s_%d.log" % (args.name, inst["n"]))
+		dbg = Debugger(inst["port"], logs=True)
+		end = time.time() + args.seconds
+		with open(path, "w") as f:
+			while time.time() < end:
+				try:
+					message = dbg.wait_for(lambda m: m.get("event") == "log", timeout=max(0.1, end - time.time()))
+				except (TimeoutError, socket.timeout):
+					break
+				f.write("%s %s%s\n" % (message.get("timestamp", ""), message.get("header", ""), message.get("message", "").rstrip("\n")))
+		dbg.close()
+		print(path)
+
+	threads = [threading.Thread(target=collect, args=(inst,)) for inst in selected(session, args.i)]
+	for t in threads:
+		t.start()
+	for t in threads:
+		t.join()
+
+
 COMMANDS = {}
 
 
@@ -317,6 +422,7 @@ def cmd_run(args):
 				continue
 			print("> " + line)
 			sub = build_parser().parse_args(["--dir", args.dir] + line.split())
+			sub.base = os.path.dirname(os.path.abspath(args.script))
 			COMMANDS[sub.command](sub)
 
 
@@ -356,6 +462,33 @@ def build_parser():
 	p = sub.add_parser("stats", help="Emulated time and frame rate of each instance")
 	p.add_argument("-i")
 
+	p = sub.add_parser("until", help="Wait until the screen shows something: a region like a reference image, or a pixel's color")
+	p.add_argument("ref", nargs="?", help="Reference image (a crop of a screenshot, see crop); relative to the script in a script")
+	p.add_argument("--box", help="X,Y where the reference image goes on the screen (default 0,0)")
+	p.add_argument("--pixel", help="X,Y of a pixel to check instead")
+	p.add_argument("--color", help="With --pixel: RRGGBB")
+	p.add_argument("--tolerance", type=float, default=12, help="Mean difference per channel allowed (0-255; default 12)")
+	p.add_argument("--press", help="Keep pressing this button while waiting")
+	p.add_argument("--every", type=float, default=2, help="With --press: seconds between presses (default 2)")
+	p.add_argument("--timeout", type=float, default=60)
+	p.add_argument("--poll", type=float, default=0.5, help="Seconds between screenshots")
+	p.add_argument("-i")
+
+	p = sub.add_parser("crop", help="Cut a reference image for until out of a screenshot")
+	p.add_argument("image")
+	p.add_argument("box", help="X,Y,W,H")
+	p.add_argument("out")
+
+	p = sub.add_parser("log", help="Set a log channel's level, like sceNet debug (see watch)")
+	p.add_argument("channel")
+	p.add_argument("level", help="notice, error, warning, info, debug or verbose")
+	p.add_argument("-i")
+
+	p = sub.add_parser("watch", help="Collect each instance's log messages for a while into NAME_N.log")
+	p.add_argument("seconds", type=float)
+	p.add_argument("name")
+	p.add_argument("-i")
+
 	p = sub.add_parser("run", help="Run a script of these commands, one per line")
 	p.add_argument("script")
 
@@ -363,7 +496,8 @@ def build_parser():
 	return parser
 
 
-COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, run=cmd_run)
+COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
+	watch=cmd_watch, run=cmd_run)
 
 
 def main():
