@@ -862,6 +862,27 @@ static void ptpSetEstablished(AdhocSocket *sock) {
 	sock->ptpEstablishedAt = CoreTiming::GetGlobalTimeUsScaled();
 }
 
+// A connection in progress shows up as established in GetPtpStat, and PollSocket reports CONNECT, as
+// soon as it's up (pspautotests net/adhoc/pair/ptpconnect).
+static void ptpUpdateConnecting(AdhocSocket *sock) {
+	if (sock->data.ptp.state != ADHOC_PTP_STATE_SYN_SENT && sock->data.ptp.state != ADHOC_PTP_STATE_SYN_RCVD) {
+		return;
+	}
+	if (serverHasRelay) {
+		if (sock->postofficeHandle != NULL) {
+			ptpSetEstablished(sock);
+		}
+	} else if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
+		struct sockaddr_in sin;
+		socklen_t sinlen = sizeof(sin);
+		memset(&sin, 0, sinlen);
+		// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+		if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+			ptpSetEstablished(sock);
+		}
+	}
+}
+
 // A PSP checks the age of a connection's oldest unacknowledged data every rexmt_int, counting from when
 // the connection was established, and drops the connection at the first check where that data is older
 // than (rexmt_cnt + 1) * rexmt_int (pspautotests net/adhoc/pair/vanishtiming). Data sent once the peer
@@ -3481,10 +3502,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
 					}
 				} else if (sock->type == SOCK_PTP) {
-					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
-					if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
-						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
-
+					ptpUpdateConnecting(sock);
+					if ((sds[i].events & ADHOC_EV_CONNECT) && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
 						sds[i].revents |= ADHOC_EV_CONNECT;
 					}
 					// Check for socket state (already disconnected/closed by remote peer, already closed/deleted, not a socket or not opened/connected yet?)
@@ -4646,27 +4665,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if ( sock != NULL && sock->type == SOCK_PTP) {
-					// Update connection state.
-					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
-					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
-						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
-						if (serverHasRelay) {
-							if (sock->postofficeHandle != NULL) {
-								// good to go
-								ptpSetEstablished(sock);
-							}
-						} else {
-							if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-								struct sockaddr_in sin;
-								socklen_t sinlen = sizeof(sin);
-								memset(&sin, 0, sinlen);
-								// Ensure that the connection really established or not, since "select" alone can't accurately detects it
-								if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
-									ptpSetEstablished(sock);
-								}
-							}
-						}
-					}
+					ptpUpdateConnecting(sock);
 
 					if (serverHasRelay) {
 						if (sock->postofficeHandle != NULL) {
