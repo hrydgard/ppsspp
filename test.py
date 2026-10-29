@@ -680,6 +680,7 @@ tests_next = [
   "net/adhoc/poll",
   "net/adhoc/ptp",
   "net/adhoc/self",
+  "net/adhoc/socketids",
   "net/inet/bind",
   "net/inet/poll",
   "net/inet/errors",

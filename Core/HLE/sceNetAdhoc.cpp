@@ -374,6 +374,9 @@ static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 static int FindFreeAdhocSocketSlot();
+// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), starting over from 1
+// after sceNetAdhocTerm (pspautotests net/adhoc/socketids).
+static int nextAdhocSocketSlot = 0;
 int FlushPtpSocket(int socketId);
 int RecreatePtpSocket(int ptpId);
 int NetAdhocGameMode_DeleteMaster();
@@ -2289,6 +2292,7 @@ static void aemu_postoffice_server_log(const char *format, ...) {
 }
 
 void __NetAdhocInit() {
+	nextAdhocSocketSlot = 0;
 	friendFinderRunning = false;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
@@ -2503,10 +2507,8 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 }
 
 // Out of socket IDs is its own error (pspautotests net/adhoc/limits).
-// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), so the search for a free
-// slot starts after the last one handed out, and wraps around. Returns MAX_SOCKET when all are taken.
-static int nextAdhocSocketSlot = 0;
-
+// The search for a free slot starts after the last one handed out, and wraps around (see
+// nextAdhocSocketSlot). Returns MAX_SOCKET when all are taken.
 static int FindFreeAdhocSocketSlot() {
 	for (int n = 0; n < MAX_SOCKET; n++) {
 		int i = (nextAdhocSocketSlot + n) % MAX_SOCKET;
@@ -4513,6 +4515,7 @@ int NetAdhoc_Term() {
 
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
+		nextAdhocSocketSlot = 0;
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
