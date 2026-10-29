@@ -680,8 +680,8 @@ tests_next = [
   "net/adhoc/ctlinit",  # GetState right after Scan: 2 here, still 0 on a PSP for under 1 ms (net/adhoc/scanstate)
   "net/adhoc/matching",  # GetHelloOpt reports the hello length + 16; what the 16 bytes are is unknown
   "net/adhoc/pdp",  # PdpCreate takes any MAC as the local one, for savestates made with another MAC
-  "net/adhoc/poll",  # P2P: a peer's close and a refused connect aren't seen in time
-  "net/adhoc/ptp",  # the PdpCreate MAC as in pdp; a self-connect is established at open; refused connects in P2P
+  "net/adhoc/poll",  # P2P: a peer's close isn't seen while its data is still unread
+  "net/adhoc/ptp",  # the PdpCreate MAC as in pdp; a self-connect is established at open; a refused connect retries until timeout instead of CONNECTION_REFUSED
   "net/inet/bind",
   "net/inet/poll",
   "net/inet/errors",
