@@ -189,6 +189,7 @@ void PopupScreen::CreateViews() {
 	root_->Add(box_);
 	box_->SetBG(dc.GetTheme().popupStyle.background);
 	box_->SetHasDropShadow(hasDropShadow_);
+	box_->SetRadiusFactor(1.44f);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
 	box_->SetSpacing(0.0f);

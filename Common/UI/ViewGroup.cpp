@@ -188,7 +188,8 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 
 	if (roundCorners_ != RoundCorners::None) {
-		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+		// Surrounding round rects (like windows) need a bigger radius to look right.
+		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius * radiusFactor_, roundCorners_);
 	} else {
 		dc.FillRect(bg_, bounds_);
 	}
