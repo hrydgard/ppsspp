@@ -878,6 +878,22 @@ static void ptpSetEstablished(AdhocSocket *sock) {
 
 // A connection in progress shows up as established in GetPtpStat, and PollSocket reports CONNECT, as
 // soon as it's up (pspautotests net/adhoc/pair/ptpconnect).
+// Whether a socket whose connect() returned EISCONN is really connected. macOS answers a repeated
+// connect() with EISCONN after the first one was refused too; then getpeername fails and the refusal
+// is in SO_ERROR, which goes to *error.
+static bool ptpReallyConnected(int fd, int *error) {
+	struct sockaddr_in sin;
+	socklen_t sinlen = sizeof(sin);
+	if (getpeername(fd, (struct sockaddr *)&sin, &sinlen) == 0) {
+		return true;
+	}
+	int soError = 0;
+	socklen_t soErrorLen = sizeof(soError);
+	getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen);
+	*error = soError != 0 ? soError : ECONNREFUSED;
+	return false;
+}
+
 static void ptpUpdateConnecting(AdhocSocket *sock) {
 	if (sock->data.ptp.state != ADHOC_PTP_STATE_SYN_SENT && sock->data.ptp.state != ADHOC_PTP_STATE_SYN_RCVD) {
 		return;
@@ -1719,6 +1735,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		} else {
 			ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 			sockerr = socket_errno;
+			if (ret == SOCKET_ERROR && sockerr == EISCONN) {
+				ptpReallyConnected(ptpsocket.id, &sockerr);
+			}
 		}
 		if (sockerr != 0)
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
@@ -3524,11 +3543,16 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				// to take. A connection whose peer has closed reports DISCONNECT alone.
 				const bool readable = serverHasRelay ? postoffice_can_recv_or_listen_has_request(sds[i].id - 1) : FD_ISSET(fd, &readfds);
 				// A connection PtpOpen started may have come up since anything looked at it.
-				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && FD_ISSET(fd, &writefds)) {
-					struct sockaddr_in peer;
-					socklen_t peerLen = sizeof(peer);
-					if (getpeername(fd, (struct sockaddr *)&peer, &peerLen) == 0) {
+				// A refused one reports DISCONNECT (pspautotests net/adhoc/poll).
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && (FD_ISSET(fd, &writefds) || FD_ISSET(fd, &exceptfds))) {
+					int connectError = 0;
+					if (ptpReallyConnected(fd, &connectError)) {
 						ptpSetEstablished(sock);
+					} else if (!connectInProgress(connectError)) {
+						if (RecreatePtpSocket(sds[i].id) < 0) {
+							WARN_LOG(Log::sceNet, "sceNetAdhocPollSocket[%i]: Failed to recreate the refused socket", sds[i].id);
+						}
+						sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
 					}
 				}
 				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
@@ -5430,6 +5454,9 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					} else {
 						connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 						errorcode = socket_errno;
+						if (connectresult == SOCKET_ERROR && errorcode == EISCONN) {
+							ptpReallyConnected(ptpsocket.id, &errorcode);
+						}
 					}
 
 					if (connectresult == SOCKET_ERROR) {
