@@ -2666,14 +2666,24 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	return hleLogDebug(Log::sceNet, 0);
 }
 
+// A PSP keeps 0x20 bytes of the pool for itself. Its maximum is the largest allocation so far: 0 right
+// after Init (pspautotests net/adhoc/matching). Once there's a context, half the pool, which
+// isn't measured.
+static u32 FakePoolSize() {
+	return fakePoolSize >= 0x20 ? fakePoolSize - 0x20 : 0;
+}
+
+static u32 FakePoolMaxAlloc() {
+	return contexts != NULL ? FakePoolSize() / 2 : 0;
+}
+
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
-	// Lazy way out - hardcoded return value
-	return hleLogDebug(Log::sceNet, fakePoolSize / 2, "faked value");
+	return hleLogDebug(Log::sceNet, FakePoolMaxAlloc(), "faked value");
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
@@ -2694,10 +2704,10 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Fill Poolstat with Fake Data
-	poolstat->pool = fakePoolSize;
-	poolstat->maximum = fakePoolSize / 2; // Max usage faked to halt the pool
-	poolstat->free = fakePoolSize - poolstat->maximum;
+	// Fake data, apart from right after Init.
+	poolstat->pool = FakePoolSize();
+	poolstat->maximum = FakePoolMaxAlloc();
+	poolstat->free = poolstat->pool - poolstat->maximum;
 
 	// Return Success
 	return hleLogDebug(Log::sceNet, 0);
