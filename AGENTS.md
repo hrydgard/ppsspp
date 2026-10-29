@@ -19,6 +19,7 @@ for it:
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
 | [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests, and running the tests that need the real firmware modules (`--disable-hle`, a firmware memstick) |
 | [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
+| [docs/adhoc-multiplayer-testing.md](docs/adhoc-multiplayer-testing.md) | Playing a game's ad hoc multiplayer with several headless instances (`Tools/adhoc_session.py`), with and without the relay, and simulating network delay, jitter and loss |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests, and replaying a dump on a real PSP |
 | [docs/sceGe.md](docs/sceGe.md) | How the firmware queues display lists, what SIGNAL and FINISH interrupts do and in which order, and how `ProcessDLQueue()` keeps that order |
 | [docs/sceAudio.md](docs/sceAudio.md) | How the audio output calls block, how deep they buffer, and what each error means |
