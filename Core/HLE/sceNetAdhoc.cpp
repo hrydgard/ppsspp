@@ -1923,8 +1923,247 @@ static void StopFriendFinder() {
 	killAdhocctlClient(false, adhocctl_guard);
 }
 
+// With a frontend transport (libretro Netpacket) the session outlives a state load: the frontend keeps the players
+// connected and their MAC addresses come from it, so they're the same in every session. The state then carries what
+// the game expects to find again: its PDP sockets, its GameMode areas and its group, which is rejoined after the login.
+struct AdhocSessionSave {
+	struct Pdp {
+		s32 slot = 0;
+		SceNetEtherAddr laddr{};
+		s32 lport = 0;
+		s32 rcvBuffer = 0;
+		s32 flags = 0;
+		s32 nonblocking = 0;
+		u8 isClient = 0;
+		u8 enetReliable = 0;
+	};
+	struct Area {
+		GameModeArea area{};
+		std::vector<u8> data;
+	};
+	bool saved = false;
+	SceNetAdhocctlParameter parameter{};
+	s32 mode = ADHOCCTL_MODE_NONE;
+	std::vector<Pdp> sockets;
+	bool hasMaster = false;
+	Area master;
+	std::vector<Area> replicas;
+	std::vector<SceNetEtherAddr> macs;
+	std::vector<SceNetEtherAddr> requiredMacs;
+	std::vector<std::pair<SceNetEtherAddr, u16>> peerPorts;
+	s32 gameModeSocket = (int)INVALID_SOCKET;
+	s32 gameModeBuffSize = 0;
+};
+
+static bool HasFrontendTransport() {
+	return serverHasRelay && g_netAdhocTransport.getLocalMac != nullptr;
+}
+
+static void CaptureAdhocSession(AdhocSessionSave &save) {
+	save.saved = true;
+	save.parameter = parameter;
+	save.mode = adhocctlCurrentMode;
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		AdhocSocket *sock = adhocSockets[i];
+		// Established PTP streams can't be resumed: only datagram sockets come back.
+		if (sock == nullptr || sock->type != SOCK_PDP)
+			continue;
+		AdhocSessionSave::Pdp pdp;
+		pdp.slot = i;
+		pdp.laddr = sock->data.pdp.laddr;
+		pdp.lport = sock->data.pdp.lport;
+		pdp.rcvBuffer = sock->data.pdp.rcv_sb_cc;
+		pdp.flags = sock->flags;
+		pdp.nonblocking = sock->nonblocking;
+		pdp.isClient = sock->isClient ? 1 : 0;
+		pdp.enetReliable = sock->postofficePdpEnetReliable ? 1 : 0;
+		save.sockets.push_back(pdp);
+	}
+	auto capture = [](const GameModeArea &area) {
+		AdhocSessionSave::Area copy;
+		copy.area = area;
+		copy.area.data = nullptr;
+		if (area.data && area.size > 0)
+			copy.data.assign(area.data, area.data + area.size);
+		return copy;
+	};
+	save.hasMaster = masterGameModeArea.data != nullptr;
+	if (save.hasMaster)
+		save.master = capture(masterGameModeArea);
+	for (const auto &area : replicaGameModeAreas)
+		save.replicas.push_back(capture(area));
+	save.macs = gameModeMacs;
+	save.requiredMacs = requiredGameModeMacs;
+	for (const auto &port : gameModePeerPorts)
+		save.peerPorts.emplace_back(port.first, (u16)port.second);
+	save.gameModeSocket = gameModeSocket;
+	save.gameModeBuffSize = gameModeBuffSize;
+}
+
+static void DoAdhocSessionArea(PointerWrap &p, AdhocSessionSave::Area &area) {
+	Do(p, area.area.id);
+	Do(p, area.area.size);
+	Do(p, area.area.addr);
+	p.DoVoid(&area.area.mac, (int)sizeof(area.area.mac));
+	u32 bytes = (u32)area.data.size();
+	Do(p, bytes);
+	if (p.mode == p.MODE_READ) {
+		if (bytes > 0x10000 || !p.CheckRead(bytes)) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		area.data.resize(bytes);
+	}
+	if (bytes)
+		p.DoVoid(area.data.data(), (int)bytes);
+}
+
+static void DoAdhocSessionMacs(PointerWrap &p, std::vector<SceNetEtherAddr> &macs) {
+	u32 count = (u32)macs.size();
+	Do(p, count);
+	if (p.mode == p.MODE_READ) {
+		if (count > 256 || !p.CheckRead(count * sizeof(SceNetEtherAddr))) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		macs.resize(count);
+	}
+	for (auto &mac : macs)
+		p.DoVoid(&mac, (int)sizeof(mac));
+}
+
+static void DoAdhocSession(PointerWrap &p, AdhocSessionSave &save) {
+	if (p.mode != p.MODE_READ && HasFrontendTransport())
+		CaptureAdhocSession(save);
+	Do(p, save.saved);
+	if (!save.saved)
+		return;
+	p.DoVoid(&save.parameter, (int)sizeof(save.parameter));
+	Do(p, save.mode);
+	u32 count = (u32)save.sockets.size();
+	Do(p, count);
+	if (p.mode == p.MODE_READ) {
+		if (count > MAX_SOCKET) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		save.sockets.resize(count);
+	}
+	for (auto &pdp : save.sockets) {
+		Do(p, pdp.slot);
+		p.DoVoid(&pdp.laddr, (int)sizeof(pdp.laddr));
+		Do(p, pdp.lport);
+		Do(p, pdp.rcvBuffer);
+		Do(p, pdp.flags);
+		Do(p, pdp.nonblocking);
+		Do(p, pdp.isClient);
+		Do(p, pdp.enetReliable);
+	}
+	Do(p, save.hasMaster);
+	if (save.hasMaster)
+		DoAdhocSessionArea(p, save.master);
+	count = (u32)save.replicas.size();
+	Do(p, count);
+	if (p.mode == p.MODE_READ) {
+		if (count > 256) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		save.replicas.resize(count);
+	}
+	for (auto &replica : save.replicas)
+		DoAdhocSessionArea(p, replica);
+	DoAdhocSessionMacs(p, save.macs);
+	DoAdhocSessionMacs(p, save.requiredMacs);
+	count = (u32)save.peerPorts.size();
+	Do(p, count);
+	if (p.mode == p.MODE_READ) {
+		if (count > 256) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		save.peerPorts.resize(count);
+	}
+	for (auto &port : save.peerPorts) {
+		p.DoVoid(&port.first, (int)sizeof(port.first));
+		Do(p, port.second);
+	}
+	Do(p, save.gameModeSocket);
+	Do(p, save.gameModeBuffSize);
+}
+
+static GameModeArea RestoreGameModeArea(const AdhocSessionSave::Area &saved) {
+	GameModeArea area = saved.area;
+	area.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
+	area.dataUpdated = 0;
+	area.dataSent = 0;
+	area.data = nullptr;
+	if (!saved.data.empty()) {
+		area.data = (u8 *)malloc(saved.data.size());
+		if (area.data)
+			memcpy(area.data, saved.data.data(), saved.data.size());
+	}
+	return area;
+}
+
+// After deleteAllAdhocSockets() on load: put back the game's sockets and GameMode, the transport handles being
+// created again on first use (pdp_postoffice_recover).
+static void RestoreAdhocSession(const AdhocSessionSave &save) {
+	parameter = save.parameter;
+	adhocctlCurrentMode = save.mode;
+	for (const auto &pdp : save.sockets) {
+		if (pdp.slot < 0 || pdp.slot >= MAX_SOCKET || adhocSockets[pdp.slot] != nullptr)
+			continue;
+		AdhocSocket *sock = (AdhocSocket *)calloc(1, sizeof(AdhocSocket));
+		if (!sock)
+			continue;
+		sock->type = SOCK_PDP;
+		sock->postofficeHandle = nullptr;
+		sock->data.pdp.id = AEMU_POSTOFFICE_ID_BASE + pdp.slot;
+		sock->data.pdp.laddr = pdp.laddr;
+		sock->data.pdp.lport = pdp.lport;
+		sock->data.pdp.rcv_sb_cc = pdp.rcvBuffer;
+		sock->buffer_size = pdp.rcvBuffer;
+		sock->flags = pdp.flags;
+		sock->nonblocking = pdp.nonblocking;
+		sock->isClient = pdp.isClient != 0;
+		sock->postofficePdpEnetReliable = pdp.enetReliable != 0;
+		adhocSockets[pdp.slot] = sock;
+	}
+
+	if (masterGameModeArea.data)
+		free(masterGameModeArea.data);
+	masterGameModeArea = {};
+	for (auto &area : replicaGameModeAreas) {
+		if (area.data)
+			free(area.data);
+	}
+	replicaGameModeAreas.clear();
+	if (save.hasMaster)
+		masterGameModeArea = RestoreGameModeArea(save.master);
+	for (const auto &replica : save.replicas)
+		replicaGameModeAreas.push_back(RestoreGameModeArea(replica));
+	gameModeMacs = save.macs;
+	requiredGameModeMacs = save.requiredMacs;
+	gameModePeerPorts.clear();
+	for (const auto &port : save.peerPorts)
+		gameModePeerPorts[port.first] = port.second;
+	gameModeSocket = save.gameModeSocket;
+	gameModeBuffSize = save.gameModeBuffSize;
+	if (gameModeBuffSize > 0) {
+		u8 *buf = (u8 *)realloc(gameModeBuffer, gameModeBuffSize);
+		if (buf)
+			gameModeBuffer = buf;
+	}
+	gameModeLastMasterSend = 0;
+	INFO_LOG(Log::sceNet, "Adhoc session restored: group %.8s, mode %d, %d pdp sockets, %d gamemode members", (const char *)save.parameter.group_name.data, save.mode, (int)save.sockets.size(), (int)save.macs.size());
+}
+
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 10);
+	// Version 11 only for a state that carries a frontend transport session (it needs this code to load anyway): every
+	// other state keeps the version 10 layout, which any PPSSPP reading version 10 still loads.
+	const int version = p.mode == p.MODE_READ || HasFrontendTransport() ? 11 : 10;
+	auto s = p.Section("sceNetAdhoc", 1, version);
 	if (!s)
 		return;
 
@@ -2017,6 +2256,18 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// The login after a load sends it, so a state loaded into a fresh boot needs it.
 		p.DoVoid(&product_code, (int)sizeof(product_code));
 	}
+	AdhocSessionSave session;
+	if (s >= 11) {
+		DoAdhocSession(p, session);
+	}
+	// Only a frontend transport can take the session back; other modes drop it as before.
+	const bool restoreSession = p.mode == p.MODE_READ && p.error != p.ERROR_FAILURE && session.saved && g_netAdhocTransport.getLocalMac != nullptr
+		&& adhocctlState != ADHOCCTL_STATE_DISCONNECTED && session.parameter.group_name.data[0] != 0;
+	if (restoreSession) {
+		// Before the friend finder starts below: its login must not reset the loaded group state.
+		adhocRejoinParameter = session.parameter;
+		adhocRejoinPending = true;
+	}
 
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
@@ -2059,6 +2310,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 				g_netAdhocTransport.pump();
 			}
 			g_netAdhocTransport.deinit();
+		}
+		if (restoreSession) {
+			RestoreAdhocSession(session);
 		}
 	}
 }

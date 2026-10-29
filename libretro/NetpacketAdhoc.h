@@ -27,6 +27,10 @@ public:
 	void Receive(const void *data, size_t size, uint16_t from);
 	std::vector<Packet> TakePackets();
 	void LocalMac(uint8_t *mac);
+	// Whether the frontend session has started, and whether a player is in our group (a PEER announced it).
+	bool Active();
+	bool HasPeer(uint16_t id);
+	uint16_t Self();
 
 	void *ControlCreate(const char *game, const char *nickname);
 	void ControlDestroy(void *handle);

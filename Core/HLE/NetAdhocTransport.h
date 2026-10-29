@@ -40,6 +40,8 @@ struct NetAdhocTransport {
 	decltype(&::adhocctl_chat) ctlChat = ::adhocctl_chat;
 	decltype(&::ptp_is_dead) ptpDead = ::ptp_is_dead;
 	void (*getLocalMac)(uint8_t *mac) = nullptr;
+	// A frontend transport that isn't connected yet: the login waits for it instead of failing.
+	bool (*ready)() = nullptr;
 };
 
 extern NetAdhocTransport g_netAdhocTransport;

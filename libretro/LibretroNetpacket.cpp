@@ -5,12 +5,26 @@
 #include "Core/HLE/NetAdhocTransport.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/HLE/proAdhoc.h"
+#include "Common/Log.h"
+#include "Common/TimeUtil.h"
 #include <cstring>
 
 namespace Libretro {
 namespace {
 NetpacketAdhoc transport;
 bool enabled = false;
+bool startState = false;
+bool holding = false;
+double holdSince = 0.0;
+double lastNotice = 0.0;
+int settledPolls = 0;
+retro_environment_t environCb = nullptr;
+// After the last member shows up, a few more frames for the friend finder to take the peers in.
+constexpr int SETTLE_POLLS = 10;
+// Past this, emulation resumes anyway: the game then reports the missing player itself. Generous, since the other
+// players may only start their content once the host's session is announced.
+constexpr double HOLD_TIMEOUT_S = 300.0;
 // These are only accessed from frontend callbacks, never the CPU/network threads.
 retro_netpacket_send_t sendPacket = nullptr;
 uint16_t localId = 0;
@@ -69,6 +83,10 @@ bool NetpacketInit(retro_environment_t environment) {
 	NetpacketShutdown();
 	retro_variable variable{"ppsspp_retroarch_netplay", nullptr};
 	enabled = environment(RETRO_ENVIRONMENT_GET_VARIABLE, &variable) && variable.value && !strcmp(variable.value, "enabled");
+	retro_variable start{"ppsspp_retroarch_netplay_start", nullptr};
+	startState = enabled && environment(RETRO_ENVIRONMENT_GET_VARIABLE, &start) && start.value && !strcmp(start.value, "enabled");
+	holding = false;
+	environCb = environment;
 	if (!enabled) {
 		environment(RETRO_ENVIRONMENT_SET_NETPACKET_INTERFACE, nullptr);
 		return true;
@@ -85,6 +103,7 @@ bool NetpacketInit(retro_environment_t environment) {
 	t.pump = []() { return 1; };
 	t.deinit = []() {};
 	t.getLocalMac = [](uint8_t *mac) { transport.LocalMac(mac); };
+	t.ready = []() { return transport.Active(); };
 	t.ctlCreate = [](const adhocctl_addr_v4 *, const adhocctl_addr_v4 *, const char *game, const char *nick, const char *, bool, bool (*)(void *), void *) { return transport.ControlCreate(game, nick); };
 	t.ctlDestroy = [](void *h) { transport.ControlDestroy(h); };
 	t.ctlEvent = [](void *h, adhocctl_event *e) { transport.ControlEvent(h, e); };
@@ -139,6 +158,62 @@ void NetpacketPoll() {
 void NetpacketStop() {
 	sendPacket = nullptr;
 	transport.Stop();
+}
+
+bool NetpacketStartStateWanted() {
+	if (!startState)
+		return false;
+	startState = false;  // Once per content.
+	return true;
+}
+
+void NetpacketHoldAfterLoad(bool startState) {
+	// A state loaded outside a session (no frontend transport yet) has nobody to wait for; the start state waits anyway,
+	// since the session usually begins after the core has booted.
+	if (!enabled || (!startState && !transport.Active()))
+		return;
+	holding = true;
+	holdSince = time_now_d();
+	lastNotice = 0.0;
+	settledPolls = 0;
+	INFO_LOG(Log::sceNet, "Netplay: state loaded, holding emulation until its players are connected again");
+}
+
+bool NetpacketHolding() {
+	if (!holding)
+		return false;
+	bool ready = transport.Active();
+	if (ready) {
+		const uint16_t self = transport.Self();
+		for (const auto &mac : gameModeMacs) {
+			// Session MACs carry the frontend's player id (see NetpacketAdhoc); the first octet may be changed by games.
+			if (mac.data[1] != 0x50 || mac.data[2] != 0x53 || mac.data[3] != 0x50)
+				continue;
+			const uint16_t id = (uint16_t)(mac.data[4] << 8 | mac.data[5]);
+			if (id != self && !transport.HasPeer(id)) {
+				ready = false;
+				break;
+			}
+		}
+	}
+	settledPolls = ready ? settledPolls + 1 : 0;
+	if (settledPolls >= SETTLE_POLLS) {
+		holding = false;
+		INFO_LOG(Log::sceNet, "Netplay: every player of the loaded state is connected, resuming after %.1f s", time_now_d() - holdSince);
+		return false;
+	}
+	if (environCb && time_now_d() - lastNotice > 3.0) {
+		// Shown on the frozen picture, so that nobody thinks the game hung.
+		retro_message msg{"Waiting for the other players...", 180};
+		environCb(RETRO_ENVIRONMENT_SET_MESSAGE, &msg);
+		lastNotice = time_now_d();
+	}
+	if (time_now_d() - holdSince > HOLD_TIMEOUT_S) {
+		holding = false;
+		WARN_LOG(Log::sceNet, "Netplay: players of the loaded state still missing after %.0f s, resuming anyway", HOLD_TIMEOUT_S);
+		return false;
+	}
+	return true;
 }
 void NetpacketShutdown() {
 	NetpacketStop();

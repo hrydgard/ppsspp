@@ -680,6 +680,16 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
+      "ppsspp_retroarch_netplay_start",
+      "RetroArch Netplay Start State (Experimental)",
+      NULL,
+      "With RetroArch Netplay, load this player's PPSSPP/netplay/<game ID>.state from the system directory once the game has booted, then hold emulation until every player of that state's GameMode is connected again. Each player brings their own state, saved by RetroArch in the same session (uncompressed). For frontends that prepare a synchronized start.",
+      NULL,
+      "network",
+      BOOL_OPTIONS,
+      "disabled"
+   },
+   {
       "ppsspp_enable_wlan",
       "Enable Networking/WLAN (Beta, may break games)",
       NULL,
