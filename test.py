@@ -5,6 +5,7 @@
 import sys
 import os
 import subprocess
+import random
 import threading
 import glob
 import platform
@@ -747,13 +748,17 @@ test_flags = {
 
 # The ad hoc tests create groups, so they need a server to log in to, and they wait for its replies
 # in real time.
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--timeout-wall=60"]
+# They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
+# trips stay real.
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + os.environ.get("ADHOC_SPEED", "800"), "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
     return test_flags[test]
   if test.startswith("net/adhoc/"):
-    return ADHOC_FLAGS
+    # A new port offset each run: a connection the last run made with the same ports is still in TCP
+    # TIME_WAIT for a while, and connecting again fails.
+    return ADHOC_FLAGS + ["--port-offset=%d" % random.randrange(10000, 30000)]
   return None
 
 def is_pair_test(test):
@@ -846,6 +851,7 @@ def run_pair_tests(test_list, args):
   # built-in ad hoc server and relay.
   cmdline = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Tools', 'adhoc_multi.py'), '--headless', PPSSPP_EXE, '--relay']
   cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
+  cmdline.append("--speed=" + os.environ.get("ADHOC_SPEED", "800"))
   cmdline.extend(test_list)
   returncode = subprocess.call(cmdline)
   print("Ran " + ' '.join(cmdline))

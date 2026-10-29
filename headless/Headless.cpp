@@ -63,6 +63,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
@@ -665,7 +666,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			// draw never flips, so the emulated clock would race ahead of instances it talks to. The JIT
 			// cores only return at the end of a frame, so like the app, this paces once per frame.
 			blockTicks = (int)usToCycles(1000);
-			const double ahead = emulatedElapsed - (time_now_d() - startTime);
+			// At an alternate speed (--speed), the emulated clock runs that much faster than the wall clock.
+			const int frameLimit = __DisplayGetFrameTimingLimit();
+			const double speed = frameLimit > 0 ? frameLimit / 60.0 : 1.0;
+			const double ahead = (emulatedElapsed - (time_now_d() - startTime) * speed) / speed;
 			// With --lag-sync, lag sync paces every emulated millisecond instead, and two pacers out of
 			// phase would undo each other.
 			if (ahead > 0.001 && !g_Config.bForceLagSync) {
@@ -1345,6 +1349,9 @@ int main(int argc, const char* argv[]) {
 	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
 	// Ad hoc tests between instances wait for each other over the real network, so they need PSP speed.
 	coreParameter.fastForward = !cmdLineOptions.realtime.value_or(false);
+	if (cmdLineOptions.speedPercent.has_value()) {
+		coreParameter.fpsLimit = FPSLimit::CUSTOM1;
+	}
 
 #if PPSSPP_PLATFORM(IOS)
 	// GetExeDirectory() knows nothing on iOS, but argv[0] is the executable inside the .app,

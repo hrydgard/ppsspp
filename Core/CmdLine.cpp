@@ -256,6 +256,8 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(timeoutWall), CmdParamType::Double, "timeout", '\0', "Alias for --timeout-wall", CmdLineMode::Headless},
 	{POFF(instance), CmdParamType::Int, "instance", '\0', "Run as instance N of several talking to each other over ad hoc (own 127.0.0.N address and MAC)", CmdLineMode::Headless},
 	{POFF(realtime), CmdParamType::Bool, "realtime", '\0', "Run at PSP speed instead of as fast as possible", CmdLineMode::Headless},
+	{POFF(portOffset), CmdParamType::Int, "port-offset", '\0', "Add this to every ad hoc port on the host (default from the config, normally 10000)"},
+	{POFF(speedPercent), CmdParamType::Int, "speed", '\0', "With --realtime, run at this percentage of PSP speed (alternate speed 1)", CmdLineMode::Headless},
 	{POFF(adhocServer), CmdParamType::Bool, "adhoc-server", '\0', "Run the built-in ad hoc server"},
 	{POFF(nickname), CmdParamType::String, "nickname", '\0', "The PSP's nickname (System settings), for this run only"},
 	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
@@ -661,6 +663,19 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (logLevel.has_value()) {
 		g_logManager.SetAllLogLevels(logLevel.value());
 		g_logManager.DoNotSaveChannels();
+	}
+
+	if (portOffset.has_value()) {
+		g_Config.iPortOffset = portOffset.value();
+		g_Config.DoNotSaveSetting(&g_Config.iPortOffset);
+	}
+
+	if (speedPercent.has_value()) {
+		g_Config.iAltSpeedPercent1 = speedPercent.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAltSpeedPercent1);
+		// Ad hoc tests are what this is for, and speed control is otherwise off while connected.
+		g_Config.bAllowSpeedControlWhileConnected = true;
+		g_Config.DoNotSaveSetting(&g_Config.bAllowSpeedControlWhileConnected);
 	}
 
 	if (lockedCPUSpeed.has_value()) {
