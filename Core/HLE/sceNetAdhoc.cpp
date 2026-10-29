@@ -4504,10 +4504,9 @@ int sceNetAdhocctlCreateEnterGameModeMin(MIPSState *mips, const char *group_name
 	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag));
 }
 
+// Leaves adhocctl, the group and matching running: a PSP stays in its group through sceNetAdhocTerm
+// and sceNetAdhocInit (pspautotests net/adhoc/term). The other callers terminate adhocctl first.
 int NetAdhoc_Term() {
-	// Since Adhocctl & AdhocMatching uses Sockets & Threads we should terminate them also to release their resources
-	NetAdhocctl_Term();
-
 	// Library is initialized
 	if (netAdhocInited) {
 		// Delete GameMode Buffers
