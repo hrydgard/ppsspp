@@ -571,7 +571,13 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 		return SCE_KERNEL_ERROR_NOTFOUND_HANDLER;
 	}
 
-	for (auto it = pendingInterrupts.begin(); it != pendingInterrupts.end(); ) {
+	auto it = pendingInterrupts.begin();
+	// The one at the front is what's running, if anything is, and gets popped when it returns. A handler
+	// releasing itself would otherwise leave __KernelReturnFromInterrupt popping an empty list.
+	if (inInterrupt && it != pendingInterrupts.end()) {
+		++it;
+	}
+	while (it != pendingInterrupts.end()) {
 		if (it->intr == intrNumber && it->subintr == subIntrNumber) {
 			pendingInterrupts.erase(it++);
 		} else {
