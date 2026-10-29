@@ -18,7 +18,7 @@ python3 Tools/adhoc_session.py stop
 
 `start` launches N instances of the newest `build*/PPSSPPHeadless`, running freely at PSP speed, each
 with a WebSocket debugger port. Instance 1 also runs the ad hoc server. The other commands talk to the
-instances over the debugger: `press BUTTON [-i 1,2] [--frames N]`, `wait SECONDS`, `shot NAME`,
+instances over the debugger: `press BUTTON [-i 1,2] [--frames N] [--times N --every SECONDS]`, `wait SECONDS`, `shot NAME`,
 `stats`, and `run SCRIPT`, which runs a file of those commands, one per line (`#` starts a comment).
 The session (ports, logs, screenshots, memory sticks) lives in `$TMPDIR/ppsspp-adhoc-session`, or
 wherever `--dir` says.
@@ -34,6 +34,8 @@ What `start` sets up, and why:
   15-31 ms instead of about 3 ms. `--no-lag-sync` turns it off, to see what the app's default does.
 - **Relay mode** by default, since most players use it. `--p2p` makes the instances talk directly
   instead (see below).
+- **Each instance has its own nickname** (`--nickname`), "PPSSPP 1", "PPSSPP 2" and so on, or what
+  `--names A,B,...` says, so games that show it in their lobbies tell the instances apart.
 - `--state FILE` loads a savestate in every instance at boot. A state only loads into a build with the
   same savestate sections, so a state made on a branch with ad hoc changes may not load on master.
 
@@ -73,7 +75,8 @@ What `start` does for each instance N (instance 1 also gets `--adhoc-server`):
 
 ```bash
 build-release/PPSSPPHeadless --graphics=vulkan --memstick=MEMSTICK_N --nand=$HOME/.config/ppsspp/PSP/NAND \
-    --realtime --lag-sync --instance=N --appendconfig=network.ini --debugger-run=0 --timeout-wall=3600 GAME.iso
+    --realtime --lag-sync --instance=N --nickname="PPSSPP N" --appendconfig=network.ini --debugger-run=0 \
+    --timeout-wall=3600 GAME.iso
 ```
 
 `--instance=N` gives the instance its own MAC address and its own address, 127.0.0.N, for ad hoc data.

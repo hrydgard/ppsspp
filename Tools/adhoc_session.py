@@ -187,9 +187,14 @@ def cmd_start(args):
 				"\n".join("  sudo ifconfig lo0 alias 127.0.0.%d up" % i for i in missing))
 	headless = args.headless or find_headless()
 	os.makedirs(args.dir, exist_ok=True)
+	# The last session's screenshots would pass for this one's.
+	for name in os.listdir(args.dir):
+		if name.endswith(".png"):
+			os.remove(os.path.join(args.dir, name))
 	ini = os.path.join(args.dir, "network.ini")
 	with open(ini, "w") as f:
 		f.write("[Network]\nproAdhocServer = 127.0.0.1\nAdhocServerRelayMode = %d\n" % (0 if args.p2p else 1))
+	names = [name.strip() for name in args.names.split(",")] if args.names else []
 	instances = []
 	for n in range(1, args.n + 1):
 		memstick = os.path.join(args.dir, "memstick%d" % n)
@@ -203,6 +208,7 @@ def cmd_start(args):
 			cmd.append("--lag-sync")
 		if n == 1:
 			cmd.append("--adhoc-server")
+		cmd.append("--nickname=" + (names[n - 1] if n <= len(names) else "PPSSPP %d" % n))
 		if args.delay:
 			cmd.append("--adhoc-delay=%d" % args.delay)
 		if args.jitter:
@@ -257,11 +263,14 @@ def cmd_stop(args):
 
 def cmd_press(args):
 	session = load_session(args)
-	for inst in selected(session, args.i):
-		dbg = Debugger(inst["port"])
-		# The answer only comes once the press is over, so don't wait for it.
-		dbg.send("input.buttons.press", button=args.button, duration=args.frames)
-		dbg.close()
+	for t in range(args.times):
+		if t > 0:
+			time.sleep(args.every)
+		for inst in selected(session, args.i):
+			dbg = Debugger(inst["port"])
+			# The answer only comes once the press is over, so don't wait for it.
+			dbg.send("input.buttons.press", button=args.button, duration=args.frames)
+			dbg.close()
 
 
 def cmd_wait(args):
@@ -435,6 +444,7 @@ def build_parser():
 	p.add_argument("game")
 	p.add_argument("-n", type=int, default=2, help="Number of instances (default 2)")
 	p.add_argument("--p2p", action="store_true", help="Talk directly instead of through the relay (needs a loopback address per instance)")
+	p.add_argument("--names", help="Comma-separated nicknames for the instances (default: PPSSPP 1, PPSSPP 2, ...)")
 	p.add_argument("--delay", type=int, default=0, help="Simulated delay in ms on received relay datagrams (each way)")
 	p.add_argument("--jitter", type=int, default=0, help="Up to this many ms more, at random")
 	p.add_argument("--loss", type=int, default=0, help="Percentage of received relay datagrams dropped")
@@ -451,6 +461,8 @@ def build_parser():
 	p.add_argument("button", help="cross, circle, square, triangle, up, down, left, right, start, select, ltrigger, rtrigger")
 	p.add_argument("-i", help="Instances, like 1,2 (default all)")
 	p.add_argument("--frames", type=int, default=6, help="How many vblanks to hold it")
+	p.add_argument("--times", type=int, default=1, help="Press it this many times (for menus that need several)")
+	p.add_argument("--every", type=float, default=2, help="With --times: seconds between presses (default 2)")
 
 	p = sub.add_parser("wait", help="Wait (wall clock)")
 	p.add_argument("seconds", type=float)
