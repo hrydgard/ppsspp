@@ -447,6 +447,9 @@ def cmd_crop(args):
 
 
 def cmd_log(args):
+	if args.level == "verbose":
+		# MAX_LOGLEVEL in Common/Log.h compiles VERBOSE_LOG out of every build unless edited.
+		print("log: verbose messages are compiled out (MAX_LOGLEVEL in Common/Log.h); this shows debug and above", file=sys.stderr)
 	session = load_session(args)
 	for inst in selected(session, args.i):
 		dbg = Debugger(inst["port"])
