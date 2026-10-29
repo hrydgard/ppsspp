@@ -662,10 +662,13 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		int blockTicks = (int)usToCycles(1000000 / (opt.presses.empty() ? 10 : 60));
 		if (opt.realtime) {
 			// Display flips are the only thing that paces headless otherwise, and a test that doesn't
-			// draw never flips, so the emulated clock would race ahead of instances it talks to.
+			// draw never flips, so the emulated clock would race ahead of instances it talks to. The JIT
+			// cores only return at the end of a frame, so like the app, this paces once per frame.
 			blockTicks = (int)usToCycles(1000);
 			const double ahead = emulatedElapsed - (time_now_d() - startTime);
-			if (ahead > 0.001) {
+			// With --lag-sync, lag sync paces every emulated millisecond instead, and two pacers out of
+			// phase would undo each other.
+			if (ahead > 0.001 && !g_Config.bForceLagSync) {
 				sleep_ms((int)(std::min(ahead, 0.05) * 1000.0), "realtime");
 			}
 		}
