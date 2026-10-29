@@ -330,6 +330,7 @@ static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
 
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
+static int FindFreeAdhocSocketSlot();
 int FlushPtpSocket(int socketId);
 int RecreatePtpSocket(int ptpId);
 int NetAdhocGameMode_DeleteMaster();
@@ -893,9 +894,8 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 			return -1;
 	}
 
-	// At this point we assumed that the packet is a valid PPSSPP packet
-	if (ret > 0 && *req.length > 0)
-		memcpy(req.buffer, dummyPeekBuf64k, std::min(ret, *req.length));
+	// At this point we assumed that the packet is a valid PPSSPP packet. A datagram larger than the
+	// buffer isn't copied at all (pspautotests net/adhoc/pdp).
 
 	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
 	if (ret >= 0 && ret <= *req.length) {
@@ -1367,11 +1367,9 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -1676,17 +1674,17 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 int DoBlockingAdhocPollSocket(AdhocSocketRequest& req, s64& result) {
 	SceNetAdhocPollSd* sds = (SceNetAdhocPollSd*)req.buffer;
 	int ret = PollAdhocSocket(sds, req.id, 0, 0);
-	if (ret <= 0) {
+	if (ret < 0) {
+		// A disconnected socket or a poll alert ends the wait at once.
+		ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
+	} else if (ret == 0) {
 		u64 now = (u64)(time_now_d() * 1000000.0);
-		// POSIX poll using negative timeout for indefinitely blocking, not sure about PSP's AdhocPollSocket tho since most of PSP's sceNet API using 0 for indefinitely blocking.
+		// A timeout of 0 waits forever, like the rest of sceNet.
 		if (static_cast<int>(req.timeout) <= 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
-		else if (ret < 0)
-			ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
-		// FIXME: Does AdhocPollSocket can return any error code other than SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT?
-		//else
-		//	ret = SCE_NET_ADHOC_ERROR_TIMEOUT;
+		// Nothing to report by the timeout (pspautotests net/adhoc/poll).
+		ret = SCE_NET_ADHOC_ERROR_TIMEOUT;
 	}
 	result = ret;
 
@@ -2281,11 +2279,9 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 
 	AdhocSocket **free_slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			free_slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		free_slot = &adhocSockets[i];
 	}
 	if (free_slot == NULL) {
 		free(internal);
@@ -2301,6 +2297,26 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 }
 
 // Out of socket IDs is its own error (pspautotests net/adhoc/limits).
+// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), so the search for a free
+// slot starts after the last one handed out, and wraps around. Returns MAX_SOCKET when all are taken.
+static int nextAdhocSocketSlot = 0;
+
+static int FindFreeAdhocSocketSlot() {
+	for (int n = 0; n < MAX_SOCKET; n++) {
+		int i = (nextAdhocSocketSlot + n) % MAX_SOCKET;
+		if (adhocSockets[i] == NULL) {
+			nextAdhocSocketSlot = (i + 1) % MAX_SOCKET;
+			return i;
+		}
+	}
+	return MAX_SOCKET;
+}
+
+// A PSP uses up an ID on a create that fails its address or port check.
+static void SkipAdhocSocketId() {
+	nextAdhocSocketSlot = (nextAdhocSocketSlot + 1) % MAX_SOCKET;
+}
+
 static bool HasFreeAdhocSocketSlot() {
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		if (adhocSockets[i] == NULL) {
@@ -2308,6 +2324,24 @@ static bool HasFreeAdhocSocketSlot() {
 		}
 	}
 	return false;
+}
+
+// A free local port for a PDP socket created on port 0, in the range a PSP picks from (0x1000-0x7FFF).
+static uint16_t get_unused_pdp_port() {
+	for (int tries = 0; tries < 1000; tries++) {
+		uint16_t test_port = 0x1000 + rand() % 0x7000;
+		bool used = false;
+		for (int i = 0; i < MAX_SOCKET; i++) {
+			if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP && adhocSockets[i]->data.pdp.lport == test_port) {
+				used = true;
+				break;
+			}
+		}
+		if (!used) {
+			return test_port;
+		}
+	}
+	return 0x1000;
 }
 
 int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool postoffice_enet_pdp_reliable) {
@@ -2330,12 +2364,15 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	const SceNetEtherAddr *requestedMac = (const SceNetEtherAddr *)mac;
+	// These three failures use up a socket ID on a PSP (pspautotests net/adhoc/pdp).
 	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE || isZeroMAC(requestedMac) || (requestedMac->data[0] & 1) != 0) {
 		DEBUG_LOG(Log::sceNet, "%s: invalid mac address supplied", __func__);
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_INVALID_ADDR;
 	}
 
 	if (port == 0xFFFF) {
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_INVALID_PORT;
 	}
 
@@ -2349,17 +2386,19 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	if (isPDPPortInUse(port)) {
-		// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
 		DEBUG_LOG(Log::sceNet, "%s: port in-use", __func__);
+		SkipAdhocSocketId();
 		return SCE_NET_ADHOC_ERROR_PORT_IN_USE;
 	}
 
 	bool isClient = false;
 
-	// sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+	// Port 0 gets a free port in 0x1000-0x7FFF, as on a PSP (pspautotests net/adhoc/limits). Picking it
+	// here rather than letting the host choose also keeps the port offset from turning it into a fixed
+	// port (Phantasy Star Portable 2 creates several on port 0).
 	if (port == 0) {
 		isClient = true;
-		port = -static_cast<int>(portOffset);
+		port = get_unused_pdp_port();
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
@@ -2422,6 +2461,15 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 
 	// Bound Socket to local Port
 	int iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
+	// A port picked for port 0 may be taken on the host; pick another.
+	for (int tries = 0; iResult != 0 && isClient && tries < 16; tries++) {
+		port = get_unused_pdp_port();
+		requestedport = static_cast<int>(port + static_cast<int>(portOffset));
+		if (requestedport == 0)
+			requestedport = 65535;
+		addr.sin_port = htons(requestedport);
+		iResult = bind(usocket, (struct sockaddr*)&addr, sizeof(addr));
+	}
 
 	if (iResult != 0) {
 		DEBUG_LOG(Log::sceNet, "%s: sock bind failed", __func__);
@@ -2457,7 +2505,7 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	// Find Free Translator Index
 	// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 	int i = 0;
-	for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+	i = FindFreeAdhocSocketSlot();
 
 	if (i >= MAX_SOCKET) {
 		DEBUG_LOG(Log::sceNet, "%s: out of slot when allocating internal socket tracking", __func__);
@@ -2987,9 +3035,7 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 				if (received != SOCKET_ERROR && *len < received) {
 					INFO_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
 
-					if (received > 0 && *len > 0)
-						memcpy(buf, dummyPeekBuf64k, std::min(received, *len));
-
+					// A datagram larger than the buffer stays queued, and isn't copied (pspautotests net/adhoc/pdp).
 					// Return the actual available data size
 					*len = received;
 
@@ -3224,6 +3270,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	tmout.tv_sec = timeout / 1000000; // seconds
 	tmout.tv_usec = (timeout % 1000000); // microseconds
 	int affectedsockets = 0;
+	// A disconnected socket makes the call return EXCEPTION_EVENT, whatever else is ready.
+	bool disconnected = false;
 	if (!serverHasRelay)
 		affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
 	if (affectedsockets >= 0) {
@@ -3256,19 +3304,31 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
 
-				if (sock->type == SOCK_PTP) {
-					// FIXME: Should we also make use "retry_interval" for ADHOC_EV_ACCEPT, similar to ADHOC_EV_CONNECT ?
-					if ((sds[i].events & ADHOC_EV_ACCEPT) && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-						if (serverHasRelay) {
-							if (postoffice_can_recv_or_listen_has_request(sds[i].id - 1))
-								sds[i].revents |= ADHOC_EV_ACCEPT;
-						} else {
-							if (FD_ISSET(fd, &readfds))
-								sds[i].revents |= ADHOC_EV_ACCEPT;
-						}
+				// What listening and connected PTP sockets report on a PSP (pspautotests net/adhoc/poll):
+				// SEND and FLUSH always, CONNECT once connected, and ACCEPT or RECV when there's something
+				// to take. A connection whose peer has closed reports DISCONNECT alone.
+				const bool readable = serverHasRelay ? postoffice_can_recv_or_listen_has_request(sds[i].id - 1) : FD_ISSET(fd, &readfds);
+				// A connection PtpOpen started may have come up since anything looked at it.
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && FD_ISSET(fd, &writefds)) {
+					struct sockaddr_in peer;
+					socklen_t peerLen = sizeof(peer);
+					if (getpeername(fd, (struct sockaddr *)&peer, &peerLen) == 0) {
+						sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 					}
+				}
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+					sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_ACCEPT : 0)) & sds[i].events;
+				} else if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
+					char peek;
+					if (!serverHasRelay && readable && recv(fd, &peek, 1, MSG_PEEK | MSG_NOSIGNAL) == 0) {
+						sds[i].revents = ADHOC_EV_DISCONNECT;
+						disconnected = true;
+					} else {
+						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
+					}
+				} else if (sock->type == SOCK_PTP) {
 					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
-					else if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
+					if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
 						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
 
 						sds[i].revents |= ADHOC_EV_CONNECT;
@@ -3277,13 +3337,16 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 					// Raise ADHOC_EV_DISCONNECT, ADHOC_EV_DELETE, ADHOC_EV_INVALID on revents regardless of events as needed (similar to POLLHUP, POLLERR, and POLLNVAL on posix poll)
 					if (sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED) {
 						if (sock->attemptCount > 0) {
-							sds[i].revents |= ADHOC_EV_DISCONNECT; // remote peer has closed the socket
+							sds[i].revents = ADHOC_EV_DISCONNECT; // remote peer has closed the socket
+							disconnected = true;
 						}
 					}
 				}
 
 				if (sock->flags & ADHOC_F_ALERTPOLL) {
 					sock->alerted_flags |= ADHOC_F_ALERTPOLL;
+					// Reported as ALERT alone (pspautotests net/adhoc/alerts).
+					sds[i].revents = ADHOC_EV_ALERT;
 
 					return SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 				}
@@ -3302,6 +3365,9 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 			affectedsockets = SCE_NET_ADHOC_ERROR_TIMEOUT;
 		*/
 		affectedsockets = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
+	}
+	if (disconnected) {
+		return SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
 	}
 	return affectedsockets;
 }
@@ -3323,9 +3389,12 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 		{
 			// Socket Check
 			for (int i = 0; i < count; i++) {
-				// Invalid Socket
-				if (sds[i].id < 1 || sds[i].id > MAX_SOCKET || adhocSockets[sds[i].id - 1] == NULL)
+				// Invalid Socket. A PSP puts INVALID in the first entry, whichever one is invalid
+				// (pspautotests net/adhoc/poll).
+				if (sds[i].id < 1 || sds[i].id > MAX_SOCKET || adhocSockets[sds[i].id - 1] == NULL) {
+					sds[0].revents = ADHOC_EV_INVALID;
 					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID, "invalid socket id");
+				}
 			}
 
 			// Nonblocking Mode
@@ -4638,11 +4707,9 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -4689,9 +4756,11 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
 	}
 	if (netAdhocInited && (isZeroMAC(saddr) || (saddr->data[0] & 1) != 0 || isZeroMAC(daddr))) {
+		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address");
 	}
 	if (netAdhocInited && (dport == 0 || dport == 0xFFFF)) {
+		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_PORT, "invalid port");
 	}
 	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
@@ -4709,7 +4778,8 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 			getLocalMac(saddr);
 		}
 		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
-		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr) && !isZeroMAC(daddr)) {
+		// The broadcast address is accepted, as on a PSP (pspautotests net/adhoc/ptp); connecting to it just never succeeds.
+		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
 			if (isPTPPortInUse(sport, false, daddr, dport)) {
 				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
@@ -4793,7 +4863,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 							// Find Free Translator ID
 							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 							int i = 0;
-							for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+							i = FindFreeAdhocSocketSlot();
 
 							// Found Free Translator ID
 							if (i < MAX_SOCKET) {
@@ -4909,7 +4979,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 				// Find Free Translator ID
 				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 				int i = 0;
-				for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+				i = FindFreeAdhocSocketSlot();
 
 				// Found Free Translator ID
 				if (i < MAX_SOCKET) {
@@ -5111,16 +5181,25 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = flag;
 
+			// A connection PtpOpen started may have come up since.
+			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay) {
+				struct sockaddr_in peer;
+				socklen_t peerLen = sizeof(peer);
+				if (getpeername(ptpsocket.id, (struct sockaddr *)&peer, &peerLen) == 0) {
+					ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+				}
+			}
+
+			// Connecting a connected socket returns 0 on the PSP, even with the connect alert set (pspautotests
+			// net/adhoc/alerts). Phantasy Star Portable 2 does that.
+			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
+				return 0;
+
 			if (socket->flags & ADHOC_F_ALERTCONNECT) {
 				socket->alerted_flags |= ADHOC_F_ALERTCONNECT;
 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 			}
-
-			// Connecting a connected socket returns 0 on the PSP (pspautotests net/adhoc/alerts). Phantasy Star
-			// Portable 2 does that.
-			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED)
-				return 0;
 
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
@@ -5358,11 +5437,9 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 
 	AdhocSocket **slot = NULL;
 	int i;
-	for (i = 0; i < MAX_SOCKET; i++) {
-		if (adhocSockets[i] == NULL) {
-			slot = &adhocSockets[i];
-			break;
-		}
+	i = FindFreeAdhocSocketSlot();
+	if (i < MAX_SOCKET) {
+		slot = &adhocSockets[i];
 	}
 
 	if (slot == NULL) {
@@ -5506,7 +5583,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 								// Find Free Translator ID
 								// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
 								int i = 0;
-								for (; i < MAX_SOCKET; i++) if (adhocSockets[i] == NULL) break;
+								i = FindFreeAdhocSocketSlot();
 
 								// Found Free Translator ID
 								if (i < MAX_SOCKET) {
@@ -5701,6 +5778,10 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
 			}
 
+			// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
+			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED && socket->attemptCount > 0)
+				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+
 			// Not Connected
 			return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_CONNECTED, "not connected");
 		}
@@ -5830,6 +5911,10 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
 				}
 
+				// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
+				if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED && socket->attemptCount > 0)
+					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+
 				// Not Connected
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_CONNECTED, "not connected");
 			}
@@ -5889,7 +5974,9 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 			auto& ptpsocket = socket->data.ptp;
 			socket->nonblocking = nonblock;
 
-			if (socket->flags & ADHOC_F_ALERTFLUSH) {
+			// A flush with nothing left to send returns 0 even with the flush alert set (pspautotests
+			// net/adhoc/alerts). Data sent on a connected socket is already with the host.
+			if ((socket->flags & ADHOC_F_ALERTFLUSH) && ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
 				socket->alerted_flags |= ADHOC_F_ALERTFLUSH;
 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
