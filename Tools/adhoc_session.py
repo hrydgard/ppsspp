@@ -273,6 +273,21 @@ def cmd_press(args):
 			dbg.close()
 
 
+def cmd_stick(args):
+	# Hold the left stick at X, Y (-1 to 1, Y up) for a while, then let it go.
+	session = load_session(args)
+	insts = selected(session, args.i)
+	for inst in insts:
+		dbg = Debugger(inst["port"])
+		dbg.request("input.analog.send", x=args.x, y=args.y)
+		dbg.close()
+	time.sleep(args.seconds)
+	for inst in insts:
+		dbg = Debugger(inst["port"])
+		dbg.request("input.analog.send", x=0, y=0)
+		dbg.close()
+
+
 def cmd_wait(args):
 	time.sleep(args.seconds)
 
@@ -464,6 +479,12 @@ def build_parser():
 	p.add_argument("--times", type=int, default=1, help="Press it this many times (for menus that need several)")
 	p.add_argument("--every", type=float, default=2, help="With --times: seconds between presses (default 2)")
 
+	p = sub.add_parser("stick", help="Hold the left analog stick")
+	p.add_argument("x", type=float, help="-1 (left) to 1 (right)")
+	p.add_argument("y", type=float, help="-1 (down) to 1 (up)")
+	p.add_argument("-i", help="Instances, like 1,2 (default all)")
+	p.add_argument("--seconds", type=float, default=1, help="How long to hold it (default 1)")
+
 	p = sub.add_parser("wait", help="Wait (wall clock)")
 	p.add_argument("seconds", type=float)
 
@@ -508,7 +529,7 @@ def build_parser():
 	return parser
 
 
-COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
+COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, stick=cmd_stick, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
 	watch=cmd_watch, run=cmd_run)
 
 

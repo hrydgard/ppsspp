@@ -18,7 +18,7 @@ python3 Tools/adhoc_session.py stop
 
 `start` launches N instances of the newest `build*/PPSSPPHeadless`, running freely at PSP speed, each
 with a WebSocket debugger port. Instance 1 also runs the ad hoc server. The other commands talk to the
-instances over the debugger: `press BUTTON [-i 1,2] [--frames N] [--times N --every SECONDS]`, `wait SECONDS`, `shot NAME`,
+instances over the debugger: `press BUTTON [-i 1,2] [--frames N] [--times N --every SECONDS]`, `stick X Y [--seconds S]` (the left analog stick), `wait SECONDS`, `shot NAME`,
 `stats`, and `run SCRIPT`, which runs a file of those commands, one per line (`#` starts a comment).
 The session (ports, logs, screenshots, memory sticks) lives in `$TMPDIR/ppsspp-adhoc-session`, or
 wherever `--dir` says.
