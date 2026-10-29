@@ -2188,6 +2188,16 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	{
 		const bool notifyDeath = context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1;
 
+		// A P2P peer whose request is denied goes back to one known from its hellos: no TIMEOUT, and it
+		// can ask again (pspautotests net/adhoc/pair/matching3).
+		if (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
+			sendCancelMessage(context, peer, optLen, opt);
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
+			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			hleEatCycles(adhocDefaultDelay);
+			return hleLogDebug(Log::sceNet, 0);
+		}
+
 		// Mark Peer as Canceled
 		peer->state = PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS;
 
