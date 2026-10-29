@@ -273,6 +273,50 @@ def cmd_press(args):
 			dbg.close()
 
 
+# The system on-screen keyboard's first page (Core/Dialog/PSPOskConstants.cpp, Latin lowercase).
+OSK_ROWS = ["1234567890-+", "qwertyuiop[]", "asdfghjkl;@~", "zxcvbnm,./?\\", "=<>'\u20ac\u00a5&\u00a7\u00a3*()"]
+
+
+def cmd_type(args):
+	# Types text into the system on-screen keyboard, which starts with the top left key selected, and
+	# finishes with START unless --no-finish. Only the first page (lowercase, digits) and space.
+	session = load_session(args)
+	insts = selected(session, args.i)
+	positions = {ch: (r, c) for r, row in enumerate(OSK_ROWS) for c, ch in enumerate(row)}
+	for ch in args.text:
+		if ch != " " and ch not in positions:
+			sys.exit("type: %r isn't on the keyboard's first page" % ch)
+
+	def press(button):
+		for inst in insts:
+			dbg = Debugger(inst["port"])
+			dbg.send("input.buttons.press", button=button, duration=3)
+			dbg.close()
+		time.sleep(0.15)
+
+	row, col = 0, 0
+	for ch in args.text:
+		if ch == " ":
+			press("square")
+			continue
+		r, c = positions[ch]
+		while row < r:
+			press("down")
+			row += 1
+		while row > r:
+			press("up")
+			row -= 1
+		while col < c:
+			press("right")
+			col += 1
+		while col > c:
+			press("left")
+			col -= 1
+		press("cross")
+	if not args.no_finish:
+		press("start")
+
+
 def cmd_stick(args):
 	# Hold the left stick at X, Y (-1 to 1, Y up) for a while, then let it go.
 	session = load_session(args)
@@ -479,6 +523,11 @@ def build_parser():
 	p.add_argument("--times", type=int, default=1, help="Press it this many times (for menus that need several)")
 	p.add_argument("--every", type=float, default=2, help="With --times: seconds between presses (default 2)")
 
+	p = sub.add_parser("type", help="Type text into the system on-screen keyboard, just opened")
+	p.add_argument("text")
+	p.add_argument("-i", help="Instances, like 1,2 (default all)")
+	p.add_argument("--no-finish", action="store_true", help="Don't press START at the end")
+
 	p = sub.add_parser("stick", help="Hold the left analog stick")
 	p.add_argument("x", type=float, help="-1 (left) to 1 (right)")
 	p.add_argument("y", type=float, help="-1 (down) to 1 (up)")
@@ -529,7 +578,7 @@ def build_parser():
 	return parser
 
 
-COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, stick=cmd_stick, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
+COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, stick=cmd_stick, type=cmd_type, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
 	watch=cmd_watch, run=cmd_run)
 
 
