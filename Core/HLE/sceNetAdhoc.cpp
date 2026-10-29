@@ -371,6 +371,11 @@ bool IsGameModeActive() {
 	return netAdhocGameModeEntered && masterGameModeArea.data;
 }
 
+// Last time the master data went out to every replica, for the GameMode keepalive below.
+static u64 gameModeLastMasterSend = 0;
+// One frame: how long the master data may stay unsent while the game doesn't call UpdateMaster.
+constexpr s64 GAMEMODE_KEEPALIVE_INTERVAL = 16666;
+
 static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	u32 error;
@@ -407,6 +412,16 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				return;
 			}
 
+			// The real GameMode keeps exchanging the last committed master data at a fixed rate, even while the game is busy
+			// and doesn't call UpdateMaster (ie. Bomberman's screen transitions, where the replicas otherwise see nothing for
+			// about 2 seconds and the other players end the battle with "WiFi battle error").
+			u64 gameModeNow = CoreTiming::GetGlobalTimeUsScaled();
+			if (!masterGameModeArea.dataUpdated && gameModeLastMasterSend != 0 && static_cast<s64>(gameModeNow - gameModeLastMasterSend) > GAMEMODE_KEEPALIVE_INTERVAL) {
+				masterGameModeArea.dataUpdated = 1;
+				for (auto& gma : replicaGameModeAreas)
+					gma.dataSent = 0;
+			}
+
 			// Send Master data
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
@@ -426,8 +441,10 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 					}
 					else if (gma.dataSent) sentcount++;
 				}
-				if (sentcount == replicaGameModeAreas.size())
+				if (sentcount == replicaGameModeAreas.size()) {
 					masterGameModeArea.dataUpdated = 0;
+					gameModeLastMasterSend = gameModeNow;
+				}
 			}
 			// Need to sync (send + recv) all players initial data (data from CreateMaster) after Master + All Replicas are created, and before the first UpdateMaster / UpdateReplica is called for Star Wars The Force Unleashed to show the correct players color on minimap (also prevent Starting issue on other GameMode games)
 			else {
@@ -6016,6 +6033,7 @@ int NetAdhocGameMode_DeleteMaster() {
 		free(masterGameModeArea.data);
 		masterGameModeArea.data = nullptr;
 	}
+	gameModeLastMasterSend = 0;
 	//NetAdhocPdp_Delete(masterGameModeArea.socket, 0);
 	gameModePeerPorts.erase(masterGameModeArea.mac);
 	masterGameModeArea = { 0 };
