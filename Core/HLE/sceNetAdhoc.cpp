@@ -6194,6 +6194,10 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 	if (size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
+	// pspautotests net/adhoc/pair/gamemode
+	if (size == 0)
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_DATALEN, "invalid data length");
+
 	if (masterGameModeArea.data)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
 
@@ -6247,18 +6251,23 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
+	const SceNetEtherAddr &replicaMac = *(const SceNetEtherAddr *)mac;
+	// The ID is the member's place in the member list (the host first), and a MAC that isn't a member is
+	// refused. With two consoles, the host's replica of the client is 1 and the client's of the host 0
+	// (pspautotests net/adhoc/pair/gamemode).
+	auto member = std::find_if(gameModeMacs.begin(), gameModeMacs.end(), [&](const SceNetEtherAddr &m) { return IsMatch(m, replicaMac); });
+	if (member == gameModeMacs.end())
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_GAMEMODE_MEMBER, "not a member");
+	int replicaId = (int)(member - gameModeMacs.begin());
+
 	hleEatMicro(1000);
-	int maxid = 0;
 	auto it = std::find_if(replicaGameModeAreas.begin(), replicaGameModeAreas.end(),
-		[mac, &maxid](GameModeArea const& e) {
-			if (e.id > maxid) maxid = e.id;
-			return IsMatch(e.mac, mac);
+		[&](GameModeArea const& e) {
+			return IsMatch(e.mac, replicaMac);
 		});
-	// MAC address already existed!
-	if (it != replicaGameModeAreas.end()) {
-		WARN_LOG(Log::sceNet, "sceNetAdhocGameModeCreateReplica - [%s] is already existed (id: %d)", mac2str((SceNetEtherAddr*)mac).c_str(), it->id);
-		return it->id; // SCE_NET_ADHOC_ERROR_ALREADY_CREATED
-	}
+	// pspautotests net/adhoc/pair/gamemode
+	if (it != replicaGameModeAreas.end())
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created");
 
 	int ret = 0;
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
@@ -6270,9 +6279,9 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
 		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, size, 0);
-		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, 0, *(SceNetEtherAddr*)mac, data };
+		GameModeArea gma = { replicaId, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, 0, replicaMac, data };
 		replicaGameModeAreas.push_back(gma);
-		ret = gma.id; // Valid id for replica is higher than 0?
+		ret = gma.id;
 
 		// Block current thread to sync initial master data after Master and all Replicas have been created
 		if (masterGameModeArea.data != NULL && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
