@@ -527,9 +527,6 @@ typedef struct SceNetAdhocMatchingContext {
   //bool InConnection = false;
   //u32_le handlerid = -1;
   //int eventMatchingHandlerUpdate = -1;
-
-  // After the hello data changes, a PSP host's game isn't told about the next join request from a new peer.
-  bool dropNextJoin = false;
 } SceNetAdhocMatchingContext;
 
 // End of psp definitions

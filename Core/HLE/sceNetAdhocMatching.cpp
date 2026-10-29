@@ -672,12 +672,6 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		return;
 	}
 
-	// The host takes the request, but the game isn't told (see dropNextJoin). That's only seen for a
-	// peer the host didn't know yet: one it had already denied gets its REQUEST (pspautotests
-	// net/adhoc/pair/matching2 and matching3).
-	const bool silent = context->dropNextJoin && findPeer(context, sendermac) == NULL;
-	context->dropNextJoin = false;
-
 	// We still got a unoccupied slot in our room (Parent / P2P)
 	if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && countChildren(context) < (context->maxpeers - 1)) || (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && findP2P(context) == NULL)) {
 		// Complete Packet Header available
@@ -732,7 +726,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 						peerlock.unlock();
 
 						// Spawn Request Event
-						if (!silent) spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
+						spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
 
 						// Return Success
 						return;
@@ -748,7 +742,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 
 					// Spawn Request Event
-					if (!silent) spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
+					spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
 
 					// Return Success
 					return;
@@ -2324,10 +2318,6 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 		//free(context->hello); // Doesn't need to free it since it will be reused later
 		//context->hello = NULL;
 	}
-
-	// The first join request after this, from a client the host doesn't know yet, never reaches the game
-	// on a PSP, even if the client has seen the new hello (pspautotests net/adhoc/pair/matching2).
-	context->dropNextJoin = true;
 
 	// Return Success
 	return hleLogDebug(Log::sceNet, 0);
