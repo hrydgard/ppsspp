@@ -45,7 +45,8 @@ std::vector<SceUID> matchingThreads;
 std::deque<MatchingArgs> matchingEvents;
 
 bool netAdhocMatchingInited;
-int adhocMatchingEventDelay = 30000; //30000
+// What MatchingStart takes on a PSP (pspautotests net/adhoc/timing).
+int adhocMatchingEventDelay = 416;
 
 void DoNetAdhocMatchingInited(PointerWrap &p) {
 	Do(p, netAdhocMatchingInited);
@@ -2524,8 +2525,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		DEBUG_LOG(Log::sceNet, "MemberList [Requested: %i][Discovered: %i]", requestedpeers, filledpeers);
 	}
 
-	// Return Success
-	return hleDelayResult(hleLogDebug(Log::sceNet, 0), "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
+	hleEatMicro(4);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason

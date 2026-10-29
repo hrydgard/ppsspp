@@ -99,6 +99,8 @@ int adhocctlPollEvent = -1;
 // When the game made its last request to the Adhoc Server, in emulated time. Its event isn't delivered
 // earlier than on a PSP (see PspEventDelayUs).
 static u64 adhocctlRequestTimeUs = 0;
+// Whether the pending DISCONNECT comes from ExitGameMode, which takes longer.
+static bool adhocctlDisconnectFromGameMode = false;
 // Whether the server has us in a group. The state the game sees only changes when the event is
 // delivered, so a Disconnect can come while a Create or Connect is still on its way.
 static bool adhocctlInServerGroup = false;
@@ -116,7 +118,7 @@ static int PspEventDelayUs(u32 flags) {
 		default: return getActivePeerCount() > 0 ? 3500000 : 4000000;
 		}
 	case ADHOCCTL_EVENT_SCAN: return 1015000;
-	case ADHOCCTL_EVENT_DISCONNECT: return 105000;
+	case ADHOCCTL_EVENT_DISCONNECT: return adhocctlDisconnectFromGameMode ? 640000 : 105000;
 	default: return 0;
 	}
 }
@@ -2880,7 +2882,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 									// Free Network Lock
 									//_freeNetworkLock();
 
-									hleEatMicro(50); // Can be longer than 1ms tho
+									hleEatMicro(21);
 									// Sent Data
 									if (sent >= 0) {
 										DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
@@ -2987,7 +2989,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 								// Free Network Lock
 								//_freeNetworkLock();
 
-								hleEatMicro(50);
+								hleEatMicro(10);
 								// Success, Broadcast never fails!
 								return 0; // len;
 							}
@@ -3586,8 +3588,7 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 						}
 					}
 				}
-				// Workaround to get 30 FPS instead of the too fast 60 FPS on Fate Unlimited Codes, it's abit absurd for a non-blocking call to have this much delay tho, and hleDelayResult doesn't works as good as hleEatMicro for this workaround.
-				hleEatMicro(50); // hleEatMicro(7500); // normally 1ms, but using 7.5ms here seems to show better result for Bleach Heat the Soul 7 and other games with too high FPS, but may have a risk of slowing down games that already runs at normal FPS? (need more games to test this)
+				hleEatMicro(18);
 				return hleLogDebug(Log::sceNet, affectedsockets, "success");
 			}
 			//else if (nonblock && affectedsockets < 0)
@@ -3842,7 +3843,7 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			hleEatMicro(200);
+			hleEatMicro(2);
 			// Return Success
 			return hleLogDebug(Log::sceNet, 0);
 		}
@@ -3892,15 +3893,17 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	return hleNoLog(retval);
 }
 
-u32 NetAdhocctl_Disconnect() {
+static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
 		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
-		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing).
+		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing),
+		// or 640 ms after ExitGameMode (net/adhoc/pair/timing).
 		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
+		adhocctlDisconnectFromGameMode = fromGameMode;
 
 		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
 		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || adhocctlInServerGroup) {
@@ -4052,7 +4055,7 @@ int sceNetAdhocctlTerm() {
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
 	int retval = NetAdhocctl_Term();
 
-	hleEatMicro(adhocDefaultDelay);
+	hleEatMicro(154);
 	return hleLogInfo(Log::sceNet, retval);
 }
 
@@ -4490,7 +4493,7 @@ int sceNetAdhocTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
 	int retval = NetAdhoc_Term();
 
-	hleEatMicro(adhocDefaultDelay);
+	hleEatMicro(10);
 	return hleLogInfo(Log::sceNet, retval);
 }
 
@@ -4582,7 +4585,7 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPdpStat);
 
-			hleEatMicro(50); // Not sure how long it supposed to take
+			hleEatMicro(1);
 			// Success
 			return 0;
 		}
@@ -4705,7 +4708,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPtpStat);
 
-			hleEatMicro(50); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
+			hleEatMicro(2);
 			// Success
 			return 0;
 		}
@@ -5873,7 +5876,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						sent = ptp_send_postoffice(id - 1, data, len);
 						if (sent == 0) {
 							// sent
-							hleEatMicro(50);
+							hleEatMicro(122);
 							return 0;
 						}
 						if (sent == SOCKET_ERROR) {
@@ -5893,7 +5896,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 
 					// Success
 					if (sent > 0) {
-						hleEatMicro(50); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
+						hleEatMicro(122);
 						// Save Length
 						*len = sent;
 
@@ -6137,7 +6140,7 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
-				hleEatMicro(50);
+				hleEatMicro(196);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 				// Apply Send Timeout Settings to Socket
 				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
@@ -6304,7 +6307,7 @@ static int sceNetAdhocGameModeUpdateMaster(MIPSState *mips) {
 			gma.dataSent = 0;
 	}
 
-	hleEatMicro(100);
+	hleEatMicro(80);
 	return 0;
 }
 
@@ -6383,7 +6386,7 @@ static int sceNetAdhocGameModeUpdateReplica(MIPSState *mips, int id, u32 infoAdd
 		}
 	}
 
-	hleEatMicro(100);
+	hleEatMicro(9);
 	return hleLogDebug(Log::sceNet, 0);
 }
 
@@ -6444,8 +6447,9 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 		u64 now = (u64)(time_now_d() * 1000000.0);
 
-		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || static_cast<s64>(now - adhocctlStartTime) > adhocDefaultTimeout)
+		// A PSP delivers CONNECT after a Join before the host shows up in its peer list (pspautotests
+		// net/adhoc/pair/timing), so only GAME waits for a peer here.
+		if (flags != ADHOCCTL_EVENT_GAME || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || static_cast<s64>(now - adhocctlStartTime) > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {
@@ -6562,7 +6566,7 @@ int NetAdhocctl_ExitGameMode() {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 	netAdhocGameModeEntered = false;
-	return NetAdhocctl_Disconnect();
+	return NetAdhocctl_Disconnect(true);
 }
 
 static int sceNetAdhocctlExitGameMode(MIPSState *mips) {
@@ -6690,8 +6694,8 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			// Return Success
-			return hleDelayResult(0, "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
+			hleEatMicro(4);
+			return 0;
 		}
 
 		// Invalid Arguments

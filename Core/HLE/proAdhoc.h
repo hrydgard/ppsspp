@@ -46,7 +46,8 @@
 
 // Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+// A PSP sends game mode data about every 12 ms (pspautotests net/adhoc/pair/timing).
+#define GAMEMODE_UPDATE_INTERVAL 12000
 #define GAMEMODE_INIT_DELAY 10000
 #define GAMEMODE_SYNC_TIMEOUT 250000
 #define GAMEMODE_WAITID 0x2001 // Just to differentiate WaitID with other ID on WAITTYPE_NET

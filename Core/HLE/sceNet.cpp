@@ -1010,7 +1010,7 @@ static u32 sceNetTerm() {
 	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
-	hleEatMicro(adhocDefaultDelay);
+	hleEatMicro(209);
 	return hleLogInfo(Log::sceNet, retval);
 }
 
