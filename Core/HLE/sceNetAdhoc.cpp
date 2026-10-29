@@ -118,7 +118,10 @@ static int PspEventDelayUs(u32 flags) {
 		default: return getActivePeerCount() > 0 ? 3500000 : 4000000;
 		}
 	case ADHOCCTL_EVENT_SCAN: return 1015000;
-	case ADHOCCTL_EVENT_DISCONNECT: return adhocctlDisconnectFromGameMode ? 640000 : 105000;
+	case ADHOCCTL_EVENT_DISCONNECT: return adhocctlDisconnectFromGameMode ? 650000 : 105000;
+	// GAMEMODE comes 4.38 s after CreateEnterGameMode, or 1.35 s after JoinEnterGameMode, whichever is
+	// later, to both at once (net/adhoc/pair/gamemodetiming).
+	case ADHOCCTL_EVENT_GAME: return adhocConnectionType == ADHOC_JOIN ? 1350000 : 4380000;
 	default: return 0;
 	}
 }
@@ -3901,7 +3904,7 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
 		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing),
-		// or 640 ms after ExitGameMode (net/adhoc/pair/timing).
+		// or 650 ms after ExitGameMode (net/adhoc/pair/gamemodetiming).
 		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 		adhocctlDisconnectFromGameMode = fromGameMode;
 
@@ -6482,11 +6485,12 @@ void __NetTriggerCallbacks()
 			case ADHOCCTL_EVENT_GAME:
 			{
 				newState = ADHOCCTL_STATE_GAMEMODE;
-				delayus = adhocEventDelay;
-				// TODO: Use blocking PTP connection to sync the timing just like official prx did (which is done before notifying user-defined Adhocctl Handlers)
-				// Workaround: Extra delay to prevent Joining player to progress faster than the Creator on Pocket Pool, but unbalanced delays could cause an issue on Shaun White Snowboarding :(
-				if (adhocConnectionType == ADHOC_JOIN)
-					delayus += adhocExtraDelay * 3;
+				delayus = RemainingEventDelayUs(flags);
+				// This is raised when the last member has arrived. The host's GAMEMODE also comes no sooner than
+				// 1.35 s after that, as the member's own does. A member doesn't know when the host called
+				// CreateEnterGameMode, so if it joins early it gets GAMEMODE before the host does.
+				if (adhocConnectionType != ADHOC_JOIN)
+					delayus = std::max(delayus, 1350000);
 				// Shows player list
 				INFO_LOG(Log::sceNet, "GameMode - All players have joined:");
 				int i = 0;
