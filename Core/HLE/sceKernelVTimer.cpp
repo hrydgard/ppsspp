@@ -84,6 +84,17 @@ static u64 __getVTimerCurrentTime(VTimer* vt) {
 	return vt->nvt.current + __getVTimerRunningTime(vt);
 }
 
+// A timer that's cancelled, stopped or given a new handler while its interrupt is pending doesn't run
+// (threads/vtimers/pending/cancelpending). The entry stays, as an id that's never valid, for the
+// interrupt to pop: see sceKernelDeleteVTimer.
+static void __KernelForgetPendingVTimer(SceUID id) {
+	for (SceUID &pending : vtimers) {
+		if (pending == id) {
+			pending = 0;
+		}
+	}
+}
+
 static int __KernelCancelVTimer(SceUID id) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
@@ -92,6 +103,7 @@ static int __KernelCancelVTimer(SceUID id) {
 	}
 
 	CoreTiming::UnscheduleEvent(vtimerTimer, id);
+	__KernelForgetPendingVTimer(id);
 	vt->nvt.handlerAddr = 0;
 	return 0;
 }
@@ -146,8 +158,9 @@ public:
 
 		VTimer *vtimer = kernelObjects.Get<VTimer>(vtimerID, error);
 		if (error) {
-			// Deleted while its interrupt was pending. handleResult won't run, so it's popped here.
-			WARN_LOG(Log::sceKernel, "Ignoring deleted vtimer %08x", vtimerID);
+			// Deleted (or cancelled, stopped or given a new handler) while its interrupt was pending.
+			// handleResult won't run, so it's popped here.
+			WARN_LOG(Log::sceKernel, "Ignoring deleted or cancelled vtimer %08x", vtimerID);
 			vtimers.pop_front();
 			return false;
 		}
@@ -384,6 +397,7 @@ static void __stopVTimer(VTimer *vt) {
 	vt->nvt.current = __getVTimerCurrentTime(vt);
 	vt->nvt.active = 0;
 	vt->nvt.base = 0;
+	__KernelForgetPendingVTimer(vt->GetUID());
 }
 
 u32 sceKernelStopVTimer(SceUID uid) {
@@ -426,6 +440,7 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 		schedule = Memory::ReadUnchecked_U64(scheduleAddr);
 	}
 
+	__KernelForgetPendingVTimer(uid);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
@@ -449,6 +464,7 @@ u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr,
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
+	__KernelForgetPendingVTimer(uid);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
