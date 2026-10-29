@@ -1350,22 +1350,19 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 
 				handleDataTimeouts(context, now);
 
+				// A PSP times out a peer exactly keepalive_int * init_count after its last keepalive, not on
+				// its own keepalive tick (pspautotests net/adhoc/pair/vanishtiming).
+				handleTimeout(context);
+
 				// Ping Required
 				if (context->keepalive_int > 0) {
 					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int)) {
-						// Handle Peer Timeouts
-						handleTimeout(context);
-
 						// Broadcast Ping Message
 						broadcastPingMessage(context);
 
 						// Update Ping Timer
 						lastping = now;
 					}
-				}
-				else {
-					// FIXME: Should we checks for Timeout too when the game doesn't set the keep alive interval?
-					handleTimeout(context);
 				}
 
 				// Messages on Stack ready for processing
@@ -1860,8 +1857,7 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 			context->hello_int = hello_int; // client might set this to 0
 			if (keepalive_int < 1) context->keepalive_int = PSP_ADHOCCTL_PING_TIMEOUT; else context->keepalive_int = keepalive_int; // client might set this to 0
 			context->keepalivecounter = init_count; // used to multiply keepalive_int as timeout
-			// With keepalive 500ms and 5 tries, a PSP times out a silent peer within 3 seconds
-			// (pspautotests net/adhoc/pair/vanish).
+			// Timed from the peer's last keepalive (pspautotests net/adhoc/pair/vanishtiming).
 			context->timeout = (u64)context->keepalive_int * (u64)std::max(1, init_count) + MATCHING_TIMEOUT_EXTRA_US;
 			context->handler = handler;
 			context->peerPort = new std::map<SceNetEtherAddr, u16_le>();

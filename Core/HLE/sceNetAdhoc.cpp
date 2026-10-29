@@ -852,15 +852,30 @@ static bool isLocalMac(const SceNetEtherAddr *mac) {
 	return isMacMatch(&localMac, mac);
 }
 
-// A PTP connection to a peer that has left the group fails once the retransmissions would have run out:
-// rexmt_int * rexmt_cnt after it left (pspautotests net/adhoc/pair/vanish).
+static void ptpSetEstablished(AdhocSocket *sock) {
+	sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+	sock->ptpEstablishedAt = CoreTiming::GetGlobalTimeUsScaled();
+}
+
+// A PSP checks the age of a connection's oldest unacknowledged data every rexmt_int, counting from when
+// the connection was established, and drops the connection at the first check where that data is older
+// than (rexmt_cnt + 1) * rexmt_int (pspautotests net/adhoc/pair/vanishtiming). Data sent once the peer
+// has left is never acknowledged.
 static bool ptpPeerGone(const AdhocSocket *sock) {
 	u64 leftAt = peerLeftAt(&sock->data.ptp.paddr);
 	if (leftAt == 0) {
 		return false;
 	}
-	u64 giveUpUs = (u64)std::max(0, sock->retry_interval) * (u64)std::max(1, sock->retry_count);
-	return CoreTiming::GetGlobalTimeUsScaled() - leftAt >= giveUpUs;
+	u64 interval = (u64)std::max(1, sock->retry_interval);
+	u64 limit = interval * (u64)(std::max(0, sock->retry_count) + 1);
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (now - leftAt <= limit) {
+		return false;
+	}
+	// The last check, at or before now, has to be past the limit.
+	u64 base = std::min(sock->ptpEstablishedAt, leftAt);
+	u64 lastCheck = base + (now - base) / interval * interval;
+	return lastCheck > leftAt + limit;
 }
 
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
@@ -1211,7 +1226,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 			// sent
 			// Set to Established on successful Send when an attempt to Connect was initiated
 			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-				ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+				ptpSetEstablished(sock);
 
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
 
@@ -1243,7 +1258,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 
 		// Set to Established on successful Send when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(sock);
 
 		// Return Success
 		result = 0;
@@ -1360,7 +1375,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 
 		// Set to Established on successful Recv when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(sock);
 
 		result = 0;
 	}
@@ -1463,7 +1478,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	internal->data.ptp.lport = adhocSockets[idx]->data.ptp.lport;
 	internal->data.ptp.paddr = mac_cpy;
 	internal->data.ptp.pport = reverse_port_simple(port_cpy);
-	internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+	ptpSetEstablished(internal);
 	internal->data.ptp.rcv_sb_cc = adhocSockets[idx]->data.ptp.rcv_sb_cc;
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
 	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + idx;
@@ -1696,7 +1711,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 
 	// Update Adhoc Socket state
 	if (ret != SOCKET_ERROR || sockerr == EISCONN) {
-		ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+		ptpSetEstablished(sock);
 		INFO_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Established (%s:%u)", req.id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 
 		// Done
@@ -3447,7 +3462,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 					struct sockaddr_in peer;
 					socklen_t peerLen = sizeof(peer);
 					if (getpeername(fd, (struct sockaddr *)&peer, &peerLen) == 0) {
-						sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+						ptpSetEstablished(sock);
 					}
 				}
 				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
@@ -4632,7 +4647,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 						if (serverHasRelay) {
 							if (sock->postofficeHandle != NULL) {
 								// good to go
-								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+								ptpSetEstablished(sock);
 							}
 						} else {
 							if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
@@ -4641,7 +4656,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 								memset(&sin, 0, sinlen);
 								// Ensure that the connection really established or not, since "select" alone can't accurately detects it
 								if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
-									sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+									ptpSetEstablished(sock);
 								}
 							}
 						}
@@ -5153,7 +5168,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					internal->data.ptp.pport = ntohs(peeraddr.sin_port) - portOffset;
 
 					// Set Connection State
-					internal->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
+					ptpSetEstablished(internal);
 
 					// Return Peer Address & Port Information
 					if (addr != NULL)
@@ -5321,7 +5336,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				struct sockaddr_in peer;
 				socklen_t peerLen = sizeof(peer);
 				if (getpeername(ptpsocket.id, (struct sockaddr *)&peer, &peerLen) == 0) {
-					ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+					ptpSetEstablished(socket);
 				}
 			}
 
