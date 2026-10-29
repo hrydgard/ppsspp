@@ -898,7 +898,7 @@ static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
 static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive" };
-static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1" };
+static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
 #ifndef MOBILE_DEVICE
 static constexpr const char *texScalingLevelNames[] = { "Off", "2x", "3x", "4x", "5x" };
@@ -2096,8 +2096,8 @@ void Config::PostLoadCleanup() {
 	// Clamp save state slot count to somewhat sane limits.
 	iSaveStateSlotCount = std::clamp(iSaveStateSlotCount, 1, 100);
 
-	// Three frames in flight showed no benefit over two, so the option is gone. Squash old values.
-	iInflightFrames = std::clamp(iInflightFrames, 1, 2);
+	// Clamp values to a valid range. We limited it to 2 for a while, but there may still be uses for 3.
+	iInflightFrames = std::clamp(iInflightFrames, 1, 3);
 
 	// The touch layout editor divides by this, and loops forever drawing the grid if it's 0.
 	iTouchSnapGridSize = std::clamp(iTouchSnapGridSize, 2, 256);
