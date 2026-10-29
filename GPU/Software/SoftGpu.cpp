@@ -975,6 +975,10 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, count * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Software: Bad vertex range %08x (%d verts)!", gstate_c.vertexAddr, count);
+		return;
 	}
 
 	if (gstate.isModeThrough()) {
@@ -1054,6 +1058,10 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
@@ -1107,6 +1115,10 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
