@@ -1419,6 +1419,9 @@ static constexpr ConfigSetting networkSettings[] = {
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME)
 		.Label(I18NCat::NETWORKING, "Port offset").Range(0, 60000, 100),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
+	ConfigSetting("AdhocSimDelayMs", SETTING(g_Config, iAdhocSimDelayMs), 0, CfgFlag::DEFAULT),
+	ConfigSetting("AdhocSimJitterMs", SETTING(g_Config, iAdhocSimJitterMs), 0, CfgFlag::DEFAULT),
+	ConfigSetting("AdhocSimLossPercent", SETTING(g_Config, iAdhocSimLossPercent), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MinTimeout", SETTING(g_Config, iMinTimeout), 0, CfgFlag::PER_GAME)
 		.Label(I18NCat::NETWORKING, "Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)").Range(0, 15000, 50).Units("ms"),
 	ConfigSetting("ForcedFirstConnect", SETTING(g_Config, bForcedFirstConnect), false, CfgFlag::PER_GAME)

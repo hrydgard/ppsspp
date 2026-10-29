@@ -202,6 +202,9 @@ struct CommandLineOptions {
 	std::optional<bool> adhocServer;
 	std::optional<bool> lagSync;
 	std::optional<std::string> nickname;
+	std::optional<int> adhocDelayMs;
+	std::optional<int> adhocJitterMs;
+	std::optional<int> adhocLossPercent;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;

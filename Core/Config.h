@@ -630,6 +630,10 @@ public:
 	bool bInfrastructureAutoDNS;
 	bool bAllowSavestateWhileConnected;  // Developer option, ini-only. No normal users need this, it's always wrong to save/load state when online.
 	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
+	// Developer options, ini-only: simulate a slower network for ad hoc data received through the relay.
+	int iAdhocSimDelayMs;  // Added to every datagram's delivery.
+	int iAdhocSimJitterMs;  // Up to this much more, at random (order is kept).
+	int iAdhocSimLossPercent;  // Datagrams dropped.
 
 	std::string sAdhocServerListUrl;
 	std::vector<std::string> vCustomAdhocServerList;

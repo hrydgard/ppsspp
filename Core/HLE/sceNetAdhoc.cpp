@@ -22,8 +22,12 @@
 
 #include "ppsspp_config.h"
 
+#include <deque>
+#include <map>
 #include <mutex>
+#include <random>
 #include <string>
+#include <vector>
 
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Format/JSONReader.h"
@@ -825,13 +829,99 @@ static void *pdp_postoffice_recover(int idx) {
 	return internal->postofficeHandle;
 }
 
+// Developer options (--adhoc-delay, --adhoc-jitter, --adhoc-loss): datagrams from the relay wait in a
+// queue of our own until their simulated arrival time, measured on the wall clock.
+struct SimDelayedPdp {
+	double due;
+	SceNetEtherAddr mac;
+	int port;  // As the relay reports it.
+	std::vector<u8> data;
+};
+static std::map<int, std::deque<SimDelayedPdp>> simDelayedPdp;  // By socket index.
+static std::mt19937 simRandom;
+
+static bool simPdpInUse(int idx) {
+	if (g_Config.iAdhocSimDelayMs > 0 || g_Config.iAdhocSimJitterMs > 0 || g_Config.iAdhocSimLossPercent > 0) {
+		return true;
+	}
+	// Turned off with datagrams still waiting: hand those out first.
+	auto it = simDelayedPdp.find(idx);
+	return it != simDelayedPdp.end() && !it->second.empty();
+}
+
+// Moves what the relay has delivered into the socket's queue. False if the session died.
+static bool simDrainPdp(int idx, void *pdp_sock) {
+	auto &queue = simDelayedPdp[idx];
+	const double now = time_now_d();
+	while (true) {
+		const int size = pdp_peek_next_size(pdp_sock);
+		if (size == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			return false;
+		}
+		if (size <= 0) {
+			return true;
+		}
+		SimDelayedPdp pdp{};
+		pdp.data.resize(size);
+		int len = size;
+		const int status = pdp_recv(pdp_sock, (char *)&pdp.mac, &pdp.port, (char *)pdp.data.data(), &len, true);
+		if (status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			return false;
+		}
+		if (status != AEMU_POSTOFFICE_CLIENT_OK) {
+			return true;
+		}
+		if ((int)(simRandom() % 100) < g_Config.iAdhocSimLossPercent) {
+			continue;
+		}
+		int delayMs = std::max(0, g_Config.iAdhocSimDelayMs);
+		if (g_Config.iAdhocSimJitterMs > 0) {
+			delayMs += (int)(simRandom() % (g_Config.iAdhocSimJitterMs + 1));
+		}
+		// Kept in order, like the relay's stream.
+		pdp.due = now + delayMs / 1000.0;
+		if (!queue.empty()) {
+			pdp.due = std::max(pdp.due, queue.back().due);
+		}
+		queue.push_back(std::move(pdp));
+	}
+}
+
+// The size of the first datagram that's arrived, or 0. Like pdp_peek_next_size(), including SESSION_DEAD.
+static int simPeekPdp(int idx, void *pdp_sock) {
+	if (!simDrainPdp(idx, pdp_sock)) {
+		return AEMU_POSTOFFICE_CLIENT_SESSION_DEAD;
+	}
+	const auto &queue = simDelayedPdp[idx];
+	return !queue.empty() && queue.front().due <= time_now_d() ? (int)queue.front().data.size() : 0;
+}
+
+// Like pdp_buffered_data_size(), counting only what's arrived.
+static int pdp_buffered_postoffice(int idx, void *pdp_sock) {
+	if (!simPdpInUse(idx)) {
+		return pdp_buffered_data_size(pdp_sock);
+	}
+	if (!simDrainPdp(idx, pdp_sock)) {
+		return AEMU_POSTOFFICE_CLIENT_SESSION_DEAD;
+	}
+	const double now = time_now_d();
+	int total = 0;
+	for (const auto &pdp : simDelayedPdp[idx]) {
+		if (pdp.due > now) {
+			break;
+		}
+		total += (int)pdp.data.size();
+	}
+	return total;
+}
+
 static int pdp_peek_next_size_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
 	if (pdp_sock == NULL) {
 		return 0;
 	}
-	int peek_status = pdp_peek_next_size(pdp_sock);
+	int peek_status = simPdpInUse(idx) ? simPeekPdp(idx, pdp_sock) : pdp_peek_next_size(pdp_sock);
 	if (peek_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		pdp_delete(internal->postofficeHandle);
 		internal->postofficeHandle = NULL;
@@ -889,7 +979,24 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	SceNetEtherAddr saddr_copy = {0};
 	int len_copy = *len;
 
-	int pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
+	int pdp_recv_status;
+	if (simPdpInUse(idx)) {
+		pdp_recv_status = simPeekPdp(idx, pdp_sock);
+		if (pdp_recv_status > 0) {
+			auto &queue = simDelayedPdp[idx];
+			SimDelayedPdp &pdp = queue.front();
+			saddr_copy = pdp.mac;
+			sport_copy = pdp.port;
+			len_copy = std::min(len_copy, (int)pdp.data.size());
+			memcpy(data, pdp.data.data(), len_copy);
+			queue.pop_front();
+			pdp_recv_status = AEMU_POSTOFFICE_CLIENT_OK;
+		} else if (pdp_recv_status == 0) {
+			pdp_recv_status = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+		}
+	} else {
+		pdp_recv_status = pdp_recv(pdp_sock, (char *)&saddr_copy, &sport_copy, (char *)data, &len_copy, true);
+	}
 	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		handle_relay_connect_failure();
 		pdp_delete(internal->postofficeHandle);
@@ -2232,6 +2339,7 @@ static void aemu_postoffice_server_log(const char *format, ...) {
 }
 
 void __NetAdhocInit() {
+	simDelayedPdp.clear();
 	friendFinderRunning = false;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
@@ -3343,7 +3451,7 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 		if (pdp_handle == NULL) {
 			return false;
 		}
-		int peek_len = pdp_buffered_data_size(pdp_handle);
+		int peek_len = pdp_buffered_postoffice(idx, pdp_handle);
 		if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 			internal->postofficeHandle = NULL;
 			pdp_delete(pdp_handle);
@@ -3605,6 +3713,7 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 }
 
 static int pdp_delete_postoffice(int idx) {
+	simDelayedPdp.erase(idx);
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->postofficeHandle != NULL) {
 		pdp_delete(internal->postofficeHandle);
@@ -4541,7 +4650,7 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 					if (serverHasRelay) {
 						void *postofficeHandle = pdp_postoffice_recover(j);
 						if (postofficeHandle != NULL) {
-							sock->data.pdp.rcv_sb_cc = pdp_buffered_data_size(postofficeHandle);
+							sock->data.pdp.rcv_sb_cc = pdp_buffered_postoffice(j, postofficeHandle);
 						}
 					} else {
 						sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
