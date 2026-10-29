@@ -697,6 +697,7 @@ tests_next = [
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
+  "net/adhoc/pair/matchingorder",
   "net/adhoc/pair/vanish",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 

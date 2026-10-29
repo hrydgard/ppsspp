@@ -850,6 +850,7 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 
 			// Add Self Peer to the following position (using peer->state = 0 to identify as Self)
 			addMember(context, &context->mac);
+			context->parentFirstAt = CoreTiming::GetGlobalTimeUsScaled() + context->keepalive_int;
 		}
 
 		// Spawn Accept Event
@@ -2422,8 +2423,11 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		int filledpeers = 0;
 
 		if (requestedpeers > 0) {
-			// The console itself comes first, also for a client (pspautotests net/adhoc/pair/matching)
-			{
+			// The console itself comes first, also for a child until a keepalive interval after it was
+			// accepted. Then the parent does, and the child is listed among the siblings
+			// (pspautotests net/adhoc/pair/matching, net/adhoc/pair/matchingorder).
+			bool parentFirst = context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && context->parentFirstAt != 0 && CoreTiming::GetGlobalTimeUsScaled() >= context->parentFirstAt && findParent(context) != NULL;
+			if (!parentFirst) {
 				// Add Local MAC
 				buf2[filledpeers++].mac_addr = context->mac;
 
@@ -2512,8 +2516,12 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 								buf2[filledpeers++].mac_addr = peer->mac;
 
 								DEBUG_LOG(Log::sceNet, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
-							}
+							} else if (parentFirst && peer->state == 0) {
+								// Self Peer
+								buf2[filledpeers++].mac_addr = peer->mac;
 
+								DEBUG_LOG(Log::sceNet, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
+							}
 						}
 					}
 					sortedPeers.clear();

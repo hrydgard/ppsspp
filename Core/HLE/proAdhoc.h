@@ -507,6 +507,10 @@ typedef struct SceNetAdhocMatchingContext {
   // Timeout
   u64_le timeout;
 
+  // Child: when GetMembers starts listing the parent first, one keepalive interval after being accepted
+  // (pspautotests net/adhoc/pair/matchingorder). 0 until accepted.
+  u64 parentFirstAt = 0;
+
   // Helper Thread (fake PSP Thread) needed to execute callback
   //HLEHelperThread *matchingThread;
   int matching_thid;
