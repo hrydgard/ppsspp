@@ -330,6 +330,7 @@ tests_good = [
   "intr/enablesub",
   "intr/registersub",
   "intr/releasesub",
+  "intr/releaseself/releaseself",
   "intr/suspended",
   "intr/vblank/vblank",
   "intr/delays/delays",
