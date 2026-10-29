@@ -885,23 +885,42 @@ static void ptpUpdateConnecting(AdhocSocket *sock) {
 
 // A PSP checks the age of a connection's oldest unacknowledged data every rexmt_int, counting from when
 // the connection was established, and drops the connection at the first check where that data is older
-// than (rexmt_cnt + 1) * rexmt_int (pspautotests net/adhoc/pair/vanishtiming). Data sent once the peer
-// has left is never acknowledged.
+// than (rexmt_cnt + 1) * rexmt_int. A connection that only receives never fails
+// (pspautotests net/adhoc/pair/vanishtiming).
 static bool ptpPeerGone(const AdhocSocket *sock) {
 	u64 leftAt = peerLeftAt(&sock->data.ptp.paddr);
 	if (leftAt == 0) {
 		return false;
 	}
+	// The oldest data the peer can't have acknowledged: sent after it left, or so shortly before that the
+	// acknowledgement couldn't come back (a round trip takes about 7 ms on a PSP).
+	u64 unackedSince = sock->ptpSendAfterPeerLeftAt;
+	if (sock->ptpLastSendAt != 0 && sock->ptpLastSendAt + 10000 >= leftAt && sock->ptpLastSendAt < leftAt) {
+		unackedSince = sock->ptpLastSendAt;
+	}
+	if (unackedSince == 0) {
+		return false;
+	}
 	u64 interval = (u64)std::max(1, sock->retry_interval);
 	u64 limit = interval * (u64)(std::max(0, sock->retry_count) + 1);
 	u64 now = CoreTiming::GetGlobalTimeUsScaled();
-	if (now - leftAt <= limit) {
+	if (now - unackedSince <= limit) {
 		return false;
 	}
 	// The last check, at or before now, has to be past the limit.
-	u64 base = std::min(sock->ptpEstablishedAt, leftAt);
+	u64 base = std::min(sock->ptpEstablishedAt, unackedSince);
 	u64 lastCheck = base + (now - base) / interval * interval;
-	return lastCheck > leftAt + limit;
+	return lastCheck > unackedSince + limit;
+}
+
+static void ptpNoteSend(AdhocSocket *sock) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (peerLeftAt(&sock->data.ptp.paddr) == 0) {
+		sock->ptpSendAfterPeerLeftAt = 0;
+	} else if (sock->ptpSendAfterPeerLeftAt == 0) {
+		sock->ptpSendAfterPeerLeftAt = now;
+	}
+	sock->ptpLastSendAt = now;
 }
 
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
@@ -1213,6 +1232,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	}
 
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
+	ptpNoteSend(internal);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		// this is not necessarily a relay failure, could simply be the other side disconnecting

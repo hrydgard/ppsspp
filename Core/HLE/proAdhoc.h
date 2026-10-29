@@ -327,6 +327,8 @@ typedef struct AdhocSocket {
 	u64 lastAttempt; // timestamp to retry again (attempted by the game)
 	u64 internalLastAttempt; // timestamp to retry again (internal use only)
 	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
+	u64 ptpLastSendAt; // the last PTP send
+	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
