@@ -2610,9 +2610,12 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
-	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
+	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we
+	// use the local MAC instead, without writing it into the game's memory.
+	SceNetEtherAddr localSrcMac;
 	if (saddr != NULL) {
-		getLocalMac(saddr);
+		getLocalMac(&localSrcMac);
+		saddr = &localSrcMac;
 	}
 
 
@@ -4961,9 +4964,12 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if current MAC is different :( So we try to fix it here
+		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
+		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
-			getLocalMac(saddr);
+			getLocalMac(&localSrcMac);
+			saddr = &localSrcMac;
 		}
 		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		// The broadcast address is accepted, as on a PSP (pspautotests net/adhoc/ptp); connecting to it just never succeeds.
@@ -5683,9 +5689,12 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	}
 
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
+		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
+		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
-			getLocalMac(saddr);
+			getLocalMac(&localSrcMac);
+			saddr = &localSrcMac;
 		}
 		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
