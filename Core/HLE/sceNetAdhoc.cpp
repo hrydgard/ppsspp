@@ -457,6 +457,14 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				return;
 			}
 
+			// After the initial sync, a PSP sends the master every period whether it changed or not, and the
+			// peers' replicas report each one as an update (pspautotests net/adhoc/pair/gamemodesync).
+			if (__KernelGetWaitID(threadID, WAITTYPE_NET, error) != GAMEMODE_WAITID || error != 0) {
+				masterGameModeArea.dataUpdated = 1;
+				for (auto &gma : replicaGameModeAreas)
+					gma.dataSent = 0;
+			}
+
 			// Send Master data
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
@@ -524,13 +532,16 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				}
 			}
 
-			// Recv new Replica data when available
-			if (serverHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+			// Recv new Replica data when available. Every member sends every period, so take all that's there.
+			for (int packets = 0; packets < ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 && (serverHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0); ++packets) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
 				s32_le bufsz = gameModeBuffSize;
 				int ret = sceNetAdhocPdpRecv(currentMIPS, gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
-				if (ret >= 0 && bufsz > 0) {
+				if (ret < 0 || bufsz <= 0) {
+					break;
+				}
+				{
 					// Shows a warning if the sender/source port is different than what it supposed to be.
 					if (senderport != ADHOC_GAMEMODE_PORT && senderport != gameModePeerPorts[sendermac]) {
 						char name[9] = {};
