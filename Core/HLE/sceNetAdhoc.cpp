@@ -2397,6 +2397,10 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 	// FIXME: Sometimes returning 0x80410601 (SCE_NET_ADHOC_ERROR_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited) {
+		// On a PSP this also leaves adhocctl uninitialized (GetState fails with NOT_INITIALIZED), and
+		// a further Init fails with AUTH_ALREADY_INITIALIZED until Term (pspautotests net/adhoc/adhocctl).
+		// Not emulated: a game doing this would lose its connection, and none has been seen to.
+		ERROR_LOG_REPORT(Log::sceNet, "sceNetAdhocctlInit called while already initialized - a PSP would now be left uninitialized, which isn't emulated");
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_ALREADY_INITIALIZED);
 	}
 
