@@ -10,31 +10,9 @@ The option defaults to disabled. It requires a frontend implementing
 `RETRO_ENVIRONMENT_SET_NETPACKET_INTERFACE` (environment command 78); an
 unsupported frontend rejects content loading when the option is enabled.
 WLAN, MAC addresses, PRO server, relay mode, UPnP and port offsets are managed
-by the transport while enabled. Normal in-game memory-stick saves still work.
-Restart content after ending a session, or before switching the option off.
-
-## Savestates and synchronized starts
-
-A savestate taken while a session runs keeps the game's PDP sockets, its
-GameMode areas and its group. Loading it restores them, rejoins the group once
-the transport has logged in, and holds emulation until every GameMode member of
-the state is connected again, so that the PSPs resume together. RetroArch
-refuses to load a state into a connected Netpacket session, so each player
-brings their own state (every PSP has its own memory) through the core:
-
-- enable **RetroArch Netplay Start State (Experimental)**;
-- put the player's state, taken by RetroArch in the same session (uncompressed),
-  at `PPSSPP/netplay/<game ID>.state` in the system directory;
-- the core loads it once the game has booted and waits for the other players
-  (with a "Waiting for the other players..." message; it resumes anyway after
-  five minutes).
-
-MAC addresses derive from frontend client IDs, so each player must load the
-state taken by the participant with the same ID (the host first, then the
-clients in connection order). Only the session layer comes back: an
-established PTP stream does not, so take states in GameMode or between rounds.
-States taken outside such a session keep the previous layout, which older
-builds still load.
+by the transport while enabled. Normal in-game memory-stick saves still work;
+emulator savestates are disabled in this mode. Restart content after ending a
+session, or before switching the option off.
 
 This is a prototype for testing. Passing transport and emulator regression
 tests does not establish compatibility with a particular commercial game,
@@ -49,8 +27,7 @@ RetroArch relay separately after the direct connection works.
 The libretro frontend substitutes an in-memory implementation before PSP boot,
 stops it before shutdown, and restores the defaults after networking threads
 have joined. The disabled path retains the existing transport and HLE state
-layout. No HLE syscall table entry is added; the `sceNetAdhoc` savestate section
-gains version 11 (the session), written only when a frontend transport runs.
+layout. No HLE syscall table or serialized field is added.
 
 `NetpacketAdhoc` owns the thread-safe discovery service, PDP datagrams and PTP
 streams. The RetroArch host maintains game/group membership; clients receive
@@ -90,7 +67,7 @@ resource limits. They can also be compiled with AddressSanitizer and UBSan.
 The optional integration smoke test loads the actual core in a minimal frontend
 and boots the repository's `pspautotests/tests/net/adhoc/self.prx`. A synthetic
 peer joins its group and must receive its PSP-generated broadcast. It checks
-frontend callback thread affinity, boot/video output, a savestate round trip during the session and
+frontend callback thread affinity, boot/video output, savestate rejection and
 shutdown. Point the system directory's `PPSSPP` subdirectory at `assets`:
 
 ```sh

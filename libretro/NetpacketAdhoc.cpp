@@ -258,18 +258,6 @@ void NetpacketAdhoc::LocalMac(uint8_t *mac) {
 	std::lock_guard<std::mutex> guard(s_->mutex);
 	Mac(s_->self, mac);
 }
-bool NetpacketAdhoc::Active() {
-	std::lock_guard<std::mutex> guard(s_->mutex);
-	return s_->active;
-}
-bool NetpacketAdhoc::HasPeer(uint16_t id) {
-	std::lock_guard<std::mutex> guard(s_->mutex);
-	return s_->active && s_->peers.count(id) != 0;
-}
-uint16_t NetpacketAdhoc::Self() {
-	std::lock_guard<std::mutex> guard(s_->mutex);
-	return s_->self;
-}
 std::vector<NetpacketAdhoc::Packet> NetpacketAdhoc::TakePackets() {
 	std::lock_guard<std::mutex> guard(s_->mutex);
 	std::vector<Packet> packets;

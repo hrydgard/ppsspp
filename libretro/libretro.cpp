@@ -1772,53 +1772,6 @@ static void retro_input(void) {
    __CtrlSetAnalogXY(CTRL_STICK_RIGHT, x_right, y_right);
 }
 
-// The player's own netplay start state: PPSSPP/netplay/<game ID>.state in the system directory, as RetroArch saves it
-// (RASTATE container, uncompressed) or the core's raw data. A frontend can't load a state into a connected Netpacket
-// session, so the core does it, and each player brings theirs.
-// Set while the core loads its netplay start state (retro_unserialize then waits for the players even before the session).
-static bool loadingNetplayStartState = false;
-
-static void LoadNetplayStartState() {
-   const Path path = g_Config.internalDataDirectory / "netplay" / (g_paramSFO.GetDiscID() + ".state");
-   std::string bytes;
-   if (!File::ReadBinaryFileToString(path, &bytes)) {
-      INFO_LOG(Log::System, "Netplay start state: none at %s", path.c_str());
-      return;
-   }
-   const u8 *data = (const u8 *)bytes.data();
-   size_t size = bytes.size();
-   if (size >= 8 && memcmp(data, "RASTATE", 7) == 0) {
-      // Blocks: a 4-byte marker, a 32-bit little-endian size, the data (aligned to 8 bytes). The core's is "MEM ".
-      size_t at = 8;
-      const u8 *core = nullptr;
-      size_t coreSize = 0;
-      while (at + 8 <= size) {
-         const size_t block = (size_t)data[at + 4] | (size_t)data[at + 5] << 8 | (size_t)data[at + 6] << 16 | (size_t)data[at + 7] << 24;
-         if (memcmp(data + at, "MEM ", 4) == 0 && at + 8 + block <= size) {
-            core = data + at + 8;
-            coreSize = block;
-            break;
-         }
-         if (memcmp(data + at, "END ", 4) == 0)
-            break;
-         at += 8 + ((block + 7) & ~(size_t)7);
-      }
-      if (!core) {
-         ERROR_LOG(Log::System, "Netplay start state: no core data in %s (compressed state?)", path.c_str());
-         return;
-      }
-      data = core;
-      size = coreSize;
-   }
-   loadingNetplayStartState = true;
-   const bool loaded = retro_unserialize(data, size);
-   loadingNetplayStartState = false;
-   if (loaded)
-      INFO_LOG(Log::System, "Netplay start state loaded from %s", path.c_str());
-   else
-      ERROR_LOG(Log::System, "Netplay start state: %s could not be loaded", path.c_str());
-}
-
 // Called every frame by retroarch.
 void retro_run(void) {
    Libretro::NetpacketPoll();
@@ -1856,18 +1809,6 @@ void retro_run(void) {
          free(unserialize_data);
          unserialize_data = NULL;
       }
-      if (Libretro::NetpacketStartStateWanted())
-         LoadNetplayStartState();
-   }
-
-   // Emulation waits for the players of a loaded netplay state; the transport keeps polling meanwhile.
-   if (Libretro::NetpacketHolding()) {
-      // The emu thread is resumed by the pumping below once the hold ends.
-      if (useEmuThread)
-         EmuThreadPause();
-      retro_input();
-      ctx->SwapBuffers();
-      return;
    }
 
    // TODO: This seems dubious.
@@ -1924,6 +1865,8 @@ bool retro_load_game_special(unsigned type, const struct retro_game_info *info, 
 
 size_t retro_serialize_size(void)
 {
+   if (Libretro::NetpacketEnabled())
+      return 0;
    if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
 
@@ -1937,6 +1880,8 @@ size_t retro_serialize_size(void)
 }
 
 bool retro_serialize(void *data, size_t size) {
+   if (Libretro::NetpacketEnabled())
+      return false;
    if (!gpu) // The HW renderer isn't ready on first pass.
       return false;
 
@@ -1962,6 +1907,8 @@ bool retro_serialize(void *data, size_t size) {
 }
 
 bool retro_unserialize(const void *data, size_t size) {
+   if (Libretro::NetpacketEnabled())
+      return false;
    // The HW renderer isn't ready on first pass.
    // So we save the data until we are ready to use it.
    if (!gpu) {
@@ -1983,9 +1930,6 @@ bool retro_unserialize(const void *data, size_t size) {
    SaveState::SaveStart state;
    bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
-   // A netplay session resumes once the players of the state are connected again.
-   if (retVal)
-      Libretro::NetpacketHoldAfterLoad(loadingNetplayStartState);
 
    if (useEmuThread)
       EmuThreadStart();

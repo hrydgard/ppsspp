@@ -12,9 +12,7 @@
 #include <cstring>
 #include <string>
 #include <thread>
-#include <vector>
 #ifdef _WIN32
-#include <winsock2.h>
 #include <windows.h>
 #else
 #include <dlfcn.h>
@@ -104,10 +102,6 @@ int main(int argc, char **argv) {
 		supported = strcmp(argv[5], "unsupported") != 0;
 	}
 #ifdef _WIN32
-	// A frontend initializes Winsock before loading the core (RetroArch does); without it the core cannot even
-	// resolve the local ad hoc server address.
-	WSADATA wsa;
-	Check(WSAStartup(MAKEWORD(2, 2), &wsa) == 0, "Winsock initialized");
 	auto library = LoadLibraryA(argv[1]);
 	auto symbol = [&](const char *name) { return GetProcAddress(library, name); };
 #else
@@ -121,7 +115,6 @@ int main(int argc, char **argv) {
 	LOAD(retro_set_environment); LOAD(retro_set_video_refresh); LOAD(retro_set_audio_sample_batch);
 	LOAD(retro_set_input_poll); LOAD(retro_set_input_state); LOAD(retro_init); LOAD(retro_deinit);
 	LOAD(retro_load_game); LOAD(retro_unload_game); LOAD(retro_run); LOAD(retro_serialize_size);
-	LOAD(retro_serialize); LOAD(retro_unserialize);
 	retro_set_environment(Environment);
 	retro_set_video_refresh(Video);
 	retro_set_audio_sample_batch(Audio);
@@ -140,7 +133,7 @@ int main(int argc, char **argv) {
 	void *control = nullptr, *datagram = nullptr;
 	if (enabled) {
 		Check(callbacks.start && callbacks.receive && callbacks.poll, "Netpacket registered");
-		Check(retro_serialize_size() > 0, "savestates available in packet mode");
+		Check(retro_serialize_size() == 0, "savestates disabled in packet mode");
 		callbacks.start(0, Send, Receive);
 		Check(callbacks.connected(1), "second player accepted");
 		peer.Start(1);
@@ -174,22 +167,6 @@ int main(int argc, char **argv) {
 		if ((foundPeer && foundData && frames > 120) || (!enabled && frames > 120))
 			break;
 		std::this_thread::sleep_for(std::chrono::milliseconds(2));
-	}
-	if (enabled && foundData) {
-		// A state taken during the session must load back into it: the PSP's sockets and group come back, and
-		// emulation resumes once the session's players are there (this one has no GameMode members to wait for).
-		std::vector<uint8_t> state(retro_serialize_size());
-		Check(!state.empty() && retro_serialize(state.data(), state.size()), "savestate taken in a session");
-		Check(retro_unserialize(state.data(), state.size()), "savestate loaded back into the session");
-		unsigned before = frames;
-		for (int i = 0; i < 240 && !quit; i++) {
-			for (auto &packet : peer.TakePackets())
-				callbacks.receive(packet.data.data(), packet.data.size(), 1);
-			callbacks.poll();
-			retro_run();
-			std::this_thread::sleep_for(std::chrono::milliseconds(2));
-		}
-		Check(!quit && frames > before, "emulation resumed after loading the state");
 	}
 	if (enabled) {
 		callbacks.disconnected(1);

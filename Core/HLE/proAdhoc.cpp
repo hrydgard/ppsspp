@@ -88,9 +88,6 @@ SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
 std::atomic<bool> isAdhocctlNeedLogin              = false;
-std::atomic<bool> adhocRejoinPending               = false;
-std::atomic<bool> adhocRejoinQuiet                 = false;
-SceNetAdhocctlParameter adhocRejoinParameter{};
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
@@ -1543,23 +1540,17 @@ int friendFinder() {
 		// Acquire Network Lock
 		//_acquireNetworkLock();
 
-		// A frontend transport that isn't connected yet: keep the login for later instead of failing it.
-		const bool transportReady = !g_netAdhocTransport.ready || g_netAdhocTransport.ready();
-
 		// Reconnect when disconnected while Adhocctl is still inited
-		if (netAdhocctlInited && isAdhocctlNeedLogin && g_Config.bEnableWlan && transportReady) {
+		if (netAdhocctlInited && isAdhocctlNeedLogin && g_Config.bEnableWlan) {
 			AdhocctlClientStatus status = maintain_adhocctl_client(&product_code);
 			switch (status) {
 			case AdhocctlClientStatus::SPAWNED: {
 				g_adhocServerConnected = true;
 				INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
-				// A loaded state's group is rejoined just below: keep its state.
-				if (!adhocRejoinPending) {
-					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-					netAdhocGameModeEntered = false;
-					isAdhocctlBusy = false;
-				}
+				// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+				adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+				netAdhocGameModeEntered = false;
+				isAdhocctlBusy = false;
 				break;
 			}
 			case AdhocctlClientStatus::DEAD: {
@@ -1577,26 +1568,7 @@ int friendFinder() {
 		}
 
 		// sceNetAdhocctlScan & Create puts this back to true, which will trigger retry
-		if (transportReady)
-			isAdhocctlNeedLogin = false;
-
-		// Rejoin the group of a loaded state, once logged in.
-		if (adhocRejoinPending && g_adhocServerConnected) {
-			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
-			if (adhocctlHandle) {
-				char group[ADHOCCTL_GROUPNAME_LEN + 1]{};
-				memcpy(group, adhocRejoinParameter.group_name.data, ADHOCCTL_GROUPNAME_LEN);
-				adhocRejoinQuiet = true;
-				if (g_netAdhocTransport.ctlConnect(adhocctlHandle, group) == ADHOCCTL_CALL_SUCCESS) {
-					parameter.group_name = adhocRejoinParameter.group_name;
-					parameter.bssid = adhocRejoinParameter.bssid;
-					adhocRejoinPending = false;
-					INFO_LOG(Log::sceNet, "FriendFinder: rejoining group %s of the loaded state", group);
-				} else {
-					adhocRejoinQuiet = false;
-				}
-			}
-		}
+		isAdhocctlNeedLogin = false;
 
 		now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 
@@ -1664,10 +1636,6 @@ int friendFinder() {
 			break;
 		case ADHOCCTL_CLIENT_EVENT_LEADER_MAC:{
 			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str((SceNetEtherAddr *)adhocctl_event.leader_mac.mac).c_str());
-			// Rejoining a loaded state's group: the game already has its BSSID and saw the connection.
-			if (adhocRejoinQuiet.exchange(false)) {
-				break;
-			}
 			// Update Group BSSID
 			memcpy(parameter.bssid.mac_addr.data, adhocctl_event.leader_mac.mac, 6); // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
 

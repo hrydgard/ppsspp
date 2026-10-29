@@ -802,12 +802,6 @@ extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
 extern std::atomic<bool> isAdhocctlNeedLogin;
-// A state loaded with a frontend transport left the game in a group: the friend finder rejoins it after the login,
-// without telling the game (adhocRejoinQuiet covers the group leader event that follows).
-extern std::atomic<bool> adhocRejoinPending;
-extern std::atomic<bool> adhocRejoinQuiet;
-// The loaded state's group, kept apart: the login clears 'parameter'.
-extern SceNetAdhocctlParameter adhocRejoinParameter;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
