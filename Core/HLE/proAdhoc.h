@@ -381,6 +381,12 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 
   // Last Heartbeat
   u64_le lastping; // May need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
+
+  // A host's accept stays in progress until its ESTABLISHED event has been delivered.
+  s32_le accepting;
+
+  // The send was aborted with AbortSendData, so its DATA_ACK is discarded.
+  s32_le ackAborted;
 } SceNetAdhocMatchingMemberInternal;
 
 
@@ -1053,12 +1059,6 @@ void sendCancelMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatching
 */
 void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int datalen, const void * data);
 
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
 
 /**
 * Notify all established Peers about new Kid in the Neighborhood

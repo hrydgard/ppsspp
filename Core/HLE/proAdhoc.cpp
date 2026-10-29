@@ -548,29 +548,19 @@ void deleteFriendByIP(uint32_t ip) {
 	}
 }
 
+// A PSP hands out matching context IDs in increasing order, 1 to 15 and around again (pspautotests
+// net/adhoc/matching). There can't be more than 15 contexts.
+static int nextMatchingId = 1;
+
 int findFreeMatchingID() {
-	// Minimum Matching ID
-	int min = 1;
-
-	// Maximum Matching ID
-	int max = 0;
-
-	// Find highest Matching ID
-	SceNetAdhocMatchingContext * item = contexts; 
-	for (; item != NULL; item = item->next) {
-		// New Maximum
-		if (max < item->id) max = item->id;
+	for (int n = 0; n < 15; n++) {
+		int id = (nextMatchingId - 1 + n) % 15 + 1;
+		if (findMatchingContext(id) == NULL) {
+			nextMatchingId = id % 15 + 1;
+			return id;
+		}
 	}
-
-	// Find unoccupied ID
-	int i = min; 
-	for (; i < max; i++) {
-		// Found unoccupied ID
-		if (findMatchingContext(i) == NULL) return i;
-	}
-
-	// Append at virtual end
-	return max + 1;
+	return 16;
 }
 
 SceNetAdhocMatchingContext * findMatchingContext(int id) {
@@ -844,9 +834,13 @@ void linkEVMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->eventlock->lock();
 
-	// Link Message
-	message->next = context->event_stack;
-	context->event_stack = message;
+	// Append, so events are delivered in the order they happened
+	message->next = NULL;
+	ThreadMessage **tail = &context->event_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->eventlock->unlock();
@@ -862,9 +856,13 @@ void linkIOMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->inputlock->lock();
 
-	// Link Message
-	message->next = context->input_stack;
-	context->input_stack = message;
+	// Append, so packets go out in the order they were queued (pspautotests net/adhoc/pair/matching2)
+	message->next = NULL;
+	ThreadMessage **tail = &context->input_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->inputlock->unlock();
@@ -975,17 +973,6 @@ void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMembe
 {
 	// Send Bulk Data Message
 	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK, datalen, data);
-}
-
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer)
-{
-	// Send Bulk Data Abort Message
-	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK_ABORT, 0, NULL);
 }
 
 /**
