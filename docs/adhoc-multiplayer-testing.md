@@ -131,7 +131,10 @@ instance. Things to know:
 
 ## Measuring
 
-- `stats` reads each instance's frame rate (`gpu.stats.get`). A game that waits for its peer often
+- `stats` reads each instance's frame rate (`gpu.stats.get`). If vblanks/s is below 60, emulation itself
+  is behind: the instances share one GPU, and a GPU-heavy game (Star Wars: The Force Unleashed) can
+  hold both back while each is mostly waiting on a fence. Pause the other instance (`kill -STOP`) to
+  check whether one alone keeps up. A game that waits for its peer often
   keeps drawing, so this doesn't always show it.
 - Game time shows in the game itself: a fighting game's round timer, a race's lap time. Two
   screenshots ten seconds apart that show less than ten seconds of game time passing mean the game
