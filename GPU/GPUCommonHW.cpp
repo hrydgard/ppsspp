@@ -981,6 +981,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
+	// Nothing is mapped past the end of RAM or VRAM, so a draw running off the end would fault on the first read.
+	if (!inds && !Memory::IsValidRange(gstate_c.vertexAddr, count * decoder->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Bad vertex range %08x (%d verts of %d bytes)!", gstate_c.vertexAddr, count, decoder->VertexSize());
+		return;
+	}
+
 	// This is the check from #21678 for Evangelion JO.
 	// TODO: Make this less specific.
 	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
@@ -1105,7 +1111,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
 				// are consecutive in memory. We also ignore culling here which is not ideal.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
-				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, flags);
+				const int maxVerts = Memory::MaxSizeAtAddress(gstate_c.vertexAddr) / decoder->VertexSize();
+				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, flags, maxVerts);
 				if (!commandsExecuted) {
 					goto bail;
 				}
@@ -1126,6 +1133,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				}
 				inds = Memory::GetPointerUnchecked(indexAddr);
 			} else {
+				if (!Memory::IsValidRange(gstate_c.vertexAddr, count * decoder->VertexSize())) {
+					// Bad vertex range, leave it to Execute_Prim.
+					goto bail;
+				}
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
 			}
@@ -1338,6 +1349,10 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {
@@ -1409,6 +1424,10 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {

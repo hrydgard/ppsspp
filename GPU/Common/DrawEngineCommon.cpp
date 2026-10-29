@@ -788,7 +788,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
 // unless we refactor things a bit.
-int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, ClipInfoFlags clipInfoFlags) {
+int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *stall, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, bool isTriangle, ClipInfoFlags clipInfoFlags, int maxVerts) {
 	if (clipInfoFlags & ClipInfoFlags::Valid) {
 		clipInfoFlags_ |= clipInfoFlags;
 	}
@@ -817,6 +817,10 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		int vertexCount = data & 0xFFFF;
 		const int expanded = ExpandedVertexCount(newPrim, vertexCount);
 		if (numDrawInds >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX || numVertsToDecode_ + (offset - dv.vertexCount) + vertexCount > VERTEX_BUFFER_MAX || expandedVertsInDrawCalls_ + expanded > VERTEX_BUFFER_MAX) {
+			break;
+		}
+		// The vertices would run off the end of memory. Execute_Prim drops the draw.
+		if ((offset - dv.vertexCount) + vertexCount > maxVerts) {
 			break;
 		}
 		expandedVertsInDrawCalls_ += expanded;
