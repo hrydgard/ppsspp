@@ -254,10 +254,11 @@ void Core_RegisterDebugOutputListeners(std::function<void(DebugOutputChannel, st
 }
 
 void Core_SendDebugOutput(LogLevel level, std::string_view string) {
+	// Logged even with a listener: headless only passes the listener's output on when it collects a
+	// test's output, and these are crash reports.
+	GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	if (g_debugOutputListener) {
 		g_debugOutputListener(DebugOutputChannel::Debug, string);
-	} else {
-		GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	}
 }
 
@@ -710,6 +711,22 @@ void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit
 		Core_UpdateState(CORE_STEPPING_CPU);
 	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+void Core_ReportBreakWithoutRunning(BreakReason reason, u32 relatedAddress) {
+	if (coreState != CORE_STEPPING_CPU) {
+		return;
+	}
+	std::lock_guard<std::mutex> lock(g_stepMutex);
+	if (!g_cpuStepCommand.empty()) {
+		// A step is about to run, and its own stop will be reported.
+		return;
+	}
+	g_breakReason = reason;
+	g_breakHit = BreakpointHit{};
+	g_cpuStepCommand.reason = reason;
+	g_cpuStepCommand.relatedAddr = relatedAddress;
+	steppingCounter++;
 }
 
 // Free-threaded (or at least should be)

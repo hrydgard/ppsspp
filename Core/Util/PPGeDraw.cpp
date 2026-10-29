@@ -239,10 +239,6 @@ void __PPGeSetupListArgs() {
 }
 
 void __PPGeInit() {
-	// PPGe isn't really important for headless, and LoadZIM takes a long time (well not that long, but unnecessary).
-	// TODO: Load it lazily.
-	const bool skipZIM = System_GetPropertyBool(SYSPROP_IS_HEADLESS);
-
 	u8 *imageData[12]{};
 	int width[12]{};
 	int height[12]{};
@@ -250,8 +246,8 @@ void __PPGeInit() {
 
 	// TODO: Load the atlas on a thread!
 
-	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
-	if (!skipZIM && !loadedZIM) {
+	bool loadedZIM = LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
+	if (!loadedZIM) {
 		ERROR_LOG(Log::sceGe, "Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.\n\nPPGe stuff will not be drawn.");
 	}
 

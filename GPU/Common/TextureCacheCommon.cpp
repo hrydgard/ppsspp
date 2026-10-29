@@ -718,6 +718,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				rehash = true;
 			}
 
+			// The PPGe atlas is host data, not in emulated memory, and never changes.
+			if (entry->status & TexStatus::IS_PPGE_ATLAS) {
+				rehash = false;
+			}
+
 			// got one!
 			VERBOSE_LOG(Log::TexCache, "%08x: Texture found in cache. Rehash flag = %d", texaddr, (int)rehash);
 

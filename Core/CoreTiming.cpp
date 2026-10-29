@@ -567,6 +567,9 @@ void DoState(PointerWrap &p) {
 		return;
 	// States are saved between slices.
 	otherCPUsRan = 0;
+	// A debugger's run-until deadline keeps the time it had left, not its absolute time, which
+	// belongs to the timeline being replaced.
+	const s64 deadlineLeftUs = p.mode == PointerWrap::MODE_READ && breakDeadlineUs ? breakDeadlineUs - (s64)GetGlobalTimeUs() : 0;
 
 	int n = (int)event_types.size();
 	int current = n;
@@ -632,7 +635,9 @@ void DoState(PointerWrap &p) {
 		lastGlobalTimeUs = 0;
 	}
 	if (p.mode == PointerWrap::MODE_READ) {
-		// A debugger's run-until deadline is in emulated us, and the ticks it maps to just changed.
+		if (breakDeadlineUs) {
+			breakDeadlineUs = (s64)GetGlobalTimeUs() + std::max(deadlineLeftUs, (s64)0);
+		}
 		RecomputeBreakDeadline();
 	}
 
