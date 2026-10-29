@@ -85,6 +85,7 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
+u64 gameModeEnterTimeUs = 0;
 std::atomic<bool> isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
@@ -1641,7 +1642,7 @@ void friendFinderPoll() {
 	uint64_t now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
 
 	// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
-	if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
+	if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(CoreTiming::GetGlobalTimeUs() - gameModeEnterTimeUs) > netAdhocEnterGameModeTimeout) {
 		netAdhocGameModeEntered = false;
 		// A joiner's GAMEMODE is queued as soon as the server answers, and held until the host shows up.
 		// It must not come after all (pspautotests net/adhoc/gamemode).

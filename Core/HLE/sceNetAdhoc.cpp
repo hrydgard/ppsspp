@@ -1053,7 +1053,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 		memset(&sin, 0, sinlen);
 		recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		// Try again later, until timeout reached
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout != 0 && now - req.startTime > req.timeout) {
 			result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i]: Discard Timeout", req.id);
@@ -1103,7 +1103,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	}
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
 			return -1;
@@ -1215,7 +1215,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		}
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
-				u64 now = (u64)(time_now_d() * 1000000.0);
+				u64 now = CoreTiming::GetGlobalTimeUs();
 				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
@@ -1340,7 +1340,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1456,7 +1456,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1632,7 +1632,7 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 			result = newid;
 	}
 	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1814,7 +1814,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 
 	// Still in progress, try again next time until Timedout
 	if (ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
 			return -1;
@@ -1855,7 +1855,7 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 	result = 0;
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1877,7 +1877,7 @@ int DoBlockingAdhocPollSocket(AdhocSocketRequest& req, s64& result) {
 		// A disconnected socket or a poll alert ends the wait at once.
 		ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
 	} else if (ret == 0) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		// A timeout of 0 waits forever, like the rest of sceNet.
 		if (static_cast<int>(req.timeout) <= 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -2019,7 +2019,8 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	if (tmout > 0)
 		tmout = std::max(tmout, minSocketTimeoutUS);
 
-	u64 startTime = (u64)(time_now_d() * 1000000.0);
+	// Timeouts are the PSP's, so they run on the emulated clock.
+	u64 startTime = CoreTiming::GetGlobalTimeUs();
 	adhocSocketRequests[threadSocketId] = { type, pspSocketId, buffer, len, tmout, startTime, remoteMAC, remotePort };
 	// Some games (ie. Hitman Reborn Battle Arena 2) are using as small as 50 usec timeout
 	CoreTiming::ScheduleEvent(usToCycles(1), adhocSocketNotifyEvent, threadSocketId);
@@ -2179,6 +2180,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 		Do(p, isAdhocctlBusy);
 		Do(p, netAdhocGameModeEntered);
 		Do(p, netAdhocEnterGameModeTimeout);
+		// Not saved: a game mode being entered gets its whole timeout again after a load.
+		gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	}
 	else {
 		isAdhocctlBusy = false;
@@ -4447,6 +4450,7 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 	adhocConnectionType = ADHOC_CREATE;
 	netAdhocGameModeEntered = true;
 	netAdhocEnterGameModeTimeout = timeout;
+	gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	return NetAdhocctl_Create(group_name);
 }
 
@@ -4509,6 +4513,7 @@ static int sceNetAdhocctlJoinEnterGameMode(MIPSState *mips, const char * group_n
 	adhocConnectionType = ADHOC_JOIN;
 	netAdhocGameModeEntered = true;
 	netAdhocEnterGameModeTimeout = timeout;
+	gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(group_name));
 }
 

@@ -818,6 +818,8 @@ extern std::atomic<bool> friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+// When CreateEnterGameMode or JoinEnterGameMode was called, in emulated time: its timeout is a PSP-side one.
+extern u64 gameModeEnterTimeUs;
 extern std::atomic<bool> isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
