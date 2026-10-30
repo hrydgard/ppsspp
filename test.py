@@ -621,11 +621,7 @@ known_failures = {
 
 # Two-console tests that don't pass yet in one of the two ways run_pair_tests runs them. Same rules as above.
 pair_known_failures = {
-  "relay": [
-    # A PSP connects a PTP socket at PtpOpen, so a poll before PtpConnect already reports CONNECT.
-    # The relay doesn't connect until PtpConnect.
-    "net/adhoc/pair/ptppoll",
-  ],
+  "relay": [],
   "p2p": [],
 }
 

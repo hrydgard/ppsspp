@@ -19,6 +19,8 @@
 
 #include "ppsspp_config.h"
 
+#include <deque>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -46,6 +48,8 @@
 #define errno WSAGetLastError()
 #endif
 
+static void closeRelayBacklog(const AdhocSocket *listener);
+
 void RelayTransport::CloseHostSocket(AdhocSocket *sock) {
 	if (sock->type == SOCK_PTP) {
 		// sync
@@ -61,6 +65,7 @@ void RelayTransport::CloseHostSocket(AdhocSocket *sock) {
 				ptp_close(socket);
 			}
 		}
+		closeRelayBacklog(sock);
 	} else {
 		if (sock->postofficeHandle != NULL) {
 			pdp_delete(sock->postofficeHandle);
@@ -443,34 +448,83 @@ static void *ptp_listen_postoffice_recover(int idx) {
 	return internal->postofficeHandle;
 }
 
+// A PSP completes a connect to a listener by itself, without the game calling Accept, up to the
+// listener's backlog (pspautotests net/adhoc/pair/ptppoll, pair/ptpclose). The relay only answers the
+// connecting side once the listening side accepts, so connections are accepted from the relay into this
+// queue as they arrive, and PtpAccept takes them from it.
+struct RelayPendingConnection {
+	void *handle;
+	SceNetEtherAddr mac;
+	int port;
+};
+
+struct RelayBacklog {
+	int size = 1;
+	std::deque<RelayPendingConnection> pending;
+};
+
+static std::map<const AdhocSocket *, RelayBacklog> relayBacklogs;
+
+// Accepts what the relay has for a listener, while there's room in its backlog.
+static void fillRelayBacklog(int idx) {
+	AdhocSocket *listener = adhocSockets[idx];
+	RelayBacklog &backlog = relayBacklogs[listener];
+	while ((int)backlog.pending.size() < backlog.size) {
+		void *ptp_listen_socket = ptp_listen_postoffice_recover(idx);
+		if (ptp_listen_socket == NULL) {
+			return;
+		}
+		int state = 0;
+		RelayPendingConnection connection = {};
+		connection.handle = ptp_accept(ptp_listen_socket, (char *)&connection.mac, &connection.port, true, NULL, NULL, &state);
+		if (connection.handle == NULL) {
+			if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+				handle_relay_connect_failure();
+				ptp_listen_close(listener->postofficeHandle);
+				listener->postofficeHandle = NULL;
+			}
+			if (state == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
+				// pretty critical here
+				ERROR_LOG(Log::sceNet, "%s: aemu_postoffice ran out of memory to accept a new connection", __func__);
+			}
+			return;
+		}
+		handle_relay_connect_success();
+		backlog.pending.push_back(connection);
+	}
+}
+
+// Closes the connections a listener accepted that the game never took.
+static void closeRelayBacklog(const AdhocSocket *listener) {
+	auto it = relayBacklogs.find(listener);
+	if (it == relayBacklogs.end()) {
+		return;
+	}
+	for (auto &connection : it->second.pending) {
+		ptp_close(connection.handle);
+	}
+	relayBacklogs.erase(it);
+}
+
+void RelayTransport::Poll() {
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		AdhocSocket *sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN && sock->postofficeHandle != NULL) {
+			fillRelayBacklog(i);
+		}
+	}
+}
+
 static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport) {
-	void *ptp_listen_socket = ptp_listen_postoffice_recover(idx);
-
-	if (ptp_listen_socket == NULL) {
+	fillRelayBacklog(idx);
+	RelayBacklog &backlog = relayBacklogs[adhocSockets[idx]];
+	if (backlog.pending.empty()) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
-
-	int state = 0;
-	int port_cpy = 0;
-	SceNetEtherAddr mac_cpy = {0};
-	void *new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac_cpy, &port_cpy, true, NULL, NULL, &state);
-	if (new_ptp_socket == NULL) {
-		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-			handle_relay_connect_failure();
-			ptp_listen_close(adhocSockets[idx]->postofficeHandle);
-			adhocSockets[idx]->postofficeHandle = NULL;
-			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
-		}
-		if (state == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY) {
-			// pretty critical here
-			ERROR_LOG(Log::sceNet, "%s: aemu_postoffice ran out of memory to accept a new connection", __func__);
-		}
-		// AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK
-		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
-	}
-
-	// we have a new socket
-	handle_relay_connect_success();
+	void *new_ptp_socket = backlog.pending.front().handle;
+	SceNetEtherAddr mac_cpy = backlog.pending.front().mac;
+	int port_cpy = backlog.pending.front().port;
+	backlog.pending.pop_front();
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL) {
 		ERROR_LOG(Log::sceNet, "%s: critical: ran out of heap memory while accepting new connection", __func__);
@@ -669,19 +723,8 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 	if (internal->type == SOCK_PTP) {
 		if (internal->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-			void *ptp_listen_handle = ptp_listen_postoffice_recover(idx);
-			if (ptp_listen_handle == NULL) {
-				return false;
-			}
-			int has_request = ptp_listen_has_request(ptp_listen_handle);
-			if (has_request == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-				internal->postofficeHandle = NULL;
-				ptp_listen_close(ptp_listen_handle);
-				return false;
-			}
-			if (has_request) {
-				return true;
-			}
+			fillRelayBacklog(idx);
+			return !relayBacklogs[internal].pending.empty();
 		} else if (internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
 			void *ptp_handle = internal->postofficeHandle;
 			if (ptp_handle == NULL) {
@@ -871,6 +914,7 @@ static int ptp_close_postoffice(int idx) {
 			ptp_close(socket);
 		}
 	}
+	closeRelayBacklog(internal);
 	adhocSockets[idx] = NULL;
 	free(internal);
 	INFO_LOG(Log::sceNet, "%s: closed ptp socket with id %d", __func__, idx + 1);
@@ -930,7 +974,11 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 }
 
 int RelayTransport::PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) {
-	return ptp_listen_postoffice(saddr, sport, bufsize, rexmt_int, rexmt_cnt);
+	int id = ptp_listen_postoffice(saddr, sport, bufsize, rexmt_int, rexmt_cnt);
+	if (id > 0) {
+		relayBacklogs[adhocSockets[id - 1]].size = std::max(1, backlog);
+	}
+	return id;
 }
 
 int RelayTransport::PtpSend(int id, const char *data, int *len, int timeout, int flag) {

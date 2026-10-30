@@ -44,6 +44,9 @@ public:
 
 	// Frees the host side of a socket (not the AdhocSocket), when all are deleted at once.
 	virtual void CloseHostSocket(AdhocSocket *sock) = 0;
+	// Called every millisecond of emulated time while the ad hoc server connection is up, for work that
+	// happens on a PSP whatever the game calls.
+	virtual void Poll() {}
 	// Whether the connection to a local ad hoc server should be bound to our own local IP, so that
 	// instances on one machine look like different consoles to it.
 	virtual bool BindServerConnectionToLocalIp() = 0;
@@ -141,6 +144,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect =
 class RelayTransport : public AdhocTransport {
 public:
 	void CloseHostSocket(AdhocSocket *sock) override;
+	void Poll() override;
 
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override;
 	int PdpDelete(int id) override;

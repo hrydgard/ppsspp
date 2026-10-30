@@ -597,6 +597,7 @@ static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
 
 static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
 	friendFinderPoll();
+	Transport().Poll();
 	if (friendFinderRunning) {
 		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
 	}
