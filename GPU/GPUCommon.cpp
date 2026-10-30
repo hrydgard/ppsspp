@@ -37,6 +37,7 @@
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
+#include "GPU/BeforeUIDraw.h"
 
 bool __KernelIsDispatchEnabled();
 
@@ -1020,6 +1021,7 @@ DLResult GPUCommon::RunDLQueue() {
 			list.interrupted = false;
 
 			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
+			BeforeUIDraw::Enter(this, list, downcount, gpuState, [&] { FinishDeferred(); });
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
 			debugRecording_ = recorder_.IsActive();
@@ -1039,6 +1041,7 @@ DLResult GPUCommon::RunDLQueue() {
 		const bool useFastRunLoop = useFastRunLoop_;
 
 		while (gpuState == GPUSTATE_RUNNING) {
+			BeforeUIDraw::Reached(this, list, downcount, gpuState, [&] { FinishDeferred(); });
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
 				downcount = 0;
@@ -1066,6 +1069,7 @@ DLResult GPUCommon::RunDLQueue() {
 				gpuState = GPUSTATE_RUNNING;
 			}
 		}
+		BeforeUIDraw::Leave(list);
 
 		FinishDeferred();
 		if (debugRecording_)
