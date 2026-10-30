@@ -45,7 +45,8 @@ std::vector<SceUID> matchingThreads;
 std::deque<MatchingArgs> matchingEvents;
 
 bool netAdhocMatchingInited;
-int adhocMatchingEventDelay = 30000; //30000
+// What MatchingStart takes on a PSP (pspautotests net/adhoc/timing).
+int adhocMatchingEventDelay = 416;
 
 void DoNetAdhocMatchingInited(PointerWrap &p) {
 	Do(p, netAdhocMatchingInited);
@@ -849,6 +850,7 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 
 			// Add Self Peer to the following position (using peer->state = 0 to identify as Self)
 			addMember(context, &context->mac);
+			context->parentFirstAt = CoreTiming::GetGlobalTimeUsScaled() + context->keepalive_int;
 		}
 
 		// Spawn Accept Event
@@ -2187,6 +2189,16 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 	{
 		const bool notifyDeath = context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD && countConnectedPeers(context) > 1;
 
+		// A P2P peer whose request is denied goes back to one known from its hellos: no TIMEOUT, and it
+		// can ask again (pspautotests net/adhoc/pair/matching3).
+		if (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST) {
+			sendCancelMessage(context, peer, optLen, opt);
+			peer->state = PSP_ADHOC_MATCHING_PEER_OFFER;
+			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
+			hleEatCycles(adhocDefaultDelay);
+			return hleLogDebug(Log::sceNet, 0);
+		}
+
 		// Mark Peer as Canceled
 		peer->state = PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS;
 
@@ -2411,8 +2423,11 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		int filledpeers = 0;
 
 		if (requestedpeers > 0) {
-			// The console itself comes first, also for a client (pspautotests net/adhoc/pair/matching)
-			{
+			// The console itself comes first, also for a child until a keepalive interval after it was
+			// accepted. Then the parent does, and the child is listed among the siblings
+			// (pspautotests net/adhoc/pair/matching, net/adhoc/pair/matchingorder).
+			bool parentFirst = context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && context->parentFirstAt != 0 && CoreTiming::GetGlobalTimeUsScaled() >= context->parentFirstAt && findParent(context) != NULL;
+			if (!parentFirst) {
 				// Add Local MAC
 				buf2[filledpeers++].mac_addr = context->mac;
 
@@ -2501,8 +2516,12 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 								buf2[filledpeers++].mac_addr = peer->mac;
 
 								DEBUG_LOG(Log::sceNet, "MemberSibling [%s]", mac2str(&peer->mac).c_str());
-							}
+							} else if (parentFirst && peer->state == 0) {
+								// Self Peer
+								buf2[filledpeers++].mac_addr = peer->mac;
 
+								DEBUG_LOG(Log::sceNet, "MemberSelf [%s]", mac2str(&peer->mac).c_str());
+							}
 						}
 					}
 					sortedPeers.clear();
@@ -2524,8 +2543,8 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		DEBUG_LOG(Log::sceNet, "MemberList [Requested: %i][Discovered: %i]", requestedpeers, filledpeers);
 	}
 
-	// Return Success
-	return hleDelayResult(hleLogDebug(Log::sceNet, 0), "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
+	hleEatMicro(4);
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 // Gran Turismo may replace the 1st bit of the 1st byte of MAC address's OUI with 0 (unicast bit), or replace the whole 6-bytes of MAC address with all 00 (invalid mac) for unknown reason
@@ -2647,14 +2666,24 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 	return hleLogDebug(Log::sceNet, 0);
 }
 
+// A PSP keeps 0x20 bytes of the pool for itself. Its maximum is the largest allocation so far: 0 right
+// after Init (pspautotests net/adhoc/matching). Once there's a context, half the pool, which
+// isn't measured.
+static u32 FakePoolSize() {
+	return fakePoolSize >= 0x20 ? fakePoolSize - 0x20 : 0;
+}
+
+static u32 FakePoolMaxAlloc() {
+	return contexts != NULL ? FakePoolSize() / 2 : 0;
+}
+
 // Get the maximum memory usage by the matching library
 static int sceNetAdhocMatchingGetPoolMaxAlloc() {
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
 
-	// Lazy way out - hardcoded return value
-	return hleLogDebug(Log::sceNet, fakePoolSize / 2, "faked value");
+	return hleLogDebug(Log::sceNet, FakePoolMaxAlloc(), "faked value");
 }
 
 int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
@@ -2675,10 +2704,10 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 	}
 
-	// Fill Poolstat with Fake Data
-	poolstat->pool = fakePoolSize;
-	poolstat->maximum = fakePoolSize / 2; // Max usage faked to halt the pool
-	poolstat->free = fakePoolSize - poolstat->maximum;
+	// Fake data, apart from right after Init.
+	poolstat->pool = FakePoolSize();
+	poolstat->maximum = FakePoolMaxAlloc();
+	poolstat->free = poolstat->pool - poolstat->maximum;
 
 	// Return Success
 	return hleLogDebug(Log::sceNet, 0);

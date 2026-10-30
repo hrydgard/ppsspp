@@ -46,7 +46,8 @@
 
 // Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+// A PSP sends game mode data about every 12 ms (pspautotests net/adhoc/pair/timing).
+#define GAMEMODE_UPDATE_INTERVAL 12000
 #define GAMEMODE_INIT_DELAY 10000
 #define GAMEMODE_SYNC_TIMEOUT 250000
 #define GAMEMODE_WAITID 0x2001 // Just to differentiate WaitID with other ID on WAITTYPE_NET
@@ -326,6 +327,8 @@ typedef struct AdhocSocket {
 	u64 lastAttempt; // timestamp to retry again (attempted by the game)
 	u64 internalLastAttempt; // timestamp to retry again (internal use only)
 	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
+	u64 ptpLastSendAt; // the last PTP send
+	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
@@ -503,6 +506,10 @@ typedef struct SceNetAdhocMatchingContext {
 
   // Timeout
   u64_le timeout;
+
+  // Child: when GetMembers starts listing the parent first, one keepalive interval after being accepted
+  // (pspautotests net/adhoc/pair/matchingorder). 0 until accepted.
+  u64 parentFirstAt = 0;
 
   // Helper Thread (fake PSP Thread) needed to execute callback
   //HLEHelperThread *matchingThread;
@@ -811,6 +818,18 @@ extern std::atomic<bool> friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
+// When CreateEnterGameMode or JoinEnterGameMode was called, in emulated time: its timeout is a PSP-side one.
+extern u64 gameModeEnterTimeUs;
+// The server answers a group join with a CONNECT for each player already in the group, then the group's
+// BSSID. A join the game has given up on (game mode timed out, or it disconnected) before the BSSID came
+// is abandoned: what's left of its answer must not put us in the group.
+extern bool groupJoinInFlight;
+extern int abandonedGroupJoins;
+// Gives up on the join being made, if any: one still queued isn't sent, and the answer to one already
+// sent is dropped.
+void AbandonGroupJoin();
+// Whether we've asked the server to put us in a group, and haven't left it since.
+bool NetAdhocctl_InServerGroup();
 extern std::atomic<bool> isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;

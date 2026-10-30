@@ -5,6 +5,7 @@
 import sys
 import os
 import subprocess
+import random
 import threading
 import glob
 import platform
@@ -363,6 +364,15 @@ tests_good = [
   "net/inet/polledge",
   "net/inet/reuse",
   "net/inet/errnothread",
+  "net/adhoc/abandon",
+  "net/adhoc/alerts",
+  "net/adhoc/discover",
+  "net/adhoc/gamemode",
+  "net/adhoc/limits",
+  "net/adhoc/loopback",
+  "net/adhoc/self",
+  "net/adhoc/socketids",
+  "net/adhoc/term",
   "misc/libc",
   "misc/sdkver",
   "misc/testgp",
@@ -664,18 +674,12 @@ tests_next = [
   #"modules/loadexec/loader",
   "modules/unloadfill/unloadfill",
   "net/http/http",
-  "net/adhoc/adhocctl",
-  "net/adhoc/alerts",
-  "net/adhoc/ctlinit",
-  "net/adhoc/discover",
-  "net/adhoc/gamemode",
-  "net/adhoc/limits",
-  "net/adhoc/loopback",
-  "net/adhoc/matching",
-  "net/adhoc/pdp",
-  "net/adhoc/poll",
-  "net/adhoc/ptp",
-  "net/adhoc/self",
+  "net/adhoc/adhocctl",  # a second Init fails and leaves adhocctl uninitialized; also the Scan state race below
+  "net/adhoc/ctlinit",  # GetState right after Scan: 2 here, still 0 on a PSP for under 1 ms (net/adhoc/scanstate)
+  "net/adhoc/matching",  # GetHelloOpt reports the hello length + 16; what the 16 bytes are is unknown
+  "net/adhoc/pdp",  # PdpCreate takes any MAC as the local one, for savestates made with another MAC
+  "net/adhoc/poll",  # P2P: a peer's close isn't seen while its data is still unread
+  "net/adhoc/ptp",  # the PdpCreate MAC as in pdp; a self-connect is established at open; a refused connect retries until timeout instead of CONNECTION_REFUSED
   "net/inet/bind",
   "net/inet/poll",
   "net/inet/errors",
@@ -693,6 +697,7 @@ tests_next = [
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
+  "net/adhoc/pair/matchingorder",
   "net/adhoc/pair/vanish",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 
@@ -740,13 +745,18 @@ test_flags = {
 
 # The ad hoc tests create groups, so they need a server to log in to, and they wait for its replies
 # in real time.
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--timeout-wall=60"]
+# They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
+# trips stay real.
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + os.environ.get("ADHOC_SPEED", "800"), "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
     return test_flags[test]
   if test.startswith("net/adhoc/"):
-    return ADHOC_FLAGS
+    # A new port offset each run: a connection the last run made with the same ports is still in TCP
+    # TIME_WAIT for a while, and connecting again fails. The tests' ports go up to 31000 (game mode's), and
+    # have to stay below Linux's ephemeral ports (32768 and up), which outgoing connections hold.
+    return ADHOC_FLAGS + ["--port-offset=%d" % random.randrange(1, 1700)]
   return None
 
 def is_pair_test(test):
@@ -839,6 +849,7 @@ def run_pair_tests(test_list, args):
   # built-in ad hoc server and relay.
   cmdline = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Tools', 'adhoc_multi.py'), '--headless', PPSSPP_EXE, '--relay']
   cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
+  cmdline.append("--speed=" + os.environ.get("ADHOC_SPEED", "800"))
   cmdline.extend(test_list)
   returncode = subprocess.call(cmdline)
   print("Ran " + ' '.join(cmdline))

@@ -99,6 +99,8 @@ int adhocctlPollEvent = -1;
 // When the game made its last request to the Adhoc Server, in emulated time. Its event isn't delivered
 // earlier than on a PSP (see PspEventDelayUs).
 static u64 adhocctlRequestTimeUs = 0;
+// Whether the pending DISCONNECT comes from ExitGameMode, which takes longer.
+static bool adhocctlDisconnectFromGameMode = false;
 // Whether the server has us in a group. The state the game sees only changes when the event is
 // delivered, so a Disconnect can come while a Create or Connect is still on its way.
 static bool adhocctlInServerGroup = false;
@@ -116,7 +118,10 @@ static int PspEventDelayUs(u32 flags) {
 		default: return getActivePeerCount() > 0 ? 3500000 : 4000000;
 		}
 	case ADHOCCTL_EVENT_SCAN: return 1015000;
-	case ADHOCCTL_EVENT_DISCONNECT: return 105000;
+	case ADHOCCTL_EVENT_DISCONNECT: return adhocctlDisconnectFromGameMode ? 650000 : 105000;
+	// GAMEMODE comes 4.38 s after CreateEnterGameMode, or 1.35 s after JoinEnterGameMode, whichever is
+	// later, to both at once (net/adhoc/pair/gamemodetiming).
+	case ADHOCCTL_EVENT_GAME: return adhocConnectionType == ADHOC_JOIN ? 1350000 : 4380000;
 	default: return 0;
 	}
 }
@@ -369,6 +374,9 @@ static AdhocDataMode AdhocGetServerDataMode(std::string_view server) {
 int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEtherAddr* addr, u16_le* port);
 int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock);
 static int FindFreeAdhocSocketSlot();
+// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), starting over from 1
+// after sceNetAdhocTerm (pspautotests net/adhoc/socketids).
+static int nextAdhocSocketSlot = 0;
 int FlushPtpSocket(int socketId);
 int RecreatePtpSocket(int ptpId);
 int NetAdhocGameMode_DeleteMaster();
@@ -452,6 +460,14 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				return;
 			}
 
+			// After the initial sync, a PSP sends the master every period whether it changed or not, and the
+			// peers' replicas report each one as an update (pspautotests net/adhoc/pair/gamemodesync).
+			if (__KernelGetWaitID(threadID, WAITTYPE_NET, error) != GAMEMODE_WAITID || error != 0) {
+				masterGameModeArea.dataUpdated = 1;
+				for (auto &gma : replicaGameModeAreas)
+					gma.dataSent = 0;
+			}
+
 			// Send Master data
 			if (masterGameModeArea.dataUpdated) {
 				int sentcount = 0;
@@ -519,13 +535,16 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				}
 			}
 
-			// Recv new Replica data when available
-			if (serverHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0) {
+			// Recv new Replica data when available. Every member sends every period, so take all that's there.
+			for (int packets = 0; packets < ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 && (serverHasRelay || IsSocketReady(sock->data.pdp.id, true, false) > 0); ++packets) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
 				s32_le bufsz = gameModeBuffSize;
 				int ret = sceNetAdhocPdpRecv(currentMIPS, gameModeSocket, &sendermac, &senderport, gameModeBuffer, &bufsz, 0, ADHOC_F_NONBLOCK);
-				if (ret >= 0 && bufsz > 0) {
+				if (ret < 0 || bufsz <= 0) {
+					break;
+				}
+				{
 					// Shows a warning if the sender/source port is different than what it supposed to be.
 					if (senderport != ADHOC_GAMEMODE_PORT && senderport != gameModePeerPorts[sendermac]) {
 						char name[9] = {};
@@ -607,6 +626,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
 				if (call_status == ADHOCCTL_CALL_SUCCESS) {
 					adhocctlInServerGroup = true;
+					groupJoinInFlight = true;
 				}
 				break;
 			}
@@ -846,6 +866,24 @@ static bool offAdhocNetwork() {
 	return !adhocctlInServerGroup;
 }
 
+bool NetAdhocctl_InServerGroup() {
+	return adhocctlInServerGroup;
+}
+
+void AbandonGroupJoin() {
+	// A queued join completes like a login, sending nothing. (The requests are saved in savestates, so
+	// it keeps the format.)
+	for (auto &it : adhocctlRequests) {
+		if (it.second.opcode == OPCODE_CONNECT) {
+			it.second.opcode = OPCODE_LOGIN;
+		}
+	}
+	if (groupJoinInFlight) {
+		groupJoinInFlight = false;
+		abandonedGroupJoins++;
+	}
+}
+
 static bool isLocalMac(const SceNetEtherAddr *mac) {
 	SceNetEtherAddr localMac;
 	getLocalMac(&localMac);
@@ -857,25 +895,81 @@ static void ptpSetEstablished(AdhocSocket *sock) {
 	sock->ptpEstablishedAt = CoreTiming::GetGlobalTimeUsScaled();
 }
 
+// A connection in progress shows up as established in GetPtpStat, and PollSocket reports CONNECT, as
+// soon as it's up (pspautotests net/adhoc/pair/ptpconnect).
+// Whether a socket whose connect() returned EISCONN is really connected. macOS answers a repeated
+// connect() with EISCONN after the first one was refused too; then getpeername fails and the refusal
+// is in SO_ERROR, which goes to *error.
+static bool ptpReallyConnected(int fd, int *error) {
+	struct sockaddr_in sin;
+	socklen_t sinlen = sizeof(sin);
+	if (getpeername(fd, (struct sockaddr *)&sin, &sinlen) == 0) {
+		return true;
+	}
+	int soError = 0;
+	socklen_t soErrorLen = sizeof(soError);
+	getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen);
+	*error = soError != 0 ? soError : ECONNREFUSED;
+	return false;
+}
+
+static void ptpUpdateConnecting(AdhocSocket *sock) {
+	if (sock->data.ptp.state != ADHOC_PTP_STATE_SYN_SENT && sock->data.ptp.state != ADHOC_PTP_STATE_SYN_RCVD) {
+		return;
+	}
+	if (serverHasRelay) {
+		if (sock->postofficeHandle != NULL) {
+			ptpSetEstablished(sock);
+		}
+	} else if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
+		struct sockaddr_in sin;
+		socklen_t sinlen = sizeof(sin);
+		memset(&sin, 0, sinlen);
+		// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+		if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
+			ptpSetEstablished(sock);
+		}
+	}
+}
+
 // A PSP checks the age of a connection's oldest unacknowledged data every rexmt_int, counting from when
 // the connection was established, and drops the connection at the first check where that data is older
-// than (rexmt_cnt + 1) * rexmt_int (pspautotests net/adhoc/pair/vanishtiming). Data sent once the peer
-// has left is never acknowledged.
+// than (rexmt_cnt + 1) * rexmt_int. A connection that only receives never fails
+// (pspautotests net/adhoc/pair/vanishtiming).
 static bool ptpPeerGone(const AdhocSocket *sock) {
 	u64 leftAt = peerLeftAt(&sock->data.ptp.paddr);
 	if (leftAt == 0) {
 		return false;
 	}
+	// The oldest data the peer can't have acknowledged: sent after it left, or so shortly before that the
+	// acknowledgement couldn't come back (a round trip takes about 7 ms on a PSP).
+	u64 unackedSince = sock->ptpSendAfterPeerLeftAt;
+	if (sock->ptpLastSendAt != 0 && sock->ptpLastSendAt + 10000 >= leftAt && sock->ptpLastSendAt < leftAt) {
+		unackedSince = sock->ptpLastSendAt;
+	}
+	if (unackedSince == 0) {
+		return false;
+	}
 	u64 interval = (u64)std::max(1, sock->retry_interval);
 	u64 limit = interval * (u64)(std::max(0, sock->retry_count) + 1);
 	u64 now = CoreTiming::GetGlobalTimeUsScaled();
-	if (now - leftAt <= limit) {
+	if (now - unackedSince <= limit) {
 		return false;
 	}
 	// The last check, at or before now, has to be past the limit.
-	u64 base = std::min(sock->ptpEstablishedAt, leftAt);
+	u64 base = std::min(sock->ptpEstablishedAt, unackedSince);
 	u64 lastCheck = base + (now - base) / interval * interval;
-	return lastCheck > leftAt + limit;
+	return lastCheck > unackedSince + limit;
+}
+
+static void ptpNoteSend(AdhocSocket *sock) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (peerLeftAt(&sock->data.ptp.paddr) == 0) {
+		sock->ptpSendAfterPeerLeftAt = 0;
+	} else if (sock->ptpSendAfterPeerLeftAt == 0) {
+		sock->ptpSendAfterPeerLeftAt = now;
+	}
+	sock->ptpLastSendAt = now;
 }
 
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
@@ -978,7 +1072,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 		memset(&sin, 0, sinlen);
 		recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 		// Try again later, until timeout reached
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout != 0 && now - req.startTime > req.timeout) {
 			result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i]: Discard Timeout", req.id);
@@ -1028,7 +1122,7 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	}
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
 	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
 			return -1;
@@ -1140,7 +1234,7 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		}
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
-				u64 now = (u64)(time_now_d() * 1000000.0);
+				u64 now = CoreTiming::GetGlobalTimeUs();
 				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
@@ -1187,6 +1281,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	}
 
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
+	ptpNoteSend(internal);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		// this is not necessarily a relay failure, could simply be the other side disconnecting
@@ -1264,7 +1359,7 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1380,7 +1475,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 		result = 0;
 	}
 	else if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (sockerr == ENOTCONN || connectInProgress(sockerr))))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1556,7 +1651,7 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 			result = newid;
 	}
 	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1659,6 +1754,9 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		} else {
 			ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 			sockerr = socket_errno;
+			if (ret == SOCKET_ERROR && sockerr == EISCONN) {
+				ptpReallyConnected(ptpsocket.id, &sockerr);
+			}
 		}
 		if (sockerr != 0)
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
@@ -1735,7 +1833,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 
 	// Still in progress, try again next time until Timedout
 	if (ptpsocket.state != ADHOC_PTP_STATE_ESTABLISHED) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			// Try again later
 			return -1;
@@ -1776,7 +1874,7 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 	result = 0;
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
 		}
@@ -1798,7 +1896,7 @@ int DoBlockingAdhocPollSocket(AdhocSocketRequest& req, s64& result) {
 		// A disconnected socket or a poll alert ends the wait at once.
 		ret = SCE_NET_ADHOC_ERROR_EXCEPTION_EVENT;
 	} else if (ret == 0) {
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 		// A timeout of 0 waits forever, like the rest of sceNet.
 		if (static_cast<int>(req.timeout) <= 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -1940,7 +2038,8 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	if (tmout > 0)
 		tmout = std::max(tmout, minSocketTimeoutUS);
 
-	u64 startTime = (u64)(time_now_d() * 1000000.0);
+	// Timeouts are the PSP's, so they run on the emulated clock.
+	u64 startTime = CoreTiming::GetGlobalTimeUs();
 	adhocSocketRequests[threadSocketId] = { type, pspSocketId, buffer, len, tmout, startTime, remoteMAC, remotePort };
 	// Some games (ie. Hitman Reborn Battle Arena 2) are using as small as 50 usec timeout
 	CoreTiming::ScheduleEvent(usToCycles(1), adhocSocketNotifyEvent, threadSocketId);
@@ -2100,6 +2199,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 		Do(p, isAdhocctlBusy);
 		Do(p, netAdhocGameModeEntered);
 		Do(p, netAdhocEnterGameModeTimeout);
+		// Not saved: a game mode being entered gets its whole timeout again after a load.
+		gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	}
 	else {
 		isAdhocctlBusy = false;
@@ -2189,6 +2290,7 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 }
 
 void NetAdhocctl_GameModeTimedOut() {
+	AbandonGroupJoin();
 	if (adhocctlInServerGroup) {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		if (adhocctlHandle != NULL) {
@@ -2232,6 +2334,7 @@ static void aemu_postoffice_server_log(const char *format, ...) {
 }
 
 void __NetAdhocInit() {
+	nextAdhocSocketSlot = 0;
 	friendFinderRunning = false;
 	netAdhocInited = false;
 	netAdhocctlInited = false;
@@ -2336,6 +2439,10 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 	// FIXME: Sometimes returning 0x80410601 (SCE_NET_ADHOC_ERROR_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited) {
+		// On a PSP this also leaves adhocctl uninitialized (GetState fails with NOT_INITIALIZED), and
+		// a further Init fails with AUTH_ALREADY_INITIALIZED until Term (pspautotests net/adhoc/adhocctl).
+		// Not emulated: a game doing this would lose its connection, and none has been seen to.
+		ERROR_LOG_REPORT(Log::sceNet, "sceNetAdhocctlInit called while already initialized - a PSP would now be left uninitialized, which isn't emulated");
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_ALREADY_INITIALIZED);
 	}
 
@@ -2446,10 +2553,8 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 }
 
 // Out of socket IDs is its own error (pspautotests net/adhoc/limits).
-// A PSP hands out socket IDs in increasing order (pspautotests net/adhoc/ptp), so the search for a free
-// slot starts after the last one handed out, and wraps around. Returns MAX_SOCKET when all are taken.
-static int nextAdhocSocketSlot = 0;
-
+// The search for a free slot starts after the last one handed out, and wraps around (see
+// nextAdhocSocketSlot). Returns MAX_SOCKET when all are taken.
 static int FindFreeAdhocSocketSlot() {
 	for (int n = 0; n < MAX_SOCKET; n++) {
 		int i = (nextAdhocSocketSlot + n) % MAX_SOCKET;
@@ -2551,9 +2656,12 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
-	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
+	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we
+	// use the local MAC instead, without writing it into the game's memory.
+	SceNetEtherAddr localSrcMac;
 	if (saddr != NULL) {
-		getLocalMac(saddr);
+		getLocalMac(&localSrcMac);
+		saddr = &localSrcMac;
 	}
 
 
@@ -2880,7 +2988,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 									// Free Network Lock
 									//_freeNetworkLock();
 
-									hleEatMicro(50); // Can be longer than 1ms tho
+									hleEatMicro(21);
 									// Sent Data
 									if (sent >= 0) {
 										DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
@@ -2987,7 +3095,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 								// Free Network Lock
 								//_freeNetworkLock();
 
-								hleEatMicro(50);
+								hleEatMicro(10);
 								// Success, Broadcast never fails!
 								return 0; // len;
 							}
@@ -3458,11 +3566,16 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 				// to take. A connection whose peer has closed reports DISCONNECT alone.
 				const bool readable = serverHasRelay ? postoffice_can_recv_or_listen_has_request(sds[i].id - 1) : FD_ISSET(fd, &readfds);
 				// A connection PtpOpen started may have come up since anything looked at it.
-				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && FD_ISSET(fd, &writefds)) {
-					struct sockaddr_in peer;
-					socklen_t peerLen = sizeof(peer);
-					if (getpeername(fd, (struct sockaddr *)&peer, &peerLen) == 0) {
+				// A refused one reports DISCONNECT (pspautotests net/adhoc/poll).
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && (FD_ISSET(fd, &writefds) || FD_ISSET(fd, &exceptfds))) {
+					int connectError = 0;
+					if (ptpReallyConnected(fd, &connectError)) {
 						ptpSetEstablished(sock);
+					} else if (!connectInProgress(connectError)) {
+						if (RecreatePtpSocket(sds[i].id) < 0) {
+							WARN_LOG(Log::sceNet, "sceNetAdhocPollSocket[%i]: Failed to recreate the refused socket", sds[i].id);
+						}
+						sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
 					}
 				}
 				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
@@ -3476,10 +3589,8 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
 					}
 				} else if (sock->type == SOCK_PTP) {
-					// Fate Unlimited Codes and Carnage Heart EXA relies on AdhocPollSocket in order to retry a failed PtpConnect, but the interval must not be too long (about 1 frame before state became Established by GetPtpStat) for Bleach Heat the Soul 7 to work properly.
-					if ((sds[i].events & ADHOC_EV_CONNECT) && ((sock->data.ptp.state == ADHOC_PTP_STATE_CLOSED && sock->attemptCount == 0) ||
-						(sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 1000/*std::max(1000, sock->retry_interval - 60000)*/)))) {
-
+					ptpUpdateConnecting(sock);
+					if ((sds[i].events & ADHOC_EV_CONNECT) && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
 						sds[i].revents |= ADHOC_EV_CONNECT;
 					}
 					// Check for socket state (already disconnected/closed by remote peer, already closed/deleted, not a socket or not opened/connected yet?)
@@ -3586,8 +3697,7 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 						}
 					}
 				}
-				// Workaround to get 30 FPS instead of the too fast 60 FPS on Fate Unlimited Codes, it's abit absurd for a non-blocking call to have this much delay tho, and hleDelayResult doesn't works as good as hleEatMicro for this workaround.
-				hleEatMicro(50); // hleEatMicro(7500); // normally 1ms, but using 7.5ms here seems to show better result for Bleach Heat the Soul 7 and other games with too high FPS, but may have a risk of slowing down games that already runs at normal FPS? (need more games to test this)
+				hleEatMicro(18);
 				return hleLogDebug(Log::sceNet, affectedsockets, "success");
 			}
 			//else if (nonblock && affectedsockets < 0)
@@ -3842,7 +3952,7 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			hleEatMicro(200);
+			hleEatMicro(2);
 			// Return Success
 			return hleLogDebug(Log::sceNet, 0);
 		}
@@ -3892,15 +4002,23 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	return hleNoLog(retval);
 }
 
-u32 NetAdhocctl_Disconnect() {
+static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int iResult, error;
 		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
-		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing).
+		// Until a Create or Connect has connected, it's BUSY, and the join goes on (pspautotests
+		// net/adhoc/abandon).
+		if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode != ADHOCCTL_MODE_NONE) {
+			return SCE_NET_ADHOCCTL_ERROR_BUSY;
+		}
+		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing),
+		// or 650 ms after ExitGameMode (net/adhoc/pair/gamemodetiming).
 		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
+		adhocctlDisconnectFromGameMode = fromGameMode;
+		AbandonGroupJoin();
 
 		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
 		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || adhocctlInServerGroup) {
@@ -4052,7 +4170,7 @@ int sceNetAdhocctlTerm() {
 	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
 	int retval = NetAdhocctl_Term();
 
-	hleEatMicro(adhocDefaultDelay);
+	hleEatMicro(154);
 	return hleLogInfo(Log::sceNet, retval);
 }
 
@@ -4358,6 +4476,7 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 	adhocConnectionType = ADHOC_CREATE;
 	netAdhocGameModeEntered = true;
 	netAdhocEnterGameModeTimeout = timeout;
+	gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	return NetAdhocctl_Create(group_name);
 }
 
@@ -4420,6 +4539,7 @@ static int sceNetAdhocctlJoinEnterGameMode(MIPSState *mips, const char * group_n
 	adhocConnectionType = ADHOC_JOIN;
 	netAdhocGameModeEntered = true;
 	netAdhocEnterGameModeTimeout = timeout;
+	gameModeEnterTimeUs = CoreTiming::GetGlobalTimeUs();
 	return hleLogDebug(Log::sceNet, NetAdhocctl_Create(group_name));
 }
 
@@ -4446,10 +4566,9 @@ int sceNetAdhocctlCreateEnterGameModeMin(MIPSState *mips, const char *group_name
 	return hleLogDebug(Log::sceNet, NetAdhocctl_CreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag));
 }
 
+// Leaves adhocctl, the group and matching running: a PSP stays in its group through sceNetAdhocTerm
+// and sceNetAdhocInit (pspautotests net/adhoc/term). The other callers terminate adhocctl first.
 int NetAdhoc_Term() {
-	// Since Adhocctl & AdhocMatching uses Sockets & Threads we should terminate them also to release their resources
-	NetAdhocctl_Term();
-
 	// Library is initialized
 	if (netAdhocInited) {
 		// Delete GameMode Buffers
@@ -4457,6 +4576,7 @@ int NetAdhoc_Term() {
 
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
+		nextAdhocSocketSlot = 0;
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
@@ -4490,7 +4610,7 @@ int sceNetAdhocTerm() {
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
 	int retval = NetAdhoc_Term();
 
-	hleEatMicro(adhocDefaultDelay);
+	hleEatMicro(10);
 	return hleLogInfo(Log::sceNet, retval);
 }
 
@@ -4582,7 +4702,7 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPdpStat);
 
-			hleEatMicro(50); // Not sure how long it supposed to take
+			hleEatMicro(1);
 			// Success
 			return 0;
 		}
@@ -4640,27 +4760,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if ( sock != NULL && sock->type == SOCK_PTP) {
-					// Update connection state.
-					// GvG Next Plus relies on GetPtpStat to determine if Connection has been Established or not, but should not be updated too long for GvG to work, and should not be updated too fast(need to be 1 frame after PollSocket checking for ADHOC_EV_CONNECT) for Bleach Heat the Soul 7 to work properly.
-					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
-						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
-						if (serverHasRelay) {
-							if (sock->postofficeHandle != NULL) {
-								// good to go
-								ptpSetEstablished(sock);
-							}
-						} else {
-							if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-								struct sockaddr_in sin;
-								socklen_t sinlen = sizeof(sin);
-								memset(&sin, 0, sinlen);
-								// Ensure that the connection really established or not, since "select" alone can't accurately detects it
-								if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
-									ptpSetEstablished(sock);
-								}
-							}
-						}
-					}
+					ptpUpdateConnecting(sock);
 
 					if (serverHasRelay) {
 						if (sock->postofficeHandle != NULL) {
@@ -4705,7 +4805,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPtpStat);
 
-			hleEatMicro(50); // Not sure how long it takes, since GetPtpStat didn't get logged when using prx files on JPCSP
+			hleEatMicro(2);
 			// Success
 			return 0;
 		}
@@ -4923,9 +5023,12 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if current MAC is different :( So we try to fix it here
+		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
+		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
-			getLocalMac(saddr);
+			getLocalMac(&localSrcMac);
+			saddr = &localSrcMac;
 		}
 		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		// The broadcast address is accepted, as on a PSP (pspautotests net/adhoc/ptp); connecting to it just never succeeds.
@@ -5382,6 +5485,9 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					} else {
 						connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
 						errorcode = socket_errno;
+						if (connectresult == SOCKET_ERROR && errorcode == EISCONN) {
+							ptpReallyConnected(ptpsocket.id, &errorcode);
+						}
 					}
 
 					if (connectresult == SOCKET_ERROR) {
@@ -5645,9 +5751,12 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	}
 
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we try to fix it here
+		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
+		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
-			getLocalMac(saddr);
+			getLocalMac(&localSrcMac);
+			saddr = &localSrcMac;
 		}
 		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
@@ -5873,7 +5982,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						sent = ptp_send_postoffice(id - 1, data, len);
 						if (sent == 0) {
 							// sent
-							hleEatMicro(50);
+							hleEatMicro(122);
 							return 0;
 						}
 						if (sent == SOCKET_ERROR) {
@@ -5893,7 +6002,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 
 					// Success
 					if (sent > 0) {
-						hleEatMicro(50); // mostly 1ms, sometimes 1~10ms ? doesn't seems to be switching to a different thread during this duration
+						hleEatMicro(122);
 						// Save Length
 						*len = sent;
 
@@ -6137,7 +6246,7 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 
 			// Connected Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
-				hleEatMicro(50);
+				hleEatMicro(196);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 				// Apply Send Timeout Settings to Socket
 				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
@@ -6190,6 +6299,10 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 
 	if (size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
+
+	// pspautotests net/adhoc/pair/gamemode
+	if (size == 0)
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_DATALEN, "invalid data length");
 
 	if (masterGameModeArea.data)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
@@ -6244,18 +6357,23 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
+	const SceNetEtherAddr &replicaMac = *(const SceNetEtherAddr *)mac;
+	// The ID is the member's place in the member list (the host first), and a MAC that isn't a member is
+	// refused. With two consoles, the host's replica of the client is 1 and the client's of the host 0
+	// (pspautotests net/adhoc/pair/gamemode).
+	auto member = std::find_if(gameModeMacs.begin(), gameModeMacs.end(), [&](const SceNetEtherAddr &m) { return IsMatch(m, replicaMac); });
+	if (member == gameModeMacs.end())
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_GAMEMODE_MEMBER, "not a member");
+	int replicaId = (int)(member - gameModeMacs.begin());
+
 	hleEatMicro(1000);
-	int maxid = 0;
 	auto it = std::find_if(replicaGameModeAreas.begin(), replicaGameModeAreas.end(),
-		[mac, &maxid](GameModeArea const& e) {
-			if (e.id > maxid) maxid = e.id;
-			return IsMatch(e.mac, mac);
+		[&](GameModeArea const& e) {
+			return IsMatch(e.mac, replicaMac);
 		});
-	// MAC address already existed!
-	if (it != replicaGameModeAreas.end()) {
-		WARN_LOG(Log::sceNet, "sceNetAdhocGameModeCreateReplica - [%s] is already existed (id: %d)", mac2str((SceNetEtherAddr*)mac).c_str(), it->id);
-		return it->id; // SCE_NET_ADHOC_ERROR_ALREADY_CREATED
-	}
+	// pspautotests net/adhoc/pair/gamemode
+	if (it != replicaGameModeAreas.end())
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created");
 
 	int ret = 0;
 	gameModeBuffSize = std::max(gameModeBuffSize, size);
@@ -6267,9 +6385,9 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (data) {
 		Memory::Memcpy(data, dataAddr, size);
 		//int sock = sceNetAdhocPdpCreate(mac, ADHOC_GAMEMODE_PORT, size, 0);
-		GameModeArea gma = { maxid + 1, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, 0, *(SceNetEtherAddr*)mac, data };
+		GameModeArea gma = { replicaId, size, dataAddr, CoreTiming::GetGlobalTimeUsScaled(), 0, 0, replicaMac, data };
 		replicaGameModeAreas.push_back(gma);
-		ret = gma.id; // Valid id for replica is higher than 0?
+		ret = gma.id;
 
 		// Block current thread to sync initial master data after Master and all Replicas have been created
 		if (masterGameModeArea.data != NULL && replicaGameModeAreas.size() == (gameModeMacs.size() - 1)) {
@@ -6304,7 +6422,7 @@ static int sceNetAdhocGameModeUpdateMaster(MIPSState *mips) {
 			gma.dataSent = 0;
 	}
 
-	hleEatMicro(100);
+	hleEatMicro(80);
 	return 0;
 }
 
@@ -6383,7 +6501,7 @@ static int sceNetAdhocGameModeUpdateReplica(MIPSState *mips, int id, u32 infoAdd
 		}
 	}
 
-	hleEatMicro(100);
+	hleEatMicro(9);
 	return hleLogDebug(Log::sceNet, 0);
 }
 
@@ -6444,8 +6562,9 @@ void __NetTriggerCallbacks()
 		args[1] = error;
 		u64 now = (u64)(time_now_d() * 1000000.0);
 
-		// FIXME: When Joining a group, Do we need to wait for group creator's peer data before triggering the callback to make sure the game not to thinks we're the group creator?
-		if ((flags != ADHOCCTL_EVENT_CONNECT && flags != ADHOCCTL_EVENT_GAME) || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || static_cast<s64>(now - adhocctlStartTime) > adhocDefaultTimeout)
+		// A PSP delivers CONNECT after a Join before the host shows up in its peer list (pspautotests
+		// net/adhoc/pair/timing), so only GAME waits for a peer here.
+		if (flags != ADHOCCTL_EVENT_GAME || adhocConnectionType != ADHOC_JOIN || getActivePeerCount() > 0 || static_cast<s64>(now - adhocctlStartTime) > adhocDefaultTimeout)
 		{
 			// Since 0 is a valid index to types_ we use -1 to detects if it was loaded from an old save state
 			if (actionAfterAdhocMipsCall < 0) {
@@ -6469,11 +6588,12 @@ void __NetTriggerCallbacks()
 			case ADHOCCTL_EVENT_GAME:
 			{
 				newState = ADHOCCTL_STATE_GAMEMODE;
-				delayus = adhocEventDelay;
-				// TODO: Use blocking PTP connection to sync the timing just like official prx did (which is done before notifying user-defined Adhocctl Handlers)
-				// Workaround: Extra delay to prevent Joining player to progress faster than the Creator on Pocket Pool, but unbalanced delays could cause an issue on Shaun White Snowboarding :(
-				if (adhocConnectionType == ADHOC_JOIN)
-					delayus += adhocExtraDelay * 3;
+				delayus = RemainingEventDelayUs(flags);
+				// This is raised when the last member has arrived. The host's GAMEMODE also comes no sooner than
+				// 1.35 s after that, as the member's own does. A member doesn't know when the host called
+				// CreateEnterGameMode, so if it joins early it gets GAMEMODE before the host does.
+				if (adhocConnectionType != ADHOC_JOIN)
+					delayus = std::max(delayus, 1350000);
 				// Shows player list
 				INFO_LOG(Log::sceNet, "GameMode - All players have joined:");
 				int i = 0;
@@ -6562,7 +6682,7 @@ int NetAdhocctl_ExitGameMode() {
 
 	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 	netAdhocGameModeEntered = false;
-	return NetAdhocctl_Disconnect();
+	return NetAdhocctl_Disconnect(true);
 }
 
 static int sceNetAdhocctlExitGameMode(MIPSState *mips) {
@@ -6690,8 +6810,8 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 			// Multithreading Unlock
 			peerlock.unlock();
 
-			// Return Success
-			return hleDelayResult(0, "delay 100 ~ 1000us", 100); // seems to have different thread running within the delay duration
+			hleEatMicro(4);
+			return 0;
 		}
 
 		// Invalid Arguments

@@ -199,6 +199,11 @@ struct CommandLineOptions {
 	// Both are for ad hoc tests where instances talk to each other.
 	std::optional<int> instance;
 	std::optional<bool> realtime;
+	// Headless with --realtime: run at this percentage of PSP speed, through alternate speed 1.
+	std::optional<int> speedPercent;
+	// Added to every ad hoc port on the host. Back-to-back test runs vary it, so a connection doesn't
+	// collide with the previous run's, still in TCP TIME_WAIT.
+	std::optional<int> portOffset;
 	std::optional<bool> adhocServer;
 	std::optional<bool> lagSync;
 	std::optional<std::string> nickname;
