@@ -86,6 +86,7 @@ SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
 u64 gameModeEnterTimeUs = 0;
+bool dropLateGroupReply = false;
 std::atomic<bool> isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
@@ -1696,6 +1697,12 @@ void friendFinderPoll() {
 			break;
 		case ADHOCCTL_CLIENT_EVENT_LEADER_MAC:{
 			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str((SceNetEtherAddr *)adhocctl_event.leader_mac.mac).c_str());
+			if (dropLateGroupReply) {
+				// The game mode it was for has timed out (we've already left the group again).
+				dropLateGroupReply = false;
+				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring the group BSSID, game mode timed out before it came");
+				break;
+			}
 			// Update Group BSSID
 			memcpy(parameter.bssid.mac_addr.data, adhocctl_event.leader_mac.mac, 6); // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
 

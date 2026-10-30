@@ -626,6 +626,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
 				if (call_status == ADHOCCTL_CALL_SUCCESS) {
 					adhocctlInServerGroup = true;
+					dropLateGroupReply = false;
 				}
 				break;
 			}
@@ -2271,6 +2272,8 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 }
 
 void NetAdhocctl_GameModeTimedOut() {
+	// If the server's BSSID came in time, there's nothing to drop, and the next join clears this.
+	dropLateGroupReply = true;
 	if (adhocctlInServerGroup) {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		if (adhocctlHandle != NULL) {

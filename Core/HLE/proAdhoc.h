@@ -820,6 +820,9 @@ extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
 // When CreateEnterGameMode or JoinEnterGameMode was called, in emulated time: its timeout is a PSP-side one.
 extern u64 gameModeEnterTimeUs;
+// Set when entering game mode timed out, until the next group join is sent: the server's answer to the
+// timed-out join may still be on its way, and must not connect us to the group.
+extern bool dropLateGroupReply;
 extern std::atomic<bool> isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
