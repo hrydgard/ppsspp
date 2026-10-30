@@ -514,12 +514,53 @@ bool RelayTransport::PtpPeerClosed(AdhocSocket *sock) {
 	return sock->postofficeHandle != NULL && ptp_is_dead(sock->postofficeHandle);
 }
 
-void RelayTransport::Poll() {
+static void fillRelayBacklogs() {
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		AdhocSocket *sock = adhocSockets[i];
 		if (sock != NULL && sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN && sock->postofficeHandle != NULL) {
 			fillRelayBacklog(i);
 		}
+	}
+}
+
+// Whether a PTP connect the emulation hasn't waited for yet is still going. With markWaited, notes that it
+// has now.
+static bool relayConnectInFlight(bool markWaited = false) {
+	bool found = false;
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		AdhocSocket *sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PTP && sock->connectThread != NULL && !sock->connectThreadDone && !sock->connectThreadWaited) {
+			found = true;
+			if (markWaited) {
+				sock->connectThreadWaited = true;
+			}
+		}
+	}
+	return found;
+}
+
+// How long the emulation waits for a PTP connect through the relay, in real time.
+static const double RELAY_CONNECT_WAIT_SECONDS = 1.0;
+
+void RelayTransport::Poll() {
+	fillRelayBacklogs();
+
+	// A connect takes a few round trips through the relay, in real time, and the PSP has an opened
+	// connection up a few ms after PtpOpen (pspautotests net/adhoc/pair/ptppoll). So wait for it here, at
+	// most a millisecond of emulated time after it started, instead of letting the emulation speed decide
+	// when the game sees it. The listener may be on this console, so keep accepting meanwhile.
+	if (!relayConnectInFlight()) {
+		return;
+	}
+	double start = time_now_d();
+	while (relayConnectInFlight()) {
+		if (time_now_d() - start > RELAY_CONNECT_WAIT_SECONDS) {
+			WARN_LOG(Log::sceNet, "Relay: a PTP connect took over %.1f s, no longer waiting for it", RELAY_CONNECT_WAIT_SECONDS);
+			relayConnectInFlight(true);
+			return;
+		}
+		sleep_ms(1, "relay-connect");
+		fillRelayBacklogs();
 	}
 }
 
@@ -626,6 +667,7 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 
 		internal->connectThreadDone = false;
 		internal->connectThreadResult = 0;
+		internal->connectThreadWaited = false;
 
 		internal->connectThread = new std::thread([internal, addr, idx] {
 			int state;

@@ -340,6 +340,8 @@ typedef struct AdhocSocket {
 	std::thread *connectThread;
 	bool connectThreadDone;
 	int connectThreadResult;
+	// Whether the emulation has already waited for the connect in progress.
+	bool connectThreadWaited;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
