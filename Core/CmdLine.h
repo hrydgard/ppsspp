@@ -201,6 +201,7 @@ struct CommandLineOptions {
 	std::optional<bool> realtime;
 	std::optional<bool> adhocServer;
 	std::optional<bool> lagSync;
+	std::optional<std::string> nickname;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
