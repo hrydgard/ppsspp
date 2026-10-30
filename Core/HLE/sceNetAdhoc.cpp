@@ -828,6 +828,13 @@ void ptpSetEstablished(AdhocSocket *sock) {
 	sock->ptpEstablishedAt = CoreTiming::GetGlobalTimeUsScaled();
 }
 
+// A connect to a port nobody listens on is refused at once, and so is every later connect on the same
+// socket, even once something listens there (pspautotests net/adhoc/pair/basic, pair/ptpclose).
+void ptpSetRefused(AdhocSocket *sock) {
+	sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
+	sock->ptpRefused = true;
+}
+
 static void ptpUpdateConnecting(AdhocSocket *sock) {
 	if (sock->data.ptp.state != ADHOC_PTP_STATE_SYN_SENT && sock->data.ptp.state != ADHOC_PTP_STATE_SYN_RCVD) {
 		return;
@@ -1033,6 +1040,12 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check whether the connection has been established or not
 	if (ret != SOCKET_ERROR) {
 		ret = Transport().PtpConnectVerify(req.id, &sin, ret, &sockerr);
+	}
+
+	if (ret == SOCKET_ERROR && sockerr == ECONNREFUSED) {
+		ptpSetRefused(sock);
+		result = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+		return 0;
 	}
 
 	// Update Adhoc Socket state
@@ -3888,6 +3901,10 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 			}
 
+			if (socket->ptpRefused) {
+				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "refused before");
+			}
+
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
 				hleEatMicro(50);
@@ -3924,28 +3941,20 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 						socket->internalLastAttempt = socket->lastAttempt;
 						// Set Connected State
-						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+						ptpSetEstablished(socket);
 
 						return hleLogDebug(Log::sceNet, 0, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 					}
 
 					// Error handling
 					else if (connectresult == SOCKET_ERROR) {
-						// Connection in Progress, or
-						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (Transport().PtpConnectPending(errorcode) || errorcode == ECONNREFUSED) {
-							if (Transport().PtpConnectPending(errorcode))
-							{
-								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
-							}
-							// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
-							else {
-								DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", id, ptpsocket.lport, ptpsocket.id, errorcode, ptpsocket.state, socket->attemptCount);
-								if (RecreatePtpSocket(id) < 0) {
-									WARN_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
-								}
-								ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-							}
+						if (errorcode == ECONNREFUSED) {
+							socket->attemptCount++;
+							ptpSetRefused(socket);
+							return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "refused");
+						}
+						if (Transport().PtpConnectPending(errorcode)) {
+							ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							socket->internalLastAttempt = socket->lastAttempt;

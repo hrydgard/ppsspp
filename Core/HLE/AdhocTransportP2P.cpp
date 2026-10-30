@@ -1171,7 +1171,7 @@ int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int f
 
 		// Set to Established on successful Send when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(socket);
 
 		// Return Success
 		return 0;
@@ -1241,7 +1241,7 @@ int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
 
 		// Set to Established on successful Recv when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(socket);
 
 		// Return Success
 		return 0;
