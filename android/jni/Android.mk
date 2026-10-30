@@ -808,6 +808,8 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/proAdhoc.cpp \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/NetAdhocCommon.cpp \
+  $(SRC)/Core/HLE/AdhocTransportP2P.cpp \
+  $(SRC)/Core/HLE/AdhocTransportRelay.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/ext/aemu_postoffice/client/postoffice.c \
   $(SRC)/ext/aemu_postoffice/client/postoffice_mem_stdc.c \

@@ -501,6 +501,9 @@ add_library(Core STATIC
 	HLE/sceNetApctl.h
 	HLE/sceNetResolver.cpp
 	HLE/sceNetResolver.h
+	HLE/AdhocTransport.h
+	HLE/AdhocTransportP2P.cpp
+	HLE/AdhocTransportRelay.cpp
 	HLE/proAdhoc.h
 	HLE/proAdhoc.cpp
 	HLE/proAdhocServer.h

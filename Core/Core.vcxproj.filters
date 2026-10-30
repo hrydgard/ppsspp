@@ -529,6 +529,12 @@
     <ClCompile Include="HLE\NetAdhocCommon.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\AdhocTransportP2P.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\AdhocTransportRelay.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
@@ -1901,6 +1907,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\DisassemblyManager.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\AdhocTransport.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\proAdhoc.h">
       <Filter>HLE\Libraries</Filter>

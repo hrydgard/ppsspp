@@ -396,10 +396,14 @@ def screen_matches(args, image):
 		want = bytes.fromhex(args.color)
 		have = image.convert("RGB").getpixel((x, y))
 		return max(abs(a - b) for a, b in zip(have, want)) <= args.tolerance
-	ref = Image.open(script_path(args, args.ref)).convert("RGB")
+	ref = Image.open(script_path(args, args.ref))
+	# A reference with an alpha channel is compared only where it's opaque: text over a moving
+	# background, say, with only the letters kept.
+	mask = ref.getchannel("A").point(lambda a: 255 if a >= 128 else 0) if "A" in ref.getbands() else None
+	ref = ref.convert("RGB")
 	x, y = parse_ints(args.box, 2)[:2] if args.box else (0, 0)
 	region = image.convert("RGB").crop((x, y, x + ref.width, y + ref.height))
-	diff = ImageStat.Stat(ImageChops.difference(region, ref)).mean
+	diff = ImageStat.Stat(ImageChops.difference(region, ref), mask).mean
 	return sum(diff) / len(diff) <= args.tolerance
 
 
