@@ -122,6 +122,15 @@ int P2PTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
 		sinlen = sizeof(sin);
         memset(&sin, 0, sinlen);
 		ret = recvfrom(pdpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		// As in PdpRecv: out of the group, nothing from anyone else, whatever the peek saw.
+		if (ret >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
+			u64 now = CoreTiming::GetGlobalTimeUs();
+			if (req.timeout != 0 && now - req.startTime > req.timeout) {
+				result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+				return 0;
+			}
+			return -1;
+		}
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
 		if (ret >= 0) {
@@ -380,9 +389,9 @@ bool P2PTransport::PtpConnectionUp(AdhocSocket *sock) {
 }
 
 bool P2PTransport::PtpConnectedSinceOpen(AdhocSocket *sock) {
-	struct sockaddr_in peer;
-	socklen_t peerLen = sizeof(peer);
-	return getpeername(sock->data.ptp.id, (struct sockaddr *)&peer, &peerLen) == 0;
+	// Not getpeername alone: on Windows it succeeds while the connect is still in progress, even one that
+	// is about to be refused.
+	return PtpConnectionUp(sock);
 }
 
 int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
@@ -396,7 +405,18 @@ int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
 }
 
 int P2PTransport::PtpConnectPoll(AdhocSocket *sock, int *error) {
-	return IsSocketReady(sock->data.ptp.id, false, true, error);
+	int ret = IsSocketReady(sock->data.ptp.id, false, true, error);
+	if (ret <= 0) {
+		// Windows never makes a socket whose connect failed writable; the failure (like a refusal) is only
+		// in SO_ERROR.
+		int soError = 0;
+		socklen_t soErrorLen = sizeof(soError);
+		if (getsockopt(sock->data.ptp.id, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen) == 0 && soError != 0) {
+			*error = soError;
+			return SOCKET_ERROR;
+		}
+	}
+	return ret;
 }
 
 int P2PTransport::PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) {
@@ -628,6 +648,12 @@ int P2PTransport::PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void 
 	// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
 	received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 	error = socket_errno;
+	// The datagram checked above isn't always this one: on Windows a peek can fail (WSAECONNRESET) and leave
+	// the next datagram unchecked. Out of the group, nothing from anyone else reaches us.
+	if (received >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
+		received = SOCKET_ERROR;
+		error = EAGAIN;
+	}
 
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
 	if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
