@@ -1221,8 +1221,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="build-x64.cmd" />
-    <None Include="build-x86.cmd" />
     <None Include="git-version-gen.cmd" />
     <None Include="ppsspp.ico" />
     <None Include="icon1.ico" />
