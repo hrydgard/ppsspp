@@ -405,14 +405,34 @@ int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
 }
 
 int P2PTransport::PtpConnectPoll(AdhocSocket *sock, int *error) {
-	int ret = IsSocketReady(sock->data.ptp.id, false, true, error);
-	if (ret <= 0) {
-		// Windows never makes a socket whose connect failed writable; the failure (like a refusal) is only
-		// in SO_ERROR.
+	int fd = sock->data.ptp.id;
+	*error = 0;
+#if !defined(_WIN32)
+	if (fd < 0 || fd >= FD_SETSIZE) {
+		*error = EBADF;
+		return SOCKET_ERROR;
+	}
+#endif
+	// Windows never makes a socket whose connect failed writable: the failure (like a refusal) shows in the
+	// exception set, and the reason in SO_ERROR.
+	fd_set writefds, exceptfds;
+	FD_ZERO(&writefds);
+	FD_ZERO(&exceptfds);
+	FD_SET(fd, &writefds);
+	FD_SET(fd, &exceptfds);
+	timeval tv = {};
+	int ret = select(fd + 1, nullptr, &writefds, &exceptfds, &tv);
+	if (ret < 0) {
+		*error = socket_errno;
+		return ret;
+	}
+	if (ret > 0) {
+		// Elsewhere a failed connect is writable, with its reason in SO_ERROR too.
 		int soError = 0;
 		socklen_t soErrorLen = sizeof(soError);
-		if (getsockopt(sock->data.ptp.id, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen) == 0 && soError != 0) {
-			*error = soError;
+		getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen);
+		if (soError != 0 || FD_ISSET(fd, &exceptfds)) {
+			*error = soError != 0 ? soError : ECONNREFUSED;
 			return SOCKET_ERROR;
 		}
 	}

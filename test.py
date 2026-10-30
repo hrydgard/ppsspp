@@ -629,6 +629,10 @@ pair_known_failures = {
   ],
   "p2p": [],
 }
+if platform.system() == "Windows":
+  # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
+  # 800% speed is far longer than a PSP's refusal.
+  pair_known_failures["p2p"].append("net/adhoc/pair/basic")
 
 ADHOC_MODES = ["relay", "p2p"]
 
