@@ -2120,6 +2120,25 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 	adhocctlEvents.push_back({ flag, error });
 }
 
+void NetAdhocctl_GameModeTimedOut() {
+	if (adhocctlInServerGroup) {
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		if (adhocctlHandle != NULL) {
+			adhocctl_disconnect(adhocctlHandle);
+		}
+		adhocctlInServerGroup = false;
+	}
+	adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
+	isAdhocctlBusy = false;
+}
+
+void __DropAdhocctlEvents(u32 flag) {
+	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+	adhocctlEvents.erase(std::remove_if(adhocctlEvents.begin(), adhocctlEvents.end(), [flag](const std::pair<u32, u32> &e) {
+		return e.first == flag;
+	}), adhocctlEvents.end());
+}
+
 void __AdhocNotifInit() {
 	adhocctlNotifyEvent = CoreTiming::RegisterEvent("__AdhocctlNotify", __AdhocctlNotify);
 	adhocSocketNotifyEvent = CoreTiming::RegisterEvent("__AdhocSocketNotify", __AdhocSocketNotify);
@@ -4230,6 +4249,21 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 
 	if (game_type < ADHOCCTL_GAMETYPE_1A || game_type > ADHOCCTL_GAMETYPE_2A || num_members < 2 || num_members > 16 || (game_type == ADHOCCTL_GAMETYPE_1A && num_members > 4))
 		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
+
+	// In a normal group, it reports ALREADY_CONNECTED through the handlers and stays in it
+	// (pspautotests net/adhoc/gamemode).
+	if (adhocctlState == ADHOCCTL_STATE_CONNECTED) {
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
+		return 0;
+	}
+
+	// The first member has to be this console: if it isn't, the call succeeds and the handlers get
+	// ERROR with INVALID_ADDR (pspautotests net/adhoc/gamemode).
+	SceNetEtherAddr firstMember = *PSPPointer<SceNetEtherAddr>::Create(membersAddr);
+	if (!isLocalMAC(&firstMember)) {
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOC_ERROR_INVALID_ADDR);
+		return 0;
+	}
 
 	deleteAllGMB();
 	gameModePeerPorts.clear();
@@ -6441,6 +6475,11 @@ const HLEFunction sceNetAdhoc[] = {
 };
 
 int NetAdhocctl_ExitGameMode() {
+	// Outside game mode, also after entering it timed out, it returns 0 with no event (pspautotests
+	// net/adhoc/gamemode).
+	if (adhocctlCurrentMode != ADHOCCTL_MODE_GAMEMODE)
+		return adhocctlState == ADHOCCTL_STATE_CONNECTED ? SCE_NET_ADHOCCTL_ERROR_INVALID_IBSS : 0;
+
 	if (gameModeSocket > 0) {
 		NetAdhocPdp_Delete(gameModeSocket, 0);
 		gameModeSocket = (int)INVALID_SOCKET;

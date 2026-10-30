@@ -1641,6 +1641,11 @@ void friendFinderPoll() {
 	// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
 	if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
 		netAdhocGameModeEntered = false;
+		// A joiner's GAMEMODE is queued as soon as the server answers, and held until the host shows up.
+		// It must not come after all (pspautotests net/adhoc/gamemode).
+		__DropAdhocctlEvents(ADHOCCTL_EVENT_GAME);
+		// Back to DISCONNECTED with no event but the error, out of the server's group too.
+		NetAdhocctl_GameModeTimedOut();
 		// adhocctl's own TIMEOUT (pspautotests net/adhoc/gamemode).
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_TIMEOUT);
 	}
