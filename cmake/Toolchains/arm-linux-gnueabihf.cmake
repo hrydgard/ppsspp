@@ -27,6 +27,8 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+# pkg-config ignores the root path and would hand back the host's libraries (the host's curl, say).
+set(ENV{PKG_CONFIG_LIBDIR} ${ARMHF_SYSROOT}/lib/pkgconfig:${ARMHF_SYSROOT}/share/pkgconfig)
 
 # No X11 in the sysroot; disable the X11 Vulkan path to avoid include-dir errors.
 set(USING_X11_VULKAN OFF CACHE BOOL "" FORCE)
