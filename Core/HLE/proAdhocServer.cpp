@@ -26,6 +26,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <random>
 #include <signal.h>
 
 #include <sys/types.h>
@@ -813,6 +814,15 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					// Copy Group Name
 					g->group = *group;
 
+					// A PSP group's BSSID is a locally administered address of its own, not a member's MAC. It
+					// stays when the creator leaves, and a group created again gets a new one (pspautotests
+					// net/adhoc/pair/lifecycle).
+					static std::mt19937 bssidRng(std::random_device{}());
+					for (int i = 0; i < ETHER_ADDR_LEN; i++) {
+						g->bssid.data[i] = (uint8_t)bssidRng();
+					}
+					g->bssid.data[0] = (g->bssid.data[0] & 0xFC) | 0x02;
+
 					// Increase Group Counter for Game
 					g->game->groupcount++;
 				}
@@ -860,12 +870,11 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 					iResult = (int)send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);
 					if (iResult < 0) ERROR_LOG(Log::sceNet, "AdhocServer: connect_user[send user] (Socket error %d)", socket_errno);
 
-					// Set BSSID
-					if(peer->group_next == NULL) bssid.mac = peer->resolver.mac;
-
 					// Move Pointer
 					peer = peer->group_next;
 				}
+
+				bssid.mac = g->bssid;
 
 				// Link User to Group
 				user->group_next = g->player;
@@ -1057,17 +1066,7 @@ void send_scan_results(SceNetAdhocctlUserNode * user)
 			// Set Group Name
 			packet.group = group->group;
 
-			// Iterate Players in Network Group
-			SceNetAdhocctlUserNode * peer = group->player;
-			for(; peer != NULL; peer = peer->group_next)
-			{
-				// Found Network Founder
-				if(peer->group_next == NULL)
-				{
-					// Set Group Host MAC
-					packet.mac = peer->resolver.mac;
-				}
-			}
+			packet.mac = group->bssid;
 
 			// Send Group Packet
 			int iResult = (int)send(user->stream, (const char*)&packet, sizeof(packet), MSG_NOSIGNAL);

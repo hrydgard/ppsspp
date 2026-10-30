@@ -255,6 +255,7 @@ void addFriend(const struct adhocctl_event_connect &event) {
 		peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+		peer->left_at = 0;
 	}
 	else {
 		// Allocate Structure
@@ -535,6 +536,7 @@ void deleteFriendByIP(uint32_t ip) {
 			//peer = NULL;
 			// Instead of removing it from the list we'll make it timed out since most Matching games are moving group and may still need the peer data thus not recognizing it as Unknown peer
 			peer->last_recv = 0; //CoreTiming::GetGlobalTimeUsScaled();
+			peer->left_at = CoreTiming::GetGlobalTimeUsScaled();
 
 			// Multithreading Unlock
 			peerlock.unlock();
@@ -2256,8 +2258,7 @@ int getNicknameCount(const char * nickname)
 	// Counter
 	int count = 0;
 
-	// Local Nickname Matches
-	if (strncmp((char *)&parameter.nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
+	// The console itself isn't in the peer list (pspautotests net/adhoc/pair/basic).
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
@@ -2360,6 +2361,16 @@ void fixGameMac(SceNetEtherAddr *mac) {
 			return;
 		}
 	}
+}
+
+u64 peerLeftAt(const SceNetEtherAddr *mac) {
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+	for (SceNetAdhocctlPeerInfo *peer = friends; peer != NULL; peer = peer->next) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
+			return peer->left_at;
+		}
+	}
+	return 0;
 }
 
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {
