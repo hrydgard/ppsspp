@@ -299,7 +299,9 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	}
 
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
-	ptpNoteSend(internal);
+	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OK) {
+		ptpNoteSend(internal);
+	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
 		// this is not necessarily a relay failure, could simply be the other side disconnecting
@@ -506,6 +508,12 @@ static void closeRelayBacklog(const AdhocSocket *listener) {
 	relayBacklogs.erase(it);
 }
 
+// The peer closed the connection, or the relay lost it. (A PSP's poll then reports DISCONNECT, pspautotests
+// net/adhoc/poll.)
+bool RelayTransport::PtpPeerClosed(AdhocSocket *sock) {
+	return sock->postofficeHandle != NULL && ptp_is_dead(sock->postofficeHandle);
+}
+
 void RelayTransport::Poll() {
 	for (int i = 0; i < MAX_SOCKET; i++) {
 		AdhocSocket *sock = adhocSockets[i];
@@ -690,7 +698,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	internal->postofficeHandle = NULL;
 	internal->data.pdp.laddr = *saddr;
 	internal->data.pdp.lport = sport;
-	internal->data.pdp.rcv_sb_cc = bufsize;
+	internal->data.pdp.rcv_sb_cc = 0;
 	internal->flags = 0;
 	internal->lastAttempt = 0;
 	internal->internalLastAttempt = 0;
@@ -731,8 +739,9 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 				return false;
 			}
 			int peek_len = ptp_peek_next_size(ptp_handle);
+			// A closed connection reads as readable, so the poll looks at PtpPeerClosed.
 			if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-				return false;
+				return true;
 			}
 			if (peek_len > 0) {
 				return true;
@@ -813,17 +822,18 @@ int RelayTransport::PdpDelete(int id) {
 
 void RelayTransport::PdpUpdateRecvStat(int id, AdhocSocket *sock) {
 	void *postofficeHandle = pdp_postoffice_recover(id - 1);
-	if (postofficeHandle != NULL) {
-		sock->data.pdp.rcv_sb_cc = pdp_buffered_data_size(postofficeHandle);
-	}
+	// A dead session (a negative status) has nothing waiting.
+	int waiting = postofficeHandle != NULL ? pdp_buffered_data_size(postofficeHandle) : 0;
+	sock->data.pdp.rcv_sb_cc = std::max(0, waiting);
 }
 
 void RelayTransport::PtpUpdateRecvStat(AdhocSocket *sock) {
-	if (sock->postofficeHandle != NULL) {
-		sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
-	} else {
-		sock->data.ptp.rcv_sb_cc = 0;
+	// A listener's handle is a listen session, which has no data.
+	int waiting = 0;
+	if (sock->postofficeHandle != NULL && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN) {
+		waiting = ptp_peek_next_size(sock->postofficeHandle);
 	}
+	sock->data.ptp.rcv_sb_cc = std::max(0, waiting);
 }
 
 static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize, uint32_t rexmt_int, int rexmt_cnt) {

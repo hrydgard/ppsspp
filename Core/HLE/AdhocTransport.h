@@ -129,6 +129,7 @@ uint16_t reverse_port_simple(uint16_t port);
 bool offAdhocNetwork();
 bool isLocalMac(const SceNetEtherAddr *mac);
 void ptpSetEstablished(AdhocSocket *sock);
+void ptpSetRefused(AdhocSocket *sock);
 bool ptpPeerGone(const AdhocSocket *sock);
 void ptpNoteSend(AdhocSocket *sock);
 // The next free slot in adhocSockets, or MAX_SOCKET.
@@ -178,7 +179,7 @@ public:
 	bool PtpConnectPending(int error) override { return true; }
 	bool PtpConnectedSinceOpen(AdhocSocket *sock) override { return false; }
 	void PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) override {}
-	bool PtpPeerClosed(AdhocSocket *sock) override { return false; }
+	bool PtpPeerClosed(AdhocSocket *sock) override;
 };
 
 class P2PTransport : public AdhocTransport {
