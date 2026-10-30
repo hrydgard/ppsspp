@@ -395,6 +395,7 @@ void discardMatchingEvents();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
+void DoNetAdhocMatchingPollEvent(PointerWrap &p, bool saved);
 
 bool __NetAdhocConnected() {
 	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
@@ -1352,7 +1353,7 @@ static void StopFriendFinder() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 12);
+	auto s = p.Section("sceNetAdhoc", 1, 13);
 	if (!s)
 		return;
 
@@ -1458,6 +1459,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 	} else {
 		adhocctlRequestTimeUs = 0;
 	}
+	DoNetAdhocMatchingPollEvent(p, s >= 13);
 
 	if (p.mode == p.MODE_READ) {
 		// The login after a load starts outside any group.

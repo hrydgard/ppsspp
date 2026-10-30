@@ -515,16 +515,14 @@ typedef struct SceNetAdhocMatchingContext {
   //HLEHelperThread *matchingThread;
   int matching_thid;
 
-  // Event Caller Thread
-  std::thread eventThread;
-  //s32_le event_thid;
+  // Event delivery and input handling, run by the matching poll while the context is started.
   bool eventRunning = false;
   bool IsMatchingInCB = false;
-
-  // IO Handler Thread
-  std::thread inputThread;
-  //s32_le input_thid;
   bool inputRunning = false;
+
+  // When the input handling last sent a hello and a keepalive.
+  u64 lastHello = 0;
+  u64 lastPing = 0;
 
   // Event Caller Thread Message Stack
   std::recursive_mutex *eventlock; // s32_le event_stack_lock;
