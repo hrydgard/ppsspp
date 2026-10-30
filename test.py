@@ -670,6 +670,7 @@ tests_next = [
   "net/http/http",
   "net/adhoc/adhocctl",
   "net/adhoc/alerts",
+  "net/adhoc/ctlinit",
   "net/adhoc/discover",
   "net/adhoc/gamemode",
   "net/adhoc/limits",
