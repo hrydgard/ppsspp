@@ -150,6 +150,8 @@ public:
 	~PMFVideoTexture();
 
 	bool IsValid() const { return player_ != nullptr; }
+	// Played through once (Update then loops).
+	bool ReachedEnd() const;
 	int Width() const { return width_; }
 	int Height() const { return height_; }
 

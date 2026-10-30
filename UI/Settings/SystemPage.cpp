@@ -45,6 +45,10 @@
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
 #include "UI/Background.h"
+#include "UI/BackgroundAudio.h"
+#include "UI/FirmwareSounds.h"
+#include "UI/GameBootAnimation.h"
+#include "UI/ImposeHome.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/MiscScreens.h"
@@ -191,6 +195,28 @@ static void BuildPSPSettingsPage(SettingsPage *page) {
 	page->Setting(&g_Config.iDateFormat);
 	page->Setting(&g_Config.iTimeFormat);
 	page->Setting(&g_Config.iButtonPreference);
+
+	// How much of PPSSPP looks and sounds like the PSP's own system software. The firmware styles
+	// take the art and sounds from an installed firmware dump, so they're greyed out without one.
+	page->Header("Sound styles");
+	page->Setting(&g_Config.iUISoundStyle).EnabledFunc([] {
+		return FirmwareSounds::Available(g_Config.nandRootDirectory);
+	}).OnChange([](UI::EventParams &e) {
+		g_BackgroundAudio.SFX().ReloadSamples();
+	});
+	page->Hint({ I18NCat::SYSTEM, "UISoundsHint", "Ticks only: the PSP's sounds for moving around and choosing in our menus. All sounds: also its chimes for notifications and achievements, its camera shutter for screenshots, and the sounds of the system dialogs in games." });
+
+	page->Header("UI styles");
+	page->Setting(&g_Config.iHomeScreenStyle).EnabledFunc([] {
+		return ImposeHomeScreen::FirmwareArtAvailable();
+	});
+	page->Setting(&g_Config.bGameBootAnimation).EnabledFunc([] {
+		return GameBootAnimation::Available();
+	});
+	page->Hint({ I18NCat::SYSTEM, "GameBootAnimationHint", "The PSP's intro when a game starts. Not for games started from the XMB, which shows it itself." });
+	if (!FirmwareSounds::Available(g_Config.nandRootDirectory)) {
+		page->Hint({ I18NCat::SYSTEM, "PSPStylesNeedFirmware", "The PSP firmware styles need an installed firmware." });
+	}
 }
 
 void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {

@@ -27,6 +27,16 @@
 
 class PointerWrap;
 
+// The sounds the system dialogs make on a PSP: the XMB's cursor tick and its confirm and cancel
+// clicks. The host plays them, if it wants to (see SetUtilityDialogSoundCallback).
+enum class UtilityDialogSound {
+	CURSOR,
+	CONFIRM,
+	CANCEL,
+};
+// Called from the emu thread when a dialog sees a button pressed.
+void SetUtilityDialogSoundCallback(void (*callback)(UtilityDialogSound sound));
+
 #define SCE_UTILITY_DIALOG_RESULT_SUCCESS      0
 #define SCE_UTILITY_DIALOG_RESULT_CANCEL       1
 #define SCE_UTILITY_DIALOG_RESULT_ABORT        2

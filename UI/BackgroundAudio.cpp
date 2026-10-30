@@ -1,3 +1,4 @@
+#include <cstring>
 #include <memory>
 #include <string>
 #include <mutex>
@@ -20,7 +21,10 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
+#include "Core/Dialog/PSPDialog.h"
+#include "Core/ConfigValues.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/FirmwareSounds.h"
 
 struct WavData {
 	int num_channels = -1;
@@ -666,6 +670,13 @@ void SoundEffectMixer::Play(UI::UISound sfx, float multiplier) {
 	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * multiplier), false });
 }
 
+void SoundEffectMixer::Stop(UI::UISound sfx) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	auto matches = [sfx](const PlayInstance &play) { return play.sound == sfx; };
+	queue_.erase(std::remove_if(queue_.begin(), queue_.end(), matches), queue_.end());
+	plays_.erase(std::remove_if(plays_.begin(), plays_.end(), matches), plays_.end());
+}
+
 void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
 	if (sample) {
 		std::lock_guard<std::mutex> guard(mutex_);
@@ -687,7 +698,12 @@ void SoundEffectMixer::LoadDefaultSample(UI::UISound sound) {
 	case UI::UISound::ACHIEVEMENT_UNLOCKED: filename = "sfx_achievement_unlocked.wav"; break;
 	case UI::UISound::LEADERBOARD_SUBMITTED: filename = "sfx_leaderbord_submitted.wav"; break;
 	default:
+	{
+		// No sound of ours (the PSP firmware's extras): silent.
+		std::lock_guard<std::mutex> guard(mutex_);
+		samples_[(size_t)sound].reset();
 		return;
+	}
 	}
 
 	Sample *sample = Sample::Load(filename);
@@ -723,7 +739,43 @@ void SoundEffectMixer::Init() {
 		}
 	});
 
+	// The PSP firmware's chimes with notifications, when its sounds are in use (otherwise those
+	// sounds have no sample, and nothing plays).
+	g_OSD.SetShowCallback([](OSDType type, const char *id) {
+		if (!g_Config.bUISound) {
+			return;
+		}
+		const float volume = Volume100ToMultiplier(g_Config.iUIVolume);
+		if (id && !strcmp(id, "screenshot_link")) {
+			// A screenshot was saved (see TakeUserScreenshot): the PSP camera's shutter.
+			g_BackgroundAudio.SFX().Play(UI::UISound::SCREENSHOT, volume);
+		} else if (type == OSDType::MESSAGE_SUCCESS) {
+			g_BackgroundAudio.SFX().Play(UI::UISound::SYSTEM_OK, volume);
+		} else if (type == OSDType::MESSAGE_ERROR || type == OSDType::MESSAGE_CENTERED_ERROR) {
+			g_BackgroundAudio.SFX().Play(UI::UISound::SYSTEM_ERROR, volume);
+		}
+	});
+
+	// The system dialogs in games tick and click like on a PSP, with the PSP firmware's sounds.
+	// They're part of the game, so they go with the game's volume.
+	SetUtilityDialogSoundCallback([](UtilityDialogSound sound) {
+		SoundEffectMixer &sfx = g_BackgroundAudio.SFX();
+		if (!sfx.FirmwareExtras() || !g_Config.bEnableSound) {
+			return;
+		}
+		const float volume = Volume100ToMultiplier(g_Config.iGameVolume);
+		switch (sound) {
+		case UtilityDialogSound::CURSOR: sfx.Play(UI::UISound::SELECT, volume); break;
+		case UtilityDialogSound::CONFIRM: sfx.Play(UI::UISound::CONFIRM, volume); break;
+		case UtilityDialogSound::CANCEL: sfx.Play(UI::UISound::BACK, volume); break;
+		}
+	});
+
 	// Load samples in the background.
+	g_threadManager.EnqueueTask(new SampleLoadTask(this));
+}
+
+void SoundEffectMixer::ReloadSamples() {
 	g_threadManager.EnqueueTask(new SampleLoadTask(this));
 }
 
@@ -733,15 +785,62 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 	LoadDefaultSample(UI::UISound::CONFIRM);
 	LoadDefaultSample(UI::UISound::TOGGLE_ON);
 	LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+	LoadDefaultSample(UI::UISound::SYSTEM_OK);
+	LoadDefaultSample(UI::UISound::SYSTEM_ERROR);
+	LoadDefaultSample(UI::UISound::SCREENSHOT);
 
-	if (!g_Config.sAchievementsUnlockAudioFile.empty()) {
+	const bool customUnlockSound = !g_Config.sAchievementsUnlockAudioFile.empty();
+	const bool customLeaderboardSound = !g_Config.sAchievementsLeaderboardSubmitAudioFile.empty();
+	if (customUnlockSound) {
 		UpdateSample(UI::UISound::ACHIEVEMENT_UNLOCKED, Sample::Load(g_Config.sAchievementsUnlockAudioFile));
 	} else {
 		LoadDefaultSample(UI::UISound::ACHIEVEMENT_UNLOCKED);
 	}
-	if (!g_Config.sAchievementsLeaderboardSubmitAudioFile.empty()) {
+	if (customLeaderboardSound) {
 		UpdateSample(UI::UISound::LEADERBOARD_SUBMITTED, Sample::Load(g_Config.sAchievementsLeaderboardSubmitAudioFile));
 	} else {
 		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
+
+	// With a firmware dump installed, the sounds can be the PSP's own (see FirmwareSounds.h): just
+	// the navigation ones, or also its chimes, its camera shutter and the system dialogs' sounds.
+	firmwareExtras_ = false;
+	const UISoundStyle style = (UISoundStyle)g_Config.iUISoundStyle;
+	if (style != UISoundStyle::FIRMWARE_TICK && style != UISoundStyle::FIRMWARE_ALL) {
+		return;
+	}
+	auto useSound = [&](UI::UISound sound, const std::vector<FirmwareSounds::Sound> &sounds, std::string_view name) {
+		const FirmwareSounds::Sound *found = FirmwareSounds::Find(sounds, name);
+		if (!found || found->samples.size() < (size_t)found->channels * 2) {
+			return false;
+		}
+		int16_t *data = new int16_t[found->samples.size()];
+		memcpy(data, found->samples.data(), found->samples.size() * sizeof(int16_t));
+		UpdateSample(sound, new Sample(data, found->channels, (int)(found->samples.size() / found->channels), found->rateInHz));
+		return true;
+	};
+
+	const std::vector<FirmwareSounds::Sound> xmbSounds = FirmwareSounds::LoadXMBSounds(g_Config.nandRootDirectory);
+	if (!useSound(UI::UISound::SELECT, xmbSounds, "SE2_Cursor")) {
+		return;  // No firmware: our sounds.
+	}
+	useSound(UI::UISound::CONFIRM, xmbSounds, "SE3_Normal_OK");
+	useSound(UI::UISound::BACK, xmbSounds, "SE4_Cansel");
+	useSound(UI::UISound::TOGGLE_ON, xmbSounds, "SE8_Option");
+	useSound(UI::UISound::TOGGLE_OFF, xmbSounds, "SE8_Option");
+	if (style != UISoundStyle::FIRMWARE_ALL) {
+		return;
+	}
+
+	useSound(UI::UISound::SYSTEM_OK, xmbSounds, "SE12_System_OK");
+	useSound(UI::UISound::SYSTEM_ERROR, xmbSounds, "SE13_System_NG");
+	// The PSP has no achievements; its success chime is the nearest thing. Custom sounds stay.
+	if (!customUnlockSound) {
+		useSound(UI::UISound::ACHIEVEMENT_UNLOCKED, xmbSounds, "SE12_System_OK");
+	}
+	if (!customLeaderboardSound) {
+		useSound(UI::UISound::LEADERBOARD_SUBMITTED, xmbSounds, "SE12_System_OK");
+	}
+	useSound(UI::UISound::SCREENSHOT, FirmwareSounds::LoadCameraSounds(g_Config.nandRootDirectory), "Camera01");
+	firmwareExtras_ = true;
 }

@@ -31,6 +31,7 @@
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/FirmwareScreen.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
@@ -199,6 +200,8 @@ void FirmwareScreen::AskToErase() {
 		if (!EraseInstalledFirmware(nandRoot_, &error)) {
 			ERROR_LOG(Log::Loader, "Failed to erase the firmware: %s", error.c_str());
 		}
+		// Back to our own UI sounds.
+		g_BackgroundAudio.SFX().ReloadSamples();
 		RecreateViews();
 	}));
 }

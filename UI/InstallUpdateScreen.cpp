@@ -31,6 +31,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Util/PathUtil.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
 #include "UI/EmuScreen.h"
@@ -207,6 +208,8 @@ void InstallUpdateScreen::update() {
 		if (state_->success) {
 			INFO_LOG(Log::Loader, "Installed firmware %s: %d files, %d failed", state_->stats.firmwareVersion.c_str(),
 				state_->stats.written, state_->stats.failed);
+			// Its XMB sounds become our UI sounds.
+			g_BackgroundAudio.SFX().ReloadSamples();
 		} else {
 			ERROR_LOG(Log::Loader, "Failed to install the updater: %s", state_->error.c_str());
 		}
