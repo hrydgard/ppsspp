@@ -956,6 +956,8 @@ LIBARMIPS_FILES := \
 
 LOCAL_MODULE := libarmips
 LOCAL_SRC_FILES := $(LIBARMIPS_FILES)
+# armips relies on std::filesystem::path::u8string() returning std::string, so C++17. The later -std wins.
+LOCAL_CPPFLAGS += -std=c++17
 include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)

@@ -441,9 +441,11 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++17
+   CXXFLAGS += -std=c++20
+   ARMIPS_STD := -std=c++17
 else
-   CXXFLAGS += -std:c++17
+   CXXFLAGS += -std:c++20
+   ARMIPS_STD := -std:c++17
 endif
 
 ### Finalize ###
@@ -457,6 +459,9 @@ ifeq ($(GLEW_EGL),1)
 endif
 
 OBJECTS		+= $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(ASMFILES:.S=.o)
+
+# armips needs C++17 (see Makefile.common). The later -std wins.
+$(ARMIPS_SOURCES_CXX:.cpp=.o): CXXFLAGS += $(ARMIPS_STD)
 
 ifeq (,$(findstring msvc,$(platform)))
 # No fused multiply-adds in CPU emulation unless written explicitly, so its float results are the

@@ -152,7 +152,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -173,7 +173,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>
@@ -192,7 +192,7 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -206,7 +206,7 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -220,7 +220,7 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -236,7 +236,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>cpu_features/include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>STACK_LINE_READER_BUFFER_SIZE=1024;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WholeProgramOptimization>false</WholeProgramOptimization>

@@ -191,7 +191,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -229,7 +229,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -262,7 +262,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -297,7 +297,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -344,7 +344,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;opengl32.lib;glu32.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -385,7 +385,7 @@
       <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <AdditionalDependencies>d2d1.lib;dwrite.lib;d3d11.lib;avrt.lib;mmdevapi.lib;wbemuuid.lib;dwmapi.lib;winhttp.lib;uxtheme.lib;mfuuid.lib;shlwapi.lib;Winmm.lib;Ws2_32.lib;comctl32.lib;dxguid.lib;setupapi.lib;hid.lib;oleaut32.lib;comdlg32.lib;shell32.lib;user32.lib;gdi32.lib;advapi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>

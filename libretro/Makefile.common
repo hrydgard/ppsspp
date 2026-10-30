@@ -304,7 +304,8 @@ SOURCES_CXX += \
 	${EXTDIR}/at3_standalone/mem.cpp
 
 COREFLAGS += -DARMIPS_USE_STD_FILESYSTEM
-SOURCES_CXX += \
+# Built as C++17 (see libretro/Makefile): armips relies on std::filesystem::path::u8string() returning std::string.
+ARMIPS_SOURCES_CXX := \
 	$(EXTDIR)/armips/Util/ByteArray.cpp \
 	$(EXTDIR)/armips/Util/CRC.cpp \
 	$(EXTDIR)/armips/Util/EncodingTable.cpp \
@@ -360,6 +361,7 @@ SOURCES_CXX += \
 	$(EXTDIR)/armips/Parser/ExpressionParser.cpp \
 	$(EXTDIR)/armips/Parser/Parser.cpp \
 	$(EXTDIR)/armips/Parser/Tokenizer.cpp
+SOURCES_CXX += $(ARMIPS_SOURCES_CXX)
 
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H

@@ -325,7 +325,7 @@ void PopupContextMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 		parent->Add(choice);
 		if (enabled_[i]) {
-			choice->OnClick.Add([=](EventParams &p) {
+			choice->OnClick.Add([=, this](EventParams &p) {
 				TriggerFinish(DR_OK);
 				p.a = (uint32_t)i;
 				OnChoice.Dispatch(p);
@@ -682,7 +682,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
-		reset->OnClick.Add([=](UI::EventParams &) {
+		reset->OnClick.Add([=, this](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
 			UpdateTextBox();
@@ -726,7 +726,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
+		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=, this](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
@@ -1145,8 +1145,8 @@ std::string ChoiceWithValueDisplay::ValueText(bool *shadow) const {
 
 FileChooserChoice::FileChooserChoice(RequesterToken token, std::string *value, std::string_view text, BrowseFileType fileType, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value) {
-	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFile(token, text_, fileType, [=](std::string_view returnValue, int) {
+	OnClick.Add([=, this](UI::EventParams &) {
+		System_BrowseForFile(token, text_, fileType, [=, this](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};
@@ -1169,8 +1169,8 @@ std::string FileChooserChoice::ValueText(bool *shadow) const {
 
 FolderChooserChoice::FolderChooserChoice(RequesterToken token, std::string *value, std::string_view text, LayoutParams *layoutParams)
 	: AbstractChoiceWithValueDisplay(text, layoutParams), value_(value), token_(token) {
-	OnClick.Add([=](UI::EventParams &) {
-		System_BrowseForFolder(token_, text_, Path(*value), [=](std::string_view returnValue, int) {
+	OnClick.Add([=, this](UI::EventParams &) {
+		System_BrowseForFolder(token_, text_, Path(*value), [=, this](std::string_view returnValue, int) {
 			if (*value_ != returnValue) {
 				*value = returnValue;
 				UI::EventParams e{};

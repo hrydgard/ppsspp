@@ -305,7 +305,7 @@ void RiscVJitBackend::CompIR_FSat(IRInst inst) {
 void RiscVJitBackend::CompIR_FCompare(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	constexpr IRReg IRREG_VFPU_CC = IRREG_VFPU_CTRL_BASE + VFPU_CTRL_CC;
+	constexpr IRReg IRREG_VFPU_CC = IRREG_VFPU_CTRL_BASE + (int)VFPU_CTRL_CC;
 
 	switch (inst.op) {
 	case IROp::FCmp:
