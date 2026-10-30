@@ -267,9 +267,6 @@ rewritten to the new root, and the stubs are copied in by hand. For a debugger, 
 GitHub's arm64 runners can't run the armhf build natively: some of their hosts are Neoverse V3, which has no
 AArch32, and a job can't pick its host. So CI runs ARM32 under qemu on x86-64 too.
 
-`hash/hash` dies with a bus error under qemu-arm on every CPU core, so it's not a JIT problem, but it takes the rest
-of its batch down with it: pass `--known-failures=armhf`.
-
 Without a cross toolchain (on macOS, say) two things still help:
 
 - **A syntax check of the other JITs.** The RISC-V and LoongArch backends (`Core/MIPS/RiscV`,
