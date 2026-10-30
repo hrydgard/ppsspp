@@ -512,6 +512,7 @@
     <ClInclude Include="..\..\Core\HLE\KUBridge.h" />
     <ClInclude Include="..\..\Core\HLE\sceSysreg.h" />
     <ClInclude Include="..\..\Core\HLE\PopsBoot.h" />
+    <ClInclude Include="..\..\Core\HLE\AdhocTransport.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhoc.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhocServer.h" />
     <ClInclude Include="..\..\Core\HLE\ReplaceTables.h" />

@@ -949,6 +949,7 @@
     <ClInclude Include="HLE\HLEHelperThread.h" />
     <ClInclude Include="HLE\HLETables.h" />
     <ClInclude Include="HLE\KernelWaitHelpers.h" />
+    <ClInclude Include="HLE\AdhocTransport.h" />
     <ClInclude Include="HLE\proAdhoc.h" />
     <ClInclude Include="HLE\proAdhocServer.h" />
     <ClInclude Include="HLE\ReplaceTables.h" />
