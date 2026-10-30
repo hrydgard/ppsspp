@@ -757,8 +757,9 @@ def flags_for(test):
     return test_flags[test]
   if test.startswith("net/adhoc/"):
     # A new port offset each run: a connection the last run made with the same ports is still in TCP
-    # TIME_WAIT for a while, and connecting again fails.
-    return ADHOC_FLAGS + ["--port-offset=%d" % random.randrange(10000, 30000)]
+    # TIME_WAIT for a while, and connecting again fails. The tests' ports go up to 31000 (game mode's), and
+    # have to stay below Linux's ephemeral ports (32768 and up), which outgoing connections hold.
+    return ADHOC_FLAGS + ["--port-offset=%d" % random.randrange(1, 1700)]
   return None
 
 def is_pair_test(test):
