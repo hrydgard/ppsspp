@@ -366,6 +366,7 @@ tests_good = [
   "net/inet/errnothread",
   "net/adhoc/abandon",
   "net/adhoc/alerts",
+  "net/adhoc/apctlinit",
   "net/adhoc/discover",
   "net/adhoc/gamemode",
   "net/adhoc/limits",
