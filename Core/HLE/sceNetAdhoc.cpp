@@ -3624,7 +3624,6 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 	}
 	SceNetEtherAddr* saddr = (SceNetEtherAddr*)srcmac;
 	SceNetEtherAddr* daddr = (SceNetEtherAddr*)dstmac;
-	bool isClient = false;
 
 	// pspautotests net/adhoc/ptp. Zero sizes and retransmit settings are accepted.
 	if (saddr == NULL || daddr == NULL || flag != 0) {
