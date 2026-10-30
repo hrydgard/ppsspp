@@ -1858,8 +1858,13 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
-	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we
-	// use the local MAC instead, without writing it into the game's memory.
+	// Deliberately not like a PSP: whatever MAC the game passes as the local address, use ours. A PSP
+	// rejects anything but its own MAC with INVALID_ADDR (pspautotests net/adhoc/pdp and ptp, "Other mac",
+	// which is why they're in tests_next), but a PSP's MAC never changes and PPSSPP's can (another
+	// install, a changed setting). A savestate made with another MAC brings the old one back in the
+	// game's memory, and a game like DBZ Shin Budokai 2 then passes it and could never create a socket
+	// (added for it in 2019). The same goes for PtpOpen and PtpListen. The game's copy isn't written to: it
+	// may be a table entry the game reads later.
 	SceNetEtherAddr localSrcMac;
 	if (saddr != NULL) {
 		getLocalMac(&localSrcMac);
@@ -3663,8 +3668,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
-		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		// Our own MAC whatever the game passes, deliberately unlike a PSP (see NetAdhocPdpCreate).
 		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
 			getLocalMac(&localSrcMac);
@@ -4093,8 +4097,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	}
 
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
-		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		// Our own MAC whatever the game passes, deliberately unlike a PSP (see NetAdhocPdpCreate).
 		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
 			getLocalMac(&localSrcMac);
