@@ -21,6 +21,8 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
+#include "Common/Thread/Promise.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/UI/Notice.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ScreenManager.h"
@@ -41,8 +43,51 @@ std::string_view FirmwareScreen::GetTitle() const {
 }
 
 void FirmwareScreen::BeforeCreateViews() {
-	nandRoot_ = GetSysDirectory(DIRECTORY_NAND);
-	ReadInstalledFirmwareInfo(nandRoot_, &info_);
+	if (!scanned_ && !scan_) {
+		nandRoot_ = GetSysDirectory(DIRECTORY_NAND);
+		StartScan(false);
+	}
+}
+
+void FirmwareScreen::StartScan(bool eraseFirst) {
+	if (scan_) {
+		rescanPending_ = true;
+		erasePending_ = erasePending_ || eraseFirst;
+		return;
+	}
+	scan_ = std::make_shared<ScanState>();
+	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
+		[state = scan_, nandRoot = nandRoot_, eraseFirst]() {
+		if (eraseFirst) {
+			EraseInstalledFirmware(nandRoot, &state->eraseError);
+		}
+		ReadInstalledFirmwareInfo(nandRoot, &state->info);
+		// Everything above is published by this store.
+		state->done = true;
+	}));
+	// Disables the buttons that would touch the NAND while this runs.
+	RecreateViews();
+}
+
+void FirmwareScreen::update() {
+	UITwoPaneBaseDialogScreen::update();
+	if (!scan_ || !scan_->done) {
+		return;
+	}
+	if (!scan_->eraseError.empty()) {
+		ERROR_LOG(Log::Loader, "Failed to erase the firmware: %s", scan_->eraseError.c_str());
+	}
+	info_ = scan_->info;
+	scan_.reset();
+	scanned_ = true;
+	if (rescanPending_) {
+		const bool erase = erasePending_;
+		rescanPending_ = false;
+		erasePending_ = false;
+		StartScan(erase);
+	} else {
+		RecreateViews();
+	}
 }
 
 void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -54,6 +99,12 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	auto st = GetI18NCategory(I18NCat::STORE);  // Borrow "Size" from here, like GameScreen does.
 
 	ChoiceGroupList *list = parent->Add(new ChoiceGroupList());
+
+	if (!scanned_) {
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		list->Add(new TextView(mm->T("Loading..."), ALIGN_LEFT, false));
+		return;
+	}
 
 	if (!info_.anythingInstalled) {
 		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"),
@@ -109,6 +160,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	// Booting anything replaces the running game, and erasing the NAND out from under a game
 	// that has flash0 mounted is worse - so while a game is running, this screen is read-only.
 	const bool gameRunning = PSP_IsInited();
+	const bool scanning = scan_ != nullptr;
 
 	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
 	if (info_.hasVsh && !FirmwareVersionSupportsVSH(info_.version)) {
@@ -134,7 +186,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		install->OnClick.Add([this](UI::EventParams &) {
 			BrowseForUpdater();
 		});
-		install->SetEnabled(!gameRunning);
+		install->SetEnabled(!gameRunning && !scanning);
 	}
 
 	if (info_.anythingInstalled) {
@@ -142,7 +194,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		erase->OnClick.Add([this](UI::EventParams &) {
 			AskToErase();
 		});
-		erase->SetEnabled(!gameRunning);
+		erase->SetEnabled(!gameRunning && !scanning);
 	}
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
@@ -166,10 +218,9 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 }
 
 void FirmwareScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	// Coming back from the installer (or the erase confirmation), the NAND may well look
-	// different than it did when we scanned it. Rescanning is cheap, so just always redo it -
-	// BeforeCreateViews does the scan.
-	RecreateViews();
+	// Coming back from the installer, the NAND may well look different than it did when we
+	// scanned it, so always rescan.
+	StartScan(false);
 	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
 }
 
@@ -195,10 +246,6 @@ void FirmwareScreen::AskToErase() {
 		if (!erase) {
 			return;
 		}
-		std::string error;
-		if (!EraseInstalledFirmware(nandRoot_, &error)) {
-			ERROR_LOG(Log::Loader, "Failed to erase the firmware: %s", error.c_str());
-		}
-		RecreateViews();
+		StartScan(true);
 	}));
 }

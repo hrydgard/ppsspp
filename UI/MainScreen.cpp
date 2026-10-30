@@ -89,9 +89,14 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
 		// it's available - we can't decide what to do below without it. HIGH, so we don't wait behind
 		// whatever else is queued, like a search's loads for every game in a big list.
-		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
-		info->WaitUntilReady(neededFlags);
+		// Only the file type at first: just a few of the cases below need the PARAM.SFO, and reading
+		// it out of a disc image costs more disk access.
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
+		info->WaitUntilReady(GameInfoFlags::FILE_TYPE);
+		const auto waitForParamSFO = [&]() {
+			g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
+			info->WaitUntilReady(GameInfoFlags::PARAM_SFO);
+		};
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
@@ -138,6 +143,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// Show the savedata popup, why not?
+			waitForParamSFO();
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
 			screenManager->push(new SavedataPopupScreen(Path(), path, title));
 			return;
@@ -147,6 +153,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		{
 			// Check if it's an update file. If so, we'll offer to install it directly,
 			// instead of running it (which currently will not work).
+			waitForParamSFO();
 			if (info->id == "MSTKUPDATE") {
 				std::string title = info->GetTitle();  // includes the version.
 				// The unpacker wants the PBP itself, not the folder it happens to sit in.
