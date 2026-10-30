@@ -2063,13 +2063,26 @@ int server_loop(int server)
 			user = next;
 		}
 
-		// Prevent needless CPU Overload (1ms Sleep)
-		// !!!! COMMENT NOT REFLECTING REALITY
-		sleep_ms(10, "pro-adhoc-poll");
-
-		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (adhocServerRunning && Core_IsStepping() && coreState != CORE_POWERDOWN)
-			sleep_ms(10, "pro-adhot-paused-poll");
+		// Wait until a login or a message comes in, rather than polling: with nothing to do the server
+		// sleeps, and a message is handled as soon as it arrives. Woken at least every 50 ms anyway, to
+		// notice adhocServerRunning going false.
+		fd_set readfds;
+		FD_ZERO(&readfds);
+		int maxfd = server;
+		FD_SET(server, &readfds);
+		for (SceNetAdhocctlUserNode *u = _db_user; u != NULL; u = u->next) {
+#if !defined(_WIN32)
+			if (u->stream >= FD_SETSIZE) {
+				continue;
+			}
+#endif
+			FD_SET(u->stream, &readfds);
+			maxfd = std::max(maxfd, u->stream);
+		}
+		timeval tv;
+		tv.tv_sec = 0;
+		tv.tv_usec = 50000;
+		select(maxfd + 1, &readfds, nullptr, nullptr, &tv);
 	}
 
 	// Free User Database Memory

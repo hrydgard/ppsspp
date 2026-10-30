@@ -594,6 +594,7 @@ tests_good = [
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
   "net/adhoc/pair/matchingorder",
+  "net/adhoc/pair/ptpmsg",
   "net/adhoc/pair/ptppoll",
   "net/adhoc/pair/vanish",
 ]
@@ -751,7 +752,8 @@ tests_next = [
   "net/inet/udp",
   "net/primary/ether",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
-  "net/adhoc/pair/flow",
+  "net/adhoc/pair/discover",  # sceNetAdhocDiscover isn't implemented
+  "net/adhoc/pair/flow",  # PDP matches; the PTP send and receive windows aren't emulated
   "net/adhoc/pair/gamemode",
   "net/adhoc/pair/lifecycle",
   "sysmem/partition",
