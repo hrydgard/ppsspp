@@ -636,7 +636,8 @@ pair_known_failures = {
 ADHOC_MODES = ["relay", "p2p"]
 
 # Tests that exercise HLE code and barely any of the game's, so one CPU backend covers them.
-# --cpu-backend-only leaves them out of the runs that repeat the suite with each backend.
+# --skip-cpu-independent leaves them out of the runs that repeat the suite with each backend, and
+# --only-cpu-independent runs just them.
 CPU_INDEPENDENT_PREFIXES = (
   "net/",
 )
@@ -929,14 +930,16 @@ def main():
   teamcity = False
   skip_arch = None
   adhoc_modes = ADHOC_MODES
-  cpu_backend_only = False
+  # Ours: None runs everything, "skip" or "only" leaves out or keeps just the CPU-independent tests.
+  cpu_independent = None
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
       teamcity = True
-    elif arg == '--cpu-backend-only':
-      # Ours: leave out the tests that don't depend on the CPU backend, for a run that repeats one with another backend.
-      cpu_backend_only = True
+    elif arg == '--skip-cpu-independent':
+      cpu_independent = "skip"
+    elif arg == '--only-cpu-independent':
+      cpu_independent = "only"
     elif arg.startswith('--known-failures='):
       # Ours, not headless's - don't pass it through.
       skip_arch = arg[len('--known-failures='):]
@@ -974,11 +977,14 @@ def main():
     if skipped:
       print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
-  if cpu_backend_only:
-    skipped = [t for t in tests if t.startswith(CPU_INDEPENDENT_PREFIXES)]
-    tests = [t for t in tests if t not in skipped]
-    if skipped:
-      print("Skipping %d tests that don't depend on the CPU backend" % len(skipped))
+  if cpu_independent:
+    independent = [t for t in tests if t.startswith(CPU_INDEPENDENT_PREFIXES)]
+    if cpu_independent == "skip":
+      tests = [t for t in tests if t not in independent]
+      print("Skipping %d tests that don't depend on the CPU backend" % len(independent))
+    else:
+      print("Skipping %d tests that depend on the CPU backend" % (len(tests) - len(independent)))
+      tests = independent
 
   pair =[t for t in tests if is_pair_test(t)]
   tests = [t for t in tests if t not in pair]
