@@ -626,7 +626,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
 				if (call_status == ADHOCCTL_CALL_SUCCESS) {
 					adhocctlInServerGroup = true;
-					dropLateGroupReply = false;
+					groupJoinInFlight = true;
 				}
 				break;
 			}
@@ -864,6 +864,24 @@ static int pdp_peek_next_size_postoffice(int idx) {
 // reaches it.
 static bool offAdhocNetwork() {
 	return !adhocctlInServerGroup;
+}
+
+bool NetAdhocctl_InServerGroup() {
+	return adhocctlInServerGroup;
+}
+
+void AbandonGroupJoin() {
+	// A queued join completes like a login, sending nothing. (The requests are saved in savestates, so
+	// it keeps the format.)
+	for (auto &it : adhocctlRequests) {
+		if (it.second.opcode == OPCODE_CONNECT) {
+			it.second.opcode = OPCODE_LOGIN;
+		}
+	}
+	if (groupJoinInFlight) {
+		groupJoinInFlight = false;
+		abandonedGroupJoins++;
+	}
 }
 
 static bool isLocalMac(const SceNetEtherAddr *mac) {
@@ -2272,8 +2290,7 @@ void __UpdateAdhocctlHandlers(u32 flag, u32 error) {
 }
 
 void NetAdhocctl_GameModeTimedOut() {
-	// If the server's BSSID came in time, there's nothing to drop, and the next join clears this.
-	dropLateGroupReply = true;
+	AbandonGroupJoin();
 	if (adhocctlInServerGroup) {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		if (adhocctlHandle != NULL) {
@@ -3996,6 +4013,7 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 		// or 650 ms after ExitGameMode (net/adhoc/pair/gamemodetiming).
 		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 		adhocctlDisconnectFromGameMode = fromGameMode;
+		AbandonGroupJoin();
 
 		// Connected State (Adhoc Mode). Attempting to leave a group while not in a group will be kicked out by Adhoc Server (ie. some games tries to disconnect more than once within a short time)
 		if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || adhocctlInServerGroup) {

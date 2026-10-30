@@ -86,7 +86,8 @@ SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
 u64 gameModeEnterTimeUs = 0;
-bool dropLateGroupReply = false;
+bool groupJoinInFlight = false;
+int abandonedGroupJoins = 0;
 std::atomic<bool> isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
@@ -1377,6 +1378,9 @@ void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lo
 
 	destroy_adhocctl_session(adhocctlHandle);
 	adhocctlHandle = NULL;
+	// Nothing more comes from that session.
+	groupJoinInFlight = false;
+	abandonedGroupJoins = 0;
 
 	// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
 	peerlock.lock();
@@ -1697,12 +1701,12 @@ void friendFinderPoll() {
 			break;
 		case ADHOCCTL_CLIENT_EVENT_LEADER_MAC:{
 			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str((SceNetEtherAddr *)adhocctl_event.leader_mac.mac).c_str());
-			if (dropLateGroupReply) {
-				// The game mode it was for has timed out (we've already left the group again).
-				dropLateGroupReply = false;
-				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring the group BSSID, game mode timed out before it came");
+			if (abandonedGroupJoins > 0) {
+				abandonedGroupJoins--;
+				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring the BSSID of an abandoned group join");
 				break;
 			}
+			groupJoinInFlight = false;
 			// Update Group BSSID
 			memcpy(parameter.bssid.mac_addr.data, adhocctl_event.leader_mac.mac, 6); // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
 
@@ -1762,6 +1766,11 @@ void friendFinderPoll() {
 		case ADHOCCTL_CLIENT_EVENT_CONNECT:{
 			u32_le ipaddr = adhocctl_event.connect.id;
 			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str((SceNetEtherAddr *)adhocctl_event.connect.mac).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), adhocctl_event.connect.nickname);
+			// A player of an abandoned join's group, or of one we've left (the server didn't know yet).
+			if (abandonedGroupJoins > 0 || !NetAdhocctl_InServerGroup()) {
+				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring a player of a group we're not joining");
+				break;
+			}
 
 			// Add User
 			addFriend(adhocctl_event.connect);

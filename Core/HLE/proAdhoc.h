@@ -820,9 +820,16 @@ extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
 // When CreateEnterGameMode or JoinEnterGameMode was called, in emulated time: its timeout is a PSP-side one.
 extern u64 gameModeEnterTimeUs;
-// Set when entering game mode timed out, until the next group join is sent: the server's answer to the
-// timed-out join may still be on its way, and must not connect us to the group.
-extern bool dropLateGroupReply;
+// The server answers a group join with a CONNECT for each player already in the group, then the group's
+// BSSID. A join the game has given up on (game mode timed out, or it disconnected) before the BSSID came
+// is abandoned: what's left of its answer must not put us in the group.
+extern bool groupJoinInFlight;
+extern int abandonedGroupJoins;
+// Gives up on the join being made, if any: one still queued isn't sent, and the answer to one already
+// sent is dropped.
+void AbandonGroupJoin();
+// Whether we've asked the server to put us in a group, and haven't left it since.
+bool NetAdhocctl_InServerGroup();
 extern std::atomic<bool> isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
