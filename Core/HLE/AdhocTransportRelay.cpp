@@ -133,21 +133,6 @@ static void *pdp_postoffice_recover(int idx) {
 	return internal->postofficeHandle;
 }
 
-static int pdp_peek_next_size_postoffice(int idx) {
-	AdhocSocket *internal = adhocSockets[idx];
-	void *pdp_sock = pdp_postoffice_recover(idx);
-	if (pdp_sock == NULL) {
-		return 0;
-	}
-	int peek_status = pdp_peek_next_size(pdp_sock);
-	if (peek_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-		pdp_delete(internal->postofficeHandle);
-		internal->postofficeHandle = NULL;
-		return 0;
-	}
-	return peek_status;
-}
-
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *data, int *len) {
 	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
@@ -184,53 +169,14 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	return 0;
 }
 
-int RelayTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
-	int next_size = pdp_peek_next_size_postoffice(req.id - 1);
-	if (next_size == 0) {
-		// no next packet
-	} else if (next_size > *req.length) {
-		// next is larger than current buffer
-		result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
-		*req.length = next_size;
-		return 0;
-	} else if (pdp_recv_postoffice(req.id - 1, req.remoteMAC, req.remotePort, req.buffer, req.length) == 0) {
-		// we got data into the request
-		result = 0;
-		return 0;
+bool RelayTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) {
+	static char buf[AEMU_POSTOFFICE_PDP_BLOCK_MAX];
+	int len = sizeof(buf);
+	if (pdp_recv_postoffice(id - 1, mac, port, buf, &len) != 0) {
+		return false;
 	}
-
-	u64 now = CoreTiming::GetGlobalTimeUs();
-	if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-		// Try again later
-		return -1;
-	}
-	result = SCE_NET_ADHOC_ERROR_TIMEOUT;
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i]: Socket Error (%i)", req.id, EAGAIN);
-	return 0;
-}
-
-int RelayTransport::PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) {
-	int next_size = pdp_peek_next_size_postoffice(id - 1);
-	if (next_size == 0) {
-		// no next packet
-	} else if (next_size > *len) {
-		// next is larger than current buffer
-		*len = next_size;
-		return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
-	} else if (pdp_recv_postoffice(id - 1, saddr, sport, buf, len) == 0) {
-		// we got data
-		hleEatMicro(50);
-		return 0;
-	}
-
-	if (flag == 0) {
-		// Simulate blocking behaviour with non-blocking socket
-		u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | adhocSockets[id - 1]->data.pdp.id;
-		return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
-	}
-
-	VERBOSE_LOG(Log::sceNet, "%08x=sceNetAdhocPdpRecv: would block", SCE_NET_ADHOC_ERROR_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
-	return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	data.assign(buf, buf + len);
+	return true;
 }
 
 static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len) {
@@ -594,7 +540,6 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	ptpSetEstablished(internal);
 	internal->data.ptp.rcv_sb_cc = adhocSockets[idx]->data.ptp.rcv_sb_cc;
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
-	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + idx;
 	internal->flags = 0;
 	internal->connectThread = NULL;
 
@@ -612,6 +557,8 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
+	// Its own, not the listener's: blocking calls are told apart by it.
+	internal->data.ptp.id = AEMU_POSTOFFICE_ID_BASE + i;
 	*slot = internal;
 
 	if (saddr != NULL) {
@@ -741,6 +688,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	internal->data.pdp.laddr = *saddr;
 	internal->data.pdp.lport = sport;
 	internal->data.pdp.rcv_sb_cc = 0;
+	internal->buffer_size = bufsize;
 	internal->flags = 0;
 	internal->lastAttempt = 0;
 	internal->internalLastAttempt = 0;
@@ -860,13 +808,6 @@ static int pdp_delete_postoffice(int idx) {
 
 int RelayTransport::PdpDelete(int id) {
 	return pdp_delete_postoffice(id - 1);
-}
-
-void RelayTransport::PdpUpdateRecvStat(int id, AdhocSocket *sock) {
-	void *postofficeHandle = pdp_postoffice_recover(id - 1);
-	// A dead session (a negative status) has nothing waiting.
-	int waiting = postofficeHandle != NULL ? pdp_buffered_data_size(postofficeHandle) : 0;
-	sock->data.pdp.rcv_sb_cc = std::max(0, waiting);
 }
 
 void RelayTransport::PtpUpdateRecvStat(AdhocSocket *sock) {

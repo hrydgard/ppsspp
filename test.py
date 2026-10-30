@@ -645,10 +645,8 @@ ADHOC_MODES = ["relay", "p2p"]
 adhoc_known_failures = {
   "relay": [
     # One console can only talk to itself, which on a PSP never leaves the console: a PTP connect to
-    # itself is up at once, and a PDP datagram to itself is there at once. The relay sends both through
-    # the server, which takes a round trip.
+    # itself is up at once. The relay sends it through the server, which takes a round trip.
     "net/adhoc/alerts",
-    "net/adhoc/term",
   ],
   "p2p": [],
 }
