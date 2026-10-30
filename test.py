@@ -635,6 +635,12 @@ pair_known_failures = {
 
 ADHOC_MODES = ["relay", "p2p"]
 
+# Tests that exercise HLE code and barely any of the game's, so one CPU backend covers them.
+# --cpu-backend-only leaves them out of the runs that repeat the suite with each backend.
+CPU_INDEPENDENT_PREFIXES = (
+  "net/",
+)
+
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
@@ -923,10 +929,14 @@ def main():
   teamcity = False
   skip_arch = None
   adhoc_modes = ADHOC_MODES
+  cpu_backend_only = False
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
       teamcity = True
+    elif arg == '--cpu-backend-only':
+      # Ours: leave out the tests that don't depend on the CPU backend, for a run that repeats one with another backend.
+      cpu_backend_only = True
     elif arg.startswith('--known-failures='):
       # Ours, not headless's - don't pass it through.
       skip_arch = arg[len('--known-failures='):]
@@ -964,7 +974,13 @@ def main():
     if skipped:
       print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
-  pair = [t for t in tests if is_pair_test(t)]
+  if cpu_backend_only:
+    skipped = [t for t in tests if t.startswith(CPU_INDEPENDENT_PREFIXES)]
+    tests = [t for t in tests if t not in skipped]
+    if skipped:
+      print("Skipping %d tests that don't depend on the CPU backend" % len(skipped))
+
+  pair =[t for t in tests if is_pair_test(t)]
   tests = [t for t in tests if t not in pair]
   plain = [t for t in tests if flags_for(t) is None]
   returncode = run_tests(plain, args)

@@ -571,7 +571,10 @@ jobs:
         fail=0
         for cpu in jit jit-ir ir interpreter; do
           echo "::group::CPU backend: $cpu"
-          python3 test.py -g --graphics=software --cpu=$cpu || fail=1
+          # The JIT run has everything; the others leave out what doesn't depend on the backend (networking).
+          only=""
+          if [ "$cpu" != "jit" ]; then only="--cpu-backend-only"; fi
+          python3 test.py -g --graphics=software --cpu=$cpu $only || fail=1
           echo "::endgroup::"
         done
         exit $fail
