@@ -113,7 +113,8 @@ bool D3D11Context::InitAPI(void *wnd, std::string *deviceName, std::string *erro
 		}
 	}
 
-	if (hr == E_FAIL) {
+	if (FAILED(hr) || !device_) {
+		ERROR_LOG(Log::G3D, "D3D11 initialization failed: %08x", (uint32_t)hr);
 		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using OpenGL instead?";
 		auto err = GetI18NCategory(I18NCat::ERRORS);
 
@@ -125,7 +126,9 @@ bool D3D11Context::InitAPI(void *wnd, std::string *deviceName, std::string *erro
 			error = ConvertUTF8ToWString(err->T("D3D11Missing", "Your operating system version does not include D3D11. Please run Windows Update.\n\nPress Yes to try again using Direct3D9 instead."));
 		}
 
-		error = ConvertUTF8ToWString(err->T("D3D11NotSupported", defaultError));
+		if (error.empty()) {
+			error = ConvertUTF8ToWString(err->T("D3D11NotSupported", defaultError));
+		}
 		std::wstring title = ConvertUTF8ToWString(err->T("D3D11InitializationError", "Direct3D 11 initialization error"));
 		bool yes = IDYES == MessageBox((HWND)wnd, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		if (yes) {
