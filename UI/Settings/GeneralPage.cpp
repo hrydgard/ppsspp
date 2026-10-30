@@ -240,8 +240,6 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		});
 		return language;
 	});
-
-	page->Header();
 	page->Link({I18NCat::SYSTEM, "User interface"}, I18NCat::SYSTEM, &BuildUISettingsPage);
 
 	page->Header();
@@ -278,11 +276,13 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		});
 	}
 #endif
-	page->Setting(&g_Config.iAskForExitConfirmationAfterSeconds);
 	// TODO: Make this setting available on Mac too.
 #if PPSSPP_PLATFORM(WINDOWS) || (defined (SDL) && !defined(MOBILE_DEVICE))
 	page->Setting(&g_Config.bPauseOnLostFocus);
 #endif
+
+	page->Setting(&g_Config.iAskForExitConfirmationAfterSeconds);
+
 	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
 		page->Setting(&g_Config.bBypassOSKWithKeyboard);
 	}
@@ -293,9 +293,9 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		});
 	}
 
-	page->Setting(&g_Config.bCheckForNewVersion);
-
 	page->Header();
+
+	page->Setting(&g_Config.bCheckForNewVersion);
 	page->Choice("Restore Default Settings").OnClick([host, state](UI::EventParams &e) {
 		OnRestoreDefaultSettings(host, state);
 	});
