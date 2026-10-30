@@ -54,6 +54,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/AdhocTransport.h"
 #include "Core/Instance.h"
 #include "proAdhoc.h"
 
@@ -97,7 +98,6 @@ int adhocConnectionType               = ADHOC_CONNECT;
 int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
 int gameModeBuffSize                  = 0;
 u8* gameModeBuffer                    = nullptr;
-extern bool serverHasRelay;
 GameModeArea masterGameModeArea;
 std::vector<GameModeArea> replicaGameModeAreas;
 std::vector<SceNetEtherAddr> requiredGameModeMacs;
@@ -446,39 +446,7 @@ void deleteAllAdhocSockets() {
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
 
-			if (serverHasRelay) {
-				if (sock->type == SOCK_PTP) {
-					// sync
-					if (sock->connectThread != NULL) {
-						sock->connectThread->join();
-						delete sock->connectThread;
-					}
-					void *socket = sock->postofficeHandle;
-					if (socket != NULL) {
-						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-							ptp_listen_close(socket);
-						} else {
-							ptp_close(socket);
-						}
-					}
-				} else {
-					if (sock->postofficeHandle != NULL) {
-						pdp_delete(sock->postofficeHandle);
-					}
-				}
-			} else {
-				int fd = -1;
-				if (sock->type == SOCK_PTP)
-					fd = sock->data.ptp.id;
-				else if (sock->type == SOCK_PDP)
-					fd = sock->data.pdp.id;
-
-				if (fd > 0) {
-					// Close Socket
-					shutdown(fd, SD_RECEIVE);
-					closesocket(fd);
-				}
-			}
+			Transport().CloseHostSocket(sock);
 			// Free Memory
 			free(adhocSockets[i]);
 
@@ -1521,7 +1489,7 @@ static void StartAdhocctlLogin() {
 	// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
 	struct adhocctl_addr_v4 bindAddr = {0};
-	const bool bind = isLocalServer && !serverHasRelay;
+	const bool bind = isLocalServer && Transport().BindServerConnectionToLocalIp();
 	if (bind) {
 		bindAddr.ip = g_localhostIP.in.sin_addr.s_addr;
 		bindAddr.port = 0;

@@ -389,26 +389,79 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 // with.
 class RelayTransport : public AdhocTransport {
 public:
+	void CloseHostSocket(AdhocSocket *sock) override;
+
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override;
 	int PdpDelete(int id) override;
 	int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) override;
 	int PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) override;
 	int DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) override;
 	void PdpUpdateRecvStat(int id, AdhocSocket *sock) override;
+
+	int PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) override;
+	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
+	int PtpClose(int id) override;
+	int PtpSend(int id, const char *data, int *len, int timeout, int flag) override;
+	int PtpRecv(int id, void *buf, int *len, int timeout, int flag) override;
+	int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) override;
+	int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) override;
+	int DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) override;
+	int DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) override;
+	int PtpConnect(int id, const sockaddr_in &sin, int *error) override;
+	int PtpConnectPoll(AdhocSocket *sock, int *error) override;
+	bool PtpConnectionUp(AdhocSocket *sock) override;
+	void PtpUpdateRecvStat(AdhocSocket *sock) override;
+	int PtpFlush(int socketId) override;
+
+	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
+
+	bool BindServerConnectionToLocalIp() override { return false; }
 	bool PdpReadyToSend(AdhocSocket *sock) override { return true; }
 	bool PdpReadyToRecv(AdhocSocket *sock) override { return true; }
+	// A connection's handle only comes once it's up, so there's no in-between to check.
+	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override { return ret; }
+	bool PtpConnectPending(int error) override { return true; }
+	bool PtpConnectedSinceOpen(AdhocSocket *sock) override { return false; }
+	void PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) override {}
+	bool PtpPeerClosed(AdhocSocket *sock) override { return false; }
 };
 
 class P2PTransport : public AdhocTransport {
 public:
+	void CloseHostSocket(AdhocSocket *sock) override;
+
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override;
 	int PdpDelete(int id) override;
 	int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) override;
 	int PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) override;
 	int DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) override;
 	void PdpUpdateRecvStat(int id, AdhocSocket *sock) override;
+
+	int PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) override;
+	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
+	int PtpClose(int id) override;
+	int PtpSend(int id, const char *data, int *len, int timeout, int flag) override;
+	int PtpRecv(int id, void *buf, int *len, int timeout, int flag) override;
+	int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) override;
+	int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) override;
+	int DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) override;
+	int DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) override;
+	int PtpConnect(int id, const sockaddr_in &sin, int *error) override;
+	int PtpConnectPoll(AdhocSocket *sock, int *error) override;
+	bool PtpConnectionUp(AdhocSocket *sock) override;
+	void PtpUpdateRecvStat(AdhocSocket *sock) override;
+	int PtpFlush(int socketId) override;
+
+	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
+
+	bool BindServerConnectionToLocalIp() override { return true; }
 	bool PdpReadyToSend(AdhocSocket *sock) override;
 	bool PdpReadyToRecv(AdhocSocket *sock) override;
+	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override;
+	bool PtpConnectPending(int error) override;
+	bool PtpConnectedSinceOpen(AdhocSocket *sock) override;
+	void PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) override;
+	bool PtpPeerClosed(AdhocSocket *sock) override;
 };
 
 static RelayTransport relayTransport;
@@ -427,6 +480,42 @@ void discardMatchingEvents();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
+
+void RelayTransport::CloseHostSocket(AdhocSocket *sock) {
+	if (sock->type == SOCK_PTP) {
+		// sync
+		if (sock->connectThread != NULL) {
+			sock->connectThread->join();
+			delete sock->connectThread;
+		}
+		void *socket = sock->postofficeHandle;
+		if (socket != NULL) {
+			if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
+				ptp_listen_close(socket);
+			} else {
+				ptp_close(socket);
+			}
+		}
+	} else {
+		if (sock->postofficeHandle != NULL) {
+			pdp_delete(sock->postofficeHandle);
+		}
+	}
+}
+
+void P2PTransport::CloseHostSocket(AdhocSocket *sock) {
+	int fd = -1;
+	if (sock->type == SOCK_PTP)
+		fd = sock->data.ptp.id;
+	else if (sock->type == SOCK_PDP)
+		fd = sock->data.pdp.id;
+
+	if (fd > 0) {
+		// Close Socket
+		shutdown(fd, SD_RECEIVE);
+		closesocket(fd);
+	}
+}
 
 bool __NetAdhocConnected() {
 	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
@@ -955,18 +1044,8 @@ static void ptpUpdateConnecting(AdhocSocket *sock) {
 	if (sock->data.ptp.state != ADHOC_PTP_STATE_SYN_SENT && sock->data.ptp.state != ADHOC_PTP_STATE_SYN_RCVD) {
 		return;
 	}
-	if (serverHasRelay) {
-		if (sock->postofficeHandle != NULL) {
-			ptpSetEstablished(sock);
-		}
-	} else if (IsSocketReady(sock->data.ptp.id, true, true) > 0) {
-		struct sockaddr_in sin;
-		socklen_t sinlen = sizeof(sin);
-		memset(&sin, 0, sinlen);
-		// Ensure that the connection really established or not, since "select" alone can't accurately detects it
-		if (getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR) {
-			ptpSetEstablished(sock);
-		}
+	if (Transport().PtpConnectionUp(sock)) {
+		ptpSetEstablished(sock);
 	}
 }
 
@@ -1372,44 +1451,57 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_DELETED;
 		return 0;
 	}
-	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTSEND) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTSEND;
 		return 0;
 	}
+	return Transport().DoBlockingPtpSend(req, result);
+}
+
+int RelayTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
+	auto sock = adhocSockets[req.id - 1];
+	auto& ptpsocket = sock->data.ptp;
+	int ret = ptp_send_postoffice(req.id - 1, req.buffer, req.length);
+	if (ret == 0) {
+		// sent
+		// Set to Established on successful Send when an attempt to Connect was initiated
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpSetEstablished(sock);
+
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
+
+		result = 0;
+		return 0;
+	}
+	if (ret == SOCKET_ERROR) {
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+		result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
+
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i]: Socket Error (%i)", req.id, 0);
+
+		return 0;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	u64 now = CoreTiming::GetGlobalTimeUs();
+	if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		return -1;
+	}
+	result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i]: Socket Error (%i)", req.id, EAGAIN);
+	return 0;
+}
+
+int P2PTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
+	auto sock = adhocSockets[req.id - 1];
+	auto& ptpsocket = sock->data.ptp;
 
 	// Send Data
 	int ret = 0;
 	int sockerr = 0;
-	if (serverHasRelay) {
-		ret = ptp_send_postoffice(req.id - 1, req.buffer, req.length);
-		if (ret == 0) {
-			// sent
-			// Set to Established on successful Send when an attempt to Connect was initiated
-			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-				ptpSetEstablished(sock);
-
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", req.id, ptpsocket.lport, ret, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
-
-			result = 0;
-			return 0;
-		}
-		if (ret == SOCKET_ERROR) {
-			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-			result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
-
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i]: Socket Error (%i)", req.id, sockerr);
-
-			return 0;
-		}
-		// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
-		ret = SOCKET_ERROR;
-		sockerr = EAGAIN;
-	}else{
-		ret = send(ptpsocket.id, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
-		sockerr = socket_errno;
-	}
+	ret = send(ptpsocket.id, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
+	sockerr = socket_errno;
 
 	// Success
 	if (ret > 0) {
@@ -1493,35 +1585,47 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_DELETED;
 		return 0;
 	}
-	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTRECV) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		return 0;
 	}
+	return Transport().DoBlockingPtpRecv(req, result);
+}
+
+int RelayTransport::DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) {
+	auto& ptpsocket = adhocSockets[req.id - 1]->data.ptp;
+	int ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
+	if (ret == 0) {
+		// we got data
+		result = 0;
+		return 0;
+	}
+	if (ret == SOCKET_ERROR) {
+		// the socket died, let the game know
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+		result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
+		return 0;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	u64 now = CoreTiming::GetGlobalTimeUs();
+	if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		return -1;
+	}
+	result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i]: Socket Error (%i)", req.id, EAGAIN);
+	return 0;
+}
+
+int P2PTransport::DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) {
+	auto sock = adhocSockets[req.id - 1];
+	auto& ptpsocket = sock->data.ptp;
 
 	int ret = 0;
 	int sockerr = 0;
-	if (serverHasRelay) {
-		ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
-		if (ret == 0) {
-			// we got data
-			result = 0;
-			return 0;
-		}
-		if (ret == SOCKET_ERROR) {
-			// the socket died, let the game know
-			ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-			result = SCE_NET_ADHOC_ERROR_DISCONNECTED;
-			return 0;
-		}
-		// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
-		ret = SOCKET_ERROR;
-		sockerr = EAGAIN;
-	} else {
-		ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
-		sockerr = socket_errno;
-	}
+	ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
+	sockerr = socket_errno;
 
 	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 	if (ret > 0) {
@@ -1680,35 +1784,45 @@ int DoBlockingPtpAccept(AdhocSocketRequest& req, s64& result) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_DELETED;
 		return 0;
 	}
-	auto& ptpsocket = sock->data.ptp;
 	if (sock->flags & ADHOC_F_ALERTACCEPT) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTACCEPT;
 		return 0;
 	}
+	return Transport().DoBlockingPtpAccept(req, result);
+}
+
+int RelayTransport::DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) {
+	int ret = ptp_accept_postoffice(req.id - 1, req.remoteMAC, req.remotePort);
+	if (ret >= 0) {
+		result = ret;
+		return 0;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	u64 now = CoreTiming::GetGlobalTimeUs();
+	if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+		return -1;
+	}
+	result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", req.id, EAGAIN);
+	return 0;
+}
+
+int P2PTransport::DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) {
+	auto& ptpsocket = adhocSockets[req.id - 1]->data.ptp;
 
 	struct sockaddr_in sin;
 	memset(&sin, 0, sizeof(sin));
 	socklen_t sinlen = sizeof(sin);
 	int ret, sockerr;
 
-	if (serverHasRelay) {
-		ret = ptp_accept_postoffice(req.id - 1, req.remoteMAC, req.remotePort);
-		if (ret >= 0) {
-			result = ret;
-			return 0;
-		} else {
-			ret = SOCKET_ERROR;
-			sockerr = EAGAIN;
-		}
-	} else {
-		// Check if listening socket is ready to accept
-		ret = IsSocketReady(ptpsocket.id, true, false, &sockerr);
-		if (ret > 0) {
-			// Accept Connection
-			ret = accept(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
-			sockerr = socket_errno;
-		}
+	// Check if listening socket is ready to accept
+	ret = IsSocketReady(ptpsocket.id, true, false, &sockerr);
+	if (ret > 0) {
+		// Accept Connection
+		ret = accept(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
+		sockerr = socket_errno;
 	}
 
 	// Accepted New Connection
@@ -1791,6 +1905,80 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 	return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 }
 
+bool RelayTransport::PtpConnectionUp(AdhocSocket *sock) {
+	return sock->postofficeHandle != NULL;
+}
+
+bool P2PTransport::PtpConnectionUp(AdhocSocket *sock) {
+	if (IsSocketReady(sock->data.ptp.id, true, true) <= 0) {
+		return false;
+	}
+	struct sockaddr_in sin;
+	socklen_t sinlen = sizeof(sin);
+	memset(&sin, 0, sinlen);
+	// Ensure that the connection really established or not, since "select" alone can't accurately detects it
+	return getpeername(sock->data.ptp.id, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR;
+}
+
+bool P2PTransport::PtpConnectedSinceOpen(AdhocSocket *sock) {
+	struct sockaddr_in peer;
+	socklen_t peerLen = sizeof(peer);
+	return getpeername(sock->data.ptp.id, (struct sockaddr *)&peer, &peerLen) == 0;
+}
+
+int RelayTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
+	if (ptp_connect_postoffice(id - 1, __func__) != 0) {
+		*error = EAGAIN;
+		return SOCKET_ERROR;
+	}
+	return 0;
+}
+
+int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
+	int fd = adhocSockets[id - 1]->data.ptp.id;
+	int ret = connect(fd, (const struct sockaddr *)&sin, sizeof(sin));
+	*error = socket_errno;
+	if (ret == SOCKET_ERROR && *error == EISCONN) {
+		ptpReallyConnected(fd, error);
+	}
+	return ret;
+}
+
+int RelayTransport::PtpConnectPoll(AdhocSocket *sock, int *error) {
+	if (sock->postofficeHandle != NULL) {
+		// the handle is there, we're ready to go
+		*error = 0;
+		return 1;
+	}
+	if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED) {
+		*error = ECONNREFUSED;
+	} else {
+		*error = EAGAIN;
+	}
+	return SOCKET_ERROR;
+}
+
+int P2PTransport::PtpConnectPoll(AdhocSocket *sock, int *error) {
+	return IsSocketReady(sock->data.ptp.id, false, true, error);
+}
+
+int P2PTransport::PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) {
+	auto& ptpsocket = adhocSockets[id - 1]->data.ptp;
+	socklen_t sinlen = sizeof(*sin);
+	// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
+	ret = getpeername(ptpsocket.id, (struct sockaddr*)sin, &sinlen);
+	if (ret == SOCKET_ERROR) {
+		int err = socket_errno;
+		VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: getpeername(%i) error %i, sockerr = %i", id, ptpsocket.lport, ptpsocket.id, err, *error);
+		*error = err;
+	}
+	return ret;
+}
+
+bool P2PTransport::PtpConnectPending(int error) {
+	return connectInProgress(error);
+}
+
 int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeer) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
@@ -1812,19 +2000,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		sin.sin_addr.s_addr = targetPeer.peers[0].ip;
 		sin.sin_port = htons(ptpsocket.pport + targetPeer.peers[0].portOffset);
 
-		if (serverHasRelay) {
-			ret = ptp_connect_postoffice(req.id - 1, __func__);
-			if (ret != 0) {
-				ret = SOCKET_ERROR;
-				sockerr = EAGAIN;
-			}
-		} else {
-			ret = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-			sockerr = socket_errno;
-			if (ret == SOCKET_ERROR && sockerr == EISCONN) {
-				ptpReallyConnected(ptpsocket.id, &sockerr);
-			}
-		}
+		ret = Transport().PtpConnect(req.id, sin, &sockerr);
 		if (sockerr != 0)
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: connect(%i) error = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
 		else
@@ -1833,22 +2009,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check the connection state (assuming "connect" has been called before and is in-progress)
 	// Note: On Linux "select" can return > 0 (with SO_ERROR = 0) even when the connection is not accepted yet, thus need "getpeername" to ensure
 	else {
-		if (serverHasRelay) {
-			if (sock->postofficeHandle == NULL) {
-				ret = SOCKET_ERROR;
-				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED) {
-					sockerr = ECONNREFUSED;
-				} else {
-					sockerr = EAGAIN;
-				}
-			} else {
-				// the handle is there, we're ready to go
-				ret = 1;
-				sockerr = 0;
-			}
-		} else {
-			ret = IsSocketReady(ptpsocket.id, false, true, &sockerr);
-		}
+		ret = Transport().PtpConnectPoll(sock, &sockerr);
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Select(%i) = %i, error = %i", req.id, ptpsocket.lport, ptpsocket.id, ret, sockerr);
 		if (sockerr != 0) {
 			DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: SelectError(%i) = %i", req.id, ptpsocket.lport, ptpsocket.id, sockerr);
@@ -1863,15 +2024,8 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	}
 
 	// Check whether the connection has been established or not
-	if (!serverHasRelay && ret != SOCKET_ERROR) {
-		socklen_t sinlen = sizeof(sin);
-		// Note: "getpeername" shouldn't failed if the connection has been established, but on Windows it may succeed even when "connect" is still in-progress and not accepted yet (ie. "Tales of VS" on Windows)
-		ret = getpeername(ptpsocket.id, (struct sockaddr*)&sin, &sinlen);
-		if (ret == SOCKET_ERROR) {
-			int err = socket_errno;
-			VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: getpeername(%i) error %i, sockerr = %i", req.id, ptpsocket.lport, ptpsocket.id, err, sockerr);
-			sockerr = err;
-		}
+	if (ret != SOCKET_ERROR) {
+		ret = Transport().PtpConnectVerify(req.id, &sin, ret, &sockerr);
 	}
 
 	// Update Adhoc Socket state
@@ -1882,7 +2036,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		// Done
 		result = 0;
 	}
-	else if (serverHasRelay || connectInProgress(sockerr) /* || sockerr == 0*/) {
+	else if (Transport().PtpConnectPending(sockerr) /* || sockerr == 0*/) {
 		ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 	}
 	// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
@@ -3519,33 +3673,29 @@ static bool postoffice_can_send(int idx) {
 	return false;
 }
 
-int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
+int RelayTransport::PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) {
+	for (int i = 0; i < count; i++) {
+		if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
+			states[i].readable = postoffice_can_recv_or_listen_has_request(sds[i].id - 1);
+			states[i].writable = (sds[i].events & ADHOC_EV_SEND) && postoffice_can_send(sds[i].id - 1);
+		}
+	}
+	return 0;
+}
+
+static int hostSocketOf(const AdhocSocket *sock) {
+	return sock->type == SOCK_PTP ? sock->data.ptp.id : sock->data.pdp.id;
+}
+
+int P2PTransport::PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) {
 	//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
 	fd_set readfds, writefds, exceptfds;
-	int fd;
 	int maxfd = 0;
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 
 	for (int i = 0; i < count; i++) {
-		sds[i].revents = 0;
-		// Fill in Socket ID
 		if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
-			auto sock = adhocSockets[sds[i].id - 1];
-			if (!sock) {
-				return SCE_NET_ADHOC_ERROR_SOCKET_DELETED;
-			}
-
-			if (serverHasRelay) {
-				continue;
-			} else {
-				if (sock->type == SOCK_PTP) {
-					fd = sock->data.ptp.id;
-				}
-				else {
-					fd = sock->data.pdp.id;
-				}
-			}
-
+			int fd = hostSocketOf(adhocSockets[sds[i].id - 1]);
 			if (fd > maxfd) maxfd = fd;
 			FD_SET(fd, &readfds);
 			FD_SET(fd, &writefds);
@@ -3555,63 +3705,80 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	timeval tmout;
 	tmout.tv_sec = timeout / 1000000; // seconds
 	tmout.tv_usec = (timeout % 1000000); // microseconds
-	int affectedsockets = 0;
+	int ret = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
+	if (ret < 0) {
+		return ret;
+	}
+	for (int i = 0; i < count; i++) {
+		if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
+			auto sock = adhocSockets[sds[i].id - 1];
+			int fd = hostSocketOf(sock);
+			states[i].readable = FD_ISSET(fd, &readfds);
+			states[i].writable = FD_ISSET(fd, &writefds);
+			states[i].error = FD_ISSET(fd, &exceptfds);
+			states[i].alerted = sock->alerted_flags != 0;
+		}
+	}
+	return ret;
+}
+
+// A connection PtpOpen started may have come up since anything looked at it. A refused one reports
+// DISCONNECT (pspautotests net/adhoc/poll).
+void P2PTransport::PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) {
+	if (!state.writable && !state.error) {
+		return;
+	}
+	int connectError = 0;
+	if (ptpReallyConnected(sock->data.ptp.id, &connectError)) {
+		ptpSetEstablished(sock);
+	} else if (!connectInProgress(connectError)) {
+		if (RecreatePtpSocket(id) < 0) {
+			WARN_LOG(Log::sceNet, "sceNetAdhocPollSocket[%i]: Failed to recreate the refused socket", id);
+		}
+		sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
+	}
+}
+
+bool P2PTransport::PtpPeerClosed(AdhocSocket *sock) {
+	char peek;
+	return recv(sock->data.ptp.id, &peek, 1, MSG_PEEK | MSG_NOSIGNAL) == 0;
+}
+
+int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock) {
+	for (int i = 0; i < count; i++) {
+		sds[i].revents = 0;
+	}
+	std::vector<AdhocPollState> states(std::max(count, 0));
+	int affectedsockets = Transport().PollWait(sds, count, timeout, states.data());
 	// A disconnected socket makes the call return EXCEPTION_EVENT, whatever else is ready.
 	bool disconnected = false;
-	if (!serverHasRelay)
-		affectedsockets = select(maxfd + 1, &readfds, &writefds, &exceptfds, &tmout);
 	if (affectedsockets >= 0) {
 		affectedsockets = 0;
 		for (int i = 0; i < count; i++) {
 			if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL) {
 				auto sock = adhocSockets[sds[i].id - 1];
+				const AdhocPollState &state = states[i];
 
-				if (!serverHasRelay) {
-					if (sock->type == SOCK_PTP) {
-						fd = sock->data.ptp.id;
-					}
-					else {
-						fd = sock->data.pdp.id;
-					}
-				}
-				if (serverHasRelay) {
-					if ((sds[i].events & ADHOC_EV_RECV) && postoffice_can_recv_or_listen_has_request(sds[i].id - 1))
-						sds[i].revents |= ADHOC_EV_RECV;
-					if ((sds[i].events & ADHOC_EV_SEND) && postoffice_can_send(sds[i].id - 1))
-						sds[i].revents |= ADHOC_EV_SEND;
-				} else {
-					if ((sds[i].events & ADHOC_EV_RECV) && FD_ISSET(fd, &readfds))
-						sds[i].revents |= ADHOC_EV_RECV;
-					if ((sds[i].events & ADHOC_EV_SEND) && FD_ISSET(fd, &writefds))
-						sds[i].revents |= ADHOC_EV_SEND;
-					if (sock->alerted_flags)
-						sds[i].revents |= ADHOC_EV_ALERT;
-				}
+				if ((sds[i].events & ADHOC_EV_RECV) && state.readable)
+					sds[i].revents |= ADHOC_EV_RECV;
+				if ((sds[i].events & ADHOC_EV_SEND) && state.writable)
+					sds[i].revents |= ADHOC_EV_SEND;
+				if (state.alerted)
+					sds[i].revents |= ADHOC_EV_ALERT;
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
 
 				// What listening and connected PTP sockets report on a PSP (pspautotests net/adhoc/poll):
 				// SEND and FLUSH always, CONNECT once connected, and ACCEPT or RECV when there's something
 				// to take. A connection whose peer has closed reports DISCONNECT alone.
-				const bool readable = serverHasRelay ? postoffice_can_recv_or_listen_has_request(sds[i].id - 1) : FD_ISSET(fd, &readfds);
-				// A connection PtpOpen started may have come up since anything looked at it.
-				// A refused one reports DISCONNECT (pspautotests net/adhoc/poll).
-				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay && (FD_ISSET(fd, &writefds) || FD_ISSET(fd, &exceptfds))) {
-					int connectError = 0;
-					if (ptpReallyConnected(fd, &connectError)) {
-						ptpSetEstablished(sock);
-					} else if (!connectInProgress(connectError)) {
-						if (RecreatePtpSocket(sds[i].id) < 0) {
-							WARN_LOG(Log::sceNet, "sceNetAdhocPollSocket[%i]: Failed to recreate the refused socket", sds[i].id);
-						}
-						sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
-					}
+				const bool readable = state.readable;
+				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT) {
+					Transport().PollCheckConnecting(sds[i].id, sock, state);
 				}
 				if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
 					sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_ACCEPT : 0)) & sds[i].events;
 				} else if (sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
-					char peek;
-					if (!serverHasRelay && readable && recv(fd, &peek, 1, MSG_PEEK | MSG_NOSIGNAL) == 0) {
+					if (readable && Transport().PtpPeerClosed(sock)) {
 						sds[i].revents = ADHOC_EV_DISCONNECT;
 						disconnected = true;
 					} else {
@@ -4762,6 +4929,28 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
  * @param buf PTP Socket List Buffer (can be NULL if you wish to receive Required Length)
  * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED
  */
+void RelayTransport::PtpUpdateRecvStat(AdhocSocket *sock) {
+	if (sock->postofficeHandle != NULL) {
+		sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
+	} else {
+		sock->data.ptp.rcv_sb_cc = 0;
+	}
+}
+
+void P2PTransport::PtpUpdateRecvStat(AdhocSocket *sock) {
+	// Set available bytes to be received
+	sock->data.ptp.rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
+	// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value to the buffer size arg since we use larger buffer
+	sock->data.ptp.rcv_sb_cc = std::min(sock->data.ptp.rcv_sb_cc, (u32_le)sock->buffer_size);
+	// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
+	if (sock->data.ptp.rcv_sb_cc == 0) {
+		// Let's try to peek the data size
+		int received = recv(sock->data.ptp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL);
+		if (received > 0)
+			sock->data.ptp.rcv_sb_cc = received;
+	}
+}
+
 static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr) {
 	// Spams a lot
 	VERBOSE_LOG(Log::sceNet,"sceNetAdhocGetPtpStat(%08x, %08x) at %08x",structSize,structAddr,mips->pc);
@@ -4802,25 +4991,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 				if ( sock != NULL && sock->type == SOCK_PTP) {
 					ptpUpdateConnecting(sock);
 
-					if (serverHasRelay) {
-						if (sock->postofficeHandle != NULL) {
-							sock->data.ptp.rcv_sb_cc = ptp_peek_next_size(sock->postofficeHandle);
-						} else {
-							sock->data.ptp.rcv_sb_cc = 0;
-						}
-					}else{
-						// Set available bytes to be received
-						sock->data.ptp.rcv_sb_cc = getAvailToRecv(sock->data.ptp.id);
-						// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value to the buffer size arg since we use larger buffer
-						sock->data.ptp.rcv_sb_cc = std::min(sock->data.ptp.rcv_sb_cc, (u32_le)sock->buffer_size);
-						// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
-						if (sock->data.ptp.rcv_sb_cc == 0) {
-							// Let's try to peek the data size
-							int received = recv(sock->data.ptp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL);
-							if (received > 0)
-								sock->data.ptp.rcv_sb_cc = received;
-						}
-					}
+					Transport().PtpUpdateRecvStat(sock);
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
@@ -5032,6 +5203,156 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
  * @param flag Bitflags (Unused)
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT
  */
+int RelayTransport::PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) {
+	return ptp_open_postoffice(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt);
+}
+
+int P2PTransport::PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) {
+	bool isClient = false;
+	// Random Port required
+	if (sport == 0) {
+		isClient = true;
+		//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+		sport = -static_cast<int>(portOffset);
+	}
+
+	// Create Infrastructure Socket (?)
+	// Socket is remapped through adhocSockets
+	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	// Valid Socket produced
+	if (tcpsocket > 0) {
+		// Change socket MSS
+		setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+
+		// Change socket buffer size to be consistent on all platforms.
+		setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*5); //PSP_ADHOC_PTP_MSS
+		setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MSS*10
+
+		// Enable KeepAlive
+		setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
+
+		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+		setSockNoSIGPIPE(tcpsocket, 1);
+
+		// Enable Port Re-use
+		setSockReuseAddrPort(tcpsocket);
+
+		// Apply Default Send Timeout Settings to Socket
+		setSockTimeout(tcpsocket, SO_SNDTIMEO, rexmt_int);
+
+		// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
+		setSockNoDelay(tcpsocket, 1);
+
+		// Binding Information for local Port
+		struct sockaddr_in addr {};
+		// addr.sin_len = sizeof(addr);
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		if (isLocalServer) {
+			getLocalIp(&addr);
+		}
+		uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+		// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+		if (requestedport == 0 && sport > 0)
+			requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+		// Show a warning about privileged ports
+		if (requestedport != 0 && requestedport < 1024) {
+			WARN_LOG(Log::sceNet, "sceNetAdhocPtpOpen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+		}
+		addr.sin_port = htons(requestedport);
+
+		// Bound Socket to local Port
+		if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
+			// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+			socklen_t len = sizeof(addr);
+			if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
+				uint16_t boundport = ntohs(addr.sin_port);
+				if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+					WARN_LOG(Log::sceNet, "sceNetAdhocPtpOpen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+				sport = boundport - portOffset;
+			}
+
+			// Allocate Memory
+			AdhocSocket* internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
+
+			// Allocated Memory
+			if (internal != NULL) {
+				// Find Free Translator ID
+				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+				int i = 0;
+				i = FindFreeAdhocSocketSlot();
+
+				// Found Free Translator ID
+				if (i < MAX_SOCKET) {
+					// Clear Memory
+					memset(internal, 0, sizeof(AdhocSocket));
+
+					// Socket Type
+					internal->type = SOCK_PTP;
+					internal->retry_interval = rexmt_int;
+					internal->retry_count = rexmt_cnt;
+					internal->nonblocking = flag;
+					internal->buffer_size = bufsize;
+					internal->isClient = isClient;
+
+					// Copy Infrastructure Socket ID
+					internal->data.ptp.id = tcpsocket;
+
+					// Copy Address & Port Information
+					internal->data.ptp.laddr = *saddr;
+					internal->data.ptp.paddr = *daddr;
+					internal->data.ptp.lport = sport;
+					internal->data.ptp.pport = dport;
+
+					// Link PTP Socket
+					adhocSockets[i] = internal;
+
+					// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
+					//sceNetPortOpen("TCP", sport);
+					if (!isClient)
+						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
+
+					// Switch to non-blocking for futher usage
+					changeBlockingMode(tcpsocket, 1);
+
+					// PtpOpen starts connecting by itself, as on the PSP (see ptp_open_postoffice).
+					// TODO: Need to handle ECONNREFUSED better on non-Windows, if there are games that never called PtpConnect and only relies on [blocking?] PtpOpen to get connected
+					NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
+
+					// Workaround to give some time to get connected before returning from PtpOpen over high latency
+					INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
+
+					// Return PTP Socket id
+					if (g_Config.bForcedFirstConnect && internal->attemptCount == 1) {
+						return hleDelayResult(hleLogDebug(Log::sceNet, i + 1), "delayed ptpopen", rexmt_int);
+					} else {
+						return hleLogDebug(Log::sceNet, i + 1);
+					}
+				}
+
+				// Free Memory
+				free(internal);
+			}
+		}
+		else {
+			ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			g_OSD.Show(OSDType::MESSAGE_ERROR,
+				std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
+		}
+
+		// Close Socket
+		closesocket(tcpsocket);
+
+		// Port not available (exclusively in use?)
+		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_NOT_AVAIL, "port not available"); // SCE_NET_ADHOC_ERROR_PORT_IN_USE; // SCE_NET_ADHOC_ERROR_INVALID_PORT;
+	}
+
+	// Socket not created
+	return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid arg");
+}
+
 static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, const char *dstmac, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen(%s, %d, %s, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport, mac2str((SceNetEtherAddr*)dstmac).c_str(),dport,bufsize, rexmt_int, rexmt_cnt, flag, mips->pc);
 	if (!g_Config.bEnableWlan) {
@@ -5079,150 +5400,9 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
 			}
 
-			// Random Port required
-			if (sport == 0 && !serverHasRelay) {
-				isClient = true;
-				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-				sport = -static_cast<int>(portOffset);
-			}
-
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int >= 0 && rexmt_cnt >= 0) {
-				if (serverHasRelay)
-					return ptp_open_postoffice(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt);
-
-				// Create Infrastructure Socket (?)
-				// Socket is remapped through adhocSockets
-				int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-				// Valid Socket produced
-				if (tcpsocket > 0) {
-					// Change socket MSS
-					setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
-
-					// Change socket buffer size to be consistent on all platforms.
-					setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*5); //PSP_ADHOC_PTP_MSS
-					setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MSS*10
-
-					// Enable KeepAlive
-					setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
-
-					// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-					setSockNoSIGPIPE(tcpsocket, 1);
-
-					// Enable Port Re-use
-					setSockReuseAddrPort(tcpsocket);
-
-					// Apply Default Send Timeout Settings to Socket
-					setSockTimeout(tcpsocket, SO_SNDTIMEO, rexmt_int);
-
-					// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-					setSockNoDelay(tcpsocket, 1);
-
-					// Binding Information for local Port
-					struct sockaddr_in addr {};
-					// addr.sin_len = sizeof(addr);
-					addr.sin_family = AF_INET;
-					addr.sin_addr.s_addr = INADDR_ANY;
-					if (isLocalServer) {
-						getLocalIp(&addr);
-					}
-					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
-					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
-					if (requestedport == 0 && sport > 0)
-						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
-					// Show a warning about privileged ports
-					if (requestedport != 0 && requestedport < 1024) {
-						WARN_LOG(Log::sceNet, "sceNetAdhocPtpOpen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
-					}
-					addr.sin_port = htons(requestedport);
-
-					// Bound Socket to local Port
-					if (bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
-						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
-						socklen_t len = sizeof(addr);
-						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							uint16_t boundport = ntohs(addr.sin_port);
-							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(Log::sceNet, "sceNetAdhocPtpOpen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
-							sport = boundport - portOffset;
-						}
-
-						// Allocate Memory
-						AdhocSocket* internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
-
-						// Allocated Memory
-						if (internal != NULL) {
-							// Find Free Translator ID
-							// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
-							int i = 0;
-							i = FindFreeAdhocSocketSlot();
-
-							// Found Free Translator ID
-							if (i < MAX_SOCKET) {
-								// Clear Memory
-								memset(internal, 0, sizeof(AdhocSocket));
-
-								// Socket Type
-								internal->type = SOCK_PTP;
-								internal->retry_interval = rexmt_int;
-								internal->retry_count = rexmt_cnt;
-								internal->nonblocking = flag;
-								internal->buffer_size = bufsize;
-								internal->isClient = isClient;
-
-								// Copy Infrastructure Socket ID
-								internal->data.ptp.id = tcpsocket;
-
-								// Copy Address & Port Information
-								internal->data.ptp.laddr = *saddr;
-								internal->data.ptp.paddr = *daddr;
-								internal->data.ptp.lport = sport;
-								internal->data.ptp.pport = dport;
-
-								// Link PTP Socket
-								adhocSockets[i] = internal;
-
-								// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
-								//sceNetPortOpen("TCP", sport);
-								if (!isClient)
-									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
-
-								// Switch to non-blocking for futher usage
-								changeBlockingMode(tcpsocket, 1);
-
-								// PtpOpen starts connecting by itself, as on the PSP (see ptp_open_postoffice).
-								// TODO: Need to handle ECONNREFUSED better on non-Windows, if there are games that never called PtpConnect and only relies on [blocking?] PtpOpen to get connected
-								NetAdhocPtp_Connect(i + 1, rexmt_int, 1, false);
-
-								// Workaround to give some time to get connected before returning from PtpOpen over high latency
-								INFO_LOG(Log::sceNet, "sceNetAdhocPtpOpen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
-
-								// Return PTP Socket id
-								if (g_Config.bForcedFirstConnect && internal->attemptCount == 1) {
-									return hleDelayResult(hleLogDebug(Log::sceNet, i + 1), "delayed ptpopen", rexmt_int);
-								} else {
-									return hleLogDebug(Log::sceNet, i + 1);
-								}
-							}
-
-							// Free Memory
-							free(internal);
-						}
-					}
-					else {
-						ERROR_LOG(Log::sceNet, "Socket error (%i) when binding port %u", socket_errno, ntohs(addr.sin_port));
-						auto n = GetI18NCategory(I18NCat::NETWORKING);
-						g_OSD.Show(OSDType::MESSAGE_ERROR,
-							std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
-					}
-
-					// Close Socket
-					closesocket(tcpsocket);
-
-					// Port not available (exclusively in use?)
-					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_NOT_AVAIL, "port not available"); // SCE_NET_ADHOC_ERROR_PORT_IN_USE; // SCE_NET_ADHOC_ERROR_INVALID_PORT;
-				}
+				return Transport().PtpOpen(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt, flag);
 			}
 
 			// Invalid Arguments
@@ -5354,6 +5534,68 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
  * @param flag Nonblocking Flag
  * @return Socket ID >= 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_LISTENED, ADHOC_THREAD_ABORTED, NET_INTERNAL
  */
+int RelayTransport::PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) {
+	int newsocket = ptp_accept_postoffice(id - 1, addr, port);
+	if (newsocket >= 0) {
+		return newsocket;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	if (flag == 0) {
+		// Simulate blocking behaviour with non-blocking socket
+		u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | adhocSockets[id - 1]->data.ptp.id;
+		return WaitBlockingAdhocSocket(threadSocketId, PTP_ACCEPT, id, nullptr, nullptr, timeout, addr, port, "ptp accept");
+	}
+	// Prevent spamming Debug Log with retries of non-bocking socket
+	VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, EAGAIN);
+	return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+}
+
+int P2PTransport::PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) {
+	auto& ptpsocket = adhocSockets[id - 1]->data.ptp;
+
+	// Address Information
+	struct sockaddr_in peeraddr;
+	memset(&peeraddr, 0, sizeof(peeraddr));
+	socklen_t peeraddrlen = sizeof(peeraddr);
+	int error = 0;
+
+	int newsocket = 0;
+	// Check if listening socket is ready to accept
+	newsocket = IsSocketReady(ptpsocket.id, true, false, &error);
+	if (newsocket > 0) {
+		// Accept Connection
+		newsocket = accept(ptpsocket.id, (struct sockaddr*)&peeraddr, &peeraddrlen);
+		error = socket_errno;
+	}
+
+	if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK))) {
+		if (flag == 0) {
+			// Simulate blocking behaviour with non-blocking socket
+			u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+			return WaitBlockingAdhocSocket(threadSocketId, PTP_ACCEPT, id, nullptr, nullptr, timeout, addr, port, "ptp accept");
+		}
+		// Prevent spamming Debug Log with retries of non-bocking socket
+		else {
+			VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, error);
+		}
+	}
+
+	// Accepted New Connection
+	if (newsocket > 0) {
+		int newid = AcceptPtpSocket(id, newsocket, peeraddr, addr, port);
+		if (newid >= 0)
+			return newid;
+	}
+
+	// Action would block
+	if (flag)
+		return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+
+	// Timeout
+	return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "timeout");
+}
+
 static int sceNetAdhocPtpAccept(MIPSState *mips, int id, u32 peerMacAddrPtr, u32 peerPortPtr, int timeout, int flag) {
 
 	SceNetEtherAddr * addr = NULL;
@@ -5395,56 +5637,7 @@ static int sceNetAdhocPtpAccept(MIPSState *mips, int id, u32 peerMacAddrPtr, u32
 				if (ptpsocket.state == ADHOC_PTP_STATE_LISTEN) {
 					hleEatMicro(50);
 
-					// Address Information
-					struct sockaddr_in peeraddr;
-					memset(&peeraddr, 0, sizeof(peeraddr));
-					socklen_t peeraddrlen = sizeof(peeraddr);
-					int error = 0;
-
-					int newsocket = 0;
-					if (serverHasRelay) {
-						newsocket = ptp_accept_postoffice(id - 1, addr, port);
-						if (newsocket >= 0) {
-							return newsocket;
-						} else {
-							newsocket = SOCKET_ERROR;
-							error = EAGAIN;
-						}
-					} else {
-						// Check if listening socket is ready to accept
-						newsocket = IsSocketReady(ptpsocket.id, true, false, &error);
-						if (newsocket > 0) {
-							// Accept Connection
-							newsocket = accept(ptpsocket.id, (struct sockaddr*)&peeraddr, &peeraddrlen);
-							error = socket_errno;
-						}
-					}
-
-					if (newsocket == 0 || (newsocket == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK))) {
-						if (flag == 0) {
-							// Simulate blocking behaviour with non-blocking socket
-							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_ACCEPT, id, nullptr, nullptr, timeout, addr, port, "ptp accept");
-						}
-						// Prevent spamming Debug Log with retries of non-bocking socket
-						else {
-							VERBOSE_LOG(Log::sceNet, "sceNetAdhocPtpAccept[%i]: Socket Error (%i)", id, error);
-						}
-					}
-
-					// Accepted New Connection
-					if (newsocket > 0) {
-						int newid = AcceptPtpSocket(id, newsocket, peeraddr, addr, port);
-						if (newid >= 0)
-							return newid;
-					}
-
-					// Action would block
-					if (flag)
-						return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
-
-					// Timeout
-					return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "timeout");
+					return Transport().PtpAccept(id, addr, port, timeout, flag);
 				}
 
 				// Client Socket
@@ -5475,12 +5668,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 			socket->nonblocking = flag;
 
 			// A connection PtpOpen started may have come up since.
-			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && !serverHasRelay) {
-				struct sockaddr_in peer;
-				socklen_t peerLen = sizeof(peer);
-				if (getpeername(ptpsocket.id, (struct sockaddr *)&peer, &peerLen) == 0) {
-					ptpSetEstablished(socket);
-				}
+			if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && Transport().PtpConnectedSinceOpen(socket)) {
+				ptpSetEstablished(socket);
 			}
 
 			// Connecting a connected socket returns 0 on the PSP, even with the connect alert set (pspautotests
@@ -5514,21 +5703,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
-					int connectresult = 0;
 					int errorcode = 0;
-					if (serverHasRelay) {
-						connectresult = ptp_connect_postoffice(id - 1, __func__);
-						if (connectresult != 0) {
-							connectresult = SOCKET_ERROR;
-							errorcode = EAGAIN;
-						}
-					} else {
-						connectresult = connect(ptpsocket.id, (struct sockaddr*)&sin, sizeof(sin));
-						errorcode = socket_errno;
-						if (connectresult == SOCKET_ERROR && errorcode == EISCONN) {
-							ptpReallyConnected(ptpsocket.id, &errorcode);
-						}
-					}
+					int connectresult = Transport().PtpConnect(id, sin, &errorcode);
 
 					if (connectresult == SOCKET_ERROR) {
 						if (errorcode == EAGAIN || errorcode == EWOULDBLOCK || errorcode == EALREADY || errorcode == EISCONN)
@@ -5552,8 +5728,8 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					else if (connectresult == SOCKET_ERROR) {
 						// Connection in Progress, or
 						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (serverHasRelay || connectInProgress(errorcode) || errorcode == ECONNREFUSED) {
-							if (serverHasRelay || connectInProgress(errorcode))
+						if (Transport().PtpConnectPending(errorcode) || errorcode == ECONNREFUSED) {
+							if (Transport().PtpConnectPending(errorcode))
 							{
 								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							}
@@ -5646,6 +5822,31 @@ static int ptp_close_postoffice(int idx) {
 	return 0;
 }
 
+int RelayTransport::PtpClose(int id) {
+	return ptp_close_postoffice(id - 1);
+}
+
+int P2PTransport::PtpClose(int id) {
+	auto socket = adhocSockets[id - 1];
+
+	// Close Connection
+	shutdown(socket->data.ptp.id, SD_RECEIVE);
+	closesocket(socket->data.ptp.id);
+
+	// Remove Port Forward from Router
+	//sceNetPortClose("TCP", socket->lport);
+	//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
+
+	// Free Memory
+	free(socket);
+
+	// Free Reference
+	adhocSockets[id - 1] = NULL;
+
+	// Success
+	return 0;
+}
+
 int NetAdhocPtp_Close(int id, int unknown) {
 	// Library is initialized
 	if (netAdhocInited) {
@@ -5656,25 +5857,7 @@ int NetAdhocPtp_Close(int id, int unknown) {
 
 			// Valid Socket
 			if (socket != NULL && socket->type == SOCK_PTP) {
-				if (serverHasRelay)
-					return ptp_close_postoffice(id - 1);
-
-				// Close Connection
-				shutdown(socket->data.ptp.id, SD_RECEIVE);
-				closesocket(socket->data.ptp.id);
-
-				// Remove Port Forward from Router
-				//sceNetPortClose("TCP", socket->lport);
-				//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
-
-				// Free Memory
-				free(socket);
-
-				// Free Reference
-				adhocSockets[id - 1] = NULL;
-
-				// Success
-				return 0;
+				return Transport().PtpClose(id);
 			}
 
 			return SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID;
@@ -5766,6 +5949,142 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
  * @param flag Bitflags (Unused)
  * @return Socket ID > 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_ADDR, ADHOC_INVALID_PORT, ADHOC_SOCKET_ID_NOT_AVAIL, ADHOC_PORT_NOT_AVAIL, ADHOC_PORT_IN_USE, NET_NO_SPACE
  */
+int RelayTransport::PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) {
+	return ptp_listen_postoffice(saddr, sport, bufsize, rexmt_int, rexmt_cnt);
+}
+
+int P2PTransport::PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) {
+	// Create Infrastructure Socket (?)
+	// Socket is remapped through adhocSockets
+	int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	// Valid Socket produced
+	if (tcpsocket > 0) {
+		// Change socket MSS
+		setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
+
+		// Change socket buffer size to be consistent on all platforms.
+		setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*5); //PSP_ADHOC_PTP_MSS
+		setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MSS*10
+
+		// Enable KeepAlive
+		setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
+
+		// Ignore SIGPIPE when supported (ie. BSD/MacOS)
+		setSockNoSIGPIPE(tcpsocket, 1);
+
+		// Enable Port Re-use
+		setSockReuseAddrPort(tcpsocket);
+
+		// Apply Default Receive Timeout Settings to Socket
+		setSockTimeout(tcpsocket, SO_RCVTIMEO, rexmt_int);
+
+		// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
+		setSockNoDelay(tcpsocket, 1);
+
+		// Binding Information for local Port
+		struct sockaddr_in addr {};
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		if (isLocalServer) {
+			getLocalIp(&addr);
+		}
+		uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
+		// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
+		if (requestedport == 0 && sport > 0)
+			requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
+		// Show a warning about privileged ports
+		if (requestedport != 0 && requestedport < 1024) {
+			WARN_LOG(Log::sceNet, "sceNetAdhocPtpListen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
+		}
+		addr.sin_port = htons(requestedport);
+
+		int iResult = 0;
+		// Bound Socket to local Port
+		if ((iResult = bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr))) == 0) {
+			// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
+			socklen_t len = sizeof(addr);
+			if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
+				uint16_t boundport = ntohs(addr.sin_port);
+				if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
+					WARN_LOG(Log::sceNet, "sceNetAdhocPtpListen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
+				sport = boundport - portOffset;
+			}
+			// Switch into Listening Mode
+			if ((iResult = listen(tcpsocket, backlog)) == 0) {
+				// Allocate Memory
+				AdhocSocket* internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
+
+				// Allocated Memory
+				if (internal != NULL) {
+					// Find Free Translator ID
+					// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+					int i = 0;
+					i = FindFreeAdhocSocketSlot();
+
+					// Found Free Translator ID
+					if (i < MAX_SOCKET) {
+						// Clear Memory
+						memset(internal, 0, sizeof(AdhocSocket));
+
+						// Socket Type
+						internal->type = SOCK_PTP;
+						internal->retry_interval = rexmt_int;
+						internal->retry_count = rexmt_cnt;
+						internal->nonblocking = flag;
+						internal->buffer_size = bufsize;
+						internal->isClient = isClient;
+
+						// Copy Infrastructure Socket ID
+						internal->data.ptp.id = tcpsocket;
+
+						// Copy Address & Port Information
+						internal->data.ptp.laddr = *saddr;
+						internal->data.ptp.lport = sport;
+
+						// Flag Socket as Listener
+						internal->data.ptp.state = ADHOC_PTP_STATE_LISTEN;
+
+						// Link PTP Socket
+						adhocSockets[i] = internal;
+
+						// Add Port Forward to Router
+						//sceNetPortOpen("TCP", sport);
+						UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
+
+						// Switch to non-blocking for futher usage
+						changeBlockingMode(tcpsocket, 1);
+
+						// Return PTP Socket id
+						return hleLogDebug(Log::sceNet, i + 1, "sceNetAdhocPtpListen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
+					}
+
+					// Free Memory
+					free(internal);
+				}
+			}
+		}
+		else {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
+		}
+
+		if (iResult == SOCKET_ERROR) {
+			int error = socket_errno;
+			ERROR_LOG(Log::sceNet, "sceNetAdhocPtpListen[%i]: Socket Error (%i)", sport, error);
+		}
+
+		// Close Socket
+		closesocket(tcpsocket);
+
+		// Port not available (exclusively in use?)
+		return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_NOT_AVAIL, "port not available"); //SCE_NET_ADHOC_ERROR_PORT_IN_USE; // SCE_NET_ADHOC_ERROR_INVALID_PORT;
+	}
+
+	// Socket not available
+	return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ID_NOT_AVAIL, "socket id not available");
+}
+
 static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, int flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPtpListen(%s, %d, %d, %d, %d, %d, %d) at %08x", mac2str((SceNetEtherAddr*)srcmac).c_str(), sport,bufsize,rexmt_int,rexmt_cnt,backlog,flag, mips->pc);
 	if (!g_Config.bEnableWlan) {
@@ -5816,138 +6135,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 			// Valid Arguments
 			if (bufsize > 0 && rexmt_int >= 0 && rexmt_cnt >= 0 && backlog >= 0)
 			{
-				if (serverHasRelay)
-					return ptp_listen_postoffice(saddr, sport, bufsize, rexmt_int, rexmt_cnt);
-
-				// Create Infrastructure Socket (?)
-				// Socket is remapped through adhocSockets
-				int tcpsocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-
-				// Valid Socket produced
-				if (tcpsocket > 0) {
-					// Change socket MSS
-					setSockMSS(tcpsocket, PSP_ADHOC_PTP_MSS);
-
-					// Change socket buffer size to be consistent on all platforms.
-					setSockBufferSize(tcpsocket, SO_SNDBUF, bufsize*5); //PSP_ADHOC_PTP_MSS
-					setSockBufferSize(tcpsocket, SO_RCVBUF, bufsize*10); //PSP_ADHOC_PTP_MSS*10
-
-					// Enable KeepAlive
-					setSockKeepAlive(tcpsocket, true, rexmt_int / 1000000L, rexmt_cnt);
-
-					// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-					setSockNoSIGPIPE(tcpsocket, 1);
-
-					// Enable Port Re-use
-					setSockReuseAddrPort(tcpsocket);
-
-					// Apply Default Receive Timeout Settings to Socket
-					setSockTimeout(tcpsocket, SO_RCVTIMEO, rexmt_int);
-
-					// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-					setSockNoDelay(tcpsocket, 1);
-
-					// Binding Information for local Port
-					struct sockaddr_in addr {};
-					addr.sin_family = AF_INET;
-					addr.sin_addr.s_addr = INADDR_ANY;
-					if (isLocalServer) {
-						getLocalIp(&addr);
-					}
-					uint16_t requestedport = static_cast<int>(sport + static_cast<int>(portOffset));
-					// Avoid getting random port due to port offset when original port wasn't 0 (ie. original_port + port_offset = 65536 = 0)
-					if (requestedport == 0 && sport > 0)
-						requestedport = 65535; // Hopefully it will be safe to default it to 65535 since there can't be more than one port that can bumped into 65536
-					// Show a warning about privileged ports
-					if (requestedport != 0 && requestedport < 1024) {
-						WARN_LOG(Log::sceNet, "sceNetAdhocPtpListen - Ports below 1024(ie. %hu) may require Admin Privileges", requestedport);
-					}
-					addr.sin_port = htons(requestedport);
-
-					int iResult = 0;
-					// Bound Socket to local Port
-					if ((iResult = bind(tcpsocket, (struct sockaddr*)&addr, sizeof(addr))) == 0) {
-						// Update sport with the port assigned internal->lport = ntohs(local.sin_port)
-						socklen_t len = sizeof(addr);
-						if (getsockname(tcpsocket, (struct sockaddr*)&addr, &len) == 0) {
-							uint16_t boundport = ntohs(addr.sin_port);
-							if (sport + static_cast<int>(portOffset) >= 65536 || static_cast<int>(boundport) - static_cast<int>(portOffset) <= 0)
-								WARN_LOG(Log::sceNet, "sceNetAdhocPtpListen - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", sport, requestedport, boundport, boundport - portOffset);
-							sport = boundport - portOffset;
-						}
-						// Switch into Listening Mode
-						if ((iResult = listen(tcpsocket, backlog)) == 0) {
-							// Allocate Memory
-							AdhocSocket* internal = (AdhocSocket*)malloc(sizeof(AdhocSocket));
-
-							// Allocated Memory
-							if (internal != NULL) {
-								// Find Free Translator ID
-								// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
-								int i = 0;
-								i = FindFreeAdhocSocketSlot();
-
-								// Found Free Translator ID
-								if (i < MAX_SOCKET) {
-									// Clear Memory
-									memset(internal, 0, sizeof(AdhocSocket));
-
-									// Socket Type
-									internal->type = SOCK_PTP;
-									internal->retry_interval = rexmt_int;
-									internal->retry_count = rexmt_cnt;
-									internal->nonblocking = flag;
-									internal->buffer_size = bufsize;
-									internal->isClient = isClient;
-
-									// Copy Infrastructure Socket ID
-									internal->data.ptp.id = tcpsocket;
-
-									// Copy Address & Port Information
-									internal->data.ptp.laddr = *saddr;
-									internal->data.ptp.lport = sport;
-
-									// Flag Socket as Listener
-									internal->data.ptp.state = ADHOC_PTP_STATE_LISTEN;
-
-									// Link PTP Socket
-									adhocSockets[i] = internal;
-
-									// Add Port Forward to Router
-									//sceNetPortOpen("TCP", sport);
-									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
-
-									// Switch to non-blocking for futher usage
-									changeBlockingMode(tcpsocket, 1);
-
-									// Return PTP Socket id
-									return hleLogDebug(Log::sceNet, i + 1, "sceNetAdhocPtpListen - PSP Socket id: %i, Host Socket id: %i", i + 1, tcpsocket);
-								}
-
-								// Free Memory
-								free(internal);
-							}
-						}
-					}
-					else {
-						auto n = GetI18NCategory(I18NCat::NETWORKING);
-						g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 0.0f, "portbindfail");
-					}
-
-					if (iResult == SOCKET_ERROR) {
-						int error = socket_errno;
-						ERROR_LOG(Log::sceNet, "sceNetAdhocPtpListen[%i]: Socket Error (%i)", sport, error);
-					}
-
-					// Close Socket
-					closesocket(tcpsocket);
-
-					// Port not available (exclusively in use?)
-					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_NOT_AVAIL, "port not available"); //SCE_NET_ADHOC_ERROR_PORT_IN_USE; // SCE_NET_ADHOC_ERROR_INVALID_PORT;
-				}
-
-				// Socket not available
-				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ID_NOT_AVAIL, "socket id not available");
+				return Transport().PtpListen(saddr, sport, bufsize, rexmt_int, rexmt_cnt, backlog, isClient, flag);
 			}
 
 			// Invalid Arguments
@@ -5971,6 +6159,79 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
  * @param flag Nonblocking Flag
  * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_NOT_CONNECTED, ADHOC_THREAD_ABORTED, ADHOC_INVALID_DATALEN, ADHOC_DISCONNECTED, NET_INTERNAL, NET_NO_SPACE
  */
+int RelayTransport::PtpSend(int id, const char *data, int *len, int timeout, int flag) {
+	auto& ptpsocket = adhocSockets[id - 1]->data.ptp;
+	int sent = ptp_send_postoffice(id - 1, data, len);
+	if (sent == 0) {
+		hleEatMicro(122);
+		return 0;
+	}
+	if (sent == SOCKET_ERROR) {
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+		return SCE_NET_ADHOC_ERROR_DISCONNECTED;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	if (flag)
+		return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+
+	// Simulate blocking behaviour with non-blocking socket
+	u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+	return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void*)data, len, timeout, nullptr, nullptr, "ptp send");
+}
+
+int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int flag) {
+	auto socket = adhocSockets[id - 1];
+	auto& ptpsocket = socket->data.ptp;
+
+	// Acquire Network Lock
+	// _acquireNetworkLock();
+
+	// Send Data
+	int sent = 0;
+	int error = 0;
+	sent = send(ptpsocket.id, data, *len, MSG_NOSIGNAL);
+	error = socket_errno;
+
+	// Free Network Lock
+	// _freeNetworkLock();
+
+	// Success
+	if (sent > 0) {
+		hleEatMicro(122);
+		// Save Length
+		*len = sent;
+
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, ptpsocket.lport, sent, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
+
+		// Set to Established on successful Send when an attempt to Connect was initiated
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+
+		// Return Success
+		return 0;
+	}
+
+	// Non-Critical Error
+	else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
+		// Non-Blocking
+		if (flag)
+			return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+
+		// Simulate blocking behaviour with non-blocking socket
+		u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+		return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void*)data, len, timeout, nullptr, nullptr, "ptp send");
+	}
+
+	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u -> %s:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport, sent, error);
+
+	// Change Socket State
+	ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+
+	// Disconnected
+	return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+}
+
 static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, mips->pc);
 
@@ -6012,68 +6273,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
-					// Acquire Network Lock
-					// _acquireNetworkLock();
-
-					// Send Data
-					int sent = 0;
-					int error = 0;
-					if (serverHasRelay) {
-						sent = ptp_send_postoffice(id - 1, data, len);
-						if (sent == 0) {
-							// sent
-							hleEatMicro(122);
-							return 0;
-						}
-						if (sent == SOCKET_ERROR) {
-							ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-							return SCE_NET_ADHOC_ERROR_DISCONNECTED;
-						}
-						// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
-						sent = SOCKET_ERROR;
-						error = EAGAIN;
-					}else{
-						sent = send(ptpsocket.id, data, *len, MSG_NOSIGNAL);
-						error = socket_errno;
-					}
-
-					// Free Network Lock
-					// _freeNetworkLock();
-
-					// Success
-					if (sent > 0) {
-						hleEatMicro(122);
-						// Save Length
-						*len = sent;
-
-						DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, ptpsocket.lport, sent, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
-
-						// Set to Established on successful Send when an attempt to Connect was initiated
-						if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-							ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-
-						// Return Success
-						return 0;
-					}
-
-					// Non-Critical Error
-					else if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
-						// Non-Blocking
-						if (flag)
-							return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
-
-						// Simulate blocking behaviour with non-blocking socket
-						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-						return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void*)data, len, timeout, nullptr, nullptr, "ptp send");
-					}
-
-					DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpSend[%i:%u -> %s:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport, sent, error);
-
-					// Change Socket State
-					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-					// Disconnected
-					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+					return Transport().PtpSend(id, data, len, timeout, flag);
 				}
 
 				// Invalid Arguments
@@ -6105,6 +6305,95 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
  * @param flag Nonblocking Flag
  * @return 0 on success or... ADHOC_NOT_INITIALIZED, ADHOC_INVALID_ARG, ADHOC_INVALID_SOCKET_ID, ADHOC_SOCKET_DELETED, ADHOC_SOCKET_ALERTED, ADHOC_WOULD_BLOCK, ADHOC_TIMEOUT, ADHOC_THREAD_ABORTED, ADHOC_DISCONNECTED, NET_INTERNAL
  */
+int RelayTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
+	auto& ptpsocket = adhocSockets[id - 1]->data.ptp;
+	int received = ptp_recv_postoffice(id - 1, buf, len);
+	if (received == 0) {
+		// we got data
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, 0);
+		hleEatMicro(50);
+		return 0;
+	}
+	if (received == SOCKET_ERROR) {
+		// the socket died, let the game know
+		ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, 0);
+		return SCE_NET_ADHOC_ERROR_DISCONNECTED;
+	}
+
+	// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
+	if (flag == 0) {
+		// Simulate blocking behaviour with non-blocking socket
+		u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+		return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
+	}
+
+	return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+}
+
+int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
+	auto socket = adhocSockets[id - 1];
+	auto& ptpsocket = socket->data.ptp;
+
+	// Acquire Network Lock
+	// _acquireNetworkLock();
+
+	// TODO: Use a different thread (similar to sceIo) for recvfrom, recv & accept to prevent blocking-socket from blocking emulation
+	int received = 0;
+	int error = 0;
+
+	// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
+	received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
+	error = socket_errno;
+
+	if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
+		if (flag == 0) {
+			// Simulate blocking behaviour with non-blocking socket
+			u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+			return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
+		}
+
+		return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+	}
+
+	// Free Network Lock
+	// _freeNetworkLock();
+
+	hleEatMicro(50);
+
+	// Received Data
+	if (received > 0) {
+		// Save Length
+		*len = received;
+
+		// Update last recv timestamp, may cause disconnection not detected properly tho
+		peerlock.lock();
+		auto peer = findFriend(&ptpsocket.paddr);
+		if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+		peerlock.unlock();
+
+		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, ptpsocket.lport, received, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
+
+		// Set to Established on successful Recv when an attempt to Connect was initiated
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+
+		// Return Success
+		return 0;
+	}
+
+	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
+
+	if (*len == 0)
+		return 0;
+
+	// Change Socket State
+	ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
+
+	// Disconnected
+	return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+}
+
 static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSizeAddr, int timeout, int flag) {
 	DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv(%d,%08x,%08x,%d,%d) at %08x", id, dataAddr, dataSizeAddr, timeout, flag, mips->pc);
 
@@ -6135,82 +6424,7 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
-					// Acquire Network Lock
-					// _acquireNetworkLock();
-
-					// TODO: Use a different thread (similar to sceIo) for recvfrom, recv & accept to prevent blocking-socket from blocking emulation
-					int received = 0;
-					int error = 0;
-
-					if (serverHasRelay) {
-						received = ptp_recv_postoffice(id - 1, buf, len);
-						if (received == 0) {
-							// we got data
-							DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
-							hleEatMicro(50);
-							return 0;
-						}
-						if (received == SOCKET_ERROR) {
-							// the socket died, let the game know
-							ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-							DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
-							return SCE_NET_ADHOC_ERROR_DISCONNECTED;
-						}
-						// SCE_NET_ADHOC_ERROR_WOULD_BLOCK
-						received = SOCKET_ERROR;
-						error = EAGAIN;
-					} else {
-						// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
-						received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
-						error = socket_errno;
-					}
-
-					if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
-						if (flag == 0) {
-							// Simulate blocking behaviour with non-blocking socket
-							u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
-							return WaitBlockingAdhocSocket(threadSocketId, PTP_RECV, id, buf, len, timeout, nullptr, nullptr, "ptp recv");
-						}
-
-						return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
-					}
-
-					// Free Network Lock
-					// _freeNetworkLock();
-
-					hleEatMicro(50);
-
-					// Received Data
-					if (received > 0) {
-						// Save Length
-						*len = received;
-
-						// Update last recv timestamp, may cause disconnection not detected properly tho
-						peerlock.lock();
-						auto peer = findFriend(&ptpsocket.paddr);
-						if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-						peerlock.unlock();
-
-						DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, ptpsocket.lport, received, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
-
-						// Set to Established on successful Recv when an attempt to Connect was initiated
-						if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-							ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
-
-						// Return Success
-						return 0;
-					}
-
-					DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, error);
-
-					if (*len == 0)
-						return 0;
-
-					// Change Socket State
-					ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-
-					// Disconnected
-					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_DISCONNECTED, "disconnected");
+					return Transport().PtpRecv(id, buf, len, timeout, flag);
 				}
 
 				// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
@@ -6234,11 +6448,15 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 }
 
 int FlushPtpSocket(int socketId) {
-	if (serverHasRelay) {
-		// there's no manual flushing in the relay library, it's by default no delay there
-		return 0;
-	}
+	return Transport().PtpFlush(socketId);
+}
 
+int RelayTransport::PtpFlush(int socketId) {
+	// there's no manual flushing in the relay library, it's by default no delay there
+	return 0;
+}
+
+int P2PTransport::PtpFlush(int socketId) {
 	// Get original Nagle algo value
 	int n = getSockNoDelay(socketId);
 
