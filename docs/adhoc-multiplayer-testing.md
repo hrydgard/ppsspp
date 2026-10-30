@@ -107,6 +107,28 @@ sudo ifconfig lo0 alias 127.0.0.3 up
 
 `adhoc_session.py start --p2p` checks for them and prints these commands if any are missing.
 
+## Simulating a slow network
+
+Three options delay or drop ad hoc data received through the relay, to see how a game copes with a
+distant player. They're also in the ini, under `[Network]`, for the app.
+
+| Option | ini | What it does |
+|---|---|---|
+| `--adhoc-delay=MS` | `AdhocSimDelayMs` | Each datagram is handed to the game MS milliseconds after it arrived. |
+| `--adhoc-jitter=MS` | `AdhocSimJitterMs` | Up to MS more, at random. Datagrams stay in order. |
+| `--adhoc-loss=PERCENT` | `AdhocSimLossPercent` | Datagrams dropped. Through the relay nothing is ever lost otherwise, since it's TCP. |
+
+`adhoc_session.py start` takes them as `--delay`, `--jitter` and `--loss`, and passes them to every
+instance. Things to know:
+
+- **The delay is one way, on the receiving side.** With it on every instance, a round trip takes twice
+  the delay more: `--adhoc-delay=50` turns a 3 ms PDP round trip into 103 ms
+  (pspautotests `net/adhoc/pair/timing`).
+- **Only PDP data is delayed so far.** PTP connections and the ad hoc server's own messages aren't.
+- A datagram counts as arrived when the game next looks at its socket (a receive, a poll, a socket
+  list query), not when it actually arrived. Games that poll every frame are measured to within a
+  frame; with lag sync on, that's within a millisecond of emulated time.
+
 ## Measuring
 
 - `stats` reads each instance's frame rate (`gpu.stats.get`). If vblanks/s is below 60, emulation itself

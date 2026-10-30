@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # Runs several PPSSPP headless instances of a game against each other over ad hoc, and drives them over
 # the WebSocket debugger: press buttons, take screenshots, read frame rates. For testing a game's
-# multiplayer. See docs/adhoc-multiplayer-testing.md.
+# multiplayer, and for measuring what network delay it tolerates. See docs/adhoc-multiplayer-testing.md.
 #
-#   python3 Tools/adhoc_session.py start ~/PSP/GAME.iso -n 2 [--state FILE]
+#   python3 Tools/adhoc_session.py start ~/PSP/GAME.iso -n 2 [--delay 50] [--state FILE]
 #   python3 Tools/adhoc_session.py press cross -i 2
 #   python3 Tools/adhoc_session.py wait 3
 #   python3 Tools/adhoc_session.py shot lobby
@@ -209,6 +209,12 @@ def cmd_start(args):
 		if n == 1:
 			cmd.append("--adhoc-server")
 		cmd.append("--nickname=" + (names[n - 1] if n <= len(names) else "PPSSPP %d" % n))
+		if args.delay:
+			cmd.append("--adhoc-delay=%d" % args.delay)
+		if args.jitter:
+			cmd.append("--adhoc-jitter=%d" % args.jitter)
+		if args.loss:
+			cmd.append("--adhoc-loss=%d" % args.loss)
 		if args.log:
 			cmd.append("--log")
 		if args.state:
@@ -232,10 +238,12 @@ def cmd_start(args):
 			time.sleep(0.1)
 		if inst["port"] is None:
 			sys.exit("Instance %d didn't open a debugger port; see %s" % (inst["n"], inst["log"]))
-	session = {"game": args.game, "instances": instances, "lagSync": not args.no_lag_sync, "p2p": args.p2p}
+	session = {"game": args.game, "instances": instances, "delay": args.delay, "jitter": args.jitter,
+		"loss": args.loss, "lagSync": not args.no_lag_sync, "p2p": args.p2p}
 	with open(session_file(args), "w") as f:
 		json.dump(session, f, indent=1)
-	print("Started %d instances (%s), session in %s" % (args.n, "P2P" if args.p2p else "relay", args.dir))
+	print("Started %d instances (%s%s), session in %s" % (args.n, "P2P" if args.p2p else "relay",
+		", delay %d ms" % args.delay if args.delay else "", args.dir))
 
 
 def cmd_stop(args):
@@ -499,6 +507,9 @@ def build_parser():
 	p.add_argument("-n", type=int, default=2, help="Number of instances (default 2)")
 	p.add_argument("--p2p", action="store_true", help="Talk directly instead of through the relay (needs a loopback address per instance)")
 	p.add_argument("--names", help="Comma-separated nicknames for the instances (default: PPSSPP 1, PPSSPP 2, ...)")
+	p.add_argument("--delay", type=int, default=0, help="Simulated delay in ms on received relay datagrams (each way)")
+	p.add_argument("--jitter", type=int, default=0, help="Up to this many ms more, at random")
+	p.add_argument("--loss", type=int, default=0, help="Percentage of received relay datagrams dropped")
 	p.add_argument("--no-lag-sync", action="store_true", help="Pace once per frame, like the app's default")
 	p.add_argument("--state", help="Savestate to load at boot in every instance")
 	p.add_argument("--memstick", default=DEFAULT_MEMSTICK, help="Memory stick to take the firmware and savedata from")
