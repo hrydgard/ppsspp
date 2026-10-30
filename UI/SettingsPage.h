@@ -159,6 +159,8 @@ struct SettingItem {
 	std::function<void(UI::View *)> setup;
 	// Choice or Custom (if its view is a Choice) that opens another screen: shows the same chevron as a Link.
 	bool opensScreen = false;
+	// Choice made by SettingsPage::RestoreDefaults.
+	bool restoresDefaults = false;
 
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
 	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
@@ -200,7 +202,7 @@ public:
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);
 	// Opens another page, built by build, on top of this one. The text is the new page's title.
 	SettingItem &Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build);
-	// After asking, restores the config settings added before it to their defaults. Only the config's
+	// After asking, restores the page's config settings to their defaults. Can go anywhere on the page. Only the config's
 	// reactions to the changes are run, not the page's OnChange handlers. Custom items aren't reset.
 	SettingItem &RestoreDefaults();
 

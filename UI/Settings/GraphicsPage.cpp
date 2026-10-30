@@ -96,6 +96,8 @@ static void OnRenderingDevice(SettingsPageHost *host) {
 static void BuildSpeedHacksPage(SettingsPage *page) {
 	using namespace UI;
 
+	page->RestoreDefaults();
+
 	page->Header();
 
 	page->Setting(&g_Config.iFrameSkip).EnabledFunc([] {
@@ -123,9 +125,6 @@ static void BuildSpeedHacksPage(SettingsPage *page) {
 		if (g_Config.iDepthRasterMode != 3)
 			depthRasterMode->HideChoice(3);
 	});
-
-	page->Header();
-	page->RestoreDefaults();
 }
 
 static void BuildCardboardVRPage(SettingsPage *page) {

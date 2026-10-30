@@ -194,20 +194,27 @@ SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<voi
 }
 
 SettingItem &SettingsPage::RestoreDefaults() {
+	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
+	item.restoresDefaults = true;
+	return item;
+}
+
+// The click handler of a RestoreDefaults button. The page is gone by the time it's clicked, so this
+// collects its settings up front.
+static std::function<void(UI::EventParams &)> RestoreDefaultsHandler(const SettingsPage &page) {
 	struct Restorable {
 		void *ptr;
 		void (*onChanged)();
 	};
 	std::vector<Restorable> settings;
-	for (const SettingItem &item : items_) {
+	for (const SettingItem &item : page.Items()) {
 		if (item.ptr && Config::FindSetting(item.ptr)) {
 			settings.push_back(Restorable{ item.ptr, item.configOnChanged });
 		}
 	}
 
-	SettingsPageHost *host = host_;
-	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
-	item.OnClick([host, settings](UI::EventParams &) {
+	SettingsPageHost *host = page.Host();
+	return [host, settings](UI::EventParams &) {
 		std::string_view message = T(I18NCat::DIALOG, "RestorePageDefaults", "Restore the settings on this page to their defaults?");
 		host->PageScreenManager()->push(new PromptScreen(host->PageGamePath(), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
 			if (!yes) {
@@ -220,8 +227,7 @@ SettingItem &SettingsPage::RestoreDefaults() {
 			}
 			host->RecreatePageViews();
 		}));
-	});
-	return item;
+	};
 }
 
 SettingItem &SettingsPage::Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create) {
@@ -402,6 +408,9 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, item.type == SettingType::Header ? parent : group, screenManager);
 		if (views) {
 			views->push_back(view);
+		}
+		if (view && item.restoresDefaults) {
+			static_cast<UI::Choice *>(view)->OnClick.Add(RestoreDefaultsHandler(page));
 		}
 		if (view && item.type == SettingType::Header) {
 			group = static_cast<UI::ViewGroup *>(view);
