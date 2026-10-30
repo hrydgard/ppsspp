@@ -626,11 +626,7 @@ pair_known_failures = {
     # The relay doesn't connect until PtpConnect.
     "net/adhoc/pair/ptppoll",
   ],
-  "p2p": [
-    # A PTP connection to a peer that has vanished never fails: the host's TCP connection doesn't
-    # notice, and nothing else is watching.
-    "net/adhoc/pair/vanish",
-  ],
+  "p2p": [],
 }
 
 ADHOC_MODES = ["relay", "p2p"]
