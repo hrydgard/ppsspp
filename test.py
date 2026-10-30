@@ -589,6 +589,7 @@ tests_good = [
   "video/psmfplayer/settempbuf",
   "video/psmfplayer/stop",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
+  "net/adhoc/pair/basic",
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
@@ -621,11 +622,40 @@ known_failures = {
 
 # Two-console tests that don't pass yet in one of the two ways run_pair_tests runs them. Same rules as above.
 pair_known_failures = {
-  "relay": [],
+  "relay": [
+    # A PTP connect to a port nobody listens on isn't refused: the relay holds it while it waits for a
+    # listener, so it times out instead.
+    "net/adhoc/pair/basic",
+  ],
   "p2p": [],
 }
 
 ADHOC_MODES = ["relay", "p2p"]
+
+# Single-console ad hoc tests that don't pass yet in one of the two data modes. Same rules as above.
+adhoc_known_failures = {
+  "relay": [
+    # One console can only talk to itself, which on a PSP never leaves the console: a PTP connect to
+    # itself is up at once, and a PDP datagram to itself is there at once. The relay sends both through
+    # the server, which takes a round trip.
+    "net/adhoc/alerts",
+    "net/adhoc/term",
+  ],
+  "p2p": [],
+}
+
+_relay_ini = None
+
+def relay_ini_path():
+  # A config that makes headless use the built-in server's relay (like Tools/adhoc_multi.py --relay).
+  global _relay_ini
+  if _relay_ini is None:
+    import tempfile
+    f = tempfile.NamedTemporaryFile("w", suffix=".ini", delete=False)
+    f.write("[Network]\nproAdhocServer = 127.0.0.1\nAdhocServerRelayMode = 1\n")
+    f.close()
+    _relay_ini = f.name
+  return _relay_ini
 
 # Tests that exercise HLE code and barely any of the game's, so one CPU backend covers them.
 # --skip-cpu-independent leaves them out of the runs that repeat the suite with each backend, and
@@ -714,7 +744,6 @@ tests_next = [
   "net/inet/udp",
   "net/primary/ether",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
-  "net/adhoc/pair/basic",
   "net/adhoc/pair/flow",
   "net/adhoc/pair/gamemode",
   "net/adhoc/pair/lifecycle",
@@ -983,8 +1012,19 @@ def main():
   plain = [t for t in tests if flags_for(t) is None]
   returncode = run_tests(plain, args)
   for test in tests:
-    if flags_for(test) is not None:
+    if flags_for(test) is None:
+      continue
+    if not test.startswith("net/adhoc/"):
       returncode = run_tests([test], args + flags_for(test)) or returncode
+      continue
+    # The ad hoc tests talk through the built-in server, in both data modes, like run_pair_tests.
+    for mode in adhoc_modes:
+      if test in adhoc_known_failures[mode]:
+        print("Skipping known failure in %s mode: %s" % (mode, test), flush=True)
+        continue
+      print("%s mode:" % mode, flush=True)
+      mode_flags = ["--appendconfig=" + relay_ini_path()] if mode == "relay" else []
+      returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
   if pair:
     returncode = run_pair_tests(pair, args, adhoc_modes) or returncode
   if pair_tests_without_loopback:
