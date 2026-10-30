@@ -235,7 +235,7 @@ That's normal and not a test failure - read the `N tests passed, N tests failed`
 
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
 
-### LoongArch64 and RISC-V JITs under qemu
+### LoongArch64, RISC-V and ARM32 JITs under qemu
 
 CI tests these JITs by cross-building headless and running pspautotests under qemu-user, and you can do the
 same on Linux (packages: `gcc-14-loongarch64-linux-gnu g++-14-loongarch64-linux-gnu qemu-user`, or the riscv64
@@ -263,6 +263,9 @@ the sysroot from `$CROSS_ARMHF/usr/arm-linux-gnueabihf`. The binutils need `LD_L
 `$CROSS_ARMHF/usr/lib/x86_64-linux-gnu`, glibc's `libc.so` linker script names absolute paths that have to be
 rewritten to the new root, and the stubs are copied in by hand. For a debugger, run `qemu-arm -g PORT` and attach
 `gdb-multiarch` to it.
+
+GitHub's arm64 runners can't run the armhf build natively: some of their hosts are Neoverse V3, which has no
+AArch32, and a job can't pick its host. So CI runs ARM32 under qemu on x86-64 too.
 
 `hash/hash` dies with a bus error under qemu-arm on every CPU core, so it's not a JIT problem, but it takes the rest
 of its batch down with it: pass `--known-failures=armhf`.
