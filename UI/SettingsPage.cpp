@@ -21,8 +21,10 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
+#include "UI/MiscScreens.h"
 #include "UI/MiscViews.h"
 #include "UI/SettingsPage.h"
 
@@ -188,6 +190,37 @@ SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<voi
 	SettingItem &item = Add(SettingType::Link, text);
 	item.linkCat = cat;
 	item.linkBuild = std::move(build);
+	return item;
+}
+
+SettingItem &SettingsPage::RestoreDefaults() {
+	struct Restorable {
+		void *ptr;
+		void (*onChanged)();
+	};
+	std::vector<Restorable> settings;
+	for (const SettingItem &item : items_) {
+		if (item.ptr && Config::FindSetting(item.ptr)) {
+			settings.push_back(Restorable{ item.ptr, item.configOnChanged });
+		}
+	}
+
+	SettingsPageHost *host = host_;
+	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
+	item.OnClick([host, settings](UI::EventParams &) {
+		std::string_view message = T(I18NCat::DIALOG, "RestorePageDefaults", "Restore the settings on this page to their defaults?");
+		host->PageScreenManager()->push(new PromptScreen(host->PageGamePath(), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
+			if (!yes) {
+				return;
+			}
+			for (const Restorable &setting : settings) {
+				if (Config::RestoreSettingToDefault(setting.ptr) && setting.onChanged) {
+					setting.onChanged();
+				}
+			}
+			host->RecreatePageViews();
+		}));
+	});
 	return item;
 }
 

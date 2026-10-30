@@ -123,6 +123,9 @@ static void BuildSpeedHacksPage(SettingsPage *page) {
 		if (g_Config.iDepthRasterMode != 3)
 			depthRasterMode->HideChoice(3);
 	});
+
+	page->Header();
+	page->RestoreDefaults();
 }
 
 static void BuildCardboardVRPage(SettingsPage *page) {

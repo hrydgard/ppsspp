@@ -200,6 +200,9 @@ public:
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);
 	// Opens another page, built by build, on top of this one. The text is the new page's title.
 	SettingItem &Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build);
+	// After asking, restores the config settings added before it to their defaults. Only the config's
+	// reactions to the changes are run, not the page's OnChange handlers. Custom items aren't reset.
+	SettingItem &RestoreDefaults();
 
 	I18NCat DefaultCat() const { return defaultCat_; }
 	SettingsPageHost *Host() const { return host_; }

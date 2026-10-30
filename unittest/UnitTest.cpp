@@ -3296,6 +3296,19 @@ bool TestConfigSettings() {
 	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutLandscape.fDisplayOffsetY), 0.5f);
 	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutPortrait.fDisplayOffsetY), 0.25f);
 	EXPECT_EQ_INT(Config::GetDefaultValueInt(&g_Config.gestureControls[1].iSwipeUp), 0);
+
+	int oldVolume = g_Config.iUIVolume;
+	g_Config.iUIVolume = 10;
+	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.iUIVolume));
+	EXPECT_EQ_INT(g_Config.iUIVolume, 75);
+	EXPECT_FALSE(Config::RestoreSettingToDefault(&g_Config.iUIVolume));
+	g_Config.iUIVolume = oldVolume;
+
+	float oldOffsetY = g_Config.displayLayoutPortrait.fDisplayOffsetY;
+	g_Config.displayLayoutPortrait.fDisplayOffsetY = 0.9f;
+	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.displayLayoutPortrait.fDisplayOffsetY));
+	EXPECT_EQ_FLOAT(g_Config.displayLayoutPortrait.fDisplayOffsetY, 0.25f);
+	g_Config.displayLayoutPortrait.fDisplayOffsetY = oldOffsetY;
 	return true;
 }
 

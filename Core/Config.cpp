@@ -1643,6 +1643,48 @@ float Config::GetDefaultValueFloat(const float *configSetting) {
 	return ref->setting->GetDefaultFloat();
 }
 
+bool Config::RestoreSettingToDefault(void *ptr) {
+	const ConfigSettingRef *ref = FindSetting(ptr);
+	if (!ref) {
+		return false;
+	}
+	if (!ref->block->CanResetToDefault()) {
+		return ref->setting->RestoreToDefault(ref->block, false);
+	}
+	// Copy the value from a reset copy of the block.
+	std::unique_ptr<ConfigBlock> defaults = ref->block->NewDefault(ref->section);
+	const void *def = ref->setting->GetVoidPtr(defaults.get());
+	switch (ref->setting->type_) {
+	case ConfigSetting::Type::TYPE_BOOL:
+	{
+		bool changed = *(bool *)ptr != *(const bool *)def;
+		*(bool *)ptr = *(const bool *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_INT:
+	{
+		bool changed = *(int *)ptr != *(const int *)def;
+		*(int *)ptr = *(const int *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_FLOAT:
+	{
+		bool changed = *(float *)ptr != *(const float *)def;
+		*(float *)ptr = *(const float *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_STRING:
+	{
+		bool changed = *(std::string *)ptr != *(const std::string *)def;
+		*(std::string *)ptr = *(const std::string *)def;
+		return changed;
+	}
+	default:
+		_dbg_assert_msg_(false, "RestoreSettingToDefault: Unsupported type %d in a block", (int)ref->setting->type_);
+		return false;
+	}
+}
+
 void Config::Init() {
 	// Initialize the pointer->setting lookup map.
 	auto &ref = getPtrLUT();

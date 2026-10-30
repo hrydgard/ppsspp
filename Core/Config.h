@@ -820,6 +820,8 @@ public:
 	static const ConfigSettingRef *FindSetting(const void *ptr);
 	static int GetDefaultValueInt(const int *configSetting);
 	static float GetDefaultValueFloat(const float *configSetting);
+	// Sets the setting that ptr points to back to its default. Returns true if that changed it.
+	static bool RestoreSettingToDefault(void *ptr);
 
 	void DoNotSaveSetting(void *configSetting) {
 		settingsNotToSave_.push_back(configSetting);
