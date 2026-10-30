@@ -27,6 +27,12 @@ endif()
 # We also disable the list_cpu_features binary.
 add_subdirectory(cmake/cpu_features EXCLUDE_FROM_ALL)
 
+# Android Studio's sync collects compiler flags (including -include-pch) before the PCH is built,
+# so every sync reports a missing cmake_pch.hxx.pch.
+if(ANDROID)
+	set(ENABLE_PCH OFF CACHE BOOL "" FORCE)
+endif()
+
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "" FORCE)
 set(ENABLE_GLSLANG_INSTALL OFF)
 add_subdirectory(glslang EXCLUDE_FROM_ALL)
