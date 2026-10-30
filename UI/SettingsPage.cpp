@@ -366,7 +366,13 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 	case SettingType::Hint:
 		return parent->Add(new SettingHint(text, prevView));
 	case SettingType::Description:
-		return parent->Add(new SettingHint(text, nullptr));
+	{
+		TextView *description = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
+		description->SetTextSize(TextSize::Small);
+		description->SetPadding(Margins(12));
+		description->SetFrame(true);
+		return description;
+	}
 	case SettingType::Custom:
 		return item.createCustom(parent);
 	case SettingType::Link:

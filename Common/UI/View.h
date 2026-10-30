@@ -1113,6 +1113,8 @@ public:
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(Margins padding) { pad_ = padding; }
 	void SetAlign(int align) { textAlign_ = align; }
+	// Draws a thin rounded outline around the view. Use padding to keep the text off it.
+	TextView *SetFrame(bool frame) { frame_ = frame; return this; }
 	TextView *SetWordWrap();
 
 	bool CanBeFocused() const override { return focusable_; }
@@ -1127,6 +1129,7 @@ private:
 	bool focusable_ = false;
 	bool clip_ = true;
 	bool bullet_ = false;
+	bool frame_ = false;
 	Margins pad_{};
 };
 

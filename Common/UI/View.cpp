@@ -1163,6 +1163,9 @@ void TextView::Draw(UIContext &dc) {
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
+	if (frame_) {
+		dc.Draw()->DrawRoundRect(bounds_, dc.GetTheme().choiceRoundRadius, textColor, RoundRectStyle::OutlineThin);
+	}
 
 	const FontStyle *style = GetTextStyle(dc, textSize_);
 	dc.SetFontStyle(*style);
