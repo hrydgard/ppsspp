@@ -242,7 +242,7 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 	});
 
 	page->Header();
-	page->Link({I18NCat::SYSTEM, "UI"}, I18NCat::SYSTEM, &BuildUISettingsPage);
+	page->Link({I18NCat::SYSTEM, "User interface"}, I18NCat::SYSTEM, &BuildUISettingsPage);
 
 	page->Header();
 	if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
