@@ -290,8 +290,12 @@ jobs:
           args: make -C libretro -f Makefile -j2
           id: clang-libretro
 
+        # Cross builds, tested under qemu-user. `triple` is the cross toolchain's, `qemu` the
+        # emulator that runs it.
         - os: ubuntu-26.04
           extra: loongarch64
+          triple: loongarch64-linux-gnu
+          qemu: qemu-loongarch64
           cc: gcc
           cxx: g++
           args: ./b.sh --loongarch64 --unittest PPSSPPHeadless PPSSPPUnitTest
@@ -299,10 +303,23 @@ jobs:
 
         - os: ubuntu-26.04
           extra: riscv64
+          triple: riscv64-linux-gnu
+          qemu: qemu-riscv64
           cc: gcc
           cxx: g++
           args: ./b.sh --riscv64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: riscv64
+
+        # The arm64 runners can't stand in for this: some of their hosts are Neoverse V3, which
+        # has no AArch32, so a native run would fail depending on which machine the job lands on.
+        - os: ubuntu-26.04
+          extra: armhf
+          triple: arm-linux-gnueabihf
+          qemu: qemu-arm
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --armhf --unittest PPSSPPHeadless PPSSPPUnitTest
+          id: armhf
 
         - os: macos-latest
           extra: test
@@ -361,7 +378,7 @@ jobs:
         ndk-version: r29
 
     - name: Install Linux dependencies
-      if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64' && matrix.extra != 'riscv64'
+      if: runner.os == 'Linux' && matrix.extra != 'android' && !matrix.triple
       run: |
         sudo apt-get update -y -qq
         sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libfribidi-dev libcurl4-openssl-dev
@@ -371,10 +388,10 @@ jobs:
       run: brew install sdl3 sdl3_ttf
 
     - name: Install cross-compilation dependencies
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
+      if: matrix.triple
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install -y gcc-14-${{ matrix.extra }}-linux-gnu g++-14-${{ matrix.extra }}-linux-gnu binutils-${{ matrix.extra }}-linux-gnu libgl-dev libglu1-mesa-dev qemu-user
+        sudo apt-get install -y gcc-14-${{ matrix.triple }} g++-14-${{ matrix.triple }} binutils-${{ matrix.triple }} libgl-dev libglu1-mesa-dev qemu-user
         sudo cmake/scripts/setup-cross.sh ${{ matrix.extra }}
 
     - name: Install iOS dependencies
@@ -431,25 +448,23 @@ jobs:
         ${{ matrix.args }}
 
     # These targets have no runner of their own, so the unit tests run under emulation. It's the
-    # only coverage the loongarch64 and riscv64 JITs get - a compile is not much of a test for a
-    # code generator.
+    # only coverage these JITs get - a compile is not much of a test for a code generator.
     - name: Execute unit tests under qemu
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
+      if: matrix.triple
       run: |
-        qemu-${{ matrix.extra }} -L /usr/${{ matrix.extra }}-linux-gnu \
-          build-${{ matrix.extra }}/PPSSPPUnitTest all
+        ${{ matrix.qemu }} -L /usr/${{ matrix.triple }} build-${{ matrix.extra }}/PPSSPPUnitTest all
 
-    # Only the IR JIT - it's the sole native backend these two have, and the only thing here that
+    # Only the IR JIT - it's the sole native backend these have, and the only thing here that
     # isn't shared code. The interpreters are portable C++ that the x86-64 and arm64 runners
     # already cover on all four backends, and every run costs emulated wall clock.
     - name: Execute headless tests under qemu
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
+      if: matrix.triple
       run: |
         # test.py takes the newest build*/PPSSPPHeadless, so hand it one that runs the cross build
         # under emulation. The wall clock is raised because everything is slower under qemu.
         mkdir -p build-qemu
-        printf '#!/bin/bash\nexec qemu-%s -L /usr/%s-linux-gnu "$(dirname "$0")/../build-%s/PPSSPPHeadless" "$@"\n' \
-          '${{ matrix.extra }}' '${{ matrix.extra }}' '${{ matrix.extra }}' > build-qemu/PPSSPPHeadless
+        printf '#!/bin/bash\nexec %s -L /usr/%s "$(dirname "$0")/../build-%s/PPSSPPHeadless" "$@"\n' \
+          '${{ matrix.qemu }}' '${{ matrix.triple }}' '${{ matrix.extra }}' > build-qemu/PPSSPPHeadless
         chmod +x build-qemu/PPSSPPHeadless
         python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 \
           --known-failures=${{ matrix.extra }}

@@ -597,11 +597,7 @@ known_failures = {
   "loongarch64": [
     "cpu/fpu/fpu",
   ],
-  "armhf": [
-    # A bus error under qemu-arm, which doesn't fix up unaligned accesses the way the kernel does.
-    # Happens on every CPU core, so it's in the hashing code, not the JIT.
-    "hash/hash",
-  ],
+  "armhf": [],
 }
 
 tests_next = [
