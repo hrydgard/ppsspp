@@ -22,6 +22,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <map>
 #include <vector>
 
@@ -39,6 +40,7 @@
 class IniFile;
 class TextureCacheCommon;
 class TextureReplacer;
+class TextureScalerCommon;
 class ReplacedTextureTask;
 class LimitedWaitable;
 class VFSBackend;
@@ -66,6 +68,36 @@ struct ReplacedTextureDecodeInfo {
 	bool isVideo;
 	bool isFinal;
 	Draw::DataFormat fmt;
+	// Describes the level 0 texture in PSP memory, so shadow textures can snapshot it.
+	u16 bufw = 0;
+	u16 texW = 0;
+	u16 texH = 0;
+	bool swizzled = false;
+	GETextureFormat texFormat = GE_TFMT_5650;
+};
+
+// The texels a draw samples, [minU, maxU) x [minV, maxV). known = false means it can be any part of the texture.
+struct ShadowBounds {
+	bool known = false;
+	u16 minU = 0;
+	u16 minV = 0;
+	u16 maxU = 0;
+	u16 maxV = 0;
+};
+
+// Inputs for picking the replacement hash of a texture in shadow mode.
+struct ShadowHashParams {
+	u32 addr;
+	int bufw;
+	int w;
+	int h;
+	bool swizzled;
+	GETextureFormat fmt;
+	u64 cachekey;
+	// The key the texture had before (0 if new), so what its draws sampled carries over.
+	u32 oldHash;
+	// What the current draw samples, if it's known. nullptr if this draw tells nothing.
+	const ShadowBounds *current;
 };
 
 enum class ReplacerDecimateMode {
@@ -90,8 +122,36 @@ public:
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
 
+	// Shadow textures (shadowTextures = true in [options]): the replacement key only covers the part of the
+	// texture that draws sample, and dumps are held back in RAM until that part stops growing, so data the
+	// game keeps around the image doesn't produce a new dump each time it changes.
+	bool ShadowEnabled() const { return shadowEnabled_ && (replaceEnabled_ || saveEnabled_); }
+	// Returns the hash the replacement key uses. *extentW x *extentH is the part of the texture from (0,0)
+	// that the replacement covers, which includes the hashed region.
+	u32 ComputeShadowHash(const ShadowHashParams &params, u16 *extentW, u16 *extentH);
+	// Called for every draw that samples a texture, with the key the texture cache gave it. bounds is nullptr
+	// when the draw's UVs weren't tracked. Returns true if the draw samples outside the key's region, so the
+	// texture should be looked up again.
+	bool NotifyShadowDraw(u64 cachekey, u32 hash, u32 addr, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds *bounds);
+	// The texture cache gave the same content a new key (its region grew). The capture under the old key is
+	// dropped, and what it saw goes to the next capture of this texture, so only one dump is made.
+	void NotifyShadowRekeyed(u64 cachekey, u32 oldHash);
+	// Once per frame: writes out dumps whose region has settled.
+	void ShadowTick();
+	int GetNumPendingShadows() const { return (int)shadowVariants_.size(); }
+
+	// Layered replacement ([layered] in textures.ini): a texture the game draws text into is replaced by an HD
+	// image of it without the text. The texels that differ from the original are the text: each letter (a
+	// connected piece of them) is drawn from an HD glyph image if the pack has one, otherwise upscaled.
+	bool IsLayered(u32 addr, int w, int h) const;
+	// The composed replacement for the current contents of a layered texture, decoded to RGBA8888 (w x h, tightly
+	// packed). Valid until the next call for the same texture. Returns nullptr if it can't be made.
+	ReplacedTexture *ComposeLayered(u32 addr, int w, int h, const u32 *pixels, TextureScalerCommon *scaler);
+
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h);
+	// The same, but the replacement covers regionW x regionH of the texture (from shadow textures).
+	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h, int regionW, int regionH);
 
 	// For testing: point the replacer at a texture pack directory and load its
 	// ini, without touching the global config. Returns true on success.
@@ -99,6 +159,11 @@ public:
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
+
+	// Textures matched by [ignore] (address ranges, optionally a size and a CLUT hash) are neither dumped nor
+	// replaced. cachekey is the texture cache's (address and CLUT hash, as in dump names). w and h of 0 match only
+	// entries without a size.
+	bool IsIgnoredTexture(u64 cachekey, int w, int h) const;
 
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
@@ -148,8 +213,222 @@ protected:
 	void ParseIndexed(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
+	void ParseIgnore(const std::string &key);
+	// With ignoreAddress, files are named with the address they were dumped from, and it's dropped here, when
+	// they're read: for [hashes] and the files found, [filtering] and [indexed].
+	void ApplyIgnoreAddress();
+	// Marks the dumps already in new/ as saved, so they aren't dumped again under another name. With ignoreAddress,
+	// a content found at another address than in an earlier session gets a different name.
+	void MarkExistingDumps();
+	// Adds a line for a written dump to new/dumps.txt, with what its name doesn't tell.
+	void LogDump(const std::string &hashfile, u32 addr, ReplacementCacheKey key, int texW, int texH, GETextureFormat fmt, const char *region);
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored);
+	// The hashing done by ComputeHash once the hashed size is known, over memory or a snapshot of it.
+	u32 HashTextureData(const u8 *checkp, u32 availableBytes, int bufw, int w, int h, GETextureFormat fmt);
+
+	// Shadow textures.
+	// A rectangle of the texture, in texels.
+	struct ShadowRegion {
+		u16 x = 0;
+		u16 y = 0;
+		u16 w = 0;
+		u16 h = 0;
+		bool operator ==(const ShadowRegion &o) const { return x == o.x && y == o.y && w == o.w && h == o.h; }
+		bool Empty() const { return w == 0 || h == 0; }
+		int Right() const { return x + w; }
+		int Bottom() const { return y + h; }
+		bool Covers(const ShadowRegion &o, int slack = 0) const {
+			return x <= o.x + slack && y <= o.y + slack && Right() + slack >= o.Right() && Bottom() + slack >= o.Bottom();
+		}
+		u32 Area() const { return (u32)w * h; }
+		void Merge(const ShadowRegion &o);
+	};
+	struct ShadowLevel {
+		std::vector<u8> rgba;  // Tightly packed.
+		int w = 0;  // As saved (scaled).
+		int h = 0;
+	};
+	// One content of a texture, waiting to be dumped.
+	struct ShadowVariant {
+		u64 cachekey = 0;
+		// cachekey as the texture cache had it (an indexed capture's cachekey has no CLUT hash), for dumps.txt.
+		u64 sourceCachekey = 0;
+		u32 addr = 0;
+		int bufw = 0;
+		int texW = 0;
+		int texH = 0;
+		bool swizzled = false;
+		GETextureFormat fmt = GE_TFMT_5650;
+		// The texture's bytes in PSP memory when it was decoded, so it can be hashed again with its final region.
+		std::vector<u8> raw;
+		ShadowLevel levels[8];
+		int numLevels = 0;
+		// Saved as palette indices instead (saveIndexed), one for every palette, so the key has no CLUT hash.
+		bool indexed = false;
+		std::vector<u8> indices;  // Tightly packed, texW x texH.
+		u32 palette[256]{};
+		int numColors = 0;
+		// Which texels of the texture changed while this content stayed (declared textures only), per row as
+		// [volatileX0, volatileX1). A declared region with such texels in it holds data that isn't the image.
+		std::vector<u16> volatileX0;
+		std::vector<u16> volatileX1;
+		// The content isn't in memory anymore, so changes there don't tell anything.
+		bool contentGone = false;
+		// What draws sampled while this content was bound.
+		bool drawn = false;
+		bool unbounded = false;
+		ShadowRegion seen;
+		// The separate rectangles drawn, which seen is the bounds of. A texture can hold an image in two parts,
+		// with other data between or beside them.
+		std::vector<ShadowRegion> drawnParts;
+		double firstDrawn = 0.0;
+		double lastDrawn = 0.0;
+		double created = 0.0;
+		double lastChange = 0.0;
+		size_t memoryUsed = 0;
+	};
+	// Keyed like hashranges_ (address, w, h).
+	struct ShadowSlot {
+		// Union of everything drawn from this texture, for the provisional key of contents not dumped yet.
+		bool unbounded = false;
+		ShadowRegion drawn;
+		// From [shadowranges] in textures.ini. When there are any, dumps of this texture only use these, and
+		// nothing is learned for it. Largest first, like the others.
+		std::vector<ShadowRegion> declared;
+		// Regions made of several declared rectangles, hashed together: from [shadowranges] (written with +), and the
+		// ones dumps of this session used.
+		std::vector<std::vector<ShadowRegion>> declaredCombos;
+		// From [learnedshadowranges] and the dumps of this session.
+		std::vector<ShadowRegion> learned;
+		// From [hashranges] (0 or 1). It fixes the region: every key and dump of this texture uses exactly it, over
+		// [shadowranges] and what's drawn.
+		std::vector<ShadowRegion> hashRange;
+		bool IsDeclared() const { return !declared.empty() || !declaredCombos.empty(); }
+		bool IsFixed() const { return !hashRange.empty(); }
+	};
+	// What the draws of one replacement key sampled, and the region it was hashed over.
+	struct ShadowKeyInfo {
+		bool unbounded = false;
+		ShadowRegion seen;
+		ShadowRegion region;
+		double lastUsed = 0.0;
+	};
+
+	static u64 ShadowSlotKey(u32 addr, int w, int h) { return ((u64)addr << 32) | ((u64)w << 16) | h; }
+	ShadowRegion NormalizeShadowRegion(const ShadowBounds &bounds, int w, int h, bool swizzled, GETextureFormat fmt) const;
+	static ShadowRegion FullRegion(int w, int h);
+	u32 HashShadowRegion(const u8 *base, u32 availableBytes, int bufw, const ShadowRegion &region, GETextureFormat fmt);
+	// Adds it if it isn't there, largest first. Returns true if it was added.
+	static bool AddShadowRegion(std::vector<ShadowRegion> &regions, ShadowRegion region);
+	// The regions to try for a texture's contents when looking up a key, largest first, the whole texture too.
+	static std::vector<ShadowRegion> ShadowLookupRegions(const ShadowSlot &slot, int w, int h);
+	void ParseShadowRange(const std::string &key, const std::string &value, bool declared);
+	// Updates the volatile texels of a waiting content of a declared texture from its memory now.
+	void CheckShadowStability(ShadowVariant &variant);
+	bool ShadowRegionStable(const ShadowVariant &variant, const ShadowRegion &region) const;
+	// The region to dump a content of a declared texture with: one rectangle, or several hashed together.
+	std::vector<ShadowRegion> PickDeclaredParts(const ShadowSlot &slot, const ShadowVariant &variant, const ShadowRegion &seen) const;
+	// Of the declared regions covering something, largest first, the one to dump with.
+	ShadowRegion PickCovering(const std::vector<ShadowRegion> &covering, const ShadowVariant &variant) const;
+	// True if the texels of larger that aren't in smaller all have the same value, so they hold no image.
+	bool ExtraAreaUniform(const ShadowVariant &variant, const ShadowRegion &larger, const ShadowRegion &smaller) const;
+	// A texel of the captured copy, as stored (an index for CLUT formats). False for DXT, or outside the copy.
+	bool ShadowTexel(const ShadowVariant &variant, int x, int y, u32 *value) const;
+	static bool AddDrawnPart(std::vector<ShadowRegion> &parts, const ShadowRegion &region);
+	static ShadowRegion PartsBounds(const std::vector<ShadowRegion> &parts);
+	static std::string ShadowRegionString(const ShadowRegion &region);
+	static std::string PartsString(const std::vector<ShadowRegion> &parts);
+	static bool InParts(const std::vector<ShadowRegion> &parts, int x, int y);
+	u32 HashShadowParts(const u8 *base, u32 availableBytes, int bufw, const std::vector<ShadowRegion> &parts, GETextureFormat fmt);
+	bool ShadowKeyKnown(ReplacementCacheKey key);
+	ReplacementCacheKey NamingKey(u64 cachekey, u32 hash) const;
+	void CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH);
+	void CaptureShadowIndexed(const ReplacedTextureDecodeInfo &replacedInfo, const u8 *indices, int srcPitch, const u32 *palette, int numColors, int w, int h);
+	// Starts a capture, with the copy of the texture's memory. Returns nullptr if there's nothing to copy.
+	ShadowVariant *CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey);
+	std::unordered_map<ReplacementCacheKey, ShadowVariant>::iterator FindShadowVariant(u64 cachekey, u32 hash);
+	void EnforceShadowBudget(ReplacementCacheKey keep);
+	void CommitShadowIndexed(ShadowVariant &variant, const std::vector<ShadowRegion> &parts, u32 hash);
+	// Remembers what a dump used, so its key is found again.
+	void NoteDumpRegion(ShadowSlot &slot, const std::vector<ShadowRegion> &parts);
+	void CommitShadow(ShadowVariant &variant);
+	void CommitAllShadows();
+	void SaveShadowRanges();
+
+	bool shadowEnabled_ = false;
+	double shadowSettleSeconds_ = 4.0;
+	double shadowMinVisibleSeconds_ = 0.0;
+	int shadowMaxRegions_ = 8;
+	int shadowRegionAlign_ = 1;
+	size_t shadowMemoryBudget_ = (size_t)1024 * 1024 * 1024;
+	size_t shadowMemoryUsed_ = 0;
+	double shadowNow_ = 0.0;
+	double shadowLastTick_ = 0.0;
+	bool shadowRangesDirty_ = false;
+	double shadowRangesLastSaved_ = 0.0;
+	std::unordered_map<u64, ShadowSlot> shadowSlots_;
+	std::unordered_map<ReplacementCacheKey, ShadowVariant> shadowVariants_;
+	std::unordered_map<ReplacementCacheKey, ShadowKeyInfo> shadowKeys_;
+	struct ShadowRekey {
+		bool valid = false;
+		bool unbounded = false;
+		u64 cachekey = 0;
+		ShadowRegion seen;
+		std::vector<ShadowRegion> drawnParts;
+		bool drawn = false;
+		double firstDrawn = 0.0;
+	};
+	ShadowRekey shadowRekey_;
+
+	// Layered replacement, keyed like hashranges_.
+	struct LayeredSlot {
+		std::string originalFile;  // The texture without the text, as dumped.
+		std::string hdFile;  // The same, at a higher resolution.
+		bool loaded = false;
+		bool failed = false;
+		int w = 0;
+		int h = 0;
+		int scale = 1;
+		std::vector<u32> original;
+		std::vector<u32> hd;
+		// original, upscaled like the text, to tell which upscaled texels the text changed.
+		std::vector<u32> scaledOriginal;
+		int scaledOriginalType = -1;
+		// Holds the last composed image. Never deleted while the replacer lives, since cache entries point to it.
+		ReplacedTexture *texture = nullptr;
+	};
+	// One letter of layered text: an HD image for it from the pack, or that there's none.
+	struct LayeredGlyph {
+		bool found = false;
+		int w = 0;
+		int h = 0;
+		std::vector<u32> pixels;
+	};
+	void ParseLayered(const std::string &key, const std::string &value);
+	bool LoadLayered(LayeredSlot &slot);
+	const LayeredGlyph &LookupLayeredGlyph(u64 key);
+	void SaveLayeredGlyph(u64 key, const u32 *pixels, int w, int h);
+	// -1 for no upscaling (blocks), otherwise a TextureScalerCommon type.
+	int layeredTextScaler_ = 0;
+	bool layeredGlyphs_ = true;
+	std::unordered_map<u64, LayeredGlyph> layeredGlyphCache_;
+	std::unordered_set<u64> savedLayeredGlyphs_;
+	std::unordered_map<u64, LayeredSlot> layered_;
+	// Layered textures from before an ini reload, kept alive for the same reason.
+	std::vector<ReplacedTexture *> retiredLayered_;
+
+	struct IgnoreRange {
+		u32 start = 0;
+		u32 end = 0;  // Inclusive.
+		u16 w = 0;  // 0 for any size.
+		u16 h = 0;
+		// The second 8 digits of a name, the CLUT hash (for textures without a palette, the size).
+		bool hasClut = false;
+		u32 clut = 0;
+	};
+	std::vector<IgnoreRange> ignoreRanges_;
+	bool dumpLogStarted_ = false;
 
 	bool replaceEnabled_ = false;
 	bool saveEnabled_ = false;
