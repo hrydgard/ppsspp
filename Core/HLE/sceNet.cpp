@@ -1124,8 +1124,11 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 	// FIXME: Return 0x80410180 (pspnet[_core] error code?) before successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
-	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
+	// Fails while apctl is initialized but not connected (pspautotests net/adhoc/apctlinit). PES 2009 polls it
+	// until it succeeds once apctl has connected.
+	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE && !__NetApctlConnected()) {
 		return hleLogDebug(Log::sceNet, 0x80410180, "address not available?");
+	}
 
 	return sceWlanGetEtherAddr(addrAddr);
 }
@@ -1602,7 +1605,10 @@ bool __NetApctlConnected() {
 }
 
 static int sceNetApctlGetState(u32 pStateAddr) {
-	//if (!netApctlInited) return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_IN_BSS, "apctl not in bss");
+	// PES 2009 only calls sceNetApctlInit when this fails. pspautotests net/adhoc/apctlinit
+	if (!g_netApctlInited) {
+		return hleLogWarning(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_INITIALIZED, "not initialized");
+	}
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
