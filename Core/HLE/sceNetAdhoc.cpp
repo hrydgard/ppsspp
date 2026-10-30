@@ -667,7 +667,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 		if (call_status == ADHOCCTL_CALL_WOULDBLOCK) {
 			bool retry = true;
-			u64 now = (u64)(time_now_d() * 1000000.0);
+			u64 now = CoreTiming::GetGlobalTimeUs();
 			if (now - adhocctlStartTime > static_cast<u64>(adhocDefaultTimeout) + 500) {
 				retry = false;
 			}
@@ -746,7 +746,7 @@ int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* re
 	}
 
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
-	adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+	adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 	adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
@@ -1440,7 +1440,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// wait ends in an error, which for Init can't be retried: the library already counts as inited.
 		Do(p, adhocctlRequests);
 		if (p.mode == p.MODE_READ) {
-			adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+			adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 		}
 	} else if (p.mode == p.MODE_READ) {
 		adhocctlRequests.clear();
@@ -3040,7 +3040,7 @@ int NetAdhocctl_Create(const char *groupName) {
 				}
 				//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
 				else {
-					adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+					adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 					if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 						adhocctlState = ADHOCCTL_STATE_GAMEMODE;
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
@@ -4608,7 +4608,7 @@ void __NetTriggerCallbacks()
 		u32_le args[3] = { 0, 0, 0 };
 		args[0] = flags;
 		args[1] = error;
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 
 		// A PSP delivers CONNECT after a Join before the host shows up in its peer list (pspautotests
 		// net/adhoc/pair/timing), so only GAME waits for a peer here.
