@@ -186,6 +186,10 @@ SettingItem &SettingsPage::Hint(SettingText text) {
 	return Add(SettingType::Hint, text);
 }
 
+SettingItem &SettingsPage::Description(SettingText text) {
+	return Add(SettingType::Description, text);
+}
+
 SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build) {
 	SettingItem &item = Add(SettingType::Link, text);
 	item.linkCat = cat;
@@ -361,6 +365,8 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 		return parent->Add(new InfoItem(text, item.rightText));
 	case SettingType::Hint:
 		return parent->Add(new SettingHint(text, prevView));
+	case SettingType::Description:
+		return parent->Add(new SettingHint(text, nullptr));
 	case SettingType::Custom:
 		return item.createCustom(parent);
 	case SettingType::Link:
@@ -402,17 +408,21 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 	// Each header is a group, which the items after it go in. Items before the first get one without a title.
 	UI::ViewGroup *group = nullptr;
 	for (const SettingItem &item : page.Items()) {
-		if (!group && item.type != SettingType::Header) {
+		// Descriptions go between the groups, so the items after one get a new group.
+		bool outsideGroups = item.type == SettingType::Header || item.type == SettingType::Description;
+		if (!group && !outsideGroups) {
 			group = parent->Add(new UI::ChoiceGroup());
 		}
-		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, item.type == SettingType::Header ? parent : group, screenManager);
+		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, outsideGroups ? parent : group, screenManager);
 		if (views) {
 			views->push_back(view);
 		}
 		if (view && item.restoresDefaults) {
 			static_cast<UI::Choice *>(view)->OnClick.Add(RestoreDefaultsHandler(page));
 		}
-		if (view && item.type == SettingType::Header) {
+		if (item.type == SettingType::Description) {
+			group = nullptr;
+		} else if (view && item.type == SettingType::Header) {
 			group = static_cast<UI::ViewGroup *>(view);
 		} else if (view) {
 			prevView = view;

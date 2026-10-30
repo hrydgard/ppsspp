@@ -87,6 +87,7 @@ enum class SettingType {
 	Choice,  // A button. onChange is called on click.
 	Info,
 	Hint,  // Explanatory text attached to the previous item.
+	Description,  // Text about the page or a part of it, outside the groups.
 	Custom,
 	Link,  // Opens another page.
 };
@@ -197,6 +198,8 @@ public:
 	SettingItem &Choice(SettingText text, ImageID image = ImageID::invalid());
 	SettingItem &Info(SettingText text, std::string_view rightText);
 	SettingItem &Hint(SettingText text);
+	// The items after it start a new group. Not searched.
+	SettingItem &Description(SettingText text);
 	// For anything the other types can't describe. The text is only used for search. The view
 	// returned is the one a following Hint is attached to, and the one search results lead to.
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);

@@ -425,6 +425,8 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 				show[lastSetting] = true;
 			}
 			break;
+		case SettingType::Description:
+			break;
 		default:
 			lastSetting = i;
 			show[i] = matches || sectionMatches;
