@@ -715,7 +715,11 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 
 static bool postoffice_can_send(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
-	if (internal->type == SOCK_PTP && internal->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED) {
+	if (internal->type == SOCK_PTP) {
+		// A listener's or unconnected socket's handle isn't a PDP session (pspautotests net/adhoc/pair/ptppoll).
+		if (internal->data.ptp.state != ADHOC_PTP_STATE_ESTABLISHED) {
+			return false;
+		}
 		void *ptp_handle = internal->postofficeHandle;
 		if (ptp_handle == NULL) {
 			return false;
