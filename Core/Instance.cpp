@@ -238,7 +238,9 @@ bool InitInstanceSync(const std::string &path, int index, int count) {
 		return false;
 	}
 	void *mem = nullptr;
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(UWP)
+	// Not there: UWP has no CreateFileW, and no headless build to run the tests.
+#elif PPSSPP_PLATFORM(WINDOWS)
 	syncFile = CreateFileW(ConvertUTF8ToWString(path).c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
 	if (syncFile != INVALID_HANDLE_VALUE) {
 		syncMapping = CreateFileMappingW(syncFile, nullptr, PAGE_READWRITE, 0, INSTANCE_SYNC_FILE_SIZE, nullptr);
