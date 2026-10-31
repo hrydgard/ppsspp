@@ -213,15 +213,13 @@ void GameButton::Draw(UIContext &dc) {
 		imageIcon = ImageID("I_LINK_OUT_QUESTION");
 	}
 
-	int x = bounds_.x;
-	int y = bounds_.y;
-	int w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
-	int h = bounds_.h;
+	Bounds iconBounds = bounds_;
+	iconBounds.w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
 	if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-		x += LARGE_LIST_LEFT_PAD;
-		y += LARGE_LIST_PAD;
-		w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
-		h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
+		iconBounds.x += LARGE_LIST_LEFT_PAD;
+		iconBounds.y += LARGE_LIST_PAD;
+		iconBounds.w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
+		iconBounds.h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
 	}
 	const float textX = ListTextX(viewMode_);
 
@@ -253,9 +251,9 @@ void GameButton::Draw(UIContext &dc) {
 
 		// Adjust position so we don't stretch the image vertically or horizontally.
 		// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
-		float nw = std::min(h * tw / th, (float)w);
-		x += (w - nw) / 2.0f;
-		w = nw;
+		float nw = std::min(iconBounds.h * tw / th, (float)iconBounds.w);
+		iconBounds.x += (iconBounds.w - nw) / 2.0f;
+		iconBounds.w = nw;
 	}
 
 	int txOffset = down_ ? 4 : 0;
@@ -269,29 +267,31 @@ void GameButton::Draw(UIContext &dc) {
 	int dropsize = 10;
 	if (texture) {
 		if (viewMode_ == GameBrowserViewMode::LIST) {
-			x += 4;
+			iconBounds.x += 4;
 		}
 		if (txOffset) {
 			dropsize = 3;
-			y += txOffset * 2;
+			iconBounds.y += txOffset * 2;
 			overlayBounds.y += txOffset * 2;
 		}
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
 			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
-			dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, x - dropsize * 1.5f, y - dropsize * 1.5f, x + w + dropsize * 1.5f, y + h + dropsize * 1.5f, alphaMul(color, pulse), 1.0f);
+
+			dc.DrawRectDropShadow(iconBounds, 10.0f, pulse, alphaMul(color, pulse));
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, x - dropsize, y - dropsize * 0.5f, x + w + dropsize, y + h + dropsize * 1.5, alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, shadowColor);
+			// dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, x - dropsize, y - dropsize * 0.5f, x + w + dropsize, y + h + dropsize * 1.5, alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
 
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(x, y, x + w, y + h, 0, 0, 1, 1, color);
+		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, color);
 		dc.Draw()->Flush();
 	}
 
@@ -302,24 +302,9 @@ void GameButton::Draw(UIContext &dc) {
 			idStr = ga->T("SaveData");
 		}
 		dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
-		dc.DrawText(idStr, bounds_.x + 5, y + 1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(idStr, bounds_.x + 4, y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
+		dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
+		dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
-	}
-
-	u32 overlayColor = 0;
-	if (holdEnabled_ && holdStart_ != 0.0) {
-		double time_held = time_now_d() - holdStart_;
-		overlayColor = whiteAlpha(time_held / 2.5f);
-		if (holdStart_ != 0.0) {
-			double time_held = time_now_d() - holdStart_;
-			int holdFrameCount = (int)(time_held * 60.0f);
-			if (holdFrameCount > 60) {
-				// Blink before launching by holding
-				if (((holdFrameCount >> 3) & 1) == 0)
-					overlayColor = 0x0;
-			}
-		}
 	}
 
 	if (imageIcon.isValid()) {
@@ -395,11 +380,11 @@ void GameButton::Draw(UIContext &dc) {
 		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR_SMALL"));
 		if (gearImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, iconBounds.y2() - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_LEFT_PAD, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_LEFT_PAD, iconBounds.y2() - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, y, 1.0f);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, iconBounds.y, 1.0f);
 			}
 		}
 	}
@@ -418,12 +403,12 @@ void GameButton::Draw(UIContext &dc) {
 		if (regionImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (regionImage->w + 5) * g_Config.fGameGridScale,
-					y + h - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
+					iconBounds.y2() - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - regionImage->w - 5) * g_Config.fGameGridScale,
-					y + h - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
+					iconBounds.y2() - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, y + h - regionImage->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, iconBounds.y2() - regionImage->h - 5, 1.0f);
 			}
 		}
 	}
@@ -440,6 +425,21 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(ImageID("I_INFO"), infoBounds.centerX(), infoBounds.centerY(), 1.0f, infoStyle.fgColor, ALIGN_CENTER);
 	}
 
+	u32 overlayColor = 0;
+	if (holdEnabled_ && holdStart_ != 0.0) {
+		double time_held = time_now_d() - holdStart_;
+		overlayColor = whiteAlpha(time_held / 2.5f);
+		if (holdStart_ != 0.0) {
+			double time_held = time_now_d() - holdStart_;
+			int holdFrameCount = (int)(time_held * 60.0f);
+			if (holdFrameCount > 60) {
+				// Blink before launching by holding
+				if (((holdFrameCount >> 3) & 1) == 0)
+					overlayColor = 0x0;
+			}
+		}
+	}
+
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
@@ -448,7 +448,6 @@ void GameButton::Draw(UIContext &dc) {
 	GamePacker::Status packStatus;
 	if (GamePacker::IsPacking(gamePath_) && GamePacker::GetStatus(&packStatus)) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
-		const Bounds iconBounds(x, y, w, h);
 		dc.FillRect(Drawable(0xD0505050), iconBounds);
 		const float scale = viewMode_ == GameBrowserViewMode::GRID || viewMode_ == GameBrowserViewMode::LARGE_LIST ? 0.8f * g_Config.fGameGridScale : 0.6f;
 		dc.SetFontStyle(dc.GetTheme().uiFont);
