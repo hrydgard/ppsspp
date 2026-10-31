@@ -454,6 +454,7 @@ void deleteAllAdhocSockets() {
 			adhocSockets[i] = NULL;
 		}
 	}
+	pdpDropAllQueues();
 }
 
 void deleteAllGMB() {

@@ -33,8 +33,13 @@
 
 #include "Common/Log.h"
 #include "Common/SysError.h"
+#include "Common/TimeUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
+#include <algorithm>
+#include <atomic>
 #include <cstdint>
+#include <thread>
 
 uint8_t PPSSPP_ID = 0;
 
@@ -202,4 +207,157 @@ void ShutdownInstanceCounter() {
 		hIDMapFile = -1;
 	}
 #endif
+}
+
+// Instance sync (see Instance.h). Each slot holds the emulated millisecond its instance has reached,
+// plus one: 0 is an instance that hasn't started yet, and SYNC_LEFT one that has quit.
+static constexpr int SYNC_MAX_INSTANCES = 255;
+static constexpr int32_t SYNC_LEFT = INT32_MAX;
+// An instance that stops moving (paused in a debugger, or crashed) is waited for this long, in wall
+// seconds, and then left out until it moves again. One that hasn't started yet gets longer, to boot.
+static constexpr double SYNC_STALL_SECONDS = 2.0;
+static constexpr double SYNC_JOIN_SECONDS = 10.0;
+
+static std::atomic<int32_t> *syncSlots = nullptr;
+static int syncIndex = 0;
+static int syncCount = 0;
+static int32_t syncPublished = 0;
+static int32_t syncLastSeen[SYNC_MAX_INSTANCES];
+static double syncLastChange[SYNC_MAX_INSTANCES];
+static bool syncIgnored[SYNC_MAX_INSTANCES];
+#if PPSSPP_PLATFORM(WINDOWS)
+static HANDLE syncFile = INVALID_HANDLE_VALUE;
+static HANDLE syncMapping = nullptr;
+#endif
+
+static_assert(sizeof(std::atomic<int32_t>) == sizeof(int32_t) && SYNC_MAX_INSTANCES * sizeof(int32_t) <= INSTANCE_SYNC_FILE_SIZE, "Instance sync slots don't fit");
+
+bool InitInstanceSync(const std::string &path, int index, int count) {
+	if (index < 1 || count < 1 || index > count || count > SYNC_MAX_INSTANCES) {
+		ERROR_LOG(Log::System, "Instance sync: bad instance %d of %d", index, count);
+		return false;
+	}
+	void *mem = nullptr;
+#if PPSSPP_PLATFORM(UWP)
+	// Not there: UWP has no CreateFileW, and no headless build to run the tests.
+#elif PPSSPP_PLATFORM(WINDOWS)
+	syncFile = CreateFileW(ConvertUTF8ToWString(path).c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	if (syncFile != INVALID_HANDLE_VALUE) {
+		syncMapping = CreateFileMappingW(syncFile, nullptr, PAGE_READWRITE, 0, INSTANCE_SYNC_FILE_SIZE, nullptr);
+	}
+	if (syncMapping) {
+		mem = MapViewOfFile(syncMapping, FILE_MAP_ALL_ACCESS, 0, 0, INSTANCE_SYNC_FILE_SIZE);
+	}
+#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
+	// Not needed there: the instances run on a desktop.
+#else
+	int fd = open(path.c_str(), O_RDWR);
+	if (fd >= 0) {
+		mem = mmap(nullptr, INSTANCE_SYNC_FILE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+		// The mapping keeps the file.
+		close(fd);
+		if (mem == MAP_FAILED) {
+			mem = nullptr;
+		}
+	}
+#endif
+	if (!mem) {
+		ERROR_LOG(Log::System, "Instance sync: can't map %s: %s", path.c_str(), GetLastErrorMsg().c_str());
+		ShutdownInstanceSync();
+		return false;
+	}
+	syncSlots = (std::atomic<int32_t> *)mem;
+	syncIndex = index;
+	syncCount = count;
+	const double now = time_now_d();
+	for (int i = 0; i < SYNC_MAX_INSTANCES; i++) {
+		syncLastSeen[i] = -1;
+		syncLastChange[i] = now;
+		syncIgnored[i] = false;
+	}
+	INFO_LOG(Log::System, "Instance sync: instance %d of %d, through %s", index, count, path.c_str());
+	return true;
+}
+
+void ShutdownInstanceSync() {
+	if (syncSlots) {
+		// Don't keep the others waiting for us.
+		syncSlots[syncIndex - 1].store(SYNC_LEFT);
+#if PPSSPP_PLATFORM(WINDOWS)
+		UnmapViewOfFile(syncSlots);
+#elif !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__) && !PPSSPP_PLATFORM(SWITCH)
+		munmap(syncSlots, INSTANCE_SYNC_FILE_SIZE);
+#endif
+		syncSlots = nullptr;
+	}
+#if PPSSPP_PLATFORM(WINDOWS)
+	if (syncMapping) {
+		CloseHandle(syncMapping);
+		syncMapping = nullptr;
+	}
+	if (syncFile != INVALID_HANDLE_VALUE) {
+		CloseHandle(syncFile);
+		syncFile = INVALID_HANDLE_VALUE;
+	}
+#endif
+}
+
+bool InstanceSyncEnabled() {
+	return syncSlots != nullptr;
+}
+
+// Whether instance i (0-based) still holds us back from passing `value`.
+static bool SyncBehind(int i, int32_t value, double now) {
+	const int32_t v = syncSlots[i].load(std::memory_order_acquire);
+	if (v != syncLastSeen[i]) {
+		syncLastSeen[i] = v;
+		syncLastChange[i] = now;
+		if (syncIgnored[i]) {
+			INFO_LOG(Log::System, "Instance sync: instance %d is moving again", i + 1);
+			syncIgnored[i] = false;
+		}
+	}
+	if (v >= value || syncIgnored[i]) {
+		return false;
+	}
+	if (now - syncLastChange[i] > (v == 0 ? SYNC_JOIN_SECONDS : SYNC_STALL_SECONDS)) {
+		WARN_LOG(Log::System, "Instance sync: instance %d %s, going on without it", i + 1, v == 0 ? "hasn't started" : "has stopped");
+		syncIgnored[i] = true;
+		return false;
+	}
+	return true;
+}
+
+void InstanceSyncStandAside(bool aside) {
+	if (syncSlots) {
+		syncSlots[syncIndex - 1].store(aside ? SYNC_LEFT : syncPublished, std::memory_order_release);
+	}
+}
+
+void InstanceSyncReached(int64_t ms) {
+	if (!syncSlots) {
+		return;
+	}
+	const int32_t value = (int32_t)std::min<int64_t>(ms + 1, SYNC_LEFT - 1);
+	syncPublished = value;
+	syncSlots[syncIndex - 1].store(value, std::memory_order_release);
+	// Usually the others are a few microseconds of wall time away, so yield first. Spinning longer
+	// would take the CPU from the instance being waited for.
+	for (int tries = 0; ; tries++) {
+		const double now = time_now_d();
+		bool behind = false;
+		for (int i = 0; i < syncCount && !behind; i++) {
+			if (i != syncIndex - 1) {
+				behind = SyncBehind(i, value, now);
+			}
+		}
+		if (!behind) {
+			return;
+		}
+		if (tries < 16) {
+			std::this_thread::yield();
+		} else {
+			std::this_thread::sleep_for(std::chrono::microseconds(50));
+		}
+	}
 }

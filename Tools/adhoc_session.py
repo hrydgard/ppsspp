@@ -11,8 +11,8 @@
 #   python3 Tools/adhoc_session.py run script.txt     (lines like the commands above, without the prefix)
 #   python3 Tools/adhoc_session.py stop
 #
-# The instances run freely at PSP speed (--realtime, and --lag-sync unless --no-lag-sync), or at
-# --speed PERCENT of it, and each one gets its own memory stick with a copy of the real one's savedata,
+# The instances run at PSP speed (--realtime, and --lag-sync unless --no-lag-sync), or at --speed
+# PERCENT of it, kept within an emulated millisecond of each other unless --no-sync, and each one gets its own memory stick with a copy of the real one's savedata,
 # so they can't overwrite each other's (or your) saves. The firmware comes from the real memory stick's
 # NAND. Times in commands (wait, --every, --timeout, --poll) are emulated seconds, so a script runs the
 # same at any speed.
@@ -199,6 +199,18 @@ def find_headless():
 	return max(candidates, key=os.path.getmtime)
 
 
+def wait_for_server(port=27312, timeout=5.0):
+	# The others log in to the first instance's built-in ad hoc server as they start, so it has to be
+	# listening by then. (Emulated time doesn't need it to start first: the instance sync holds it back.)
+	give_up = time.time() + timeout
+	while time.time() < give_up:
+		try:
+			socket.create_connection(("127.0.0.1", port), timeout=0.1).close()
+			return
+		except OSError:
+			time.sleep(0.01)
+
+
 def loopback_aliases_missing(n):
 	try:
 		out = subprocess.run(["ifconfig", "lo0"], capture_output=True, text=True).stdout
@@ -225,6 +237,12 @@ def cmd_start(args):
 	with open(ini, "w") as f:
 		f.write("[Network]\nproAdhocServer = 127.0.0.1\nAdhocServerRelayMode = %d\n" % (0 if args.p2p else 1))
 	names = [name.strip() for name in args.names.split(",")] if args.names else []
+	sync_file = None
+	if not args.no_sync:
+		# The instances keep within an emulated millisecond of each other through this file (InitInstanceSync).
+		sync_file = os.path.join(args.dir, "sync")
+		with open(sync_file, "wb") as f:
+			f.write(bytes(4096))
 	instances = []
 	for n in range(1, args.n + 1):
 		memstick = os.path.join(args.dir, "memstick%d" % n)
@@ -236,6 +254,8 @@ def cmd_start(args):
 			"--appendconfig=" + ini, "--debugger-run=0", "--timeout-wall=%d" % args.timeout]
 		if not args.no_lag_sync:
 			cmd.append("--lag-sync")
+		if sync_file:
+			cmd += ["--sync-file=" + sync_file, "--sync-count=%d" % args.n]
 		if args.speed != 100:
 			cmd.append("--speed=%d" % args.speed)
 		if n == 1:
@@ -251,8 +271,7 @@ def cmd_start(args):
 			proc = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
 		instances.append({"n": n, "pid": proc.pid, "log": log, "port": None})
 		if n == 1:
-			# Let the built-in server come up before the others log in.
-			time.sleep(1.0)
+			wait_for_server()
 	for inst in instances:
 		for _ in range(100):
 			with open(inst["log"], errors="replace") as f:
@@ -538,6 +557,7 @@ def build_parser():
 	p.add_argument("--p2p", action="store_true", help="Talk directly instead of through the relay (needs a loopback address per instance)")
 	p.add_argument("--names", help="Comma-separated nicknames for the instances (default: PPSSPP 1, PPSSPP 2, ...)")
 	p.add_argument("--no-lag-sync", action="store_true", help="Pace once per frame, like the app's default")
+	p.add_argument("--no-sync", action="store_true", help="Let each instance run at its own pace instead of keeping them in step in emulated time")
 	p.add_argument("--speed", type=int, default=100, help="Run at this percentage of PSP speed (scripts count emulated time)")
 	p.add_argument("--state", help="Savestate to load at boot in every instance")
 	p.add_argument("--memstick", default=DEFAULT_MEMSTICK, help="Memory stick to take the firmware and savedata from")

@@ -76,130 +76,6 @@ static bool ptpReallyConnected(int fd, int *error) {
 	return false;
 }
 
-int P2PTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
-	auto& pdpsocket = adhocSockets[req.id - 1]->data.pdp;
-
-	int ret;
-	int sockerr;
-	SceNetEtherAddr mac;
-	struct sockaddr_in sin;
-	socklen_t sinlen;
-
-	sinlen = sizeof(sin);
-	memset(&sin, 0, sinlen);
-
-	// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
-	ret = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-	sockerr = socket_errno;
-
-	// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
-	// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself,
-	//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
-	//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
-	//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
-	// Out of the group, nothing from anyone else reaches us either (pspautotests net/adhoc/pair/vanish).
-	if (ret != SOCKET_ERROR && (!resolveIP(sin.sin_addr.s_addr, &mac) || (offAdhocNetwork() && !isLocalMac(&mac)))) {
-		// Remove the packet from socket buffer
-		sinlen = sizeof(sin);
-		memset(&sin, 0, sinlen);
-		recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-		// Try again later, until timeout reached
-		u64 now = CoreTiming::GetGlobalTimeUs();
-		if (req.timeout != 0 && now - req.startTime > req.timeout) {
-			result = SCE_NET_ADHOC_ERROR_TIMEOUT;
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i]: Discard Timeout", req.id);
-			return 0;
-		}
-		else
-			return -1;
-	}
-
-	// At this point we assumed that the packet is a valid PPSSPP packet. A datagram larger than the
-	// buffer isn't copied at all (pspautotests net/adhoc/pdp).
-
-	// Note: UDP must not be received partially, otherwise leftover data in socket's buffer will be discarded
-	if (ret >= 0 && ret <= *req.length) {
-		sinlen = sizeof(sin);
-        memset(&sin, 0, sinlen);
-		ret = recvfrom(pdpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-		// As in PdpRecv: out of the group, nothing from anyone else, whatever the peek saw.
-		if (ret >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
-			u64 now = CoreTiming::GetGlobalTimeUs();
-			if (req.timeout != 0 && now - req.startTime > req.timeout) {
-				result = SCE_NET_ADHOC_ERROR_TIMEOUT;
-				return 0;
-			}
-			return -1;
-		}
-		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
-		*req.length = 0;
-		if (ret >= 0) {
-			DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-
-			// Find Peer MAC
-			if (resolveIP(sin.sin_addr.s_addr, &mac)) {
-				// Provide Sender Information
-				*req.remoteMAC = mac;
-				*req.remotePort = ntohs(sin.sin_port) - portOffset;
-
-				// Save Length
-				*req.length = ret;
-
-				// Update last recv timestamp
-				peerlock.lock();
-				auto peer = findFriend(&mac);
-				if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-				peerlock.unlock();
-			}
-			// Unknown Peer
-			else {
-				*req.length = ret;
-				*req.remotePort = ntohs(sin.sin_port) - portOffset;
-
-				WARN_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", req.id, getLocalPort(pdpsocket.id), ret, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-			}
-		}
-		result = 0;
-	}
-	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound yet), may need to disable SIO_UDP_CONNRESET error
-	else if (sockerr == EAGAIN || sockerr == EWOULDBLOCK || sockerr == ECONNRESET) {
-		u64 now = CoreTiming::GetGlobalTimeUs();
-		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
-			// Try again later
-			return -1;
-		}
-		else
-			result = SCE_NET_ADHOC_ERROR_TIMEOUT;
-	}
-	// Returning required buffer size when available data in recv buffer is larger than provided buffer size
-	else if (ret > *req.length) {
-		WARN_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", req.id, getLocalPort(pdpsocket.id), ret, *req.length, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-		*req.length = ret;
-
-		// Find Peer MAC
-		if (resolveIP(sin.sin_addr.s_addr, &mac)) {
-			// Provide Sender Information
-			*req.remoteMAC = mac;
-			*req.remotePort = ntohs(sin.sin_port) - portOffset;
-
-			// FIXME: Do we need to update last recv timestamp? eventhough data hasn't been retrieved yet (ie. peeked)
-			peerlock.lock();
-			auto peer = findFriend(&mac);
-			if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-			peerlock.unlock();
-		}
-		result = SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
-	}
-	// FIXME: Blocking operation with infinite timeout(0) should never get a TIMEOUT error, right? May be we should return INVALID_ARG instead if it was infinite timeout (0)?
-	else
-		result = SCE_NET_ADHOC_ERROR_TIMEOUT; // SCE_NET_ADHOC_ERROR_INVALID_ARG; // SCE_NET_ADHOC_ERROR_DISCONNECTED
-
-	if (ret == SOCKET_ERROR)
-		DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i]: Socket Error (%i)", req.id, sockerr);
-
-	return 0;
-}
-
 int P2PTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) {
 	// Out of the group, it goes into the air and reaches nobody (pspautotests net/adhoc/pair/vanish).
 	if (offAdhocNetwork() && !isLocalMac(mac)) {
@@ -208,6 +84,28 @@ int P2PTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, 
 	int sent = sendto(adhocSockets[id - 1]->data.pdp.id, (const char *)data, len, MSG_NOSIGNAL, (const struct sockaddr *)&target, sizeof(target));
 	*error = socket_errno;
 	return sent;
+}
+
+bool P2PTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) {
+	int fd = adhocSockets[id - 1]->data.pdp.id;
+	while (true) {
+		struct sockaddr_in sin {};
+		socklen_t sinlen = sizeof(sin);
+		// On Windows this can fail with WSAECONNRESET when an earlier sendto's destination was unreachable;
+		// that's nothing waiting too.
+		int received = recvfrom(fd, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr *)&sin, &sinlen);
+		if (received == SOCKET_ERROR) {
+			return false;
+		}
+		// Only from someone in the group (another app could be sending to the same port), and out of the
+		// group, from nobody else (pspautotests net/adhoc/pair/vanish).
+		if (!resolveIP(sin.sin_addr.s_addr, mac) || (offAdhocNetwork() && !isLocalMac(mac))) {
+			continue;
+		}
+		*port = ntohs(sin.sin_port) - portOffset;
+		data.assign(dummyPeekBuf64k, dummyPeekBuf64k + received);
+		return true;
+	}
 }
 
 // send() and recv() on a PTP socket, as a PSP's radio would see them (pspautotests net/adhoc/pair/vanish):
@@ -354,12 +252,16 @@ int P2PTransport::DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) {
 	}
 
 	// Accepted New Connection
+	int newid = 0;
 	if (ret > 0) {
-		int newid = AcceptPtpSocket(req.id, ret, sin, req.remoteMAC, req.remotePort);
-		if (newid > 0)
-			result = newid;
+		// Fails (and closes the connection) when it comes from someone not in the group (yet); then keep
+		// waiting, like the relay transport.
+		newid = AcceptPtpSocket(req.id, ret, sin, req.remoteMAC, req.remotePort);
 	}
-	else if (ret == 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
+	if (newid > 0) {
+		result = newid;
+	}
+	else if (ret >= 0 || (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK))) {
 		u64 now = CoreTiming::GetGlobalTimeUs();
 		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 			return -1;
@@ -458,10 +360,6 @@ bool P2PTransport::PtpConnectPending(int error) {
 
 bool P2PTransport::PdpReadyToSend(AdhocSocket *sock) {
 	return IsSocketReady(sock->data.pdp.id, false, true) > 0;
-}
-
-bool P2PTransport::PdpReadyToRecv(AdhocSocket *sock) {
-	return IsSocketReady(sock->data.pdp.id, true, false) > 0;
 }
 
 int P2PTransport::PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) {
@@ -592,150 +490,6 @@ int P2PTransport::PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSi
 	return i + 1;
 }
 
-int P2PTransport::PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) {
-	auto& pdpsocket = adhocSockets[id - 1]->data.pdp;
-
-	// Sender Address
-	struct sockaddr_in sin;
-	socklen_t sinlen;
-
-	// Acquire Network Lock
-	//_acquireNetworkLock();
-
-	SceNetEtherAddr mac;
-	int received = 0;
-	int error = 0;
-
-	int disCnt = 16;
-	while (--disCnt > 0)
-	{
-		// Receive Data. PDP always sent in full size or nothing(failed), recvfrom will always receive in full size as requested (blocking) or failed (non-blocking). If available UDP data is larger than buffer, excess data is lost.
-		// Should peek first for the available data size if it's more than len return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE along with required size in len to prevent losing excess data
-		// On Windows: MSG_TRUNC are not supported on recvfrom (socket error WSAEOPNOTSUPP), so we use dummy buffer as an alternative
-		sinlen = sizeof(sin);
-		memset(&sin, 0, sinlen);
-		received = recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-		error = socket_errno;
-		// Discard packets from IP that can't be translated into MAC address to prevent confusing the game, since the sender MAC won't be updated and may contains invalid/undefined value.
-		// TODO: In order to discard packets from unresolvable IP (can't be translated into player's MAC) properly, we'll need to manage the socket buffer ourself,
-		//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
-		//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
-		//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
-		// Note: Looping to check too many packets (ie. contiguous) to discard per one non-blocking PdpRecv syscall may cause a slow down
-		// Out of the group, nothing from anyone else reaches us either (pspautotests net/adhoc/pair/vanish).
-		if (received != SOCKET_ERROR && (!resolveIP(sin.sin_addr.s_addr, &mac) || (offAdhocNetwork() && !isLocalMac(&mac)))) {
-			// Remove the packet from socket buffer
-			sinlen = sizeof(sin);
-			memset(&sin, 0, sinlen);
-			recvfrom(pdpsocket.id, dummyPeekBuf64k, dummyPeekBuf64kSize, MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-			if (flag) {
-				VERBOSE_LOG(Log::sceNet, "%08x=sceNetAdhocPdpRecv: would block (disc)", SCE_NET_ADHOC_ERROR_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
-				return SCE_NET_ADHOC_ERROR_WOULD_BLOCK; // hleLogSuccessVerboseX(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block (disc)");
-			}
-			else {
-				// Simulate blocking behaviour with non-blocking socket, and discard more unresolvable packets until timeout reached
-				u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
-				return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv (disc)");
-			}
-		}
-		else
-			break;
-	}
-
-	// At this point we assumed that the packet is a valid PPSSPP packet
-	if (received != SOCKET_ERROR && *len < received) {
-		INFO_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Peeked %u/%u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, *len, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-
-		// A datagram larger than the buffer stays queued, and isn't copied (pspautotests net/adhoc/pdp).
-		// Return the actual available data size
-		*len = received;
-
-		// Provide Sender Information
-		*saddr = mac;
-		*sport = ntohs(sin.sin_port) - portOffset;
-
-		// Update last recv timestamp, may cause disconnection not detected properly tho
-		peerlock.lock();
-		auto peer = findFriend(&mac);
-		if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-		peerlock.unlock();
-
-		return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE, "not enough space");
-	}
-
-	sinlen = sizeof(sin);
-	memset(&sin, 0, sinlen);
-	// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
-	received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-	error = socket_errno;
-	// The datagram checked above isn't always this one: on Windows a peek can fail (WSAECONNRESET) and leave
-	// the next datagram unchecked. Out of the group, nothing from anyone else reaches us.
-	if (received >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
-		received = SOCKET_ERROR;
-		error = EAGAIN;
-	}
-
-	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
-	if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
-		if (flag == 0) {
-			// Simulate blocking behaviour with non-blocking socket
-			u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
-			return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
-		}
-
-		VERBOSE_LOG(Log::sceNet, "%08x=sceNetAdhocPdpRecv: would block", SCE_NET_ADHOC_ERROR_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
-		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK; // hleLogSuccessVerboseX(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
-	}
-
-	hleEatMicro(50);
-	// Received Data. UDP can also receives 0 data, while on TCP 0 data = connection gracefully closed, but not sure about PDP tho
-	if (received >= 0) {
-		DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-
-		// Find Peer MAC
-		if (resolveIP(sin.sin_addr.s_addr, &mac)) {
-			// Provide Sender Information
-			*saddr = mac;
-			*sport = ntohs(sin.sin_port) - portOffset;
-
-			// Save Length
-			*len = received; // The PSP writes the received length back (pspautotests net/adhoc/pdp).
-
-			// Update last recv timestamp, may cause disconnection not detected properly tho
-			peerlock.lock();
-			auto peer = findFriend(&mac);
-			if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-			peerlock.unlock();
-
-			// Free Network Lock
-			//_freeNetworkLock();
-
-			// Return Success. According to pspsdk-1.0+beta2 returned value is Number of bytes received, but JPCSP returning 0?
-			return 0; // 0, not the length, as on the PSP (pspautotests net/adhoc/pdp). KH BBS can't see rooms otherwise.
-		}
-
-		// Free Network Lock
-		//_freeNetworkLock();
-
-		//free(tmpbuf);
-
-		// Receiving data from unknown peer? Should never reached here! Unless the Peeked's packet was different than the Recved one (which mean there is a problem)
-		WARN_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Received %i bytes from Unknown Peer %s:%u", id, getLocalPort(pdpsocket.id), received, ip2str(sin.sin_addr).c_str(), ntohs(sin.sin_port));
-		if (flag) {
-			VERBOSE_LOG(Log::sceNet, "%08x=sceNetAdhocPdpRecv: would block (problem)", SCE_NET_ADHOC_ERROR_WOULD_BLOCK); // Temporary fix to avoid a crash on the Logs due to trying to Logs syscall's argument from another thread (ie. AdhocMatchingInput thread)
-			return SCE_NET_ADHOC_ERROR_WOULD_BLOCK; // hleLogSuccessVerboseX(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block (problem)");
-		}
-	}
-
-	// Free Network Lock
-	//_freeNetworkLock();
-
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpRecv[%i:%u]: Result:%i (Error:%i)", id, pdpsocket.lport, received, error);
-
-	// Unexpected error (other than EAGAIN/EWOULDBLOCK/ECONNRESET) or in case the Peeked's packet was different than Recved one, treated as Timeout?
-	return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "timeout?");
-}
-
 static int hostSocketOf(const AdhocSocket *sock) {
 	return sock->type == SOCK_PTP ? sock->data.ptp.id : sock->data.pdp.id;
 }
@@ -769,7 +523,6 @@ int P2PTransport::PollWait(SceNetAdhocPollSd *sds, int count, int timeout, Adhoc
 			states[i].readable = FD_ISSET(fd, &readfds);
 			states[i].writable = FD_ISSET(fd, &writefds);
 			states[i].error = FD_ISSET(fd, &exceptfds);
-			states[i].alerted = sock->alerted_flags != 0;
 		}
 	}
 	return ret;
@@ -816,22 +569,6 @@ int P2PTransport::PdpDelete(int id) {
 
 	// Success
 	return 0;
-}
-
-void P2PTransport::PdpUpdateRecvStat(int id, AdhocSocket *sock) {
-	sock->data.pdp.rcv_sb_cc = getAvailToRecv(sock->data.pdp.id, sock->buffer_size);
-	// There might be a possibility for the data to be taken by the OS, thus FIONREAD returns 0, but can be Received
-	if (sock->data.pdp.rcv_sb_cc == 0) {
-		// Let's try to peek the data size
-		// TODO: May need to filter out packets from an IP that can't be translated to MAC address
-		struct sockaddr_in sin;
-		socklen_t sinlen;
-		sinlen = sizeof(sin);
-		memset(&sin, 0, sinlen);
-		int received = recvfrom(sock->data.pdp.id, dummyPeekBuf64k, std::min((u32)dummyPeekBuf64kSize, sock->buffer_size), MSG_PEEK | MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
-		if (received > 0)
-			sock->data.pdp.rcv_sb_cc = received;
-	}
 }
 
 void P2PTransport::PtpUpdateRecvStat(AdhocSocket *sock) {

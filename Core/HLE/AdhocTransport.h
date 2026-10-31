@@ -19,6 +19,7 @@
 
 #include "Core/HLE/proAdhoc.h"
 #include <chrono>
+#include <vector>
 
 #include "Core/HLE/sceNetAdhoc.h"
 
@@ -27,8 +28,6 @@ struct AdhocPollState {
 	bool readable = false;
 	bool writable = false;
 	bool error = false;
-	// An alert raised on the socket earlier (P2P reports it in poll, the relay doesn't).
-	bool alerted = false;
 };
 
 // How ad hoc sockets reach the other consoles: through the aemu_postoffice relay, or directly over the
@@ -61,15 +60,12 @@ public:
 	// Sends one datagram to one peer, whose address resolveMAC() has filled into target. Returns the
 	// number of bytes sent, or SOCKET_ERROR with an errno value in *error.
 	virtual int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) = 0;
-	// The rest of sceNetAdhocPdpRecv.
-	virtual int PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) = 0;
-	// The rest of a blocking receive's retry.
-	virtual int DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) = 0;
-	// Updates rcv_sb_cc, the bytes waiting to be received, for sceNetAdhocGetPdpStat.
-	virtual void PdpUpdateRecvStat(int id, AdhocSocket *sock) = 0;
-	// Whether game mode should try sending to / receiving from its socket now.
+	// Takes the next datagram that has arrived from someone in the group, without waiting: its sender,
+	// the sender's port and its data. False if there's none. (Received datagrams go into the socket's
+	// queue in sceNetAdhoc.cpp, which PdpRecv and GetPdpStat read.)
+	virtual bool PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) = 0;
+	// Whether game mode should try sending from its socket now.
 	virtual bool PdpReadyToSend(AdhocSocket *sock) = 0;
-	virtual bool PdpReadyToRecv(AdhocSocket *sock) = 0;
 
 	// PTP
 
@@ -130,6 +126,7 @@ bool offAdhocNetwork();
 bool isLocalMac(const SceNetEtherAddr *mac);
 void ptpSetEstablished(AdhocSocket *sock);
 void ptpSetRefused(AdhocSocket *sock);
+void pdpDropAllQueues();
 bool ptpPeerGone(const AdhocSocket *sock);
 void ptpNoteSend(AdhocSocket *sock);
 // The next free slot in adhocSockets, or MAX_SOCKET.
@@ -150,9 +147,7 @@ public:
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override;
 	int PdpDelete(int id) override;
 	int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) override;
-	int PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) override;
-	int DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) override;
-	void PdpUpdateRecvStat(int id, AdhocSocket *sock) override;
+	bool PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) override;
 
 	int PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) override;
 	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
@@ -173,7 +168,6 @@ public:
 
 	bool BindServerConnectionToLocalIp() override { return false; }
 	bool PdpReadyToSend(AdhocSocket *sock) override { return true; }
-	bool PdpReadyToRecv(AdhocSocket *sock) override { return true; }
 	// A connection's handle only comes once it's up, so there's no in-between to check.
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override { return ret; }
 	bool PtpConnectPending(int error) override { return true; }
@@ -189,9 +183,7 @@ public:
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override;
 	int PdpDelete(int id) override;
 	int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) override;
-	int PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, u32 timeout, int flag) override;
-	int DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) override;
-	void PdpUpdateRecvStat(int id, AdhocSocket *sock) override;
+	bool PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) override;
 
 	int PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) override;
 	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
@@ -212,7 +204,6 @@ public:
 
 	bool BindServerConnectionToLocalIp() override { return true; }
 	bool PdpReadyToSend(AdhocSocket *sock) override;
-	bool PdpReadyToRecv(AdhocSocket *sock) override;
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override;
 	bool PtpConnectPending(int error) override;
 	bool PtpConnectedSinceOpen(AdhocSocket *sock) override;

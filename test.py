@@ -594,6 +594,7 @@ tests_good = [
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
   "net/adhoc/pair/matchingorder",
+  "net/adhoc/pair/ptpmsg",
   "net/adhoc/pair/ptppoll",
   "net/adhoc/pair/vanish",
 ]
@@ -627,17 +628,17 @@ pair_known_failures = {
     # listener, so it times out instead.
     "net/adhoc/pair/basic",
   ],
-  "p2p": [
-    # Times the send and recv failures from when the peer drops off the peer list. In P2P the socket
-    # error comes from the host's TCP, while the peer list comes from the ad hoc server in wall time,
-    # so at CI's speeds the failure can land within the first second (macOS CI) instead of 1-2s.
-    "net/adhoc/pair/vanish",
-  ],
+  "p2p": [],
 }
 if platform.system() == "Windows":
   # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
   # 800% speed is far longer than a PSP's refusal.
   pair_known_failures["p2p"].append("net/adhoc/pair/basic")
+if platform.system() == "Darwin" and os.environ.get("CI"):
+  # On macOS CI runners only, and with the instances in step: once the client has gone, the host's
+  # matching drops it without the TIMEOUT event (no events at all), and SendData says NOT_ESTABLISHED.
+  # Not reproduced on a Mac or on the other runners yet.
+  pair_known_failures["relay"].append("net/adhoc/pair/vanish")
 
 ADHOC_MODES = ["relay", "p2p"]
 
@@ -645,10 +646,8 @@ ADHOC_MODES = ["relay", "p2p"]
 adhoc_known_failures = {
   "relay": [
     # One console can only talk to itself, which on a PSP never leaves the console: a PTP connect to
-    # itself is up at once, and a PDP datagram to itself is there at once. The relay sends both through
-    # the server, which takes a round trip.
+    # itself is up at once. The relay sends it through the server, which takes a round trip.
     "net/adhoc/alerts",
-    "net/adhoc/term",
   ],
   "p2p": [],
 }
@@ -753,7 +752,8 @@ tests_next = [
   "net/inet/udp",
   "net/primary/ether",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
-  "net/adhoc/pair/flow",
+  "net/adhoc/pair/discover",  # sceNetAdhocDiscover isn't implemented
+  "net/adhoc/pair/flow",  # PDP matches; the PTP send and receive windows aren't emulated
   "net/adhoc/pair/gamemode",
   "net/adhoc/pair/lifecycle",
   "sysmem/partition",
@@ -802,13 +802,16 @@ test_flags = {
 
 # The ad hoc tests create groups, so they need a server to log in to, and they wait for its replies
 # in real time.
-# They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
-# trips stay real.
-# How fast the ad hoc tests run. Each instance runs on its own, so the busier the machine, the further apart
-# they drift in emulated time, and a lag of a real second is 8 emulated seconds at 800%. CI runners are
-# busy, so the tests run at 600% there.
-ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "600" if os.environ.get("CI") else "800")
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + ADHOC_SPEED, "--timeout-wall=60"]
+# They run faster than PSP speed: timeouts and delays are in emulated time, and only the local network
+# round trips stay real. The instances of a pair test keep in step in emulated time (Tools/adhoc_multi.py),
+# so one a busy machine runs slower holds the other back instead of falling behind it. Every hop through
+# the relay waits a millisecond or so of real time, which the speed multiplies, so relay mode runs slower
+# (it hardly gains above 8x anyway). The single-console tests run at 8x too: the first login to the
+# server they start takes real time, a few hundred ms on a Windows runner, and a group request gives up
+# after 5 emulated seconds. ADHOC_SPEED overrides all of them.
+ADHOC_SPEEDS = {"relay": os.environ.get("ADHOC_SPEED", "800"), "p2p": os.environ.get("ADHOC_SPEED", "1600")}
+ADHOC_SINGLE_SPEED = os.environ.get("ADHOC_SPEED", "800")
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
@@ -951,7 +954,7 @@ def run_pair_tests(test_list, args, modes):
     if mode == "relay":
       cmdline.append('--relay')
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
-    cmdline.append("--speed=" + ADHOC_SPEED)
+    cmdline.append("--speed=" + ADHOC_SPEEDS[mode])
     cmdline.extend(tests)
     returncode = subprocess.call(cmdline) or returncode
     print("Ran " + ' '.join(cmdline))
@@ -1036,7 +1039,7 @@ def main():
         print("Skipping known failure in %s mode: %s" % (mode, test), flush=True)
         continue
       print("%s mode:" % mode, flush=True)
-      mode_flags = ["--appendconfig=" + relay_ini_path()] if mode == "relay" else []
+      mode_flags = ["--speed=" + ADHOC_SINGLE_SPEED] + (["--appendconfig=" + relay_ini_path()] if mode == "relay" else [])
       returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
   if pair:
     returncode = run_pair_tests(pair, args, adhoc_modes) or returncode

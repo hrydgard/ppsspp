@@ -30,6 +30,7 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
+#include "Core/Instance.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPS.h"
@@ -69,6 +70,8 @@ static s64 lastGlobalTimeUs;
 // debugger session, not to the emulated machine.
 static s64 breakDeadlineUs;
 static s64 breakDeadlineTicks;
+// The last emulated millisecond reported to the other instances (see InstanceSyncReached).
+static s64 lastInstanceSyncMs = -1;
 static void RecomputeBreakDeadline();
 
 bool SetClockFrequencyHz(int cpuHz) {
@@ -227,6 +230,7 @@ void Init(MIPSState *mips) {
 	lastGlobalTimeUs = 0;
 	breakDeadlineUs = 0;
 	breakDeadlineTicks = 0;
+	lastInstanceSyncMs = -1;
 	CPU_HZ = initialHz;
 }
 
@@ -454,6 +458,14 @@ void Advance(MIPSState *mips) {
 	globalTimer += cyclesExecuted;
 	mips->downcount = slicelength;
 
+	// Keep in step with the other instances. Before the deadline below, so one stopping there has
+	// still told the others it got this far.
+	const s64 syncTicks = InstanceSyncEnabled() ? usToCycles(1000) : 0;
+	if (syncTicks && globalTimer / syncTicks != lastInstanceSyncMs) {
+		lastInstanceSyncMs = globalTimer / syncTicks;
+		InstanceSyncReached(lastInstanceSyncMs);
+	}
+
 	// Debugger deadline - see SetBreakDeadlineTicks. Checked before the events so the break lands
 	// on the requested tick rather than after whatever the events do.
 	if (breakDeadlineTicks && globalTimer >= breakDeadlineTicks) {
@@ -485,6 +497,16 @@ void Advance(MIPSState *mips) {
 	// past it - the point of cpu.runUntilTime is that it stops at a reproducible place.
 	if (breakDeadlineTicks) {
 		const s64 remaining = breakDeadlineTicks - globalTimer;
+		if (remaining > 0 && remaining < slicelength) {
+			const int diff = (int)remaining - slicelength;
+			slicelength += diff;
+			mips->downcount += diff;
+		}
+	}
+
+	// Likewise come back at the next millisecond, for the instance sync.
+	if (syncTicks) {
+		const s64 remaining = (lastInstanceSyncMs + 1) * syncTicks - globalTimer;
 		if (remaining > 0 && remaining < slicelength) {
 			const int diff = (int)remaining - slicelength;
 			slicelength += diff;

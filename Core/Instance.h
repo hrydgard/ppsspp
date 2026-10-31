@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstdint>
+#include <string>
 
 extern uint8_t PPSSPP_ID;
 
@@ -30,3 +31,18 @@ int GetInstancePeerCount();
 inline bool IsFirstInstance() {
 	return PPSSPP_ID == 1;
 }
+
+// Keeps several instances on one machine in step in emulated time, for ad hoc tests: each one stops
+// at every emulated millisecond until all the others have reached it too, so they're never more than
+// a millisecond apart, however fast each one runs. They share a file of one slot per instance (the
+// launcher creates it, zero-filled, at least INSTANCE_SYNC_FILE_SIZE bytes); index is 1-based.
+constexpr int INSTANCE_SYNC_FILE_SIZE = 4096;
+bool InitInstanceSync(const std::string &path, int index, int count);
+void ShutdownInstanceSync();
+bool InstanceSyncEnabled();
+// Called by CoreTiming at each emulated millisecond: publishes it and waits for the others.
+void InstanceSyncReached(int64_t ms);
+// Around a wait in real time on the CPU thread for something another instance has to do (the others
+// would otherwise sit waiting for this one): meanwhile they run on without it, and wait for it to
+// catch up afterwards.
+void InstanceSyncStandAside(bool aside);

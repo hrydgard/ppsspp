@@ -431,6 +431,10 @@ bool IsGameModeActive() {
 	return netAdhocGameModeEntered && masterGameModeArea.data;
 }
 
+static bool pdpDatagramWaiting(int id);
+static void pdpFillQueues();
+static void pdpDropQueue(const AdhocSocket *sock);
+
 static void __GameModeNotify(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	u32 error;
@@ -543,7 +547,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 			}
 
 			// Recv new Replica data when available. Every member sends every period, so take all that's there.
-			for (int packets = 0; packets < ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 && Transport().PdpReadyToRecv(sock); ++packets) {
+			for (int packets = 0; packets < ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 && pdpDatagramWaiting(gameModeSocket); ++packets) {
 				SceNetEtherAddr sendermac;
 				s32_le senderport = ADHOC_GAMEMODE_PORT;
 				s32_le bufsz = gameModeBuffSize;
@@ -598,6 +602,7 @@ static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
 static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
 	friendFinderPoll();
 	Transport().Poll();
+	pdpFillQueues();
 	if (friendFinderRunning) {
 		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
 	}
@@ -884,6 +889,109 @@ void ptpNoteSend(AdhocSocket *sock) {
 	sock->ptpLastSendAt = now;
 }
 
+// PDP receive queues. A PSP keeps what arrives in the socket's buffer, of the size given to PdpCreate, and
+// drops a datagram that doesn't fit (pspautotests net/adhoc/pair/flow: a buffer of 0 gets nothing, one of
+// 2048 bytes only some of ten 1000-byte datagrams). So what the transport receives goes into a queue of
+// that many bytes, filled every millisecond and whenever the game looks, and the game reads from it.
+struct PdpDatagram {
+	SceNetEtherAddr mac;
+	uint16_t port;
+	std::vector<u8> data;
+};
+
+struct PdpQueue {
+	std::deque<PdpDatagram> datagrams;
+	u32 bytes = 0;
+};
+
+static std::map<const AdhocSocket *, PdpQueue> pdpQueues;
+
+static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint16_t port, const u8 *data, size_t len) {
+	PdpQueue &queue = pdpQueues[sock];
+	// Game mode's socket is ours rather than the game's: on a PSP game mode doesn't go through it.
+	bool unlimited = sock->data.pdp.lport == ADHOC_GAMEMODE_PORT;
+	if (!unlimited && queue.bytes + len > sock->buffer_size) {
+		VERBOSE_LOG(Log::sceNet, "PDP socket on port %d: %d-byte datagram from %s doesn't fit, dropped", sock->data.pdp.lport, (int)len, mac2str(&mac).c_str());
+		return;
+	}
+	queue.datagrams.push_back({ mac, port, std::vector<u8>(data, data + len) });
+	queue.bytes += (u32)len;
+}
+
+static void pdpFillQueue(int id) {
+	AdhocSocket *sock = adhocSockets[id - 1];
+	SceNetEtherAddr mac;
+	uint16_t port;
+	std::vector<u8> data;
+	while (Transport().PdpTakeDatagram(id, &mac, &port, data)) {
+		pdpQueueDatagram(sock, mac, port, data.data(), data.size());
+	}
+}
+
+static void pdpFillQueues() {
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP) {
+			pdpFillQueue(i + 1);
+		}
+	}
+}
+
+static void pdpDropQueue(const AdhocSocket *sock) {
+	pdpQueues.erase(sock);
+}
+
+void pdpDropAllQueues() {
+	pdpQueues.clear();
+}
+
+static bool pdpDatagramWaiting(int id) {
+	pdpFillQueue(id);
+	return !pdpQueues[adhocSockets[id - 1]].datagrams.empty();
+}
+
+// A datagram to ourselves never leaves the console: it's in the socket on its port at once
+// (pspautotests net/adhoc/pdp, net/adhoc/term). Nobody on that port, and it's gone.
+static void pdpDeliverLocally(uint16_t sport, uint16_t dport, const void *data, int len) {
+	SceNetEtherAddr localMac;
+	getLocalMac(&localMac);
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		AdhocSocket *sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PDP && sock->data.pdp.lport == dport) {
+			pdpQueueDatagram(sock, localMac, sport, (const u8 *)data, len);
+			return;
+		}
+	}
+}
+
+// Takes the first queued datagram into buf, or reports its size and sender with NOT_ENOUGH_SPACE when it
+// doesn't fit (it stays queued, pspautotests net/adhoc/pdp). 1 if there's none.
+static int pdpTakeFromQueue(AdhocSocket *sock, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len) {
+	PdpQueue &queue = pdpQueues[sock];
+	if (queue.datagrams.empty()) {
+		return 1;
+	}
+	PdpDatagram &datagram = queue.datagrams.front();
+	*saddr = datagram.mac;
+	*sport = datagram.port;
+	int size = (int)datagram.data.size();
+	if (size > *len) {
+		*len = size;
+		return SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE;
+	}
+	memcpy(buf, datagram.data.data(), size);
+	*len = size;
+	queue.bytes -= size;
+	queue.datagrams.pop_front();
+
+	peerlock.lock();
+	SceNetAdhocctlPeerInfo *peer = findFriend(saddr);
+	if (peer != NULL) {
+		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+	}
+	peerlock.unlock();
+	return 0;
+}
+
 int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 	auto sock = adhocSockets[req.id - 1];
 	if (!sock) {
@@ -895,7 +1003,22 @@ int DoBlockingPdpRecv(AdhocSocketRequest& req, s64& result) {
 		sock->alerted_flags |= ADHOC_F_ALERTRECV;
 		return 0;
 	}
-	return Transport().DoBlockingPdpRecv(req, result);
+	pdpFillQueue(req.id);
+	uint16_t port = 0;
+	int ret = pdpTakeFromQueue(sock, req.remoteMAC, &port, req.buffer, req.length);
+	if (ret != 1) {
+		*req.remotePort = port;
+	}
+	if (ret == 1) {
+		u64 now = CoreTiming::GetGlobalTimeUs();
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			return -1;
+		}
+		result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+		return 0;
+	}
+	result = ret;
+	return 0;
 }
 
 int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& targetPeers) {
@@ -1238,6 +1361,8 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
 		}
+		// Done with it, or the next blocking connect on a socket that reuses this id would be BUSY.
+		sendTargetPeers.erase(userdata);
 		break;
 
 	case PTP_FLUSH:
@@ -1832,7 +1957,9 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 		return SCE_NET_ADHOC_ERROR_INVALID_PORT;
 	}
 
-	// What the PSP does with a size under 1 isn't known; give the host one datagram's worth.
+	// A buffer of 0 receives nothing (pspautotests net/adhoc/pair/flow), which the receive queue takes care
+	// of. The host socket still gets one datagram's worth.
+	int queueSize = std::max(0, bufferSize);
 	if (bufferSize <= 0) {
 		bufferSize = PSP_ADHOC_PDP_MFS;
 	}
@@ -1877,7 +2004,11 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 		return SCE_NET_ADHOC_ERROR_INVALID_ADDR;
 	}
 
-	return Transport().PdpCreate(saddr, port, bufferSize, flag, isClient, postoffice_enet_pdp_reliable);
+	int id = Transport().PdpCreate(saddr, port, bufferSize, flag, isClient, postoffice_enet_pdp_reliable);
+	if (id > 0) {
+		adhocSockets[id - 1]->buffer_size = queueSize;
+	}
+	return id;
 }
 
 /**
@@ -2003,9 +2134,6 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 							// Schedule Timeout Removal
 							//if (flag) timeout = 0;
 
-							// Apply Send Timeout Settings to Socket
-							if (timeout > 0)
-								setSockTimeout(pdpsocket.id, SO_SNDTIMEO, timeout);
 
 							if (socket->flags & ADHOC_F_ALERTSEND) {
 								socket->alerted_flags |= ADHOC_F_ALERTSEND;
@@ -2015,6 +2143,11 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 
 							// Single Target
 							if (!isBroadcastMAC(daddr)) {
+								if (isLocalMac(daddr)) {
+									hleEatMicro(21);
+									pdpDeliverLocally(pdpsocket.lport, dport, data, len);
+									return 0;
+								}
 								// Fill in Target Structure
 								struct sockaddr_in target {};
 								target.sin_family = AF_INET;
@@ -2262,9 +2395,6 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 				}
 #endif
 
-				// Apply Receive Timeout Settings to Socket. Let's not wait forever (0 = indefinitely)
-				if (timeout > 0)
-					setSockTimeout(pdpsocket.id, SO_RCVTIMEO, timeout);
 
 				if (socket->flags & ADHOC_F_ALERTRECV) {
 					socket->alerted_flags |= ADHOC_F_ALERTRECV;
@@ -2272,7 +2402,20 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 				}
 
-				return Transport().PdpRecv(id, saddr, sport, buf, len, timeout, flag);
+				pdpFillQueue(id);
+				int ret = pdpTakeFromQueue(socket, saddr, sport, buf, len);
+				if (ret == 1) {
+					if (flag) {
+						return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "would block");
+					}
+					u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | pdpsocket.id;
+					return WaitBlockingAdhocSocket(threadSocketId, PDP_RECV, id, buf, len, timeout, saddr, sport, "pdp recv");
+				}
+				if (ret == SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE) {
+					return hleLogVerbose(Log::sceNet, ret, "not enough space");
+				}
+				hleEatMicro(50);
+				return hleLogDebug(Log::sceNet, 0, "received %d bytes from %s", *len, mac2str(saddr).c_str());
 			}
 
 			// Invalid Argument
@@ -2314,6 +2457,12 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 	}
 	std::vector<AdhocPollState> states(std::max(count, 0));
 	int affectedsockets = Transport().PollWait(sds, count, timeout, states.data());
+	// A PDP socket has something to receive when its queue does.
+	for (int i = 0; i < count; i++) {
+		if (sds[i].id > 0 && sds[i].id <= MAX_SOCKET && adhocSockets[sds[i].id - 1] != NULL && adhocSockets[sds[i].id - 1]->type == SOCK_PDP) {
+			states[i].readable = pdpDatagramWaiting(sds[i].id);
+		}
+	}
 	// A disconnected socket makes the call return EXCEPTION_EVENT, whatever else is ready.
 	bool disconnected = false;
 	if (affectedsockets >= 0) {
@@ -2327,7 +2476,7 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 					sds[i].revents |= ADHOC_EV_RECV;
 				if ((sds[i].events & ADHOC_EV_SEND) && state.writable)
 					sds[i].revents |= ADHOC_EV_SEND;
-				if (state.alerted)
+				if (sock->alerted_flags)
 					sds[i].revents |= ADHOC_EV_ALERT;
 				// Mask certain revents bits with events bits
 				sds[i].revents &= sds[i].events;
@@ -2484,6 +2633,7 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 
 			// Valid Socket
 			if (sock != NULL && sock->type == SOCK_PDP) {
+				pdpDropQueue(sock);
 				return Transport().PdpDelete(id);
 			}
 
@@ -3386,10 +3536,9 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 				// Valid Socket Entry
 				auto sock = adhocSockets[j];
 				if (sock != NULL && sock->type == SOCK_PDP) {
-					// Set available bytes to be received. With FIONREAD There might be ghosting 1 byte in recv buffer when remote peer's socket got closed (ie. Warriors Orochi 2) Attempting to recv this ghost 1 byte will result to socket error 10054 (may need to disable SIO_UDP_CONNRESET error)
-					// It seems real PSP respecting the socket buffer size arg, so we may need to cap the value up to the buffer size arg since we use larger buffer, for PDP/UDP the total size must not contains partial/truncated message to avoid data loss.
-					// TODO: We may need to manage PDP messages ourself by reading each msg 1-by-1 and moving it to our internal buffer(msg array) in order to calculate the correct messages size that can fit into buffer size when there are more than 1 messages in the recv buffer (simulate FIONREAD)
-					Transport().PdpUpdateRecvStat(j + 1, sock);
+					// The bytes waiting in the socket's queue.
+					pdpFillQueue(j + 1);
+					sock->data.pdp.rcv_sb_cc = pdpQueues[sock].bytes;
 
 					// Copy Socket Data from Internal Memory
 					memcpy(&buf[i], &sock->data.pdp, sizeof(SceNetAdhocPdpStat));
@@ -4177,9 +4326,6 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 					// Schedule Timeout Removal
 					//if (flag) timeout = 0; // JPCSP seems to always Send PTP as blocking, also a possibility to send to multiple destination?
 
-					// Apply Send Timeout Settings to Socket
-					if (timeout > 0)
-						setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
 
 					if (socket->flags & ADHOC_F_ALERTSEND) {
 						socket->alerted_flags |= ADHOC_F_ALERTSEND;
@@ -4240,9 +4386,6 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 					// Schedule Timeout Removal
 					//if (flag) timeout = 0;
 
-					// Apply Receive Timeout Settings to Socket. Let's not wait forever (0 = indefinitely)
-					if (timeout > 0)
-						setSockTimeout(ptpsocket.id, SO_RCVTIMEO, timeout);
 
 					if (socket->flags & ADHOC_F_ALERTRECV) {
 						socket->alerted_flags |= ADHOC_F_ALERTRECV;
@@ -4308,8 +4451,6 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 			if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED) {
 				hleEatMicro(196);
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
-				// Apply Send Timeout Settings to Socket
-				setSockTimeout(ptpsocket.id, SO_SNDTIMEO, timeout);
 
 				int error = FlushPtpSocket(ptpsocket.id);
 

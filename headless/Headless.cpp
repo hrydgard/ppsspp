@@ -1205,6 +1205,9 @@ int main(int argc, const char* argv[]) {
 	// Instances talking to each other over ad hoc need their own 127.0.0.N address and MAC, which come
 	// from PPSSPP_ID. Headless doesn't run the instance counter the app uses to pick one.
 	PPSSPP_ID = (uint8_t)cmdLineOptions.instance.value_or(1);
+	if (cmdLineOptions.syncFile.has_value()) {
+		InitInstanceSync(cmdLineOptions.syncFile.value(), cmdLineOptions.instance.value_or(1), cmdLineOptions.syncCount.value_or(1));
+	}
 
 	// pspautotests is plain homebrew PRXes so do not ship user libraries that a retail disc may carry. 
 	// So we must use HLE, unless we install firmware.
@@ -1583,6 +1586,7 @@ int main(int argc, const char* argv[]) {
 		retval = 1;
 	}
 
+	ShutdownInstanceSync();
 	graphicsContext->ShutdownAPI();
 
 	delete graphicsContext;
