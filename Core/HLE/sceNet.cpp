@@ -1145,12 +1145,13 @@ static u32 sceWlanGetSwitchState() {
 static void sceNetEtherNtostr(MIPSState *mips, u32 macPtr, u32 bufferPtr) {
 	DEBUG_LOG(Log::sceNet, "sceNetEtherNtostr(%08x, %08x) at %08x", macPtr, bufferPtr, mips->pc);
 
-	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
+	// "xx:xx:xx:xx:xx:xx" and a null.
+	if (Memory::IsValidRange(bufferPtr, 18) && Memory::IsValidRange(macPtr, ETHER_ADDR_LEN)) {
 		char *buffer = (char *)Memory::GetPointerWriteUnchecked(bufferPtr);
 		const u8 *mac = Memory::GetPointerUnchecked(macPtr);
 
 		// MAC address is always 6 bytes / 48 bits.
-		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+		snprintf(buffer, 18, "%02x:%02x:%02x:%02x:%02x:%02x",
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
 		VERBOSE_LOG(Log::sceNet, "sceNetEtherNtostr - [%s]", buffer);
@@ -1173,9 +1174,9 @@ static int hex_to_digit(int c) {
 static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	DEBUG_LOG(Log::sceNet, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
-	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
+	if (Memory::IsValidNullTerminatedString(bufferPtr) && Memory::IsValidRange(macPtr, ETHER_ADDR_LEN)) {
 		const char *buffer = (const char *)Memory::GetPointerUnchecked(bufferPtr);
-		u8 *mac = Memory::GetPointerWriteOrException(macPtr);
+		u8 *mac = Memory::GetPointerWriteUnchecked(macPtr);
 
 		// MAC address is always 6 pairs of hex digits.
 		// TODO: Funny stuff happens if it's too short.
@@ -1201,7 +1202,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(macPtr)).c_str());
+		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((const SceNetEtherAddr *)Memory::GetPointerUnchecked(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}
@@ -1299,7 +1300,7 @@ static int sceNetApctlInit(MIPSState *mips, int stackSize, int initPriority) {
 		userMemory.Free(apctlProdCodeAddr);
 	}
 	apctlProdCodeAddr = userMemory.Alloc(structsz, false, "ApctlAdhocId");
-	SceNetAdhocctlAdhocId* prodCode = (SceNetAdhocctlAdhocId*)Memory::GetCharPointer(apctlProdCodeAddr);
+	SceNetAdhocctlAdhocId* prodCode = Memory::IsValidRange(apctlProdCodeAddr, structsz) ? (SceNetAdhocctlAdhocId *)Memory::GetPointerWriteUnchecked(apctlProdCodeAddr) : nullptr;
 	if (prodCode) {
 		memset(prodCode, 0, structsz);
 		// TODO: Use a 9-characters product id instead of disc id (ie. not null-terminated(VT_UTF8_SPE) and shouldn't be variable size?)
@@ -1611,9 +1612,9 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 	}
 
 	// Valid Arguments
-	if (Memory::IsValidAddress(pStateAddr)) {
+	if (Memory::IsValid4AlignedAddress(pStateAddr)) {
 		// Return Thread Status
-		Memory::WriteOrException_U32(NetApctl_GetState(), pStateAddr);
+		Memory::WriteUnchecked_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
 		return hleLogDebug(Log::sceNet, 0);
 	}
@@ -1652,7 +1653,10 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	// Return size required
 	Memory::WriteUnchecked_U32(entries * userInfoSize, sizeAddr);
 
-	if (bufAddr != 0 && Memory::IsValidAddress(sizeAddr)) {
+	if (bufAddr != 0) {
+		// Only write entries that fit in valid memory.
+		if (size > 0)
+			size = (int)Memory::ClampValidSizeAt(bufAddr, size);
 		int offset = 0;
 		for (int i = 0; i < entries; i++) {
 			// Check if enough space available to write the next structure
@@ -1683,7 +1687,15 @@ static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 }
 
 int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
-	if (!Memory::IsValidAddress(resultAddr))
+	u32 resultSize = 4;
+	switch (infoId) {
+	case PSP_NET_APCTL_DESC_IBSS: resultSize = ETHER_ADDR_LEN; break;
+	case PSP_NET_APCTL_DESC_SSID_NAME: resultSize = APCTL_SSID_MAXLEN; break;
+	case PSP_NET_APCTL_DESC_CHANNEL:
+	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH: resultSize = 1; break;
+	default: break;
+	}
+	if (!Memory::IsValidRange(resultAddr, resultSize))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
 	// Generate an SSID name
@@ -1853,8 +1865,10 @@ static int sceNetUpnpGetNatInfo() {
 }
 
 static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr) {
-	Memory::WriteOrException_U32(netDropRate, dropRateAddr);
-	Memory::WriteOrException_U32(netDropDuration, dropDurationAddr);
+	if (Memory::IsValid4AlignedAddress(dropRateAddr))
+		Memory::WriteUnchecked_U32(netDropRate, dropRateAddr);
+	if (Memory::IsValid4AlignedAddress(dropDurationAddr))
+		Memory::WriteUnchecked_U32(netDropDuration, dropDurationAddr);
 	return hleLogInfo(Log::sceNet, 0);
 }
 

@@ -2744,15 +2744,15 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 
 int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 	s32_le *buflen = NULL;
-	if (Memory::IsValidAddress(sizeAddr)) {
-		buflen = (s32_le *)Memory::GetPointerOrException(sizeAddr);
+	if (Memory::IsValid4AlignedAddress(sizeAddr)) {
+		buflen = (s32_le *)Memory::GetPointerWriteUnchecked(sizeAddr);
 	}
 	SceNetAdhocctlScanInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) {
 		buf = (SceNetAdhocctlScanInfoEmu *)Memory::GetPointerOrException(bufAddr);
 	}
 
-	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, Memory::ReadUnchecked_U32(sizeAddr), bufAddr, mips->pc);
+	INFO_LOG(Log::sceNet, "sceNetAdhocctlGetScanInfo([%08x]=%i, %08x) at %08x", sizeAddr, buflen ? (int)*buflen : 0, bufAddr, mips->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogWarning(Log::sceNet, 0, "WLAN off");
 	}
@@ -2783,14 +2783,17 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			}
 			// Normal Information Mode
 			else {
+				// Only touch the part of the buffer that's valid memory.
+				const u32 validLen = Memory::ClampValidSizeAt(bufAddr, std::max((s32)*buflen, 0));
+
 				// Clear Memory
-				memset(buf, 0, *buflen);
+				memset(buf, 0, validLen);
 
 				// Network Discovery Counter
 				int discovered = 0;
 
 				// Count requested Networks
-				int requestcount = *buflen / sizeof(SceNetAdhocctlScanInfoEmu);
+				int requestcount = validLen / sizeof(SceNetAdhocctlScanInfoEmu);
 
 				// Minimum Argument Requirements
 				if (requestcount > 0) {
