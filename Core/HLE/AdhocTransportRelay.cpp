@@ -32,6 +32,7 @@
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
+#include "Core/Instance.h"
 #include "Core/Util/PortManager.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -498,16 +499,20 @@ void RelayTransport::Poll() {
 	if (!relayConnectInFlight()) {
 		return;
 	}
+	// The connect completes when the other side accepts, so other instances kept in step with this one
+	// mustn't wait for it meanwhile.
+	InstanceSyncStandAside(true);
 	double start = time_now_d();
 	while (relayConnectInFlight()) {
 		if (time_now_d() - start > RELAY_CONNECT_WAIT_SECONDS) {
 			WARN_LOG(Log::sceNet, "Relay: a PTP connect took over %.1f s, no longer waiting for it", RELAY_CONNECT_WAIT_SECONDS);
 			relayConnectInFlight(true);
-			return;
+			break;
 		}
 		sleep_ms(1, "relay-connect");
 		fillRelayBacklogs();
 	}
+	InstanceSyncStandAside(false);
 }
 
 static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport) {

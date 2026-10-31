@@ -255,6 +255,8 @@ static const CommandLineParam g_autoParams[] = {
 	// The old name for --timeout-wall, kept working because it's in a lot of scripts.
 	{POFF(timeoutWall), CmdParamType::Double, "timeout", '\0', "Alias for --timeout-wall", CmdLineMode::Headless},
 	{POFF(instance), CmdParamType::Int, "instance", '\0', "Run as instance N of several talking to each other over ad hoc (own 127.0.0.N address and MAC)", CmdLineMode::Headless},
+	{POFF(syncFile), CmdParamType::String, "sync-file", '\0', "With --instance and --sync-count, keep in step in emulated time with the other instances sharing FILE (made by the launcher, zero-filled)", CmdLineMode::Headless},
+	{POFF(syncCount), CmdParamType::Int, "sync-count", '\0', "How many instances share --sync-file", CmdLineMode::Headless},
 	{POFF(realtime), CmdParamType::Bool, "realtime", '\0', "Run at PSP speed instead of as fast as possible", CmdLineMode::Headless},
 	{POFF(portOffset), CmdParamType::Int, "port-offset", '\0', "Add this to every ad hoc port on the host (default from the config, normally 10000)"},
 	{POFF(speedPercent), CmdParamType::Int, "speed", '\0', "With --realtime, run at this percentage of PSP speed (alternate speed 1)", CmdLineMode::Headless},
