@@ -652,6 +652,7 @@
     <ClCompile Include="HLE\NetAdhocCommon.cpp" />
     <ClCompile Include="HLE\AdhocTransportP2P.cpp" />
     <ClCompile Include="HLE\AdhocTransportRelay.cpp" />
+    <ClCompile Include="HLE\AdhocTransportNetSim.cpp" />
     <ClCompile Include="HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="HLE\sceNp.cpp" />

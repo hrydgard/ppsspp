@@ -19,6 +19,10 @@
 
 #include "Core/HLE/proAdhoc.h"
 #include <chrono>
+#include <deque>
+#include <map>
+#include <memory>
+#include <random>
 #include <vector>
 
 #include "Core/HLE/sceNetAdhoc.h"
@@ -32,8 +36,8 @@ struct AdhocPollState {
 
 // How ad hoc sockets reach the other consoles: through the aemu_postoffice relay, or directly over the
 // host's own UDP/TCP sockets (P2P). The sceNetAdhoc functions do everything a PSP does the same either
-// way, and call one of these for the parts that depend on the transport. Transport() picks the one in
-// use, which follows serverHasRelay.
+// way, and call one of these for the parts that depend on the transport. Transport() is the one in use,
+// made when ad hoc starts (following serverHasRelay) and freed when it stops.
 //
 // Ids are PSP socket IDs (1-based slots in adhocSockets). Unless said otherwise, the arguments, the
 // socket and its alerts have been checked.
@@ -46,9 +50,6 @@ public:
 	// Called every millisecond of emulated time while the ad hoc server connection is up, for work that
 	// happens on a PSP whatever the game calls.
 	virtual void Poll() {}
-	// Whether the connection to a local ad hoc server should be bound to our own local IP, so that
-	// instances on one machine look like different consoles to it.
-	virtual bool BindServerConnectionToLocalIp() = 0;
 
 	// PDP
 
@@ -76,6 +77,9 @@ public:
 	virtual int PtpClose(int id) = 0;
 	// The rest of sceNetAdhocPtpSend / PtpRecv / PtpAccept, and their blocking retries.
 	virtual int PtpSend(int id, const char *data, int *len, int timeout, int flag) = 0;
+	// Sends what it can of data at once, from outside a syscall (the network simulation's delayed sends):
+	// the bytes sent, 0 if none can go now, < 0 if the connection is gone.
+	virtual int PtpSendNow(int id, const char *data, int len) = 0;
 	virtual int PtpRecv(int id, void *buf, int *len, int timeout, int flag) = 0;
 	virtual int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) = 0;
 	virtual int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) = 0;
@@ -116,6 +120,7 @@ public:
 #define RELAY_FAILURE_DISABLE_THRESHOLD_SEC 15
 
 extern std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
+extern bool serverHasRelay;
 extern bool trackingRelayFailure;
 extern bool relayDisabled;
 extern bool relayFirstConnect;
@@ -153,6 +158,7 @@ public:
 	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
 	int PtpClose(int id) override;
 	int PtpSend(int id, const char *data, int *len, int timeout, int flag) override;
+	int PtpSendNow(int id, const char *data, int len) override;
 	int PtpRecv(int id, void *buf, int *len, int timeout, int flag) override;
 	int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) override;
 	int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) override;
@@ -166,7 +172,6 @@ public:
 
 	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
 
-	bool BindServerConnectionToLocalIp() override { return false; }
 	bool PdpReadyToSend(AdhocSocket *sock) override { return true; }
 	// A connection's handle only comes once it's up, so there's no in-between to check.
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override { return ret; }
@@ -189,6 +194,7 @@ public:
 	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override;
 	int PtpClose(int id) override;
 	int PtpSend(int id, const char *data, int *len, int timeout, int flag) override;
+	int PtpSendNow(int id, const char *data, int len) override;
 	int PtpRecv(int id, void *buf, int *len, int timeout, int flag) override;
 	int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) override;
 	int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) override;
@@ -202,13 +208,77 @@ public:
 
 	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
 
-	bool BindServerConnectionToLocalIp() override { return true; }
 	bool PdpReadyToSend(AdhocSocket *sock) override;
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override;
 	bool PtpConnectPending(int error) override;
 	bool PtpConnectedSinceOpen(AdhocSocket *sock) override;
 	void PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) override;
 	bool PtpPeerClosed(AdhocSocket *sock) override;
+};
+
+// In AdhocTransportNetSim.cpp. The developer options for a slow network (--adhoc-delay, --adhoc-jitter,
+// --adhoc-loss) as a transport around the real one, which it owns. Everything it doesn't delay goes
+// straight to the transport inside.
+class NetSimTransport : public AdhocTransport {
+public:
+	// seed is for the random numbers, which differ per instance.
+	NetSimTransport(std::unique_ptr<AdhocTransport> inner, uint32_t seed);
+	// Whether any of the options are on. They're read when ad hoc starts.
+	static bool Enabled();
+
+	void CloseHostSocket(AdhocSocket *sock) override;
+	void Poll() override;
+
+	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override { return inner_->PdpCreate(saddr, port, bufferSize, flag, isClient, enetReliable); }
+	int PdpDelete(int id) override;
+	int PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) override { return inner_->PdpSendTo(id, mac, dport, target, data, len, error); }
+	bool PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) override;
+	bool PdpReadyToSend(AdhocSocket *sock) override { return inner_->PdpReadyToSend(sock); }
+
+	int PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetEtherAddr *daddr, int dport, int bufsize, int rexmt_int, int rexmt_cnt, int flag) override { return inner_->PtpOpen(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt, flag); }
+	int PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize, int rexmt_int, int rexmt_cnt, int backlog, bool isClient, int flag) override { return inner_->PtpListen(saddr, sport, bufsize, rexmt_int, rexmt_cnt, backlog, isClient, flag); }
+	int PtpClose(int id) override;
+	int PtpSend(int id, const char *data, int *len, int timeout, int flag) override;
+	int PtpSendNow(int id, const char *data, int len) override { return inner_->PtpSendNow(id, data, len); }
+	int PtpRecv(int id, void *buf, int *len, int timeout, int flag) override { return inner_->PtpRecv(id, buf, len, timeout, flag); }
+	int PtpAccept(int id, SceNetEtherAddr *addr, uint16_t *port, int timeout, int flag) override { return inner_->PtpAccept(id, addr, port, timeout, flag); }
+	int DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) override { return inner_->DoBlockingPtpSend(req, result); }
+	int DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) override { return inner_->DoBlockingPtpRecv(req, result); }
+	int DoBlockingPtpAccept(AdhocSocketRequest &req, s64 &result) override { return inner_->DoBlockingPtpAccept(req, result); }
+	int PtpConnect(int id, const sockaddr_in &sin, int *error) override { return inner_->PtpConnect(id, sin, error); }
+	int PtpConnectPoll(AdhocSocket *sock, int *error) override { return inner_->PtpConnectPoll(sock, error); }
+	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override { return inner_->PtpConnectVerify(id, sin, ret, error); }
+	bool PtpConnectPending(int error) override { return inner_->PtpConnectPending(error); }
+	bool PtpConnectionUp(AdhocSocket *sock) override { return inner_->PtpConnectionUp(sock); }
+	bool PtpConnectedSinceOpen(AdhocSocket *sock) override { return inner_->PtpConnectedSinceOpen(sock); }
+	void PtpUpdateRecvStat(AdhocSocket *sock) override;
+	int PtpFlush(int socketId) override;
+
+	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override { return inner_->PollWait(sds, count, timeout, states); }
+	void PollCheckConnecting(int id, AdhocSocket *sock, const AdhocPollState &state) override { inner_->PollCheckConnecting(id, sock, state); }
+	bool PtpPeerClosed(AdhocSocket *sock) override { return inner_->PtpPeerClosed(sock); }
+
+private:
+	struct HeldDatagram {
+		u64 arrivalUs;
+		SceNetEtherAddr mac;
+		uint16_t port;
+		std::vector<u8> data;
+	};
+	struct HeldSend {
+		u64 departureUs;
+		std::vector<u8> data;
+	};
+
+	u64 Delay();
+	bool Lost();
+	u32 HeldBytes(const AdhocSocket *sock) const;
+	void SendHeld(int id, bool all);
+
+	std::unique_ptr<AdhocTransport> inner_;
+	std::map<const AdhocSocket *, std::deque<HeldDatagram>> datagrams_;
+	std::map<const AdhocSocket *, std::deque<HeldSend>> sends_;
+	std::mt19937 random_;
 };
 
 AdhocTransport &Transport();

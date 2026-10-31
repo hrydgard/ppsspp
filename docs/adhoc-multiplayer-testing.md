@@ -115,6 +115,35 @@ sudo ifconfig lo0 alias 127.0.0.3 up
 
 `adhoc_session.py start --p2p` checks for them and prints these commands if any are missing.
 
+## Simulating a slow network
+
+Three options delay or drop the ad hoc datagrams an instance receives, to see how a game copes with a
+distant player or a bad connection. They work the same in relay and P2P mode, and are also in the ini,
+under `[Network]`, for the app.
+
+| Option | ini | What it does |
+|---|---|---|
+| `--adhoc-delay=MS` | `AdhocSimDelayMs` | Each datagram reaches the game MS milliseconds after it arrived. |
+| `--adhoc-jitter=MS` | `AdhocSimJitterMs` | Up to MS more, at random. Datagrams stay in order. |
+| `--adhoc-loss=PERCENT` | `AdhocSimLossPercent` | Datagrams dropped. |
+
+`adhoc_session.py start` takes them as `--delay`, `--jitter` and `--loss`, and passes them to every
+instance; `Tools/adhoc_multi.py` passes them through to the instances it starts. Things to know:
+
+- **Times are emulated**, so a delay is the same at any `--speed`.
+- **The delay is one way, on the receiving side.** With it on every instance, a round trip takes twice
+  the delay more: `--adhoc-delay=50` turns a 2 ms P2P round trip into 102 ms (pspautotests
+  `net/adhoc/pair/timing`).
+- **Runs repeat.** Jitter and loss come from random numbers seeded per instance when the game starts ad
+  hoc, so with the instances in step (`--sync-file`) the same datagrams are lost each run.
+- **PDP** (including matching and game mode): a datagram arrives at the next emulated millisecond after
+  it's due, and goes into the socket's buffer then, where it's dropped if it doesn't fit, as on a PSP.
+- **PTP** is held on the sending side instead: a send is accepted at once and goes out when due, in
+  order, which with the same options on every instance gives the same round trip. Nothing is lost on a
+  connection: a "lost" send goes out one retransmit interval (the one given to PtpOpen) later. A flush
+  waits for what's held, and GetPtpStat counts it as not yet sent.
+- The ad hoc server's own messages (logins, groups, peer lists) aren't delayed.
+
 ## Measuring
 
 - `stats` reads each instance's frame rate (`gpu.stats.get`). If vblanks/s is below 60, emulation itself

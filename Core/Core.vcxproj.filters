@@ -533,6 +533,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\AdhocTransportRelay.cpp">
+    <ClCompile Include="HLE\AdhocTransportNetSim.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNetAdhoc.cpp">

@@ -45,6 +45,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
+#include "Core/Instance.h"
 #include "Core/Reporting.h"
 #include "Core/MemMapHelpers.h"
 
@@ -379,14 +380,12 @@ int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
 
 
-static RelayTransport relayTransport;
-static P2PTransport p2pTransport;
+// Only used on the CPU thread, between SetupAdhocRelayMode() and freeing it after the sockets.
+static std::unique_ptr<AdhocTransport> transport;
 
 AdhocTransport &Transport() {
-	if (serverHasRelay) {
-		return relayTransport;
-	}
-	return p2pTransport;
+	_dbg_assert_(transport);
+	return *transport;
 }
 
 // Forward declarations for the savestate mechanism (the matching is sadly not inside its own section)
@@ -601,7 +600,10 @@ static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
 
 static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
 	friendFinderPoll();
-	Transport().Poll();
+	// Adhocctl stays connected through sceNetAdhocTerm, which frees the transport.
+	if (transport) {
+		transport->Poll();
+	}
 	pdpFillQueues();
 	if (friendFinderRunning) {
 		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
@@ -1438,6 +1440,16 @@ static void SetupAdhocRelayMode() {
 		break;
 	}
 
+	if (serverHasRelay) {
+		transport = std::make_unique<RelayTransport>();
+	} else {
+		transport = std::make_unique<P2PTransport>();
+	}
+	if (NetSimTransport::Enabled()) {
+		// The random numbers are the same for a run each time, but not on every instance.
+		transport = std::make_unique<NetSimTransport>(std::move(transport), PPSSPP_ID);
+	}
+
 	netAdhocUseUdp = g_Config.bAdhocUseUdp;
 	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
@@ -1643,7 +1655,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 			StartFriendFinder();
 		}
 		if (!netAdhocInited && cur_netAdhocInited) {
-			// cleanup adhoc
+			// cleanup adhoc (the sockets are gone already)
+			transport.reset();
 			if (aemuPostofficeEnetThread.joinable()) {
 				aemuPostofficeEnetPumping = false;
 				aemuPostofficeEnetThread.join();
@@ -3465,6 +3478,7 @@ int NetAdhoc_Term() {
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
 		nextAdhocSocketSlot = 0;
+		transport.reset();
 
 		// Terminate Internet Library
 		//sceNetInetTerm();
