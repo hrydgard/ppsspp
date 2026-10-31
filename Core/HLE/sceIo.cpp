@@ -1819,7 +1819,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		}
 		break;
 	case 0x01F20003:
-		if (Memory::IsValid4AlignedRange(argAddr, 4) && argLen >= 4) {
+		if (Memory::IsValid4AlignedRange(argAddr, 4) && argLen >= 4 && Memory::IsValid4AlignedRange(outPtr, 4) && outLen >= 4) {
 			PSPFileInfo info = pspFileSystem.GetFileInfo("umd1:");
 			Memory::WriteUnchecked_U32((u32) (info.size) - 1, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
