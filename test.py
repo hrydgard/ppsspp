@@ -799,7 +799,11 @@ test_flags = {
 # in real time.
 # They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
 # trips stay real.
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + os.environ.get("ADHOC_SPEED", "800"), "--timeout-wall=60"]
+# How fast the ad hoc tests run. Each instance runs on its own, so the busier the machine, the further apart
+# they drift in emulated time, and a lag of a real second is 8 emulated seconds at 800%. CI runners are
+# busy, so the tests run at 600% there.
+ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "600" if os.environ.get("CI") else "800")
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + ADHOC_SPEED, "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
@@ -942,7 +946,7 @@ def run_pair_tests(test_list, args, modes):
     if mode == "relay":
       cmdline.append('--relay')
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
-    cmdline.append("--speed=" + os.environ.get("ADHOC_SPEED", "800"))
+    cmdline.append("--speed=" + ADHOC_SPEED)
     cmdline.extend(tests)
     returncode = subprocess.call(cmdline) or returncode
     print("Ran " + ' '.join(cmdline))
