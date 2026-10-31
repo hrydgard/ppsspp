@@ -460,9 +460,10 @@ void Advance(MIPSState *mips) {
 
 	// Keep in step with the other instances. Before the deadline below, so one stopping there has
 	// still told the others it got this far.
-	const s64 syncTicks = InstanceSyncEnabled() ? usToCycles(1000) : 0;
-	if (syncTicks && globalTimer / syncTicks != lastInstanceSyncMs) {
-		lastInstanceSyncMs = globalTimer / syncTicks;
+	// Counted in time, not cycles: a game can change the CPU clock, and the instances wouldn't agree.
+	const bool instanceSync = InstanceSyncEnabled();
+	if (instanceSync && (s64)(GetGlobalTimeUs() / 1000) != lastInstanceSyncMs) {
+		lastInstanceSyncMs = (s64)(GetGlobalTimeUs() / 1000);
 		InstanceSyncReached(lastInstanceSyncMs);
 	}
 
@@ -505,8 +506,8 @@ void Advance(MIPSState *mips) {
 	}
 
 	// Likewise come back at the next millisecond, for the instance sync.
-	if (syncTicks) {
-		const s64 remaining = (lastInstanceSyncMs + 1) * syncTicks - globalTimer;
+	if (instanceSync) {
+		const s64 remaining = usToCycles((lastInstanceSyncMs + 1) * 1000 - (s64)GetGlobalTimeUs());
 		if (remaining > 0 && remaining < slicelength) {
 			const int diff = (int)remaining - slicelength;
 			slicelength += diff;
