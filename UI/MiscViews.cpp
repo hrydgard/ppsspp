@@ -70,6 +70,9 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemStyle.fgColor);
 		titleView->SetBig(true);
+		if (flags & TopBarFlags::DropShadowTitle) {
+			titleView->SetShadow(true);
+		}
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
 	}
@@ -237,6 +240,9 @@ void GameImageView::Draw(UIContext &dc) {
 	float nw = std::min(bounds_.h * textureWidth_ / textureHeight_, (float)bounds_.w);
 	int x = bounds_.x + (bounds_.w - nw) / 2.0f;
 
+	dc.Flush();
+	dc.RebindTexture();
+	dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
 	dc.Flush();
 	dc.GetDrawContext()->BindTexture(0, texture);
 	dc.Draw()->Rect(x, bounds_.y, nw, bounds_.h, color);

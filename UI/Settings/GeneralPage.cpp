@@ -154,11 +154,6 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
 
-	// Shared with achievements.
-	page->Header();
-	page->Setting(&g_Config.iNotificationPos);
-	page->Setting(&g_Config.bShowSaveLoadIndicator);
-
 	page->Header();
 	// The UI context is looked up when used, since it's recreated along with the graphics.
 	page->Setting(&g_Config.iUIScaleFactor).OnChange([host](UI::EventParams &e) {
@@ -180,7 +175,6 @@ static void BuildUISettingsPage(SettingsPage *page) {
 			OnChangeBackground(host);
 		});
 	}
-
 	page->Setting(&g_Config.bTransparentBackground);
 	page->Setting(&g_Config.iBackgroundAnimation);
 
@@ -197,9 +191,7 @@ static void BuildUISettingsPage(SettingsPage *page) {
 		});
 		return theme;
 	});
-
 	Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
-
 	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
 		// We use shaders without tint capability on hardware with this driver bug.
 		auto noDropShadow = [](View *view) {
@@ -208,6 +200,11 @@ static void BuildUISettingsPage(SettingsPage *page) {
 		page->Setting(&g_Config.fUITint).LiveUpdate().Setup(noDropShadow);
 		page->Setting(&g_Config.fUISaturation).LiveUpdate().Setup(noDropShadow);
 	}
+
+	// Shared with achievements.
+	page->Header({I18NCat::ACHIEVEMENTS, "Notifications"});  // Unclean string reuse :)
+	page->Setting(&g_Config.iNotificationPos);
+	page->Setting(&g_Config.bShowSaveLoadIndicator);
 }
 
 // Using SYSTEM translations
@@ -300,20 +297,6 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		OnRestoreDefaultSettings(host, state);
 	});
 
-	page->Header({I18NCat::SAVEDATA, "Save states"});  // Borrow this string from the savedata manager
-
-	page->Setting(&g_Config.bEnableStateUndo);
-	page->Setting(&g_Config.bConfirmLoadState);
-
-	page->Setting(&g_Config.iSaveStateSlotCount);
-
-	// NOTE: We will soon support more states, but we'll keep this niche feature limited to the first five.
-	page->Setting(&g_Config.iAutoLoadSaveState).Setup([](View *view) {
-		if (g_Config.iAutoLoadSaveState != 1) {
-			static_cast<PopupMultiChoice *>(view)->HideChoice(1);  // Hide "Oldest Save" if not using that mode. It doesn't make sense.
-		}
-	});
-
 	page->Setting(&g_Config.iRewindSnapshotInterval);
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
@@ -324,10 +307,6 @@ void BuildGeneralSettings(SettingsPage *page, SystemPageState *state) {
 		page->Setting(&g_Config.bCameraMirrorHorizontal);
 #endif
 	}
-
-	page->Header("Cheats");
-	page->Setting(&g_Config.bEnableCheats);
-	page->Setting(&g_Config.bEnablePlugins);
 
 	page->Header();
 	page->Setting(&g_Config.bScreenshotsAsPNG);

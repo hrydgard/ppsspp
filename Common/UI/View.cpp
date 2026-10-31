@@ -1137,7 +1137,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 TextView *TextView::SetWordWrap() {
-	textAlign_ |= FLAG_WRAP_TEXT; return this;
+	textAlign_ = (TextFlags)((u32)textAlign_ | FLAG_WRAP_TEXT); return this;
 }
 
 void TextView::Draw(UIContext &dc) {
@@ -1185,11 +1185,16 @@ void TextView::Draw(UIContext &dc) {
 
 	textBounds = textBounds.Inset(pad_.left, pad_.top, pad_.right, pad_.bottom);
 
-	if (shadow_) {
+	int textFlags = textAlign_;
+	if (shadow_ && !(textAlign_ & FLAG_DYNAMIC_ASCII)) {
+		textFlags |= FLAG_DROP_SHADOW;
+	} else if (shadow_) {
+		// Old-fashioned double-draw shadow.
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
+		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textFlags);
 	}
-	dc.DrawTextRect(text_, textBounds, textColor, textAlign_);
+
+	dc.DrawTextRect(text_, textBounds, textColor, textFlags);
 	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.GetTheme().uiFont);

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include "Common/Common.h"
 
-enum {
+enum TextFlags {
 	ALIGN_LEFT = 0,
 	ALIGN_RIGHT = 16,
 	ALIGN_TOP = 0,

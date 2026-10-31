@@ -100,8 +100,7 @@ public:
 	void Draw(UIContext &dc) override {
 		Draw::Texture *frame = video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds());
 		if (frame) {
-			int dropsize = 5;
-			dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, bounds_.x - dropsize * 1.5f, bounds_.y - dropsize * 1.5f, bounds_.x2() + dropsize * 1.5f, bounds_.y2() + dropsize * 1.5f, 0xFF000000, 1.0f);
+			dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
 			dc.Flush();
 			dc.GetDrawContext()->BindTexture(0, frame);
 			dc.Draw()->DrawTexRect(bounds_, 0, 0, 1.0f, 1.0f, 0xFFFFFFFF);
@@ -116,7 +115,7 @@ private:
 	Instant startTime_;
 };
 
-GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu), inGame_(inGame) {
+GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu | TwoPaneFlags::DropShadowTitle), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
@@ -323,9 +322,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	Margins actionMenuMargins(0, 15, 15, 0);
 
-	ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8)));
+	ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0)));
 
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	leftColumn->SetPadding(Margins(8, 8, 8, 8));
 
 	leftScroll->Add(leftColumn);
 

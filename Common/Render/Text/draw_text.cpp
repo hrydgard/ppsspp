@@ -269,7 +269,9 @@ bool TextDrawer::DrawStringBitmapRect(const FontStyle &style, float scale, std::
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
 	// The bitmap has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
-	const DropShadowParams params = UIDropShadowParams(1.0f / dpiScale_);
+	// We use 3.0f / dpiScale_ to make a bigger blur. The intention was to match the image blur
+	// for overlays, but it's just not enough.
+	const DropShadowParams params = UIDropShadowParams(3.0f / dpiScale_);
 	const int pad = params.Padding();
 
 	const int srcW = entry.bmWidth;

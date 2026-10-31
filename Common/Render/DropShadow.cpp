@@ -23,12 +23,13 @@
 
 // In UI units.
 static constexpr float UI_SHADOW_RADIUS = 3.0f;
-static constexpr float UI_SHADOW_INTENSITY = 0.66f;
+static constexpr float UI_SHADOW_INTENSITY = 0.7f;
 
 DropShadowParams UIDropShadowParams(float pixelsPerUnit) {
 	DropShadowParams params;
 	params.radius = std::max(1, (int)(UI_SHADOW_RADIUS * pixelsPerUnit));
 	params.intensity = UI_SHADOW_INTENSITY;
+	params.offsetY = 1.0f * pixelsPerUnit;
 	return params;
 }
 
