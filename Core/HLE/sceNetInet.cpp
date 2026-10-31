@@ -157,6 +157,11 @@ struct InetTry {
 static std::map<SceUID, InetWait> g_inetWaits;
 static int eventInetWaitPoll = -1;
 static const int INET_WAIT_POLL_US = 1000;
+// A timed wait on a PSP ends about 120 us after its timeout (pspautotests net/inet/timing). Measured
+// with select and poll from 1 us to 25 ms, it also lasts at least about 330 us, and a timeout of 1 us
+// doesn't wait at all.
+static const int INET_TIMEOUT_LATE_US = 120;
+static const int INET_TIMEOUT_MIN_US = 330;
 static const SceUID INET_WAIT_ID = 0x494E4554;
 
 static void __NetInetWaitPoll(u64 userdata, int cyclesLate);
@@ -867,8 +872,11 @@ static int InetWouldBlockResult(InetWaitOp op, SceUID threadID, const u32 *args,
 // Called when the first attempt would block. Returns true if the thread now waits for the call to
 // complete, and the result is delivered when it wakes.
 static bool StartInetWait(InetWaitOp op, const u32 *args, int numArgs, s64 timeoutUs) {
-	if (timeoutUs == 0 || !__KernelIsDispatchEnabled() || __IsInInterrupt()) {
+	if (timeoutUs == 0 || timeoutUs == 1 || !__KernelIsDispatchEnabled() || __IsInInterrupt()) {
 		return false;
+	}
+	if (timeoutUs > 0) {
+		timeoutUs = std::max(timeoutUs + INET_TIMEOUT_LATE_US, (s64)INET_TIMEOUT_MIN_US);
 	}
 	const SceUID threadID = __KernelGetCurThread();
 	InetWait &wait = g_inetWaits[threadID];
