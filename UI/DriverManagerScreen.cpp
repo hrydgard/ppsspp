@@ -20,6 +20,31 @@
 #include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
 
+#if PPSSPP_PLATFORM(ANDROID)
+#include <unistd.h>
+#include <android/api-level.h>
+
+// Adreno
+static bool CheckKgslPresent() {
+	return access("/dev/kgsl-3d0", F_OK) == 0;
+}
+
+// Mali
+static bool CheckKbasePresent() {
+	return access("/dev/mali0", F_OK) == 0;
+}
+#endif
+
+bool SupportsCustomDriver() {
+#if PPSSPP_PLATFORM(ANDROID)
+	return android_get_device_api_level() >= 28 && (CheckKgslPresent() || CheckKbasePresent());
+#elif defined(_DEBUG)
+	return false;  // change to true to debug driver installation on other platforms. DO NOT commit as true.
+#else
+	return false;
+#endif
+}
+
 static Path GetDriverPath() {
 	if (g_Config.internalDataDirectory.empty()) {
 		Path curDir = File::GetCurDirectory();
@@ -168,17 +193,25 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 
 	ChoiceGroupList *groups = drivers->Add(new ChoiceGroupList());
 
-	ChoiceGroup *driverManagerGroup = groups->Add(new ChoiceGroup(gr->T("AdrenoTools driver manager")));
+	ChoiceGroup *driverManagerGroup = groups->Add(new ChoiceGroup(gr->T("Custom driver manager")));
 	auto customDriverInstallChoice = driverManagerGroup->Add(new Choice(gr->T("Install custom driver...")));
 	driverManagerGroup->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
 	});
 
-	ChoiceGroup *adrenoEnvVarGroup = groups->Add(new ChoiceGroup(gr->T("Turnip driver flags")));
-	int count = 0;
-	const AdrenoEnvVarDef *adrenoEnvVarDefs = GetAdrenoEnvVarDefs(&count);
-	for (int i = 0; i < count; i++) {
-		adrenoEnvVarGroup->Add(new BitCheckBox(&g_Config.iAdrenoEnvVars, (int)adrenoEnvVarDefs[i].var, adrenoEnvVarDefs[i].name));
+	// Turnip is Adreno-only. Keep the flags visible off Android, for debugging the screen.
+#if PPSSPP_PLATFORM(ANDROID)
+	const bool showTurnipFlags = CheckKgslPresent();
+#else
+	const bool showTurnipFlags = true;
+#endif
+	if (showTurnipFlags) {
+		ChoiceGroup *adrenoEnvVarGroup = groups->Add(new ChoiceGroup(gr->T("Turnip driver flags")));
+		int count = 0;
+		const AdrenoEnvVarDef *adrenoEnvVarDefs = GetAdrenoEnvVarDefs(&count);
+		for (int i = 0; i < count; i++) {
+			adrenoEnvVarGroup->Add(new BitCheckBox(&g_Config.iAdrenoEnvVars, (int)adrenoEnvVarDefs[i].var, adrenoEnvVarDefs[i].name));
+		}
 	}
 
 	customDriverInstallChoice->OnClick.Handle(this, &DriverManagerScreen::OnCustomDriverInstall);
