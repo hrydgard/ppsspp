@@ -929,6 +929,24 @@ int P2PTransport::PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize
 	return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ID_NOT_AVAIL, "socket id not available");
 }
 
+int P2PTransport::PtpSendNow(int id, const char *data, int len) {
+	AdhocSocket *socket = adhocSockets[id - 1];
+	int error = 0;
+	auto &ptpsocket = socket->data.ptp;
+	int sent = ptpSendToPeer(socket, data, len, &error);
+	if (sent > 0) {
+		// As in PtpSend.
+		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
+			ptpSetEstablished(socket);
+		return sent;
+	}
+	// Full, or still connecting: try again later, as PtpSend does.
+	if (sent == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
+		return 0;
+	}
+	return -1;
+}
+
 int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int flag) {
 	auto socket = adhocSockets[id - 1];
 	auto& ptpsocket = socket->data.ptp;

@@ -142,6 +142,7 @@
     <ClCompile Include="..\..\Core\HLE\NetAdhocCommon.cpp" />
     <ClCompile Include="..\..\Core\HLE\AdhocTransportP2P.cpp" />
     <ClCompile Include="..\..\Core\HLE\AdhocTransportRelay.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AdhocTransportNetSim.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />

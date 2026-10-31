@@ -262,6 +262,9 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(speedPercent), CmdParamType::Int, "speed", '\0', "With --realtime, run at this percentage of PSP speed (alternate speed 1)", CmdLineMode::Headless},
 	{POFF(adhocServer), CmdParamType::Bool, "adhoc-server", '\0', "Run the built-in ad hoc server"},
 	{POFF(nickname), CmdParamType::String, "nickname", '\0', "The PSP's nickname (System settings), for this run only"},
+	{POFF(adhocDelayMs), CmdParamType::Int, "adhoc-delay", '\0', "Delay ad hoc datagrams received by MS milliseconds of emulated time, to simulate a distant player"},
+	{POFF(adhocJitterMs), CmdParamType::Int, "adhoc-jitter", '\0', "With --adhoc-delay, up to MS more at random"},
+	{POFF(adhocLossPercent), CmdParamType::Int, "adhoc-loss", '\0', "Drop this percentage of the ad hoc datagrams received"},
 	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
@@ -582,6 +585,18 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (nickname.has_value()) {
 		g_Config.sNickName = nickname.value();
 		g_Config.DoNotSaveSetting(&g_Config.sNickName);
+	}
+	if (adhocDelayMs.has_value()) {
+		g_Config.iAdhocSimDelayMs = adhocDelayMs.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimDelayMs);
+	}
+	if (adhocJitterMs.has_value()) {
+		g_Config.iAdhocSimJitterMs = adhocJitterMs.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimJitterMs);
+	}
+	if (adhocLossPercent.has_value()) {
+		g_Config.iAdhocSimLossPercent = adhocLossPercent.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimLossPercent);
 	}
 	if (lagSync.has_value()) {
 		g_Config.bForceLagSync = lagSync.value();

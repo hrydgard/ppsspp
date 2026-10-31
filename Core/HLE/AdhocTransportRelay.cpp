@@ -269,6 +269,14 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 	return 0;
 }
 
+int RelayTransport::PtpSendNow(int id, const char *data, int len) {
+	int result = ptp_send_postoffice(id - 1, data, &len);
+	if (result == 0) {
+		return len;
+	}
+	return result == SCE_NET_ADHOC_ERROR_WOULD_BLOCK ? 0 : -1;
+}
+
 int RelayTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
 	auto sock = adhocSockets[req.id - 1];
 	auto& ptpsocket = sock->data.ptp;

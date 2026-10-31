@@ -45,6 +45,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
+#include "Core/Instance.h"
 #include "Core/Reporting.h"
 #include "Core/MemMapHelpers.h"
 
@@ -381,12 +382,15 @@ int NetAdhocctl_ExitGameMode();
 
 static RelayTransport relayTransport;
 static P2PTransport p2pTransport;
+static NetSimTransport netSimTransport;
 
 AdhocTransport &Transport() {
-	if (serverHasRelay) {
-		return relayTransport;
+	AdhocTransport &transport = serverHasRelay ? static_cast<AdhocTransport &>(relayTransport) : p2pTransport;
+	// The network simulation's options wrap whichever is in use.
+	if (netSimTransport.Wraps(transport)) {
+		return netSimTransport;
 	}
-	return p2pTransport;
+	return transport;
 }
 
 // Forward declarations for the savestate mechanism (the matching is sadly not inside its own section)
@@ -1778,6 +1782,8 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		// Library initialized
 		netAdhocInited = true;
 		isAdhocctlBusy = false;
+		// The network simulation's random numbers: the same for a run each time, but not on every instance.
+		netSimTransport.Reset(PPSSPP_ID);
 
 		// FIXME: It seems official prx is using sceNetAdhocGameModeDeleteMaster in here?
 		NetAdhocGameMode_DeleteMaster();
