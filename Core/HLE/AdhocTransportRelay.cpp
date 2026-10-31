@@ -995,7 +995,7 @@ int RelayTransport::PtpSend(int id, const char *data, int *len, int timeout, int
 	auto& ptpsocket = adhocSockets[id - 1]->data.ptp;
 	int sent = ptp_send_postoffice(id - 1, data, len);
 	if (sent == 0) {
-		hleEatMicro(122);
+		hleEatMicro(AdhocPtpSendUs(*len));
 		return 0;
 	}
 	if (sent == SOCKET_ERROR) {
@@ -1018,7 +1018,7 @@ int RelayTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) 
 	if (received == 0) {
 		// we got data
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Result:%i (Error:%i)", id, ptpsocket.lport, received, 0);
-		hleEatMicro(50);
+		hleEatMicro(AdhocPtpRecvUs(*len));
 		return 0;
 	}
 	if (received == SOCKET_ERROR) {

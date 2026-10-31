@@ -2161,7 +2161,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 							// Single Target
 							if (!isBroadcastMAC(daddr)) {
 								if (isLocalMac(daddr)) {
-									hleEatMicro(21);
+									hleEatMicro(AdhocPdpSendUs(len));
 									pdpDeliverLocally(pdpsocket.lport, dport, data, len);
 									return 0;
 								}
@@ -2206,7 +2206,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 									// Free Network Lock
 									//_freeNetworkLock();
 
-									hleEatMicro(21);
+									hleEatMicro(AdhocPdpSendUs(len));
 									// Sent Data
 									if (sent >= 0) {
 										DEBUG_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Sent %u bytes to %s:%u\n", id, getLocalPort(pdpsocket.id), sent, ip2str(target.sin_addr).c_str(), ntohs(target.sin_port));
@@ -2223,6 +2223,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 									return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "timeout?"); // SCE_NET_ADHOC_ERROR_INVALID_ADDR;
 								}
 								VERBOSE_LOG(Log::sceNet, "sceNetAdhocPdpSend[%i:%u]: Unknown Target Peer %s:%u (nobody there)\n", id, getLocalPort(pdpsocket.id), mac2str(daddr).c_str(), ntohs(target.sin_port));
+								hleEatMicro(AdhocPdpSendUs(len));
 								return 0; // The PSP sends it into the air and returns 0 (pspautotests net/adhoc/pdp).
 							}
 
@@ -2301,7 +2302,7 @@ int sceNetAdhocPdpSend(MIPSState *mips, int id, const char *mac, u32 port, void 
 								// Free Network Lock
 								//_freeNetworkLock();
 
-								hleEatMicro(10);
+								hleEatMicro(AdhocPdpSendUs(len));
 								// Success, Broadcast never fails!
 								return 0; // len;
 							}
@@ -2431,7 +2432,7 @@ int sceNetAdhocPdpRecv(MIPSState *mips, int id, void *addr, void * port, void *b
 				if (ret == SCE_NET_ADHOC_ERROR_NOT_ENOUGH_SPACE) {
 					return hleLogVerbose(Log::sceNet, ret, "not enough space");
 				}
-				hleEatMicro(50);
+				hleEatMicro(AdhocPdpRecvUs(*len));
 				return hleLogDebug(Log::sceNet, 0, "received %d bytes from %s", *len, mac2str(saddr).c_str());
 			}
 
@@ -2624,7 +2625,8 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 						}
 					}
 				}
-				hleEatMicro(18);
+				// About 20 us, and 1 more for each socket (pspautotests net/adhoc/sizes).
+				hleEatMicro(20 + count);
 				return hleLogDebug(Log::sceNet, affectedsockets, "success");
 			}
 			//else if (nonblock && affectedsockets < 0)
