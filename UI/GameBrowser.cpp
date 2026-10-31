@@ -382,6 +382,44 @@ void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVi
 	}
 }
 
+// These are the built-in icons used for file types that don't have one (or simply files missing one).
+static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
+	if (ginfo->GetFilePath().Type() == PathType::HTTP) {
+		return ginfo->fileType == IdentifiedFileType::UNKNOWN ? ImageID("I_LINK_OUT_QUESTION") : ImageID("I_LINK_OUT");
+	}
+
+	switch (ginfo->fileType) {
+	case IdentifiedFileType::PSP_ELF:
+		if (ginfo->region == GameRegion::VSH) {
+			return ImageID::invalid();  // it has a (preset) icon.
+		}
+		// The XMB is an ELF too, but has an icon.
+		return ImageID("I_APP");
+	case IdentifiedFileType::UNKNOWN_ELF: return ImageID("I_APP"); break;
+	case IdentifiedFileType::PPSSPP_GE_DUMP: return ImageID("I_DISPLAY"); break;
+	case IdentifiedFileType::PSX_ISO:
+	case IdentifiedFileType::PSP_PS1_PBP: return ImageID("I_PSX_ISO"); break;
+	case IdentifiedFileType::PS2_ISO: return ImageID("I_PS2_ISO"); break;
+	case IdentifiedFileType::PS3_ISO: return ImageID("I_PS3_ISO"); break;
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: return ImageID("I_UMD_VIDEO_ISO"); break;
+	case IdentifiedFileType::UNKNOWN_ISO: return ImageID("I_UNKNOWN_ISO"); break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+	case IdentifiedFileType::ERROR_IDENTIFYING:
+	case IdentifiedFileType::UNKNOWN_BIN: return ImageID("I_FILE"); break;
+	case IdentifiedFileType::ARCHIVE_ZIP: return ImageID("I_ARCHIVE_ZIP"); break;
+	case IdentifiedFileType::ARCHIVE_7Z: return ImageID("I_ARCHIVE_7Z"); break;
+	case IdentifiedFileType::ARCHIVE_RAR: return ImageID("I_ARCHIVE_RAR"); break;
+	case IdentifiedFileType::PSP_PKG: return ImageID("I_FOLDER_UPLOAD"); break;
+
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+		return ImageID("I_APP");  // This will practically always be replaced by a real icon.
+
+	default:
+		return ImageID::invalid();
+	}
+}
+
 void GameButton::Draw(UIContext &dc) {
 	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
 	// touch or the mouse, getting a video to play without launching the game was too fiddly.
@@ -403,54 +441,21 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	// Some types we just draw a default icon for.
-	ImageID imageIcon = ImageID::invalid();
-	bool drawBackground = true;
-	switch (ginfo->fileType) {
-	case IdentifiedFileType::PSP_ELF:
-		imageIcon = ImageID("I_APP");
-		// The XMB is an ELF too, but has an icon.
-		drawBackground = ginfo->region == GameRegion::VSH;
-		break;
-	case IdentifiedFileType::UNKNOWN_ELF: imageIcon = ImageID("I_APP"); drawBackground = false; break;
-	case IdentifiedFileType::PPSSPP_GE_DUMP: imageIcon = ImageID("I_DISPLAY"); break;
-	case IdentifiedFileType::PSX_ISO:
-	case IdentifiedFileType::PSP_PS1_PBP: imageIcon = ImageID("I_PSX_ISO"); break;
-	case IdentifiedFileType::PS2_ISO: imageIcon = ImageID("I_PS2_ISO"); break;
-	case IdentifiedFileType::PS3_ISO: imageIcon = ImageID("I_PS3_ISO"); break;
-	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: imageIcon = ImageID("I_UMD_VIDEO_ISO"); break;
-	case IdentifiedFileType::UNKNOWN_ISO: imageIcon = ImageID("I_UNKNOWN_ISO"); break;
-	case IdentifiedFileType::PPSSPP_SAVESTATE:
-	case IdentifiedFileType::ERROR_IDENTIFYING:
-	case IdentifiedFileType::UNKNOWN_BIN: imageIcon = ImageID("I_FILE"); break;
-	case IdentifiedFileType::ARCHIVE_ZIP: imageIcon = ImageID("I_ARCHIVE_ZIP"); drawBackground = false; break;
-	case IdentifiedFileType::ARCHIVE_7Z: imageIcon = ImageID("I_ARCHIVE_7Z"); drawBackground = false; break;
-	case IdentifiedFileType::ARCHIVE_RAR: imageIcon = ImageID("I_ARCHIVE_RAR"); drawBackground = false; break;
-	case IdentifiedFileType::PSP_PKG: imageIcon = ImageID("I_FOLDER_UPLOAD"); drawBackground = false; break;
-	default: break;
-	}
+	ImageID imageIcon = ChooseGameIcon(ginfo);
 
 	if (ginfo->Ready(GameInfoFlags::ICON)) {
-		if (ginfo->icon.texture && drawBackground) {
+		if (ginfo->icon.texture) {
 			texture = ginfo->icon.texture;
 			// The type icon is only for when there's no picture, and would be drawn on top of it.
 			imageIcon = ImageID::invalid();
-		} else if (drawBackground) {
+		} else {
 			// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-			if (ginfo->fileType == IdentifiedFileType::PSP_ISO || ginfo->fileType == IdentifiedFileType::PSP_ISO_NP) {
-				imageIcon = ImageID("I_UMD");
-			} else if (ginfo->fileType == IdentifiedFileType::PSX_ISO || ginfo->fileType == IdentifiedFileType::PSP_PS1_PBP) {
-				imageIcon = ImageID("I_PSX_ISO");
-			} else if (gamePath_.Type() == PathType::HTTP) {
-				imageIcon = ginfo->fileType == IdentifiedFileType::UNKNOWN ? ImageID("I_LINK_OUT_QUESTION") : ImageID("I_LINK_OUT");
-			} else {
-				imageIcon = ImageID("I_APP");
-			}
+			imageIcon = ChooseGameIcon(ginfo);
 		}
-	} else {
+	} else if (gamePath_.Type() == PathType::HTTP) {
 		// Make sure that pending HTTP icons show something, instead of just blank.
-		if (gamePath_.Type() == PathType::HTTP) {
-			imageIcon = ImageID("I_LINK_OUT_QUESTION");
-		}
+		// Maybe we should show something for other file types too.
+		imageIcon = ImageID("I_LINK_OUT_QUESTION");
 	}
 
 	Bounds overlayBounds = bounds_;
@@ -651,16 +656,16 @@ void GameButton::Draw(UIContext &dc) {
 			ImageID("I_FLAG_AS"),
 			ImageID("I_FLAG_KO"),
 		};
-		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
-		if (image) {
+		const AtlasImage *regionImage = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
+		if (regionImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (image->w + 5) * g_Config.fGameGridScale,
-					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (regionImage->w + 5) * g_Config.fGameGridScale,
+					y + h - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - image->w - 5) * g_Config.fGameGridScale,
-					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - regionImage->w - 5) * g_Config.fGameGridScale,
+					y + h - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, y + h - image->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, y + h - regionImage->h - 5, 1.0f);
 			}
 		}
 	}
