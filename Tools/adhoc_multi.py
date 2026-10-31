@@ -17,7 +17,7 @@
 # slower than the others on a busy machine holds them back instead of falling behind; --no-sync turns
 # that off.
 #
-# Usage: python3 Tools/adhoc_multi.py [--headless PATH] [--relay] [--no-sync] net/adhoc/pair/basic [more tests...]
+# Usage: python3 Tools/adhoc_multi.py [--headless PATH] [--relay [--udp]] [--no-sync] net/adhoc/pair/basic [more tests...]
 
 import argparse
 import os
@@ -167,6 +167,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--headless", default=None)
 	parser.add_argument("--relay", action="store_true", help="Use a local aemu_postoffice server in relay mode")
+	parser.add_argument("--udp", action="store_true", help="With --relay, talk to the relay over UDP (enet) instead of TCP")
 	parser.add_argument("--no-sync", action="store_true", help="Let each instance run at its own pace instead of keeping them in step in emulated time")
 	parser.add_argument("tests", nargs="+")
 	args, extra = parser.parse_known_args()
@@ -174,7 +175,7 @@ def main():
 	relay_ini = None
 	if args.relay:
 		f = tempfile.NamedTemporaryFile("w", suffix=".ini", delete=False)
-		f.write(RELAY_INI)
+		f.write(RELAY_INI + ("AdhocUseUdp = True\n" if args.udp else ""))
 		f.close()
 		relay_ini = f.name
 	failed = [t for t in args.tests if not run_test(headless, t, extra, relay_ini, not args.no_sync)]
