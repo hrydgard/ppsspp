@@ -240,17 +240,20 @@ void DarwinPresentPanel(NSSavePanel *panel, void (^handler)(NSModalResponse resp
 	g_openPanels++;
 	void (^done)(NSModalResponse) = ^(NSModalResponse response) {
 		g_openPanels--;
-		// The panel runs in another process, and the app doesn't always get activation back
-		// when it closes. Bouncing through the Dock fixes that (SDL's own file dialog does the same).
-		for (NSRunningApplication *app in [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.apple.dock"]) {
-			[app activateWithOptions:0];
-			break;
-		}
-		[NSApp activateIgnoringOtherApps:YES];
-		if (parent) {
-			[parent makeKeyAndOrderFront:nil];
-		}
 		handler(response);
+		// The sheet is still attached while this runs, so restore focus once it's gone.
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (![NSApp isActive]) {
+				if (@available(macOS 14.0, *)) {
+					[NSApp activate];
+				} else {
+					[NSApp activateIgnoringOtherApps:YES];
+				}
+			}
+			if (parent) {
+				[parent makeKeyAndOrderFront:nil];
+			}
+		});
 	};
 	if (parent && !parent.attachedSheet) {
 		[panel beginSheetModalForWindow:parent completionHandler:done];
