@@ -103,6 +103,7 @@
     <ClInclude Include="..\..\UI\EmuScreen.h" />
     <ClInclude Include="..\..\UI\ImposeHome.h" />
     <ClInclude Include="..\..\UI\GameBrowser.h" />
+    <ClInclude Include="..\..\UI\GameButton.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
     <ClInclude Include="..\..\UI\GameScreen.h" />
@@ -170,6 +171,7 @@
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
     <ClCompile Include="..\..\UI\ImposeHome.cpp" />
     <ClCompile Include="..\..\UI\GameBrowser.cpp" />
+    <ClCompile Include="..\..\UI\GameButton.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
