@@ -806,8 +806,11 @@ test_flags = {
 # round trips stay real. The instances of a pair test keep in step in emulated time (Tools/adhoc_multi.py),
 # so one a busy machine runs slower holds the other back instead of falling behind it. Every hop through
 # the relay waits a millisecond or so of real time, which the speed multiplies, so relay mode runs slower
-# (it hardly gains above 8x anyway). ADHOC_SPEED overrides both.
+# (it hardly gains above 8x anyway). The single-console tests run at 8x too: the first login to the
+# server they start takes real time, a few hundred ms on a Windows runner, and a group request gives up
+# after 5 emulated seconds. ADHOC_SPEED overrides all of them.
 ADHOC_SPEEDS = {"relay": os.environ.get("ADHOC_SPEED", "800"), "p2p": os.environ.get("ADHOC_SPEED", "1600")}
+ADHOC_SINGLE_SPEED = os.environ.get("ADHOC_SPEED", "800")
 ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--timeout-wall=60"]
 
 def flags_for(test):
@@ -1036,7 +1039,7 @@ def main():
         print("Skipping known failure in %s mode: %s" % (mode, test), flush=True)
         continue
       print("%s mode:" % mode, flush=True)
-      mode_flags = ["--speed=" + ADHOC_SPEEDS[mode]] + (["--appendconfig=" + relay_ini_path()] if mode == "relay" else [])
+      mode_flags = ["--speed=" + ADHOC_SINGLE_SPEED] + (["--appendconfig=" + relay_ini_path()] if mode == "relay" else [])
       returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
   if pair:
     returncode = run_pair_tests(pair, args, adhoc_modes) or returncode
