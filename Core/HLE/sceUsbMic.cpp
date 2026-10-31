@@ -92,7 +92,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 
 		if (Microphone::isHaveDevice()) {
 			const u64 retries = userdata >> 32;
-			if (micPolling && Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < MIC_JITTER_US / MIC_POLL_INTERVAL_US) {
+			if (micPolling && (u32)Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < (u64)(MIC_JITTER_US / MIC_POLL_INTERVAL_US)) {
 				CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, (u32)threadID | ((retries + 1) << 32));
 				iter++;
 				continue;

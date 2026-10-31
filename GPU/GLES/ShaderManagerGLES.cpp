@@ -961,7 +961,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		return false;
 	}
 
-	for (int i = 0; i < header.numLinkedPrograms; i++) {
+	for (uint32_t i = 0; i < header.numLinkedPrograms; i++) {
 		VShaderID vsid;
 		FShaderID fsid;
 		if (!f.ReadArray(&vsid, 1)) {

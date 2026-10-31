@@ -1053,7 +1053,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if (passCulling && readsFramebufferPerDraw && prim == GE_PRIM_RECTANGLES && count > 2 && !inds) {
 		// Its rectangles can overlap too.
 		const int vertexSize = decoder->VertexSize();
-		for (int i = 0; i + 1 < count; i += 2) {
+		for (u32 i = 0; i + 1 < count; i += 2) {
 			int rectBytesRead = 0;
 			drawEngineCommon_->SubmitPrim((const u8 *)verts + i * vertexSize, nullptr, prim, 2, decoder, vertTypeID, true, &rectBytesRead, flags);
 			drawEngineCommon_->Flush();

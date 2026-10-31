@@ -250,9 +250,9 @@ static bool CreateIndexedPNG(const Path &filename, int w, int h, bool palette, c
 		const size_t len = std::min<size_t>(raw.size() - pos, 65535);
 		const bool last = pos + len >= raw.size();
 		zlib.push_back(last ? 1 : 0);
-		zlib.push_back(len & 0xFF);
-		zlib.push_back(len >> 8);
-		zlib.push_back(~len & 0xFF);
+		zlib.push_back((uint8_t)(len & 0xFF));
+		zlib.push_back((uint8_t)(len >> 8));
+		zlib.push_back((uint8_t)(~len & 0xFF));
 		zlib.push_back((~len >> 8) & 0xFF);
 		zlib.insert(zlib.end(), raw.begin() + pos, raw.begin() + pos + len);
 		pos += len;

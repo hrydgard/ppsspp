@@ -2890,7 +2890,6 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 	// Library initialized
 	if (netAdhocctlInited) {
-		int iResult, error;
 		if (isAdhocctlBusy && CoreTiming::IsScheduled(adhocctlNotifyEvent)) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
