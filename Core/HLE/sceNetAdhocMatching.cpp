@@ -1382,11 +1382,14 @@ int NetAdhocMatching_Stop(int matchingId) {
 
 	// Stop fake PSP Thread.
 	// kernelObjects may already been cleared early during a Shutdown, thus trying to access it may generates Warning/Error in the log
-	if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
-		__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
-		__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
+	// A savestate load replaces the thread list but not the contexts, so the index may be past its end.
+	if (item->matching_thid >= 0 && item->matching_thid < (int)matchingThreads.size()) {
+		if (matchingThreads[item->matching_thid] > 0 && strcmp(__KernelGetThreadName(matchingThreads[item->matching_thid]), "ERROR") != 0) {
+			__KernelStopThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching stopped");
+			__KernelDeleteThread(matchingThreads[item->matching_thid], SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
+		}
+		matchingThreads[item->matching_thid] = 0;
 	}
-	matchingThreads[item->matching_thid] = 0;
 
 	// Make sure nobody locking/using the socket
 	item->socketlock->lock();
@@ -1721,6 +1724,9 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	// Created and started without rescheduling, like adhocctl's thread: starting it through
 	// sceKernelStartThread switched threads inside this call, and the game got the thread's ID back
 	// instead of 0 (pspautotests net/adhoc/matching).
+	if (item->matching_thid >= (int)matchingThreads.size()) {
+		matchingThreads.resize(item->matching_thid + 1);
+	}
 	matchingThreads[item->matching_thid] = __KernelCreateThread(thrname.c_str(), __KernelGetCurThreadModuleId(), matchingThreadHackAddr, evthPri, evthStack, PSP_THREAD_ATTR_USER, 0, true);
 	//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
 	if (matchingThreads[item->matching_thid] > 0) {
@@ -1823,7 +1829,7 @@ static int sceNetAdhocMatchingSelectTarget(MIPSState *mips, int matchingId, cons
 	}
 
 	void * opt = NULL;
-	if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
+	if (Memory::IsValidRange(optDataPtr, std::max(optLen, 1))) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 	// Host Mode
 	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
 		// Already Connected. Right after accepting, it's still in progress (pspautotests net/adhoc/pair/matching).
@@ -1921,7 +1927,7 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 
 	SceNetEtherAddr* target = (SceNetEtherAddr*)macAddress;
 	void* opt = NULL;
-	if (Memory::IsValidAddress(optDataPtr)) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
+	if (Memory::IsValidRange(optDataPtr, std::max(optLen, 1))) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
 
 	if (target == NULL || ((optLen != 0) && (optLen <= 0 || opt == NULL))) {
 		// Invalid Arguments
@@ -2183,8 +2189,12 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		// Fix Oversize Request
 		if ((*buflen) > available) *buflen = available;
 
+		// Only the part of the buffer that's valid memory (none if buf2 is NULL).
+		*buflen = Memory::ClampValidSizeAt(buf, *buflen);
+
 		// Clear Memory
-		memset(buf2, 0, *buflen);
+		if (buf2)
+			memset(buf2, 0, *buflen);
 
 		// Calculate Requested Peer Count
 		int requestedpeers = (*buflen) / sizeof(SceNetAdhocMatchingMemberInfoEmu);
@@ -2354,7 +2364,7 @@ int sceNetAdhocMatchingSendData(MIPSState *mips, int matchingId, const char *mac
 	}
 
 	void* data = NULL;
-	if (Memory::IsValidAddress(dataAddr)) data = Memory::GetPointerWriteUnchecked(dataAddr);
+	if (Memory::IsValidRange(dataAddr, dataLen)) data = Memory::GetPointerWriteUnchecked(dataAddr);
 
 	// Lock the peer
 	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);

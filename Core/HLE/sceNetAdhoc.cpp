@@ -2551,7 +2551,8 @@ int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int 
 	if (netAdhocInited)
 	{
 		SceNetAdhocPollSd * sds = NULL;
-		if (Memory::IsValidAddress(socketStructAddr)) sds = (SceNetAdhocPollSd *)Memory::GetPointerOrException(socketStructAddr);
+		const u64 sdsSize = (u64)std::max(count, 0) * sizeof(SceNetAdhocPollSd);
+		if (sdsSize <= 0x10000000 && Memory::IsValidRange(socketStructAddr, (u32)sdsSize)) sds = (SceNetAdhocPollSd *)Memory::GetPointerOrException(socketStructAddr);
 
 		// Valid Arguments
 		if (sds != NULL && count > 0)
@@ -3065,7 +3066,7 @@ static int sceNetAdhocctlGetNameByAddr(MIPSState *mips, const char *mac, u32 nam
 	if (netAdhocctlInited)
 	{
 		// Valid Arguments
-		if (mac != NULL && Memory::IsValidAddress(nameAddr))
+		if (mac != NULL && Memory::IsValidRange(nameAddr, sizeof(SceNetAdhocctlNickname)))
 		{
 			SceNetAdhocctlNickname * nickname = (SceNetAdhocctlNickname *)Memory::GetPointerOrException(nameAddr);
 			// Get Local MAC Address
@@ -3127,7 +3128,7 @@ int sceNetAdhocctlGetPeerInfo(MIPSState *mips, const char *mac, int size, u32 pe
 
 	SceNetEtherAddr * maddr = (SceNetEtherAddr *)mac;
 	SceNetAdhocctlPeerInfoEmu * buf = NULL;
-	if (Memory::IsValidAddress(peerInfoAddr)) {
+	if (Memory::IsValidRange(peerInfoAddr, sizeof(SceNetAdhocctlPeerInfoEmu))) {
 		buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointerOrException(peerInfoAddr);
 	}
 	// Library initialized
@@ -3286,7 +3287,7 @@ int sceNetAdhocctlJoin(MIPSState *mips, u32 scanInfoAddr) {
 	if (netAdhocctlInited)
 	{
 		// Valid Argument
-		if (Memory::IsValidAddress(scanInfoAddr))
+		if (Memory::IsValidRange(scanInfoAddr, sizeof(SceNetAdhocctlScanInfoEmu)))
 		{
 			SceNetAdhocctlScanInfoEmu* sinfo = (SceNetAdhocctlScanInfoEmu*)Memory::GetPointerOrException(scanInfoAddr);
 			char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
@@ -3527,7 +3528,7 @@ static int sceNetAdhocGetPdpStat(MIPSState *mips, u32 structSize, u32 structAddr
 		else if (buflen != NULL && buf != NULL)
 		{
 			// Figure out how many Sockets we will return
-			int count = *buflen / sizeof(SceNetAdhocPdpStat);
+			int count = Memory::ClampValidSizeAt(structAddr, std::max((s32)*buflen, 0)) / sizeof(SceNetAdhocPdpStat);
 			if (count > socketcount) count = socketcount;
 
 			// Copy Counter
@@ -3614,7 +3615,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 		// Status Returner Mode
 		else if (buflen != NULL && buf != NULL) {
 			// Figure out how many Sockets we will return
-			int count = *buflen / sizeof(SceNetAdhocPtpStat);
+			int count = Memory::ClampValidSizeAt(structAddr, std::max((s32)*buflen, 0)) / sizeof(SceNetAdhocPtpStat);
 			if (count > socketcount) count = socketcount;
 
 			// Copy Counter
@@ -4321,7 +4322,7 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 				if (*len == 0) {
 					return hleLogDebug(Log::sceNet, 0, "nothing to send");
 				}
-				if (*len < 0 || data == NULL) {
+				if (*len < 0 || data == NULL || !Memory::IsValidRange(dataAddr, *len)) {
 					return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_DATALEN, "invalid data length");
 				}
 				// Valid Arguments
@@ -4377,7 +4378,7 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
-		if (buf != NULL && len != NULL && *len > 0) {
+		if (buf != NULL && len != NULL && *len > 0 && Memory::IsValidRange(dataAddr, *len)) {
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4681,7 +4682,7 @@ static int sceNetAdhocGameModeUpdateReplica(MIPSState *mips, int id, u32 infoAdd
 
 	// Bomberman Panic Bomber is using 0/null on infoAddr, so i guess it's optional.
 	GameModeUpdateInfo* gmuinfo = NULL;
-	if (Memory::IsValidAddress(infoAddr)) {
+	if (Memory::IsValidRange(infoAddr, sizeof(GameModeUpdateInfo))) {
 		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointerOrException(infoAddr);
 	}
 
@@ -4839,13 +4840,31 @@ void __NetTriggerCallbacks()
 	hleNoLogVoid();
 }
 
+// The game's buffer, if all of it is valid memory, else NULL, which the calls treat as missing.
+static void *GuestBuffer(u32 addr, int size) {
+	return Memory::IsValidRange(addr, std::max(size, 1)) ? Memory::GetPointerWriteUnchecked(addr) : nullptr;
+}
+
+// The PDP syscalls check the game's buffers here, since game mode calls the functions with host ones.
+static int sceNetAdhocPdpSendSyscall(MIPSState *mips, int id, u32 macAddr, u32 port, u32 dataAddr, u32 len, u32 timeout, u32 flag) {
+	void *data = dataAddr ? GuestBuffer(dataAddr, (int)len) : nullptr;
+	return sceNetAdhocPdpSend(mips, id, (const char *)GuestBuffer(macAddr, ETHER_ADDR_LEN), port, data, (int)len, (int)timeout, (int)flag);
+}
+
+static int sceNetAdhocPdpRecvSyscall(MIPSState *mips, int id, u32 macAddr, u32 portAddr, u32 bufAddr, u32 lenAddr, u32 timeout, u32 flag) {
+	void *len = GuestBuffer(lenAddr, 4);
+	void *buf = GuestBuffer(bufAddr, len ? *(s32_le *)len : 0);
+	// NULL for the sender's MAC and port is fine.
+	return sceNetAdhocPdpRecv(mips, id, macAddr ? GuestBuffer(macAddr, ETHER_ADDR_LEN) : nullptr, portAddr ? GuestBuffer(portAddr, 2) : nullptr, buf, len, timeout, (int)flag);
+}
+
 const HLEFunction sceNetAdhoc[] = {
 	{0XE1D621D7, &WrapU_V<sceNetAdhocInit>,                            "sceNetAdhocInit",                        'x', ""         },
 	{0XA62C6F57, &WrapI_V<sceNetAdhocTerm>,                            "sceNetAdhocTerm",                        'i', ""         },
 	{0X0AD043ED, &WrapI_C<sceNetAdhocctlConnect>,                      "sceNetAdhocctlConnect",                  'i', "s"        },
 	{0X6F92741B, &WrapI_CIIU<sceNetAdhocPdpCreate>,                    "sceNetAdhocPdpCreate",                   'i', "siix"     },
-	{0XABED3790, &WrapI_ICUVIII<sceNetAdhocPdpSend>,                   "sceNetAdhocPdpSend",                     'i', "isxpiii"  },
-	{0XDFE53E03, &WrapI_IVVVVUI<sceNetAdhocPdpRecv>,                   "sceNetAdhocPdpRecv",                     'i', "ippppxi"  },
+	{0XABED3790, &WrapI_IUUUUUU<sceNetAdhocPdpSendSyscall>,            "sceNetAdhocPdpSend",                     'i', "ixxxiii"  },
+	{0XDFE53E03, &WrapI_IUUUUUU<sceNetAdhocPdpRecvSyscall>,            "sceNetAdhocPdpRecv",                     'i', "ixxxxxi"  },
 	{0X7F27BB5E, &WrapI_II<sceNetAdhocPdpDelete>,                      "sceNetAdhocPdpDelete",                   'i', "ii"       },
 	{0XC7C1FC57, &WrapI_UU<sceNetAdhocGetPdpStat>,                     "sceNetAdhocGetPdpStat",                  'i', "xx"       },
 	{0X157E6225, &WrapI_II<sceNetAdhocPtpClose>,                       "sceNetAdhocPtpClose",                    'i', "ii"       },
@@ -4900,7 +4919,7 @@ static int sceNetAdhocctlGetGameModeInfo(u32 infoAddr) {
 	if (!netAdhocctlInited)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_INITIALIZED, "not initialized");
 
-	if (!Memory::IsValidAddress(infoAddr))
+	if (!Memory::IsValidRange(infoAddr, sizeof(SceNetAdhocctlGameModeInfo)))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
 	// pspautotests net/adhoc/gamemode
@@ -4964,13 +4983,16 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 				// Discovery Counter
 				int discovered = 0;
 
+				// Only the part of the buffer that's valid memory.
+				const u32 validLen = Memory::ClampValidSizeAt(bufAddr, std::max((s32)*buflen, 0));
+
 				// Calculate Request Count
-				int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfoEmu);
+				int requestcount = validLen / sizeof(SceNetAdhocctlPeerInfoEmu);
 
 				// FIXME: When bufAddr is not null but buffer size is smaller than activePeers * sizeof(SceNetAdhocctlPeerInfoEmu), simply return buffer size = 0 without filling the buffer?
 
 				// Clear Memory
-				memset(buf, 0, *buflen);
+				memset(buf, 0, validLen);
 
 				// Minimum Arguments
 				if (requestcount > 0) {
@@ -5059,14 +5081,17 @@ static int sceNetAdhocctlGetAddrByName(MIPSState *mips, const char *nickName, u3
 			// Normal Information Mode
 			else
 			{
+				// Only the part of the buffer that's valid memory.
+				const u32 validLen = Memory::ClampValidSizeAt(bufAddr, std::max((s32)*buflen, 0));
+
 				// Clear Memory
-				memset(buf, 0, *buflen);
+				memset(buf, 0, validLen);
 
 				// Discovered Player Count
 				int discovered = 0;
 
 				// Calculate Requested Elements
-				int requestcount = *buflen / sizeof(SceNetAdhocctlPeerInfoEmu);
+				int requestcount = validLen / sizeof(SceNetAdhocctlPeerInfoEmu);
 
 				// Minimum Space available
 				if (requestcount > 0)
