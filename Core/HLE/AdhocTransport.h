@@ -27,6 +27,25 @@
 
 #include "Core/HLE/sceNetAdhoc.h"
 
+// Roughly what the calls cost on a PSP when they return without waiting, by the bytes they move
+// (pspautotests net/adhoc/sizes). PdpSend costs about the same to a peer, to everyone and to itself.
+// PtpSend is measured over a connection to itself, receives with the data already waiting.
+inline int AdhocPdpSendUs(int bytes) {
+	return 50 + bytes / 50;
+}
+
+inline int AdhocPdpRecvUs(int bytes) {
+	return 15 + bytes / 90;
+}
+
+inline int AdhocPtpSendUs(int bytes) {
+	return 95 + bytes / 14;
+}
+
+inline int AdhocPtpRecvUs(int bytes) {
+	return 25 + bytes / 80;
+}
+
 // What a transport found when polling a socket.
 struct AdhocPollState {
 	bool readable = false;

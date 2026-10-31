@@ -124,7 +124,7 @@ int NetSimTransport::PtpSend(int id, const char *data, int *len, int timeout, in
 		departureUs = std::max(departureUs, held.back().departureUs);
 	}
 	held.push_back({ departureUs, std::vector<u8>(data, data + *len) });
-	hleEatMicro(122);
+	hleEatMicro(AdhocPtpSendUs(*len));
 	return 0;
 }
 

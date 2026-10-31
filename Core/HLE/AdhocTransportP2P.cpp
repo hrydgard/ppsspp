@@ -964,7 +964,7 @@ int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int f
 
 	// Success
 	if (sent > 0) {
-		hleEatMicro(122);
+		hleEatMicro(AdhocPtpSendUs(sent));
 		// Save Length
 		*len = sent;
 
@@ -1025,7 +1025,7 @@ int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
 	// Free Network Lock
 	// _freeNetworkLock();
 
-	hleEatMicro(50);
+	hleEatMicro(AdhocPtpRecvUs(std::max(received, 0)));
 
 	// Received Data
 	if (received > 0) {
