@@ -665,7 +665,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 				// temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
 				if (g_Config.bBypassOSKWithKeyboard) {
 					// TODO: Make translatable.
-					g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use chat hotkey", 2.0f);
+					g_OSD.Show(OSDType::MESSAGE_INFO, "Disable \"Use system native keyboard\" to use chat hotkey", 2.0f, "chatHotKey");
 				} else {
 					OpenChat(true);
 				}
@@ -943,7 +943,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 				if (SaveState::CanRewind()) {
 					SaveState::Rewind(&ShowMessageAfterSaveStateAction);
 				} else {
-					g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0);
+					g_OSD.Show(OSDType::MESSAGE_WARNING, sc->T("norewind", "No rewind save states available"), 2.0, "norewind");
 				}
 			}
 		}

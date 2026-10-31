@@ -83,7 +83,7 @@ void copyDeepLinkForPath(std::string_view filePath);
 void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata) {
 	if (!message.empty()) {
 		g_OSD.Show(status == SaveState::Status::SUCCESS ? OSDType::MESSAGE_SUCCESS : OSDType::MESSAGE_ERROR,
-			message, metadata, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
+			message, metadata, status == SaveState::Status::SUCCESS ? 2.0 : 5.0, "savestateaction");
 	}
 }
 
