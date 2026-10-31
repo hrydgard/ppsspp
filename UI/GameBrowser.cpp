@@ -80,12 +80,9 @@ static float ListTextRightMargin(GameBrowserViewMode viewMode) {
 
 // In the list views, rightText (like a game ID) goes at the right edge, as for a game with a picture.
 static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, GameBrowserViewMode viewMode, const UI::Style &style, std::string_view rightText = {}) {
-	const bool gridStyle = viewMode == GameBrowserViewMode::GRID;
-	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), gridStyle ? g_Config.fGameGridScale : 1.0, gridStyle ? g_Config.fGameGridScale : 1.0, text, &tw, &th, 0);
-
-	const bool compact = bounds.w < 180 * (gridStyle ? g_Config.fGameGridScale : 1.0);
-	if (compact) {
+	if (viewMode == GameBrowserViewMode::GRID) {
+		float tw, th;
+		dc.MeasureText(dc.GetFontStyle(), g_Config.fGameGridScale, g_Config.fGameGridScale, text, &tw, &th, 0);
 		dc.PushScissor(bounds);
 		const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
 		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
@@ -113,12 +110,16 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.PopScissor();
 	} else {
+		float tw, th;
+		// List, large list
+		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
+
 		const float textX = ListTextX(viewMode);
 		if (viewMode == GameBrowserViewMode::LARGE_LIST) {
 			const float scale = g_Config.fGameGridScale;
 			dc.Draw()->DrawImage(image, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
 		} else {
-			dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f * (gridStyle ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
+			dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
 		}
 
 		float tx = textX;
@@ -442,7 +443,6 @@ void GameButton::Draw(UIContext &dc) {
 
 	// Some types we just draw a default icon for.
 	ImageID imageIcon = ChooseGameIcon(ginfo);
-
 	if (ginfo->Ready(GameInfoFlags::ICON)) {
 		if (ginfo->icon.texture) {
 			texture = ginfo->icon.texture;
@@ -456,22 +456,6 @@ void GameButton::Draw(UIContext &dc) {
 		// Make sure that pending HTTP icons show something, instead of just blank.
 		// Maybe we should show something for other file types too.
 		imageIcon = ImageID("I_LINK_OUT_QUESTION");
-	}
-
-	Bounds overlayBounds = bounds_;
-	u32 overlayColor = 0;
-	if (holdEnabled_ && holdStart_ != 0.0) {
-		double time_held = time_now_d() - holdStart_;
-		overlayColor = whiteAlpha(time_held / 2.5f);
-		if (holdStart_ != 0.0) {
-			double time_held = time_now_d() - holdStart_;
-			int holdFrameCount = (int)(time_held * 60.0f);
-			if (holdFrameCount > 60) {
-				// Blink before launching by holding
-				if (((holdFrameCount >> 3) & 1) == 0)
-					overlayColor = 0x0;
-			}
-		}
 	}
 
 	int x = bounds_.x;
@@ -520,7 +504,11 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	int txOffset = down_ ? 4 : 0;
-	if (viewMode_ != GameBrowserViewMode::GRID) txOffset = 0;
+	if (viewMode_ != GameBrowserViewMode::GRID) {
+		txOffset = 0;
+	}
+
+	Bounds overlayBounds = bounds_;
 
 	// Render button
 	int dropsize = 10;
@@ -564,6 +552,21 @@ void GameButton::Draw(UIContext &dc) {
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 
+	u32 overlayColor = 0;
+	if (holdEnabled_ && holdStart_ != 0.0) {
+		double time_held = time_now_d() - holdStart_;
+		overlayColor = whiteAlpha(time_held / 2.5f);
+		if (holdStart_ != 0.0) {
+			double time_held = time_now_d() - holdStart_;
+			int holdFrameCount = (int)(time_held * 60.0f);
+			if (holdFrameCount > 60) {
+				// Blink before launching by holding
+				if (((holdFrameCount >> 3) & 1) == 0)
+					overlayColor = 0x0;
+			}
+		}
+	}
+
 	if (imageIcon.isValid()) {
 		Style style = dc.GetTheme().itemStyle;
 
@@ -572,10 +575,6 @@ void GameButton::Draw(UIContext &dc) {
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 		DrawIconWithText(dc, imageIcon, ginfo->GetTitle(), bounds_, viewMode_, style, g_Config.bShowIDOnGameIcon ? std::string_view(ginfo->id_version) : std::string_view());
-
-		if (overlayColor) {
-			dc.FillRect(Drawable(overlayColor), overlayBounds);
-		}
 	} else {
 		char discNumInfo[8];
 		if (ginfo->disc_total > 1)
