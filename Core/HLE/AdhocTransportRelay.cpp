@@ -222,6 +222,12 @@ int RelayTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport
 }
 
 static int ptp_send_postoffice(int idx, const void *data, int *len) {
+	// Out of the group, the send succeeds and the data goes nowhere (pspautotests net/adhoc/pair/vanish),
+	// whatever became of the relay meanwhile.
+	if (offAdhocNetwork()) {
+		return 0;
+	}
+
 	if (relayDisabled) {
 		return SOCKET_ERROR;
 	}
@@ -233,10 +239,6 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-	// Out of the group, the send succeeds and the data goes nowhere (pspautotests net/adhoc/pair/vanish).
-	if (offAdhocNetwork()) {
-		return 0;
-	}
 	if (ptpPeerGone(internal)) {
 		return SOCKET_ERROR;
 	}
@@ -302,6 +304,12 @@ int RelayTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
 }
 
 static int ptp_recv_postoffice(int idx, void *data, int *len) {
+	// Out of the group, nothing arrives, and the connection doesn't fail either (pspautotests
+	// net/adhoc/pair/vanish), whatever became of the relay meanwhile.
+	if (offAdhocNetwork()) {
+		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
+	}
+
 	if (relayDisabled) {
 		return SOCKET_ERROR;
 	}
@@ -313,11 +321,6 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-	// Out of the group, nothing arrives, and the connection doesn't fail either (pspautotests
-	// net/adhoc/pair/vanish).
-	if (offAdhocNetwork()) {
-		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
-	}
 	if (ptpPeerGone(internal)) {
 		return SOCKET_ERROR;
 	}
