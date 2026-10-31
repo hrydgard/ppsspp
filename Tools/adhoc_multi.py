@@ -22,6 +22,7 @@
 import argparse
 import os
 import random
+import re
 import socket
 import subprocess
 import sys
@@ -124,6 +125,9 @@ def run_test(headless, test, extra, relay_ini, sync):
 			cmd.append("--appendconfig=" + relay_ini)
 		if i == 0:
 			cmd.append("--adhoc-server")
+		if os.environ.get("CI"):
+			# Warnings and errors, shown if the test fails: CI runners are the hard place to reproduce one.
+			cmd += ["--log", "--loglevel=3"]
 		cmd += extra
 		cmd.append(os.path.join(TESTS_DIR, "%s_%s.prx" % (test, role)))
 		# To a file rather than a pipe: an instance that fills its pipe while we wait on another would stop,
@@ -148,7 +152,12 @@ def run_test(headless, test, extra, relay_ini, sync):
 		passed = passed and ok
 		print("%s %s_%s [%s]" % ("PASS" if ok else "FAIL", test, role, mode))
 		if not ok:
-			sys.stdout.write(out.decode("utf-8", "replace"))
+			text = out.decode("utf-8", "replace")
+			log = [l for l in text.splitlines() if re.search(r"\b[WE]\[", l)]
+			sys.stdout.write("\n".join(l for l in text.splitlines() if l not in log) + "\n")
+			if log:
+				print("  Log (warnings and errors, last %d of %d):" % (min(80, len(log)), len(log)))
+				sys.stdout.write("".join("    " + l + "\n" for l in log[-80:]))
 	if sync_file:
 		os.remove(sync_file)
 	return passed
