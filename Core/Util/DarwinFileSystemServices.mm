@@ -229,13 +229,34 @@ void DarwinFileSystemServices::terminate() {
 #endif // __has_include(<UIKit/UIKit.h>)
 
 #if PPSSPP_PLATFORM(MAC)
+static int g_openPanels = 0;  // Only touched on the main thread.
+
+bool DarwinIsPanelOpen() {
+	return g_openPanels > 0;
+}
+
 void DarwinPresentPanel(NSSavePanel *panel, void (^handler)(NSModalResponse response)) {
 	NSWindow *parent = [NSApp keyWindow] ?: [NSApp mainWindow];
+	g_openPanels++;
+	void (^done)(NSModalResponse) = ^(NSModalResponse response) {
+		g_openPanels--;
+		// The panel runs in another process, and the app doesn't always get activation back
+		// when it closes. Bouncing through the Dock fixes that (SDL's own file dialog does the same).
+		for (NSRunningApplication *app in [NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.apple.dock"]) {
+			[app activateWithOptions:0];
+			break;
+		}
+		[NSApp activateIgnoringOtherApps:YES];
+		if (parent) {
+			[parent makeKeyAndOrderFront:nil];
+		}
+		handler(response);
+	};
 	if (parent && !parent.attachedSheet) {
-		[panel beginSheetModalForWindow:parent completionHandler:handler];
+		[panel beginSheetModalForWindow:parent completionHandler:done];
 	} else {
 		// No window to attach to (or it already has a sheet): show it on its own.
-		[panel beginWithCompletionHandler:handler];
+		[panel beginWithCompletionHandler:done];
 	}
 }
 #endif
