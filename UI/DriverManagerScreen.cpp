@@ -192,7 +192,7 @@ void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 
 	// Like SettingsPage::Description().
-	TextView *description = drivers->Add(new TextView(gr->T("CustomDriversDescription", "Custom drivers loaded through AdrenoTools replace the GPU driver that came with your device. They can be faster and have fewer bugs, but they can also be slower or break rendering. If that happens, switch back to the default driver."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
+	TextView *description = drivers->Add(new TextView(gr->T("CustomDriversDescription", "Custom drivers loaded through AdrenoTools replace the GPU driver that came with your device. They can be faster and have fewer bugs, but they can also be slower or less stable. Only install drivers made for your GPU. If rendering breaks, switch back to the default driver."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
 	description->SetTextSize(TextSize::Small);
 	description->SetPadding(Margins(12));
 	description->SetFrame(true);
