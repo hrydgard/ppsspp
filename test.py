@@ -627,7 +627,12 @@ pair_known_failures = {
     # listener, so it times out instead.
     "net/adhoc/pair/basic",
   ],
-  "p2p": [],
+  "p2p": [
+    # Times the send and recv failures from when the peer drops off the peer list. In P2P the socket
+    # error comes from the host's TCP, while the peer list comes from the ad hoc server in wall time,
+    # so at CI's speeds the failure can land within the first second (macOS CI) instead of 1-2s.
+    "net/adhoc/pair/vanish",
+  ],
 }
 if platform.system() == "Windows":
   # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
