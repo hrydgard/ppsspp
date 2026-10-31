@@ -127,7 +127,7 @@ def run_test(headless, test, extra, relay_ini, sync):
 			cmd.append("--adhoc-server")
 		if os.environ.get("CI"):
 			# Warnings and errors, shown if the test fails: CI runners are the hard place to reproduce one.
-			cmd += ["--log", "--loglevel=3"]
+			cmd += ["--log", "--loglevel=4"]
 		cmd += extra
 		cmd.append(os.path.join(TESTS_DIR, "%s_%s.prx" % (test, role)))
 		# To a file rather than a pipe: an instance that fills its pipe while we wait on another would stop,
@@ -153,11 +153,13 @@ def run_test(headless, test, extra, relay_ini, sync):
 		print("%s %s_%s [%s]" % ("PASS" if ok else "FAIL", test, role, mode))
 		if not ok:
 			text = out.decode("utf-8", "replace")
-			log = [l for l in text.splitlines() if re.search(r"\b[WE]\[", l)]
-			sys.stdout.write("\n".join(l for l in text.splitlines() if l not in log) + "\n")
+			lines = text.splitlines()
+			is_log = lambda l: re.search(r"\b[NEWIDV]\[", l) is not None
+			log = [l for l in lines if re.search(r"\b[WE]\[", l) or (re.search(r"\bI\[sceNet\]", l) and re.search(r"Matching|TimedOut|Friend|BYE|Death|Peer|Disconnect|EventLoop", l))]
+			sys.stdout.write("\n".join(l for l in lines if not is_log(l) and re.match(r"([OE+-] |.*\.prx:|\d+ tests|Failed tests|  /)", l)) + "\n")
 			if log:
-				print("  Log (warnings and errors, last %d of %d):" % (min(80, len(log)), len(log)))
-				sys.stdout.write("".join("    " + l + "\n" for l in log[-80:]))
+				print("  Log (warnings, errors, matching and peers, last %d of %d):" % (min(150, len(log)), len(log)))
+				sys.stdout.write("".join("    " + l + "\n" for l in log[-150:]))
 	if sync_file:
 		os.remove(sync_file)
 	return passed
