@@ -380,17 +380,12 @@ int NetAdhocGameMode_DeleteMaster();
 int NetAdhocctl_ExitGameMode();
 
 
-static RelayTransport relayTransport;
-static P2PTransport p2pTransport;
-static NetSimTransport netSimTransport;
+// Only used on the CPU thread, between SetupAdhocRelayMode() and freeing it after the sockets.
+static std::unique_ptr<AdhocTransport> transport;
 
 AdhocTransport &Transport() {
-	AdhocTransport &transport = serverHasRelay ? static_cast<AdhocTransport &>(relayTransport) : p2pTransport;
-	// The network simulation's options wrap whichever is in use.
-	if (netSimTransport.Wraps(transport)) {
-		return netSimTransport;
-	}
-	return transport;
+	_dbg_assert_(transport);
+	return *transport;
 }
 
 // Forward declarations for the savestate mechanism (the matching is sadly not inside its own section)
@@ -605,7 +600,10 @@ static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
 
 static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
 	friendFinderPoll();
-	Transport().Poll();
+	// Adhocctl stays connected through sceNetAdhocTerm, which frees the transport.
+	if (transport) {
+		transport->Poll();
+	}
 	pdpFillQueues();
 	if (friendFinderRunning) {
 		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
@@ -1442,6 +1440,16 @@ static void SetupAdhocRelayMode() {
 		break;
 	}
 
+	if (serverHasRelay) {
+		transport = std::make_unique<RelayTransport>();
+	} else {
+		transport = std::make_unique<P2PTransport>();
+	}
+	if (NetSimTransport::Enabled()) {
+		// The random numbers are the same for a run each time, but not on every instance.
+		transport = std::make_unique<NetSimTransport>(std::move(transport), PPSSPP_ID);
+	}
+
 	netAdhocUseUdp = g_Config.bAdhocUseUdp;
 	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
@@ -1647,7 +1655,8 @@ void __NetAdhocDoState(PointerWrap &p) {
 			StartFriendFinder();
 		}
 		if (!netAdhocInited && cur_netAdhocInited) {
-			// cleanup adhoc
+			// cleanup adhoc (the sockets are gone already)
+			transport.reset();
 			if (aemuPostofficeEnetThread.joinable()) {
 				aemuPostofficeEnetPumping = false;
 				aemuPostofficeEnetThread.join();
@@ -1782,8 +1791,6 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		// Library initialized
 		netAdhocInited = true;
 		isAdhocctlBusy = false;
-		// The network simulation's random numbers: the same for a run each time, but not on every instance.
-		netSimTransport.Reset(PPSSPP_ID);
 
 		// FIXME: It seems official prx is using sceNetAdhocGameModeDeleteMaster in here?
 		NetAdhocGameMode_DeleteMaster();
@@ -3471,6 +3478,7 @@ int NetAdhoc_Term() {
 		// Delete Adhoc Sockets
 		deleteAllAdhocSockets();
 		nextAdhocSocketSlot = 0;
+		transport.reset();
 
 		// Terminate Internet Library
 		//sceNetInetTerm();

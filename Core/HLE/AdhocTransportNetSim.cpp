@@ -32,19 +32,10 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/AdhocTransport.h"
 
-static bool NetSimOptionsOn() {
+NetSimTransport::NetSimTransport(std::unique_ptr<AdhocTransport> inner, uint32_t seed) : inner_(std::move(inner)), random_(seed) {}
+
+bool NetSimTransport::Enabled() {
 	return g_Config.iAdhocSimDelayMs > 0 || g_Config.iAdhocSimJitterMs > 0 || g_Config.iAdhocSimLossPercent > 0;
-}
-
-bool NetSimTransport::Wraps(AdhocTransport &inner) {
-	inner_ = &inner;
-	return NetSimOptionsOn() || Holding();
-}
-
-void NetSimTransport::Reset(uint32_t seed) {
-	datagrams_.clear();
-	sends_.clear();
-	random_.seed(seed);
 }
 
 u64 NetSimTransport::Delay() {
@@ -57,20 +48,6 @@ u64 NetSimTransport::Delay() {
 
 bool NetSimTransport::Lost() {
 	return (int)(random_() % 100) < g_Config.iAdhocSimLossPercent;
-}
-
-bool NetSimTransport::Holding() const {
-	for (const auto &it : datagrams_) {
-		if (!it.second.empty()) {
-			return true;
-		}
-	}
-	for (const auto &it : sends_) {
-		if (!it.second.empty()) {
-			return true;
-		}
-	}
-	return false;
 }
 
 u32 NetSimTransport::HeldBytes(const AdhocSocket *sock) const {
@@ -137,13 +114,9 @@ int NetSimTransport::PtpClose(int id) {
 
 int NetSimTransport::PtpSend(int id, const char *data, int *len, int timeout, int flag) {
 	AdhocSocket *sock = adhocSockets[id - 1];
-	// With the options off, only what's behind held data waits.
-	if (!NetSimOptionsOn() && HeldBytes(sock) == 0) {
-		return inner_->PtpSend(id, data, len, timeout, flag);
-	}
 	std::deque<HeldSend> &held = sends_[sock];
-	u64 delayUs = NetSimOptionsOn() ? Delay() : 0;
-	if (NetSimOptionsOn() && Lost()) {
+	u64 delayUs = Delay();
+	if (Lost()) {
 		delayUs += sock->retry_interval;
 	}
 	u64 departureUs = CoreTiming::GetGlobalTimeUs() + delayUs;

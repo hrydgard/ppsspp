@@ -21,6 +21,7 @@
 #include <chrono>
 #include <deque>
 #include <map>
+#include <memory>
 #include <random>
 #include <vector>
 
@@ -35,8 +36,8 @@ struct AdhocPollState {
 
 // How ad hoc sockets reach the other consoles: through the aemu_postoffice relay, or directly over the
 // host's own UDP/TCP sockets (P2P). The sceNetAdhoc functions do everything a PSP does the same either
-// way, and call one of these for the parts that depend on the transport. Transport() picks the one in
-// use, which follows serverHasRelay.
+// way, and call one of these for the parts that depend on the transport. Transport() is the one in use,
+// made when ad hoc starts (following serverHasRelay) and freed when it stops.
 //
 // Ids are PSP socket IDs (1-based slots in adhocSockets). Unless said otherwise, the arguments, the
 // socket and its alerts have been checked.
@@ -49,9 +50,6 @@ public:
 	// Called every millisecond of emulated time while the ad hoc server connection is up, for work that
 	// happens on a PSP whatever the game calls.
 	virtual void Poll() {}
-	// Whether the connection to a local ad hoc server should be bound to our own local IP, so that
-	// instances on one machine look like different consoles to it.
-	virtual bool BindServerConnectionToLocalIp() = 0;
 
 	// PDP
 
@@ -122,6 +120,7 @@ public:
 #define RELAY_FAILURE_DISABLE_THRESHOLD_SEC 15
 
 extern std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
+extern bool serverHasRelay;
 extern bool trackingRelayFailure;
 extern bool relayDisabled;
 extern bool relayFirstConnect;
@@ -173,7 +172,6 @@ public:
 
 	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
 
-	bool BindServerConnectionToLocalIp() override { return false; }
 	bool PdpReadyToSend(AdhocSocket *sock) override { return true; }
 	// A connection's handle only comes once it's up, so there's no in-between to check.
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override { return ret; }
@@ -210,7 +208,6 @@ public:
 
 	int PollWait(SceNetAdhocPollSd *sds, int count, int timeout, AdhocPollState *states) override;
 
-	bool BindServerConnectionToLocalIp() override { return true; }
 	bool PdpReadyToSend(AdhocSocket *sock) override;
 	int PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) override;
 	bool PtpConnectPending(int error) override;
@@ -220,19 +217,17 @@ public:
 };
 
 // In AdhocTransportNetSim.cpp. The developer options for a slow network (--adhoc-delay, --adhoc-jitter,
-// --adhoc-loss) as a transport around another one, which Transport() puts in while they're on, or while
-// it still holds data. Everything it doesn't delay goes straight to the transport inside.
+// --adhoc-loss) as a transport around the real one, which it owns. Everything it doesn't delay goes
+// straight to the transport inside.
 class NetSimTransport : public AdhocTransport {
 public:
-	// Whether the options are on or data is held, with inner the transport in use: if so, Transport()
-	// returns this one.
-	bool Wraps(AdhocTransport &inner);
-	// Drops what's held, and seeds the random numbers, which differ per instance.
-	void Reset(uint32_t seed);
+	// seed is for the random numbers, which differ per instance.
+	NetSimTransport(std::unique_ptr<AdhocTransport> inner, uint32_t seed);
+	// Whether any of the options are on. They're read when ad hoc starts.
+	static bool Enabled();
 
 	void CloseHostSocket(AdhocSocket *sock) override;
 	void Poll() override;
-	bool BindServerConnectionToLocalIp() override { return inner_->BindServerConnectionToLocalIp(); }
 
 	int PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSize, u32 flag, bool isClient, bool enetReliable) override { return inner_->PdpCreate(saddr, port, bufferSize, flag, isClient, enetReliable); }
 	int PdpDelete(int id) override;
@@ -277,11 +272,10 @@ private:
 
 	u64 Delay();
 	bool Lost();
-	bool Holding() const;
 	u32 HeldBytes(const AdhocSocket *sock) const;
 	void SendHeld(int id, bool all);
 
-	AdhocTransport *inner_ = nullptr;
+	std::unique_ptr<AdhocTransport> inner_;
 	std::map<const AdhocSocket *, std::deque<HeldDatagram>> datagrams_;
 	std::map<const AdhocSocket *, std::deque<HeldSend>> sends_;
 	std::mt19937 random_;

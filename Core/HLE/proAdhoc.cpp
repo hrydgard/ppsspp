@@ -1490,7 +1490,7 @@ static void StartAdhocctlLogin() {
 	// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
 	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
 	struct adhocctl_addr_v4 bindAddr = {0};
-	const bool bind = isLocalServer && Transport().BindServerConnectionToLocalIp();
+	const bool bind = isLocalServer && !serverHasRelay;
 	if (bind) {
 		bindAddr.ip = g_localhostIP.in.sin_addr.s_addr;
 		bindAddr.port = 0;
