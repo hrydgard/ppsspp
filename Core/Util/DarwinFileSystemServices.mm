@@ -228,6 +228,18 @@ void DarwinFileSystemServices::terminate() {
 #include <AppKit/AppKit.h>
 #endif // __has_include(<UIKit/UIKit.h>)
 
+#if PPSSPP_PLATFORM(MAC)
+void DarwinPresentPanel(NSSavePanel *panel, void (^handler)(NSModalResponse response)) {
+	NSWindow *parent = [NSApp keyWindow] ?: [NSApp mainWindow];
+	if (parent && !parent.attachedSheet) {
+		[panel beginSheetModalForWindow:parent completionHandler:handler];
+	} else {
+		// No window to attach to (or it already has a sheet): show it on its own.
+		[panel beginWithCompletionHandler:handler];
+	}
+}
+#endif
+
 void DarwinFileSystemServices::presentDirectoryPanel(
 	DarwinDirectoryPanelCallback panelCallback,
 	bool allowFiles, bool allowDirectories,
@@ -271,17 +283,18 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		}
 //		if (!allowFiles && allowDirectories)
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
-		NSModalResponse modalResponse = [panel runModal];
-		if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
-			INFO_LOG(Log::System, "Mac: Received OK response from modal");
-			panelCallback(true, Path(panel.URLs.firstObject.path.UTF8String));
-		} else if (modalResponse == NSModalResponseCancel) {
-			INFO_LOG(Log::System, "Mac: Received Cancel response from modal");
-			panelCallback(false, Path());
-		} else {
-			WARN_LOG(Log::System, "Mac: Received unknown responsde from modal");
-			panelCallback(false, Path());
-		}
+		DarwinPresentPanel(panel, ^(NSModalResponse modalResponse) {
+			if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
+				INFO_LOG(Log::System, "Mac: Received OK response from panel");
+				panelCallback(true, Path(panel.URLs.firstObject.path.UTF8String));
+			} else if (modalResponse == NSModalResponseCancel) {
+				INFO_LOG(Log::System, "Mac: Received Cancel response from panel");
+				panelCallback(false, Path());
+			} else {
+				WARN_LOG(Log::System, "Mac: Received unknown response from panel");
+				panelCallback(false, Path());
+			}
+		});
 #elif PPSSPP_PLATFORM(TVOS)
 		// No document picker. SYSPROP_HAS_FILE_BROWSER/FOLDER_BROWSER are false, so we shouldn't get here.
 		panelCallback(false, Path());
