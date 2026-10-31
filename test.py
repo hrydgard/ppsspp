@@ -797,11 +797,13 @@ test_flags = {
 
 # The ad hoc tests create groups, so they need a server to log in to, and they wait for its replies
 # in real time.
-# They run at 16x PSP speed: timeouts and delays are in emulated time, and only the local network round
-# trips stay real. The instances of a pair test keep in step in emulated time (Tools/adhoc_multi.py), so
-# one a busy machine runs slower holds the other back instead of falling behind it.
-ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "1600")
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + ADHOC_SPEED, "--timeout-wall=60"]
+# They run faster than PSP speed: timeouts and delays are in emulated time, and only the local network
+# round trips stay real. The instances of a pair test keep in step in emulated time (Tools/adhoc_multi.py),
+# so one a busy machine runs slower holds the other back instead of falling behind it. Every hop through
+# the relay waits a millisecond or so of real time, which the speed multiplies, so relay mode runs slower
+# (it hardly gains above 8x anyway). ADHOC_SPEED overrides both.
+ADHOC_SPEEDS = {"relay": os.environ.get("ADHOC_SPEED", "800"), "p2p": os.environ.get("ADHOC_SPEED", "1600")}
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
@@ -944,7 +946,7 @@ def run_pair_tests(test_list, args, modes):
     if mode == "relay":
       cmdline.append('--relay')
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
-    cmdline.append("--speed=" + ADHOC_SPEED)
+    cmdline.append("--speed=" + ADHOC_SPEEDS[mode])
     cmdline.extend(tests)
     returncode = subprocess.call(cmdline) or returncode
     print("Ran " + ' '.join(cmdline))
@@ -1029,7 +1031,7 @@ def main():
         print("Skipping known failure in %s mode: %s" % (mode, test), flush=True)
         continue
       print("%s mode:" % mode, flush=True)
-      mode_flags = ["--appendconfig=" + relay_ini_path()] if mode == "relay" else []
+      mode_flags = ["--speed=" + ADHOC_SPEEDS[mode]] + (["--appendconfig=" + relay_ini_path()] if mode == "relay" else [])
       returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
   if pair:
     returncode = run_pair_tests(pair, args, adhoc_modes) or returncode
