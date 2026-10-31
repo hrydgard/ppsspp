@@ -21,8 +21,10 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Root.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
+#include "UI/MiscScreens.h"
 #include "UI/MiscViews.h"
 #include "UI/SettingsPage.h"
 
@@ -184,11 +186,52 @@ SettingItem &SettingsPage::Hint(SettingText text) {
 	return Add(SettingType::Hint, text);
 }
 
+SettingItem &SettingsPage::Description(SettingText text) {
+	return Add(SettingType::Description, text);
+}
+
 SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build) {
 	SettingItem &item = Add(SettingType::Link, text);
 	item.linkCat = cat;
 	item.linkBuild = std::move(build);
 	return item;
+}
+
+SettingItem &SettingsPage::RestoreDefaults() {
+	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
+	item.restoresDefaults = true;
+	return item;
+}
+
+// The click handler of a RestoreDefaults button. The page is gone by the time it's clicked, so this
+// collects its settings up front.
+static std::function<void(UI::EventParams &)> RestoreDefaultsHandler(const SettingsPage &page) {
+	struct Restorable {
+		void *ptr;
+		void (*onChanged)();
+	};
+	std::vector<Restorable> settings;
+	for (const SettingItem &item : page.Items()) {
+		if (item.ptr && Config::FindSetting(item.ptr)) {
+			settings.push_back(Restorable{ item.ptr, item.configOnChanged });
+		}
+	}
+
+	SettingsPageHost *host = page.Host();
+	return [host, settings](UI::EventParams &) {
+		std::string_view message = T(I18NCat::DIALOG, "RestorePageDefaults", "Restore the settings on this page to their defaults?");
+		host->PageScreenManager()->push(new PromptScreen(host->PageGamePath(), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
+			if (!yes) {
+				return;
+			}
+			for (const Restorable &setting : settings) {
+				if (Config::RestoreSettingToDefault(setting.ptr) && setting.onChanged) {
+					setting.onChanged();
+				}
+			}
+			host->RecreatePageViews();
+		}));
+	};
 }
 
 SettingItem &SettingsPage::Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create) {
@@ -322,6 +365,14 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 		return parent->Add(new InfoItem(text, item.rightText));
 	case SettingType::Hint:
 		return parent->Add(new SettingHint(text, prevView));
+	case SettingType::Description:
+	{
+		TextView *description = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
+		description->SetTextSize(TextSize::Small);
+		description->SetPadding(Margins(12));
+		description->SetFrame(true);
+		return description;
+	}
 	case SettingType::Custom:
 		return item.createCustom(parent);
 	case SettingType::Link:
@@ -363,14 +414,21 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 	// Each header is a group, which the items after it go in. Items before the first get one without a title.
 	UI::ViewGroup *group = nullptr;
 	for (const SettingItem &item : page.Items()) {
-		if (!group && item.type != SettingType::Header) {
+		// Descriptions go between the groups, so the items after one get a new group.
+		bool outsideGroups = item.type == SettingType::Header || item.type == SettingType::Description;
+		if (!group && !outsideGroups) {
 			group = parent->Add(new UI::ChoiceGroup());
 		}
-		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, item.type == SettingType::Header ? parent : group, screenManager);
+		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, outsideGroups ? parent : group, screenManager);
 		if (views) {
 			views->push_back(view);
 		}
-		if (view && item.type == SettingType::Header) {
+		if (view && item.restoresDefaults) {
+			static_cast<UI::Choice *>(view)->OnClick.Add(RestoreDefaultsHandler(page));
+		}
+		if (item.type == SettingType::Description) {
+			group = nullptr;
+		} else if (view && item.type == SettingType::Header) {
 			group = static_cast<UI::ViewGroup *>(view);
 		} else if (view) {
 			prevView = view;

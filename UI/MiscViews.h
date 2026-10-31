@@ -4,6 +4,7 @@
 #include "Common/UI/View.h"
 #include "UI/ViewGroup.h"
 #include "UI/GameInfoCache.h"
+#include "UI/BackgroundAudio.h"
 
 // Compound view, showing a text with an icon.
 class TextWithImage : public UI::LinearLayout {
@@ -22,6 +23,7 @@ enum class TopBarFlags {
 	Portrait = 1,
 	ContextMenuButton = 2,
 	NoBackButton = 4,
+	DropShadowTitle = 8,
 };
 ENUM_CLASS_BITOPS(TopBarFlags);
 

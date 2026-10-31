@@ -652,7 +652,7 @@ void BuildDeveloperToolsPage(SettingsPage *page) {
 	link({ I18NCat::MAINSETTINGS, "Networking" }, &BuildNetworkPage);
 	link({ I18NCat::MAINSETTINGS, "Audio" }, &BuildAudioPage);
 	link({ I18NCat::DEVELOPER, "Tests" }, &BuildTestsPage);
-	link({ I18NCat::SYSTEM, "UI" }, &BuildUIPage);
+	link({ I18NCat::SYSTEM, "User interface" }, &BuildUIPage);
 	link({ I18NCat::DEVELOPER, "Dump files" }, &BuildDumpFilePage);
 	link({ I18NCat::DEVELOPER, "HLE" }, &BuildHLEPage);
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)

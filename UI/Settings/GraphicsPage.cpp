@@ -96,6 +96,10 @@ static void OnRenderingDevice(SettingsPageHost *host) {
 static void BuildSpeedHacksPage(SettingsPage *page) {
 	using namespace UI;
 
+	page->Description({I18NCat::GRAPHICS, "SpeedHacksDescription", "These settings can improve performance on some devices, but they can also cause graphical issues or make rendering stop working entirely."});
+
+	page->RestoreDefaults();
+
 	page->Header();
 
 	page->Setting(&g_Config.iFrameSkip).EnabledFunc([] {
@@ -311,6 +315,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 
 	page->Header();
 	page->Link({I18NCat::GRAPHICS, "Speed Hacks"}, I18NCat::GRAPHICS, &BuildSpeedHacksPage);
+	page->Hint({I18NCat::GRAPHICS, "SpeedHacksHint", "These settings can cause rendering errors"});
 
 	page->Header();
 	page->Setting(&g_Config.iBloomHack).EnabledFunc([] {

@@ -194,6 +194,15 @@ u64 GameInfo::GetSizeOnDiskInBytes() {
 		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
+	case IdentifiedFileType::PSX_ISO:
+	{
+		// A cue sheet or similar, and the image files it names.
+		PS1EbootFileLoader disc(filePath_);
+		if (disc.IsValid()) {
+			return disc.SourceFilesSize();
+		}
+		return GetFileLoader()->FileSize();
+	}
 	default:
 		return GetFileLoader()->FileSize();
 	}
@@ -206,6 +215,15 @@ u64 GameInfo::GetSizeUncompressedInBytes() {
 		return File::ComputeRecursiveDirectorySize(ResolvePBPDirectory(filePath_));
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
 		return File::ComputeRecursiveDirectorySize(GetFileLoader()->GetPath());
+	case IdentifiedFileType::PSX_ISO:
+	{
+		// Not necessarily a block device (a cue sheet isn't), so measure the disc it describes.
+		PS1EbootFileLoader disc(filePath_);
+		if (disc.IsValid()) {
+			return disc.DiscSize();
+		}
+		return GetFileLoader()->FileSize();
+	}
 	default:
 	{
 		std::string errorString;

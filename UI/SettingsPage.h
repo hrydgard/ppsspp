@@ -87,6 +87,7 @@ enum class SettingType {
 	Choice,  // A button. onChange is called on click.
 	Info,
 	Hint,  // Explanatory text attached to the previous item.
+	Description,  // Text about the page or a part of it, outside the groups.
 	Custom,
 	Link,  // Opens another page.
 };
@@ -159,6 +160,8 @@ struct SettingItem {
 	std::function<void(UI::View *)> setup;
 	// Choice or Custom (if its view is a Choice) that opens another screen: shows the same chevron as a Link.
 	bool opensScreen = false;
+	// Choice made by SettingsPage::RestoreDefaults.
+	bool restoresDefaults = false;
 
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
 	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
@@ -195,11 +198,16 @@ public:
 	SettingItem &Choice(SettingText text, ImageID image = ImageID::invalid());
 	SettingItem &Info(SettingText text, std::string_view rightText);
 	SettingItem &Hint(SettingText text);
+	// The items after it start a new group. Not searched.
+	SettingItem &Description(SettingText text);
 	// For anything the other types can't describe. The text is only used for search. The view
 	// returned is the one a following Hint is attached to, and the one search results lead to.
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);
 	// Opens another page, built by build, on top of this one. The text is the new page's title.
 	SettingItem &Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build);
+	// After asking, restores the page's config settings to their defaults. Can go anywhere on the page. Only the config's
+	// reactions to the changes are run, not the page's OnChange handlers. Custom items aren't reset.
+	SettingItem &RestoreDefaults();
 
 	I18NCat DefaultCat() const { return defaultCat_; }
 	SettingsPageHost *Host() const { return host_; }
