@@ -628,12 +628,7 @@ pair_known_failures = {
     # listener, so it times out instead.
     "net/adhoc/pair/basic",
   ],
-  "p2p": [
-    # Times the send and recv failures from when the peer drops off the peer list. In P2P the socket
-    # error comes from the host's TCP, while the peer list comes from the ad hoc server in wall time,
-    # so at CI's speeds the failure can land within the first second (macOS CI) instead of 1-2s.
-    "net/adhoc/pair/vanish",
-  ],
+  "p2p": [],
 }
 if platform.system() == "Windows":
   # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
@@ -802,12 +797,10 @@ test_flags = {
 
 # The ad hoc tests create groups, so they need a server to log in to, and they wait for its replies
 # in real time.
-# They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
-# trips stay real.
-# How fast the ad hoc tests run. Each instance runs on its own, so the busier the machine, the further apart
-# they drift in emulated time, and a lag of a real second is 8 emulated seconds at 800%. CI runners are
-# busy, so the tests run at 600% there.
-ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "600" if os.environ.get("CI") else "800")
+# They run at 16x PSP speed: timeouts and delays are in emulated time, and only the local network round
+# trips stay real. The instances of a pair test keep in step in emulated time (Tools/adhoc_multi.py), so
+# one a busy machine runs slower holds the other back instead of falling behind it.
+ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "1600")
 ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + ADHOC_SPEED, "--timeout-wall=60"]
 
 def flags_for(test):
