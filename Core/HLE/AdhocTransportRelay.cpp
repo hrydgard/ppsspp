@@ -181,15 +181,16 @@ bool RelayTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *por
 }
 
 static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len) {
+	// Out of the group, it goes into the air and reaches nobody (pspautotests net/adhoc/pair/vanish),
+	// whether or not the relay session is up.
+	if (offAdhocNetwork() && !isLocalMac(daddr)) {
+		return 0;
+	}
+
 	AdhocSocket *internal = adhocSockets[idx];
 	void *pdp_sock = pdp_postoffice_recover(idx);
 	if (pdp_sock == NULL) {
 		return SOCKET_ERROR;
-	}
-
-	// Out of the group, it goes into the air and reaches nobody (pspautotests net/adhoc/pair/vanish).
-	if (offAdhocNetwork() && !isLocalMac(daddr)) {
-		return 0;
 	}
 
 	SceNetEtherAddr fixed_daddr = *daddr;
