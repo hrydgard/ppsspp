@@ -1442,6 +1442,10 @@ static void SetupAdhocRelayMode() {
 	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
 	init_aemu_postoffice(netAdhocUseUdp);
+	// Closing a session normally first sleeps 50 ms, in case another thread is about to use it. Here
+	// everything but a PTP connect's own thread runs on the CPU thread, and that thread is joined
+	// before its session is closed.
+	set_close_delay_aemu_postoffice(0);
 
 	if (netAdhocUseUdp) {
 		aemuPostofficeEnetPumping = true;
@@ -1735,8 +1739,9 @@ void __NetAdhocInit() {
 			 * from ppsspp's adhocctl server
 			 */
 			config.strict_mode = false;
-			// One worker per pool is plenty for a server that sees a handful of players.
-			config.num_threads = 1;
+			// No worker threads: for a server that sees a handful of players, pumping on this thread
+			// beats waking workers several times per pump.
+			config.num_threads = 0;
 			// The port the relay client connects to.
 			config.port = AEMU_POSTOFFICE_PORT;
 
@@ -1752,14 +1757,13 @@ void __NetAdhocInit() {
 			INFO_LOG(Log::sceNet, "RelayServer: Listening for Connections on TCP Port %u", config.port);
 
 			while (adhocServerRunning) {
-				auto start = std::chrono::steady_clock::now();
 				auto pump_status = relay_server.pump();
 				if (pump_status == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
 					break;
 				}
-				// Every hop through the relay waits for the next pump, so keep them close together. Idle
-				// (nobody connected) too, since that's when a game's first connection comes in.
-				std::this_thread::sleep_until(start + std::chrono::milliseconds(1));
+				// Pump again as soon as something arrives, so a message is relayed at once. The timeout
+				// only bounds how long it takes to notice adhocServerRunning going false.
+				relay_server.wait(10);
 			}
 
 			INFO_LOG(Log::sceNet, "RelayServer: Shutdown complete");
