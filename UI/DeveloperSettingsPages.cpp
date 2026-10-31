@@ -51,30 +51,6 @@
 #include "UI/MiscViews.h"
 #include "UI/SettingsPage.h"
 
-#if PPSSPP_PLATFORM(ANDROID)
-
-static bool CheckKgslPresent() {
-	constexpr auto KgslPath{ "/dev/kgsl-3d0" };
-
-	return access(KgslPath, F_OK) == 0;
-}
-
-static bool SupportsCustomDriver() {
-	return android_get_device_api_level() >= 28 && CheckKgslPresent();
-}
-
-#else
-
-static bool SupportsCustomDriver() {
-#ifdef _DEBUG
-	return false;  // change to true to debug driver installation on other platforms. DO NOT commit as true.
-#else
-	return false;
-#endif
-}
-
-#endif
-
 static std::string PostShaderTranslateName(std::string_view value) {
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
@@ -539,7 +515,7 @@ static void BuildGraphicsPage(SettingsPage *page) {
 	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
-		page->Choice({ I18NCat::GRAPHICS, "AdrenoTools driver manager" }).OpensScreen().OnClick([host](UI::EventParams &e) {
+		page->Choice({ I18NCat::GRAPHICS, "Custom driver manager" }).OpensScreen().OnClick([host](UI::EventParams &e) {
 			host->PageScreenManager()->push(new DriverManagerScreen(host->PageGamePath()));
 		});
 	}
