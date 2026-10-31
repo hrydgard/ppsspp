@@ -64,7 +64,30 @@ static int UpdateErrnoFromHost(int threadID, int hostErrno, const char *func) {
 }
 
 // A descriptor that isn't open fails the call with -1 and EBADF (pspautotests net/inet/errors).
+// Roughly what the calls cost on a PSP when they don't wait, whether or not they succeed (pspautotests
+// net/inet/calls). Not the sends, receives, poll and select, which grow with what they handle.
+static const int INET_BAD_SOCKET_US = 4;
+static const int INET_CONVERT_US = 3;
+static const int INET_SOCKET_UDP_US = 32;
+static const int INET_SOCKET_TCP_US = 47;
+static const int INET_BIND_US = 36;
+static const int INET_LISTEN_US = 8;
+static const int INET_CONNECT_UDP_US = 30;
+static const int INET_CONNECT_TCP_US = 110;
+static const int INET_ACCEPT_US = 42;
+static const int INET_SOCKOPT_US = 22;
+static const int INET_SOCKNAME_US = 26;
+static const int INET_SHUTDOWN_RD_US = 12;
+static const int INET_SHUTDOWN_US = 62;
+static const int INET_ABORT_US = 6;
+static const int INET_CLOSE_UDP_US = 20;
+static const int INET_CLOSE_TCP_US = 37;
+static const int INET_CLOSE_CONNECTED_US = 76;
+static const int INET_CLOSE_RST_US = 30;
+static const int INET_CLOSE_RST_CONNECTED_US = 95;
+
 static int InetBadSocket(int socket, const char *func) {
+	hleEatMicro(INET_BAD_SOCKET_US);
 	UpdateErrnoFromHost(__KernelGetCurThread(), EBADF, func);
 	return hleLogError(Log::sceNet, -1, "Bad socket #%d", socket);
 }
@@ -375,6 +398,7 @@ static bool InetParsePton4(const char *str, u32 *addr) {
 }
 
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
+	hleEatMicro(INET_CONVERT_US);
 	if (af != PSP_NET_INET_AF_INET) {
 		// INET6 too (pspautotests net/inet/addr).
 		SetInetErrno(ERROR_INET_EAFNOSUPPORT, __FUNCTION__);
@@ -393,6 +417,7 @@ static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
 }
 
 static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
+	hleEatMicro(INET_CONVERT_US);
 	if (!Memory::IsValidRange(inAddrPtr, 4)) {
 		return hleLogError(Log::sceNet, 0, "invalid arg"); //-1
 	}
@@ -408,6 +433,7 @@ static int sceNetInetInetAton(const char* hostname, u32 inAddrPtr) {
 // Returns dst, or 0 with errno set: ENOSPC when the string and its terminator don't fit, leaving dst
 // untouched, and EAFNOSUPPORT for anything but AF_INET (pspautotests net/inet/addr).
 static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsize) {
+	hleEatMicro(INET_CONVERT_US);
 	if (af != PSP_NET_INET_AF_INET) {
 		SetInetErrno(ERROR_INET_EAFNOSUPPORT, __FUNCTION__);
 		return hleLogError(Log::sceNet, 0, "unsupported family %d", af);
@@ -431,6 +457,7 @@ static u32 sceNetInetInetNtop(int af, u32 srcInAddrPtr, u32 dstBufPtr, u32 bufsi
 }
 
 static u32_le sceNetInetInetAddr(const char *hostname) {
+	hleEatMicro(INET_CONVERT_US);
 	u32 addr;
 	if (!hostname || !InetParseAton(hostname, &addr)) {
 		return hleLogDebug(Log::sceNet, INADDR_NONE, "not an address");
@@ -464,6 +491,7 @@ static int sceNetInetGetpeername(int socket, u32 namePtr, u32 namelenPtr) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_SOCKNAME_US);
 
 	SockAddrIN4 saddr{};
 	socklen_t len = sizeof(saddr);
@@ -492,6 +520,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_SOCKNAME_US);
 
 	SockAddrIN4 saddr{};
 	socklen_t len = sizeof(saddr);
@@ -1121,6 +1150,7 @@ static int sceNetInetSocket(MIPSState *mips, int domain, int type, int protocol)
 		const int sndBuf = 65536;
 		setsockopt(inetSock->sock, SOL_SOCKET, SO_SNDBUF, (const char *)&sndBuf, sizeof(sndBuf));
 	}
+	hleEatMicro(type == PSP_NET_INET_SOCK_STREAM ? INET_SOCKET_TCP_US : INET_SOCKET_UDP_US);
 	ClearInetErrno();
 	return hleLogDebug(Log::sceNet, socket);
 }
@@ -1277,6 +1307,7 @@ static int InetSetsockopt(MIPSState *mips, int socket, int level, int optname, u
 
 static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
 	INET_CHECK_STACK_SOCKET();
+	hleEatMicro(INET_SOCKOPT_US);
 	const int result = InetSetsockopt(mips, socket, level, optname, optvalPtr, optlen);
 	if (result >= 0) {
 		ClearInetErrno();
@@ -1293,6 +1324,7 @@ static int sceNetInetGetsockopt(MIPSState *mips, int socket, int level, int optn
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_SOCKOPT_US);
 	if (!InetValidRange(optlenPtr, 4, __FUNCTION__)) {
 		return hleLogError(Log::sceNet, -1, "bad optlen %08x", optlenPtr);
 	}
@@ -1381,6 +1413,7 @@ static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen)
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_BIND_US);
 
 	if (!InetValidRange(namePtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) {
 		return hleLogError(Log::sceNet, -1, "bad address %08x", namePtr);
@@ -1503,6 +1536,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(IsTcpSocket(inetSock) ? INET_CONNECT_TCP_US : INET_CONNECT_UDP_US);
 
 	// Still using warn log here so it stands out in the log
 
@@ -1566,6 +1600,7 @@ static int sceNetInetListen(int socket, int backlog) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_LISTEN_US);
 
 	if (IsTcpSocket(inetSock)) {
 		if (inetSock->tcpClosed) {
@@ -1642,6 +1677,7 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_ACCEPT_US);
 
 	if ((addrPtr && !InetValidRange(addrPtr, sizeof(SceNetInetSockaddr), __FUNCTION__)) || (addrLenPtr && !InetValidRange(addrLenPtr, 4, __FUNCTION__))) {
 		return hleLogError(Log::sceNet, -1, "bad address %08x or length %08x", addrPtr, addrLenPtr);
@@ -1667,6 +1703,7 @@ static int sceNetInetShutdown(int socket, int how) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(how == PSP_NET_INET_SHUT_RD ? INET_SHUTDOWN_RD_US : INET_SHUTDOWN_US);
 
 	// As in 4.4BSD's soshutdown(), it can only fail on a bad how or a TCP socket with no state left
 	// (pspautotests net/inet/errors and states).
@@ -1702,6 +1739,7 @@ static int sceNetInetSocketAbort(int socket) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(INET_ABORT_US);
 
 	// FIXME: either using shutdown/close or select? probably using select if blocking mode is being simulated with non-blocking
 	int retVal = shutdown(inetSock->sock, SHUT_RDWR);
@@ -1713,6 +1751,11 @@ static int sceNetInetClose(int socket) {
 	InetSocket *inetSock;
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
+	}
+	if (!IsTcpSocket(inetSock)) {
+		hleEatMicro(INET_CLOSE_UDP_US);
+	} else {
+		hleEatMicro(IsHostSocketConnected(inetSock) ? INET_CLOSE_CONNECTED_US : INET_CLOSE_TCP_US);
 	}
 
 	CloseInetSocket(inetSock);
@@ -1727,6 +1770,7 @@ static int sceNetInetCloseWithRST(int socket) {
 	if (!GetCallSocket(socket, &inetSock)) {
 		return InetBadSocket(socket, __FUNCTION__);
 	}
+	hleEatMicro(IsTcpSocket(inetSock) && IsHostSocketConnected(inetSock) ? INET_CLOSE_RST_CONNECTED_US : INET_CLOSE_RST_US);
 
 	// Based on http://deepix.github.io/2016/10/21/tcprst.html
 	struct linger sl {};
