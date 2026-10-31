@@ -17,6 +17,8 @@
 
 import argparse
 import os
+import random
+import socket
 import subprocess
 import sys
 import tempfile
@@ -58,8 +60,33 @@ AdhocServerRelayMode = 1
 """
 
 
+def missing_loopback_aliases(count):
+	# In P2P mode instance N binds to 127.0.0.N. Linux and Windows route all of 127/8 to the loopback;
+	# macOS only has the addresses that were added.
+	missing = []
+	for n in range(2, count + 1):
+		s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		try:
+			s.bind(("127.0.0.%d" % n, 0))
+		except OSError:
+			missing.append("127.0.0.%d" % n)
+		finally:
+			s.close()
+	return missing
+
+
 def run_test(headless, test, extra, relay_ini):
 	roles = roles_of(test)
+	mode = "relay" if relay_ini else "p2p"
+	if not relay_ini:
+		missing = missing_loopback_aliases(len(roles))
+		if missing:
+			print("FAIL %s [p2p]: %s missing. Add with: %s" % (test, ", ".join(missing), "; ".join("sudo ifconfig lo0 alias %s up" % a for a in missing)))
+			return False
+	# A new port offset each run, so a connection a previous run left in TIME_WAIT doesn't get in the way.
+	# Below 1700 keeps the tests' ports under Linux's ephemeral range (32768 and up).
+	if not any(a.startswith("--port-offset") for a in extra):
+		extra = extra + ["--port-offset=%d" % random.randrange(1, 1700)]
 	memstick = os.path.join(os.path.dirname(headless), "memstick")
 	# A test that hasn't been recorded on PSPs yet has no expected files; then just show what each instance prints.
 	compare = all(os.path.exists(os.path.join(TESTS_DIR, "%s_%s.expected" % (test, role))) for role in roles)
@@ -84,13 +111,13 @@ def run_test(headless, test, extra, relay_ini):
 	for role, proc in procs:
 		out, _ = proc.communicate(timeout=TIMEOUT + 30)
 		if not compare:
-			print("OUTPUT %s_%s (no expected file):" % (test, role))
+			print("OUTPUT %s_%s [%s] (no expected file):" % (test, role, mode))
 			sys.stdout.write(out.decode("utf-8", "replace"))
 			passed = False
 			continue
 		ok = proc.returncode == 0
 		passed = passed and ok
-		print("%s %s_%s" % ("PASS" if ok else "FAIL", test, role))
+		print("%s %s_%s [%s]" % ("PASS" if ok else "FAIL", test, role, mode))
 		if not ok:
 			sys.stdout.write(out.decode("utf-8", "replace"))
 	return passed

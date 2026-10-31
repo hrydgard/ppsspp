@@ -97,7 +97,8 @@ int P2PTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
 	//       by reading the whole available data, separates each datagram and discard unresolvable one, so we can calculate the correct number of available data to recv on GetPdpStat too.
 	//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
 	//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
-	if (ret != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
+	// Out of the group, nothing from anyone else reaches us either (pspautotests net/adhoc/pair/vanish).
+	if (ret != SOCKET_ERROR && (!resolveIP(sin.sin_addr.s_addr, &mac) || (offAdhocNetwork() && !isLocalMac(&mac)))) {
 		// Remove the packet from socket buffer
 		sinlen = sizeof(sin);
 		memset(&sin, 0, sinlen);
@@ -121,6 +122,15 @@ int P2PTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
 		sinlen = sizeof(sin);
         memset(&sin, 0, sinlen);
 		ret = recvfrom(pdpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
+		// As in PdpRecv: out of the group, nothing from anyone else, whatever the peek saw.
+		if (ret >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
+			u64 now = CoreTiming::GetGlobalTimeUs();
+			if (req.timeout != 0 && now - req.startTime > req.timeout) {
+				result = SCE_NET_ADHOC_ERROR_TIMEOUT;
+				return 0;
+			}
+			return -1;
+		}
 		// UDP can also receives 0 data, while on TCP receiving 0 data = connection gracefully closed, but not sure whether PDP can send/recv 0 data or not tho
 		*req.length = 0;
 		if (ret >= 0) {
@@ -191,9 +201,47 @@ int P2PTransport::DoBlockingPdpRecv(AdhocSocketRequest &req, s64 &result) {
 }
 
 int P2PTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, const sockaddr_in &target, const void *data, int len, int *error) {
+	// Out of the group, it goes into the air and reaches nobody (pspautotests net/adhoc/pair/vanish).
+	if (offAdhocNetwork() && !isLocalMac(mac)) {
+		return len;
+	}
 	int sent = sendto(adhocSockets[id - 1]->data.pdp.id, (const char *)data, len, MSG_NOSIGNAL, (const struct sockaddr *)&target, sizeof(target));
 	*error = socket_errno;
 	return sent;
+}
+
+// send() and recv() on a PTP socket, as a PSP's radio would see them (pspautotests net/adhoc/pair/vanish):
+// out of the group, a send goes nowhere and nothing arrives, and a connection to a peer that has left the
+// network fails once its retransmits would have run out.
+static int ptpSendToPeer(AdhocSocket *sock, const char *data, int len, int *error) {
+	if (offAdhocNetwork()) {
+		*error = 0;
+		return len;
+	}
+	if (ptpPeerGone(sock)) {
+		*error = ECONNRESET;
+		return SOCKET_ERROR;
+	}
+	int sent = send(sock->data.ptp.id, data, len, MSG_NOSIGNAL);
+	*error = socket_errno;
+	if (sent > 0) {
+		ptpNoteSend(sock);
+	}
+	return sent;
+}
+
+static int ptpRecvFromPeer(AdhocSocket *sock, char *buf, int len, int *error) {
+	if (offAdhocNetwork()) {
+		*error = EAGAIN;
+		return SOCKET_ERROR;
+	}
+	if (ptpPeerGone(sock)) {
+		*error = ECONNRESET;
+		return SOCKET_ERROR;
+	}
+	int received = recv(sock->data.ptp.id, buf, len, MSG_NOSIGNAL);
+	*error = socket_errno;
+	return received;
 }
 
 int P2PTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
@@ -203,8 +251,7 @@ int P2PTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
 	// Send Data
 	int ret = 0;
 	int sockerr = 0;
-	ret = send(ptpsocket.id, (const char*)req.buffer, *req.length, MSG_NOSIGNAL);
-	sockerr = socket_errno;
+	ret = ptpSendToPeer(sock, (const char*)req.buffer, *req.length, &sockerr);
 
 	// Success
 	if (ret > 0) {
@@ -248,8 +295,7 @@ int P2PTransport::DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) {
 
 	int ret = 0;
 	int sockerr = 0;
-	ret = recv(ptpsocket.id, (char*)req.buffer, std::max(0, *req.length), MSG_NOSIGNAL);
-	sockerr = socket_errno;
+	ret = ptpRecvFromPeer(sock, (char*)req.buffer, std::max(0, *req.length), &sockerr);
 
 	// Received Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
 	if (ret > 0) {
@@ -343,9 +389,9 @@ bool P2PTransport::PtpConnectionUp(AdhocSocket *sock) {
 }
 
 bool P2PTransport::PtpConnectedSinceOpen(AdhocSocket *sock) {
-	struct sockaddr_in peer;
-	socklen_t peerLen = sizeof(peer);
-	return getpeername(sock->data.ptp.id, (struct sockaddr *)&peer, &peerLen) == 0;
+	// Not getpeername alone: on Windows it succeeds while the connect is still in progress, even one that
+	// is about to be refused.
+	return PtpConnectionUp(sock);
 }
 
 int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
@@ -359,7 +405,38 @@ int P2PTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
 }
 
 int P2PTransport::PtpConnectPoll(AdhocSocket *sock, int *error) {
-	return IsSocketReady(sock->data.ptp.id, false, true, error);
+	int fd = sock->data.ptp.id;
+	*error = 0;
+#if !defined(_WIN32)
+	if (fd < 0 || fd >= FD_SETSIZE) {
+		*error = EBADF;
+		return SOCKET_ERROR;
+	}
+#endif
+	// Windows never makes a socket whose connect failed writable: the failure (like a refusal) shows in the
+	// exception set, and the reason in SO_ERROR.
+	fd_set writefds, exceptfds;
+	FD_ZERO(&writefds);
+	FD_ZERO(&exceptfds);
+	FD_SET(fd, &writefds);
+	FD_SET(fd, &exceptfds);
+	timeval tv = {};
+	int ret = select(fd + 1, nullptr, &writefds, &exceptfds, &tv);
+	if (ret < 0) {
+		*error = socket_errno;
+		return ret;
+	}
+	if (ret > 0) {
+		// Elsewhere a failed connect is writable, with its reason in SO_ERROR too.
+		int soError = 0;
+		socklen_t soErrorLen = sizeof(soError);
+		getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen);
+		if (soError != 0 || FD_ISSET(fd, &exceptfds)) {
+			*error = soError != 0 ? soError : ECONNREFUSED;
+			return SOCKET_ERROR;
+		}
+	}
+	return ret;
 }
 
 int P2PTransport::PtpConnectVerify(int id, sockaddr_in *sin, int ret, int *error) {
@@ -545,7 +622,8 @@ int P2PTransport::PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void 
 		//       We may also need to implement encryption (or a simple checksum will do) in order to validate the packet to findout whether it came from PPSSPP or a different App that may be sending/broadcasting data to the same port being used by a game
 		//       (in case the IP was resolvable but came from a different App, which will need to be discarded too)
 		// Note: Looping to check too many packets (ie. contiguous) to discard per one non-blocking PdpRecv syscall may cause a slow down
-		if (received != SOCKET_ERROR && !resolveIP(sin.sin_addr.s_addr, &mac)) {
+		// Out of the group, nothing from anyone else reaches us either (pspautotests net/adhoc/pair/vanish).
+		if (received != SOCKET_ERROR && (!resolveIP(sin.sin_addr.s_addr, &mac) || (offAdhocNetwork() && !isLocalMac(&mac)))) {
 			// Remove the packet from socket buffer
 			sinlen = sizeof(sin);
 			memset(&sin, 0, sinlen);
@@ -590,6 +668,12 @@ int P2PTransport::PdpRecv(int id, SceNetEtherAddr *saddr, uint16_t *sport, void 
 	// On Windows: Socket Error 10014 may happen when buffer size is less than the minimum allowed/required (ie. negative number on Vulcanus Seek and Destroy), the address is not a valid part of the user address space (ie. on the stack or when buffer overflow occurred), or the address is not properly aligned (ie. multiple of 4 on 32bit and multiple of 8 on 64bit) https://stackoverflow.com/questions/861154/winsock-error-code-10014
 	received = recvfrom(pdpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL, (struct sockaddr*)&sin, &sinlen);
 	error = socket_errno;
+	// The datagram checked above isn't always this one: on Windows a peek can fail (WSAECONNRESET) and leave
+	// the next datagram unchecked. Out of the group, nothing from anyone else reaches us.
+	if (received >= 0 && offAdhocNetwork() && !(resolveIP(sin.sin_addr.s_addr, &mac) && isLocalMac(&mac))) {
+		received = SOCKET_ERROR;
+		error = EAGAIN;
+	}
 
 	// On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
 	if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || error == ECONNRESET)) {
@@ -1118,8 +1202,7 @@ int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int f
 	// Send Data
 	int sent = 0;
 	int error = 0;
-	sent = send(ptpsocket.id, data, *len, MSG_NOSIGNAL);
-	error = socket_errno;
+	sent = ptpSendToPeer(socket, data, *len, &error);
 
 	// Free Network Lock
 	// _freeNetworkLock();
@@ -1134,7 +1217,7 @@ int P2PTransport::PtpSend(int id, const char *data, int *len, int timeout, int f
 
 		// Set to Established on successful Send when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(socket);
 
 		// Return Success
 		return 0;
@@ -1172,8 +1255,7 @@ int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
 	int error = 0;
 
 	// Receive Data. POSIX: May received 0 bytes when the remote peer already closed the connection.
-	received = recv(ptpsocket.id, (char*)buf, std::max(0, *len), MSG_NOSIGNAL);
-	error = socket_errno;
+	received = ptpRecvFromPeer(socket, (char*)buf, std::max(0, *len), &error);
 
 	if (received == SOCKET_ERROR && (error == EAGAIN || error == EWOULDBLOCK || (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT && (error == ENOTCONN || connectInProgress(error))))) {
 		if (flag == 0) {
@@ -1205,7 +1287,7 @@ int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
 
 		// Set to Established on successful Recv when an attempt to Connect was initiated
 		if (ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT)
-			ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+			ptpSetEstablished(socket);
 
 		// Return Success
 		return 0;

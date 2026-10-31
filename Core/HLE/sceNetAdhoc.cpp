@@ -395,6 +395,7 @@ void discardMatchingEvents();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
+void DoNetAdhocMatchingPollEvent(PointerWrap &p, bool saved);
 
 bool __NetAdhocConnected() {
 	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
@@ -596,6 +597,7 @@ static const int ADHOCCTL_POLL_INTERVAL_US = 1000;
 
 static void __AdhocctlPoll(u64 userdata, int cyclesLate) {
 	friendFinderPoll();
+	Transport().Poll();
 	if (friendFinderRunning) {
 		CoreTiming::ScheduleEvent(usToCycles(ADHOCCTL_POLL_INTERVAL_US) - cyclesLate, adhocctlPollEvent, 0);
 	}
@@ -665,7 +667,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 
 		if (call_status == ADHOCCTL_CALL_WOULDBLOCK) {
 			bool retry = true;
-			u64 now = (u64)(time_now_d() * 1000000.0);
+			u64 now = CoreTiming::GetGlobalTimeUs();
 			if (now - adhocctlStartTime > static_cast<u64>(adhocDefaultTimeout) + 500) {
 				retry = false;
 			}
@@ -744,7 +746,7 @@ int WaitBlockingAdhocctlSocket(AdhocctlRequest request, int usec, const char* re
 	}
 
 	u64 param = ((u64)__KernelGetCurThread()) << 32 | uid;
-	adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+	adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 	adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
 	adhocctlRequests[uid] = request;
 	CoreTiming::ScheduleEvent(usToCycles(usec), adhocctlNotifyEvent, param);
@@ -824,6 +826,13 @@ bool isLocalMac(const SceNetEtherAddr *mac) {
 void ptpSetEstablished(AdhocSocket *sock) {
 	sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 	sock->ptpEstablishedAt = CoreTiming::GetGlobalTimeUsScaled();
+}
+
+// A connect to a port nobody listens on is refused at once, and so is every later connect on the same
+// socket, even once something listens there (pspautotests net/adhoc/pair/basic, pair/ptpclose).
+void ptpSetRefused(AdhocSocket *sock) {
+	sock->data.ptp.state = ADHOC_PTP_STATE_CLOSED;
+	sock->ptpRefused = true;
 }
 
 static void ptpUpdateConnecting(AdhocSocket *sock) {
@@ -1031,6 +1040,12 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 	// Check whether the connection has been established or not
 	if (ret != SOCKET_ERROR) {
 		ret = Transport().PtpConnectVerify(req.id, &sin, ret, &sockerr);
+	}
+
+	if (ret == SOCKET_ERROR && sockerr == ECONNREFUSED) {
+		ptpSetRefused(sock);
+		result = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
+		return 0;
 	}
 
 	// Update Adhoc Socket state
@@ -1352,7 +1367,7 @@ static void StopFriendFinder() {
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 12);
+	auto s = p.Section("sceNetAdhoc", 1, 13);
 	if (!s)
 		return;
 
@@ -1438,7 +1453,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// wait ends in an error, which for Init can't be retried: the library already counts as inited.
 		Do(p, adhocctlRequests);
 		if (p.mode == p.MODE_READ) {
-			adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+			adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 		}
 	} else if (p.mode == p.MODE_READ) {
 		adhocctlRequests.clear();
@@ -1458,6 +1473,7 @@ void __NetAdhocDoState(PointerWrap &p) {
 	} else {
 		adhocctlRequestTimeUs = 0;
 	}
+	DoNetAdhocMatchingPollEvent(p, s >= 13);
 
 	if (p.mode == p.MODE_READ) {
 		// The login after a load starts outside any group.
@@ -1842,8 +1858,13 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 	}
 
 	SceNetEtherAddr * saddr = (SceNetEtherAddr *)mac;
-	// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems :( So we
-	// use the local MAC instead, without writing it into the game's memory.
+	// Deliberately not like a PSP: whatever MAC the game passes as the local address, use ours. A PSP
+	// rejects anything but its own MAC with INVALID_ADDR (pspautotests net/adhoc/pdp and ptp, "Other mac",
+	// which is why they're in tests_next), but a PSP's MAC never changes and PPSSPP's can (another
+	// install, a changed setting). A savestate made with another MAC brings the old one back in the
+	// game's memory, and a game like DBZ Shin Budokai 2 then passes it and could never create a socket
+	// (added for it in 2019). The same goes for PtpOpen and PtpListen. The game's copy isn't written to: it
+	// may be a table entry the game reads later.
 	SceNetEtherAddr localSrcMac;
 	if (saddr != NULL) {
 		getLocalMac(&localSrcMac);
@@ -3037,7 +3058,7 @@ int NetAdhocctl_Create(const char *groupName) {
 				}
 				//Faking success, to prevent Full Auto 2 from freezing while Initializing Network
 				else {
-					adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+					adhocctlStartTime = CoreTiming::GetGlobalTimeUs();
 					if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 						adhocctlState = ADHOCCTL_STATE_GAMEMODE;
 						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
@@ -3647,8 +3668,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
-		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		// Our own MAC whatever the game passes, deliberately unlike a PSP (see NetAdhocPdpCreate).
 		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
 			getLocalMac(&localSrcMac);
@@ -3885,6 +3905,10 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 				return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 			}
 
+			if (socket->ptpRefused) {
+				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "refused before");
+			}
+
 			// Valid Client Socket
 			if (ptpsocket.state == ADHOC_PTP_STATE_CLOSED || ptpsocket.state == ADHOC_PTP_STATE_SYN_SENT) {
 				hleEatMicro(50);
@@ -3921,28 +3945,20 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 						socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 						socket->internalLastAttempt = socket->lastAttempt;
 						// Set Connected State
-						ptpsocket.state = ADHOC_PTP_STATE_ESTABLISHED;
+						ptpSetEstablished(socket);
 
 						return hleLogDebug(Log::sceNet, 0, "sceNetAdhocPtpConnect[%i:%u]: Already Connected to %s:%u", id, ptpsocket.lport, ip2str(sin.sin_addr).c_str(), ptpsocket.pport);
 					}
 
 					// Error handling
 					else if (connectresult == SOCKET_ERROR) {
-						// Connection in Progress, or
-						// ECONNREFUSED = No connection could be made because the target device actively refused it (on Windows/Linux/Android), or no one listening on the remote address (on Linux/Android) thus should try to connect again later (treated similarly to ETIMEDOUT/ENETUNREACH).
-						if (Transport().PtpConnectPending(errorcode) || errorcode == ECONNREFUSED) {
-							if (Transport().PtpConnectPending(errorcode))
-							{
-								ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
-							}
-							// On Windows you can call connect again using the same socket after ECONNREFUSED/ETIMEDOUT/ENETUNREACH error, but on non-Windows you'll need to recreate the socket first
-							else {
-								DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Recreating Socket %i, errno = %i, state = %i, attempt = %i", id, ptpsocket.lport, ptpsocket.id, errorcode, ptpsocket.state, socket->attemptCount);
-								if (RecreatePtpSocket(id) < 0) {
-									WARN_LOG(Log::sceNet, "sceNetAdhocPtpConnect[%i:%u]: Failed to Recreate Socket", id, ptpsocket.lport);
-								}
-								ptpsocket.state = ADHOC_PTP_STATE_CLOSED;
-							}
+						if (errorcode == ECONNREFUSED) {
+							socket->attemptCount++;
+							ptpSetRefused(socket);
+							return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "refused");
+						}
+						if (Transport().PtpConnectPending(errorcode)) {
+							ptpsocket.state = ADHOC_PTP_STATE_SYN_SENT;
 							socket->attemptCount++;
 							socket->lastAttempt = CoreTiming::GetGlobalTimeUsScaled();
 							socket->internalLastAttempt = socket->lastAttempt;
@@ -4081,8 +4097,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	}
 
 	if (netAdhocInited) {
-		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if
-		// current MAC is different :( So we use the local MAC instead, without writing it into the game's memory.
+		// Our own MAC whatever the game passes, deliberately unlike a PSP (see NetAdhocPdpCreate).
 		SceNetEtherAddr localSrcMac;
 		if (saddr != NULL) {
 			getLocalMac(&localSrcMac);
@@ -4605,7 +4620,7 @@ void __NetTriggerCallbacks()
 		u32_le args[3] = { 0, 0, 0 };
 		args[0] = flags;
 		args[1] = error;
-		u64 now = (u64)(time_now_d() * 1000000.0);
+		u64 now = CoreTiming::GetGlobalTimeUs();
 
 		// A PSP delivers CONNECT after a Join before the host shows up in its peer list (pspautotests
 		// net/adhoc/pair/timing), so only GAME waits for a peer here.

@@ -9,6 +9,7 @@ import random
 import threading
 import glob
 import platform
+import socket
 
 
 PPSSPP_EXECUTABLES = [
@@ -587,6 +588,14 @@ tests_good = [
   "video/psmfplayer/setpsmf",
   "video/psmfplayer/settempbuf",
   "video/psmfplayer/stop",
+  # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
+  "net/adhoc/pair/basic",
+  "net/adhoc/pair/matching",
+  "net/adhoc/pair/matching2",
+  "net/adhoc/pair/matching3",
+  "net/adhoc/pair/matchingorder",
+  "net/adhoc/pair/ptppoll",
+  "net/adhoc/pair/vanish",
 ]
 
 # Broken tests
@@ -610,6 +619,59 @@ known_failures = {
   ],
   "armhf": [],
 }
+
+# Two-console tests that don't pass yet in one of the two ways run_pair_tests runs them. Same rules as above.
+pair_known_failures = {
+  "relay": [
+    # A PTP connect to a port nobody listens on isn't refused: the relay holds it while it waits for a
+    # listener, so it times out instead.
+    "net/adhoc/pair/basic",
+  ],
+  "p2p": [
+    # Times the send and recv failures from when the peer drops off the peer list. In P2P the socket
+    # error comes from the host's TCP, while the peer list comes from the ad hoc server in wall time,
+    # so at CI's speeds the failure can land within the first second (macOS CI) instead of 1-2s.
+    "net/adhoc/pair/vanish",
+  ],
+}
+if platform.system() == "Windows":
+  # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
+  # 800% speed is far longer than a PSP's refusal.
+  pair_known_failures["p2p"].append("net/adhoc/pair/basic")
+
+ADHOC_MODES = ["relay", "p2p"]
+
+# Single-console ad hoc tests that don't pass yet in one of the two data modes. Same rules as above.
+adhoc_known_failures = {
+  "relay": [
+    # One console can only talk to itself, which on a PSP never leaves the console: a PTP connect to
+    # itself is up at once, and a PDP datagram to itself is there at once. The relay sends both through
+    # the server, which takes a round trip.
+    "net/adhoc/alerts",
+    "net/adhoc/term",
+  ],
+  "p2p": [],
+}
+
+_relay_ini = None
+
+def relay_ini_path():
+  # A config that makes headless use the built-in server's relay (like Tools/adhoc_multi.py --relay).
+  global _relay_ini
+  if _relay_ini is None:
+    import tempfile
+    f = tempfile.NamedTemporaryFile("w", suffix=".ini", delete=False)
+    f.write("[Network]\nproAdhocServer = 127.0.0.1\nAdhocServerRelayMode = 1\n")
+    f.close()
+    _relay_ini = f.name
+  return _relay_ini
+
+# Tests that exercise HLE code and barely any of the game's, so one CPU backend covers them.
+# --skip-cpu-independent leaves them out of the runs that repeat the suite with each backend, and
+# --only-cpu-independent runs just them.
+CPU_INDEPENDENT_PREFIXES = (
+  "net/",
+)
 
 tests_next = [
 # These are the next tests up for fixing. These run by default.
@@ -680,7 +742,7 @@ tests_next = [
   "net/adhoc/matching",  # GetHelloOpt reports the hello length + 16; what the 16 bytes are is unknown
   "net/adhoc/pdp",  # PdpCreate takes any MAC as the local one, for savestates made with another MAC
   "net/adhoc/poll",  # P2P: a peer's close isn't seen while its data is still unread
-  "net/adhoc/ptp",  # the PdpCreate MAC as in pdp; a self-connect is established at open; a refused connect retries until timeout instead of CONNECTION_REFUSED
+  "net/adhoc/ptp",  # the PdpCreate MAC as in pdp; a self-connect is established at open; through the relay, a refused connect times out instead of CONNECTION_REFUSED
   "net/inet/bind",
   "net/inet/poll",
   "net/inet/errors",
@@ -690,16 +752,10 @@ tests_next = [
   "net/inet/tcp",
   "net/inet/udp",
   "net/primary/ether",
-  # Two-console tests: run on two instances through the built-in relay (see run_pair_tests).
-  "net/adhoc/pair/basic",
+  # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
   "net/adhoc/pair/flow",
   "net/adhoc/pair/gamemode",
   "net/adhoc/pair/lifecycle",
-  "net/adhoc/pair/matching",
-  "net/adhoc/pair/matching2",
-  "net/adhoc/pair/matching3",
-  "net/adhoc/pair/matchingorder",
-  "net/adhoc/pair/vanish",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 
 
@@ -748,7 +804,11 @@ test_flags = {
 # in real time.
 # They run at 8x PSP speed: timeouts and delays are in emulated time, and only the local network round
 # trips stay real.
-ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + os.environ.get("ADHOC_SPEED", "800"), "--timeout-wall=60"]
+# How fast the ad hoc tests run. Each instance runs on its own, so the busier the machine, the further apart
+# they drift in emulated time, and a lag of a real second is 8 emulated seconds at 800%. CI runners are
+# busy, so the tests run at 600% there.
+ADHOC_SPEED = os.environ.get("ADHOC_SPEED", "600" if os.environ.get("CI") else "800")
+ADHOC_FLAGS = ["--adhoc-server", "--realtime", "--speed=" + ADHOC_SPEED, "--timeout-wall=60"]
 
 def flags_for(test):
   if test in test_flags:
@@ -845,15 +905,56 @@ def run_tests(test_list, args):
 
   return returncode
 
-def run_pair_tests(test_list, args):
+def pair_instances(test):
+  # The host, the client, and client2, client3... if there are more.
+  n = 2
+  while os.path.exists(TEST_ROOT + test + "_client%d.prx" % n):
+    n += 1
+  return n
+
+def missing_loopback_addresses(count):
+  # In P2P mode instance N binds to 127.0.0.N. Linux and Windows route all of 127/8 to the loopback;
+  # macOS only has the addresses that were added.
+  missing = []
+  for n in range(2, count + 1):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+      s.bind(("127.0.0.%d" % n, 0))
+    except OSError:
+      missing.append("127.0.0.%d" % n)
+    finally:
+      s.close()
+  return missing
+
+# P2P tests that couldn't run for want of a loopback address, reported as a failure at the end.
+pair_tests_without_loopback = []
+
+def run_pair_tests(test_list, args, modes):
   # Each instance needs its own process, so Tools/adhoc_multi.py starts them, the host running the
-  # built-in ad hoc server and relay.
-  cmdline = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Tools', 'adhoc_multi.py'), '--headless', PPSSPP_EXE, '--relay']
-  cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
-  cmdline.append("--speed=" + os.environ.get("ADHOC_SPEED", "800"))
-  cmdline.extend(test_list)
-  returncode = subprocess.call(cmdline)
-  print("Ran " + ' '.join(cmdline))
+  # built-in ad hoc server. Each test runs through the server's relay (aemu_postoffice) and in P2P,
+  # where the instances talk to each other directly from 127.0.0.1, 127.0.0.2 and so on.
+  returncode = 0
+  for mode in modes:
+    tests = [t for t in test_list if t not in pair_known_failures[mode]]
+    skipped = [t for t in test_list if t in pair_known_failures[mode]]
+    if skipped:
+      print("Skipping %d known failures in %s mode: %s" % (len(skipped), mode, ", ".join(skipped)), flush=True)
+    if mode == "p2p":
+      runnable = [t for t in tests if not missing_loopback_addresses(pair_instances(t))]
+      pair_tests_without_loopback.extend(t for t in tests if t not in runnable)
+      if len(runnable) < len(tests):
+        print("WARNING: skipping %d P2P tests, which need loopback addresses this machine doesn't have." % (len(tests) - len(runnable)), flush=True)
+      tests = runnable
+    if not tests:
+      continue
+    cmdline = [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Tools', 'adhoc_multi.py'), '--headless', PPSSPP_EXE]
+    if mode == "relay":
+      cmdline.append('--relay')
+    cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
+    cmdline.append("--speed=" + ADHOC_SPEED)
+    cmdline.extend(tests)
+    returncode = subprocess.call(cmdline) or returncode
+    print("Ran " + ' '.join(cmdline))
   return returncode
 
 def main():
@@ -862,15 +963,28 @@ def main():
   args = []
   teamcity = False
   skip_arch = None
+  adhoc_modes = ADHOC_MODES
+  # Ours: None runs everything, "skip" or "only" leaves out or keeps just the CPU-independent tests.
+  cpu_independent = None
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
       teamcity = True
+    elif arg == '--skip-cpu-independent':
+      cpu_independent = "skip"
+    elif arg == '--only-cpu-independent':
+      cpu_independent = "only"
     elif arg.startswith('--known-failures='):
       # Ours, not headless's - don't pass it through.
       skip_arch = arg[len('--known-failures='):]
       if skip_arch not in known_failures:
         print("Unknown architecture for --known-failures: " + skip_arch)
+        sys.exit(1)
+    elif arg.startswith('--adhoc-mode='):
+      # Ours: which of relay and p2p the two-console tests run in (both by default).
+      adhoc_modes = [arg[len('--adhoc-mode='):]]
+      if adhoc_modes[0] not in ADHOC_MODES:
+        print("Unknown --adhoc-mode: " + adhoc_modes[0])
         sys.exit(1)
     elif arg[0] == '-':
       args.append(arg)
@@ -897,15 +1011,40 @@ def main():
     if skipped:
       print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
-  pair = [t for t in tests if is_pair_test(t)]
+  if cpu_independent:
+    independent = [t for t in tests if t.startswith(CPU_INDEPENDENT_PREFIXES)]
+    if cpu_independent == "skip":
+      tests = [t for t in tests if t not in independent]
+      print("Skipping %d tests that don't depend on the CPU backend" % len(independent))
+    else:
+      print("Skipping %d tests that depend on the CPU backend" % (len(tests) - len(independent)))
+      tests = independent
+
+  pair =[t for t in tests if is_pair_test(t)]
   tests = [t for t in tests if t not in pair]
   plain = [t for t in tests if flags_for(t) is None]
   returncode = run_tests(plain, args)
   for test in tests:
-    if flags_for(test) is not None:
+    if flags_for(test) is None:
+      continue
+    if not test.startswith("net/adhoc/"):
       returncode = run_tests([test], args + flags_for(test)) or returncode
+      continue
+    # The ad hoc tests talk through the built-in server, in both data modes, like run_pair_tests.
+    for mode in adhoc_modes:
+      if test in adhoc_known_failures[mode]:
+        print("Skipping known failure in %s mode: %s" % (mode, test), flush=True)
+        continue
+      print("%s mode:" % mode, flush=True)
+      mode_flags = ["--appendconfig=" + relay_ini_path()] if mode == "relay" else []
+      returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
   if pair:
-    returncode = run_pair_tests(pair, args) or returncode
+    returncode = run_pair_tests(pair, args, adhoc_modes) or returncode
+  if pair_tests_without_loopback:
+    missing = missing_loopback_addresses(max(pair_instances(t) for t in pair_tests_without_loopback))
+    print("FAILED: %d P2P tests didn't run, for want of %s: %s" % (len(pair_tests_without_loopback), ", ".join(missing), ", ".join(pair_tests_without_loopback)))
+    print("Add the addresses with: " + "; ".join("sudo ifconfig lo0 alias %s up" % a for a in missing))
+    returncode = 1
   if teamcity:
     return 0
   return returncode

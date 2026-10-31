@@ -550,6 +550,12 @@ jobs:
       timeout-minutes: 30
       run: build/PPSSPPUnitTest ALL
 
+    # The two-console ad hoc tests run in P2P too, where instance N binds to 127.0.0.N. Linux and
+    # Windows route all of 127/8 to the loopback; macOS needs the address added.
+    - name: Add a loopback address for the P2P ad hoc tests
+      if: matrix.extra == 'test' && runner.os == 'macOS'
+      run: sudo ifconfig lo0 alias 127.0.0.2 up
+
     - name: Execute headless tests
       if: matrix.extra == 'test' && runner.os != 'Linux'
       timeout-minutes: 30
@@ -565,7 +571,10 @@ jobs:
         fail=0
         for cpu in jit jit-ir ir interpreter; do
           echo "::group::CPU backend: $cpu"
-          python3 test.py -g --graphics=software --cpu=$cpu || fail=1
+          # The JIT run has everything; the others leave out what doesn't depend on the backend (networking).
+          only=""
+          if [ "$cpu" != "jit" ]; then only="--skip-cpu-independent"; fi
+          python3 test.py -g --graphics=software --cpu=$cpu $only || fail=1
           echo "::endgroup::"
         done
         exit $fail

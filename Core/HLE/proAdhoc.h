@@ -329,6 +329,7 @@ typedef struct AdhocSocket {
 	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
 	u64 ptpLastSendAt; // the last PTP send
 	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
+	bool ptpRefused; // a connect was refused, and every later one is too
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
@@ -339,6 +340,8 @@ typedef struct AdhocSocket {
 	std::thread *connectThread;
 	bool connectThreadDone;
 	int connectThreadResult;
+	// Whether the emulation has already waited for the connect in progress.
+	bool connectThreadWaited;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
@@ -515,16 +518,14 @@ typedef struct SceNetAdhocMatchingContext {
   //HLEHelperThread *matchingThread;
   int matching_thid;
 
-  // Event Caller Thread
-  std::thread eventThread;
-  //s32_le event_thid;
+  // Event delivery and input handling, run by the matching poll while the context is started.
   bool eventRunning = false;
   bool IsMatchingInCB = false;
-
-  // IO Handler Thread
-  std::thread inputThread;
-  //s32_le input_thid;
   bool inputRunning = false;
+
+  // When the input handling last sent a hello and a keepalive.
+  u64 lastHello = 0;
+  u64 lastPing = 0;
 
   // Event Caller Thread Message Stack
   std::recursive_mutex *eventlock; // s32_le event_stack_lock;

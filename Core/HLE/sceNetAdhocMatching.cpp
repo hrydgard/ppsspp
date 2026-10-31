@@ -68,6 +68,11 @@ int netAdhocMatchingStarted = 0;
 // timeout: it already allows keepalive_int * init_count of silence.
 static constexpr u64 MATCHING_TIMEOUT_EXTRA_US = 0;
 
+// The contexts' input handling and event delivery run from this CoreTiming event, every
+// MATCHING_POLL_INTERVAL_US of emulated time.
+static int matchingPollEvent = -1;
+static constexpr int MATCHING_POLL_INTERVAL_US = 1000;
+
 
 void __UpdateMatchingHandler(const MatchingArgs &ArgsPtr) {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
@@ -1163,421 +1168,190 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 }
 
 
-/**
-* TODO: This really should be a callback or event!
-* Matching Event Dispatcher Thread
-* @param args sizeof(SceNetAdhocMatchingContext *)
-* @param argp SceNetAdhocMatchingContext *
-* @return Exit Point is never reached...
-*/
-int matchingEventThread(int matchingId) {
-	SetCurrentThreadName("MatchingEvent");
-	// Multithreading Lock
-	peerlock.lock();
-	// Cast Context
-	SceNetAdhocMatchingContext * context = findMatchingContext(matchingId);
-	// Multithreading Unlock
-	peerlock.unlock();
+// Hands the context's queued events to the game's handler, through __NetMatchingCallbacks.
+static void matchingDeliverEvents(SceNetAdhocMatchingContext *context) {
+	u32 bufLen = context->rxbuflen;
+	u32 bufAddr = 0;
+	u32_le *args = context->handlerArgs;
 
-	// Log Startup
-	INFO_LOG(Log::sceNet, "EventLoop: Begin of EventLoop[%i] Thread", matchingId);
+	std::lock_guard<std::recursive_mutex> guard(*context->eventlock);
+	while (context->event_stack != NULL) {
+		ThreadMessage *msg = context->event_stack;
+		void *opt = NULL;
+		if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
 
-	// Run while needed...
-	if (context != NULL) {
-		u32 bufLen = context->rxbuflen; //0;
-		u32 bufAddr = 0; //= userMemory.Alloc(bufLen); //context->rxbuf;
-		u32_le * args = context->handlerArgs; //MatchingArgs
+		INFO_LOG(Log::sceNet, "EventLoop[%d]: Matching Event [%d=%s][%s] OptSize=%d", context->id, msg->opcode, getMatchingEventStr(msg->opcode), mac2str(&msg->mac).c_str(), msg->optlen);
+		notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
 
-		while (contexts != NULL && context->eventRunning) {
-			// Multithreading Lock
-			peerlock.lock();
-			// Cast Context
-			context = findMatchingContext(matchingId);
-			// Multithreading Unlock
-			peerlock.unlock();
-
-			// Messages on Stack ready for processing
-			while (context != NULL && context->event_stack != NULL) {
-				// Claim Stack
-				context->eventlock->lock();
-
-				// Iterate Message List
-				ThreadMessage * msg = context->event_stack;
-				if (msg != NULL) {
-					// Default Optional Data
-					void* opt = NULL;
-
-					// Grab Optional Data
-					if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage); //&msg[1]
-
-					// Log Matching Events
-					INFO_LOG(Log::sceNet, "EventLoop[%d]: Matching Event [%d=%s][%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), mac2str(&msg->mac).c_str(), msg->optlen);
-
-					// Unlock to prevent race-condition with other threads due to recursive lock
-					//context->eventlock->unlock();
-					// Call Event Handler
-					//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
-					// Notify Event Handlers
-					notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args); // If we're using shared Buffer & Args for All Events We should wait for the Mipscall to be fully executed before processing the next event. GTA VCS need this delay/sleep.
-
-					// Give some time before executing the next mipscall to prevent event ACCEPT(6)->ESTABLISH(7) getting reversed After Action ESTABLISH(7)->ACCEPT(6)
-					// Must Not be delayed too long to prevent desync/disconnect. Not longer than the delays on callback's HLE?
-					//sleep_ms(10); //sceKernelDelayThread(10000);
-
-					// Lock again
-					//context->eventlock->lock();
-
-					// Pop the event queue from the front
-					context->event_stack = msg->next;
-					free(msg);
-					msg = NULL;
-				}
-
-				// Unlock Stack
-				context->eventlock->unlock();
-			}
-
-			// Share CPU Time
-			sleep_ms(10, "pro-adhoc-poll-3"); //1 //sceKernelDelayThread(10000);
-
-			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning)
-				sleep_ms(10, "pro-adhoc-event-poll-3");
-		}
-
-		// Process Last Messages
-		if (contexts != NULL && context->event_stack != NULL) {
-			// Claim Stack
-			context->eventlock->lock();
-
-			// Iterate Message List
-			int msg_count = 0;
-			ThreadMessage * msg = context->event_stack;
-			for (; msg != NULL; msg = msg->next) {
-				// Default Optional Data
-				void * opt = NULL;
-
-				// Grab Optional Data
-				if (msg->optlen > 0) opt = ((u8 *)msg) + sizeof(ThreadMessage); //&msg[1]
-
-				INFO_LOG(Log::sceNet, "EventLoop[%d]: Matching Event [EVENT=%d]\n", matchingId, msg->opcode);
-
-				//context->eventlock->unlock();
-				// Original Call Event Handler
-				//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
-				// Notify Event Handlers
-				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
-				//context->eventlock->lock();
-				msg_count++;
-			}
-
-			// Clear Event Message Stack
-			clearStack(context, PSP_ADHOC_MATCHING_EVENT_STACK);
-
-			// Free Stack
-			context->eventlock->unlock();
-			INFO_LOG(Log::sceNet, "EventLoop[%d]: Finished (%d msg)", matchingId, msg_count);
-		}
-
-		// Free memory
-		//if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
-
-		// Delete Pointer Reference (and notify caller about finished cleanup)
-		//context->eventThread = NULL;
+		context->event_stack = msg->next;
+		free(msg);
 	}
-
-	// Log Shutdown
-	INFO_LOG(Log::sceNet, "EventLoop: End of EventLoop[%i] Thread", matchingId);
-
-	// Return Zero to shut up Compiler
-	return 0;
 }
 
-/**
-* Matching IO Handler Thread
-* @param args sizeof(SceNetAdhocMatchingContext *)
-* @param argp SceNetAdhocMatchingContext *
-* @return Exit Point is never reached...
-*/
-int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is using sceNetAdhocPdpRecv & sceNetAdhocPdpSend functions so it might be better to run this on PSP thread instead of real thread
-	SetCurrentThreadName("MatchingInput");
+// Sends the packets SelectTarget, CancelTarget, SendData and the input handling itself queued.
+static void matchingSendQueued(SceNetAdhocMatchingContext *context) {
+	std::lock_guard<std::recursive_mutex> guard(*context->inputlock);
+	while (context->input_stack != NULL) {
+		ThreadMessage *msg = context->input_stack;
+		void *opt = NULL;
+		if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
+
+		if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
+
+		context->input_stack = msg->next;
+		free(msg);
+	}
+}
+
+// One pass of a context's input handling: hellos, timeouts and keepalives when they're due, the
+// queued packets, then everything that has arrived.
+static void matchingHandleInput(SceNetAdhocMatchingContext *context) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	// Multithreading Lock
-	peerlock.lock();
-	// Cast Context
-	SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
-	// Multithreading Unlock
-	peerlock.unlock();
+	SceNetEtherAddr sendermac;
+	u32_le senderport;
+	int rxbuflen;
 
-	// Last Ping
-	u64_le lastping = 0;
+	while (true) {
+		u64 now = CoreTiming::GetGlobalTimeUsScaled();
 
-	// Last Hello
-	u64_le lasthello = 0;
-
-	u64_le now;
-
-	static SceNetEtherAddr sendermac;
-	static u32_le senderport;
-	static int rxbuflen;
-
-	// Log Startup
-	INFO_LOG(Log::sceNet, "InputLoop: Begin of InputLoop[%i] Thread", matchingId);
-
-	// Run while needed...
-	if (context != NULL) {
-		while (contexts != NULL && context->inputRunning) {
-			// Multithreading Lock
-			peerlock.lock();
-			// Cast Context
-			context = findMatchingContext(matchingId);
-			// Multithreading Unlock
-			peerlock.unlock();
-
-			while (context != NULL && context->inputRunning && !Core_IsStepping()) {
-				now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
-
-				// Hello Message Sending Context with unoccupied Slots
-				if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (countChildren(context) < (context->maxpeers - 1))) || (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && findP2P(context) == NULL)) {
-					// Hello Message Broadcast necessary because of Hello Interval
-					if (context->hello_int > 0)
-						if (static_cast<s64>(now - lasthello) >= static_cast<s64>(context->hello_int)) {
-							// Broadcast Hello Message
-							broadcastHelloMessage(context);
-
-							// Update Hello Timer
-							lasthello = now;
-						}
-				}
-
-				handleDataTimeouts(context, now);
-
-				// A PSP times out a peer exactly keepalive_int * init_count after its last keepalive, not on
-				// its own keepalive tick (pspautotests net/adhoc/pair/vanishtiming).
-				handleTimeout(context);
-
-				// Ping Required
-				if (context->keepalive_int > 0) {
-					if (static_cast<s64>(now - lastping) >= static_cast<s64>(context->keepalive_int)) {
-						// Broadcast Ping Message
-						broadcastPingMessage(context);
-
-						// Update Ping Timer
-						lastping = now;
-					}
-				}
-
-				// Messages on Stack ready for processing
-				if (context->input_stack != NULL) {
-					// Claim Stack
-					context->inputlock->lock();
-
-					// Iterate Message List
-					ThreadMessage* msg = context->input_stack;
-					while (msg != NULL) {
-						// Default Optional Data
-						void* opt = NULL;
-
-						// Grab Optional Data
-						if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
-
-						//context->inputlock->unlock(); // Unlock to prevent race condition when locking peerlock
-
-						// Send Accept Packet
-						if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Join Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Cancel Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Bulk Data Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Birth Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
-
-						// Send Death Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
-
-						// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
-						//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-						//context->inputlock->lock(); // Lock again
-
-						// Pop the input queue from the front
-						context->input_stack = msg->next;
-						free(msg);
-						msg = context->input_stack;
-					}
-
-					// Free Stack
-					context->inputlock->unlock();
-				}
-
-				// Receive PDP Datagram
-				// FIXME: When using JPCSP + prx files, the "SceNetAdhocMatchingInput" thread is using blocking PdpRecv with infinite(0) timeout, which can be stopped/aborted using SetSocketAlert, while "SceNetAdhocMatchingEvent" thread is using non-blocking for sending
-				rxbuflen = context->rxbuflen;
-				senderport = 0;
-				// Lock the peer first before locking the socket to avoid race condiion
-				peerlock.lock();
-				context->socketlock->lock();
-				int recvresult = sceNetAdhocPdpRecv(currentMIPS, context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
-				context->socketlock->unlock();
-				peerlock.unlock();
-
-				// Received Data from a Sender that interests us
-				// Note: There are cases where the sender port might be re-mapped by router or ISP, so we shouldn't check the source port.
-				if (recvresult == 0 && rxbuflen > 0) {
-					// Log Receive Success
-					if (context->rxbuf[0] > 1) {
-						INFO_LOG(Log::sceNet, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", matchingId, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0]));
-					}
-
-					// Update Peer Timestamp
-					peerlock.lock();
-					SceNetAdhocctlPeerInfo* peer = findFriend(&sendermac);
-					if (peer != NULL) {
-						now = CoreTiming::GetGlobalTimeUsScaled();
-						s64 delta = now - peer->last_recv;
-						DEBUG_LOG(Log::sceNet, "Timestamp LastRecv Delta: %lld (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
-						if (peer->last_recv != 0) peer->last_recv = std::max(peer->last_recv, now - defaultLastRecvDelta);
-					}
-					else {
-						WARN_LOG(Log::sceNet, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", matchingId, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
-					}
-
-					// Show a warning if other player is having their port being re-mapped, thus that other player may have issue with the communication. 
-					// Note: That other player may need to switch side between host and join, or reboot their router to solve this issue.
-					if (context->port != senderport && senderport != (*context->peerPort)[sendermac]) {
-						char name[9] = {};
-						if (peer != NULL)
-							truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
-						WARN_LOG(Log::sceNet, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", matchingId, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
-						g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 0.0f, "unknowndata");
-					}
-					// Keep tracks of re-mapped peer's ports for further communication. 
-					// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
-					(*context->peerPort)[sendermac] = senderport;
-					peerlock.unlock();
-
-					// Ping Packet
-					if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_PING) actOnPingPacket(context, &sendermac);
-
-					// Hello Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_HELLO) actOnHelloPacket(context, &sendermac, rxbuflen);
-
-					// Join Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_JOIN) actOnJoinPacket(context, &sendermac, rxbuflen);
-
-					// Accept Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_ACCEPT) actOnAcceptPacket(context, &sendermac, rxbuflen);
-
-					// Cancel Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_CANCEL) actOnCancelPacket(context, &sendermac, rxbuflen);
-
-					// Bulk Data Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BULK) actOnBulkDataPacket(context, &sendermac, rxbuflen);
-
-					// Abort Bulk Data Packet
-					//else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) actOnAbortBulkDataPacket(context, &sendermac, rxbuflen);
-
-					// Birth Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BIRTH) actOnBirthPacket(context, &sendermac, rxbuflen);
-
-					// Death Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_DEATH) actOnDeathPacket(context, &sendermac, rxbuflen);
-
-					// Bye Packet
-					else if (context->rxbuf[0] == PSP_ADHOC_MATCHING_PACKET_BYE) actOnByePacket(context, &sendermac);
-
-					// Ignore Incoming Trash Data
-				}
-				else
-					break;
+		// Hello Message Sending Context with unoccupied Slots
+		if ((context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && (countChildren(context) < (context->maxpeers - 1))) || (context->mode == PSP_ADHOC_MATCHING_MODE_P2P && findP2P(context) == NULL)) {
+			// Hello Message Broadcast necessary because of Hello Interval
+			if (context->hello_int > 0 && static_cast<s64>(now - context->lastHello) >= static_cast<s64>(context->hello_int)) {
+				broadcastHelloMessage(context);
+				context->lastHello = now;
 			}
-			// Share CPU Time
-			sleep_ms(10, "pro-adhoc-4"); //1 //sceKernelDelayThread(10000);
-
-			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning)
-				sleep_ms(10, "pro-adhoc-input-4");
 		}
 
-		if (contexts != NULL) {
-			// Process Last Messages
-			if (context->input_stack != NULL) {
-				// Claim Stack
-				context->inputlock->lock();
+		handleDataTimeouts(context, now);
 
-				// Iterate Message List
-				int msg_count = 0;
-				ThreadMessage* msg = context->input_stack;
-				while (msg != NULL) {
-					// Default Optional Data
-					void* opt = NULL;
+		// A PSP times out a peer exactly keepalive_int * init_count after its last keepalive, not on
+		// its own keepalive tick (pspautotests net/adhoc/pair/vanishtiming).
+		handleTimeout(context);
 
-					// Grab Optional Data
-					if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
+		if (context->keepalive_int > 0 && static_cast<s64>(now - context->lastPing) >= static_cast<s64>(context->keepalive_int)) {
+			broadcastPingMessage(context);
+			context->lastPing = now;
+		}
 
-					// Send Accept Packet
-					if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
+		matchingSendQueued(context);
 
-					// Send Join Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
+		// Receive PDP Datagram
+		rxbuflen = context->rxbuflen;
+		senderport = 0;
+		int recvresult;
+		{
+			std::lock_guard<std::recursive_mutex> peerGuard(peerlock);
+			std::lock_guard<std::recursive_mutex> socketGuard(*context->socketlock);
+			recvresult = sceNetAdhocPdpRecv(currentMIPS, context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
+		}
+		if (recvresult != 0 || rxbuflen <= 0) {
+			break;
+		}
 
-					// Send Cancel Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
+		// Received Data from a Sender that interests us
+		// Note: There are cases where the sender port might be re-mapped by router or ISP, so we shouldn't check the source port.
+		if (context->rxbuf[0] > 1) {
+			INFO_LOG(Log::sceNet, "InputLoop[%d]: Received %d Bytes (Opcode[%d]=%s)", context->id, rxbuflen, context->rxbuf[0], getMatchingOpcodeStr(context->rxbuf[0]));
+		}
 
-					// Send Bulk Data Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+		// Update Peer Timestamp
+		peerlock.lock();
+		SceNetAdhocctlPeerInfo* peer = findFriend(&sendermac);
+		if (peer != NULL) {
+			now = CoreTiming::GetGlobalTimeUsScaled();
+			s64 delta = now - peer->last_recv;
+			DEBUG_LOG(Log::sceNet, "Timestamp LastRecv Delta: %lld (%llu - %llu) from %s", delta, now, peer->last_recv, mac2str(&sendermac).c_str());
+			if (peer->last_recv != 0) peer->last_recv = std::max(peer->last_recv, now - defaultLastRecvDelta);
+		} else {
+			WARN_LOG(Log::sceNet, "InputLoop[%d]: Unknown Peer[%s:%u] (Recved=%i, Length=%i)", context->id, mac2str(&sendermac).c_str(), senderport, recvresult, rxbuflen);
+		}
 
-					// Send Birth Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
+		// Show a warning if other player is having their port being re-mapped, thus that other player may have issue with the communication.
+		// Note: That other player may need to switch side between host and join, or reboot their router to solve this issue.
+		if (context->port != senderport && senderport != (*context->peerPort)[sendermac]) {
+			char name[9] = {};
+			if (peer != NULL)
+				truncate_cpy(name, sizeof(name), (const char*)peer->nickname.data);
+			WARN_LOG(Log::sceNet, "InputLoop[%d]: Unknown Source Port from [%s][%s:%u -> %u] (Recved=%i, Length=%i)", context->id, name, mac2str(&sendermac).c_str(), senderport, context->port, recvresult, rxbuflen);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, std::string(n->T("AM: Data from Unknown Port")) + std::string(" [") + std::string(name) + std::string("]:") + std::to_string(senderport) + std::string(" -> ") + std::to_string(context->port) + std::string(" (") + std::to_string(portOffset) + std::string(")"), 0.0f, "unknowndata");
+		}
+		// Keep tracks of re-mapped peer's ports for further communication.
+		// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
+		(*context->peerPort)[sendermac] = senderport;
+		peerlock.unlock();
 
-					// Send Death Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
-
-					// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
-					//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Pop the input queue from the front
-					context->input_stack = msg->next;
-					free(msg);
-					msg = context->input_stack;
-					msg_count++;
-				}
-
-				// Free Stack
-				context->inputlock->unlock();
-				INFO_LOG(Log::sceNet, "InputLoop[%d]: Finished (%d msg)", matchingId, msg_count);
-			}
-
-			// Clear IO Message Stack
-			clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
-
-			// Send Bye Messages. FIXME: Official prx seems to be sending DEATH instead of BYE packet during MatchingStop? But DEATH packet doesn't works with DBZ Team Tag
-			sendByePacket(context);
-
-			// Free Peer List Buffer
-			clearPeerList(context); //deleteAllMembers(context);
-
-			// Delete Pointer Reference (and notify caller about finished cleanup)
-			//context->inputThread = NULL;
+		switch (context->rxbuf[0]) {
+		case PSP_ADHOC_MATCHING_PACKET_PING: actOnPingPacket(context, &sendermac); break;
+		case PSP_ADHOC_MATCHING_PACKET_HELLO: actOnHelloPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_JOIN: actOnJoinPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_ACCEPT: actOnAcceptPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_CANCEL: actOnCancelPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_BULK: actOnBulkDataPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_BIRTH: actOnBirthPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_DEATH: actOnDeathPacket(context, &sendermac, rxbuflen); break;
+		case PSP_ADHOC_MATCHING_PACKET_BYE: actOnByePacket(context, &sendermac); break;
+		default: break;  // Ignore Incoming Trash Data
 		}
 	}
-
-	// Log Shutdown
-	INFO_LOG(Log::sceNet, "InputLoop: End of InputLoop[%i] Thread", matchingId);
-
-	// Terminate Thread
-	//sceKernelExitDeleteThread(0);
-
-	// Return Zero to shut up Compiler
-	return 0;
 }
 
+// Runs every running context's input handling and event delivery, in emulated time, while any is running.
+static void __NetMatchingPoll(u64 userdata, int cyclesLate) {
+	bool anyRunning = false;
+	SceNetAdhocMatchingContext *next = NULL;
+	for (SceNetAdhocMatchingContext *context = contexts; context != NULL; context = next) {
+		next = context->next;
+		if (context->inputRunning) {
+			matchingHandleInput(context);
+		}
+		if (context->eventRunning) {
+			matchingDeliverEvents(context);
+		}
+		anyRunning = anyRunning || context->inputRunning || context->eventRunning;
+	}
+	if (anyRunning) {
+		CoreTiming::ScheduleEvent(usToCycles(MATCHING_POLL_INTERVAL_US) - cyclesLate, matchingPollEvent, 0);
+	}
+}
+
+static void ScheduleMatchingPoll() {
+	if (!CoreTiming::IsScheduled(matchingPollEvent)) {
+		CoreTiming::ScheduleEvent(usToCycles(MATCHING_POLL_INTERVAL_US), matchingPollEvent, 0);
+	}
+}
+
+void DoNetAdhocMatchingPollEvent(PointerWrap &p, bool saved) {
+	if (saved) {
+		Do(p, matchingPollEvent);
+	} else {
+		matchingPollEvent = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(matchingPollEvent, "__NetMatchingPoll", __NetMatchingPoll);
+	// The contexts aren't in the state, so the ones still running here need the poll whatever the state had.
+	if (p.mode == PointerWrap::MODE_READ) {
+		for (SceNetAdhocMatchingContext *context = contexts; context != NULL; context = context->next) {
+			if (context->inputRunning || context->eventRunning) {
+				ScheduleMatchingPoll();
+				break;
+			}
+		}
+	}
+}
+
+// What the input handling does as it stops: sends what's still queued, then the bye.
+static void matchingStopInput(SceNetAdhocMatchingContext *context) {
+	matchingSendQueued(context);
+	clearStack(context, PSP_ADHOC_MATCHING_INPUT_STACK);
+	// FIXME: Official prx seems to be sending DEATH instead of BYE packet during MatchingStop? But DEATH packet doesn't works with DBZ Team Tag
+	sendByePacket(context);
+	clearPeerList(context);
+}
 
 void netAdhocMatchingValidateLoopMemory() {
 	if (!matchingThreadHackAddr || (matchingThreadHackAddr && strcmp("matchingThreadHack", kernelMemory.GetBlockTag(matchingThreadHackAddr)) != 0)) {
@@ -1596,14 +1370,14 @@ int NetAdhocMatching_Stop(int matchingId) {
 	// This will cause using PdpRecv on this socket to return ERROR_NET_ADHOC_SOCKET_ALERTED (Based on Ys vs. Sora no Kiseki when tested with JPCSP + prx files). Is this used to abort inprogress socket activity?
 	NetAdhoc_SetSocketAlert(item->socket, ADHOC_F_ALERTRECV);
 
-	item->inputRunning = false;
-	if (item->inputThread.joinable()) {
-		item->inputThread.join();
+	if (item->inputRunning) {
+		item->inputRunning = false;
+		matchingStopInput(item);
 	}
 
-	item->eventRunning = false;
-	if (item->eventThread.joinable()) {
-		item->eventThread.join();
+	if (item->eventRunning) {
+		item->eventRunning = false;
+		matchingDeliverEvents(item);
 	}
 
 	// Stop fake PSP Thread.
@@ -1645,8 +1419,7 @@ int sceNetAdhocMatchingStop(MIPSState *mips, int matchingId) {
 }
 
 int NetAdhocMatching_Delete(int matchingId) {
-	// Running threads can't be deleted, so stop them first. This has to happen before we take peerlock,
-	// since the threads take it too.
+	// A running context can't be deleted, so stop it first.
 	SceNetAdhocMatchingContext *item = findMatchingContext(matchingId);
 	if (item && item->running) {
 		NetAdhocMatching_Stop(matchingId);
@@ -1955,15 +1728,12 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 		//item->matchingThread->Start(matchingId, 0);
 	}
 
-	//Create the threads
-	if (!item->eventRunning) {
-		item->eventRunning = true;
-		item->eventThread = std::thread(matchingEventThread, matchingId);
-	}
-	if (!item->inputRunning) {
-		item->inputRunning = true;
-		item->inputThread = std::thread(matchingInputThread, matchingId);
-	}
+	// The first hello and keepalive go out on the first poll.
+	item->lastHello = 0;
+	item->lastPing = 0;
+	item->eventRunning = true;
+	item->inputRunning = true;
+	ScheduleMatchingPoll();
 
 	item->running = 1;
 	netAdhocMatchingStarted++;
@@ -2801,6 +2571,7 @@ void Register_sceNetAdhocMatching() {
 
 void __NetAdhocMatchingInit() {
 	netAdhocMatchingInited = false;
+	matchingPollEvent = CoreTiming::RegisterEvent("__NetMatchingPoll", __NetMatchingPoll);
 }
 
 void __NetAdhocMatchingShutdown() {
