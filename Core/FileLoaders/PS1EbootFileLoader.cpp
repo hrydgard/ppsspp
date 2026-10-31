@@ -312,6 +312,7 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 		} else {
 			parsed = ParseMds(path, text);
 		}
+		sheet_ = path;
 	} else if (ext == ".chd") {
 		parsed = OpenCHD(path);
 	} else {
@@ -324,10 +325,13 @@ PS1EbootFileLoader::PS1EbootFileLoader(const Path &path) : path_(path) {
 		const Path mds = path.WithReplacedExtension(".mds");
 		if (ReadSmallTextFile(cue, &text) && ParseCue(cue, text)) {
 			parsed = true;
+			sheet_ = cue;
 		} else if (ReadSmallTextFile(ccd, &text) && ParseCcd(ccd, text)) {
 			parsed = true;
+			sheet_ = ccd;
 		} else if (ReadSmallTextFile(mds, &text) && ParseMds(mds, text)) {
 			parsed = true;
+			sheet_ = mds;
 		} else {
 			files_.clear();
 			extents_.clear();
@@ -384,6 +388,20 @@ PS1EbootFileLoader::~PS1EbootFileLoader() {
 	if (chd_) {
 		chd_close(chd_);
 	}
+}
+
+s64 PS1EbootFileLoader::SourceFilesSize() {
+	s64 size = 0;
+	for (const std::unique_ptr<FileLoader> &file : files_) {
+		size += file->FileSize();
+	}
+	if (!sheet_.empty()) {
+		std::unique_ptr<FileLoader> sheet(ConstructFileLoader(sheet_));
+		if (sheet && sheet->Exists()) {
+			size += sheet->FileSize();
+		}
+	}
+	return size;
 }
 
 int PS1EbootFileLoader::AddFile(const Path &path) {
