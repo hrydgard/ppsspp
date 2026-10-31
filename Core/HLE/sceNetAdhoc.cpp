@@ -1361,6 +1361,8 @@ static void __AdhocSocketNotify(u64 userdata, int cyclesLate) {
 			CoreTiming::ScheduleEvent(usToCycles(delayUS) - cyclesLate, adhocSocketNotifyEvent, userdata);
 			return;
 		}
+		// Done with it, or the next blocking connect on a socket that reuses this id would be BUSY.
+		sendTargetPeers.erase(userdata);
 		break;
 
 	case PTP_FLUSH:
