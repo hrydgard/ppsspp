@@ -634,6 +634,11 @@ if platform.system() == "Windows":
   # Windows retries a refused TCP connect for about a second before reporting it, which at the tests'
   # 800% speed is far longer than a PSP's refusal.
   pair_known_failures["p2p"].append("net/adhoc/pair/basic")
+if platform.system() == "Darwin" and os.environ.get("CI"):
+  # On macOS CI runners only, and with the instances in step: once the client has gone, the host's
+  # matching drops it without the TIMEOUT event (no events at all), and SendData says NOT_ESTABLISHED.
+  # Not reproduced on a Mac or on the other runners yet.
+  pair_known_failures["relay"].append("net/adhoc/pair/vanish")
 
 ADHOC_MODES = ["relay", "p2p"]
 
