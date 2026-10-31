@@ -609,6 +609,11 @@ int sceKernelCreateLwMutex(MIPSState *mips, u32 workareaPtr, const char *name, u
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	}
 
+	// A PSP rejects a misaligned work area. One it can't access hangs it instead, so for those the
+	// error is our choice.
+	if ((workareaPtr & 3) != 0) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "misaligned workarea");
+	}
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	if (!workarea.IsValid()) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad workarea");
