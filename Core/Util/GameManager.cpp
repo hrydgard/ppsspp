@@ -670,7 +670,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 			size_t readSize = std::min(blockSize, size - pos);
 			// Stop before the total would exceed the limit (zip bomb), even
 			// if the declared sizes in the archive were inaccurate.
-			if (*bytesCopied > maxTotalSize || readSize > maxTotalSize - *bytesCopied) {
+			if (*bytesCopied > maxTotalSize || (int64_t)readSize > maxTotalSize - *bytesCopied) {
 				ERROR_LOG(Log::HLE, "Bailing: zip contents too large, limit %d", (int)maxTotalSize);
 				delete[] buffer;
 				fclose(f);

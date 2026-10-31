@@ -820,7 +820,7 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 			break;
 		}
 		// The vertices would run off the end of memory. Execute_Prim drops the draw.
-		if ((offset - dv.vertexCount) + vertexCount > maxVerts) {
+		if ((int)(offset - dv.vertexCount) + vertexCount > maxVerts) {
 			break;
 		}
 		expandedVertsInDrawCalls_ += expanded;

@@ -29,7 +29,7 @@ DropShadowParams UIDropShadowParams(float pixelsPerUnit) {
 	DropShadowParams params;
 	params.radius = std::max(1, (int)(UI_SHADOW_RADIUS * pixelsPerUnit));
 	params.intensity = UI_SHADOW_INTENSITY;
-	params.offsetY = 1.0f * pixelsPerUnit;
+	params.offsetY = (int)(1.0f * pixelsPerUnit);
 	return params;
 }
 
