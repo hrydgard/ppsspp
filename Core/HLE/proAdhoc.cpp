@@ -1762,7 +1762,8 @@ void friendFinderPoll() {
 						gameModeMacs.push_back(*(SceNetEtherAddr *)adhocctl_event.connect.mac);
 					}
 					else {
-						it = gameModeMacs.begin() + 1;
+						// After the host, who's first - if the list has one yet.
+						it = gameModeMacs.empty() ? gameModeMacs.end() : gameModeMacs.begin() + 1;
 						gameModeMacs.insert(it, *(SceNetEtherAddr *)adhocctl_event.connect.mac);
 					}
 

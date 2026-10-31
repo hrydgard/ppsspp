@@ -609,6 +609,11 @@ int sceKernelCreateLwMutex(MIPSState *mips, u32 workareaPtr, const char *name, u
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
 	}
 
+	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
+	if (!workarea.IsValid()) {
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad workarea");
+	}
+
 	LwMutex *mutex = new LwMutex();
 	SceUID id = kernelObjects.Create(mutex);
 	mutex->nm.size = sizeof(mutex->nm);
@@ -618,7 +623,6 @@ int sceKernelCreateLwMutex(MIPSState *mips, u32 workareaPtr, const char *name, u
 	mutex->nm.uid = id;
 	mutex->nm.workarea = workareaPtr;
 	mutex->nm.initialCount = initialCount;
-	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
 	workarea->init();
 	workarea->lockLevel = initialCount;
 	if (initialCount == 0)
@@ -664,7 +668,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 int sceKernelDeleteLwMutex(u32 workareaPtr) {
 	DEBUG_LOG(Log::sceKernel, "sceKernelDeleteLwMutex(%08x)", workareaPtr);
 
-	if (!workareaPtr || !Memory::IsValidAddress(workareaPtr))
+	if (!workareaPtr || !Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea)))
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR);
 
 	auto workarea = PSPPointer<NativeLwMutexWorkarea>::Create(workareaPtr);
@@ -798,7 +802,7 @@ void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 }
 
 int sceKernelTryLockLwMutex(u32 workareaPtr, int count) {
-	if (!Memory::IsValidAddress(workareaPtr)) {
+	if (!Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea))) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
@@ -816,7 +820,7 @@ int sceKernelTryLockLwMutex(u32 workareaPtr, int count) {
 }
 
 int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count) {
-	if (!Memory::IsValidAddress(workareaPtr)) {
+	if (!Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea))) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
@@ -833,7 +837,7 @@ int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count) {
 }
 
 int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
-	if (!Memory::IsValidAddress(workareaPtr)) {
+	if (!Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea))) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
@@ -865,7 +869,7 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 }
 
 int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
-	if (!Memory::IsValidAddress(workareaPtr)) {
+	if (!Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea))) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
@@ -897,7 +901,7 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
 }
 
 int sceKernelUnlockLwMutex(u32 workareaPtr, int count) {
-	if (!Memory::IsValidAddress(workareaPtr)) {
+	if (!Memory::IsValidRange(workareaPtr, sizeof(NativeLwMutexWorkarea))) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ACCESS_ERROR, "Bad workarea pointer for LwMutex");
 	}
 
