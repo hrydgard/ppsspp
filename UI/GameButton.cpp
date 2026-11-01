@@ -107,76 +107,6 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 	}
 }
 
-// Grid style. Fallback
-void DrawIconWithTextGrid(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, const UI::Style &style) {
-	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), g_Config.fGameGridScale, g_Config.fGameGridScale, text, &tw, &th, 0);
-	dc.PushScissor(bounds);
-	const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
-	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
-
-	int iconSize = image == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(image)->h : bounds.h * 0.3f;
-	float textWidth = 0.0f;
-	float textHeight = 0;
-	dc.MeasureTextRect(*fontStyle, 1.0f, 1.0f, text, bounds.w - 10, &textWidth, &textHeight, ALIGN_HCENTER | FLAG_WRAP_TEXT);
-
-	int totalHeight = iconSize + (int)textHeight;
-
-	const float y = std::max(0.0f, bounds.h / 2.0f - totalHeight / 2.0f);
-
-	if (image.isValid()) {
-		const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(image);
-		if (img && img->h > 0) {
-			dc.RebindTexture();
-			dc.Draw()->DrawImage(image, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
-		}
-	}
-
-	if (image != ImageID("I_UP_DIRECTORY") && image != ImageID("I_PIN") && image != ImageID("I_UNPIN")) {
-		dc.DrawTextRect(text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
-	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.PopScissor();
-}
-
-// List, large list
-// In the list views, rightText (like a game ID) goes at the right edge, as for a game with a picture.
-void DrawIconWithTextList(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, GameBrowserViewMode viewMode, const UI::Style &style, std::string_view rightText) {
-	float tw, th;
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
-
-	const float textX = ListTextX(viewMode);
-	if (viewMode == GameBrowserViewMode::LARGE_LIST) {
-		const float scale = g_Config.fGameGridScale;
-		dc.Draw()->DrawImage(image, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
-	} else {
-		dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
-	}
-
-	float tx = textX;
-	int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode);
-	if (!rightText.empty()) {
-		float vw, vh;
-		dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
-		availableWidth -= vw + 20;
-		dc.SetFontScale(0.7f, 0.7f);
-		dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
-		dc.SetFontScale(1.0f, 1.0f);
-	}
-	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-	if (availableWidth < tw) {
-		tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
-		Bounds tb = bounds;
-		tb.x = bounds.x + textX;
-		tb.w = availableWidth;
-		dc.PushScissor(tb);
-	}
-	dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	if (availableWidth < tw) {
-		dc.PopScissor();
-	}
-}
-
 void GameButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
 	switch (viewMode_) {
 	case GameBrowserViewMode::GRID:
@@ -363,9 +293,74 @@ void GameButton::Draw(UIContext &dc) {
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 		if (viewMode_ == GameBrowserViewMode::GRID) {
-			DrawIconWithTextGrid(dc, imageIcon, text, bounds_, style);
+			Bounds bounds = bounds_;
+
+			float tw, th;
+			dc.MeasureText(dc.GetFontStyle(), g_Config.fGameGridScale, g_Config.fGameGridScale, text, &tw, &th, 0);
+			dc.PushScissor(bounds);
+			const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
+			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
+
+			int iconSize = imageIcon == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(imageIcon)->h : bounds.h * 0.3f;
+			float textWidth = 0.0f;
+			float textHeight = 0;
+			dc.MeasureTextRect(*fontStyle, 1.0f, 1.0f, text, bounds.w - 10, &textWidth, &textHeight, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+
+			int totalHeight = iconSize + (int)textHeight;
+
+			const float y = std::max(0.0f, bounds.h / 2.0f - totalHeight / 2.0f);
+
+			if (imageIcon.isValid()) {
+				const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageIcon);
+				if (img && img->h > 0) {
+					dc.RebindTexture();
+					dc.Draw()->DrawImage(imageIcon, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
+				}
+			}
+
+			if (imageIcon != ImageID("I_UP_DIRECTORY") && imageIcon != ImageID("I_PIN") && imageIcon != ImageID("I_UNPIN")) {
+				dc.DrawTextRect(text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+			}
+			dc.SetFontStyle(dc.GetTheme().uiFont);
+			dc.PopScissor();
 		} else {
-			DrawIconWithTextList(dc, imageIcon, text, bounds_, viewMode_, style, g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view());
+			Bounds bounds = bounds_;
+
+			std::string_view rightText = g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view();
+
+			float tw, th;
+			dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
+
+			const float textX = ListTextX(viewMode_);
+			if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
+				const float scale = g_Config.fGameGridScale;
+				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
+			} else {
+				dc.Draw()->DrawImage(imageIcon, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
+			}
+
+			float tx = textX;
+			int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode_);
+			if (!rightText.empty()) {
+				float vw, vh;
+				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
+				availableWidth -= vw + 20;
+				dc.SetFontScale(0.7f, 0.7f);
+				dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
+				dc.SetFontScale(1.0f, 1.0f);
+			}
+			float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+			if (availableWidth < tw) {
+				tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+				Bounds tb = bounds;
+				tb.x = bounds.x + textX;
+				tb.w = availableWidth;
+				dc.PushScissor(tb);
+			}
+			dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+			if (availableWidth < tw) {
+				dc.PopScissor();
+			}
 		}
 	} else {
 		/*
