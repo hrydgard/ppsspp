@@ -816,6 +816,8 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInflightFrames = 1;
       else if (!strcmp(var.value, "Up to 1"))
          g_Config.iInflightFrames = 2;
+      else if (!strcmp(var.value, "Up to 2"))
+         g_Config.iInflightFrames = 3;
    }
 
    var.key = "ppsspp_depth_raster";
