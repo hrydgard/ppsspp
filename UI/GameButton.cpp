@@ -128,6 +128,15 @@ void GameButton::GetContentDimensions(const UIContext &dc, float &w, float &h) c
 	}
 }
 
+static const ImageID regionIcons[(int)GameRegion::COUNT] = {
+	ImageID("I_FLAG_JP"),
+	ImageID("I_FLAG_US"),
+	ImageID("I_FLAG_EU"),
+	ImageID("I_FLAG_HK"),
+	ImageID("I_FLAG_AS"),
+	ImageID("I_FLAG_KO"),
+};
+
 void GameButton::Draw(UIContext &dc) {
 	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
 	// touch or the mouse, getting a video to play without launching the game was too fiddly.
@@ -139,7 +148,7 @@ void GameButton::Draw(UIContext &dc) {
 	std::string id_version;
 	Draw::Texture *texture = nullptr;
 	ImageID imageIcon;
-	int regionIndex = -1;
+	GameRegion region = GameRegion::UNKNOWN;
 	IdentifiedFileType fileType = IdentifiedFileType::UNKNOWN;
 
 	if (type_ == GameButtonType::Dir) {
@@ -177,9 +186,15 @@ void GameButton::Draw(UIContext &dc) {
 			imageIcon = ImageID("I_LINK_OUT_QUESTION");
 		}
 		text = ginfo->GetTitle();
-		id_version = ginfo->GetTitle();
-		regionIndex = (int)ginfo->region;
+		text = ReplaceAll(text, "\n", " ");
+
+		id_version = ginfo->id_version;
+		region = ginfo->region;
 		fileType = ginfo->fileType;
+
+		if (ginfo->disc_total > 1) {
+			text += StringFromFormat("-DISC%d", ginfo->disc_number);
+		}
 	}
 
 	if (video_) {
@@ -193,17 +208,13 @@ void GameButton::Draw(UIContext &dc) {
 	using namespace UI;
 
 	UI::Style style = dc.GetTheme().itemStyle;
-	if (down_) {
-		style = dc.GetTheme().itemDownStyle;
-	}
-
 	const bool rowFocused = HasFocus() && !infoSelected_;
+	if (rowFocused) style = dc.GetTheme().itemFocusedStyle;
+	if (down_) style = dc.GetTheme().itemDownStyle;
+	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
+
 	if (viewMode_ != GameBrowserViewMode::GRID || !texture) {
-		if (rowFocused)
-			style = down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemFocusedStyle;
-
 		Drawable bg = style.background;
-
 		dc.Draw()->Flush();
 		dc.RebindTexture();
 		dc.FillRect(bg, bounds_);
@@ -241,7 +252,7 @@ void GameButton::Draw(UIContext &dc) {
 
 	Bounds overlayBounds = bounds_;
 
-	// Render button
+	// Render the icon, all modes have this.
 	int dropsize = 10;
 	if (texture) {
 		if (viewMode_ == GameBrowserViewMode::LIST) {
@@ -274,7 +285,7 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
-		std::string_view idStr = ginfo->id_version;
+		std::string_view idStr = id_version;
 		if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			auto ga = GetI18NCategory(I18NCat::GAME);
 			idStr = ga->T("SaveData");
@@ -285,14 +296,8 @@ void GameButton::Draw(UIContext &dc) {
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 
-	if (imageIcon.isValid()) {
-		Style style = dc.GetTheme().itemStyle;
-
-		if (rowFocused) style = dc.GetTheme().itemFocusedStyle;
-		if (down_) style = dc.GetTheme().itemDownStyle;
-		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
-
-		if (viewMode_ == GameBrowserViewMode::GRID) {
+	if (viewMode_ == GameBrowserViewMode::GRID) {
+		if (imageIcon.isValid()) {
 			Bounds bounds = bounds_;
 
 			float tw, th;
@@ -310,27 +315,34 @@ void GameButton::Draw(UIContext &dc) {
 
 			const float y = std::max(0.0f, bounds.h / 2.0f - totalHeight / 2.0f);
 
-			if (imageIcon.isValid()) {
-				const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageIcon);
-				if (img && img->h > 0) {
-					dc.RebindTexture();
-					dc.Draw()->DrawImage(imageIcon, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
-				}
+			const AtlasImage *img = dc.Draw()->GetAtlas()->getImage(imageIcon);
+			if (img && img->h > 0) {
+				dc.RebindTexture();
+				dc.Draw()->DrawImage(imageIcon, bounds.centerX(), bounds.y + y + 2, iconSize / (float)img->h, style.fgColor, ALIGN_TOP | ALIGN_HCENTER);
 			}
 
 			if (imageIcon != ImageID("I_UP_DIRECTORY") && imageIcon != ImageID("I_PIN") && imageIcon != ImageID("I_UNPIN")) {
 				dc.DrawTextRect(text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
 			}
-			dc.SetFontStyle(dc.GetTheme().uiFont);
 			dc.PopScissor();
-		} else {
-			Bounds bounds = bounds_;
+			dc.SetFontStyle(dc.GetTheme().uiFont);
+		} else if (!texture) {
+			// Just draw the text, centered.
+			dc.Draw()->Flush();
+			dc.PushScissor(bounds_);
+			dc.DrawText(title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.Draw()->Flush();
+			dc.PopScissor();
+		}
+	} else {
+		Bounds bounds = bounds_;
 
-			std::string_view rightText = g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view();
+		std::string_view rightText = g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view();
 
-			float tw, th;
-			dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
+		float tw, th;
+		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
 
+		if (imageIcon.isValid()) {
 			const float textX = ListTextX(viewMode_);
 			if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
 				const float scale = g_Config.fGameGridScale;
@@ -338,85 +350,29 @@ void GameButton::Draw(UIContext &dc) {
 			} else {
 				dc.Draw()->DrawImage(imageIcon, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
 			}
-
-			float tx = textX;
-			int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode_);
-			if (!rightText.empty()) {
-				float vw, vh;
-				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
-				availableWidth -= vw + 20;
-				dc.SetFontScale(0.7f, 0.7f);
-				dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
-				dc.SetFontScale(1.0f, 1.0f);
-			}
-			float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-			if (availableWidth < tw) {
-				tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
-				Bounds tb = bounds;
-				tb.x = bounds.x + textX;
-				tb.w = availableWidth;
-				dc.PushScissor(tb);
-			}
-			dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
-			if (availableWidth < tw) {
-				dc.PopScissor();
-			}
 		}
-	} else {
-		/*
-		char discNumInfo[8];
-		if (ginfo->disc_total > 1)
-			snprintf(discNumInfo, sizeof(discNumInfo), "-DISC%d", ginfo->disc_number);
-		else
-			discNumInfo[0] = '\0';
-		*/
-		dc.Draw()->Flush();
-		dc.RebindTexture();
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-		if (viewMode_ != GameBrowserViewMode::GRID) {
-			float tw, th;
-			dc.Draw()->Flush();
-			dc.PushScissor(bounds_);
-			const std::string currentTitle = text;
-			if (!currentTitle.empty()) {
-				title_ = ReplaceAll(currentTitle, "\n", " ");
-			}
 
-			dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
-
-			int availableWidth = bounds_.w - textX - ListTextRightMargin(viewMode_);
-			if (g_Config.bShowIDOnGameIcon) {
-				float vw, vh;
-				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, id_version, &vw, &vh, 0);
-				availableWidth -= vw + 20;
-				dc.SetFontScale(0.7f, 0.7f);
-				dc.DrawText(id_version, bounds_.x + availableWidth + textX + 10, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-				dc.SetFontScale(1.0f, 1.0f);
-			}
-			float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-
-			float tx = textX;
-			if (availableWidth < tw) {
-				tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
-				Bounds tb = bounds_;
-				tb.x = bounds_.x + textX;
-				tb.w = availableWidth;
-				dc.PushScissor(tb);
-			}
-			dc.DrawText(title_, bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-			if (availableWidth < tw) {
-				dc.PopScissor();
-			}
-			dc.Draw()->Flush();
+		float tx = textX;
+		int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode_);
+		if (!rightText.empty()) {
+			float vw, vh;
+			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
+			availableWidth -= vw + 20;
+			dc.SetFontScale(0.7f, 0.7f);
+			dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
+		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+		if (availableWidth < tw) {
+			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
+			Bounds tb = bounds;
+			tb.x = bounds.x + textX;
+			tb.w = availableWidth;
+			dc.PushScissor(tb);
+		}
+		dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		if (availableWidth < tw) {
 			dc.PopScissor();
-		} else if (!texture) {
-			dc.Draw()->Flush();
-			dc.PushScissor(bounds_);
-			dc.DrawText(title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-			dc.Draw()->Flush();
-			dc.PopScissor();
-		} else {
-			dc.Draw()->Flush();
 		}
 	}
 
@@ -433,15 +389,8 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	if (g_Config.bShowRegionOnGameIcon && regionIndex >= 0 && regionIndex < (int)GameRegion::COUNT) {
-		const ImageID regionIcons[(int)GameRegion::COUNT] = {
-			ImageID("I_FLAG_JP"),
-			ImageID("I_FLAG_US"),
-			ImageID("I_FLAG_EU"),
-			ImageID("I_FLAG_HK"),
-			ImageID("I_FLAG_AS"),
-			ImageID("I_FLAG_KO"),
-		};
+	const int regionIndex = (int)region;
+	if (g_Config.bShowRegionOnGameIcon && region != GameRegion::UNKNOWN && regionIndex >= 0 && regionIndex < (int)GameRegion::COUNT) {
 		const AtlasImage *regionImage = dc.Draw()->GetAtlas()->getImage(regionIcons[regionIndex]);
 		if (regionImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
