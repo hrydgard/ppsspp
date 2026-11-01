@@ -125,8 +125,6 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x11624abe9542fb01, 180, "everybodysgolf_copy_portrait", }, // Everybody's Golf (EUR)
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "sceVfpuMatrix3Unit", },
-	{ 0x63efd322d02c32c1ULL, 108, "amagoushi_ice_download_frame", }, // Koori no Bohyou (NPJH50186 / ULJS00247)
-	{ 0xbd015888f2167ac9ULL, 532, "amagoushi_ice_download_frame_core", }, // Koori no Bohyou (NPJH50186 / ULJS00247)
 	{ 0x12feef7b017d3431, 700, "memmove", },
 	{ 0x1322c7e3fe6dff4d, 784, "_free_r", },
 	{ 0x1376c115d5f1d90c, 36, "strlen", },
@@ -425,6 +423,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xba76a8e853426baa, 544, "soranokiseki_fc_download_frame", }, // Sora no kiseki FC
 	{ 0xbb3c6592ed319ba4, 132, "sceGuFog", },
 	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
+	{ 0xbd015888f2167ac9, 532, "koori_download_frame", }, // Koori no Bohyou (NPJH50186)
 	{ 0xbdf54d66079afb96, 200, "sceGuBoneMatrix", },
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
