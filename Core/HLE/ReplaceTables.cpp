@@ -1006,6 +1006,15 @@ static int Hook_amagoushi_download_frame(MIPSState *mips) {
 	return 0;
 }
 
+static int Hook_bokunonatsuyasumi4_download_frame(MIPSState *mips) {
+	const u32 fb_address = mips->r[MIPS_REG_A3];
+	if (Memory::IsVRAMAddress(fb_address)) {
+		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "bokunonatsuyasumi4_download_frame");
+	}
+	return 0;
+}
+
 static int Hook_danganronpa2_1_download_frame(MIPSState *mips) {
 	const u32 fb_base = mips->r[MIPS_REG_V0];
 	const u32 fb_offset = mips->r[MIPS_REG_V1];
