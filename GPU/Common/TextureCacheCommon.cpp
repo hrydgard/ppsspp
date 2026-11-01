@@ -126,6 +126,7 @@ void TextureCacheCommon::StartFrame() {
 	ForgetLastTexture();
 	clutTextureCache_.Decimate();
 	replacementTimeThisFrame_ = 0.0;
+	replacer_.ShadowTick();
 
 	float fps;
 	__DisplayGetFPS(nullptr, &fps, nullptr);
@@ -414,7 +415,8 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	// Swizzled CLUT4 glyph atlases can fill below the visible UV range while remaining
 	// 512 pixels tall.  Hashing only maxSeenV rows misses those updates (#21980).
 	const u16 hashMaxSeenV = h == 512 && swizzled && format == GE_TFMT_CLUT4 ? 512 : entry->maxSeenV;
-	if (replacer.Enabled()) {
+	// With shadow textures, this hash only notices changes, and the replacement key gets its own, see ComputeReplaceHash.
+	if (replacer.Enabled() && !replacer.ShadowEnabled()) {
 		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, hashMaxSeenV);
 	}
 
@@ -492,6 +494,80 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
+// What the current draw samples, from the vertices decoded before ApplyTexture. False if it tells nothing.
+static bool GetShadowDrawBounds(ShadowBounds *bounds) {
+	if (!gstate.isModeThrough()) {
+		// Texture matrix, UV scale and UV generation: no telling what's sampled.
+		bounds->known = false;
+		return true;
+	}
+	const KnownVertexBounds &vb = gstate_c.vertBounds;
+	if (vb.maxU < vb.minU || vb.maxV < vb.minV || vb.maxU == 0) {
+		// The UVs came in a format that doesn't record bounds.
+		return false;
+	}
+	bounds->known = true;
+	bounds->minU = vb.minU;
+	bounds->minV = vb.minV;
+	bounds->maxU = vb.maxU;
+	bounds->maxV = vb.maxV;
+	return true;
+}
+
+// The hash in the replacement key. With shadow textures, the replacer picks which part of the texture it
+// covers, from what draws sampled so far.
+u32 TextureCacheCommon::ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u32 oldHash, u16 *regionW, u16 *regionH) {
+	*regionW = 0;
+	*regionH = 0;
+	if (!replacer_.ShadowEnabled() || (entry->status & (TexStatus::VIDEO | TexStatus::IS_PPGE_ATLAS))) {
+		return entry->fullhash;
+	}
+
+	ShadowBounds current;
+	ShadowHashParams params;
+	params.addr = entry->addr;
+	params.bufw = entry->bufw;
+	params.w = w;
+	params.h = h;
+	params.swizzled = swizzled;
+	params.fmt = entry->format;
+	params.cachekey = entry->CacheKey();
+	params.oldHash = oldHash;
+	params.current = GetShadowDrawBounds(&current) ? &current : nullptr;
+	return replacer_.ComputeShadowHash(params, regionW, regionH);
+}
+
+void TextureCacheCommon::NoteShadowDrawSlow() {
+	if (!replacer_.ShadowEnabled()) {
+		shadowBinding_.valid = false;
+		return;
+	}
+
+	ShadowBounds bounds;
+	const bool hasBounds = GetShadowDrawBounds(&bounds);
+	const ShadowBinding &b = shadowBinding_;
+	if (!replacer_.NotifyShadowDraw(b.cachekey, b.hash, b.addr, b.w, b.h, b.swizzled, b.fmt, hasBounds ? &bounds : nullptr)) {
+		return;
+	}
+
+	// The replacement (or dump) for this key doesn't cover what's drawn now. Look again at the next draw.
+	auto it = cache_.find(b.cachekey);
+	if (it != cache_.end() && it->second && it->second->replaceHash == b.hash) {
+		it->second->status |= TexStatus::HASH_RECHECK;
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+	}
+}
+
+ReplacedTexture *TextureCacheCommon::ComposeLayeredReplacement(TexCacheEntry *entry, int w, int h) {
+	if (!Memory::IsValidTextureAddress(entry->addr)) {
+		return nullptr;
+	}
+	// The same colors as a dump of it, to compare with the original image.
+	std::vector<u32> pixels((size_t)w * h);
+	DecodeTextureLevel((u8 *)pixels.data(), w * (int)sizeof(u32), entry->format, gstate.getClutPaletteFormat(), entry->addr, 0, entry->bufw, TexDecodeFlags::EXPAND32);
+	return replacer_.ComposeLayered(entry->addr, w, h, pixels.data(), &scaler_);
+}
+
 // TODO: This should use information from the through mode bbox check.
 // TODO: Also we should feed this information in so we have it during creation, if at all possible.
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
@@ -547,6 +623,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 	const u32 texaddr = gstate.getTextureAddress(level);
+	// Set again by ApplyTextureFinish, if a cached texture ends up bound.
+	shadowBinding_.valid = false;
 	if (!Memory::IsValidTextureAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();
@@ -758,7 +836,26 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					WaitForDepthWrites(entry->addr, (textureBitsPerPixel[entry->format] * entry->bufw * h) / 8);
 				}
 				const u32 newFullHash = skipHash ? 0 : ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
-				if (skipHash || newFullHash != entry->fullhash) {
+				u32 newReplaceHash = entry->replaceHash;
+				u16 newRegionW = entry->shadowRegionW;
+				u16 newRegionH = entry->shadowRegionH;
+				if (!skipHash && newFullHash == entry->fullhash && replacer_.ShadowEnabled()) {
+					newReplaceHash = ComputeReplaceHash(entry, w, h, swizzled, entry->replaceHash, &newRegionW, &newRegionH);
+				}
+				if (!skipHash && newFullHash == entry->fullhash && (newReplaceHash != entry->replaceHash || newRegionW != entry->shadowRegionW || newRegionH != entry->shadowRegionH)) {
+					// Only the replacement key moved: draws sample more than its region now, or a dump of this
+					// content was just written. The secondary cache is keyed by fullhash and would hand back the
+					// old key, so build it again, keeping what draws sampled.
+					DEBUG_LOG(Log::TexReplacement, "%08x: Shadow key changed from %08x (%dx%d) to %08x (%dx%d), rebuilding", texaddr, entry->replaceHash, entry->shadowRegionW, entry->shadowRegionH, newReplaceHash, newRegionW, newRegionH);
+					shadowCarry_.valid = true;
+					shadowCarry_.cachekey = cachekey;
+					shadowCarry_.oldHash = entry->replaceHash;
+					replacer_.NotifyShadowRekeyed(cachekey, entry->replaceHash);
+					ReleaseTexture(entry, true);
+					cache_.erase(entryIter);
+					entryIter = cache_.end();
+					entry = nullptr;
+				} else if (skipHash || newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
 					gpuStats.perFrame.numTexturesChanged++;
 					if (!isVideo) {
@@ -969,6 +1066,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		WaitForDepthWrites(entry->addr, (textureBitsPerPixel[entry->format] * entry->bufw * h) / 8);
 		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
+	u32 oldReplaceHash = 0;
+	if (shadowCarry_.valid) {
+		if (shadowCarry_.cachekey == cachekey) {
+			oldReplaceHash = shadowCarry_.oldHash;
+		}
+		shadowCarry_.valid = false;
+	}
+	entry->replaceHash = ComputeReplaceHash(entry, w, h, swizzled, oldReplaceHash, &entry->shadowRegionW, &entry->shadowRegionH);
 
 	VERBOSE_LOG(Log::TexCache, "%08x: Creating new texture, hash %08x (maxSeenV=%d), w: %d h: %d, creating", texaddr, entry->fullhash, entry->maxSeenV, w, h);
 
@@ -1002,6 +1107,16 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
 	entry->lastFrame = gpuStats.totals.numFlips;
+	if (replacer_.ShadowEnabled() && !(entry->status & (TexStatus::VIDEO | TexStatus::IS_PPGE_ATLAS))) {
+		shadowBinding_.valid = true;
+		shadowBinding_.swizzled = gstate.isTextureSwizzled();
+		shadowBinding_.cachekey = entry->CacheKey();
+		shadowBinding_.hash = entry->replaceHash;
+		shadowBinding_.addr = entry->addr;
+		shadowBinding_.w = 1 << (entry->dim & 0xF);
+		shadowBinding_.h = 1 << ((entry->dim >> 8) & 0xF);
+		shadowBinding_.fmt = entry->format;
+	}
 	if (entry->status & TexStatus::CLUT_GPU) {
 		_dbg_assert_(entry->status & TexStatus::CLUT8_INDEXED);
 		// Special process.
@@ -1823,8 +1938,12 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	}
 
 	double replaceStart = time_now_d();
-	ReplacementCacheKey cacheKey(entry->CacheKey(), entry->fullhash);
-	ReplacedTexture *replaced = replacer_.FindReplacement(cacheKey, *w, *h);
+	ReplacementCacheKey cacheKey(entry->CacheKey(), entry->replaceHash);
+	ReplacedTexture *replaced = replacer_.FindReplacement(cacheKey, *w, *h, entry->shadowRegionW, entry->shadowRegionH);
+	if (!replaced && replacer_.IsLayered(entry->addr, *w, *h)) {
+		// No replacement for these contents of their own, so they go over the layered HD image.
+		replaced = ComposeLayeredReplacement(entry, *w, *h);
+	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?
@@ -3167,11 +3286,17 @@ const u32 *TextureCacheCommon::CurrentClutAsRGBA8888() {
 static ReplacedTextureDecodeInfo MakeDecodeInfo(const TexCacheEntry *entry, bool isVideo, Draw::DataFormat fmt) {
 	ReplacedTextureDecodeInfo replacedInfo;
 	replacedInfo.cachekey = entry->CacheKey();
-	replacedInfo.hash = entry->fullhash;
+	replacedInfo.hash = entry->replaceHash;
 	replacedInfo.addr = entry->addr;
 	replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 	replacedInfo.isVideo = isVideo;
 	replacedInfo.fmt = fmt;
+	// For shadow textures, which keep a copy of the texture's memory.
+	replacedInfo.bufw = entry->bufw;
+	replacedInfo.texW = 1 << (entry->dim & 0xF);
+	replacedInfo.texH = 1 << ((entry->dim >> 8) & 0xF);
+	replacedInfo.swizzled = gstate.isTextureSwizzled();
+	replacedInfo.texFormat = entry->format;
 	return replacedInfo;
 }
 
@@ -3317,11 +3442,17 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 		if (plan.saveTexture) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			replacedInfo.cachekey = entry.CacheKey();
-			replacedInfo.hash = entry.fullhash;
+			replacedInfo.hash = entry.replaceHash;
 			replacedInfo.addr = entry.addr;
 			replacedInfo.isVideo = IsVideo(entry.addr);
 			replacedInfo.isFinal = (entry.status & TexStatus::TO_SCALE) == 0;
 			replacedInfo.fmt = dstFmt;
+			// For shadow textures, which keep a copy of the texture's memory.
+			replacedInfo.bufw = entry.bufw;
+			replacedInfo.texW = 1 << (entry.dim & 0xF);
+			replacedInfo.texH = 1 << ((entry.dim >> 8) & 0xF);
+			replacedInfo.swizzled = gstate.isTextureSwizzled();
+			replacedInfo.texFormat = entry.format;
 
 			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
 			replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, pixelData, decPitch, dstLevel, w, h, scaledW, scaledH);
