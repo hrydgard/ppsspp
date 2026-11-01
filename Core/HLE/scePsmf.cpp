@@ -302,8 +302,9 @@ public:
 		} else {
 			// No guest address to validate against (player tempbuf path,
 			// where the buffer is 64KB): cap so the reads below stay in bounds.
-			if (epMapBytes > 0x10000) {
-				psmf->EPMapEntriesNum = 0x10000 / EP_MAP_STRIDE;
+			const u32 available = psmf->EPMapOffset < 0x10000 ? 0x10000 - psmf->EPMapOffset : 0;
+			if (epMapBytes > available) {
+				psmf->EPMapEntriesNum = available / EP_MAP_STRIDE;
 			}
 		}
 
@@ -385,6 +386,10 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 	if (data != 0 && !Memory::IsValidRange(data, 0x82 + numStreams * 16)) {
 		ERROR_LOG(Log::ME, "Invalid PSMF stream count: %d", numStreams);
 		numStreams = Memory::ClampValidSizeAt(data + 0x82, numStreams * 16) / 16;
+	} else if (data == 0 && 0x82 + numStreams * 16 > 0x10000) {
+		// The player's 64KB tempbuf.
+		ERROR_LOG(Log::ME, "Invalid PSMF stream count: %d", numStreams);
+		numStreams = (0x10000 - 0x82) / 16;
 	}
 
 	for (int i = 0; i < numStreams; i++) {

@@ -151,6 +151,10 @@ void __PopsBootDoState(PointerWrap &p) {
 	DoHelperThread(p, g_popsInitThread);
 	if (s >= 2) {
 		Do(p, g_popsManLayout);
+		if (g_popsManLayout < 0 || g_popsManLayout >= (int)ARRAY_SIZE(POPSMAN_LAYOUTS)) {
+			p.SetError(p.ERROR_FAILURE);
+			g_popsManLayout = 0;
+		}
 	} else {
 		g_popsManLayout = 0;
 	}
