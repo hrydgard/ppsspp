@@ -67,7 +67,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 	}
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_ELLIPSIZE_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemStyle.fgColor);
 		titleView->SetBig(true);
 		if (flags & TopBarFlags::DropShadowTitle) {
