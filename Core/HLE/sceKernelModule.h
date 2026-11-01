@@ -241,6 +241,8 @@ class MIPSState;
 u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string);
+// A placeholder program that loops until a savestate is loaded over it.
+void __KernelLoadStateBootStub(MIPSState *mips);
 // hostArgs, if set, are passed to the module instead of what paramPtr points to.
 bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs = nullptr);
 // The VSH (the XMB) is what's running, not a game it launched.

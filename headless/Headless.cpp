@@ -1042,6 +1042,17 @@ int main(int argc, const char* argv[]) {
 		testFilenames.end()
 	);
 
+	// A savestate on its own boots without its game, and then loads.
+	std::string stateBootPath;
+	if (testFilenames.size() == 1 && endsWithNoCase(testFilenames[0], ".ppst")) {
+		stateBootPath = testFilenames[0];
+		if (stateToLoad) {
+			fprintf(stderr, "--state can't be used when booting a state\n");
+			return 1;
+		}
+		stateToLoad = stateBootPath.c_str();
+	}
+
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
 
@@ -1333,6 +1344,7 @@ int main(int argc, const char* argv[]) {
 	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
+	coreParameter.bootFromState = !stateBootPath.empty();
 	coreParameter.dumpCompat = cmdLineOptions.dumpCompat.value_or(false);
 	if (cmdLineOptions.disableGPUFeatures.has_value()) {
 		std::vector<std::string> names;

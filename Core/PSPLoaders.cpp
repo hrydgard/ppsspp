@@ -54,6 +54,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/PSPLoaders.h"
+#include "Core/SaveState.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/PopsBoot.h"
 #include "Core/Util/PSARUnpack.h"
@@ -696,6 +697,65 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 	}
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("PS1 support is still experimental. The game might not work, or there may be glitches."), 6.0f);
+	return true;
+}
+
+// A disc with nothing on it. Every block reads as zeros, so the ISO filesystem finds no volume
+// descriptor and no files.
+class EmptyDiscBlockDevice : public BlockDevice {
+public:
+	EmptyDiscBlockDevice() : BlockDevice(nullptr) {}
+	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached) override {
+		memset(outPtr, 0, GetBlockSize());
+		return true;
+	}
+	u32 GetNumBlocks() const override { return 0; }
+	bool IsDisc() const override { return true; }
+};
+
+bool MountStateBoot(const Path &statePath, std::string *errorString) {
+	SaveState::BootInfo info;
+	if (!SaveState::PeekBootInfo(statePath, &info, errorString)) {
+		return false;
+	}
+	if (info.discID.empty()) {
+		*errorString = "The state doesn't say which game it's from";
+		return false;
+	}
+	switch (info.bootType) {
+	case SaveState::BootType::ISO:
+	{
+		// The game's open files on the disc are dropped as the state loads, and opening any
+		// file fails, so the game only gets so far.
+		auto iso = std::make_shared<ISOFileSystem>(&pspFileSystem, std::make_shared<EmptyDiscBlockDevice>());
+		auto blockSystem = std::make_shared<ISOBlockSystem>(iso);
+		pspFileSystem.Mount("umd0:", blockSystem);
+		pspFileSystem.Mount("umd1:", blockSystem);
+		pspFileSystem.Mount("umd:", blockSystem);
+		pspFileSystem.Mount("disc0:", iso);
+		break;
+	}
+	case SaveState::BootType::PBP:
+	case SaveState::BootType::ELF:
+		break;
+	default:
+		*errorString = "Can only boot states of games run from an ISO, PBP or ELF without the game";
+		return false;
+	}
+
+	g_paramSFO.SetValue("DISC_ID", info.discID, 16);
+	g_paramSFO.SetValue("DISC_VERSION", info.discVersion, 8);
+	g_paramSFO.SetValue("TITLE", SaveState::GetTitle(statePath), 128);
+	INFO_LOG(Log::Loader, "Booting state %s of %s %s without the game", statePath.c_str(), info.discID.c_str(), info.discVersion.c_str());
+	return true;
+}
+
+bool Load_PSP_StateBoot(std::string *error_string) {
+	if (PSP_CoreParameter().loadGameConfigs) {
+		g_Config.LoadGameConfig(g_paramSFO.GetDiscID());
+		System_PostUIMessage(UIMessage::CONFIG_LOADED);
+	}
+	__KernelLoadStateBootStub(currentMIPS);
 	return true;
 }
 
