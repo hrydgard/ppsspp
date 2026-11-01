@@ -231,7 +231,8 @@ but a state taken while the game streams music or video, or just before it loads
 so save perf states in the middle of gameplay. Headless prints `Failed disc reads: N` at the end, counted from
 the load: opens of files on the disc and reads and seeks on dropped handles. A state that keeps it at 0, or close,
 measures the game as it really runs. Only states saved since the disc ID was added to them (`SaveStart` version 6)
-boot this way. The app doesn't: it refuses a `.ppst` as before.
+boot this way. The app doesn't: it refuses a `.ppst` as before. States can't be saved while running from one this
+way (`--save-state` is refused): without the disc the game isn't in a state worth keeping.
 
 `Tools/headless_bench.py` takes such states as games (`--game some.ppst`, or `--state-dir DIR` for every `.ppst`
 in a directory), and reports the failed disc reads with the timings.

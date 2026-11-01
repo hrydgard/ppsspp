@@ -498,6 +498,15 @@ int g_screenshotFailures;
 			CallbackRefused(op.callback);
 			return false;
 		}
+		// A game booted from a state alone (headless) runs without its disc. A state saved from that
+		// would hold the broken environment, and be no use with the game or without it.
+		if (op.type == OperationType::Save && PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
+			ERROR_LOG(Log::SaveState, "Can't save a state while running from a state without its game");
+			if (op.callback) {
+				op.callback(Status::FAILURE, "Can't save a state while running from a state without its game", "");
+			}
+			return false;
+		}
 		// Verify saves and loads back in place, with the mounts as they are.
 		if (op.type != OperationType::Verify && WarnUserIfVSHSession()) {
 			CallbackRefused(op.callback);

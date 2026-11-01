@@ -67,7 +67,7 @@ public:
 	}
 
 	// Opens of files that aren't on the disc, and reads and seeks on handles whose file was dropped
-	// when a savestate loaded. On a real disc these don't happen, so they tell when a game booted
+	// when a savestate loaded. With the real disc these are rare, so they tell when a game booted
 	// from a state alone has missed data it needed.
 	int FailedDiscReads() const { return failedDiscReads_; }
 	void ResetFailedDiscReads() { failedDiscReads_ = 0; }

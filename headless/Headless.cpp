@@ -1051,8 +1051,8 @@ int main(int argc, const char* argv[]) {
 	std::string stateBootPath;
 	if (testFilenames.size() == 1 && endsWithNoCase(testFilenames[0], ".ppst")) {
 		stateBootPath = testFilenames[0];
-		if (stateToLoad) {
-			fprintf(stderr, "--state can't be used when booting a state\n");
+		if (stateToLoad || cmdLineOptions.stateToSave.has_value()) {
+			fprintf(stderr, "--state and --save-state can't be used when booting a state\n");
 			return 1;
 		}
 		stateToLoad = stateBootPath.c_str();
