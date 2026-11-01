@@ -119,6 +119,7 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/SaveState.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
@@ -290,6 +291,54 @@ bool TestSaveStateMounts() {
 	mismatched.Mount("a:", std::make_shared<SaveStateTestFileSystem>("OtherFS", 0));
 	EXPECT_TRUE(CChunkFileReader::LoadPtr(data.data(), data.size(), mismatched, &error) != CChunkFileReader::ERROR_NONE);
 
+	return true;
+}
+
+// The start of a state as SaveStart writes it, and a little more.
+struct PeekTestState {
+	int version;
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("SaveStart", 1, version);
+		if (!s)
+			return;
+		if (s >= 6) {
+			char discID[16] = "ULUS12345";
+			char discVersion[8] = "1.01";
+			u8 bootType = (u8)SaveState::BootType::PBP;
+			p.DoVoid(discID, sizeof(discID));
+			p.DoVoid(discVersion, sizeof(discVersion));
+			Do(p, bootType);
+		}
+		std::vector<u8> rest(100000, 0x55);
+		Do(p, rest);
+	}
+};
+
+static bool SavePeekTestState(const Path &path, int version) {
+	PeekTestState state{ version };
+	u8 *data = nullptr;
+	size_t size = 0;
+	if (CChunkFileReader::MeasureAndSavePtr(state, &data, &size) != CChunkFileReader::ERROR_NONE) {
+		return false;
+	}
+	return CChunkFileReader::SaveFile(path, "Test", "v1.0", data, size) == CChunkFileReader::ERROR_NONE;
+}
+
+bool TestSaveStatePeek() {
+	const Path path = UnitTestTempPath("unittest_peek.ppst");
+	SaveState::BootInfo info;
+	std::string error;
+
+	EXPECT_TRUE(SavePeekTestState(path, 6));
+	EXPECT_TRUE(SaveState::PeekBootInfo(path, &info, &error));
+	EXPECT_EQ_STR(info.discID, std::string("ULUS12345"));
+	EXPECT_EQ_STR(info.discVersion, std::string("1.01"));
+	EXPECT_TRUE(info.bootType == SaveState::BootType::PBP);
+
+	EXPECT_TRUE(SavePeekTestState(path, 5));
+	EXPECT_FALSE(SaveState::PeekBootInfo(path, &info, &error));
+
+	File::Delete(path);
 	return true;
 }
 
@@ -4229,6 +4278,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(StackWalk),
 	TEST_ITEM(InetPton),
 	TEST_ITEM(SaveStateMounts),
+	TEST_ITEM(SaveStatePeek),
 };
 
 int main(int argc, const char *argv[]) {
