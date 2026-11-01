@@ -158,5 +158,6 @@ public:
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "Meta"); }
 
 private:
+	void DoStatePositionalMounts(PointerWrap &p);
 	int64_t RecursiveSize(std::string_view dirPath);
 };

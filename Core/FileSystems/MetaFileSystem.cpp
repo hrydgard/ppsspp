@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cstring>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -646,7 +649,7 @@ u64 MetaFileSystem::FreeDiskSpace(const std::string &path) {
 void MetaFileSystem::DoState(PointerWrap &p) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 
-	auto s = p.Section("MetaFileSystem", 1);
+	auto s = p.Section("MetaFileSystem", 1, 2);
 	if (!s)
 		return;
 
@@ -655,7 +658,75 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 	// Save/load per-thread current directory map
 	Do(p, currentDir);
 
-	u32 n = (u32) fileSystems.size();
+	if (s < 2) {
+		DoStatePositionalMounts(p);
+		return;
+	}
+
+	// Each mount is stored as its prefix, the size of its filesystem's state, and that state. A load
+	// pairs them with our mounts by prefix, skips any we don't have, and leaves a mount the state
+	// doesn't have as it is. So mounts can be added, removed and reordered freely.
+	u32 n = (u32)fileSystems.size();
+	Do(p, n);
+
+	if (p.mode == PointerWrap::MODE_READ) {
+		for (u32 i = 0; i < n; i++) {
+			std::string prefix;
+			u32 size = 0;
+			Do(p, prefix);
+			Do(p, size);
+			if (p.Failed() || !p.CheckRead(size)) {
+				p.SetError(p.ERROR_FAILURE);
+				ERROR_LOG(Log::FileSystem, "Savestate failure: bad mount entry %d", (int)i);
+				return;
+			}
+			u8 *data = *p.ptr;
+			p.SkipBytes(size);
+
+			auto mount = std::find_if(fileSystems.begin(), fileSystems.end(), [&](const MountPoint &m) {
+				return m.prefix == prefix;
+			});
+			if (mount == fileSystems.end()) {
+				WARN_LOG(Log::FileSystem, "Savestate has a mount we don't have, skipping it: %s", prefix.c_str());
+				continue;
+			}
+
+			// Read through a PointerWrap of its own, so it can't read past its own data.
+			PointerWrap sub(&data, PointerWrap::MODE_READ);
+			sub.SetReadEnd(data + size);
+			mount->system->DoState(sub);
+			if (sub.Failed()) {
+				p.SetError(p.ERROR_FAILURE);
+				ERROR_LOG(Log::FileSystem, "Savestate failure: couldn't load mount %s (at section %s)", prefix.c_str(), sub.GetBadSectionTitle() ? sub.GetBadSectionTitle() : "unknown");
+				return;
+			}
+		}
+		return;
+	}
+
+	for (const MountPoint &mount : fileSystems) {
+		std::string prefix = mount.prefix;
+		Do(p, prefix);
+		// Filled in once the filesystem's state is written.
+		u8 *sizePtr = *p.ptr;
+		if (p.mode == PointerWrap::MODE_VERIFY) {
+			p.SkipBytes(sizeof(u32));
+		} else {
+			u32 size = 0;
+			Do(p, size);
+		}
+		const size_t start = p.Offset();
+		mount.system->DoState(p);
+		if (p.mode == PointerWrap::MODE_WRITE) {
+			const u32 size = (u32)(p.Offset() - start);
+			memcpy(sizePtr, &size, sizeof(size));
+		}
+	}
+}
+
+// Version 1 of the state: the mounts with no prefixes or sizes, one after another.
+void MetaFileSystem::DoStatePositionalMounts(PointerWrap &p) {
+	u32 n = (u32)fileSystems.size();
 	Do(p, n);
 
 	// The mounts are serialized positionally: one section per mount, in fileSystems order, with no
@@ -665,18 +736,9 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 	// sections for mounts that didn't exist yet, and we have to leave out exactly those to stay
 	// lined up. We only know how many are missing (n), not which, hence the list below.
 	//
-	// ADDING A NEW MOUNT: prepend its prefix here, or every existing savestate stops loading with
-	// "Failure at <whatever section follows>". Newest first, because a state missing k mounts is
-	// missing the k most recently added ones. Where the new mount falls in the order doesn't
-	// matter - skipping it by prefix leaves the relative order of all the others unchanged.
-	//
-	// DO NOT REORDER EXISTING MOUNTS. Sections are paired with filesystems purely by position, so
-	// swapping two Mount() calls feeds every old savestate's sections to the wrong filesystems,
-	// silently and with no version to catch it.
-	//
-	// RENAMING OR REMOVING A MOUNT isn't handled here either: a section in the state we have no
-	// mount for can't be skipped, because we can't know how long it is. Either of those needs a
-	// format change - storing the prefixes, or a length per section.
+	// Mounts added before version 2, newest first: a state missing k mounts is missing the k most
+	// recently added ones. Mounts added since don't go here (version 2 states name their mounts),
+	// but old states still rely on the existing mounts keeping their relative order.
 	static const char * const mountsAddedOverTime[] = { "flash1:", "pfat0:" };
 
 	const size_t missing = n < (u32)fileSystems.size() ? fileSystems.size() - n : 0;

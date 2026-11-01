@@ -118,6 +118,7 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
@@ -238,6 +239,57 @@ bool TestMathUtil() {
 	volatile float zero = 0.0f;
 	EXPECT_TRUE(my_isinf(1.0f/zero));
 	EXPECT_FALSE(my_isnan(1.0f/zero));
+	return true;
+}
+
+// A filesystem whose state is one number, under a section name of our choosing.
+class SaveStateTestFileSystem : public EmptyFileSystem {
+public:
+	SaveStateTestFileSystem(const char *section, int value) : section_(section), value_(value) {}
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section(section_, 1);
+		if (!s)
+			return;
+		Do(p, value_);
+	}
+	int Value() const { return value_; }
+
+private:
+	const char *section_;
+	int value_;
+};
+
+bool TestSaveStateMounts() {
+	auto a = std::make_shared<SaveStateTestFileSystem>("TestFS", 1);
+	auto b = std::make_shared<SaveStateTestFileSystem>("TestFS", 2);
+	auto c = std::make_shared<SaveStateTestFileSystem>("TestFS", 3);
+	MetaFileSystem saved;
+	saved.Mount("a:", a);
+	saved.Mount("b:", b);
+	saved.Mount("c:", c);
+
+	std::vector<u8> data;
+	EXPECT_TRUE(CChunkFileReader::MeasureAndSavePtr(saved, &data) == CChunkFileReader::ERROR_NONE);
+
+	// Reordered, without b: and with a d: the state doesn't have.
+	auto a2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 0);
+	auto c2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 0);
+	auto d2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 40);
+	MetaFileSystem loaded;
+	loaded.Mount("c:", c2);
+	loaded.Mount("d:", d2);
+	loaded.Mount("a:", a2);
+	std::string error;
+	EXPECT_TRUE(CChunkFileReader::LoadPtr(data.data(), data.size(), loaded, &error) == CChunkFileReader::ERROR_NONE);
+	EXPECT_EQ_INT(a2->Value(), 1);
+	EXPECT_EQ_INT(c2->Value(), 3);
+	EXPECT_EQ_INT(d2->Value(), 40);
+
+	// A mount whose filesystem doesn't match the state's fails the load.
+	MetaFileSystem mismatched;
+	mismatched.Mount("a:", std::make_shared<SaveStateTestFileSystem>("OtherFS", 0));
+	EXPECT_TRUE(CChunkFileReader::LoadPtr(data.data(), data.size(), mismatched, &error) != CChunkFileReader::ERROR_NONE);
+
 	return true;
 }
 
@@ -4176,6 +4228,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),
 	TEST_ITEM(InetPton),
+	TEST_ITEM(SaveStateMounts),
 };
 
 int main(int argc, const char *argv[]) {
