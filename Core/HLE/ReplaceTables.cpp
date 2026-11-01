@@ -996,12 +996,13 @@ static int Hook_soranokiseki_sc_download_frame(MIPSState *mips) {
 	return 0;
 }
 
-static int Hook_bokunonatsuyasumi4_download_frame(MIPSState *mips) {
-	const u32 fb_address = mips->r[MIPS_REG_A3];
-	if (Memory::IsVRAMAddress(fb_address)) {
-		gpu->PerformReadbackToMemory(fb_address, 0x00044000);
-		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, 0x00044000, "bokunonatsuyasumi4_download_frame");
-	}
+static int Hook_amagoushi_download_frame(MIPSState *mips) {
+	// Amagoushi no Yakata series (ULJS00216, ULJS00230, NPJH50186, ULJS00247)
+	// Offscreen picking pass renders to 0x04000000, 0x04044000, or 0x04080000.
+	gpu->PerformReadbackToMemory(0x04000000, 0x00044000);
+	gpu->PerformReadbackToMemory(0x04044000, 0x00044000);
+	gpu->PerformReadbackToMemory(0x04080000, 0x00044000);
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x04000000, 0x00044000, "amagoushi_download_frame");
 	return 0;
 }
 
@@ -2116,6 +2117,9 @@ static const ReplacementTableEntry entries[] = {
 	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
 	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
 	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "amagoushi_download_frame", &Hook_amagoushi_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "amagoushi_ice_download_frame", &Hook_amagoushi_download_frame, 0, REPFLAG_HOOKENTER },
+	{ "amagoushi_ice_download_frame_core", &Hook_amagoushi_download_frame, 0, REPFLAG_HOOKENTER },
 	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
 	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOKENTER, 0x68 },
 	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
