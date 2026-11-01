@@ -1757,6 +1757,8 @@ void __NetAdhocInit() {
 			config.num_threads = 0;
 			// The port the relay client connects to.
 			config.port = AEMU_POSTOFFICE_PORT;
+			// Disable ENet until the adhocctl side is ready
+			config.enable_enet = false;
 
 			aemu_postoffice_server::Server relay_server(config);
 			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
