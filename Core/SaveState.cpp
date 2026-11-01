@@ -212,9 +212,28 @@ int g_screenshotFailures;
 		if (gpu)
 			gpu->FlushPendingDrawing();
 
-		auto s = p.Section("SaveStart", 1, 5);
+		auto s = p.Section("SaveStart", 1, 6);
 		if (!s)
 			return;
+
+		if (s >= 6) {
+			// Fixed width and first, so the game a state belongs to can be read without loading it.
+			char discID[16]{};
+			char discVersion[8]{};
+			if (p.mode != p.MODE_READ) {
+				truncate_cpy(discID, g_paramSFO.GetValueString("DISC_ID").c_str());
+				truncate_cpy(discVersion, g_paramSFO.GetValueString("DISC_VERSION").c_str());
+			}
+			p.DoVoid(discID, sizeof(discID));
+			p.DoVoid(discVersion, sizeof(discVersion));
+			if (p.mode == p.MODE_READ) {
+				const std::string stateDiscID(discID, strnlen(discID, sizeof(discID)));
+				const std::string runningDiscID = g_paramSFO.GetValueString("DISC_ID");
+				if (stateDiscID != runningDiscID) {
+					WARN_LOG(Log::SaveState, "Loading a state saved from %s into %s", stateDiscID.c_str(), runningDiscID.c_str());
+				}
+			}
+		}
 
 		if (s >= 2) {
 			// This only increments on save, of course (once, not also in the measuring pass.)
