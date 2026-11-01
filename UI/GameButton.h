@@ -40,10 +40,16 @@ static constexpr float LARGE_LIST_PAD = 6.0f;
 static constexpr float LARGE_LIST_LEFT_PAD = 11.0f;
 static constexpr float LARGE_LIST_INFO_SIZE = 64.0f;
 
+enum class GameButtonType {
+	Game,
+	Other,
+	Dir,
+};
+
 class GameButton : public UI::Clickable {
 public:
-	GameButton(const Path &gamePath, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams = nullptr)
-		: UI::Clickable(layoutParams), viewMode_(viewMode), gamePath_(gamePath) {}
+	GameButton(GameButtonType type, const Path &gamePath, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams = nullptr)
+		: UI::Clickable(layoutParams), type_(type), viewMode_(viewMode), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
@@ -57,26 +63,10 @@ public:
 		}
 		return filename;
 	}
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		switch (viewMode_) {
-		case GameBrowserViewMode::GRID:
-			w = 144 * g_Config.fGameGridScale;
-			h = 80 * g_Config.fGameGridScale;
-			break;
-		case GameBrowserViewMode::LARGE_LIST:
-			w = 500;
-			h = LARGE_LIST_ICON_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2;
-			break;
-		default:  // List
-			w = 500;
-			h = 50;
-			break;
-		}
-	}
-	const Path &GamePath() const { return gamePath_; }
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
-	void SetHoldEnabled(bool hold) {
-		holdEnabled_ = hold;
+	bool IsHoldEnabled() const {
+		return type_ == GameButtonType::Game;
 	}
 	bool Touch(const TouchInput &input) override {
 		hovering_ = bounds_.Contains(input.x, input.y);
@@ -133,7 +123,7 @@ public:
 		}
 
 		// Holding the accept button works like a long press, so a gamepad can do it too.
-		if (holdEnabled_ && HasFocus() && UI::IsAcceptKey(key) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
+		if (IsHoldEnabled() && HasFocus() && UI::IsAcceptKey(key) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 			if (key.flags & KeyInputFlags::DOWN) {
 				holdStart_ = time_now_d();
 			}
@@ -147,7 +137,7 @@ public:
 
 	void Update() override {
 		// Hold button for 1.5 seconds to launch the game options
-		if (holdEnabled_ && holdStart_ != 0.0 && holdStart_ < time_now_d() - 1.5) {
+		if (IsHoldEnabled() && holdStart_ != 0.0 && holdStart_ < time_now_d() - 1.5) {
 			TriggerOnHoldClick();
 		}
 	}
@@ -189,6 +179,17 @@ public:
 		}
 	}
 
+	// Previously in DirButton
+
+	// This only determines if the little pin icon is shown.
+	void SetPinned(bool pin) { pinned_ = pin; }
+	bool IsPinned() const { return pinned_; }
+
+	void SetAsAbsolute() { absolute_ = true; }
+	bool NavigateAsAbsolute() const { return absolute_; }
+
+	const Path &GetPath() const { return gamePath_; }
+
 	UI::Event OnHoldClick;
 	UI::Event OnHighlight;
 
@@ -213,7 +214,7 @@ private:
 
 	// The large list has room for an info button on each line, doing the same as a long press.
 	bool HasInfoButton() const {
-		return viewMode_ == GameBrowserViewMode::LARGE_LIST && holdEnabled_;
+		return viewMode_ == GameBrowserViewMode::LARGE_LIST && type_ == GameButtonType::Game;
 	}
 	Bounds InfoButtonBounds() const {
 		return Bounds(bounds_.x2() - LARGE_LIST_INFO_SIZE - LARGE_LIST_PAD, bounds_.centerY() - LARGE_LIST_INFO_SIZE * 0.5f, LARGE_LIST_INFO_SIZE, LARGE_LIST_INFO_SIZE);
@@ -255,6 +256,12 @@ private:
 	bool infoButtonDown_ = false;
 	// The info button has the keyboard focus, rather than the game. Changed from CanMoveFocus, hence mutable.
 	mutable bool infoSelected_ = false;
+
+	// Previously in DirButton
+	bool pinned_ = false;
+	bool absolute_ = false;
+
+	GameButtonType type_;
 };
 
 // Also used for the folder buttons.

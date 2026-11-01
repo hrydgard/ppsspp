@@ -54,70 +54,6 @@
 // Folders get bigger lines too, though not as big as the games.
 static constexpr float LARGE_LIST_FOLDER_H = 50.0f;
 
-class DirButton : public UI::Button {
-public:
-	DirButton(const Path &path, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams)
-		: UI::Button(path.ToString(), layoutParams), path_(path), viewMode_(viewMode), absolute_(false) {}
-	DirButton(const Path &path, const std::string &text, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams = 0)
-		: UI::Button(text, layoutParams), path_(path), viewMode_(viewMode), absolute_(true) {}
-
-	void Draw(UIContext &dc) override;
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		UI::Button::GetContentDimensions(dc, w, h);
-		if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-			h = std::max(h, LARGE_LIST_FOLDER_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2);
-		}
-	}
-
-	const Path &GetPath() const {
-		return path_;
-	}
-
-	bool PathAbsolute() const {
-		return absolute_;
-	}
-
-	void SetPinned(bool pin) {
-		pinned_ = pin;
-	}
-
-	std::string DescribeText() const override {
-		return std::string(Button::GetText());  // From Button
-	}
-
-private:
-	Path path_;
-	GameBrowserViewMode viewMode_;
-	bool absolute_;
-	bool pinned_ = false;
-};
-
-void DirButton::Draw(UIContext &dc) {
-	using namespace UI;
-
-	std::string_view text(GetText());
-	ImageID image = ImageID(pinned_ ? "I_FOLDER_PINNED" : "I_FOLDER");
-	if (path_.IsNetworkRoot()) {
-		image = ImageID("I_NETWORK");
-	} else if (text == "..") {
-		image = ImageID("I_UP_DIRECTORY");
-		text = "";
-	}
-
-	Style style = dc.GetTheme().itemStyle;
-
-	if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
-	if (down_) style = dc.GetTheme().itemDownStyle;
-	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
-
-	dc.FillRect(style.background, bounds_);
-	if (viewMode_ == GameBrowserViewMode::GRID) {
-		DrawIconWithTextGrid(dc, image, text, bounds_, style);
-	} else {
-		DrawIconWithTextList(dc, image, text, bounds_, viewMode_, style);
-	}
-}
-
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(ORIENT_VERTICAL, layoutParams), viewMode_(viewMode), browseFlags_(browseFlags), portrait_(portrait), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager), token_(token) {
 	using namespace UI;
@@ -138,19 +74,19 @@ GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, b
 	Refresh();
 }
 
-void GameBrowser::FocusGame(const Path &gamePath) {
+void GameBrowser::FocusGame(const Path &GetPath) {
 	// If the button's still there, just focus it. That keeps the search results and scroll position.
 	if (gameList_) {
 		for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
 			GameButton *button = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i));
-			if (button && button->GamePath() == gamePath && button->GetVisibility() == UI::V_VISIBLE) {
+			if (button && button->GetPath() == GetPath && button->GetVisibility() == UI::V_VISIBLE) {
 				button->SetFocus(UI::FocusFlags::CAUSE_RESTORE);
 				return;
 			}
 		}
 	}
 	// Otherwise, Refresh focuses it when it recreates the buttons.
-	focusPath_ = gamePath;
+	focusPath_ = GetPath;
 	refreshPending_ = true;
 }
 
@@ -490,7 +426,7 @@ void GameBrowser::Refresh() {
 	Add(gameList_);
 
 	// Find games in the current directory and create new ones.
-	std::vector<DirButton *> dirButtons;
+	std::vector<GameButton *> dirButtons;
 	std::vector<GameButton *> gameButtons;
 
 	listingPending_ = !path_.IsListingReady();
@@ -500,7 +436,7 @@ void GameBrowser::Refresh() {
 	std::vector<Path> filenames;
 	if (HasSpecialFiles(filenames)) {
 		for (size_t i = 0; i < filenames.size(); i++) {
-			gameButtons.push_back(new GameButton(filenames[i], lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+			gameButtons.push_back(new GameButton(GameButtonType::Game, filenames[i], lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	} else if (!listingPending_) {
 		std::vector<File::FileInfo> fileInfo;
@@ -524,11 +460,13 @@ void GameBrowser::Refresh() {
 
 			if (!isGame && !isSaveData) {
 				if (browseFlags_ & BrowseFlags::NAVIGATE) {
-					const std::string name = fileInfo[i].fullName.IsNetworkRoot() ? std::string(mm->T("Network")) : fileInfo[i].name;
-					dirButtons.push_back(new DirButton(fileInfo[i].fullName, name, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+					dirButtons.push_back(new GameButton(GameButtonType::Dir, fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+					if (fileInfo[i].fullName.IsNetworkRoot()) {
+						dirButtons.back()->SetAsAbsolute();
+					}
 				}
 			} else {
-				gameButtons.push_back(new GameButton(fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
+				gameButtons.push_back(new GameButton(GameButtonType::Game, fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 			}
 		}
 
@@ -541,8 +479,7 @@ void GameBrowser::Refresh() {
 			if (!fileInfo.empty()) {
 				for (size_t i = 0; i < fileInfo.size(); i++) {
 					if (!fileInfo[i].isDirectory) {
-						GameButton *b = new GameButton(fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
-						b->SetHoldEnabled(false);
+						GameButton *b = new GameButton(GameButtonType::Other, fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
 						gameButtons.push_back(b);
 					}
 				}
@@ -550,19 +487,20 @@ void GameBrowser::Refresh() {
 		}
 	}
 
-	DirButton *upButton = nullptr;
+	GameButton *upButton = nullptr;
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		if (path_.CanNavigateUp()) {
-			upButton = gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			upButton = gameList_->Add(new GameButton(GameButtonType::Dir, Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			upButton->OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (const auto &pinnedPath : pinnedPaths) {
-			DirButton *pinnedDir = gameList_->Add(new DirButton(pinnedPath, pinnedPath.GetFilename(), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			GameButton *pinnedDir = gameList_->Add(new GameButton(GameButtonType::Dir, pinnedPath, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			pinnedDir->OnClick.Handle(this, &GameBrowser::NavigateClick);
 			pinnedDir->SetPinned(true);
+			pinnedDir->SetAsAbsolute();
 		}
 	}
 
@@ -583,7 +521,7 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 
-		if (!focusPath_.empty() && b->GamePath() == focusPath_ && b->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+		if (!focusPath_.empty() && b->GetPath() == focusPath_ && b->SetFocus(FocusFlags::CAUSE_RESTORE)) {
 			UI::ScrollFocusedViewIntoView();
 		}
 	}
@@ -601,6 +539,7 @@ void GameBrowser::Refresh() {
 	}
 
 	// Show a button to toggle pinning at the very end.
+	// TODO: That's not very friendly.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
 		std::string caption = ""; // IsCurrentPathPinned() ? "-" : "+";
 		if (!gridStyle) {
@@ -668,16 +607,22 @@ std::vector<Path> GameBrowser::GetPinnedPaths() const {
 }
 
 void GameBrowser::GameButtonClick(UI::EventParams &e) {
-	GameButton *button = static_cast<GameButton *>(e.v);
+	GameButton *button = dynamic_cast<GameButton *>(e.v);
+	if (!button) {
+		return;
+	}
 	UI::EventParams e2{};
-	e2.s = button->GamePath().ToString();
+	e2.s = button->GetPath().ToString();
 	OnChoice.Trigger(e2);
 }
 
 void GameBrowser::GameButtonHoldClick(UI::EventParams &e) {
-	GameButton *button = static_cast<GameButton *>(e.v);
+	GameButton *button = dynamic_cast<GameButton *>(e.v);
+	if (!button) {
+		return;
+	}
 	UI::EventParams e2{};
-	e2.s = button->GamePath().ToString();
+	e2.s = button->GetPath().ToString();
 	OnHoldChoice.Trigger(e2);
 }
 
@@ -686,15 +631,18 @@ void GameBrowser::GameButtonHighlight(UI::EventParams &e) {
 }
 
 void GameBrowser::NavigateClick(UI::EventParams &e) {
-	DirButton *button = static_cast<DirButton *>(e.v);
+	GameButton *button = dynamic_cast<GameButton *>(e.v);
+	if (!button) {
+		return;
+	}
 	Path text = button->GetPath();
-	if (button->PathAbsolute()) {
+	if (button->NavigateAsAbsolute()) {
 		path_.SetPath(text);
 	} else if (text.ToString() == "..") {
 		NavigateUp();
 		return;
 	} else {
-		path_.Navigate(text.ToString());
+		path_.Navigate(text.GetFilename());
 	}
 	focusFirstItem_ = true;
 	PathChanged();

@@ -96,6 +96,7 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 	case IdentifiedFileType::ARCHIVE_7Z: return ImageID("I_ARCHIVE_7Z"); break;
 	case IdentifiedFileType::ARCHIVE_RAR: return ImageID("I_ARCHIVE_RAR"); break;
 	case IdentifiedFileType::PSP_PKG: return ImageID("I_FOLDER_UPLOAD"); break;
+	case IdentifiedFileType::NORMAL_DIRECTORY: return ImageID("I_FOLDER"); break;
 
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
@@ -176,18 +177,88 @@ void DrawIconWithTextList(UIContext &dc, ImageID image, std::string_view text, c
 	}
 }
 
+void GameButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	switch (viewMode_) {
+	case GameBrowserViewMode::GRID:
+		w = 144 * g_Config.fGameGridScale;
+		h = 80 * g_Config.fGameGridScale;
+		break;
+	case GameBrowserViewMode::LARGE_LIST:
+		w = 500;
+		if (type_ == GameButtonType::Dir) {
+			h = UI::ITEM_HEIGHT;
+		} else {
+			h = LARGE_LIST_ICON_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2;
+		}
+		break;
+	default:  // List
+		w = 500;
+		h = 56;
+		break;
+	}
+}
+
 void GameButton::Draw(UIContext &dc) {
 	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
 	// touch or the mouse, getting a video to play without launching the game was too fiddly.
 	const bool wantVideo = viewMode_ == GameBrowserViewMode::LARGE_LIST && HasFocus() && pmf_player_available();
 
-	GameInfoFlags infoFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON;
-	if (wantVideo) {
-		infoFlags |= GameInfoFlags::ICON1_PMF;
-	}
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, infoFlags);
-	UpdateVideo(ginfo, wantVideo);
+	std::shared_ptr<GameInfo> ginfo;
+
+	std::string text;
+	std::string id_version;
 	Draw::Texture *texture = nullptr;
+	ImageID imageIcon;
+	int regionIndex = -1;
+	IdentifiedFileType fileType = IdentifiedFileType::UNKNOWN;
+
+	if (type_ == GameButtonType::Dir) {
+		text = gamePath_.GetFilename();
+		imageIcon = ImageID(IsPinned() ? "I_FOLDER_PINNED" : "I_FOLDER");
+		if (gamePath_.IsNetworkRoot()) {
+			imageIcon = ImageID("I_NETWORK");
+			auto mm = GetI18NCategory(I18NCat::MAINMENU);
+			text = mm->T("Network");
+		} else if (text == "..") {
+			imageIcon = ImageID("I_UP_DIRECTORY");
+			text = "";
+		}
+		fileType = IdentifiedFileType::NORMAL_DIRECTORY;
+	} else {
+		GameInfoFlags infoFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON;
+		if (wantVideo) {
+			infoFlags |= GameInfoFlags::ICON1_PMF;
+		}
+		ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, infoFlags);
+		UpdateVideo(ginfo, wantVideo);
+		imageIcon = ChooseGameIcon(ginfo);
+		if (ginfo->Ready(GameInfoFlags::ICON)) {
+			if (ginfo->icon.texture) {
+				texture = ginfo->icon.texture;
+				// The type icon is only for when there's no picture, and would be drawn on top of it.
+				imageIcon = ImageID::invalid();
+			} else {
+				// No icon, but drawBackground is set. Let's show a plain icon depending on type.
+				imageIcon = ChooseGameIcon(ginfo);
+			}
+		} else if (gamePath_.Type() == PathType::HTTP) {
+			// Make sure that pending HTTP icons show something, instead of just blank.
+			// Maybe we should show something for other file types too.
+			imageIcon = ImageID("I_LINK_OUT_QUESTION");
+		}
+		text = ginfo->GetTitle();
+		id_version = ginfo->GetTitle();
+		regionIndex = (int)ginfo->region;
+		fileType = ginfo->fileType;
+	}
+
+	if (video_) {
+		Draw::Texture *frame = video_->Update(dc.GetDrawContext(), videoStart_.ElapsedSeconds());
+		if (frame) {
+			texture = frame;
+		}
+	}
+
 	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
@@ -195,33 +266,6 @@ void GameButton::Draw(UIContext &dc) {
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
 	}
-
-	// Some types we just draw a default icon for.
-	ImageID imageIcon = ChooseGameIcon(ginfo);
-	if (ginfo->Ready(GameInfoFlags::ICON)) {
-		if (ginfo->icon.texture) {
-			texture = ginfo->icon.texture;
-			// The type icon is only for when there's no picture, and would be drawn on top of it.
-			imageIcon = ImageID::invalid();
-		} else {
-			// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-			imageIcon = ChooseGameIcon(ginfo);
-		}
-	} else if (gamePath_.Type() == PathType::HTTP) {
-		// Make sure that pending HTTP icons show something, instead of just blank.
-		// Maybe we should show something for other file types too.
-		imageIcon = ImageID("I_LINK_OUT_QUESTION");
-	}
-
-	Bounds iconBounds = bounds_;
-	iconBounds.w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
-	if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-		iconBounds.x += LARGE_LIST_LEFT_PAD;
-		iconBounds.y += LARGE_LIST_PAD;
-		iconBounds.w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
-		iconBounds.h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
-	}
-	const float textX = ListTextX(viewMode_);
 
 	const bool rowFocused = HasFocus() && !infoSelected_;
 	if (viewMode_ != GameBrowserViewMode::GRID || !texture) {
@@ -236,14 +280,18 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
-	if (texture && video_) {
-		Draw::Texture *frame = video_->Update(dc.GetDrawContext(), videoStart_.ElapsedSeconds());
-		if (frame) {
-			texture = frame;
-		}
+	// Some types we just draw a default icon for.
+	Bounds iconBounds = bounds_;
+	iconBounds.w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
+	if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
+		iconBounds.x += LARGE_LIST_LEFT_PAD;
+		iconBounds.y += LARGE_LIST_PAD;
+		iconBounds.w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
+		iconBounds.h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
 	}
+	const float textX = ListTextX(viewMode_);
 
-	if (texture) {
+	if (texture && ginfo) {
 		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
 		shadowColor = blackAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
 		float tw = texture->Width();
@@ -295,9 +343,9 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
-	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && ginfo->fileType != IdentifiedFileType::PSP_ELF && !ginfo->id_version.empty()) {
+	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
 		std::string_view idStr = ginfo->id_version;
-		if (ginfo->fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+		if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 			auto ga = GetI18NCategory(I18NCat::GAME);
 			idStr = ga->T("SaveData");
 		}
@@ -315,17 +363,18 @@ void GameButton::Draw(UIContext &dc) {
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 		if (viewMode_ == GameBrowserViewMode::GRID) {
-			DrawIconWithTextGrid(dc, imageIcon, ginfo->GetTitle(), bounds_, style);
+			DrawIconWithTextGrid(dc, imageIcon, text, bounds_, style);
 		} else {
-			DrawIconWithTextList(dc, imageIcon, ginfo->GetTitle(), bounds_, viewMode_, style, g_Config.bShowIDOnGameIcon ? std::string_view(ginfo->id_version) : std::string_view());
+			DrawIconWithTextList(dc, imageIcon, text, bounds_, viewMode_, style, g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view());
 		}
 	} else {
+		/*
 		char discNumInfo[8];
 		if (ginfo->disc_total > 1)
 			snprintf(discNumInfo, sizeof(discNumInfo), "-DISC%d", ginfo->disc_number);
 		else
 			discNumInfo[0] = '\0';
-
+		*/
 		dc.Draw()->Flush();
 		dc.RebindTexture();
 		dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -333,7 +382,7 @@ void GameButton::Draw(UIContext &dc) {
 			float tw, th;
 			dc.Draw()->Flush();
 			dc.PushScissor(bounds_);
-			const std::string currentTitle = ginfo->GetTitle();
+			const std::string currentTitle = text;
 			if (!currentTitle.empty()) {
 				title_ = ReplaceAll(currentTitle, "\n", " ");
 			}
@@ -343,10 +392,10 @@ void GameButton::Draw(UIContext &dc) {
 			int availableWidth = bounds_.w - textX - ListTextRightMargin(viewMode_);
 			if (g_Config.bShowIDOnGameIcon) {
 				float vw, vh;
-				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version, &vw, &vh, 0);
+				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, id_version, &vw, &vh, 0);
 				availableWidth -= vw + 20;
 				dc.SetFontScale(0.7f, 0.7f);
-				dc.DrawText(ginfo->id_version, bounds_.x + availableWidth + textX + 10, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+				dc.DrawText(id_version, bounds_.x + availableWidth + textX + 10, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 				dc.SetFontScale(1.0f, 1.0f);
 			}
 			float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -376,7 +425,7 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	if (ginfo->hasConfig && !ginfo->id.empty()) {
+	if (ginfo && ginfo->hasConfig && !ginfo->id.empty()) {
 		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR_SMALL"));
 		if (gearImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
@@ -389,7 +438,6 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	const int regionIndex = (int)ginfo->region;
 	if (g_Config.bShowRegionOnGameIcon && regionIndex >= 0 && regionIndex < (int)GameRegion::COUNT) {
 		const ImageID regionIcons[(int)GameRegion::COUNT] = {
 			ImageID("I_FLAG_JP"),
