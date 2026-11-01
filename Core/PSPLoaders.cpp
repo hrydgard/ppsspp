@@ -57,6 +57,12 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/PopsBoot.h"
 #include "Core/Util/PSARUnpack.h"
+#include "Core/HLE/sceKernelMemory.h"
+
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in FileUtil.cpp
+extern char *realpath(const char *name, char *resolved);
+#endif
 
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {

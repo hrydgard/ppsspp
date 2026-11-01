@@ -72,6 +72,8 @@ std::string GetStringErrorMsg(int errCode) {
 		err_string.pop_back();
 	}
 	return err_string;
+#elif defined(__SWITCH__)
+	return "Unknown error";
 #else
 	char err_str[buff_size] = {};
 

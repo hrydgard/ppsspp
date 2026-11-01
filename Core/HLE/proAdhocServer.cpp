@@ -29,6 +29,12 @@
 #include <random>
 #include <signal.h>
 
+#if PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
+#include <netdb.h>
+// Missing include, *shrugs*
+extern "C" struct hostent *gethostbyname(const char *name);
+#endif // PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
+
 #include <sys/types.h>
 #include "Common/Net/SocketCompat.h"
 #include "Common/Data/Text/I18n.h"
@@ -1895,7 +1901,6 @@ int server_loop(int server)
 					// Switch Socket into Non-Blocking Mode
 					change_blocking_mode(loginresult, 1);
 				}
-
 				// Login User (Stream)
 				if (loginresult != -1) {
 					u32_le sip = addr.sin_addr.s_addr;
