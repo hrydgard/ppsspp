@@ -58,6 +58,7 @@
 #include "Core/Instance.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/HLE.h"
@@ -756,6 +757,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			perSecond += StringFromFormat(" %d", flips);
 		}
 		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
+	}
+	if (coreParameter.bootFromState) {
+		// Counted from the state's load. More than a few, and the game has gone off its usual path.
+		fprintf(stderr, "Failed disc reads: %d\n", pspFileSystem.FailedDiscReads());
 	}
 
 	// Before EndDrawFrame: Vulkan can only read back a framebuffer inside a frame.
@@ -1582,6 +1587,7 @@ int main(int argc, const char* argv[]) {
 				}
 				g_stateLoadFailed = true;
 			}
+			pspFileSystem.ResetFailedDiscReads();
 			g_stateLoadPending = false;
 		});
 	}

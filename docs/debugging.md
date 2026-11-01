@@ -228,8 +228,13 @@ The state says which game it's from and whether that was booted from an ISO, a P
 the game's config apply. An ISO game gets a disc with nothing on it: files it had open are dropped when the state
 loads, and opening any file fails. Most games keep running for a few seconds without the disc, enough to measure,
 but a state taken while the game streams music or video, or just before it loads a level, soon hits those errors,
-so save perf states in the middle of gameplay. Only states saved since the disc ID was added to them (`SaveStart`
-version 6) boot this way. The app doesn't: it refuses a `.ppst` as before.
+so save perf states in the middle of gameplay. Headless prints `Failed disc reads: N` at the end, counted from
+the load: opens of files on the disc and reads and seeks on dropped handles. A state that keeps it at 0, or close,
+measures the game as it really runs. Only states saved since the disc ID was added to them (`SaveStart` version 6)
+boot this way. The app doesn't: it refuses a `.ppst` as before.
+
+`Tools/headless_bench.py` takes such states as games (`--game some.ppst`, or `--state-dir DIR` for every `.ppst`
+in a directory), and reports the failed disc reads with the timings.
 
 To get past menus, `--press=SECONDS:MASK[:DURATION],...` holds buttons at emulated times (`MASK` is a sceCtrl
 mask, `0x8` START and `0x4000` CROSS, held 0.15 seconds by default), and `--screenshot-at=SECONDS:FILE,...` saves

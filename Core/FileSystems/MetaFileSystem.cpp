@@ -356,10 +356,14 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	std::string of;
 	MountPoint *mount;
 	int error = MapFilePath(filename, &of, &mount);
-	if (error == 0)
-		return mount->system->OpenFile(of, access, mount->prefix.c_str());
-	else
+	if (error != 0) {
 		return error;
+	}
+	int handle = mount->system->OpenFile(of, access, mount->prefix.c_str());
+	if (handle < 0 && (mount->system->Flags() & FileSystemFlags::UMD)) {
+		failedDiscReads_++;
+	}
+	return handle;
 }
 
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
@@ -568,8 +572,8 @@ size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->ReadFile(handle, pointer, size);
-	else
-		return 0;
+	failedDiscReads_++;
+	return 0;
 }
 
 size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size)
@@ -588,8 +592,8 @@ size_t MetaFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec)
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->ReadFile(handle, pointer, size, usec);
-	else
-		return 0;
+	failedDiscReads_++;
+	return 0;
 }
 
 size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec)
@@ -608,8 +612,8 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->SeekFile(handle, position, type);
-	else
-		return 0;
+	failedDiscReads_++;
+	return 0;
 }
 
 int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet) {
