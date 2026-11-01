@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 
 #include <map>
@@ -359,6 +360,40 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	return true;
 }
 
+// A view of a swapchain image, in the main swapchain's format, and a semaphore to present it with.
+static void InitSwapchainImageData(VulkanContext *vulkan, VkImage image, SwapchainImageData *data) {
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	data->image = image;
+	VkResult res = vkCreateSemaphore(vulkan->GetDevice(), &semaphoreCreateInfo, nullptr, &data->renderingCompleteSemaphore);
+	_dbg_assert_(res == VK_SUCCESS);
+
+	VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	color_image_view.format = vulkan->GetSwapchainFormat();
+
+	_dbg_assert_(color_image_view.format != VK_FORMAT_UNDEFINED);
+
+	color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+	color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	color_image_view.subresourceRange.baseMipLevel = 0;
+	color_image_view.subresourceRange.levelCount = 1;
+	color_image_view.subresourceRange.baseArrayLayer = 0;
+	color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
+	color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	color_image_view.flags = 0;
+	color_image_view.image = image;
+
+	// We leave the images as UNDEFINED, there's no need to pre-transition them as
+	// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
+	// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
+
+	res = vkCreateImageView(vulkan->GetDevice(), &color_image_view, nullptr, &data->view);
+	vulkan->SetDebugName(data->view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
+	_dbg_assert_(res == VK_SUCCESS);
+}
+
 bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
 	std::vector<VkImage> swapchainImages;
 	if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
@@ -379,39 +414,10 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 		}
 	}
 
-	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
-		sc_buffer.image = swapchainImages[i];
-		VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
-		_dbg_assert_(res == VK_SUCCESS);
-
-		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-		color_image_view.format = vulkan_->GetSwapchainFormat();
-
-		_dbg_assert_(color_image_view.format != VK_FORMAT_UNDEFINED);
-
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		color_image_view.subresourceRange.baseMipLevel = 0;
-		color_image_view.subresourceRange.levelCount = 1;
-		color_image_view.subresourceRange.baseArrayLayer = 0;
-		color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
-		color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		color_image_view.flags = 0;
-		color_image_view.image = sc_buffer.image;
-
-		// We leave the images as UNDEFINED, there's no need to pre-transition them as
-		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
-		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
-
-		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
-		vulkan_->SetDebugName(sc_buffer.view, VK_OBJECT_TYPE_IMAGE_VIEW, "swapchain_view");
+		InitSwapchainImageData(vulkan_, swapchainImages[i], &sc_buffer);
 		frameDataShared.swapchainImages_.push_back(sc_buffer);
-		_dbg_assert_(res == VK_SUCCESS);
 	}
 
 	// Must be before InitBackbufferRenderPass.
@@ -494,6 +500,9 @@ void VulkanRenderManager::StopThreads() {
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		auto &frameData = frameData_[i];
 		// Zero the queries so we don't try to pull them later.
+		if (insideFrame_ && i == vulkan_->GetCurFrame()) {
+			continue;
+		}
 		frameData.profile.timestampDescriptions.clear();
 	}
 
@@ -533,6 +542,212 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	queueRunner_.DestroyBackBuffers();
 }
 
+VKRSwapchain *VulkanRenderManager::CreateExtraSwapchain(WindowSystem winsys, void *data1, void *data2, int width, int height, std::string *error) {
+	if (vulkan_->GetPresentation() || !vulkan_->HasRealSwapchain()) {
+		*error = "No main swapchain to go with";
+		return nullptr;
+	}
+	if (extraSwapchains_.size() >= MAX_EXTRA_SWAPCHAINS) {
+		*error = "Too many swapchains";
+		return nullptr;
+	}
+	VKRSwapchain *swapchain = new VKRSwapchain();
+	VkResult res = vulkan_->CreateSurface(winsys, data1, data2, &swapchain->surface);
+	if (res != VK_SUCCESS) {
+		*error = StringFromFormat("Failed to create a surface: %s", VulkanResultToString(res));
+		delete swapchain;
+		return nullptr;
+	}
+	// Present from the queue we render on.
+	VkBool32 supported = VK_FALSE;
+	vkGetPhysicalDeviceSurfaceSupportKHR(vulkan_->GetCurrentPhysicalDevice(), vulkan_->GetGraphicsQueueFamilyIndex(), swapchain->surface, &supported);
+	if (!supported) {
+		*error = "The graphics queue can't present to the surface";
+		vkDestroySurfaceKHR(vulkan_->GetInstance(), swapchain->surface, nullptr);
+		delete swapchain;
+		return nullptr;
+	}
+	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+	for (VkSemaphore &semaphore : swapchain->acquireSemaphores) {
+		vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &semaphore);
+	}
+	swapchain->requestedWidth = width;
+	swapchain->requestedHeight = height;
+	// Nothing refers to it yet, so the render thread can keep going.
+	if (!InitExtraSwapchain(swapchain, error)) {
+		DestroyExtraSwapchainResources(swapchain);
+		for (VkSemaphore semaphore : swapchain->acquireSemaphores) {
+			vkDestroySemaphore(vulkan_->GetDevice(), semaphore, nullptr);
+		}
+		vkDestroySurfaceKHR(vulkan_->GetInstance(), swapchain->surface, nullptr);
+		delete swapchain;
+		return nullptr;
+	}
+	extraSwapchains_.push_back(swapchain);
+	return swapchain;
+}
+
+bool VulkanRenderManager::InitExtraSwapchain(VKRSwapchain *swapchain, std::string *error) {
+	VkPhysicalDevice physicalDevice = vulkan_->GetCurrentPhysicalDevice();
+	VkSurfaceCapabilitiesKHR caps{};
+	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, swapchain->surface, &caps);
+	if (res != VK_SUCCESS) {
+		*error = StringFromFormat("vkGetPhysicalDeviceSurfaceCapabilitiesKHR failed: %s", VulkanResultToString(res));
+		return false;
+	}
+
+	// The same format as the main swapchain, so the backbuffer render pass and its pipelines work for both.
+	const VkFormat format = vulkan_->GetSwapchainFormat();
+	uint32_t formatCount = 0;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, swapchain->surface, &formatCount, nullptr);
+	std::vector<VkSurfaceFormatKHR> formats(formatCount);
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, swapchain->surface, &formatCount, formats.data());
+	const VkSurfaceFormatKHR *surfaceFormat = nullptr;
+	for (const VkSurfaceFormatKHR &f : formats) {
+		if (f.format == format) {
+			surfaceFormat = &f;
+			break;
+		}
+	}
+	if (!surfaceFormat) {
+		*error = StringFromFormat("The surface doesn't support the main swapchain's format (%d)", (int)format);
+		return false;
+	}
+
+	// 0xFFFFFFFF means the swapchain decides. MoltenVK can report 0 for a layer that's not been sized yet.
+	VkExtent2D extent = caps.currentExtent;
+	if (extent.width == 0xFFFFFFFF || extent.width == 0 || extent.height == 0) {
+		extent.width = std::clamp((uint32_t)swapchain->requestedWidth, caps.minImageExtent.width, caps.maxImageExtent.width);
+		extent.height = std::clamp((uint32_t)swapchain->requestedHeight, caps.minImageExtent.height, caps.maxImageExtent.height);
+	}
+	if (extent.width == 0 || extent.height == 0) {
+		*error = "The surface has no size";
+		return false;
+	}
+
+	uint32_t imageCount = caps.minImageCount + 1;
+	if (caps.maxImageCount > 0) {
+		imageCount = std::min(imageCount, caps.maxImageCount);
+	}
+
+	VkSwapchainCreateInfoKHR info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+	info.surface = swapchain->surface;
+	info.minImageCount = imageCount;
+	info.imageFormat = surfaceFormat->format;
+	info.imageColorSpace = surfaceFormat->colorSpace;
+	info.imageExtent = extent;
+	info.imageArrayLayers = 1;
+	info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	info.preTransform = (caps.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) ? VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR : caps.currentTransform;
+	info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	if (!(caps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)) {
+		// Take the lowest bit that's supported.
+		info.compositeAlpha = (VkCompositeAlphaFlagBitsKHR)(caps.supportedCompositeAlpha & (~caps.supportedCompositeAlpha + 1));
+	}
+	info.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+	info.clipped = VK_TRUE;
+	res = vkCreateSwapchainKHR(vulkan_->GetDevice(), &info, nullptr, &swapchain->swapchain);
+	if (res != VK_SUCCESS) {
+		*error = StringFromFormat("vkCreateSwapchainKHR failed: %s", VulkanResultToString(res));
+		swapchain->swapchain = VK_NULL_HANDLE;
+		return false;
+	}
+	swapchain->extent = extent;
+
+	uint32_t count = 0;
+	vkGetSwapchainImagesKHR(vulkan_->GetDevice(), swapchain->swapchain, &count, nullptr);
+	std::vector<VkImage> images(count);
+	vkGetSwapchainImagesKHR(vulkan_->GetDevice(), swapchain->swapchain, &count, images.data());
+
+	if (!queueRunner_.CreateDepthStencilImage(extent.width, extent.height, &swapchain->depthImage, &swapchain->depthAlloc, &swapchain->depthView, &postInitBarrier_, "ExtraSwapchainDepth")) {
+		*error = "Failed to create the depth buffer";
+		return false;
+	}
+	for (VkImage image : images) {
+		SwapchainImageData data{};
+		InitSwapchainImageData(vulkan_, image, &data);
+		swapchain->images.push_back(data);
+		VkFramebuffer framebuffer = queueRunner_.CreateBackbufferFramebuffer(data.view, swapchain->depthView, extent.width, extent.height);
+		if (framebuffer == VK_NULL_HANDLE) {
+			*error = "Failed to create a framebuffer";
+			return false;
+		}
+		swapchain->framebuffers.push_back(framebuffer);
+	}
+	swapchain->outOfDate = false;
+	swapchain->suboptimalFrames = 0;
+	INFO_LOG(Log::G3D, "Created an additional swapchain: %dx%d, %d images", extent.width, extent.height, (int)count);
+	return true;
+}
+
+// Only once the GPU and the render thread are done with it, or it was never used.
+void VulkanRenderManager::DestroyExtraSwapchainResources(VKRSwapchain *swapchain) {
+	VkDevice device = vulkan_->GetDevice();
+	for (VkFramebuffer framebuffer : swapchain->framebuffers) {
+		vulkan_->Delete().QueueDeleteFramebuffer(framebuffer);
+	}
+	swapchain->framebuffers.clear();
+	for (SwapchainImageData &image : swapchain->images) {
+		vulkan_->Delete().QueueDeleteImageView(image.view);
+		vkDestroySemaphore(device, image.renderingCompleteSemaphore, nullptr);
+	}
+	swapchain->images.clear();
+	if (swapchain->depthView) {
+		vulkan_->Delete().QueueDeleteImageView(swapchain->depthView);
+		swapchain->depthView = VK_NULL_HANDLE;
+	}
+	if (swapchain->depthImage) {
+		vulkan_->Delete().QueueDeleteImageAllocation(swapchain->depthImage, swapchain->depthAlloc);
+		swapchain->depthImage = VK_NULL_HANDLE;
+		swapchain->depthAlloc = VK_NULL_HANDLE;
+	}
+	if (swapchain->swapchain) {
+		vkDestroySwapchainKHR(device, swapchain->swapchain, nullptr);
+		swapchain->swapchain = VK_NULL_HANDLE;
+	}
+	swapchain->acquired = false;
+}
+
+void VulkanRenderManager::RecreateExtraSwapchain(VKRSwapchain *swapchain) {
+	const bool threadsRunning = compileThread_.joinable();
+	StopThreads();
+	vulkan_->WaitUntilQueueIdle();
+	DestroyExtraSwapchainResources(swapchain);
+	std::string error;
+	if (!InitExtraSwapchain(swapchain, &error)) {
+		// It stays without images, and its passes are skipped, until it's resized or destroyed.
+		ERROR_LOG(Log::G3D, "Failed to recreate an additional swapchain: %s", error.c_str());
+		DestroyExtraSwapchainResources(swapchain);
+		swapchain->outOfDate = false;
+	}
+	if (threadsRunning) {
+		StartThreads();
+	}
+}
+
+void VulkanRenderManager::ResizeExtraSwapchain(VKRSwapchain *swapchain, int width, int height) {
+	swapchain->requestedWidth = width;
+	swapchain->requestedHeight = height;
+	RecreateExtraSwapchain(swapchain);
+}
+
+void VulkanRenderManager::DestroyExtraSwapchain(VKRSwapchain *swapchain) {
+	const bool threadsRunning = compileThread_.joinable();
+	StopThreads();
+	vulkan_->WaitUntilQueueIdle();
+	DestroyExtraSwapchainResources(swapchain);
+	for (VkSemaphore semaphore : swapchain->acquireSemaphores) {
+		vkDestroySemaphore(vulkan_->GetDevice(), semaphore, nullptr);
+	}
+	vkDestroySurfaceKHR(vulkan_->GetInstance(), swapchain->surface, nullptr);
+	extraSwapchains_.erase(std::remove(extraSwapchains_.begin(), extraSwapchains_.end(), swapchain), extraSwapchains_.end());
+	delete swapchain;
+	if (threadsRunning) {
+		StartThreads();
+	}
+}
+
 // Hm, I'm finding the occasional report of these asserts.
 void VulkanRenderManager::CheckNothingPending() {
 	_assert_(pipelinesToCheck_.empty());
@@ -544,6 +759,8 @@ void VulkanRenderManager::CheckNothingPending() {
 
 VulkanRenderManager::~VulkanRenderManager() {
 	INFO_LOG(Log::G3D, "VulkanRenderManager destructor");
+	// Their owners (the outputs) destroy them first, on device loss. Left over, they'd outlive the device.
+	_dbg_assert_(extraSwapchains_.empty());
 
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
@@ -682,7 +899,7 @@ void VulkanRenderManager::RenderThreadFunc() {
 void VulkanRenderManager::PresentWaitThreadFunc() {
 	SetCurrentThreadName("PresentWait");
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+#if !PPSSPP_VK_STATIC
 	_dbg_assert_(vkWaitForPresentKHR != nullptr);
 
 	uint64_t waitedId = frameIdGen_;
@@ -734,6 +951,12 @@ void VulkanRenderManager::PollPresentTiming() {
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
 	double frameBeginTime = time_now_d();
 	VLOG("BeginFrame");
+
+	for (VKRSwapchain *swapchain : extraSwapchains_) {
+		if (swapchain->outOfDate) {
+			RecreateExtraSwapchain(swapchain);
+		}
+	}
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
@@ -909,18 +1132,10 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
-int VulkanRenderManager::WaitForPipelines() {
+bool VulkanRenderManager::PipelinesPending() {
 	// Pipelines still in the queue, or taken off it but not yet made into tasks, aren't in flight yet.
-	while (true) {
-		{
-			std::unique_lock<std::mutex> lock(compileQueueMutex_);
-			if (compileQueue_.empty() && !compileScheduling_) {
-				break;
-			}
-		}
-		sleep_ms(2, "pipeline-queue-wait");
-	}
-	return CreateMultiPipelinesTask::WaitForAll();
+	std::unique_lock<std::mutex> lock(compileQueueMutex_);
+	return !compileQueue_.empty() || compileScheduling_ || CreateMultiPipelinesTask::tasksInFlight_ > 0;
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
@@ -1061,7 +1276,7 @@ void VulkanRenderManager::EndCurRenderStep() {
 	curPipelineFlags_ = (PipelineFlags)0;
 }
 
-void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction colorLoad, VKRRenderPassLoadAction depthLoad, VKRRenderPassLoadAction stencilLoad, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
+void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction colorLoad, VKRRenderPassLoadAction depthLoad, VKRRenderPassLoadAction stencilLoad, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag, VKRSwapchain *swapchain) {
 	_dbg_assert_(insideFrame_);
 
 	if (!fb) {
@@ -1072,7 +1287,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	// Eliminate dupes (bind of the framebuffer we already are rendering to), instantly convert to a clear if possible.
-	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
+	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb && steps_.back()->render.swapchain == swapchain) {
 		u32 clearMask = 0;
 		if (colorLoad == VKRRenderPassLoadAction::CLEAR) {
 			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1116,7 +1331,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 #ifdef _DEBUG
-	SanityCheckPassesOnAdd();
+	SanityCheckPassesOnAdd(fb, swapchain);
 #endif
 
 	// More redundant bind elimination.
@@ -1159,6 +1374,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	step->render.framebuffer = fb;
+	step->render.swapchain = fb ? nullptr : swapchain;
 	step->render.colorLoad = colorLoad;
 	step->render.depthLoad = depthLoad;
 	step->render.stencilLoad = stencilLoad;
@@ -1191,6 +1407,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		curHeightRaw_ = fb->height;
 		curWidth_ = fb->width;
 		curHeight_ = fb->height;
+	} else if (swapchain) {
+		curWidthRaw_ = swapchain->extent.width;
+		curHeightRaw_ = swapchain->extent.height;
+		curWidth_ = curWidthRaw_;
+		curHeight_ = curHeightRaw_;
 	} else {
 		curWidthRaw_ = vulkan_->GetBackbufferWidth();
 		curHeightRaw_ = vulkan_->GetBackbufferHeight();
@@ -1225,6 +1446,12 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
+
+	if (!src && mode == Draw::ReadbackMode::OLD_DATA_OK) {
+		// The backbuffer is a different image every frame, so there's no earlier copy of it to hand back.
+		_dbg_assert_msg_(false, "Delayed readback of the backbuffer (%s)", tag);
+		return false;
+	}
 
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
@@ -1287,7 +1514,7 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
 	return queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
-		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
+		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, x, y, w, h, aspectBits, srcFormat, destFormat, pixelStride, pixels);
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -1306,7 +1533,7 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	FlushSync();
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, x, y, w, h, VK_IMAGE_ASPECT_COLOR_BIT, destFormat, destFormat, pixelStride, pixels);
 
 	_dbg_assert_(steps_.empty());
 }
@@ -1411,7 +1638,7 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag) {
 #ifdef _DEBUG
-	SanityCheckPassesOnAdd();
+	SanityCheckPassesOnAdd(dst, nullptr);
 #endif
 	// _dbg_assert_msg_(src != dst, "Can't copy within the same buffer");
 	if (src == dst) {
@@ -1430,6 +1657,16 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(dstPos.y >= 0, "dstPos offset y (%d) < 0", dstPos.y);
 	_dbg_assert_msg_(dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
+
+	if (aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+		_dbg_assert_msg_(src->depth.image != VK_NULL_HANDLE, "%s", src->Tag());
+		_dbg_assert_msg_(dst->depth.image != VK_NULL_HANDLE, "%s", dst->Tag());
+
+		if (!src->depth.image || !dst->depth.image) {
+			// Something has gone wrong, but let's try to stumble along.
+			return;
+		}
+	}
 
 	VkImageLayout finalSrcLayoutBeforeCopy = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 	if (src == dst) {
@@ -1492,7 +1729,7 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag) {
 #ifdef _DEBUG
-	SanityCheckPassesOnAdd();
+	SanityCheckPassesOnAdd(dst, nullptr);
 #endif
 
 	_dbg_assert_msg_(srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
@@ -1550,7 +1787,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	steps_.push_back(step);
 }
 
-VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer) {
+VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer, bool samples) {
 	_dbg_assert_(curRenderStep_ != nullptr);
 	_dbg_assert_(fb != nullptr);
 
@@ -1558,6 +1795,13 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT || aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT);
 
 	// Mark the dependency, check for required transitions, and return the image.
+	if (samples && fb->msaaColor.image != VK_NULL_HANDLE) {
+		_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT);
+		curRenderStep_->dependencies.insert(fb);
+		TransitionRequest rq{ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true };
+		curRenderStep_->preTransitions.insert(rq);
+		return layer == -1 ? fb->msaaColor.texAllLayersView : fb->msaaColor.texLayerViews[layer];
+	}
 
 	// Optimization: If possible, use final*Layout to put the texture into the correct layout "early".
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
@@ -1692,6 +1936,8 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 			}
 			frameData.skipSwap = false;
 		}
+		// Even when the main swapchain skipped this frame.
+		frameData.PresentExtraSwapchains(vulkan_);
 		if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
 			presentation->EndPresent();
 		}
@@ -1838,10 +2084,6 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-			break;
-		case BindingType::STORAGE_BUFFER_VERTEX:
-			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 			break;
 		case BindingType::STORAGE_BUFFER_COMPUTE:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -2034,7 +2276,6 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				writes[numWrites].pBufferInfo = nullptr;
 				numImages++;
 				break;
-			case BindingType::STORAGE_BUFFER_VERTEX:
 			case BindingType::STORAGE_BUFFER_COMPUTE:
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
@@ -2082,12 +2323,13 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 	profile->descriptorsDeduped += dedupCount;
 }
 
-void VulkanRenderManager::SanityCheckPassesOnAdd() {
+void VulkanRenderManager::SanityCheckPassesOnAdd(VKRFramebuffer *fb, VKRSwapchain *swapchain) {
 #if _DEBUG
-	// Check that we don't have any previous passes that write to the backbuffer, that must ALWAYS be the last one.
+	// Passes to swapchains must ALWAYS come last, one per swapchain.
 	for (int i = 0; i < (int)steps_.size(); i++) {
-		if (steps_[i]->stepType == VKRStepType::RENDER) {
-			_dbg_assert_msg_(steps_[i]->render.framebuffer != nullptr, "Adding second backbuffer pass? Not good!");
+		if (steps_[i]->stepType == VKRStepType::RENDER && !steps_[i]->render.framebuffer) {
+			_dbg_assert_msg_(!fb, "Adding a framebuffer pass after a swapchain pass? Not good!");
+			_dbg_assert_msg_(steps_[i]->render.swapchain != swapchain, "Adding second pass to a swapchain? Not good!");
 		}
 	}
 #endif

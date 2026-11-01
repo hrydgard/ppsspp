@@ -229,6 +229,11 @@ public:
 
 KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
+// The code of the loaded modules, as (address, size).
+std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges();
+// For the next savestate load: code it leaves as it was, as (address, size). Its functions aren't
+// hashed again.
+void __KernelModuleSetUnchangedCodeOnLoad(std::vector<std::pair<u32, u32>> unchanged);
 void __KernelModuleShutdown();
 
 class MIPSState;
@@ -236,7 +241,20 @@ class MIPSState;
 u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string);
-bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string);
+// hostArgs, if set, are passed to the module instead of what paramPtr points to.
+bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs = nullptr);
+// The VSH (the XMB) is what's running, not a game it launched.
+bool __KernelIsRunningVSH();
+// What sceKernelExitGame does in a game the XMB launched, as on a PSP: back to the XMB, by booting it
+// again. False if the XMB didn't launch this.
+bool __KernelExitToVSH(MIPSState *mips);
+// Whether the running game can quit back to the XMB, the way the HOME button's quit screen does it:
+// the XMB launched it (and it's not the PS1 emulator, whose HOME menu is its own).
+bool __KernelCanExitToVSH();
+// Quits the running game back to the XMB from outside a syscall (the host's HOME screen, or after
+// the game's exit callback returned): asks the frontend to boot the XMB, which stops the core.
+// False if __KernelCanExitToVSH() is.
+bool __KernelRequestExitToVSH();
 // Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.
 SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr);
 bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string);
@@ -245,8 +263,8 @@ bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32
 // Describes which loaded module (and section within it) an address falls in, e.g. "EBOOT.BIN.text+1234".
 // Returns an empty string if the address isn't inside any currently loaded module.
 bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize);
-int __KernelGPUReplay();
-void __KernelReturnFromModuleFunc();
+int __KernelGPUReplay(MIPSState *mips);
+void __KernelReturnFromModuleFunc(MIPSState *mips);
 // fromTop puts the module at the top of the user partition instead of the bottom. Use it for
 // firmware modules we inject before the game loads - taking the bottom pushes the game's own ELF
 // up, which shifts every address in it and invalidates cheats and achievements, and outright
@@ -265,11 +283,18 @@ bool KernelUnloadModuleByID(SceUID moduleId);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);
+u32 sceKernelQueryLoadCoreCB();
 
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
 void Register_SystemCtrlForKernel();
+void Register_SystemCtrlForUser();
 
 // Expose for use by KUBridge.
-u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr);
+u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 optionAddr);
 u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr);
+
+// Address of a function a loaded module exports, or 0.
+u32 KernelFindModuleExport(const char *libraryName, u32 nid);
+// The stub through which a loaded module imports a function. 0 if it doesn't.
+u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 nid);

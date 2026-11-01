@@ -28,7 +28,6 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
-#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -63,26 +62,43 @@ struct NetResolver {
 static int g_currentNetResolverId = 1;
 static std::unordered_map<u32, NetResolver> g_netResolvers;
 
-// NOTE: It starts as true, needed for Outrun 2006.
-static bool g_netResolverInitialized = true;
+// Only decides what a second sceNetResolverInit returns: the other calls work without Init, also
+// after Term (pspautotests net/inet/offline). Outrun 2006 relies on that.
+static bool g_netResolverInitialized = false;
 
 static int sceNetResolverInit() {
 	// Hardcoded mHostToAlias entries here have been moved to the infra-dns.json file.
+	if (g_netResolverInitialized) {
+		return hleLogError(Log::sceNet, 0x80000020, "already initialized");
+	}
 	g_netResolverInitialized = true;
 	return hleLogInfo(Log::sceNet, 0);
 }
 
+// Also called on savestate load, so go back to the boot state.
 void __NetResolverShutdown() {
 	g_netResolvers.clear();
 	g_netResolverInitialized = false;
 }
 
 static int sceNetResolverTerm() {
-	__NetResolverShutdown();
+	g_netResolvers.clear();
+	g_netResolverInitialized = false;
 	return hleLogInfo(Log::sceNet, 0);
 }
 
 // TODO: Add DoState, store the ID gen and active resolvers.
+
+// Checked after the resolver ID (pspautotests net/inet/offline).
+static int CheckNtoAArgs(u32 hostnamePtr, u32 inAddrPtr) {
+	if (!Memory::IsValidAddress(hostnamePtr) || !Memory::IsValidRange(inAddrPtr, 4)) {
+		return SCE_NET_RESOLVER_ERROR_INVALID_PTR;
+	}
+	if (Memory::ReadUnchecked_U8(hostnamePtr) == 0) {
+		return 0x80410418;  // An empty name.
+	}
+	return 0;
+}
 
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
@@ -122,33 +138,39 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 	return 0;
 }
 
-static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
+// A PSP takes 4-18 ms to look a name up through its access point (pspautotests net/inet/timing), the
+// thread sleeping while it waits for the answer, so other threads run.
+static const int RESOLVER_LOOKUP_US = 5000;
 
+// TODO: The host lookup still stops the whole emulator while it waits, for seconds if the DNS server is
+// slow. It could run on a worker thread, with the game's thread waiting in emulated time.
+static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
+
+	if (int error = CheckNtoAArgs(hostnamePtr, inAddrPtr)) {
+		return hleLogError(Log::sceNet, error);
 	}
 
 	for (int attempt = 0; attempt < retry; ++attempt) {
 		const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
 		if (status >= 0) {
-			return hleLogDebugOrError(Log::sceNet, status);
+			return hleDelayResult(hleLogDebugOrError(Log::sceNet, status), "resolver lookup", RESOLVER_LOOKUP_US);
 		}
 	}
-	return hleLogError(Log::sceNet, -1);
+	return hleDelayResult(hleLogError(Log::sceNet, -1), "resolver lookup", RESOLVER_LOOKUP_US);
 }
 
 static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
+
+	if (int error = CheckNtoAArgs(hostnamePtr, inAddrPtr)) {
+		return hleLogError(Log::sceNet, error);
 	}
 
 	const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
@@ -156,8 +178,12 @@ static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inA
 }
 
 static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	// pspautotests net/inet/offline
+	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
+	}
+	if (!Memory::IsValidRange(unknown, 4)) {
+		return hleLogError(Log::sceNet, 0x80410419, "NULL status");
 	}
 
     // TODO: Implement after confirming that this returns the state of resolver.isRunning
@@ -165,8 +191,8 @@ static int sceNetResolverPollAsync(int resolverId, u32 unknown) {
 }
 
 static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
+	if (g_netResolvers.find(resolverId) == g_netResolvers.end()) {
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
 	// TODO: Implement after confirming that this blocks current thread until resolver.isRunning flips to false
@@ -174,17 +200,11 @@ static int sceNetResolverWaitAsync(int resolverId, u32 unknown) {
 }
 
 static int sceNetResolverStartAtoN(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
     // TODO: Implement via getnameinfo
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNetResolverStartAtoNAsync(int resolverId, u32 inAddr, u32 hostnamePtr, int hostnameLength, int timeout, int retry) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
@@ -192,10 +212,13 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 	if (!Memory::IsValidRange(resolverIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_PTR, "Invalid Ptr: %08x", resolverIdPtr);
 
-	if (Memory::IsValidRange(bufferPtr, 4) && bufferLen < 1)
+	// A buffer is required (pspautotests net/inet/offline).
+	if (!Memory::IsValidAddress(bufferPtr))
+		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_PTR, "Invalid buffer: %08x", bufferPtr);
+
+	if (bufferLen < 1)
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_INVALID_BUFLEN, "Invalid Buffer Length: %i", bufferLen);
 
-	// Outrun calls this without init. Something else must have initialized it, unclear what.
 
 	// TODO: Consider using SceUidManager instead of this 1-indexed id - not sure what the PSP does. Actually, probably not using SceUID.
 	// TODO: Implement SCE_NET_RESOLVER_ERROR_ID_MAX (possibly 32?)
@@ -212,17 +235,14 @@ static int sceNetResolverCreate(u32 resolverIdPtr, u32 bufferPtr, int bufferLen)
 }
 
 static int sceNetResolverStop(u32 resolverId) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	const auto resolverIter = g_netResolvers.find(resolverId);
 
 	if (resolverIter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);
 	}
 
-	if (resolverIter->second.isRunning) {
+	// Nothing to stop (pspautotests net/inet/offline).
+	if (!resolverIter->second.isRunning) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_ALREADY_STOPPED, "Resolver Already Stopped (Id: %i)", resolverId);
 	}
 
@@ -231,10 +251,6 @@ static int sceNetResolverStop(u32 resolverId) {
 }
 
 static int sceNetResolverDelete(u32 resolverId) {
-	if (!g_netResolverInitialized) {
-		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_STOPPED, "Resolver subsystem not running");
-	}
-
 	const auto resolverIter = g_netResolvers.find(resolverId);
 	if (resolverIter == g_netResolvers.end()) {
 		return hleLogError(Log::sceNet, SCE_NET_RESOLVER_ERROR_BAD_ID, "Bad Resolver Id: %i", resolverId);

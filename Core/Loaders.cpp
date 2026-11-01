@@ -25,11 +25,13 @@
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/FileLoaders/HTTPFileLoader.h"
 #include "Core/FileLoaders/LocalFileLoader.h"
+#include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/FileLoaders/RetryingFileLoader.h"
 #include "Core/FileLoaders/ZipFileLoader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/PSPLoaders.h"
 #include "Core/MemMap.h"
@@ -39,6 +41,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PathUtil.h"
 
 // TODO: This is just part of a VolDescriptor, see ISOFileSystem.cpp.
 struct PVD {
@@ -106,9 +109,20 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ERROR_IDENTIFYING;
 	}
 
+	if (extension == ".chd" && IsPS1Chd(fileLoader)) {
+		return IdentifiedFileType::PSX_ISO;
+	}
+
 	bool isDiscImage = false;
 	if (extension == ".iso" || extension == ".cso" || extension == ".chd") {
 		isDiscImage = true;
+	} else if (extension == ".cue" || extension == ".ccd" || extension == ".mds") {
+		// A PS1 disc, which boots as a converted EBOOT (see PS1EbootFileLoader).
+		return IsPS1DiscSheet(fileLoader) ? IdentifiedFileType::PSX_ISO : IdentifiedFileType::UNKNOWN;
+	} else if (extension == ".mdf") {
+		// Read through its .mds, which says how.
+		std::unique_ptr<FileLoader> mds(ConstructFileLoader(fileLoader->GetPath().WithReplacedExtension(".mds")));
+		return mds && mds->Exists() && IsPS1DiscSheet(mds.get()) ? IdentifiedFileType::PSX_ISO : IdentifiedFileType::UNKNOWN;
 	} else if (extension == ".ppst") {
 		return IdentifiedFileType::PPSSPP_SAVESTATE;
 	} else if (extension == ".ppdmp") {
@@ -141,7 +155,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 					// actual game data.
 					SequentialHandleAllocator hAlloc;
 					ISOFileSystem umd(&hAlloc, bd);
-					if (umd.GetFileInfo("/PSP_GAME").exists) {
+					if (DetectUmdDiscType(&umd, "") & PSP_UMD_TYPE_GAME) {
 						INFO_LOG(Log::Loader, "Found an UMD VIDEO disc with game data. Treating as game.");
 						*errorString = "UMD Video with PSP GAME data";
 						return IdentifiedFileType::PSP_ISO;
@@ -300,6 +314,17 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader, IdentifiedFileType *
 			// Re-identify the file.
 			*fileType = Identify_File(fileLoader, errorString);
 		}
+	} else if (*fileType == IdentifiedFileType::PSX_ISO) {
+		// A PS1 disc image runs on the firmware's POPS, as a converted EBOOT made from it.
+		PS1EbootFileLoader *eboot = new PS1EbootFileLoader(fileLoader->GetPath());
+		if (!eboot->IsValid()) {
+			*errorString = eboot->LatestError();
+			delete eboot;
+			return fileLoader;
+		}
+		delete fileLoader;
+		*fileType = IdentifiedFileType::PSP_PS1_PBP;
+		return eboot;
 	} else if (*fileType == IdentifiedFileType::ARCHIVE_ZIP) {
 		// Handle zip files, take automatic action depending on contents.
 		// Can also return nullptr.
@@ -352,7 +377,10 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		error = "has no disc";
 		return false;
 	}
+	return UmdMount(filepath, fileLoader, error);
+}
 
+bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error) {
 	FileLoader *loadedFile = ConstructFileLoader(filepath);
 
 	if (!loadedFile || !loadedFile->Exists()) {
@@ -372,8 +400,9 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		if (!MountGameISO(loadedFile, &error)) {
-			error = "mounting the replaced ISO failed: " + error;
+			error = "mounting the ISO failed: " + error;
 			return false;
 		}
 		break;
@@ -383,6 +412,92 @@ bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &erro
 		break;
 	}
 	return true;
+}
+
+u32 DetectUmdDiscType(IFileSystem *fs, std::string_view root) {
+	const auto exists = [&](std::string_view path) {
+		return fs->GetFileInfo(join(root, path)).exists;
+	};
+
+	u32 type = 0;
+	// Pressed discs carry UMD_DATA.BIN, "ULUS-10041|06B7CAAD47576766|0001|G", whose fourth field
+	// lists the content: G for a game, V for video, A for audio. The EUR Video Demo Disc says GVA.
+	const std::string umdDataPath = join(root, "/UMD_DATA.BIN");
+	if (fs->GetFileInfo(umdDataPath).exists) {
+		const int handle = fs->OpenFile(umdDataPath, FILEACCESS_READ);
+		if (handle >= 0) {
+			char data[128];
+			const size_t size = fs->ReadFile(handle, (u8 *)data, sizeof(data));
+			fs->CloseFile(handle);
+			std::vector<std::string_view> fields;
+			SplitString(std::string_view(data, size), '|', fields);
+			if (fields.size() >= 4) {
+				for (char c : fields[3]) {
+					switch (c) {
+					case 'G': type |= PSP_UMD_TYPE_GAME; break;
+					case 'V': type |= PSP_UMD_TYPE_VIDEO; break;
+					case 'A': type |= PSP_UMD_TYPE_AUDIO; break;
+					default: break;
+					}
+				}
+			}
+		}
+	}
+	if (type == 0) {
+		// Homebrew and patched images often have no UMD_DATA.BIN.
+		if (exists("/PSP_GAME")) {
+			type |= PSP_UMD_TYPE_GAME;
+		}
+		if (exists("/UMD_VIDEO")) {
+			type |= PSP_UMD_TYPE_VIDEO;
+		}
+		if (exists("/UMD_AUDIO")) {
+			type |= PSP_UMD_TYPE_AUDIO;
+		}
+	}
+	// Some video discs have a PSP_GAME holding nothing but a firmware update (SYSDIR/UPDATE), and
+	// the VSH refuses such a disc if we call it a game too (#22737).
+	if ((type & PSP_UMD_TYPE_GAME) && !exists("/PSP_GAME/SYSDIR/EBOOT.BIN") && (type & ~PSP_UMD_TYPE_GAME) != 0) {
+		type &= ~PSP_UMD_TYPE_GAME;
+	}
+	return type;
+}
+
+u32 DetectUmdDiscType(FileLoader *fileLoader) {
+	std::string error;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &error));
+	if (!bd) {
+		return 0;
+	}
+	SequentialHandleAllocator handles;
+	ISOFileSystem umd(&handles, bd);
+	return DetectUmdDiscType(&umd, "");
+}
+
+bool UmdHasBootableGame(FileLoader *fileLoader) {
+	std::string error;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(fileLoader, &error));
+	if (!bd) {
+		return false;
+	}
+	SequentialHandleAllocator handles;
+	ISOFileSystem umd(&handles, bd);
+	for (const char *path : { "/PSP_GAME/SYSDIR/EBOOT.BIN", "/PSP_GAME/SYSDIR/BOOT.BIN" }) {
+		if (!umd.GetFileInfo(path).exists) {
+			continue;
+		}
+		const int handle = umd.OpenFile(path, FILEACCESS_READ);
+		if (handle < 0) {
+			continue;
+		}
+		u8 head[4]{};
+		const size_t read = umd.ReadFile(handle, head, sizeof(head));
+		umd.CloseFile(handle);
+		if (read == sizeof(head) && (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F" "ELF", 4) == 0)) {
+			return true;
+		}
+	}
+	return false;
 }
 
 // Close the return value with ZipClose (if non-null, of course).
@@ -492,6 +607,37 @@ bool DetectArchiveContents(VFSInterface *vfs, ZipFileInfo *info) {
 			return true;
 		}
 	}
+
+	// A PS1 disc in the root or one level down, as in a zip.
+	std::vector<ArchiveEntry> entries;
+	for (const File::FileInfo &file : listing) {
+		if (!file.isDirectory) {
+			entries.push_back(ArchiveEntry{ file.fullName.ToString(), (s64)file.size });
+			continue;
+		}
+		std::vector<File::FileInfo> subListing;
+		vfs->GetFileListing(file.fullName.ToString(), &subListing, nullptr);
+		for (const File::FileInfo &sub : subListing) {
+			if (!sub.isDirectory) {
+				entries.push_back(ArchiveEntry{ sub.fullName.ToString(), (s64)sub.size });
+			}
+		}
+	}
+	if (FindPS1DiscFiles(entries, [vfs](const std::string &name, std::string *text) {
+		size_t size = 0;
+		uint8_t *data = vfs->ReadFile(name, &size);
+		if (!data || size > 64 * 1024) {
+			delete[] data;
+			return false;
+		}
+		text->assign((const char *)data, size);
+		delete[] data;
+		return true;
+	}, &info->discFiles)) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
+		return true;
+	}
 	return false;
 }
 
@@ -517,13 +663,16 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	int stripChars = 0;
 	int stripCharsTexturePack = -1;
 	int filesInRoot = 0;
+	int filesInSubdirs = 0;
 	int directoriesInRoot = 0;
+	std::string rootSaveDir;  // SAVEDATA_DIRECTORY of a PARAM.SFO in the root of the zip.
 	bool hasParamSFO = false;
 	bool isExtractedISO = false;
 	bool hasIcon0PNG = false;
 	bool hasPRX = false;
 	bool hasPluginIni = false;
 	s64 totalFileSize = 0;
+	std::vector<ArchiveEntry> archiveEntries;  // In the root or one level down, where a disc image can be.
 
 	// TODO: It might be cleaner to write separate detection functions, but this big loop doing it all at once
 	// is quite convenient and makes it easy to add shared heuristics.
@@ -550,6 +699,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 
 		int prevSlashLocation = -1;
 		int slashCount = countSlashes(lowerCaseName, &prevSlashLocation);
+		if (slashCount <= 1) {
+			archiveEntries.push_back(ArchiveEntry{ fileName, (s64)stat.size });
+		}
 		if (lowerCaseName.find("eboot.pbp") != std::string::npos) {
 			if (slashCount >= 1 && (!isPSPMemstickGame || prevSlashLocation < stripChars + 1)) {
 				stripChars = prevSlashLocation + 1;
@@ -590,7 +742,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			info->gameTitle = fn;
 		} else if (endsWith(lowerCaseName, "psp_game/sysdir/eboot.bin") || endsWith(lowerCaseName, "psp_game/sysdir/boot.bin")) {
 			isExtractedISO = true;
-		} else if (endsWith(lowerCaseName, "/param.sfo")) {
+		} else if (lowerCaseName == "param.sfo" || endsWith(lowerCaseName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
 			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
@@ -605,6 +757,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 						info->savedataDetails = sfo.GetValueString("SAVEDATA_DETAIL");
 						info->savedataDir = sfo.GetValueString("SAVEDATA_DIRECTORY");  // should also be parsable from the path.
 						hasParamSFO = true;
+						if (slashCount == 0) {
+							rootSaveDir = info->savedataDir;
+						}
 					}
 				}
 			}
@@ -632,6 +787,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		}
 		if (slashCount == 0) {
 			filesInRoot++;
+		} else {
+			filesInSubdirs++;
 		}
 	}
 
@@ -640,11 +797,23 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	info->ignoreMetaFiles = false;
 	info->totalFileSize = totalFileSize;
 
+	// A PS1 disc: a cue sheet, .ccd or .mds and its files, or a lone raw image, which only counts if nothing else does.
+	const bool isPS1Disc = FindPS1DiscFiles(archiveEntries, [z](const std::string &name, std::string *text) {
+		const zip_int64_t index = zip_name_locate(z, name.c_str(), 0);
+		zip_stat_t stat{};
+		return index >= 0 && zip_stat_index(z, index, 0, &stat) >= 0 && stat.size < 64 * 1024 && ZipExtractFileToMemory(z, (int)index, text);
+	}, &info->discFiles);
+	const std::string discExt = isPS1Disc ? Path(info->discFiles[0]).GetFileExtension() : "";
+	const bool isPS1DiscWithCue = discExt == ".cue" || discExt == ".ccd" || discExt == ".mds";
+
 	// Priority ordering for detecting the various kinds of zip file content.s
 	if (isPSPMemstickGame) {
 		info->contents = ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
 		info->contents = ZipFileContents::ISO_FILE;
+	} else if (isPS1DiscWithCue) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
 	} else if (isTexturePack) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
@@ -652,6 +821,12 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG && !isExtractedISO) {
 		// As downloaded from GameFAQs, for example.
 		info->contents = ZipFileContents::SAVE_DATA;
+	} else if (filesInSubdirs == 0 && IsSafePathComponent(rootSaveDir) && !isExtractedISO && !isSaveStates && !isFrameDump) {
+		// The contents of a single save folder, zipped without the folder itself (the zip is usually named
+		// after it). The folder name is the SFO's SAVEDATA_DIRECTORY (game ID + save name, like ULUS10019000).
+		info->contents = ZipFileContents::SAVE_DATA;
+		info->saveDataInRoot = true;
+		info->savedataDir = rootSaveDir;
 	} else if (isFrameDump) {
 		info->contents = ZipFileContents::FRAME_DUMP;
 	} else if (isSaveStates) {
@@ -660,6 +835,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->contents = ZipFileContents::EXTRACTED_GAME;
 	} else if (hasPluginIni && hasPRX) {
 		info->contents = ZipFileContents::PRX_PLUGIN;
+	} else if (isPS1Disc) {
+		info->contents = ZipFileContents::PSX_DISC;
+		info->contentName = info->discFiles[0];
 	} else {
 		info->contents = ZipFileContents::UNKNOWN;
 	}

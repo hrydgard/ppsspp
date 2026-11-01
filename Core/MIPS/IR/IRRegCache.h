@@ -38,8 +38,6 @@ class IRWriter;
 class MIPSState;
 
 namespace MIPSComp {
-class IRBlock;
-class IRBlockCache;
 struct JitOptions;
 }
 
@@ -164,7 +162,11 @@ public:
 	IRNativeRegCacheBase(MIPSComp::JitOptions *jo);
 	virtual ~IRNativeRegCacheBase() {}
 
-	virtual void Start(MIPSComp::IRBlockCache *irBlockCache, int blockNum);
+	virtual void Start(u32 startPC, const IRInst *instructions, int count);
+	// The guest memory base of the CPU the code is for, where pointerified registers point.
+	void SetMemoryBase(const u8 *base) {
+		membase_ = base;
+	}
 	void SetIRIndex(int index) {
 		irIndex_ = index;
 	}
@@ -261,9 +263,11 @@ protected:
 	bool IsValidFPR(IRReg r) const;
 
 	MIPSComp::JitOptions *jo_;
-	int irBlockNum_ = 0;
-	const MIPSComp::IRBlock *irBlock_ = nullptr;
-	const MIPSComp::IRBlockCache *irBlockCache_ = nullptr;
+	const u8 *membase_ = nullptr;
+	// The block being compiled, and its IR.
+	u32 irStartPC_ = 0;
+	const IRInst *irInsts_ = nullptr;
+	int irCount_ = 0;
 	int irIndex_ = 0;
 
 	struct {

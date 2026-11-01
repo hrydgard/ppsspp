@@ -15,12 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <string_view>
 #include <vector>
 
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -29,6 +32,7 @@
 #include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/IR/IRInst.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -148,7 +152,7 @@ static const MIPSInstruction tableImmediate[64] = // xxxxxx ..... ..... ........
 	INSTR("sh",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_HWORD),
 	INSTR("swl", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
 	INSTR("sw",  JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
-	INVALID,
+	INSTR("me2c", JITFUNC(Comp_Generic), Dis_Generic, Int_Me2C, 0),
 	INVALID,
 	INSTR("swr", JITFUNC(Comp_ITypeMem), Dis_ITypeMem, Int_ITypeMem, IN_IMM16|IN_RS_ADDR|IN_RT|OUT_MEM|MEMTYPE_WORD),
 	INSTR("cache", JITFUNC(Comp_Cache), Dis_Cache, Int_Cache, IN_MEM|IN_IMM16|IN_RS_ADDR),
@@ -253,7 +257,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 // Theoretically should not hit these.
 static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, Int_Halt, ENDS_BLOCK),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -286,8 +290,8 @@ static const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ...
 	//16
 	INVALID_X_8,
 	//24
-	// TODO: Is this right?  Or should it only be 32?  Comment above (24) was mistakenly 32 before.
-	ENCODING(ALLEGREX0),
+	// Does nothing, whatever the other fields hold (cpu/cpu_alu/allegrex_encodings).
+	INSTR("nop", JITFUNC(Comp_DoNothing), Dis_Generic, Int_Sync, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//32
 	ENCODING(ALLEGREX0),
@@ -374,11 +378,11 @@ static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... .............
 	// docs/VSHBootInvestigation.md.
 	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
-	INVALID,
+	INSTR("cfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
 	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
-	INVALID,
+	INSTR("ctc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	//8
 	INVALID,
@@ -411,7 +415,7 @@ static const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... .....
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INVALID_X_8,
 	//24
-	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, Int_Eret, ENDS_BLOCK),
 	INSTR("iack", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID,
 	INSTR("deret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
@@ -772,41 +776,52 @@ static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . 
 	INVALID, INVALID, INVALID, INVALID,
 };
 
-static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000 - or ending with 011000?
+// Only some bits of the op are decoded, so every value is one of the five (see AllegrexBitOp).
+static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000
 {
-	INVALID,
-	INVALID,
 	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
-	INVALID, INVALID, INVALID, INVALID,
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 //8
-	INVALID_X_8,
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 //16
-	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //20
-	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //24
-	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //28
-	INVALID,
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 };
 
 static const MIPSInstruction tableEMU[4] = {
-	INSTR("RUNBLOCK", JITFUNC(Comp_RunBlock), Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
-	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
-	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
+	INVALID,
+	INVALID,
+	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_CallReplacement, Int_CallReplacement, 0),
 	INVALID,
 };
 
@@ -844,7 +859,7 @@ static const EncodingBitsInfo encodingBits[NumEncodings] = {
 	EncodingBitsInfo(16, 4), //VFPUMatrix1
 	EncodingBitsInfo(16, 5), //VFPU9
 	EncodingBitsInfo(6,  5), //ALLEGREX0
-	EncodingBitsInfo(24, 2), //EMUHACK
+	EncodingBitsInfo(24, 2), //Emu (CallRepl)
 	EncodingBitsInfo(0,  0), //Rese
 };
 
@@ -972,10 +987,15 @@ static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int inden
 
 		if (instr.altEncoding == Instruc) {
 			std::string names;
+			std::vector<std::string_view> seen;
 			for (u32 idx : group) {
+				std::string_view name = table[idx].name;
+				if (std::find(seen.begin(), seen.end(), name) != seen.end())
+					continue;
+				seen.push_back(name);
 				if (!names.empty())
 					names += ", ";
-				names += table[idx].name;
+				names += name;
 			}
 			out += ind + StringFromFormat("// %s\n", names.c_str());
 			for (u32 idx : group)
@@ -1086,20 +1106,171 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
+enum class IRBlockEnd {
+	NONE,
+	AFTER_DELAY_SLOT,
+	NOW,
+};
+
+// Where the IR frontend ends a block. The IR cores only look at downcount between blocks, so the
+// interpreter stops at the same places to run guest code with exactly the same timing.
+static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	switch (enc >> 26) {
+	case 0x00:
+		switch (enc & 0x3F) {
+		case 0x08:  // jr
+		case 0x09:  // jalr
+			return IRBlockEnd::AFTER_DELAY_SLOT;
+		case 0x0C:  // syscall
+		case 0x0D:  // break
+			return IRBlockEnd::NOW;
+		default:
+			return IRBlockEnd::NONE;
+		}
+	case 0x01:  // bltz, bgez, bltzal, bgezal and their likely forms.
+		return ((enc >> 16) & 0xC) == 0 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	case 0x02: case 0x03:  // j, jal
+	case 0x04: case 0x05: case 0x06: case 0x07:  // beq, bne, blez, bgtz
+	case 0x14: case 0x15: case 0x16: case 0x17:  // their likely forms
+		return IRBlockEnd::AFTER_DELAY_SLOT;
+	case 0x11:  // bc1f, bc1t
+	case 0x12:  // bvf, bvt
+		return ((enc >> 21) & 0x1F) == 8 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	case 0x10:  // eret (ENDS_BLOCK)
+		return enc == 0x42000018 ? IRBlockEnd::NOW : IRBlockEnd::NONE;
+	case 0x1C:  // halt (ENDS_BLOCK)
+		return (enc & 0x3F) == 0 ? IRBlockEnd::NOW : IRBlockEnd::NONE;
+	default:
+		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
+			// A hook runs the original instruction and goes on, like a disabled replacement.
+			const ReplacementTableEntry *entry = GetReplacementFunc(enc & MIPS_REPLACEMENT_INDEX_MASK);
+			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+				return IRBlockEnd::NOW;
+			}
+		}
+		return IRBlockEnd::NONE;
+	}
+}
+
+// A branch IRFrontend may compile on past when it isn't taken (BranchRSRTComp and BranchRSZeroComp):
+// not likely, and not decided by its operands.
+static inline bool IsContinuableBranch(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	const int rs = (enc >> 21) & 0x1F;
+	const int rt = (enc >> 16) & 0x1F;
+	switch (enc >> 26) {
+	case 0x04: case 0x05:  // beq, bne
+		return rs != rt;
+	case 0x06: case 0x07:  // blez, bgtz
+		return rs != MIPS_REG_ZERO;
+	case 0x01:  // bltz, bgez, bltzal, bgezal
+		return (rt == 0 || rt == 1 || rt == 16 || rt == 17) && rs != MIPS_REG_ZERO;
+	default:
+		return false;
+	}
+}
+
+// The prefixes a block compiled from here would know of. Blocks start with the default ones.
+static inline bool MayHavePrefix(const MIPSState *mips) {
+	return mips->vfpuCtrl[VFPU_CTRL_SPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_DPREFIX] != 0;
+}
+
+// Follows a block as IRFrontend would compile it from where the interpreter last checked downcount.
+struct IRBlockState {
+	// Counted like IRFrontend's js.numInstructions: a continued branch's delay slot isn't.
+	int numInstructions = 0;
+	int continuedBranches = 0;
+	// The next instruction is the delay slot of a branch that ends the block.
+	bool endAfterNext = false;
+	// The next instruction is the delay slot of a branch that wasn't taken, and may not end it.
+	bool continueAfterNext = false;
+	// The next instruction was already counted.
+	bool skipNext = false;
+};
+
+// The instruction after the branch at pc, as this CPU sees it. The Media Engine's code can be where
+// the main CPU has no memory.
+static MIPSOpcode ReadDelaySlot(const MIPSState *mips, u32 pc) {
+	if (!mips->IsMediaEngine()) {
+		return Memory::Read_Instruction(pc + 4);
+	}
+	if (!mips->space->IsValid4AlignedAddress(pc + 4)) {
+		return MIPSOpcode(0);
+	}
+	return MIPSOpcode(mips->space->ReadUnchecked_U32(pc + 4));
+}
+
+// After running op from pc, whether the block is over. In a delay slot, the caller runs on anyway.
+static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcode op, u32 pc) {
+	if (b.endAfterNext) {
+		return true;
+	}
+	if (b.skipNext) {
+		b.skipNext = false;
+		return false;
+	}
+	if (b.continueAfterNext) {
+		// Decided, as in CanContinuePastBranch, once the delay slot is compiled. The branch is counted.
+		b.continueAfterNext = false;
+		if (GetIRBlockEnd(op) != IRBlockEnd::NONE || b.numInstructions - 1 >= IR_MAX_CONTINUED_INSTRUCTIONS ||
+			b.continuedBranches >= IR_MAX_CONTINUED_BRANCHES || MayHavePrefix(mips)) {
+			return true;
+		}
+		b.continuedBranches++;
+		return false;
+	}
+
+	b.numInstructions++;
+	switch (GetIRBlockEnd(op)) {
+	case IRBlockEnd::NONE:
+		return false;
+	case IRBlockEnd::NOW:
+		return true;
+	case IRBlockEnd::AFTER_DELAY_SLOT:
+		break;
+	}
+
+	const u32 enc = op.encoding;
+	if (((enc >> 26) == 0x14 || (enc >> 26) == 0x15) && (enc & 0xFFFF) == 1 && (ReadDelaySlot(mips, pc).encoding & 0xFC00003F) == 0x0D) {
+		// beql/bnel over a break: BranchRSRTComp drops both and goes on.
+		b.numInstructions++;
+		b.skipNext = mips->inDelaySlot;
+		return false;
+	}
+	if (mips->inDelaySlot) {
+		// Taken, or a jump.
+		b.endAfterNext = true;
+		return false;
+	}
+	if (mips->pc != pc + 4) {
+		// A likely branch that wasn't taken skipped its delay slot.
+		return true;
+	}
+	// Not taken: the delay slot runs next, as an ordinary instruction.
+	const MIPSInfo delaySlotInfo = MIPSGetInfo(ReadDelaySlot(mips, pc));
+	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op) && (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) == 0) {
+		b.continueAfterNext = true;
+	} else {
+		b.endAfterNext = true;
+	}
+	return false;
+}
+
 // This is the fast runloop for the interpreter.
 // When making changes, always make sure it's in sync with the fallback loop, RunUntilDowncountZeroWithChecks, which is
 // far less efficient but supports breakpoints of all kinds etc.
 static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		int cycleCount = 0;
-		// Don't stop in a delay slot!
-		do {
+		// Run to the end of what the IR cores would run as one block.
+		IRBlockState block;
+		while (true) {
 			const u32 pc = mips->pc;
-			if (!Memory::IsValid4AlignedAddress(pc)) {
+			if (!mips->space->IsValid4AlignedAddress(pc)) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(pc));
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, pc);
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
@@ -1109,15 +1280,21 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				Core_ExecException(pc, pc, ExecExceptionType::ILLEGAL);
 				return;
 			}
-			cycleCount += cycles;
+			// Charged per instruction, like RunUntilDowncountZeroWithChecks, so a syscall in a delay
+			// slot sees the branch's cycles in either loop.
+			mips->downcount -= cycles;
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
 			if (mips->inDelaySlot && wasInDelaySlot) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
-		mips->downcount -= cycleCount;
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
+			// Don't stop in a delay slot!
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 	}
 }
 
@@ -1136,7 +1313,7 @@ static inline int GetGPRWriteTarget(const MIPSInstruction *instr, MIPSOpcode op)
 }
 
 static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
-	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc) && g_breakpoints.CheckSkipFirst() != mips->pc) {
+	if (g_breakpoints.HasBreakPoints() && g_breakpoints.NeedsBreakCheckAt(pc)) {
 		g_breakpoints.ExecBreakPoint(pc);
 		// No temp-breakpoint cleanup needed here (the JIT path never had any either) - Core_Break()
 		// drops it for us on the way into stepping, whichever breakpoint it was that stopped us.
@@ -1148,7 +1325,7 @@ static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
 
 // instr must not be null - the callers skip these checks for undecodable opcodes.
 static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op) {
-	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
+	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && instr->interpret != &Int_Syscall) {
 		// This is common for all IN_MEM/OUT_MEM funcs.
 		int offset = (instr->flags & IS_VFPU) != 0 ? SignExtend16ToS32(op & 0xFFFC) : SignExtend16ToS32(op);
 		u32 addr = (mips->r[_RS(op)] + offset) & 0xFFFFFFFC;
@@ -1166,7 +1343,7 @@ static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *in
 }
 
 static bool CheckRegBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op, u32 regBPMask) {
-	if ((instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc) {
+	if ((instr->flags & (OUT_RT | OUT_RD | OUT_RA)) != 0) {
 		int regTarget = GetGPRWriteTarget(instr, op);
 		if (regTarget >= 0 && (regBPMask & (1u << regTarget)) != 0) {
 			g_breakpoints.ExecRegBreakpoint(regTarget, mips->pc);
@@ -1211,8 +1388,8 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 }
 
 // See the declaration comment in MIPSTables.h.
-void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
-	MIPSInterpret(currentMIPS, op);
+void CDECL MIPSInterpretTrampoline(u32 op, MIPSState *mips) {
+	MIPSInterpret(mips, MIPSOpcode(op));
 }
 
 // This is the slow, feature-rich runloop for the interpreter.
@@ -1224,14 +1401,17 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	// Bit i set means register i has an active register breakpoint - see GetRegBreakpointMask().
 	u32 regBPMask = g_breakpoints.GetRegBreakpointMask();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
-		do {
-			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+		// Run to the end of what the IR cores would run as one block. Don't stop in a delay slot!
+		// Well, unless we hit a memcheck in one, of course.
+		IRBlockState block;
+		while (true) {
+			const u32 pc = mips->pc;
+			if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
-			// Replacements and similar are processed here, intentionally.
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, mips->pc);
+			// Replacements are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint. Route through ExecBreakPoint() (also used by the JIT
@@ -1252,7 +1432,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				breakExec = true;
 			}
 			if (breakExec) {
-				break;
+				return;
 			}
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
@@ -1264,9 +1444,13 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 
-		if (CoreTiming::GetTicks(currentMIPS) > globalTicks)
+		if (CoreTiming::GetTicks(mips) > globalTicks)
 			return;
 	}
 }
@@ -1298,6 +1482,12 @@ int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks) {
 	}
 
 	return 1;
+}
+
+void MIPSInterpret_RunDowncount(MIPSState *mips) {
+	ApplyHostRoundingMode(mips);
+	RunUntilDowncountZeroFast(mips);
+	RestoreHostRoundingMode();
 }
 
 const char *MIPSGetName(MIPSOpcode op) {

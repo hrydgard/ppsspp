@@ -4,7 +4,9 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <functional>
 
+#include "Common/File/Path.h"
 #include "Common/TimeUtil.h"
 
 // For benchmarks: calls fn over and over, callsPerBatch at a time between reads of the clock, for at
@@ -48,3 +50,10 @@ inline bool rel_equal(float a, float b, float precision) {
 #define RET(a) if (!(a)) { return false; }
 
 extern bool g_testLog;
+
+// Where a test should put a file or directory it creates, so it doesn't land in the working directory.
+Path UnitTestTempPath(const char *name);
+
+// Calls check on a few million inputs chosen to make trouble for a VFPU dot product (see
+// UnitTest.cpp), and stops at the first false.
+bool ForEachVFPUDotTestCase(const std::function<bool(const float a[4], const float b[4])> &check);

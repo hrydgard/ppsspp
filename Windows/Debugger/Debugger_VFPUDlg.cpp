@@ -1,219 +1,178 @@
 #include "Common/CommonWindows.h"
 #include <windowsx.h>
 #include <commctrl.h>
+#include <algorithm>
+#include <mutex>
 #include "Windows/resource.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/System/Display.h"
 
-#include "Core/Debugger/SymbolMap.h"
+#include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
-
-#include "Windows/Debugger/CtrlMemView.h"
-
-#include "Core/MIPS/MIPS.h" //	BAD
 
 CVFPUDlg::CVFPUDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *cpu_) : Dialog((LPCSTR)IDD_VFPU, _hInstance,_hParent)
 {
 	cpu = cpu_;
-	wchar_t temp[256];
-	wsprintf(temp, L"VFPU - R4");
-	SetWindowText(m_hDlg,temp);
+	SetWindowText(m_hDlg, L"VFPU");
 
 	ShowWindow(m_hDlg,SW_HIDE);
-	font = CreateFont(12,0,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
+
+	// The same font the other debugger views use, scaled by the DPI.
+	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
+	int fontHeight = (int)(g_Config.iFontHeight * fontScale);
+	int fontWidth = std::max((int)(g_Config.iFontWidth * fontScale), 1);
+	font = CreateFont(fontHeight, fontWidth, 0, 0, FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
 		L"Lucida Console");
 
 	HWND tabs = GetDlgItem(m_hDlg, IDC_TABDATATYPE);
 
-	TCITEM tcItem;
-	ZeroMemory (&tcItem,sizeof (tcItem));
-	tcItem.mask			= TCIF_TEXT;
-	tcItem.dwState		= 0;
-	tcItem.pszText		= (LPTSTR)L"Float";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	tcItem.iImage		= 0;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= (LPTSTR)L"HalfFloat";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= (LPTSTR)L"Hex";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= (LPTSTR)L"Bytes";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= (LPTSTR)L"Shorts";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	tcItem.pszText		= (LPTSTR)L"Ints";
-	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
-	TabCtrl_InsertItem(tabs, TabCtrl_GetItemCount(tabs),&tcItem);
-	mode=0;
-	Size();
+	TCITEM tcItem{};
+	tcItem.mask = TCIF_TEXT;
+	for (int i = 0; i < (int)VFPUDisplayMode::COUNT; i++) {
+		std::wstring name = ConvertUTF8ToWString(g_vfpuDisplayModeNames[i]);
+		tcItem.pszText = (LPTSTR)name.c_str();
+		TabCtrl_InsertItem(tabs, i, &tcItem);
+	}
+	mode = 0;
+
+	ComputeLayout();
+
+	// The dialog template's size is in dialog units, which don't follow the font above, so size the
+	// window to fit the grid instead.
+	RECT rc{ 0, 0, layout_.xStart + layout_.columnWidth * 4 + layout_.pad, layout_.yStart + (int)(layout_.rowHeight * 5.5f * 8) };
+	AdjustWindowRectEx(&rc, GetWindowLong(m_hDlg, GWL_STYLE), FALSE, GetWindowLong(m_hDlg, GWL_EXSTYLE));
+	SetWindowPos(m_hDlg, nullptr, 0, 0, rc.right - rc.left, rc.bottom - rc.top, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-
-CVFPUDlg::~CVFPUDlg(void)
+CVFPUDlg::~CVFPUDlg()
 {
 	DeleteObject(font);
 }
 
-void CVFPUDlg::Update(void)
+void CVFPUDlg::ComputeLayout() {
+	HDC hdc = GetDC(m_hDlg);
+	HFONT oldFont = (HFONT)SelectObject(hdc, font);
+	TEXTMETRIC tm{};
+	GetTextMetrics(hdc, &tm);
+	SelectObject(hdc, oldFont);
+	ReleaseDC(m_hDlg, hdc);
+
+	const int charWidth = std::max((int)tm.tmAveCharWidth, 1);
+	layout_.pad = std::max(charWidth / 2, 2);
+	layout_.rowHeight = tm.tmHeight + layout_.pad;
+	// Labels are like "M000" and "R000". Cells fit the 11 characters of the Bytes and Ints modes,
+	// longer values get clipped.
+	layout_.xStart = charWidth * 4 + layout_.pad * 2;
+	layout_.columnWidth = charWidth * 11 + layout_.pad * 2;
+
+	RECT tabRect;
+	GetWindowRect(GetDlgItem(m_hDlg, IDC_TABDATATYPE), &tabRect);
+	MapWindowPoints(HWND_DESKTOP, m_hDlg, (LPPOINT)&tabRect, 2);
+	layout_.yStart = tabRect.bottom + layout_.pad;
+}
+
+void CVFPUDlg::Update()
 {
 	if (m_hDlg != NULL)
 	{
 		InvalidateRect(m_hDlg, 0,0);
-		/*
-		CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
-		if (mv != NULL)
-			mv->redraw();*/
-	}	
+	}
 }
 
+void CVFPUDlg::Paint(HDC hdc) {
+	u32 values[128];
+	{
+		// The registers belong to the CPU thread. See g_frameMutex in Core.h.
+		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+		for (int i = 0; i < 128; i++) {
+			values[i] = currentMIPS->vi[voffset[i]];
+		}
+	}
 
+	SetBkMode(hdc, TRANSPARENT);
+	LOGBRUSH lbr{};
+	lbr.lbColor = 0xffffff;
+	HBRUSH whiteBrush = CreateBrushIndirect(&lbr);
+	HPEN blackPen = CreatePen(0, 0, 0);
+	HPEN oldPen = (HPEN)SelectObject(hdc, blackPen);
+	HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, whiteBrush);
+	HFONT oldFont = (HFONT)SelectObject(hdc, font);
+
+	const int rowHeight = layout_.rowHeight;
+	const int columnWidth = layout_.columnWidth;
+	const int xStart = layout_.xStart;
+	const int pad = layout_.pad;
+
+	auto drawCell = [&](int x1, int y1, int x2, const char *text) {
+		Rectangle(hdc, x1, y1, x2 + 1, y1 + rowHeight + 1);
+		RECT clip{ x1 + 1, y1 + 1, x2, y1 + rowHeight };
+		ExtTextOutA(hdc, x1 + pad, y1 + pad / 2 + 1, ETO_CLIPPED, &clip, text, (UINT)strlen(text), nullptr);
+	};
+
+	char temp[64];
+	for (int matrix = 0; matrix < 8; matrix++) {
+		int my = layout_.yStart + (int)(matrix * rowHeight * 5.5f);
+		snprintf(temp, sizeof(temp), "M%i00", matrix);
+		drawCell(0, my, xStart, temp);
+
+		for (int column = 0; column < 4; column++) {
+			int x = column * columnWidth + xStart;
+			snprintf(temp, sizeof(temp), "R%i0%i", matrix, column);
+			drawCell(x, my, x + columnWidth, temp);
+
+			snprintf(temp, sizeof(temp), "C%i%i0", matrix, column);
+			drawCell(0, my + rowHeight * (column + 1), xStart, temp);
+
+			for (int row = 0; row < 4; row++) {
+				FormatVFPUValue(temp, sizeof(temp), values[column * 32 + row + matrix * 4], (VFPUDisplayMode)mode);
+				drawCell(x, my + rowHeight * (row + 1), x + columnWidth, temp);
+			}
+		}
+	}
+
+	SelectObject(hdc, oldFont);
+	SelectObject(hdc, oldPen);
+	SelectObject(hdc, oldBrush);
+	DeleteObject(blackPen);
+	DeleteObject(whiteBrush);
+}
 
 BOOL CVFPUDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message)
 	{
 	case WM_INITDIALOG:
-		{
-			return TRUE;
-		}
-		break;
-	case WM_COMMAND:
-		{
-//			CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(m_hDlg,IDC_MEMVIEW));
-			//switch (LOWORD(wParam))
-			//{
-			//}
-		}
-		break;
+		return TRUE;
 
 	case WM_NOTIFY:
 		{
 			HWND tabs = GetDlgItem(m_hDlg, IDC_TABDATATYPE);
-			NMHDR* pNotifyMessage = NULL;
-			pNotifyMessage = (LPNMHDR)lParam; 		
+			NMHDR *pNotifyMessage = (LPNMHDR)lParam;
 			if (pNotifyMessage->hwndFrom == tabs)
 			{
-				mode = TabCtrl_GetCurSel (tabs);
+				mode = TabCtrl_GetCurSel(tabs);
 				InvalidateRect(m_hDlg,0,0);
 			}
 			break;
 		}
 
-	case WM_SIZE:
-		Size();
-		break;
-
 	case WM_PAINT:
 		{
-			HWND wnd = m_hDlg;
-			RECT rect;
-			GetClientRect(wnd, &rect);
 			PAINTSTRUCT p;
-			HDC hdc = BeginPaint(wnd, &p);
-			SetBkMode(hdc, TRANSPARENT);
-			DWORD bgColor = 0xffffff;
-			HPEN nullPen=CreatePen(0,0,bgColor);
-			HPEN currentPen=CreatePen(0,0,0);
-			HPEN selPen=CreatePen(0,0,0x808080);
-			LOGBRUSH lbr;
-			lbr.lbHatch=0; lbr.lbStyle=0; 
-			lbr.lbColor=bgColor;
-			HBRUSH nullBrush=CreateBrushIndirect(&lbr);
-			lbr.lbColor=0xFFEfE8;
-			HBRUSH currentBrush=CreateBrushIndirect(&lbr);
-			lbr.lbColor=0x70FF70;
-			HBRUSH pcBrush=CreateBrushIndirect(&lbr);
-			HPEN oldPen=(HPEN)SelectObject(hdc,currentPen);
-			HBRUSH oldBrush=(HBRUSH)SelectObject(hdc,nullBrush);
-			HFONT oldFont = (HFONT)SelectObject(hdc,(HGDIOBJ)font);
-
-			enum
-			{
-				rowHeight = 15,
-				columnWidth = 80,
-				xStart = columnWidth/2,
-				yStart = 30,
-			};
-
-			for (int matrix = 0; matrix<8; matrix++)
-			{
-				int my = (int)(yStart + matrix * rowHeight * 5.5f);
-				Rectangle(hdc, 0, my, xStart, my+rowHeight);
-				char temp[256];
-				int temp_len = sprintf_s(temp, "M%i00", matrix);
-				TextOutA(hdc,3,my+2,temp,temp_len);
-				Rectangle(hdc,xStart,my+rowHeight,xStart+columnWidth*4,my+5*rowHeight);
-
-				for (int column = 0; column<4; column++)
-				{
-					int y = my;
-					int x = column * columnWidth + xStart;
-
-					Rectangle(hdc, x, y, x + columnWidth, y+rowHeight);
-					temp_len = sprintf_s(temp, "R%i0%i", matrix, column);
-					TextOutA(hdc,x+3,y+2,temp,temp_len);
-
-					Rectangle(hdc, 0, y+rowHeight*(column+1), xStart, y+rowHeight*(column+2));
-					temp_len = sprintf_s(temp, "C%i%i0", matrix, column);
-					TextOutA(hdc,3,y+rowHeight*(column+1)+1,temp,temp_len);
-
-					y+=rowHeight;
-
-					for (int row = 0; row<4; row++)
-					{
-						float val = currentMIPS->v[voffset[column*32+row+matrix*4]];
-						u32 hex = currentMIPS->vi[voffset[column*32+row+matrix*4]];
-						switch (mode)
-						{
-						case 0: temp_len = sprintf_s(temp,"%f",val); break;
-//						case 1: temp_len = sprintf_s(temp,"??"); break;
-						case 2: temp_len = sprintf_s(temp,"0x%08x",hex); break;
-						default:temp_len = sprintf_s(temp,"%f",val); break;
-						}
-						
-						TextOutA(hdc,x+3,y+2,temp,temp_len);
-						y+=rowHeight;
-					}
-				}
-			}
-
-			SelectObject(hdc,oldFont);
-			SelectObject(hdc,oldPen);
-			SelectObject(hdc,oldBrush);
-
-			DeleteObject(nullPen);
-			DeleteObject(currentPen);
-			DeleteObject(selPen);
-
-			DeleteObject(nullBrush);
-			DeleteObject(pcBrush);
-			DeleteObject(currentBrush);
-		
+			HDC hdc = BeginPaint(m_hDlg, &p);
+			Paint(hdc);
 			EndPaint(m_hDlg, &p);
 		}
 		break;
-		
+
 	case WM_CLOSE:
 		Show(false);
 		break;
 	}
-		
+
 	return 0;
-}
-
-void CVFPUDlg::Goto(u32 addr)
-{
-	Show(true);
-	CtrlMemView *mv = CtrlMemView::getFrom(GetDlgItem(CVFPUDlg::m_hDlg,IDC_MEMVIEW));
-	mv->gotoAddr(addr & ~3);
-}
-
-
-void CVFPUDlg::Size()
-{
-	RECT rc;
-	GetClientRect(m_hDlg,&rc);
 }

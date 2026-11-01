@@ -26,6 +26,7 @@
 // separate parser would drift from the one that actually runs.
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -239,6 +240,7 @@ bool InitMinimalPSP() {
 		return false;
 	}
 
+	currentMIPS = &mipsr4k;
 	mipsr4k.Reset();
 	CoreTiming::Init(&mipsr4k);
 	HLEInit();
@@ -312,9 +314,24 @@ void WriteRegEvidence(FILE *f, const FuncInfo &func) {
 	fprintf(f, "; looking at what the callees do with it.\n");
 }
 
+// Exactly size bytes' worth of hex digits.
+static bool ParseHexBytes(const std::string &hex, u8 *out, size_t size) {
+	if (hex.size() != size * 2) {
+		return false;
+	}
+	for (size_t i = 0; i < size; i++) {
+		unsigned int value;
+		if (!std::isxdigit((unsigned char)hex[i * 2]) || !std::isxdigit((unsigned char)hex[i * 2 + 1]) || sscanf(hex.c_str() + i * 2, "%2x", &value) != 1) {
+			return false;
+		}
+		out[i] = (u8)value;
+	}
+	return true;
+}
+
 }  // namespace
 
-int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
+int RunDecryptFile(const std::string &inPath, const std::string &outPath, const std::string &secureIdHex, const std::string &fuseIdHex) {
 	const Path in = ResolveModulePath(inPath);
 	std::string data;
 	if (!File::ReadBinaryFileToString(in, &data)) {
@@ -323,6 +340,63 @@ int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
 	}
 	std::vector<u8> out;
 	int outSize;
+
+	u8 secureId[16];
+	bool haveSecureId = !secureIdHex.empty();
+	if (haveSecureId) {
+		if (!ParseHexBytes(secureIdHex, secureId, sizeof(secureId))) {
+			fprintf(stderr, "re-decrypt: the key has to be 32 hex digits\n");
+			return 1;
+		}
+	}
+	u32 fuseId[2];
+	const bool haveFuseId = !fuseIdHex.empty();
+	if (haveFuseId && !pspParseFuseId(fuseIdHex, fuseId)) {
+		fprintf(stderr, "re-decrypt: the Fuse ID has to be 12 hex digits\n");
+		return 1;
+	}
+
+	bool fromPackage = false;
+	if (data.size() >= 4 && !memcmp(data.data(), "\0PBP", 4)) {
+		// A DRM BB install package (a game patch download): take its module out.
+		std::vector<u8> pbp(data.begin(), data.end());
+		std::vector<DrmBBFile> files;
+		const DrmBBFile *module = nullptr;
+		if (pspReadDrmBBPackage(pbp, haveSecureId ? secureId : nullptr, files, secureId)) {
+			for (const DrmBBFile &file : files) {
+				if (endsWith(file.name, ".PRX")) {
+					module = &file;
+					break;
+				}
+			}
+		}
+		if (!module) {
+			fprintf(stderr, "re-decrypt: %s isn't a DRM BB install package with a .PRX in it%s\n", in.c_str(), haveSecureId ? ", or not with that key" : "");
+			return 1;
+		}
+		printf("re-decrypt: %s: install package, secure install ID ", in.c_str());
+		for (u8 b : secureId) {
+			printf("%02x", b);
+		}
+		printf(", module %s, %d bytes\n", module->name.c_str(), (int)module->data.size());
+		haveSecureId = true;
+		fromPackage = true;
+		data.assign(module->data.begin(), module->data.end());
+	}
+
+	if (data.size() >= 4 && !memcmp(data.data(), "\0PGD", 4)) {
+		if (!haveSecureId) {
+			fprintf(stderr, "re-decrypt: %s is a PGD; it needs --re-decrypt-key\n", in.c_str());
+			return 1;
+		}
+		std::vector<u8> pgd(data.begin(), data.end());
+		if (!pspUnwrapDNASPGD(pgd, secureId, haveFuseId ? fuseId : nullptr)) {
+			fprintf(stderr, "re-decrypt: %s doesn't open with that key%s\n", in.c_str(), haveFuseId ? " and Fuse ID" : " (no --fuse-id)");
+			return 1;
+		}
+		printf("re-decrypt: %s: PGD, %d -> %d bytes\n", in.c_str(), (int)data.size(), (int)pgd.size());
+		data.assign(pgd.begin(), pgd.end());
+	}
 
 	bool inputIsKL3E = false;
 	if (IsKL4EMagic((const u8 *)data.data(), data.size(), &inputIsKL3E)) {
@@ -343,9 +417,17 @@ int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
 
 		// Decrypts in place on the PSP too, but keep the input around so a failure leaves it readable.
 		out.resize(data.size());
-		outSize = pspDecryptPRX((const u8 *)data.data(), out.data(), (u32)data.size());
+		outSize = pspDecryptPRX((const u8 *)data.data(), out.data(), (u32)data.size(), haveSecureId ? secureId : nullptr, haveFuseId ? fuseId : nullptr);
 		if (outSize <= 0) {
 			fprintf(stderr, "re-decrypt: no key for tag %08X, or the data didn't decrypt (%d)\n", tag, outSize);
+			if (fromPackage) {
+				// Most likely a module whose KIRK command 2 result isn't in g_kirk2Results yet. Getting it
+				// takes the module's header as the package has it (see docs/dnas-patches.md).
+				const Path moduleFile(outPath + ".module");
+				if (File::WriteDataToFile(false, data.data(), (u32)data.size(), moduleFile)) {
+					fprintf(stderr, "re-decrypt: wrote the module as the package has it to %s\n", moduleFile.c_str());
+				}
+			}
 			return 1;
 		}
 	}

@@ -24,6 +24,7 @@
 
 #include "Common/Common.h"
 #include "Common/UI/Screen.h"  // for DialogResult
+#include "Common/Render/DrawEnum.h"  // for RoundCorners
 
 #undef small
 
@@ -40,6 +41,8 @@ namespace Draw {
 	class Texture;
 }
 
+// pre-declare.
+enum class RoundCorners : uint8_t;
 
 // I don't generally like namespaces but I think we do need one for UI, so many potentially-clashing names.
 namespace UI {
@@ -116,6 +119,9 @@ struct Theme {
 	uint32_t scrollbarColor;
 	uint32_t popupSliderColor;
 	uint32_t popupSliderFocusedColor;
+
+	// TODO: Should it be here?
+	float choiceRoundRadius = 16.0f;
 };
 
 // The four cardinal directions should be enough, plus Prev/Next in "element order".
@@ -430,6 +436,9 @@ public:
 	virtual bool SubviewFocused(View *view) { return false; }
 	virtual bool CanMoveFocus(FocusMove dir) const { return true; }
 
+	virtual void SetRoundCorners(RoundCorners corners = RoundCorners::All) { roundCorners_ = corners; }
+	virtual RoundCorners GetRoundCorners() const { return roundCorners_; }
+
 	void SetPopupStyle(bool popupStyle) { popupStyle_ = popupStyle; }
 
 	bool HasFocus() const {
@@ -470,6 +479,9 @@ public:
 
 	const std::string &Tag() const { return tag_; }
 	void SetTag(std::string_view str) { tag_ = str; }
+
+	// The group this view was added to, if any.
+	ViewGroup *Parent() const { return parent_; }
 
 	// Fake RTTI
 	virtual bool IsViewGroup() const { return false; }
@@ -516,8 +528,12 @@ protected:
 	bool popupStyle_ = false;
 	bool hasAutoResult_ = false;
 	DialogResult autoResult_ = DR_OK;
+	RoundCorners roundCorners_ = RoundCorners::None;  // In the end this will be All, but we're not ready yet.
 
 private:
+	friend class ViewGroup;  // Sets parent_.
+	ViewGroup *parent_ = nullptr;
+
 	std::function<bool()> enabledFunc_;
 	bool *enabledPtr_ = nullptr;
 	bool enabled_ = true;
@@ -549,6 +565,9 @@ public:
 
 	void FocusChanged(FocusFlags focusFlags) override;
 
+	// Outlines it, to point it out without the keyboard focus (which would turn on keyboard navigation).
+	void SetHighlighted(bool highlighted) { highlighted_ = highlighted; }
+
 	Event OnClick;
 
 protected:
@@ -556,13 +575,14 @@ protected:
 	// the event.
 	// Use it for checking/unchecking checkboxes, etc.
 	virtual void ClickInternal();
-	void DrawBG(UIContext &dc, const Style &style);
+	void DrawBG(UIContext &dc, const Style &style, float radius);
 
 	CallbackColorTween *bgColor_ = nullptr;
 	float bgColorLast_ = 0.0f;
 	int downCountDown_ = 0;
 	bool dragging_ = false;
 	bool down_ = false;
+	bool highlighted_ = false;
 };
 
 // TODO: Very similar to Choice, should probably merge them.
@@ -751,6 +771,7 @@ public:
 
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+
 	std::string DescribeText() const override;
 	void SetCentered(bool c) {
 		centered_ = c;
@@ -768,6 +789,7 @@ public:
 		rightIconFlipH_ = flipH;
 		rightIconImage_ = iconImage;
 	}
+
 	// Only useful for things that extend Choice.
 	void SetHideTitle(bool hide) {
 		hideTitle_ = hide;
@@ -1091,6 +1113,8 @@ public:
 	void SetBullet(bool bullet) { bullet_ = bullet; }
 	void SetPadding(Margins padding) { pad_ = padding; }
 	void SetAlign(int align) { textAlign_ = align; }
+	// Draws a thin rounded outline around the view. Use padding to keep the text off it.
+	TextView *SetFrame(bool frame) { frame_ = frame; return this; }
 	TextView *SetWordWrap();
 
 	bool CanBeFocused() const override { return focusable_; }
@@ -1105,6 +1129,7 @@ private:
 	bool focusable_ = false;
 	bool clip_ = true;
 	bool bullet_ = false;
+	bool frame_ = false;
 	Margins pad_{};
 };
 

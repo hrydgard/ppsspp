@@ -59,6 +59,7 @@ struct VTimer : public KernelObject {
 			return;
 
 		Do(p, nvt);
+		TerminateLoadedCString(p, nvt.name);
 		if (s < 2) {
 			u32 memoryPtr;
 			Do(p, memoryPtr);
@@ -83,6 +84,17 @@ static u64 __getVTimerCurrentTime(VTimer* vt) {
 	return vt->nvt.current + __getVTimerRunningTime(vt);
 }
 
+// A timer that's cancelled, stopped or given a new handler while its interrupt is pending doesn't run
+// (threads/vtimers/pending/cancelpending). The entry stays, as an id that's never valid, for the
+// interrupt to pop: see sceKernelDeleteVTimer.
+static void __KernelForgetPendingVTimer(SceUID id) {
+	for (SceUID &pending : vtimers) {
+		if (pending == id) {
+			pending = 0;
+		}
+	}
+}
+
 static int __KernelCancelVTimer(SceUID id) {
 	u32 error;
 	VTimer *vt = kernelObjects.Get<VTimer>(id, error);
@@ -91,6 +103,7 @@ static int __KernelCancelVTimer(SceUID id) {
 	}
 
 	CoreTiming::UnscheduleEvent(vtimerTimer, id);
+	__KernelForgetPendingVTimer(id);
 	vt->nvt.handlerAddr = 0;
 	return 0;
 }
@@ -138,12 +151,19 @@ public:
 
 	bool run(PendingInterrupt &pend) override {
 		u32 error;
+		if (vtimers.empty()) {
+			return false;
+		}
 		SceUID vtimerID = vtimers.front();
 
 		VTimer *vtimer = kernelObjects.Get<VTimer>(vtimerID, error);
-
-		if (error)
+		if (error) {
+			// Deleted (or cancelled, stopped or given a new handler) while its interrupt was pending.
+			// handleResult won't run, so it's popped here.
+			WARN_LOG(Log::sceKernel, "Ignoring deleted or cancelled vtimer %08x", vtimerID);
+			vtimers.pop_front();
 			return false;
+		}
 
 		// Reserve some stack space for arguments.
 		u32 argArea = currentMIPS->r[MIPS_REG_SP];
@@ -245,12 +265,9 @@ u32 sceKernelDeleteVTimer(SceUID uid) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	for (std::list<SceUID>::iterator it = vtimers.begin(); it != vtimers.end(); ++it) {
-		if (*it == vt->GetUID()) {
-			vtimers.erase(it);
-			break;
-		}
-	}
+	// Its entry in vtimers stays: each one belongs to a pending interrupt, which pops it when it runs
+	// (or right away, finding the timer gone), so erasing it here would hand that interrupt to the
+	// next timer's entry, or to an empty list if the handler is deleting its own timer.
 
 	return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<VTimer>(uid));
 }
@@ -380,6 +397,7 @@ static void __stopVTimer(VTimer *vt) {
 	vt->nvt.current = __getVTimerCurrentTime(vt);
 	vt->nvt.active = 0;
 	vt->nvt.base = 0;
+	__KernelForgetPendingVTimer(vt->GetUID());
 }
 
 u32 sceKernelStopVTimer(SceUID uid) {
@@ -422,6 +440,7 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 		schedule = Memory::ReadUnchecked_U64(scheduleAddr);
 	}
 
+	__KernelForgetPendingVTimer(uid);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
@@ -445,6 +464,7 @@ u32 sceKernelSetVTimerHandlerWide(SceUID uid, u64 schedule, u32 handlerFuncAddr,
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
+	__KernelForgetPendingVTimer(uid);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
@@ -483,7 +503,7 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 }
 
 // Not sure why this is exposed...
-void _sceKernelReturnFromTimerHandler() {
+void _sceKernelReturnFromTimerHandler(MIPSState *mips) {
 	ERROR_LOG_REPORT(Log::sceKernel,"_sceKernelReturnFromTimerHandler - should not be called!");
 	return hleNoLogVoid();
 }

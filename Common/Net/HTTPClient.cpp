@@ -172,6 +172,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			continue;
 		}
 		// There is at least 1 socket candidate.
+		const fd_set allFds = fds;
 
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
@@ -187,6 +188,8 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 			}
 			--timeoutHalfSeconds;
 
+			// select() clears the sockets that aren't ready, so each wait needs a fresh copy.
+			fds = allFds;
 			selectResult = select(maxfd, nullptr, &fds, nullptr, &tv);
 			if (cancelConnect && *cancelConnect) {
 				WARN_LOG(Log::HTTP, "connect: cancelled (1): %s:%d", host_.c_str(), port_);
@@ -196,15 +199,21 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		if (selectResult > 0) {
 			// Something connected.  Pick the first one that did (if multiple.)
 			for (int sock : sockets) {
-				if ((intptr_t)sock_ == -1 && FD_ISSET(sock, &fds)) {
+				// Writable can also mean the attempt failed (refused, say).
+				int soError = 0;
+				socklen_t soErrorLen = sizeof(soError);
+				bool connected = FD_ISSET(sock, &fds) && getsockopt(sock, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen) == 0 && soError == 0;
+				if ((intptr_t)sock_ == -1 && connected) {
 					sock_ = sock;
 				} else {
 					closesocket(sock);
 				}
 			}
 
-			// Great, now we're good to go.
-			return true;
+			if ((intptr_t)sock_ != -1) {
+				// Great, now we're good to go.
+				return true;
+			}
 		} else {
 			// Fail. Close all the sockets.
 			for (int sock : sockets) {

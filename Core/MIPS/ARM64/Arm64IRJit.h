@@ -34,19 +34,21 @@ namespace MIPSComp {
 
 class Arm64JitBackend : public Arm64Gen::ARM64CodeBlock, public IRNativeBackend {
 public:
-	Arm64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	Arm64JitBackend(JitOptions &jo);
 	~Arm64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 	void UpdateFCR31(MIPSState *mipsState) override;
 
 protected:
+	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
+
 	const CodeBlockCommon &CodeBlock() const override {
 		return *this;
 	}
@@ -113,6 +115,7 @@ private:
 	void CompIR_VecPack(IRInst inst) override;
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
+	void CompIR_KernelLoadStore(IRInst inst) override;
 
 	struct LoadStoreArg {
 		Arm64Gen::ARM64Reg base = Arm64Gen::INVALID_REG;
@@ -145,6 +148,15 @@ private:
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1_[8];
+	// See GenerateArm64VfpuDotSpecial().
+	const u8 *vfpuDotSpecial_ = nullptr;
+	// See GenerateArm64VfpuDotCall().
+	const u8 *vfpuDot_ = nullptr;
+	// See GenerateArm64VfpuMultiDot(), by the number of terms.
+	const u8 *vfpuMultiDot_[5]{};
+	// LoadKernel8 to StoreKernel32 on a hardware register: address in SCRATCH1, a store's value in
+	// SCRATCH2, a load's result back in SCRATCH1. Every other register is kept.
+	const u8 *kernelLoadStore_[8]{};
 
 	// Note: mutable state used at runtime.
 	const u8 *currentRoundingFunc_ = nullptr;
@@ -164,7 +176,7 @@ private:
 class Arm64IRJit : public IRNativeJit {
 public:
 	Arm64IRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), arm64Backend_(jo, blocks_) {
+		: IRNativeJit(mipsState), arm64Backend_(jo) {
 		Init(arm64Backend_);
 	}
 

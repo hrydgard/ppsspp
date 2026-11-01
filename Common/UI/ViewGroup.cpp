@@ -31,14 +31,14 @@ void ApplyGravity(const Bounds &outer, const Margins &margins, float w, float h,
 	switch ((Gravity)((int)gravity & (int)Gravity::G_HORIZMASK)) {
 	case Gravity::G_LEFT: inner.x = outer.x + margins.left; break;
 	case Gravity::G_RIGHT: inner.x = outer.x + outer.w - w - margins.right; break;
-	case Gravity::G_HCENTER: inner.x = outer.x + (outer.w - w) * 0.5f; break;
+	case Gravity::G_HCENTER: inner.x = outer.x + margins.left + (outer.w - margins.horiz() - w) * 0.5f; break;
 	default: break;
 	}
 
 	switch ((Gravity)((int)gravity & (int)Gravity::G_VERTMASK)) {
 	case Gravity::G_TOP: inner.y = outer.y + margins.top; break;
 	case Gravity::G_BOTTOM: inner.y = outer.y + outer.h - h - margins.bottom; break;
-	case Gravity::G_VCENTER: inner.y = outer.y + (outer.h - h) * 0.5f; break;
+	case Gravity::G_VCENTER: inner.y = outer.y + margins.top + (outer.h - margins.vert() - h) * 0.5f; break;
 	default: break;
 	}
 }
@@ -164,6 +164,7 @@ bool ViewGroup::ReplaceSubview(View *view, View *newView) {
 	for (int i = 0; i < (int)views_.size(); i++) {
 		if (views_[i] == view) {
 			views_[i] = newView;
+			SetParentOf(newView);
 			delete view;
 			return true;
 		}
@@ -186,7 +187,12 @@ void ViewGroup::Draw(UIContext &dc) {
 		dc.PushScissor(bounds_);
 	}
 
-	dc.FillRect(bg_, bounds_);
+	if (roundCorners_ != RoundCorners::None) {
+		// Surrounding round rects (like windows) need a bigger radius to look right.
+		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius * radiusFactor_, roundCorners_);
+	} else {
+		dc.FillRect(bg_, bounds_);
+	}
 	for (View *view : views_) {
 		if (view->GetVisibility() == V_VISIBLE) {
 			// Check if bounds are in current scissor rectangle.
@@ -284,43 +290,129 @@ bool ViewGroup::SubviewFocused(View *queryView) {
 	return false;
 }
 
-// Returns the percentage the smaller one overlaps the bigger one.
-static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
-	if (a.x2() < b.x || b.x2() < a.x)
-		return 0.0f;
-	// okay they do overlap. Let's clip.
-	float maxMin = std::max(a.x, b.x);
-	float minMax = std::min(a.x2(), b.x2());
-	float minW = std::min(a.w, b.w);
-	float overlap = minMax - maxMin;
-	if (overlap < 0.0f || minW <= 0.0f)
-		return 0.0f;
-	else
-		return std::min(1.0f, overlap / minW);
+// Directional focus moves, the way Android's FocusFinder (and the W3C spatial navigation draft)
+// do them. Only views that lie in the direction of the move are candidates. Of those, one that the
+// origin's "beam" (its extent across the direction of the move) hits beats one off to the side,
+// and otherwise the nearest wins, with distance along the move counting far more than distance
+// across it. Measuring to edges rather than centers is what keeps a wide view sitting between
+// two narrow ones from being skipped.
+
+static bool IsInDirection(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT:
+		return (origin.x2() > dest.x2() || origin.x >= dest.x2()) && origin.x > dest.x;
+	case FocusMove::RIGHT:
+		return (origin.x < dest.x || origin.x2() <= dest.x) && origin.x2() < dest.x2();
+	case FocusMove::UP:
+		return (origin.y2() > dest.y2() || origin.y >= dest.y2()) && origin.y > dest.y;
+	case FocusMove::DOWN:
+		return (origin.y < dest.y || origin.y2() <= dest.y) && origin.y2() < dest.y2();
+	default:
+		return false;
+	}
 }
 
-// Returns the percentage the smaller one overlaps the bigger one.
-static float VerticalOverlap(const Bounds &a, const Bounds &b) {
-	if (a.y2() < b.y || b.y2() < a.y)
-		return 0.0f;
-	// okay they do overlap. Let's clip.
-	float maxMin = std::max(a.y, b.y);
-	float minMax = std::min(a.y2(), b.y2());
-	float minH = std::min(a.h, b.h);
-	float overlap = minMax - maxMin;
-	if (overlap < 0.0f || minH <= 0.0f)
-		return 0.0f;
-	else
-		return std::min(1.0f, overlap / minH);
+// Whether dest is past the origin's leading edge entirely.
+static bool IsEntirelyInDirection(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return origin.x >= dest.x2();
+	case FocusMove::RIGHT: return origin.x2() <= dest.x;
+	case FocusMove::UP: return origin.y >= dest.y2();
+	case FocusMove::DOWN: return origin.y2() <= dest.y;
+	default: return false;
+	}
+}
+
+static bool InBeam(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return dest.y2() > origin.y && dest.y < origin.y2();
+	} else {
+		return dest.x2() > origin.x && dest.x < origin.x2();
+	}
+}
+
+// From the origin's leading edge to the near edge of dest.
+static float MajorAxisDistance(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return std::max(0.0f, origin.x - dest.x2());
+	case FocusMove::RIGHT: return std::max(0.0f, dest.x - origin.x2());
+	case FocusMove::UP: return std::max(0.0f, origin.y - dest.y2());
+	case FocusMove::DOWN: return std::max(0.0f, dest.y - origin.y2());
+	default: return 0.0f;
+	}
+}
+
+// From the origin's leading edge to the far edge of dest.
+static float MajorAxisDistanceToFarEdge(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return std::max(1.0f, origin.x - dest.x);
+	case FocusMove::RIGHT: return std::max(1.0f, dest.x2() - origin.x2());
+	case FocusMove::UP: return std::max(1.0f, origin.y - dest.y);
+	case FocusMove::DOWN: return std::max(1.0f, dest.y2() - origin.y2());
+	default: return 1.0f;
+	}
+}
+
+// Across the move, from the origin's focus position (normally its center) to the nearest part of
+// dest, so zero if dest is straight ahead. Android measures to dest's center instead, which lets a
+// narrow view further on beat a wide one that's right there.
+static float MinorAxisDistance(const Point2D &originPos, const Bounds &dest, FocusMove direction) {
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return std::max(0.0f, std::max(dest.y - originPos.y, originPos.y - dest.y2()));
+	} else {
+		return std::max(0.0f, std::max(dest.x - originPos.x, originPos.x - dest.x2()));
+	}
+}
+
+// Whether a, which is in the beam, beats b, which isn't.
+static bool BeamBeats(const Bounds &origin, const Bounds &a, const Bounds &b, FocusMove direction) {
+	const bool aInBeam = InBeam(origin, a, direction);
+	const bool bInBeam = InBeam(origin, b, direction);
+	if (bInBeam || !aInBeam) {
+		return false;
+	}
+	// b overlaps the origin along the move, so it's only partly in that direction.
+	if (!IsEntirelyInDirection(origin, b, direction)) {
+		return true;
+	}
+	// Sideways moves always prefer the beam: things in a row line up.
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return true;
+	}
+	// Up and down, something off to the side in the next row beats something in the beam further on.
+	return MajorAxisDistance(origin, a, direction) < MajorAxisDistanceToFarEdge(origin, b, direction);
+}
+
+static float WeightedDistance(const Point2D &originPos, const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	const float major = MajorAxisDistance(origin, dest, direction);
+	const float minor = MinorAxisDistance(originPos, dest, direction);
+	// Android's weighting, which makes being straight ahead count for a lot.
+	return 13.0f * major * major + minor * minor;
+}
+
+bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, const Bounds &candidate, const Bounds *best, FocusMove direction) {
+	if (!IsInDirection(origin, candidate, direction)) {
+		return false;
+	}
+	if (!best) {
+		return true;
+	}
+	if (BeamBeats(origin, candidate, *best, direction)) {
+		return true;
+	}
+	if (BeamBeats(origin, *best, candidate, direction)) {
+		return false;
+	}
+	return WeightedDistance(originPos, origin, candidate, direction) < WeightedDistance(originPos, origin, *best, direction);
+}
+
+static bool CanTakeFocus(const View *view) {
+	return view->CanBeFocused() && view->IsEnabled() && view->GetVisibility() == V_VISIBLE;
 }
 
 float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
 	// Skip labels and things like that.
-	if (!destination->CanBeFocused())
-		return 0.0f;
-	if (destination->IsEnabled() == false)
-		return 0.0f;
-	if (destination->GetVisibility() != V_VISIBLE)
+	if (!CanTakeFocus(destination))
 		return 0.0f;
 
 	Point2D destPos = destination->GetFocusPosition(Opposite(direction));
@@ -329,52 +421,10 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	float dy = destPos.y - originPos.y;
 
 	const float distance = std::max(sqrtf(dx*dx + dy*dy), 0.001f);
-	float overlap = 0.0f;
 	const float dirX = dx / distance;
 	const float dirY = dy / distance;
 
-	bool wrongDirection = false;
-	bool vertical = false;
-	const float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
-	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
-	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
-		if (direction != FocusMove::PREV_PAGE && direction != FocusMove::NEXT_PAGE) {
-			// INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
-			return 0.0f;
-		}
-	}
-	float originSize = 0.0f;
 	switch (direction) {
-	case FocusMove::LEFT:
-		overlap = vertOverlap;
-		originSize = origin->GetBounds().w;
-		if (dirX > 0.0f) {
-			wrongDirection = true;
-		}
-		break;
-	case FocusMove::UP:
-		overlap = horizOverlap;
-		originSize = origin->GetBounds().h;
-		if (dirY > 0.0f) {
-			wrongDirection = true;
-		}
-		vertical = true;
-		break;
-	case FocusMove::RIGHT:
-		overlap = vertOverlap;
-		originSize = origin->GetBounds().w;
-		if (dirX < 0.0f) {
-			wrongDirection = true;
-		}
-		break;
-	case FocusMove::DOWN:
-		overlap = horizOverlap;
-		originSize = origin->GetBounds().h;
-		if (dirY < 0.0f) {
-			wrongDirection = true;
-		}
-		vertical = true;
-		break;
 	case FocusMove::FIRST:
 		if (originIndex == -1)
 			return 0.0f;
@@ -391,23 +441,11 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		return distance;
 	case FocusMove::PREV_PAGE:
 	case FocusMove::NEXT_PAGE:
-		// Not always, but let's go with the bonus on height.
-		vertical = true;
-		break;
-	case FocusMove::PREV:
-	case FocusMove::NEXT:
+		return 10.0f / std::max(1.0f, distance);
+	default:
+		// The arrow directions go through IsBetterFocusCandidate.
 		ERROR_LOG(Log::UI, "Invalid focus direction");
-		break;
-	}
-
-	// At large distances, ignore overlap.
-	if (distance > 2.0 * originSize)
-		overlap = 0.0f;
-
-	if (wrongDirection) {
 		return 0.0f;
-	} else {
-		return 10.0f / std::max(1.0f, distance) + overlap * 2.0;
 	}
 }
 
@@ -439,6 +477,27 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 	case FocusMove::LEFT:
 	case FocusMove::RIGHT:
 	case FocusMove::DOWN:
+		{
+			// Candidates are compared with the best so far rather than scored, so score stays unused.
+			const Bounds &origin = view->GetBounds();
+			const Point2D originPos = view->GetFocusPosition(direction);
+			for (View *candidate : views_) {
+				if (candidate == view || !CanTakeFocus(candidate))
+					continue;
+				const Bounds *best = result.view ? &result.view->GetBounds() : nullptr;
+				if (IsBetterFocusCandidate(origin, originPos, candidate->GetBounds(), best, direction)) {
+					result.view = candidate;
+				}
+			}
+
+			// Then see if any of the children contain any better candidates.
+			for (View *v : views_) {
+				if (v->IsViewGroup()) {
+					result = static_cast<ViewGroup *>(v)->FindNeighbor(view, direction, result);
+				}
+			}
+			return result;
+		}
 	case FocusMove::FIRST:
 	case FocusMove::LAST:
 		{
@@ -461,11 +520,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 					if (vg)
 						result = vg->FindNeighbor(view, direction, result);
 				}
-			}
-
-			// Boost neighbors with the same parent
-			if (num != -1) {
-				//result.score += 100.0f;
 			}
 			return result;
 		}
@@ -572,19 +626,19 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			MeasureSpec v = vert;
 			if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 				v = MeasureSpec(AT_MOST, measuredHeight_);
-			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding.vert());
-			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding.horiz() > horiz.size - weightZeroSum) {
+			view->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v - (float)margins.vert() - (float)padding_.vert());
+			if (horiz.type == AT_MOST && view->GetMeasuredWidth() + margins.horiz() + padding_.horiz() > horiz.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, horiz, v - (float)margins.vert() - (float)padding.vert());
+				view->Measure(dc, horiz - (float)padding_.horiz(), v - (float)margins.vert() - (float)padding_.vert());
 			}
 		} else if (orientation_ == ORIENT_VERTICAL) {
 			MeasureSpec h = horiz;
 			if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 				h = MeasureSpec(AT_MOST, measuredWidth_);
-			view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
-			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding.horiz() > vert.size - weightZeroSum) {
+			view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), MeasureSpec(UNSPECIFIED, measuredHeight_));
+			if (vert.type == AT_MOST && view->GetMeasuredHeight() + margins.vert() + padding_.vert() > vert.size - weightZeroSum) {
 				// Try again, this time with AT_MOST.
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), vert);
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), vert - (float)padding_.vert());
 			}
 		}
 
@@ -608,12 +662,12 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 	}
 
-	weightZeroSum += spacing_ * (numVisible - 1); // +(orientation_ == ORIENT_HORIZONTAL) ? padding.horiz() : padding.vert();
+	weightZeroSum += spacing_ * (numVisible - 1);
 
 	// Alright, got the sum. Let's take the remaining space after the fixed-size views,
 	// and distribute among the weighted ones.
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		MeasureBySpec(layoutParams_->width, weightZeroSum + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, weightZeroSum + padding_.horiz(), horiz, &measuredWidth_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedWidth = measuredWidth_;
@@ -621,7 +675,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedWidth = horiz.size;
 		}
 
-		float usedWidth = 0.0f + padding.horiz();
+		float usedWidth = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -639,7 +693,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
-				float unit = (allowedWidth - weightZeroSum) / weightSum;
+				float unit = (allowedWidth - padding_.horiz() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -648,8 +702,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
 				}
-				view->Measure(dc, h, v - (float)margins.vert() - (float)padding.vert());
-				usedWidth += view->GetMeasuredWidth();
+				view->Measure(dc, h, v - (float)margins.vert() - (float)padding_.vert());
+				usedWidth += view->GetMeasuredWidth() + margins.horiz();
 				maxOther = std::max(maxOther, view->GetMeasuredHeight() + margins.vert());
 			}
 		}
@@ -659,9 +713,9 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->height, maxOther + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, maxOther + padding_.vert(), vert, &measuredHeight_);
 	} else {
-		MeasureBySpec(layoutParams_->height, weightZeroSum + padding.vert(), vert, &measuredHeight_);
+		MeasureBySpec(layoutParams_->height, weightZeroSum + padding_.vert(), vert, &measuredHeight_);
 
 		// If we've got stretch, allow growing to fill the parent.
 		float allowedHeight = measuredHeight_;
@@ -669,7 +723,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedHeight = vert.size;
 		}
 
-		float usedHeight = 0.0f + padding.vert();
+		float usedHeight = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
 		for (View *view : views_) {
@@ -687,7 +741,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
-				float unit = (allowedHeight - weightZeroSum) / weightSum;
+				float unit = (allowedHeight - padding_.vert() - weightZeroSum) / weightSum;
 				if (weightSum == 0.0f) {
 					// We must have gotten an inf.
 					unit = 1.0f;
@@ -696,8 +750,8 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
 				}
-				view->Measure(dc, h - (float)margins.horiz() - (float)padding.horiz(), v);
-				usedHeight += view->GetMeasuredHeight();
+				view->Measure(dc, h - (float)margins.horiz() - (float)padding_.horiz(), v);
+				usedHeight += view->GetMeasuredHeight() + margins.vert();
 				maxOther = std::max(maxOther, view->GetMeasuredWidth() + margins.horiz());
 			}
 		}
@@ -707,7 +761,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
-		MeasureBySpec(layoutParams_->width, maxOther + padding.horiz(), horiz, &measuredWidth_);
+		MeasureBySpec(layoutParams_->width, maxOther + padding_.horiz(), horiz, &measuredWidth_);
 	}
 }
 
@@ -719,13 +773,35 @@ void LinearLayout::Layout() {
 	float pos;
 
 	if (orientation_ == ORIENT_HORIZONTAL) {
-		pos = bounds.x + padding.left;
-		itemBounds.y = bounds.y + padding.top;
-		itemBounds.h = measuredHeight_ - padding.vert();
+		pos = bounds.x + padding_.left;
+		itemBounds.y = bounds.y + padding_.top;
+		itemBounds.h = bounds.h - padding_.vert();
 	} else {
-		pos = bounds.y + padding.top;
-		itemBounds.x = bounds.x + padding.left;
-		itemBounds.w = measuredWidth_ - padding.horiz();
+		pos = bounds.y + padding_.top;
+		itemBounds.x = bounds.x + padding_.left;
+		itemBounds.w = bounds.w - padding_.horiz();
+	}
+
+	// Move the children as a group along the layout direction, if they don't fill it.
+	const Gravity contentGravity = (Gravity)((int)contentGravity_ & (int)(orientation_ == ORIENT_HORIZONTAL ? Gravity::G_HORIZMASK : Gravity::G_VERTMASK));
+	if (contentGravity != Gravity::G_TOPLEFT) {
+		float contentSize = 0.0f;
+		int numVisible = 0;
+		for (const View *view : views_) {
+			if (view->GetVisibility() == V_GONE)
+				continue;
+			const LinearLayoutParams *linLayoutParams = view->GetLayoutParams()->As<LinearLayoutParams>();
+			const Margins margins = (linLayoutParams && linLayoutParams->HasMargins()) ? linLayoutParams->margins : defaultMargins_;
+			contentSize += orientation_ == ORIENT_HORIZONTAL ? view->GetMeasuredWidth() + margins.horiz() : view->GetMeasuredHeight() + margins.vert();
+			numVisible++;
+		}
+		if (numVisible > 0) {
+			contentSize += spacing_ * (numVisible - 1);
+		}
+		const float freeSpace = (orientation_ == ORIENT_HORIZONTAL ? bounds.w - padding_.horiz() : bounds.h - padding_.vert()) - contentSize;
+		if (freeSpace > 0.0f) {
+			pos += (contentGravity == Gravity::G_HCENTER || contentGravity == Gravity::G_VCENTER) ? freeSpace * 0.5f : freeSpace;
+		}
 	}
 
 	for (size_t i = 0; i < views_.size(); i++) {
@@ -762,40 +838,76 @@ void LinearLayout::Layout() {
 	}
 }
 
+// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+// Ignores invisible views.
+void LinearLayout::ApplyRoundCorners(RoundCorners outerCorners) {
+	// Easy case first: There's spacing, just apply round corners to all subviews.
+	if (spacing_ > 0.0f) {
+		for (View *view : views_) {
+			view->SetRoundCorners(outerCorners);
+		}
+		return;
+	}
+
+	// Harder: There's no space, so only the first and last view will get rounded corners.
+	bool seenVisible = false;
+	View *lastVisible = nullptr;
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_GONE) {
+			continue;
+		}
+		if (!seenVisible) {
+			// First visible view, round the leading edge.
+			view->SetRoundCorners((RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top) & (u32)outerCorners));
+			seenVisible = true;
+		} else {
+			view->SetRoundCorners(RoundCorners::None);
+		}
+		lastVisible = view;
+	}
+	if (lastVisible) {
+		lastVisible->SetRoundCorners(lastVisible->GetRoundCorners() | (RoundCorners)((u32)(orientation_ == ORIENT_HORIZONTAL ? RoundCorners::Right : RoundCorners::Bottom) & (u32)outerCorners));
+	}
+}
+
 std::string LinearLayoutList::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
 }
 
-void FrameLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
+	: LinearLayout(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)), title_(title) {
+	if (!title.empty()) {
+		Add(new ItemHeader(title));
+	}
+	SetSpacing(0.0f);
+}
+
+ChoiceGroupList::ChoiceGroupList(LayoutParams *layoutParams)
+	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
+	SetPadding(Margins(12, 12, 8, 12));
+	SetSpacing(24.0f);
+}
+
+void ChoiceGroup::Draw(UIContext &dc) {
 	if (views_.empty()) {
-		MeasureBySpec(layoutParams_->width, 0.0f, horiz, &measuredWidth_);
-		MeasureBySpec(layoutParams_->height, 0.0f, vert, &measuredHeight_);
+		LinearLayout::Draw(dc);
 		return;
 	}
 
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		views_[i]->Measure(dc, horiz, vert);
-	}
-}
+	// Maybe we should require the user to Finish() the ChoiceGroup instead of running this every frame.
+	// At least it's not recursive.
+	ApplyRoundCorners(RoundCorners::All);
 
-void FrameLayout::Layout() {
-	for (size_t i = 0; i < views_.size(); i++) {
-		if (views_[i]->GetVisibility() == V_GONE)
-			continue;
-		float w = views_[i]->GetMeasuredWidth();
-		float h = views_[i]->GetMeasuredHeight();
+	// Draw a roundrect as background.
+	LinearLayout::Draw(dc);
 
-		Bounds bounds;
-		bounds.w = w;
-		bounds.h = h;
-
-		bounds.x = bounds_.x + (measuredWidth_ - w) * 0.5f;
-		bounds.y = bounds_.y + (measuredWidth_ - h) * 0.5f;
-		views_[i]->SetBounds(bounds);
-	}
+	// Draw a line under all items except the last (to be reconsidered as part of visual design work).
+	/*
+	for (size_t i = 0; i < views_.size() - 1; i++) {
+		const Bounds &titleBounds = views_[i]->GetBounds();
+		dc.FillRect(dc.)
+	}*/
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -816,6 +928,8 @@ void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 
 void AnchorLayout::MeasureViews(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
 		Size width = WRAP_CONTENT;
 		Size height = WRAP_CONTENT;
 
@@ -911,6 +1025,8 @@ static void ApplyAnchorLayoutParams(float measuredWidth, float measuredHeight, c
 
 void AnchorLayout::Layout() {
 	for (size_t i = 0; i < views_.size(); i++) {
+		if (views_[i]->GetVisibility() == V_GONE)
+			continue;
 		const AnchorLayoutParams *params = views_[i]->GetLayoutParams()->As<AnchorLayoutParams>();
 		Bounds vBounds;
 		ApplyAnchorLayoutParams(views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(), bounds_, params, &vBounds);
@@ -920,9 +1036,19 @@ void AnchorLayout::Layout() {
 }
 
 GridLayout::GridLayout(GridLayoutSettings settings, LayoutParams *layoutParams)
-	: ViewGroup(layoutParams), settings_(settings) {
-	if (settings.orientation != ORIENT_HORIZONTAL)
-		ERROR_LOG(Log::UI, "GridLayout: Vertical layouts not yet supported");
+	: ViewGroup(layoutParams), settings_(settings) {}
+
+// Grid children are mostly given LinearLayoutParams, so take the margins from those too.
+static Margins GetGridChildMargins(const View *view) {
+	if (const GridLayoutParams *lp = view->GetLayoutParams()->As<GridLayoutParams>()) {
+		return lp->margins;
+	}
+	if (const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>()) {
+		if (lp->HasMargins()) {
+			return lp->margins;
+		}
+	}
+	return Margins(0);
 }
 
 void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
@@ -931,28 +1057,29 @@ void GridLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 	int numItems = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() != V_GONE) {
-			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth), MeasureSpec(measureType, settings_.rowHeight));
+			const Margins margins = GetGridChildMargins(views_[i]);
+			views_[i]->Measure(dc, MeasureSpec(measureType, settings_.columnWidth - margins.horiz()), MeasureSpec(measureType, settings_.rowHeight - margins.vert()));
 			numItems++;
 		}
 	}
 
 	// Use the max possible width so AT_MOST gives us the full size.
-	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing;
+	float maxWidth = (settings_.columnWidth + settings_.spacing) * numItems + settings_.spacing + padding_.horiz();
 	MeasureBySpec(layoutParams_->width, maxWidth, horiz, &measuredWidth_);
 
 	// Okay, got the width we are supposed to adjust to. Now we can calculate the number of columns.
-	numColumns_ = (measuredWidth_ + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
-	if (!numColumns_) numColumns_ = 1;
+	numColumns_ = (measuredWidth_ - padding_.horiz() + settings_.spacing) / (settings_.columnWidth + settings_.spacing);
+	if (numColumns_ <= 0) numColumns_ = 1;
 	int numRows = (numItems + (numColumns_ - 1)) / numColumns_;
 
-	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows;
+	float estimatedHeight = (settings_.rowHeight + settings_.spacing) * numRows + padding_.vert();
 
 	MeasureBySpec(layoutParams_->height, estimatedHeight, vert, &measuredHeight_);
 }
 
 void GridLayout::Layout() {
-	int y = 0;
-	int x = 0;
+	int y = padding_.top;
+	int x = padding_.left;
 	int count = 0;
 	for (size_t i = 0; i < views_.size(); i++) {
 		if (views_[i]->GetVisibility() == V_GONE)
@@ -967,7 +1094,7 @@ void GridLayout::Layout() {
 		itemBounds.w = settings_.columnWidth;
 		itemBounds.h = settings_.rowHeight;
 
-		ApplyGravity(itemBounds, Margins(0.0f),
+		ApplyGravity(itemBounds, GetGridChildMargins(views_[i]),
 			views_[i]->GetMeasuredWidth(), views_[i]->GetMeasuredHeight(),
 			grav, innerBounds);
 
@@ -977,7 +1104,7 @@ void GridLayout::Layout() {
 		count++;
 		if (count == numColumns_) {
 			count = 0;
-			x = 0;
+			x = padding_.left;
 			y += itemBounds.h + settings_.spacing;
 		} else {
 			x += itemBounds.w + settings_.spacing;
@@ -994,8 +1121,7 @@ CollapsibleSection::CollapsibleSection(std::string_view title, LayoutParams *lay
 	open_ = &localOpen_;
 	SetSpacing(0.0f);
 
-	header_ = new CollapsibleHeader(open_, title);
-	views_.push_back(header_);
+	header_ = Add(new CollapsibleHeader(open_, title));
 	header_->OnClick.Add([=](UI::EventParams &) {
 		// Change the visibility of all children except the first one.
 		// Later maybe try something more ambitious.

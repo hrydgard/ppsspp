@@ -52,7 +52,7 @@ bool PSPMsgDialog::UseAutoStatus() {
 int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
+		ERROR_LOG(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -65,16 +65,15 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 	messageDialogAddr = paramAddr;
 
-	int size = Memory::ReadUnchecked_U32(paramAddr);
+	const int size = Memory::ReadUnchecked_U32(paramAddr);
 	memset(&messageDialog, 0, sizeof(messageDialog));
 	// Only copy the right size to support different request format
-	Memory::Memcpy(&messageDialog,paramAddr,size);
+	Memory::Memcpy(&messageDialog, paramAddr, size);
 
 	// debug info
-	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
-	if(optionsNotCoded)
-	{
-		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
+	const int unsupportedOptionBits = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
+	if (unsupportedOptionBits) {
+		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", unsupportedOptionBits);
 	}
 
 	flag = 0;
@@ -160,7 +159,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 
 
 void PSPMsgDialog::FormatErrorCode(uint32_t code) {
-	auto err = GetI18NCategory(I18NCat::DIALOG);
+	auto err = GetI18NCategory(I18NCat::ERRORS);
 
 	switch (code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
@@ -172,7 +171,7 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS:
 	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS:
 	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS:
-		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataNoMS", "Memory stick not inserted."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataNoMS", "Memory Stick not inserted."), code);
 		break;
 
 	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA:
@@ -184,11 +183,11 @@ void PSPMsgDialog::FormatErrorCode(uint32_t code) {
 
 	case SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL:
 	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE:
-		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataMSFull", "Memory stick full.  Check your storage space."), code);
+		snprintf(msgText, 512, "%s (%08x)", err->T_cstr("MsgErrorSavedataMSFull", "Memory Stick full. Check your storage space."), code);
 		break;
 
 	default:
-		snprintf(msgText, 512, "%s %08x", err->T_cstr("MsgErrorCode", "Error code:"), code);
+		snprintf(msgText, 512, "%s %08x", err->T_cstr("MsgErrorCode", "Error code"), code);
 	}
 }
 
@@ -391,7 +390,7 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	}
 	Do(p, messageDialog);
 	Do(p, messageDialogAddr);
-	DoArray(p, msgText, sizeof(msgText));
+	DoCString(p, msgText);
 	Do(p, yesnoChoice);
 
 	// We don't save state this, you'll just have to scroll down again.

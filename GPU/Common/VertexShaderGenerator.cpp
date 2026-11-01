@@ -69,7 +69,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	*vertexShaderFlags = (VertexShaderFlags)0;
 
 	bool highpFog = false;
-	bool highpTexcoord = false;
+	// Highp costs nothing here, and the fragment shader can then pick it up where it needs it (CLUT8 depal).
+	bool highpTexcoord = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT);
 
 	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
@@ -203,12 +204,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 		}
 
-		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
+		// Centroid keeps them inside the primitive on pixels it only partly covers with MSAA, so that
+		// textures aren't sampled from outside the UV range. Without MSAA, it's the same as center.
+		const char *colorQualifier = *shading ? shading : "centroid ";
+		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", colorQualifier);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
+			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", colorQualifier);
 		}
 
-		WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
+		WRITE(p, "layout (location = 0) centroid out highp vec3 v_texcoord;\n");
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 
@@ -324,7 +328,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform float u_NaN;\n");
 		*uniformMask |= DIRTY_FRAMEBUFFER_DIM;
 
-		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		// highp to match the fragment shader's (see there).
+		WRITE(p, "uniform highp vec2 u_minZmaxZ;\n");
 		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
 
 		if (!isModeThrough) {
@@ -498,7 +503,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// If non-through, the viewport has already been applied here.
 		WRITE(p, "  vec4 outPos = position;\n");
 
-		if (fsMinmaxDiscard || fsDepthClamp) {
+		if (fsMinmaxDiscard) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 	} else {
@@ -532,6 +537,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
 			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
+#ifdef __LIBRETRO__
+			// Preserve game depth before clipping and viewport conversion. The VR lens
+			// changes XY, but depth must still agree with through-mode draws and clears.
+			WRITE(p, "  outPos.z = orgPos.z * (outPos.w / orgPos.w);\n");
+#endif
 		} else {
 			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
@@ -543,6 +553,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  if (outPos.z < -outPos.w) {\n");
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
+		if (fsDepthClamp) {
+			// For the rasterizer's Z below: 0 at the near plane, so it still clips there, and past W only beyond
+			// 65535 * W, so nothing else is clipped. The fragment shader writes the real depth.
+			WRITE(p, "  float nearPlaneZ = (outPos.z + outPos.w) * (1.0 / 65536.0);\n");
+		}
 		// Then we actually add the clip plane.
 		if (clipNearPlane) {
 			WRITE(p, "  %sgl_ClipDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, zClipPlaneSuffix);
@@ -560,7 +575,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float recip = 1.0 / outPos.w;\n");
 		WRITE(p, "  outPos.xyz = (outPos.xyz * u_vpScale.xyz) * recip + u_vpOffset.xyz;\n");
 
-		if (fsMinmaxDiscard || fsDepthClamp) {
+		if (fsMinmaxDiscard) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 
@@ -941,6 +956,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZFar) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 
+	// Snap screen Z to 1/8 and W to 16 significant bits. Hardware and software transform (which
+	// does the matrices on the CPU) differ by a few ulps here, which is enough to fail an
+	// equal-depth GEQUAL test when a frame mixes the two, as with draws that cross the near plane
+	// on GPUs without cull distances (DBZ Tenkaichi Tag Team's outlines, Naruto's grass). This is
+	// for the two to agree, not PSP behavior. Z steps of a whole unit break decals (Star Wars Lethal
+	// Alliance).
+	WRITE(p, "  outPos.z = floor(outPos.z * 8.0 + 0.5) * 0.125;\n");
+	if (compat.bitwiseOps) {
+		WRITE(p, "  outPos.w = uintBitsToFloat((floatBitsToUint(outPos.w) + 128u) & 4294967040u);\n");
+	}
+
 	// Convert to NDC space, using the framebuffer offset and (inverse size * 2) stored in u_xywh.
 	WRITE(p, "  outPos.xy = (((outPos.xy + u_xywh.xy) * u_xywh.zw) - vec2(1.0, 1.0)) * outPos.w;\n");
 
@@ -948,6 +974,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
 		// Possibly this should only be 15-bit in transformed mode? Full 16 in through? needs hardware testing.
 		WRITE(p, "  outPos.z = floor(outPos.z * 0.5) * 2.0;\n");
+	}
+
+	if (fsDepthClamp) {
+		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would. With fsMinmaxDiscard
+		// too, this replaces its unrounded Z: the same for the max side, which rounds down anyway, and up to 2 off for
+		// the min one, which only meets the clamp when max is 65535.
+		WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 	}
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
@@ -976,10 +1009,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+#ifndef __LIBRETRO__
 		// Z correction for the depth buffer
 		if (useHWTransform) {
 			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
 		}
+#endif
 
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
@@ -987,9 +1022,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (fsDepthClamp) {
-		// Overwrite Z with a value that will not be clipped.
+		// Overwrite Z with a value that only the near plane clips.
 		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
-		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		if (useHWTransform) {
+			WRITE(p, "  %sgl_Position.z = nearPlaneZ;\n", compat.vsOutPrefix);
+		} else {
+			// Software transform has clipped against the near plane already.
+			WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		}
 	}
 
 	if (compat.depthMinusOneToOne) {

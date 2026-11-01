@@ -9,7 +9,6 @@
 #include <cmath>
 
 #include "Common/CommonTypes.h"
-#include "Core/Config.h"
 
 class PointerWrap;
 
@@ -40,8 +39,6 @@ struct GranularStats {
 
 class GranularMixer final {
 public:
-	explicit GranularMixer();
-
 	// Called from audio threads
 	void Mix(s16 *samples, u32 numSamples, int outSampleRate, float vpsEstimate);
 

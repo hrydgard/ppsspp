@@ -17,6 +17,8 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/libzip \
   $(LOCAL_PATH)/../../ext/OpenXR-SDK/include \
   $(LOCAL_PATH)/../../ext/zstd/lib \
+  $(LOCAL_PATH)/../../ext/zlib \
+  $(LOCAL_PATH)/../../ext/ffmpeg \
   $(LOCAL_PATH)/../../ext/armips \
   $(LOCAL_PATH)/../../ext/armips/ext/filesystem/include \
   $(LOCAL_PATH)/../../ext/armips/ext/tinyformat \
@@ -26,8 +28,10 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../ext/rcheevos/include \
   $(LOCAL_PATH)
 
-LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build
-LOCAL_LDLIBS := -lz -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
+LOCAL_STATIC_LIBRARIES := libzip glslang-build miniupnp-build libffmpeg
+# Whole, so that where it lands on the link line doesn't matter to the libraries using it.
+LOCAL_WHOLE_STATIC_LIBRARIES := libzlib
+LOCAL_LDLIBS := -landroid -lGLESv2 -lOpenSLES -lEGL -ldl -llog -latomic
 ifneq ($(NDK_DEBUG),1)
   # Prettier stack traces are nice on other platforms.
   # Maybe we can switch to storing the pre-stripped builds at some point.
@@ -38,34 +42,14 @@ endif
 
 # ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavformat.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavcodec.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswresample.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libswscale.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/armv7/lib/libavutil.a
-  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/armv7/include
-
   LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_ARCH_32
 endif
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavformat.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavcodec.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libswresample.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libswscale.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/lib/libavutil.a
-  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/x86_64/include
-
   LOCAL_CFLAGS := $(LOCAL_CFLAGS) -D_M_X64 -fomit-frame-pointer -mtune=atom -mfpmath=sse -mssse3 -mstackrealign
 endif
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavformat.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavcodec.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswresample.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libswscale.a
-  LOCAL_LDLIBS += $(LOCAL_PATH)/../../ffmpeg/android/arm64/lib/libavutil.a
-  LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ffmpeg/android/arm64/include
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/include
   LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../ext/libadrenotools/lib/linkernsbypass
 

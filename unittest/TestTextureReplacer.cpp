@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -5,6 +6,7 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadManager.h"
 #include "GPU/Common/TextureReplacer.h"
 
@@ -207,8 +209,535 @@ static bool TestIgnoreAddress(const Path &packDir) {
 	return true;
 }
 
+static void AppendBE32(std::vector<u8> *out, u32 value) {
+	for (int shift = 24; shift >= 0; shift -= 8) {
+		out->push_back((value >> shift) & 0xFF);
+	}
+}
+
+static u32 PNGCrc32(const u8 *data, size_t size) {
+	u32 crc = 0xFFFFFFFF;
+	for (size_t i = 0; i < size; i++) {
+		crc ^= data[i];
+		for (int bit = 0; bit < 8; bit++) {
+			crc = (crc >> 1) ^ (0xEDB88320 & (0 - (crc & 1)));
+		}
+	}
+	return ~crc;
+}
+
+static void AppendPNGChunk(std::vector<u8> *out, const char *type, const std::vector<u8> &data) {
+	AppendBE32(out, (u32)data.size());
+	std::vector<u8> typeAndData(type, type + 4);
+	typeAndData.insert(typeAndData.end(), data.begin(), data.end());
+	out->insert(out->end(), typeAndData.begin(), typeAndData.end());
+	AppendBE32(out, PNGCrc32(typeAndData.data(), typeAndData.size()));
+}
+
+// Writes an 8-bit palette PNG (a palette in reverse gray order, so the index is not the color)
+// or an 8-bit grayscale PNG, one byte per pixel. The image data is stored uncompressed, which
+// avoids needing libpng or zlib here.
+static bool CreateIndexedPNG(const Path &filename, int w, int h, bool palette, const std::vector<u8> &indices) {
+	std::vector<u8> raw;
+	for (int y = 0; y < h; y++) {
+		raw.push_back(0);  // No filter.
+		raw.insert(raw.end(), indices.begin() + y * w, indices.begin() + (y + 1) * w);
+	}
+
+	// A zlib stream of stored blocks.
+	std::vector<u8> zlib = { 0x78, 0x01 };
+	for (size_t pos = 0; pos < raw.size() || pos == 0;) {
+		const size_t len = std::min<size_t>(raw.size() - pos, 65535);
+		const bool last = pos + len >= raw.size();
+		zlib.push_back(last ? 1 : 0);
+		zlib.push_back((uint8_t)(len & 0xFF));
+		zlib.push_back((uint8_t)(len >> 8));
+		zlib.push_back((uint8_t)(~len & 0xFF));
+		zlib.push_back((~len >> 8) & 0xFF);
+		zlib.insert(zlib.end(), raw.begin() + pos, raw.begin() + pos + len);
+		pos += len;
+		if (last) {
+			break;
+		}
+	}
+	u32 a = 1, b = 0;
+	for (u8 c : raw) {
+		a = (a + c) % 65521;
+		b = (b + a) % 65521;
+	}
+	AppendBE32(&zlib, (b << 16) | a);
+
+	std::vector<u8> file = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
+	std::vector<u8> ihdr;
+	AppendBE32(&ihdr, w);
+	AppendBE32(&ihdr, h);
+	ihdr.push_back(8);  // Bit depth.
+	ihdr.push_back(palette ? 3 : 0);  // Color type: palette or grayscale.
+	ihdr.push_back(0);
+	ihdr.push_back(0);
+	ihdr.push_back(0);
+	AppendPNGChunk(&file, "IHDR", ihdr);
+	if (palette) {
+		std::vector<u8> plte;
+		for (int i = 0; i < 256; i++) {
+			plte.push_back(255 - i);
+			plte.push_back(255 - i);
+			plte.push_back(255 - i);
+		}
+		AppendPNGChunk(&file, "PLTE", plte);
+	}
+	AppendPNGChunk(&file, "IDAT", zlib);
+	AppendPNGChunk(&file, "IEND", {});
+
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		return false;
+	}
+	const bool ok = fwrite(file.data(), 1, file.size(), fp) == file.size();
+	fclose(fp);
+	return ok;
+}
+
+static bool ReadFileBytes(const Path &filename, std::vector<u8> *data) {
+	std::string str;
+	if (!File::ReadBinaryFileToString(filename, &str)) {
+		return false;
+	}
+	data->assign(str.begin(), str.end());
+	return true;
+}
+
+static bool TestIndexedPNG(const Path &packDir) {
+	std::vector<u8> indices(16 * 8);
+	for (size_t i = 0; i < indices.size(); i++) {
+		indices[i] = (u8)(i * 7 + 3);
+	}
+
+	for (int palette = 0; palette < 2; palette++) {
+		Path file = packDir / "indexed_test.png";
+		if (!CreateIndexedPNG(file, 16, 8, palette != 0, indices)) {
+			return false;
+		}
+		std::vector<u8> png;
+		if (!ReadFileBytes(file, &png)) {
+			return false;
+		}
+		int w = 0, h = 0;
+		unsigned char *out = nullptr;
+		EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out) == 1);
+		EXPECT_EQ_INT(w, 16);
+		EXPECT_EQ_INT(h, 8);
+		if (!out) {
+			return false;
+		}
+		EXPECT_TRUE(memcmp(out, indices.data(), indices.size()) == 0);
+		free(out);
+
+		// Too small a limit is refused.
+		EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out, 8, 8) == 0);
+	}
+
+	// Truecolor is not an index.
+	Path rgba = packDir / "indexed_rgba.png";
+	if (!CreateTestPNG(rgba, 4, 4, 0x11223344)) {
+		return false;
+	}
+	std::vector<u8> png;
+	if (!ReadFileBytes(rgba, &png)) {
+		return false;
+	}
+	int w = 0, h = 0;
+	unsigned char *out = nullptr;
+	EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out) == 0);
+	EXPECT_TRUE(out == nullptr);
+	return true;
+}
+
+static void AppendLE32(std::vector<u8> *out, u32 value) {
+	for (int shift = 0; shift < 32; shift += 8) {
+		out->push_back((value >> shift) & 0xFF);
+	}
+}
+
+static void AppendLE64(std::vector<u8> *out, u64 value) {
+	AppendLE32(out, (u32)value);
+	AppendLE32(out, (u32)(value >> 32));
+}
+
+// A zstd frame holding a single uncompressed block, which is valid zstd (for data under 256 bytes).
+static std::vector<u8> ZstdRawFrame(const std::vector<u8> &data) {
+	std::vector<u8> frame = { 0x28, 0xB5, 0x2F, 0xFD, 0x20, (u8)data.size() };
+	const u32 blockHeader = ((u32)data.size() << 3) | 1;  // Last block, raw.
+	frame.push_back(blockHeader & 0xFF);
+	frame.push_back((blockHeader >> 8) & 0xFF);
+	frame.push_back((blockHeader >> 16) & 0xFF);
+	frame.insert(frame.end(), data.begin(), data.end());
+	return frame;
+}
+
+// Writes a KTX2 with one entry per level (level 0 first), each w x h one byte per texel.
+static bool CreateIndexedKTX2(const Path &filename, int w, int h, u32 vkFormat, bool zstd, const std::vector<std::vector<u8>> &levels) {
+	std::vector<std::vector<u8>> stored;
+	for (const auto &level : levels) {
+		stored.push_back(zstd ? ZstdRawFrame(level) : level);
+	}
+
+	std::vector<u8> file = { 0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB, '\r', '\n', 0x1A, '\n' };
+	AppendLE32(&file, vkFormat);
+	AppendLE32(&file, 1);  // typeSize
+	AppendLE32(&file, w);
+	AppendLE32(&file, h);
+	AppendLE32(&file, 0);  // pixelDepth
+	AppendLE32(&file, 0);  // layerCount
+	AppendLE32(&file, 1);  // faceCount
+	AppendLE32(&file, (u32)levels.size());
+	AppendLE32(&file, zstd ? 2 : 0);
+	// No data format descriptor, key/value data or supercompression global data.
+	for (int i = 0; i < 4; i++) {
+		AppendLE32(&file, 0);
+	}
+	AppendLE64(&file, 0);
+	AppendLE64(&file, 0);
+
+	u64 offset = file.size() + levels.size() * 24;
+	for (size_t i = 0; i < levels.size(); i++) {
+		AppendLE64(&file, offset);
+		AppendLE64(&file, stored[i].size());
+		AppendLE64(&file, levels[i].size());
+		offset += stored[i].size();
+	}
+	for (const auto &level : stored) {
+		file.insert(file.end(), level.begin(), level.end());
+	}
+
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		return false;
+	}
+	const bool ok = fwrite(file.data(), 1, file.size(), fp) == file.size();
+	fclose(fp);
+	return ok;
+}
+
+// Lossless KTX2 files (R8_UNORM, optionally zstd) as indexed replacements, with their mip levels.
+static bool TestIndexedKTX2(const Path &packDir) {
+	static const char *iniContent =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n"
+		"\n"
+		"[hashes]\n"
+		"A000000B0000000010000001 = ktx_raw.ktx2\n"
+		"A000000C0000000010000002 = ktx_zstd.ktx2\n"
+		"A000000D0000000010000003 = ktx_rgba.ktx2\n"
+		"A000000E0000000010000004 = ktx_short.ktx2\n"
+		"\n"
+		"[indexed]\n"
+		"A000000B0000000010000001 = true\n"
+		"A000000C0000000010000002 = true\n"
+		"A000000D0000000010000003 = true\n"
+		"A000000E0000000010000004 = true\n";
+	if (!WriteIni(packDir, iniContent)) {
+		return false;
+	}
+
+	std::vector<std::vector<u8>> levels;
+	for (int i = 0; i < 3; i++) {
+		std::vector<u8> level((16 >> i) * (8 >> i));
+		for (size_t j = 0; j < level.size(); j++) {
+			level[j] = (u8)(j * 11 + i * 50 + 1);
+		}
+		levels.push_back(level);
+	}
+	if (!CreateIndexedKTX2(packDir / "ktx_raw.ktx2", 16, 8, 9, false, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_zstd.ktx2", 16, 8, 9, true, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_rgba.ktx2", 16, 8, 37, false, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_short.ktx2", 16, 8, 9, false, { std::vector<u8>(10) })) return false;
+
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+
+	ReplacedTexture *raw = replacer.FindReplacement(ReplacementCacheKey(0xA000000B00000001ULL, 0x10000001), 16, 8);
+	ReplacedTexture *zstd = replacer.FindReplacement(ReplacementCacheKey(0xA000000C00000001ULL, 0x10000002), 16, 8);
+	ReplacedTexture *rgba = replacer.FindReplacement(ReplacementCacheKey(0xA000000D00000001ULL, 0x10000003), 16, 8);
+	ReplacedTexture *shortFile = replacer.FindReplacement(ReplacementCacheKey(0xA000000E00000001ULL, 0x10000004), 16, 8);
+	if (!raw || !zstd || !rgba || !shortFile) {
+		return false;
+	}
+
+	g_threadManager.Init(1, 1);
+	for (ReplacedTexture *tex : { raw, zstd }) {
+		EXPECT_TRUE(tex->Poll(1.0));
+		EXPECT_TRUE(tex->State() == ReplacementState::ACTIVE);
+		EXPECT_EQ_INT(tex->NumLevels(), 3);
+		for (int i = 0; i < 3; i++) {
+			int w = 0, h = 0;
+			tex->GetIndexDataSize(i, &w, &h);
+			EXPECT_EQ_INT(w, 16 >> i);
+			EXPECT_EQ_INT(h, 8 >> i);
+			std::vector<u8> copy(levels[i].size());
+			EXPECT_TRUE(tex->CopyIndexLevelTo(i, copy.data(), copy.size()));
+			EXPECT_TRUE(copy == levels[i]);
+		}
+	}
+
+	// Not R8, and not enough data.
+	EXPECT_TRUE(rgba->Poll(1.0));
+	EXPECT_TRUE(rgba->State() == ReplacementState::NOT_FOUND);
+	EXPECT_TRUE(shortFile->Poll(1.0));
+	EXPECT_TRUE(shortFile->State() == ReplacementState::NOT_FOUND);
+	g_threadManager.Teardown();
+	return true;
+}
+
+// The [indexed] section marks an image as palette indices. It is looked up without the CLUT hash
+// so that every palette of the texture shares the one image.
+static bool TestIndexedReplacement(const Path &packDir) {
+	static const char *iniContent =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n"
+		"\n"
+		"[hashes]\n"
+		"A00000080000000010000008 = indexed.png\n"
+		"A00000090000000010000009 = indexed_rgba.png\n"
+		"A000000A000000001000000A = indexed.png\n"
+		"A000000B000000001000000B = indexed.png\n"
+		"\n"
+		"[indexed]\n"
+		"A00000080000000010000008 = true\n"
+		"A00000090000000010000009 = true\n"
+		"A000000B000000001000000B = gpu\n";
+	if (!WriteIni(packDir, iniContent)) {
+		return false;
+	}
+
+	std::vector<u8> indices(16 * 8);
+	for (size_t i = 0; i < indices.size(); i++) {
+		indices[i] = (u8)(255 - i * 2);
+	}
+	if (!CreateIndexedPNG(packDir / "indexed.png", 16, 8, true, indices)) {
+		return false;
+	}
+	if (!CreateTestPNG(packDir / "indexed_rgba.png", 16, 8, 0x11223344)) {
+		return false;
+	}
+
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+
+	// Two palettes of the same texture.
+	ReplacedTexture *pal1 = replacer.FindReplacement(ReplacementCacheKey(0xA0000008C0000001ULL, 0x10000008), 16, 8);
+	ReplacedTexture *pal2 = replacer.FindReplacement(ReplacementCacheKey(0xA0000008C0000002ULL, 0x10000008), 16, 8);
+	EXPECT_TRUE(pal1 != nullptr);
+	EXPECT_TRUE(pal1 == pal2);
+
+	// The same image without the [indexed] entry is a regular replacement, which can't share the texture.
+	ReplacedTexture *plain = replacer.FindReplacement(ReplacementCacheKey(0xA000000AC0000001ULL, 0x1000000A), 16, 8);
+	EXPECT_TRUE(plain != nullptr);
+	EXPECT_TRUE(plain != pal1);
+
+	ReplacedTexture *bad = replacer.FindReplacement(ReplacementCacheKey(0xA0000009C0000001ULL, 0x10000009), 16, 8);
+	EXPECT_TRUE(bad != nullptr);
+	if (!pal1 || !plain || !bad) {
+		return false;
+	}
+	EXPECT_TRUE(pal1->IsIndexed());
+	EXPECT_FALSE(pal1->IsIndexedOnGpu());
+	EXPECT_FALSE(plain->IsIndexed());
+
+	// The shader colors this one. A different mode makes it a different replacement even with the same file.
+	ReplacedTexture *onGpu = replacer.FindReplacement(ReplacementCacheKey(0xA000000BC0000001ULL, 0x1000000B), 16, 8);
+	EXPECT_TRUE(onGpu != nullptr);
+	if (!onGpu) {
+		return false;
+	}
+	EXPECT_TRUE(onGpu != pal1);
+	EXPECT_TRUE(onGpu->IsIndexed());
+	EXPECT_TRUE(onGpu->IsIndexedOnGpu());
+
+	g_threadManager.Init(1, 1);
+	EXPECT_TRUE(pal1->Poll(1.0));
+	EXPECT_TRUE(pal1->State() == ReplacementState::ACTIVE);
+	EXPECT_EQ_INT(pal1->NumLevels(), 1);
+	int w = 0, h = 0;
+	pal1->GetIndexDataSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 16);
+	EXPECT_EQ_INT(h, 8);
+	pal1->GetSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 16);
+	EXPECT_EQ_INT(h, 8);
+	EXPECT_TRUE(pal1->Format() == Draw::DataFormat::R8G8B8A8_UNORM);
+
+	std::vector<u8> copy(indices.size());
+	EXPECT_TRUE(pal1->CopyIndexLevelTo(0, copy.data(), copy.size()));
+	EXPECT_TRUE(copy == indices);
+
+	// For the GPU the indices go into an R8 image with its own pitch, and the padding is cleared.
+	EXPECT_TRUE(onGpu->Poll(1.0));
+	EXPECT_TRUE(onGpu->State() == ReplacementState::ACTIVE);
+	const int pitch = 24;
+	std::vector<u8> pitched(pitch * 8, 0xAA);
+	EXPECT_TRUE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitched.size(), pitch));
+	for (int y = 0; y < 8; y++) {
+		EXPECT_TRUE(memcmp(&pitched[pitch * y], &indices[16 * y], 16) == 0);
+	}
+	// The gap between the rows is not ours to touch.
+	EXPECT_EQ_INT(pitched[16], 0xAA);
+	// A pitch smaller than the row, or a buffer that is too small, is refused.
+	EXPECT_FALSE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitched.size(), 8));
+	EXPECT_FALSE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitch * 7, pitch));
+
+	// A truecolor image can't serve as indices.
+	EXPECT_TRUE(bad->Poll(1.0));
+	EXPECT_TRUE(bad->State() == ReplacementState::NOT_FOUND);
+	g_threadManager.Teardown();
+	return true;
+}
+
+// Saves a palette PNG and checks that it is one, and that the indices and palette come back.
+static bool TestSaveIndexedPNG(const Path &packDir) {
+	const int w = 16, h = 8;
+	std::vector<u8> indices(w * h);
+	for (int i = 0; i < w * h; i++) {
+		indices[i] = (u8)(i % 5);
+	}
+	u32 palette[5] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0x80123456, 0x00000000};
+
+	Path file = packDir / "saved_indexed.png";
+	EXPECT_TRUE(pngSaveIndexed(file, indices.data(), w, h, palette, 5));
+	EXPECT_FALSE(pngSaveIndexed(file, indices.data(), w, h, palette, 0));
+	EXPECT_FALSE(pngSaveIndexed(file, indices.data(), w, h, palette, 257));
+
+	std::string str;
+	if (!File::ReadBinaryFileToString(file, &str) || str.size() < sizeof(PNGHeaderPeek)) {
+		return false;
+	}
+	PNGHeaderPeek peek;
+	memcpy(&peek, str.data(), sizeof(peek));
+	EXPECT_TRUE(peek.IsValidPNGHeader());
+	EXPECT_EQ_INT(peek.Width(), w);
+	EXPECT_EQ_INT(peek.Height(), h);
+	EXPECT_EQ_INT(peek.colorType, 3);
+	EXPECT_EQ_INT(peek.bitDepth, 8);
+	// The alpha of the last entry is 0 and the first three are opaque, so a tRNS chunk is needed.
+	EXPECT_TRUE(str.find("PLTE") != std::string::npos);
+	EXPECT_TRUE(str.find("tRNS") != std::string::npos);
+
+	int lw = 0, lh = 0;
+	unsigned char *loaded = nullptr;
+	EXPECT_EQ_INT(pngLoadIndexed((const unsigned char *)str.data(), str.size(), &lw, &lh, &loaded), 1);
+	if (!loaded) {
+		return false;
+	}
+	EXPECT_EQ_INT(lw, w);
+	EXPECT_EQ_INT(lh, h);
+	EXPECT_TRUE(memcmp(loaded, indices.data(), indices.size()) == 0);
+	free(loaded);
+
+	// Fully opaque palettes have no use for tRNS.
+	u32 opaque[2] = {0xFF000000, 0xFFFFFFFF};
+	std::vector<u8> bits(w * h, 1);
+	Path file2 = packDir / "saved_opaque.png";
+	EXPECT_TRUE(pngSaveIndexed(file2, bits.data(), w, h, opaque, 2));
+	if (!File::ReadBinaryFileToString(file2, &str)) {
+		return false;
+	}
+	EXPECT_TRUE(str.find("tRNS") == std::string::npos);
+	return true;
+}
+
+// saveIndexed = true saves the textures of the [indexed] section as palette PNGs, all saves every one.
+static bool TestSaveIndexedOption(const Path &packDir) {
+	static const char *header =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n";
+	static const char *body =
+		"\n[hashes]\n"
+		"A000000F0000000010000001 = listed_indexed.png\n"
+		"\n[indexed]\n"
+		"A000000F0000000010000001 = true\n";
+	static const u32 addr = 0x09000000;
+	// The CLUT hash in the key is ignored by the [indexed] lookup.
+	ReplacedTextureDecodeInfo listed{0xA000000F12345678ULL, 0x10000001, addr, false, false, Draw::DataFormat::R8G8B8A8_UNORM};
+	ReplacedTextureDecodeInfo other{0xA000001012345678ULL, 0x10000002, addr, false, false, Draw::DataFormat::R8G8B8A8_UNORM};
+	ReplacedTextureDecodeInfo ppge = listed;
+	ppge.addr = 0x05100000;
+
+	static const struct {
+		const char *line;
+		bool listedSaved;
+		bool otherSaved;
+	} cases[] = {
+		{"", false, false},
+		{"saveIndexed = false\n", false, false},
+		{"saveIndexed = true\n", true, false},
+		{"saveIndexed = all\n", true, true},
+		{"saveIndexed = bogus\n", false, false},
+	};
+	for (const auto &c : cases) {
+		std::string ini = std::string(header) + c.line + body;
+		if (!WriteIni(packDir, ini.c_str())) {
+			return false;
+		}
+		TextureReplacer replacer(nullptr);
+		std::string error;
+		if (!replacer.LoadPackForTesting(packDir, &error, true)) {
+			return false;
+		}
+		EXPECT_EQ_INT(replacer.WillSaveIndexed(listed), c.listedSaved);
+		EXPECT_EQ_INT(replacer.WillSaveIndexed(other), c.otherSaved);
+		EXPECT_FALSE(replacer.WillSaveIndexed(ppge));
+		EXPECT_FALSE(replacer.HasSavedIndexed(listed));
+	}
+
+	// Without saving enabled, nothing is saved.
+	std::string ini = std::string(header) + "saveIndexed = all\n" + body;
+	if (!WriteIni(packDir, ini.c_str())) {
+		return false;
+	}
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+	EXPECT_FALSE(replacer.WillSaveIndexed(other));
+	return true;
+}
+
+// Packs made on Windows often name their folders differently in textures.ini (#18746). On a case
+// insensitive file system this passes without the index, Linux CI is where it counts.
+static bool TestDirectoryIgnoreCase(const Path &packDir) {
+	if (!File::CreateDir(packDir / "Portraits")) {
+		return false;
+	}
+	if (!CreateTestPNG(packDir / "Portraits" / "Face.png", 4, 4, 0xFF0000FF)) {
+		return false;
+	}
+
+	DirectoryReader reader(packDir, true);
+	VFSFileReference *ref = reader.GetFile("portraits/face.png");
+	EXPECT_TRUE(ref != nullptr);
+	if (ref) {
+		reader.ReleaseFile(ref);
+	}
+	size_t size = 0;
+	uint8_t *data = reader.ReadFile("PORTRAITS/FACE.PNG", &size);
+	EXPECT_TRUE(data != nullptr && size != 0);
+	delete[] data;
+	EXPECT_TRUE(reader.GetFile("portraits/missing.png") == nullptr);
+	return true;
+}
+
 bool TestTextureReplacer() {
-	Path packDir = Path("unittest_texture_pack");
+	Path packDir = UnitTestTempPath("unittest_texture_pack");
 	if (!CreateTestPack(packDir)) {
 		return false;
 	}
@@ -232,6 +761,12 @@ bool TestTextureReplacer() {
 	EXPECT_EQ_INT(replacer.GetNumTrackedTextures(), 0);
 
 	if (!TestIgnoreAddress(packDir)) {
+		File::DeleteDirRecursively(packDir);
+		return false;
+	}
+
+	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir) || !TestIndexedKTX2(packDir) ||
+		!TestSaveIndexedPNG(packDir) || !TestSaveIndexedOption(packDir) || !TestDirectoryIgnoreCase(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}

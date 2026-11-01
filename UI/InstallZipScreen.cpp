@@ -78,17 +78,13 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	std::string shortFilename = zipPath_.GetFilename();
 
 	bool showDeleteCheckbox = false;
-	returnToHomebrew_ = false;
-	installChoice_ = nullptr;
-	playChoice_ = nullptr;
-	doneView_ = nullptr;
-	existingSaveView_ = nullptr;
 
 	std::vector<Path> destOptions;
 
 	switch (zipFileInfo_.contents) {
 	case ZipFileContents::ISO_FILE:
 	case ZipFileContents::PSP_GAME_DIR:
+	case ZipFileContents::PSX_DISC:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 
@@ -144,12 +140,6 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	std::string shortFilename = zipPath_.GetFilename();
 
-	returnToHomebrew_ = false;
-	installChoice_ = nullptr;
-	playChoice_ = nullptr;
-	doneView_ = nullptr;
-	existingSaveView_ = nullptr;
-	overwriteWarning_ = nullptr;
 	destFolders_.clear();
 
 	std::vector<Path> destOptions;
@@ -157,6 +147,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 	switch (zipFileInfo_.contents) {
 	case ZipFileContents::ISO_FILE:
 	case ZipFileContents::PSP_GAME_DIR:
+	case ZipFileContents::PSX_DISC:
 	{
 		std::string_view question = iz->T("Install game from ZIP file?");
 
@@ -166,7 +157,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 			leftColumn->Add(new TextView(zipFileInfo_.contentName));
 		}
 
-		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE) {
+		if (zipFileInfo_.contents == ZipFileContents::ISO_FILE || zipFileInfo_.contents == ZipFileContents::PSX_DISC) {
 			const bool isInDownloads = File::IsProbablyInDownloadsFolder(zipPath_);
 			Path parent;
 			if (!isInDownloads && zipPath_.CanNavigateUp()) {
@@ -249,7 +240,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, zipFileInfo_.stripChars, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, zipFileInfo_.saveDataInRoot ? savedataDir / zipFileInfo_.savedataDir : savedataDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);
@@ -320,8 +311,13 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 }
 
 void InstallZipScreen::BeforeCreateViews() {
-	File::FileInfo fileInfo;
-	File::GetFileInfo(zipPath_, &fileInfo);
+	// The two panes are created in a different order depending on orientation, so neither can reset the other's views.
+	returnToHomebrew_ = false;
+	installChoice_ = nullptr;
+	playChoice_ = nullptr;
+	doneView_ = nullptr;
+	existingSaveView_ = nullptr;
+	overwriteWarning_ = nullptr;
 }
 
 bool InstallZipScreen::key(const KeyInput &key) {
@@ -374,7 +370,7 @@ void InstallZipScreen::update() {
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
 			if (doneView_) {
-				doneView_->SetLevelAndText(NoticeLevel::ERROR, iz->T(err));
+				doneView_->SetLevelAndText(NoticeLevel::ERROR, err);
 				doneView_->SetVisibility(Visibility::V_VISIBLE);
 			}
 		} else if (installStarted_) {

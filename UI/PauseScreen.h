@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
 
@@ -35,6 +36,7 @@ public:
 	~GamePauseScreen();
 
 	void dialogFinished(const Screen *dialog, DialogResult dr) override;
+	void sendMessage(UIMessage message, const char *value) override;
 
 	const char *tag() const override { return "GamePause"; }
 
@@ -67,6 +69,11 @@ private:
 	void AddExtraOptions(UI::ViewGroup *parent);
 
 	void FinishNextFrame(DialogResult finishNextFrameResult);
+	// Starts a savestate load (or rewind) with the callback it's given, and closes the menu once the
+	// state is in place. Closing right away would let the game run a few frames first.
+	void CloseAfterStateLoad(const std::function<void(SaveState::Callback)> &load);
+	// Set by the load's callback.
+	std::shared_ptr<std::atomic<bool>> stateLoadDone_;
 
 	// hack
 	std::mutex finishNextFrameMutex_;

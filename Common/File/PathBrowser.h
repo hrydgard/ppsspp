@@ -68,6 +68,8 @@ private:
 	bool pendingActive_ = false;
 	bool pendingCancel_ = false;
 	bool pendingStop_ = false;
+	// Abandons a slow listing (network) when the path changes.
+	bool listingAbort_ = false;
 	bool ready_ = false;
 	bool success_ = true;
 };

@@ -110,6 +110,17 @@ enum class IROp : uint8_t {
 	StoreFloat,
 	StoreVec4,
 
+	// Kernel code's loads and stores, which may reach hardware registers (MMIO). See
+	// ResolveKernelMemory.
+	LoadKernel8,
+	LoadKernel8Ext,
+	LoadKernel16,
+	LoadKernel16Ext,
+	LoadKernel32,
+	StoreKernel8,
+	StoreKernel16,
+	StoreKernel32,
+
 	Ext8to32,
 	Ext16to32,
 	ReverseBits,
@@ -186,9 +197,17 @@ enum class IROp : uint8_t {
 	Vec4Mul,
 	Vec4Div,
 	Vec4Scale,
-	Vec4Dot,
+	Vec4VfpuDot,  // The VFPU's own dot product, bit-exact (vfpu_dot).
+	Vec4VfpuMultiDot,  // Four of them against one vector, see IRMultiDot.
 	Vec4Neg,
 	Vec4Abs,
+	// vmin/vmax (by vfpu_minmax_key, a tie taking src2), vslt and vsge (1.0 or 0.0, 0.0 for NaN).
+	Vec4Min,
+	Vec4Max,
+	Vec4Slt,
+	Vec4Sge,
+	// vi2f: each lane's int to float, divided by 2^src2.
+	Vec4CvtScaledSW,
 
 	// vx2i
 	Vec2Unpack16To31,  // Note that the result is shifted down by 1, hence 31
@@ -278,6 +297,11 @@ enum class Vec4Init {
 	Set_0001,
 };
 
+// The source lane of dest lane i in a Vec4Shuffle, two bits per lane like a VFPU prefix's swizzle.
+inline int Vec4ShuffleLane(u32 shuffle, int i) {
+	return (shuffle >> (i * 2)) & 3;
+}
+
 enum class IRRoundMode : uint8_t {
 	RINT_0 = 0,
 	CAST_1 = 1,
@@ -324,6 +348,16 @@ enum IRFpCompareMode {
 };
 
 typedef u8 IRReg;
+
+// Vec4VfpuMultiDot dest, block, v, constant: lane k of dest is vfpu_dot() of lane k of the 4x4 block
+// of regs (16 in a row) and v, over the first IRMULTIDOT_TERMS(constant) terms (the rest are zero in
+// both). Lane k is the block's row k (block[4 * i + k]), or with IRMULTIDOT_TRANSPOSED, its Vec4 k
+// (block[4 * k + i]).
+enum : u32 {
+	IRMULTIDOT_TERMS_MASK = 0x7,
+	IRMULTIDOT_TRANSPOSED = 0x10,
+};
+inline int IRMULTIDOT_TERMS(u32 constant) { return (int)(constant & IRMULTIDOT_TERMS_MASK); }
 
 enum : IRReg {
 	IRTEMP_0 = 192,
@@ -382,8 +416,9 @@ struct IRInst {
 	u32 constant;
 };
 
-// Returns the new PC.
-u32 IRInterpret(MIPSState *ms, const IRInst *inst);
+// Returns the new PC. With the block arena, exits go straight on to the next compiled block while
+// downcount lasts, instead of returning.
+u32 IRInterpret(MIPSState *ms, const IRInst *inst, const IRInst *chainArena = nullptr);
 
 // Each IR block gets a constant pool.
 class IRWriter {
@@ -420,13 +455,25 @@ private:
 	std::vector<IRInst> insts_;
 };
 
+// How far IRFrontend compiles on past conditional branches. The interpreter ends its blocks in the
+// same places (see GetIRBlockEnd in MIPSTables.cpp), so events happen at the same instruction.
+constexpr bool IR_CONTINUE_BRANCHES = true;
+constexpr int IR_MAX_CONTINUED_INSTRUCTIONS = 96;
+constexpr int IR_MAX_CONTINUED_BRANCHES = 8;
+
 struct IROptions {
 	uint32_t disableFlags;
 	bool unalignedLoadStore;
 	bool unalignedLoadStoreVec4;
 	bool preferVec4;
-	bool preferVec4Dot;
 	bool optimizeForInterpreter;
+	// The backend has Vec4VfpuMultiDot.
+	bool vfpuMultiDot;
+	// Compile on past conditional branches (see IRFrontend::CanContinuePastBranch). Always
+	// IR_CONTINUE_BRANCHES, which the interpreter follows.
+	bool continueBranches;
+	// The backend has Vec4Min, Vec4Max, Vec4Slt, Vec4Sge and Vec4CvtScaledSW.
+	bool moreVec4Ops;
 };
 
 const IRMeta *GetIRMeta(IROp op);

@@ -9,6 +9,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Tween.h"
 #include "Common/UI/Root.h"
@@ -38,7 +39,7 @@ void MeasureBySpec(Size sz, float contentDim, MeasureSpec spec, float *measured)
 			*measured = std::max(spec.size, contentDim);
 		else
 			*measured = spec.size;
-	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && *measured > spec.size)) {
+	} else if (spec.type == EXACTLY || (spec.type == AT_MOST && sz > spec.size)) {
 		*measured = spec.size;
 	} else {
 		*measured = sz;
@@ -203,7 +204,7 @@ Clickable::Clickable(LayoutParams *layoutParams)
 	bgColor_->Persist();
 }
 
-void Clickable::DrawBG(UIContext &dc, const Style &style) {
+void Clickable::DrawBG(UIContext &dc, const Style &style, float radius) {
 	if (style.background.type == DRAW_SOLID_COLOR) {
 		if (time_now_d() - bgColorLast_ >= 0.25f) {
 			bgColor_->Reset(style.background.color);
@@ -211,10 +212,12 @@ void Clickable::DrawBG(UIContext &dc, const Style &style) {
 			bgColor_->Divert(style.background.color, down_ ? 0.05f : 0.1f);
 		}
 		bgColorLast_ = time_now_d();
-
-		dc.FillRect(Drawable(bgColor_->CurrentValue()), bounds_);
+		dc.FillRoundRect(Drawable(bgColor_->CurrentValue()), bounds_, radius, roundCorners_);
 	} else {
-		dc.FillRect(style.background, bounds_);
+		dc.FillRoundRect(style.background, bounds_, radius, roundCorners_);
+	}
+	if (highlighted_) {
+		dc.Draw()->DrawRoundRect(bounds_, radius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
 	}
 }
 
@@ -433,7 +436,7 @@ void ClickableItem::Draw(UIContext &dc) {
 		style = dc.GetTheme().itemDownStyle;
 	}
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 }
 
 void Choice::ClickInternal() {
@@ -489,7 +492,7 @@ void Choice::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	if (image_.isValid() && text_.empty()) {
 		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
@@ -580,9 +583,14 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 void InfoItem::Draw(UIContext &dc) {
 	Item::Draw(dc);
 
-	UI::Style style = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().infoStyle;
+	UI::Style style;
+	if (HasFocus()) {
+		style = dc.GetTheme().itemFocusedStyle;
+	} else {
+		style = dc.GetTheme().itemStyle;
+	}
 
-	dc.FillRect(style.background, bounds_);
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 
 	int paddingX = 12;
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
@@ -593,8 +601,9 @@ void InfoItem::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
+	// The info item should not look too clickable even if it has a background. Make the right side dimmed a little.
 	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
-	dc.DrawTextRect(rightText_, rightBounds, style.fgColor, ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
+	dc.DrawTextRect(rightText_, rightBounds, alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
 }
 
 std::string InfoItem::DescribeText() const {
@@ -611,9 +620,9 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 void ItemHeader::Draw(UIContext &dc) {
 	dc.SetFontStyle(large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall);
 
-	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().headerStyle;
-	dc.FillRect(style.background, bounds_);
-	dc.DrawText(text_, bounds_.x + 8, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().itemStyle;
+	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	dc.DrawText(text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
 
@@ -644,7 +653,7 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	float xoff = 37.0f;
 
@@ -725,11 +734,12 @@ void PopupHeader::Draw(UIContext &dc) {
 	}
 
 	// Header background
-	dc.FillRect(dc.GetTheme().popupTitleStyle.background, bounds_);
+	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	// Header title text
 	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	// Underline
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
+
+	// Underline. Skipping it with the new style.
+	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
 
 	if (availableWidth < tw) {
 		dc.PopScissor();
@@ -798,7 +808,7 @@ void CheckBox::Draw(UIContext &dc) {
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	float imageW, imageH;
 	dc.Draw()->MeasureImage(image, &imageW, &imageH);
@@ -937,7 +947,8 @@ void Button::Draw(UIContext &dc) {
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 	// dc.Draw()->DrawImage4Grid(style.image, bounds_.x, bounds_.y, bounds_.x2(), bounds_.y2(), style.bgColor);
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius * 0.5f);  // Smaller radius since button is smaller than choice.
+
 	float tw, th;
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
 	tw *= scale_;
@@ -1008,7 +1019,7 @@ void RadioButton::Draw(UIContext &dc) {
 	if (down_) style = dc.GetTheme().itemDownStyle;
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
-	DrawBG(dc, style);
+	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
 	dc.Flush();
 	dc.BeginNoTex();
@@ -1126,7 +1137,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 TextView *TextView::SetWordWrap() {
-	textAlign_ |= FLAG_WRAP_TEXT; return this;
+	textAlign_ = (TextFlags)((u32)textAlign_ | FLAG_WRAP_TEXT); return this;
 }
 
 void TextView::Draw(UIContext &dc) {
@@ -1152,6 +1163,9 @@ void TextView::Draw(UIContext &dc) {
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
+	if (frame_) {
+		dc.Draw()->DrawRoundRect(bounds_, dc.GetTheme().choiceRoundRadius, textColor, RoundRectStyle::OutlineThin);
+	}
 
 	const FontStyle *style = GetTextStyle(dc, textSize_);
 	dc.SetFontStyle(*style);
@@ -1171,11 +1185,16 @@ void TextView::Draw(UIContext &dc) {
 
 	textBounds = textBounds.Inset(pad_.left, pad_.top, pad_.right, pad_.bottom);
 
-	if (shadow_) {
+	int textFlags = textAlign_;
+	if (shadow_ && !(textAlign_ & FLAG_DYNAMIC_ASCII)) {
+		textFlags |= FLAG_DROP_SHADOW;
+	} else if (shadow_) {
+		// Old-fashioned double-draw shadow.
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
+		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textFlags);
 	}
-	dc.DrawTextRect(text_, textBounds, textColor, textAlign_);
+
+	dc.DrawTextRect(text_, textBounds, textColor, textFlags);
 	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -1272,7 +1291,7 @@ void TextEdit::Draw(UIContext &dc) {
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	// TODO: make background themeable?
-	dc.FillRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_);
+	dc.FillRoundRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_, dc.GetTheme().choiceRoundRadius * 0.5f);
 	dc.PushScissor(textBounds);
 	Bounds origTextBounds = textBounds;
 	uint32_t textColor = popupStyle_ ? dc.GetTheme().popupStyle.fgColor : dc.GetTheme().infoStyle.fgColor;
@@ -1450,7 +1469,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			break;
 		}
 
-		if ((input.flags & KeyInputFlags::ModCtrl) || (input.flags & KeyInputFlags::ModMeta)) {
+		if (input.flags & KEY_MOD_SHORTCUT) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.

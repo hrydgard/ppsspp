@@ -18,11 +18,14 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
+#include "Common/ABI.h"
 #include "Common/Log.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
+#include "Core/MIPS/x86/X64VfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -49,6 +52,12 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	regs_.SetMemoryBase(mipsState->space->base);
+	if (((intptr_t)mipsState->space->base & 0x00000000FFFFFFFFUL) != 0) {
+		jo.enablePointerify = false;
+	}
+	// The Media Engine runs for the slices MeCore::RunFor gives it, and leaves when one runs out.
+	const bool mediaEngine = mipsState->IsMediaEngine();
 	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
 	if (DebugProfilerEnabled()) {
@@ -69,8 +78,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #if PPSSPP_ARCH(AMD64)
 	bool jitbaseInR15 = false;
 	int jitbaseCtxDisp = 0;
-	// We pre-bake the MIPS_EMUHACK_OPCODE subtraction into our jitbase value.
-	intptr_t jitbase = (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE;
+	intptr_t jitbase = (intptr_t)GetBasePtr();
 	if ((jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) && !Accessible((const u8 *)&mipsState->f[0], (const u8 *)jitbase)) {
 		jo.reserveR15ForAsm = true;
 		jitbaseInR15 = true;
@@ -104,8 +112,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	restoreRoundingMode_ = AlignCode16();
 	{
 		STMXCSR(MDisp(CTXREG, tempOffset));
-		// Clear the rounding mode and flush-to-zero bits back to 0.
-		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		// Clear the rounding mode, flush-to-zero and denormals-are-zero bits back to 0.
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~((7 << 13) | (1 << 6))));
 		LDMXCSR(MDisp(CTXREG, tempOffset));
 		RET();
 	}
@@ -130,13 +138,14 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		// Adjustment complete, now reconstruct MXCSR
 		SHL(32, R(SCRATCH1), Imm8(13));
 		// Before setting new bits, we must clear the old ones.
-		// Clearing bits 13-14 (rounding mode) and 15 (flush to zero.)
-		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		// Clearing bits 13-14 (rounding mode), 15 (flush to zero) and 6 (denormals are zero.)
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~((7 << 13) | (1 << 6))));
 		OR(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
 
 		TEST(32, MDisp(CTXREG, fcr31Offset), Imm32(1 << 24));
 		FixupBranch skip3 = J_CC(CC_Z);
-		OR(32, MDisp(CTXREG, tempOffset), Imm32(1 << 15));
+		// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
+		OR(32, MDisp(CTXREG, tempOffset), Imm32((1 << 15) | (1 << 6)));
 		SetJumpTarget(skip3);
 
 		LDMXCSR(MDisp(CTXREG, tempOffset));
@@ -144,12 +153,47 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		RET();
 	}
 
+#if PPSSPP_ARCH(AMD64)
+	// Guest values live in caller-saved registers too, so these save them all around the call. Blocks
+	// keep the stack aligned for calls, so with the return address and these eight it's off by 8.
+	static_assert((int)IROp::StoreKernel32 - (int)IROp::LoadKernel8 == ARRAY_SIZE(kernelLoadStore_) - 1, "kernel ops in a row");
+	static const X64Reg callerSaved[] = { RCX, RDX, RSI, RDI, R8, R9, R10, R11 };
+	static const int XMM_SAVE_OFFSET = 32;  // After Win64's shadow space.
+	static const int FRAME_SIZE = XMM_SAVE_OFFSET + 16 * 16 + 8;
+	for (int i = 0; i < ARRAY_SIZE(kernelLoadStore_); ++i) {
+		const IROp op = (IROp)((int)IROp::LoadKernel8 + i);
+		const bool isStore = op >= IROp::StoreKernel8;
+		kernelLoadStore_[i] = AlignCode16();
+		for (X64Reg r : callerSaved)
+			PUSH(r);
+		SUB(64, R(RSP), Imm32(FRAME_SIZE));
+		for (int x = 0; x < 16; ++x)
+			MOVUPS(MDisp(RSP, XMM_SAVE_OFFSET + x * 16), (X64Reg)(XMM0 + x));
+		MOV(32, R(ABI_PARAM2), R(SCRATCH1));
+		MOV(64, R(ABI_PARAM1), ImmPtr(mipsState));
+		if (isStore) {
+			MOV(32, R(ABI_PARAM3), MDisp(CTXREG, tempOffset));
+			MOV(32, R(ABI_PARAM4), Imm32((u32)op));
+			ABI_CallFunction((const void *)&IRRunKernelStore);
+		} else {
+			MOV(32, R(ABI_PARAM3), Imm32((u32)op));
+			ABI_CallFunction((const void *)&IRRunKernelLoad);
+		}
+		for (int x = 0; x < 16; ++x)
+			MOVUPS((X64Reg)(XMM0 + x), MDisp(RSP, XMM_SAVE_OFFSET + x * 16));
+		ADD(64, R(RSP), Imm32(FRAME_SIZE));
+		for (int r = ARRAY_SIZE(callerSaved) - 1; r >= 0; --r)
+			POP(callerSaved[r]);
+		RET();
+	}
+#endif
+
 	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
 
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #if PPSSPP_ARCH(AMD64)
 	// Two x64-specific statically allocated registers.
-	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	MOV(64, R(MEMBASEREG), ImmPtr(mipsState->space->base));
 	if (jitbaseInR15)
 		MOV(64, R(JITBASEREG), ImmPtr((const void *)jitbase));
 #endif
@@ -162,7 +206,10 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	WriteDebugPC(SCRATCH1);
 	outerLoopPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
+	if (mediaEngine)
+		ApplyRoundingMode(true);
 	outerLoop_ = GetCodePtr();
+	if (!mediaEngine) {
 		// Advance can change the downcount (or thread), so must save/restore around it.
 		SaveStaticRegisters();
 		RestoreRoundingMode(true);
@@ -172,6 +219,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();
+	}
 
 		dispatcherCheckCoreState_ = GetCodePtr();
 		// TODO: See if we can get the slice decrement to line up with IR.
@@ -189,7 +237,11 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		} else {
 			CMP(32, MDisp(CTXREG, downcountOffset), Imm8(0));
 		}
-		J_CC(CC_S, outerLoop_);
+		FixupBranch outOfTime;
+		if (mediaEngine)
+			outOfTime = J_CC(CC_S, true);
+		else
+			J_CC(CC_S, outerLoop_);
 		FixupBranch skipToRealDispatch = J();
 
 		dispatcherPCInSCRATCH1_ = GetCodePtr();
@@ -220,35 +272,27 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
 				}
 #else
-				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)Memory::base, (u32)GetBasePtr());
+				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)mipsState->space->base, (u32)GetBasePtr());
 #endif
 			}
 
 			MovFromPC(SCRATCH1);
 			WriteDebugPC(SCRATCH1);
-#ifdef MASKED_PSP_MEMORY
-			AND(32, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
-#endif
+			// Look the block up in the shadow. Its entry is the offset into the code space, or 0 for none.
+			AND(32, R(SCRATCH1), Imm32(Memory::BLOCK_SHADOW_ENTRY_MASK));
+#if PPSSPP_ARCH(X86)
+			_assert_msg_(mipsState->space->blockShadow != 0, "Block shadow bogus");
 			hooks_.dispatchFetch = GetCodePtr();
-#if PPSSPP_ARCH(X86)
-			_assert_msg_( Memory::base != 0, "Memory base bogus");
-			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)Memory::base));
+			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)mipsState->space->blockShadow));
 #elif PPSSPP_ARCH(AMD64)
-			MOV(32, R(SCRATCH1), MComplex(MEMBASEREG, SCRATCH1, SCALE_1, 0));
+			MOV(64, R(RDX), ImmPtr(mipsState->space->blockShadow));
+			hooks_.dispatchFetch = GetCodePtr();
+			MOV(32, R(SCRATCH1), MComplex(RDX, SCRATCH1, SCALE_1, 0));
 #endif
-			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
-			if (cpu_info.bBMI2) {
-				RORX(32, EDX, R(SCRATCH1), 24);
-				CMP(8, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
-			} else {
-				MOV(32, R(EDX), R(SCRATCH1));
-				SHR(32, R(EDX), Imm8(24));
-				CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
-			}
-			FixupBranch needsCompile = J_CC(CC_NE);
-				// We don't mask here - that's baked into jitbase.
+			TEST(32, R(SCRATCH1), R(SCRATCH1));
+			FixupBranch needsCompile = J_CC(CC_Z);
 #if PPSSPP_ARCH(X86)
-				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr() - MIPS_EMUHACK_OPCODE));
+				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr()));
 #elif PPSSPP_ARCH(AMD64)
 				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
@@ -263,6 +307,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			SetJumpTarget(needsCompile);
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
+			// A replacement hook's block shadow entry jumps here too (GetBlockShadowHookValue()). JitAt
+			// replaces it with the new block's entry, and destroying that block puts the hook value back.
+			hooks_.blockShadowHook = GetCodePtr();
 			RestoreRoundingMode(true);
 			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 			LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));
@@ -284,6 +331,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
+	if (mediaEngine)
+		SetJumpTarget(outOfTime);
 
 	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
@@ -300,6 +349,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	}
 	JMP(quitLoop, true);
 
+#if PPSSPP_ARCH(AMD64)
+	vfpuDot_ = GenerateX64VfpuDot(this, CTXREG);
+#endif
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
@@ -315,6 +367,19 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	AlignCodePage();
 	jitStartOffset_ = (int)(GetCodePtr() - start);
 	EndWrite();
+}
+
+void X64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ restoreRoundingMode_, "restoreRoundingMode", true });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
 }
 
 } // namespace MIPSComp

@@ -264,10 +264,14 @@ namespace WindowsRawInput {
 			key.keyCode = GetTrueVKey(raw->data.keyboard);
 
 			if (key.keyCode) {
+				// Windows auto-repeats a held key as more key downs. Flag them, like other platforms do.
+				if (!keyboardKeysDown.insert(key.keyCode).second) {
+					key.flags |= KeyInputFlags::IS_REPEAT;
+				}
 				NativeKey(key);
-				keyboardKeysDown.insert(key.keyCode);
 			}
-		} else if (raw->data.keyboard.Message == WM_KEYUP) {
+		} else if (raw->data.keyboard.Message == WM_KEYUP || raw->data.keyboard.Message == WM_SYSKEYUP) {
+			// A key released while Alt is held comes as WM_SYSKEYUP.
 			key.flags = KeyInputFlags::UP;
 			key.keyCode = GetTrueVKey(raw->data.keyboard);
 
@@ -433,6 +437,8 @@ namespace WindowsRawInput {
 			key.keyCode = *i;
 			NativeKey(key);
 		}
+		// Or the next press of one would count as a repeat.
+		keyboardKeysDown.clear();
 		focused = false;
 	}
 

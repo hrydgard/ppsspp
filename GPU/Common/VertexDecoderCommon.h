@@ -17,13 +17,14 @@
 
 #pragma once
 
+#include <cmath>
+
 #include <cstring>
 
 #include "ppsspp_config.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "GPU/ge_constants.h"
@@ -40,8 +41,6 @@
 #include "Common/RiscVEmitter.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
 #include "Common/LoongArch64Emitter.h"
-#else
-#include "Common/FakeEmitter.h"
 #endif
 
 // Keep this in 4 bits.
@@ -138,7 +137,26 @@ typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVS
 
 struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
+	// Weighted vertices outside through mode get no position or normal, only room for them as floats: the
+	// software renderer skins them itself, as the GE does.
+	bool callerSkins;
 };
+
+// The arm64 JIT and the NEON handwritten decoders fuse the UV prescale (FMLA), the x86 ones don't
+// (MULPS + ADDPS). Spell out which one happens here instead of leaving it to the compiler's
+// contraction setting: clang contracts this by default and MSVC doesn't, so relying on it makes the
+// steps disagree with the JIT on Windows on ARM only.
+inline float PrescaleUV(float value, float scale, float offset) {
+#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
+	// The riscv64 and loongarch64 JITs fuse this too - and on those the compiler would contract
+	// the plain expression below into an FMA anyway, so say so rather than leaving it to chance.
+	return fmaf(value, scale, offset);
+#else
+	// Safe as long as x86 stays on the SSE2 baseline, which has nothing to contract into. A build
+	// targeting FMA would need this spelled out too, the other way around from the arm64 one.
+	return value * scale + offset;
+#endif
+}
 
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
@@ -430,13 +448,13 @@ private:
 #endif
 };
 #else
-class VertexDecoderJitCache : public FakeGen::FakeXCodeBlock {
+// No vertex decoder JIT for this architecture.
+class VertexDecoderJitCache {
 public:
-	VertexDecoderJitCache();
-
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize) {
 		return nullptr;
 	}
-	void Clear();
+	void Clear() {}
+	bool IsInSpace(const u8 *ptr) const { return false; }
 };
 #endif

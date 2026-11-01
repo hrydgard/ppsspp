@@ -57,7 +57,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -73,7 +73,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../..;../../ext/native;../../Common;../../ext;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -95,16 +95,19 @@
     <ClInclude Include="..\..\UI\CustomButtonMappingScreen.h" />
     <ClInclude Include="..\..\UI\CwCheatScreen.h" />
     <ClInclude Include="..\..\UI\DebugOverlay.h" />
-    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h" />
+    <ClInclude Include="..\..\UI\DeveloperSettingsPages.h" />
     <ClInclude Include="..\..\UI\DevScreens.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h" />
     <ClInclude Include="..\..\UI\DriverManagerScreen.h" />
     <ClInclude Include="..\..\UI\EmuScreen.h" />
+    <ClInclude Include="..\..\UI\ImposeHome.h" />
     <ClInclude Include="..\..\UI\GameBrowser.h" />
+    <ClInclude Include="..\..\UI\GameButton.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
     <ClInclude Include="..\..\UI\GameScreen.h" />
+    <ClInclude Include="..\..\UI\GamePacker.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h" />
@@ -124,6 +127,9 @@
     <ClInclude Include="..\..\UI\MiscViews.h" />
     <ClInclude Include="..\..\UI\SystemInfoScreen.h" />
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h" />
+    <ClInclude Include="..\..\UI\SettingsPage.h" />
+    <ClInclude Include="..\..\UI\Settings\MainSettingsPages.h" />
+    <ClInclude Include="..\..\UI\SettingsPagesDialogScreen.h" />
     <ClInclude Include="..\..\UI\RetroAchievementScreens.h" />
     <ClInclude Include="..\..\UI\Theme.h" />
     <ClInclude Include="..\..\UI\MainScreen.h" />
@@ -136,6 +142,7 @@
     <ClInclude Include="..\..\UI\RemoteISOScreen.h" />
     <ClInclude Include="..\..\UI\ReportScreen.h" />
     <ClInclude Include="..\..\UI\SavedataScreen.h" />
+    <ClInclude Include="..\..\UI\ShareFiles.h" />
     <ClInclude Include="..\..\UI\Store.h" />
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
@@ -156,16 +163,19 @@
     <ClCompile Include="..\..\UI\CustomButtonMappingScreen.cpp" />
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp" />
     <ClCompile Include="..\..\UI\DebugOverlay.cpp" />
-    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp" />
+    <ClCompile Include="..\..\UI\DeveloperSettingsPages.cpp" />
     <ClCompile Include="..\..\UI\DevScreens.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp" />
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp" />
     <ClCompile Include="..\..\UI\EmuScreen.cpp" />
+    <ClCompile Include="..\..\UI\ImposeHome.cpp" />
     <ClCompile Include="..\..\UI\GameBrowser.cpp" />
+    <ClCompile Include="..\..\UI\GameButton.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
+    <ClCompile Include="..\..\UI\GamePacker.cpp" />
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp" />
@@ -185,6 +195,16 @@
     <ClCompile Include="..\..\UI\MiscViews.cpp" />
     <ClCompile Include="..\..\UI\SystemInfoScreen.cpp" />
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp" />
+    <ClCompile Include="..\..\UI\SettingsPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\GraphicsPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\ControlsPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\AudioPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\NetworkingPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\GeneralPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\SystemPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\ToolsPage.cpp" />
+    <ClCompile Include="..\..\UI\Settings\VRPage.cpp" />
+    <ClCompile Include="..\..\UI\SettingsPagesDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\SimpleDialogScreen.cpp" />
     <ClCompile Include="..\..\UI\RetroAchievementScreens.cpp" />
     <ClCompile Include="..\..\UI\Theme.cpp" />
@@ -199,6 +219,7 @@
     <ClCompile Include="..\..\UI\RemoteISOScreen.cpp" />
     <ClCompile Include="..\..\UI\ReportScreen.cpp" />
     <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
+    <ClCompile Include="..\..\UI\ShareFiles.cpp" />
     <ClCompile Include="..\..\UI\Store.cpp" />
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />

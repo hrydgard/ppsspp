@@ -5,6 +5,11 @@
 
 namespace UI {
 
+class ScrollView;
+
+// The nearest scroll view the view is in, or null.
+ScrollView *GetEnclosingScrollView(View *view);
+
 // A scrollview usually contains just a single child - a linear layout or similar.
 class ScrollView : public ViewGroup {
 public:
@@ -21,6 +26,8 @@ public:
 
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
+	// Scrolls so that the view (which must be laid out) ends up in the middle.
+	void ScrollToCenter(const View *view);
 	void ScrollRelative(float distance);
 	bool CanScroll() const;
 	void Update() override;
@@ -52,6 +59,8 @@ public:
 private:
 	Margins GetMargins() const;
 	float ChildSize() const;  // in the scrolled direction
+	// How far the view reaches into the bottom inset (like a navigation bar).
+	float BottomInsetOverlap() const;
 	float ScrollMax() const;
 	float HardClampedScrollPos(float pos) const;
 
@@ -84,7 +93,13 @@ private:
 	bool alignOpposite_ = false;
 	bool draggingBob_ = false;
 	bool mouseHover_ = false;
+	bool bobHover_ = false;  // Mouse is over the strip the bob moves in.
 	bool shadows_ = true;
+
+	// The bob fades out when the scroll view is left alone.
+	float bobAlpha_ = 1.0f;
+	double lastScrollActivity_ = 0.0;
+	double lastBobUpdate_ = 0.0;
 
 	float barDragStart_ = 0.0f;
 	float barDragOffset_ = 0.0f;

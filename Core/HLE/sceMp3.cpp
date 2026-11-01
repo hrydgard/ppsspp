@@ -66,7 +66,6 @@
 #include <map>
 #include <algorithm>
 
-#include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"

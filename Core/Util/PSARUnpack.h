@@ -89,6 +89,10 @@ struct PSARUnpackOptions {
 	// Called on the unpacking thread after every entry, with how far through the archive we are
 	// (0.0 to 1.0). Unpacking a full firmware takes a while, so a UI wants this.
 	std::function<void(float)> progress;
+	// outputDir was just created and is empty, so nothing in it can exist yet. Files are then
+	// created without checking for them first, and written on several threads. Through Android's
+	// storage framework every check and create is a slow round trip, so this saves most of the time.
+	bool outputDirIsEmpty = false;
 };
 
 struct PSARUnpackStats {
@@ -180,6 +184,19 @@ int FirmwareVersionToInt(std::string_view version);
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);
+
+// Whether that VSH's own player plays UMD Video discs.
+bool FirmwareVersionPlaysUmdVideo(std::string_view version);
+// The oldest firmware that does.
+extern const char *const UMD_VIDEO_MIN_FIRMWARE;
+// vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
+Path GetUmdVideoVSHPath();
+// What the XMB is called in the game list and the window title, like "XMB 6.61" (untranslated), if path is a
+// firmware's vshmain.prx. Empty otherwise.
+std::string GetVSHTitle(const Path &path);
+
+// Whether the installed firmware's POPS can run a PS1 disc image, as the converted EBOOT made from it.
+bool InstalledFirmwareRunsPS1Discs();
 
 // Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
 // doesn't have would linger and still get loaded - so this replaces rather than overlays.

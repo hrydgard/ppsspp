@@ -19,12 +19,7 @@
 
 #include <cstdint>
 
-// This stuff used to only disassemble very old ARM but has now
-// been extended to support most (but not all) modern instructions, including NEON.
-
-// Disarm itself has the license you can see in the cpp file.
-// I'm not entirely sure it's 100% gpl compatible but it's nearly
-// public domain so meh.
+// ARMv7-A disassembler for ARM state, including VFP and NEON.
 
 const char *ArmRegName(int r);
 void ArmDis(unsigned int addr, unsigned int w, char *output, int bufsize, bool includeWord);

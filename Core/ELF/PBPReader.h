@@ -53,6 +53,8 @@ public:
 
 	bool GetSubFile(PBPSubFile file, std::vector<u8> *out) const;
 	bool GetSubFileAsString(PBPSubFile file, std::string *out) const;
+	// Part of a subfile, for the large ones. False if it doesn't lie within it.
+	bool ReadSubFile(PBPSubFile file, u32 offset, size_t size, void *out) const;
 
 	size_t GetSubFileSize(PBPSubFile file) const {
 		const int num = (int)file;

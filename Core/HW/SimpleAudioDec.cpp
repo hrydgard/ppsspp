@@ -30,7 +30,6 @@
 
 extern "C" {
 #include "libavformat/avformat.h"
-#include "libswresample/swresample.h"
 #include "libavutil/samplefmt.h"
 #include "libavcodec/avcodec.h"
 #include "libavutil/version.h"
@@ -44,7 +43,6 @@ extern "C" {
 extern "C" {
 	struct AVCodec;
 	struct AVCodecContext;
-	struct SwrContext;
 	struct AVFrame;
 }
 
@@ -88,7 +86,6 @@ private:
 	AVFrame *frame_ = nullptr;
 	AVCodec *codec_ = nullptr;
 	AVCodecContext  *codecCtx_ = nullptr;
-	SwrContext      *swrCtx_ = nullptr;
 
 	bool codecOpen_ = false;
 };
@@ -229,7 +226,6 @@ void FFmpegAudioDecoder::SetChannels(int channels) {
 
 FFmpegAudioDecoder::~FFmpegAudioDecoder() {
 #ifdef USE_FFMPEG
-	swr_free(&swrCtx_);
 	av_frame_free(&frame_);
 #if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(55, 52, 0)
 	avcodec_free_context(&codecCtx_);
@@ -245,6 +241,67 @@ FFmpegAudioDecoder::~FFmpegAudioDecoder() {
 }
 
 // Decodes a single input frame.
+#ifdef USE_FFMPEG
+static inline int16_t FloatToS16(float f) {
+	return av_clip_int16(lrintf(f * 32768.0f));
+}
+
+// Converts a decoded frame to interleaved stereo s16, rounding and clamping like swresample, which
+// this replaces. Mono goes to both channels at -3 dB, as swresample's mixing matrix has it. Beyond
+// two channels only the first two are kept (PSP audio never has more). Returns the number of
+// samples, or -1 for a sample format not handled here.
+static int ConvertToStereoS16(const AVFrame *frame, int channels, int16_t *out) {
+	const int n = frame->nb_samples;
+	if (channels < 1) {
+		return -1;
+	}
+	const float monoGain = (float)M_SQRT1_2;
+	const int monoGainS16 = 23170;  // M_SQRT1_2 in 1.15 fixed point.
+	switch (frame->format) {
+	case AV_SAMPLE_FMT_FLTP:
+	case AV_SAMPLE_FMT_FLT:
+	{
+		const bool planar = frame->format == AV_SAMPLE_FMT_FLTP;
+		const float *left = (const float *)frame->extended_data[0];
+		const float *right = planar ? (const float *)frame->extended_data[std::min(channels, 2) - 1] : left + 1;
+		const int step = planar ? 1 : channels;
+		for (int i = 0; i < n; i++) {
+			if (channels == 1) {
+				const int16_t s = FloatToS16(left[i] * monoGain);
+				out[i * 2] = s;
+				out[i * 2 + 1] = s;
+			} else {
+				out[i * 2] = FloatToS16(left[i * step]);
+				out[i * 2 + 1] = FloatToS16(right[i * step]);
+			}
+		}
+		return n;
+	}
+	case AV_SAMPLE_FMT_S16P:
+	case AV_SAMPLE_FMT_S16:
+	{
+		const bool planar = frame->format == AV_SAMPLE_FMT_S16P;
+		const int16_t *left = (const int16_t *)frame->extended_data[0];
+		const int16_t *right = planar ? (const int16_t *)frame->extended_data[std::min(channels, 2) - 1] : left + 1;
+		const int step = planar ? 1 : channels;
+		for (int i = 0; i < n; i++) {
+			if (channels == 1) {
+				const int16_t s = (int16_t)((left[i] * monoGainS16 + 16384) >> 15);
+				out[i * 2] = s;
+				out[i * 2 + 1] = s;
+			} else {
+				out[i * 2] = left[i * step];
+				out[i * 2 + 1] = right[i * step];
+			}
+		}
+		return n;
+	}
+	default:
+		return -1;
+	}
+}
+#endif  // USE_FFMPEG
+
 bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) {
 #ifdef USE_FFMPEG
 	if (!codecOpen_) {
@@ -305,68 +362,23 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 	}
 
 	if (got_frame) {
-		// Initializing the sample rate convert. We will use it to convert float output into int.
 		_dbg_assert_(outputChannels == 2);
-#if LIBAVUTIL_VERSION_MAJOR >= 59
-		AVChannelLayout wanted_channel_layout = AV_CHANNEL_LAYOUT_STEREO; // we want stereo output layout
-		const AVChannelLayout& dec_channel_layout = frame_->ch_layout; // decoded channel layout
-#else
-		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
-		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
-#endif
-
-		if (!swrCtx_) {
-			// TODO: Allow these to differ.
-			const int inputSampleRate = codecCtx_->sample_rate;
-			const int outputSampleRate = codecCtx_->sample_rate;
-#if LIBAVUTIL_VERSION_MAJOR >= 59
-			swr_alloc_set_opts2(
-				&swrCtx_,
-				&wanted_channel_layout,
-				AV_SAMPLE_FMT_S16,
-				outputSampleRate,
-				&dec_channel_layout,
-				codecCtx_->sample_fmt,
-				inputSampleRate,
-				0,
-				NULL);
-#else
-			swrCtx_ = swr_alloc_set_opts(
-				swrCtx_,
-				wanted_channel_layout,
-				AV_SAMPLE_FMT_S16,
-				outputSampleRate,
-				dec_channel_layout,
-				codecCtx_->sample_fmt,
-				inputSampleRate,
-				0,
-				NULL);
-#endif
-
-			if (!swrCtx_ || swr_init(swrCtx_) < 0) {
-				ERROR_LOG(Log::ME, "swr_init: Failed to initialize the resampling context");
-#if LIBAVCODEC_VERSION_MAJOR >= 62
-				avcodec_free_context(&codecCtx_);
-#else
-				avcodec_close(codecCtx_);
-#endif
-				codec_ = 0;
-				return false;
-			}
-		}
-
-		// convert audio to AV_SAMPLE_FMT_S16
-		int swrRet = 0;
+		int samples = 0;
 		if (outbuf != nullptr) {
-			swrRet = swr_convert(swrCtx_, (uint8_t **)&outbuf, frame_->nb_samples, (const u8 **)frame_->extended_data, frame_->nb_samples);
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+			const int channels = frame_->ch_layout.nb_channels;
+#else
+			const int channels = frame_->channels;
+#endif
+			samples = ConvertToStereoS16(frame_, channels, outbuf);
 		}
-		if (swrRet < 0) {
-			ERROR_LOG(Log::ME, "swr_convert: Error while converting: %d", swrRet);
+		if (samples < 0) {
+			ERROR_LOG(Log::ME, "Can't convert decoded audio (format %d) to s16", frame_->format);
 			return false;
 		}
 		// output stereo samples per frame
 		if (outSamples) {
-			*outSamples = swrRet;
+			*outSamples = samples;
 		}
 
 		// Save outbuf into pcm audio, you can uncomment this line to save and check the decoded audio into pcm file.
@@ -502,7 +514,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		outpcmbufsize = PCMBufSize / 2;
 		if (outbuf != nullptr)
 			memset(outbuf, 0, outpcmbufsize);
-	} else if ((u32)outpcmbufsize < PCMBufSize) {
+	} else if ((u32)outpcmbufsize < PCMBufSize / 2) {
 		// TODO: Not sure it actually zeros this out.
 		if (outbuf != nullptr)
 			memset(outbuf + outpcmbufsize, 0, PCMBufSize / 2 - outpcmbufsize);
@@ -695,6 +707,16 @@ void AuCtx::DoState(PointerWrap &p) {
 	int dummy = 0;
 	Do(p, dummy);
 	Do(p, FrameNum);
+
+	// The decoder writes a whole frame into each half. The game side requires at least this much,
+	// except for an MP3 handle reserved without parameters, which has no buffers at all.
+	const u32 minPCMBufSize = audioType == PSP_CODEC_AAC ? 8192 : 9216;
+	const bool noBuffers = PCMBuf == 0 && PCMBufSize == 0;
+	if (p.mode == p.MODE_READ && PCMBufSize < minPCMBufSize && !noBuffers) {
+		ERROR_LOG(Log::SaveState, "AuCtx: PCM buffer of %d bytes in savestate is too small", PCMBufSize);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 
 	if (s < 2) {
 		AuBufAvailable = 0;

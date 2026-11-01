@@ -237,8 +237,17 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_VK_STATIC
 	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#elif PPSSPP_PLATFORM(MAC)
+	// Through the Khronos loader (like the SDK's, for the validation layers), MoltenVK is only
+	// listed if we ask for portability drivers.
+	if (IsInstanceExtensionAvailable(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+		inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
+		inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.data();
+		inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+	}
 #endif
 
 #if SIMULATE_VULKAN_FAILURE == 2
@@ -756,6 +765,8 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+	// Required to be enabled where it exists (MoltenVK). Tells what Metal can't do.
+	extensionsLookup_.KHR_portability_subset = EnableDeviceExtension(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, 0);
 	if (extensionsLookup_.KHR_get_surface_capabilities2) {
 #ifdef VK_EXT_full_screen_exclusive
 		extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
@@ -777,6 +788,7 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
+		VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR };
 
 		ChainStruct(features2, &multiViewFeatures);
 		if (extensionsLookup_.KHR_present_wait) {
@@ -793,6 +805,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &scalarBlockLayoutFeatures);
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			ChainStruct(features2, &portabilitySubsetFeatures);
 		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
@@ -811,6 +826,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			deviceFeatures_.available.presentModeFifoProps = presentModeFifoProps;
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			deviceFeatures_.available.portabilitySubset = portabilitySubsetFeatures;
 		}
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
@@ -871,6 +889,13 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		deviceFeatures_.enabled.scalarBlockLayout.scalarBlockLayout = deviceFeatures_.available.scalarBlockLayout.scalarBlockLayout;
 	}
 
+	// What MoltenVK can do of what full Vulkan can (like image view swizzles). Using any of it needs it enabled.
+	deviceFeatures_.enabled.portabilitySubset = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR };
+	if (extensionsLookup_.KHR_portability_subset) {
+		deviceFeatures_.enabled.portabilitySubset = deviceFeatures_.available.portabilitySubset;
+		deviceFeatures_.enabled.portabilitySubset.pNext = nullptr;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -901,6 +926,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			ChainStruct(features2, &deviceFeatures_.enabled.portabilitySubset);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
@@ -1044,37 +1072,29 @@ VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data
 	return ReinitSurface();
 }
 
-VkResult VulkanContext::ReinitSurface() {
-	if (surface_ != VK_NULL_HANDLE) {
-		INFO_LOG(Log::G3D, "Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
-		vkDestroySurfaceKHR(instance_, surface_, nullptr);
-		surface_ = VK_NULL_HANDLE;
-	}
+VkResult VulkanContext::CreateSurface(WindowSystem winsys, void *data1, void *data2, VkSurfaceKHR *surface) {
+	VkResult retval = VK_SUCCESS;
 
-	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
-
-		VkResult retval = VK_SUCCESS;
-
-	switch (winsys_) {
+	switch (winsys) {
 #ifdef _WIN32
 	case WINDOWSYSTEM_WIN32:
 	{
 		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 		win32.flags = 0;
-		win32.hinstance = (HINSTANCE)winsysData1_;
-		win32.hwnd = (HWND)winsysData2_;
-		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		win32.hinstance = (HINSTANCE)data1;
+		win32.hwnd = (HWND)data2;
+		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, surface);
 		break;
 	}
 #endif
 #if defined(__ANDROID__)
 	case WINDOWSYSTEM_ANDROID:
 	{
-		ANativeWindow *wnd = (ANativeWindow *)winsysData1_;
+		ANativeWindow *wnd = (ANativeWindow *)data1;
 		VkAndroidSurfaceCreateInfoKHR android{ VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 		android.flags = 0;
 		android.window = wnd;
-		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, surface);
 		break;
 	}
 #endif
@@ -1083,9 +1103,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkMetalSurfaceCreateInfoEXT metal{ VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT };
 		metal.flags = 0;
-		metal.pLayer = winsysData1_;
-		metal.pNext = winsysData2_;
-		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		metal.pLayer = data1;
+		metal.pNext = data2;
+		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, surface);
 		break;
 	}
 #endif
@@ -1094,9 +1114,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkXlibSurfaceCreateInfoKHR xlib{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
 		xlib.flags = 0;
-		xlib.dpy = (Display *)winsysData1_;
-		xlib.window = (Window)winsysData2_;
-		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		xlib.dpy = (Display *)data1;
+		xlib.window = (Window)data2;
+		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, surface);
 		break;
 	}
 #endif
@@ -1105,9 +1125,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkXCBSurfaceCreateInfoKHR xcb{ VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
 		xcb.flags = 0;
-		xcb.connection = (Connection *)winsysData1_;
-		xcb.window = (Window)(uintptr_t)winsysData2_;
-		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		xcb.connection = (Connection *)data1;
+		xcb.window = (Window)(uintptr_t)data2;
+		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, surface);
 		break;
 	}
 #endif
@@ -1116,9 +1136,9 @@ VkResult VulkanContext::ReinitSurface() {
 	{
 		VkWaylandSurfaceCreateInfoKHR wayland{ VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
 		wayland.flags = 0;
-		wayland.display = (wl_display *)winsysData1_;
-		wayland.surface = (wl_surface *)winsysData2_;
-		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		wayland.display = (wl_display *)data1;
+		wayland.surface = (wl_surface *)data2;
+		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, surface);
 		break;
 	}
 #endif
@@ -1308,15 +1328,28 @@ VkResult VulkanContext::ReinitSurface() {
 		delete [] plane_props;
 #endif
 		display.flags = 0;
-		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, &surface_);
+		retval = vkCreateDisplayPlaneSurfaceKHR(instance_, &display, nullptr, surface);
 		break;
 	}
 #endif
 
 	default:
-		_assert_msg_(false, "Vulkan support for chosen window system (%s) not implemented", WindowSystemToString(winsys_));
+		_assert_msg_(false, "Vulkan support for chosen window system (%s) not implemented", WindowSystemToString(winsys));
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+	return retval;
+}
+
+VkResult VulkanContext::ReinitSurface() {
+	if (surface_ != VK_NULL_HANDLE) {
+		INFO_LOG(Log::G3D, "Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
+	INFO_LOG(Log::G3D, "Creating Vulkan surface for window (winsys=%s data1=%p data2=%p)", WindowSystemToString(winsys_), winsysData1_, winsysData2_);
+
+	VkResult retval = CreateSurface(winsys_, winsysData1_, winsysData2_, &surface_);
 
 	if (retval != VK_SUCCESS) {
 		init_error_ = StringFromFormat("Failed to create a Vulkan surface for window system %s: %s", WindowSystemToString(winsys_), VulkanResultToString(retval));
@@ -1523,6 +1556,21 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		}
 	}
 
+#if PPSSPP_PLATFORM(ANDROID)
+	// After an in-place rotation, the surface can report the new transform together with the previous
+	// orientation's extent. A Redmi 9A (PowerVR, Android 11) keeps doing it after surfaceChanged has given us the
+	// new size, so the swapchain stays wrong until the next rotation. The latest window size from surfaceChanged
+	// is current (g_display can lag behind it, until the render thread applies the resize), so if the extent is
+	// exactly that transposed, it's stale.
+	const VkExtent2D windowSize = cbGetDrawSize_ ? cbGetDrawSize_() : VkExtent2D{};
+	if (windowSize.width > 0 && windowSize.height > 0 && windowSize.width != windowSize.height &&
+		currentExtent.width == windowSize.height && currentExtent.height == windowSize.width) {
+		WARN_LOG(Log::G3D, "Surface extent %dx%d is the window transposed, probably stale after a rotation. Using %dx%d.",
+			currentExtent.width, currentExtent.height, windowSize.width, windowSize.height);
+		std::swap(currentExtent.width, currentExtent.height);
+	}
+#endif
+
 	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
@@ -1577,13 +1625,9 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
 
-	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
-	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
-	allowedRotations &= ~VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
-
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else if (surfCapabilities_.currentTransform & allowedRotations) {
+	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
 		g_display.rot_matrix.setIdentity();

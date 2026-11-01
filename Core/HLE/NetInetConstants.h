@@ -9,6 +9,7 @@ enum {
 	ERROR_NET_INTERNAL = 0x80410002,
 	ERROR_NET_INVALID_ARG = 0x80410003,
 	ERROR_NET_NO_ENTRY = 0x80410004,
+	ERROR_NET_NOT_ENOUGH_STACK = 0x80410005,
 
 	// pspnet_core
 	ERROR_NET_CORE_NOT_TERMINATED = 0x80410101,
@@ -221,6 +222,7 @@ enum {
 #define	ERROR_INET_EACCES			13	// Permission denied 
 #define	ERROR_INET_EFAULT			14	// Bad address 
 #define	ERROR_INET_EINVAL			22	// Invalid argument 
+#define	ERROR_INET_EMFILE			24	// Too many open files (pspautotests net/inet/errors)
 #define	ERROR_INET_ENOSPC			28	// No space left on device
 #define	ERROR_INET_EPIPE			32	// Broken pipe
 #define	ERROR_INET_ENOMSG			35	// No message of desired type
@@ -324,6 +326,5 @@ int convertSockoptNamePSP2Host(int optname, int level);
 int convertSockoptNameHost2PSP(int optname, int level);
 std::string inetSockoptName2str(int optname, int level);
 int convertInetErrnoHost2PSP(int error);
-int convertInetErrno2PSPError(int error);
 const char *convertInetErrno2str(int error);
 std::string convertNetError2str(uint32_t errorCode);

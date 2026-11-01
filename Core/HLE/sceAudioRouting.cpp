@@ -17,39 +17,7 @@
 
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/HLE/sceAudiocodec.h"
-
-enum {
-	AUDIO_ROUTING_SPEAKER_OFF = 0,
-	AUDIO_ROUTING_SPEAKER_ON = 1,
-};
-
-u32 audioRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
-u32 audioRoutineVolumeMode = AUDIO_ROUTING_SPEAKER_ON;
-
-static int sceAudioRoutingGetMode() {
-	INFO_LOG(Log::sceAudio, "sceAudioRoutingGetMode");
-	return 0;
-}
-
-static int sceAudioRoutingSetVolumeMode(int mode) {
-	INFO_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode %d", mode);
-	int previousMode = audioRoutineVolumeMode;
-	audioRoutineVolumeMode = audioRoutingMode;
-	return previousMode;
-}
-
-static int sceAudioRoutingGetVolumeMode() {
-	INFO_LOG(Log::sceAudio, "sceAudioRoutingGetMode");
-	return 0;
-}
-
-static int sceAudioRoutingSetMode(int mode) {
-	INFO_LOG(Log::sceAudio, "sceAudioRoutingSetMode %d", mode);
-	int previousMode = audioRoutingMode;
-	audioRoutingMode = mode;
-	return previousMode;
-}
+#include "Core/HLE/sceAudio.h"
 
 const HLEFunction sceAudioRouting[] =
 {

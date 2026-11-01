@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/GEMath.h"
@@ -103,6 +104,442 @@ static bool TestGEDot() {
 	EXPECT_EQ_FLOAT(v.x, ProductToFloat24(3.0 * GERsqrt(25.0f)));
 	EXPECT_EQ_FLOAT(v.y, ProductToFloat24(4.0 * GERsqrt(25.0f)));
 	EXPECT_TRUE(fabsf(len - 5.0f) < 0.001f);
+	return true;
+}
+
+// GEAdd4 against GEAdd, bit for bit: any bits (not just float24s), close and distant exponents, signs,
+// zeros, denormals, inf and NaN.
+static bool TestGEAdd4() {
+	uint32_t state = 777;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomBits = [&](int center, int spread) {
+		const uint32_t r = next();
+		uint32_t e;
+		switch (r & 15) {
+		case 0: e = 0; break;
+		case 1: e = 255; break;
+		default: e = (uint32_t)std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254); break;
+		}
+		const uint32_t bits = (e << 23) | (next() & 0x007FFFFF) | ((r & 16) ? 0x80000000 : 0);
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int spread = (i % 5 == 0) ? 120 : 20;
+		const int center = (i % 7 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4], b[4], got[4];
+		for (int l = 0; l < 4; ++l) {
+			a[l] = randomBits(center, spread);
+			b[l] = randomBits(center, spread);
+		}
+		GEAdd4(Vec4F32::Load(a), Vec4F32::Load(b)).Store(got);
+		for (int l = 0; l < 4; ++l) {
+			const float want = GEAdd(a[l], b[l]);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GEAdd4: %a + %a = %a, want %a\n", a[l], b[l], got[l], want);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+// GEMulFloat24x4 against ProductToFloat24, bit for bit, on the same kind of bits as TestGEAdd4.
+static bool TestGEMulFloat24x4() {
+	uint32_t state = 4321;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomBits = [&](int center, int spread) {
+		const uint32_t r = next();
+		uint32_t e;
+		switch (r & 15) {
+		case 0: e = 0; break;
+		case 1: e = 255; break;
+		default: e = (uint32_t)std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254); break;
+		}
+		const uint32_t mant = (r & 32) ? 0 : (next() & 0x007FFFFF);
+		const uint32_t bits = (e << 23) | mant | ((r & 16) ? 0x80000000 : 0);
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int spread = (i % 5 == 0) ? 120 : 20;
+		const int center = (i % 7 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4], b[4], got[4];
+		for (int l = 0; l < 4; ++l) {
+			a[l] = randomBits(center, spread);
+			b[l] = randomBits(center, spread);
+		}
+		GEMulFloat24x4(Vec4F32::Load(a), Vec4F32::Load(b)).Store(got);
+		for (int l = 0; l < 4; ++l) {
+			const float ta = TruncateToFloat24(a[l]), tb = TruncateToFloat24(b[l]);
+			const float want = ta == 0.0f || tb == 0.0f ? 0.0f : ProductToFloat24((double)ta * tb);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GEMulFloat24x4: %a * %a = %a, want %a\n", a[l], b[l], got[l], want);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+static bool TestGEDot3() {
+	uint32_t state = 4242;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomBits = [&](int center, int spread) {
+		const uint32_t r = next();
+		uint32_t e;
+		switch (r & 31) {
+		case 0: e = 0; break;
+		case 1: e = 255; break;
+		default: e = (uint32_t)std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254); break;
+		}
+		const uint32_t bits = (e << 23) | (next() & 0x007FFFFF) | ((r & 32) ? 0x80000000 : 0);
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int spread = (i % 5 == 0) ? 60 : ((i % 3 == 0) ? 10 : 2);
+		const int center = (i % 7 == 0) ? (int)(next() % 254) + 1 : 127;
+		// Lane 3 is anything, and must not matter.
+		alignas(16) float a[4], b[4];
+		for (int l = 0; l < 4; ++l) {
+			a[l] = randomBits(center, spread);
+			b[l] = randomBits(center, spread);
+		}
+		const Vec3f a3(a[0], a[1], a[2]);
+		const Vec3f b3(b[0], b[1], b[2]);
+		const float got = GEDot3(Vec4F32::Load(a), Vec4F32::Load(b));
+		const float want = GEDot(a3, b3);
+		if (memcmp(&got, &want, sizeof(float)) != 0) {
+			printf("GEDot3: (%a %a %a) . (%a %a %a) = %a, want %a\n", a[0], a[1], a[2], b[0], b[1], b[2], got, want);
+			return false;
+		}
+
+		Vec4F32 v = Vec4F32::Load(a);
+		Vec3f v3 = a3;
+		const float gotLen = GENormalize4(v);
+		const float wantLen = GENormalize(v3);
+		alignas(16) float out[4];
+		v.Store(out);
+		// GENormalize4 makes denormals zero, where GENormalize keeps them.
+		auto denormal = [](float f) { return f != 0.0f && std::fpclassify(f) == FP_SUBNORMAL; };
+		if (denormal(a[0]) || denormal(a[1]) || denormal(a[2]) || denormal(v3.x) || denormal(v3.y) || denormal(v3.z))
+			continue;
+		if (memcmp(&gotLen, &wantLen, sizeof(float)) != 0 || memcmp(out, v3.AsArray(), 3 * sizeof(float)) != 0) {
+			printf("GENormalize4: (%a %a %a) -> %a (%a %a %a), want %a (%a %a %a)\n", a[0], a[1], a[2],
+				gotLen, out[0], out[1], out[2], wantLen, v3.x, v3.y, v3.z);
+			return false;
+		}
+	}
+	return true;
+}
+
+// GEUVSpan against the scalar texture coordinates (Rasterizer's GetTextureCoordinatesGE), bit for bit, on
+// plane values around the 15-bit range they're normally in and past it, and scales over the float range.
+static bool TestGEUVSpan() {
+	uint32_t state = 777777;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto value = [&]() -> int64_t {
+		const uint32_t r = next();
+		switch (r & 7) {
+		case 0: return 0;
+		case 1: return (int64_t)(next() % (1u << 25)) - (1 << 24);
+		case 2: return -(int64_t)(next() % (1 << 15));
+		default: return (int64_t)(next() % (1 << 16));
+		}
+	};
+	int fast = 0;
+	for (int i = 0; i < 500000; ++i) {
+		int64_t qs[4], ss[4], ts[4];
+		for (int l = 0; l < 4; ++l) {
+			qs[l] = value();
+			ss[l] = value();
+			ts[l] = value();
+		}
+		const int range = (i % 5 == 0) ? 150 : 20;
+		const int expQ = (int)(next() % (2 * range + 1)) - range - 15;
+		const int expS = (int)(next() % (2 * range + 1)) - range - 15;
+		const int expT = (int)(next() % (2 * range + 1)) - range - 15;
+		alignas(16) float s[4], t[4], q[4];
+		if (!GEUVSpan(qs, ss, ts, expQ, expS, expT, s, t, q))
+			continue;
+		fast++;
+		for (int l = 0; l < 4; ++l) {
+			const float wq = TruncateToFloat24((float)ldexp((double)qs[l], expQ));
+			float ws = GE_NONPOSITIVE_Q_UV, wt = GE_NONPOSITIVE_Q_UV;
+			if (wq > 0.0f) {
+				const double r = GERecip(wq);
+				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)ss[l], expS)) * r);
+				wt = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)ts[l], expT)) * r);
+			}
+			if (memcmp(&q[l], &wq, 4) != 0 || memcmp(&s[l], &ws, 4) != 0 || memcmp(&t[l], &wt, 4) != 0) {
+				printf("GEUVSpan: q %lld*2^%d s %lld*2^%d t %lld*2^%d: got %a %a %a, want %a %a %a\n", (long long)qs[l], expQ, (long long)ss[l], expS, (long long)ts[l], expT, q[l], s[l], t[l], wq, ws, wt);
+				return false;
+			}
+		}
+	}
+	// The unchecked core, wherever GEUVSpanSafe allows it, on values below 2^17 (what 32-bit plane sums give).
+	int safe = 0;
+	for (int i = 0; i < 500000; ++i) {
+		const int expQ = (int)(next() % 260) - 140;
+		const int expS = expQ + (int)(next() % 220) - 110;
+		const int expT = expQ + (int)(next() % 220) - 110;
+		if (!GEUVSpanSafe(expQ, expS, expT))
+			continue;
+		safe++;
+		alignas(16) int32_t qv[4], sv[4], tv[4];
+		for (int l = 0; l < 4; ++l) {
+			qv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+			sv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+			tv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+		}
+		alignas(16) float s[4], t[4], q[4];
+		GEUVSpanCore<false>(Vec4S32::Load(qv), Vec4S32::Load(sv), Vec4S32::Load(tv), expQ, expS, expT, s, t, q);
+		for (int l = 0; l < 4; ++l) {
+			const float wq = TruncateToFloat24((float)ldexp((double)qv[l], expQ));
+			float ws = GE_NONPOSITIVE_Q_UV, wt = GE_NONPOSITIVE_Q_UV;
+			if (wq > 0.0f) {
+				const double r = GERecip(wq);
+				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)sv[l], expS)) * r);
+				wt = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)tv[l], expT)) * r);
+			}
+			if (memcmp(&q[l], &wq, 4) != 0 || memcmp(&s[l], &ws, 4) != 0 || memcmp(&t[l], &wt, 4) != 0) {
+				printf("GEUVSpanCore<false>: q %d*2^%d s %d*2^%d t %d*2^%d: got %a %a %a, want %a %a %a\n", qv[l], expQ, sv[l], expS, tv[l], expT, q[l], s[l], t[l], wq, ws, wt);
+				return false;
+			}
+		}
+	}
+	if (safe < 100000) {
+		printf("GEUVSpanCore: only %d safe cases\n", safe);
+		return false;
+	}
+
+	// Most of these should take the vector path.
+	if (fast < 100000) {
+		printf("GEUVSpan: only %d of 500000 on the vector path\n", fast);
+		return false;
+	}
+	return true;
+}
+
+// GERowSum4 against GERowSum, bit for bit, on random float24s: mixed signs, zeros and denormals, exponents
+// close together (so the terms' alignment matters) and far apart, including ones past the vector path.
+static bool TestGERowSum4() {
+	uint32_t state = 12345;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomFloat24 = [&](int center, int spread) {
+		const uint32_t r = next();
+		if ((r & 31) == 0)
+			return 0.0f;
+		uint32_t bits;
+		if ((r & 31) == 1) {
+			bits = next() & 0x007FFF00;  // denormal
+		} else {
+			const int e = std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254);
+			bits = ((uint32_t)e << 23) | (next() & 0x007FFF00);
+		}
+		if (r & 64)
+			bits |= 0x80000000;
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int count = 1 + (i & 3);
+		const int spread = (i % 7 == 0) ? 120 : ((i % 3 == 0) ? 20 : 3);
+		const int center = (i % 11 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4] = {};
+		alignas(16) float b[4][4];
+		Vec4F32 bv[4];
+		for (int k = 0; k < count; ++k) {
+			a[k] = randomFloat24(center, spread);
+			for (int l = 0; l < 4; ++l)
+				b[k][l] = randomFloat24(center, spread);
+			bv[k] = Vec4F32::Load(b[k]);
+		}
+		alignas(16) float got[4];
+		Vec4F32 av = Vec4F32::Load(a);
+		switch (count) {
+		case 1: av = GERowSum4<1>(av, bv); break;
+		case 2: av = GERowSum4<2>(av, bv); break;
+		case 3: av = GERowSum4<3>(av, bv); break;
+		default: av = GERowSum4<4>(av, bv); break;
+		}
+		av.Store(got);
+		// The same with the right operands taken apart first.
+		{
+			Vec4F32 full[4] = { bv[0], bv[1], bv[2], bv[3] };
+			for (int k = count; k < 4; ++k)
+				full[k] = Vec4F32::Zero();
+			GERowSumRows rows;
+			rows.Set(full);
+			Vec4F32 pv = Vec4F32::Load(a);
+			switch (count) {
+			case 1: pv = GERowSum4<1>(pv, rows); break;
+			case 2: pv = GERowSum4<2>(pv, rows); break;
+			case 3: pv = GERowSum4<3>(pv, rows); break;
+			default: pv = GERowSum4<4>(pv, rows); break;
+			}
+			alignas(16) float pre[4];
+			pv.Store(pre);
+			if (memcmp(pre, got, sizeof(pre)) != 0) {
+				printf("GERowSum4 with GERowSumRows differs: case %d\n", i);
+				return false;
+			}
+		}
+		for (int l = 0; l < 4; ++l) {
+			GERowTerm terms[4];
+			for (int k = 0; k < count; ++k)
+				terms[k] = GEProduct(a[k], b[k][l]);
+			const float want = GERowSum(terms, count);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GERowSum4: case %d lane %d: %a, want %a (count %d)\n", i, l, got[l], want, count);
+				for (int k = 0; k < count; ++k)
+					printf("  %a * %a\n", a[k], b[k][l]);
+				return false;
+			}
+		}
+	}
+
+	// GERowSumLanes, a lane per vertex, against GERowSum.
+	for (int i = 0; i < 100000; ++i) {
+		const int count = 1 + (i & 3);
+		const int spread = (i % 7 == 0) ? 120 : ((i % 3 == 0) ? 20 : 3);
+		const int center = (i % 11 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4][4] = {};
+		float b[4] = {};
+		Vec4F32 av[4];
+		GERowSumLeft left[4];
+		for (int k = 0; k < 4; ++k) {
+			for (int l = 0; l < 4; ++l)
+				a[k][l] = k < count ? randomFloat24(center, spread) : 0.0f;
+			b[k] = k < count ? randomFloat24(center, spread) : 0.0f;
+			av[k] = Vec4F32::Load(a[k]);
+			left[k] = GERowSumLeft::From(av[k]);
+		}
+		GERowSumEntries entries;
+		entries.Set(b);
+		Vec4F32 rv;
+		switch (count) {
+		case 1: rv = GERowSumLanes<1>(left, av, entries); break;
+		case 2: rv = GERowSumLanes<2>(left, av, entries); break;
+		case 3: rv = GERowSumLanes<3>(left, av, entries); break;
+		default: rv = GERowSumLanes<4>(left, av, entries); break;
+		}
+		alignas(16) float got[4];
+		rv.Store(got);
+		for (int l = 0; l < 4; ++l) {
+			GERowTerm terms[4];
+			for (int k = 0; k < count; ++k)
+				terms[k] = GEProduct(a[k][l], b[k]);
+			const float want = GERowSum(terms, count);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GERowSumLanes: case %d lane %d: %a, want %a (count %d)\n", i, l, got[l], want, count);
+				return false;
+			}
+		}
+	}
+
+	// GERecip4 against GERecip, every mantissa, both signs, exponents across the range it covers.
+	for (int e = 1; e < 127 + 126; e += 7) {
+		for (uint32_t m = 0; m < 0x8000; m += 4) {
+			alignas(16) float w[4];
+			for (int l = 0; l < 4; ++l) {
+				const uint32_t bits = ((l & 1) ? 0x80000000 : 0) | ((uint32_t)e << 23) | ((m + l) << 8);
+				memcpy(&w[l], &bits, 4);
+			}
+			Vec4S32 bad = Vec4S32::Zero();
+			alignas(16) float got[4];
+			GERecip4(Vec4F32::Load(w), bad).Store(got);
+			if (AnyCompareBitsSet(bad)) {
+				printf("GERecip4: exponent %d flagged\n", e);
+				return false;
+			}
+			for (int l = 0; l < 4; ++l) {
+				const float want = GERecip(w[l]);
+				if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+					printf("GERecip4: %a: %a, want %a\n", w[l], got[l], want);
+					return false;
+				}
+			}
+		}
+	}
+
+	// Speed: a vertex transform's four rows, as GERowSum4 and as four scalar GERowSums.
+	{
+		const int count = 1024;
+		std::vector<float> pos(count * 4);
+		for (float &f : pos)
+			f = TruncateToFloat24(randomFloat24(127, 8));
+		alignas(16) float m[16];
+		for (float &f : m)
+			f = randomFloat24(127, 4);
+		const Vec4F32 rows[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
+		volatile float sink = 0.0f;
+		const double simd = CallsPerSecond([&] {
+			Vec4F32 acc = Vec4F32::Zero();
+			for (int i = 0; i < count; ++i)
+				acc = acc + GERowSum4<4>(Vec4F32::Load(&pos[i * 4]), rows);
+			alignas(16) float out[4];
+			acc.Store(out);
+			sink = out[0];
+		}, 0.5, 1);
+		const double scalar = CallsPerSecond([&] {
+			float acc = 0.0f;
+			for (int i = 0; i < count; ++i) {
+				for (int c = 0; c < 4; ++c) {
+					GERowTerm terms[4];
+					for (int k = 0; k < 4; ++k)
+						terms[k] = GEProduct(pos[i * 4 + k], m[k * 4 + c]);
+					acc += GERowSum(terms, 4);
+				}
+			}
+			sink = acc;
+		}, 0.5, 1);
+		GERowSumRows pre;
+		pre.Set(rows);
+		const double simdPre = CallsPerSecond([&] {
+			Vec4F32 acc = Vec4F32::Zero();
+			for (int i = 0; i < count; ++i)
+				acc = acc + GERowSum4<4>(Vec4F32::Load(&pos[i * 4]), pre);
+			alignas(16) float out[4];
+			acc.Store(out);
+			sink = out[0];
+		}, 0.5, 1);
+		printf("GERowSum4: %.1f M transforms/s (%.1f M/s with GERowSumRows), scalar GERowSum: %.1f M/s\n", simd * count / 1e6, simdPre * count / 1e6, scalar * count / 1e6);
+
+		const double dot4 = CallsPerSecond([&] {
+			float acc = 0.0f;
+			for (int i = 0; i < count - 1; ++i)
+				acc += GEDot3(Vec4F32::Load(&pos[i * 4]), Vec4F32::Load(&pos[i * 4 + 4]));
+			sink = acc;
+		}, 0.5, 1);
+		const double dot = CallsPerSecond([&] {
+			float acc = 0.0f;
+			for (int i = 0; i < count - 1; ++i)
+				acc += GEDot(Vec3f(pos[i * 4], pos[i * 4 + 1], pos[i * 4 + 2]), Vec3f(pos[i * 4 + 4], pos[i * 4 + 5], pos[i * 4 + 6]));
+			sink = acc;
+		}, 0.5, 1);
+		printf("GEDot3: %.1f M/s, scalar GEDot: %.1f M/s\n", dot4 * count / 1e6, dot * count / 1e6);
+	}
 	return true;
 }
 
@@ -212,6 +649,28 @@ static bool TestGELineCoverageAlpha() {
 	return true;
 }
 
+static bool TestGESpriteUPlaneExact() {
+	// Sprite left, top, right, bottom in pixels, u at the left and right, texture width, and whether the u plane's
+	// gradient is exact. The 1:1 sizes are exp87's (64x64 samples texel centers on a PSP, the others blend);
+	// the u = 1 + 2x ones are SOCOM's and Syphon Filter's CLUT8 reads of a 5551 framebuffer.
+	static const struct { int x0, y0, x1, y1, u0, u1, texW; bool exact; } cases[] = {
+		{ 0, 0, 64, 64, 37, 101, 512, true },
+		{ 0, 0, 16, 272, 37, 53, 512, false },
+		{ 0, 0, 480, 16, 37, 517, 512, false },
+		{ 0, 0, 64, 272, 1, 129, 1024, false },
+		{ 192, 0, 240, 272, 385, 481, 1024, false },
+		{ 0, 0, 64, 128, 1, 129, 256, true },
+	};
+	for (const auto &c : cases) {
+		const bool exact = GESpriteUPlaneExact(c.x0 * 16, c.y0 * 16, c.x1 * 16, c.y1 * 16, (double)c.u0 / c.texW, (double)c.u1 / c.texW);
+		if (exact != c.exact) {
+			printf("GESpriteUPlaneExact(%dx%d, u %d-%d / %d) = %d, want %d\n", c.x1 - c.x0, c.y1 - c.y0, c.u0, c.u1, c.texW, (int)exact, (int)c.exact);
+			return false;
+		}
+	}
+	return true;
+}
+
 bool TestGEMath() {
 	bool ok = true;
 	ok = TestFloat24() && ok;
@@ -219,11 +678,17 @@ bool TestGEMath() {
 	ok = TestGERsqrt() && ok;
 	ok = TestGEAdd() && ok;
 	ok = TestGEDot() && ok;
+	ok = TestGERowSum4() && ok;
+	ok = TestGEAdd4() && ok;
+	ok = TestGEMulFloat24x4() && ok;
+	ok = TestGEDot3() && ok;
+	ok = TestGEUVSpan() && ok;
 	ok = TestGESetupRecip() && ok;
 	ok = TestGELog16() && ok;
 	ok = TestTexCoordPrecision() && ok;
 	ok = TestGELightPow() && ok;
 	ok = TestGELightColor() && ok;
 	ok = TestGELineCoverageAlpha() && ok;
+	ok = TestGESpriteUPlaneExact() && ok;
 	return ok;
 }

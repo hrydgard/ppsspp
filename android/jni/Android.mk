@@ -75,6 +75,79 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+OBOE_ROOT := $(SRC)/ext/oboe
+
+LOCAL_MODULE := oboe
+LOCAL_SRC_FILES := \
+  $(OBOE_ROOT)/src/aaudio/AAudioLoader.cpp \
+  $(OBOE_ROOT)/src/aaudio/AudioStreamAAudio.cpp \
+  $(OBOE_ROOT)/src/common/AdpfWrapper.cpp \
+  $(OBOE_ROOT)/src/common/AudioSourceCaller.cpp \
+  $(OBOE_ROOT)/src/common/AudioStream.cpp \
+  $(OBOE_ROOT)/src/common/AudioStreamBuilder.cpp \
+  $(OBOE_ROOT)/src/common/DataConversionFlowGraph.cpp \
+  $(OBOE_ROOT)/src/common/FilterAudioStream.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockAdapter.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockReader.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockWriter.cpp \
+  $(OBOE_ROOT)/src/common/LatencyTuner.cpp \
+  $(OBOE_ROOT)/src/common/OboeExtensions.cpp \
+  $(OBOE_ROOT)/src/common/QuirksManager.cpp \
+  $(OBOE_ROOT)/src/common/SourceFloatCaller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI16Caller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI24Caller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI32Caller.cpp \
+  $(OBOE_ROOT)/src/common/StabilizedCallback.cpp \
+  $(OBOE_ROOT)/src/common/Trace.cpp \
+  $(OBOE_ROOT)/src/common/Utilities.cpp \
+  $(OBOE_ROOT)/src/common/Version.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoBuffer.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoController.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoControllerBase.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoControllerIndirect.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ChannelCountConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ClipToRange.cpp \
+  $(OBOE_ROOT)/src/flowgraph/FlowGraphNode.cpp \
+  $(OBOE_ROOT)/src/flowgraph/Limiter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ManyToMultiConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MonoBlend.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MonoToMultiConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MultiToManyConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MultiToMonoConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/RampLinear.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SampleRateConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkFloat.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI16.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI32.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI8_24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceFloat.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI16.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI32.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI8_24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/IntegerRatio.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/LinearResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/MultiChannelResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResamplerMono.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResamplerStereo.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/SincResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/SincResamplerStereo.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioInputStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioOutputStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioStreamBuffered.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/EngineOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/OpenSLESUtilities.cpp \
+  $(OBOE_ROOT)/src/opensles/OutputMixerOpenSLES.cpp
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(OBOE_ROOT)/src $(LOCAL_PATH)/$(OBOE_ROOT)/include
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+
 PUGI_ROOT := $(SRC)/ext/pugixml
 
 LOCAL_MODULE    := pugixml
@@ -207,10 +280,6 @@ RCHEEVOS_FILES := \
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	ADRENOTOOLS_FILES := \
 	  ${SRC}/ext/libadrenotools/src/driver.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/hook_impl.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/file_redirect_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/gsl_alloc_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/main_hook.c \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
 endif
@@ -353,6 +422,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/Render/ManagedTexture.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/AtlasGen.cpp \
+  $(SRC)/Common/Render/DropShadow.cpp \
   $(SRC)/Common/Render/TextureAtlas.cpp \
   $(SRC)/Common/Render/Text/draw_text.cpp \
   $(SRC)/Common/Render/Text/draw_text_android.cpp \
@@ -429,17 +499,6 @@ LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lua pugixml
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/x86/CompALU.cpp \
-  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
-  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
-  $(SRC)/Core/MIPS/x86/Asm.cpp \
-  $(SRC)/Core/MIPS/x86/Jit.cpp \
-  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
-  $(SRC)/Core/MIPS/x86/RegCache.cpp \
-  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/Core/MIPS/x86/X64IRAsm.cpp \
   $(SRC)/Core/MIPS/x86/X64IRCompALU.cpp \
   $(SRC)/Core/MIPS/x86/X64IRCompBranch.cpp \
@@ -449,35 +508,22 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/X64IRCompVec.cpp \
   $(SRC)/Core/MIPS/x86/X64IRJit.cpp \
   $(SRC)/Core/MIPS/x86/X64IRRegCache.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompSystem.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompVec.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRRegCache.cpp \
   $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Asm.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRAsm.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRCompALU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRCompBranch.cpp \
@@ -507,6 +553,8 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
+  $(SRC)/ext/libdeflate/lib/deflate_compress.c \
+  $(SRC)/ext/libdeflate/lib/utils.c \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \
@@ -521,6 +569,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/MIPS/MIPSCodeUtils.cpp.arm \
   $(SRC)/Core/MIPS/MIPSDebugInterface.cpp \
   $(SRC)/Core/MIPS/MIPSTracer.cpp \
+  $(SRC)/Core/MIPS/MeCore.cpp \
   $(SRC)/Core/MIPS/IR/IRAnalysis.cpp \
   $(SRC)/Core/MIPS/IR/IRFrontend.cpp \
   $(SRC)/Core/MIPS/IR/IRJit.cpp \
@@ -546,6 +595,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/DepalettizeShaderCommon.cpp \
   $(SRC)/GPU/Common/FragmentShaderGenerator.cpp \
   $(SRC)/GPU/Common/FramebufferManagerCommon.cpp \
+  $(SRC)/GPU/Common/Overlay.cpp \
   $(SRC)/GPU/Common/PresentationCommon.cpp \
   $(SRC)/GPU/Common/GPUDebugInterface.cpp \
   $(SRC)/GPU/Common/IndexGenerator.cpp.arm \
@@ -593,9 +643,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \
-  $(SRC)/GPU/Software/RasterizerRegCache.cpp \
   $(SRC)/GPU/Software/Sampler.cpp \
   $(SRC)/GPU/Software/SoftGpu.cpp \
+  $(SRC)/GPU/Null/GPU_Null.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PBPReader.cpp \
@@ -608,6 +658,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/Camera.cpp \
   $(SRC)/Core/HW/Display.cpp \
   $(SRC)/Core/HW/GpioMMIO.cpp \
+  $(SRC)/Core/HW/MMIO.cpp \
+  $(SRC)/Core/HW/MeMMIO.cpp \
+  $(SRC)/Core/HW/PopsMMIO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/AvcDecoder.cpp.arm \
@@ -637,6 +690,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileLoaders/DiskCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/HTTPFileLoader.cpp \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
+  $(SRC)/Core/FileLoaders/PS1EbootFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RamCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/ZipFileLoader.cpp \
@@ -698,10 +752,13 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/ReplaceTables.cpp \
   $(SRC)/Core/HLE/HLE.cpp \
   $(SRC)/Core/HLE/KUBridge.cpp \
+  $(SRC)/Core/HLE/sceSysreg.cpp \
   $(SRC)/Core/HLE/NetInetConstants.cpp \
   $(SRC)/Core/HLE/SocketManager.cpp \
   $(SRC)/Core/HLE/Plugins.cpp \
+  $(SRC)/Core/HLE/PopsBoot.cpp \
   $(SRC)/Core/HLE/sceAdler.cpp \
+  $(SRC)/Core/HLE/sceAmctrl.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
   $(SRC)/Core/HLE/AtracCtx.cpp \
   $(SRC)/Core/HLE/AtracCtx2.cpp \
@@ -751,6 +808,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/proAdhoc.cpp \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/NetAdhocCommon.cpp \
+  $(SRC)/Core/HLE/AdhocTransportP2P.cpp \
+  $(SRC)/Core/HLE/AdhocTransportRelay.cpp \
+  $(SRC)/Core/HLE/AdhocTransportNetSim.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/ext/aemu_postoffice/client/postoffice.c \
   $(SRC)/ext/aemu_postoffice/client/postoffice_mem_stdc.c \
@@ -758,6 +818,18 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/aemu_postoffice/client/mutex_impl_cpp.cpp \
   $(SRC)/ext/aemu_postoffice/client/delay_impl_cpp.cpp \
   $(SRC)/ext/aemu_postoffice/client/log_impl_ppsspp.cpp \
+  $(SRC)/ext/aemu_postoffice/client/list.c \
+  $(SRC)/ext/aemu_postoffice/client/enet.c \
+  $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl.c \
+  $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl_mem.c \
+  $(SRC)/ext/aemu_postoffice/server_cpp/server.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/session.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/semaphore.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/log.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/common.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/enet.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/snapshot.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/native_socket_linux.cpp \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceNetApctl.cpp \
   $(SRC)/Core/HLE/sceNetInet.cpp \
@@ -793,6 +865,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/scePauth.cpp \
   $(SRC)/Core/FileSystems/BlobFileSystem.cpp \
   $(SRC)/Core/FileSystems/BlockDevices.cpp \
+  $(SRC)/Core/FileSystems/CSOCompress.cpp \
   $(SRC)/Core/FileSystems/ISOFileSystem.cpp \
   $(SRC)/Core/FileSystems/FileSystem.cpp \
   $(SRC)/Core/FileSystems/MetaFileSystem.cpp \
@@ -800,7 +873,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileSystems/VirtualDiscFileSystem.cpp \
   $(SRC)/Core/FileSystems/tlzrc.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitCommon.cpp \
-  $(SRC)/Core/MIPS/JitCommon/JitBlockCache.cpp \
+  $(SRC)/Core/MIPS/JitCommon/JitProfiler.cpp \
   $(SRC)/Core/MIPS/JitCommon/JitState.cpp \
   $(SRC)/Core/Util/AtracTrack.cpp \
   $(SRC)/Core/Util/AudioFormat.cpp \
@@ -931,9 +1004,43 @@ LOCAL_MODULE := libzstd
 LOCAL_SRC_FILES := $(LIBZSTD_FILES)
 include $(BUILD_STATIC_LIBRARY)
 
+# The bundled zlib, rather than the NDK's, which is too old for some of what we use (uncompress2).
+include $(CLEAR_VARS)
+LOCAL_MODULE := libzlib
+LOCAL_SRC_FILES := \
+  $(SRC)/ext/zlib/adler32.c \
+  $(SRC)/ext/zlib/compress.c \
+  $(SRC)/ext/zlib/crc32.c \
+  $(SRC)/ext/zlib/deflate.c \
+  $(SRC)/ext/zlib/gzclose.c \
+  $(SRC)/ext/zlib/gzlib.c \
+  $(SRC)/ext/zlib/gzread.c \
+  $(SRC)/ext/zlib/gzwrite.c \
+  $(SRC)/ext/zlib/infback.c \
+  $(SRC)/ext/zlib/inffast.c \
+  $(SRC)/ext/zlib/inflate.c \
+  $(SRC)/ext/zlib/inftrees.c \
+  $(SRC)/ext/zlib/trees.c \
+  $(SRC)/ext/zlib/uncompr.c \
+  $(SRC)/ext/zlib/zutil.c
+LOCAL_CFLAGS := -O3
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/zlib
+include $(BUILD_STATIC_LIBRARY)
+
+# FFmpeg, from the sources in ext/ffmpeg. See its README.md.
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build/sources.mk
+LOCAL_MODULE := libffmpeg
+LOCAL_SRC_FILES := $(addprefix $(SRC)/ext/ffmpeg/,$(FFMPEG_SOURCES))
+LOCAL_CFLAGS := -O3 -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
+LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
+include $(BUILD_STATIC_LIBRARY)
+
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
+LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd oboe
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/$(SRC)/ext/oboe/include
 
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
@@ -941,7 +1048,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/AndroidEGLGraphicsContext.cpp \
-  $(SRC)/android/jni/OpenSLContext.cpp \
+  $(SRC)/android/jni/OboeContext.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
   $(SRC)/UI/ImDebugger/ImGe.cpp \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
@@ -958,9 +1065,21 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/DriverManagerScreen.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \
   $(SRC)/UI/EmuScreen.cpp \
+  $(SRC)/UI/ImposeHome.cpp \
   $(SRC)/UI/GameBrowser.cpp \
+  $(SRC)/UI/GameButton.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \
+  $(SRC)/UI/SettingsPage.cpp \
+  $(SRC)/UI/Settings/GraphicsPage.cpp \
+  $(SRC)/UI/Settings/ControlsPage.cpp \
+  $(SRC)/UI/Settings/AudioPage.cpp \
+  $(SRC)/UI/Settings/NetworkingPage.cpp \
+  $(SRC)/UI/Settings/GeneralPage.cpp \
+  $(SRC)/UI/Settings/SystemPage.cpp \
+  $(SRC)/UI/Settings/ToolsPage.cpp \
+  $(SRC)/UI/Settings/VRPage.cpp \
+  $(SRC)/UI/SettingsPagesDialogScreen.cpp \
   $(SRC)/UI/AdhocServerScreen.cpp \
   $(SRC)/UI/SimpleDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
@@ -971,6 +1090,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/PauseScreen.cpp \
   $(SRC)/UI/SavedataScreen.cpp \
+  $(SRC)/UI/ShareFiles.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/SystemInfoScreen.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
@@ -978,10 +1098,11 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/LoadStateConfirmScreen.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
+  $(SRC)/UI/GamePacker.cpp \
   $(SRC)/UI/UploadScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
-  $(SRC)/UI/DeveloperToolsScreen.cpp \
+  $(SRC)/UI/DeveloperSettingsPages.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
   $(SRC)/UI/TiltAnalogSettingsScreen.cpp \
   $(SRC)/UI/TouchControlLayoutScreen.cpp \
@@ -1019,7 +1140,8 @@ ifeq ($(HEADLESS),1)
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/ReverseEngineer.cpp \
-    $(SRC)/headless/Compare.cpp
+    $(SRC)/headless/Compare.cpp \
+    $(SRC)/headless/AndroidHeadlessGLContext.cpp
 
   include $(BUILD_EXECUTABLE)
 endif
@@ -1040,29 +1162,33 @@ ifeq ($(UNITTEST),1)
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(SRC)/unittest/JitHarness.cpp \
-    $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
     $(SRC)/Core/Util/DisArm64.cpp \
     $(SRC)/ext/riscv-disas.cpp \
     $(SRC)/ext/loongarch-disasm.cpp \
     $(SRC)/unittest/TestArmEmitter.cpp \
     $(SRC)/unittest/TestArm64Emitter.cpp \
+    $(SRC)/unittest/TestArm64Disasm.cpp \
+    $(SRC)/unittest/TestArmDisasm.cpp \
 	$(SRC)/unittest/TestX64Emitter.cpp \
     $(SRC)/unittest/TestRiscVEmitter.cpp \
     $(SRC)/unittest/TestLoongArch64Emitter.cpp \
     $(SRC)/unittest/TestCrossSIMD.cpp \
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
-    $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
+    $(SRC)/unittest/TestBoundingBox.cpp \
+    $(SRC)/unittest/TestDepthRaster.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestTextureReplacer.cpp \
     $(SRC)/unittest/TestVFS.cpp \
     $(SRC)/unittest/TestDemangle.cpp \
     $(SRC)/unittest/TestLzrc.cpp \
+    $(SRC)/unittest/TestCwCheat.cpp \
     $(SRC)/unittest/TestMpegCsc.cpp \
     $(SRC)/unittest/TestSplineTessellation.cpp \
     $(SRC)/unittest/TestGEMath.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
+    $(SRC)/unittest/TestPS1Eboot.cpp \
     $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)

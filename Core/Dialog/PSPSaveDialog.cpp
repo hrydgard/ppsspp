@@ -115,7 +115,7 @@ PSPSaveDialog::~PSPSaveDialog() {
 int PSPSaveDialog::Init(int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "A save request is already running, not starting a new one");
+		ERROR_LOG(Log::sceUtility, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -1114,10 +1114,48 @@ void PSPSaveDialog::ExecuteIOAction() {
 	ioThreadStatus = SAVEIO_READY;
 }
 
+// What a mode that shows no dialog returns without a memory stick, or 0 for one not tested on
+// hardware. They all start fine and fail when they run (pspautotests utility/savedata/nomemstick).
+static u32 NoMemstickResult(SceUtilitySavedataType mode) {
+	switch (mode) {
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_MS;
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS;
+	case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
+		return SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS;
+	case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
+		return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS;
+	case SCE_UTILITY_SAVEDATA_TYPE_LIST:
+	case SCE_UTILITY_SAVEDATA_TYPE_FILES:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASESECURE:
+	case SCE_UTILITY_SAVEDATA_TYPE_ERASE:
+	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
+	case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
+	default:
+		return 0;
+	}
+}
+
 void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 	auto &result = ioRequest_.common.result;
 
 	SceUtilitySavedataType utilityMode = (SceUtilitySavedataType)(u32)ioRequest_.mode;
+	if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
+		const u32 noMemstickResult = NoMemstickResult(utilityMode);
+		if (noMemstickResult != 0) {
+			result = noMemstickResult;
+			return;
+		}
+	}
+
 	switch (utilityMode) {
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
@@ -1138,16 +1176,10 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 		result = ioParam_.GetFilesList(&ioRequest_, requestAddr, ioListSaveDirName_);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
-		{
-			bool sizeResult = ioParam_.GetSize(&ioRequest_);
-			// TODO: According to JPCSP, should test/verify this part but seems edge casey.
-			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
-				result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
-			} else if (sizeResult) {
-				result = 0;
-			} else {
-				result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
-			}
+		if (ioParam_.GetSize(&ioRequest_)) {
+			result = 0;
+		} else {
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:

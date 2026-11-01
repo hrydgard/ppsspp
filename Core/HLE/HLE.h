@@ -33,7 +33,7 @@
 
 class PointerWrap;
 class PSPAction;
-typedef void (* HLEFunc)();
+typedef void (* HLEFunc)(MIPSState *mips);
 
 enum {
 	// The low 8 bits are a value, indicating special jit handling.
@@ -91,14 +91,13 @@ struct Syscall {
 	u32 nid;
 };
 
-#define PARAM(n) currentMIPS->r[MIPS_REG_A0 + n]
-#define PARAM64(n) (currentMIPS->r[MIPS_REG_A0 + n] | ((u64)currentMIPS->r[MIPS_REG_A0 + n + 1] << 32))
-#define PARAMF(n) currentMIPS->f[12 + n]
-#define RETURN(n) currentMIPS->r[MIPS_REG_V0] = n;
-#define RETURN64(n) {u64 RETURN64_tmp = n; currentMIPS->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; currentMIPS->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
-#define RETURNF(fl) currentMIPS->f[0] = fl
-
-#define PARAM_MIPS(mips, n) mips->r[MIPS_REG_A0 + n]
+// These work on the MIPSState named mips, which HLE functions get passed (see HLEFunc and FunctionWrappers.h).
+#define PARAM(n) mips->r[MIPS_REG_A0 + n]
+#define PARAM64(n) (mips->r[MIPS_REG_A0 + n] | ((u64)mips->r[MIPS_REG_A0 + n + 1] << 32))
+#define PARAMF(n) mips->f[12 + n]
+#define RETURN(n) mips->r[MIPS_REG_V0] = n;
+#define RETURN64(n) {u64 RETURN64_tmp = n; mips->r[MIPS_REG_V0] = RETURN64_tmp & 0xFFFFFFFF; mips->r[MIPS_REG_V1] = RETURN64_tmp >> 32;}
+#define RETURNF(fl) mips->f[0] = fl
 
 struct HLEModuleMeta {
 	// This is the modname (name from the PRX header). Probably, we should really blacklist on the module names of the exported symbol metadata.
@@ -160,6 +159,7 @@ void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
 u64 hleDelayResult(u64 result, const char *reason, int usec);
+bool hleWakeDelayedThread(int threadID);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 
@@ -174,7 +174,7 @@ void hleCoreTimingForceCheck();
 void hleSplitSyscallOverGe();
 
 // Called after a split syscall from System.cpp
-void hleFinishSyscallAfterGe();
+void hleFinishSyscallAfterGe(MIPSState *mips);
 
 [[nodiscard]]
 inline int hleDelayResult(int result, const char *reason, int usec) {
@@ -200,19 +200,19 @@ size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const c
 // registers and stack. firstVarArg is the index of the first vararg, counting a0 as 0 - so 1 for a
 // printf(fmt, ...), 2 for an sprintf(dst, fmt, ...). Returns false, having logged why, if the format
 // string or an argument couldn't be read; the caller shouldn't use the result then.
-bool HLEFormatPrintf(u32 fmtAddr, int firstVarArg, std::string *result);
+bool HLEFormatPrintf(const MIPSState *mips, u32 fmtAddr, int firstVarArg, std::string *result);
 u32 GetSyscallOp(std::string_view module, u32 nib);
 bool WriteHLESyscall(std::string_view module, u32 nib, u32 address);
-void CallSyscall(MIPSOpcode op);
-void CallSyscallWithPC(MIPSOpcode op, u32 pc);  // better diagnostics
-void CallSyscallUnresolvedAtPC(u32 pc);
+void CallSyscall(MIPSState *mips, MIPSOpcode op);
+void CallSyscallWithPC(MIPSState *mips, MIPSOpcode op, u32 pc);  // better diagnostics
+void CallSyscallUnresolvedAtPC(MIPSState *mips, u32 pc);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
 
-void HLEReturnFromMipsCall();
+void HLEReturnFromMipsCall(MIPSState *mips);
 
 const HLEFunction *GetSyscallFunctionData(MIPSOpcode op, u32 pcForDiagnostics);
-// For jit, the returned function takes the arg: const HLEFunction *
+// For jit, the returned function takes the args: MIPSState *, const HLEFunction *
 void *GetQuickSyscallFunc(const HLEFunction *info, MIPSOpcode op);
 
 void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason);

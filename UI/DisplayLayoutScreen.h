@@ -31,6 +31,8 @@ class ChoiceStrip;
 
 class DisplayLayoutScreen : public UIBaseDialogScreen {
 public:
+	// The game's image goes where it will be in the game.
+	bool LimitContentArea() const override { return false; }
 	DisplayLayoutScreen(const Path &filename);
 	void CreateViews() override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

@@ -69,6 +69,27 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
 	};
 }
 
+static const SamplerDef samplersMS[1] = {
+	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN | SamplerFlags::MULTISAMPLE },
+};
+
+// Source and destination are the same size, so the fragment coordinate is the texel.
+Draw2DPipelineInfo GenerateDraw2DCopyColorSample0Fs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplersMS);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.C("  vec4 outColor = texelFetch(tex, ivec3(ivec2(gl_FragCoord.xy), 0), 0);\n");
+	writer.EndFSMain("outColor");
+
+	Draw2DPipelineInfo info{
+		"draw2d_copy_color_sample0",
+		RASTER_COLOR,
+		RASTER_COLOR,
+		samplersMS,
+	};
+	info.readSamples = true;
+	return info;
+}
+
 Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(g_draw2Duniforms, varyings);
@@ -373,6 +394,16 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			draw2DPipelineColorRect2Lin_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorRect2LinFs);
 		}
 		pipeline = draw2DPipelineColorRect2Lin_;
+		break;
+
+	case DRAW2D_COPY_COLOR_SAMPLE0:
+		if (!draw_->GetDeviceCaps().framebufferSampleReadSupported) {
+			return nullptr;
+		}
+		if (!draw2DPipelineColorSample0_) {
+			draw2DPipelineColorSample0_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorSample0Fs);
+		}
+		pipeline = draw2DPipelineColorSample0_;
 		break;
 	case DRAW2D_COPY_DEPTH:
 		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {

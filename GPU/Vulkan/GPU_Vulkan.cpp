@@ -85,23 +85,27 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	drawEngine_.InitDeviceObjects();  // Creates important things like the pipeline layout. Required for loading the disk cache.
 
-	// Load shader cache.
+	// This can stop and restart the render manager's threads, which would wait for the pipelines
+	// from the shader cache, so it goes first.
+	framebufferManagerVulkan_->Init(msaaLevel_);
+
+	// Load shader cache. The pipelines are created in the background, see IsLoadingShaderCache.
 	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
-		LoadCache(shaderCachePath_, true);
+		LoadCache(shaderCachePath_);
 	}
 
 	InitDeviceObjects();
 }
 
-void GPU_Vulkan::FinishInitOnMainThread() {
-	// This can end up stopping/starting the vulkan render manager.
-	framebufferManagerVulkan_->Init(msaaLevel_);
+bool GPU_Vulkan::IsLoadingShaderCache() const {
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	return rm->PipelinesPending();
 }
 
-void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
+void GPU_Vulkan::LoadCache(const Path &filename) {
 	_dbg_assert_(draw_);
 	if (!g_Config.bShaderCache) {
 		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
@@ -112,6 +116,12 @@ void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
 	FILE *f = File::OpenCFile(filename, "rb");
 	if (!f)
 		return;
+	if (!VerifyShaderCacheChecksum(filename)) {
+		WARN_LOG(Log::G3D, "Old or damaged Vulkan shader cache (no matching checksum) - rebuilding.");
+		fclose(f);
+		File::Delete(filename);
+		return;
+	}
 
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
@@ -133,16 +143,6 @@ void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
 		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
-
-	if (waitForPipelines) {
-		// Now, since we're on the loader thread, we can just block here until all pipelines are actually created.
-		// This makes it so that the on-screen spinner keeps spinning until we are done.
-		double start = time_now_d();
-		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		int maxTasksSeen = rm->WaitForPipelines();
-		double seconds = time_now_d() - start;
-		INFO_LOG(Log::G3D, "Waited %0.1fms for at least %d pipeline tasks to finish compiling.", seconds * 1000.0, maxTasksSeen);
-	}
 
 	if (!result) {
 		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
@@ -171,8 +171,13 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
-	INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
+	if (AppendShaderCacheChecksum(filename)) {
+		INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
+	} else {
+		ERROR_LOG(Log::G3D, "Failed to write the Vulkan pipeline cache");
+		File::Delete(filename);
+	}
 
 	// And the fixed shaders the GPU compiled along the way.
 	g_spirvCache.SaveIfDirty();
@@ -346,6 +351,8 @@ void GPU_Vulkan::InitDeviceObjects() {
 		hacks |= QUEUE_HACK_MGS2_ACID;
 	if (PSP_CoreParameter().compat.flags().SonicRivalsHack)
 		hacks |= QUEUE_HACK_SONIC;
+	if (PSP_CoreParameter().compat.flags().TiledDepalHack)
+		hacks |= QUEUE_HACK_TILED_DEPAL;
 
 	// Always on.
 	hacks |= QUEUE_HACK_RENDERPASS_MERGE;
@@ -408,7 +415,7 @@ void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
 	// DeviceLost saved the cache and then threw everything away. Load it again, or the next save would
 	// overwrite the file with only what gets drawn from now on.
 	if (shaderCachePath_.Valid()) {
-		LoadCache(shaderCachePath_, false);
+		LoadCache(shaderCachePath_);
 	}
 }
 

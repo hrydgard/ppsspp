@@ -53,6 +53,13 @@ struct PendingScreenshot {
 
 PendingScreenshot g_pendingScreenshot;
 
+// The callback may schedule a retry, so the pending screenshot has to be out of the way before it runs.
+static void FailPendingScreenshot() {
+	PendingScreenshot pending = std::move(g_pendingScreenshot);
+	g_pendingScreenshot = {};
+	pending.callback(ScreenshotResult::ScreenshotNotPossible);
+}
+
 class JPEGFileStream : public jpge::output_stream {
 public:
 	JPEGFileStream(const Path &filename) {
@@ -329,16 +336,14 @@ bool ScreenshotNotifyEndOfFrame(Draw::DrawContext *draw) {
 	if (g_display.rotation != DisplayRotation::ROTATE_0) {
 		GPUDebugBuffer temp;
 		if (!::GetOutputFramebuffer(draw, temp)) {
-			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
-			g_pendingScreenshot = {};
+			FailPendingScreenshot();
 			return false;
 		}
 		_dbg_assert_msg_(temp.IsBackBuffer(), "temp isn't backbuffer??");
 		buf = ApplyRotation(temp, g_display.rotation);
 	} else {
 		if (!::GetOutputFramebuffer(draw, buf)) {
-			g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
-			g_pendingScreenshot = {};
+			FailPendingScreenshot();
 			return false;
 		}
 	}
@@ -359,16 +364,14 @@ bool ScreenshotNotifyPostGameRender(Draw::DrawContext *draw) {
 	GPUDebugBuffer buf;
 	if (!gpu) {
 		ERROR_LOG(Log::System, "Can't take screenshots when GPU not running");
-		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
-		g_pendingScreenshot = {};
+		FailPendingScreenshot();
 		return false;
 	}
 
 	const int maxRes = g_pendingScreenshot.maxRes;
 
 	if (!gpu->GetCurrentFramebuffer(buf, g_pendingScreenshot.type == ScreenshotType::Render ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY, maxRes)) {
-		g_pendingScreenshot.callback(ScreenshotResult::ScreenshotNotPossible);
-		g_pendingScreenshot = {};
+		FailPendingScreenshot();
 		return false;
 	}
 
@@ -461,7 +464,8 @@ bool Save8888RGBAScreenshot(std::vector<uint8_t> &bufferPNG, const u8 *bufferRGB
 
 	png_alloc_size_t allocSize = bufferPNG.size();
 	int result = png_image_write_to_memory(&png, allocSize == 0 ? nullptr : bufferPNG.data(), &allocSize, 0, bufferRGBA8888, w * 4, nullptr);
-	bool success = result != 0 && png.warning_or_error <= 1;
+	// Without a buffer, that only measured it.
+	bool success = !bufferPNG.empty() && result != 0 && png.warning_or_error <= 1;
 	if (!success && allocSize != bufferPNG.size()) {
 		bufferPNG.resize(allocSize);
 		png.warning_or_error = 0;
@@ -522,7 +526,15 @@ void TakeUserScreenshot() {
 	if (GetUIState() != UISTATE_INGAME) {
 		// We're out in the UI, no game. The only type of screenshot available is output.
 		type = ScreenshotType::Output;
+	} else if (gpu && gpu->PresentsToOtherOutput()) {
+		// The game is on a TV. The device's own screen only has the controls on it.
+		type = ScreenshotType::Display;
 	}
+
+	// Close any active popups, so they don't end up in the screenshot.
+	// However people often want to take screenshots of achievement things,
+	// so keep those.
+	g_OSD.ClearNonAchievementEntries();
 
 	ScheduleScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](ScreenshotResult result) {
 		if (result == ScreenshotResult::Success) {

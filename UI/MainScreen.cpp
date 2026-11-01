@@ -39,6 +39,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/EmuScreen.h"
 #include "UI/MainScreen.h"
+#include "UI/GamePacker.h"
 #include "UI/GameScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
@@ -57,10 +58,24 @@
 #include "Core/Util/DarwinFileSystemServices.h" // For the browser
 
 #include "Core/HLE/sceUmd.h"
+#include "Core/Util/PSARUnpack.h"
 
 bool MainScreen::showHomebrewTab = false;
 
+static void LaunchInEmuScreen(ScreenManager *screenManager, Screen *currentScreen, EmuScreen *emuScreen) {
+	if (currentScreen) {
+		screenManager->cancelScreensAbove(currentScreen);
+	}
+	screenManager->switchScreen(emuScreen);
+}
+
 static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, const Path &path) {
+	if (GamePacker::IsPacking(path)) {
+		// Can't play it while it's read (and maybe replaced), so show its progress instead.
+		screenManager->push(new GameScreen(path, false));
+		return;
+	}
+
 	std::string extension = path.GetFileExtension();
 	if (extension == ".zip" || extension == ".7z") {
 		// If is a zip file, we have a screen for that.
@@ -74,18 +89,61 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
 		// it's available - we can't decide what to do below without it. HIGH, so we don't wait behind
 		// whatever else is queued, like a search's loads for every game in a big list.
-		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
-		info->WaitUntilReady(neededFlags);
+		// Only the file type at first: just a few of the cases below need the PARAM.SFO, and reading
+		// it out of a disc image costs more disk access.
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
+		info->WaitUntilReady(GameInfoFlags::FILE_TYPE);
+		const auto waitForParamSFO = [&]() {
+			g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
+			info->WaitUntilReady(GameInfoFlags::PARAM_SFO);
+		};
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
-			// We show info about it.
-			screenManager->push(new GameScreen(path, false));
+		{
+			// The XMB plays it, if there's one to boot. Otherwise we show info about it.
+			const Path vshPath = GetUmdVideoVSHPath();
+			if (vshPath.empty()) {
+				screenManager->push(new GameScreen(path, false));
+			} else {
+				LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, true));
+			}
 			return;
+		}
+		case IdentifiedFileType::PSP_ISO:
+		{
+			// A disc with both a game and video on it. The XMB would start the game by itself, so for
+			// the video, it comes up without auto-start and the disc waits in the Video column.
+			const Path vshPath = GetUmdVideoVSHPath();
+			if (vshPath.empty()) {
+				break;
+			}
+			std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(path));
+			if (!fileLoader || !(DetectUmdDiscType(fileLoader.get()) & PSP_UMD_TYPE_VIDEO)) {
+				break;
+			}
+			if (!UmdHasBootableGame(fileLoader.get())) {
+				// The game is only a placeholder, so there's just the video.
+				LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, false));
+				return;
+			}
+			auto ga = GetI18NCategory(I18NCat::GAME);
+			const std::vector<std::string> choices = { std::string(ga->T("Play game")), std::string(ga->T("Watch video")) };
+			UI::ListPopupScreen *popup = new UI::ListPopupScreen(ga->T("This disc has both a game and video"), choices, -1, [=](int choice) {
+				if (choice == 0) {
+					LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(path));
+				} else if (choice == 1) {
+					LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(vshPath, path, false));
+				}
+			});
+			popup->SetChoiceIcons({ { 0, ImageID("I_PLAY") }, { 1, ImageID("I_UMD_VIDEO_ISO") } });
+			screenManager->push(popup);
+			return;
+		}
 		case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
 		{
 			// Show the savedata popup, why not?
+			waitForParamSFO();
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
 			screenManager->push(new SavedataPopupScreen(Path(), path, title));
 			return;
@@ -95,6 +153,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		{
 			// Check if it's an update file. If so, we'll offer to install it directly,
 			// instead of running it (which currently will not work).
+			waitForParamSFO();
 			if (info->id == "MSTKUPDATE") {
 				std::string title = info->GetTitle();  // includes the version.
 				// The unpacker wants the PBP itself, not the folder it happens to sit in.
@@ -107,11 +166,8 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		default:
 			break;
 		}
-		if (currentScreen) {
-			screenManager->cancelScreensAbove(currentScreen);
-		}
 		// Otherwise let the EmuScreen take care of it, including error handling.
-		screenManager->switchScreen(new EmuScreen(path));
+		LaunchInEmuScreen(screenManager, currentScreen, new EmuScreen(path));
 	}
 }
 
@@ -140,11 +196,23 @@ static bool IsTempPath(const Path &str) {
 	return false;
 }
 
+// Leaving a game creates a new MainScreen, which should come back on the tab the game was
+// launched from. The default tab setting is only for the first one after startup.
+static int g_lastMainScreenTab = -1;
+// Tab indices shift when the Recent tab isn't shown, so the saved tab only applies if this matches.
+static bool g_lastMainScreenHadRecent = false;
+
 MainScreen::MainScreen() {
 	g_BackgroundAudio.SetGame(Path());
+	packGeneration_ = GamePacker::Generation();
 }
 
 MainScreen::~MainScreen() {
+	// RemoteISOBrowseScreen derives from us, but with tabs of its own.
+	if (tabHolder_ && createdMainTabs_) {
+		g_lastMainScreenTab = tabHolder_->GetCurrentTab();
+		g_lastMainScreenHadRecent = recentTabShown_;
+	}
 	g_BackgroundAudio.SetGame(Path());
 }
 
@@ -177,7 +245,7 @@ void MainScreen::CreateRecentTab() {
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabRecentGames->SetSearchBar(search);
 
@@ -190,7 +258,7 @@ void MainScreen::CreateRecentTab() {
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 }
 
-GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos) {
+GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, int *viewMode, float *scrollPos) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -203,7 +271,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
-	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, bGridView, screenManager(),
+	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, viewMode, screenManager(),
 		mm->T(howToTitle), howToUri,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
@@ -295,50 +363,62 @@ private:
 	const bool portrait_;
 };
 
-void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
+void MainScreen::CreateMainButtons(UI::LinearLayout *parent, bool portrait) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	const bool showGold = !System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR);
+
 	if (portrait) {
+		// Icon buttons only, and no exit button - there's no space.
 		parent->Add(new Spacer(1.0f, new LinearLayoutParams(1.0f)));
-	}
-	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(portrait ? new Choice(ImageID("I_FOLDER_OPEN"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
-	}
-	parent->Add(portrait ? new Choice(ImageID("I_GEAR"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
-	parent->Add(portrait ? new Choice(ImageID("I_INFO"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+		if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			parent->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LinearLayoutParams()))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+		}
+		parent->Add(new Choice(ImageID("I_GEAR"), new LinearLayoutParams()))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+		parent->Add(new Choice(ImageID("I_INFO"), new LinearLayoutParams()))->OnClick.Handle(this, &MainScreen::OnCredits);
+		if (showGold) {
+			Choice *gold = parent->Add(new Choice(ImageID("I_ICON_GOLD"), new LinearLayoutParams()));
+			gold->OnClick.Add([this](UI::EventParams &) {
+				LaunchBuyGold(this->screenManager());
+			});
+			gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
+			gold->SetImageScale(0.6f);  // for the left icon.
+			gold->SetShine(true);
+		}
+		parent->ApplyRoundCorners();
+		return;
+	} else {
+		ChoiceGroupList *buttons = parent->Add(new ChoiceGroupList());
+		buttons->SetPadding(Margins(0));
+		buttons->SetSpacing(12.0f);
 
-	if (!portrait) {
-		parent->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	}
+		ChoiceGroup *mainButtons = buttons->Add(new ChoiceGroup());
 
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD) && (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_VR)) {
-		Choice *gold = parent->Add(portrait ? new Choice(ImageID("I_ICON_GOLD"), portrait ? new LinearLayoutParams() : nullptr) : new Choice(mm->T("Buy PPSSPP Gold")));
-		gold->OnClick.Add([this](UI::EventParams &) {
-			LaunchBuyGold(this->screenManager());
-		});
-		gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
-		gold->SetImageScale(0.6f);  // for the left-icon in case of vertical.
-		gold->SetShine(true);
-	}
+		if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			mainButtons->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
+		}
+		mainButtons->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
+		mainButtons->Add(new Choice(mm->T("About PPSSPP")))->OnClick.Handle(this, &MainScreen::OnCredits);
+		mainButtons->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
 
-	if (!portrait) {
-		parent->Add(new Spacer(16.0));
-	}
+		if (showGold) {
+			Choice *gold = mainButtons->Add(new Choice(mm->T("Buy PPSSPP Gold")));
+			gold->OnClick.Add([this](UI::EventParams &) {
+				LaunchBuyGold(this->screenManager());
+			});
+			gold->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
+			gold->SetImageScale(0.6f);
+			gold->SetShine(true);
+		}
 
-	// Remove the exit button in vertical layout on all platforms, just no space.
-	bool showExitButton = !portrait;
-	// Also, always hide the exit button on mobile platforms that are not supposed to have one.
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-	showExitButton = false;
-#elif PPSSPP_PLATFORM(ANDROID)
-	// The exit button previously created problems on Android.
-	// However now we allow it in landscape mode.
-	showExitButton = !portrait; //  System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV;
-#endif
-	// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
-	if (showExitButton) {
-		parent->Add(new Choice(di->T("Exit")))->OnClick.Add([](UI::EventParams &e) {
+		// Exit button.
+
+		// Officially, iOS apps should not have exit buttons. Remove it to maximize app store review chances.
+		// (The exit button previously created problems on Android, but now we allow it in landscape mode.)
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+		Choice *exitButton = buttons->Add(new Choice(di->T("Exit")));
+		exitButton->OnClick.Add([](UI::EventParams &e) {
 			// Let's make sure the config was saved, since it may not have been.
 			if (!g_Config.Save("MainScreen::OnExit")) {
 				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
@@ -347,6 +427,8 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 			// Request the framework to exit cleanly.
 			System_ExitApp();
 		});
+		exitButton->SetRoundCorners(RoundCorners::All);
+#endif
 	}
 }
 
@@ -381,19 +463,23 @@ void MainScreen::CreateViews() {
 	if (showRecent) {
 		CreateRecentTab();
 	}
+	recentTabShown_ = showRecent;
+	createdMainTabs_ = true;
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		CreateBrowserTab(Path(g_Config.currentDirectory), "Games", "How to get games", getGamesUri, BrowseFlags::STANDARD, &g_Config.bGridView2, &g_Config.fGameListScrollPosition);
-		CreateBrowserTab(GetSysDirectory(DIRECTORY_GAME), "Homebrew & Demos", "How to get homebrew & demos", getHomebrewUri, BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, &g_Config.fHomebrewScrollPosition);
+		CreateBrowserTab(Path(g_Config.currentDirectory), "Games", "How to get games", getGamesUri, BrowseFlags::STANDARD, &g_Config.iGameBrowserView2, &g_Config.fGameListScrollPosition);
+		CreateBrowserTab(GetSysDirectory(DIRECTORY_GAME), "Homebrew & Demos", "How to get homebrew & demos", getHomebrewUri, BrowseFlags::HOMEBREW_STORE, &g_Config.iGameBrowserView3, &g_Config.fHomebrewScrollPosition);
 
 		if (g_Config.bRemoteTab && !g_Config.sLastRemoteISOServer.empty()) {
 			Path remotePath(FormatRemoteISOUrl(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort, RemoteSubdir().c_str()));
-			GameBrowser *remoteBrowser = CreateBrowserTab(remotePath, "Remote disc streaming", "Remote disc streaming", remoteGamesUri, BrowseFlags::NAVIGATE, &g_Config.bGridView4, &g_Config.fRemoteScrollPosition);
+			GameBrowser *remoteBrowser = CreateBrowserTab(remotePath, "Remote disc streaming", "Remote disc streaming", remoteGamesUri, BrowseFlags::NAVIGATE, &g_Config.iGameBrowserView4, &g_Config.fRemoteScrollPosition);
 			remoteBrowser->SetHomePath(remotePath);
 		}
 
-		if (g_recentFiles.HasAny()) {
+		if (g_lastMainScreenTab >= 0 && g_lastMainScreenHadRecent == showRecent) {
+			tabHolder_->SetCurrentTab(g_lastMainScreenTab, true);
+		} else if (g_recentFiles.HasAny()) {
 			tabHolder_->SetCurrentTab(std::clamp(g_Config.iDefaultTab, 0, g_Config.bRemoteTab ? 3 : 2), true);
 		} else if (g_Config.iMaxRecent > 0) {
 			tabHolder_->SetCurrentTab(1, true);	
@@ -506,7 +592,7 @@ void MainScreen::CreateViews() {
 
 	const UI::Drawable dismissableBackground = screenManager()->getUIContext()->GetTheme().itemDownStyle.background;
 
-	auto CreateDismissableBar = [this, vertical, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
+	auto CreateDismissableBar = [this, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
 		Margins margins(0, 0);
 		UI::LinearLayout *bar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
@@ -534,7 +620,7 @@ void MainScreen::CreateViews() {
 		std::string upgradeMessage(di->T("New version of PPSSPP available"));
 		// The version only really fits in the horizontal layout.
 		upgradeMessage += ": " + g_Config.sUpgradeVersion;
-		UI::LinearLayout *upgradeBar = CreateDismissableBar(upgradeMessage, di->T("Download"), [this]() {
+		UI::LinearLayout *upgradeBar = CreateDismissableBar(upgradeMessage, di->T("Download"), []() {
 			g_Config.DismissUpgrade();
 			g_Config.Save("dismissupgrade");
 		});
@@ -558,7 +644,7 @@ void MainScreen::CreateViews() {
 
 bool MainScreen::key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
-		if (key.keyCode == NKCODE_F && (key.flags & KeyInputFlags::ModCtrl) && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
+		if (key.keyCode == NKCODE_F && (key.flags & KEY_MOD_SHORTCUT) && System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 			auto se = GetI18NCategory(I18NCat::SEARCH);
 			System_InputBoxGetString(GetRequesterToken(), se->T("Search term"), searchFilter_, false, [this](std::string_view value, int) {
 				searchFilter_ = StripSpaces(value);
@@ -625,6 +711,18 @@ void MainScreen::sendMessage(UIMessage message, const char *value) {
 void MainScreen::update() {
 	UIScreen::update();
 	UpdateUIState(UISTATE_MENU);
+
+	if (packGeneration_ != GamePacker::Generation()) {
+		// A pack finished: a new file, and maybe the original gone.
+		packGeneration_ = GamePacker::Generation();
+		const GamePacker::Result result = GamePacker::LastResult();
+		if (restoreFocusGamePath_ == result.oldPath) {
+			restoreFocusGamePath_ = result.newPath;
+		}
+		for (auto browser : gameBrowsers_) {
+			browser->RequestRefresh();
+		}
+	}
 
 	if (searchChanged_) {
 		for (auto browser : gameBrowsers_) {
@@ -797,7 +895,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		backFromStore_ = true;
 		RecreateViews();
 	} else if (tag == "Game") {
-		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
+		if (static_cast<const GameScreen *>(dialog)->GameRemoved()) {
+			// Deleted or removed from recents. The recents tab recreates itself on RECENT_FILES_CHANGED.
+			restoreFocusGamePath_.clear();
+			g_BackgroundAudio.SetGame(Path());
+			for (auto browser : gameBrowsers_) {
+				browser->RequestRefresh();
+			}
+		} else if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			InstantHighlight(restoreFocusGamePath_);
 
@@ -853,7 +958,7 @@ void UmdReplaceScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
@@ -863,7 +968,7 @@ void UmdReplaceScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
-	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, portrait, &g_Config.bGridView2, screenManager(),
+	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, portrait, &g_Config.iGameBrowserView2, screenManager(),
 		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -879,7 +984,7 @@ void UmdReplaceScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
 			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
-				__UmdReplace(Path(value));
+				UseDisc(Path(value));
 				TriggerFinish(DR_OK);
 			});
 		});
@@ -906,8 +1011,19 @@ void UmdReplaceScreen::update() {
 }
 
 void UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
-	__UmdReplace(Path(e.s));
+	UseDisc(Path(e.s));
 	TriggerFinish(DR_OK);
+}
+
+void UmdReplaceScreen::UseDisc(const Path &path) {
+	if (!insert_) {
+		__UmdReplace(path);
+		return;
+	}
+	std::string error;
+	if (!__UmdInsert(path, &error)) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, error);
+	}
 }
 
 void UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
@@ -925,13 +1041,11 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 	items->SetSpacing(0.0f);
 
-	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
-	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
-	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
+	// Same order as GameBrowserViewMode.
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
-	PopupMultiChoice *beziersChoice = items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
+	items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Grid icon size")));
+	items->Add(new ItemHeader(sy->T("Icon size")));
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
 	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
 

@@ -257,8 +257,9 @@ reporting the range start; `hit.address` is the accurate one.
 
 `sequence` counts hits *produced*, not delivered. A connection whose queue backs
 up (easy to do with a log-only breakpoint in a hot loop - one can produce tens
-of thousands of hits per second) drops events rather than growing without bound,
-so a gap in `sequence` tells a client exactly how many it missed. Turning the
+of thousands of hits per second) drops hits rather than growing without bound,
+so a gap in `sequence` tells a client exactly how many it missed. Game and
+stepping events are never dropped. Turning the
 `breakpoint` category off via `broadcast.config.set` avoids the traffic
 entirely.
 
@@ -270,16 +271,16 @@ file - this is just an index.
 
 | Category | Events | File |
 |---|---|---|
-| Game/version | `game.reset`, `game.status`, `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
+| Game/version | `game.reset`, `game.status`, `game.state.load` (queue loading a `.ppst` file given as `path`, or a `slot` of the running game (any slot in headless, otherwise one the app's slot count shows), applied at the end of the next frame the CPU runs; with `wait: true` the response comes once it's done, or as an error if it failed), `game.state.save` (the same for saving one), `game.state.rewind` (the same for the newest rewind snapshot, which it keeps, so only a rewind within 0.8 seconds of the last steps further back; needs `RewindSnapshotInterval` set, and the `wait` response's `metadata` says how far back that is in emulated time), `game.state.verify` (the same for checking that saving the current state and reading it back agree; all but this one are refused in a session booted into the XMB, whose discs come and go), `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `game.umd.insert` / `game.umd.eject` (put a disc image, given as `path`, in an empty drive, or take it out: for the XMB booted with `--vsh` and no game, which then lists the disc and can launch it), `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
-| Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
+| Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop; a time already passed, such as `relativeUs` 0, stops right away without running, and a savestate loaded during the run keeps the time that was left), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
 | Memory read/write | `memory.read_u8/u16/u32`, `memory.read`, `memory.readString`, `memory.write_u8/u16/u32`, `memory.write`. The numeric ones report the result as both `value` and `uintValue` - the latter is what `cpu.getReg`/`cpu.getAllRegs` call it, so a client can read either without caring which event answered | `MemorySubscriber.cpp` |
 | Memory search | `memory.search` - scan a range for a `u8`/`u16`/`u32`/`float` value or a `bytes` pattern (with an optional wildcard mask), for narrowing down where an unknown value lives (Cheat Engine style) | `MemorySubscriber.cpp` |
 | Memory info/annotations | `memory.mapping`, `memory.info.config/set/list/search` | `MemoryInfoSubscriber.cpp` |
 | Disassembly | `memory.base`, `memory.disasm` (add `compact=true` for plain-text lines instead of full per-field objects), `memory.searchDisasm` (add `findAll=true` for every match instead of just the first - e.g. "every caller of this address"), `memory.assemble` | `DisasmSubscriber.cpp` |
 | GE display list disassembly | `gpu.displaylist.disasm` - like `memory.disasm` but for GE command words (`CLEARMODE`, `PRIM`, etc.) instead of CPU instructions; also supports `compact=true` | `GPUDisasmSubscriber.cpp` |
-| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.game.saveSymbols/loadSymbols` (the same for symbols that aren't inside any module - heap, stack, scratchpad, hardware registers - which describe one game's memory layout and so go to a per-game `PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym` instead; see `SymbolMap::GetGameSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
+| HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.func.hash` (the code hash and size of the analyzed function at an address, as `hardcodedHashes` in `MIPSAnalyst.cpp` needs them, and the name of the entry already matching it if any), `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.game.saveSymbols/loadSymbols` (the same for symbols that aren't inside any module - heap, stack, scratchpad, hardware registers - which describe one game's memory layout and so go to a per-game `PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym` instead; see `SymbolMap::GetGameSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
 | Data symbols | `hle.data.list/add/remove/rename` - label discovered data (structs, tables, buffers) with a name/type, same idea as `hle.func.*` but for `ST_DATA` symbols | `HLESubscriber.cpp` |
 | Kernel objects | `hle.object.list` (every live kernel object of every type at once, with an optional `type` filter - uid/type/name/one-line summary only); `hle.eventflag.list/info`, `hle.mutex.list/info`, `hle.semaphore.list/info`, `hle.msgpipe.list/info`, `hle.callback.list/info` (per-type full detail, including waiting-thread lists) - all read-only, never mutate kernel state | `HLEKernelObjectSubscriber.cpp` |
 | GPU stats | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
@@ -288,12 +289,12 @@ file - this is just an index.
 | Input injection | `input.buttons.send`, `input.buttons.press`, `input.analog.send` | `InputSubscriber.cpp` |
 | Replay | `replay.begin/abort/flush/execute/status`, `replay.time.get/set` | `ReplaySubscriber.cpp` |
 | Client config | `broadcast.config.get/set`, `client.config.get/set` | `ClientConfigSubscriber.cpp` |
-| Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
+| Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state, enabling one also turns logging as a whole on, which headless has off without `--log`; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
 
 ## Enabling it
 
 - **UI**: Settings > Tools > Developer Tools > "Allow remote debugger"
-  checkbox (`UI/DeveloperToolsScreen.cpp`). The "Local Server Port" slider on
+  checkbox (`UI/DeveloperSettingsPages.cpp`). The "Local Server Port" slider on
   the Networking screen sets the port (shared with Remote ISO sharing; `0` =
   auto-pick).
 - **Config**: `RemoteDebuggerOnStartup=true` in `ppsspp.ini`

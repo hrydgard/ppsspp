@@ -24,9 +24,12 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
-extern bool g_TakeScreenshot;
-
 static const float g_atlasIconSize = 36.0f;
+
+// Inside the background, enough to keep the contents clear of the rounded corners.
+static float NoticeViewPadding(const UIContext &dc) {
+	return dc.GetTheme().choiceRoundRadius * 0.5f;
+}
 
 // Align only matters here for the ASCII-only flag.
 static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &entry, int align, float maxWidth, float *width, float *height, float *height1) {
@@ -36,7 +39,7 @@ static void MeasureOSDEntry(const UIContext &dc, const OnScreenDisplay::Entry &e
 		*width = std::min(maxWidth, 550.0f);
 		*height1 = *height;
 	} else {
-		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, maxWidth, width, height, height1);
+		MeasureNotice(dc, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, maxWidth, width, height, height1, NoticeViewPadding(dc));
 	}
 }
 
@@ -48,13 +51,17 @@ static void RenderOSDEntry(UIContext &dc, const OnScreenDisplay::Entry &entry, B
 		}
 		return;
 	} else {
-		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime);
+		if (!(entry.flags & OSDMessageFlags::Transparent)) {
+			dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+		}
+		RenderNotice(dc, bounds, height1, GetNoticeLevel(entry.type), entry.text, entry.text2, entry.iconName, align, alpha, entry.flags, now - entry.startTime, NoticeViewPadding(dc), dc.GetTheme().choiceRoundRadius * 0.75f);
 	}
 }
 
 static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &entry, Bounds bounds, int align, float alpha) {
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 
+	const float radius = dc.GetTheme().choiceRoundRadius * 0.75f;
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	uint32_t progressBackgroundColor = colorAlpha(0xa08070, alpha);
 
@@ -67,20 +74,19 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &en
 		float ratio = (float)(entry.progress - entry.minValue) / (float)entry.maxValue;
 
 		Bounds boundLeft = bounds;
-		Bounds boundRight = bounds;
-
 		boundLeft.w *= ratio;
-		boundRight.x += ratio * boundRight.w;
-		boundRight.w *= (1.0f - ratio);
 
-		dc.FillRect(progressBackground, boundLeft);
-		dc.FillRect(background, boundRight);
+		// Clip the progress part, so its rounded corners match the background's at any width.
+		dc.FillRoundRect(background, bounds, radius);
+		dc.PushScissor(boundLeft);
+		dc.FillRoundRect(progressBackground, bounds, radius);
+		dc.PopScissor();
 	} else {
 		// Indeterminate spinner
 		float alpha = cos(time_now_d() * 5.0) * 0.5f + 0.5f;
 		uint32_t pulse = colorBlend(backgroundColor, progressBackgroundColor, alpha);
 		UI::Drawable background = UI::Drawable(pulse);
-		dc.FillRect(background, bounds);
+		dc.FillRoundRect(background, bounds, radius);
 	}
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -100,17 +106,13 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	uint32_t backgroundColor = colorAlpha(0x806050, alpha);
 	UI::Drawable background = UI::Drawable(backgroundColor);
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-	dc.FillRect(background, bounds);
+	dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.75f);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (g_TakeScreenshot) {
-		return;
-	}
-
 	dc.Flush();
 
 	double now = time_now_d();
@@ -430,6 +432,14 @@ ViewLayoutMode OSDOverlayScreen::LayoutMode() const {
 	return ViewLayoutMode::ApplyInsets;
 }
 
+NoticeView::NoticeView(NoticeLevel level, std::string_view text, std::string_view detailsText, UI::LayoutParams *layoutParams)
+	: InertView(layoutParams), level_(level), text_(text), detailsText_(detailsText) {
+	if (!layoutParams) {
+		layoutParams_->width = UI::FILL_PARENT;
+		layoutParams_->height = UI::WRAP_CONTENT;
+	}
+}
+
 void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
 	float layoutWidth = layoutParams_->width;
 	if (layoutWidth < 0) {
@@ -438,12 +448,12 @@ void NoticeView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec
 	}
 	ApplyBoundBySpec(layoutWidth, horiz);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
-	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_);
+	MeasureNotice(dc, level_, text_, detailsText_, iconName_, align, layoutWidth, &w, &h, &height1_, NoticeViewPadding(dc));
 }
 
 void NoticeView::Draw(UIContext &dc) {
 	dc.PushScissor(bounds_);
 	const int align = wrapText_ ? FLAG_WRAP_TEXT : 0;
-	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f);
+	RenderNotice(dc, bounds_, height1_, level_, text_, detailsText_, iconName_, align, 1.0f, OSDMessageFlags::None, 0.0f, NoticeViewPadding(dc), dc.GetTheme().choiceRoundRadius, roundCorners_);
 	dc.PopScissor();
 }

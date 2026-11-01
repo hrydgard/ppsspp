@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
+    <ClCompile Include="..\..\UI\ShareFiles.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
@@ -46,7 +47,7 @@
     <ClCompile Include="..\..\UI\CwCheatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\UI\DeveloperToolsScreen.cpp">
+    <ClCompile Include="..\..\UI\DeveloperSettingsPages.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\DevScreens.cpp">
@@ -58,7 +59,13 @@
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\ImposeHome.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\EmuScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\GamePacker.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\GameScreen.cpp">
@@ -127,6 +134,36 @@
     <ClCompile Include="..\..\UI\TabbedDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\SettingsPage.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\GraphicsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\ControlsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\AudioPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\NetworkingPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\GeneralPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\SystemPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\ToolsPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\Settings\VRPage.cpp">
+      <Filter>Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\SettingsPagesDialogScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\SimpleDialogScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -151,11 +188,13 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\GameBrowser.cpp" />
+    <ClCompile Include="..\..\UI\GameButton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
+    <ClInclude Include="..\..\UI\ShareFiles.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
@@ -198,7 +237,7 @@
     <ClInclude Include="..\..\UI\CwCheatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\UI\DeveloperToolsScreen.h">
+    <ClInclude Include="..\..\UI\DeveloperSettingsPages.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\DevScreens.h">
@@ -210,7 +249,13 @@
     <ClInclude Include="..\..\UI\DriverManagerScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\ImposeHome.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\EmuScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\GamePacker.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\GameScreen.h">
@@ -279,6 +324,15 @@
     <ClInclude Include="..\..\UI\TabbedDialogScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\SettingsPage.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\Settings\MainSettingsPages.h">
+      <Filter>Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\SettingsPagesDialogScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -300,6 +354,7 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\GameBrowser.h" />
+    <ClInclude Include="..\..\UI\GameButton.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">
@@ -307,6 +362,9 @@
     </Filter>
     <Filter Include="Screens">
       <UniqueIdentifier>{38b8413d-438d-4197-9db8-7bd123fc7431}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Settings">
+      <UniqueIdentifier>{5898f2e1-ea5b-45dc-a02d-17a4de26650b}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

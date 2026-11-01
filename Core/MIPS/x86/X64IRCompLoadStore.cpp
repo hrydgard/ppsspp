@@ -64,7 +64,7 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MDisp(MEMBASEREG, disp & 0x7FFFFFFF);
 #else
-		addrArg = M(Memory::base + disp);
+		addrArg = M(mips_->space->base + disp);
 #endif
 	} else if ((jo.cachePointers || src1IsPointer) && !readsFromSrc1 && (!clobbersSrc1 || src1IsPointer)) {
 		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
@@ -74,18 +74,64 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), disp));
 		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
-		addrArg = MDisp(SCRATCH1, (intptr_t)Memory::base);
+		addrArg = MDisp(SCRATCH1, (intptr_t)mips_->space->base);
 #else
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, disp);
 #else
-		addrArg = MDisp(regs_.RX(inst.src1), Memory::base + disp);
+		addrArg = MDisp(regs_.RX(inst.src1), mips_->space->base + disp);
 #endif
 #endif
 	}
 
 	return addrArg;
 }
+
+#if PPSSPP_ARCH(AMD64)
+// Memory directly, or through the fixed code for a hardware register (0xBC000000-0xBFFFFFFF), where
+// the address may also be one the CPU has no memory at. The main CPU has no views anywhere in kernel
+// segment 1 (0xA0000000-0xBFFFFFFF), so all of it goes there (see Memory::IsMMIOAccess).
+void X64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	const bool isStore = inst.op == IROp::StoreKernel8 || inst.op == IROp::StoreKernel16 || inst.op == IROp::StoreKernel32;
+	regs_.Map(inst);
+	LEA(32, SCRATCH1, MDisp(regs_.RX(inst.src1), inst.constant));
+	const X64Reg reg = isStore ? regs_.RX(inst.src3) : regs_.RX(inst.dest);
+
+	CMP(32, R(SCRATCH1), Imm32(mips_->IsMediaEngine() ? 0xBC000000 : 0xA0000000));
+	FixupBranch below = J_CC(CC_B);
+	CMP(32, R(SCRATCH1), Imm32(0xC0000000));
+	FixupBranch above = J_CC(CC_AE);
+	if (isStore)
+		MOV(32, MDisp(CTXREG, tempOffset), R(reg));
+	CALL(kernelLoadStore_[(int)inst.op - (int)IROp::LoadKernel8]);
+	if (!isStore && inst.dest != MIPS_REG_ZERO)
+		MOV(32, R(reg), R(SCRATCH1));
+	FixupBranch done = J();
+
+	SetJumpTarget(below);
+	SetJumpTarget(above);
+	if (!isStore && inst.dest == MIPS_REG_ZERO) {
+		// Only a hardware register's read can matter.
+		SetJumpTarget(done);
+		return;
+	}
+	const OpArg addr = MComplex(MEMBASEREG, SCRATCH1, SCALE_1, 0);
+	switch (inst.op) {
+	case IROp::LoadKernel8: MOVZX(32, 8, reg, addr); break;
+	case IROp::LoadKernel8Ext: MOVSX(32, 8, reg, addr); break;
+	case IROp::LoadKernel16: MOVZX(32, 16, reg, addr); break;
+	case IROp::LoadKernel16Ext: MOVSX(32, 16, reg, addr); break;
+	case IROp::LoadKernel32: MOV(32, R(reg), addr); break;
+	case IROp::StoreKernel8: MOV(8, addr, R(reg)); break;
+	case IROp::StoreKernel16: MOV(16, addr, R(reg)); break;
+	case IROp::StoreKernel32: MOV(32, addr, R(reg)); break;
+	default: INVALIDOP; break;
+	}
+	SetJumpTarget(done);
+}
+#endif
 
 void X64JitBackend::CompIR_CondStore(IRInst inst) {
 	CONDITIONAL_DISABLE;
@@ -94,7 +140,8 @@ void X64JitBackend::CompIR_CondStore(IRInst inst) {
 
 	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
-	OpArg valueArg = R(regs_.MapGPR(inst.src3, MIPSMap::INIT));
+	// The result goes in the same register (dest == src3), so it must be flushed.
+	OpArg valueArg = R(regs_.MapGPR(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY));
 
 	regs_.MapGPR(IRREG_LLBIT, MIPSMap::INIT);
 
@@ -156,7 +203,9 @@ void X64JitBackend::CompIR_Load(IRInst inst) {
 	regs_.SpillLockGPR(inst.dest, inst.src1);
 	OpArg addrArg = PrepareSrc1Address(inst);
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
-	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+	// Only ll can load into $zero (for the llBit), and must not map it.
+	if (inst.dest != MIPS_REG_ZERO)
+		regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?
 

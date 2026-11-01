@@ -66,7 +66,10 @@ void NativeResized();
 void NativeTouch(const TouchInput &touch);
 bool NativeKey(const KeyInput &key);
 void NativeAxis(const AxisInput *axis, size_t count);
+// In m/s^2, the way Android reports it: about +9.81 on z with the device lying screen up.
 void NativeAccelerometer(float tiltX, float tiltY, float tiltZ);
+// Angular rates in rad/s around the NativeAccelerometer axes. The timestamp is in seconds, on any clock (only deltas are used).
+void NativeGyroscope(float x, float y, float z, double timestamp);
 void NativeMouseDelta(float dx, float dy);
 KeyModifier NativeGetKeyModifiers();  // TODO: Move this to input handling somewhere? But don't want it in each backend...
 
@@ -106,6 +109,24 @@ bool Native_IsWindowHidden();
 
 // TODO: Feels like this belongs elsewhere.
 bool Native_UpdateScreenScale(int width, int height, float customScale);
+
+namespace Draw {
+struct SwapchainDesc;
+}
+
+enum class OutputRole {
+	Game,  // The emulated display, with no UI.
+};
+
+// Secondary outputs, like a second window or a TV (see ScreenManager::AddOutput). Safe to call from any
+// thread. They take effect at the start of the next frame. The surface in desc has to stay valid until
+// the output is removed, and that frame has started.
+int Native_AddOutput(OutputRole role, const Draw::SwapchainDesc &desc);
+void Native_ResizeOutput(int id, int width, int height);
+void Native_RemoveOutput(int id);
+// Also waits until the output's swapchain is gone, so its surface can go away right after (as on Android,
+// where a surface mustn't be touched once surfaceDestroyed returns). Don't call it from the render thread.
+bool Native_RemoveOutputAndWait(int id);
 
 AudioBackend *System_CreateAudioBackend();
 

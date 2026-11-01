@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "Common/File/Path.h"
 #include "Core/Compatibility.h"
@@ -28,6 +30,14 @@ enum GPUCore : int {
 	GPUCORE_SOFTWARE = 1,
 	GPUCORE_DIRECTX11 = 3,
 	GPUCORE_VULKAN = 4,
+	GPUCORE_NULL = 5,  // Draws nothing, see GPU_Null.h.
+	GPUCORE_METAL = 6,
+};
+
+// The XMB session a game was started from.
+struct VSHLaunch {
+	Path vshmain;  // Host path of vshmain.prx.
+	std::vector<u8> vshmainArgs;  // What the XMB passed when it launched the game.
 };
 
 enum class FPSLimit {
@@ -66,6 +76,13 @@ struct CoreParameter {
 
 	Path mountIso;  // If non-empty, and fileToStart is an ELF or PBP, will mount this ISO in the background to umd1:.
 	Path mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0:.
+	// Overrides the VSH's "UMD auto-start" setting (bVshUmdAutoboot) for this boot.
+	std::optional<bool> umdAutoboot;
+
+	// Set when the XMB started this game, which then boots the XMB again when it exits.
+	std::optional<VSHLaunch> launchedFromVSH;
+	// For a boot of vshmain.prx: what its module_start gets, which tells it it's coming back from a game.
+	std::vector<u8> vshmainArgs;
 
 	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
 
@@ -75,6 +92,10 @@ struct CoreParameter {
 	bool startBreak = false;
 	std::string *collectDebugOutput = nullptr;
 	bool headLess = false;   // Try to avoid messageboxes etc
+	// Headless leaves out compat settings when replaying frame dumps, unless this is set.
+	bool dumpCompat = false;
+	// Headless: GPU_USE_ feature bits to turn off, to test the fallbacks for GPUs without them.
+	u32 disabledGPUFeatures = 0;
 
 	// Internal PSP rendering resolution and scale factor.
 	int renderScaleFactor = 1;

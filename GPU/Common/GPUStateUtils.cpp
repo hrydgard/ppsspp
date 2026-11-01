@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -180,20 +181,34 @@ const bool nonAlphaDestFactors[16] = {
 	true,
 };
 
+// Whether the color blend uses the source alpha, so the stencil can only be written as alpha with a second output.
+static bool StencilToAlphaNeedsDualSource(ReplaceBlendType replaceBlend) {
+	if (IsStencilTestOutputDisabled() || gstate.isModeClear()) {
+		return false;
+	}
+	if (replaceBlend == REPLACE_BLEND_NO || replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {
+		return false;
+	}
+	if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
+		return false;
+	}
+	// With no color written, the color blend can't need the source alpha (WipEout Pure writes only the stencil
+	// this way, then blends with it as the destination alpha).
+	return (gstate.getColorMask() & 0x00FFFFFF) != 0x00FFFFFF;
+}
+
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 	if (IsStencilTestOutputDisabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
 	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_READ_FRAMEBUFFER) {
-		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
+		if (!StencilToAlphaNeedsDualSource(replaceBlend)) {
 			return REPLACE_ALPHA_YES;
+		} else if (gstate_c.Use(GPU_USE_DUALSOURCE_BLEND)) {
+			return REPLACE_ALPHA_DUALSOURCE;
 		} else {
-			if (gstate_c.Use(GPU_USE_DUALSOURCE_BLEND)) {
-				return REPLACE_ALPHA_DUALSOURCE;
-			} else {
-				return REPLACE_ALPHA_NO;
-			}
+			return REPLACE_ALPHA_NO;
 		}
 	}
 
@@ -262,6 +277,16 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
+void GenericBlendState::blendColorToFloat4(float out[4]) const {
+	Uint8x4ToFloat4(out, blendColor);
+	if (blendColorGE) {
+		for (int i = 0; i < 3; i++) {
+			const int c = (blendColor >> (i * 8)) & 0xFF;
+			out[i] = (2 * c + 1) / 512.0f;
+		}
+	}
+}
+
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (gstate_c.blueToAlpha) {
 		return REPLACE_BLEND_BLUE_TO_ALPHA;
@@ -323,6 +348,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
+				return REPLACE_BLEND_READ_FRAMEBUFFER;
+			// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+			// Super Stardust composites its bloom at alpha 0xFF, doubling the dst, which 2x alpha clamps to 1x.
+			if (gstate.isModeThrough())
 				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -450,6 +479,11 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
 				// Some games specify this. Some GPUs may prefer blending off entirely.
 				return REPLACE_BLEND_NO;
+			} else if (IsGEExactFixedBlend(funcB, gstate.getBlendEq())) {
+				// 0 and 0xFFFFFF are exact as blend factors. Other fixed colors need the GE's math, see ConvertBlendState.
+				const bool trivialA = gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000;
+				const bool trivialB = gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000;
+				return trivialA && trivialB ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_PRE_SRC;
 			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
 				// We can represent this with standard factors.
 				return REPLACE_BLEND_STANDARD;
@@ -488,8 +522,12 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
+				// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+				// MotorStorm brightens its frame with DSTCOLOR + DOUBLESRCALPHA at alpha 0xFE, which is up to 3x the dst,
+				// and doubling alpha in the shader clamps that to 2x.
+				if (gstate.isModeThrough())
+					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
-				// Wonder in which games we encounter this? One example is MotorStorm.
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
@@ -943,6 +981,11 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	if (useFBRead == FBReadSetting::Forced) {
 		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
 		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
+	} else if (useFBRead == FBReadSetting::Allowed && replaceBlend != REPLACE_BLEND_BLUE_TO_ALPHA && !gstate_c.Use(GPU_USE_DUALSOURCE_BLEND) &&
+		gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) && StencilToAlphaNeedsDualSource(replaceBlend)) {
+		// Blend in the shader, which can then write the stencil as alpha. Only with fetch: elsewhere a framebuffer
+		// copy per draw costs too much for something this common, so the alpha stays wrong (WipEout Pure).
+		replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
 
 	blendState.replaceBlend = replaceBlend;
@@ -1068,7 +1111,19 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 		glBlendFuncB = toDualSource(glBlendFuncB);
 	}
 
-	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
+	if (usePreSrc && replaceBlend == REPLACE_BLEND_PRE_SRC && blendFuncA == GE_SRCBLEND_FIXA && IsGEExactFixedBlend(blendFuncB, blendFuncEq)) {
+		// The shader computed the src term like the GE and lowered it so that the hardware's rounding of the
+		// sum lands on the GE's floor of it, given the dst factor (2B+1)/512 the GE multiplies with.
+		if (fixB == 0 || fixB == 0xFFFFFF) {
+			glBlendFuncB = fixB == 0 ? BlendFactor::ZERO : BlendFactor::ONE;
+			if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
+				blendState.defaultBlendColor(constantAlpha);
+			}
+		} else {
+			glBlendFuncB = BlendFactor::CONSTANT_COLOR;
+			blendState.setBlendColorGE(fixB, constantAlpha);
+		}
+	} else if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
 		if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB != BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
 			blendState.setBlendColor(fixA, constantAlpha);
@@ -1382,15 +1437,24 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
 	rewriteOps(GE_STENCILOP_DECR, GE_STENCILOP_ZERO);
 
+	// Where the test passed, the value is known, but not on sFail.
+	auto rewritePassOps = [&](GEStencilOp from, GEStencilOp to) {
+		if (state.zFail == from)
+			state.zFail = to;
+		if (state.zPass == from)
+			state.zPass = to;
+	};
+
 	if (state.testFunc == GE_COMP_NOTEQUAL && state.testRef == 0 && state.testMask != 0) {
 		// If it's != 0 (as optimized above), then we can rewrite INVERT to ZERO.
 		// With 1 bit of stencil, INVERT != 0 can only make it 0.
-		rewriteOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
+		rewritePassOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
 	}
 	if (state.testFunc == GE_COMP_EQUAL && state.testRef == 0 && state.testMask != 0) {
 		// If it's == 0 (as optimized above), then we can rewrite INCR to INVERT.
 		// Otherwise we get 1, which we mostly handle, but won't INVERT correctly.
-		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
+		// On sFail it's non-zero, and INCR keeps it that way (Warriors Orochi 2 draws its sky layers once each with EQUAL 0 and INCR on both.)
+		rewritePassOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
 	}
 	if (!usesRef && state.testRef == 0xFF) {
 		// Safe to use REPLACE instead of INCR.

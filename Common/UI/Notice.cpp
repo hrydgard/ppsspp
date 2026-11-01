@@ -47,7 +47,7 @@ NoticeLevel GetNoticeLevel(OSDType type) {
 constexpr float m = 4.0f;
 
 // Align only matters here for the ASCII-only flag.
-void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1) {
+void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float maxWidth, float *width, float *height, float *height1, float padding) {
 	float iconW = 0.0f;
 	float iconH = 0.0f;
 	if (!iconName.empty() && !startsWith(iconName, "I_")) {  // Check for atlas image. Bit hacky, but we choose prefixes for icon IDs anyway in a way that this is safe.
@@ -64,7 +64,7 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 		}
 	}
 
-	float chromeWidth = iconW + m * 2.0f + 12.0f;
+	float chromeWidth = iconW + m * 2.0f + 12.0f + padding * 2.0f;
 	float availableWidth = maxWidth - chromeWidth;
 
 	// OK, now that we have figured out how much space we have for the text, we can measure it (with wrapping if needed).
@@ -89,10 +89,10 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 	}
 
 	float heightSum = *height1 + (height2 > 0.0f ? height2 + 8.0f : 0.0f);
-	*height = std::max(heightSum, iconH + m);
+	*height = std::max(heightSum, iconH + m) + padding * 2.0f;
 }
 
-void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal) {
+void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding, float radius, RoundCorners corners) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -100,9 +100,9 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	if (!(flags & OSDMessageFlags::Transparent)) {
-		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
-		dc.FillRect(background, bounds);
+		dc.FillRoundRect(background, bounds, radius, corners);
 	}
+	bounds = bounds.Expand(-padding);
 
 	float iconW = 0.0f;
 	float iconH = 0.0f;

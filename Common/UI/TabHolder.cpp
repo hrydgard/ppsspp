@@ -22,6 +22,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			c->OnClick.Add([](EventParams &e) {
 				e.bubbleResult = DR_BACK;
 			});
+			c->SetRoundCorners(RoundCorners::All);
 			container->Add(c);
 			tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
 			tabScroll_->Add(tabStrip_);
@@ -31,6 +32,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 				menuChoice->OnClick.Add([contextMenuCallback](EventParams &e) {
 					contextMenuCallback();
 				});
+				menuChoice->SetRoundCorners(RoundCorners::All);
 				container->Add(menuChoice);
 			}
 			Add(container);
@@ -40,10 +42,11 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			Add(tabScroll_);
 		}
 	} else {
+		SetPadding(Margins(10, 0, 0, 0));
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
 		tabContainer_->Add(new Spacer(8.0f));
 		tabContainer_->SetSpacing(0.0f);
-		tabStrip_ = new ChoiceStrip(orientation, new LayoutParams(FILL_PARENT, FILL_PARENT));
+		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
 		tabScroll_ = new ScrollView(orientation, new LinearLayoutParams(1.0f));
 		tabScroll_->Add(tabStrip_);
@@ -68,7 +71,9 @@ void TabHolder::AddBack(UIScreen *parent) {
 	if (tabContainer_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		tabContainer_->Add(new UI::Spacer(8.0f));
-		tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))))->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
+		Choice *backButton = tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))));
+		backButton->SetRoundCorners(RoundCorners::All);
+		backButton->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
 	}
 }
 
@@ -81,6 +86,8 @@ void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGrou
 	} else {
 		tabStrip_->AddChoice(title);
 	}
+	tabStrip_->ApplyRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
+
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
 		tabContents->SetVisibility(V_GONE);
@@ -101,6 +108,8 @@ void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::fun
 	} else {
 		tabStrip_->AddChoice(title);
 	}
+	tabStrip_->ApplyRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
+	
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);
 }
@@ -138,6 +147,10 @@ bool TabHolder::EnsureTab(int index) {
 
 void TabHolder::SetInitialTab(int tab) {
 	if (tab < 0 || tab >= (int)tabs_.size()) {
+		// The tab may no longer exist (the search tab is hidden on small screens, for example).
+		if (currentTab_ < (int)tabs_.size()) {
+			EnsureTab(currentTab_);
+		}
 		return;
 	}
 	EnsureTab(tab);

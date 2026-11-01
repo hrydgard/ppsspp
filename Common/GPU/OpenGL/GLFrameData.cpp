@@ -71,5 +71,10 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 		}
 		delete framebuffer;
 	}
+	if (!framebuffers.empty() && !skipGLCalls) {
+		// The destructor bound the default framebuffer. Without this, the next readback from the framebuffer
+		// that was bound before could read the default one (zeros for Cars Race-O-Rama's luminance, #15914).
+		renderManager->ForgetBoundFramebuffers();
+	}
 	framebuffers.clear();
 }

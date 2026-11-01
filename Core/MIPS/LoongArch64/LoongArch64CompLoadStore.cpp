@@ -86,7 +86,9 @@ void LoongArch64JitBackend::CompIR_Load(IRInst inst) {
 		addrReg = SCRATCH1;
 	}
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
-	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+	// Only ll can load into $zero (for the llBit), and must not map it.
+	if (inst.dest != MIPS_REG_ZERO)
+		regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 	regs_.MarkGPRDirty(inst.dest, true);
 
 	s32 imm = AdjustForAddressOffset(&addrReg, inst.constant);

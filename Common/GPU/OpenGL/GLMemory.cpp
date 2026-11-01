@@ -130,14 +130,22 @@ void GLPushBuffer::Flush() {
 }
 
 void GLPushBuffer::AddBuffer() {
+	bool success = TryAddBuffer();
+	_assert_msg_(success, "GLPushBuffer alloc fail: %d (%s)", (int)nextBufferSize_, tag_);
+}
+
+bool GLPushBuffer::TryAddBuffer() {
 	// INFO_LOG(Log::G3D, "GLPushBuffer(%s): Allocating %d bytes", tag_, size_);
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(nextBufferSize_, 16);
-	_assert_msg_(info.localMemory != 0, "GLPushBuffer alloc fail: %d (%s)", (int)nextBufferSize_, tag_);
+	if (!info.localMemory) {
+		return false;
+	}
 	info.buffer = render_->CreateBuffer(target_, nextBufferSize_, GL_DYNAMIC_DRAW);
 	info.size = nextBufferSize_;
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
+	return true;
 }
 
 void GLPushBuffer::Destroy(bool onRenderThread) {
@@ -200,7 +208,15 @@ void GLPushBuffer::Defragment() {
 
 	// Set some sane but very free limits. If there's another spike, we'll just allocate more anyway.
 	nextBufferSize_ = std::min(std::max(newSize, (size_t)65536), (size_t)(512 * 1024 * 1024));
-	AddBuffer();
+	// One block the size of the whole frame can fail where the pieces fit, in a fragmented 32-bit address
+	// space. A smaller one just spills into more buffers again.
+	while (nextBufferSize_ > 65536 && !TryAddBuffer()) {
+		WARN_LOG(Log::G3D, "GLPushBuffer(%s): Failed to allocate %d bytes, trying half", tag_, (int)nextBufferSize_);
+		nextBufferSize_ /= 2;
+	}
+	if (buffers_.empty()) {
+		AddBuffer();
+	}
 }
 
 size_t GLPushBuffer::GetTotalSize() const {

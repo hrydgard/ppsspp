@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <atomic>
+#include <memory>
+#include <string>
+
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
@@ -35,6 +39,8 @@ public:
 
 	const char *tag() const override { return "Firmware"; }
 
+	void update() override;
+
 protected:
 	std::string_view GetTitle() const override;
 	void BeforeCreateViews() override;
@@ -46,7 +52,19 @@ private:
 	void LaunchVSH();
 	void BrowseForUpdater();
 	void AskToErase();
+	// Scans (and first erases, if asked) on a worker thread, since the NAND can be on slow storage.
+	void StartScan(bool eraseFirst);
+
+	struct ScanState {
+		std::atomic<bool> done{};
+		InstalledFirmwareInfo info;
+		std::string eraseError;
+	};
 
 	Path nandRoot_;
 	InstalledFirmwareInfo info_;
+	std::shared_ptr<ScanState> scan_;  // While a scan is running.
+	bool scanned_ = false;
+	bool rescanPending_ = false;
+	bool erasePending_ = false;
 };

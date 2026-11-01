@@ -42,8 +42,18 @@ public:
 			fontStyle = DWRITE_FONT_STYLE_ITALIC;
 		}
 
+		std::wstring wFontName = ConvertUTF8ToWString(fontName);
+
+		// A font override from the language ini (like "Microsoft YaHei") is a system font, not one of ours.
+		// A null collection makes DirectWrite use the system font collection.
+		UINT32 familyIndex = 0;
+		BOOL exists = FALSE;
+		if (FAILED(fontCollection->FindFamilyName(wFontName.c_str(), &familyIndex, &exists)) || !exists) {
+			fontCollection = nullptr;
+		}
+
 		HRESULT hr = factory->CreateTextFormat(
-			ConvertUTF8ToWString(fontName).c_str(),
+			wFontName.c_str(),
 			fontCollection,
 			weight,
 			fontStyle,
@@ -190,7 +200,7 @@ TextDrawerUWP::TextDrawerUWP(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(n
 
 		std::string nname = ConvertWStringToUTF8(name);
 
-		NOTICE_LOG(Log::G3D, "Font family: %s", nname.c_str());
+		// INFO_LOG(Log::G3D, "Font family: %s", nname.c_str());
 
 		names->Release();
 		family->Release();
@@ -251,20 +261,17 @@ TextDrawerUWP::~TextDrawerUWP() {
 	delete ctx_;
 }
 
-void TextDrawerUWP::SetOrCreateFont(const FontStyle &style) {
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+void TextDrawerUWP::EnsureFont(const FontStyle &style) {
+	_dbg_assert_(style.sizePts > 0);
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-
 	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_, m_dwriteFactory, m_fontCollection);
-	fontStyle_ = style;
 }
 
-void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float *h) {
+void TextDrawerUWP::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
 	IDWriteTextFormat *format = nullptr;
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
 	}
@@ -293,7 +300,7 @@ void TextDrawerUWP::MeasureStringInternal(std::string_view str, float *w, float 
 	*h = (int)(metrics.height + 1.0f);
 }
 
-bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -303,7 +310,7 @@ bool TextDrawerUWP::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 	SIZE size;
 
 	IDWriteTextFormat *format = nullptr;
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
 	}

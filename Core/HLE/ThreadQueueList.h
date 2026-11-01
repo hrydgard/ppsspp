@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cstdlib>
+
 #include "Core/HLE/sceKernel.h"
 #include "Common/Serialize/Serializer.h"
 
@@ -56,6 +59,21 @@ struct ThreadQueueList {
 
 	~ThreadQueueList() {
 		clear();
+	}
+
+	// Whether func is true for every queued thread.
+	template <typename F>
+	bool all_of(F func) const {
+		for (int i = 0; i < NUM_QUEUES; ++i) {
+			const Queue *cur = &queues[i];
+			if (cur->data == nullptr)
+				continue;
+			for (int j = cur->first; j < cur->end; ++j) {
+				if (!func(cur->data[j]))
+					return false;
+			}
+		}
+		return true;
 	}
 
 	// Only for debugging, returns priority level.
@@ -199,6 +217,16 @@ struct ThreadQueueList {
 			Do(p, size);
 			int capacity = cur->capacity;
 			Do(p, capacity);
+
+			if (p.mode == p.MODE_READ) {
+				// rebalance() keeps a free slot on both sides (push_front/push_back rely on it),
+				// and only doubles the capacity while it holds at most maxCount threads.
+				if (capacity < 0 || capacity > KernelObjectPool::maxCount * 2 || size < 0 || size > std::max(capacity - 2, 0)) {
+					ERROR_LOG(Log::sceKernel, "Savestate loading error: invalid thread queue data");
+					p.SetError(p.ERROR_FAILURE);
+					return;
+				}
+			}
 
 			if (capacity == 0)
 				continue;

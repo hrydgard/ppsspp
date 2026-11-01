@@ -17,5 +17,7 @@
 
 #pragma once
 
+// HPRM - headphone remote. The PSP has a remote control for the headphones, which can be used to control music playback and volume.
+// This module is used by the music player and some games, including DJ Max Portable games.
 void Register_sceHprm();
 void Register_sceHprm_driver();

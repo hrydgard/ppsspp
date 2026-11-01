@@ -19,12 +19,12 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -100,6 +100,11 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	js.downcountAmount = 0;
 
 	FlushAll();
+	if (CanContinuePastBranch(branchInfo, rs == rt)) {
+		ir.Write(ComparisonToExit(Invert(cc)), 0, lhs, rhs, targetAddr);
+		js.compilerPC += 4;
+		return;
+	}
 	ir.Write(ComparisonToExit(cc), 0, lhs, rhs, ResolveNotTakenTarget(branchInfo));
 	// This makes the block "impure" :(
 	if (likely && !branchInfo.delaySlotIsBranch)
@@ -136,7 +141,8 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 
 	MIPSGPReg lhs = rs;
-	if (!branchInfo.delaySlotIsNice) {  // if likely, we don't need this
+	// The link happens after rs is read, which matters for ra (cpu/cpu_alu/branch_link_ra).
+	if (!branchInfo.delaySlotIsNice || (andLink && rs == MIPS_REG_RA)) {
 		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
 		lhs = (MIPSGPReg)IRTEMP_LHS;
 	}
@@ -151,6 +157,11 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	js.downcountAmount = 0;
 
 	FlushAll();
+	if (CanContinuePastBranch(branchInfo, rs == MIPS_REG_ZERO)) {
+		ir.Write(ComparisonToExit(Invert(cc)), 0, lhs, 0, targetAddr);
+		js.compilerPC += 4;
+		return;
+	}
 	ir.Write(ComparisonToExit(cc), 0, lhs, 0, ResolveNotTakenTarget(branchInfo));
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -170,6 +181,21 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	// Account for the delay slot.
 	js.compilerPC += 4;
 	js.compiling = false;
+}
+
+// Whether to go on compiling the not-taken path after a conditional branch, exiting to the target
+// when it's taken, rather than ending the block. A loop then needs one exit per iteration, and the
+// code around the branch gets compiled together. Not for likely branches, whose delay slot belongs to
+// the taken path, or for branches decided by their operands (b, an always-taken beq zero, zero, is
+// usually followed by something else entirely). Nor with a prefix pending: blocks assume default
+// prefixes on entry, and only the end of a block checks that it leaves them so (CheckRounding()).
+bool IRFrontend::CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands) {
+	if (!opts.continueBranches || branchInfo.likely || branchInfo.delaySlotIsBranch || constantOperands || js.MayHavePrefix())
+		return false;
+	if (js.numInstructions >= IR_MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= IR_MAX_CONTINUED_BRANCHES)
+		return false;
+	js.continuedBranches++;
+	return true;
 }
 
 void IRFrontend::Comp_RelBranch(MIPSOpcode op) {
@@ -220,6 +246,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	BranchInfo branchInfo(GetCompilerPC(), op, GetOffsetInstruction(1), false, likely);
 
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 	ir.Write(IROp::FpCondToReg, IRTEMP_LHS);
 	if (!likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -332,12 +359,15 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	u32 targetAddr = (GetCompilerPC() & 0xF0000000) | off;
 
 	// Might be a stubbed address or something?
-	if (!Memory::IsValidAddress(targetAddr)) {
+	if (space_ ? !space_->IsValidAddress(targetAddr) : !Memory::IsValidAddress(targetAddr)) {
 		// If preloading, flush - this block will likely be fixed later.
-		ERROR_LOG(Log::JIT, "Jump to invalid address: %08x", targetAddr);
+		// Usually code that never runs, like a call through an import that isn't linked yet.
+		DEBUG_LOG(Log::JIT, "Compiled jump to %08x (probably benign)", targetAddr);
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		// Continue so the block gets completed and crashes properly.
 	}
+
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(GetOffsetInstruction(1));
 
 	switch (op >> 26) {
 	case 2: //j
@@ -381,9 +411,13 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	if (andLink && rs == rd)
 		delaySlotIsNice = false;
 
+	// The CPUs ignore the target's low two bits (tests/cpu/jump/unaligned). Sony's ME firmware keeps
+	// flags there in its command table, and calls the entries as they are, and the PS1 emulator returns
+	// through such an address.
 	int destReg;
 	if (IsSyscall(delaySlotOp)) {
-		ir.Write(IROp::SetPC, 0, rs);
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
+		ir.Write(IROp::SetPC, 0, IRTEMP_LHS);
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
@@ -396,11 +430,13 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
-		destReg = rs;  // Safe because FlushAll doesn't change any regs
+		// Safe because the delay slot doesn't change rs.
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
+		destReg = IRTEMP_LHS;
 		FlushAll();
 	} else {
 		// Bad delay slot.
-		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
+		ir.Write(IROp::AndConst, IRTEMP_LHS, rs, 0, ~3U);
 		destReg = IRTEMP_LHS;
 		if (andLink)
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
@@ -431,9 +467,28 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
-	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
-	int dcAmount = js.downcountAmount + (js.inDelaySlot ? -1 : 0);
-	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
+	if (IsMediaEngine()) {
+		// There's no HLE on the ME. A call to a stub that does nothing there returns 0, ending the
+		// block as a syscall does on the main CPU (a jr with it in its delay slot leaves the exit to
+		// it); the interpreter traps the rest.
+		if (!MeCore::SyscallDoesNothing(op, GetCompilerPC())) {
+			Comp_Generic(op);
+			return;
+		}
+		ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
+		js.downcountAmount = 0;
+		if (!js.inDelaySlot)
+			ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC() + 4);
+		ir.WriteSetConstant(MIPS_REG_V0, 0);
+		FlushAll();
+		ir.Write(IROp::ExitToPC);
+		js.compiling = false;
+		return;
+	}
+	// Like the interpreter, the syscall sees every earlier instruction charged (including a branch it's
+	// the delay slot of) but not itself, which is charged once it returns.
+	const int syscallCycles = MIPSGetInstructionCycleEstimate(op);
+	ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount - syscallCycles);
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.
@@ -453,6 +508,7 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 		ir.Write(IROp::SyscallUnresolved, 0, 0, 0, js.compilerPC);
 	}
 	ApplyRoundingMode();
+	ir.Write(IROp::Downcount, 0, 0, 0, syscallCycles);
 	ir.Write(IROp::ExitToPC);
 
 	js.compiling = false;

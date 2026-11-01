@@ -12,6 +12,7 @@ public:
 		return ViewLayoutMode::IgnoreBottomInset;
 	}
 	bool UseImmersiveMode() const override;
+	bool LimitContentArea() const override { return true; }
 protected:
 	void sendMessage(UIMessage message, const char *value) override;
 };
@@ -20,11 +21,14 @@ class UIBaseDialogScreen : public UIDialogScreen {
 public:
 	UIBaseDialogScreen() : UIDialogScreen(), gamePath_() {}
 	explicit UIBaseDialogScreen(const Path &gamePath) : UIDialogScreen(), gamePath_(gamePath) {}
+
+	bool LimitContentArea() const override { return true; }
+	float MaxContentWidth() const override { return 1400.0f; }
+
 protected:
 	ViewLayoutMode LayoutMode() const override;
 	bool UseImmersiveMode() const override;
 
 	void sendMessage(UIMessage message, const char *value) override;
-	void AddStandardBack(UI::ViewGroup *parent);
 	Path gamePath_;
 };

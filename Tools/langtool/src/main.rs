@@ -13,6 +13,7 @@ mod chatgpt;
 mod claude;
 use clap::Parser;
 
+mod scan;
 mod util;
 mod validate;
 
@@ -110,6 +111,12 @@ enum Command {
         language: String,
         section: Option<String>,
     },
+    /// Merge a file of translations (same layout as a language file, keyed like en_US.ini) into a
+    /// language, checked and tagged the same way as AI output.
+    ImportLanguage {
+        language: String,
+        filename: String,
+    },
     RemoveLinebreaks {
         section: String,
         key: String,
@@ -130,6 +137,12 @@ enum Command {
     },
     /// Check every translated string against the English one, see validate.rs.
     Validate,
+    /// List the lookups in the C++ source whose key isn't in en_US.ini, see scan.rs.
+    FindMissingKeys {
+        /// List the lookups whose key or category is only known at runtime instead.
+        #[arg(long)]
+        dynamic: bool,
+    },
 }
 
 fn copy_missing_lines(
@@ -645,6 +658,54 @@ fn finish_language_with_ai(
     Ok(())
 }
 
+fn import_language(target_ini: &mut IniFile, ref_ini: &IniFile, import_ini: &IniFile) {
+    let mut updated = 0;
+    for import_section in &import_ini.sections {
+        let Some(ref_section) = ref_ini.get_section(&import_section.name) else {
+            println!(
+                "Section '{}' not found in reference file",
+                import_section.name
+            );
+            continue;
+        };
+        let Some(target_section) = target_ini.get_section_mut(&import_section.name) else {
+            println!("Section '{}' not found in target file", import_section.name);
+            continue;
+        };
+        for line in &import_section.lines {
+            let Some((key, value)) = split_line(line) else {
+                continue;
+            };
+            let Some(ref_value) = ref_section.get_value(key) else {
+                println!("[{}] Unknown key '{key}'", import_section.name);
+                continue;
+            };
+            if value.contains('#') {
+                // Would be read back as a comment.
+                println!("Rejecting '{key}' = '{value}': contains '#'");
+                continue;
+            }
+            let issues = validate::check_ai_translation(&ref_value, value);
+            let comment = if issues == vec![validate::Issue::Untranslated] {
+                SAME_COMMENT
+            } else if !issues.is_empty() {
+                for issue in issues {
+                    println!("Rejecting '{key}' = '{value}': {issue}");
+                }
+                continue;
+            } else {
+                "AI translated"
+            };
+            if !target_section.set_value(key, value, Some(comment)) {
+                println!("[{}] Key '{key}' not in target file", import_section.name);
+                continue;
+            }
+            updated += 1;
+        }
+    }
+    println!("Updated {updated} strings.");
+}
+
 fn rename_key(target_ini: &mut IniFile, section: &str, old: &str, new: &str) -> io::Result<()> {
     if let Some(section) = target_ini.get_section_mut(section) {
         section.rename_key(old, new);
@@ -794,6 +855,22 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
         }
     }
 
+    if let Command::FindMissingKeys { dynamic } = &cmd {
+        scan::find_missing_keys("../..", &reference_ini, *dynamic);
+        return;
+    }
+
+    if let Command::ImportLanguage { language, filename } = &cmd {
+        let target_ini_filename = format!("{root}/{language}.ini");
+        let mut target_ini = IniFile::parse_file(&target_ini_filename).unwrap();
+        let import_ini = IniFile::parse_file(filename).unwrap();
+        import_language(&mut target_ini, &reference_ini, &import_ini);
+        if !dry_run {
+            target_ini.write().unwrap();
+        }
+        return;
+    }
+
     if let Command::FinishLanguageWithAI { language, section } = &cmd {
         if let Some(ai) = &ai {
             let target_ini_filename = format!("{root}/{language}.ini");
@@ -894,6 +971,8 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
                 language: _,
                 section: _,
             } => {}
+            Command::ImportLanguage { .. } => {}
+            Command::FindMissingKeys { .. } => {}
             Command::FixupRefKeys => {
                 if is_reference {
                     fixup_keys(&target_ini, dry_run).unwrap();
@@ -950,7 +1029,15 @@ fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) 
             Command::AddNewKey {
                 ref section,
                 ref key,
-            } => add_new_key(&mut target_ini, section, key, key, false).unwrap(),
+            } => {
+                // The placeholder is the English string. That's the key itself for most keys,
+                // but not for ones like "PacketRelayHint", which would otherwise show up as-is.
+                let english = reference_ini
+                    .get_section(section)
+                    .and_then(|s| s.get_value(key))
+                    .unwrap_or_else(|| key.clone());
+                add_new_key(&mut target_ini, section, key, &english, false).unwrap()
+            }
             Command::AddNewKeyAI {
                 ref section,
                 ref key,

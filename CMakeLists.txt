@@ -79,11 +79,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	endif()
 endif()
 
-# the libraries in the ffmpeg/ directory are not compatible with mingw
-if(MINGW AND NOT USE_SYSTEM_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
-	set(USE_SYSTEM_FFMPEG ON)
-endif()
-
 if(NOT ANDROID AND NOT IOS)
 	if(ARM_DEVICE OR SIMULATOR)
 		set(USING_EGL ON)
@@ -152,17 +147,18 @@ if(USE_IAP)
 	add_compile_definitions(USE_IAP)
 endif()
 
-if(IOS_APP_STORE)
-	add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
-	add_compile_definitions(GLES_SILENCE_DEPRECATION)
+if(IOS)
 	# Set a global default to not generate schemes for each target.
 	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
-	message("iOS App Store build")
-elseif(IOS)
-	message("iOS sideload build")
+	if(IOS_APP_STORE)
+		add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
+		message("iOS App Store build")
+	else()
+		message("iOS sideload build")
+	endif()
 endif()
 
 # User-editable options (go into CMakeCache.txt)
@@ -197,7 +193,6 @@ option(USE_DISCORD "Build with Discord support" ON)
 option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
-option(BUILD_BUNDLED_FFMPEG "Build bundled ffmpeg module" ${BUILD_BUNDLED_FFMPEG})
 option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
 option(USE_SYSTEM_LIBCHDR "Dynamically link against system libchdr" ${USE_SYSTEM_LIBCHDR})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -223,6 +218,17 @@ endif()
 
 if(USE_SYSTEM_MINIUPNPC)
 	add_compile_definitions(USE_SYSTEM_MINIUPNPC)
+endif()
+
+# FFmpeg is built from the sources in ext/ffmpeg (see its README.md), unless the system's or one in
+# FFMPEG_DIR is asked for.
+if(USE_FFMPEG AND NOT USE_SYSTEM_FFMPEG AND NOT FFMPEG_DIR)
+	set(BUILD_BUNDLED_FFMPEG ON)
+	# First on the include path, ahead of any other FFmpeg's headers that come along with another
+	# library's include directory (Homebrew's, for one).
+	include_directories(BEFORE ext/ffmpeg)
+else()
+	set(BUILD_BUNDLED_FFMPEG OFF)
 endif()
 
 if(WEBOS)
@@ -323,7 +329,12 @@ elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
-if(NOT OPENGL_LIBRARIES)
+# The iOS app is Vulkan (MoltenVK) only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
+if(IOS AND NOT LIBRETRO)
+	set(NO_OPENGL ON)
+endif()
+
+if(NOT OPENGL_LIBRARIES AND NOT NO_OPENGL)
 	if(POLICY CMP0072)
 		cmake_policy(SET CMP0072 NEW)
 	endif()
@@ -369,6 +380,17 @@ if(NOT LIBRETRO AND NOT IOS AND NOT HEADLESS_CROSS AND NOT ANDROID)
 		message(STATUS "Using Fontconfig for SDL3_ttf fallback fonts")
 	else()
 		message(WARNING "Fontconfig not found - SDL3_ttf fallback fonts for missing glyphs will be limited")
+	endif()
+	find_package(PkgConfig QUIET)
+	if(PKG_CONFIG_FOUND)
+		pkg_check_modules(FRIBIDI QUIET IMPORTED_TARGET fribidi)
+	endif()
+	if(FRIBIDI_FOUND)
+		list(APPEND SDL_TTF_LIB_TARGET PkgConfig::FRIBIDI)
+		add_compile_definitions(USE_SDL3_TTF_FRIBIDI)
+		message(STATUS "Using FriBidi for SDL3_ttf mixed-direction text")
+	else()
+		message(WARNING "FriBidi not found - SDL3_ttf will render text mixing right-to-left and left-to-right partly reversed")
 	endif()
 endif()
 
@@ -453,6 +475,10 @@ if(NOT MSVC)
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++17>")
 	endif()
 	if(CLANG)
+		# Before C++23, libc++ headers pull in many others just for old code that relied on it
+		# (<vector> brings in <locale>, for one). Dropping those makes the standard headers about
+		# half as expensive to parse. libstdc++ ignores this.
+		add_compile_definitions(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES)
 		add_compile_options(
 			-Wno-nullability-completeness
 			-Wno-tautological-pointer-compare
@@ -516,7 +542,8 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+		# Set by cmake/Toolchains/ios.cmake.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
@@ -594,90 +621,30 @@ if((USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV)) AND NOT USE_LIBNX)
 	find_package(X11)
 endif()
 
-if(USE_FFMPEG)
-	if(NOT BUILD_BUNDLED_FFMPEG)
-		if(NOT FFMPEG_DIR)
-			if(NOT USE_SYSTEM_FFMPEG)
-				if(ANDROID)
-					if(ARMV7)
-						set(PLATFORM_ARCH "android/armv7")
-					elseif(ARM64)
-						set(PLATFORM_ARCH "android/arm64")
-					elseif(X86_64)
-						set(PLATFORM_ARCH "android/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "android/x86")
-					endif()
-				elseif(IOS)
-					if(IOS_PLATFORM STREQUAL "TVOS")
-						set(PLATFORM_ARCH "tvos/arm64")
-					else()
-						set(PLATFORM_ARCH "ios/universal")
-					endif()
-				elseif(MACOSX)
-					set(PLATFORM_ARCH "macosx/universal")
-				elseif(LINUX)
-					if(ARMV7)
-						set(PLATFORM_ARCH "linux/armv7")
-					elseif(ARM64)
-						set(PLATFORM_ARCH "linux/aarch64")
-					elseif(ARM)
-						set(PLATFORM_ARCH "linux/arm")
-					elseif(MIPS)
-						set(PLATFORM_ARCH "linux/mips32")
-					elseif(RISCV64)
-						set(PLATFORM_ARCH "linux/riscv64")
-					elseif(LOONGARCH64)
-						set(PLATFORM_ARCH "linux/loongarch64")
-					elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-						set(PLATFORM_ARCH "linux/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "linux/x86")
-					endif()
-				elseif(WIN32)
-					if(X86_64)
-						set(PLATFORM_ARCH "Windows/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "Windows/x86")
-					endif()
-				endif()
-				if(WEBOS AND ARMV7)
-					set(PLATFORM_ARCH "linux/webos")
-				endif()
-				if(PLATFORM_ARCH)
-					set(FFMPEG_DIR "ffmpeg/${PLATFORM_ARCH}")
-				else()
-					message("Couldn't find an internal FFmpeg build, using system FFmpeg instead")
-				endif()
-			endif()
-		endif()
-	
-		find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
-		# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
-		# Check if we need to use const AVCodec
-		set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
-		set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
-		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
-		check_cxx_source_compiles("extern \"C\" {
-			#include <libavcodec/avcodec.h>
-			#include <libavformat/avformat.h>
-			}
-			static AVCodecContext *s_codec_context = NULL;
-			int main() {
-				const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
-				return 0;
-			}
-			" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
-	
-		# Check if we need to use avcodec_alloc_context3 instead of stream->codec
-		# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
-	endif()
-	if(BUILD_BUNDLED_FFMPEG)
-		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
-	endif()
-endif(USE_FFMPEG)
+if(USE_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
+	find_package(FFmpeg REQUIRED avcodec avformat avutil swscale)
+	# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
+	# Check if we need to use const AVCodec
+	set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
+	set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
+	set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
+	check_cxx_source_compiles("extern \"C\" {
+		#include <libavcodec/avcodec.h>
+		#include <libavformat/avformat.h>
+		}
+		static AVCodecContext *s_codec_context = NULL;
+		int main() {
+			const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
+			return 0;
+		}
+		" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
 
-find_package(ZLIB)
+	# Check if we need to use avcodec_alloc_context3 instead of stream->codec
+	# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
+endif()
+
+# 1.2.9 for uncompress2 (Core/Util/PSARUnpack.cpp). Older system zlibs (Ubuntu 16.04's) get the bundled one.
+find_package(ZLIB 1.2.9)
 if(ZLIB_FOUND AND NOT ANDROID)
 	include_directories(${ZLIB_INCLUDE_DIR})
 	add_compile_definitions(SHARED_ZLIB)
@@ -936,8 +903,8 @@ if(ANDROID)
 		android/jni/AndroidAudio.h
 		android/jni/AndroidEGLGraphicsContext.cpp
 		android/jni/AndroidEGLGraphicsContext.h
-		android/jni/OpenSLContext.cpp
-		android/jni/OpenSLContext.h
+		android/jni/OboeContext.cpp
+		android/jni/OboeContext.h
 	)
 	# No target
 elseif(IOS AND NOT LIBRETRO)
@@ -947,39 +914,39 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/AppDelegate.h
 		ios/SceneDelegate.mm
 		ios/SceneDelegate.h
+		ios/ExternalDisplaySceneDelegate.mm
+		ios/ExternalDisplaySceneDelegate.h
 		ios/Controls.h
 		ios/Controls.mm
-		ios/ViewControllerCommon.h
-		ios/ViewControllerCommon.mm
-		ios/ViewController.mm
 		ios/ViewController.h
-		ios/ViewControllerMetal.mm
-		ios/ViewControllerMetal.h
+		ios/ViewController.mm
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/IAPManager.mm
 		ios/IAPManager.h
-		ios/CameraHelper.mm
-		ios/CameraHelper.h
-		ios/LocationHelper.mm
-		ios/LocationHelper.h
-		ios/PPSSPPUIApplication.h
-		ios/PPSSPPUIApplication.mm
-		ios/SmartKeyboardMap.cpp
-		ios/SmartKeyboardMap.hpp
-		ios/iCade/iCadeReaderView.h
-		ios/iCade/iCadeReaderView.m
-		ios/iCade/iCadeState.h
-		Common/Battery/AppleBatteryClient.m
 	)
+	# tvOS has no camera, location, motion, battery or photo picker.
+	if(NOT TVOS)
+		list(APPEND targetExtra
+			ios/CameraHelper.mm
+			ios/CameraHelper.h
+			ios/LocationHelper.mm
+			ios/LocationHelper.h
+			Common/Battery/AppleBatteryClient.m
+		)
+	endif()
 
-	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework OpenAL -framework AVFoundation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface" )
+	if(NOT TVOS)
+		list(APPEND targetExtraLibs "-framework CoreMotion -framework CoreLocation -framework Photos")
+	endif()
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		list(APPEND targetExtraLibs "-weak_framework GameController")
 	endif()
-	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
+	if(NOT TVOS AND EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
 	endif()
+	list(APPEND targetExtraLibs "-framework UniformTypeIdentifiers")
 	if(USE_IAP)
 		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
 		list(APPEND targetExtraLibs "-framework StoreKit")
@@ -992,13 +959,10 @@ elseif(IOS AND NOT LIBRETRO)
 	# TODO: Enable arc globally?
 	set_source_files_properties(ios/AppDelegate.mm
 		ios/SceneDelegate.mm
-		ios/ViewControllerCommon.mm
+		ios/ExternalDisplaySceneDelegate.mm
 		ios/ViewController.mm
-		ios/ViewControllerMetal.mm
 		ios/iOSCoreAudio.mm
 		ios/IAPManager.mm
-		ios/PPSSPPUIApplication.mm
-		ios/iCade/iCadeReaderView.m
 		ios/main.mm
 		ios/CameraHelper.mm
 		ios/LocationHelper.mm
@@ -1128,6 +1092,11 @@ if(WIN32)
 	list(APPEND GlslangLibs spirv-cross-hlsl)
 endif()
 
+# The Metal backend. Not in the libretro cores, which get their graphics context from the frontend.
+if(APPLE AND NOT LIBRETRO)
+	list(APPEND GlslangLibs spirv-cross-msl)
+endif()
+
 add_subdirectory(Common)
 
 if(USE_SYSTEM_ZSTD)
@@ -1150,8 +1119,9 @@ add_subdirectory(GPU)
 add_subdirectory(Core)
 
 if(ANDROID AND NOT LIBRETRO)
+	add_subdirectory(ext/oboe-build)
 	add_library(ppsspp_jni SHARED ${AndroidJniSource})
-	target_link_libraries(ppsspp_jni Core log EGL OpenSLES)
+	target_link_libraries(ppsspp_jni Core log EGL oboe)
 	if(TARGET ppsspp_ui)
 		target_link_libraries(ppsspp_jni ppsspp_ui)
 	endif()
@@ -1172,6 +1142,8 @@ set(WindowsFiles
 	Windows/WindowsAudio.h
 	Windows/WASAPIContext.cpp
 	Windows/WASAPIContext.h
+	Windows/WASAPIMicrophone.cpp
+	Windows/WASAPIMicrophone.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp
@@ -1312,6 +1284,7 @@ file(GLOB UIImages CONFIGURE_DEPENDS
 
 if(HEADLESS)
 	set(HeadlessSource
+		headless/AndroidHeadlessGLContext.h
 		headless/Headless.cpp
 		headless/Compare.cpp
 		headless/Compare.h
@@ -1327,7 +1300,15 @@ if(HEADLESS)
 			SDL/SDLUtil.h
 		)
 	endif()
-	if(APPLE)
+	if(IOS)
+		list(APPEND HeadlessSource
+			Common/Render/Text/draw_text_cocoa.mm
+			Common/Render/Text/draw_text_cocoa.h
+			ios/HeadlessMain.mm
+		)
+		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm ios/HeadlessMain.mm
+			PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	elseif(APPLE)
 		list(APPEND HeadlessSource
 			Common/Render/Text/draw_text_cocoa.mm
 			Common/Render/Text/draw_text_cocoa.h
@@ -1357,8 +1338,14 @@ if(HEADLESS)
 			Windows/W32Util/Misc.h
 		)
 	endif()
-	add_executable(PPSSPPHeadless ${HeadlessSource})
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Core)
+	if(IOS)
+		# An app bundle, set up further down with the iOS app (see ios/HeadlessMain.mm).
+		add_executable(PPSSPPHeadless MACOSX_BUNDLE ${HeadlessSource})
+		target_link_libraries(PPSSPPHeadless ${CMAKE_THREAD_LIBS_INIT} Core)
+	else()
+		add_executable(PPSSPPHeadless ${HeadlessSource})
+		target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Core)
+	endif()
 	if(SDL_LIB_TARGET)
 		target_link_libraries(PPSSPPHeadless ${SDL_LIB_TARGET})
 	endif()
@@ -1377,16 +1364,24 @@ endif()
 if(UNITTEST)
 	add_executable(PPSSPPUnitTest
 		unittest/UnitTest.cpp
+		unittest/UnitTest.h
 		unittest/TestShaderGenerators.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
+		unittest/TestArm64Disasm.cpp
+		unittest/TestArmDisasm.cpp
 		unittest/TestCrossSIMD.cpp
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
+		unittest/TestBoundingBox.cpp
+		unittest/TestDepthRaster.cpp
 		unittest/TestVertexJit.cpp
+		unittest/TestVertexJit.h
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
+		unittest/TestPS1Eboot.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestCwCheat.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
 		unittest/TestGEMath.cpp
@@ -1394,11 +1389,9 @@ if(UNITTEST)
 		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp
-		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
 		unittest/JitHarness.cpp
-		Core/MIPS/ARM/ArmRegCache.cpp
-		Core/MIPS/ARM/ArmRegCacheFPU.cpp
+		unittest/JitHarness.h
 	)
 	if(APPLE)
 		target_sources(PPSSPPUnitTest PRIVATE
@@ -1510,12 +1503,12 @@ if(TargetBin)
 			set_source_files_properties(${WEB_UPLOAD_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/upload")
 		endif()
 
-		if(IOS)
+		if(TVOS)
+			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/tvOS-assets.xcassets")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+		elseif(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
-			if(NOT IOS_APP_STORE)
-				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
-			endif()
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
@@ -1562,12 +1555,8 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
-	if(IOS_APP_STORE)
-		# The static MoltenVK in ios/MoltenVK needs 15.0. Keep in sync with cmake/Toolchains/ios.cmake.
-		set(DEPLOYMENT_TARGET 15.0)
-	else()
-		set(DEPLOYMENT_TARGET 11.0)
-	endif()
+	# Set by cmake/Toolchains/ios.cmake.
+	set(DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
@@ -1576,6 +1565,11 @@ if(IOS AND NOT LIBRETRO)
 	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
+	endif()
+	if(TVOS)
+		set(MOLTENVK_SLICE tvos-arm64)
+	else()
+		set(MOLTENVK_SLICE ios-arm64)
 	endif()
 	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
 
@@ -1590,9 +1584,22 @@ if(IOS AND NOT LIBRETRO)
 	set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
 
+	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
+	# The simulator renders with Metal only, and loads no Vulkan (see PPSSPP_VK_STATIC).
+	if(IOS_PLATFORM STREQUAL "SIMULATOR")
+		set(MOLTENVK_LIB "")
+	else()
+		set(MOLTENVK_LIB "${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a")
+	endif()
+	target_link_libraries(${TargetBin} ${MOLTENVK_LIB})
+
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
-	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	if(TVOS)
+		set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/tvOS-Info.plist")
+	else()
+		set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	endif()
 	set(BUNDLE_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ios/App.entitlements")
 	if(GOLD)
 		if(IOS_APP_STORE)
@@ -1613,86 +1620,70 @@ if(IOS AND NOT LIBRETRO)
 	endif()
 	if(IOS_APP_STORE)
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin} Gold: ${GOLD} IAP: ${USE_IAP}")
-		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+	endif()
 
-		# This is for injecting the version into the plist, and also copying resources.
-		# Should find a different way to do both these things.
-		add_custom_command(TARGET ${TargetBin} POST_BUILD
-			COMMAND echo "Creating ${APP_DIR_NAME} for app store build"
-			COMMAND echo "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}"
-			COMMAND echo "BINARY_DIR: ${CMAKE_BINARY_DIR}"
-			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-				# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
-				# Prepend -v to the extracting command to see the files copied.
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-				# This updates the version in the plist.
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
-		)
+	# Copies the assets into the bundle, and injects the version into the plist.
+	add_custom_command(TARGET ${TargetBin} POST_BUILD
+		COMMAND echo "Creating ${APP_DIR_NAME}"
+		COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# Prepend -v to the extracting command to see the files copied.
+		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
+	)
 
-		# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
-		target_link_libraries(${TargetBin}
-			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
-		)
-		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
-		target_compile_options(${TargetBin} PRIVATE
-			$<$<CONFIG:Release>:-g -gline-tables-only>
-		)
-		target_compile_options(${TargetBin} PRIVATE
-			$<$<CONFIG:RelWithDebInfo>:-g>
-		)
+	target_compile_options(${TargetBin} PRIVATE
+		$<$<CONFIG:Release>:-g -gline-tables-only>
+	)
+	target_compile_options(${TargetBin} PRIVATE
+		$<$<CONFIG:RelWithDebInfo>:-g>
+	)
+	set_target_properties(${TargetBin} PROPERTIES
+		XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
+		RESOURCE "ios/Launch Screen.storyboard;ios/assets.xcassets"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
+		XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
+		XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+		XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS YES
+		MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+		# Some sources say we should generate the PLIST. There's stuff in it that
+		# I don't know how to generate, though.
+		#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+		#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+
+		XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
+		XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
+		XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
+
+		XCODE_ATTRIBUTE_SKIP_INSTALL NO
+		XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
+	)
+	if(TVOS)
+		# The launch storyboard and the iOS asset catalog are iPhone/iPad only. tvOS has a layered
+		# icon and Top Shelf images of its own, made by ios/generate_tvos_icons.py.
 		set_target_properties(${TargetBin} PROPERTIES
-			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
-			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
-			RESOURCE "ios/assets.xcassets"
-			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
-			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
-			BUILD_WITH_INSTALL_RPATH YES
-			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-			# Some sources say we should generate the PLIST. There's stuff in it that
-			# I don't know how to generate, though.
-			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
-			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
-			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
-			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
-			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
-			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
-			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
+			RESOURCE "ios/tvOS-assets.xcassets"
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ""
+			XCODE_ATTRIBUTE_TVOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "3"
+			XCODE_ATTRIBUTE_SDKROOT appletvos
+			XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS appletvos
+		)
+	endif()
+	if(IOS_APP_STORE)
+		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
+		set_target_properties(${TargetBin} PROPERTIES
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM_ID}"
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS YES
-
-			XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
-			XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
-			XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
-
-			XCODE_ATTRIBUTE_SKIP_INSTALL NO
-			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)
 	else()
-		# This is for injecting the version into the plist.
-		add_custom_command(TARGET PPSSPP POST_BUILD
-			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
-			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
-		)
-
+		# Sideload builds are signed afterwards, with ldid (see b-ios.sh).
 		set_target_properties(${TargetBin} PROPERTIES
-			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-			XCODE_GENERATE_SCHEME YES
-			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
-			RESOURCE "ext/vulkan/iOS/Frameworks"
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
-			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
-			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 		)
 	endif()
@@ -1700,6 +1691,36 @@ if(IOS AND NOT LIBRETRO)
 		COMMAND plutil -replace CFBundleDisplayName -string "${DISPLAY_NAME}" "${APP_DIR_NAME}/Info.plist"
 		COMMAND plutil -replace CFBundleIdentifier -string "${BUNDLE_IDENTIFIER}" "${APP_DIR_NAME}/Info.plist"
 	)
+
+	if(HEADLESS AND NOT TVOS)
+		# PPSSPPHeadless as an app of its own (org.ppsspp.headless), for running frame dumps on a
+		# device. Signed for development, so devicectl can copy files in and out of its container.
+		target_link_libraries(PPSSPPHeadless
+			${MOLTENVK_LIB}
+			"-framework Foundation -framework UIKit -framework CoreGraphics -framework CoreText -framework QuartzCore -framework Metal -framework IOSurface -framework AudioToolbox -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework UniformTypeIdentifiers"
+		)
+		if(NOT ICONV_LIBRARY)
+			target_link_libraries(PPSSPPHeadless iconv)
+		endif()
+		set(HEADLESS_APP_DIR "$<TARGET_FILE_DIR:PPSSPPHeadless>")
+		add_custom_command(TARGET PPSSPPHeadless POST_BUILD
+			COMMAND mkdir -p \"${HEADLESS_APP_DIR}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets | tar -x -C \"${HEADLESS_APP_DIR}\"
+		)
+		set_target_properties(PPSSPPHeadless PROPERTIES
+			XCODE_GENERATE_SCHEME YES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Headless-Info.plist"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER org.ppsspp.headless
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+		)
+		if(DEVELOPMENT_TEAM_ID)
+			set_target_properties(PPSSPPHeadless PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID})
+		endif()
+	endif()
 endif()
 
 if(MACOSX AND NOT IOS)

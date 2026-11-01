@@ -8,6 +8,9 @@ do
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake ${CMAKE_ARGS}"
 			TARGET_OS=iOS
 			;;
+		--tvos) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=TVOS ${CMAKE_ARGS}"
+			TARGET_OS=tvOS
+			;;
 		--ios-xcode) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake -DIOS_PLATFORM=OS -GXcode ${CMAKE_ARGS}"
 			TARGET_OS=iOS-xcode
 			;;
@@ -39,6 +42,11 @@ do
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/riscv64-linux-gnu.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
 			TARGET_OS=riscv64
 			CROSS_STUB_CC=riscv64-linux-gnu-gcc-14
+			;;
+		--armhf)
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/arm-linux-gnueabihf.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			TARGET_OS=armhf
+			CROSS_STUB_CC=$(command -v arm-linux-gnueabihf-gcc-14 || command -v arm-linux-gnueabihf-gcc-15 || echo arm-linux-gnueabihf-gcc)
 			;;
 		--android) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=android/android.toolchain.cmake ${CMAKE_ARGS}"
 			TARGET_OS=Android

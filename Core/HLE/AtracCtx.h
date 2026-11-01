@@ -132,6 +132,7 @@ private:
 	}
 	void ConsumeFrame();
 	void CalculateStreamInfo(u32 *readOffset);
+	void CopyToDataBuf(u32 fileOffset, u32 srcAddr, u32 size, const char *tag);
 
 	Track track_{};
 

@@ -91,6 +91,7 @@ void SingleControlMapper::Refresh() {
 		{ "Triangle", ImageID("I_TRIANGLE") },
 		{ "Start",    ImageID("I_START")    },
 		{ "Select",   ImageID("I_SELECT")   },
+		{ "Home",     ImageID("I_HOME")     },
 		{ "L",        ImageID("I_L")        },
 		{ "R",        ImageID("I_R")        }
 	};
@@ -227,26 +228,35 @@ static const BindingCategory cats[] = {
 	{},  // sentinel
 };
 
-
 void ControlMappingScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
-	parent->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
+
+	// Use the whole width of the narrow settings column.
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+	groups->SetPadding(Margins(0, 12, 0, 0));
+	groups->SetSpacing(12.0f);
+
+	ChoiceGroup *resetChoices = groups->Add(new ChoiceGroup());
+	resetChoices->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::ClearAllMappings();
 	});
-	parent->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
+	resetChoices->Add(new Choice(km->T("Default All")))->OnClick.Add([](UI::EventParams &) {
 		KeyMap::RestoreDefault();
 	});
+
+	ChoiceGroup *moreChoices = groups->Add(new ChoiceGroup());
+
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	// If there's a builtin controller, restore to default should suffice. No need to conf the controller on top.
 	if (!KeyMap::HasBuiltinController(sysName) && KeyMap::GetSeenPads().size()) {
-		parent->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
+		moreChoices->Add(new Choice(km->T("Autoconfigure")))->OnClick.Handle(this, &ControlMappingScreen::OnAutoConfigure);
 	}
-	parent->Add(new Choice(km->T("Show PSP")))->OnClick.Add([this](UI::EventParams &params) {
+	moreChoices->Add(new Choice(km->T("Show PSP")))->OnClick.Add([this](UI::EventParams &params) {
 		screenManager()->push(new VisualMappingScreen(gamePath_));
 	});
-	parent->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
-	parent->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
+	moreChoices->Add(new CheckBox(&g_Config.bAllowMappingCombos, km->T("Allow combo mappings")));
+	moreChoices->Add(new CheckBox(&g_Config.bStrictComboOrder, km->T("Strict combo input order")));
 }
 
 std::string_view ControlMappingScreen::GetTitle() const {
@@ -308,18 +318,14 @@ void ControlMappingScreen::OnAutoConfigure(UI::EventParams &params) {
 	}
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1);
+	// Uses a callback, since in portrait the settings are in a popup, which would get dialogFinished instead of us.
+	UI::ListPopupScreen *autoConfList = new UI::ListPopupScreen(km->T("Autoconfigure for device"), items, -1, [items](int index) {
+		KeyMap::AutoConfForPad(items[index]);
+	});
 	autoConfList->SetNotification(NoticeLevel::WARN, di->T("This will overwrite the existing configuration"));
 	if (params.v)
 		autoConfList->SetPopupOrigin(params.v);
 	screenManager()->push(autoConfList);
-}
-
-void ControlMappingScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	if (result == DR_OK && !strcmp(dialog->tag(), "listpopup")) {
-		UI::ListPopupScreen *popup = (UI::ListPopupScreen *)dialog;
-		KeyMap::AutoConfForPad(popup->GetChoiceString());
-	}
 }
 
 void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
@@ -351,8 +357,11 @@ bool KeyMappingNewKeyDialog::key(const KeyInput &key) {
 			return true;
 		}
 
-		if (pspBtn_ == VIRTKEY_SPEED_ANALOG && !UI::IsEscapeKey(key)) {
-			// Only map analog values to this mapping.
+		if (pspBtn_ == VIRTKEY_SPEED_ANALOG) {
+			// Only map analog values to this mapping. Escape cancels.
+			if (UI::IsEscapeKey(key)) {
+				TriggerFinish(DR_CANCEL);
+			}
 			return true;
 		}
 
@@ -529,34 +538,37 @@ void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents)
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 
-	scrollContents->Add(new ItemHeader(co->T("Analog Settings")));
+	ChoiceGroupList *groups = scrollContents->Add(new ChoiceGroupList());
+	groups->SetSpacing(12.0f);
+
+	ChoiceGroup *analogSettings = groups->Add(new ChoiceGroup(co->T("Analog Settings")));
 
 	// TODO: Would be nicer if these didn't pop up...
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, 0.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, 1.1f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogDeadzone, 0.0f, 0.5f, 0.15f, co->T("Deadzone radius"), 0.01f, screenManager(), "/ 1.0"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogInverseDeadzone, 0.0f, 1.0f, 0.0f, co->T("Low end radius"), 0.01f, screenManager(), "/ 1.0"));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogSensitivity, 0.0f, 2.0f, 1.1f, co->T("Sensitivity (scale)", "Sensitivity"), 0.01f, screenManager(), "x"));
 	// Legacy circular toggle. Disabled when deadzone shape is set to Circle, since that already provides circular behavior.
-	CheckBox *circularCheck = scrollContents->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
+	CheckBox *circularCheck = analogSettings->Add(new CheckBox(&g_Config.bAnalogIsCircular, co->T("Circular stick input")));
 	circularCheck->SetEnabledFunc([] {
 		return g_Config.iAnalogDeadzoneShape != 0;  // Disabled when shape is Circle (redundant)
 	});
-	scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
+	analogSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.1f, 20.0f, 8.0f, co->T("Auto-rotation speed"), 1.0f, screenManager()));
 
 	// Advanced deadzone settings (Steam Input-style).
-	scrollContents->Add(new ItemHeader(co->T("Advanced Deadzone Settings")));
+	ChoiceGroup *deadzoneSettings = groups->Add(new ChoiceGroup(co->T("Advanced Deadzone Settings")));
 
 	static const char *deadzoneShapes[] = { "Circle", "Square", "Cross" };
-	scrollContents->Add(new PopupMultiChoice(&g_Config.iAnalogDeadzoneShape, co->T("Deadzone shape"), deadzoneShapes, 0, ARRAY_SIZE(deadzoneShapes), I18NCat::CONTROLS, screenManager()));
+	deadzoneSettings->Add(new PopupMultiChoice(&g_Config.iAnalogDeadzoneShape, co->T("Deadzone shape"), deadzoneShapes, 0, ARRAY_SIZE(deadzoneShapes), I18NCat::CONTROLS, screenManager()));
 
-	PopupSliderChoiceFloat *axialDZ = scrollContents->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAxialDeadzone, 0.0f, 0.5f, 0.0f, co->T("Axial anti-deadzone"), 0.01f, screenManager(), "/ 1.0"));
+	PopupSliderChoiceFloat *axialDZ = deadzoneSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAxialDeadzone, 0.0f, 0.5f, 0.0f, co->T("Axial anti-deadzone"), 0.01f, screenManager(), "/ 1.0"));
 	axialDZ->SetEnabledFunc([] {
 		return g_Config.iAnalogDeadzoneShape == 2;  // Only enabled for Cross shape
 	});
 
 	static const char *responseCurves[] = { "Linear", "Aggressive", "Relaxed", "Wide" };
-	scrollContents->Add(new PopupMultiChoice(&g_Config.iAnalogResponseCurve, co->T("Response curve"), responseCurves, 0, ARRAY_SIZE(responseCurves), I18NCat::CONTROLS, screenManager()));
+	deadzoneSettings->Add(new PopupMultiChoice(&g_Config.iAnalogResponseCurve, co->T("Response curve"), responseCurves, 0, ARRAY_SIZE(responseCurves), I18NCat::CONTROLS, screenManager()));
 
-	scrollContents->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
+	groups->Add(new ChoiceGroup())->Add(new Choice(co->T("Reset to defaults")))->OnClick.Handle(this, &AnalogCalibrationScreen::OnResetToDefaults);
 }
 
 void AnalogCalibrationScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -896,28 +908,30 @@ void VisualMappingScreen::CreateViews() {
 	using namespace UI;
 
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	constexpr float leftColumnWidth = 200.0f;
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT, Margins(10, 0, 0, 10)));
-	leftColumn->Add(new Choice(km->T("Bind All")))->OnClick.Handle(this, &VisualMappingScreen::OnBindAll);
-	leftColumn->Add(new CheckBox(&replace_, km->T("Replace"), ""));
+	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT, Margins(10, 10, 0, 10))));
 
-	leftColumn->Add(new Spacer(new LinearLayoutParams(1.0f)));
-	AddStandardBack(leftColumn);
+	ChoiceGroup *actions = leftColumn->Add(new ChoiceGroup());
+
+	actions->Add(new Choice(km->T("Bind All")))->OnClick.Handle(this, &VisualMappingScreen::OnBindAll);
+	actions->Add(new CheckBox(&replace_, km->T("Replace"), ""));
+
+	Choice *backButton = leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+	backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	backButton->SetRoundCorners();
 
 	// TODO: Properly use layout instead of querying bounds.
 	Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
 	// Account for left side.
 	bounds.w -= leftColumnWidth + 10.0f;
 
-	AnchorLayout *rightColumn = new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f));
+	AnchorLayout *rightColumn = root_->Add(new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f)));
 	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, Centering::Both)));
 	psp_->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
-
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
 }
 
 bool VisualMappingScreen::key(const KeyInput &key) {

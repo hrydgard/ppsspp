@@ -19,6 +19,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/LoongArch64/LoongArch64Jit.h"
 #include "Core/MIPS/LoongArch64/LoongArch64RegCache.h"
+#include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
 
 // This file contains compilation for vector instructions.
 //
@@ -209,7 +210,7 @@ void LoongArch64JitBackend::CompIR_VecAssign(IRInst inst) {
 			} else {
 				regs_.Map(inst);
 				for (int i = 0; i < 4; ++i) {
-					int lane = (inst.src2 >> (i * 2)) & 3;
+					int lane = Vec4ShuffleLane(inst.src2, i);
 					FMOV_S(regs_.F(inst.dest + i), regs_.F(inst.src1 + lane));
 				}
 			}
@@ -301,10 +302,11 @@ void LoongArch64JitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 
 	case IROp::Vec4Scale:
+		// Check overlap before mapping: the reg cache can't map a reg as both a vector and a scalar.
+		if (cpu_info.LOONGARCH_LSX && (Overlap(inst.dest, 4, inst.src2, 1) || Overlap(inst.src1, 4, inst.src2, 1)))
+			DISABLE;
 		regs_.Map(inst);
 		if (cpu_info.LOONGARCH_LSX) {
-			if (Overlap(inst.dest, 4, inst.src2, 1) || Overlap(inst.src1, 4, inst.src2, 1))
-				DISABLE;
 
 			VSHUF4I_W(regs_.V(inst.src2), regs_.V(inst.src2), 0);
 			VFMUL_S(regs_.V(inst.dest), regs_.V(inst.src1), regs_.V(inst.src2));
@@ -344,6 +346,91 @@ void LoongArch64JitBackend::CompIR_VecArith(IRInst inst) {
 				FABS_S(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
 		break;
 
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+		if (cpu_info.LOONGARCH_LSX) {
+			// vfpu_minmax_key() of each lane of both, compared as signed, picks the lanes. A tie
+			// takes src2.
+			const LoongArch64Reg temp = EncodeRegToV(regs_.MapWithFPRTemp(inst));
+			const LoongArch64Reg a = regs_.V(inst.src1), b = regs_.V(inst.src2);
+			const LoongArch64Reg keyA = EncodeRegToV(SCRATCHF1), keyB = EncodeRegToV(SCRATCHF2);
+			auto key = [&](LoongArch64Reg k, LoongArch64Reg src) {
+				VSRAI_W(temp, src, 31);
+				VSRLI_W(temp, temp, 1);
+				VXOR_V(k, src, temp);
+				// Zero if the exponent is.
+				VSLLI_W(temp, src, 1);
+				VSRLI_W(temp, temp, 24);
+				VSEQI_W(temp, temp, 0);
+				VANDN_V(k, temp, k);
+			};
+			key(keyA, a);
+			key(keyB, b);
+			if (inst.op == IROp::Vec4Min)
+				VSLT_W(keyA, keyA, keyB);
+			else
+				VSLT_W(keyA, keyB, keyA);
+			VBITSEL_V(regs_.V(inst.dest), b, a, keyA);
+		} else {
+			// As FMin and FMax, lane by lane. The lanes line up, so overlap doesn't matter.
+			for (int i = 0; i < 4; ++i) {
+				IRInst lane{ inst.op == IROp::Vec4Min ? IROp::FMin : IROp::FMax };
+				lane.dest = inst.dest + i;
+				lane.src1 = inst.src1 + i;
+				lane.src2 = inst.src2 + i;
+				CompIR_FCondAssign(lane);
+			}
+		}
+		break;
+
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+		// 1.0 where src1 < src2 (vslt) or src1 >= src2 (vsge), 0.0 otherwise, NaN included.
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			if (inst.op == IROp::Vec4Slt)
+				VFCMP_CLT_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), regs_.V(inst.src2));
+			else
+				VFCMP_CLE_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.src2), regs_.V(inst.src1));
+			LU12I_W(SCRATCH1, 0x3F800000 >> 12);
+			VREPLGR2VR_W(EncodeRegToV(SCRATCHF2), SCRATCH1);
+			VAND_V(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF2));
+		} else {
+			QuickFLI(32, SCRATCHF1, 1.0f, SCRATCH1);
+			MOVGR2FR_W(SCRATCHF2, R_ZERO);
+			for (int i = 0; i < 4; ++i) {
+				if (inst.op == IROp::Vec4Slt)
+					FCMP_COND_S(FCC0, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), LoongArch64Fcond::CLT);
+				else
+					FCMP_COND_S(FCC0, regs_.F(inst.src2 + i), regs_.F(inst.src1 + i), LoongArch64Fcond::CLE);
+				FSEL(regs_.F(inst.dest + i), SCRATCHF2, SCRATCHF1, FCC0);
+			}
+		}
+		break;
+
+	case IROp::Vec4CvtScaledSW:
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			VFFINT_S_W(regs_.V(inst.dest), regs_.V(inst.src1));
+			if ((inst.src2 & 0x1F) != 0) {
+				float scale = 1.0f / (1UL << (inst.src2 & 0x1F));
+				u32 bits;
+				memcpy(&bits, &scale, 4);
+				LI(SCRATCH1, (s32)bits);
+				VREPLGR2VR_W(EncodeRegToV(SCRATCHF1), SCRATCH1);
+				VFMUL_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
+			}
+		} else {
+			if ((inst.src2 & 0x1F) != 0)
+				QuickFLI(32, SCRATCHF1, 1.0f / (1UL << (inst.src2 & 0x1F)), SCRATCH1);
+			for (int i = 0; i < 4; ++i) {
+				FFINT_S_W(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+				if ((inst.src2 & 0x1F) != 0)
+					FMUL_S(regs_.F(inst.dest + i), regs_.F(inst.dest + i), SCRATCHF1);
+			}
+		}
+		break;
+
 	default:
 		INVALIDOP;
 		break;
@@ -354,38 +441,47 @@ void LoongArch64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
-		regs_.Map(inst);
-		if (cpu_info.LOONGARCH_LSX) {
-			if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
-				DISABLE;
-
-			VFMUL_S(regs_.V(inst.dest), regs_.V(inst.src1), regs_.V(inst.src2));
-			VOR_V(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), regs_.V(inst.dest));
-			VSHUF4I_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), VFPU_SWIZZLE(1, 0, 3, 2));
-			VFADD_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
-			VEXTRINS_D(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), 1);
-			// Do we need care about upper 96 bits?
-			VFADD_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
+	case IROp::Vec4VfpuDot:
+	{
+		// The operands go to the shared routine, in v8 and v9 (SCRATCHF1 and SCRATCHF2) with LSX and
+		// mips->vfpuDotArgs without, and the result comes back in f8. Whatever guest state is in the
+		// registers it clobbers gets flushed after the operands are moved, in case one was mapped into
+		// one of them. They come last in the allocation order, so usually that's nothing.
+		LoongArch64VfpuDotRegs dotRegs;
+		GetLoongArch64VfpuDotRegs(CTXREG, &dotRegs);
+		const bool lsx = cpu_info.LOONGARCH_LSX;
+		if (lsx) {
+			regs_.SpillLockFPR(inst.src1, inst.src2);
+			const LoongArch64Reg x = regs_.MapVec4(inst.src1);
+			const LoongArch64Reg y = regs_.MapVec4(inst.src2);
+			VOR_V(dotRegs.x, x, x);
+			VOR_V(dotRegs.y, y, y);
+			regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+			for (LoongArch64Reg r : dotRegs.v)
+				regs_.FlushHostRegs({ r });
 		} else {
-			if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
-				// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
-				// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
-				for (int i = 0; i < 4; ++i) {
-					if (inst.dest == inst.src1 + i || inst.dest == inst.src2 + i)
-						FMUL_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-				}
-				for (int i = 0; i < 4; ++i) {
-					if (inst.dest != inst.src1 + i && inst.dest != inst.src2 + i)
-						FMADD_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
-				}
-			} else {
-				FMUL_S(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-				for (int i = 1; i < 4; ++i)
-					FMADD_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
+			for (int i = 0; i < 4; ++i) {
+				regs_.SpillLockFPR(inst.src1 + i, inst.src2 + i);
+				FST_S(regs_.MapFPR(inst.src1 + i), CTXREG, dotRegs.offset + i * 4);
+				FST_S(regs_.MapFPR(inst.src2 + i), CTXREG, dotRegs.offset + 16 + i * 4);
 			}
+			for (int i = 0; i < 4; ++i)
+				regs_.ReleaseSpillLockFPR(inst.src1 + i, inst.src2 + i);
+		}
+		for (int i = 0; i < (lsx ? 5 : 9); ++i)
+			regs_.FlushHostRegs({ dotRegs.gpr[i] });
+		QuickCallFunction(vfpuDot_, SCRATCH2);
+
+		if (lsx && (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))) {
+			// The dest lane is in a Vec4 the operands were mapped as.
+			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
+			VEXTRINS_W(regs_.V(inst.dest & ~3), EncodeRegToV(dotRegs.ftemp), (inst.dest & 3) << 4);
+		} else {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			FMOV_S(regs_.F(inst.dest), dotRegs.ftemp);
 		}
 		break;
+	}
 
 	default:
 		INVALIDOP;
@@ -398,10 +494,15 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
-		// With LSX, a lane group can be mapped as one vector reg, and then F() returns the same
-		// reg for every lane. The Vec2 ops here address lanes one by one, so leave them to the interpreter.
+		// With LSX, the pair is one vector reg (F() would give the same reg for both lanes).
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 2, inst.src1, 1))
+				DISABLE;
+			regs_.Map(inst);
+			// Each halfword to the top of its lane, then down one.
+			VXOR_V(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
+			VILVL_H(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
+			VSRLI_W(regs_.V(inst.dest), regs_.V(inst.dest), 1);
 			break;
 		}
 		// Like Vec2Unpack16To32, shifted down one more.
@@ -418,7 +519,13 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 	case IROp::Vec2Pack31To16:
 	{
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 1, inst.src1, 2))
+				DISABLE;
+			regs_.Map(inst);
+			VREPLGR2VR_D(EncodeRegToV(SCRATCHF1), R_ZERO);
+			VMAX_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
+			VSRLI_W(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), 15);
+			VPICKEV_H(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			break;
 		}
 		// Bits 30-15 of each lane, with negative lanes clamped to zero.
@@ -491,7 +598,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec2Unpack16To32:
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 2, inst.src1, 1))
+				DISABLE;
+			regs_.Map(inst);
+			VXOR_V(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
+			VILVL_H(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
 			break;
 		}
 		// src1 is read before either lane of dest is written.
@@ -560,7 +671,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec2Pack32To16:
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 1, inst.src1, 2))
+				DISABLE;
+			// The top halfword of each lane.
+			regs_.Map(inst);
+			VPICKOD_H(regs_.V(inst.dest), regs_.V(inst.src1), regs_.V(inst.src1));
 			break;
 		}
 		regs_.Map(inst);

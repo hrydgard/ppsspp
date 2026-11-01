@@ -83,8 +83,23 @@ void InputManager::BeginPolling() {
 }
 
 void InputManager::StopPolling() {
+	INFO_LOG(Log::System, "Stopping the input thread");
 	runThread_.store(false, std::memory_order_relaxed);
+#if !PPSSPP_PLATFORM(UWP)
+	// The HID pads are read with a blocking ReadFile, which never returns if the pad stops sending
+	// reports, and then the join below waits forever with the window already gone. Cancel whatever
+	// I/O the thread is blocked in. Repeat it, since a cancel that lands just before a read starts
+	// does nothing.
+	HANDLE thread = (HANDLE)inputThread_.native_handle();
+	for (int tries = 0; WaitForSingleObject(thread, 100) == WAIT_TIMEOUT; tries++) {
+		if (tries == 0) {
+			WARN_LOG(Log::System, "Input thread didn't stop, cancelling its I/O");
+		}
+		CancelSynchronousIo(thread);
+	}
+#endif
 	inputThread_.join();
+	INFO_LOG(Log::System, "Input thread stopped");
 }
 
 bool InputManager::AnyAccelerometer() const {

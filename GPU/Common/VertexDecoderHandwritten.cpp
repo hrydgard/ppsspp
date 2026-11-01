@@ -4,6 +4,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/SIMDHeaders.h"
 
 // Candidates for hand-writing
@@ -43,8 +44,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 			};
 			u32 packed_uv;
 		};
-		u32 packed_normal;
 		u32 col;
+		u32 nrm;  // s8 x3, padding
 		float x;
 		float y;
 		float z;
@@ -54,8 +55,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 	struct OutVTX {
 		float u;
 		float v;
-		u32 packed_normal;
-		uint32_t col;
+		u32 col;
+		u32 nrm;
 		float x;
 		float y;
 		float z;
@@ -71,37 +72,34 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 
 	u32 alpha = 0xFFFFFFFF;
 
-	// The position is loaded together with the color, as lanes 1-3. A NaN or infinite coordinate has
+	// The position is loaded together with the normal, as lanes 1-3. A NaN or infinite coordinate has
 	// to come out finite, so that the viewport scale can zero it later like the PSP does. Which finite
-	// value doesn't matter, so any lane with an all-ones exponent is zeroed. Lane 0 (the color) is
+	// value doesn't matter, so any lane with an all-ones exponent is zeroed. Lane 0 (the normal) is
 	// left alone: its mask is 0, which never equals the exponent.
 	alignas(16) static const u32 expMask[4] = { 0, 0x7F800000, 0x7F800000, 0x7F800000 };
 
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
-	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
 	const __m128i posExpMask = _mm_load_si128((const __m128i *)expMask);
 	const __m128i expAllOnes = _mm_set1_epi32(0x7F800000);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
-		u32 normal = src[i].packed_normal;
-		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
-		alphaMask = _mm_and_si128(alphaMask, colpos);
-		colpos = _mm_andnot_si128(_mm_cmpeq_epi32(_mm_and_si128(colpos, posExpMask), expAllOnes), colpos);
+		const u32 col = src[i].col;
+		alpha &= col;
+		__m128i nrmpos = _mm_loadu_si128((const __m128i *)&src[i].nrm);
+		nrmpos = _mm_andnot_si128(_mm_cmpeq_epi32(_mm_and_si128(nrmpos, posExpMask), expAllOnes), nrmpos);
 		_mm_store_sd((double *)&dst[i].u, _mm_castps_pd(finalUV));
-		dst[i].packed_normal = normal;
-		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
+		dst[i].col = col;
+		_mm_storeu_si128((__m128i *)&dst[i].nrm, nrmpos);
 	}
-	alpha = _mm_cvtsi128_si32(alphaMask);
 
 #elif PPSSPP_ARCH(ARM_NEON)
 	const float scaleArr[2] = { uscale, vscale };
 	float32x2_t uvScale = vld1_f32(scaleArr);
 	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
-	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
 	const uint32x4_t posExpMask = vld1q_u32(expMask);
 	const uint32x4_t expAllOnes = vdupq_n_u32(0x7F800000);
 	for (int i = 0; i < count; i++) {
@@ -113,15 +111,14 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 #else
 		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
 #endif
-		u32 normal = src[i].packed_normal;
-		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
-		alphaMask = vandq_u32(alphaMask, colpos);
-		colpos = vbicq_u32(colpos, vceqq_u32(vandq_u32(colpos, posExpMask), expAllOnes));
+		const u32 col = src[i].col;
+		alpha &= col;
+		uint32x4_t nrmpos = vld1q_u32(&src[i].nrm);
+		nrmpos = vbicq_u32(nrmpos, vceqq_u32(vandq_u32(nrmpos, posExpMask), expAllOnes));
 		vst1_f32(&dst[i].u, finalUV);
-		dst[i].packed_normal = normal;
-		vst1q_u32(&dst[i].col, colpos);
+		dst[i].col = col;
+		vst1q_u32(&dst[i].nrm, nrmpos);
 	}
-	alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;
@@ -132,7 +129,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		float y = src[i].y;
 		float z = src[i].z;
 		dst[i].col = color;
-		dst[i].packed_normal = src[i].packed_normal;
+		dst[i].nrm = src[i].nrm;
 		dst[i].u = u;
 		dst[i].v = v;
 		dst[i].x = x;
@@ -140,7 +137,9 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		dst[i].z = z;
 	}
 #endif
-	gstate_c.vertexFullAlpha = (alpha >> 24) == 0xFF;
+	// Only cleared, like the steps do: the draws before in the batch count too.
+	if ((alpha >> 24) != 0xFF)
+		gstate_c.vertexFullAlpha = false;
 }
 
 void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale *uvScaleOffset) {
@@ -225,8 +224,8 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		_mm_storeh_pd((double *)&dst[1].u, uvf);
 #if PPSSPP_ARCH(AMD64)
 		u64 colors = _mm_cvtsi128_si64(col);
-		dst[0].col = colors;
-		dst[1].col = colors >> 32;
+		dst[0].col = (u32)colors;
+		dst[1].col = (u32)(colors >> 32);
 #else
 		dst[0].col = _mm_cvtsi128_si32(col);
 		dst[1].col = _mm_cvtsi128_si32(_mm_shuffle_epi32(col, _MM_SHUFFLE(1, 1, 1, 1)));
@@ -322,5 +321,241 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		count--;
 	}
 
-	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
+	if (!((alpha >> 15) & 1))
+		gstate_c.vertexFullAlpha = false;
+}
+
+// Converting UV without a prescale is the same as with a scale of 1 and no offset: the division by a power
+// of two in the scale is exact either way.
+static const UVScale identityUVScale = { 1.0f, 1.0f, 0.0f, 0.0f };
+
+void VtxDec_Tu16_C8888_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	VtxDec_Tu16_C8888_Pfloat(srcp, dstp, count, &identityUVScale);
+}
+
+void VtxDec_Tu8_C5551_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	VtxDec_Tu8_C5551_Ps16(srcp, dstp, count, &identityUVScale);
+}
+
+
+// The ones below convert like the steps, so the results are the same. With prescale false, they're for the
+// UV generation modes that don't prescale (float UV is then copied as is, -0 included).
+
+template <bool prescale>
+static void DecodeTu8_C565_Ns16_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		u8 u, v;
+		u16 col;
+		s16 nrm[3];
+		float pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		s16 nrm[4];
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * (1.0f / 128.0f), v = src[i].v * (1.0f / 128.0f);
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		dst[i].col = RGB565ToRGBA8888(src[i].col);
+		dst[i].nrm[0] = src[i].nrm[0];
+		dst[i].nrm[1] = src[i].nrm[1];
+		dst[i].nrm[2] = src[i].nrm[2];
+		dst[i].nrm[3] = 0;
+		// Like Step_PosFloat, which reads and writes four floats.
+		Vec4F32::Load(src[i].pos).CleanNaNInfs().Store(dst[i].pos);
+	}
+}
+
+// ATV Offroad Fury: Blazin' Trails.
+void VtxDec_Tu8_C565_Ns16_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu8_C565_Ns16_Pfloat<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tu8_C565_Ns16_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu8_C565_Ns16_Pfloat<false>(srcp, dstp, count, uvScaleOffset);
+}
+
+template <bool prescale>
+static void DecodeTfloat_C8888_Ns8_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		float uv[2];
+		u32 col;
+		u32 nrm;  // s8 x3, padding
+		s16 pos[3];
+		u16 pad;
+	};
+	struct OutVtx {
+		float uv[2];
+		u32 col;
+		u32 nrm;  // s8 x3, 0
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const Vec4F32 uvScale = Vec4F32::Load2(&uvScaleOffset->uScale);
+	const Vec4F32 uvOff = Vec4F32::Load2(&uvScaleOffset->uOff);
+	const Vec4F32 posScale = Vec4F32::Splat(1.0f / 32768.0f);
+	u32 alpha = 0xFFFFFFFF;
+	for (int i = 0; i < count; i++) {
+		Vec4F32 uv = Vec4F32::Load2(src[i].uv);
+		if (prescale)
+			uv = MulAdd(uv, uvScale, uvOff);  // Fused where PrescaleUV() is.
+		uv.Store2(dst[i].uv);
+		const u32 col = src[i].col;
+		alpha &= col;
+		dst[i].col = col;
+		dst[i].nrm = src[i].nrm & 0x00FFFFFF;
+		// Writes four floats, the last over the next vertex (or the slack after the buffer).
+		(Vec4F32::LoadConvertS16(src[i].pos) * posScale).Store(dst[i].pos);
+	}
+	if ((alpha >> 24) != 0xFF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// Wipeout Pure.
+void VtxDec_Tfloat_C8888_Ns8_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTfloat_C8888_Ns8_Ps16<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tfloat_C8888_Ns8_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTfloat_C8888_Ns8_Ps16<false>(srcp, dstp, count, uvScaleOffset);
+}
+
+template <bool prescale>
+static void DecodeTu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		u16 u, v;
+		u16 col;
+		s16 pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	// The HD Remasters double the texture coordinates, see Step_TcU16DoublePrescale.
+	const float uvDiv = g_DoubleTextureCoordinates ? (1.0f / 16384.0f) : (1.0f / 32768.0f);
+	const Vec4F32 posScale = Vec4F32::Splat(1.0f / 32768.0f);
+	u32 alpha = 0xFFFF;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * uvDiv, v = src[i].v * uvDiv;
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		const u16 col = src[i].col;
+		alpha &= col;
+		dst[i].col = RGBA4444ToRGBA8888(col);
+		if (i + 1 < count) {
+			// Reads one s16 into the next vertex, and writes four floats, the last over the next vertex.
+			(Vec4F32::LoadConvertS16(src[i].pos) * posScale).Store(dst[i].pos);
+		} else {
+			dst[i].pos[0] = src[i].pos[0] * (1.0f / 32768.0f);
+			dst[i].pos[1] = src[i].pos[1] * (1.0f / 32768.0f);
+			dst[i].pos[2] = src[i].pos[2] * (1.0f / 32768.0f);
+		}
+	}
+	if ((alpha >> 12) != 0xF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// Killzone: Liberation, Gods Eater Burst.
+void VtxDec_Tu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu16_C4444_Ps16<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tu16_C4444_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu16_C4444_Ps16<false>(srcp, dstp, count, uvScaleOffset);
+}
+
+template <bool prescale>
+static void DecodeW1float_Tu8_C4444_Ns8_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		float w;
+		u8 u, v;
+		u16 col;
+		s8 nrm[3];
+		u8 pad;
+		float pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		float nrm[3];
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	// The skin matrix is what ComputeSkinMatrix() makes (0 + bone * weight, for each element), kept as
+	// the columns Vec3ByMatrix43() and Norm3ByMatrix43() load, so they come straight from the bone
+	// matrix's. Lane 3 ends up only in values overwritten later. Those functions multiply and add in
+	// the order below, unfused, so the results are the same.
+	const float *bone = gstate.boneMatrix;
+	const Vec4F32 bone0 = Vec4F32::Load(bone), bone1 = Vec4F32::Load(bone + 3), bone2 = Vec4F32::Load(bone + 6), bone3 = Vec4F32::Load(bone + 9);
+	Vec4F32 col0 = Vec4F32::Zero(), col1 = Vec4F32::Zero(), col2 = Vec4F32::Zero(), col3 = Vec4F32::Zero();
+	u32 skinWeightBits = 0;
+	bool haveSkin = false;
+	u32 alpha = 0xFFFF;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * (1.0f / 128.0f), v = src[i].v * (1.0f / 128.0f);
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		const u16 col = src[i].col;
+		alpha &= col;
+		dst[i].col = RGBA4444ToRGBA8888(col);
+
+		u32 weightBits;
+		memcpy(&weightBits, &src[i].w, sizeof(weightBits));
+		if (!haveSkin || weightBits != skinWeightBits) {
+			const float w = src[i].w;
+			const Vec4F32 zero = Vec4F32::Zero();
+			if (w != 0.0f) {
+				const Vec4F32 wv = Vec4F32::Splat(w);
+				col0 = zero + bone0 * wv;
+				col1 = zero + bone1 * wv;
+				col2 = zero + bone2 * wv;
+				col3 = zero + bone3 * wv;
+			} else {
+				col0 = col1 = col2 = col3 = zero;
+			}
+			skinWeightBits = weightBits;
+			haveSkin = true;
+		}
+		// Each writes four floats, the last over the next field or vertex (or the slack after the buffer).
+#if PPSSPP_ARCH(ARM64_NEON)
+		// By lane, like Vec3ByMatrix43Internal() here. Reads the padding after the normal and the float after
+		// the position (the next vertex's weight, or the bytes after the last), which go to lane 3 only.
+		uint32_t nrmBits;
+		memcpy(&nrmBits, src[i].nrm, sizeof(nrmBits));
+		const int16x8_t n16 = vmovl_s8(vreinterpret_s8_u32(vdup_n_u32(nrmBits)));
+		const float32x4_t n = vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(n16))), 1.0f / 128.0f);
+		const float32x4_t nrm = vaddq_f32(vaddq_f32(vmulq_laneq_f32(col0.v, n, 0), vmulq_laneq_f32(col1.v, n, 1)), vmulq_laneq_f32(col2.v, n, 2));
+		vst1q_f32(dst[i].nrm, nrm);
+		const float32x4_t p = vld1q_f32(src[i].pos);
+		const float32x4_t pos = vaddq_f32(vaddq_f32(vmulq_laneq_f32(col0.v, p, 0), vmulq_laneq_f32(col1.v, p, 1)), vaddq_f32(vmulq_laneq_f32(col2.v, p, 2), col3.v));
+		vst1q_f32(dst[i].pos, pos);
+#else
+		Vec4F32 nrm = (col0 * Vec4F32::Splat(src[i].nrm[0] * (1.0f / 128.0f)) + col1 * Vec4F32::Splat(src[i].nrm[1] * (1.0f / 128.0f))) +
+			col2 * Vec4F32::Splat(src[i].nrm[2] * (1.0f / 128.0f));
+		nrm.Store(dst[i].nrm);
+		Vec4F32 pos = (col0 * Vec4F32::Splat(src[i].pos[0]) + col1 * Vec4F32::Splat(src[i].pos[1])) +
+			(col2 * Vec4F32::Splat(src[i].pos[2]) + col3);
+		pos.Store(dst[i].pos);
+#endif
+	}
+	if ((alpha >> 12) != 0xF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// God of War, skinned with one weight.
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeW1float_Tu8_C4444_Ns8_Pfloat<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeW1float_Tu8_C4444_Ns8_Pfloat<false>(srcp, dstp, count, uvScaleOffset);
 }

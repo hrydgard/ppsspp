@@ -41,6 +41,11 @@ public:
 	void OnBack(UI::EventParams &e);
 
 	virtual UI::Margins RootMargins() const { return UI::Margins(0); }
+	// Whether to keep the content off the edges of large screens (like TVs), and within MaxContentWidth.
+	// Off for screens that cover the whole display, like the game.
+	virtual bool LimitContentArea() const { return false; }
+	// Wider content is centered at this width. 0 for no limit.
+	virtual float MaxContentWidth() const { return 0.0f; }
 
 	virtual void focusChanged(ScreenFocusChange focusChange) override {
 		Screen::focusChanged(focusChange);
@@ -56,6 +61,8 @@ protected:
 	virtual bool AllowFocusMovement() const { return true; }
 
 	Bounds GetLayoutBounds(UIContext &dc) const;
+	// Where root_ goes: the layout bounds, less RootMargins and the limits above.
+	Bounds GetContentBounds(const UIContext &dc) const;
 
 	void RecreateViews() override { recreateViews_ = true; }
 	DeviceOrientation GetDeviceOrientation() const;
@@ -77,6 +84,7 @@ protected:
 
 	bool recreateViews_ = true;
 	DeviceOrientation lastOrientation_ = DeviceOrientation::Landscape;
+	ViewLayoutMode lastLayoutMode_ = ViewLayoutMode::ApplyInsets;
 };
 
 class UIDialogScreen : public UIScreen {

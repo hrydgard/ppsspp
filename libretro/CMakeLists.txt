@@ -21,6 +21,7 @@ set(LIBRETRO_SRCS ${LIBRETRO_SRCS}
 	libretro-common/file/file_path_io.c
 	libretro-common/streams/file_stream.c
 	libretro-common/streams/file_stream_transforms.c
+	libretro-common/string/rstrtod.c
 	libretro-common/string/stdstring.c
 	libretro-common/time/rtime.c
 	libretro-common/vfs/vfs_implementation.c)

@@ -20,6 +20,23 @@ void MemFault_IgnoreLastCrash();
 // just leave it as-is.
 bool HandleFault(uintptr_t hostAddress, void *context);
 
+// Set while IRInterpret runs its own loads and stores. A fault in those can be stepped over, which the
+// IR interpreter does to halt cleanly instead of crashing. Only the CPU thread runs it.
+extern volatile bool g_inIRInterpreter;
+
+class IRInterpreterFaultScope {
+public:
+	explicit IRInterpreterFaultScope(bool inInterpreter) : prev_(g_inIRInterpreter) {
+		g_inIRInterpreter = inInterpreter;
+	}
+	~IRInterpreterFaultScope() {
+		g_inIRInterpreter = prev_;
+	}
+
+private:
+	bool prev_;
+};
+
 }
 
 // Stack walk utility function, walks from the current state. Useful in the debugger and crash report screens etc.

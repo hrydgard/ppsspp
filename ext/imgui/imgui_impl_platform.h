@@ -11,6 +11,8 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode);
 
 void ImGui_ImplPlatform_Init(const Path &configPath);
 void ImGui_ImplPlatform_NewFrame();
+// Writes the ini if imgui asked for it, or always if force is set. Call after ImGui::Render.
+void ImGui_ImplPlatform_SaveIni(bool force);
 
 void ImGui_ImplPlatform_KeyEvent(const KeyInput &key);
 void ImGui_ImplPlatform_TouchEvent(const TouchInput &touch);

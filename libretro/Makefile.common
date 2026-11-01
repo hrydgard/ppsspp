@@ -1,6 +1,6 @@
 HAVE_LIBRETRO_VFS ?= 1
 
-FFMPEGDIR		= $(CORE_DIR)/ffmpeg
+FFMPEGDIR		= $(CORE_DIR)/ext/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
@@ -30,7 +30,6 @@ INCFLAGS += \
 	-I$(ZSTDDIR) \
 	-I$(EXTDIR)/snappy \
 	-I$(FFMPEGDIR) \
-	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
 	-I$(EXTDIR)/armips/ext/filesystem/include \
@@ -419,6 +418,8 @@ SOURCES_CXX += \
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
+SOURCES_C   += $(EXTDIR)/libdeflate/lib/deflate_compress.c \
+               $(EXTDIR)/libdeflate/lib/utils.c
 
 SOURCES_CXX += \
 	$(EXTDIR)/snappy/snappy-c.cpp \
@@ -538,6 +539,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Net/WebsocketServer.cpp \
 	$(COMMONDIR)/Render/ManagedTexture.cpp \
 	$(COMMONDIR)/Render/DrawBuffer.cpp \
+	$(COMMONDIR)/Render/DropShadow.cpp \
 	$(COMMONDIR)/Render/TextureAtlas.cpp \
 	$(COMMONDIR)/Serialize/Serializer.cpp \
 	$(COMMONDIR)/Thread/ThreadUtil.cpp \
@@ -583,6 +585,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
 	$(GPUCOMMONDIR)/FramebufferManagerCommon.cpp \
+	$(GPUCOMMONDIR)/Overlay.cpp \
 	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ReinterpretFramebuffer.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \
@@ -615,6 +618,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/GEMath.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
+	$(GPUDIR)/Null/GPU_Null.cpp \
 	$(GPUDIR)/Software/Sampler.cpp \
 	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \
@@ -630,7 +634,6 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Lighting.cpp \
 	$(GPUDIR)/Software/Rasterizer.cpp \
 	$(GPUDIR)/Software/RasterizerRectangle.cpp \
-	$(GPUDIR)/Software/RasterizerRegCache.cpp \
 	$(GPUDIR)/GLES/StencilBufferGLES.cpp \
 	$(GPUDIR)/GLES/DrawEngineGLES.cpp \
 	$(GPUDIR)/GLES/GPU_GLES.cpp \
@@ -721,19 +724,34 @@ endif
 
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/postoffice.c \
-	       $(EXTDIR)/aemu_postoffice/client/postoffice_mem_stdc.c
+	       $(EXTDIR)/aemu_postoffice/client/postoffice_mem_stdc.c \
+	       $(EXTDIR)/aemu_postoffice/client/list.c \
+	       $(EXTDIR)/aemu_postoffice/client/enet.c \
+	       $(EXTDIR)/aemu_postoffice/adhocctl/client/adhocctl.c \
+	       $(EXTDIR)/aemu_postoffice/adhocctl/client/adhocctl_mem.c
 
 SOURCES_CXX += \
 	       $(EXTDIR)/aemu_postoffice/client/mutex_impl_cpp.cpp \
 	       $(EXTDIR)/aemu_postoffice/client/delay_impl_cpp.cpp \
 	       $(EXTDIR)/aemu_postoffice/client/log_impl_ppsspp.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/server.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/session.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/semaphore.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/log.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/common.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/enet.cpp \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/snapshot.cpp \
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/sock_impl_windows.c
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/native_socket_windows.cpp
 else
 SOURCES_C += \
 	       $(EXTDIR)/aemu_postoffice/client/sock_impl_linux.c
+SOURCES_CXX += \
+	       $(EXTDIR)/aemu_postoffice/server_cpp/native_socket_linux.cpp
 endif
 
 SOURCES_CXX += \
@@ -755,6 +773,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FileLoaders/RetryingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/RamCachingFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/LocalFileLoader.cpp \
+	       $(COREDIR)/FileLoaders/PS1EbootFileLoader.cpp \
 	       $(COREDIR)/FileLoaders/ZipFileLoader.cpp \
 	       $(COREDIR)/CoreTiming.cpp \
 	       $(COREDIR)/CwCheat.cpp \
@@ -782,6 +801,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/ELF/ParamSFO.cpp \
 	       $(COREDIR)/FileSystems/tlzrc.cpp \
 	       $(COREDIR)/FileSystems/BlockDevices.cpp \
+	       $(COREDIR)/FileSystems/CSOCompress.cpp \
 	       $(COREDIR)/FileSystems/BlobFileSystem.cpp \
 	       $(COREDIR)/FileSystems/DirectoryFileSystem.cpp \
 	       $(COREDIR)/FileSystems/FileSystem.cpp \
@@ -791,9 +811,11 @@ SOURCES_CXX += \
 	       $(COREDIR)/Font/PGF.cpp \
 	       $(COREDIR)/HLE/HLE.cpp \
 	       $(COREDIR)/HLE/KUBridge.cpp \
+	       $(COREDIR)/HLE/sceSysreg.cpp \
 	       $(COREDIR)/HLE/NetInetConstants.cpp \
 	       $(COREDIR)/HLE/SocketManager.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
+	       $(COREDIR)/HLE/PopsBoot.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
@@ -804,6 +826,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/AtracCtx.cpp \
 	       $(COREDIR)/HLE/AtracCtx2.cpp \
 	       $(COREDIR)/HLE/sceAdler.cpp \
+	       $(COREDIR)/HLE/sceAmctrl.cpp \
 	       $(COREDIR)/HLE/sceAtrac.cpp \
 	       $(COREDIR)/HLE/sceAudio.cpp \
 	       $(COREDIR)/HLE/sceAudiocodec.cpp \
@@ -845,6 +868,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/sceNet.cpp \
 	       $(COREDIR)/HLE/sceNet_lib.cpp \
 	       $(COREDIR)/HLE/NetAdhocCommon.cpp \
+	       $(COREDIR)/HLE/AdhocTransportP2P.cpp \
+	       $(COREDIR)/HLE/AdhocTransportRelay.cpp \
+	       $(COREDIR)/HLE/AdhocTransportNetSim.cpp \
 	       $(COREDIR)/HLE/sceNetAdhoc.cpp \
 	       $(COREDIR)/HLE/sceNetAdhocMatching.cpp \
 	       $(COREDIR)/HLE/sceNetApctl.cpp \
@@ -884,6 +910,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Camera.cpp \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/GpioMMIO.cpp \
+	       $(COREDIR)/HW/MMIO.cpp \
+	       $(COREDIR)/HW/MeMMIO.cpp \
+	       $(COREDIR)/HW/PopsMMIO.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \
@@ -897,8 +926,8 @@ SOURCES_CXX += \
 	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
+	       $(COREDIR)/MIPS/JitCommon/JitProfiler.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
-	       $(COREDIR)/MIPS/JitCommon/JitBlockCache.cpp \
 	       $(COREDIR)/MIPS/IR/IRAnalysis.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompALU.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompBranch.cpp \
@@ -925,6 +954,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
 	       $(COREDIR)/MIPS/MIPSTracer.cpp \
+	       $(COREDIR)/MIPS/MeCore.cpp \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
@@ -958,16 +988,15 @@ ifeq ($(WITH_DYNAREC),1)
    ifeq ($(TARGET_ARCH),arm)
       DYNAFLAGS += -D_ARCH_32
 		SOURCES_CXX += $(COMMONDIR)/ArmEmitter.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmAsm.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompALU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompBranch.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompFPU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompLoadStore.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompVFPU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompReplace.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRAsm.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompALU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompBranch.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompLoadStore.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompSystem.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompVec.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRJit.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRRegCache.cpp \
 			       $(EXTDIR)/disarm.cpp \
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 
@@ -979,16 +1008,6 @@ ifeq ($(WITH_DYNAREC),1)
 	else ifeq ($(TARGET_ARCH),arm64)
       DYNAFLAGS += -D_ARCH_64 -DARM64
       SOURCES_CXX += $(COMMONDIR)/Arm64Emitter.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64Asm.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompALU.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompBranch.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompFPU.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompLoadStore.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompVFPU.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64CompReplace.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64Jit.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64RegCache.cpp \
-		     $(COREDIR)/MIPS/ARM64/Arm64RegCacheFPU.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64IRAsm.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64IRCompALU.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64IRCompBranch.cpp \
@@ -1017,22 +1036,10 @@ ifeq ($(WITH_DYNAREC),1)
             CPUFLAGS += -m32
          endif
       endif
-	   SOURCES_CXX += $(GPUDIR)/Software/DrawPixelX86.cpp $(GPUDIR)/Software/SamplerX86.cpp
 	   SOURCES_CXX += $(COMMONDIR)/x64Emitter.cpp \
 						$(COMMONDIR)/x64Analyzer.cpp \
 						$(COMMONDIR)/ABI.cpp \
 						$(COMMONDIR)/Thunk.cpp \
-						$(COREDIR)/MIPS/x86/CompReplace.cpp \
-						$(COREDIR)/MIPS/x86/CompBranch.cpp \
-						$(COREDIR)/MIPS/x86/Asm.cpp \
-						$(COREDIR)/MIPS/x86/CompALU.cpp \
-						$(COREDIR)/MIPS/x86/CompVFPU.cpp \
-						$(COREDIR)/MIPS/x86/CompLoadStore.cpp \
-						$(COREDIR)/MIPS/x86/CompFPU.cpp \
-						$(COREDIR)/MIPS/x86/Jit.cpp \
-						$(COREDIR)/MIPS/x86/JitSafeMem.cpp \
-						$(COREDIR)/MIPS/x86/RegCache.cpp \
-						$(COREDIR)/MIPS/x86/RegCacheFPU.cpp \
 						$(COREDIR)/MIPS/x86/X64IRAsm.cpp \
 						$(COREDIR)/MIPS/x86/X64IRCompALU.cpp \
 						$(COREDIR)/MIPS/x86/X64IRCompBranch.cpp \
@@ -1175,6 +1182,7 @@ SOURCES_C += $(LIBRETROCOMMONDIR)/compat/compat_posix_string.c \
              $(LIBRETROCOMMONDIR)/file/file_path_io.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream.c \
              $(LIBRETROCOMMONDIR)/streams/file_stream_transforms.c \
+			 $(LIBRETROCOMMONDIR)/string/rstrtod.c \
              $(LIBRETROCOMMONDIR)/string/stdstring.c \
              $(LIBRETROCOMMONDIR)/time/rtime.c \
              $(LIBRETROCOMMONDIR)/vfs/vfs_implementation.c

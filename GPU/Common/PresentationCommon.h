@@ -19,6 +19,7 @@
 
 #include "Common/Common.h"
 #include "Common/GPU/Shader.h"
+#include "Common/System/Display.h"
 
 struct CardboardSettings {
 	bool enabled;
@@ -50,9 +51,31 @@ struct FRect {
 struct Bounds;  // from geom2d
 struct DisplayLayoutConfig;
 
+// The surface the game is presented to.
+struct OutputParams {
+	int pixelWidth = 0;
+	int pixelHeight = 0;
+	// The safe area, in pixels.
+	float insetLeft = 0.0f;
+	float insetTop = 0.0f;
+	float insetRight = 0.0f;
+	float insetBottom = 0.0f;
+	DeviceOrientation orientation = DeviceOrientation::Landscape;
+	DisplayRotation rotation = DisplayRotation::ROTATE_0;
+	Lin::Matrix4x4 rotMatrix = Lin::Matrix4x4::identity();
+	// Whether SetOverrideScreenFrame (the ImGui debugger's dock node) applies.
+	bool useOverrideFrame = false;
+};
+
+// The primary output: g_display, with the system's safe area insets.
+OutputParams PrimaryOutputParams(int pixelWidth, int pixelHeight);
+
+FRect GetScreenFrame(bool ignoreInsets, const OutputParams &output);
+// On the primary output.
 FRect GetScreenFrame(bool ignoreInsets, float pixelWidth, float pixelHeight);
 void SetOverrideScreenFrame(const Bounds *bounds);
-struct DisplayLayoutConfig;
+void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation, DeviceOrientation outputOrientation);
+// On the primary output.
 void CalculateDisplayOutputRect(const DisplayLayoutConfig &config, FRect *rc, float origW, float origH, const FRect &frame, int rotation);
 
 namespace Draw {
@@ -66,6 +89,7 @@ class Texture;
 }
 
 struct ShaderInfo;
+struct OverlayLayout;
 class TextureCacheCommon;
 
 enum class OutputFlags {
@@ -76,6 +100,7 @@ enum class OutputFlags {
 	BACKBUFFER_FLIPPED = 0x0004,  // Viewport/scissor coordinates are y-flipped.
 	PILLARBOX = 0x0010,           // Squeeze the image horizontally. Used for the DarkStalkers hack.
 	NO_POST_SHADER = 0x0020,      // Draw straight to the bound target, as post shaders would need to bind their own.
+	NATIVE_SIZE = 0x0040,         // Draw the source rect 1:1 into the corner a host reads a smaller frame from (libretro).
 };
 ENUM_CLASS_BITOPS(OutputFlags);
 
@@ -86,9 +111,29 @@ public:
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 
+	// The size of the primary output.
 	void UpdateDisplaySize(int w, int h) {
 		pixelWidth_ = w;
 		pixelHeight_ = h;
+	}
+	// Presents to another output than the primary, until called with nullptr.
+	void SetOutputOverride(const OutputParams *output) {
+		const bool changed = hasOutputOverride_ != (output != nullptr) || (output &&
+			(output->pixelWidth != outputOverride_.pixelWidth || output->pixelHeight != outputOverride_.pixelHeight || output->orientation != outputOverride_.orientation));
+		hasOutputOverride_ = output != nullptr;
+		if (output) {
+			outputOverride_ = *output;
+		}
+		// The post-shader framebuffers are sized for the output, so another one needs them rebuilt (in BeginFrame).
+		if (changed && usePostShader_) {
+			restorePostShader_ = true;
+		}
+	}
+	bool HasOutputOverride() const {
+		return hasOutputOverride_;
+	}
+	OutputParams GetOutput() const {
+		return hasOutputOverride_ ? outputOverride_ : PrimaryOutputParams(pixelWidth_, pixelHeight_);
 	}
 
 	// NOTE: Should be un-rotated width/height.
@@ -147,14 +192,18 @@ protected:
 	static void ShowPostShaderError(const std::string &errorString);
 
 	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
-	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc) const;
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc, bool alphaBlend = false) const;
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
 	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
 
 	bool BindSource(int binding, bool bindStereo);
 
-	void GetCardboardSettings(const DisplayLayoutConfig &config, CardboardSettings *cardboardSettings) const;
+	bool PrepareOverlayTexture(const OverlayLayout &layout);
+	void DrawOverlay(const OverlayLayout &layout, const OutputParams &output);
+
+	bool UseCardboard(const DisplayLayoutConfig &config) const;
+	void GetCardboardSettings(const DisplayLayoutConfig &config, const OutputParams &output, CardboardSettings *cardboardSettings) const;
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) const;
 
 	Draw::DrawContext *draw_;
@@ -163,6 +212,12 @@ protected:
 	Draw::SamplerState *samplerNearest_ = nullptr;
 	Draw::SamplerState *samplerLinear_ = nullptr;
 	Draw::Buffer *vdata_ = nullptr;
+
+	// Overlay (bezel) drawn around or behind the game, see Overlay.h.
+	Draw::Pipeline *texColorBlend_ = nullptr;
+	Draw::Buffer *overlayVdata_ = nullptr;
+	Draw::Texture *overlayTexture_ = nullptr;
+	uint32_t overlayGeneration_ = 0xFFFFFFFF;
 
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
@@ -183,6 +238,8 @@ protected:
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
+	bool hasOutputOverride_ = false;
+	OutputParams outputOverride_;
 	int renderWidth_ = 0;
 	int renderHeight_ = 0;
 

@@ -19,27 +19,10 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MemMap.h"
 #include "Common/MemoryUtil.h"
 
 namespace MIPSComp {
-
-void JitState::Begin(JitBlock *block) {
-	cancel = false;
-	blockStart = block->originalAddress;
-	compilerPC = block->originalAddress;
-	initialBlockSize = 0;
-	nextExit = 0;
-	downcountAmount = 0;
-	curBlock = block;
-	compiling = true;
-	inDelaySlot = false;
-	blockWrotePrefixes = false;
-	afterOp = JitState::AFTER_NONE;
-	kernelMode = Memory::IsKernelCodeAddress(block->originalAddress);
-	PrefixStart();
-}
 
 	JitOptions::JitOptions() {
 		disableFlags = (JitDisable)g_Config.uJitDisableFlags;
@@ -61,11 +44,7 @@ void JitState::Begin(JitBlock *block) {
 
 		// We can get block linking to work with W^X by doing even more unprotect/re-protect, but let's try without first.
 		// enableBlocklink = !PlatformIsWXExclusive();  // Revert to this line if block linking is slow in W^X mode
-#if PPSSPP_ARCH(MIPS)
-		enableBlocklink = false;
-#else
 		enableBlocklink = !Disabled(JitDisable::BLOCKLINK);
-#endif
 		useStaticAlloc = false;
 		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)

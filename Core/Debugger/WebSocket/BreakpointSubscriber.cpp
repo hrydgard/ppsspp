@@ -750,7 +750,7 @@ struct WebSocketRegBreakpointParams {
 // Add a new register write breakpoint (cpu.regBreakpoint.add)
 //
 // Interpreter-only for now - see RegBreakpoint in Core/Debugger/Breakpoints.h. Has no effect
-// while running under a JIT backend (force the interpreter core, e.g. -i on the command line).
+// while running under a JIT backend (force the interpreter core, e.g. --cpu=interpreter on the command line).
 //
 // Parameters:
 //  - register: unsigned integer 0-31 GPR index to break on write to. Ignored if name given.

@@ -285,7 +285,7 @@ void RemoteISOScreen::CreateTabs() {
 	});
 
 	AddTab("Settings", ri->T("Settings"), [this](UI::LinearLayout *settings) {
-		CreateSettingsTab(settings);
+		CreateSettingsTab(settings->Add(new UI::ChoiceGroupList()));
 	});
 }
 
@@ -336,41 +336,45 @@ void RemoteISOScreen::CreateConnectTab(UI::ViewGroup *tab) {
 
 	using namespace UI;
 
+	ChoiceGroupList *list = tab->Add(new ChoiceGroupList());
+
 	PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
 	if (status != PERMISSION_STATUS_GRANTED) {
 		// Proceed with local network functionality
-		tab->Add(new Choice(ri->T("Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
+		list->Add(new Choice(T(I18NCat::NETWORKING, "Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
 			System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
 		});
 		return;
 	}
 
 	if (serverRunning_) {
-		tab->Add(new NoticeView(NoticeLevel::SUCCESS, ri->T("Currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new NoticeView(NoticeLevel::SUCCESS, ri->T("Currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	} else {
-		tab->Add(new NoticeView(NoticeLevel::INFO, ri->T("Not currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new NoticeView(NoticeLevel::INFO, ri->T("Not currently sharing"), "", new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	}
 
 	if ((RemoteISOShareType)g_Config.iRemoteISOShareType == RemoteISOShareType::RECENT) {
-		tab->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	} else {
-		tab->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + GetFriendlyPath(Path(g_Config.sRemoteISOSharedDir)), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+		list->Add(new TextView(std::string(ri->T("Share Games (Server)")) + ": " + GetFriendlyPath(Path(g_Config.sRemoteISOSharedDir)), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	}
-	tab->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
-	firewallWarning_ = tab->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	list->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	firewallWarning_ = list->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	firewallWarning_->SetTextColor(0xFF0000FF);
 	firewallWarning_->SetVisibility(V_GONE);
 
+	ChoiceGroup *group = list->Add(new ChoiceGroup());
+
 	Choice *browseChoice = new Choice(ri->T("Browse Games"));
-	tab->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
+	group->Add(browseChoice)->OnClick.Handle(this, &RemoteISOScreen::HandleBrowse);
 	if (WebServerStopping(WebServerFlags::DISCS)) {
-		tab->Add(new Choice(ri->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
+		group->Add(new Choice(ri->T("Stopping..")))->SetDisabledPtr(&serverStopping_);
 		browseChoice->SetEnabled(false);
 	} else if (!WebServerStopped(WebServerFlags::DISCS)) {
-		tab->Add(new Choice(ri->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
+		group->Add(new Choice(ri->T("Stop Sharing")))->OnClick.Handle(this, &RemoteISOScreen::HandleStopServer);
 		browseChoice->SetEnabled(false);
 	} else {
-		tab->Add(new Choice(ri->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
+		group->Add(new Choice(ri->T("Share Games (Server)")))->OnClick.Handle(this, &RemoteISOScreen::HandleStartServer);
 		browseChoice->SetEnabled(true);
 	}
 }
@@ -382,15 +386,19 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
-	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
-	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")));
-	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
-	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
+	ChoiceGroup *streamingSettings = remoteisoSettings->Add(new ChoiceGroup(ri->T("Remote disc streaming")));
+	streamingSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")))->OnClick.Add([](UI::EventParams &e) {
+		if (g_Config.bRemoteShareOnStartup) {
+			System_RequestLocalNetworkPermission();
+		}
+	});
+	streamingSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
+	streamingSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
 
 	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 		static const char *shareTypes[] = { "Recent games", "Choose directory" };
-		remoteisoSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
-		FolderChooserChoice *folderChooser = remoteisoSettings->Add(new FolderChooserChoice(GetRequesterToken(), &g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
+		streamingSettings->Add(new PopupMultiChoice(&g_Config.iRemoteISOShareType, ri->T("Files to share"), shareTypes, 0, ARRAY_SIZE(shareTypes), I18NCat::REMOTEISO, screenManager()));
+		FolderChooserChoice *folderChooser = streamingSettings->Add(new FolderChooserChoice(GetRequesterToken(), &g_Config.sRemoteISOSharedDir, ri->T("Files to share")));
 		folderChooser->SetEnabledFunc([=]() {
 			return g_Config.iRemoteISOShareType == (int)RemoteISOShareType::LOCAL_FOLDER;
 		});
@@ -399,11 +407,13 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 		g_Config.iRemoteISOShareType = (int)RemoteISOShareType::RECENT;
 	}
 
+	ChoiceGroup *remoteSettings = remoteisoSettings->Add(new ChoiceGroup());
+
 	UI::Choice *remoteServer = new PopupTextInputChoice(GetRequesterToken(), &g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager());
-	remoteisoSettings->Add(remoteServer);
+	remoteSettings->Add(remoteServer);
 	remoteServer->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
-	PopupSliderChoice *remotePort = remoteisoSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 1, screenManager()));
+	PopupSliderChoice *remotePort = remoteSettings->Add(new PopupSliderChoice(&g_Config.iLastRemoteISOPort, 0, 65535, 0, ri->T("Remote Port"), 1, screenManager()));
 	remotePort->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
 	UI::Choice *remoteSubdir;
@@ -412,11 +422,13 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 		remoteSubdirInput->OnChange.Handle(this, &RemoteISOScreen::OnChangeRemoteISOSubdir);
 		remoteSubdir = remoteSubdirInput;
 	}
-	remoteisoSettings->Add(remoteSubdir);
+	remoteSettings->Add(remoteSubdir);
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);
 
+	ChoiceGroup *serverSettings = remoteisoSettings->Add(new ChoiceGroup());
+
 	PopupSliderChoice *portChoice = new PopupSliderChoice(&g_Config.iRemoteISOPort, 0, 65535, 0, ri->T("Local Server Port", "Local Server Port"), 100, screenManager());
-	remoteisoSettings->Add(portChoice);
+	serverSettings->Add(portChoice);
 	portChoice->SetDisabledPtr(&serverRunning_);
 }
 
@@ -615,7 +627,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	GameBrowser *tabRemoteGames = new GameBrowser(GetRequesterToken(),
-		Path(url_), BrowseFlags::NAVIGATE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+		Path(url_), BrowseFlags::NAVIGATE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabRemoteGames->SetHomePath(Path(url_));
 

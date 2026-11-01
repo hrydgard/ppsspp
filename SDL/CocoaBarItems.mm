@@ -17,6 +17,7 @@
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/SaveState.h"
+#include "Core/Screenshot.h"
 #include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceNet.h"
@@ -36,8 +37,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-extern bool g_TakeScreenshot;
 
 typedef BOOL (^MenuCondition)(void);
 
@@ -304,20 +303,18 @@ static bool CanUseSaveStates(bool isSaveAction) {
         if (!CanUseSaveStates(false)) {
             return;
         }
-        NSURL *url = [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"ppst"]];
-        if (url) {
+        [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"ppst"] then:^(NSURL *url) {
             SaveState::Load(Path(url.fileSystemRepresentation), -1, &SaveStateActionFinished);
-        }
+        }];
     }].enabledWhen = inGame;
 
     [self addItem:DesktopUI("Save State File...") to:menu action:^{
         if (!CanUseSaveStates(true)) {
             return;
         }
-        NSURL *url = [BarItemsManager presentSavePanelWithDefaultFilename:@"state.ppst"];
-        if (url) {
+        [BarItemsManager presentSavePanelWithDefaultFilename:@"state.ppst" then:^(NSURL *url) {
             SaveState::Save(Path(url.fileSystemRepresentation), -1, &SaveStateActionFinished);
-        }
+        }];
     }].enabledWhen = inGame;
 
     return menu;
@@ -363,7 +360,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
         Core_Resume();
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Switch UMD") to:menu action:^{
-        System_BrowseForFile(NON_EPHEMERAL_TOKEN, T(I18NCat::MAINMENU, "Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
+        System_BrowseForFile(NON_EPHEMERAL_TOKEN, T(I18NCat::DESKTOPUI, "Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
             // The callback runs on the emu thread.
             __UmdReplace(Path(value));
         });
@@ -395,27 +392,30 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addToggle:DesktopUI("Ignore Illegal Reads/Writes") to:menu value:&g_Config.bIgnoreBadMemAccess then:nil];
     [self addSeparatorTo:menu];
 
+    [self addToggle:MenuString(I18NCat::DEVELOPER, "Debugger") to:menu value:&g_Config.bShowImDebugger then:nil];
+    [self addSeparatorTo:menu];
+
     [self addItem:DesktopUI("Load Map File...") to:menu action:^{
-        NSURL *url = [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"map"]];
-        if (url)
+        [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"map"] then:^(NSURL *url) {
             g_symbolMap->LoadSymbolMap(Path(url.fileSystemRepresentation));
+        }];
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Save Map file...") to:menu action:^{
-        NSURL *url = [BarItemsManager presentSavePanelWithDefaultFilename:@"Symbols.map"];
-        if (url)
+        [BarItemsManager presentSavePanelWithDefaultFilename:@"Symbols.map" then:^(NSURL *url) {
             g_symbolMap->SaveSymbolMap(Path(url.fileSystemRepresentation));
+        }];
     }].enabledWhen = inGame;
     [self addSeparatorTo:menu];
 
     [self addItem:DesktopUI("Load .sym File...") to:menu action:^{
-        NSURL *url = [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"sym"]];
-        if (url)
+        [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"sym"] then:^(NSURL *url) {
             g_symbolMap->LoadNocashSym(Path(url.fileSystemRepresentation));
+        }];
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Save .sym File...") to:menu action:^{
-        NSURL *url = [BarItemsManager presentSavePanelWithDefaultFilename:@"Symbols.sym"];
-        if (url)
+        [BarItemsManager presentSavePanelWithDefaultFilename:@"Symbols.sym" then:^(NSURL *url) {
             g_symbolMap->SaveNocashSym(Path(url.fileSystemRepresentation));
+        }];
     }].enabledWhen = inGame;
     [self addSeparatorTo:menu];
 
@@ -425,8 +425,8 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addSeparatorTo:menu];
 
     [self addItem:DesktopUI("Take Screenshot") to:menu action:^{
-        g_TakeScreenshot = true;
-    }].enabledWhen = inGame;
+        TakeUserScreenshot();
+    }];
     [self addItem:DesktopUI("Save frame dump") to:menu action:^{
         System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
     }].enabledWhen = inGame;
@@ -465,7 +465,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addSeparatorTo:menu];
 
     NSMenu *backends = [self addSubmenu:DesktopUI("Backend") to:menu];
-    for (GPUBackend backend : { GPUBackend::OPENGL, GPUBackend::VULKAN }) {
+    for (GPUBackend backend : { GPUBackend::OPENGL, GPUBackend::VULKAN, GPUBackend::METAL }) {
         if (!g_Config.IsBackendEnabled(backend)) {
             continue;
         }
@@ -544,25 +544,26 @@ static bool CanUseSaveStates(bool isSaveAction) {
     return menu;
 }
 
-+(NSURL *)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes {
+// The handler is only called if a file was chosen.
++(void)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes then:(void (^)(NSURL *url))handler {
     NSOpenPanel *openPanel = [[NSOpenPanel alloc] init];
     openPanel.allowedFileTypes = allowedFileTypes;
-    if ([openPanel runModal] == NSModalResponseOK) {
-        NSURL *urlWeWant = openPanel.URLs.firstObject;
-        if (urlWeWant) {
-            return urlWeWant;
+    DarwinPresentPanel(openPanel, ^(NSModalResponse response) {
+        NSURL *url = openPanel.URLs.firstObject;
+        if (response == NSModalResponseOK && url) {
+            handler(url);
         }
-    }
-    return nil;
+    });
 }
 
-+(NSURL *)presentSavePanelWithDefaultFilename: (NSString *)filename {
++(void)presentSavePanelWithDefaultFilename: (NSString *)filename then:(void (^)(NSURL *url))handler {
     NSSavePanel *savePanel = [[NSSavePanel alloc] init];
     savePanel.nameFieldStringValue = filename;
-    if ([savePanel runModal] == NSModalResponseOK && savePanel.URL) {
-        return savePanel.URL;
-    }
-    return nil;
+    DarwinPresentPanel(savePanel, ^(NSModalResponse response) {
+        if (response == NSModalResponseOK && savePanel.URL) {
+            handler(savePanel.URL);
+        }
+    });
 }
 
 @end

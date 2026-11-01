@@ -293,6 +293,9 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 //  - us: emulated time right now.
 // A cpu.stepping event follows once it gets there. Note that anything else that stops the CPU
 // first - a breakpoint, an exception - cancels the deadline, same as it cancels a step.
+// A time that has already passed (relativeUs 0, say) doesn't run at all: the response and the
+// cpu.stepping event come right away. A savestate loaded during the run moves the deadline along
+// with the clock, so it still runs for the time that was left.
 void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -318,14 +321,13 @@ void WebSocketSteppingState::RunUntilTime(DebuggerRequest &req) {
 		const u64 nowUs = CoreTiming::GetGlobalTimeUs();
 		const u64 targetUs = absolute ? (u64)requested : nowUs + (u64)requested;
 		if (targetUs <= nowUs) {
-			req.Fail("Target time has already passed");
-			return;
+			// Already there. A client waiting for the stop would otherwise never get one.
+			Core_ReportBreakWithoutRunning(BreakReason::RunUntilTime, currentMIPS->pc);
+		} else {
+			CoreTiming::SetBreakDeadlineUs(targetUs);
+			PrepareResume();
+			Core_Resume();
 		}
-
-		CoreTiming::SetBreakDeadlineUs(targetUs);
-
-		PrepareResume();
-		Core_Resume();
 
 		JsonWriter &json = req.Respond();
 		json.writeFloat("targetUs", (double)targetUs);

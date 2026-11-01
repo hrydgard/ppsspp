@@ -34,7 +34,7 @@ void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) 
 		T origX = rect.x;
 		T origY = rect.y;
 		T rth = curRTWidth;
-		rect.x = clamp_value(rth - rect.h - origY, T{}, curRTHeight);
+		rect.x = clamp_value(rth - rect.h - origY, T{}, curRTWidth);
 		rect.y = origX;
 		T temp = rect.w;
 		rect.w = rect.h;
@@ -46,7 +46,8 @@ void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) 
 		T origY = rect.y;
 		T rtw = curRTHeight;
 		rect.x = origY;
-		rect.y = clamp_value(rtw - rect.w - origX, T{}, curRTWidth);
+		// y runs along the physical height. Clamping it to the width broke scissors on the left of the screen (#15773).
+		rect.y = clamp_value(rtw - rect.w - origX, T{}, curRTHeight);
 		T temp = rect.w;
 		rect.w = rect.h;
 		rect.h = temp;
@@ -119,7 +120,7 @@ void DisplayProperties::Print() {
 }
 
 // Y-flip compensation is done elsewhere now.
-Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention) {
+Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordConvention, bool rotateToDisplay) {
 	using namespace Lin;
 	Matrix4x4 ortho;
 	switch (coordConvention) {
@@ -133,7 +134,7 @@ Lin::Matrix4x4 ComputeOrthoMatrix(float xres, float yres, CoordConvention coordC
 		break;
 	}
 	// Compensate for rotated display if needed.
-	if (g_display.rotation != DisplayRotation::ROTATE_0) {
+	if (rotateToDisplay && g_display.rotation != DisplayRotation::ROTATE_0) {
 		ortho = ortho * g_display.rot_matrix;
 	}
 	return ortho;

@@ -54,7 +54,8 @@ bool NpMatching2ProcessEvents() {
 		return false;
 	}
 
-	auto& args = npMatching2Events.front();
+	// Copy it, the pop below destroys the element.
+	auto args = npMatching2Events.front();
 	auto& event = args.data[0];
 	auto& stat = args.data[1];
 	auto& serverIdPtr = args.data[2];
@@ -72,17 +73,21 @@ bool NpMatching2ProcessEvents() {
 	}
 
 	// Per npMatching2 function callback
-	u32* inStruct = (u32*)Memory::GetPointerOrException(inStructPtr);
-	if (Memory::IsValidAddress(inStruct[0])) {
-		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointerOrException(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
-		hleEnqueueCall(inStruct[0], 7, args.data);
+	// The opt param is optional.
+	if (Memory::IsValid4AlignedRange(inStructPtr, 8)) {
+		const u32 funcAddr = Memory::ReadUnchecked_U32(inStructPtr);
+		if (Memory::IsValidAddress(funcAddr)) {
+			const u32 serverId = Memory::IsValid4AlignedAddress(serverIdPtr) ? Memory::ReadUnchecked_U32(serverIdPtr) : 0;
+			DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", serverId, event, stat, funcAddr, Memory::ReadUnchecked_U32(inStructPtr + 4));
+			hleEnqueueCall(funcAddr, 7, args.data);
+		}
 	}
 	return true;
 }
 
-static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityMask, int threadStackSize)
+static int sceNpMatching2Init(MIPSState *mips, int poolSize, int threadPriority, int cpuAffinityMask, int threadStackSize)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %d, %d, %d) at %08x", __FUNCTION__, poolSize, threadPriority, cpuAffinityMask, threadStackSize, mips->pc);
 	//if (npMatching2Inited)
 	//	return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_ALREADY_INITIALIZED);
 
@@ -96,9 +101,9 @@ static int sceNpMatching2Init(int poolSize, int threadPriority, int cpuAffinityM
 	return 0;
 }
 
-static int sceNpMatching2Term()
+static int sceNpMatching2Term(MIPSState *mips)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s() at %08x", __FUNCTION__, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s() at %08x", __FUNCTION__, mips->pc);
 	npMatching2Inited = false;
 	npMatching2Handlers.clear();
 	npMatching2Events.clear();
@@ -110,14 +115,14 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(communicationIdPtr) || !Memory::IsValidAddress(passPhrasePtr) || !Memory::IsValidRange(ctxIdPtr, 2))
+	if (!Memory::IsValidRange(communicationIdPtr, sizeof(SceNpCommunicationId)) || !Memory::IsValidRange(passPhrasePtr, sizeof(SceNpCommunicationPassphrase)) || !Memory::IsValidRange(ctxIdPtr, 2))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX);
 
 	// FIXME: It seems Context are mapped to TitleID? may return 0x80550C05 or 0x80550C06 when finding an existing context
-	SceNpCommunicationId* titleid = (SceNpCommunicationId*)Memory::GetCharPointer(communicationIdPtr);
+	const SceNpCommunicationId *titleid = (const SceNpCommunicationId *)Memory::GetPointerUnchecked(communicationIdPtr);
 	memcpy(npTitleId.data, titleid->data, sizeof(npTitleId));
 
-	SceNpCommunicationPassphrase* passph = (SceNpCommunicationPassphrase*)Memory::GetCharPointer(passPhrasePtr);
+	const SceNpCommunicationPassphrase *passph = (const SceNpCommunicationPassphrase *)Memory::GetPointerUnchecked(passPhrasePtr);
 
 	SceNpId npid{};
 	int retval = NpGetNpId(&npid);
@@ -141,9 +146,9 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
-static int sceNpMatching2ContextStart(int ctxId)
+static int sceNpMatching2ContextStart(MIPSState *mips, int ctxId)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -261,9 +266,9 @@ static int sceNpMatching2ContextStart(int ctxId)
 	return 0;
 }
 
-static int sceNpMatching2ContextStop(int ctxId)
+static int sceNpMatching2ContextStop(MIPSState *mips, int ctxId)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -279,9 +284,9 @@ static int sceNpMatching2ContextStop(int ctxId)
 	return 0;
 }
 
-static int sceNpMatching2DestroyContext(int ctxId)
+static int sceNpMatching2DestroyContext(MIPSState *mips, int ctxId)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d) at %08x", __FUNCTION__, ctxId, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -301,9 +306,9 @@ static int sceNpMatching2DestroyContext(int ctxId)
 	return 0;
 }
 
-static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
+static int sceNpMatching2GetMemoryStat(MIPSState *mips, u32 memStatPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x) at %08x", __FUNCTION__, memStatPtr, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x) at %08x", __FUNCTION__, memStatPtr, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -317,9 +322,9 @@ static int sceNpMatching2GetMemoryStat(u32 memStatPtr)
 	return 0;
 }
 
-static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFunctionAddr, u32 callbackArgument)
+static int sceNpMatching2RegisterSignalingCallback(MIPSState *mips, int ctxId, u32 callbackFunctionAddr, u32 callbackArgument)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x) at %08x", __FUNCTION__, ctxId, callbackFunctionAddr, callbackArgument, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x) at %08x", __FUNCTION__, ctxId, callbackFunctionAddr, callbackArgument, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
@@ -361,13 +366,13 @@ static int sceNpMatching2RegisterSignalingCallback(int ctxId, u32 callbackFuncti
 	return 0;
 }
 
-static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int maxServerIds)
+static int sceNpMatching2GetServerIdListLocal(MIPSState *mips, int ctxId, u32 serverIdsPtr, int maxServerIds)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, ctxId, serverIdsPtr, maxServerIds, currentMIPS->pc);
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %d) at %08x", __FUNCTION__, ctxId, serverIdsPtr, maxServerIds, mips->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidRange(serverIdsPtr, maxServerIds * sizeof(u16)))
+	if (maxServerIds < 0 || !Memory::IsValidRange(serverIdsPtr, maxServerIds * sizeof(u16)))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
 	// Returning dummy ids, 16-bit variables according to JPCSP
@@ -384,7 +389,7 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidRange(serverIdPtr, 2) || !Memory::IsValid4AlignedRange(unknown2Ptr, 8))
+	if (!Memory::IsValidRange(serverIdPtr, 2) || !Memory::IsValid4AlignedRange(unknown1Ptr, 8) || !Memory::IsValid4AlignedRange(unknown2Ptr, 8))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP

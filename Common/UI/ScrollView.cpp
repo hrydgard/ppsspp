@@ -1,16 +1,25 @@
 #include <algorithm>
 #include "Common/System/System.h"
 #include "Common/System/Display.h"
+#include "Common/Data/Color/RGBAUtil.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 namespace UI {
 
 float ScrollView::lastScrollPosX = 0;
 float ScrollView::lastScrollPosY = 0;
+
+// How long the scroll bob stays after the last activity, and how fast it fades in and out.
+static constexpr double bobHoldTime = 1.0;
+static constexpr float bobFadeInTime = 0.1f;
+static constexpr float bobFadeOutTime = 0.5f;
+// Width of the strip along the right edge where the bob can be grabbed, and where hovering shows it.
+static constexpr float bobGrabWidth = 20.0f;
 
 ScrollView::ScrollView(Orientation orientation, LayoutParams *layoutParams)
 	: ViewGroup(layoutParams), orientation_(orientation) {
@@ -19,6 +28,9 @@ ScrollView::ScrollView(Orientation orientation, LayoutParams *layoutParams)
 	} else {
 		gesture_.SetGestureMask(GESTURE_DRAG_VERTICAL);
 	}
+	// Show the bob briefly when the view appears, so it's clear that it scrolls.
+	lastScrollActivity_ = time_now_d();
+	lastBobUpdate_ = lastScrollActivity_;
 }
 
 ScrollView::~ScrollView() {
@@ -51,18 +63,18 @@ void ScrollView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec ver
 				v.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, MeasureSpec(UNSPECIFIED, measuredWidth_), v);
-			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+			MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight() + margins.vert(), vert, &measuredHeight_);
 			if (layoutParams_->width == WRAP_CONTENT)
-				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+				MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth() + margins.horiz(), horiz, &measuredWidth_);
 		} else {
 			MeasureSpec h = MeasureSpec(AT_MOST, measuredWidth_ - margins.horiz());
 			if (measuredWidth_ == 0.0f && (horiz.type == UNSPECIFIED || layoutParams_->width == WRAP_CONTENT)) {
 				h.type = UNSPECIFIED;
 			}
 			views_[0]->Measure(dc, h, MeasureSpec(UNSPECIFIED, measuredHeight_));
-			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth(), horiz, &measuredWidth_);
+			MeasureBySpec(layoutParams_->width, views_[0]->GetMeasuredWidth() + margins.horiz(), horiz, &measuredWidth_);
 			if (layoutParams_->height == WRAP_CONTENT)
-				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight(), vert, &measuredHeight_);
+				MeasureBySpec(layoutParams_->height, views_[0]->GetMeasuredHeight() + margins.vert(), vert, &measuredHeight_);
 		}
 
 		// The below seems misguided and leads to wrong sized scrollviews. Need to investigate if it's needed somewhere...
@@ -84,11 +96,11 @@ void ScrollView::Layout() {
 		return;
 	Bounds scrolled;
 
-	// Respect margins
+	// The child was measured inside its margins.
 	const Margins margins = GetMargins();
 
-	scrolled.w = views_[0]->GetMeasuredWidth() - margins.horiz();
-	scrolled.h = views_[0]->GetMeasuredHeight() - margins.vert();
+	scrolled.w = views_[0]->GetMeasuredWidth();
+	scrolled.h = views_[0]->GetMeasuredHeight();
 
 	layoutScrollPos_ = ClampedScrollPos(scrollPos_);
 
@@ -99,7 +111,7 @@ void ScrollView::Layout() {
 				scrollPos_ = *rememberPos_;
 			lastViewSize_ = scrolled.w;
 		}
-		scrolled.x = bounds_.x - layoutScrollPos_;
+		scrolled.x = bounds_.x + margins.left - layoutScrollPos_;
 		scrolled.y = bounds_.y + margins.top;
 		break;
 	case ORIENT_VERTICAL:
@@ -109,7 +121,7 @@ void ScrollView::Layout() {
 			lastViewSize_ = scrolled.h;
 		}
 		scrolled.x = bounds_.x + margins.left;
-		scrolled.y = bounds_.y - layoutScrollPos_;
+		scrolled.y = bounds_.y + margins.top - layoutScrollPos_;
 		break;
 	}
 
@@ -158,11 +170,12 @@ bool ScrollView::Touch(const TouchInput &input) {
 	if (input.flags & TouchInputFlags::MOUSE) {
 		// Kinda hacky, we should make a proper hover mechanism.
 		mouseHover_ = bounds_.Contains(input.x, input.y);
+		bobHover_ = mouseHover_ && orientation_ == ORIENT_VERTICAL && input.x >= bounds_.x2() - bobGrabWidth;
 	}
 
-	// Ignore buttons other than the left one.
+	// Only the left button scrolls, but the children still get the rest, so they can see hovers and other buttons.
 	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
-		return false;
+		return ViewGroup::Touch(input);
 	}
 
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
@@ -170,7 +183,7 @@ bool ScrollView::Touch(const TouchInput &input) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
 			float bobMargin = 3.0f;  // Add some extra margin for the touch.
-			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - 20.0f;
+			draggingBob_ = internalY >= bob.offset - bobMargin && internalY <= bob.offset + bob.size + bobMargin && input.x >= bounds_.x2() - bobGrabWidth;
 			barDragStart_ = bob.offset;
 			barDragOffset_ = internalY - bob.offset;
 		}
@@ -233,20 +246,26 @@ bool ScrollView::Touch(const TouchInput &input) {
 	}
 }
 
+float ScrollView::BottomInsetOverlap() const {
+	const float insetStart = g_display.dp_yres - System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+	return std::max(0.0f, bounds_.y2() - insetStart);
+}
+
 float ScrollView::ChildSize() const {
 	float extraSpace = 0.0f;
 
 	if (orientation_ == ORIENT_VERTICAL) {
-		if (bounds_.y2() >= g_display.dp_yres - 1) {
-			extraSpace = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
-		}
+		// Let the end of the contents scroll up out of the bottom inset.
+		extraSpace = BottomInsetOverlap();
 	}
 
 	if (views_.empty()) {
 		// Avoid division by zero. This shouldn't happen, anyway.
 		return 1.0f;
 	}
-	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + extraSpace);
+	const Margins margins = GetMargins();
+	const float marginSize = orientation_ == ORIENT_VERTICAL ? margins.vert() : margins.horiz();
+	return std::max(0.01f, views_[0]->GetBounds().GetSize(orientation_) + marginSize + extraSpace);
 }
 
 float ScrollView::ScrollMax() const {
@@ -279,7 +298,7 @@ void ScrollView::Draw(UIContext &dc) {
 	}
 
 	dc.PushScissor(bounds_);
-	dc.FillRect(bg_, bounds_);
+	dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius, GetRoundCorners());
 
 	// For debugging layout issues, this can be useful.
 	// dc.FillRect(Drawable(0x60FF00FF), bounds_);
@@ -305,7 +324,7 @@ void ScrollView::Draw(UIContext &dc) {
 
 	// Same at the bottom. (we check against the common UI layout mode)
 	const float y2 = dc.GetLayoutBounds(ViewLayoutMode::IgnoreBottomInset, false).y2();
-	if (shadows_ && bounds_.y2() < y2 && orientation_ == ORIENT_VERTICAL) {
+	if (shadows_ && bounds_.y2() < y2 && BottomInsetOverlap() <= 0.0f && orientation_ == ORIENT_VERTICAL) {
 		float radius = 20.0f;
 
 		Bounds shadowBounds = bounds_;
@@ -334,9 +353,13 @@ void ScrollView::Draw(UIContext &dc) {
 
 	Bob bob = ComputeBob();
 
-	if (bob.show) {
+	if (bob.show && bobAlpha_ > 0.0f) {
 		Bounds bobBounds(bounds_.x2() - bob.thickness, bounds_.y + bob.offset, bob.thickness, bob.size);
-		dc.FillRect(Drawable(dc.GetTheme().scrollbarColor), bobBounds);
+		uint32_t scrollBarColor = dc.GetTheme().scrollbarColor;
+		if (draggingBob_) {
+			scrollBarColor |= 0xFF000000;
+		}
+		dc.FillRect(Drawable(alphaMul(scrollBarColor, bobAlpha_)), bobBounds);
 	}
 }
 
@@ -405,7 +428,7 @@ NeighborResult ScrollView::FindScrollNeighbor(View *view, const Point2D &target,
 			if (orientation_ == ORIENT_VERTICAL)
 				targetPos.y += mult * bounds_.h;
 			else
-				targetPos.x += mult * bounds_.x;
+				targetPos.x += mult * bounds_.w;
 
 			// Okay, which subview is closest to that?
 			best = vg->FindScrollNeighbor(view, targetPos, direction, best);
@@ -450,6 +473,9 @@ void ScrollView::PersistData(PersistStatus status, std::string anonId, PersistMa
 }
 
 void ScrollView::SetVisibility(Visibility visibility) {
+	if (visibility == V_VISIBLE && visibility_ != V_VISIBLE) {
+		lastScrollActivity_ = time_now_d();
+	}
 	ViewGroup::SetVisibility(visibility);
 
 	if (visibility == V_GONE && !rememberPos_) {
@@ -462,6 +488,25 @@ void ScrollView::SetVisibility(Visibility visibility) {
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;
+}
+
+void ScrollView::ScrollToCenter(const View *view) {
+	const Bounds &vBounds = view->GetBounds();
+	if (orientation_ == ORIENT_VERTICAL) {
+		ScrollTo(layoutScrollPos_ + vBounds.centerY() - bounds_.y - bounds_.h * 0.5f);
+	} else {
+		ScrollTo(layoutScrollPos_ + vBounds.centerX() - bounds_.x - bounds_.w * 0.5f);
+	}
+}
+
+ScrollView *GetEnclosingScrollView(View *view) {
+	for (ViewGroup *group = view->Parent(); group; group = group->Parent()) {
+		ScrollView *scrollView = dynamic_cast<ScrollView *>(group);
+		if (scrollView) {
+			return scrollView;
+		}
+	}
+	return nullptr;
 }
 
 void ScrollView::ScrollRelative(float distance) {
@@ -576,6 +621,18 @@ void ScrollView::Update() {
 	if (rememberPos_ && ClampedScrollPos(scrollPos_) != ClampedScrollPos(*rememberPos_)) {
 		*rememberPos_ = scrollPos_;
 	}
+
+	const double now = time_now_d();
+	const float dt = std::min((float)(now - lastBobUpdate_), 0.1f);
+	lastBobUpdate_ = now;
+	if (scrollPos_ != oldPos || draggingBob_ || scrollTouchId_ != -1 || bobHover_) {
+		lastScrollActivity_ = now;
+	}
+	if (now - lastScrollActivity_ < bobHoldTime) {
+		bobAlpha_ = std::min(1.0f, bobAlpha_ + dt / bobFadeInTime);
+	} else {
+		bobAlpha_ = std::max(0.0f, bobAlpha_ - dt / bobFadeOutTime);
+	}
 }
 
 ListView::ListView(ListAdaptor *a, std::set<int> hidden, std::map<int, ImageID> icons, LayoutParams *layoutParams)
@@ -606,6 +663,7 @@ void ListView::CreateAllItems() {
 			OnItemCallback(i, e);
 		});
 	}
+	linLayout_->ApplyRoundCorners();
 }
 
 void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {

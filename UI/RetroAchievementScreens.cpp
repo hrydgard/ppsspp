@@ -290,6 +290,11 @@ void RetroAchievementsLeaderboardScreen::FetchEntries() {
 void RetroAchievementsLeaderboardScreen::CreateTabs() {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	const rc_client_leaderboard_t *leaderboard = rc_client_get_leaderboard_info(Achievements::GetClient(), leaderboardID_);
+	if (!leaderboard) {
+		// The game was unloaded. There has to be a tab, though.
+		AddTab("AchievementsLeaderboard", "", [](UI::LinearLayout *parent) {});
+		return;
+	}
 
 	using namespace UI;
 	AddTab("AchievementsLeaderboard", leaderboard->title, [this, leaderboard](UI::LinearLayout *parent) {
@@ -382,29 +387,40 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 
 	viewGroup->Add(new PaneTitleBar(Path(), sy->T("RetroAchievements"), "/docs/reference/retro-achievements/"));
 
+	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
+
 	if (!g_Config.bAchievementsEnable) {
 		viewGroup->Add(new NoticeView(NoticeLevel::INFO, ac->T("Achievements are disabled"), "", new LinearLayoutParams(Margins(5))));
 	} else if (Achievements::IsLoggedIn()) {
 		const rc_client_user_t *info = rc_client_get_user_info(Achievements::GetClient());
 
+		ChoiceGroup *group = groups->Add(new ChoiceGroup());
+
+		// Hm, we should show a proper player "badge" with the icon and all here.
+
 		// In the future, RetroAchievements will support display names. Prepare for that.
 		if (strcmp(info->display_name, info->username) != 0) {
-			viewGroup->Add(new InfoItem(ac->T("Name"), info->display_name));
+			group->Add(new InfoItem(ac->T("Name"), info->display_name));
 		}
-		viewGroup->Add(new InfoItem(di->T("Username"), info->username));
+		group->Add(new InfoItem(di->T("Username"), info->username));
+
 		// viewGroup->Add(new InfoItem(ac->T("Unread messages"), info.numUnreadMessages));
-		viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
+		group->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 			Achievements::Logout();
 		});
 	} else {
 		std::string errorMessage;
+
+
 		if (Achievements::LoginProblems(&errorMessage)) {
 			viewGroup->Add(new NoticeView(NoticeLevel::WARN, ac->T("Failed logging in to RetroAchievements"), errorMessage));
-			viewGroup->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			actions->Add(new Choice(di->T("Log out")))->OnClick.Add([](UI::EventParams &) -> void {
 				Achievements::Logout();
 			});
 		} else if (System_GetPropertyBool(SYSPROP_HAS_LOGIN_DIALOG)) {
-			viewGroup->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			actions->Add(new Choice(di->T("Log in")))->OnClick.Add([this](UI::EventParams &) -> void {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
 				std::string title = StringFromFormat("RetroAchievements: %s", di->T_cstr("Log in"));
 				System_AskUsernamePassword(GetRequesterToken(), title, g_Config.sAchievementsUserName, [](std::string_view value, int) {
@@ -417,9 +433,11 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			});
 		} else {
 			// Hack up a temporary quick login-form-ish-thing
-			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
-			viewGroup->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
-			Choice *loginButton = viewGroup->Add(new Choice(di->T("Log in")));
+			ChoiceGroup *data = groups->Add(new ChoiceGroup());
+			data->Add(new PopupTextInputChoice(GetRequesterToken(), &g_Config.sAchievementsUserName, di->T("Username"), "", 128, screenManager()));
+			data->Add(new PopupTextInputChoice(GetRequesterToken(), &password_, di->T("Password"), "", 128, screenManager()))->SetPasswordDisplay();
+			ChoiceGroup *actions = groups->Add(new ChoiceGroup());
+			Choice *loginButton = actions->Add(new Choice(di->T("Log in")));
 			loginButton->OnClick.Add([this](UI::EventParams &) -> void {
 				if (!g_Config.sAchievementsUserName.empty() && !password_.empty()) {
 					Achievements::LoginAsync(g_Config.sAchievementsUserName.c_str(), password_.c_str());
@@ -431,27 +449,34 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 				return !g_Config.sAchievementsUserName.empty() && !password_.empty();
 			});
 		}
-		viewGroup->Add(new Choice(ac->T("Register on www.retroachievements.org")))->OnClick.Add([](UI::EventParams &) -> void {
+		ChoiceGroup *reg = groups->Add(new ChoiceGroup());
+		Choice *regLink = reg->Add(new Choice(ac->T("Register on www.retroachievements.org")));
+		regLink->OnClick.Add([](UI::EventParams &) -> void {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 		});
+		regLink->SetIconRight(ImageID("I_LINK_OUT"));
 	}
 
 	using namespace UI;
-	viewGroup->Add(new ItemHeader(di->T("Settings")));
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([this](UI::EventParams &e) -> void {
+	ChoiceGroup *settingsGroup = groups->Add(new ChoiceGroup(di->T("Settings")));
+	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsEnable, ac->T("Achievements enabled")))->OnClick.Add([this](UI::EventParams &e) -> void {
 		Achievements::UpdateSettings();
 		RecreateViews();
 	});
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsHardcoreMode, ac->T("Hardcore Mode (no savestates)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	settingsGroup->Add(new CheckBox(&g_Config.bAchievementsSoundEffects, ac->T("Sound Effects")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 
-	viewGroup->Add(new ItemHeader(di->T("Links")));
-	viewGroup->Add(new Choice(ac->T("RetroAchievements website"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
+	ChoiceGroup *linksGroup = groups->Add(new ChoiceGroup(di->T("Links")));
+	Choice *webSite = linksGroup->Add(new Choice(ac->T("RetroAchievements website")));
+	webSite->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.retroachievements.org/");
 	});
-	viewGroup->Add(new Choice(ac->T("How to use RetroAchievements"), ImageID("I_LINK_OUT")))->OnClick.Add([](UI::EventParams &) -> void {
+	webSite->SetIconRight(ImageID("I_LINK_OUT"));
+	Choice *howToUse = linksGroup->Add(new Choice(ac->T("How to use RetroAchievements")));
+	howToUse->OnClick.Add([](UI::EventParams &) -> void {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
 	});
+	howToUse->SetIconRight(ImageID("I_LINK_OUT"));
 }
 
 void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGroup) {
@@ -461,25 +486,26 @@ void RetroAchievementsSettingsScreen::CreateCustomizeTab(UI::ViewGroup *viewGrou
 	viewGroup->Add(new PaneTitleBar(Path(), ac->T("Customize"), "/docs/reference/retro-achievements/"));
 
 	using namespace UI;
-	viewGroup->Add(new ItemHeader(ac->T("Sound Effects")));
+	ChoiceGroupList *groups = viewGroup->Add(new ChoiceGroupList());
+	ChoiceGroup *soundSettings = groups->Add(new ChoiceGroup(ac->T("Sound Effects")));
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
-		viewGroup->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
+		soundSettings->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsUnlockAudioFile, ac->T("Achievement unlocked"), UISound::ACHIEVEMENT_UNLOCKED));
+		soundSettings->Add(new AudioFileChooser(GetRequesterToken(), &g_Config.sAchievementsLeaderboardSubmitAudioFile, ac->T("Leaderboard score submission"), UISound::LEADERBOARD_SUBMITTED));
 	}
-	PopupSliderChoice *achievementVolume = viewGroup->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, MultiplierToVolume100(0.6f), ac->T("Achievement sound volume"), screenManager()));
+	PopupSliderChoice *achievementVolume = soundSettings->Add(new PopupSliderChoice(&g_Config.iAchievementVolume, VOLUME_OFF, VOLUMEHI_FULL, MultiplierToVolume100(0.6f), T(I18NCat::AUDIO, "Achievement sound volume"), screenManager()));
 	achievementVolume->SetFormat("%d%%");
 	achievementVolume->SetEnabledPtr(&g_Config.bEnableSound);
 	achievementVolume->SetZeroLabel(a->T("Mute"));
 
 	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
 
-	viewGroup->Add(new ItemHeader(ac->T("Notifications")));
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardStartedOrFailedPos, ac->T("Leaderboard attempt started or failed"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardSubmittedPos, ac->T("Leaderboard result submitted"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsUnlockedPos, ac->T("Achievement unlocked"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsChallengePos, ac->T("Challenge indicator"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new PopupMultiChoice(&g_Config.iAchievementsProgressPos, ac->T("Achievement progress"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	ChoiceGroup *notificationSettings = groups->Add(new ChoiceGroup(ac->T("Notifications")));
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardStartedOrFailedPos, ac->T("Leaderboard attempt started or failed"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardSubmittedPos, ac->T("Leaderboard result submitted"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsLeaderboardTrackerPos, ac->T("Leaderboard tracker"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsUnlockedPos, ac->T("Achievement unlocked"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsChallengePos, ac->T("Challenge indicator"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	notificationSettings->Add(new PopupMultiChoice(&g_Config.iAchievementsProgressPos, ac->T("Achievement progress"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
 void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *viewGroup) {
@@ -489,13 +515,14 @@ void RetroAchievementsSettingsScreen::CreateDeveloperToolsTab(UI::ViewGroup *vie
 
 	using namespace UI;
 	viewGroup->Add(new PaneTitleBar(Path(), sy->T("Developer Tools"), "/docs/reference/retro-achievements/"));
+	ChoiceGroup *devSettings = viewGroup->Add(new ChoiceGroupList())->Add(new ChoiceGroup());
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	devSettings->Add(new CheckBox(&g_Config.bAchievementsEnableRAIntegration, ac->T("Enable RAIntegration (for achievement development)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 #endif
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsEncoreMode, ac->T("Encore Mode")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsUnofficial, ac->T("Unofficial achievements")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
-	viewGroup->Add(new CheckBox(&g_Config.bAchievementsSaveStateInHardcoreMode, ac->T("Allow Save State in Hardcore Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	devSettings->Add(new CheckBox(&g_Config.bAchievementsEncoreMode, ac->T("Encore Mode")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	devSettings->Add(new CheckBox(&g_Config.bAchievementsUnofficial, ac->T("Unofficial achievements")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	devSettings->Add(new CheckBox(&g_Config.bAchievementsLogBadMemReads, ac->T("Log bad memory accesses")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
+	devSettings->Add(new CheckBox(&g_Config.bAchievementsSaveStateInHardcoreMode, ac->T("Allow Save State in Hardcore Mode (but not Load State)")))->SetEnabledPtr(&g_Config.bAchievementsEnable);
 }
 
 void MeasureAchievement(const UIContext &dc, const rc_client_achievement_t *achievement, AchievementRenderStyle style, float *w, float *h) {
@@ -569,10 +596,12 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.Begin();
 
 	if (style != AchievementRenderStyle::LISTED) {
+		// On-screen notification.
 		dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
+		dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.75f);
+	} else {
+		dc.FillRect(background, bounds);
 	}
-
-	dc.FillRect(background, bounds);
 
 	dc.Flush();
 	dc.Begin();

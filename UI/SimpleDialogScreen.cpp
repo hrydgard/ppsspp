@@ -93,6 +93,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & (TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::CustomContextMenu)) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
 		}
+		if (flags_ & TwoPaneFlags::DropShadowTitle) {
+			topBarFlags |= TopBarFlags::DropShadowTitle;
+		}
 		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
 		root->SetSpacing(0);
 		createContentViews(root);
@@ -132,6 +135,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::CustomContextMenu) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
 		}
+		if (flags_ & TwoPaneFlags::DropShadowTitle) {
+			topBarFlags |= TopBarFlags::DropShadowTitle;
+		}
 		TopBar *topBar = nullptr;
 		if (!(flags_ & TwoPaneFlags::NoTopbarInLandscape)) {
 			topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, title));
@@ -156,7 +162,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 
 		if (flags_ & TwoPaneFlags::NoTopbarInLandscape) {
 			// We still need a back button.
-			settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+			Choice *backButton = settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+			backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+			backButton->SetRoundCorners();
 			settingsPane->Add(new Spacer(8.0f));
 		}
 		CreateSettingsViews(settingsPane);

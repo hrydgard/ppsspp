@@ -23,6 +23,7 @@
 #include "Core/ConfigValues.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
 
 #include "Core/Config.h"
@@ -33,7 +34,8 @@ class SimpleBufferManager;
 
 namespace Spline {
 
-void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
+// patch_u is the number of quads per patch along u.
+void BuildIndex(u16 *indices, int &count, int num_u, int num_v, int patch_u, GEPatchPrimType prim_type, int total = 0);
 
 class Bezier3DWeight;
 class Spline3DWeight;
@@ -53,20 +55,6 @@ struct SurfaceInfo {
 		// If specified as 0, uses 1.
 		if (tess_u < 1) tess_u = 1;
 		if (tess_v < 1) tess_v = 1;
-
-		switch ((SplineQuality)g_Config.iSplineBezierQuality) {
-		case SplineQuality::LOW_QUALITY:
-			tess_u = 2;
-			tess_v = 2;
-			break;
-		case SplineQuality::MEDIUM_QUALITY:
-			// Don't cut below 2, though.
-			if (tess_u > 2) tess_u = half_ceil(tess_u);
-			if (tess_v > 2) tess_v = half_ceil(tess_v);
-			break;
-		default:
-			break;
-		}
 	}
 
 	// Only the larger factor, so a lopsided patch keeps at least one step along its short axis.
@@ -112,7 +100,7 @@ struct BezierSurface : public SurfaceInfo {
 			for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
 				int patch_index = patch_v * num_patches_u + patch_u;
 				int total = patch_index * num_verts_per_patch;
-				Spline::BuildIndex(indices + count, count, tess_u, tess_v, primType, total);
+				Spline::BuildIndex(indices + count, count, tess_u, tess_v, tess_u, primType, total);
 			}
 		}
 	}
@@ -146,56 +134,68 @@ struct SplineSurface : public SurfaceInfo {
 	}
 
 	void BuildIndex(u16 *indices, int &count) const {
-		Spline::BuildIndex(indices, count, num_patches_u * tess_u, num_patches_v * tess_v, primType);
+		Spline::BuildIndex(indices, count, num_patches_u * tess_u, num_patches_v * tess_v, tess_u, primType);
 	}
 };
 
-struct Weight {
-	float basis[4];
-	float deriv[4];
+// The four basis weights and their derivatives at each tessellation step along one axis, one row
+// per term, so that four neighbouring steps load as one vector. Each row has WEIGHT_PADDING zeros
+// past the end, for a vector that starts at one of the last steps.
+struct WeightTable {
+	enum { WEIGHT_PADDING = 3 };
+
+	float *data = nullptr;
+	int stride = 0;
+
+	const float *Basis(int k) const { return data + k * stride; }
+	const float *Deriv(int k) const { return data + (4 + k) * stride; }
 };
 
 template<class T>
 class WeightCache : public T {
 private:
-	std::unordered_map<u32, Weight*> weightsCache;
+	std::unordered_map<u32, WeightTable> weightsCache;
 public:
-	Weight* operator [] (u32 key) {
-		Weight *&weights = weightsCache[key];
-		if (!weights)
+	const WeightTable &operator [] (u32 key) {
+		WeightTable &weights = weightsCache[key];
+		if (!weights.data)
 			weights = T::CalcWeightsAll(key);
 		return weights;
 	}
 
 	void Clear() {
-		for (auto it : weightsCache)
-			delete[] it.second;
+		for (auto &it : weightsCache)
+			delete[] it.second.data;
 		weightsCache.clear();
 	}
 };
 
 struct Weight2D {
-	const Weight *u, *v;
-	int size_u, size_v;
+	const WeightTable *u, *v;
 
 	template<class T>
 	Weight2D(WeightCache<T> &cache, u32 key_u, u32 key_v) {
-		u = cache[key_u];
-		v = (key_u != key_v) ? cache[key_v] : u; // Use same weights if u == v
+		u = &cache[key_u];
+		v = (key_u != key_v) ? &cache[key_v] : u; // Use same weights if u == v
 	}
 };
 
+// Everything the tessellator reads from one control point, each attribute padded to a full vector.
+struct alignas(16) ControlPoint {
+	float pos[4];  // w is 0.
+	float col[4];  // 0-255.
+	float uv[4];  // zw are 0.
+};
+
 struct ControlPoints {
-	Vec3f *pos = nullptr;
-	Vec2f *tex = nullptr;
-	Vec4f *col = nullptr;
+	ControlPoint *points = nullptr;
 	u32_le defcolor;
 
 	ControlPoints() {}
 	ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf);
 	void Convert(const SimpleVertex *const *points, int size);
 	bool IsValid() const {
-		return pos && tex && col;
+		return points != nullptr;
 	}
 };
 
@@ -203,7 +203,14 @@ struct OutputBuffers {
 	SimpleVertex *vertices;
 	u16 *indices;
 	int count;
+	// Applied to the UVs, so the vertices come out the way the vertex decoder would decode them.
+	UVScale uvScale{ 1.0f, 1.0f, 0.0f, 0.0f };
+	// Out: whether every vertex has alpha 255, which the vertex decoder tracks in gstate_c.vertexFullAlpha.
+	bool fullAlpha = true;
 };
+
+// Set to evaluate the GE's Bezier patches and splines with the scalar code, which the vectorized code is tested against.
+extern bool g_splineGEScalar;
 
 template<class Surface>
 void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType, const ControlPoints &points);

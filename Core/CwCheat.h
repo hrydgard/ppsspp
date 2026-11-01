@@ -28,9 +28,15 @@ struct CheatLine {
 bool DetectCheatTitle(std::string_view name, std::string_view *title);
 bool DetectCheatPostComment(std::string_view name, std::string_view *title);
 
+enum class CheatCodeFormat {
+	CwCheat,  // _L lines
+	PSPAR,    // _M lines (Datel's PSP Action Replay code types, as run by TempAR)
+};
+
 struct CheatCode {
 	std::string name;
 	std::vector<CheatLine> lines;
+	CheatCodeFormat format = CheatCodeFormat::CwCheat;
 };
 
 struct CheatFileInfo {
@@ -51,7 +57,8 @@ struct CheatOperation;
 class CWCheatEngine {
 public:
 	CWCheatEngine(std::string_view gameID);
-	std::vector<CheatFileInfo> FileInfo() const;
+	// errors, if given, gets the lines that didn't parse.
+	std::vector<CheatFileInfo> FileInfo(std::vector<std::string> *errors = nullptr) const;
 	void ParseCheats();
 	void CreateCheatFile();
 	const Path &CheatFilename() const {
@@ -59,6 +66,10 @@ public:
 	}
 	void Run();
 	bool HasCheats();
+	// Replaces the parsed cheats, for tests.
+	void SetCheats(const std::vector<CheatCode> &cheats) {
+		cheats_ = cheats;
+	}
 	static u32 GetAddress(u32 value) {
 		// TODO: This comment is weird:
 		// Returns static address used by ppsspp. Some games may not like this, and causes cheats to not work without offset
@@ -75,6 +86,11 @@ private:
 	inline void ApplyMemoryOperator(const CheatOperation &op, uint32_t(*oper)(uint32_t, uint32_t));
 	inline bool TestIf(const CheatOperation &op, bool(*oper)(int a, int b)) const;
 	inline bool TestIfAddr(const CheatOperation &op, bool(*oper)(int a, int b)) const;
+
+	// Takes the cheat non-const: PSPAR's safe data store (0xC4) lets a code write over its own lines.
+	void RunPSPAR(CheatCode &cheat);
+	u32 PSPARRead(const CheatCode &cheat, u32 addr, int size) const;
+	void PSPARWrite(CheatCode &cheat, u32 addr, u32 value, int size) const;
 
 	std::vector<CheatCode> cheats_;
 	std::string gameID_;
@@ -97,7 +113,7 @@ protected:
 	void FlushCheatInfo();
 	void AddError(const std::string &msg, int lineNumber);
 	void ParseLine(const std::string &line, int lineNumber);
-	void ParseDataLine(const std::string &line, int lineNumber);
+	void ParseDataLine(const std::string &line, int lineNumber, CheatCodeFormat format);
 	bool ValidateGameID(std::string_view gameID);
 
 	FILE *fp_ = nullptr;
@@ -108,6 +124,7 @@ protected:
 	std::vector<CheatFileInfo> cheatInfo_;
 	std::vector<CheatCode> cheats_;
 	std::vector<CheatLine> pendingLines_;
+	CheatCodeFormat pendingFormat_ = CheatCodeFormat::CwCheat;
 	CheatFileInfo lastCheatInfo_;
 	bool gameEnabled_ = true;
 	bool gameRiskyEnabled_ = false;

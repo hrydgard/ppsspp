@@ -186,7 +186,8 @@ bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state, int inReportSi
 	}
 
 	if (bytesRead < 14) {
-		return false;
+		// Not a disconnect. Keep the previous state.
+		return true;
 	}
 
 	u32 buttons{};
@@ -215,12 +216,10 @@ bool ReadDualSenseInput(HANDLE handle, HIDControllerState *state, int inReportSi
 		ReadReport(state, &buttons, report);
 
 		// Fall through to button processing
-	} else if (inputReport[0] == 0x1 && inReportSize == 78) {
-		// Simple BT packet. This shouldn't happen if we correctly initialize the gamepad.
-		buttons = 0;
-		// Fall through to button processing
 	} else {
-		// Unknown packet (simple BT?). Ignore.
+		// Unknown packet, or a simple BT one (0x01, which shouldn't happen if we correctly initialized
+		// the gamepad). Keep the previous state - zeroing it would release everything, and a zero
+		// hat value is DPAD up.
 		WARN_LOG(Log::System, "Unexpected: %02x type, %d size", inputReport[0], (int)inReportSize);
 		return true;
 	}

@@ -23,62 +23,87 @@ InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketS
 
 	std::lock_guard<std::mutex> guard(g_socketMutex);
 
-	for (int i = MIN_VALID_INET_SOCKET; i < ARRAY_SIZE(inetSockets_); i++) {
+	const int i = FindFreeSlot();
+	if (i == 0) {
+		// The PSP runs out at 255 too, with EMFILE (pspautotests net/inet/errors).
+		ERROR_LOG(Log::sceNet, "Ran out of socket handles!");
+		closesocket(hostSock);
+		*index = 0;
+		*returned_errno = EMFILE;
+		return nullptr;
+	}
+
+	*index = i;
+	InetSocket *inetSock = inetSockets_ + i;
+	*inetSock = {};  // Reset to default.
+	inetSock->sock = hostSock;
+	inetSock->state = state;
+	inetSock->domain = domain;
+	inetSock->type = type;
+	inetSock->protocol = protocol;
+	inetSock->nonblocking = false;
+	// TCP and UDP defaults from pspautotests net/inet/options. Other types get UDP's.
+	const bool stream = type == PSP_NET_INET_SOCK_STREAM;
+	inetSock->sndBuf = stream ? 16384 : 9216;
+	inetSock->rcvBuf = stream ? 16384 : 41600;
+	inetSock->sndLowat = 2048;
+	inetSock->rcvLowat = 1;
+	inetSock->ipTtl = 64;
+	*returned_errno = 0;
+	return inetSock;
+}
+
+// Numbers are handed out round-robin, the next free one after the last, wrapping from 255 to 1
+// (pspautotests net/inet/states). Returns 0 if they're all in use.
+int SocketManager::FindFreeSlot() {
+	for (int n = 0; n < VALID_INET_SOCKET_COUNT - MIN_VALID_INET_SOCKET; n++) {
+		int i = lastSlot_ + 1 + n;
+		if (i >= VALID_INET_SOCKET_COUNT) {
+			i -= VALID_INET_SOCKET_COUNT - MIN_VALID_INET_SOCKET;
+		}
 		if (inetSockets_[i].state == SocketState::Unused) {
-			*index = i;
-			InetSocket *inetSock = inetSockets_ + i;
-			*inetSock = {};  // Reset to default.
-			inetSock->sock = hostSock;
-			inetSock->state = state;
-			inetSock->domain = domain;
-			inetSock->type = type;
-			inetSock->protocol = protocol;
-			inetSock->nonblocking = false;
-			*returned_errno = 0;
-			return inetSock;
+			lastSlot_ = i;
+			return i;
 		}
 	}
-	_dbg_assert_(false);
-
-	ERROR_LOG(Log::sceNet, "Ran out of socket handles! This is BAD.");
-	closesocket(hostSock);
-	*index = 0;
-	*returned_errno = ENOMEM; // or something..
-	return nullptr;
+	return 0;
 }
 
 InetSocket *SocketManager::AdoptSocket(int *index, SOCKET hostSocket, const InetSocket *derive) {
 	std::lock_guard<std::mutex> guard(g_socketMutex);
 
-	for (int i = MIN_VALID_INET_SOCKET; i < ARRAY_SIZE(inetSockets_); i++) {
-		if (inetSockets_[i].state == SocketState::Unused) {
-			*index = i;
-
-			InetSocket *inetSock = inetSockets_ + i;
-			inetSock->sock = hostSocket;
-			inetSock->state = derive->state;
-			inetSock->domain = derive->domain;
-			inetSock->type = derive->type;
-			inetSock->protocol = derive->protocol;
-			inetSock->nonblocking = derive->nonblocking;  // should we inherit blocking state?
-			return inetSock;
-		}
+	const int i = FindFreeSlot();
+	if (i == 0) {
+		// No space. Shouldn't ever happen.
+		*index = 0;
+		return nullptr;
 	}
 
-	// No space? Return nullptr and let the caller handle it. Shouldn't ever happen.
-	*index = 0;
-	return nullptr;
+	*index = i;
+	InetSocket *inetSock = inetSockets_ + i;
+	// Options and all, like BSD's sonewconn().
+	*inetSock = *derive;
+	inetSock->sock = hostSocket;
+	inetSock->addr.clear();
+	inetSock->port = 0;
+	inetSock->upnpPort = 0;
+	inetSock->boundPort = 0;
+	inetSock->tcpClosed = false;
+	inetSock->listening = false;
+	return inetSock;
 }
 
+// The slot is freed even if the host's close fails, since the host socket is no use either way.
 bool SocketManager::Close(InetSocket *inetSocket) {
+	std::lock_guard<std::mutex> guard(g_socketMutex);
 	_dbg_assert_(inetSocket->state != SocketState::Unused);
-	if (closesocket(inetSocket->sock) != 0) {
-		ERROR_LOG(Log::sceNet, "closesocket(%d) failed", inetSocket->sock);
-		return false;
+	const bool closed = closesocket(inetSocket->sock) == 0;
+	if (!closed) {
+		ERROR_LOG(Log::sceNet, "closesocket(%d) failed: %d", (int)inetSocket->sock, socket_errno);
 	}
 	inetSocket->state = SocketState::Unused;
 	inetSocket->sock = 0;
-	return true;
+	return closed;
 }
 
 bool SocketManager::GetInetSocket(int sock, InetSocket **inetSocket) {
@@ -106,6 +131,7 @@ SOCKET SocketManager::GetHostSocketFromInetSocket(int sock) {
 }
 
 void SocketManager::CloseAll() {
+	std::lock_guard<std::mutex> guard(g_socketMutex);
 	for (auto &sock : inetSockets_) {
 		if (sock.state != SocketState::Unused) {
 			closesocket(sock.sock);
@@ -113,6 +139,7 @@ void SocketManager::CloseAll() {
 		sock.state = SocketState::Unused;
 		sock.sock = 0;
 	}
+	lastSlot_ = 0;
 }
 
 const char *SocketStateToString(SocketState state) {

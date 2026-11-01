@@ -313,7 +313,12 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		bool framebufChanged = false;  // legacy
 		Do(p, framebufChanged);
 
+		// Minimized is about the host window now, whatever it was when the state was saved.
+		const u32 hostSkipDraw = skipDrawReason & SKIPDRAW_WINDOW_MINIMIZED;
 		Do(p, skipDrawReason);
+		if (p.mode == p.MODE_READ) {
+			skipDrawReason = (skipDrawReason & ~SKIPDRAW_WINDOW_MINIMIZED) | hostSkipDraw;
+		}
 
 		// Legacy, remove in the next bump.
 		UVScale uv{};
@@ -382,7 +387,7 @@ static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_VS_RANGE_CULLING",
 	"GPU_USE_BLEND_MINMAX",
 	"GPU_USE_LOGIC_OP",
-	"N/A",
+	"GPU_USE_SHADER_LOD_BIAS",
 	"N/A",
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",

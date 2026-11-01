@@ -28,6 +28,7 @@ namespace MIPSInt
 
 	void Int_mxc1(MIPSState *mips, MIPSOpcode op);
 	void Int_Cop0(MIPSState *mips, MIPSOpcode op);
+	void Int_Eret(MIPSState *mips, MIPSOpcode op);
 	void Int_RelBranch(MIPSState *mips, MIPSOpcode op);
 	void Int_RelBranchRI(MIPSState *mips, MIPSOpcode op);
 	void Int_IType(MIPSState *mips, MIPSOpcode op);
@@ -45,8 +46,10 @@ namespace MIPSInt
 	void Int_Allegrex(MIPSState *mips, MIPSOpcode op);
 	void Int_FPUComp(MIPSState *mips, MIPSOpcode op);
 	void Int_FPUBranch(MIPSState *mips, MIPSOpcode op);
-	void Int_Emuhack(MIPSState *mips, MIPSOpcode op);
+	void Int_CallReplacement(MIPSState *mips, MIPSOpcode op);
 	void Int_Special2(MIPSState *mips, MIPSOpcode op);
+	void Int_Halt(MIPSState *mips, MIPSOpcode op);
+	void Int_Me2C(MIPSState *mips, MIPSOpcode op);
 	void Int_Special3(MIPSState *mips, MIPSOpcode op);
 	void Int_Interrupt(MIPSState *mips, MIPSOpcode op);
 	void Int_Cache(MIPSState *mips, MIPSOpcode op);

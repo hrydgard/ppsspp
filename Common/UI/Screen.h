@@ -18,6 +18,7 @@
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
+#include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 
 namespace UI {
@@ -26,9 +27,17 @@ namespace UI {
 
 namespace Draw {
 class DrawContext;
+class Swapchain;
 }
 
-enum DialogResult {
+// A display other than the primary one, like a second window or a TV. See docs/multi-swapchain.md.
+struct OutputDisplay {
+	int id;
+	OutputRole role;
+	Draw::Swapchain *swapchain;  // nullptr while there's no draw context.
+};
+
+enum DialogResult : u8 {
 	DR_NONE,
 	DR_OK,
 	DR_CANCEL,
@@ -65,6 +74,7 @@ enum class ViewLayoutMode {
 	ApplyInsets = 0,   // For gameplay, option #1
 	IgnoreInsets,  // For gameplay, option #2
 	IgnoreBottomInset,
+	IgnoreSideInsets,
 };
 
 enum class QueuedEventType : u8 {
@@ -94,6 +104,7 @@ enum class InputMode {
 	Mouse = 2,
 	Other = 4,
 	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
+	AllKeys = 16,  // The screen gets keys that are normally left to the OS, like volume. For key mapping.
 };
 ENUM_CLASS_BITOPS(InputMode);
 
@@ -106,6 +117,9 @@ public:
 	virtual void update() {}
 	virtual ScreenRenderFlags PreRender(ScreenRenderMode mode) { return ScreenRenderFlags::NONE; }
 	virtual ScreenRenderFlags render(ScreenRenderMode mode) = 0;
+	// Draws this screen's content for a secondary output, whose swapchain is bound. Returns false if the
+	// screen has nothing for it. The topmost screen that returns true is the one shown.
+	virtual bool renderOutput(const OutputDisplay &output) { return false; }
 	virtual void resized() {}
 	virtual void dialogFinished(const Screen *dialog, DialogResult result) {}
 	virtual void sendMessage(UIMessage message, const char *value) {}
@@ -138,14 +152,19 @@ public:
 	virtual bool WantsTextInput() const { return false; }
 
 protected:
+	// Requests made while creating views (by the views themselves, or with callbacks that capture them) get a separate
+	// token, so they can be forgotten when the views are deleted, while the screen's own requests stay alive.
 	int GetRequesterToken();
-	void WipeRequesterToken() {
-		token_ = -1;
-	}
+	void SetCreatingViews(bool creating) { creatingViews_ = creating; }
+	bool IsCreatingViews() const { return creatingViews_; }
+	// Drops the callbacks of pending requests made by the views, which are about to be deleted.
+	void ForgetViewRequests();
 
 private:
 	ScreenManager *screenManager_ = nullptr;
 	int token_ = -1;
+	int viewsToken_ = -1;
+	bool creatingViews_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };

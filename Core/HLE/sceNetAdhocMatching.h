@@ -36,12 +36,11 @@ int NetAdhocMatching_Term();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
-void SaveNetAdhocMatchingInited();
-void RestoreNetAdhocMatchingInited();
+void DoNetAdhocMatchingPollEvent(PointerWrap &p, bool saved);
 
 void Register_sceNetAdhocMatching();
 void __NetAdhocMatchingInit();
 void __NetAdhocMatchingShutdown();
 
 extern bool netAdhocMatchingInited;
-extern int adhocMatchingEventDelay; //30000
+extern int adhocMatchingEventDelay;

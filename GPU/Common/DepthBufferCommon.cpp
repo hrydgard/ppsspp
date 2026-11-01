@@ -189,6 +189,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 	bool useColorPath = gl_extensions.IsGLES || scaleX != 1.0f || scaleY != 1.0f;
 	bool format16Bit = false;
+	bool copied = false;
 
 	if (useColorPath) {
 		if (!depthReadbackPipeline_) {
@@ -235,7 +236,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		};
 		draw_->DrawUP(positions, 3);
 
-		draw_->CopyFramebufferToMemory(blitFBO, Aspect::COLOR_BIT,
+		copied = draw_->CopyFramebufferToMemory(blitFBO, Aspect::COLOR_BIT,
 			x * scaleX, y * scaleY, w * scaleX, h * scaleY,
 			DataFormat::R8G8B8A8_UNORM, convBuf_, destW, mode, "ReadbackDepthbufferSync");
 
@@ -243,8 +244,14 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// TODO: Use 4444 (or better, R16_UNORM) so we can copy lines directly (instead of 32 -> 16 on CPU)?
 		format16Bit = true;
 	} else {
-		draw_->CopyFramebufferToMemory(fbo, Aspect::DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, mode, "ReadbackDepthbufferSync");
+		copied = draw_->CopyFramebufferToMemory(fbo, Aspect::DEPTH_BIT, x, y, w, h, DataFormat::D32F, convBuf_, w, mode, "ReadbackDepthbufferSync");
 		format16Bit = false;
+	}
+
+	if (!copied) {
+		// Don't write whatever convBuf_ last held into the game's depth buffer.
+		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+		return false;
 	}
 
 	// TODO: Move this conversion into the backends.

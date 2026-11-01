@@ -55,9 +55,11 @@ public:
 		// Read first, then regenerate that word in place - done in index order this is the
 		// same as twisting the whole array in one go, and it matches what hardware leaves
 		// behind in the context after each draw.
-		uint32_t y = mt_[index_];
-		twist(index_);
-		index_ = (index_ + 1) % MT_SIZE;
+		// The context can live in emulated memory, so don't trust the index.
+		const uint32_t i = index_ % MT_SIZE;
+		uint32_t y = mt_[i];
+		twist(i);
+		index_ = (i + 1) % MT_SIZE;
 		y ^=  y >> 11;
 		y ^= (y <<  7) & 2636928640UL;
 		y ^= (y << 15) & 4022730752UL;

@@ -114,7 +114,8 @@ bool ReadDualShockInput(HANDLE handle, HIDControllerState *state, int inReportSi
 	DualShockInputReport report{};
 	static_assert(sizeof(report) < sizeof(inputReport));
 	if (bytesRead < 14) {
-		return false;
+		// Not a disconnect. Keep the previous state.
+		return true;
 	}
 
 	// OK, check the first byte to figure out what we're dealing with here.

@@ -4,6 +4,9 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include "libretro/LibretroVR.h"
+#endif
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -302,20 +305,7 @@ bool GLRenderManager::CopyFramebufferToMemory(GLRFramebuffer *src, int aspectBit
 	curRenderStep_ = nullptr;
 	FlushSync();
 
-	Draw::DataFormat srcFormat;
-	if (aspectBits & GL_COLOR_BUFFER_BIT) {
-		srcFormat = Draw::DataFormat::R8G8B8A8_UNORM;
-	} else if (aspectBits & GL_STENCIL_BUFFER_BIT) {
-		// Copies from stencil are always S8.
-		srcFormat = Draw::DataFormat::S8;
-	} else if (aspectBits & GL_DEPTH_BUFFER_BIT) {
-		// TODO: Do this properly.
-		srcFormat = Draw::DataFormat::D24_S8;
-	} else {
-		return false;
-	}
-	queueRunner_.CopyFromReadbackBuffer(src, w, h, srcFormat, destFormat, pixelStride, pixels);
-	return true;
+	return queueRunner_.CopyFromReadbackBuffer(src, w, h, destFormat, pixelStride, pixels);
 }
 
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -331,7 +321,7 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	curRenderStep_ = nullptr;
 	FlushSync();
 
-	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
+	queueRunner_.CopyFromReadbackBuffer(nullptr, w, h, destFormat, pixelStride, pixels);
 }
 
 void GLRenderManager::BeginFrame(bool enableProfiling) {
@@ -488,6 +478,15 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		frameData.profile.cpuStartTime = time_now_d();
 	}
 
+#ifdef __LIBRETRO__
+	if (Libretro::VRActive() && !skipGLCalls_) {
+		for (int eye = 0; eye < 2; ++eye) {
+			Libretro::BeginVREye(eye);
+			queueRunner_.RunSteps(task.steps, frameData, false, eye == 0, false);
+		}
+		Libretro::EndVREyes();
+	} else
+#endif
 	if (IsVREnabled()) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {

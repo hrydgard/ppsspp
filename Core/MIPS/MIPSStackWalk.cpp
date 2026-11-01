@@ -68,7 +68,7 @@ namespace MIPSStackWalk {
 		// It ought to be pretty close.
 		u32 stop = pc - 32 * 4;
 		for (; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
-			MIPSOpcode op = Memory::Read_Instruction(pc, true);
+			MIPSOpcode op = Memory::Read_Instruction(pc);
 
 			// We're looking for a "mov fp, sp" close by a "addiu sp, sp, -N".
 			if (IsMovRegsInstr(op) && _RD == MIPS_REG_FP && (_RS == MIPS_REG_SP || _RT == MIPS_REG_SP)) {
@@ -114,7 +114,26 @@ namespace MIPSStackWalk {
 		}
 		for (u32 pc = start; Memory::IsValidAddress(pc) && pc >= stop; pc -= 4) {
 			_dbg_assert_(Memory::IsValidAddress(pc));
-			MIPSOpcode op = Memory::Read_Instruction(pc, true);
+			MIPSOpcode op = Memory::Read_Instruction(pc);
+
+			// Without a symbol, a jr ra above any prologue is most likely the end of the function before
+			// this one, so this is a leaf that starts after its delay slot. Scanning on would pick up
+			// that function's prologue, and read a bogus ra from the stack. Only the innermost frame
+			// has ra in the register to fall back on.
+			// (Right above pc, it's this function's own return, with pc in its delay slot.)
+			if (entry == INVALIDTARGET && pc != start && op.encoding == MIPS_MAKE_JR_RA()) {
+				if (ra == INVALIDTARGET) {
+					return false;
+				}
+				// An ra between here and pc is a stale return from a call this function made, so this
+				// is an early return in the same function, and its prologue is further up.
+				if (ra > pc && ra <= frame.pc) {
+					continue;
+				}
+				frame.entry = pc + 8;
+				frame.stackSize = 0;
+				return true;
+			}
 
 			// Here's where they store the ra address.
 			if (IsSWInstr(op) && _RT == MIPS_REG_RA && _RS == MIPS_REG_SP) {
@@ -131,7 +150,10 @@ namespace MIPSStackWalk {
 					continue;
 				}
 
-				frame.entry = pc;
+				// The prologue often isn't the first instruction (a lui or move can come first), so
+				// the function's symbol, if it has one, gives the real entry.
+				const u32 symbolEntry = GuessEntry(pc);
+				frame.entry = symbolEntry != INVALIDTARGET ? symbolEntry : pc;
 				frame.stackSize = -_IMM16;
 				if (ra_offset != -1 && Memory::IsValid4AlignedAddress(frame.sp + ra_offset)) {
 					ra = Memory::ReadUnchecked_U32(frame.sp + ra_offset);

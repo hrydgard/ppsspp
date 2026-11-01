@@ -573,92 +573,37 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	FixupBranch skipNAN;
-	FixupBranch finishNAN;
-	FixupBranch negativeSigns;
-	FixupBranch finishNANSigns;
-	X64Reg tempReg = INVALID_REG;
-	switch (inst.op) {
-	case IROp::FMin:
-		tempReg = regs_.GetAndLockTempGPR();
-		regs_.Map(inst);
-		// PF is set if either is a NaN. Comparing src1 with itself only caught a NaN in src1.
-		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
-		skipNAN = J_CC(CC_NP, true);
-
-		// Slow path: NAN case.  Check if both are negative.
-		MOVD_xmm(R(tempReg), regs_.FX(inst.src1));
-		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src2));
-		TEST(32, R(SCRATCH1), R(tempReg));
-		negativeSigns = J_CC(CC_S);
-
-		// Okay, one or the other positive.
-		CMP(32, R(tempReg), R(SCRATCH1));
-		CMOVcc(32, tempReg, R(SCRATCH1), CC_G);
-		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
-		finishNAN = J();
-
-		// Okay, both negative.
-		SetJumpTarget(negativeSigns);
-		CMP(32, R(tempReg), R(SCRATCH1));
-		CMOVcc(32, tempReg, R(SCRATCH1), CC_L);
-		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
-		finishNANSigns = J();
-
-		SetJumpTarget(skipNAN);
-		if (cpu_info.bAVX) {
-			VMINSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
-		} else {
-			if (inst.dest != inst.src1)
-				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			MINSS(regs_.FX(inst.dest), regs_.F(inst.src2));
-		}
-		SetJumpTarget(finishNAN);
-		SetJumpTarget(finishNANSigns);
-		break;
-
-	case IROp::FMax:
-		tempReg = regs_.GetAndLockTempGPR();
-		regs_.Map(inst);
-		// PF is set if either is a NaN. Comparing src1 with itself only caught a NaN in src1.
-		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
-		skipNAN = J_CC(CC_NP, true);
-
-		// Slow path: NAN case.  Check if both are negative.
-		MOVD_xmm(R(tempReg), regs_.FX(inst.src1));
-		MOVD_xmm(R(SCRATCH1), regs_.FX(inst.src2));
-		TEST(32, R(SCRATCH1), R(tempReg));
-		negativeSigns = J_CC(CC_S);
-
-		// Okay, one or the other positive.
-		CMP(32, R(tempReg), R(SCRATCH1));
-		CMOVcc(32, tempReg, R(SCRATCH1), CC_L);
-		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
-		finishNAN = J();
-
-		// Okay, both negative.
-		SetJumpTarget(negativeSigns);
-		CMP(32, R(tempReg), R(SCRATCH1));
-		CMOVcc(32, tempReg, R(SCRATCH1), CC_G);
-		MOVD_xmm(regs_.FX(inst.dest), R(tempReg));
-		finishNANSigns = J();
-
-		SetJumpTarget(skipNAN);
-		if (cpu_info.bAVX) {
-			VMAXSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
-		} else {
-			if (inst.dest != inst.src1)
-				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			MAXSS(regs_.FX(inst.dest), regs_.F(inst.src2));
-		}
-		SetJumpTarget(finishNAN);
-		SetJumpTarget(finishNANSigns);
-		break;
-
-	default:
+	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
 		INVALIDOP;
-		break;
-	}
+
+	// vmin/vmax: compare by vfpu_minmax_key, and select the operand with its bits.
+	X64Reg keyS = regs_.GetAndLockTempGPR();
+	X64Reg keyT = regs_.GetAndLockTempGPR();
+	regs_.Map(inst);
+	auto key = [&](X64Reg k, IRReg src) {
+		MOVD_xmm(R(SCRATCH1), regs_.FX(src));
+		MOV(32, R(k), R(SCRATCH1));
+		SAR(32, R(k), Imm8(31));
+		SHR(32, R(k), Imm8(1));
+		XOR(32, R(k), R(SCRATCH1));
+		// All ones unless the exponent is zero.
+		AND(32, R(SCRATCH1), Imm32(0x7F800000));
+		NEG(32, R(SCRATCH1));
+		SBB(32, R(SCRATCH1), R(SCRATCH1));
+		AND(32, R(k), R(SCRATCH1));
+	};
+	key(keyS, inst.src1);
+	key(keyT, inst.src2);
+	CMP(32, R(keyS), R(keyT));
+	// A tie takes src2.
+	FixupBranch useSrc2 = J_CC(inst.op == IROp::FMin ? CC_GE : CC_LE);
+	if (inst.dest != inst.src1)
+		MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+	FixupBranch done = J();
+	SetJumpTarget(useSrc2);
+	if (inst.dest != inst.src2)
+		MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src2));
+	SetJumpTarget(done);
 }
 
 void X64JitBackend::CompIR_FCvt(IRInst inst) {
@@ -930,13 +875,17 @@ void X64JitBackend::CompIR_FSat(IRInst inst) {
 		MOVSS(tempReg, M(constants.positiveOnes));
 		MINSS(tempReg, regs_.F(inst.src1));
 
-		// Now for NAN, we want known first again.
-		// Unfortunately, this will retain -0.0, which we'll fix next.
+		// Known first again, so a NAN stays, bits and all. This keeps -0.0 too, since a tie also
+		// takes the second argument.
 		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		MAXSS(tempReg, regs_.F(inst.dest));
+		MAXSS(regs_.FX(inst.dest), R(tempReg));
 
-		// Important: this should clamp -0.0 to +0.0.
-		ADDSS(regs_.FX(inst.dest), R(tempReg));
+		// Important: this should clamp -0.0 to +0.0. Not by adding +0.0, which would quiet a
+		// signaling NAN: clear the result where it compares equal to zero, which a NAN never does.
+		XORPS(tempReg, R(tempReg));
+		CMPEQSS(tempReg, regs_.F(inst.dest));
+		ANDNPS(tempReg, regs_.F(inst.dest));
+		MOVAPS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	case IROp::FSatMinus1_1:

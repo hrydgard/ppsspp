@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -80,6 +79,12 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	MIPSGPReg rs = _RS;
 
 	CheckMemoryBreakpoint(rs, offset);
+
+	if (js.kernelMode) {
+		// Kernel code may reach hardware registers (MMIO), which only the interpreter handles.
+		DISABLE;
+		return;
+	}
 
 	switch (op >> 26) {
 	case 49: // lwc1

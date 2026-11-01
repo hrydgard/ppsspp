@@ -254,10 +254,11 @@ void Core_RegisterDebugOutputListeners(std::function<void(DebugOutputChannel, st
 }
 
 void Core_SendDebugOutput(LogLevel level, std::string_view string) {
+	// Logged even with a listener: headless only passes the listener's output on when it collects a
+	// test's output, and these are crash reports.
+	GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	if (g_debugOutputListener) {
 		g_debugOutputListener(DebugOutputChannel::Debug, string);
-	} else {
-		GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	}
 }
 
@@ -456,7 +457,7 @@ void Core_RunLoopUntil(u64 globalticks) {
 
 			case DLResult::Error: // We should elegantly report the error somehow, or I guess ignore it.
 			case DLResult::Done: // Done executing for now
-				hleFinishSyscallAfterGe();
+				hleFinishSyscallAfterGe(&mipsr4k);
 				coreState = preGeCoreState;
 				break;
 
@@ -653,7 +654,10 @@ static bool Core_ProcessStepping(MIPSDebugInterface *cpu) {
 // Free-threaded (hm, possibly except tracing).
 void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit) {
 	const CoreState state = coreState;
-	if (state != CORE_RUNNING_CPU) {
+	// REENTER_DISPATCH is still running, with a request to bounce out of the dispatcher (set by any
+	// JIT block invalidation, such as loading a module). Stepping supersedes it, so a memory
+	// exception in that window must break like any other instead of being dropped.
+	if (state != CORE_RUNNING_CPU && state != CORE_REENTER_DISPATCH) {
 		if (state == CORE_STEPPING_CPU) {
 			// Already stepping.
 			INFO_LOG(Log::CPU, "Core_Break(%s), already in break mode", BreakReasonToString(reason));
@@ -687,6 +691,7 @@ void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit
 		// later at an address nobody is waiting for anymore. Same as gdb dropping its step-resume
 		// breakpoint, or lldb discarding the thread plan, on any stop.
 		g_breakpoints.ClearTempBreakPoint();
+		g_breakpoints.ClearSkipFirst();
 
 		// Same reasoning for a cpu.runUntilTime deadline - it belonged to the run that just ended.
 		CoreTiming::SetBreakDeadlineUs(0);
@@ -706,6 +711,22 @@ void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit
 		Core_UpdateState(CORE_STEPPING_CPU);
 	}
 	System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
+}
+
+void Core_ReportBreakWithoutRunning(BreakReason reason, u32 relatedAddress) {
+	if (coreState != CORE_STEPPING_CPU) {
+		return;
+	}
+	std::lock_guard<std::mutex> lock(g_stepMutex);
+	if (!g_cpuStepCommand.empty()) {
+		// A step is about to run, and its own stop will be reported.
+		return;
+	}
+	g_breakReason = reason;
+	g_breakHit = BreakpointHit{};
+	g_cpuStepCommand.reason = reason;
+	g_cpuStepCommand.relatedAddr = relatedAddress;
+	steppingCounter++;
 }
 
 // Free-threaded (or at least should be)
@@ -780,6 +801,7 @@ const char *ExceptionTypeAsString(MIPSExceptionType type) {
 	case MIPSExceptionType::BREAK: return "Break";
 	case MIPSExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
 	case MIPSExceptionType::FPU: return "FPU Exception";
+	case MIPSExceptionType::HLE: return "HLE Error";
 	default: return "N/A";
 	}
 }
@@ -836,7 +858,7 @@ static std::string ModuleAddressSuffix(u32 address) {
 	}
 }
 
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo) {
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool halting) {
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	char pcDetails[128];
 	pcDetails[0] = 0;
@@ -877,14 +899,14 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	const char *desc = MemoryExceptionTypeAsString(type);
 	char msg[512];
 	snprintf(msg, sizeof(msg), "%s: SIGSEGV at %08x%s (size: %d bytes) %s\nHost:%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, STR_VIEW(additionalInfo));
-	if (action == ExceptionAction::Ignore) {
+	if (action == ExceptionAction::Ignore && !halting) {
 		Core_SendDebugOutput(LogLevel::LWARNING, msg);
 		return;
 	}
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	// Do the most detailed logging we can.
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%sMIPS call stack:\n%s", msg, stackTrace.c_str()));
-	if (action == ExceptionAction::Break) {
+	if (action == ExceptionAction::Break || halting) {
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = MIPSExceptionType::MEMORY;
@@ -1059,6 +1081,20 @@ void Core_BreakException(u32 pc) {
 	if (action == ExceptionAction::Break) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
+}
+
+void Core_HLEError(std::string_view message) {
+	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("HLE error: %.*s\n%s", STR_VIEW(message), stackTrace.c_str()));
+
+	MIPSExceptionInfo &e = g_exceptionInfo;
+	e = {};
+	e.type = MIPSExceptionType::HLE;
+	e.info = message;
+	e.stackTrace = stackTrace;
+	e.pc = currentMIPS->pc;
+	e.ra = currentMIPS->r[MIPS_REG_RA];
+	Core_UpdateState(CORE_RUNTIME_ERROR);
 }
 
 // We can't actually deliver the trap to the game's exception handler - nothing in PPSSPP emulates

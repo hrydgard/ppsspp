@@ -20,6 +20,7 @@
 #if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
 
 #include <cstddef>
+#include <map>
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
@@ -38,19 +39,17 @@ static constexpr int MIN_BLOCK_NORMAL_LEN = 12;
 // As long as we can fit a B, we should be fine.
 static constexpr int MIN_BLOCK_EXIT_LEN = 4;
 
-Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
-	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo), fp_(this) {
-	// Automatically disable incompatible options.
-	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
-		jo.enablePointerify = false;
-	}
+Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt)
+	: jo(jitopt), regs_(&jo), fp_(this) {
+	// Automatically disable incompatible options. Pointerify also depends on the CPU's memory base,
+	// checked in GenerateFixedCode().
 	jo.optimizeForInterpreter = false;
 #ifdef MASKED_PSP_MEMORY
 	jo.enablePointerify = false;
 #endif
 
 	// Since we store the offset, this is as big as it can be.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 
 	regs_.Init(this, &fp_);
 }
@@ -66,14 +65,38 @@ static void NoBlockExits() {
 }
 
 // TODO: Much of this function should be merged with the same function for the other backends.
-bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
+bool Arm64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	IRBlock *block = irBlockCache->GetBlock(block_num);
-	BeginWrite(std::min(GetSpaceLeft(), (size_t)block->GetNumIRInstructions() * 32));
+	// An accurate dot product can flush several registers around its call.
+	size_t sizeEstimate = 0;
+	for (int i = 0; i < count; ++i) {
+		switch (instructions[i].op) {
+		case IROp::Vec4VfpuDot:
+		case IROp::Vec4VfpuMultiDot:
+		// The jump to a register looks up the block itself.
+		case IROp::ExitToReg:
+			sizeEstimate += 96;
+			break;
+		// The range check and the call-out for hardware registers.
+		case IROp::LoadKernel8:
+		case IROp::LoadKernel8Ext:
+		case IROp::LoadKernel16:
+		case IROp::LoadKernel16Ext:
+		case IROp::LoadKernel32:
+		case IROp::StoreKernel8:
+		case IROp::StoreKernel16:
+		case IROp::StoreKernel32:
+			sizeEstimate += 64;
+			break;
+		default:
+			sizeEstimate += 32;
+			break;
+		}
+	}
+	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
-	u32 startPC = block->GetOriginalStart();
 	bool wroteCheckedOffset = false;
 	if (jo.enableBlocklink && !jo.useBackJump) {
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
@@ -90,18 +113,17 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 
 	// Don't worry, the codespace isn't large enough to overflow offsets.
 	const u8 *blockStart = GetCodePointer();
-	block->SetNativeOffset((int)GetOffset(blockStart));
+	SetBlockEntry(block_num, startPC, (int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
 	lastConstPC_ = 0;
 
-	regs_.Start(irBlockCache, block_num);
+	regs_.Start(startPC, instructions, count);
 
 	std::vector<const u8 *> addresses;
-	addresses.reserve(block->GetNumIRInstructions());
-	const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
+	addresses.reserve(count);
 	compilingInsts_ = instructions;
-	compilingCount_ = block->GetNumIRInstructions();
-	for (int i = 0; i < block->GetNumIRInstructions(); ++i) {
+	compilingCount_ = count;
+	for (int i = 0; i < count; ++i) {
 		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);
 		compilingIndex_ = i;
@@ -132,7 +154,7 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 		B(hooks_.crashHandler);
 	}
 
-	int len = (int)GetOffset(GetCodePointer()) - block->GetNativeOffset();
+	int len = (int)GetOffset(GetCodePointer()) - GetBlockEntry(block_num);
 	if (len < MIN_BLOCK_NORMAL_LEN) {
 		// We need at least 10 bytes to invalidate blocks with.
 		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
@@ -160,6 +182,8 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 		B(outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
@@ -168,7 +192,6 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 			addressesLookup[addresses[i]] = i;
 
 		INFO_LOG(Log::JIT, "=============== ARM64 (%08x, %d bytes) ===============", startPC, len);
-		const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addressesLookup.find(p);
 			if (it != addressesLookup.end()) {
@@ -197,7 +220,7 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 }
 
 void Arm64JitBackend::WriteConstExit(uint32_t pc) {
-	int block_num = blocks_.GetBlockNumberFromStartAddress(pc);
+	int block_num = FindBlockByStart(pc);
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
 
 	int exitStart = (int)GetOffset(GetCodePointer());
@@ -253,6 +276,7 @@ void Arm64JitBackend::CompIR_Generic(IRInst inst) {
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 	MOVI2R(X0, value);
+	MOVP2R(X1, mips_);
 	QuickCallFunction(SCRATCH2_64, &DoIRInst);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -285,7 +309,8 @@ void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 		MOVP2R(X0, MIPSGetName(op));
 		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
-	MOVI2R(X0, inst.constant);
+	MOVI2R(W0, inst.constant);
+	MOVP2R(X1, mips_);
 	QuickCallFunction(SCRATCH2_64, &MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -319,7 +344,7 @@ bool Arm64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	} else if (ptr >= convertS0ToSCRATCH1_[0] && ptr <= convertS0ToSCRATCH1_[7]) {
 		name = "convertS0ToSCRATCH1";
 	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
-		name = "fixedCode";
+		name = DescribeFixedCode(ptr);
 	} else {
 		return IRNativeBackend::DescribeCodePtr(ptr, name);
 	}
@@ -332,13 +357,13 @@ void Arm64JitBackend::ClearAllBlocks() {
 	EraseAllLinks(-1);
 }
 
-void Arm64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {
-	IRBlock *block = irBlockCache->GetBlock(block_num);
-	int offset = block->GetNativeOffset();
+void Arm64JitBackend::InvalidateBlock(int block_num) {
+	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
+	int offset = nativeBlock->entryOffset;
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
 	// Overwrite the block with a jump to compile it again.
-	u32 pc = block->GetOriginalStart();
+	u32 pc = nativeBlock->startPC;
 	if (pc != 0) {
 		// Hopefully we always have at least 16 bytes, which should be all we need.
 		if (PlatformIsWXExclusive()) {
@@ -384,7 +409,7 @@ void Arm64JitBackend::MovToPC(ARM64Reg r) {
 void Arm64JitBackend::WriteDebugPC(uint32_t pc) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		MOVI2R(SCRATCH1, pc);
 		STR(SCRATCH1, JITBASEREG, SCRATCH2);
 	}
@@ -393,7 +418,7 @@ void Arm64JitBackend::WriteDebugPC(uint32_t pc) {
 void Arm64JitBackend::WriteDebugPC(ARM64Reg r) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		STR(r, JITBASEREG, SCRATCH2);
 	}
 }
@@ -401,7 +426,7 @@ void Arm64JitBackend::WriteDebugPC(ARM64Reg r) {
 void Arm64JitBackend::WriteDebugProfilerStatus(IRProfilerStatus status) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerStatus - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		MOVI2R(SCRATCH1, (int)status);
 		STR(SCRATCH1, JITBASEREG, SCRATCH2);
 	}

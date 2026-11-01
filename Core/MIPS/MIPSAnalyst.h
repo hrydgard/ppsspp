@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "Common/CommonTypes.h"
@@ -109,6 +110,8 @@ namespace MIPSAnalyst {
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 
 	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out);
+	// endAddr is exclusive.
+	bool HasFunctionsInRange(u32 startAddr, u32 endAddr);
 
 	void LoadBuiltinHashMap();
 	void LoadHashMap(const Path &filename);
@@ -116,7 +119,9 @@ namespace MIPSAnalyst {
 
 	const char *LookupHash(u64 hash, u32 funcSize);
 	// Hashes the known functions again, from what memory holds now (after a savestate load.)
-	void RehashFunctions();
+	// Functions that already have a hash and lie entirely in one of the (address, size) ranges in
+	// unchanged keep it: their code is what it was hashed from.
+	void RehashFunctions(const std::vector<std::pair<u32, u32>> &unchanged = {});
 	void ReplaceFunctions();
 
 	void UpdateHashMap();

@@ -46,7 +46,7 @@ Follow the workflow in docs/translations.md. Run langtool from
    lt-LT = Testeilutė
    ```
 
-   One line per language, named after the ini file minus the extension (`lt-LT`, `he_IL_invert`,
+   One line per language, named after the ini file minus the extension (`lt-LT`, `pt_BR`,
    `zh_TW`, ...), plus an `en_US` line carrying the English string itself if you were given one -
    that's what creates the key in `en_US.ini`. For a key that already exists, that line has to be
    the existing English text character for character: it overwrites `en_US.ini` like any other
@@ -70,7 +70,7 @@ Follow the workflow in docs/translations.md. Run langtool from
    translations, check what you're about to replace first. The section has to exist already.
 
 4. `cargo run -- add-new-key "<Section>" "<Key>"` - **always, every language file ends up with the
-   key.** This writes `Key = Key` (plain English, no `# same as English` marker, so it still reads
+   key.** This writes the English string from `en_US.ini` (no `# same as English` marker, so it still reads
    as outstanding work) into every language you skipped, and leaves the ones you translated alone.
    A missing key would fall back to the English string at runtime anyway, but then it looks exactly
    like a translated one in the files, and translators can't see what's left to do.

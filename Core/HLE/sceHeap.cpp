@@ -140,8 +140,15 @@ static u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 param
 	}
 
 	// There's 8 bytes at the end of every block, reserved.
+	if (memSize > 0xFFFFFF00) {
+		return hleLogError(Log::HLE, 0, "invalid size %08x", memSize);
+	}
 	memSize += 8;
 	u32 addr = heap->alloc.AllocAligned(memSize, grain, grain, true);
+	// This returns a pointer, so failure is null rather than the allocator's -1 (like sceKernelAllocHeapMemory).
+	if (addr == (u32)-1) {
+		return hleLogError(Log::HLE, 0, "failed to allocate %d bytes", memSize);
+	}
 	return hleLogDebug(Log::HLE, addr);
 }
 
@@ -179,6 +186,7 @@ static int sceHeapDeleteHeap(u32 heapAddr) {
 	}
 
 	heapList.erase(heapAddr);
+	userMemory.Free(heap->address);
 	delete heap;
 	return hleLogDebug(Log::HLE, 0);
 }
@@ -222,9 +230,15 @@ static u32 sceHeapAllocHeapMemory(u32 heapAddr, u32 memSize) {
 	}
 
 	// There's 8 bytes at the end of every block, reserved.
+	if (memSize > 0xFFFFFF00) {
+		return hleLogError(Log::HLE, 0, "invalid size %08x", memSize);
+	}
 	memSize += 8;
 	// Always goes down, regardless of whether the heap is high or low.
 	u32 addr = heap->alloc.Alloc(memSize, true);
+	if (addr == (u32)-1) {
+		return hleLogError(Log::HLE, 0, "failed to allocate %d bytes", memSize);
+	}
 	return hleLogDebug(Log::HLE, addr);
 }
 

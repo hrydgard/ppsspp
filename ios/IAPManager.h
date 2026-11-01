@@ -12,7 +12,6 @@
 - (void)buyGoldWithRequestID:(int)requestID;
 - (void)restorePurchasesWithRequestID:(int)requestID;
 - (BOOL)isGoldUnlocked;
-- (void)startObserving;
 - (void)updateIcon:(bool)force;
 
 @end

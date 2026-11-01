@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -40,14 +41,17 @@ IRFrontend::IRFrontend(bool startDefaultPrefix) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ClearSkipFirst();
 }
 
-void IRFrontend::DoState(PointerWrap &p) {
+bool IRFrontend::DoState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
-		return;
+		return false;
 
+	const bool oldStartDefaultPrefix = js.startDefaultPrefix;
+	const bool oldHasSetRounding = js.hasSetRounding;
+	const u8 oldLastSetRounding = js.lastSetRounding;
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
@@ -60,7 +64,36 @@ void IRFrontend::DoState(PointerWrap &p) {
 
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
-	g_breakpoints.SetSkipFirst(0);
+	g_breakpoints.ClearSkipFirst();
+
+	if (p.mode != PointerWrap::MODE_READ) {
+		return false;
+	}
+	// Blocks only switch rounding modes if hasSetRounding was set when they were compiled, and
+	// assume default prefixes at their start if startDefaultPrefix was.
+	if ((js.hasSetRounding && !oldHasSetRounding) || (!js.startDefaultPrefix && oldStartDefaultPrefix)) {
+		return true;
+	}
+	// The other way round, the blocks already compiled just do more than they need to. Keep the
+	// flags that way, or a loaded hasSetRounding of false would have UpdateFCR31() throw them all
+	// away for a rounding mode they handle fine. lastSetRounding says they were compiled with the
+	// rounding checks, so the next compile doesn't throw them away to add them either.
+	js.hasSetRounding = js.hasSetRounding || oldHasSetRounding;
+	js.startDefaultPrefix = js.startDefaultPrefix && oldStartDefaultPrefix;
+	js.lastSetRounding = oldLastSetRounding;
+	return false;
+}
+
+bool IRFrontend::UpdateFCR31(u32 fcr31) {
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so the caller throws them away.
+	if ((fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		return true;
+	}
+	return false;
 }
 
 void IRFrontend::FlushAll() {
@@ -130,7 +163,7 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG_REPORT(Log::JIT, "An uneaten prefix at end of block for %08x", blockAddress);
+		WARN_LOG(Log::JIT, "An uneaten prefix at end of block for %08x", blockAddress);
 		logBlocks = 1;
 		js.LogPrefix();
 
@@ -142,7 +175,16 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 }
 
 void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		// The interpreter checks memory at PC, which Comp_Generic doesn't set here.
+		FlushAll();
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
+		Comp_Generic(op);
+		return;
+	}
+
+	int index = op.encoding & MIPS_REPLACEMENT_INDEX_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
@@ -162,7 +204,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	}
 
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
@@ -172,7 +214,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			ApplyRoundingMode();
 			// If IRTEMP_0 was set to 1, it means the replacement needs to run again (sliced.)
@@ -189,8 +231,30 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 
 void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
-	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
 	const MIPSInfo info = MIPSGetInfo(op);
+	// Interpreted ops run in the guest's rounding mode. A syscall is host code (like a compiled one),
+	// and only ctc1 to fcr31 changes the mode, so only those need it switched.
+	const bool isSyscall = (info & IS_SYSCALL) != 0;
+	const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+	if (isSyscall || setsMode)
+		RestoreRoundingMode(setsMode);
+	const bool endsBlock = (info & ENDS_BLOCK) != 0;
+	if (endsBlock) {
+		ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
+		js.downcountAmount = 0;
+		// It goes on from its own pc (halt).
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
+	}
+	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
+	if (endsBlock) {
+		ir.Write(IROp::ExitToPC);
+		js.compiling = false;
+		return;
+	}
+	if (setsMode)
+		UpdateRoundingMode();
+	if (isSyscall || setsMode)
+		ApplyRoundingMode(setsMode);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
@@ -237,34 +301,44 @@ u32 IRFrontend::GetCompilerPC() {
 	return js.compilerPC;
 }
 
+bool IRFrontend::IsMediaEngine() const {
+	return space_ && space_->IsMediaEngine();
+}
+
+// The Media Engine's code runs as it is in memory: replacements and hooks are the main CPU's.
+MIPSOpcode IRFrontend::ReadOp(u32 addr) const {
+	if (IsMediaEngine()) {
+		return space_->IsValid4AlignedAddress(addr) ? MIPSOpcode(space_->ReadUnchecked_U32(addr)) : MIPSOpcode(0);
+	}
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
+}
+
 MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	return ReadOp(GetCompilerPC() + 4 * offset);
 }
 
 void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
 	js.downcountAmount = 0;
-	js.curBlock = nullptr;
 	js.compiling = true;
 	js.hadBreakpoints = false;
 	js.blockWrotePrefixes = false;
 	js.inDelaySlot = false;
-	js.kernelMode = Memory::IsKernelCodeAddress(em_address);
+	js.kernelMode = IsMediaEngine() || Memory::MayRunInKernelMode(em_address);
 
 	js.PrefixStart();
 	ir.Clear();
 	ir.Reserve(64); // Estimate a reasonable number of IR instructions per block
 
 	js.numInstructions = 0;
+	js.continuedBranches = 0;
 	while (js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckBreakpoint(GetCompilerPC());
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = IsMediaEngine() ? ReadOp(GetCompilerPC()) : ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
@@ -286,6 +360,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 			&RemoveLoadStoreLeftRight,
 			&OptimizeFPMoves,
 			&PropagateConstants,
+			&ResolveKernelMemory,
 			&PurgeTemps,
 			&ReduceVec4Flush,
 			&OptimizeLoadsAfterStores,
@@ -323,7 +398,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		NOTICE_LOG(Log::JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, sizeof(temp2), true);
+			MIPSDisAsm(Memory::ReadUnchecked_Instruction(cpc), cpc, temp2, sizeof(temp2), true);
 			NOTICE_LOG(Log::JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
@@ -354,11 +429,6 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		dontLogBlocks--;
 }
 
-void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
-}
-
 void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		FlushAll();
@@ -370,8 +440,8 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(addr);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(addr);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.
@@ -403,8 +473,8 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
 			// We assume delay slot in compilerPC + 4.
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(GetCompilerPC() + 4);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(GetCompilerPC() + 4);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.

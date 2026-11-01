@@ -173,7 +173,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				}
 				dynState.useBlendColor = blendState.useBlendColor;
 				if (blendState.useBlendColor) {
-					dynState.blendColor = blendState.blendColor;
+					blendState.blendColorToFloat4(dynState.blendColor);
 				}
 			} else {
 				key.blendEnable = false;

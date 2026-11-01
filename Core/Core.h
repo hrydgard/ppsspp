@@ -117,6 +117,9 @@ struct BreakpointHit {
 // hit is optional detail for the breakpoint kinds, forwarded to the debugger. Only stored when
 // the break actually takes effect, so a rejected Core_Break() can't leave a stale one behind.
 void Core_Break(BreakReason reason, u32 relatedAddress = 0, const BreakpointHit *hit = nullptr);
+// While stepping: reports a stop for reason without running, for a run whose stop condition already
+// holds (cpu.runUntilTime with a time that's already passed), so a debugger waiting for the stop gets one.
+void Core_ReportBreakWithoutRunning(BreakReason reason, u32 relatedAddress = 0);
 
 // Resumes execution. Works both when stepping the CPU and the GE.
 void Core_Resume();
@@ -281,9 +284,13 @@ enum class FPUExceptionType {
 	DIVIDE_BY_ZERO,
 };
 
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "");
+// halting: the caller stops emulation whatever the configured action, so the exception is recorded
+// for the crash screen even when the action is to ignore it.
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo = "", bool halting = false);
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_BreakException(u32 pc);
+// For HLE that finds it can't go on (a corrupt callback stack, a failed LoadExec) and stops the core.
+void Core_HLEError(std::string_view message);
 // Only called for exceptions the game has unmasked in fcr31 - a masked one just sets the flag bit
 // and produces the IEEE default result, without coming through here.
 void Core_FPUException(u32 pc, FPUExceptionType type);
@@ -325,6 +332,7 @@ enum class MIPSExceptionType {
 	BREAK,
 	BAD_EXEC_ADDR,
 	FPU,
+	HLE,
 };
 
 struct MIPSExceptionInfo {

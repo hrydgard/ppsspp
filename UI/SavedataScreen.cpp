@@ -41,7 +41,6 @@
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
-#include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
@@ -616,6 +615,7 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 		sortOption_ = SavedataSortOption(e.a);
 		dataBrowser_->SetSortOption(sortOption_);
 	});
+	sortStrip->ApplyRoundCorners();
 	savedata->Add(sortStrip);
 
 	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
@@ -639,6 +639,7 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 		sortOption_ = SavedataSortOption(e.a);
 		stateBrowser_->SetSortOption(sortOption_);
 	});
+	sortStrip->ApplyRoundCorners();
 	savestate->Add(sortStrip);
 
 	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir));
@@ -665,8 +666,9 @@ void SavedataScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margi
 	using namespace UI;
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		verticalLayout->Add(new Choice(di->T("Search"), ImageID("I_SEARCH"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))))
-			->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+		Choice *searchButton = verticalLayout->Add(new Choice(di->T("Search"), ImageID("I_SEARCH"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))));
+		searchButton->OnClick.Handle<SavedataScreen>(this, &SavedataScreen::OnSearch);
+		searchButton->SetRoundCorners();
 	}
 }
 

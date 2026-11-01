@@ -271,6 +271,7 @@
     <ClInclude Include="Common\GPUStateUtils.h" />
     <ClInclude Include="Common\IndexGenerator.h" />
     <ClInclude Include="Common\PostShader.h" />
+    <ClInclude Include="Common\Overlay.h" />
     <ClInclude Include="Common\PresentationCommon.h" />
     <ClInclude Include="Common\ShaderCommon.h" />
     <ClInclude Include="Common\ShaderId.h" />
@@ -344,9 +345,10 @@
     <ClInclude Include="Software\FuncId.h" />
     <ClInclude Include="Software\Rasterizer.h" />
     <ClInclude Include="Software\RasterizerRectangle.h" />
-    <ClInclude Include="Software\RasterizerRegCache.h" />
+    <ClInclude Include="Software\RasterizerTypes.h" />
     <ClInclude Include="Software\Sampler.h" />
     <ClInclude Include="Software\SoftGpu.h" />
+    <ClInclude Include="Null\GPU_Null.h" />
     <ClInclude Include="Software\TransformUnit.h" />
     <ClInclude Include="Software\GEMath.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
@@ -377,6 +379,7 @@
     <ClCompile Include="Common\GPUStateUtils.cpp" />
     <ClCompile Include="Common\IndexGenerator.cpp" />
     <ClCompile Include="Common\PostShader.cpp" />
+    <ClCompile Include="Common\Overlay.cpp" />
     <ClCompile Include="Common\PresentationCommon.cpp" />
     <ClCompile Include="Common\ShaderCommon.cpp" />
     <ClCompile Include="Common\ShaderId.cpp" />
@@ -465,15 +468,13 @@
     <ClCompile Include="Software\BinManager.cpp" />
     <ClCompile Include="Software\Clipper.cpp" />
     <ClCompile Include="Software\DrawPixel.cpp" />
-    <ClCompile Include="Software\DrawPixelX86.cpp" />
     <ClCompile Include="Software\Lighting.cpp" />
     <ClCompile Include="Software\FuncId.cpp" />
     <ClCompile Include="Software\Rasterizer.cpp" />
     <ClCompile Include="Software\RasterizerRectangle.cpp" />
-    <ClCompile Include="Software\RasterizerRegCache.cpp" />
     <ClCompile Include="Software\Sampler.cpp" />
-    <ClCompile Include="Software\SamplerX86.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
+    <ClCompile Include="Null\GPU_Null.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Software\GEMath.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />

@@ -34,6 +34,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -121,6 +122,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
 	{ 0x0ffa5db8396d4274, 64, "memcpy_jak", }, // CRUSH
+	{ 0x11624abe9542fb01, 180, "everybodysgolf_copy_portrait", }, // Everybody's Golf (EUR)
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "sceVfpuMatrix3Unit", },
 	{ 0x12feef7b017d3431, 700, "memmove", },
@@ -133,6 +135,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1616ee7052542059, 48, "vtfm_t", },
 	{ 0x16965ca11a4e7dac, 104, "vmmul_q_transp", },
 	{ 0x16afe830a5dd2de2, 40, "vdiv_q", },
+	{ 0x181b963854b3045f, 1736, "zuma_pad_analog", }, // Zuma
 	{ 0x184e834a63a79016, 32, "isnanf", },
 	{ 0x1874ee898c7b9f16, 512, "kokoroconnect_download_frame", }, // Kokoro Connect Yochi Random
 	{ 0x189212bda9c94df1, 736, "atanf", },
@@ -142,10 +145,12 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1aad94c0723edfc0, 124, "sceVfpuMatrix3Mul", },
 	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
 	{ 0x1ac05627df1f87f4, 112, "memcpy16", }, // Valkyria Chronicles 3
+	{ 0x1aee5a57e8bc2e78, 740, "resistance_muzzle_light", },
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
 	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
+	{ 0x1d66a9d38981b9da, 184, "everybodysgolf2_copy_portrait", }, // Everybody's Golf 2 (EUR)
 	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1daf6eaf0442391d, 1024, "utawarerumono_download_frame", }, // Utawarerumono portable
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
@@ -191,11 +196,13 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x35d3527ff8c22ff2, 56, "matrix_scale_q", },
 	{ 0x368f6cf979709a31, 744, "memmove", }, // Jui Dr. Touma Jotarou
 	{ 0x373ce518eee5a2d2, 20, "matrix300_store_q", },
+	{ 0x38260ad724f4d8f7, 804, "zuma_aim_cursor", }, // Zuma
 	{ 0x3840f5766fada4b1, 592, "dissidia_recordframe_avi", }, // Dissidia (US), Dissidia 012 (US)
 	{ 0x388043e96b0e11fd, 144, "sceGupMaterial", },
 	{ 0x38f19bc3be215acc, 388, "log10f", },
 	{ 0x3913b81ddcbe1efe, 880, "katamari_render_check", }, // Me and My Katamari (US)
 	{ 0x393047f06eceaba1, 96, "strcspn", },
+	{ 0x3966eef670a93781, 188, "memcpy", }, // SSX On Tour (EU, KR) - copies decoded video frames into the framebuffer
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
 	{ 0x3ab08b5659de1746, 40, "sceVfpuScalarSin", },
@@ -238,6 +245,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x52d5141545a75eda, 60, "sceGuClutMode", },
 	{ 0x530cbe1ce9b45d58, 108, "sceGuLightAtt", },
 	{ 0x53c9aa23504a630f, 96, "vmmul_q_5", },
+	{ 0x534ee7407afd0428, 1868, "syphonfilterls_update_trail", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x54015ccbcbc75374, 24, "strlen", }, // Metal Gear Solid: Peace Walker demo
 	{ 0x5550d87a851c218c, 168, "dl_write_viewport", },
 	{ 0x55c1294280bfade0, 88, "sceGuBlendFunc", },
@@ -331,6 +339,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x8ee81b03d2eef1e7, 28, "vmul_t", },
 	{ 0x8f09fb8693c3c49d, 992, "kirameki_school_life_download_frame", }, // Hentai Ouji To Warawanai Neko
 	{ 0x8f19c41e8b987e18, 100, "matrix_mogrify", },
+	{ 0x8f84fb657a6ba506, 1148, "syphonfilterls_fade", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x8ff11e9bed387401, 700, "memmove", }, // God Eater 2
 	{ 0x910140c1a07aa59e, 256, "sceVfpuMatrix4Rot", },
 	{ 0x91606bd72ae90481, 44, "wmemcpy", },
@@ -349,19 +358,24 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
 	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
 	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
+	{ 0x9e6adef67e76ed5c, 188, "everybodystennis_copy_portrait", }, // Everybody's Tennis (EUR)
 	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
+	{ 0x9e6e007072b74503, 2028, "syphonfilterls_draw_trail", }, // Syphon Filter: Logan's Shadow (US)
 	{ 0x9f269daa6f0da803, 128, "sceGupScissor", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
+	{ 0xa0ec0ed83a53b883, 7304, "syphonfilter_steer", }, // Syphon Filter: Dark Mirror (US)
 	{ 0xa1c9b0a2c71235bf, 1752, "marvelalliance1_copy" }, // Marvel Ultimate Alliance 1 (EU)
 	{ 0x9b76c7f2a41aa805, 1752, "marvelalliance1_copy" }, // Marvel Ultimate alliance 1 (US)
 	{ 0xa1ca0640f11182e7, 72, "strcspn", },
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "sceVfpuMatrix4RotZ", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
+	{ 0xa40999be36665f98, 588, "everybodysgolf_spinner_background", }, // Everybody's Golf (EUR)
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
 	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
 	{ 0xa46cc6ea720d5775, 44, "sceGupFrontFace", },
 	{ 0xa54967288afe8f26, 600, "ceil", },
+	{ 0xa5bada68329c05ba, 1904, "medievil_projectile_update", }, // MediEvil Resurrection (US, EU)
 	{ 0xa5ddbbc688e89a4d, 56, "isinf", },
 	{ 0xa615f6bd33195dae, 220, "atvoffroadfuryprodemo_download_frame", }, // ATV Offroad Fury Pro (US) demo
 	{ 0xa662359e30b829e4, 148, "memcmp", },
@@ -371,6 +385,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
+	{ 0xaaf1cc9399336a21, 1872, "resistance_update_trail", },
 	{ 0xab97ec58c58a7c75, 52, "sceVfpuVector3Div", },
 	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
@@ -394,6 +409,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb3fef47fb27d57c9, 44, "vector_scale_t", },
 	{ 0xb43fd5078ae78029, 84, "send_commandi_stall", },
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
+	{ 0xb4686bcdfb76e454, 156, "activisionhits_frame_limit", }, // Activision Hits Remixed (issue #20287)
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
 	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
@@ -424,6 +440,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc51519f5dab342d4, 224, "cosf", },
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
+	{ 0xc626403884cabcbf, 532, "bejeweled2_draw_dirty_stuff", }, // Bejeweled 2
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1 (US)
 	{ 0xc7b1113cfdfedab6, 104, "tonyhawkp8_upload_tutorial_frame", }, // Tony Hawk's Project 8 (US)
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
@@ -443,6 +460,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
+	{ 0xd4af2d7a4df495ae, 1728, "resistance_draw_trail", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
 	{ 0xd7229fee680e7851, 40, "sceVfpuScalarMin", },
 	{ 0xd75670860a7f4b05, 144, "wcsncpy", },
@@ -477,6 +495,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xeabb9c1b4f83d2b4, 52, "memset_jak", }, // Crisis Core (US), Jak and Daxter (this is a slow memset and needs to have slow timing)
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
+	{ 0xec9ad8df944a770b, 180, "codedarms_stencil_check", }, // Coded Arms: Contagion (EUR)
 	{ 0xed8918f378e9a563, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation Overworld
 	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },
 	{ 0xedc3f476221f96e6, 148, "tanf", },
@@ -487,6 +506,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf4ea7d2ec943fa02, 224, "sinf", },
 	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
 	{ 0xf527d906d69005a0, 848, "photokano_download_frame_2", }, // Photo Kano
+	{ 0xf52da867662e04ad, 2024, "gtavcs_plane_control", }, // GTA: Vice City Stories (US, EU)
 	{ 0xf52f993e444b6c52, 44, "sceGupShadeModel", },
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5e91870b5b76ddc, 288, "motorstorm_download_frame", }, // MotorStorm: Arctic Edge
@@ -618,18 +638,18 @@ namespace MIPSAnalyst {
 	}
 
 	int OpMemoryAccessSize(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		return MIPSGetMemoryAccessSize(op);
 	}
 
 	bool IsOpMemoryWrite(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		MIPSInfo info = MIPSGetInfo(op);
 		return (info & OUT_MEM) != 0;
 	}
 
 	bool OpHasDelaySlot(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		MIPSInfo info = MIPSGetInfo(op);
 		return (info & DELAYSLOT) != 0;
 	}
@@ -639,7 +659,7 @@ namespace MIPSAnalyst {
 			return false;
 		}
 
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 
 		// TODO: Trap sc/ll, svl.q, svr.q?
 
@@ -708,7 +728,7 @@ namespace MIPSAnalyst {
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			MIPSGPReg rs = MIPS_GET_RS(op);
@@ -784,8 +804,21 @@ namespace MIPSAnalyst {
 		u32 end = addr + instrs * sizeof(u32);
 		bool canClobber = true;
 		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			const MIPSInfo info = MIPSGetInfo(op);
+			const MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSInfo info = MIPSGetInfo(op);
+			// Only control register 31 holds the FPU condition, so cfc1/ctc1 of the others don't touch it.
+			if ((op & 0xFF600000) == 0x44400000 && ((op >> 11) & 0x1F) != 31)
+				info.value &= ~(u64)(IN_FPUFLAG | OUT_FPUFLAG);
+			if (info & OUT_VFPU_CC) {
+				// Only a write to the CC register replaces it.
+				if ((op & 0xFFE00000) == 0x48E00000 && (op & 0xFF) != 128 + VFPU_CTRL_CC)  // mtv/mtvc
+					info.value &= ~(u64)OUT_VFPU_CC;
+				else if (MIPSGetInterpretFunc(op) == &MIPSInt::Int_Vmtvc && (op & 0x7F) != VFPU_CTRL_CC)
+					info.value &= ~(u64)OUT_VFPU_CC;
+				// vcmp below .q keeps the bits of the lanes it doesn't compare.
+				else if ((op & 0xFF800000) == 0x6C000000 && GetVecSize(op) != V_Quad)
+					info.value |= IN_VFPU_CC;
+			}
 
 			// Yes, used.
 			if (info & inFlag)
@@ -833,8 +866,11 @@ namespace MIPSAnalyst {
 		u32 end = addr + instrs * sizeof(u32);
 		bool canClobber = true;
 		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
-			const MIPSInfo info = MIPSGetInfo(op);
+			const MIPSOpcode op = Memory::Read_Instruction(addr);
+			MIPSInfo info = MIPSGetInfo(op);
+			// mfv/mfvc of a control register past the defined ones leaves rt alone.
+			if ((op & 0xFFE00000) == 0x48600000 && (op & 0xFF) >= 128 + VFPU_CTRL_MAX)
+				info.value &= ~(u64)OUT_RT;
 
 			// Yes, used.
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))
@@ -880,7 +916,22 @@ namespace MIPSAnalyst {
 		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
-	void HashFunctions() {
+	// Ranges are (address, size), sorted by address and not overlapping.
+	static bool InsideRanges(const std::vector<std::pair<u32, u32>> &ranges, u32 start, u32 end) {
+		start &= 0x3FFFFFFF;
+		end &= 0x3FFFFFFF;
+		auto iter = std::upper_bound(ranges.begin(), ranges.end(), start, [](u32 address, const std::pair<u32, u32> &range) {
+			return address < (range.first & 0x3FFFFFFF);
+		});
+		if (iter == ranges.begin()) {
+			return false;
+		}
+		--iter;
+		const u32 rangeStart = iter->first & 0x3FFFFFFF;
+		return start >= rangeStart && end <= rangeStart + iter->second;
+	}
+
+	static void HashFunctions(const std::vector<std::pair<u32, u32>> &unchanged = {}) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		std::vector<u32> buffer;
 
@@ -889,18 +940,17 @@ namespace MIPSAnalyst {
 			if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
 				continue;
 			}
+			// end is the last instruction.
+			if (f.hasHash && InsideRanges(unchanged, f.start, f.end + 4)) {
+				continue;
+			}
 
-			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
+			// Immediates are masked out, so relocations don't change the hash.
 			buffer.resize((f.end - f.start + 4) / 4);
 			size_t pos = 0;
 			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
-				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr, true);
-				if (MIPS_IS_EMUHACK(instr)) {
-					f.hasHash = false;
-					goto skip;
-				}
-
+				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr);
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits &= ~0xFFFF;
@@ -911,8 +961,6 @@ namespace MIPSAnalyst {
 
 			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
 			f.hasHash = true;
-skip:
-			;
 		}
 	}
 
@@ -964,7 +1012,7 @@ skip:
 
 		const u32 scanEnd = fromAddr + Memory::ClampValidSizeAt(fromAddr, MAX_AHEAD_SCAN);
 		for (u32 ahead = fromAddr; ahead < scanEnd; ahead += 4) {
-			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
 				target = GetJumpTarget(ahead);
@@ -988,7 +1036,7 @@ skip:
 
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
 			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
-				MIPSOpcode behindOp = Memory::Read_Instruction(behind, true);
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
 				u32 target = GetBranchTargetNoRA(behind, behindOp);
 				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
 					target = GetJumpTarget(behind);
@@ -1024,7 +1072,7 @@ skip:
 
 		u32 addr;
 		for (addr = startAddr; addr < endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
@@ -1047,7 +1095,7 @@ skip:
 					// If it's a nearby forward jump, and not a stackless leaf, assume not a tail call.
 					if (sureTarget <= addr + MAX_JUMP_FORWARD && decreasedSp) {
 						// But let's check the delay slot.
-						MIPSOpcode op = Memory::Read_Instruction(addr + 4, true);
+						MIPSOpcode op = Memory::Read_Instruction(addr + 4);
 						// addiu sp, sp, +X
 						if ((op & 0xFFFF8000) != 0x27BD0000) {
 							furthestBranch = sureTarget;
@@ -1279,9 +1327,21 @@ skip:
 		return false;
 	}
 
-	void RehashFunctions() {
+	bool HasFunctionsInRange(u32 startAddr, u32 endAddr) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
-		HashFunctions();
+		for (const AnalyzedFunction &f : functions) {
+			if (f.start >= startAddr && f.start < endAddr) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void RehashFunctions(const std::vector<std::pair<u32, u32>> &unchanged) {
+		std::vector<std::pair<u32, u32>> sorted = unchanged;
+		std::sort(sorted.begin(), sorted.end());
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		HashFunctions(sorted);
 		UpdateHashToFunctionMap();
 	}
 
@@ -1516,7 +1576,7 @@ skip:
 			switch (opInfo & CONDTYPE_MASK) {
 			case CONDTYPE_EQ:
 				if (opInfo & IN_FPUFLAG) {	// fpu branch
-					info.conditionMet = currentMIPS->fpcond == 0;
+					info.conditionMet = cpu->GetFPCond() == 0;
 				} else {
 					info.conditionMet = (rt == rs);
 					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
@@ -1526,7 +1586,7 @@ skip:
 				break;
 			case CONDTYPE_NE:
 				if (opInfo & IN_FPUFLAG) {	// fpu branch
-					info.conditionMet = currentMIPS->fpcond != 0;
+					info.conditionMet = cpu->GetFPCond() != 0;
 				} else {
 					info.conditionMet = (rt != rs);
 					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true

@@ -9,6 +9,7 @@
 #include "Common/UI/Context.h"
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Render/AtlasGen.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/Common.h"
 #include "Common/Thread/ParallelLoop.h"
@@ -40,6 +41,9 @@ Atlas *GetUIAtlas() {
 struct ImageMeta {
 	std::string_view id;
 	bool addShadow = false;
+	// If set, the image is a generated round rect corner (see DrawBuffer::DrawRoundRect). In UI units.
+	float cornerRadius = 0.0f;
+	float cornerThickness = 0.0f;  // 0 = filled
 };
 
 // We add shadows to all line-art images that are used for buttons, to improve visibility.
@@ -53,6 +57,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_TRIANGLE", true},
 	{"I_SELECT", true},
 	{"I_START", true},
+	{"I_HOME", true},
 	{"I_ARROW", false},
 	{"I_ROUND", false},
 	{"I_ROUND_LINE", true},
@@ -76,6 +81,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_DROP_SHADOW", false},
 	{"I_LINES", false},
 	{"I_GRID", false},
+	{"I_LARGE_LIST", false},
 	{"I_LOGO", false},
 	{"I_ICON", false},
 	{"I_ICON_GOLD", false},
@@ -100,7 +106,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_FULLSCREEN", false},
 	{"I_RESTORE", false},
 	{"I_SDCARD", false},
-	{"I_HOME", false},
+	{"I_HOME_ICON", false},
 	{"I_A", true},
 	{"I_B", true},
 	{"I_C", true},
@@ -118,6 +124,8 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_ARROW_RIGHT", true},
 	{"I_ARROW_UP", true},
 	{"I_ARROW_DOWN", true},
+	{"I_CHEVRON_LEFT", false},
+	{"I_CHEVRON_RIGHT", false},
 	{"I_SLIDERS", false},
 	{"I_THREE_DOTS", true},
 	{"I_INFO", false},
@@ -198,6 +206,8 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_ARCHIVE_7Z", false},
 	{"I_ARCHIVE_RAR", false},
 	{"I_DOWNLOAD", false},
+	{"I_NETWORK", false},
+	{"I_LANGUAGE", false},
 };
 
 static std::string PNGNameFromID(std::string_view id) {
@@ -236,25 +246,29 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 			return false;
 		}
 		NSVGimage *image = nsvgParse((char *)file_data, "px", 96.0f);
+		delete[] file_data;
 		if (!image) {
 			return false;
 		}
-		delete[] file_data;
 
-		// There's a couple of approaches here, either we can pick apart the SVG and render each piece separately,
-		// or we just rasterize the whole thing in one go and use the bounding boxes to pick out the sub-images.
-		// We'll start with the latter, although the momentary memory requirements are higher.
+		// Each image is rasterized on its own (in parallel), into a buffer the size of its bounding box.
+		// nanosvg walks every scanline of the target for every visible shape, so rasterizing the whole
+		// SVG at once costs shapes * total area.
 		struct UsedShape {
 			float minX = 1000000.0f;
 			float maxX = -1000000.0f;
 			float minY = 1000000.0f;
 			float maxY = -1000000.0f;
+			std::vector<NSVGshape> shapes;  // Copies, see below.
 
 			void Merge(NSVGshape *shape) {
 				if (shape->bounds[0] < minX) minX = shape->bounds[0];
 				if (shape->bounds[1] < minY) minY = shape->bounds[1];
 				if (shape->bounds[2] > maxX) maxX = shape->bounds[2];
 				if (shape->bounds[3] > maxY) maxY = shape->bounds[3];
+				if (shape->flags & NSVG_FLAGS_VISIBLE) {
+					shapes.push_back(*shape);
+				}
 			}
 		};
 
@@ -277,10 +291,6 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 			shape = shape->next;
 		}
 
-		NSVGrasterizer *rast = NULL;
-		// Rasterize here, and add into image list.
-		rast = nsvgCreateRasterizer();
-
 		// If we can tell that the scale won't fit in a supported texture size, reduce it.
 		// This is a conservative check because the SVG has some empty space around the sub-images.
 		// TODO: Also, if we use multiple SVGs, this check isn't really right.
@@ -297,71 +307,103 @@ static bool RasterizeSVG(std::string_view filename, float dpiScale, int maxTextu
 
 		INFO_LOG(Log::G3D, "Rasterizing SVG: %d x %d at scale %0.2f", svgWidth, svgHeight, scale);
 
-		char *svgImg = new char[svgWidth * svgHeight * 4];
-		memset(svgImg, 0, svgWidth * svgHeight * 4);
-		nsvgRasterize(rast, image, 0, 0, scale, (unsigned char *)svgImg, svgWidth, svgHeight, svgWidth * 4);
-
-		// Now, loop through the shapes again and copy out the ones we care about.
-		for (const auto &[shapeId, bounds] : usedShapes) {
-			int index = GetImageIndex(imageIDs, imageCount, shapeId);
-			_dbg_assert_(index != -1);
-			if (index == -1) {
-				continue;
-			}
-
-			Image &img = (*images)[index];
-			if (!img.IsEmpty()) {
-				WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
-				continue;
-			}
-
-			int minX = std::max(0, (int)floorf(bounds.minX * scale));
-			int minY = std::max(0, (int)floorf(bounds.minY * scale));
-			int maxX = std::min(svgWidth, (int)ceilf(bounds.maxX * scale));
-			int maxY = std::min(svgHeight, (int)ceilf(bounds.maxY * scale));
-			int w = maxX - minX;
-			int h = maxY - minY;
-			if (w <= 0 || h <= 0) {
-				ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
-				continue;
-			}
-			img.resize(w, h);
-
-			for (int y = 0; y < h; y++) {
-				for (int x = 0; x < w; x++) {
-					int sx = minX + x;
-					int sy = minY + y;
-					const u32 *src = (u32 *)svgImg + (sy * svgWidth + sx);
-					u32 col = *src;
-					img.set1(x, y, col);
-				}
-			}
-
-			img.scale = scale;
-
-			if (SAVE_DEBUG_IMAGES) {
-				std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
-				WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
-				pngSave(Path(name), img.data(), img.width(), img.height(), 4);
-			}
-
-			img.ConvertToPremultipliedAlpha();
+		if (SAVE_DEBUG_ATLAS) {
+			NSVGrasterizer *rast = nsvgCreateRasterizer();
+			std::vector<u8> svgImg(svgWidth * svgHeight * 4);
+			nsvgRasterize(rast, image, 0, 0, scale, svgImg.data(), svgWidth, svgHeight, svgWidth * 4);
+			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
+			pngSave(Path("../buttons_rasterized.png"), svgImg.data(), svgWidth, svgHeight, 4);
+			nsvgDeleteRasterizer(rast);
 		}
+
+		std::vector<std::pair<const std::string *, UsedShape *>> jobs;
+		jobs.reserve(usedShapes.size());
+		for (auto &[shapeId, used] : usedShapes) {
+			jobs.emplace_back(&shapeId, &used);
+		}
+
+		ParallelRangeLoop(&g_threadManager, [&](int start, int end) {
+			NSVGrasterizer *rast = nsvgCreateRasterizer();
+			for (int i = start; i < end; i++) {
+				const std::string &shapeId = *jobs[i].first;
+				UsedShape &used = *jobs[i].second;
+				int index = GetImageIndex(imageIDs, imageCount, shapeId);
+				_dbg_assert_(index != -1);
+				if (index == -1 || used.shapes.empty()) {
+					continue;
+				}
+
+				Image &img = (*images)[index];
+				if (!img.IsEmpty()) {
+					WARN_LOG(Log::G3D, "%.*s: Skipping image '%.*s' (%d), already loaded from SVG", STR_VIEW(filename), STR_VIEW(imageIDs[index].id), index);
+					continue;
+				}
+
+				int minX = std::max(0, (int)floorf(used.minX * scale));
+				int minY = std::max(0, (int)floorf(used.minY * scale));
+				int maxX = std::min(svgWidth, (int)ceilf(used.maxX * scale));
+				int maxY = std::min(svgHeight, (int)ceilf(used.maxY * scale));
+				int w = maxX - minX;
+				int h = maxY - minY;
+				if (w <= 0 || h <= 0) {
+					ERROR_LOG(Log::G3D, "Invalid size for %s: %dx%d", shapeId.c_str(), w, h);
+					continue;
+				}
+				img.resize(w, h);
+
+				// The rasterizer only reads the shapes, so a list of copies of this image's shapes
+				// stands in for the whole SVG (whose shapes can't be hidden per thread).
+				for (size_t j = 0; j < used.shapes.size(); j++) {
+					used.shapes[j].next = j + 1 < used.shapes.size() ? &used.shapes[j + 1] : nullptr;
+				}
+				NSVGimage subImage{};
+				subImage.width = image->width;
+				subImage.height = image->height;
+				subImage.shapes = used.shapes.data();
+				nsvgRasterize(rast, &subImage, (float)-minX, (float)-minY, scale, (unsigned char *)img.dat.data(), w, h, w * 4);
+
+				img.scale = scale;
+
+				if (SAVE_DEBUG_IMAGES) {
+					std::string name = std::string("../buttons_") + PNGNameFromID(shapeId);
+					WARN_LOG(Log::G3D, "Writing debug image %s", name.c_str());
+					pngSave(Path(name), img.data(), img.width(), img.height(), 4);
+				}
+
+				img.ConvertToPremultipliedAlpha();
+			}
+			nsvgDeleteRasterizer(rast);
+		}, 0, (int)jobs.size(), 4, 0, TaskPriority::HIGH);
 
 		shapeCount = (int)usedShapes.size();
 
-		if (SAVE_DEBUG_ATLAS) {
-			WARN_LOG(Log::G3D, "Writing debug image buttons_rasterized.png");
-			pngSave(Path("../buttons_rasterized.png"), svgImg, svgWidth, svgHeight, 4);
-		}
-		delete[] svgImg;
-
-		nsvgDeleteRasterizer(rast);
 		nsvgDelete(image);
 	}
 
 	INFO_LOG(Log::G3D, " - Rasterized %d images in the svg image in %0.2f ms", shapeCount, svgStart.ElapsedMs());
 	return true;
+}
+
+// White, premultiplied, antialiased by distance to the edge.
+static void GenerateRoundRectCorner(Image &img, float radius, float thickness, float dpiScale) {
+	const float r = radius * dpiScale;
+	const float t = thickness * dpiScale;
+	const int center = RoundRectCornerCenter(r);
+	img.resize(center + 1, center + 1);
+	img.scale = dpiScale;
+	for (int y = 0; y <= center; y++) {
+		const float dy = std::max((float)center - (y + 0.5f), 0.0f);
+		for (int x = 0; x <= center; x++) {
+			const float dx = std::max((float)center - (x + 0.5f), 0.0f);
+			const float d = sqrtf(dx * dx + dy * dy);
+			float coverage = std::clamp(r - d + 0.5f, 0.0f, 1.0f);
+			if (t > 0.0f) {
+				coverage -= std::clamp(r - t - d + 0.5f, 0.0f, 1.0f);
+			}
+			const u32 a = (u32)(coverage * 255.0f + 0.5f);
+			img.set1(x, y, a * 0x01010101);
+		}
+	}
 }
 
 static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int maxTextureSize, const ImageMeta *imageIDs, size_t imageCount) {
@@ -400,14 +442,14 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 			if (!images[i].IsEmpty()) {
 				if (imageIDs[i].addShadow) {
 					// DEBUG_LOG(Log::G3D, "Adding drop shadow to %.*s", STR_VIEW(imageIDs[i].id));
-					AddDropShadow(images[i], 3, 0.66f);
+					AddDropShadow(images[i], UIDropShadowParams(images[i].scale));
 				} else {
 					// Make sure there are transparent pixels to filter from.
 					Add1PxTransparentBorder(images[i]);
 				}
 			}
 		}
-	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
+	}, 0, (int)images.size(), 2, 0, TaskPriority::HIGH);
 
 	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
 
@@ -434,6 +476,8 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 		} else if (equals(imageIDs[i].id, "I_EMPTY")) {
 			img.resize(16, 16);
 			img.fill(0);
+		} else if (imageIDs[i].cornerRadius > 0.0f) {
+			GenerateRoundRectCorner(img, imageIDs[i].cornerRadius, imageIDs[i].cornerThickness, dpiScale);
 		} else {
 			std::string name = "ui_images/";
 			std::string pngName = PNGNameFromID(imageIDs[i].id);
@@ -480,6 +524,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 	atlas->images = new AtlasImage[genAtlasImages.size()];
 	std::copy(genAtlasImages.begin(), genAtlasImages.end(), atlas->images);
 	atlas->num_images = (int)genAtlasImages.size();
+	atlas->dpiScale = dpiScale;
 
 	// For debug, write out the atlas.
 	if (SAVE_DEBUG_ATLAS) {
@@ -499,8 +544,15 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 		INFO_LOG(Log::G3D, "Regenerating atlas (empty: %s). Dpi scale (changed: %s): %0.2f (invalidate=%d)",
 			g_cachedUIAtlasImage.IsEmpty() ? "true" : "false", dpiScale != g_cachedDpiScale ? "true" : "false", dpiScale, invalidate);
 
+		std::vector<ImageMeta> imageIDs(std::begin(g_uiImageIDs), std::end(g_uiImageIDs));
+		for (int r = 0; r < ROUND_RECT_RADIUS_COUNT; r++) {
+			for (int style = 0; style < (int)RoundRectStyle::COUNT; style++) {
+				imageIDs.push_back({ RoundRectCornerImageName(r, (RoundRectStyle)style), false, ROUND_RECT_RADII[r], ROUND_RECT_THICKNESS[style] });
+			}
+		}
+
 		g_cachedUIAtlasImage.clear();
-		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize, g_uiImageIDs, ARRAY_SIZE(g_uiImageIDs))) {
+		if (!GenerateUIAtlasImage(atlas, dpiScale, &g_cachedUIAtlasImage, draw->GetDeviceCaps().maxTextureSize, imageIDs.data(), imageIDs.size())) {
 			ERROR_LOG(Log::G3D, "Failed to generate UI atlas!");
 			return nullptr;
 		}

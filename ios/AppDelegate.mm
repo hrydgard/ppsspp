@@ -1,5 +1,6 @@
 #import "AppDelegate.h"
 #import "SceneDelegate.h"
+#import "ExternalDisplaySceneDelegate.h"
 #import "iOSCoreAudio.h"
 #import "Common/System/System.h"
 #import "Common/System/NativeApp.h"
@@ -14,7 +15,6 @@
 #import "IAPManager.h"
 
 #import <AVFoundation/AVFoundation.h>
-#import <objc/runtime.h>
 
 #include <set>
 #include <string>
@@ -24,6 +24,7 @@
 // This is necessary because otherwise classes from static libraries aren't loaded.
 // We should move all the iOS code into the main binary directly to avoid this problem.
 __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate class];
+__attribute__((used)) static Class _forceLinkExternalDisplaySceneDelegate = [ExternalDisplaySceneDelegate class];
 
 @implementation AppDelegate
 
@@ -42,22 +43,18 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
 			INFO_LOG(Log::System, "ios audio session interruption beginning");
-			if (g_Config.bEnableSound) {
-				iOSCoreAudioShutdown();
-			}
+			iOSCoreAudioShutdown();
 			break;
 
 		case AVAudioSessionInterruptionTypeEnded:
 			INFO_LOG(Log::System, "ios audio session interruption ending");
-			if (g_Config.bEnableSound) {
-				/*
-				 * Only try to reinit audio if in the foreground, otherwise
-				 * it may fail. Instead, trust that applicationDidBecomeActive
-				 * will do it later.
-				 */
-				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
-					iOSCoreAudioInit();
-				}
+			/*
+			 * Only try to reinit audio if in the foreground, otherwise
+			 * it may fail. Instead, trust that sceneDidBecomeActive
+			 * will do it later.
+			 */
+			if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+				iOSCoreAudioInit();
 			}
 			break;
 
@@ -83,21 +80,20 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 	 We accomplish this by shutting down and reinitializing audio
 	 */
 
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioShutdown();
-		iOSCoreAudioInit();
-	}
+	iOSCoreAudioShutdown();
+	iOSCoreAudioInit();
+}
+
+// for AVAudioSessionRouteChangeNotification
+-(void) handleAudioRouteChange:(NSNotification *)notification {
+	NSNumber *reason = notification.userInfo[AVAudioSessionRouteChangeReasonKey];
+	char buf[32];
+	snprintf(buf, sizeof(buf), "change, reason %d", reason.intValue);
+	iOSCoreAudioLogRoute(buf);
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 	self.launchOptions = launchOptions;
-	// Make sure SceneDelegate class is loaded
-	Class cls = objc_getClass("SceneDelegate");
-	if (!cls) {
-		NSLog(@"⚠️ SceneDelegate not found via objc_getClass");
-	} else {
-		NSLog(@"✅ SceneDelegate loaded via objc_getClass");
-	}
 
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
@@ -105,6 +101,7 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioRouteChange:) name:AVAudioSessionRouteChangeNotification object:nil];
 
 	return YES;
 }
@@ -228,13 +225,14 @@ static std::vector<std::string> GatherGameLibrary() {
 	});
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 - (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
 	switch (g_Config.iScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
 		return UIInterfaceOrientationMaskLandscapeRight;
 	case ROTATION_LOCKED_VERTICAL:
 	case ROTATION_LOCKED_VERTICAL180:
-		if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+		if (IS_IPAD()) {
 			// iPad supports both portrait orientations, so allow them.
 			return UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown;
 		}
@@ -249,6 +247,7 @@ static std::vector<std::string> GatherGameLibrary() {
 		return UIInterfaceOrientationMaskAll;
 	}
 }
+#endif
 
 @end
 
@@ -268,8 +267,10 @@ void copyDeepLinkForPath(std::string_view filePath) {
 	// Format: scheme://host?query
 	NSString *deepLink = [NSString stringWithFormat:@"ppsspp://open?path=%@", encodedPath];
 
-	// 4. Copy to the iOS System Clipboard (UIPasteboard)
+	// 4. Copy to the iOS System Clipboard (UIPasteboard). tvOS has none.
+#if !PPSSPP_PLATFORM(TVOS)
 	[UIPasteboard generalPasteboard].string = deepLink;
+#endif
 
 	// Optional: Log it for debugging
 	NSLog(@"Deep link copied: %@", deepLink);

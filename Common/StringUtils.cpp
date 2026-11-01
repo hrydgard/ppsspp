@@ -41,6 +41,7 @@
 #include <cctype>
 
 #include "Common/Buffer.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 
 size_t truncate_cpy(char *dest, size_t destSize, const char *src) {
@@ -89,7 +90,11 @@ long parseLong(std::string s) {
 }
 
 bool containsNoCase(std::string_view haystack, std::string_view needle) {
-	auto pred = [](char ch1, char ch2) { return std::toupper(ch1) == std::toupper(ch2); };
+	// toupper is UB for negative values other than EOF, and char is signed here - non-ASCII bytes
+	// reach this from e.g. ELF symbol names.
+	auto pred = [](char ch1, char ch2) {
+		return std::toupper((unsigned char)ch1) == std::toupper((unsigned char)ch2);
+	};
 	auto found = std::search(haystack.begin(), haystack.end(), needle.begin(), needle.end(), pred);
 	return found != haystack.end();
 }
@@ -104,9 +109,44 @@ int CountChar(std::string_view haystack, char needle) {
 	return count;
 }
 
+static void ApplyLengthLimits(std::string *str, int minLength, int maxLength) {
+	if (minLength > 0) {
+		if ((int)str->size() < minLength) {
+			// Just reject it by returning an empty string, as we can't really
+			// conjure up new characters here.
+			str->clear();
+			return;
+		}
+	}
+
+	if (maxLength >= 0) {
+		// TODO: Cut at whole UTF-8 chars!
+		if ((int)str->size() > maxLength) {
+			str->resize(maxLength);
+		}
+	}
+}
+
 std::string SanitizeString(std::string_view input, StringRestriction restriction, int minLength, int maxLength) {
 	if (restriction == StringRestriction::None) {
 		return std::string(input);
+	} else if (restriction == StringRestriction::NoInvisibleFormatting) {
+		std::string out;
+		out.reserve(input.size());
+		UTF8 utf(input);
+		while (!utf.end()) {
+			const int start = utf.byteIndex();
+			const uint32_t c = utf.next();
+			if (c == 0x00A0 || c == 0x202F) {
+				out.push_back(' ');
+			} else if (c == 0x00AD || (c >= 0x200B && c <= 0x200F) || (c >= 0x202A && c <= 0x202E) || (c >= 0x2060 && c <= 0x206F) || c == 0xFEFF) {
+				// Soft hyphen, zero-width characters, direction marks, embeddings and isolates, BOM.
+			} else {
+				out.append(input.data() + start, utf.byteIndex() - start);
+			}
+		}
+		ApplyLengthLimits(&out, minLength, maxLength);
+		return out;
 	}
 	// First, remove any chars not in A-Za-z0-9_-. This will effectively get rid of any Unicode char, emojis etc too.
 	std::string sanitized;
@@ -115,6 +155,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 	for (char c : input) {
 		switch (restriction) {
 		case StringRestriction::None:
+		case StringRestriction::NoInvisibleFormatting:
 			sanitized.push_back(c);
 			break;
 		case StringRestriction::AlphaNumDashUnderscore:
@@ -154,20 +195,7 @@ std::string SanitizeString(std::string_view input, StringRestriction restriction
 		}
 	}
 
-	if (minLength > 0) {
-		if ((int)sanitized.size() < minLength) {
-			// Just reject it by returning an empty string, as we can't really
-			// conjure up new characters here.
-			return std::string();
-		}
-	}
-
-	if (maxLength >= 0) {
-		// TODO: Cut at whole UTF-8 chars!
-		if ((int)sanitized.size() > maxLength) {
-			sanitized.resize(maxLength);
-		}
-	}
+	ApplyLengthLimits(&sanitized, minLength, maxLength);
 
 	if (restriction == StringRestriction::NoLineBreaksOrSpecials) {
 		// Additionally, cut off the string if we find an overlong UTF-8 character, such as in Jak & Daxter's title.

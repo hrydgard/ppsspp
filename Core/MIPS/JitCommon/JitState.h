@@ -23,21 +23,7 @@
 #include "Common/Log.h"
 #include "Core/MIPS/MIPS.h"
 
-struct JitBlock;
-class JitBlockCache;
-
 namespace MIPSComp {
-
-	enum CompileDelaySlotFlags {
-		// Easy, nothing extra.
-		DELAYSLOT_NICE = 0,
-		// Flush registers after delay slot.
-		DELAYSLOT_FLUSH = 1,
-		// Preserve flags.
-		DELAYSLOT_SAFE = 2,
-		// Flush registers after and preserve flags.
-		DELAYSLOT_SAFE_FLUSH = DELAYSLOT_FLUSH | DELAYSLOT_SAFE,
-	};
 
 	struct JitState {
 		enum PrefixState {
@@ -47,29 +33,20 @@ namespace MIPSComp {
 			PREFIX_KNOWN_DIRTY = 0x11,
 		};
 
-		enum AfterOp {
-			AFTER_NONE = 0x00,
-			AFTER_CORE_STATE = 0x01,
-		};
-
 		u32 compilerPC;
 		u32 blockStart;
-		u32 initialBlockSize;
-		int nextExit;
 		bool cancel;
 		bool inDelaySlot;
 		bool kernelMode;  // Changes what instructions are allowed.
-		// See JitState::AfterOp for values.
-		int afterOp;
 		int downcountAmount;
 		int numInstructions;
+		// Conditional branches compiled past (IR only).
+		int continuedBranches;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		bool hadBreakpoints;
-		JitBlock *curBlock;
 
 		u8 hasSetRounding = 0;
 		u8 lastSetRounding = 0;
-		const u8 *currentRoundingFunc = nullptr;
 
 		// VFPU prefix magic
 		bool startDefaultPrefix = true;
@@ -80,8 +57,6 @@ namespace MIPSComp {
 		PrefixState prefixSFlag = PREFIX_UNKNOWN;
 		PrefixState prefixTFlag = PREFIX_UNKNOWN;
 		PrefixState prefixDFlag = PREFIX_UNKNOWN;
-
-		void Begin(JitBlock *block);
 
 		void PrefixStart() {
 			if (startDefaultPrefix) {
@@ -143,12 +118,12 @@ namespace MIPSComp {
 
 		u8 VfpuWriteMask() const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-			return (prefixD >> 8) & 0xF;
+			return VFPUPrefixWriteMask(prefixD);
 		}
 
 		bool VfpuWriteMask(int i) const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-			return (prefixD >> (8 + i)) & 1;
+			return VFPUPrefixWriteMask(prefixD, i);
 		}
 
 		void LogPrefix() {

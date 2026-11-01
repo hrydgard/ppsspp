@@ -50,9 +50,6 @@
     <Filter Include="Build\Actions">
       <UniqueIdentifier>{14abd855-ec8b-47a5-8b4c-eadcff122dc8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Platforms\iOS\iCade">
-      <UniqueIdentifier>{ce617e38-1bc8-4eab-a3cb-d3d664116c91}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Build\CMake">
       <UniqueIdentifier>{8f39c005-9738-41c5-a8d8-cfc05bf178e8}</UniqueIdentifier>
     </Filter>
@@ -178,14 +175,14 @@
     <ClCompile Include="WASAPIContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
+    <ClCompile Include="WASAPIMicrophone.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
     <ClCompile Include="CaptureDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
     <ClCompile Include="..\android\jni\app-android.cpp">
       <Filter>Other Platforms\Android</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ios\SmartKeyboardMap.cpp">
-      <Filter>Other Platforms\iOS</Filter>
     </ClCompile>
     <ClCompile Include="..\libretro\LibretroGraphicsContext.cpp">
       <Filter>Other Platforms\libretro</Filter>
@@ -232,7 +229,7 @@
     <ClCompile Include="..\android\jni\AndroidAudio.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
-    <ClCompile Include="..\android\jni\OpenSLContext.cpp">
+    <ClCompile Include="..\android\jni\OboeContext.cpp">
       <Filter>Other Platforms\Android</Filter>
     </ClCompile>
     <ClCompile Include="W32Util\ContextMenu.cpp">
@@ -375,6 +372,9 @@
     <ClInclude Include="WASAPIContext.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
+    <ClInclude Include="WASAPIMicrophone.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
     <ClInclude Include="..\ppsspp_config.h" />
     <ClInclude Include="CaptureDevice.h">
       <Filter>Windows\Input</Filter>
@@ -386,9 +386,6 @@
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\ios\ViewController.h">
-      <Filter>Other Platforms\iOS</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ios\PPSSPPUIApplication.h">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
     <ClInclude Include="..\ios\AppDelegate.h">
@@ -404,9 +401,6 @@
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
     <ClInclude Include="..\ios\iOSCoreAudio.h">
-      <Filter>Other Platforms\iOS</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ios\SmartKeyboardMap.hpp">
       <Filter>Other Platforms\iOS</Filter>
     </ClInclude>
     <ClInclude Include="..\ios\SubtleVolume.h">
@@ -469,7 +463,7 @@
     <ClInclude Include="..\android\jni\AndroidAudio.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
-    <ClInclude Include="..\android\jni\OpenSLContext.h">
+    <ClInclude Include="..\android\jni\OboeContext.h">
       <Filter>Other Platforms\Android</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidContentURI.h">
@@ -489,12 +483,6 @@
     </ClInclude>
     <ClInclude Include="..\libretro\retro_inline.h">
       <Filter>Other Platforms\libretro</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ios\iCade\iCadeState.h">
-      <Filter>Other Platforms\iOS\iCade</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ios\iCade\iCadeReaderView.h">
-      <Filter>Other Platforms\iOS\iCade</Filter>
     </ClInclude>
     <ClInclude Include="W32Util\DarkMode.h">
       <Filter>Windows\W32Util</Filter>
@@ -623,9 +611,6 @@
     <None Include="..\android\git-version-gen.sh">
       <Filter>Build</Filter>
     </None>
-    <None Include="..\ios\PPSSPPUIApplication.mm">
-      <Filter>Other Platforms\iOS</Filter>
-    </None>
     <None Include="..\ios\AppDelegate.mm">
       <Filter>Other Platforms\iOS</Filter>
     </None>
@@ -671,12 +656,6 @@
     <None Include="zipup.cmd">
       <Filter>Build</Filter>
     </None>
-    <None Include="build-x64.cmd">
-      <Filter>Build</Filter>
-    </None>
-    <None Include="build-x86.cmd">
-      <Filter>Build</Filter>
-    </None>
     <None Include="..\Dockerfile">
       <Filter>Build</Filter>
     </None>
@@ -703,9 +682,6 @@
     </None>
     <None Include="..\ios\README.md">
       <Filter>Other Platforms\iOS</Filter>
-    </None>
-    <None Include="..\ios\iCade\iCadeReaderView.m">
-      <Filter>Other Platforms\iOS\iCade</Filter>
     </None>
     <None Include="..\cmake\Modules\FindMINIUPNPC.cmake">
       <Filter>Build\CMake</Filter>

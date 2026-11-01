@@ -117,19 +117,15 @@ TextDrawerWin32::~TextDrawerWin32() {
 	delete ctx_;
 }
 
-void TextDrawerWin32::SetOrCreateFont(const FontStyle &style) {
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+void TextDrawerWin32::EnsureFont(const FontStyle &style) {
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-
 	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_);
-	fontStyle_ = style;
 }
 
-void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	auto iter = fontMap_.find(fontStyle_);
+void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	} else {
@@ -158,14 +154,14 @@ void TextDrawerWin32::MeasureStringInternal(std::string_view str, float *w, floa
 	*h = extH;
 }
 
-bool TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter != fontMap_.end()) {
 		SelectObject(ctx_->hDC, iter->second->hFont);
 	}

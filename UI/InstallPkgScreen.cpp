@@ -49,9 +49,7 @@ InstallPkgScreen::InstallPkgScreen(const Path &pkgPath)
 	}
 	pkgInfo_ = reader.Info();
 	if (!pkgInfo_.isGameUpdate) {
-		// Everything we can read is a game update; anything else got rejected above with a better
-		// message than this.
-		pkgError_ = "This PKG file isn't a PSP game update";
+		// Everything we can read is a game update; anything else got rejected above with a reason.
 		return;
 	}
 
@@ -108,7 +106,7 @@ void InstallPkgScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	if (!canInstall_) {
 		leftColumn->Add(new TextView(GetFriendlyPath(pkgPath_)));
-		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, iz->T(pkgError_.empty() ? "This PKG file isn't a PSP game update" : pkgError_), ""));
+		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, iz->T("This PKG file isn't a PSP game update"), pkgError_));
 		doneView_ = leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, "", ""));
 		doneView_->SetVisibility(Visibility::V_GONE);
 		return;
@@ -182,7 +180,7 @@ void InstallPkgScreen::update() {
 	if (g_GameManager.GetState() == GameManagerState::IDLE && doneView_) {
 		const std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
-			doneView_->SetLevelAndText(NoticeLevel::ERROR, iz->T(err));
+			doneView_->SetLevelAndText(NoticeLevel::ERROR, err);
 			doneView_->SetVisibility(Visibility::V_VISIBLE);
 		} else if (installStarted_) {
 			doneView_->SetLevelAndText(NoticeLevel::SUCCESS, iz->T("Installed!"));

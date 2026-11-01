@@ -810,6 +810,8 @@ public:
 
 	// Loadstore multiple structure
 	void LD1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
+	// Four registers from Rt on, deinterleaved: element i of each structure of four goes to register i.
+	void LD4(u8 size, ARM64Reg Rt, ARM64Reg Rn);
 	void LD1(u8 size, u8 count, IndexType type, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm = SP);
 	void ST1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn);
 	void ST1(u8 size, u8 count, IndexType type, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm = SP);
@@ -857,6 +859,8 @@ public:
 
 	// Vector
 	void AND(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Rn & ~Rm.
+	void BIC(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void EOR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BSL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void BIT(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
@@ -891,6 +895,24 @@ public:
 
 	void UMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMAXP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Integer vector add and subtract.
+	void ADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void USHL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Count leading zeros in each element.
+	void CLZ(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	// Integer absolute value of each element.
+	void ABS(u8 size, ARM64Reg Rd, ARM64Reg Rn);
+	// Widening multiplies: Rd (a quad) gets the products of the lower (UMULL) or upper (UMULL2)
+	// halves of Rn and Rm, src_size bits each.
+	void UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// By element: the low (or for UMULL2, high) 32-bit lanes of Rn times lane index of Rm.
+	void UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
+	void UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index);
+	// Sum of all lanes, into a scalar of the lane size.
+	void ADDV(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void SMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
@@ -998,12 +1020,16 @@ public:
 	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	// Rd += Rn >> shift, per lane.
+	void USRA(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void UXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 
+	// Shift left and insert: the low bits of Rd stay.
+	void SLI(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void USHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SSHR(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);

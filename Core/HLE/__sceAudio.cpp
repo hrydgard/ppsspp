@@ -43,6 +43,8 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HW/MeMMIO.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/Util/AudioFormat.h"
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -110,6 +112,8 @@ void __AudioInit() {
 		g_audioChans[i].clear();
 	}
 	g_audioSRC.clear();
+	__AudioRoutingInit();
+	audioInputInited = false;
 
 	mixBuffer = new s32[hwBlockSize * 2];
 	clampedMixBuffer = new s16[hwBlockSize * 2];
@@ -119,7 +123,7 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceAudio", 1, 4);
+	auto s = p.Section("sceAudio", 1, 5);
 	if (!s)
 		return;
 
@@ -129,6 +133,10 @@ void __AudioDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	Do(p, mixFrequency);
+	if (mixFrequency <= 0) {
+		// The SRC mixer divides by it.
+		mixFrequency = 44100;
+	}
 	if (s >= 2) {
 		Do(p, srcFrequency);
 	} else {
@@ -190,6 +198,12 @@ void __AudioDoState(PointerWrap &p) {
 		Do(p, mixerDMABusy);
 	} else {
 		mixerDMABusy = false;
+	}
+	if (s >= 5) {
+		Do(p, audioInputInited);
+	} else {
+		// A game that was already capturing had initialized it.
+		audioInputInited = true;
 	}
 	// For older states the routing modes were read back once per channel, above.
 
@@ -637,11 +651,11 @@ void __AudioUpdate(bool resetRecording) {
 		woke |= __AudioMixChannel(chan);
 	}
 	woke |= __AudioMixSRC(g_audioSRC);
-	audioMixing = false;
-
-	if (woke) {
-		__AudioReScheduleAfterWake();
+	// What the ME played through the audio block (the PS1 emulator's sound).
+	if (MeCore::g_meState) {
+		MeMMIO::AudioMix(mixBuffer, hwBlockSize);
 	}
+	audioMixing = false;
 
 	if (g_Config.bEnableSound) {
 		float multiplier = Volume100ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUMEHI_FULL));
@@ -688,6 +702,13 @@ void __AudioUpdate(bool resetRecording) {
 			}
 		}
 #endif
+	}
+
+	// Only once the block is out. Rescheduling runs any due events, and when this tick was late
+	// that includes the next one, which would mix over mixBuffer before it was pushed - playing
+	// the next block twice and dropping this one.
+	if (woke) {
+		__AudioReScheduleAfterWake();
 	}
 }
 

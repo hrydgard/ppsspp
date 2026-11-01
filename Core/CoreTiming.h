@@ -127,6 +127,9 @@ namespace CoreTiming {
 	bool IsScheduled(int event_type);
 	void Advance(MIPSState *mips);
 	void ForceCheck(MIPSState *mips);
+	// Runs the other CPUs (the Media Engine) up to where this one is in the slice, as they otherwise
+	// run at its end: for when this one looks at what they share, such as the boot page.
+	void CatchUpOtherCPUs(MIPSState *mips);
 
 	// Pretend that the main CPU has executed enough cycles to reach the next event.
 	void Idle(MIPSState *mips, int maxIdle = 0);

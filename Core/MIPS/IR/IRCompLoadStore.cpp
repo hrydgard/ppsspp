@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -54,16 +53,26 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
-		if (js.kernelMode) {
-			// Send all memory accesses to the interpreter in kernel mode.
-			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
-			DISABLE;
-			return;
-		}
-
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
+		}
+
+		if (js.kernelMode) {
+			// Kernel code may reach hardware registers. ResolveKernelMemory turns the plain memory
+			// accesses back into ordinary ones where it can tell. The rest go to the interpreter.
+			switch (o) {
+			case 32: ir.Write(IROp::LoadKernel8Ext, rt, rs, 0, offset); return;
+			case 33: ir.Write(IROp::LoadKernel16Ext, rt, rs, 0, offset); return;
+			case 35: ir.Write(IROp::LoadKernel32, rt, rs, 0, offset); return;
+			case 36: ir.Write(IROp::LoadKernel8, rt, rs, 0, offset); return;
+			case 37: ir.Write(IROp::LoadKernel16, rt, rs, 0, offset); return;
+			case 40: ir.Write(IROp::StoreKernel8, rt, rs, 0, offset); return;
+			case 41: ir.Write(IROp::StoreKernel16, rt, rs, 0, offset); return;
+			case 43: ir.Write(IROp::StoreKernel32, rt, rs, 0, offset); return;
+			default:
+				DISABLE;
+			}
 		}
 
 		switch (o) {
@@ -149,13 +158,9 @@ namespace MIPSComp {
 
 		int func = (op >> 16) & 0x1F;
 
-		// See Int_Cache for the definitions.
-		switch (func) {
-		case 24: break;
-		case 25: break;
-		case 27: break;
-		case 30: break;
-		default:
+		// See Int_Cache: only icache invalidation does anything, so the data cache ops (which ME
+		// code loops over to flush its cache) compile to nothing.
+		if (func == 8) {
 			// Fall back to the interpreter.
 			DISABLE;
 		}

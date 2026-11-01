@@ -757,11 +757,17 @@ bool CreateFullPath(const Path &path) {
 
 	// The below code is entirely agnostic of path format.
 
-	Path root = path.GetRootVolume();
-
 	std::string diff;
-	if (!root.ComputePathTo(path, diff)) {
-		return false;
+	Path curPath;
+	if (path.IsAbsolute()) {
+		curPath = path.GetRootVolume();
+		if (!curPath.ComputePathTo(path, diff)) {
+			return false;
+		}
+	} else {
+		// Relative to the current directory, so every component may need creating. GetRootVolume()
+		// can't help here: it hands back the whole path, which left nothing to create.
+		diff = path.ToString();
 	}
 
 	std::vector<std::string_view> parts;
@@ -775,9 +781,9 @@ bool CreateFullPath(const Path &path) {
 		return false;
 	}
 
-	Path curPath = root;
 	for (auto part : parts) {
-		curPath /= part;
+		// Path("") / "a" would be "/a".
+		curPath = curPath.empty() ? Path(std::string(part)) : curPath / part;
 		File::CreateDir(curPath);
 	}
 
@@ -1541,6 +1547,38 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 	}
 	fclose(f);
 	return true;
+}
+
+bool WriteDataToNewFile(const void *data, size_t size, const Path &filename) {
+#if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
+	if (filename.Type() == PathType::CONTENT_URI) {
+		if (!filename.CanNavigateUp() || Android_CreateFile(filename.NavigateUp().ToString(), filename.GetFilename()) != StorageError::SUCCESS) {
+			return false;
+		}
+		const int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+		if (fd < 0) {
+			return false;
+		}
+		const u8 *p = (const u8 *)data;
+		size_t left = size;
+		int interrupts = 0;
+		while (left > 0) {
+			const ssize_t written = write(fd, p, left);
+			if (written < 0 && errno == EINTR && ++interrupts < 100) {
+				continue;
+			}
+			if (written <= 0) {
+				close(fd);
+				return false;
+			}
+			p += written;
+			left -= written;
+			interrupts = 0;
+		}
+		return close(fd) == 0;
+	}
+#endif
+	return WriteDataToFile(false, data, size, filename);
 }
 
 void ChangeMTime(const Path &path, time_t mtime) {

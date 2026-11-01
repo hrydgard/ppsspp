@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <deque>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -11,12 +12,16 @@
 
 namespace UI {
 
+// Guards focusMoves and heldKeys. NativeKey calls KeyEventToFocusMoves on the input thread,
+// while the UI thread processes them. Never held while dispatching to views.
+static std::mutex focusMovesLock;
 static std::vector<FocusMove> focusMoves;
 extern bool focusForced;
 
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
+static bool scrollFocusedIntoView;
 
 static std::function<void(UISound)> soundCallback;
 
@@ -105,6 +110,10 @@ View *GetFocusedView() {
 	return focusedView;
 }
 
+void ScrollFocusedViewIntoView() {
+	scrollFocusedIntoView = true;
+}
+
 void SetFocusedView(View *view, FocusFlags cause, bool force) {
 	if (focusedView) {
 		focusedView->FocusChanged(FocusFlags::LOST_FOCUS | cause);
@@ -125,8 +134,11 @@ void EnableFocusMovement(bool enable) {
 		if (focusedView) {
 			focusedView->FocusChanged(FocusFlags::LOST_FOCUS | FocusFlags::CAUSE_KB_FOCUS_DISABLED);
 		}
-		focusMoves.clear();
-		heldKeys.clear();
+		{
+			std::lock_guard<std::mutex> guard(focusMovesLock);
+			focusMoves.clear();
+			heldKeys.clear();
+		}
 		focusedView = nullptr;
 	}
 }
@@ -137,17 +149,20 @@ bool IsFocusMovementEnabled() {
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode) {
 	Bounds rootBounds = dc.GetLayoutBounds(layoutMode, immersiveMode);
-
-	MeasureSpec horiz(EXACTLY, rootBounds.w - (rootMargins.left + rootMargins.right));
-	MeasureSpec vert(EXACTLY, rootBounds.h - (rootMargins.top + rootMargins.bottom));
-
-	// Two phases - measure contents, layout.
-	root->Measure(dc, horiz, vert);
-	// Root has a specified size. Set it, then let root layout all its children.
 	rootBounds.x += rootMargins.left;
 	rootBounds.y += rootMargins.top;
 	rootBounds.w -= rootMargins.left + rootMargins.right;
 	rootBounds.h -= rootMargins.top + rootMargins.bottom;
+	LayoutViewHierarchy(dc, rootBounds, root);
+}
+
+void LayoutViewHierarchy(const UIContext &dc, const Bounds &rootBounds, ViewGroup *root) {
+	MeasureSpec horiz(EXACTLY, rootBounds.w);
+	MeasureSpec vert(EXACTLY, rootBounds.h);
+
+	// Two phases - measure contents, layout.
+	root->Measure(dc, horiz, vert);
+	// Root has a specified size. Set it, then let root layout all its children.
 	root->SetBounds(rootBounds);
 	root->Layout();
 }
@@ -223,7 +238,8 @@ void PlayUISound(UISound sound) {
 // Which way, if any, this key moves the focus. DPad keys are remappable, so they're matched
 // through IsDPadKey rather than by keycode here.
 static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
-	if (IsDPadKey(key)) {
+	// Alt+arrows are shortcuts (like Alt+Up for the parent directory in the game browser).
+	if (IsDPadKey(key) && !(key.flags & KeyInputFlags::ModAlt)) {
 		switch (key.keyCode) {
 		case NKCODE_DPAD_LEFT: *move = FocusMove::LEFT; return true;
 		case NKCODE_DPAD_RIGHT: *move = FocusMove::RIGHT; return true;
@@ -250,7 +266,20 @@ static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
 }
 
 KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
+	std::lock_guard<std::mutex> guard(focusMovesLock);
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
+	// The OS's own repeats of a key we're already repeating (see ProcessHeldKeys) would double
+	// up with ours, in a text field for example.
+	if ((key.flags & KeyInputFlags::DOWN) && (key.flags & KeyInputFlags::IS_REPEAT) && !heldKeys.empty()) {
+		HeldKey hk;
+		hk.key = key.keyCode;
+		hk.deviceId = key.deviceId;
+		hk.triggerTime = 0.0;  // irrelevant
+		hk.move = FocusMove::NEXT;  // irrelevant, not part of the comparison
+		if (heldKeys.find(hk) != heldKeys.end()) {
+			return KeyEventResult::IGNORE_KEY;
+		}
+	}
 	// Ignore repeats for focus moves.
 	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 		FocusMove move;
@@ -399,24 +428,34 @@ void AxisEvent(const AxisInput &axis, ViewGroup *root) {
 static void ProcessHeldKeys(ViewGroup *root) {
 	double now = time_now_d();
 
-restart:
-	for (std::set<HeldKey>::iterator iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
-		if (iter->triggerTime < now) {
-			KeyInput key;
-			key.keyCode = iter->key;
-			key.deviceId = iter->deviceId;
-			key.flags = KeyInputFlags::DOWN;
-			KeyEvent(key, root);
-
-			focusMoves.push_back(iter->move);
-
-			// Cannot modify the current item when looping over a set, so let's do this instead.
-			HeldKey hk = *iter;
-			heldKeys.erase(hk);
+	// Collect the due repeats under the lock, then dispatch them without it, since a view's
+	// key handler can call back in here (EnableFocusMovement clears heldKeys).
+	std::vector<HeldKey> due;
+	{
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		for (auto iter = heldKeys.begin(); iter != heldKeys.end(); ) {
+			if (iter->triggerTime < now) {
+				due.push_back(*iter);
+				iter = heldKeys.erase(iter);
+			} else {
+				++iter;
+			}
+		}
+		for (HeldKey hk : due) {
 			hk.triggerTime = now + repeatInterval;
 			heldKeys.insert(hk);
-			goto restart;
 		}
+	}
+
+	for (const HeldKey &hk : due) {
+		KeyInput key;
+		key.keyCode = hk.key;
+		key.deviceId = hk.deviceId;
+		key.flags = KeyInputFlags::DOWN;
+		KeyEvent(key, root);
+
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		focusMoves.push_back(hk.move);
 	}
 }
 
@@ -429,7 +468,13 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 		return DR_NONE;
 	}
 
-	if (focusMoves.size() && canEnableFocusMovement) {
+	std::vector<FocusMove> moves;
+	{
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		moves.swap(focusMoves);
+	}
+
+	if (moves.size() && canEnableFocusMovement) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			// Find a view to focus.
@@ -442,12 +487,18 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 			}
 			root->SubviewFocused(GetFocusedView());
 		} else {
-			for (FocusMove move : focusMoves) {
+			for (FocusMove move : moves) {
 				MoveFocus(root, move);
 			}
 		}
 	}
-	focusMoves.clear();
+
+	if (scrollFocusedIntoView) {
+		scrollFocusedIntoView = false;
+		if (focusedView) {
+			root->SubviewFocused(focusedView);
+		}
+	}
 
 	root->Update();
 	return DispatchEvents();

@@ -210,15 +210,14 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	}
 	const int check = CheckRequest(oskPtr, { 0x40, 0x44 });
 	if (check < 0) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
 		return check;
 	}
 
 	oskParams = oskPtr;
 	// Seems to crash.
-	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData)))
-	{
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData))) {
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
@@ -1077,15 +1076,29 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	if (s >= 2) {
 		Do(p, inputChars);
 	} else {
-		// Discard the wstring.
-		std::wstring wstr;
-		Do(p, wstr);
+		// Discard the wstring. Its characters are as wide as the saving platform's wchar_t (2 bytes
+		// on Windows), so skip it as bytes.
+		std::string wstrBytes;
+		Do(p, wstrBytes);
 	}
 	if (s >= 3) {
 		Do(p, currentKeyboard);
 		Do(p, currentKeyboardLanguage);
 		Do(p, i_level);
 		DoArray(p, i_value, ARRAY_SIZE(i_value));
+		if (p.mode == p.MODE_READ) {
+			// All index tables. A broken state gets the default keyboard and no composition.
+			if (currentKeyboard < 0 || currentKeyboard >= OSK_KEYBOARD_COUNT || currentKeyboardLanguage < 0 || currentKeyboardLanguage >= OSK_LANGUAGE_COUNT) {
+				currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
+				currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+			}
+			selectedChar = std::clamp(selectedChar, 0, numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard] - 1);
+			// Consonants, vowels and final consonants, -1 for none.
+			if (i_level < 0 || i_level > 3 || i_value[0] < -1 || i_value[0] >= 19 || i_value[1] < -1 || i_value[1] >= 21 || i_value[2] < -1 || i_value[2] >= 27) {
+				i_level = 0;
+				i_value[0] = i_value[1] = i_value[2] = 0;
+			}
+		}
 	} else if (p.mode == p.MODE_READ) {
 		// Pick a keyboard the field allows, as Init does, and keep the selection on it.
 		currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;

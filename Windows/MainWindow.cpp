@@ -61,6 +61,8 @@
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
 #include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/thin3d.h"
+#include "Common/SysError.h"
 
 #include "Windows/main.h"
 #include "Windows/DinputDevice.h"
@@ -164,6 +166,13 @@ namespace MainWindow {
 	static bool inResizeMove = false;
 	static bool hasFocus = true;
 	static bool g_keepScreenBright = false;
+
+	// The simulated double-click that toggles fullscreen. Only two clicks on the running game count, so
+	// focus loss, a click outside the client area, or a UI state change in between resets it.
+	static double lastMouseDownTime = 0.0;
+	static float lastMouseDownX = -1.0f;
+	static float lastMouseDownY = -1.0f;
+	static GlobalUIState lastMouseDownUIState = UISTATE_MENU;
 
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
@@ -825,6 +834,7 @@ namespace MainWindow {
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
+					lastMouseDownTime = 0.0;
 					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();
 					g_InputManager.LoseFocus();
@@ -1003,8 +1013,6 @@ namespace MainWindow {
 			DinputDevice::CheckDevices();
 			if (winCamera)
 				winCamera->CheckDevices();
-			if (winMic)
-				winMic->CheckDevices();
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:
@@ -1021,7 +1029,7 @@ namespace MainWindow {
 					const u8 *ptr = (const u8 *)info->addr;
 					std::string name;
 
-					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
+					if (mipsr4k.jit && mipsr4k.jit->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"Jit::%S", name.c_str());
 						return;
 					}
@@ -1210,26 +1218,30 @@ namespace MainWindow {
 				SetCapture(hWnd);
 
 				// Simulate doubleclick, doesn't work with RawInput enabled
-				static double lastMouseDownTime;
-				static float lastMouseDownX = -1.0f;
-				static float lastMouseDownY = -1.0f;
 				const double now = time_now_d();
-				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
+				const GlobalUIState uiState = GetUIState();
+				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime() && uiState == lastMouseDownUIState) {
 					const float dx = lastMouseDownX - x;
 					const float dy = lastMouseDownY - y;
 					const float distSq = dx * dx + dy * dy;
-					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && uiState == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						g_Config.bFullScreen = !g_Config.bFullScreen;
 						SendApplyFullscreenState();
 					}
 					lastMouseDownTime = 0.0;
 				} else {
 					lastMouseDownTime = now;
+					lastMouseDownUIState = uiState;
 				}
 				lastMouseDownX = x;
 				lastMouseDownY = y;
 			}
 			break;
+
+		case WM_NCLBUTTONDOWN:
+			// The title bar or the window's buttons, so not part of a double-click on the game.
+			lastMouseDownTime = 0.0;
+			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_MOUSEMOVE:
 			if (!touchHandler.hasTouch() ||
@@ -1336,6 +1348,97 @@ namespace MainWindow {
 
 	void RunCallbackInWndProc(void (*callback)(void *, void *), void *userdata) {
 		PostMessage(hwndMain, WM_USER_RUN_CALLBACK, reinterpret_cast<WPARAM>(callback), reinterpret_cast<LPARAM>(userdata));
+	}
+
+	// --game-window: a second window showing just the game. For now it's only a way to test multiple outputs on
+	// the desktop, standing in for a TV over AirPlay. Later, real multi-window support (like ImGui's multi-viewports)
+	// will take over these pieces: the window class, the input forwarding and the output lifetime.
+	static HWND hwndGame;
+	static int gameOutputId;
+
+	static LRESULT CALLBACK GameWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
+		switch (message) {
+		case WM_SIZE:
+			if (gameOutputId != 0 && wParam != SIZE_MINIMIZED) {
+				Native_ResizeOutput(gameOutputId, LOWORD(lParam), HIWORD(lParam));
+			}
+			return 0;
+
+		case WM_CLOSE:
+			// The window has to outlive the swapchain, so it stays until we quit.
+			Native_RemoveOutput(gameOutputId);
+			ShowWindow(hWnd, SW_HIDE);
+			return 0;
+
+		case WM_ACTIVATE:
+			if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+				WindowsRawInput::GainFocus();
+				g_InputManager.GainFocus();
+			} else {
+				WindowsRawInput::LoseFocus();
+				g_InputManager.LoseFocus();
+			}
+			return 0;
+
+		case WM_INPUT:
+		{
+			// Keys still go to the emulator. The mouse would get main window coordinates, so it's left out.
+			RAWINPUTHEADER header;
+			UINT size = sizeof(header);
+			if (GetRawInputData((HRAWINPUT)lParam, RID_HEADER, &header, &size, sizeof(RAWINPUTHEADER)) != (UINT)-1 && header.dwType == RIM_TYPEKEYBOARD) {
+				return WindowsRawInput::Process(hWnd, wParam, lParam);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+
+		case WM_CHAR:
+			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
+
+		default:
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
+	}
+
+	void CreateGameWindow() {
+		if ((GPUBackend)g_Config.iGPUBackend != GPUBackend::VULKAN) {
+			ERROR_LOG(Log::System, "--game-window needs Vulkan");
+			return;
+		}
+
+		static constexpr const wchar_t *szGameWindowClass = L"PPSSPPGameWnd";
+		WNDCLASSEX wcex{};
+		wcex.cbSize = sizeof(WNDCLASSEX);
+		wcex.lpfnWndProc = (WNDPROC)GameWndProc;
+		wcex.hInstance = hInst;
+		wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
+		wcex.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+		wcex.lpszClassName = szGameWindowClass;
+		wcex.hIcon = LoadIcon(hInst, (LPCTSTR)IDI_PPSSPP);
+		wcex.hIconSm = (HICON)LoadImage(hInst, (LPCTSTR)IDI_PPSSPP, IMAGE_ICON, 16, 16, LR_SHARED);
+		RegisterClassEx(&wcex);
+
+		RECT rc{ 0, 0, 960, 544 };
+		AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
+		// No owner: an owned window is destroyed along with the main window, which can be before the swapchain is.
+		hwndGame = CreateWindowEx(0, szGameWindowClass, L"PPSSPP game", WS_OVERLAPPEDWINDOW,
+			CW_USEDEFAULT, CW_USEDEFAULT, rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, hInst, NULL);
+		if (!hwndGame) {
+			ERROR_LOG(Log::System, "Error creating the game window: %s", GetLastErrorMsg().c_str());
+			return;
+		}
+
+		RECT client;
+		GetClientRect(hwndGame, &client);
+		Draw::SwapchainDesc desc{};
+		desc.winsys = WINDOWSYSTEM_WIN32;
+		desc.data1 = hInst;
+		desc.data2 = hwndGame;
+		desc.width = client.right - client.left;
+		desc.height = client.bottom - client.top;
+		desc.tag = "GameWindow";
+		gameOutputId = Native_AddOutput(OutputRole::Game, desc);
+
+		ShowWindow(hwndGame, SW_SHOWNOACTIVATE);
 	}
 
 }  // namespace MainWindow

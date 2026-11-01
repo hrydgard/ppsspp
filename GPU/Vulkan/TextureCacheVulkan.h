@@ -101,22 +101,8 @@ private:
 		MULTIPASS,
 	};
 
-	struct MultipassScratchDesc {
-		const char *tag;
-		uint8_t widthScale;
-		uint8_t heightScale;
-	};
-
-	struct MultipassStageDesc {
-		uint8_t shaderIndex;
-		int8_t inputScratch;   // -1 means the original upload buffer.
-		int8_t outputScratch;  // -1 means the final destination image.
-		uint8_t srcWidthScale;
-		uint8_t srcHeightScale;
-		uint8_t dstWidthScale;
-		uint8_t dstHeightScale;
-		bool useFinalOutputSize;
-	};
+	typedef TextureScaleScratchDesc MultipassScratchDesc;
+	typedef TextureScaleStageDesc MultipassStageDesc;
 
 	void LoadVulkanTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch,  int level, int scaleFactor, VkFormat dstFmt);
 	static VkFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) ;

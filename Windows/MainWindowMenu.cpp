@@ -263,7 +263,6 @@ namespace MainWindow {
 
 		// Movie menu
 		TranslateMenuItem(menu, ID_FILE_DUMPFRAMES);
-		TranslateMenuItem(menu, ID_FILE_USEFFV1);
 		TranslateMenuItem(menu, ID_FILE_DUMP_VIDEO_OUTPUT);
 		TranslateMenuItem(menu, ID_FILE_DUMPAUDIO);
 
@@ -303,7 +302,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
-		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
 		TranslateMenuItem(menu, ID_EMULATION_CHEATS, g_Config.bSystemControls ? L"\tCtrl+T" : L"");
 		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
@@ -388,8 +386,8 @@ namespace MainWindow {
 	}
 
 	static void UmdSwitchAction(RequesterToken token) {
-		auto mm = GetI18NCategory(I18NCat::MAINMENU);
-		System_BrowseForFile(token, mm->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
+		auto des = GetI18NCategory(I18NCat::DESKTOPUI);
+		System_BrowseForFile(token, des->T("Switch UMD"), BrowseFileType::BOOTABLE, [](std::string_view value, int) {
 			// This is safe because the callback runs on the emu thread.
 			__UmdReplace(Path(value));
 		});
@@ -733,15 +731,6 @@ namespace MainWindow {
 			System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 			break;
 
-		case ID_OPTIONS_HARDWARETRANSFORM:
-			System_RunOnMainThread([]() {
-				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-				g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
-			});
-			break;
-
 		case ID_OPTIONS_DISPLAY_LAYOUT:
 			System_PostUIMessage(UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR);
 			break;
@@ -975,10 +964,6 @@ namespace MainWindow {
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			break;
 
-		case ID_FILE_USEFFV1:
-			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
-			break;
-
 		case ID_FILE_DUMP_VIDEO_OUTPUT:
 			g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput;
 			break;
@@ -1047,7 +1032,6 @@ namespace MainWindow {
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
-		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
@@ -1060,7 +1044,6 @@ namespace MainWindow {
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
-		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
 		CHECKITEM(ID_FILE_DUMP_VIDEO_OUTPUT, g_Config.bDumpVideoOutput);
 		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
 		CHECKITEM(ID_OPTIONS_SKIP_BUFFER_EFFECTS, g_Config.bSkipBufferEffects);

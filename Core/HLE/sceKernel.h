@@ -25,6 +25,7 @@
 #include "Common/Swap.h"
 
 class PointerWrap;
+class MIPSState;
 
 // If you add to this, make sure to check KernelObjectPool::CreateByIDType().
 enum TMIDType : int {
@@ -115,7 +116,7 @@ std::string __KernelStateSummary();
 
 // These HLE functions are declared here to be included in tables that are in other files.
 
-int sceKernelLoadExec(const char *filename, u32 paramPtr);
+int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr);
 
 void sceKernelExitGame();
 void sceKernelExitGameWithStatus();
@@ -135,9 +136,9 @@ int sceKernelDcacheWritebackRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateRange(u32 addr, int size);
 int sceKernelDcacheWritebackInvalidateAll();
 int sceKernelGetThreadStackFreeSize(SceUID threadID);
-u32 sceKernelIcacheInvalidateAll();
-u32 sceKernelIcacheClearAll();
-int sceKernelIcacheInvalidateRange(u32 addr, int size);
+u32 sceKernelIcacheInvalidateAll(MIPSState *mips);
+u32 sceKernelIcacheClearAll(MIPSState *mips);
+int sceKernelIcacheInvalidateRange(MIPSState *mips, u32 addr, int size);
 
 #define KERNELOBJECT_MAX_NAME_LENGTH 31
 
@@ -337,7 +338,9 @@ void Register_ThreadManForUser();
 void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_LoadExecForKernel();
+void Register_ExceptionManagerForKernel();
 void Register_UtilsForKernel();
+void Register_InitForKernel();
 
 // returns nullptr if not found.
 const char *KernelErrorToString(u32 err);

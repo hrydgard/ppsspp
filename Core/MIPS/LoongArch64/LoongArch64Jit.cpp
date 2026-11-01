@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstddef>
+#include <map>
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/LoongArch64/LoongArch64Jit.h"
@@ -33,8 +34,8 @@ using namespace LoongArch64JitConstants;
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
 
-LoongArch64JitBackend::LoongArch64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
-	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
+LoongArch64JitBackend::LoongArch64JitBackend(JitOptions &jitopt)
+	: jo(jitopt), regs_(&jo) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
 		jo.enablePointerify = false;
@@ -43,7 +44,7 @@ LoongArch64JitBackend::LoongArch64JitBackend(JitOptions &jitopt, IRBlockCache &b
 
 	// Since we store the offset, this is as big as it can be.
 	// We could shift off one bit to double it, would need to change LoongArch64Asm.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 
 	regs_.Init(this);
 }
@@ -55,14 +56,28 @@ static void NoBlockExits() {
 	_assert_msg_(false, "Never exited block, invalid IR?");
 }
 
-bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
+bool LoongArch64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) {
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	IRBlock *block = irBlockCache->GetBlock(block_num);
-	BeginWrite(std::min(GetSpaceLeft(), (size_t)block->GetNumIRInstructions() * 32));
+	// An accurate dot product moves its operands and flushes registers around its call.
+	size_t sizeEstimate = 0;
+	for (int i = 0; i < count; ++i) {
+		switch (instructions[i].op) {
+		case IROp::Vec4VfpuDot:
+			sizeEstimate += 160;
+			break;
+		// The jump to a register looks up the block itself.
+		case IROp::ExitToReg:
+			sizeEstimate += 128;
+			break;
+		default:
+			sizeEstimate += 32;
+			break;
+		}
+	}
+	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
-	u32 startPC = block->GetOriginalStart();
 	bool wroteCheckedOffset = false;
 	if (jo.enableBlocklink && !jo.useBackJump) {
 		SetBlockCheckedOffset(block_num, (int)GetOffset(GetCodePointer()));
@@ -78,14 +93,13 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 
 	// Don't worry, the codespace isn't large enough to overflow offsets.
 	const u8 *blockStart = GetCodePointer();
-	block->SetNativeOffset((int)GetOffset(blockStart));
+	SetBlockEntry(block_num, startPC, (int)GetOffset(blockStart));
 	compilingBlockNum_ = block_num;
 
-	regs_.Start(irBlockCache, block_num);
+	regs_.Start(startPC, instructions, count);
 
 	std::vector<const u8 *> addresses;
-	const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
-	for (int i = 0; i < block->GetNumIRInstructions(); ++i) {
+	for (int i = 0; i < count; ++i) {
 		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);
 		addresses.push_back(GetCodePtr());
@@ -109,7 +123,7 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 		QuickJ(R_RA, hooks_.crashHandler);
 	}
 
-	int len = (int)GetOffset(GetCodePointer()) - block->GetNativeOffset();
+	int len = (int)GetOffset(GetCodePointer()) - GetBlockEntry(block_num);
 	if (len < MIN_BLOCK_NORMAL_LEN) {
 		// We need at least 16 bytes to invalidate blocks with, but larger doesn't need to align.
 		ReserveCodeSpace(MIN_BLOCK_NORMAL_LEN - len);
@@ -135,6 +149,8 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
@@ -143,7 +159,6 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 			addressesLookup[addresses[i]] = i;
 
 		INFO_LOG(Log::JIT, "=============== LoongArch64 (%08x, %d bytes) ===============", startPC, len);
-		const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
 		for (const u8 *p = blockStart; p < GetCodePointer(); ) {
 			auto it = addressesLookup.find(p);
 			if (it != addressesLookup.end()) {
@@ -174,7 +189,7 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 }
 
 void LoongArch64JitBackend::WriteConstExit(uint32_t pc) {
-	int block_num = blocks_.GetBlockNumberFromStartAddress(pc);
+	int block_num = FindBlockByStart(pc);
 	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
 
 	int exitStart = (int)GetOffset(GetCodePointer());
@@ -229,6 +244,7 @@ void LoongArch64JitBackend::CompIR_Generic(IRInst inst) {
 	LI(R4, value);
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
+	LI(R5, (uintptr_t)mips_);
 	QuickCallFunction(&DoIRInst, SCRATCH2);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -259,6 +275,7 @@ void LoongArch64JitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(R4, (int32_t)inst.constant);
+	LI(R5, (uintptr_t)mips_);
 	QuickCallFunction((const u8 *)&MIPSInterpretTrampoline, SCRATCH2);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -284,7 +301,7 @@ bool LoongArch64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) co
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
 	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
-		name = "fixedCode";
+		name = DescribeFixedCode(ptr);
 	} else {
 		return IRNativeBackend::DescribeCodePtr(ptr, name);
 	}
@@ -297,13 +314,13 @@ void LoongArch64JitBackend::ClearAllBlocks() {
 	EraseAllLinks(-1);
 }
 
-void LoongArch64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {
-	IRBlock *block = irBlockCache->GetBlock(block_num);
-	int offset = block->GetNativeOffset();
+void LoongArch64JitBackend::InvalidateBlock(int block_num) {
+	const IRNativeBlock *nativeBlock = GetNativeBlock(block_num);
+	int offset = nativeBlock->entryOffset;
 	u8 *writable = GetWritablePtrFromCodePtr(GetBasePtr()) + offset;
 
 	// Overwrite the block with a jump to compile it again.
-	u32 pc = block->GetOriginalStart();
+	u32 pc = nativeBlock->startPC;
 	if (pc != 0) {
 		// Hopefully we always have at least 16 bytes, which should be all we need.
 		if (PlatformIsWXExclusive()) {

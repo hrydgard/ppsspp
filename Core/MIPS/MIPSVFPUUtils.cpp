@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "Common/BitScan.h"
@@ -97,6 +98,21 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 			regs[j*4 + i] = index;
 		}
 	}
+}
+
+bool MatrixWrapsAround(int matrixReg, MatrixSize N) {
+	// The same row and column as GetMatrixRegs.
+	int col = matrixReg & 3;
+	int row = 0;
+	int side = 0;
+	switch (N) {
+	case M_1x1: return false;
+	case M_2x2: row = (matrixReg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (matrixReg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (matrixReg >> 5) & 2; side = 4; break;
+	default: return false;
+	}
+	return row + side > 4 || col + side > 4;
 }
 
 int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed) {
@@ -308,7 +324,7 @@ void WriteMatrix(MIPSState *mips, const float *rd, MatrixSize size, int reg) {
 	default: side = 0;
 	}
 
-	if (currentMIPS->VfpuWriteMask() != 0) {
+	if (mips->VfpuWriteMask() != 0) {
 		ERROR_LOG_REPORT(Log::CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
@@ -665,6 +681,38 @@ u32 vfpu_h2f(u16 h) {
 	return sign | ((exp + 112) << 23) | (mant << 13);
 }
 
+float vfpu_h2f_float(u16 h) {
+	return vfpu_float_from_bits(vfpu_h2f(h));
+}
+
+const char *const g_vfpuDisplayModeNames[(int)VFPUDisplayMode::COUNT] = {
+	"Float", "HalfFloat", "Hex", "Bytes", "Shorts", "Ints",
+};
+
+void FormatVFPUValue(char *out, size_t outSize, u32 value, VFPUDisplayMode mode) {
+	switch (mode) {
+	case VFPUDisplayMode::Float:
+		snprintf(out, outSize, "%f", vfpu_float_from_bits(value));
+		break;
+	case VFPUDisplayMode::HalfFloat:
+		snprintf(out, outSize, "%g %g", vfpu_h2f_float((u16)(value & 0xFFFF)), vfpu_h2f_float((u16)(value >> 16)));
+		break;
+	case VFPUDisplayMode::Hex:
+		snprintf(out, outSize, "%08x", value);
+		break;
+	case VFPUDisplayMode::Bytes:
+		snprintf(out, outSize, "%02x %02x %02x %02x", value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF, value >> 24);
+		break;
+	case VFPUDisplayMode::Shorts:
+		snprintf(out, outSize, "%d %d", (s16)(value & 0xFFFF), (s16)(value >> 16));
+		break;
+	case VFPUDisplayMode::Ints:
+	default:
+		snprintf(out, outSize, "%d", (s32)value);
+		break;
+	}
+}
+
 float vfpu_h2f_lower(float word) {
 	return vfpu_float_from_bits(vfpu_h2f((u16)(vfpu_bits_from_float(word) & 0xFFFF)));
 }
@@ -848,14 +896,12 @@ float vfpu_dot_reference(const float a[4], const float b[4]) {
 	return ret;
 }
 
-#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(SSE2)
-
 // Inf and NaN inputs are rare, and the reference handles them.
 static NO_INLINE float vfpu_dot_special(const float a[4], const float b[4]) {
 	return vfpu_dot_reference(a, b);
 }
 
-// The end of the SIMD versions: drops the extra bits off the exact sum by truncation, then rounds to
+// The end of the fast versions: drops the extra bits off the exact sum by truncation, then rounds to
 // 24 bits, nearest even. With the top bit moved to bit 62, adding 2^38 - 1 plus the lowest kept bit
 // and shifting out 39 bits does that for every magnitude, and adding the significand, implicit bit
 // and all, onto the exponent field lets a carry from the rounding bump the exponent by itself. It's
@@ -875,7 +921,35 @@ static inline float vfpu_dot_finish(int32_t val, uint32_t ehi) {
 	return ret;
 }
 
-#endif
+// The reference without its branches, for hosts with no SIMD version. Bit-exact with it.
+float vfpu_dot_scalar(const float a[4], const float b[4]) {
+	uint32_t x[4], y[4], e[4];
+	memcpy(x, a, sizeof(x));
+	memcpy(y, b, sizeof(y));
+
+	// Exponent sums, zero for zero and subnormal inputs, and whether any input is inf or NaN.
+	uint32_t ehi = 0, special = 0;
+	for (int i = 0; i < 4; i++) {
+		const uint32_t ex = (x[i] >> 23) & 0xFF, ey = (y[i] >> 23) & 0xFF;
+		special |= (ex + 1) | (ey + 1);
+		e[i] = ex != 0 && ey != 0 ? ex + ey : 0;
+		ehi = e[i] > ehi ? e[i] : ehi;
+	}
+	if (special & 0x100)
+		return vfpu_dot_special(a, b);
+
+	// 24x24-bit products kept to 2 extra bits with round-to-odd, aligned to the largest exponent
+	// by truncation (p is below 2^27, so 31 does for any larger shift), and summed exactly.
+	int32_t val = 0;
+	for (int i = 0; i < 4; i++) {
+		const uint64_t v = (uint64_t)((x[i] & 0x007FFFFF) | 0x00800000) * ((y[i] & 0x007FFFFF) | 0x00800000);
+		uint32_t p = (uint32_t)(v >> 21) | ((v & ((1 << 21) - 1)) != 0);
+		const uint32_t d = ehi - e[i];
+		p = e[i] != 0 ? p >> (d < 31 ? d : 31) : 0;
+		val += (int32_t)((x[i] ^ y[i]) >> 31 ? 0u - p : p);
+	}
+	return vfpu_dot_finish(val, ehi);
+}
 
 #if PPSSPP_ARCH(ARM64_NEON)
 
@@ -964,6 +1038,46 @@ static float vfpu_dot_sse2(const float a[4], const float b[4]) {
 	return vfpu_dot_finish(_mm_cvtsi128_si32(v), ehi);
 }
 
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+
+// The reference, four lanes at a time, the same way as vfpu_dot_sse2(). Bit-exact with it.
+static float vfpu_dot_lsx(const float a[4], const float b[4]) {
+	const __m128i x = __lsx_vld(a, 0);
+	const __m128i y = __lsx_vld(b, 0);
+	const __m128i expBits = __lsx_vreplgr2vr_w(0x7F800000);
+	const __m128i xe = __lsx_vand_v(x, expBits), ye = __lsx_vand_v(y, expBits);
+
+	// Zero and subnormal inputs make the product zero, with the lowest exponent. Inf and NaN get
+	// 0x7FF, above any real exponent sum, so one maximum finds the alignment and the specials.
+	const __m128i flush = __lsx_vor_v(__lsx_vseqi_w(xe, 0), __lsx_vseqi_w(ye, 0));
+	const __m128i special = __lsx_vor_v(__lsx_vseq_w(xe, expBits), __lsx_vseq_w(ye, expBits));
+	const __m128i e = __lsx_vor_v(__lsx_vandn_v(flush, __lsx_vsrli_w(__lsx_vadd_w(xe, ye), 23)), __lsx_vsrli_w(special, 21));
+	__m128i emax = __lsx_vmax_wu(e, __lsx_vshuf4i_w(e, 0x4E));
+	emax = __lsx_vmax_wu(emax, __lsx_vshuf4i_w(emax, 0xB1));
+	const uint32_t ehi = (uint32_t)__lsx_vpickve2gr_w(emax, 0);
+	if (ehi >= 0x7FF)
+		return vfpu_dot_special(a, b);
+
+	// 24x24-bit products, even and odd lanes separately, kept to 2 extra bits with round-to-odd.
+	const __m128i mantMask = __lsx_vreplgr2vr_w(0x007FFFFF), implicitBit = __lsx_vreplgr2vr_w(0x00800000);
+	const __m128i mx = __lsx_vor_v(__lsx_vand_v(x, mantMask), implicitBit);
+	const __m128i my = __lsx_vor_v(__lsx_vand_v(y, mantMask), implicitBit);
+	const __m128i pEven = __lsx_vmulwev_d_wu(mx, my);
+	const __m128i pOdd = __lsx_vmulwod_d_wu(mx, my);
+	const __m128i kept = __lsx_vpackev_w(__lsx_vsrli_d(pOdd, 21), __lsx_vsrli_d(pEven, 21));
+	const __m128i dropped = __lsx_vand_v(__lsx_vpackev_w(pOdd, pEven), __lsx_vreplgr2vr_w((1 << 21) - 1));
+	const __m128i p = __lsx_vandn_v(flush, __lsx_vor_v(kept, __lsx_vmini_wu(dropped, 1)));
+
+	// Align to the largest exponent by truncation (p is below 2^27, so 31 does for any larger
+	// shift), apply the signs, and sum exactly.
+	const __m128i d = __lsx_vmini_wu(__lsx_vsub_w(emax, e), 31);
+	const __m128i sign = __lsx_vsrai_w(__lsx_vxor_v(x, y), 31);
+	__m128i v = __lsx_vsub_w(__lsx_vxor_v(__lsx_vsrl_w(p, d), sign), sign);
+	v = __lsx_vadd_w(v, __lsx_vshuf4i_w(v, 0x4E));
+	v = __lsx_vadd_w(v, __lsx_vshuf4i_w(v, 0xB1));
+	return vfpu_dot_finish(__lsx_vpickve2gr_w(v, 0), ehi);
+}
+
 #endif
 
 float vfpu_dot(const float a[4], const float b[4]) {
@@ -971,9 +1085,91 @@ float vfpu_dot(const float a[4], const float b[4]) {
 	return vfpu_dot_neon(a, b);
 #elif PPSSPP_ARCH(SSE2)
 	return vfpu_dot_sse2(a, b);
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+	return vfpu_dot_lsx(a, b);
 #else
-	return vfpu_dot_reference(a, b);
+	return vfpu_dot_scalar(a, b);
 #endif
+}
+
+#if PPSSPP_ARCH(ARM64_NEON)
+
+// vfpu_dot_neon turned on its side: lane k works out output k, one term at a time, so nothing is
+// summed across lanes. Bit-exact with it. Returns false for inf and NaN, which it leaves alone.
+static bool vfpu_multi_dot_neon(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
+	uint32x4_t rows[4];
+	if (transposed) {
+		const uint32x4x4_t t = vld4q_u32((const uint32_t *)block);
+		rows[0] = t.val[0];
+		rows[1] = t.val[1];
+		rows[2] = t.val[2];
+		rows[3] = t.val[3];
+	} else {
+		for (int i = 0; i < terms; i++)
+			rows[i] = vld1q_u32((const uint32_t *)block + 4 * i);
+	}
+
+	const uint32x4_t expBits = vdupq_n_u32(0x7F800000);
+	const uint32x4_t mantMask = vdupq_n_u32(0x007FFFFF), implicitBit = vdupq_n_u32(0x00800000);
+	uint32x4_t e[4], p[4], sign[4];
+	uint32x4_t emax = vdupq_n_u32(0);
+	for (int i = 0; i < terms; i++) {
+		const uint32x4_t x = rows[i];
+		const uint32x4_t y = vld1q_dup_u32((const uint32_t *)v + i);
+		const uint32x4_t xe = vandq_u32(x, expBits), ye = vandq_u32(y, expBits);
+		const uint32x4_t normal = vandq_u32(vtstq_u32(x, expBits), vtstq_u32(y, expBits));
+		const uint32x4_t special = vceqq_u32(vmaxq_u32(xe, ye), expBits);
+		e[i] = vsraq_n_u32(vandq_u32(vshrq_n_u32(vaddq_u32(xe, ye), 23), normal), special, 21);
+		emax = vmaxq_u32(emax, e[i]);
+
+		const uint32x4_t mx = vbslq_u32(mantMask, x, implicitBit);
+		const uint32x4_t my = vbslq_u32(mantMask, y, implicitBit);
+		const uint64x2_t plo = vmull_u32(vget_low_u32(mx), vget_low_u32(my));
+		const uint64x2_t phi = vmull_high_u32(mx, my);
+		const uint32x4_t kept = vcombine_u32(vshrn_n_u64(plo, 21), vshrn_n_u64(phi, 21));
+		const uint32x4_t dropped = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(plo), vreinterpretq_u32_u64(phi)), vdupq_n_u32((1 << 21) - 1));
+		p[i] = vandq_u32(vorrq_u32(kept, vminq_u32(dropped, vdupq_n_u32(1))), normal);
+		sign[i] = vreinterpretq_u32_s32(vshrq_n_s32(vreinterpretq_s32_u32(veorq_u32(x, y)), 31));
+	}
+	if (vmaxvq_u32(emax) >= 0x7FF)
+		return false;
+
+	int32x4_t sum = vdupq_n_s32(0);
+	for (int i = 0; i < terms; i++) {
+		const int32x4_t shift = vmaxq_s32(vreinterpretq_s32_u32(vsubq_u32(e[i], emax)), vdupq_n_s32(-28));
+		const int32x4_t t = vreinterpretq_s32_u32(vshlq_u32(p[i], shift));
+		const int32x4_t s = vreinterpretq_s32_u32(sign[i]);
+		sum = vaddq_s32(sum, vsubq_s32(veorq_s32(t, s), s));
+	}
+
+	float result[4];
+	result[0] = vfpu_dot_finish(vgetq_lane_s32(sum, 0), vgetq_lane_u32(emax, 0));
+	result[1] = vfpu_dot_finish(vgetq_lane_s32(sum, 1), vgetq_lane_u32(emax, 1));
+	result[2] = vfpu_dot_finish(vgetq_lane_s32(sum, 2), vgetq_lane_u32(emax, 2));
+	result[3] = vfpu_dot_finish(vgetq_lane_s32(sum, 3), vgetq_lane_u32(emax, 3));
+	// out may overlap the inputs, which are all read by now.
+	memcpy(out, result, sizeof(result));
+	return true;
+}
+
+#endif
+
+void vfpu_multi_dot(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	if (vfpu_multi_dot_neon(out, block, v, terms, transposed))
+		return;
+#endif
+	float result[4];
+	for (int k = 0; k < 4; k++) {
+		float a[4]{}, b[4]{};
+		for (int i = 0; i < terms; i++) {
+			a[i] = transposed ? block[4 * k + i] : block[4 * i + k];
+			b[i] = v[i];
+		}
+		result[k] = vfpu_dot(a, b);
+	}
+	// out may overlap the inputs.
+	memcpy(out, result, sizeof(result));
 }
 
 //==============================================================================
@@ -1625,7 +1821,7 @@ static uint32_t vfpu_sin_bits(uint32_t bits) {
 	bool odd;
 	if (!vfpu_sin_reduce(bits, &angle, &odd))
 		return (bits & 0x80000000u) ^ 0x7F800001u;
-	return vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+	return vfpu_sin_from_reduced(angle, (bits >> 31) != (u32)odd);
 }
 
 static uint32_t vfpu_cos_bits(uint32_t bits) {
@@ -1654,7 +1850,7 @@ void vfpu_sincos(float a, float &s, float &c) {
 		sinBits = (bits & 0x80000000u) ^ 0x7F800001u;
 		cosBits = 0x7F800001u;
 	} else {
-		sinBits = vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+		sinBits = vfpu_sin_from_reduced(angle, (bits >> 31) != (u32)odd);
 		cosBits = vfpu_cos_from_reduced(angle, odd);
 	}
 	s = vfpu_float_from_bits(sinBits);

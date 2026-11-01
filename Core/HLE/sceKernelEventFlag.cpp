@@ -40,6 +40,7 @@ void EventFlag::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nef);
+	TerminateLoadedCString(p, nef.name);
 	EventFlagTh eft = { 0 };
 	Do(p, waitingThreads, eft);
 	Do(p, pausedWaits);

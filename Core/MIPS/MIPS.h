@@ -20,33 +20,28 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <cstring>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 #include "Core/Opcode.h"
 
 class PointerWrap;
 
+namespace MIPSComp {
+class JitInterface;
+}
+
 typedef Memory::Opcode MIPSOpcode;
 
-// Unlike on the PPC, opcode 0 is not unused and thus we have to choose another fake
-// opcode to represent JIT blocks and other emu hacks.
-// I've chosen 0x68000000.
-#define MIPS_EMUHACK_OPCODE 0x68000000
-#define MIPS_EMUHACK_MASK 0xFC000000
-#define MIPS_JITBLOCK_MASK 0xFF000000
-#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
-
-// There are 2 bits available for sub-opcodes, 0x03000000.
-#define EMUOP_RUNBLOCK 0   // Runs a JIT block
-#define EMUOP_RETKERNEL 1  // Returns to the simulated PSP kernel from a thread
-#define EMUOP_CALL_REPLACEMENT 2
-
-#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_RUNBLOCK(op) (((op) & 0xFF000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
-
-#define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
+// A fake opcode the CPU cores fetch in place of an instruction with a replacement function (see
+// ReplaceTables.h), with the replacement's index in the low bits. It's never in PSP memory. Opcode
+// 26, which the Allegrex doesn't have, decodes it as CallRepl.
+#define MIPS_CALL_REPLACEMENT_OP 0x6A000000
+#define MIPS_REPLACEMENT_INDEX_MASK 0x00FFFFFF
 
 enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
@@ -120,6 +115,26 @@ enum {
 	//unknown....
 };
 
+// The fields of the VFPU prefixes. Lane i of an S or T prefix takes the lane its swizzle names, or
+// with the constant bit, the constant the swizzle and abs bit pick, then the abs and negate. Lane i
+// of a D prefix has a saturation (1 = [0:1], 3 = [-1:1]) and a write mask bit, set to keep the lane.
+inline int VFPUPrefixSwizzle(u32 prefix, int i) { return (prefix >> (i * 2)) & 3; }
+inline bool VFPUPrefixAbs(u32 prefix, int i) { return (prefix >> (8 + i)) & 1; }
+inline bool VFPUPrefixIsConstant(u32 prefix, int i) { return (prefix >> (12 + i)) & 1; }
+inline bool VFPUPrefixNegate(u32 prefix, int i) { return (prefix >> (16 + i)) & 1; }
+inline int VFPUPrefixSat(u32 prefix, int i) { return (prefix >> (i * 2)) & 3; }
+inline u8 VFPUPrefixWriteMask(u32 prefix) { return (prefix >> 8) & 0xF; }
+inline bool VFPUPrefixWriteMask(u32 prefix, int i) { return (prefix >> (8 + i)) & 1; }
+
+// The constants of an S or T prefix, by swizzle + 4 * abs.
+extern const float vfpuPrefixConstants[8];
+
+// The value of a lane with the constant bit, negate and all.
+inline float VFPUPrefixConstant(u32 prefix, int i) {
+	const float c = vfpuPrefixConstants[VFPUPrefixSwizzle(prefix, i) + (VFPUPrefixAbs(prefix, i) << 2)];
+	return VFPUPrefixNegate(prefix, i) ? -c : c;
+}
+
 enum VCondition
 {
 	VC_FL,
@@ -159,22 +174,6 @@ extern u8 fromvoffset[128];
 
 enum class CPUCore;
 
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-
-// Note that CTXREG is offset to point at the first floating point register, intentionally. This is so that a byte offset
-// can reach both GPR and FPR regs.
-#define MIPSSTATE_VAR(x) MDisp(X64JitConstants::CTXREG, \
-	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0])))
-
-// Workaround for compilers that don't like dynamic indexing in offsetof
-#define MIPSSTATE_VAR_ELEM32(x, i) MDisp(X64JitConstants::CTXREG, \
-	(int)(offsetof(MIPSState, x) - offsetof(MIPSState, f[0]) + (i) * 4))
-
-// To get RIP/relative addressing (requires tight memory control so generated code isn't too far from the binary, and a reachable variable called mips):
-// #define MIPSSTATE_VAR(x) M(&mips_->x)
-
-#endif
-
 // Only icache invalidations currently, so no type field.
 struct PendingCacheOperation {
 	u32 addr;
@@ -185,13 +184,23 @@ class MIPSState {
 public:
 	MIPSState();
 	~MIPSState();
+	// It owns its JIT.
+	MIPSState(const MIPSState &) = delete;
+	MIPSState &operator=(const MIPSState &) = delete;
 
 	void Init();
+	// Init without the JIT.
+	void InitRegisters();
 	void Shutdown();
 	void Reset();
 	void UpdateCore(CPUCore desired);
 
 	void DoState(PointerWrap &p);
+	// For the next DoState load: keep the JIT blocks entirely inside these (address, size) ranges,
+	// code the load leaves as it is, instead of starting the JIT over.
+	void KeepJitBlocksOnNextLoad(std::vector<std::pair<u32, u32>> ranges) {
+		keepJitBlocks_ = std::move(ranges);
+	}
 
 	// MUST start with r and be followed by f, v, and t!
 	u32 r[32];
@@ -245,6 +254,11 @@ public:
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
 
+	// COP0, for kernel code. Reads of Count (9) come from CoreTiming instead.
+	u32 cop0[32];
+	// COP0's control registers (cfc0/ctc0), which the firmware's exception code keeps state in.
+	u32 cop0Control[32];
+
 	// Temps needed for JitBranch.cpp experiments
 	u32 intBranchExit;
 	u32 jitBranchExit;
@@ -254,6 +268,15 @@ public:
 	alignas(16) u32 vcmpResult[4];
 
 	float sincostemp[2];
+
+	// The operands (s, then t) and result of the JITs' VFPU dot product routine (vfpu_dot()).
+	alignas(16) u32 vfpuDotArgs[8];
+	u32 vfpuDotResult;
+	// The ARM64 JIT's multi-dot routine (IROp::Vec4VfpuMultiDot): the vector registers it saves, and
+	// its operands (four term Vec4s and the vector) and result for inf and NaN.
+	alignas(16) u32 vfpuMultiDotSave[64];
+	alignas(16) float vfpuMultiDotArgs[20];
+	alignas(16) float vfpuMultiDotResult[4];
 
 	static const u32 FCR0_VALUE = 0x00003351;
 
@@ -266,13 +289,18 @@ public:
 #endif
 
 	u8 VfpuWriteMask() const {
-		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> 8) & 0xF;
+		return VFPUPrefixWriteMask(vfpuCtrl[VFPU_CTRL_DPREFIX]);
 	}
 	bool VfpuWriteMask(int i) const {
-		return (vfpuCtrl[VFPU_CTRL_DPREFIX] >> (8 + i)) & 1;
+		return VFPUPrefixWriteMask(vfpuCtrl[VFPU_CTRL_DPREFIX], i);
 	}
 
-	bool HasDefaultPrefix() const;
+	bool HasDefaultPrefix() const {
+		return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
+	}
+	bool IsMediaEngine() const {
+		return space && space->IsMediaEngine();
+	}
 
 	void SingleStep();
 	int RunLoopUntil(u64 globalTicks);
@@ -289,11 +317,23 @@ public:
 
 	void ProcessPendingInvalidates();
 
-private:
+	// Don't make private, see the static_assert below.
 	// Doesn't need save stating.
 	std::vector<PendingCacheOperation> pendingInvalidates_;
 	bool invalidateAll_ = false;
+	std::vector<std::pair<u32, u32>> keepJitBlocks_;
+
+	// Owned. Null on the interpreter.
+	MIPSComp::JitInterface *jit = nullptr;
+	// What this CPU sees of memory. The main CPU's is Memory::g_mainSpace.
+	const Memory::AddressSpace *space = nullptr;
 };
+
+// Access control ('private') break standard layout. Let's not allow it, to avoid excessive
+// compiler warnings. Hm, this seems to go wrong on MSVC in debug builds...
+#ifndef _MSC_VER
+static_assert(std::is_standard_layout_v<MIPSState>, "the JITs use offsetof on MIPSState");
+#endif
 
 class MIPSDebugInterface;
 
@@ -303,6 +343,21 @@ extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
 
+// With FS set, the host flushes a denormal input to a float->int conversion on ARM64 and x86 (DAZ),
+// but ARM32's libm rounds with integer code that doesn't, so it's flushed here
+// (cpu/fpu/denormal, cpu/vfpu/fcr31).
+inline float FlushForConversion(const MIPSState *mips, float f) {
+#if PPSSPP_ARCH(ARM)
+	u32 bits;
+	memcpy(&bits, &f, 4);
+	if ((mips->fcr31 & 0x01000000) != 0 && (bits & 0x7F800000) == 0) {
+		bits &= 0x80000000;
+		memcpy(&f, &bits, 4);
+	}
+#endif
+	return f;
+}
+
 extern const float cst_constants[32];
 
 // The guest's rounding mode and flush-to-zero flag (fcr31 bits 0-1 and 24) are emulated by putting
@@ -310,6 +365,9 @@ extern const float cst_constants[32];
 // That mode must not be left on while running anything that isn't emulating a guest instruction -
 // HLE syscalls, replacement functions, the GPU - so an emulation loop applies it on entry and
 // restores it before calling out, the way the JITs do (see Jit::ApplyRoundingMode).
-// Apply is cheap when the guest is in the default mode (by far the common case): it does nothing.
+// Both are cheap when the guest is in the default mode (by far the common case): they do nothing.
+// Otherwise apply reads the register once and restore just writes it back.
 void ApplyHostRoundingMode(const MIPSState *mips);
-void RestoreHostRoundingMode();
+// force also clears our bits when apply didn't set them, for callers that may run under a native
+// JIT, whose own asm stubs apply the mode.
+void RestoreHostRoundingMode(bool force = false);

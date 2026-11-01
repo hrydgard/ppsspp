@@ -13,10 +13,10 @@
 #include "UI/PopupScreens.h"
 
 JitCompareScreen::JitCompareScreen() : UITabbedBaseDialogScreen(Path()) {
-	if (!MIPSComp::jit) {
+	if (!mipsr4k.jit) {
 		return;
 	}
-	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCacheDebug = mipsr4k.jit->GetBlockCacheDebugInterface();
 	// The only defaults that make sense.
 	if (blockCacheDebug->SupportsProfiling()) {
 		listSort_ = ListSort::TIME_SPENT;
@@ -43,8 +43,8 @@ void JitCompareScreen::CreateTabs() {
 			{ "Executions", "I_ARROW_DOWN" },
 		};
 		int sortCount = ARRAY_SIZE(sortMenu);
-		if (MIPSComp::jit) {
-			JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+		if (mipsr4k.jit) {
+			JitBlockCacheDebugInterface *blockCacheDebug = mipsr4k.jit->GetBlockCacheDebugInterface();
 			if (!blockCacheDebug->SupportsProfiling()) {
 				sortCount -= 2;
 			}
@@ -133,7 +133,7 @@ void JitCompareScreen::CreateTabs() {
 }
 
 void JitCompareScreen::FillBlockList() {
-	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCacheDebug = mipsr4k.jit->GetBlockCacheDebugInterface();
 	blockList_.clear();
 	int64_t sumTotalNanos = 0;
 	int64_t sumExecutions = 0;
@@ -226,11 +226,11 @@ void JitCompareScreen::UpdateDisasm() {
 
 	using namespace UI;
 
-	if (!MIPSComp::jit) {
+	if (!mipsr4k.jit) {
 		return;
 	}
 
-	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCacheDebug = mipsr4k.jit->GetBlockCacheDebugInterface();
 
 	FillBlockList();
 
@@ -337,10 +337,10 @@ void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
+	if (!mipsr4k.jit) {
 		return;
 	}
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCache = mipsr4k.jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return;
 	u32 addr;
@@ -363,11 +363,11 @@ void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	if (!MIPSComp::jit) {
+	if (!mipsr4k.jit) {
 		return;
 	}
 
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCache = mipsr4k.jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return;
 
@@ -381,11 +381,11 @@ void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 
 /*
 void JitCompareScreen::OnRandomBlock(int flag) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-	if (!MIPSComp::jit) {
+	std::lock_guard<std::recursive_mutex> guard(mipsr4k.jitLock);
+	if (!mipsr4k.jit) {
 		return;
 	}
-	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCache = mipsr4k.jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return;
 

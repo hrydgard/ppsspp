@@ -353,7 +353,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		flag = ( cmd<<(16-flag_bits))&0xffff;
 		flag = (flag>>(16-flag_bits))&0xffff;
 		if (flag >= flag_table_size) {
-			ERROR_LOG_REPORT(Log::Loader, "Rel2: flag %d out of range (table has %d)", flag, flag_table_size);
+			ERROR_LOG(Log::Loader, "Rel2: flag %d out of range (table has %d)", flag, flag_table_size);
 			return;
 		}
 		flag = flag_table[flag];
@@ -364,7 +364,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		type = ( cmd<<(16-type_bits-seg_bits-flag_bits))&0xffff;
 		type = (type>>(16-type_bits))&0xffff;
 		if (type >= type_table_size) {
-			ERROR_LOG_REPORT(Log::Loader, "Rel2: type %d out of range (table has %d)", type, type_table_size);
+			ERROR_LOG(Log::Loader, "Rel2: type %d out of range (table has %d)", type, type_table_size);
 			return;
 		}
 		type = type_table[type];
@@ -379,21 +379,21 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid size flag! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid size flag! %x", flag);
 				rel_base = 0;
 			}
 		}else{
 			addr_seg = seg;
 			if (!SegmentIsLoaded(addr_seg)) {
 				if (!loggedBadSegment) {
-					ERROR_LOG_REPORT(Log::Loader, "Rel2: relocating against segment %d, which we didn't load", addr_seg);
+					ERROR_LOG(Log::Loader, "Rel2: relocating against segment %d, which we didn't load", addr_seg);
 					loggedBadSegment = true;
 				}
 				continue;
 			}
 			relocate_to = segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
-				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
+				ERROR_LOG(Log::Loader, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
 			}
 
@@ -423,21 +423,23 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
 			}
 
 			// seg is seg_bits wide, so it can name more segments than the file actually has - and
 			// naming one we didn't load leaves nothing to write to.
 			if (!SegmentIsLoaded(off_seg)) {
 				if (!loggedBadSegment) {
-					ERROR_LOG_REPORT(Log::Loader, "Rel2: bad or unloaded offset segment %d", off_seg);
+					ERROR_LOG(Log::Loader, "Rel2: bad or unloaded offset segment %d", off_seg);
 					loggedBadSegment = true;
 				}
 				continue;
 			}
 			rel_offset = rel_base+segmentVAddr[off_seg];
-			if (!Memory::IsValidAddress(rel_offset)) {
-				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad rel_offset: %08x", rel_offset);
+
+			// We didn't check alignment here before, but it has to be right to do so.
+			if (!Memory::IsValid4AlignedAddress(rel_offset)) {
+				ERROR_LOG(Log::Loader, "ELF: Bad rel_offset: %08x", rel_offset);
 				continue;
 			}
 
@@ -459,10 +461,10 @@ void ElfReader::LoadRelocations2(int rel_seg)
 					lo16 |= 0xffff0000;
 				buf += 2;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid lo16 type! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid lo16 type! %x", flag);
 			}
 
-			op = Memory::Read_Instruction(rel_offset, true).encoding;
+			op = Memory::Read_Instruction(rel_offset).encoding;
 			const u32 origOp = op;
 			VERBOSE_LOG(Log::Loader, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
@@ -496,7 +498,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				op = (op&0xffff0000) | (((op&0xffff)+relocate_to)&0xffff);
 				break;
 			default:
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: unexpected relocation type! %x", type);
+				ERROR_LOG(Log::Loader, "Rel2: unexpected relocation type! %x", type);
 				break;
 			}
 
@@ -584,6 +586,23 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	}
 
 	bool kernelModule = modInfo ? (modInfo->moduleAttrs & 0x1000) != 0 : false;
+
+	// A PRX cut off where its relocation sections start, like PMDVIS's kcall.prx. On a PSP-1000
+	// (6.61) it loads unrelocated if syslib is its only export library, from user or kernel mode, but
+	// with another library the load never returns and the PSP hangs (pspautotests modules/cutrel and
+	// modules/cutrel/kernel, which leave that case out). Refuse that one instead, with the error
+	// PSPLink's modload gave for PMDVIS's file, so the program can carry on without it.
+	const bool exportsLibraries = modInfo && modInfo->libentend - modInfo->libent > 16;  // One entry is syslib's.
+	if (bRelocate && exportsLibraries) {
+		for (int i = 0; i < GetNumSections(); i++) {
+			const Elf32_Shdr *s = &sections[i];
+			if (s->sh_type == SHT_PSPREL && s->sh_size != 0 && s->sh_offset >= size_) {
+				loadError_ = StringFromFormat("Relocation section %d starts at %d, past the end of the file (%d bytes)", i, (int)s->sh_offset, (int)size_);
+				ERROR_LOG(Log::Loader, "%s", loadError_.c_str());
+				return SCE_KERNEL_ERROR_UNSUPPORTED_PRX_TYPE;
+			}
+		}
+	}
 
 	std::string modName = "ELF";
 	if (modInfo) {

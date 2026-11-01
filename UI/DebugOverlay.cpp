@@ -7,6 +7,7 @@
 #include "Common/Data/Text/StringWriter.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
 #include "Core/HLE/sceSas.h"
@@ -61,6 +62,39 @@ static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
+}
+
+static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+
+	char statbuf[1024];
+	StringWriter w(statbuf, sizeof(statbuf));
+	if (mipsr4k.jit) {
+		MIPSComp::JitStats stats;
+		mipsr4k.jit->GetStats(&stats);
+		const double irPercent = stats.irArenaSize ? 100.0 * stats.irArenaUsed / stats.irArenaSize : 0.0;
+		w.F("Blocks: %d (%d valid)\n", stats.numBlocks, stats.numValidBlocks);
+		if (stats.codeSize) {
+			w.F("Native code: %0.2f / %0.2f MB (%0.1f%%)\n", stats.codeUsed / (1024.0 * 1024.0), stats.codeSize / (1024.0 * 1024.0),
+				100.0 * stats.codeUsed / stats.codeSize);
+			w.F("Cleared because full: %d\n", stats.codeFullClears);
+		} else {
+			w.F("IR arena: %d / %d instructions (%0.1f%%)\n", (int)stats.irArenaUsed, (int)stats.irArenaSize, irPercent);
+			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
+		}
+		w.F("Invalidations: %d (%d blocks)\n", stats.invalidations, stats.invalidatedBlocks);
+	} else {
+		w.W("No JIT (interpreter)\n");
+	}
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(.7f, .7f);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
@@ -271,6 +305,10 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 		if (inGame)
 			DrawFramebufferList(ctx, gpu, layoutBounds);
 		break;
+	case DebugOverlay::JIT_STATS:
+		if (inGame)
+			DrawJitStats(ctx, layoutBounds);
+		break;
 	default:
 		break;
 	}
@@ -419,6 +457,13 @@ PC: %08x
 )", info.pc);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
+	} else if (info.type == MIPSExceptionType::HLE) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+%s
+PC: %08x
+RA: %08x)", info.info.c_str(), info.pc, info.ra);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
@@ -506,8 +551,10 @@ void DrawFPS(UIContext *ctx, const Bounds &bounds) {
 	if (System_GetPropertyBool(SYSPROP_CAN_READ_BATTERY_PERCENTAGE)) {
 		if (g_Config.iShowStatusFlags & (int)ShowStatusFlags::BATTERY_PERCENT) {
 			const int percentage = System_GetPropertyInt(SYSPROP_BATTERY_PERCENTAGE);
-			// Just plain append battery. Add linebreak?
-			w.F(" Battery: %d%%", percentage);
+			// Just plain append battery. Add linebreak? Nothing without a battery.
+			if (percentage >= 0) {
+				w.F(" Battery: %d%%", percentage);
+			}
 		}
 	}
 

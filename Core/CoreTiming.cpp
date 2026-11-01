@@ -30,10 +30,11 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
-#include "Core/Config.h"
+#include "Core/Instance.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 
 static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
@@ -45,6 +46,8 @@ int CPU_HZ = 222000000;
 namespace CoreTiming {
 
 static std::vector<EventType> event_types;
+// Far more than ever registered. Counts and ids from a savestate are checked against it.
+static constexpr int MAX_EVENT_TYPES = 4096;
 // Only used during restore.
 static std::set<int> usedEventTypes;
 static std::set<int> restoredEventTypes;
@@ -56,6 +59,8 @@ static Event *eventPool = 0;
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
 int slicelength;
+// How much of the current slice the other CPUs have already run (CatchUpOtherCPUs).
+static int otherCPUsRan = 0;
 
 alignas(16) static s64 globalTimer;
 static s64 idledCycles;
@@ -65,6 +70,8 @@ static s64 lastGlobalTimeUs;
 // debugger session, not to the emulated machine.
 static s64 breakDeadlineUs;
 static s64 breakDeadlineTicks;
+// The last emulated millisecond reported to the other instances (see InstanceSyncReached).
+static s64 lastInstanceSyncMs = -1;
 static void RecomputeBreakDeadline();
 
 bool SetClockFrequencyHz(int cpuHz) {
@@ -190,6 +197,9 @@ void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callb
 	// Some old states have a duplicate restore, do our best to fix...
 	if (restoredEventTypes.count(event_type) != 0)
 		event_type = -1;
+	// Straight from the file, so don't let a bogus id size the table.
+	if (event_type < -1 || event_type >= MAX_EVENT_TYPES)
+		event_type = -1;
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
 	if (event_type >= (int)event_types.size()) {
@@ -213,12 +223,14 @@ void UnregisterAllEvents() {
 void Init(MIPSState *mips) {
 	mips->downcount = INITIAL_SLICE_LENGTH;
 	slicelength = INITIAL_SLICE_LENGTH;
+	otherCPUsRan = 0;
 	globalTimer = 0;
 	idledCycles = 0;
 	lastGlobalTimeTicks = 0;
 	lastGlobalTimeUs = 0;
 	breakDeadlineUs = 0;
 	breakDeadlineTicks = 0;
+	lastInstanceSyncMs = -1;
 	CPU_HZ = initialHz;
 }
 
@@ -409,8 +421,25 @@ void ProcessEvents() {
 	}
 }
 
+// The Media Engine catches up with the main CPU.
+static void RunOtherCPUs(int cycles) {
+	if (MeCore::g_meState) {
+		MeCore::RunFor(cycles - otherCPUsRan);
+	}
+	otherCPUsRan = 0;
+}
+
+void CatchUpOtherCPUs(MIPSState *mips) {
+	const int ran = slicelength - mips->downcount;
+	if (MeCore::g_meState && ran > otherCPUsRan) {
+		MeCore::RunFor(ran - otherCPUsRan);
+		otherCPUsRan = ran;
+	}
+}
+
 void ForceCheck(MIPSState *mips) {
 	int cyclesExecuted = slicelength - mips->downcount;
+	RunOtherCPUs(cyclesExecuted);
 	globalTimer += cyclesExecuted;
 	// This will cause us to check for new events immediately.
 	mips->downcount = -1;
@@ -425,8 +454,18 @@ void ForceCheck(MIPSState *mips) {
 void Advance(MIPSState *mips) {
 	PROFILE_THIS_SCOPE("advance");
 	int cyclesExecuted = slicelength - mips->downcount;
+	RunOtherCPUs(cyclesExecuted);
 	globalTimer += cyclesExecuted;
 	mips->downcount = slicelength;
+
+	// Keep in step with the other instances. Before the deadline below, so one stopping there has
+	// still told the others it got this far.
+	// Counted in time, not cycles: a game can change the CPU clock, and the instances wouldn't agree.
+	const bool instanceSync = InstanceSyncEnabled();
+	if (instanceSync && (s64)(GetGlobalTimeUs() / 1000) != lastInstanceSyncMs) {
+		lastInstanceSyncMs = (s64)(GetGlobalTimeUs() / 1000);
+		InstanceSyncReached(lastInstanceSyncMs);
+	}
 
 	// Debugger deadline - see SetBreakDeadlineTicks. Checked before the events so the break lands
 	// on the requested tick rather than after whatever the events do.
@@ -459,6 +498,16 @@ void Advance(MIPSState *mips) {
 	// past it - the point of cpu.runUntilTime is that it stops at a reproducible place.
 	if (breakDeadlineTicks) {
 		const s64 remaining = breakDeadlineTicks - globalTimer;
+		if (remaining > 0 && remaining < slicelength) {
+			const int diff = (int)remaining - slicelength;
+			slicelength += diff;
+			mips->downcount += diff;
+		}
+	}
+
+	// Likewise come back at the next millisecond, for the instance sync.
+	if (instanceSync) {
+		const s64 remaining = usToCycles((lastInstanceSyncMs + 1) * 1000 - (s64)GetGlobalTimeUs());
 		if (remaining > 0 && remaining < slicelength) {
 			const int diff = (int)remaining - slicelength;
 			slicelength += diff;
@@ -539,10 +588,20 @@ void DoState(PointerWrap &p) {
 	auto s = p.Section("CoreTiming", 1, 3);
 	if (!s)
 		return;
+	// States are saved between slices.
+	otherCPUsRan = 0;
+	// A debugger's run-until deadline keeps the time it had left, not its absolute time, which
+	// belongs to the timeline being replaced.
+	const s64 deadlineLeftUs = p.mode == PointerWrap::MODE_READ && breakDeadlineUs ? breakDeadlineUs - (s64)GetGlobalTimeUs() : 0;
 
 	int n = (int)event_types.size();
 	int current = n;
 	Do(p, n);
+	if (n < 0 || n > MAX_EVENT_TYPES) {
+		ERROR_LOG(Log::SaveState, "Savestate failure: implausible event type count %d", n);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	if (n > current) {
 		if (p.mode != PointerWrap::MODE_READ) {
 			WARN_LOG(Log::SaveState, "Savestate failure: more events than current");
@@ -580,6 +639,13 @@ void DoState(PointerWrap &p) {
 	}
 
 	Do(p, CPU_HZ);
+	if (CPU_HZ <= 0) {
+		// Everything divides by it.
+		ERROR_LOG(Log::SaveState, "Savestate failure: bad CPU frequency %d", (int)CPU_HZ);
+		p.SetError(p.ERROR_FAILURE);
+		CPU_HZ = 222000000;
+		return;
+	}
 	Do(p, slicelength);
 	Do(p, globalTimer);
 	Do(p, idledCycles);
@@ -592,7 +658,9 @@ void DoState(PointerWrap &p) {
 		lastGlobalTimeUs = 0;
 	}
 	if (p.mode == PointerWrap::MODE_READ) {
-		// A debugger's run-until deadline is in emulated us, and the ticks it maps to just changed.
+		if (breakDeadlineUs) {
+			breakDeadlineUs = (s64)GetGlobalTimeUs() + std::max(deadlineLeftUs, (s64)0);
+		}
 		RecomputeBreakDeadline();
 	}
 

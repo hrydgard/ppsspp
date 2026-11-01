@@ -5,7 +5,8 @@ walk one and extract the files out of it without emulating the updater, which is
 `Core/Util/PSARUnpack.cpp` does. The main use is getting `flash0:/font` - the PGF system fonts -
 out of an updater the user already has, since most UMDs carry one.
 
-This document is what was learned reading 43 different firmware versions, from 1.50 to 6.61. It's
+This document is what was learned reading every official updater from 1.00 to 6.61, plus the
+pre-decrypted archives going around for the versions that never had a downloadable one. It's
 a description of the format rather than of the code; the code is the same shape but has the error
 handling.
 
@@ -69,11 +70,14 @@ Every encrypted block - entry descriptions and file contents alike - is decoded 
 
 2. **PRX decrypt.** The block is now an ordinary PRX blob, with its tag at block+0xD0. Run it
    through the normal PRX decrypter (`pspDecryptPRX`). The tag official updaters use is
-   **0x0E000000**; `0x06000000` also appears in the wild.
+   **0x0E000000**. The 1.00 updater's version 1 archive uses **0x06000000** (with KIRK code
+   0x49) instead.
 
-   Note that `0x0E000000`'s key is stored *unscrambled*, unlike almost every other key in
-   PPSSPP's tag table, so it needs the `kirk7` pass applied before use - that's what the
-   `scrambleKey` flag on `TAG_INFO` is for.
+   Both keys are stored *unscrambled*, unlike almost every other key in PPSSPP's tag table, so
+   they need the `kirk7` pass applied before use - that's what the `scrambleKey` flag on
+   `TAG_INFO` is for. They come from 1.50's `mesg_led.prx`, which keeps its keys raw in a table
+   of `tag, 0x90-byte key, 4 zero bytes` entries: decrypt it with `--re-decrypt` and the key
+   follows its tag.
 
 One wrinkle worth knowing: the decrypter reads a little past the end of the block and **uses what
 it finds there**, so a decoder should hand it about 16 bytes of slack from the archive. The last
@@ -99,6 +103,11 @@ The first record (at +0x10) is not a file. Decoded, it holds a text string at +0
 comma-separated field is the firmware version, e.g. `...,6.61`. That's the authoritative version
 for choosing decryption keys further down.
 
+A version 1 archive's first record has no text. It's three u32s, `0, 106, 214` in 1.00's, which
+are the build number (`build:106` in its `version.txt`) and the number of records counting this
+one, and the rest is zero. The version has to come from the firmware's own
+`flash0:/vsh/etc/version.txt`, which is in the archive.
+
 There is a second record after it whose length isn't recorded anywhere. In practice it is
 `overhead + 100`, or `overhead + 144` on 2.7x, or `overhead + u16 at +0x90 of the first record`.
 Try them in that order and take the first that decodes. Round the result up to a multiple of 16
@@ -115,7 +124,7 @@ The contents block decodes to a compressed stream. Sniff the first bytes:
 | `KL3E` | KL3E - likewise |
 | `2RLZ` | LZR |
 
-Across all 43 firmware versions examined, **every file in every archive was zlib**. KL4E does turn
+In every firmware version examined, **every file in every archive was zlib**. KL4E does turn
 up on the PSP, but a layer further in: two kernel modules (`memlmd_01g.prx` and `loadexec_01g.prx`)
 are themselves KL4E-compressed *inside* their own PRX, which is a separate problem from this one.
 
@@ -192,7 +201,7 @@ Three structural eras, visible in the shape of the output:
 
 | Firmware | Naming | Directory entries | Fonts |
 | --- | --- | --- | --- |
-| 1.50 - 3.52 | real paths | 0-16 | 17-20 |
+| 1.00 - 3.52 | real paths | 0-16 | 17-20 |
 | 3.71 - 4.05 | `com:`/`NNg:` groups | 50 | 21 |
 | 5.01 - 6.61 | flat + per-model lists | 16-17 | 21 |
 
@@ -212,6 +221,7 @@ The "Fonts" column above counts files in `flash0:/font`, not PGFs specifically.
 - Don't assume there are file lists at all - 1.x and 2.x have none.
 - `ipl:` is a device too.
 - A 3.x path has no colon; a 6.x path does.
+- Don't count on the first record for the version: a version 1 archive (1.00) has no text there.
 
 ## See also
 

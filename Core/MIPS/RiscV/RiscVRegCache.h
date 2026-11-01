@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <initializer_list>
+
 #include "Common/RiscVEmitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRJit.h"
@@ -59,6 +61,8 @@ public:
 	RiscVGen::RiscVReg Normalize32(IRReg reg, RiscVGen::RiscVReg destReg = RiscVGen::INVALID_REG);
 
 	void FlushBeforeCall();
+	// Flushes whatever guest state these registers hold, for code that clobbers them.
+	void FlushHostRegs(std::initializer_list<RiscVGen::RiscVReg> regs);
 
 	RiscVGen::RiscVReg GetAndLockTempGPR();
 

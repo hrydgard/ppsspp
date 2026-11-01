@@ -121,6 +121,11 @@ void MemArena::ReleaseSpace() {
 		close(fd);
 	}
 	fd = -1;
+	if (reserved_mem) {
+		munmap(reserved_mem, reserved_size);
+		reserved_mem = nullptr;
+		reserved_size = 0;
+	}
 }
 
 void *MemArena::CreateView(s64 offset, size_t size, void *base) {
@@ -133,7 +138,14 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 }
 
 void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
-	munmap(view, size);
+	const uintptr_t start = (uintptr_t)view;
+	if (reserved_mem && start >= (uintptr_t)reserved_mem && start + size <= (uintptr_t)reserved_mem + reserved_size) {
+		// Put the reservation back instead of leaving a hole, which another thread could map into before
+		// ReleaseSpace unmaps the whole range.
+		mmap(view, size, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE | MAP_FIXED, -1, 0);
+	} else {
+		munmap(view, size);
+	}
 }
 
 u8* MemArena::Find4GBBase() {
@@ -159,14 +171,21 @@ u8* MemArena::Find4GBBase() {
 	}
 #else
 	// Address masking is used in 32-bit mode, so we can get away with less memory.
-	void *base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
+	// Keep the range reserved, and map the views over it. Unmapping it would let the heap and the driver
+	// allocate in the gaps between the views (where stray guest accesses then land), or even where a
+	// view is about to go, which the view's MAP_FIXED would then silently replace.
+	void *base = mmap(0, 0x10000000, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
 
 	if (base == MAP_FAILED) {
 		ERROR_LOG(Log::System, "Failed to map 256 MB of memory space: %s", strerror(errno));
 		return nullptr;
 	}
 
-	munmap(base, 0x10000000);
+	if (reserved_mem) {
+		munmap(reserved_mem, reserved_size);
+	}
+	reserved_mem = base;
+	reserved_size = 0x10000000;
 	return static_cast<u8*>(base);
 #endif
 }

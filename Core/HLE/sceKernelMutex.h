@@ -58,7 +58,7 @@ struct PSPMutex : public KernelObject {
 };
 
 int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr);
-int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
+int sceKernelCreateMutex(MIPSState *mips, const char *name, u32 attr, int initialCount, u32 optionsPtr);
 int sceKernelDeleteMutex(SceUID id);
 int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr);
 int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr);
@@ -66,7 +66,7 @@ int sceKernelTryLockMutex(SceUID id, int count);
 int sceKernelUnlockMutex(SceUID id, int count);
 int sceKernelReferMutexStatus(SceUID id, u32 infoAddr);
 
-int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
+int sceKernelCreateLwMutex(MIPSState *mips, u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr);
 int sceKernelDeleteLwMutex(u32 workareaPtr);
 int sceKernelTryLockLwMutex(u32 workareaPtr, int count);
 int sceKernelTryLockLwMutex_600(u32 workareaPtr, int count);

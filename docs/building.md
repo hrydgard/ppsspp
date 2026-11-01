@@ -77,6 +77,15 @@ bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across m
 platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
 test by name instead (skip `Jit`) to still get real coverage.
 
+## FFmpeg
+
+Every build compiles FFmpeg (3.0.2) itself, from the copy vendored into `ext/ffmpeg`. There's no
+configure step: `ext/ffmpeg-build` has a hand-kept `config.h` and `sources.mk`, the one list of
+files that every build system uses. After changing the list, run `ext/ffmpeg-build/update_vcxproj.py`
+to copy it into the VS projects. How it works, how to add a codec and why it's done this way are in
+`ext/ffmpeg/README.md`. CMake still links the system's FFmpeg with `-DUSE_SYSTEM_FFMPEG=ON`, or one
+in `FFMPEG_DIR`.
+
 ## UWP build
 
 UWP has its own solution, `UWP\PPSSPP_UWP.sln`. Build the app with `/t:PPSSPP_UWP` (or a single
@@ -85,6 +94,21 @@ library such as `/t:CoreUWP`), same MSBuild setup as above:
 ```powershell
 & $msbuild "UWP\PPSSPP_UWP.sln" /t:PPSSPP_UWP /p:Configuration=Debug /p:Platform=<platform> /m
 ```
+
+## iOS simulator build
+
+On an Apple Silicon Mac, `./b-ios-simulator.sh` builds the App Store variant for the iOS simulator
+into `build-ios-sim/`, then installs and launches it. `./b-ios-simulator.sh "iPhone Duo"` runs it on a
+simulator of that type (names from `xcrun simctl list devicetypes`), creating and booting one if
+needed. Without a name it uses the booted simulator, or boots the newest iPhone. The script also
+opens the simulator UI, which Xcode 27 calls DeviceHub (it replaced Simulator.app). Set
+`CONFIGURATION=Release` for a release build.
+
+`xcrun simctl io booted screenshot shot.png` saves a screenshot at the device's full resolution,
+as App Store Connect wants it. To work in Xcode instead, `open build-ios-sim/PPSSPP.xcodeproj` and
+pick a simulator as the run destination.
+
+The simulator build renders with Metal only and doesn't link MoltenVK.
 
 ## Android assets
 
@@ -105,6 +129,26 @@ by default, but if you want to test-build it locally:
   derived from the machine (nproc / %NUMBER_OF_PROCESSORS%).
 - Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
 - The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
+
+## tvOS
+
+The tvOS app is the iOS app with the iPhone-only parts compiled out, checked with
+`PPSSPP_PLATFORM(TVOS)` (tvOS also gets `PPSSPP_PLATFORM(IOS)`). The CMake side is the iOS toolchain
+with `-DIOS_PLATFORM=TVOS`, which sets `TVOS`.
+
+- `./b-tvos.sh` builds an unsigned app into `build-tvos-xcode/Release-appletvos/`.
+  `DEVELOPMENT_TEAM=<team> DEVICE=<udid> ./b-tvos.sh` signs it, registers the Apple TV with the team
+  if needed, installs it and launches it with the console attached.
+- To pair an Apple TV, put it on Settings > Remotes and Devices > Remote App and Devices. It doesn't
+  show in `xcrun devicectl list devices` until paired; find it with
+  `dns-sd -B _remotepairing-manual-pairing._tcp` and `xcrun devicectl device info details --device <name>`,
+  then `xcrun devicectl manage pair --device <identifier>` and enter the code it shows.
+- `./b.sh --tvos --libretro` (and `./b.sh --ios --libretro`) build the libretro cores. tvOS has no
+  `sigaltstack`, among other things, so this is the build that catches it.
+- There's no tvOS simulator build. FFmpeg having no tvOS simulator libraries was what stopped it,
+  which no longer applies now that it's built from source, but nobody has tried since.
+- tvOS apps have no persistent storage except about 500 KB of `NSUserDefaults`. Anything else may be
+  purged, so the memory stick is in Caches for now.
 
 ## libretro core build (Windows)
 
@@ -191,7 +235,7 @@ That's normal and not a test failure - read the `N tests passed, N tests failed`
 
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
 
-### LoongArch64 and RISC-V JITs under qemu
+### LoongArch64, RISC-V and ARM32 JITs under qemu
 
 CI tests these JITs by cross-building headless and running pspautotests under qemu-user, and you can do the
 same on Linux (packages: `gcc-14-loongarch64-linux-gnu g++-14-loongarch64-linux-gnu qemu-user`, or the riscv64
@@ -210,6 +254,18 @@ binary, or it runs your native build instead. The full suite takes a couple of m
 
 qemu reports LSX and LASX as present, so CI only exercises the LoongArch vector paths.
 The scalar fallbacks never run here, so passing tells you nothing about them.
+
+The 32-bit ARM JIT works the same way with `./b.sh --armhf` (into `build-armhf/`) and `qemu-arm -L
+/usr/arm-linux-gnueabihf`. The cross packages are `gcc-14-arm-linux-gnueabihf g++-14-arm-linux-gnueabihf`, and
+`sudo cmake/scripts/setup-cross.sh armhf` adds the GL and EGL stubs the link needs. Without root, `apt-get download`
+the packages, `dpkg-deb -x` them into one directory, and point `CROSS_ARMHF` at it: the toolchain file then takes
+the sysroot from `$CROSS_ARMHF/usr/arm-linux-gnueabihf`. The binutils need `LD_LIBRARY_PATH` to include
+`$CROSS_ARMHF/usr/lib/x86_64-linux-gnu`, glibc's `libc.so` linker script names absolute paths that have to be
+rewritten to the new root, and the stubs are copied in by hand. For a debugger, run `qemu-arm -g PORT` and attach
+`gdb-multiarch` to it.
+
+GitHub's arm64 runners can't run the armhf build natively: some of their hosts are Neoverse V3, which has no
+AArch32, and a job can't pick its host. So CI runs ARM32 under qemu on x86-64 too.
 
 Without a cross toolchain (on macOS, say) two things still help:
 

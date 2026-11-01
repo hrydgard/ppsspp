@@ -141,6 +141,8 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 		return PreferUpperCaseDir(pspDirectory, "SHADERS", "shaders");
 	case DIRECTORY_CUSTOM_THEMES:
 		return PreferUpperCaseDir(pspDirectory, "THEMES", "themes");
+	case DIRECTORY_CUSTOM_OVERLAYS:
+		return PreferUpperCaseDir(pspDirectory, "OVERLAYS", "overlays");
 	case DIRECTORY_NAND:
 		return pspDirectory / "NAND";
 
@@ -268,7 +270,8 @@ std::string GetFriendlyPath(Path path, const Path &rootMatch, std::string_view r
 		}
 	}
 
-#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC))
+// On iOS and tvOS, HOME is the app's container.
+#if !PPSSPP_PLATFORM(ANDROID) && (PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS))
 	std::string str = path.ToString();
 	char *home = getenv("HOME");
 	if (home != nullptr && !strncmp(str.c_str(), home, strlen(home))) {
@@ -276,4 +279,22 @@ std::string GetFriendlyPath(Path path, const Path &rootMatch, std::string_view r
 	}
 #endif
 	return path.ToVisualString();
+}
+
+Path GetDefaultDesktopMemStickDirectory() {
+	const char *home = getenv("HOME");
+#if PPSSPP_PLATFORM(MAC)
+	return Path(home ? home : ".") / ".config/ppsspp";
+#else
+	std::string config;
+	if (getenv("XDG_CONFIG_HOME") != nullptr) {
+		config = getenv("XDG_CONFIG_HOME");
+	} else if (home) {
+		config = home + std::string("/.config");
+	} else {
+		// Just in case.
+		config = "./config";
+	}
+	return Path(config) / "ppsspp";
+#endif
 }

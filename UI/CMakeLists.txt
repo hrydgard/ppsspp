@@ -7,6 +7,7 @@ if(NOT LIBRETRO)
 endif()
 
 list(APPEND UISource
+	ImDebugger/ImCommand.h
 	ImDebugger/ImDebugger.cpp
 	ImDebugger/ImDebugger.h
 	ImDebugger/ImGe.cpp
@@ -22,6 +23,7 @@ list(APPEND UISource
 	ImDebugger/ImJitViewer.cpp
 	ImDebugger/ImJitViewer.h
 	DiscordIntegration.cpp
+	DiscordIntegration.h
 	NativeApp.cpp
 	AdhocServerScreen.h
 	AdhocServerScreen.cpp
@@ -41,6 +43,8 @@ list(APPEND UISource
 	DisplayLayoutScreen.h
 	EmuScreen.h
 	EmuScreen.cpp
+	ImposeHome.h
+	ImposeHome.cpp
 	GameInfoCache.h
 	GameInfoCache.cpp
 	IAPScreen.cpp
@@ -49,6 +53,8 @@ list(APPEND UISource
 	MainScreen.cpp
 	GameBrowser.h
 	GameBrowser.cpp
+	GameButton.h
+	GameButton.cpp
 	MiscScreens.h
 	MiscScreens.cpp
 	MiscViews.h
@@ -59,12 +65,27 @@ list(APPEND UISource
 	SimpleDialogScreen.cpp
 	TabbedDialogScreen.h
 	TabbedDialogScreen.cpp
+	SettingsPage.h
+	SettingsPage.cpp
+	Settings/MainSettingsPages.h
+	Settings/GraphicsPage.cpp
+	Settings/ControlsPage.cpp
+	Settings/AudioPage.cpp
+	Settings/NetworkingPage.cpp
+	Settings/GeneralPage.cpp
+	Settings/SystemPage.cpp
+	Settings/ToolsPage.cpp
+	Settings/VRPage.cpp
+	SettingsPagesDialogScreen.h
+	SettingsPagesDialogScreen.cpp
 	GameScreen.h
 	GameScreen.cpp
+	GamePacker.h
+	GamePacker.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
-	DeveloperToolsScreen.h
-	DeveloperToolsScreen.cpp
+	DeveloperSettingsPages.h
+	DeveloperSettingsPages.cpp
 	DriverManagerScreen.h
 	DriverManagerScreen.cpp
 	GPUDriverTestScreen.h
@@ -91,6 +112,8 @@ list(APPEND UISource
 	ReportScreen.cpp
 	SavedataScreen.h
 	SavedataScreen.cpp
+	ShareFiles.h
+	ShareFiles.cpp
 	SystemInfoScreen.h
 	SystemInfoScreen.cpp
 	Store.h

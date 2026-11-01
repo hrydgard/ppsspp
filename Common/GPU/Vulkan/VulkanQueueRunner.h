@@ -11,7 +11,6 @@
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
 #include "Common/GPU/Vulkan/VulkanFrameData.h"
 #include "Common/GPU/Vulkan/VulkanFramebuffer.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/GPU/DataFormat.h"
 
@@ -26,6 +25,7 @@ enum {
 	QUEUE_HACK_MGS2_ACID = 1,
 	QUEUE_HACK_SONIC = 2,
 	QUEUE_HACK_RENDERPASS_MERGE = 8,
+	QUEUE_HACK_TILED_DEPAL = 16,
 };
 
 enum class VKRRenderCommand : uint8_t {
@@ -99,7 +99,7 @@ struct VkRenderData {
 			uint8_t stencilRef;
 		} stencil;
 		struct {
-			uint32_t color;
+			float color[4];
 		} blendColor;
 		struct {
 			VkShaderStageFlags stages;
@@ -129,9 +129,10 @@ struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
+	bool samples = false;  // The multisampled color image, instead of the resolved one.
 
 	bool operator == (const TransitionRequest &other) const {
-		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout;
+		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout && samples == other.samples;
 	}
 };
 
@@ -149,6 +150,8 @@ struct VKRStep {
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;
+			// With no framebuffer: an additional swapchain, or nullptr for the main one.
+			VKRSwapchain *swapchain;
 			VKRRenderPassLoadAction colorLoad;
 			VKRRenderPassLoadAction depthLoad;
 			VKRRenderPassLoadAction stencilLoad;
@@ -248,7 +251,7 @@ public:
 	}
 
 	// src == 0 means to copy from the sync readback buffer.
-	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int x, int y, int width, int height, VkImageAspectFlags aspectMask, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 
@@ -270,6 +273,9 @@ public:
 
 	bool InitBackbufferFramebuffers(int width, int height, FrameDataShared &frameDataShared);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
+	// For additional swapchains too. The depth image is transitioned by the barriers.
+	VkFramebuffer CreateBackbufferFramebuffer(VkImageView colorView, VkImageView depthView, int width, int height);
+	bool CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
 private:
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
@@ -289,6 +295,7 @@ private:
 
 	static void ApplyMGSHack(std::vector<VKRStep *> &steps);
 	static void ApplySonicHack(std::vector<VKRStep *> &steps);
+	static void ApplyTiledDepalHack(std::vector<VKRStep *> &steps);
 	static void ApplyRenderPassMerge(std::vector<VKRStep *> &steps);
 
 	static void SetupTransferDstWriteAfterWrite(VKRImage &img, VkImageAspectFlags aspect, VulkanBarrierBatch *recordBarrier);

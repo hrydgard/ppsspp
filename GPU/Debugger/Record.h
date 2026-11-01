@@ -50,6 +50,9 @@ public:
 		return nextFrame || active;
 	}
 	bool RecordNextFrame(const std::function<void(const Path &)> callback);
+	// A savestate load replaced everything a recording in progress started from. It starts over
+	// from the loaded state, at the next frame.
+	void RestartAfterLoad();
 	void ClearCallback() {
 		std::lock_guard<std::mutex> guard(callbackLock_);
 		writeCallback = nullptr;
@@ -82,6 +85,10 @@ private:
 	int CompareLastVRAM(u32 addr, u32 bytes) const;
 
 	u32 GetTargetFlags(u32 addr, u32 sizeInRAM);
+	void ReadbackUndrawnVRAM(u32 addr, u32 bytes);
+	void NoteTargetWrite(u32 addr, u32 bytes);
+	bool DisplayDrawnEarly(u32 addr, u32 bytes) const;
+	void PushDisplay(u32 framebuf, int stride, int fmt);
 
 	void FlushPrimState(int vcount);
 	void EmitTextureData(int level, u32 texaddr);
@@ -104,6 +111,19 @@ private:
 	std::vector<u32> lastRegisters;
 	std::vector<u32> lastTextures;
 	std::set<u32> lastRenderTargets;
+	std::set<u32> readbackAddrs;
+
+	// The VRAM each draw or transfer wrote (offsets in VRAM), and when, to see whether the display buffer only got
+	// an early copy (see NotifyDisplay).
+	struct TargetWrite {
+		u32 start;
+		u32 end;
+		int last;
+	};
+	std::vector<TargetWrite> targetWrites_;
+	int writeCount_ = 0;
+	// Recording one more frame, whose start copies the recorded one to the display.
+	bool waitForDisplayCopy_ = false;
 	std::vector<u8> lastVRAM;
 
 	DirtyVRAMFlag dirtyVRAM[DIRTY_VRAM_SIZE];

@@ -198,9 +198,11 @@ public:
 		ERROR_BAD_FILE,
 		ERROR_BROKEN_STATE,
 		ERROR_BAD_ALLOC,
+		ERROR_FILE_MISSING,
 	};
 
-	// May fail badly if ptr doesn't point to valid data.
+	// May fail badly if ptr doesn't point to valid data. On failure, errorString is the title of the
+	// section that failed.
 	template<class T>
 	static Error LoadPtr(u8 *ptr, size_t size, T &_class, std::string *errorString)
 	{
@@ -211,8 +213,7 @@ public:
 		if (p.error != p.ERROR_FAILURE) {
 			return ERROR_NONE;
 		} else {
-			std::string badSectionTitle = p.GetBadSectionTitle() ? p.GetBadSectionTitle() : "(unknown bad section)";
-			*errorString = std::string("Failure at ") + badSectionTitle;
+			*errorString = p.GetBadSectionTitle() ? p.GetBadSectionTitle() : "unknown section";
 			return ERROR_BROKEN_STATE;
 		}
 	}
@@ -227,7 +228,8 @@ public:
 	}
 
 	// If *saved is null, will allocate storage using malloc.
-	// If it's not null, it will be used, but only hope can save you from overruns at the end. For libretro.
+	// If it's not null, it will be used, and *savedSize is its capacity: a state that doesn't fit fails with
+	// ERROR_BAD_ALLOC. For libretro.
 	template<class T>
 	static Error MeasureAndSavePtr(T &_class, u8 **saved, size_t *savedSize)
 	{
@@ -239,6 +241,8 @@ public:
 		size_t measuredSize = p.Offset();
 		u8 *data;
 		if (*saved) {
+			if (measuredSize > *savedSize)
+				return ERROR_BAD_ALLOC;
 			data = *saved;
 		} else {
 			data = (u8 *)malloc(measuredSize);
@@ -289,11 +293,13 @@ public:
 	template<class T>
 	static Error Load(const Path &filename, std::string *gitVersion, T& _class, std::string *failureReason)
 	{
-		*failureReason = "LoadStateWrongVersion";
+		// failureReason is the section LoadPtr failed in. A truncated or corrupt file isn't necessarily
+		// from another version.
+		failureReason->clear();
 
 		u8 *ptr = nullptr;
 		size_t sz;
-		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
+		Error error = LoadFile(filename, gitVersion, ptr, sz);
 		if (error == ERROR_NONE) {
 			failureReason->clear();
 			error = LoadPtr(ptr, sz, _class, failureReason);
@@ -331,13 +337,16 @@ public:
 		std::vector<u8> buffer(sz);
 
 		// Step 2: Dump the state.
-		ptr = &buffer[0];
-		p.SetMode(PointerWrap::MODE_WRITE);
+		p.RewindForWrite(buffer.data());
 		_class.DoState(p);
+		if (!p.CheckAfterWrite()) {
+			return ERROR_BROKEN_STATE;
+		}
 
 		// Step 3: Verify the state.
-		ptr = &buffer[0];
+		ptr = buffer.data();
 		p.SetMode(PointerWrap::MODE_VERIFY);
+		p.SetReadEnd(buffer.data() + sz);
 		_class.DoState(p);
 
 		if (p.error == PointerWrap::ERROR_FAILURE) {
@@ -346,7 +355,12 @@ public:
 		return ERROR_NONE;
 	}
 
-	static Error GetFileTitle(const Path &filename, std::string *title);
+	static Error GetFileTitle(const Path &filename, std::string *title, std::string *gitVersion = nullptr);
+
+	// The file half of Load() and Save(), for doing it away from the state itself. LoadFile hands back
+	// a new[]'d buffer; SaveFile takes ownership of a malloc'd one (as from MeasureAndSavePtr).
+	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz);
+	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 
 private:
 	struct SChunkHeader
@@ -364,7 +378,5 @@ private:
 		REVISION_CURRENT = REVISION_TITLE,
 	};
 
-	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
-	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };

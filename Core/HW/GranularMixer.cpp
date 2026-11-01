@@ -12,6 +12,7 @@
 #include "Common/Log.h"
 #include "Common/Math/math_util.h"
 #include "Common/Swap.h"
+#include "Core/Config.h"
 #include "Core/HW/Display.h"
 #include "Core/Core.h"
 #include "Core/System.h"
@@ -64,14 +65,10 @@ static const float g_GranuleWindow[256] = {
 	0.0000216492f, 0.0000113187f, 0.0000050749f, 0.0000016272f
 };
 
-inline s16 clampfloat_s16(float f) {
+static inline s16 clampfloat_s16(float f) {
 	if (f <= -32767.0f) return -32767;
 	if (f >= 32767.0f) return 32767;
 	return (s16)f;
-}
-
-GranularMixer::GranularMixer() {
-	INFO_LOG(Log::Audio, "Mixer is initialized");
 }
 
 // Executed from sound stream thread
@@ -80,7 +77,8 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	if (!samples)
 		return;
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
-	frameTimeEstimate_ = 1.0f / fpsEstimate;
+	// The estimate is 0 until a second has gone by.
+	frameTimeEstimate_ = 1.0f / std::max(fpsEstimate, 1.0f);
 
 	smoothedReadSize_ = smoothedReadSize_ == 0 ? num_samples : (smoothedReadSize_ * 0.95f + num_samples * 0.05f);
 
@@ -265,7 +263,8 @@ void GranularMixer::Dequeue(Granule *granule) {
 	/*if (!looping && !smoothedQueueSize_ < granule_queue_size / 2) {
 		// Repeat a single block occasionally to make sure we have a reasonably sized queue.
 		next_tail = tail;
-	} else*/ if (next_tail == head) {
+	} else*/ if (next_tail == head || tail == head) {
+		// Empty (or about to be). tail == head would read the granule being written next.
 		// Only fill gaps when running to prevent stutter on pause.
 		CoreState state = coreState;
 		const bool is_running = state == CORE_RUNNING_CPU || state == CORE_RUNNING_GE;

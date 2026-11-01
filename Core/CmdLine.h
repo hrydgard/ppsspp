@@ -1,6 +1,8 @@
 #pragma once
 
 #include <optional>
+#include <string>
+#include <vector>
 #include "Common/Log.h"
 #include "Core/ConfigValues.h"
 
@@ -31,7 +33,10 @@ struct CommandLineOptions {
 	std::optional<bool> fullscreen;
 	std::optional<GPUBackend> gpuBackend;
 	std::optional<bool> softwareRendering;
+	// --graphics=null: headless only, see GPU_Null.h.
+	std::optional<bool> nullGraphics;
 	std::optional<bool> enableLogging;
+	std::optional<bool> skipLogo;
 	std::optional<LogLevel> logLevel;  // Override log level with this.
 	std::optional<std::string> log;
 	std::vector<std::string> bootFilenames;
@@ -41,6 +46,10 @@ struct CommandLineOptions {
 	std::optional<std::string> startScreen;
 
 	std::optional<bool> escapeExit;
+	std::optional<bool> gameWindow;
+	// Run as if no memory stick were inserted.
+	std::optional<bool> memStickInserted;
+	// Quit the app instead of going to the main menu when the game ends, for external launchers.
 	std::optional<bool> pauseMenuExit;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
@@ -100,6 +109,9 @@ struct CommandLineOptions {
 	// way to compare the two without editing a config, and the way out if the real one breaks a game.
 	std::optional<int> forceHLE;
 
+	// Overrides g_Config.iLockedCPUSpeed, in MHz.
+	std::optional<int> lockedCPUSpeed;
+
 	// Headless: install the game update in a .pkg (given as the boot filename) into this
 	// directory, then exit without booting anything. The directory is the game folder itself -
 	// the app puts that under PSP/GAME/<DISC_ID>, but here the caller picks. See
@@ -126,6 +138,11 @@ struct CommandLineOptions {
 	std::optional<std::string> reDecrypt;
 	// Where the plaintext goes. Defaults to "decrypted.bin".
 	std::optional<std::string> reDecryptOut;
+	// The 16-byte secure install ID (32 hex digits) a game patch installed on a PSP was decrypted
+	// with - what the game passes to sceKernelLoadModuleDNAS.
+	std::optional<std::string> reDecryptKey;
+	// The Fuse ID of the PSP a game patch was installed on, overriding the FuseID setting.
+	std::optional<std::string> fuseId;
 	// Headless: copy one file out of the disc image given as the positional argument, to
 	// --dump-file-out, and exit.
 	std::optional<std::string> dumpFile;
@@ -157,9 +174,11 @@ struct CommandLineOptions {
 	bool optionS = false;   // a legacy option
 
 	std::optional<bool> oldAtrac;
+	std::optional<std::string> jitProfile;
 
 	// Headless options that may also be mildly useful in application mode
 	std::optional<int> resolutionScale;
+	std::optional<int> msaa;
 
 
 	// Headless options
@@ -173,17 +192,52 @@ struct CommandLineOptions {
 	std::optional<double> timeoutWall;
 	std::optional<double> timeoutEmulated;
 	std::optional<bool> printEqualLines;
+	// Headless: print flips per emulated second at the end, counted from the loaded state (if any).
+	std::optional<bool> frameStats;
+	// Headless: which of several instances running at once this is (sets PPSSPP_ID, and with it the
+	// instance's 127.0.0.N address and MAC), and whether to run at PSP speed rather than flat out.
+	// Both are for ad hoc tests where instances talk to each other.
+	std::optional<int> instance;
+	// Headless: keep in step in emulated time with the other instances sharing this file (see
+	// InitInstanceSync), of which there are syncCount in all.
+	std::optional<std::string> syncFile;
+	std::optional<int> syncCount;
+	std::optional<bool> realtime;
+	// Headless with --realtime: run at this percentage of PSP speed, through alternate speed 1.
+	std::optional<int> speedPercent;
+	// Added to every ad hoc port on the host. Back-to-back test runs vary it, so a connection doesn't
+	// collide with the previous run's, still in TCP TIME_WAIT.
+	std::optional<int> portOffset;
+	std::optional<bool> adhocServer;
+	std::optional<bool> lagSync;
+	std::optional<std::string> nickname;
+	std::optional<int> adhocDelayMs;
+	std::optional<int> adhocJitterMs;
+	std::optional<int> adhocLossPercent;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
+	// Headless: save each test's screenshot as DIR/<test path>.png, for many dumps in one run.
+	std::optional<std::string> screenshotDir;
 	std::optional<std::string> depthFilenameSave;
+	std::optional<std::string> dumpAudioFilename;
+	std::optional<std::string> pressScript;
+	std::optional<std::string> screenshotAt;
 	std::optional<int> replayEnd;
+	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
+	std::optional<bool> dumpCompat;
+	std::optional<bool> hardwareTransform;
+	std::optional<bool> vertexJit;
+	std::optional<bool> shaderCache;
+	std::optional<bool> emulateMediaEngine;
+	// Headless: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend.
+	std::optional<std::string> disableGPUFeatures;
 	std::optional<bool> screenshotRenderTarget;
 	std::optional<std::string> screenshotFilenameDiff;
 	// Headless: preserve the alpha channel when saving PNG screenshots.
 	std::optional<bool> screenshotSaveKeepAlpha;
 
-	// Headless: mount an ISO/CSO on umd1:.
+	// Mount an ISO/CSO on umd1: when booting an ELF/PBP (or the VSH).
 	std::optional<std::string> mountIso;
 	// Headless: also log through OutputDebugString (Windows).
 	std::optional<bool> odsLog;
@@ -200,3 +254,6 @@ struct CommandLineOptions {
 	std::optional<double> dpi;
 	std::optional<double> scale;
 };
+
+// Splits a command line string into arguments. Handles double quotes and backslash escapes.
+std::vector<std::string> SplitCommandLine(const std::string &value);

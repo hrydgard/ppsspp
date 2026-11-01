@@ -225,6 +225,36 @@ static bool TestVec4F32Arith() {
 	b.RecipApprox().Store(result);
 	if (!CompareFloatsApprox(result, expected, 4, 0.01f, __LINE__)) return false;
 
+	const float sq_values[4] = { 4.0f, 0.25f, 2.0f, 100.0f };
+	Vec4F32::Load(sq_values).RecipSqrt().Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = 1.0f / sqrtf(sq_values[i]);
+	if (!CompareFloatsApprox(result, expected, 4, 1e-6f, __LINE__)) return false;
+
+	// Select picks per lane by the mask, and FromBits keeps the bits as they are.
+	const int mask_values[4] = { -1, 0, 0, -1 };
+	Select(Vec4S32::Load(mask_values), a, b).Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = mask_values[i] ? a_values[i] : b_values[i];
+	if (!CompareFloats(result, expected, 4, __LINE__)) return false;
+
+	// Exact in float, so fused and unfused agree.
+	MulAdd(a, b, Vec4F32::Splat(0.5f)).Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = a_values[i] * b_values[i] + 0.5f;
+	if (!CompareFloats(result, expected, 4, __LINE__)) return false;
+
+	// No ties, which round differently on ARM32.
+	const float round_values[4] = { 1.4f, -1.6f, 2.6f, -0.4f };
+	int rounded[4];
+	Vec4S32FromF32Round(Vec4F32::Load(round_values)).Store(rounded);
+	EXPECT_EQ_INT(rounded[0], 1);
+	EXPECT_EQ_INT(rounded[1], -2);
+	EXPECT_EQ_INT(rounded[2], 3);
+	EXPECT_EQ_INT(rounded[3], 0);
+
+	const int bits_values[4] ={ 0x3F800000, (int)0xC0000000, 0, 0x40490FDB };
+	Vec4F32FromBits(Vec4S32::Load(bits_values)).Store(result);
+	static const float known_bits[4] = { 1.0f, -2.0f, 0.0f, 3.14159274f };
+	if (!CompareFloats(result, known_bits, 4, __LINE__)) return false;
+
 	Vec4F32::Splat(1.5f).Store(result);
 	static const float known_splat[4] = { 1.5f, 1.5f, 1.5f, 1.5f };
 	if (!CompareFloats(result, known_splat, 4, __LINE__)) return false;
@@ -406,6 +436,60 @@ static bool TestVec4F32NaNInf() {
 
 static bool TestVec4F32Loads() {
 	float result[4];
+
+	// Load3One: three floats, lane 3 1.0f.
+	const float xyz[3] = { -1.5f, 2.0f, 1e20f };
+	Vec4F32::Load3One(xyz).Store(result);
+	EXPECT_EQ_FLOAT(result[0], -1.5f);
+	EXPECT_EQ_FLOAT(result[1], 2.0f);
+	EXPECT_EQ_FLOAT(result[2], 1e20f);
+	EXPECT_EQ_FLOAT(result[3], 1.0f);
+
+	// MulHalves: two 16-bit products per lane, each kept to 16 bits.
+	{
+		const int halvesA[4] = { 0x00FF00FF, 0x01230045, (int)0xFFFF0002, 0x7FFF8000 };
+		const int halvesB[4] = { 0x00100010, 0x00030007, 0x00020003, 0x00020002 };
+		int halvesOut[4];
+		Vec4S32::Load(halvesA).MulHalves(Vec4S32::Load(halvesB)).Store(halvesOut);
+		for (int i = 0; i < 4; i++) {
+			const uint32_t lo = ((uint32_t)halvesA[i] * (uint32_t)halvesB[i]) & 0xFFFF;
+			const uint32_t hi = (((uint32_t)halvesA[i] >> 16) * ((uint32_t)halvesB[i] >> 16)) & 0xFFFF;
+			EXPECT_EQ_HEX((uint32_t)halvesOut[i], (hi << 16) | lo);
+		}
+	}
+
+	// Gather and GatherU8.
+	{
+		const int32_t table[8] = { 10, -20, 30, (int)0x80000001, 50, 60, 70, 80 };
+		const uint8_t bytes[8] = { 1, 255, 3, 128, 5, 6, 7, 8 };
+		const int indices[4] = { 3, 0, 7, 1 };
+		int gathered[4];
+		Vec4S32::Gather(table, Vec4S32::Load(indices)).Store(gathered);
+		for (int i = 0; i < 4; i++)
+			EXPECT_EQ_INT(gathered[i], table[indices[i]]);
+		Vec4S32::GatherU8(bytes, Vec4S32::Load(indices)).Store(gathered);
+		for (int i = 0; i < 4; i++)
+			EXPECT_EQ_INT(gathered[i], (int)bytes[indices[i]]);
+	}
+
+	// LoadS64Low: the low halves.
+	int iresult[4];
+	const int64_t wide[4] = { 0x123456789LL, -2, (int64_t)0x7FFFFFFF << 1, -0x100000000LL + 7 };
+	Vec4S32::LoadS64Low(wide).Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], (int32_t)(uint32_t)(uint64_t)wide[i]);
+
+	// LoadPairs: firsts and seconds.
+	const int32_t pairs[8] = { 1, -1, 2, -2, 3, -3, 4, -4 };
+	Vec4S32 firsts, seconds;
+	Vec4S32::LoadPairs(pairs + 6, pairs, pairs + 4, pairs + 2, firsts, seconds);
+	const int32_t expectedFirsts[4] = { 4, 1, 3, 2 };
+	firsts.Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], expectedFirsts[i]);
+	seconds.Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], -expectedFirsts[i]);
 
 	// LoadF24x3_One: three 24-bit values shifted up into floats, lane 3 forced to 1.0f.
 	const uint32_t f24_values[4] = { 0x3F8000 >> 0, 0x400000, 0x3F0000, 0x123456 };

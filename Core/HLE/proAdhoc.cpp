@@ -24,6 +24,7 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <condition_variable>
 #include <mutex>
 #include <cstring>
 
@@ -36,6 +37,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
@@ -52,12 +54,14 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/AdhocTransport.h"
 #include "Core/Instance.h"
 #include "proAdhoc.h"
 
 #include "Core/HLE/NetAdhocCommon.h"
 
 #include "ext/aemu_postoffice/client/postoffice_client.h"
+#include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
 #if PPSSPP_PLATFORM(SWITCH)
 #undef __BSD_VISIBLE
 #define __BSD_VISIBLE 1
@@ -88,7 +92,10 @@ SceNetAdhocctlPeerInfo * friends      = NULL;
 SceNetAdhocctlScanInfo * networks     = NULL;
 SceNetAdhocctlScanInfo * newnetworks  = NULL;
 u64 adhocctlStartTime                 = 0;
-bool isAdhocctlNeedLogin              = false;
+u64 gameModeEnterTimeUs = 0;
+bool groupJoinInFlight = false;
+int abandonedGroupJoins = 0;
+std::atomic<bool> isAdhocctlNeedLogin              = false;
 bool isAdhocctlBusy                   = false;
 int adhocctlState                     = ADHOCCTL_STATE_DISCONNECTED;
 int adhocctlCurrentMode               = ADHOCCTL_MODE_NONE;
@@ -97,7 +104,6 @@ int adhocConnectionType               = ADHOC_CONNECT;
 int gameModeSocket                    = (int)INVALID_SOCKET; // UDP/PDP socket? on Master only?
 int gameModeBuffSize                  = 0;
 u8* gameModeBuffer                    = nullptr;
-extern bool serverHasRelay;
 GameModeArea masterGameModeArea;
 std::vector<GameModeArea> replicaGameModeAreas;
 std::vector<SceNetEtherAddr> requiredGameModeMacs;
@@ -110,25 +116,32 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-// NOTE: This does not need to be managed by the socket manager - not exposed to the game.
-std::atomic<int> metasocket((int)INVALID_SOCKET);
+std::mutex adhocctlMutex;
+void *adhocctlHandle;
+int adhocctlId = -1;
+std::mutex localIpCacheMutex;
+std::map<uint32_t, in_addr> localIpCache;
 
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
-std::thread friendFinderThread;
 std::recursive_mutex peerlock;
 AdhocSocket* adhocSockets[MAX_SOCKET];
 bool isOriPort = false;
 bool isLocalServer = false;
+std::mutex g_adhocServerIPMutex;
 SockAddrIN4 g_adhocServerIP;
 SockAddrIN4 g_localhostIP;
-sockaddr LocalIP;
 int defaultWlanChannel = PSP_SYSTEMPARAM_ADHOC_CHANNEL_11; // Don't put 0(Auto) here, it needed to be a valid/actual channel number
 
 static std::mutex chatLogLock;
 static std::vector<ChatLogEntry> chatLog;
 // Enough to scroll back through a decent conversation without growing unbounded.
 static const size_t MAX_CHAT_LOG_LINES = 250;
+
+SockAddrIN4 GetAdhocServerIP() {
+	const std::lock_guard<std::mutex> adhoc_server_ip_guard(g_adhocServerIPMutex);
+	return g_adhocServerIP;
+}
 
 // chatLogLock must be held.
 static void AddChatLogEntry(std::string text) {
@@ -141,7 +154,9 @@ static int chatMessageGeneration = 0;
 static int chatMessageCount = 0;
 
 bool isMacMatch(const SceNetEtherAddr* addr1, const SceNetEtherAddr* addr2) {
-	// Ignoring the 1st byte since there are games (ie. Gran Turismo) who tamper with the 1st byte of OUI to change the unicast/multicast bit
+	// Ignoring the 1st byte: games overwrite it (Gran Turismo changes the unicast bit, Street Riders sets it to
+	// 00 when sending PDP). On a PSP, whose MACs start with 00, that's harmless; PS Vitas' don't, so the aemu
+	// plugin ignores it too.
 	return (memcmp(((const char*)addr1)+1, ((const char*)addr2)+1, ETHER_ADDR_LEN-1) == 0);
 }
 
@@ -233,24 +248,23 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	return peer;
 }
 
-void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
-	if (packet == NULL) return;
-
+void addFriend(const struct adhocctl_event_connect &event) {
 	// Multithreading Lock
 	std::lock_guard<std::recursive_mutex> guard(peerlock);
 
-	SceNetAdhocctlPeerInfo * peer = findFriend(&packet->mac);
+	SceNetAdhocctlPeerInfo * peer = findFriend((SceNetEtherAddr *)event.mac);
 	// Already existed
 	if (peer != NULL) {
-		u32 tmpip = packet->ip;
-		WARN_LOG(Log::sceNet, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(struct in_addr*)&tmpip).c_str(), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
-		peer->nickname = packet->name;
-		peer->mac_addr = packet->mac;
-		peer->ip_addr = packet->ip;
+		u32 tmpip = event.id;
+		WARN_LOG(Log::sceNet, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str((SceNetEtherAddr *)event.mac).c_str(), ip2str(*(struct in_addr*)&tmpip).c_str(), event.nickname);
+		peer->nickname = *(SceNetAdhocctlNickname *)event.nickname;
+		peer->mac_addr = *(SceNetEtherAddr *)event.mac;
+		peer->ip_addr = event.id;
 		// Calculate final IP-specific Port Offset
 		peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+		peer->left_at = 0;
 	}
 	else {
 		// Allocate Structure
@@ -261,13 +275,13 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 			memset(peer, 0, sizeof(SceNetAdhocctlPeerInfo));
 
 			// Save Nickname
-			peer->nickname = packet->name;
+			peer->nickname = *(SceNetAdhocctlNickname *)event.nickname;
 
 			// Save MAC Address
-			peer->mac_addr = packet->mac;
+			peer->mac_addr = *(SceNetEtherAddr *)event.mac;
 
 			// Save IP Address
-			peer->ip_addr = packet->ip;
+			peer->ip_addr = event.id;
 
 			// Calculate final IP-specific Port Offset
 			peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
@@ -438,39 +452,7 @@ void deleteAllAdhocSockets() {
 		if (adhocSockets[i] != NULL) {
 			auto sock = adhocSockets[i];
 
-			if (serverHasRelay) {
-				if (sock->type == SOCK_PTP) {
-					// sync
-					if (sock->connectThread != NULL) {
-						sock->connectThread->join();
-						delete sock->connectThread;
-					}
-					void *socket = sock->postofficeHandle;
-					if (socket != NULL) {
-						if (sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) {
-							ptp_listen_close(socket);
-						} else {
-							ptp_close(socket);
-						}
-					}
-				} else {
-					if (sock->postofficeHandle != NULL) {
-						pdp_delete(sock->postofficeHandle);
-					}
-				}
-			} else {
-				int fd = -1;
-				if (sock->type == SOCK_PTP)
-					fd = sock->data.ptp.id;
-				else if (sock->type == SOCK_PDP)
-					fd = sock->data.pdp.id;
-
-				if (fd > 0) {
-					// Close Socket
-					shutdown(fd, SD_RECEIVE);
-					closesocket(fd);
-				}
-			}
+			Transport().CloseHostSocket(sock);
 			// Free Memory
 			free(adhocSockets[i]);
 
@@ -478,6 +460,7 @@ void deleteAllAdhocSockets() {
 			adhocSockets[i] = NULL;
 		}
 	}
+	pdpDropAllQueues();
 }
 
 void deleteAllGMB() {
@@ -531,6 +514,7 @@ void deleteFriendByIP(uint32_t ip) {
 			//peer = NULL;
 			// Instead of removing it from the list we'll make it timed out since most Matching games are moving group and may still need the peer data thus not recognizing it as Unknown peer
 			peer->last_recv = 0; //CoreTiming::GetGlobalTimeUsScaled();
+			peer->left_at = CoreTiming::GetGlobalTimeUsScaled();
 
 			// Multithreading Unlock
 			peerlock.unlock();
@@ -544,29 +528,19 @@ void deleteFriendByIP(uint32_t ip) {
 	}
 }
 
+// A PSP hands out matching context IDs in increasing order, 1 to 15 and around again (pspautotests
+// net/adhoc/matching). There can't be more than 15 contexts.
+static int nextMatchingId = 1;
+
 int findFreeMatchingID() {
-	// Minimum Matching ID
-	int min = 1;
-
-	// Maximum Matching ID
-	int max = 0;
-
-	// Find highest Matching ID
-	SceNetAdhocMatchingContext * item = contexts; 
-	for (; item != NULL; item = item->next) {
-		// New Maximum
-		if (max < item->id) max = item->id;
+	for (int n = 0; n < 15; n++) {
+		int id = (nextMatchingId - 1 + n) % 15 + 1;
+		if (findMatchingContext(id) == NULL) {
+			nextMatchingId = id % 15 + 1;
+			return id;
+		}
 	}
-
-	// Find unoccupied ID
-	int i = min; 
-	for (; i < max; i++) {
-		// Found unoccupied ID
-		if (findMatchingContext(i) == NULL) return i;
-	}
-
-	// Append at virtual end
-	return max + 1;
+	return 16;
 }
 
 SceNetAdhocMatchingContext * findMatchingContext(int id) {
@@ -840,9 +814,13 @@ void linkEVMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->eventlock->lock();
 
-	// Link Message
-	message->next = context->event_stack;
-	context->event_stack = message;
+	// Append, so events are delivered in the order they happened
+	message->next = NULL;
+	ThreadMessage **tail = &context->event_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->eventlock->unlock();
@@ -858,9 +836,13 @@ void linkIOMessage(SceNetAdhocMatchingContext * context, ThreadMessage * message
 	// Lock Access
 	context->inputlock->lock();
 
-	// Link Message
-	message->next = context->input_stack;
-	context->input_stack = message;
+	// Append, so packets go out in the order they were queued (pspautotests net/adhoc/pair/matching2)
+	message->next = NULL;
+	ThreadMessage **tail = &context->input_stack;
+	while (*tail != NULL) {
+		tail = &(*tail)->next;
+	}
+	*tail = message;
 
 	// Unlock Access
 	context->inputlock->unlock();
@@ -971,17 +953,6 @@ void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMembe
 {
 	// Send Bulk Data Message
 	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK, datalen, data);
-}
-
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer)
-{
-	// Send Bulk Data Abort Message
-	sendGenericMessage(context, PSP_ADHOC_MATCHING_INPUT_STACK, &peer->mac, PSP_ADHOC_MATCHING_PACKET_BULK_ABORT, 0, NULL);
 }
 
 /**
@@ -1322,24 +1293,28 @@ void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 }
 
 void sendChat(std::string_view chatString) {
-	SceNetAdhocctlChatPacketC2S chat{};
-	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
 	if (friendFinderRunning) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
-			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			std::string message(chatString.substr(0, 60)); // 64 return chat variable corrupted is it out of memory?
-			strcpy(chat.message, message.c_str());
-			//Send Chat Messages
-			if (IsSocketReady((int)metasocket, false, true) > 0) {
-				int chatResult = (int)send((int)metasocket, (const char*)&chat, sizeof(chat), MSG_NOSIGNAL);
-				NOTICE_LOG(Log::sceNet, "Send Chat %s to Adhoc Server", chat.message);
-				std::string name = g_Config.sNickName;
+			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+			if (adhocctlHandle) {
+				// TODO while the library handles truncation, to keep the UI consistent we are truncating it here
+				// logic has to be updated in the future if later adhocctl protocol supports longer messages
+				char buf[64];
+				truncate_cpy(buf, chatString);
+				enum adhocctl_call_status chat_send_status = adhocctl_chat(adhocctlHandle, buf);
+				if (chat_send_status != ADHOCCTL_CALL_SUCCESS) {
+					ERROR_LOG(Log::sceNet, "adhocctl client failed while sending chat message");
+					killAdhocctlClient(true, adhocctl_guard);
+				} else {
+					NOTICE_LOG(Log::sceNet, "Send Chat %s to Adhoc Server", buf);
+					std::string name = g_Config.sNickName;
 
-				std::lock_guard<std::mutex> guard(chatLogLock);
-				AddChatLogEntry(name.substr(0, 8) + ": " + chat.message);
-				chatMessageGeneration++;
+					std::lock_guard<std::mutex> guard(chatLogLock);
+					AddChatLogEntry(name.substr(0, 8) + ": " + buf);
+					chatMessageGeneration++;
+				}
 			}
 		}
 	} else {
@@ -1364,434 +1339,562 @@ int GetChatMessageCount() {
 	return chatMessageCount;
 }
 
-// TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
-int friendFinder() {
-	SetCurrentThreadName("FriendFinder");
+void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lock_proof) {
+	if (!adhocctlHandle) {
+		return;
+	}
+
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	// Receive Buffer
-	int rxpos = 0;
-	uint8_t rx[1024];
+	if (due_to_error) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Disconnected from AdhocServer")));
+	}
 
-	// Chat Packet
-	SceNetAdhocctlChatPacketC2S chat;
-	chat.base.opcode = OPCODE_CHAT;
+	g_adhocServerConnected = false;
 
-	// Last Ping Time
-	uint64_t lastping = 0;
+	destroy_adhocctl_session(adhocctlHandle);
+	adhocctlHandle = NULL;
+	// Nothing more comes from that session.
+	groupJoinInFlight = false;
+	abandonedGroupJoins = 0;
 
-	// Last Time Reception got updated
-	uint64_t lastreceptionupdate = 0;
+	// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
+	peerlock.lock();
+	timeoutFriendsRecursive(friends);
+	peerlock.unlock();
 
-	uint64_t now;
+	clearLocalIpCache();
+}
 
-	// Log Startup
-	INFO_LOG(Log::sceNet, "FriendFinder: Begin of Friend Finder Thread");
+enum class AdhocctlClientStatus {
+	ALIVE,
+	SPAWNED,
+	DEAD,
+};
+
+static bool should_abort_adhocctl_connection(void *_arg) {
+	return !friendFinderRunning;
+}
+
+// Resolving the server and logging in can take seconds, so they run on a thread of their own.
+// friendFinderPoll() starts it, and takes over the session once it's done.
+static std::thread adhocctlLoginThread;
+static std::atomic<bool> adhocctlLoginDone(false);
+// Written by the login thread before it sets adhocctlLoginDone.
+static void *adhocctlLoginHandle = nullptr;
+static bool adhocctlLoginRunning = false;
+static bool adhocServerResolved = false;
+// Whether the client has logged in since friendFinderStart(), so the next login is after a lost connection.
+static bool adhocctlLoggedIn = false;
+// Guarded by adhocctlMutex, since the keepalive thread pings too.
+static uint64_t lastAdhocctlPing = 0;
+
+// The poll only runs while emulation does, so while it's paused (the pause menu, a debugger) this
+// keeps the server from dropping the client, as the old friendFinder thread did.
+static std::thread adhocctlKeepaliveThread;
+static std::mutex adhocctlKeepaliveMutex;
+static std::condition_variable adhocctlKeepaliveCond;
+static bool adhocctlKeepaliveStop = false;
+
+static void AdhocctlKeepalive() {
+	SetCurrentThreadName("AdhocctlKeepalive");
+	while (true) {
+		{
+			std::unique_lock<std::mutex> lock(adhocctlKeepaliveMutex);
+			adhocctlKeepaliveCond.wait_for(lock, std::chrono::milliseconds(500), [] { return adhocctlKeepaliveStop; });
+			if (adhocctlKeepaliveStop) {
+				return;
+			}
+		}
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		const uint64_t now = time_now_d() * 1000000.0;
+		// A failed ping is left for the poll to notice and handle.
+		if (adhocctlHandle && static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT && adhocctl_ping(adhocctlHandle) == ADHOCCTL_CALL_SUCCESS) {
+			lastAdhocctlPing = now;
+		}
+	}
+}
+
+static void StopAdhocctlKeepalive() {
+	{
+		std::lock_guard<std::mutex> lock(adhocctlKeepaliveMutex);
+		adhocctlKeepaliveStop = true;
+	}
+	adhocctlKeepaliveCond.notify_one();
+	if (adhocctlKeepaliveThread.joinable()) {
+		adhocctlKeepaliveThread.join();
+	}
+}
+
+static void ResolveAdhocServer() {
+	auto n = GetI18NCategory(I18NCat::NETWORKING);
 
 	// Resolve and cache AdhocServer DNS
 	addrinfo* resolved = nullptr;
 	std::string err;
-	g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
 	if (g_Config.bEnableWlan && !net::DNSResolve(g_Config.sProAdhocServer, "", &resolved, err)) {
 		ERROR_LOG(Log::sceNet, "DNS Error Resolving %s\n", g_Config.sProAdhocServer.c_str());
 		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("DNS Error Resolving")) + g_Config.sProAdhocServer);
 	}
+	{
+		const std::lock_guard<std::mutex> adhoc_server_ip_guard(g_adhocServerIPMutex);
+		if (resolved) {
+			for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
+				switch (ptr->ai_family) {
+				case AF_INET:
+					g_adhocServerIP.in = *(sockaddr_in*)ptr->ai_addr;
+					break;
+				}
+			}
+			net::DNSResolveFree(resolved);
+		} else {
+			g_adhocServerIP.in.sin_addr.s_addr = INADDR_NONE;
+		}
+		g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
+	}
+
 	if (resolved) {
-		for (auto ptr = resolved; ptr != NULL; ptr = ptr->ai_next) {
-			switch (ptr->ai_family) {
-			case AF_INET:
-				g_adhocServerIP.in = *(sockaddr_in*)ptr->ai_addr;
-				break;
-			}
-		}
-		net::DNSResolveFree(resolved);
+		clearLocalIpCache();
 	}
-	g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
+}
 
-	// Finder Loop. The flag was set by whoever started us, and cleared to stop us.
-	while (friendFinderRunning) {
-		// Acquire Network Lock
-		//_acquireNetworkLock();
-
-		// Reconnect when disconnected while Adhocctl is still inited
-		if (metasocket == (int)INVALID_SOCKET && netAdhocctlInited && isAdhocctlNeedLogin) {
-			if (g_Config.bEnableWlan) {
-				// Not really initNetwork.
-				if (initNetwork(&product_code) == 0) {
-					g_adhocServerConnected = true;
-					INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
-					// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-					netAdhocGameModeEntered = false;
-					isAdhocctlBusy = false;
-				} 
-				else {
-					g_adhocServerConnected = false;
-					g_adhocServerLoginFailed = true;
-					shutdown((int)metasocket, SD_BOTH);
-					closesocket((int)metasocket);
-					metasocket = (int)INVALID_SOCKET;
-				}
-			}
-		}
-
-		// Prevent retrying to Login again unless it was on demand
-		isAdhocctlNeedLogin = false;
-
-		if (g_adhocServerConnected) {
-			// Ping Server
-			now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
-			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
-			if (static_cast<s64>(now - lastping) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
-				// Prepare Packet
-				uint8_t opcode = OPCODE_PING;
-
-				// Send Ping to Server, may failed with socket error 10054/10053 if someone else with the same IP already connected to AdHoc Server (the server might need to be modified to differentiate MAC instead of IP)
-				if (IsSocketReady((int)metasocket, false, true) > 0) {
-					int iResult = (int)send((int)metasocket, (const char*)&opcode, 1, MSG_NOSIGNAL);
-					int error = socket_errno;
-					// KHBBS seems to be getting error 10053 often
-					if (iResult == SOCKET_ERROR) {
-						ERROR_LOG(Log::sceNet, "FriendFinder: Socket Error (%i) when sending OPCODE_PING", error);
-						if (error != EAGAIN && error != EWOULDBLOCK) {
-							g_adhocServerConnected = false;
-							shutdown((int)metasocket, SD_BOTH);
-							closesocket((int)metasocket);
-							metasocket = (int)INVALID_SOCKET;
-							g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Disconnected from AdhocServer")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(error) + ")");
-							// Mark all friends as timedout since we won't be able to detects disconnected friends anymore without being connected to Adhoc Server
-							peerlock.lock();
-							timeoutFriendsRecursive(friends);
-							peerlock.unlock();
-						}
-					}
-					else {
-						// Update Ping Time
-						lastping = now;
-						VERBOSE_LOG(Log::sceNet, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
-					}
-				}
-			}
-
-			// Check for Incoming Data
-			if (IsSocketReady((int)metasocket, true, false) > 0) {
-				int received = (int)recv((int)metasocket, (char*)(rx + rxpos), sizeof(rx) - rxpos, MSG_NOSIGNAL);
-
-				// Free Network Lock
-				//_freeNetworkLock();
-
-				// Received Data
-				if (received > 0) {
-					// Fix Position
-					rxpos += received;
-
-					// Log Incoming Traffic
-					//printf("Received %d Bytes of Data from Server\n", received);
-					INFO_LOG(Log::sceNet, "Received %d Bytes of Data from Adhoc Server", received);
-				}
-			}
-
-			// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
-			if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(now - adhocctlStartTime) > netAdhocEnterGameModeTimeout) {
-				netAdhocGameModeEntered = false;
-				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOC_ERROR_TIMEOUT);
-			}
-
-			// Handle Packets
-			if (rxpos > 0) {
-				// BSSID Packet
-				if (rx[0] == OPCODE_CONNECT_BSSID) {
-					// Enough Data available
-					if (rxpos >= (int)sizeof(SceNetAdhocctlConnectBSSIDPacketS2C)) {
-						// Cast Packet
-						SceNetAdhocctlConnectBSSIDPacketS2C* packet = (SceNetAdhocctlConnectBSSIDPacketS2C*)rx;
-
-						INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str(&packet->mac).c_str());
-						// Update Group BSSID
-						parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
-
-						// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
-						// Notify Event Handlers
-						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-							SceNetEtherAddr localMac;
-							getLocalMac(&localMac);
-							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[localMac](SceNetEtherAddr const& e) {
-									return isMacMatch(&e, &localMac);
-								}) == gameModeMacs.end()) {
-								// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
-								gameModeMacs.push_back(localMac);
-
-								// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
-								if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
-									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-								}
-							}
-							else
-								WARN_LOG(Log::sceNet, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
-						}
-						else {
-							//adhocctlState = ADHOCCTL_STATE_CONNECTED;
-							notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
-						}
-
-						// Give time a little time
-						//sceKernelDelayThread(adhocEventDelayMS * 1000);
-						//sleep_ms(adhocEventDelayMS);
-
-						// Move RX Buffer
-						memmove(rx, rx + sizeof(SceNetAdhocctlConnectBSSIDPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectBSSIDPacketS2C));
-
-						// Fix RX Buffer Length
-						rxpos -= sizeof(SceNetAdhocctlConnectBSSIDPacketS2C);
-					}
-				}
-
-				// Chat Packet
-				else if (rx[0] == OPCODE_CHAT) {
-					// Enough Data available
-					if (rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
-						// Cast Packet
-						SceNetAdhocctlChatPacketS2C* packet = (SceNetAdhocctlChatPacketS2C*)rx;
-						INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CHAT");
-
-						// Fix strings with null-terminated
-						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-						packet->base.message[ADHOCCTL_MESSAGE_LEN - 1] = 0;
-
-						// Add Incoming Chat to HUD
-						NOTICE_LOG(Log::sceNet, "Received chat message %s", packet->base.message);
-						std::string incoming = "";
-						std::string name = (char*)packet->name.data;
-						incoming.append(name.substr(0, 8));
-						incoming.append(": ");
-						incoming.append((char*)packet->base.message);
-
-						std::lock_guard<std::mutex> guard(chatLogLock);
-						AddChatLogEntry(incoming);
-						chatMessageGeneration++;
-						chatMessageCount++;
-
-						// Move RX Buffer
-						memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
-
-						// Fix RX Buffer Length
-						rxpos -= sizeof(SceNetAdhocctlChatPacketS2C);
-					}
-				}
-
-				// Connect Packet
-				else if (rx[0] == OPCODE_CONNECT) {
-					// Enough Data available
-					if (rxpos >= (int)sizeof(SceNetAdhocctlConnectPacketS2C)) {
-						// Cast Packet
-						SceNetAdhocctlConnectPacketS2C* packet = (SceNetAdhocctlConnectPacketS2C*)rx;
-
-						// Fix strings with null-terminated
-						packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-
-						// Log Incoming Peer
-                        u32_le ipaddr = packet->ip;
-						INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), packet->name.data);
-
-						// Add User
-						addFriend(packet);
-
-						// Make sure GameMode participants are all joined (including self MAC)
-						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-							if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
-								[packet](SceNetEtherAddr const& e) {
-									return isMacMatch(&e, &packet->mac);
-								}) == gameModeMacs.end()) {
-								// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
-								SceNetEtherAddr localMac;
-								getLocalMac(&localMac);
-								auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
-									[localMac](SceNetEtherAddr const& e) {
-										return isMacMatch(&e, &localMac);
-									});
-								// Starting from our self the rest of new players will be added to the back
-								if (it != gameModeMacs.end()) {
-									gameModeMacs.push_back(packet->mac);
-								}
-								else {
-									it = gameModeMacs.begin() + 1;
-									gameModeMacs.insert(it, packet->mac);
-								}
-
-								// From JPCSP: Join complete when all the required MACs have joined
-								if (netAdhocGameModeEntered && requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
-									// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
-									//gameModeMacs = requiredGameModeMacs;
-									notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-								}
-							}
-							else
-								WARN_LOG(Log::sceNet, "GameMode Member [%s] Already Existed!", mac2str(&packet->mac).c_str());
-						}
-
-						// Update HUD User Count
-						std::string name = (char*)packet->name.data;
-						std::string incoming = "";
-						incoming.append(name.substr(0, 8));
-						incoming.append(" Joined ");
-						//do we need ip?
-						//joined.append((char *)packet->ip);
-
-						std::lock_guard<std::mutex> guard(chatLogLock);
-						AddChatLogEntry(incoming);
-						chatMessageGeneration++;
-
-#ifdef LOCALHOST_AS_PEER
-						setUserCount(getActivePeerCount());
-#else
-						// setUserCount(getActivePeerCount()+1);
-#endif
-
-						// Move RX Buffer
-						memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
-
-						// Fix RX Buffer Length
-						rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
-					}
-				}
-
-				// Disconnect Packet
-				else if (rx[0] == OPCODE_DISCONNECT) {
-					// Enough Data available
-					if (rxpos >= (int)sizeof(SceNetAdhocctlDisconnectPacketS2C)) {
-						// Cast Packet
-						SceNetAdhocctlDisconnectPacketS2C* packet = (SceNetAdhocctlDisconnectPacketS2C*)rx;
-
-						DEBUG_LOG(Log::sceNet, "FriendFinder: OPCODE_DISCONNECT");
-
-						// Log Incoming Peer Delete Request
-						INFO_LOG(Log::sceNet, "FriendFinder: Incoming Peer Data Delete Request...");
-
-						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-							auto peer = findFriendByIP(packet->ip);
-							for (auto& gma : replicaGameModeAreas)
-								if (isMacMatch(&gma.mac, &peer->mac_addr)) {
-									gma.updateTimestamp = 0;
-									break;
-								}
-						}
-
-						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
-						deleteFriendByIP(packet->ip);
-
-						// Update HUD User Count
-#ifdef LOCALHOST_AS_PEER
-						setUserCount(_getActivePeerCount());
-#else
-					//setUserCount(_getActivePeerCount()+1);
-#endif
-
-					// Move RX Buffer
-						memmove(rx, rx + sizeof(SceNetAdhocctlDisconnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlDisconnectPacketS2C));
-
-						// Fix RX Buffer Length
-						rxpos -= sizeof(SceNetAdhocctlDisconnectPacketS2C);
-					}
-				}
-
-				// Scan Packet
-				else if (rx[0] == OPCODE_SCAN) {
-					// Enough Data available
-					if (rxpos >= (int)sizeof(SceNetAdhocctlScanPacketS2C)) {
-						// Cast Packet
-						SceNetAdhocctlScanPacketS2C* packet = (SceNetAdhocctlScanPacketS2C*)rx;
-
-						DEBUG_LOG(Log::sceNet, "FriendFinder: OPCODE_SCAN");
-
-						// Log Incoming Network Information
-						INFO_LOG(Log::sceNet, "Incoming Group Information...");
-
-						// Multithreading Lock
-						peerlock.lock();
-
-						// Allocate Structure Data
-						SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));
-
-						// Allocated Structure Data
-						if (group != NULL) {
-							// Clear Memory, should this be done only when allocating new group?
-							memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
-
-							// Link to existing Groups
-							group->next = newnetworks;
-
-							// Copy Group Name
-							group->group_name = packet->group;
-
-							// Set Group Host
-							group->bssid.mac_addr = packet->mac;
-
-							// Set group parameters
-							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
-							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							// This Mode should be a valid mode (>=0), probably should be sent by AdhocServer since there are 2 possibilities (Normal and GameMode). Air Conflicts - Aces Of World War 2 (which use GameMode) seems to relies on this Mode value.
-							group->mode = std::max(ADHOCCTL_MODE_NORMAL, adhocctlCurrentMode); // default to ADHOCCTL_MODE_NORMAL
-
-							// Link into Group List
-							newnetworks = group;
-						}
-
-						// Multithreading Unlock
-						peerlock.unlock();
-
-						// Move RX Buffer
-						memmove(rx, rx + sizeof(SceNetAdhocctlScanPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlScanPacketS2C));
-
-						// Fix RX Buffer Length
-						rxpos -= sizeof(SceNetAdhocctlScanPacketS2C);
-					}
-				}
-
-				// Scan Complete Packet
-				else if (rx[0] == OPCODE_SCAN_COMPLETE) {
-					DEBUG_LOG(Log::sceNet, "FriendFinder: OPCODE_SCAN_COMPLETE");
-					// Log Scan Completion
-					INFO_LOG(Log::sceNet, "FriendFinder: Incoming Scan complete response...");
-
-					// Reset current networks to prevent disbanded host to be listed again
-					peerlock.lock();
-					if (networks != newnetworks) {
-						freeGroupsRecursive(networks);
-						networks = newnetworks;
-					}
-					newnetworks = NULL;
-					peerlock.unlock();
-
-					// Notify Event Handlers
-					notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
-
-					// Move RX Buffer
-					memmove(rx, rx + 1, sizeof(rx) - 1);
-
-					// Fix RX Buffer Length
-					rxpos -= 1;
-				}
-			}
-		}
-		// This delay time should be 100ms when there is an event otherwise 500ms ?
-		sleep_ms(10, "pro-adhoc-poll-2"); // Using 1ms for faster response just like AdhocServer?
-
-		// Don't do anything if it's paused, otherwise the log will be flooded
-		while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning)
-			sleep_ms(10, "pro-adhoc-paused-poll-2");
+static void AdhocctlLogin(bool resolve, bool bind, struct adhocctl_addr_v4 bindAddr, SceNetAdhocctlAdhocId productCode, SceNetAdhocctlNickname nickname, SceNetEtherAddr mac, bool useUdp) {
+	SetCurrentThreadName("AdhocctlLogin");
+	if (resolve) {
+		ResolveAdhocServer();
 	}
 
-	// Groups/Networks should be deallocated isn't?
+	void *handle = nullptr;
+	auto server_ip = GetAdhocServerIP();
+	// Don't need to connect if AdhocServer DNS was not resolved
+	if (server_ip.in.sin_addr.s_addr != INADDR_NONE) {
+		struct adhocctl_addr_v4 adhocctl_addr;
+		adhocctl_addr.ip = server_ip.in.sin_addr.s_addr;
+		adhocctl_addr.port = server_ip.in.sin_port;
+
+		// Connect to Adhoc Server
+		handle = create_adhocctl_v1_session_v4(&adhocctl_addr, bind ? &bindAddr : NULL, (char *)productCode.data, (char *)nickname.data, (char *)mac.data, useUdp, should_abort_adhocctl_connection, NULL);
+		if (!handle && friendFinderRunning) {
+			auto n = GetI18NCategory(I18NCat::NETWORKING);
+			ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
+			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")));
+		}
+	}
+
+	adhocctlLoginHandle = handle;
+	adhocctlLoginDone = true;
+}
+
+static void StartAdhocctlLogin() {
+	// Default/Initial Network Parameters
+	memset(&parameter, 0, sizeof(parameter));
+	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+	parameter.channel = g_Config.iWlanAdhocChannel;
+	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
+	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
+
+	// If Server is at localhost and we are in P2P mode, try to bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by adhocctl server
+	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
+	struct adhocctl_addr_v4 bindAddr = {0};
+	const bool bind = isLocalServer && !serverHasRelay;
+	if (bind) {
+		bindAddr.ip = g_localhostIP.in.sin_addr.s_addr;
+		bindAddr.port = 0;
+	}
+
+	SceNetEtherAddr address;
+	getLocalMac(&address);
+
+	adhocctlLoginDone = false;
+	adhocctlLoginHandle = nullptr;
+	adhocctlLoginRunning = true;
+	adhocctlLoginThread = std::thread(AdhocctlLogin, !adhocServerResolved, bind, bindAddr, product_code, parameter.nickname, address, netAdhocUseUdp);
+	adhocServerResolved = true;
+}
+
+static void FinishAdhocctlLogin() {
+	adhocctlLoginThread.join();
+	adhocctlLoginRunning = false;
+	void *handle = adhocctlLoginHandle;
+	adhocctlLoginHandle = nullptr;
+	// sceNetAdhocctlScan & Create puts this back to true, which will trigger retry
+	isAdhocctlNeedLogin = false;
+
+	if (!handle) {
+		g_adhocServerConnected = false;
+		return;
+	}
+
+	{
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		if (adhocctlHandle) {
+			// Only the login thread creates sessions, one at a time.
+			ERROR_LOG(Log::sceNet, "%s: unreachable codepath at %s %d", __func__, __FILE__, __LINE__);
+			_dbg_assert_(false);
+			killAdhocctlClient(false, adhocctl_guard);
+		}
+		adhocctlHandle = handle;
+		int new_adhocctl_id = 2;
+		if (new_adhocctl_id == adhocctlId) {
+			new_adhocctl_id++;
+		}
+		adhocctlId = new_adhocctl_id;
+
+		// warm the local ip cache
+		sockaddr_in addr;
+		getLocalIp(&addr);
+	}
+
+	g_adhocServerConnected = true;
+	INFO_LOG(Log::sceNet, "FriendFinder: Network [RE]Initialized");
+	if (!adhocctlLoggedIn) {
+		// The first login after sceNetAdhocctlInit. A request the game made meanwhile is waiting for it,
+		// and still busy.
+		adhocctlLoggedIn = true;
+		return;
+	}
+	// At this point we are most-likely not in a Group within the Adhoc Server, so we should probably reset AdhocctlState
+	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+	netAdhocGameModeEntered = false;
+	isAdhocctlBusy = false;
+}
+
+void friendFinderStart() {
+	adhocServerResolved = false;
+	adhocctlLoggedIn = false;
+	{
+		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+		lastAdhocctlPing = 0;
+	}
+	// In case the client was dropped without friendFinderStop(), as __NetAdhocInit() does.
+	StopAdhocctlKeepalive();
+	adhocctlKeepaliveStop = false;
+	adhocctlKeepaliveThread = std::thread(AdhocctlKeepalive);
+	INFO_LOG(Log::sceNet, "FriendFinder: Begin");
+}
+
+void friendFinderStop() {
+	StopAdhocctlKeepalive();
+	// friendFinderRunning is already false, which makes a login in progress give up.
+	if (adhocctlLoginThread.joinable()) {
+		adhocctlLoginThread.join();
+	}
+	if (adhocctlLoginHandle) {
+		destroy_adhocctl_session(adhocctlLoginHandle);
+		adhocctlLoginHandle = nullptr;
+	}
+	adhocctlLoginRunning = false;
 
 	// Prevent the games from having trouble to reInitiate Adhoc (the next NetInit -> PdpCreate after NetTerm)
 	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-	friendFinderRunning = false;
+	INFO_LOG(Log::sceNet, "FriendFinder: End");
+}
 
-	// Log Shutdown
-	INFO_LOG(Log::sceNet, "FriendFinder: End of Friend Finder Thread");
+void friendFinderPoll() {
+	if (!friendFinderRunning) {
+		return;
+	}
 
-	// Return Success
-	return 0;
+	if (adhocctlLoginRunning && adhocctlLoginDone) {
+		FinishAdhocctlLogin();
+	}
+
+	// Reconnect when disconnected while Adhocctl is still inited
+	if (!adhocctlLoginRunning) {
+		if (netAdhocctlInited && isAdhocctlNeedLogin && g_Config.bEnableWlan) {
+			bool alive;
+			{
+				const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+				alive = adhocctlHandle != NULL;
+			}
+			if (alive) {
+				isAdhocctlNeedLogin = false;
+			} else {
+				// isAdhocctlNeedLogin stays set until the login is done, so the requests waiting for it keep waiting.
+				StartAdhocctlLogin();
+			}
+		} else {
+			// sceNetAdhocctlScan & Create puts this back to true, which will trigger retry
+			isAdhocctlNeedLogin = false;
+		}
+	}
+
+	uint64_t now = time_now_d() * 1000000.0; // Use time_now_d()*1000000.0 instead of CoreTiming::GetGlobalTimeUsScaled() if the game gets disconnected from AdhocServer too soon when FPS wasn't stable
+
+	// Calculate EnterGameMode Timeout to prevent waiting forever for disconnected players
+	if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE && netAdhocGameModeEntered && static_cast<s64>(CoreTiming::GetGlobalTimeUs() - gameModeEnterTimeUs) > netAdhocEnterGameModeTimeout) {
+		netAdhocGameModeEntered = false;
+		// A joiner's GAMEMODE is queued as soon as the server answers, and held until the host shows up.
+		// It must not come after all (pspautotests net/adhoc/gamemode).
+		__DropAdhocctlEvents(ADHOCCTL_EVENT_GAME);
+		// Back to DISCONNECTED with no event but the error, out of the server's group too.
+		NetAdhocctl_GameModeTimedOut();
+		// adhocctl's own TIMEOUT (pspautotests net/adhoc/gamemode).
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_TIMEOUT);
+	}
+
+	// Handle everything the server has sent since the last poll.
+	for (int i = 0; i < 64; i++) {
+		struct adhocctl_event adhocctl_event;
+		{
+			// we only want a lock until an event is fetched, so that we don't hold adhocctl & peer the same time and rig outselves into weird hold and wait down the road
+			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
+
+			if (!adhocctlHandle) {
+				return;
+			}
+
+			// Ping Server
+			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
+			if (static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
+				enum adhocctl_call_status ping_status = adhocctl_ping(adhocctlHandle);
+
+				if (ping_status != ADHOCCTL_CALL_SUCCESS) {
+					ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during ping");
+					killAdhocctlClient(true, adhocctl_guard);
+					return;
+				}
+				// Update Ping Time
+				lastAdhocctlPing = now;
+				VERBOSE_LOG(Log::sceNet, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
+			}
+
+			adhocctl_get_event(adhocctlHandle, &adhocctl_event);
+			if (adhocctl_event.type == ADHOCCTL_CLIENT_EVENT_ERROR) {
+				ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during event fetch");
+				killAdhocctlClient(true, adhocctl_guard);
+				return;
+			}
+		}
+
+		if (adhocctl_event.type == ADHOCCTL_CLIENT_EVENT_WOULD_BLOCK) {
+			return;
+		}
+
+		switch (adhocctl_event.type) {
+		case ADHOCCTL_CLIENT_EVENT_WOULD_BLOCK:
+			break;
+		case ADHOCCTL_CLIENT_EVENT_LEADER_MAC:{
+			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT_BSSID [%s]", mac2str((SceNetEtherAddr *)adhocctl_event.leader_mac.mac).c_str());
+			if (abandonedGroupJoins > 0) {
+				abandonedGroupJoins--;
+				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring the BSSID of an abandoned group join");
+				break;
+			}
+			groupJoinInFlight = false;
+			// Update Group BSSID
+			memcpy(parameter.bssid.mac_addr.data, adhocctl_event.leader_mac.mac, 6); // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address. Note: On JPCSP + prx files params.bssid is hardcoded to "Jpcsp\0" and doesn't match to any of player's mac
+
+			// From JPCSP: Some games have problems when the PSP_ADHOCCTL_EVENT_CONNECTED is sent too quickly after connecting to a network. The connection will be set CONNECTED with a small delay (200ms or 200us?)
+			// Notify Event Handlers
+			if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+				SceNetEtherAddr localMac;
+				getLocalMac(&localMac);
+				if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+					[localMac](SceNetEtherAddr const& e) {
+						return isMacMatch(&e, &localMac);
+					}) == gameModeMacs.end()) {
+					// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
+					gameModeMacs.push_back(localMac);
+
+					// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
+					if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+					}
+				}
+				else
+					WARN_LOG(Log::sceNet, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
+			}
+			else {
+				//adhocctlState = ADHOCCTL_STATE_CONNECTED;
+				notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
+			}
+
+			// Give time a little time
+			//sceKernelDelayThread(adhocEventDelayMS * 1000);
+			//sleep_ms(adhocEventDelayMS);
+
+			break;
+		}
+		case ADHOCCTL_CLIENT_EVENT_CHAT:{
+			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CHAT");
+
+			// Fix strings with null-terminated, should be already done on library but we keep it here
+			adhocctl_event.chat.nickname[sizeof(adhocctl_event.chat.nickname) - 1] = 0;
+			adhocctl_event.chat.message[sizeof(adhocctl_event.chat.message) - 1] = 0;
+
+			// Add Incoming Chat to HUD
+			NOTICE_LOG(Log::sceNet, "Received chat message %s", adhocctl_event.chat.message);
+			std::string incoming = "";
+			std::string name = (char*)adhocctl_event.chat.nickname;
+			incoming.append(name.substr(0, 8));
+			incoming.append(": ");
+			incoming.append((char*)adhocctl_event.chat.message);
+
+			std::lock_guard<std::mutex> guard(chatLogLock);
+			AddChatLogEntry(incoming);
+			chatMessageGeneration++;
+			chatMessageCount++;
+
+			break;
+		}
+		case ADHOCCTL_CLIENT_EVENT_CONNECT:{
+			u32_le ipaddr = adhocctl_event.connect.id;
+			INFO_LOG(Log::sceNet, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str((SceNetEtherAddr *)adhocctl_event.connect.mac).c_str(), ip2str(*(in_addr*)&ipaddr).c_str(), adhocctl_event.connect.nickname);
+			// A player of an abandoned join's group, or of one we've left (the server didn't know yet).
+			if (abandonedGroupJoins > 0 || !NetAdhocctl_InServerGroup()) {
+				INFO_LOG(Log::sceNet, "FriendFinder: Ignoring a player of a group we're not joining");
+				break;
+			}
+
+			// Add User
+			addFriend(adhocctl_event.connect);
+
+			// Make sure GameMode participants are all joined (including self MAC)
+			if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+				if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+					[&adhocctl_event](SceNetEtherAddr const& e) {
+						return isMacMatch(&e, (SceNetEtherAddr *)adhocctl_event.connect.mac);
+					}) == gameModeMacs.end()) {
+					// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
+					SceNetEtherAddr localMac;
+					getLocalMac(&localMac);
+					auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+										[localMac](SceNetEtherAddr const& e) {
+											return isMacMatch(&e, &localMac);
+										});
+					// Starting from our self the rest of new players will be added to the back
+					if (it != gameModeMacs.end()) {
+						gameModeMacs.push_back(*(SceNetEtherAddr *)adhocctl_event.connect.mac);
+					}
+					else {
+						// After the host, who's first - if the list has one yet.
+						it = gameModeMacs.empty() ? gameModeMacs.end() : gameModeMacs.begin() + 1;
+						gameModeMacs.insert(it, *(SceNetEtherAddr *)adhocctl_event.connect.mac);
+					}
+
+					// From JPCSP: Join complete when all the required MACs have joined
+					if (netAdhocGameModeEntered && requiredGameModeMacs.size() > 0 && gameModeMacs.size() == requiredGameModeMacs.size()) {
+						// TODO: Should we replace gameModeMacs contents with requiredGameModeMacs contents to make sure they are in the same order with macs from sceNetAdhocctlCreateEnterGameMode? But may not be consistent with the list on client side!
+						//gameModeMacs = requiredGameModeMacs;
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
+					}
+				}
+				else
+					WARN_LOG(Log::sceNet, "GameMode Member [%s] Already Existed!", mac2str((SceNetEtherAddr *)adhocctl_event.connect.mac).c_str());
+			}
+
+			// Update HUD User Count
+			std::string name = adhocctl_event.connect.nickname;
+			std::string incoming = "";
+			incoming.append(name.substr(0, 8));
+			incoming.append(" Joined ");
+			//do we need ip?
+			//joined.append((char *)packet->ip);
+
+			std::lock_guard<std::mutex> guard(chatLogLock);
+			AddChatLogEntry(incoming);
+			chatMessageGeneration++;
+
+			#ifdef LOCALHOST_AS_PEER
+			setUserCount(getActivePeerCount());
+			#else
+			// setUserCount(getActivePeerCount()+1);
+			#endif
+
+			break;
+		}
+		case ADHOCCTL_CLIENT_EVENT_DISCONNECT:{
+			// Log Incoming Peer Delete Request
+			INFO_LOG(Log::sceNet, "FriendFinder: Incoming Peer Data Delete Request...");
+
+			if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
+				auto peer = findFriendByIP(adhocctl_event.disconnect.id);
+				for (auto& gma : replicaGameModeAreas) {
+					if (peer == NULL) {
+						break;
+					}
+					if (isMacMatch(&gma.mac, &peer->mac_addr)) {
+						gma.updateTimestamp = 0;
+						break;
+					}
+				}
+			}
+
+			// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
+			deleteFriendByIP(adhocctl_event.disconnect.id);
+
+			// Update HUD User Count
+			#ifdef LOCALHOST_AS_PEER
+			setUserCount(_getActivePeerCount());
+			#else
+			//setUserCount(_getActivePeerCount()+1);
+			#endif
+
+			break;
+		}
+		case ADHOCCTL_CLIENT_EVENT_SCAN:{
+			// Log Incoming Network Information
+			INFO_LOG(Log::sceNet, "Incoming Group Information...");
+
+			// Multithreading Lock
+			peerlock.lock();
+
+			// Allocate Structure Data
+			SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));
+
+			// Allocated Structure Data
+			if (group != NULL) {
+				// Clear Memory, should this be done only when allocating new group?
+				memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+
+				// Link to existing Groups
+				group->next = newnetworks;
+
+				// Copy Group Name
+				group->group_name = *(SceNetAdhocctlGroupName *)adhocctl_event.scan.group_name;
+
+				// Set Group Host
+				group->bssid.mac_addr = *(SceNetEtherAddr *)adhocctl_event.scan.leader_mac;
+
+				// Set group parameters
+				// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
+				group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
+				// This Mode should be a valid mode (>=0), probably should be sent by AdhocServer since there are 2 possibilities (Normal and GameMode). Air Conflicts - Aces Of World War 2 (which use GameMode) seems to relies on this Mode value.
+				group->mode = std::max(ADHOCCTL_MODE_NORMAL, adhocctlCurrentMode); // default to ADHOCCTL_MODE_NORMAL
+
+				// Link into Group List
+				newnetworks = group;
+			}
+
+			// Multithreading Unlock
+			peerlock.unlock();
+
+			break;
+		}
+		case ADHOCCTL_CLIENT_EVENT_SCAN_COMPLETE:{
+			INFO_LOG(Log::sceNet, "FriendFinder: Incoming Scan complete response...");
+
+			// Reset current networks to prevent disbanded host to be listed again
+			peerlock.lock();
+			if (networks != newnetworks) {
+				freeGroupsRecursive(networks);
+				networks = newnetworks;
+			}
+			newnetworks = NULL;
+			peerlock.unlock();
+
+			// Notify Event Handlers
+			notifyAdhocctlHandlers(ADHOCCTL_EVENT_SCAN, 0);
+
+			break;
+		}
+		default:
+			ERROR_LOG(Log::sceNet, "%s: unreachable codepath at %s %d", __func__, __FILE__, __LINE__);
+			_dbg_assert_(false);
+		}
+
+	}
 }
 
 int getActivePeerCount(const bool excludeTimedout) {
@@ -1817,91 +1920,95 @@ int getActivePeerCount(const bool excludeTimedout) {
 	return count;
 }
 
+void clearLocalIpCache() {
+	const std::lock_guard<std::mutex> local_ip_cache_guard(localIpCacheMutex);
+	localIpCache.clear();
+}
+
+int getRelativeLocalIpFromRoutingTable(const in_addr &target_ip, in_addr &local_ip_out) {
+	const std::lock_guard<std::mutex> local_ip_cache_guard(localIpCacheMutex);
+
+	auto cached_ip = localIpCache.find(target_ip.s_addr);
+	if (cached_ip != localIpCache.end()) {
+		local_ip_out = cached_ip->second;
+		return 0;
+	}
+
+	// Socket doesn't "leak" to the game.
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+	if (sock == SOCKET_ERROR) {
+		ERROR_LOG(Log::sceNet, "%s: failed creating socket for fetching routing table decision, %d", __func__, errno);
+		return -1;
+	}
+
+	sockaddr_in fetch_sockaddr = {0};
+	fetch_sockaddr.sin_family = AF_INET;
+	fetch_sockaddr.sin_addr = target_ip;
+	fetch_sockaddr.sin_port = htons(53);
+
+	int connect_status = connect(sock, (struct sockaddr*)&fetch_sockaddr, sizeof(fetch_sockaddr)); // binds the DGRAM socket to a target address, which sets the address for send(), and the only address to receive data from
+	// this way we get an address from the routing table
+
+	if (connect_status == SOCKET_ERROR) {
+		ERROR_LOG(Log::sceNet, "%s: connect() failed during routing table peeking, %d", __func__, errno);
+		closesocket(sock);
+		return -1;
+	}
+
+	sockaddr_in name_from_routing_table = {0};
+	socklen_t namelen = sizeof(name_from_routing_table);
+	int get_name_status = getsockname(sock, (struct sockaddr*)&name_from_routing_table, &namelen);
+
+	if (get_name_status == SOCKET_ERROR) {
+		ERROR_LOG(Log::sceNet, "%s: getsockname() failed during routing table peeking, %d", __func__, errno);
+		closesocket(sock);
+		return -1;
+	}
+
+	closesocket(sock);
+
+	INFO_LOG(Log::sceNet, "%s: local ip relative to %s is %s", __func__, ip2str(target_ip, false).c_str(), ip2str(name_from_routing_table.sin_addr, true).c_str());
+	localIpCache[target_ip.s_addr] = name_from_routing_table.sin_addr;
+	local_ip_out = name_from_routing_table.sin_addr;
+	return 0;
+}
+
 int getLocalIp(sockaddr_in* SocketAddress) {
 	if (isLocalServer) {
 		SocketAddress->sin_addr = g_localhostIP.in.sin_addr;
 		return 0;
 	}
 
-#if !PPSSPP_PLATFORM(SWITCH)
-	if (metasocket != (int)INVALID_SOCKET) {
-		struct sockaddr_in localAddr {};
-		localAddr.sin_addr.s_addr = INADDR_ANY;
-		socklen_t addrLen = sizeof(localAddr);
-		int ret = getsockname((int)metasocket, (struct sockaddr*)&localAddr, &addrLen);
-		// Note: Sometimes metasocket still contains a valid socket fd right after failed to connect to AdhocServer on a different thread, thus ended with 0.0.0.0 here
-		if (SOCKET_ERROR != ret && localAddr.sin_addr.s_addr != 0) {
-			SocketAddress->sin_addr = localAddr.sin_addr;
+	auto server_ip = GetAdhocServerIP();
+
+	if (server_ip.in.sin_addr.s_addr != INADDR_NONE) {
+		in_addr local_ip = {0};
+		int fetch_status = getRelativeLocalIpFromRoutingTable(server_ip.in.sin_addr, local_ip);
+		if (fetch_status == 0) {
+			SocketAddress->sin_addr = local_ip;
 			return 0;
 		}
 	}
-#endif // !PPSSPP_PLATFORM(SWITCH)
 
-// Fallback if not connected to AdhocServer
-// getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
-#if (defined(_IFADDRS_H_) || (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24))
-	struct ifaddrs* ifAddrStruct = NULL;
-	struct ifaddrs* ifa = NULL;
-
-	getifaddrs(&ifAddrStruct);
-	if (ifAddrStruct != NULL) {
-		for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-			if (!ifa->ifa_addr) {
-				continue;
-			}
-			if (ifa->ifa_addr->sa_family == AF_INET) { // check it is IP4
-				// is a valid IP4 Address
-				SocketAddress->sin_addr = ((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
-				u32 addr = ((struct sockaddr_in*)ifa->ifa_addr)->sin_addr.s_addr;
-				if (addr != 0x0100007f) {  // 127.0.0.1
-					// Found a plausible one
-					break;
-				}
-			}
-		}
-		freeifaddrs(ifAddrStruct);
-		return 0;
-	}
-
-#else // Alternative way
-	// Socket doesn't "leak" to the game.
-	int sock = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sock != SOCKET_ERROR) {
-		const char* kGoogleDnsIp = "8.8.8.8"; // Needs to be an IP string so it can be resolved as fast as possible to IP, doesn't need to be reachable
-		uint16_t kDnsPort = 53;
-		struct sockaddr_in serv {};
-		u32 ipv4 = INADDR_NONE; // inet_addr(kGoogleDnsIp); // deprecated?
-		inet_pton(AF_INET, kGoogleDnsIp, &ipv4);
-		serv.sin_family = AF_INET;
-		serv.sin_addr.s_addr = ipv4;
-		serv.sin_port = htons(kDnsPort);
-
-		int err = connect(sock, (struct sockaddr*)&serv, sizeof(serv)); // connect should succeed even with SOCK_DGRAM
-		if (err != SOCKET_ERROR) {
-			struct sockaddr_in name {};
-			socklen_t namelen = sizeof(name);
-			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
-			if (err != SOCKET_ERROR) {
-				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
-				closesocket(sock);
-				return 0;
-			}
-		}
-		closesocket(sock);
-	}
-#endif
-	return -1;
+	// Fallback if adhocctl server is not resolved
+	ERROR_LOG(Log::sceNet, "%s: trying to fetch adhoc server relative local address without first resolving adhoc server address", __func__);
+	return getHostLocalIp(SocketAddress);
 }
 
-uint32_t getLocalIp(int sock) {
-	struct sockaddr_in localAddr {};
-	localAddr.sin_addr.s_addr = INADDR_ANY;
-	socklen_t addrLen = sizeof(localAddr);
-	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
-	if (isLocalServer) {
-		localAddr.sin_addr = g_localhostIP.in.sin_addr;
+int getHostLocalIp(sockaddr_in *SocketAddress) {
+	in_addr default_gateway_remote_address = {0};
+	default_gateway_remote_address.s_addr = 0x08080808;
+	in_addr local_ip_relative_to_gateway = {0};
+	int fetch_status = getRelativeLocalIpFromRoutingTable(default_gateway_remote_address, local_ip_relative_to_gateway);
+
+	if (fetch_status != 0) {
+		return -1;
 	}
-	return localAddr.sin_addr.s_addr;
+
+	SocketAddress->sin_addr = local_ip_relative_to_gateway;
+
+	return 0;
 }
 
 static std::vector<std::pair<uint32_t, uint32_t>> InitPrivateIPRanges() {
@@ -1947,7 +2054,7 @@ bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask) {
 	return (ip == (ip | (~subnetmask)));
 }
 
-void getLocalMac(SceNetEtherAddr * addr){
+void getLocalMac(SceNetEtherAddr * addr) {
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {
@@ -2144,8 +2251,7 @@ int getNicknameCount(const char * nickname)
 	// Counter
 	int count = 0;
 
-	// Local Nickname Matches
-	if (strncmp((char *)&parameter.nickname.data, nickname, ADHOCCTL_NICKNAME_LEN) == 0) count++;
+	// The console itself isn't in the peer list (pspautotests net/adhoc/pair/basic).
 
 	// Peer Reference
 	SceNetAdhocctlPeerInfo * peer = friends;
@@ -2190,125 +2296,6 @@ int getPTPSocketCount() {
 
 	// Return Socket Count
 	return counter;
-}
-
-int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
-	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	int iResult = 0;
-	metasocket = (int)INVALID_SOCKET;
-	metasocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (metasocket == INVALID_SOCKET){
-		ERROR_LOG(Log::sceNet, "Invalid socket");
-		return SOCKET_ERROR;
-	}
-	setSockKeepAlive((int)metasocket, true);
-	// Disable Nagle Algo to prevent delaying small packets
-	setSockNoDelay((int)metasocket, 1);
-	// Switch to Nonblocking Behaviour
-	changeBlockingMode((int)metasocket, 1);
-	// Ignore SIGPIPE when supported (ie. BSD/MacOS)
-	setSockNoSIGPIPE((int)metasocket, 1);
-
-	// If Server is at localhost Try to Bind socket to specific adapter before connecting to prevent 2nd instance being recognized as already existing 127.0.0.1 by AdhocServer
-	// (may not works in WinXP/2003 for IPv4 due to "Weak End System" model)
-	if (isLoopbackIP(g_adhocServerIP.in.sin_addr.s_addr)) { 
-		int on = 1;
-		// Not sure what is this SO_DONTROUTE supposed to fix, but i do remembered there were issue related to multiple-instances without SO_DONTROUTE, but forgot how to reproduce it :(
-		setsockopt((int)metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
-		setSockReuseAddrPort((int)metasocket);
-
-		g_localhostIP.in.sin_port = 0;
-		// Bind Local Address to Socket
-		iResult = bind((int)metasocket, &g_localhostIP.addr, sizeof(g_localhostIP.addr));
-		if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(Log::sceNet, "Bind to alternate localhost[%s] failed(%i).", ip2str(g_localhostIP.in.sin_addr).c_str(), iResult);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to Bind Localhost IP")) + " " + ip2str(g_localhostIP.in.sin_addr).c_str());
-		}
-	}
-	
-	// Default/Initial Network Parameters
-	memset(&parameter, 0, sizeof(parameter));
-	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
-	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	parameter.channel = g_Config.iWlanAdhocChannel;
-	// Assign a Valid Channel when connected to AP/Adhoc if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
-	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
-	//getLocalMac(&parameter.bssid.mac_addr);
-	
-	// Default ProductId
-	product_code.type = adhoc_id->type;
-	memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-
-	// Don't need to connect if AdhocServer DNS was not resolved
-	if (g_adhocServerIP.in.sin_addr.s_addr == INADDR_NONE)
-		return SOCKET_ERROR;
-
-	// Connect to Adhoc Server
-	int errorcode = 0;
-	int cnt = 0;
-	DEBUG_LOG(Log::sceNet, "InitNetwork: Connecting to AdhocServer");
-	iResult = connect((int)metasocket, &g_adhocServerIP.addr, sizeof(g_adhocServerIP));
-	errorcode = socket_errno;
-
-	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
-		u64 startTime = (u64)(time_now_d() * 1000000.0);
-		bool done = false;
-		while (!done) {
-			if (coreState == CORE_POWERDOWN) 
-				return iResult;
-
-			done = (IsSocketReady((int)metasocket, false, true) > 0);
-			if (done) {
-				// Writable can also mean the attempt failed (refused, say). Then there's no point
-				// waiting out the timeout.
-				int soError = 0;
-				socklen_t soErrorLen = sizeof(soError);
-				if (getsockopt((int)metasocket, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen) == 0 && soError != 0) {
-					errorcode = soError;
-					break;
-				}
-			}
-			struct sockaddr_in sin;
-			socklen_t sinlen = sizeof(sin);
-			memset(&sin, 0, sinlen);
-			// Ensure that the connection really established or not, since "select" alone can't accurately detects it
-			done &= (getpeername((int)metasocket, (struct sockaddr*)&sin, &sinlen) != SOCKET_ERROR);
-			u64 now = (u64)(time_now_d() * 1000000.0);
-			if (static_cast<s64>(now - startTime) > adhocDefaultTimeout) {
-				if (connectInProgress(errorcode))
-					errorcode = ETIMEDOUT;
-				break;
-			}
-			sleep_ms(10, "pro-adhoc-socket-poll");
-		}
-		if (!done) {
-			ERROR_LOG(Log::sceNet, "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.sProAdhocServer.c_str(), ip2str(g_adhocServerIP.in.sin_addr).c_str(), ntohs(g_adhocServerIP.in.sin_port));
-			g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Failed to connect to Adhoc Server")) + " (" + std::string(n->T("Error")) + ": " + std::to_string(errorcode) + ")");
-			return iResult;
-		}
-	}
-
-	// Prepare Login Packet
-	SceNetAdhocctlLoginPacketC2S packet;
-	packet.base.opcode = OPCODE_LOGIN;
-	SceNetEtherAddr addres;
-	getLocalMac(&addres);
-	packet.mac = addres;
-	strncpy((char *)&packet.name.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
-	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-
-	IsSocketReady((int)metasocket, false, true, nullptr, adhocDefaultTimeout);
-	DEBUG_LOG(Log::sceNet, "InitNetwork: Sending LOGIN OPCODE %d", packet.base.opcode);
-	int sent = (int)send((int)metasocket, (char*)&packet, sizeof(packet), MSG_NOSIGNAL);
-	if (sent > 0) {
-		socklen_t addrLen = sizeof(LocalIP);
-		memset(&LocalIP, 0, addrLen);
-		getsockname((int)metasocket, &LocalIP, &addrLen);
-		return 0;
-	} else {
-		return SOCKET_ERROR;
-	}
 }
 
 bool isZeroMAC(const SceNetEtherAddr* addr) {
@@ -2367,6 +2354,16 @@ void fixGameMac(SceNetEtherAddr *mac) {
 			return;
 		}
 	}
+}
+
+u64 peerLeftAt(const SceNetEtherAddr *mac) {
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+	for (SceNetAdhocctlPeerInfo *peer = friends; peer != NULL; peer = peer->next) {
+		if (isMacMatch(&peer->mac_addr, mac)) {
+			return peer->left_at;
+		}
+	}
+	return 0;
 }
 
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset) {
@@ -2435,11 +2432,11 @@ bool validNetworkName(const char *data) {
 	return valid;
 }
 
-u64 join32(u32 num1, u32 num2){
+u64 join32(u32 num1, u32 num2) {
 	return (u64)num2 << 32 | num1;
 }
 
-void split64(u64 num, int buff[]){
+void split64(u64 num, int buff[]) {
 	int num1 = (int)(num&firstMask);
 	int num2 = (int)((num&secondMask) >> 32);
 	buff[0] = num1;

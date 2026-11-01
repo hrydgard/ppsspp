@@ -37,6 +37,7 @@ inline void NoOpVoidBool(bool) {}
 class BackgroundScreen : public UIScreen {
 public:
 	ScreenRenderFlags render(ScreenRenderMode mode) override;
+	bool renderOutput(const OutputDisplay &output) override;
 	void sendMessage(UIMessage message, const char *value) override;
 
 private:
@@ -98,6 +99,7 @@ enum class AfterLogoScreen {
 
 class LogoScreen : public UIBaseScreen {
 public:
+	bool LimitContentArea() const override { return false; }
 	LogoScreen(AfterLogoScreen afterLogoScreen = AfterLogoScreen::DEFAULT);
 
 	bool key(const KeyInput &key) override;

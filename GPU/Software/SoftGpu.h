@@ -74,9 +74,13 @@ struct DepthBuffer {
 	inline void Set16(int x, int y, int stride, u16 v) const {
 		*Get16Ptr(x, y, stride) = v;
 	}
+	// Whether the four depths from x in row y are stored together: unless they cross the end of a 16-pixel run.
+	inline bool Contiguous4(int x, int y, int stride) const {
+		return ((base + (uint32_t)(x + y * stride) * 2) & 31) <= 24;
+	}
 };
 
-enum class SoftDirty : uint64_t {
+enum class SoftDirty : uint32_t {
 	NONE = 0,
 
 	PIXEL_BASIC = 1ULL << 0,
@@ -143,6 +147,19 @@ enum class SoftGPUVRAMDirty : uint8_t {
 
 ENUM_CLASS_BITOPS(SoftGPUVRAMDirty);
 
+// Type for the DarkStalkers stretch replacement.
+enum class DSStretch {
+	Off = 0,
+	Normal,
+	Wide,
+};
+
+// Set by hosts (libretro) that scale the output themselves. With the DarkStalkers hack active, we then
+// present its 384x224 source image at that size, rather than stretching it to the screen.
+extern bool g_DarkStalkersNativeOutput;
+static const int DS_SOURCE_WIDTH = 384;
+static const int DS_SOURCE_HEIGHT = 224;
+
 class SoftGPU : public GPUCommon {
 public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -166,12 +183,13 @@ public:
 	void GetStats(StringWriter &w) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
+	bool PerformReadbackStencilToMemory(u32 dest, int size) override;
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
@@ -192,15 +210,18 @@ public:
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	// With g_DarkStalkersNativeOutput: whether the last presented frame was the 384x224 source, and
+	// how the game would have stretched it.
+	DSStretch PresentedDarkStalkersNative() const { return presentedDSNative_; }
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
+	int RunVertexCount(u32 count, u32 vertexSize);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
@@ -235,6 +256,8 @@ public:
 
 	void BeginHostFrame(const DisplayLayoutConfig &config) override;
 	bool PresentedThisFrame() const override;
+	void SetPresentationOutput(const OutputParams *output) override;
+	bool PresentsToOtherOutput() const override;
 
 protected:
 	void FastRunLoop(DisplayList &list) override;
@@ -259,6 +282,7 @@ private:
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
+	DSStretch presentedDSNative_ = DSStretch::Off;
 	SoftDirty dirtyFlags_ = SoftDirty(-1);
 
 	PresentationCommon *presentation_ = nullptr;
@@ -272,10 +296,3 @@ private:
 extern uint8_t clut[1024];
 extern FormatBuffer fb;
 extern DepthBuffer depthbuf;
-
-// Type for the DarkStalkers stretch replacement.
-enum class DSStretch {
-	Off = 0,
-	Normal,
-	Wide,
-};

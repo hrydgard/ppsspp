@@ -4,39 +4,18 @@
 
 #include <vector>
 #include <cstdint>
+#include <cmath>
 
+#include "Common/Common.h"
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Math/geom2d.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/Render/DrawEnum.h"
 
 struct Atlas;
-
-enum {
-	ALIGN_LEFT = 0,
-	ALIGN_RIGHT = 16,
-	ALIGN_TOP = 0,
-	ALIGN_BOTTOM = 1,
-	ALIGN_HCENTER = 4,
-	ALIGN_VCENTER = 8,
-	ALIGN_VBASELINE = 32,	// text only, possibly not yet working
-
-	ALIGN_CENTER = ALIGN_HCENTER | ALIGN_VCENTER,
-	ALIGN_TOPLEFT = ALIGN_TOP | ALIGN_LEFT,
-	ALIGN_TOPRIGHT = ALIGN_TOP | ALIGN_RIGHT,
-	ALIGN_BOTTOMLEFT = ALIGN_BOTTOM | ALIGN_LEFT,
-	ALIGN_BOTTOMRIGHT = ALIGN_BOTTOM | ALIGN_RIGHT,
-
-	// For "uncachable" text like debug log.
-	// Avoids using system font drawing as it's too slow.
-	// Not actually used here but is reserved for whatever system wraps DrawBuffer.
-	FLAG_DYNAMIC_ASCII = 2048,
-	FLAG_NO_PREFIX = 4096,  // means to not process ampersands
-	FLAG_WRAP_TEXT = 8192,
-	FLAG_ELLIPSIZE_TEXT = 16384,
-};
 
 namespace Draw {
 	class Pipeline;
@@ -48,6 +27,13 @@ struct GradientStop {
 };
 
 class TextDrawer;
+
+const char *RoundRectCornerImageName(int radiusIndex, RoundRectStyle style);
+// The corner image is (center + 1) texels square. The arc is centered on texel corner (center, center),
+// and the last row and column are the straight edge profile.
+inline int RoundRectCornerCenter(float radiusPx) {
+	return (int)ceilf(radiusPx) + 1;
+}
 
 class DrawBuffer {
 public:
@@ -147,6 +133,17 @@ public:
 	}
 	// Results in 18 triangles. Kind of expensive for a button.
 	void DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
+	void DrawImage4Grid(ImageID atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0) {
+		DrawImage4Grid(atlas_image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color, corner_scale);
+	}
+
+	// Uses the nearest precomputed corner radius, scaled to fit, so outlines get thinner or thicker
+	// when radius isn't one of ROUND_RECT_RADII. 18 triangles filled, 16 outlined.
+	// Corners not in `corners` are drawn square, from the edge profiles, so they match the rounded ones.
+	void DrawRoundRect(float x1, float y1, float x2, float y2, float radius, Color color, RoundRectStyle style = RoundRectStyle::Filled, RoundCorners corners = RoundCorners::All);
+	void DrawRoundRect(const Bounds &bounds, float radius, Color color, RoundRectStyle style = RoundRectStyle::Filled, RoundCorners corners = RoundCorners::All) {
+		DrawRoundRect(bounds.x, bounds.y, bounds.x2(), bounds.y2(), radius, color, style, corners);
+	}
 
 	// This is only 6 triangles, much cheaper.
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
@@ -223,6 +220,13 @@ private:
 	int count_ = 0;
 	const Atlas *atlas = nullptr;
 	const Atlas *fontAtlas_ = nullptr;
+
+	// Atlas lookups are linear searches by name, so the corner images are looked up once per atlas.
+	// One corner cell of a round rect, drawn square. xs/ys/us/vs point at the cell's two entries, ox/oy select the outer corner.
+	void DrawSquareCorner(const float *xs, const float *ys, const float *us, const float *vs, int ox, int oy, float edgeU, float edgeV, Color color);
+
+	const AtlasImage *roundRectCorners_[ROUND_RECT_RADIUS_COUNT][(int)RoundRectStyle::COUNT]{};
+	const AtlasImage *roundRectAtlasImages_ = nullptr;
 
 	bool inited_ = false;
 	float fontscalex = 1.0f;

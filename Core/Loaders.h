@@ -19,6 +19,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
@@ -163,6 +164,18 @@ Path ResolvePBPFile(const Path &filename);
 IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorString);
 
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
+// Mounts a disc image at umd0:, umd1:, umd: and disc0:, whether or not one was there.
+bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error);
+
+class IFileSystem;
+// What a disc holds, as PSP_UMD_TYPE_* bits (game, video, audio), or 0 if it's none of those.
+// root is prepended to the disc's paths, so "disc0:" reads the mounted disc through pspFileSystem.
+u32 DetectUmdDiscType(IFileSystem *fs, std::string_view root);
+// The same for a disc image file. 0 if it can't be opened as one.
+u32 DetectUmdDiscType(FileLoader *fileLoader);
+// Whether the image's PSP_GAME has an actual executable. The EUR Video Demo Disc lists a game
+// (UMD_DATA.BIN says GVA) whose EBOOT.BIN and BOOT.BIN are all zeroes.
+bool UmdHasBootableGame(FileLoader *fileLoader);
 
 enum class ArchiveType {
 	ZIP,
@@ -180,6 +193,8 @@ enum class ZipFileContents {
 	EXTRACTED_GAME,
 	SAVE_STATES,
 	PRX_PLUGIN,
+	// A PS1 disc image, which can be one file or several (a cue sheet and what it names).
+	PSX_DISC,
 };
 
 // TODO: Rename to ArchiveContentsInfo or something.
@@ -191,6 +206,7 @@ struct ZipFileInfo {
 	int isoFileIndex = -1;  // for ISO
 	int textureIniIndex = -1;  // for textures
 	bool ignoreMetaFiles = false;
+	bool saveDataInRoot = false;  // for SAVE_DATA - the files of a single save are in the root, extract into savedataDir.
 	std::string gameTitle;  // from PARAM.SFO if available
 	std::string savedataTitle;
 	std::string savedataDetails;
@@ -198,6 +214,7 @@ struct ZipFileInfo {
 	std::string mTime;
 	std::string iniContents;
 	std::string isoFilename; // Used by SevenZ only right now.
+	std::vector<std::string> discFiles;  // For PSX_DISC, the disc's files in the archive.
 	s64 totalFileSize = 0;
 
 	std::string contentName;

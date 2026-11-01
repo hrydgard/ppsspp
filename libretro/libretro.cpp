@@ -1,4 +1,6 @@
 #include "ppsspp_config.h"
+#include "libretro/LibretroVR.h"
+#include <array>
 #include <cstring>
 #include <cassert>
 #include <thread>
@@ -6,6 +8,16 @@
 #include <vector>
 #include <cstdlib>
 #include <mutex>
+
+// Puts the exact compiler version in the build log, to see what libretro's buildbot runs. Clang reports
+// this pragma as a warning, so only MSVC and GCC.
+#define LIBRETRO_STRINGIFY2(x) #x
+#define LIBRETRO_STRINGIFY(x) LIBRETRO_STRINGIFY2(x)
+#if defined(_MSC_VER) && !defined(__clang__)
+#pragma message("Compiler: MSVC " LIBRETRO_STRINGIFY(_MSC_FULL_VER) ", _MSVC_LANG " LIBRETRO_STRINGIFY(_MSVC_LANG))
+#elif defined(__GNUC__) && !defined(__clang__)
+#pragma message("Compiler: GCC " __VERSION__ ", __cplusplus " LIBRETRO_STRINGIFY(__cplusplus))
+#endif
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
@@ -33,6 +45,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/MemMap.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
@@ -120,6 +133,8 @@ namespace Libretro
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
    static bool softwareRenderInitHack = false;
+   // The DarkStalkers hack's mode in the last frame we handed over, which presents its 384x224 source.
+   static DSStretch presentedDSStretch = DSStretch::Off;
 
    static s64 expectedTimeUsPerRun = 0;
    static uint32_t vsyncSwapInterval = 1;
@@ -131,15 +146,24 @@ namespace Libretro
    static s64 runTicksLast = 0;
 
    // Must be called with output_audio_buffer_mutex held.
-   static void ensure_output_audio_buffer_capacity(int32_t capacity)
+   static bool ensure_output_audio_buffer_capacity(int32_t capacity)
    {
       if (capacity <= output_audio_buffer.capacity) {
-         return;
+         return true;
       }
 
-      output_audio_buffer.data = (int16_t*)realloc(output_audio_buffer.data, capacity * sizeof(*output_audio_buffer.data));
+      int16_t *data = (int16_t*)realloc(output_audio_buffer.data, capacity * sizeof(*output_audio_buffer.data));
+      if (!data) {
+         // Keep the old buffer, drop the new samples.
+         if (log_cb)
+            log_cb(RETRO_LOG_ERROR, "Failed to grow output audio buffer to %d samples\n", capacity);
+         return false;
+      }
+      output_audio_buffer.data = data;
       output_audio_buffer.capacity = capacity;
-      log_cb(RETRO_LOG_DEBUG, "Output audio buffer capacity set to %d\n", capacity);
+      if (log_cb)
+         log_cb(RETRO_LOG_DEBUG, "Output audio buffer capacity set to %d\n", capacity);
+      return true;
    }
 
    static void init_output_audio_buffer(int32_t capacity)
@@ -163,7 +187,8 @@ namespace Libretro
    static void upload_output_audio_buffer()
    {
       std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
-      audio_batch_cb(output_audio_buffer.data, output_audio_buffer.size / 2);
+      if (output_audio_buffer.data && output_audio_buffer.size > 0)
+         audio_batch_cb(output_audio_buffer.data, output_audio_buffer.size / 2);
       output_audio_buffer.size = 0;
    }
 
@@ -508,6 +533,17 @@ static void check_variables(CoreParameter &coreParam)
    int iMultiSampleLevel_prev;
    bool bDisplayCropTo16x9_prev;
 
+   var.key = "ppsspp_vr_mode";
+   VRMode vrMode = VRMode::Off;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+      if (!strcmp(var.value, "Stereoscopic")) {
+         vrMode = VRMode::Stereoscopic;
+      } else if (!strcmp(var.value, "Immersive")) {
+         vrMode = VRMode::Immersive;
+      }
+   }
+   SetVRMode(vrMode);
+
    var.key = "ppsspp_language";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
@@ -796,26 +832,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
       else
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
-   }
-
-   var.key = "ppsspp_spline_quality";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "Low"))
-         g_Config.iSplineBezierQuality = 0;
-      else if (!strcmp(var.value, "Medium"))
-         g_Config.iSplineBezierQuality = 1;
-      else if (!strcmp(var.value, "High"))
-         g_Config.iSplineBezierQuality = 2;
-   }
-
-   var.key = "ppsspp_gpu_hardware_transform";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bHardwareTransform = false;
-      else
-         g_Config.bHardwareTransform = true;
    }
 
    var.key = "ppsspp_lower_resolution_for_effects";
@@ -1164,6 +1180,8 @@ void retro_init(void)
 {
    TimeInit();
    SetCurrentThreadName("Main");
+   // The frontend scales the image itself.
+   g_DarkStalkersNativeOutput = true;
 
    struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
@@ -1327,6 +1345,49 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
    PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
    PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
+
+	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES) {
+		// Reserve room for both eyes so changing VR mode needs no context reset.
+		info->geometry.max_width *= 2;
+		if (VRActive()) {
+			info->geometry.base_width *= 2;
+			info->geometry.aspect_ratio *= 2.0f;
+		}
+	}
+
+   // The frame is smaller than the backbuffer then, so this goes after setting pixelWidth/Height.
+   if (presentedDSStretch != DSStretch::Off)
+   {
+      info->geometry.base_width   = DS_SOURCE_WIDTH;
+      info->geometry.base_height  = DS_SOURCE_HEIGHT;
+      // The game stretches it to the full screen, or to 384x272 between black bars.
+      info->geometry.aspect_ratio = (presentedDSStretch == DSStretch::Wide ? 480.0f : 384.0f) / 272.0f;
+   }
+}
+
+void Libretro::GetFrameSize(unsigned *width, unsigned *height)
+{
+	if (VRActive()) {
+		*width *= 2;
+		return;
+	}
+   DSStretch stretch = DSStretch::Off;
+   if (gpu && PSP_CoreParameter().gpuCore == GPUCORE_SOFTWARE)
+      stretch = static_cast<SoftGPU *>(gpu)->PresentedDarkStalkersNative();
+
+   if (stretch != presentedDSStretch)
+   {
+      presentedDSStretch = stretch;
+      retro_system_av_info avInfo;
+      retro_get_system_av_info(&avInfo);
+      environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &avInfo.geometry);
+   }
+
+   if (stretch != DSStretch::Off)
+   {
+      *width  = DS_SOURCE_WIDTH;
+      *height = DS_SOURCE_HEIGHT;
+   }
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
@@ -1370,7 +1431,7 @@ namespace Libretro {
       // gotta do the backbuffer bind somewhere.
       using namespace Draw;
       if (draw) {
-         draw->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+         draw->BindFramebufferAsRenderTarget(draw->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
       }
 
       if (gpu && draw) {
@@ -1387,14 +1448,16 @@ namespace Libretro {
       SetCurrentThreadName("EmuThread");
 
       for (;;) {
-         switch ((EmuThreadState)emuThreadState)
+         EmuThreadState state = emuThreadState;
+         switch (state)
          {
             case EmuThreadState::RUNNING:
                EmuFrame();
                break;
             case EmuThreadState::PAUSE_REQUESTED:
-               emuThreadState = EmuThreadState::PAUSED;
-               [[fallthrough]];
+               // CAS so a concurrent QUIT_REQUESTED is not clobbered; the loop re-reads the state.
+               emuThreadState.compare_exchange_strong(state, EmuThreadState::PAUSED);
+               break;
             case EmuThreadState::PAUSED:
                sleep_ms(1, "libretro-paused");
                break;
@@ -1427,16 +1490,19 @@ namespace Libretro {
    }
 
    void EmuThreadStop() {
-      if (emuThreadState != EmuThreadState::RUNNING)
+      // Stop and join from any live state, not just RUNNING: unloading while
+      // PAUSED (the state retro_serialize_size() leaves behind) must not leave
+      // a live thread over freed engine state or a joinable std::thread.
+      if (!emuThread.joinable())
          return;
 
-      emuThreadState = EmuThreadState::QUIT_REQUESTED;
+      if (emuThreadState != EmuThreadState::STOPPED)
+         emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
       // Eat remaining frames.
       while (ctx->ThreadFrame()) {}
 
       emuThread.join();
-      emuThread = std::thread();
       ctx->ThreadEnd();
    }
 
@@ -1446,11 +1512,31 @@ namespace Libretro {
 
       emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 
-      // Is this safe?
-      ctx->ThreadFrame(); // Eat 1 frame
+      // Drain queued frames until the emu thread parks at a frame boundary.
+      // A single frame is not enough when the emu thread is blocked on a
+      // readback sync in the following frame, and ThreadFrame() blocks on an
+      // empty queue, so only pump it when work is queued.
+      while (emuThreadState != EmuThreadState::PAUSED) {
+         if (ctx->ThreadFramePending())
+            ctx->ThreadFrame();
+         else
+            sleep_ms(1, "libretro-pause-poll");
+      }
+   }
 
-      while (emuThreadState != EmuThreadState::PAUSED)
-         sleep_ms(1, "libretro-pause-poll");
+   // Unload and reset can come while the loader thread is still booting. Let it finish
+   // before shutting down, since it uses the memory and file systems PSP_Shutdown tears down.
+   static void FinishPendingBoot() {
+      if (g_pendingBoot) {
+         std::string errorString;
+         while (PSP_InitUpdate(&errorString) == BootState::Booting)
+            sleep_ms(1, "libretro-boot-drain");
+         g_pendingBoot = false;
+      }
+      // A state queued for the boot is stale now.
+      free(unserialize_data);
+      unserialize_data = nullptr;
+      unserialize_size = 0;
    }
 
 } // namespace Libretro
@@ -1556,16 +1642,31 @@ void retro_unload_game(void) {
       Libretro::EmuThreadStop();
    }
 
-	PSP_Shutdown(true);
+	Libretro::FinishPendingBoot();
+	// A failed boot has already shut down.
+	if (PollBootState() != BootState::Off)
+		PSP_Shutdown(true);
 	g_VFS.Clear();
+
+	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES && ctx->GetDrawContext()) {
+		Libretro::DestroyVR();
+	}
 
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
+	presentedDSStretch = DSStretch::Off;
 }
 
 void retro_reset(void) {
-   PSP_Shutdown(true);
+   // EmuFrame() must not run while the core is torn down; retro_run()
+   // restarts the thread.
+   if (Libretro::useEmuThread)
+      Libretro::EmuThreadStop();
+
+   Libretro::FinishPendingBoot();
+   if (PollBootState() != BootState::Off)
+      PSP_Shutdown(true);
 
    if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString)) {
       ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
@@ -1608,14 +1709,15 @@ static void retro_input(void) {
             ret |= (1 << i);
    }
 
+   u32 buttons = 0;
+   u32 controlledButtons = 0;
    for (i = 0; i < sizeof(map) / sizeof(*map); i++) {
-      bool pressed = ret & (1 << map[i].retro);
-      if (pressed) {
-         __CtrlUpdateButtons(map[i].sceCtrl, 0);
-      } else {
-         __CtrlUpdateButtons(0, map[i].sceCtrl);
-      }
+      controlledButtons |= map[i].sceCtrl;
+      if (ret & (1 << map[i].retro))
+         buttons |= map[i].sceCtrl;
    }
+   // One update, so the emu thread can't sample a half-updated set of buttons.
+   __CtrlUpdateButtons(buttons, controlledButtons & ~buttons);
 
    float x_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
@@ -1711,24 +1813,27 @@ void retro_run(void) {
    }
 
    // Update setting if any have changed.
-   bool updated;
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated)
+   bool updated = false;
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated) {
+      // The emu thread reads g_Config mid-frame; it is resumed below.
+      if (useEmuThread)
+         EmuThreadPause();
       check_variables(PSP_CoreParameter());
-   else
+   } else
       check_dynamic_variables(PSP_CoreParameter());
 
    // Process input.
    retro_input();
 
+   // The shared VR renderer's camera state is consumed by the emulation thread.
+   if (useEmuThread && (Libretro::VRRequested() || Libretro::VRActive()))
+      EmuThreadPause();
+   Libretro::UpdateVR();
+
    // Handle thread pumping.
    if (useEmuThread) {
-      if (emuThreadState == EmuThreadState::PAUSED ||
-          emuThreadState == EmuThreadState::PAUSE_REQUESTED) {
-         VsyncSwapIntervalDetect();
-         ctx->SwapBuffers();
-         return;
-      }
-
+      // Also resumes from PAUSED, so a retro_serialize_size() without a
+      // following retro_serialize() cannot freeze emulation.
       if (emuThreadState != EmuThreadState::RUNNING) {
          EmuThreadStart();
       }
@@ -1750,14 +1855,6 @@ void retro_run(void) {
 unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
 
 bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num) { return false; }
-
-namespace SaveState
-{
-   struct SaveStart
-   {
-      void DoState(PointerWrap &p);
-   };
-} // namespace SaveState
 
 size_t retro_serialize_size(void)
 {
@@ -1782,15 +1879,18 @@ bool retro_serialize(void *data, size_t size) {
       EmuThreadPause(); // Does nothing if already paused
    }
 
-   size_t measuredSize;
    SaveState::SaveStart state;
-   auto err = CChunkFileReader::MeasureAndSavePtr(state, (u8 **)&data, &measuredSize);
+   // The buffer was sized by an earlier retro_serialize_size(); the state
+   // may have grown since, so never write past 'size'.
+   u8 *buffer = (u8 *)data;
+   size_t savedSize = size;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, &buffer, &savedSize);
+   if (err == CChunkFileReader::ERROR_BAD_ALLOC)
+      ERROR_LOG(Log::SaveState, "Savestate does not fit in the frontend's buffer (%d bytes)", (int)size);
    bool retVal = err == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread) {
+   if (useEmuThread)
       EmuThreadStart();
-      sleep_ms(4, "libretro-serialize");
-   }
 
    return retVal;
 }
@@ -1799,9 +1899,13 @@ bool retro_unserialize(const void *data, size_t size) {
    // The HW renderer isn't ready on first pass.
    // So we save the data until we are ready to use it.
    if (!gpu) {
-      unserialize_data = malloc(size);
-      memcpy(unserialize_data, data, size);
+      void *buffer = malloc(size);
+      if (!buffer)
+         return false;
+      free(unserialize_data);
+      unserialize_data = buffer;
       unserialize_size = size;
+      memcpy(unserialize_data, data, size);
       return true;
    }
 
@@ -1814,31 +1918,32 @@ bool retro_unserialize(const void *data, size_t size) {
    bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
       == CChunkFileReader::ERROR_NONE;
 
-   if (useEmuThread) {
+   if (useEmuThread)
       EmuThreadStart();
-      sleep_ms(4, "libretro-unserialize");
-   }
 
    return retVal;
 }
 
 void *retro_get_memory_data(unsigned id)
 {
-   if ( id == RETRO_MEMORY_SYSTEM_RAM )
-      return Memory::GetPointerWriteUnchecked(PSP_GetKernelMemoryBase()) ;
+   // Frontends query this right after retro_load_game(), before the
+   // deferred boot in retro_run() has mapped PSP memory.
+   if (id == RETRO_MEMORY_SYSTEM_RAM && Memory::IsActive())
+      return Memory::GetPointerWriteUnchecked(PSP_GetKernelMemoryBase());
    return NULL;
 }
 
 size_t retro_get_memory_size(unsigned id)
 {
-	if ( id == RETRO_MEMORY_SYSTEM_RAM )
-		return Memory::g_MemorySize ;
+	if (id == RETRO_MEMORY_SYSTEM_RAM && Memory::IsActive())
+		return Memory::g_MemorySize;
 	return 0;
 }
 
 void retro_cheat_reset(void) {
    // Init Cheat Engine
-   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   CWCheatEngine cheatEngineObj(g_paramSFO.GetDiscID());
+   CWCheatEngine *cheatEngine = &cheatEngineObj;
    Path file=cheatEngine->CheatFilename();
 
    // Output cheats to cheat file
@@ -1860,7 +1965,8 @@ void retro_cheat_reset(void) {
 
 void retro_cheat_set(unsigned index, bool enabled, const char *code) {
    // Initialize Cheat Engine
-   CWCheatEngine *cheatEngine = new CWCheatEngine(g_paramSFO.GetDiscID());
+   CWCheatEngine cheatEngineObj(g_paramSFO.GetDiscID());
+   CWCheatEngine *cheatEngine = &cheatEngineObj;
    cheatEngine->CreateCheatFile();
    Path file=cheatEngine->CheatFilename();
 
@@ -1931,6 +2037,8 @@ void retro_cheat_set(unsigned index, bool enabled, const char *code) {
 
 int64_t System_GetPropertyInt(SystemProperty prop) {
    switch (prop) {
+      case SYSPROP_DEVICE_TYPE:
+         return Libretro::VRRequested() && g_Config.iGPUBackend == (int)GPUBackend::OPENGL ? DEVICE_TYPE_VR : DEVICE_TYPE_DESKTOP;
       case SYSPROP_AUDIO_SAMPLE_RATE:
          return SAMPLERATE;
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1995,6 +2103,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 void System_Toast(std::string_view str) {}
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 inline int16_t Clamp16(int32_t sample) {
    if (sample < -32767) return -32767;
@@ -2005,33 +2115,28 @@ inline int16_t Clamp16(int32_t sample) {
 void System_AudioPushSamples(const int32_t *audio, int numSamples, float volume) {
    // We ignore volume here, because it's handled by libretro presumably.
 
+   if (!audio || numSamples <= 0)
+      return;
+
    std::lock_guard<std::mutex> lock(output_audio_buffer_mutex);
 
-   // Convert to 16-bit audio for further processing.
-   int16_t buffer[1024 * 2];
-   int origSamples = numSamples * 2;
-
-   while (numSamples > 0) {
-      int blockSize = std::min(1024, numSamples);
-      for (int i = 0; i < blockSize; i++) {
-         buffer[i * 2] = Clamp16(audio[i * 2]);
-         buffer[i * 2 + 1] = Clamp16(audio[i * 2 + 1]);
-      }
-
-      numSamples -= blockSize;
+   int32_t values = numSamples * 2; // stereo
+   if (output_audio_buffer.capacity - output_audio_buffer.size < values) {
+      if (!ensure_output_audio_buffer_capacity((int32_t)((output_audio_buffer.capacity + values) * 1.5f)))
+         return;
    }
 
-   if (output_audio_buffer.capacity - output_audio_buffer.size < origSamples)
-      ensure_output_audio_buffer_capacity((output_audio_buffer.capacity + origSamples) * 1.5);
-   memcpy(output_audio_buffer.data + output_audio_buffer.size, buffer, origSamples * sizeof(*output_audio_buffer.data));
-   output_audio_buffer.size += origSamples;
+   // Convert straight into the output buffer.
+   int16_t *dst = output_audio_buffer.data + output_audio_buffer.size;
+   for (int32_t i = 0; i < values; i++)
+      dst[i] = Clamp16(audio[i]);
+   output_audio_buffer.size += values;
 }
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
 void System_AudioClear() {}
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 bool System_AudioRecordingIsAvailable() { return false; }
-bool System_AudioRecordingState() { return false; }
 #endif
 // Stub for now.
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }

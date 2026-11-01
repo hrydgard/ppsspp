@@ -36,6 +36,13 @@ namespace SaveState {
 	};
 	typedef std::function<void(Status status, std::string_view message, std::string_view metadata)> Callback;
 
+	// The whole state, for CChunkFileReader. libretro uses it directly.
+	struct SaveStart {
+		void DoState(PointerWrap &p);
+		// Rewind snapshots and verification don't count towards IsStale().
+		bool countsAsSave = true;
+	};
+
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();
@@ -87,27 +94,34 @@ namespace SaveState {
 
 	std::string GetTitle(const Path &filename);
 
-	// Load the specified file into the current state (async.)
-	// Warning: callback will be called on a different thread.
-	void Load(const Path &filename, int slot, Callback callback = Callback());
+	// Load the specified file into the current state (async.) The file is read while emulation goes
+	// on, and the state applied in a later Process().
+	// Returns true if queued. The callback runs from Process(), once the state has been applied.
+	bool Load(const Path &filename, int slot, Callback callback = Callback());
 
-	// Save the current state to the specified file (async.)
-	// Warning: callback will be called on a different thread.
-	void Save(const Path &filename, int slot, Callback callback = Callback());
+	// Save the current state to the specified file (async.) The state is captured in the next
+	// Process(), and compressed and written on the worker.
+	// Returns true if queued. The callback runs from Process(), once the file has been written.
+	// Saving to a path that already has a save pending counts as a repeat of that save.
+	bool Save(const Path &filename, int slot, Callback callback = Callback());
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
-	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = Callback());
+	// The callback runs from Process().
+	bool Verify(Callback callback = Callback());
 
 	// To go back to a previous snapshot (only if enabled.)
-	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = Callback());
+	// The callback runs from Process(), once the snapshot has been applied.
+	bool Rewind(Callback callback = Callback());
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
+
+	// Returns true while a save, load or rewind is queued or still in progress (rewind snapshots
+	// don't count). Saves are done once the file is written.
+	bool IsBusy();
 
 	// Returns true if a savestate has been used during this session.
 	bool HasLoadedState();
@@ -119,7 +133,9 @@ namespace SaveState {
 	bool IsOldVersion();
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
-	void Process();
+	// While the game is paused (under the pause menu, say), pass false: there's nothing new to take
+	// rewind snapshots of.
+	void Process(bool takeRewindSnapshots = true);
 
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();
@@ -129,4 +145,10 @@ namespace SaveState {
 
 	// Returns the time since last save. -1 if N/A.
 	double SecondsSinceLastSavestate();
+
+	// The savestate worker thread, for compression and file I/O away from the emu thread. Jobs run
+	// one at a time, in the order they were queued, and mustn't touch emulator state.
+	void RunOnWorker(std::function<void()> job);
+	// Waits until every job queued so far has finished.
+	void WaitForWorker();
 }  // namespace SaveState

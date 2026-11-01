@@ -47,10 +47,8 @@ public:
 	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
 private:
+	// Windows: raw QPC ticks. Everything else: nanoseconds, from time_now_raw().
 	uint64_t nativeStart_;
-#ifndef _WIN32
-	int64_t nsecs_;
-#endif
 };
 
 class TimeCollector {
@@ -67,4 +65,17 @@ public:
 private:
 	double startTime_;
 	double *target_;
+};
+
+class LogScopeIfSlowMs {
+public:
+	LogScopeIfSlowMs(const char *title, int limitMs) {
+		title_ = title;
+		endTime_ = time_now_d() + 0.001 * limitMs;
+	}
+	~LogScopeIfSlowMs();
+
+private:
+	const char *title_;
+	double endTime_;
 };

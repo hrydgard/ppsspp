@@ -471,6 +471,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{CTRL_SELECT, "Select"},
 	{CTRL_LTRIGGER, "L"},
 	{CTRL_RTRIGGER, "R"},
+	{CTRL_HOME, "Home"},
 
 	{VIRTKEY_AXIS_Y_MAX, "An.Up"},
 	{VIRTKEY_AXIS_Y_MIN, "An.Down"},
@@ -515,6 +516,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 	{VIRTKEY_SCREENSHOT, "Screenshot"},
 	{VIRTKEY_MUTE_TOGGLE, "Mute toggle"},
+	{VIRTKEY_CREATE_FRAME_DUMP, "Create frame dump"},
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
@@ -537,7 +539,6 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_AXIS_RIGHT_X_MIN, "RightAn.Left"},
 	{VIRTKEY_AXIS_RIGHT_X_MAX, "RightAn.Right"},
 
-	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
 	{CTRL_WLAN, "Wlan"},
 	{CTRL_REMOTE_HOLD, "Remote hold"},

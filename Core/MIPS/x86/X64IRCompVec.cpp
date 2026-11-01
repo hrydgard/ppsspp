@@ -246,31 +246,46 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
+	case IROp::Vec4VfpuDot:
 	{
-		// TODO: Handle "aliasing" of sizes.  In theory it should be fine if not dirty...
-		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
-			DISABLE;
-
-		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-
-		if (inst.dest == inst.src1) {
-			MULPS(regs_.FX(inst.dest), regs_.F(inst.src2));
-		} else if (inst.dest == inst.src2) {
-			MULPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-		} else if (cpu_info.bAVX) {
-			VMULPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
-		} else if (cpu_info.bSSE4_1) {
-			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
-			MULPS(regs_.FX(inst.dest), regs_.F(inst.src2));
+#if PPSSPP_ARCH(AMD64)
+		if (!vfpuDot_ || Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
+			CompIR_Generic(inst);
+			break;
 		}
-
-		// This shuffle can be done in one op for SSE3/AVX, but it's not always faster.
-		MOVAPS(tempReg, regs_.F(inst.dest));
-		SHUFPS(tempReg, regs_.F(inst.dest), VFPU_SWIZZLE(1, 0, 3, 2));
-		ADDPS(regs_.FX(inst.dest), R(tempReg));
-		MOVHLPS(tempReg, regs_.FX(inst.dest));
-		ADDSS(regs_.FX(inst.dest), R(tempReg));
+		// The operands go to the shared routine in xmm0 and xmm1, and the result comes back in edi.
+		// Whatever guest state is in the registers it clobbers gets flushed first: these come last in
+		// the allocation order, so usually that's nothing. Then again after the operands are moved,
+		// in case they were mapped into one of them.
+		auto flushClobbered = [&]() {
+			regs_.FlushHostRegs({ RCX, RDX, RSI, RDI }, { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM14, XMM15 });
+		};
+		flushClobbered();
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		const X64Reg x = regs_.MapVec4(inst.src1);
+		const X64Reg y = regs_.MapVec4(inst.src2);
+		if (x == XMM1 && y == XMM0) {
+			MOVAPS(XMM2, R(XMM0));
+			MOVAPS(XMM0, R(XMM1));
+			MOVAPS(XMM1, R(XMM2));
+		} else if (y == XMM0) {
+			MOVAPS(XMM1, R(y));
+			MOVAPS(XMM0, R(x));
+		} else {
+			if (x != XMM0)
+				MOVAPS(XMM0, R(x));
+			if (y != XMM1)
+				MOVAPS(XMM1, R(y));
+		}
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		flushClobbered();
+		CALL(vfpuDot_);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		MOVD_xmm(regs_.FX(inst.dest), R(EDI));
+#else
+		// 32-bit x86 has too few registers for the shared routine.
+		CompIR_Generic(inst);
+#endif
 		break;
 	}
 

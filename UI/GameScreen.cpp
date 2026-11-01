@@ -20,6 +20,8 @@
 #include "ppsspp_config.h"
 
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Thread/Promise.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -43,6 +45,7 @@
 #include "Core/Util/GameDB.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/Util/VideoPlayer.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/Background.h"
@@ -51,6 +54,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GamePacker.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/BaseScreens.h"
 #include "UI/MiscScreens.h"
@@ -62,87 +66,43 @@
 // This is in an objective-C file.
 #if PPSSPP_PLATFORM(IOS)
 void copyDeepLinkForPath(std::string_view filePath);
+#elif PPSSPP_PLATFORM(ANDROID)
+// The path is a content URI that PPSSPP has access to, so frontends and adb can launch it.
+void copyDeepLinkForPath(std::string_view filePath) {
+	System_CopyStringToClipboard(std::string(filePath));
+}
 #else
 // dummy
 void copyDeepLinkForPath(std::string_view) {}
 #endif
 
+// Room kept free at the bottom for the compression progress bar.
+static constexpr float PACK_BAR_HEIGHT = 48.0f;
+
 constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON1_PMF | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE | GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::BUNDLED_UPDATE_INFO;
 
 class PMFView : public UI::InertView {
 public:
-	PMFView(std::string data, UI::LayoutParams *params) : UI::InertView(params), data_(data) {
+	PMFView(std::string data, UI::LayoutParams *params) : UI::InertView(params), video_(std::move(data)) {
 		startTime_ = Instant::Now();
-		player_ = pmf_create();
-		if (0 == pmf_init(player_, (const uint8_t *)data_.data(), data_.size(), &width_, &height_)) {
-
-		} else {
-			ERROR_LOG(Log::G3D, "Couldn't load pmf");
-			pmf_destroy(player_);
-			player_ = nullptr;
-		}
-	}
-
-	~PMFView() {
-		if (curFrame_) {
-			curFrame_->Release();
-			curFrame_ = nullptr;
-		}
-
-		if (player_) {
-			pmf_destroy(player_);
-			player_ = nullptr;
-		}
 	}
 
 	void DeviceLost() override {
-		if (curFrame_) {
-			curFrame_->Release();
-			curFrame_ = nullptr;
-		}
+		video_.DeviceLost();
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		// Just use the video size.
-		w = width_;
-		h = height_;
+		w = video_.Width();
+		h = video_.Height();
 	}
 
 	void Draw(UIContext &dc) override {
-		if (!player_) {
-			return;
-		}
-
-		Draw::DrawContext *draw = dc.GetDrawContext();
-
-		// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
-		// so a regression can't overflow the allocation.
-		std::vector<u8> frame((size_t)width_ * (size_t)height_ * 4);
-		if (pmf_update(player_, startTime_.ElapsedSeconds(), frame.data())) {
-			if (curFrame_) {
-				curFrame_->Release();
-				curFrame_ = nullptr;
-			}
-
-			Draw::TextureDesc desc{};
-			desc.width = width_;
-			desc.height = height_;
-			desc.depth = 1;
-			desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-			desc.generateMips = false;
-			desc.tag = "pmf_frame";
-			desc.type = Draw::TextureType::LINEAR2D;
-			desc.mipLevels = 1;
-			desc.initData.push_back(frame.data());
-
-			curFrame_ = draw->CreateTexture(desc);
-		}
-
-		if (curFrame_) {
-			int dropsize = 5;
-			dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, bounds_.x - dropsize * 1.5f, bounds_.y - dropsize * 1.5f, bounds_.x2() + dropsize * 1.5f, bounds_.y2() + dropsize * 1.5f, 0xFF000000, 1.0f);
+		Draw::Texture *frame = video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds());
+		if (frame) {
+			dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
 			dc.Flush();
-			draw->BindTexture(0, curFrame_);
+			dc.GetDrawContext()->BindTexture(0, frame);
 			dc.Draw()->DrawTexRect(bounds_, 0, 0, 1.0f, 1.0f, 0xFFFFFFFF);
 			dc.Flush();
 		}
@@ -151,15 +111,11 @@ public:
 	}
 
 private:
-	std::string data_;
-	Draw::Texture *curFrame_ = nullptr;
-	PMFPlayer *player_ = nullptr;
+	PMFVideoTexture video_;
 	Instant startTime_;
-	int width_ = 0;
-	int height_ = 0;
 };
 
-GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu), inGame_(inGame) {
+GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu | TwoPaneFlags::DropShadowTitle), inGame_(inGame) {
 	g_BackgroundAudio.SetGame(gamePath);
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
@@ -167,6 +123,7 @@ GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogS
 	constexpr GameInfoFlags refetchFlags = GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::PARAM_SFO;
 
 	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, refetchFlags);
+	packGeneration_ = GamePacker::Generation();
 }
 
 GameScreen::~GameScreen() {
@@ -187,10 +144,40 @@ template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 
 void GameScreen::update() {
 	UITwoPaneBaseDialogScreen::update();
 
-	GameInfoFlags hasFlags;
-	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
+	// Removing the game happens from popups, which have to close before we can.
+	if (gameRemoved_ && !finishRequested_) {
+		finishRequested_ = true;
+		TriggerFinish(DR_OK);
+		return;
+	}
 
 	bool recreate = false;
+
+	if (packGeneration_ != GamePacker::Generation()) {
+		packGeneration_ = GamePacker::Generation();
+		const GamePacker::Result result = GamePacker::LastResult();
+		if (result.oldPath == gamePath_ && result.newPath != gamePath_) {
+			// The original was replaced: this is the game now.
+			gamePath_ = result.newPath;
+			if (CRC32string == "...") {
+				Reporting::CancelCRC();
+			}
+			CRC32string.clear();
+			knownHasCRC_ = false;
+			g_BackgroundAudio.SetGame(gamePath_);
+			System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath_.ToString());
+		}
+		// Replacing clears the info cache, which leaves ours stale.
+		knownFlags_ = GameInfoFlags::EMPTY;
+		info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
+		recreate = true;
+	}
+	if (GamePacker::IsBusy() != packBarShown_) {
+		recreate = true;
+	}
+
+	GameInfoFlags hasFlags;
+	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
 
 	if (knownFlags_ != hasFlags) {
 		bool justAudio = ((u32)knownFlags_ ^ (u32)hasFlags) == (u32)GameInfoFlags::SND;
@@ -200,6 +187,19 @@ void GameScreen::update() {
 		if (!justAudio) {
 			recreate = true;
 		}
+	}
+
+	if (!lookupsStarted_ && (knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+		StartLookups();
+	}
+	if (lookupTask_ && lookupTask_->done) {
+		lookups_ = std::move(lookupTask_->result);
+		lookupTask_.reset();
+		if (lookupsPending_) {
+			lookupsPending_ = false;
+			StartLookups();
+		}
+		recreate = true;
 	}
 
 	// Has the user requested a CRC32?
@@ -243,11 +243,10 @@ static bool FileTypeHasIcon(IdentifiedFileType fileType) {
 	}
 }
 
-static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
+static bool FileTypeIsPlayable(IdentifiedFileType fileType, bool firmwareRunsPS1Discs) {
 	switch (fileType) {
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 	case IdentifiedFileType::UNKNOWN:
-	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PS2_ISO:
 	case IdentifiedFileType::PS3_ISO:
 	case IdentifiedFileType::UNKNOWN_BIN:
@@ -258,18 +257,51 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		// Reverse logic.
 		return false;
+	case IdentifiedFileType::PSX_ISO:
+		// Through the firmware's POPS.
+		return firmwareRunsPS1Discs;
 	default:
 		return true;
 	}
 }
 
-void GameScreen::RefreshInstalledUpdate() {
-	hasInstalledUpdate_ = false;
-	// Homebrew reuses real disc IDs often enough that we'd get false positives.
-	if (isHomebrew_ || !(knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+void GameScreen::StartLookups() {
+	lookupsStarted_ = true;
+	if (lookupTask_) {
+		lookupsPending_ = true;
 		return;
 	}
-	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
+	lookupTask_ = std::make_shared<LookupTask>();
+	// Homebrew reuses real disc IDs often enough that we'd get false positives.
+	const std::string updateId = info_->region == GameRegion::HOMEBREW ? std::string() : info_->id;
+	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
+		[task = lookupTask_, id = info_->id, updateId, fileType = info_->fileType, lang = g_Config.sLanguageIni]() {
+		Lookups &result = task->result;
+		if (!updateId.empty()) {
+			result.hasInstalledUpdate = FindInstalledGameUpdate(updateId, &result.installedUpdate);
+		}
+		result.plugins = HLEPlugins::FindPlugins(id, lang);
+		if (fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+			result.umdVideoVSHPath = GetUmdVideoVSHPath();
+		} else if (fileType == IdentifiedFileType::PSX_ISO) {
+			result.firmwareRunsPS1Discs = InstalledFirmwareRunsPS1Discs();
+		}
+		// Everything above is published by this store.
+		task->done = true;
+	}));
+}
+
+void GameScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	// Could have been the firmware installer, or a deleted game update.
+	if (lookupsStarted_) {
+		StartLookups();
+	}
+	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
+}
+
+// Both panes use isHomebrew_, and which is created first depends on orientation.
+void GameScreen::BeforeCreateViews() {
+	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
 }
 
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -290,9 +322,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	Margins actionMenuMargins(0, 15, 15, 0);
 
-	ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(8)));
+	ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(0)));
 
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	leftColumn->SetPadding(Margins(8, 8, 8, 8));
 
 	leftScroll->Add(leftColumn);
 
@@ -377,9 +410,9 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 	leftColumn->Add(infoLayout);
 
-	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+	if (info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO && !lookupTask_ && lookupsStarted_ && lookups_.umdVideoVSHPath.empty()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		leftColumn->Add(new NoticeView(NoticeLevel::INFO, er->T("PPSSPP doesn't support UMD Video."), ""));
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ApplySafeSubstitutions(er->T("PSP firmware version %1 or later must be installed to play UMD video"), UMD_VIDEO_MIN_FIRMWARE), ""));
 		leftColumn->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/umd-video/");
 		});
@@ -517,24 +550,24 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	// An installed game update replaces the disc's executable, so it's worth saying so here -
 	// otherwise there's nothing in the UI to explain why a patched game is running.
-	RefreshInstalledUpdate();
-	if (hasInstalledUpdate_) {
+	const InstalledGameUpdate &installedUpdate = lookups_.installedUpdate;
+	if (lookups_.hasInstalledUpdate) {
 		infoLayout->Add(new ItemHeader(ga->T("Game update")));
-		std::string updateLine = installedUpdate_.title;
-		if (!installedUpdate_.appVer.empty()) {
-			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate_.appVer);
+		std::string updateLine = installedUpdate.title;
+		if (!installedUpdate.appVer.empty()) {
+			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate.appVer);
 			updateLine = updateLine.empty() ? version : updateLine + " - " + version;
 		}
 		if (updateLine.empty()) {
 			updateLine = ga->T("Installed");
 		}
-		updateLine += " - " + NiceSizeFormat(installedUpdate_.sizeOnDisk);
+		updateLine += " - " + NiceSizeFormat(installedUpdate.sizeOnDisk);
 		infoLayout->Add(new TextView(updateLine, ALIGN_LEFT, true))->SetBullet(true);
-		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate_.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
+		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
 	}
 
 	// Show plugin info_, if any. Later might add checkboxes.
-	auto plugins = HLEPlugins::FindPlugins(info_->id, g_Config.sLanguageIni);
+	const std::vector<HLEPlugins::PluginInfo> &plugins = lookups_.plugins;
 	if (!plugins.empty()) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		infoLayout->Add(new ItemHeader(sy->T("Plugins")));
@@ -544,6 +577,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 
 	infoLayout->Add(new GameImageView(gamePath_, GameInfoFlags::PIC0, 2.0f, new LinearLayoutParams(UI::Margins(0))));
+
+	if (GamePacker::IsBusy()) {
+		leftColumn->Add(new Spacer(PACK_BAR_HEIGHT));
+	}
 }
 
 void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
@@ -556,45 +593,89 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
-	rightColumnItems->SetSpacing(0.0f);
 	rightColumn->Add(rightColumnItems);
 
-	if (!inGame_ && FileTypeIsPlayable(info_->fileType)) {
-		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Add([this](UI::EventParams &e) {
-			screenManager()->switchScreen(new EmuScreen(gamePath_));
+	ChoiceGroup *choices = rightColumnItems->Add(new ChoiceGroup());
+
+	// UMD Video plays in the XMB, with the disc in the drive.
+	const Path vshPath = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? lookups_.umdVideoVSHPath : Path();
+	if (!inGame_ && (FileTypeIsPlayable(info_->fileType, lookups_.firmwareRunsPS1Discs) || !vshPath.empty())) {
+		Choice *play = choices->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
+		play->OnClick.Add([this, vshPath](UI::EventParams &e) {
+			if (vshPath.empty()) {
+				screenManager()->switchScreen(new EmuScreen(gamePath_));
+			} else {
+				screenManager()->switchScreen(new EmuScreen(vshPath, gamePath_, true));
+			}
 		});
+		// The file is being read, and maybe about to be replaced.
+		play->SetEnabled(!GamePacker::IsPacking(gamePath_));
 	}
 
 	if (!info_->id.empty() && !inGame_) {
 		if (info_->hasConfig) {
 			// Only show the Game Settings button here if the game has a config. Always showing it
 			// is confusing since it'll just control the global settings.
-			Choice *btnGameSettings = rightColumnItems->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
+			Choice *btnGameSettings = choices->Add(new Choice(ga->T("Game Settings"), ImageID("I_GEAR")));
 			btnGameSettings->OnClick.Handle(this, &GameScreen::OnGameSettings);
 
-			Choice *btnDeleteGameConfig = rightColumnItems->Add(new Choice(ga->T("Delete Game Config"), ImageID("I_TRASHCAN")));
+			Choice *btnDeleteGameConfig = choices->Add(new Choice(ga->T("Delete Game Config"), ImageID("I_TRASHCAN")));
 			btnDeleteGameConfig->OnClick.Handle(this, &GameScreen::OnDeleteConfig);
 		} else {
-			Choice *btnCreateGameConfig = rightColumnItems->Add(new Choice(ga->T("Create Game Config"), ImageID("I_GEAR_STAR")));
+			Choice *btnCreateGameConfig = choices->Add(new Choice(ga->T("Create Game Config"), ImageID("I_GEAR_STAR")));
 			btnCreateGameConfig->OnClick.Handle(this, &GameScreen::OnCreateConfig);
 		}
 	}
 
 	if (g_Config.bEnableCheats) {
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
-		rightColumnItems->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
+		choices->Add(new Choice(pa->T("Cheats"), ImageID("I_CHEAT")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new CwCheatScreen(gamePath_));
 		});
 	}
 
-	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
-
-	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
-		rightColumnItems->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
+	const bool packing = GamePacker::IsPacking(gamePath_);
+	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) && !packing) {
+		choices->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
 			Reporting::QueueCRC(gamePath_);
 			CRC32string = "...";  // signal that we're waiting for it. Kinda ugly.
 		});
 	}
+
+	packBarShown_ = GamePacker::IsBusy();
+	if (packBarShown_) {
+		rightColumnItems->Add(new Spacer(PACK_BAR_HEIGHT));
+	}
+}
+
+void GameScreen::DrawForeground(UIContext &dc) {
+	GamePacker::Status status;
+	if (!GamePacker::GetStatus(&status)) {
+		return;
+	}
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	const Bounds &screen = root_ ? root_->GetBounds() : dc.GetBounds();
+	const Bounds bar(screen.x, screen.y2() - PACK_BAR_HEIGHT, screen.w, PACK_BAR_HEIGHT);
+	dc.FillRect(UI::Drawable(0xE0202020), bar);
+	const Bounds track = bar.Inset(8.0f, 8.0f);
+	dc.FillRect(UI::Drawable(0x30FFFFFF), track);
+	Bounds fill = track;
+	fill.w *= status.progress;
+	dc.FillRect(dc.GetTheme().itemFocusedStyle.background, fill);
+
+	std::string text = status.label + StringFromFormat("  %d%%", (int)(status.progress * 100.0f));
+	if (status.aborting) {
+		text += "  " + std::string(ga->T("Cancelling..."));
+	} else if (status.etaSeconds >= 0.0) {
+		const int seconds = (int)(status.etaSeconds + 0.5);
+		std::string eta = seconds >= 3600 ? StringFromFormat("%d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60) : StringFromFormat("%d:%02d", seconds / 60, seconds % 60);
+		text += "  " + ApplySafeSubstitutions(ga->T("PackTimeLeft", "~%1 left"), eta);
+	}
+	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontScale(0.8f, 0.8f);
+	dc.DrawTextRectSqueeze(text, track.Inset(8.0f, 0.0f), 0xFFFFFFFF, ALIGN_CENTER);
+	dc.SetFontScale(1.0f, 1.0f);
 }
 
 void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
@@ -615,9 +696,8 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		removeButton->OnClick.Add([this](UI::EventParams &e) {
 			g_recentFiles.Remove(gamePath_.ToString());
 			System_PostUIMessage(UIMessage::GAME_SELECTED, "");
-			// TODO: We should be able to do TriggerFinish here, but unfortunately
-			// the screen manager still considers the popup dialog the current dialog.
-			screenManager()->switchScreen(new MainScreen());
+			// We're under the context menu, so close in update() once it's gone.
+			gameRemoved_ = true;
 		});
 	}
 
@@ -653,9 +733,8 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
-	RefreshInstalledUpdate();
-	if (!inGame_ && hasInstalledUpdate_) {
-		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete Game Update"), ImageID("I_TRASHCAN")));
+	if (!inGame_ && lookups_.hasInstalledUpdate) {
+		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete game update"), ImageID("I_TRASHCAN")));
 		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
 	}
 
@@ -670,17 +749,35 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
-	// Don't want to be able to delete the game while it's running.
-	if (!inGame_) {
+	if (GamePacker::IsPacking(gamePath_)) {
+		parent->Add(new Choice(di->T("Cancel"), ImageID("I_STOP")))->OnClick.Add([](UI::EventParams &) {
+			GamePacker::Abort();
+		});
+	} else if (!inGame_ && !isHomebrew_ && FileTypeSupportsCRC(info_->fileType)) {
+		// Homebrew and PS1 EBOOTs aren't disc images.
+		const GamePacker::Container packContainer = GamePacker::DetectContainer(gamePath_, nullptr);
+		if (packContainer != GamePacker::Container::None) {
+			Choice *compress = parent->Add(new Choice(ga->T("Compress game"), ImageID("I_UMD")));
+			compress->OnClick.Add([this, packContainer](UI::EventParams &) {
+				screenManager()->push(new GamePackPopupScreen(gamePath_, packContainer));
+			});
+			// Not while the CRC is read, another game is compressed, or a game runs (it could be this one).
+			compress->SetEnabled(GamePacker::CanStart() && CRC32string != "...");
+		}
+	}
+
+	// Don't want to be able to delete the game while it's running, or being compressed.
+	if (!inGame_ && !GamePacker::IsPacking(gamePath_)) {
 		Choice *deleteChoice = parent->Add(new Choice(ga->T("Delete Game"), ImageID("I_WARNING")));
 		deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	}
 }
 
 void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
-	if (!hasInstalledUpdate_) {
+	if (!lookups_.hasInstalledUpdate) {
 		return;
 	}
+	const InstalledGameUpdate &installedUpdate = lookups_.installedUpdate;
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ga = GetI18NCategory(I18NCat::GAME);
 
@@ -688,12 +785,12 @@ void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
 	prompt += "\n\n";
 	// Say exactly what disappears - for a digital game the folder holds the game itself, so only
 	// the update's executable goes.
-	prompt += GetFriendlyPath(installedUpdate_.sharesFolderWithGame ? installedUpdate_.pbootPath : installedUpdate_.folder);
+	prompt += GetFriendlyPath(installedUpdate.sharesFolderWithGame ? installedUpdate.pbootPath : installedUpdate.folder);
 
 	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
-	const InstalledGameUpdate update = installedUpdate_;
+	const InstalledGameUpdate update = installedUpdate;
 	screenManager()->push(
-		new UI::MessagePopupScreen(ga->T("Delete Game Update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+		new UI::MessagePopupScreen(ga->T("Delete game update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
 			[this, update](bool yes) {
 		if (!yes) {
 			return;
@@ -755,10 +852,8 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 void GameScreen::OnGameSettings(UI::EventParams &e) {
 	std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, GameInfoFlags::PARAM_SFO);
 	if (info_ && info_->Ready(GameInfoFlags::PARAM_SFO)) {
-		std::string discID = info_->GetParamSFO().GetValueString("DISC_ID");
-		if ((discID.empty() || !info_->disc_total) && gamePath_.FilePathContainsNoCase("PSP/GAME/"))
-			discID = g_paramSFO.GenerateFakeID(gamePath_);
-		screenManager()->push(new GameSettingsScreen(gamePath_, discID, true));
+		// The cache has already replaced the ID of homebrew with a generated one.
+		screenManager()->push(new GameSettingsScreen(gamePath_, info_->id, true));
 	}
 }
 
@@ -795,16 +890,16 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 		prompt += "\n\n" + GetFriendlyPath(gamePath_);
 		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 		Path gamePath = gamePath_;
-		ScreenManager *sm = screenManager();
 		screenManager()->push(
 			new UI::MessagePopupScreen(ga->T("Delete Game"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-				[sm, gamePath](bool yes) {
+				[this, gamePath](bool yes) {
 			if (yes) {
 				std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
 				info_->Delete();
 				g_gameInfoCache->Clear();
 				g_recentFiles.Remove(gamePath.c_str());
-				sm->switchScreen(new MainScreen());
+				// We're under this popup (and maybe the context menu), so close in update() once they're gone.
+				gameRemoved_ = true;
 			}
 		}));
 	}

@@ -4,6 +4,9 @@
     <Filter Include="GLES">
       <UniqueIdentifier>{f7563dba-8146-4c21-a092-e864ff145d79}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Null">
+      <UniqueIdentifier>{9879c213-d775-44fc-b1e4-a9d19ac2dff5}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Software">
       <UniqueIdentifier>{4f6d1284-2c23-4ebc-842c-666a1305bfed}</UniqueIdentifier>
     </Filter>
@@ -47,6 +50,9 @@
     </ClInclude>
     <ClInclude Include="Software\SoftGpu.h">
       <Filter>Software</Filter>
+    </ClInclude>
+    <ClInclude Include="Null\GPU_Null.h">
+      <Filter>Null</Filter>
     </ClInclude>
     <ClInclude Include="Software\TransformUnit.h">
       <Filter>Software</Filter>
@@ -207,6 +213,9 @@
     <ClInclude Include="Software\RasterizerRectangle.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Common\Overlay.h">
+      <Filter>Common</Filter>
+    </ClInclude>
     <ClInclude Include="Common\PresentationCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -231,7 +240,7 @@
     <ClInclude Include="Software\DrawPixel.h">
       <Filter>Software</Filter>
     </ClInclude>
-    <ClInclude Include="Software\RasterizerRegCache.h">
+    <ClInclude Include="Software\RasterizerTypes.h">
       <Filter>Software</Filter>
     </ClInclude>
     <ClInclude Include="Software\BinManager.h">
@@ -298,6 +307,9 @@
     </ClCompile>
     <ClCompile Include="Software\SoftGpu.cpp">
       <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Null\GPU_Null.cpp">
+      <Filter>Null</Filter>
     </ClCompile>
     <ClCompile Include="Software\TransformUnit.cpp">
       <Filter>Software</Filter>
@@ -446,9 +458,6 @@
     <ClCompile Include="Software\Sampler.cpp">
       <Filter>Software</Filter>
     </ClCompile>
-    <ClCompile Include="Software\SamplerX86.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
     <ClCompile Include="Debugger\Record.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -466,6 +475,9 @@
     </ClCompile>
     <ClCompile Include="Software\RasterizerRectangle.cpp">
       <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Overlay.cpp">
+      <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="Common\PresentationCommon.cpp">
       <Filter>Common</Filter>
@@ -489,12 +501,6 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\DrawPixel.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
-    <ClCompile Include="Software\DrawPixelX86.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
-    <ClCompile Include="Software\RasterizerRegCache.cpp">
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\BinManager.cpp">

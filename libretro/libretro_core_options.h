@@ -527,31 +527,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_lazy_texture_caching",
-      "Lazy Texture Caching (Speedup)",
-      NULL,
-      "Faster, but can cause text problems in a few games.",
-      NULL,
-      "hacks",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_spline_quality",
-      "Spline/Bezier Curves Quality",
-      NULL,
-      "Only used by some games, controls smoothness of curves.",
-      NULL,
-      "hacks",
-      {
-         { "Low",    NULL },
-         { "Medium", NULL },
-         { "High",   NULL },
-         { NULL, NULL },
-      },
-      "High"
-   },
-   {
       "ppsspp_lower_resolution_for_effects",
       "Lower Resolution for Effects",
       NULL,
@@ -565,36 +540,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
          { "Aggressive", NULL },
          { NULL, NULL },
       },
-      "disabled"
-   },
-   {
-      "ppsspp_gpu_hardware_transform",
-      "Hardware Transform",
-      NULL,
-      NULL,
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "enabled"
-   },
-   {
-      "ppsspp_software_skinning",
-      "Software Skinning",
-      NULL,
-      "Combine skinned model draws on the CPU, faster in most games.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "enabled"
-   },
-   {
-      "ppsspp_hardware_tesselation",
-      "Hardware Tesselation",
-      NULL,
-      "Uses hardware to make curves.",
-      NULL,
-      "video",
-      BOOL_OPTIONS,
       "disabled"
    },
    {
@@ -708,6 +653,21 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "video",
       BOOL_OPTIONS,
       "disabled"
+   },
+   {
+      "ppsspp_vr_mode",
+      "VR Mode (OpenGL/GLES)",
+      NULL,
+      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views and OpenGL 3 or OpenGL ES 3. Game compatibility varies.",
+      NULL,
+      "video",
+      {
+         { "Off", NULL },
+         { "Stereoscopic", NULL },
+         { "Immersive", NULL },
+         { NULL, NULL },
+      },
+      "Off"
    },
    {
       "ppsspp_enable_wlan",

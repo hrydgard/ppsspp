@@ -57,8 +57,6 @@ protected:
 private:
 	void OnAutoConfigure(UI::EventParams &params);
 
-	void dialogFinished(const Screen *dialog, DialogResult result) override;
-
 	std::vector<SingleControlMapper *> mappers_;
 	int keyMapGeneration_ = -1;
 
@@ -71,6 +69,10 @@ public:
 		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
+
+	InputMode PassInputToMapper() const override {
+		return PopupScreen::PassInputToMapper() | InputMode::AllKeys;
+	}
 
 	bool key(const KeyInput &key) override;
 	void axis(const AxisInput &axis) override;
@@ -163,6 +165,8 @@ class MockPSP;
 
 class VisualMappingScreen : public UIBaseDialogScreen {
 public:
+	// Places the controller picture from the screen bounds.
+	bool LimitContentArea() const override { return false; }
 	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
 
 	const char *tag() const override { return "VisualMapping"; }

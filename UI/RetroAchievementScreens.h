@@ -22,7 +22,6 @@ public:
 	void CreateTabs() override;
 
 protected:
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void CreateLeaderboardsTab(UI::ViewGroup *viewGroup);
@@ -42,7 +41,6 @@ public:
 	void sendMessage(UIMessage message, const char *value) override;
 
 protected:
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void CreateAccountTab(UI::ViewGroup *viewGroup);
@@ -64,7 +62,6 @@ public:
 	void update() override;
 
 protected:
-	bool ShowSearchControls() const override { return false; }
 
 private:
 	void CreateLeaderboardTab(UI::LinearLayout *layout, const rc_client_leaderboard_t *leaderboard);

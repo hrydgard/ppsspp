@@ -82,11 +82,11 @@
     <Filter Include="Ext\jpge">
       <UniqueIdentifier>{6c6e0188-fabf-4203-aaa2-896c42be2c20}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\libdeflate">
+      <UniqueIdentifier>{5b0c7e1a-3d2f-4c8e-9a61-d4f0b2e7c913}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Ext\libzip">
       <UniqueIdentifier>{0201ff27-4fa8-4cf3-bbb9-accfdc0c7046}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="MIPS\fake">
-      <UniqueIdentifier>{678fa299-0ff7-4983-982d-2da47b52e238}</UniqueIdentifier>
     </Filter>
     <Filter Include="MIPS\RiscV">
       <UniqueIdentifier>{067e3128-3aaf-4ed1-b19e-bab11606abe7}</UniqueIdentifier>
@@ -129,40 +129,25 @@
     <ClCompile Include="MIPS\MIPSTracer.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\MeCore.cpp">
+      <Filter>MIPS</Filter>
+    </ClCompile>
     <ClCompile Include="MIPS\MIPSAnalyst.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\MIPSCodeUtils.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\x86\CompALU.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\CompBranch.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\CompFPU.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\Jit.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\CompLoadStore.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\Asm.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\RegCache.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\CompVFPU.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitProfiler.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
+    <ClCompile Include="FileSystems\CSOCompress.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
     <ClCompile Include="FileSystems\BlockDevices.cpp">
@@ -211,6 +196,9 @@
       <Filter>HLE\Kernel</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceAdler.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceAmctrl.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceAtrac.cpp">
@@ -444,37 +432,34 @@
     <ClCompile Include="..\ext\snappy\snappy.cpp">
       <Filter>Ext\Snappy</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmAsm.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompALU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompBranch.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompLoadStore.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmJit.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\disarm.cpp">
       <Filter>Ext</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\x86\RegCacheFPU.cpp">
-      <Filter>MIPS\x86</Filter>
+    <ClCompile Include="MIPS\ARM\ArmIRAsm.cpp">
+      <Filter>MIPS\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
+    <ClCompile Include="MIPS\ARM\ArmIRCompALU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompBranch.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompFPU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompLoadStore.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompSystem.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompVec.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRJit.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRRegCache.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="Font\PGF.cpp">
@@ -508,9 +493,6 @@
     <ClCompile Include="HLE\sceMp3.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp">
-      <Filter>MIPS\JitCommon</Filter>
-    </ClCompile>
     <ClCompile Include="Cwcheat.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -532,6 +514,12 @@
     <ClCompile Include="MIPS\MIPSStackWalk.cpp">
       <Filter>MIPS</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\libdeflate\lib\deflate_compress.c">
+      <Filter>Ext\libdeflate</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libdeflate\lib\utils.c">
+      <Filter>Ext\libdeflate</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\xxhash.c">
       <Filter>Ext</Filter>
     </ClCompile>
@@ -539,6 +527,15 @@
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\NetAdhocCommon.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\AdhocTransportP2P.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\AdhocTransportRelay.cpp">
+    <ClCompile Include="HLE\AdhocTransportNetSim.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNetAdhoc.cpp">
@@ -571,17 +568,8 @@
     <ClCompile Include="HLE\ReplaceTables.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\x86\CompReplace.cpp">
-      <Filter>MIPS\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompReplace.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\x86\JitSafeMem.cpp">
-      <Filter>MIPS\x86</Filter>
     </ClCompile>
     <ClCompile Include="HLE\HLEHelperThread.cpp">
       <Filter>HLE</Filter>
@@ -625,36 +613,6 @@
     <ClCompile Include="HLE\sceSfmt19937.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64Asm.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompALU.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompBranch.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompFPU.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompLoadStore.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompReplace.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64CompVFPU.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64Jit.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64RegCache.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM64\Arm64RegCacheFPU.cpp">
-      <Filter>MIPS\ARM64</Filter>
-    </ClCompile>
     <ClCompile Include="Util\DisArm64.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -668,6 +626,9 @@
       <Filter>FileLoaders</Filter>
     </ClCompile>
     <ClCompile Include="FileLoaders\LocalFileLoader.cpp">
+      <Filter>FileLoaders</Filter>
+    </ClCompile>
+    <ClCompile Include="FileLoaders\PS1EbootFileLoader.cpp">
       <Filter>FileLoaders</Filter>
     </ClCompile>
     <ClCompile Include="FileLoaders\HTTPFileLoader.cpp">
@@ -725,6 +686,9 @@
       <Filter>Core</Filter>
     </ClCompile>
     <ClCompile Include="HLE\KUBridge.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\sceSysreg.cpp">
       <Filter>HLE\Libraries</Filter>
     </ClCompile>
     <ClCompile Include="FileSystems\BlobFileSystem.cpp">
@@ -818,6 +782,9 @@
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HLE\Plugins.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="HLE\PopsBoot.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
     <ClCompile Include="..\ext\snappy\snappy-stubs-internal.cpp">
@@ -990,9 +957,6 @@
     </ClCompile>
     <ClCompile Include="Debugger\WebSocket\InputBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\fake\FakeJit.cpp">
-      <Filter>MIPS\fake</Filter>
     </ClCompile>
     <ClCompile Include="Debugger\LineInfo.cpp">
       <Filter>Debugger</Filter>
@@ -1229,6 +1193,15 @@
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HW\GpioMMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\MMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\MeMMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\PopsMMIO.cpp">
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNp2.cpp">
@@ -1479,22 +1452,25 @@
     <ClInclude Include="MIPS\MIPSTracer.h">
       <Filter>MIPS</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\MeCore.h">
+      <Filter>MIPS</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\MIPSAnalyst.h">
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\MIPSCodeUtils.h">
       <Filter>MIPS</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\x86\Jit.h">
-      <Filter>MIPS\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\x86\RegCache.h">
-      <Filter>MIPS\x86</Filter>
-    </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitCommon.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitProfiler.h">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClInclude>
     <ClInclude Include="FileSystems\DirectoryFileSystem.h">
+      <Filter>FileSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\CSOCompress.h">
       <Filter>FileSystems</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\BlockDevices.h">
@@ -1546,6 +1522,9 @@
       <Filter>HLE\Kernel</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceAdler.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceAmctrl.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceAtrac.h">
@@ -1713,6 +1692,9 @@
     <ClInclude Include="Util\PPGeDraw.h">
       <Filter>Util</Filter>
     </ClInclude>
+    <ClInclude Include="Util\KL4E.h">
+      <Filter>Util</Filter>
+    </ClInclude>
     <ClInclude Include="Util\PSARUnpack.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -1791,16 +1773,13 @@
     <ClInclude Include="..\ext\snappy\snappy-internal.h">
       <Filter>Ext\Snappy</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmJit.h">
+    <ClInclude Include="MIPS\ARM\ArmIRJit.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmRegCache.h">
+    <ClInclude Include="MIPS\ARM\ArmIRRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\x86\RegCacheFPU.h">
-      <Filter>MIPS\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
+    <ClInclude Include="MIPS\ARM\ArmVfpuDot.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="Font\PGF.h">
@@ -1857,6 +1836,45 @@
     <ClInclude Include="..\ext\disarm.h">
       <Filter>Ext</Filter>
     </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\libdeflate.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\common_defs.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\compiler_gcc.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\compiler_msc.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\bt_matchfinder.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\deflate_compress.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\deflate_constants.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\hc_matchfinder.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\lib_common.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\matchfinder_common.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\unaligned.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\x86\matchfinder_impl.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\arm\matchfinder_impl.h">
+      <Filter>Ext\libdeflate</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\xxhash.h">
       <Filter>Ext</Filter>
     </ClInclude>
@@ -1893,6 +1911,9 @@
     <ClInclude Include="Debugger\DisassemblyManager.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\AdhocTransport.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\proAdhoc.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -1907,9 +1928,6 @@
     </ClInclude>
     <ClInclude Include="HW\SimpleAudioDec.h">
       <Filter>HW</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\x86\JitSafeMem.h">
-      <Filter>MIPS\x86</Filter>
     </ClInclude>
     <ClInclude Include="HLE\HLEHelperThread.h">
       <Filter>HLE</Filter>
@@ -1968,15 +1986,6 @@
     <ClInclude Include="MemMapHelpers.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="MIPS\ARM64\Arm64Jit.h">
-      <Filter>MIPS\ARM64</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM64\Arm64RegCache.h">
-      <Filter>MIPS\ARM64</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM64\Arm64RegCacheFPU.h">
-      <Filter>MIPS\ARM64</Filter>
-    </ClInclude>
     <ClInclude Include="Util\DisArm64.h">
       <Filter>Util</Filter>
     </ClInclude>
@@ -1987,6 +1996,9 @@
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="FileLoaders\LocalFileLoader.h">
+      <Filter>FileLoaders</Filter>
+    </ClInclude>
+    <ClInclude Include="FileLoaders\PS1EbootFileLoader.h">
       <Filter>FileLoaders</Filter>
     </ClInclude>
     <ClInclude Include="FileLoaders\HTTPFileLoader.h">
@@ -2032,6 +2044,9 @@
       <Filter>Core</Filter>
     </ClInclude>
     <ClInclude Include="HLE\KUBridge.h">
+      <Filter>HLE\Libraries</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceSysreg.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\BlobFileSystem.h">
@@ -2130,6 +2145,9 @@
     <ClInclude Include="HLE\Plugins.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\PopsBoot.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\gason\gason.h">
       <Filter>Ext\gason</Filter>
     </ClInclude>
@@ -2165,9 +2183,6 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\InputBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\fake\FakeJit.h">
-      <Filter>MIPS\fake</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\LineInfo.h">
       <Filter>Debugger</Filter>
@@ -2211,6 +2226,15 @@
     <ClInclude Include="HW\GpioMMIO.h">
       <Filter>HW</Filter>
     </ClInclude>
+    <ClInclude Include="HW\MMIO.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\MeMMIO.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\PopsMMIO.h">
+      <Filter>HW</Filter>
+    </ClInclude>
     <ClInclude Include="HLE\sceNp2.h">
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
@@ -2235,6 +2259,9 @@
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h">
       <Filter>MIPS\RiscV</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVVfpuDot.h">
+      <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\IR\IRAnalysis.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>
@@ -2247,6 +2274,9 @@
     <ClInclude Include="MIPS\x86\X64IRRegCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\x86\X64VfpuDot.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\x86\X64IRJit.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
@@ -2254,6 +2284,9 @@
       <Filter>MIPS\ARM64</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64VfpuDot.h">
       <Filter>MIPS\ARM64</Filter>
     </ClInclude>
     <ClInclude Include="Util\GameDB.h">
@@ -2320,6 +2353,9 @@
       <Filter>MIPS\LoongArch64</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64VfpuDot.h">
       <Filter>MIPS\LoongArch64</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\loongarch-disasm.h">

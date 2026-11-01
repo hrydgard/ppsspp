@@ -20,6 +20,7 @@
 // keeps its existing numeric 'level' - only this newer API uses level names, for readability).
 
 #include "Common/Log/LogManager.h"
+#include "Core/Config.h"
 #include "Core/Debugger/WebSocket/LogConfigSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -121,11 +122,16 @@ void WebSocketLogChannelSet(DebuggerRequest &req) {
 
 		// These are meant as temporary, session-only diagnostic tweaks - make sure they never
 		// get written back over the user's actual saved log settings.
-		g_logManager.NotifyChannelsChangedByDebugger();
+		g_logManager.DoNotSaveChannels();
 		if (hasLevel)
 			g_logManager.SetLogLevel(type, level);
 		if (hasEnabled)
 			g_logManager.SetEnabled(type, enabled);
+		// A channel logs nothing while logging as a whole is off, as it is in headless without --log.
+		if (hasEnabled && enabled && !g_Config.bEnableLogging) {
+			g_Config.bEnableLogging = true;
+			g_Config.DoNotSaveSetting(&g_Config.bEnableLogging);
+		}
 
 		const LogChannel *chan = g_logManager.GetLogChannel(type);
 		JsonWriter &json = req.Respond();

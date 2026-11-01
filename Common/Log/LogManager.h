@@ -174,10 +174,11 @@ public:
 	void SaveConfig(Section *section);
 	void LoadConfig(const Section *section);
 
-	// Channel level/enabled changes made through the WebSocket debugger (log.channel.set) are
-	// meant as temporary, session-only diagnostic tweaks - call this so SaveConfig() skips
-	// writing (and thus permanently overwriting) the user's real saved settings with them.
-	void NotifyChannelsChangedByDebugger() { channelsChangedByDebugger_ = true; }
+	// Channel level/enabled changes made through the WebSocket debugger (log.channel.set) or the
+	// command line (--loglevel, -d, -v) are meant as temporary, session-only diagnostic tweaks -
+	// call this so SaveConfig() skips writing (and thus permanently overwriting) the user's real
+	// saved settings with them. Like Config::DoNotSaveSetting, but for all the channels.
+	void DoNotSaveChannels() { doNotSaveChannels_ = true; }
 
 	static const char *GetLogTypeName(Log type);
 
@@ -199,7 +200,7 @@ private:
 	void operator=(const LogManager &) = delete;
 
 	bool initialized_ = false;
-	bool channelsChangedByDebugger_ = false;
+	bool doNotSaveChannels_ = false;
 
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConsoleListener *consoleLog_ = nullptr;

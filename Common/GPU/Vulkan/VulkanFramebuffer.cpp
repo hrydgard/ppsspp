@@ -178,7 +178,8 @@ void VKRFramebuffer::CreateImage(VulkanContext *vulkan, VulkanBarrierBatch *barr
 	ici.tiling = VK_IMAGE_TILING_OPTIMAL;
 	ici.format = format;
 	ici.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	if (sampleCount == VK_SAMPLE_COUNT_1_BIT) {
+	// Multisampled color is sampled too, to read single samples where averaging them would be wrong.
+	if (sampleCount == VK_SAMPLE_COUNT_1_BIT || color) {
 		ici.usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 	}
 	if (color) {

@@ -246,6 +246,8 @@ Wars, which is a launcher for its two games, stopped at a black screen that way 
 - `sceGeBreak(0)` doesn't back up over a half-done SIGNAL or FINISH pair. With lists executing in
   one go, it's rarely in the middle of one.
 - Signal CALL and RET save and restore only the pc, the offset address and the base address. On
-  hardware the list's own CALL depth and return addresses are part of it as well.
+  hardware the GE's own return addresses are part of it as well, and its CALL depth, which PPSSPP
+  gets right by counting plain CALLs only back to the last signal CALL. The GE nests plain CALLs
+  just two deep and skips a third (`gpu/callstack/depth`, and Soul Calibur: Broken Destiny, #7395).
 - On hardware, a `sceGeListEnQueueHead` that fails with `0x800001FE` still uses up one of the 64
   lists until the next `sceGeBreak(1)`. Not emulated, and not worth it.

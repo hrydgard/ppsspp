@@ -78,7 +78,7 @@
 #include "UI/EmuScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/ControlMappingScreen.h"
-#include "UI/DeveloperToolsScreen.h"
+#include "UI/GameSettingsScreen.h"
 #include "UI/JitCompareScreen.h"
 #include "android/jni/app-android.h"
 
@@ -105,16 +105,18 @@ static const char *g_debugOverlayList[] = {
 	"GPU Profile",
 	"GPU Allocator Viewer",
 	"Framebuffer list",
+	"JIT stats",
 };
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	int numOverlays = ARRAY_SIZE(g_debugOverlayList);
+	static_assert(ARRAY_SIZE(g_debugOverlayList) == (int)DebugOverlay::JIT_STATS + 1, "g_debugOverlayList must match DebugOverlay");
+	PopupMultiChoice *choice = items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, ARRAY_SIZE(g_debugOverlayList), I18NCat::DEVELOPER, screenManager));
 	if (!(g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
-		numOverlays -= 2;  // skip the last 2.
+		choice->HideChoice((int)DebugOverlay::GPU_PROFILE);
+		choice->HideChoice((int)DebugOverlay::GPU_ALLOCATOR);
 	}
-	items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, numOverlays, I18NCat::DEVELOPER, screenManager));
 }
 
 void SaveFrameDump() {
@@ -171,7 +173,9 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	items->Add(new Choice(sy->T("Developer Tools")))->OnClick.Add([this](UI::EventParams &e) {
 		UpdateUIState(UISTATE_PAUSEMENU);
-		screenManager()->push(new DeveloperToolsScreen(gamePath_));
+		GameSettingsScreen *settings = new GameSettingsScreen(gamePath_);
+		settings->OpenDeveloperTools();
+		screenManager()->push(settings);
 	});
 
 	// Debug overlay
@@ -454,11 +458,11 @@ void JitDebugScreen::CreateViews() {
 	topbar->Add(new Choice(di->T("Enable All")))->OnClick.Handle(this, &JitDebugScreen::OnEnableAll);
 
 	vert->Add(topbar);
-	vert->Add(new ItemHeader(dev->T("Disabled JIT functionality")));
+	ChoiceGroup *disabledFlags = vert->Add(new ChoiceGroupList())->Add(new ChoiceGroup(dev->T("Disabled JIT functionality")));
 
 	for (auto flag : jitDisableFlags) {
 		// Do not add translation of these.
-		vert->Add(new BitCheckBox(&g_Config.uJitDisableFlags, (uint32_t)flag.flag, flag.name));
+		disabledFlags->Add(new BitCheckBox(&g_Config.uJitDisableFlags, (uint32_t)flag.flag, flag.name));
 	}
 }
 
@@ -636,12 +640,12 @@ void FrameDumpTestScreen::CreateTabs() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
-	AddTab("General", dev->T("Dumps"), [this](UI::LinearLayout *parent) {
-		parent->Add(new ItemHeader("GE Frame Dumps"));
+	AddTab("General", di->T("Dumps"), [this](UI::LinearLayout *parent) {
+		ChoiceGroup *dumps = parent->Add(new ChoiceGroupList())->Add(new ChoiceGroup("GE Frame Dumps"));
 
 		for (auto &file : files_) {
 			std::string url = framedumpsBaseUrl + file;
-			Choice *c = parent->Add(new Choice(file));
+			Choice *c = dumps->Add(new Choice(file));
 			c->SetTag(url);
 			c->OnClick.Add([this, url = Path(url)](UI::EventParams &e) {
 				INFO_LOG(Log::Common, "Trying to launch '%s'", url.c_str());
@@ -761,7 +765,7 @@ void TouchTestScreen::CreateViews() {
 	root_->Add(theTwo);
 
 #if !PPSSPP_PLATFORM(UWP)
-	static const char *renderingBackend[] = { "OpenGL", "(n/a)", "Direct3D 11", "Vulkan" };
+	static const char *renderingBackend[] = { "OpenGL", "(n/a)", "Direct3D 11", "Vulkan", "Metal" };
 	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), I18NCat::GRAPHICS, screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
 
@@ -772,6 +776,8 @@ void TouchTestScreen::CreateViews() {
 		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
 	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
 		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
+	if (!g_Config.IsBackendEnabled(GPUBackend::METAL))
+		renderingBackendChoice->HideChoice((int)GPUBackend::METAL);
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)

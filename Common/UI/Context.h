@@ -25,6 +25,7 @@ namespace Draw {
 
 class DrawBuffer;
 class TextDrawer;
+enum class RoundCorners : uint8_t;
 struct FontStyle;
 
 namespace UI {
@@ -107,6 +108,8 @@ public:
 
 	float CalculateTextScale(std::string_view str, float availWidth) const;
 
+	void FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius);
+	void FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius, RoundCorners corners);
 	void FillRect(const UI::Drawable &drawable, const Bounds &bounds);
 	void DrawRectDropShadow(const Bounds &bounds, float radius, float alpha, uint32_t color = 0);
 	void DrawImageVGradient(ImageID image, uint32_t color1, uint32_t color2, const Bounds &bounds);

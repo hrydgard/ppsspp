@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/CommonWindows.h"
 #include <wrl/client.h>
 
 #include "Common/Log.h"
@@ -70,7 +71,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		depthStencilCache_(64),
 		rasterCache_(4) {
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	decOptions_.expand8BitNormalsToFloat = true;
 
 	InitDeviceObjects();
@@ -131,7 +131,6 @@ void DrawEngineD3D11::DeviceLost() {
 	device_ = nullptr;
 	context_ = nullptr;
 	device1_ = nullptr;
-	context1_ = nullptr;
 }
 
 void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
@@ -140,7 +139,6 @@ void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	InitDeviceObjects();
 }
 

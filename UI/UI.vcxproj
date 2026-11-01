@@ -36,16 +36,19 @@
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
-    <ClCompile Include="DeveloperToolsScreen.cpp" />
+    <ClCompile Include="DeveloperSettingsPages.cpp" />
     <ClCompile Include="DevScreens.cpp" />
     <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="DriverManagerScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
+    <ClCompile Include="ImposeHome.cpp" />
     <ClCompile Include="GameBrowser.cpp" />
+    <ClCompile Include="GameButton.cpp" />
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="GameScreen.cpp" />
+    <ClCompile Include="GamePacker.cpp" />
     <ClCompile Include="GameSettingsScreen.cpp" />
     <ClCompile Include="GPUDriverTestScreen.cpp" />
     <ClCompile Include="IAPScreen.cpp" />
@@ -71,10 +74,21 @@
     <ClCompile Include="ReportScreen.cpp" />
     <ClCompile Include="RetroAchievementScreens.cpp" />
     <ClCompile Include="SavedataScreen.cpp" />
+    <ClCompile Include="ShareFiles.cpp" />
     <ClCompile Include="Store.cpp" />
     <ClCompile Include="AudioCommon.cpp" />
     <ClCompile Include="SystemInfoScreen.cpp" />
     <ClCompile Include="TabbedDialogScreen.cpp" />
+    <ClCompile Include="SettingsPage.cpp" />
+    <ClCompile Include="Settings\GraphicsPage.cpp" />
+    <ClCompile Include="Settings\ControlsPage.cpp" />
+    <ClCompile Include="Settings\AudioPage.cpp" />
+    <ClCompile Include="Settings\NetworkingPage.cpp" />
+    <ClCompile Include="Settings\GeneralPage.cpp" />
+    <ClCompile Include="Settings\SystemPage.cpp" />
+    <ClCompile Include="Settings\ToolsPage.cpp" />
+    <ClCompile Include="Settings\VRPage.cpp" />
+    <ClCompile Include="SettingsPagesDialogScreen.cpp" />
     <ClCompile Include="SimpleDialogScreen.cpp" />
     <ClCompile Include="TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
@@ -97,16 +111,19 @@
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />
     <ClInclude Include="DebugOverlay.h" />
-    <ClInclude Include="DeveloperToolsScreen.h" />
+    <ClInclude Include="DeveloperSettingsPages.h" />
     <ClInclude Include="DevScreens.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="DriverManagerScreen.h" />
     <ClInclude Include="EmuScreen.h" />
+    <ClInclude Include="ImposeHome.h" />
     <ClInclude Include="GameBrowser.h" />
+    <ClInclude Include="GameButton.h" />
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
     <ClInclude Include="GameScreen.h" />
+    <ClInclude Include="GamePacker.h" />
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
     <ClInclude Include="GPUDriverTestScreen.h" />
@@ -133,9 +150,13 @@
     <ClInclude Include="ReportScreen.h" />
     <ClInclude Include="RetroAchievementScreens.h" />
     <ClInclude Include="SavedataScreen.h" />
+    <ClInclude Include="ShareFiles.h" />
     <ClInclude Include="Store.h" />
     <ClInclude Include="SystemInfoScreen.h" />
     <ClInclude Include="TabbedDialogScreen.h" />
+    <ClInclude Include="SettingsPage.h" />
+    <ClInclude Include="Settings\MainSettingsPages.h" />
+    <ClInclude Include="SettingsPagesDialogScreen.h" />
     <ClInclude Include="TiltAnalogSettingsScreen.h" />
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
@@ -241,7 +262,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -261,7 +282,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -282,7 +303,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -306,7 +327,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -332,7 +353,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;RC_CLIENT_SUPPORTS_RAINTEGRATION;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -359,7 +380,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRT_SECURE_NO_WARNINGS;_ARCH_64=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\aarch64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ext\ffmpeg;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

@@ -1769,8 +1769,9 @@ void LoongArch64Emitter::SetJumpTarget(FixupBranch &branch, const void *dst) {
 		memcpy(writableSrc, &fixup, sizeof(u32));
 		break;
 
-    case FixupBranchType::BZ:
-		_assert_msg_(BranchInRange(branch.ptr, dst), "B destination is too far away (%p -> %p)", branch.ptr, dst);
+	case FixupBranchType::BZ:
+		// BZ encodes 21 bits of offset, not 16 - the direct BEQZ/BNEZ check it this way too.
+		_assert_msg_(BranchZeroInRange(branch.ptr, dst), "BZ destination is too far away (%p -> %p)", branch.ptr, dst);
 		memcpy(&fixup, writableSrc, sizeof(u32));
 		fixup = (fixup & 0xFC0003E0) | EncodeJSd5k16(Opcode32::ZERO, R_ZERO, (s32)distance);
 		memcpy(writableSrc, &fixup, sizeof(u32));

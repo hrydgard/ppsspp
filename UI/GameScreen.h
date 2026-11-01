@@ -17,12 +17,16 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
+#include <memory>
+#include <vector>
 
 #include "UI/BaseScreens.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 #include "UI/GameInfoCache.h"
+#include "Core/HLE/Plugins.h"
 #include "Core/Util/PkgUnpack.h"
 #include "UI/SimpleDialogScreen.h"
 
@@ -44,12 +48,19 @@ public:
 
 	const char *tag() const override { return "Game"; }
 
+	// The game was deleted or removed from recents, so the screen we return to should refresh.
+	bool GameRemoved() const { return gameRemoved_; }
+
 protected:
+	void BeforeCreateViews() override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContextMenu(UI::ViewGroup *parent) override;
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
 
 	std::string_view GetTitle() const override;
+	// The progress bar of a pack running in the background.
+	void DrawForeground(UIContext &dc) override;
 
 private:
 	// Event handlers
@@ -61,23 +72,43 @@ private:
 	void OnSetBackground(UI::EventParams &e);
 	void OnDeleteGameUpdate(UI::EventParams &e);
 
-	// Checks whether a game update is installed for this game. Both the info pane and the context
-	// menu need the answer, and either can be built first.
-	void RefreshInstalledUpdate();
+	// What's known about the game from outside its file: an installed update, plugins, and whether
+	// the installed firmware can play it. All disk access, so it's looked up on a worker thread,
+	// and the views are recreated when it's in.
+	struct Lookups {
+		bool hasInstalledUpdate = false;
+		InstalledGameUpdate installedUpdate;
+		std::vector<HLEPlugins::PluginInfo> plugins;
+		Path umdVideoVSHPath;
+		bool firmwareRunsPS1Discs = false;
+	};
+	struct LookupTask {
+		std::atomic<bool> done{};
+		Lookups result;
+	};
+	void StartLookups();
 
 	std::string CRC32string;
 
 	bool isHomebrew_ = false;
 	bool inGame_ = false;
+	bool gameRemoved_ = false;
+	bool finishRequested_ = false;
 
 	// Keep track of progressive loading of metadata.
 	GameInfoFlags knownFlags_ = GameInfoFlags::EMPTY;
 
 	bool knownHasCRC_ = false;
 
-	// A game update installed in PSP/GAME/<DISC_ID>, which is what actually runs when there is one.
-	InstalledGameUpdate installedUpdate_;
-	bool hasInstalledUpdate_ = false;
+	// GamePacker state the views were made for.
+	int packGeneration_ = 0;
+	bool packBarShown_ = false;
+
+	// installedUpdate is a game update in PSP/GAME/<DISC_ID>, which is what actually runs when there is one.
+	Lookups lookups_;
+	std::shared_ptr<LookupTask> lookupTask_;  // While one runs.
+	bool lookupsStarted_ = false;
+	bool lookupsPending_ = false;
 
 	std::shared_ptr<GameInfo> info_;
 	mutable std::string titleCache_;

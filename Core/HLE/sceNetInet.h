@@ -125,10 +125,12 @@ extern const char *const defaultNetSSID;
 
 void Register_sceNetInet();
 
+void __NetInetInit();
 void __NetInetShutdown();
+void __NetInetDoState(PointerWrap &p, bool hasState, bool hasErrno);
 
 int NetApctl_GetState();
 
-int sceNetApctlConnect(int connIndex);
-int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout);
+int sceNetApctlConnect(MIPSState *mips, int connIndex);
+int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout);
 int sceNetApctlDisconnect();

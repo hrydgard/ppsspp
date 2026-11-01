@@ -158,10 +158,6 @@ struct PixelFuncID {
 	GEStencilOp ZPass() const {
 		return GEStencilOp(zPass);
 	}
-
-	bool operator == (const PixelFuncID &other) const {
-		return fullKey == other.fullKey;
-	}
 };
 
 #pragma pack(pop)
@@ -207,8 +203,6 @@ struct SamplerID {
 			bool useTextureAlpha : 1;
 			bool useColorDoubling : 1;
 			bool hasAnyMips : 1;
-			bool linear : 1;
-			bool fetch : 1;
 		};
 	};
 
@@ -223,32 +217,7 @@ struct SamplerID {
 	GETexFunc TexFunc() const {
 		return GETexFunc(texFunc);
 	}
-
-	bool operator == (const SamplerID &other) const {
-		return fullKey == other.fullKey;
-	}
-};
-
-namespace std {
-
-template <>
-struct hash<PixelFuncID> {
-	std::size_t operator()(const PixelFuncID &k) const {
-		return hash<uint64_t>()(k.fullKey);
-	}
-};
-
-template <>
-struct hash<SamplerID> {
-	std::size_t operator()(const SamplerID &k) const {
-		return hash<uint32_t>()(k.fullKey);
-	}
-};
-
 };
 
 void ComputePixelFuncID(PixelFuncID *id);
-std::string DescribePixelFuncID(const PixelFuncID &id);
-
 void ComputeSamplerID(SamplerID *id);
-std::string DescribeSamplerID(const SamplerID &id);

@@ -57,7 +57,9 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	Reinitialize();
 	gstate.Reset();
 	gstate_c.Reset();
-	gpuStats.ResetFrame();
+	// Including the flip count, which framebuffer ages are measured in. Otherwise a frame dump replayed after
+	// another in the same process (headless) renders differently from one replayed alone.
+	gpuStats.Reset();
 
 	PPGeSetDrawContext(draw);
 	ResetMatrices();
@@ -74,6 +76,11 @@ void GPUCommon::BeginHostFrame(const DisplayLayoutConfig &config) {
 	UpdateMSAALevel(draw_);
 	CheckConfigChanged(config);
 	CheckDisplayResized();
+	// Skip Buffer Effects only takes effect on a render resize, and not everything that changes it posts one
+	// (turning on Auto FrameSkip clears it).
+	if (framebufferManager_ && framebufferManager_->UseBufferedRendering() == g_Config.bSkipBufferEffects) {
+		renderResized_ = true;
+	}
 	CheckRenderResized(config);
 
 	// After the resizes, which ask for the post shaders to be rebuilt at the new size.
@@ -228,12 +235,15 @@ int GPUCommon::EstimateFillCycles(GEPrimitiveType prim, const void *verts, const
 	for (int i = 0; i + 1 < count; i += 2) {
 		const s16 *p0 = (const s16 *)((const u8 *)verts + stride * conv(i) + posOffset);
 		const s16 *p1 = (const s16 *)((const u8 *)verts + stride * conv(i + 1) + posOffset);
-		const int width = std::abs(p1[0] - p0[0]);
 		const int x0 = std::max(left, (int)std::min(p0[0], p1[0]));
 		const int x1 = std::min(right, (int)std::max(p0[0], p1[0]));
 		const int y0 = std::max(top, (int)std::min(p0[1], p1[1]));
 		const int y1 = std::min(bottom, (int)std::max(p0[1], p1[1]));
 		if (x1 > x0 && y1 > y0) {
+			// The cache sees the part inside the scissor: a full-width sprite drawn once per 64-pixel
+			// scissor strip costs the same as 64-pixel sprites, and pixels outside are free
+			// (blittiming, "sprite480 x8 scissor64"). Tekken 6 draws its movie this way.
+			const int width = x1 - x0;
 			// Measured 144 texels wide falls halfway, so interpolate between 128 and 160.
 			const float wide = std::clamp((width - 128) / 32.0f, 0.0f, 1.0f);
 			ns += (float)((x1 - x0) * (y1 - y0)) * (rate.narrow + wide * (rate.wide - rate.narrow));
@@ -256,7 +266,30 @@ bool GPUCommon::IsVideo(u32 addr) const {
 	return false;
 }
 
-void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
+u32 GPUCommon::VideoBytesFrom(u32 addr) const {
+	addr &= 0x3FFFFFFF;
+	u32 bytes = 0;
+	for (const VideoInfo &info : videos_) {
+		if (addr >= info.addr && addr < info.addr + info.size) {
+			bytes = std::max(bytes, info.addr + info.size - addr);
+		}
+	}
+	return bytes;
+}
+
+u32 GPUCommon::VideoRowBytesFrom(u32 addr, u32 rowBytes) const {
+	addr &= 0x3FFFFFFF;
+	u32 covered = 0;
+	for (const VideoInfo &info : videos_) {
+		// The frames that start in the first row, which strips converted side by side do.
+		if (info.rowBytes != 0 && info.addr >= addr && info.addr < addr + rowBytes) {
+			covered = std::max(covered, info.addr - addr + info.rowBytes);
+		}
+	}
+	return covered;
+}
+
+void GPUCommon::NoteVideoRange(u32 addr, u32 size, u32 rowBytes) {
 	addr &= 0x3FFFFFFF;
 	// A game blits its video frame every displayed frame while waiting for the next one, so the
 	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
@@ -265,10 +298,11 @@ void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
 		if (info.addr == addr) {
 			info.size = size;
 			info.flips = gpuStats.totals.numFlips;
+			info.rowBytes = rowBytes;
 			return;
 		}
 	}
-	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
+	videos_.push_back({ addr, size, gpuStats.totals.numFlips, rowBytes });
 }
 
 // So the list doesn't grow unboundedly, and a buffer reused for something else once the movie is
@@ -511,7 +545,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	// Check alignment
 	// TODO Check the context and stack alignement too
 	if (((listpc | stall) & 3) != 0 || !Memory::IsValidAddress(listpc)) {
-		ERROR_LOG_REPORT(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
+		ERROR_LOG(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
@@ -908,6 +942,18 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
+	const DLResult result = RunDLQueue();
+	// Games read the depth buffer back on the CPU once a list has ended, without waiting for the GE
+	// (Syphon Filter's light flares). So the depth rasterizer has to be done by then. Not at a stall,
+	// though, which some games hit hundreds of times a frame.
+	if (listEndedSinceDepthWait_) {
+		listEndedSinceDepthWait_ = false;
+		drawEngineCommon_->WaitForSubmittedDepth();
+	}
+	return result;
+}
+
+DLResult GPUCommon::RunDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
@@ -1153,6 +1199,13 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	// Local variable for better codegen
 	DisplayList *currentList = this->currentList;
 
+	// Soul Calibur: Broken Destiny reaches its lighting setup for weapon trails with a third CALL, so
+	// on hardware they stay unlit and take their color from the vertices (#7395).
+	if (currentList->HardwareCallDepth() >= 2) {
+		DEBUG_LOG(Log::G3D, "CALL to %08x: skipped, already two levels deep", target);
+		return;
+	}
+
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording or debugging - so the matrix data gets recorded.
 	if (useFastRunLoop_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -1175,7 +1228,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = currentList->pc + 4;
 		stackEntry.offsetAddr = gstate_c.offsetAddr;
-		// The base address is NOT saved/restored for a regular call.
+		// The base address is NOT saved/restored for a regular call, and 0 marks it as one.
+		stackEntry.baseAddr = 0;
 		UpdatePC(currentList->pc, target - 4);
 		currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 	}
@@ -1195,7 +1249,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 		currentList->pc = target - 4;
 #ifdef _DEBUG
 		if (!Memory::IsValidAddress(currentList->pc)) {
-			ERROR_LOG_REPORT(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
+			ERROR_LOG(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
 			UpdateState(GPUSTATE_ERROR);
 		}
 #endif
@@ -1204,7 +1258,8 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	if (flushOnParams_) {
-		drawEngineCommon_->FlushQueuedDepth();
+		drawEngineCommon_->SubmitQueuedDepth();
+		listEndedSinceDepthWait_ = true;
 		Flush();
 	}
 
@@ -1276,7 +1331,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						UpdatePC(currentList->pc, target);
@@ -1303,16 +1358,16 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[currentList->stackptr++];
 						stackEntry.pc = currentList->pc;
 						stackEntry.offsetAddr = gstate_c.offsetAddr;
-						stackEntry.baseAddr = gstate.base;
+						stackEntry.baseAddr = gstate.base | (GE_CMD_BASE << 24);
 						UpdatePC(currentList->pc, target);
 						currentList->pc = target;
 						DEBUG_LOG(Log::G3D, "Signal with Call (%s). signal/end: %04x %04x", targetType, signal, enddata);
@@ -1324,7 +1379,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					if (currentList->stackptr == 0) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[--currentList->stackptr];
@@ -1337,7 +1392,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				}
 				break;
 			default:
-				ERROR_LOG_REPORT(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+				ERROR_LOG(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 				break;
 			}
 			// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
@@ -1543,6 +1598,7 @@ void GPUCommon::FlushImm() {
 	}
 
 	SetDrawType(DRAW_PRIM, immPrim_);
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	VirtualFramebuffer *vfb = nullptr;
 	if (framebufferManager_) {
@@ -1620,6 +1676,269 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	}
 }
 
+void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
+	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	// We must record the individual data commands while debugRecording_.
+	bool fastLoad = !debugRecording_ && end > 0;
+	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op & 0xF) + count);
+
+	// Skip over the loaded data, it's done now.
+	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
+}
+
+void GPUCommon::Execute_WorldMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.worldmtxnum & 0x00FFFFFF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.worldMatrix)[num] = newVal;
+		gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+	}
+	num++;
+	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
+	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
+}
+
+void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
+	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	bool fastLoad = !debugRecording_ && end > 0;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX) ;
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op & 0xF) + count);
+
+	// Skip over the loaded data, it's done now.
+	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
+}
+
+void GPUCommon::Execute_ViewMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.viewmtxnum & 0x00FFFFFF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.viewMatrix)[num] = newVal;
+		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+	}
+	num++;
+	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
+	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
+}
+
+void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
+	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
+	const int end = 16 - (op & 0xF);
+	int i = 0;
+
+	bool fastLoad = !debugRecording_;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op & 0xF) + count);
+
+	// Skip over the loaded data, it's done now.
+	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
+}
+
+void GPUCommon::Execute_ProjMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.projmtxnum & 0x00FFFFFF;
+	u32 newVal = op << 8;
+	if (num < 16 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.projMatrix)[num] = newVal;
+		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
+	}
+	num++;
+	if (num <= 16)
+		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
+	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
+}
+
+void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (op & 0xF);
+		return;
+	}
+
+	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
+	const int end = 12 - (op & 0xF);
+	int i = 0;
+
+	bool fastLoad = !debugRecording_ && end > 0;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
+			const u32 newVal = src[i] << 8;
+			if (dst[i] != newVal) {
+				Flush();
+				dst[i] = newVal;
+				// We check the matrix to see if we need projection.
+				gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
+			}
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op & 0xF) + count);
+
+	// Skip over the loaded data, it's done now.
+	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
+}
+
+void GPUCommon::Execute_TgenMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.texmtxnum & 0x00FFFFFF;
+	u32 newVal = op << 8;
+	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
+		Flush();
+		((u32 *)gstate.tgenMatrix)[num] = newVal;
+		gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);  // We check the matrix to see if we need projection
+	}
+	num++;
+	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
+	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
+}
+
+void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
+	if (!currentList) {
+		gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
+		return;
+	}
+
+	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
+	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
+	const int end = 12 * 8 - (op & 0x7F);
+	int i = 0;
+
+	bool fastLoad = !debugRecording_ && end > 0;
+	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+		fastLoad = false;
+	}
+
+	if (fastLoad) {
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
+			}
+		}
+	}
+
+	const int count = i;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op & 0x7F) + count);
+
+	// Skip over the loaded data, it's done now.
+	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
+}
+
+void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
+	// Note: it's uncommon to get here now, see above.
+	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
+	u32 newVal = op << 8;
+	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		// Bone matrices should NOT flush, as we're always doing skinning in decode nowadays!
+		((u32 *)gstate.boneMatrix)[num] = newVal;
+	}
+	num++;
+	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
+	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
+}
+
 struct DisplayList_v1 {
 	int id;
 	u32 startpc;
@@ -1663,7 +1982,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 7);
+	auto s = p.Section("GPUCommon", 1, 8);
 	if (!s)
 		return;
 
@@ -1741,8 +2060,11 @@ void GPUCommon::DoState(PointerWrap &p) {
 		for (int id : dlQueue) {
 			valid = valid && id >= 0 && id < DisplayListMaxCount;
 		}
+		for (const DisplayList &dl : dls) {
+			valid = valid && dl.stackptr >= 0 && dl.stackptr <= (int)ARRAY_SIZE(dl.stack);
+		}
 		if (!valid) {
-			ERROR_LOG(Log::G3D, "Savestate has an invalid display list id");
+			ERROR_LOG(Log::G3D, "Savestate has an invalid display list id or stack pointer");
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
@@ -1763,9 +2085,26 @@ void GPUCommon::DoState(PointerWrap &p) {
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		ResetMatrices();
 	}
 	if (s >= 6) {
 		Do(p, edramTranslation_);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		edramTranslation_ = 0x400;
+	}
+	// Which slot (and so which id) the next list gets. Older states start over at 0, rather than
+	// carry on from the session before the load.
+	if (s >= 8) {
+		Do(p, nextListID);
+	} else {
+		nextListID = 0;
+	}
+	if (p.mode == PointerWrap::MODE_READ) {
+		if (nextListID < 0 || nextListID > DisplayListMaxCount) {
+			nextListID = 0;
+		}
+		recorder_.RestartAfterLoad();
 	}
 }
 
@@ -1966,6 +2305,64 @@ void GPUCommon::SetCmdValue(u32 op) {
 	downcount = 0;
 }
 
+// One row of a block transfer whose source and destination overlap, as the GE copies it (ppsspp-re geprobe
+// exp219, exp220: 562 of 570 cases exact). The source is read in whole aligned 16-byte blocks, four at a
+// time from the row's first block, and each byte placed at its destination address in a buffer of four
+// 16-byte slots (indexed by destination address bits 4-5, tagged by destination block), only the bytes
+// inside the transfer marked written. Placing into a slot tagged with another block writes that block's
+// written bytes to memory and retags the slot, keeping its bytes. Reading a source block that its slot is
+// tagged with takes the slot's bytes as they are, stale ones included. The slots are written out after the row.
+static void BlockTransferOverlappingRow(u32 srcAddr, u32 dstAddr, u32 bytes) {
+	struct Slot {
+		u32 block;
+		bool used;
+		u16 written;
+		u8 data[16];
+	};
+	Slot slots[4]{};
+	auto writeOut = [](const Slot &slot) {
+		if (!slot.used || !slot.written)
+			return;
+		u8 *p = Memory::GetPointerWriteUnchecked(slot.block << 4);
+		for (int k = 0; k < 16; ++k) {
+			if (slot.written & (1 << k))
+				p[k] = slot.data[k];
+		}
+	};
+	const u32 firstBlock = srcAddr >> 4, lastBlock = (srcAddr + bytes - 1) >> 4;
+	const u32 delta = dstAddr - srcAddr;
+	for (u32 group = firstBlock; group <= lastBlock; group += 4) {
+		const u32 count = std::min(4u, lastBlock - group + 1);
+		u8 read[4][16];
+		for (u32 i = 0; i < count; ++i) {
+			const u32 block = group + i;
+			const Slot &slot = slots[block & 3];
+			if (slot.used && slot.block == block && slot.written)
+				memcpy(read[i], slot.data, 16);
+			else
+				memcpy(read[i], Memory::GetPointerUnchecked(block << 4), 16);
+		}
+		for (u32 i = 0; i < count; ++i) {
+			for (u32 k = 0; k < 16; ++k) {
+				const u32 addr = ((group + i) << 4) + k;
+				const u32 dst = addr + delta;
+				Slot &slot = slots[(dst >> 4) & 3];
+				if (!slot.used || slot.block != dst >> 4) {
+					writeOut(slot);
+					slot.used = true;
+					slot.block = dst >> 4;
+					slot.written = 0;
+				}
+				slot.data[dst & 15] = read[i][k];
+				if (addr - srcAddr < bytes)
+					slot.written |= 1 << (dst & 15);
+			}
+		}
+	}
+	for (const Slot &slot : slots)
+		writeOut(slot);
+}
+
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	u32 srcBasePtr = gstate.getTransferSrcAddress();
 	u32 srcStride = gstate.getTransferSrcStride();
@@ -2064,11 +2461,16 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
 				if (!srcLineWrap && !dstLineWrap) {
-					const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
-					u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
-					for (u32 i = 0; i < bytesToCopy; i += 64) {
-						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
-						memmove(dstp + i, srcp + i, chunk);
+					const bool lineOverlap = srcLineStartAddr < dstLineStartAddr + bytesToCopy && dstLineStartAddr < srcLineStartAddr + bytesToCopy;
+					// The whole blocks the GE reads and writes.
+					const u32 srcBlocksStart = srcLineStartAddr & ~15, dstBlocksStart = dstLineStartAddr & ~15;
+					if (lineOverlap && Memory::IsValidRange(srcBlocksStart, ((srcLineStartAddr + bytesToCopy + 15) & ~15) - srcBlocksStart) &&
+						Memory::IsValidRange(dstBlocksStart, ((dstLineStartAddr + bytesToCopy + 15) & ~15) - dstBlocksStart)) {
+						BlockTransferOverlappingRow(srcLineStartAddr, dstLineStartAddr, bytesToCopy);
+					} else {
+						const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+						u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
+						memmove(dstp, srcp, bytesToCopy);
 					}
 
 					// If we're tracking detail, it's useful to have the gaps illustrated properly.
@@ -2207,7 +2609,8 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 	}
 
 	// Track stray copies of a framebuffer in RAM. MotoGP does this.
-	if (framebufferManager_->MayIntersectFramebufferColor(src) || framebufferManager_->MayIntersectFramebufferColor(dest)) {
+	// Depth buffers are usually above the color range, so requested depth copies always go through.
+	if ((flags & GPUCopyFlag::DEPTH_REQUESTED) || framebufferManager_->MayIntersectFramebufferColor(src) || framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		if (!framebufferManager_->NotifyFramebufferCopy(src, dest, size, flags, gstate_c.skipDrawReason)) {
 			// We use matching values in PerformReadbackToMemory/PerformWriteColorFromMemory.
 			// Since they're identical we don't need to copy.
@@ -2282,12 +2685,19 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	return false;
 }
 
-void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
-	NoteVideoRange(addr, (u32)size);
+void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format, int rectWidth) {
+	NoteVideoRange(addr, (u32)size, (u32)(rectWidth * BufferFormatBytesPerPixel(format)));
 	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
+		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format, rectWidth);
 	}
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
+bool GPUCommon::PerformReadbackStencilToMemory(u32 dest, int size) {
+	if (Memory::IsVRAMAddress(dest) && framebufferManager_->MayIntersectFramebufferColor(dest)) {
+		return framebufferManager_->ReadbackStencilToMemory(dest, size);
+	}
+	return false;
 }
 
 bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) {
@@ -2551,13 +2961,18 @@ void GPUCommon::UpdateMatrixProducts() {
 
 		// Now, check the Z range. If the viewport matches the limits of Z, we can avoid the need to do near clipping in many cases
 		// since the host hardware will take care of it automatically.
-		const float absZScale = fabsf(gstate.getViewportZScale());
+		const float zScale = gstate.getViewportZScale();
 		const float zCenter = gstate.getViewportZCenter();
 		const float zMin = gstate.getDepthRangeMin();
-		const float frontPlane = zCenter - absZScale;
-		if (frontPlane == zMin || frontPlane == zMin + 1.0f) {
-			gstate_c.viewportNearPlaneMatchesOutput = true;
-		}
+		const float zMax = gstate.getDepthRangeMax();
+		const float frontPlane = zCenter - fabsf(zScale);
+		gstate_c.viewportNearPlaneMatchesOutput = frontPlane == zMin || frontPlane == zMin + 1.0f;
+
+		// The near plane (z = -w) and the far plane (z = w) in screen Z.
+		auto onClipPlane = [&](float planeZ) {
+			return (zMin > 0.0f && fabsf(planeZ - zMin) <= 1.0f) || (zMax < 65535.0f && fabsf(planeZ - zMax) <= 1.0f);
+		};
+		gstate_c.viewportZPlanesOnClipPlanes = onClipPlane(zCenter - zScale) && onClipPlane(zCenter + zScale);
 	}
 	// It's just a bit operation, cheaper to clean all three together.
 	gstate_c.Clean(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);

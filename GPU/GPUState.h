@@ -473,7 +473,8 @@ enum : u32 {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	// Free bits: 6-7
+	GPU_USE_SHADER_LOD_BIAS = FLAG_BIT(6),  // The sampler ignores the LOD bias (MoltenVK), so the shader applies it.
+	// Free bit: 7
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
 	// Free bit: 10-12
@@ -619,6 +620,10 @@ public:
 	bool textureIsArray;
 	bool textureIsFramebuffer;
 	bool textureIsVideo;
+	// For a video texture, how many of its rows hold the frame (see CalcTexClamp).
+	int videoRows;
+	// And how many of its columns, 0 if not known.
+	int videoColumns;
 	bool useFlagsChanged;
 
 	float morphWeights[8];
@@ -639,6 +644,9 @@ public:
 	float worldviewproj[16];
 	float cullMatrix[16];
 	bool viewportNearPlaneMatchesOutput;
+	// The viewport's near and far planes both fall on min or max Z where those are clipped (above 0, below 65535),
+	// so the min/max clip planes clip exactly where the GE does.
+	bool viewportZPlanesOnClipPlanes;
 
 	KnownVertexBounds vertBounds;
 

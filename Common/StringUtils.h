@@ -91,6 +91,7 @@ enum class StringRestriction {
 	FileName,
 	NoLineBreaksOrSpecials,  // Used for savedata UI. Removes line breaks, backslashes and similar.
 	ConvertToUnixEndings,
+	NoInvisibleFormatting,  // Drops zero-width characters, direction marks and similar, turns no-break spaces into spaces.
 };
 
 std::string SanitizeString(std::string_view username, StringRestriction restriction, int minLength = 0, int maxLength = -1);

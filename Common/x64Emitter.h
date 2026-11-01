@@ -1412,14 +1412,17 @@ public:
 	void ABI_CallFunctionC(const void *func, u32 param1);
 	void ABI_CallFunctionCC(const void *func, u32 param1, u32 param2);
 	void ABI_CallFunctionCCC(const void *func, u32 param1, u32 param2, u32 param3);
+	void ABI_CallFunctionCP(const void *func, u32 param1, void *param2);
 	void ABI_CallFunctionCCP(const void *func, u32 param1, u32 param2, void *param3);
 	void ABI_CallFunctionCCCP(const void *func, u32 param1, u32 param2, u32 param3, void *param4);
 	void ABI_CallFunctionP(const void *func, void *param1);
 	void ABI_CallFunctionPA(const void *func, void *param1, const Gen::OpArg &arg2);
 	void ABI_CallFunctionPAA(const void *func, void *param1, const Gen::OpArg &arg2, const Gen::OpArg &arg3);
+	void ABI_CallFunctionPP(const void *func, void *param1, void *param2);
 	void ABI_CallFunctionPPC(const void *func, void *param1, void *param2, u32 param3);
 	void ABI_CallFunctionAC(const void *func, const Gen::OpArg &arg1, u32 param2);
 	void ABI_CallFunctionACC(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3);
+	void ABI_CallFunctionACCP(const void *func, const Gen::OpArg &arg1, u32 param2, u32 param3, void *param4);
 	void ABI_CallFunctionA(const void *func, const Gen::OpArg &arg1);
 	void ABI_CallFunctionAA(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
 

@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <string>
+#include <string_view>
+#include <vector>
+
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"  // PSP_Header below is all _le types.
@@ -65,4 +69,25 @@ typedef struct
 #pragma pack(pop)
 #endif
 
-int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed = nullptr);
+// fuseId is the PSP's Fuse ID, the words at 0xBC100090 and 0xBC100094. Only a game patch installed
+// on a PSP needs it (seed is its secure install ID then).
+int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed = nullptr, const u32 *fuseId = nullptr);
+
+// A module installed by the DRM BB install utility (sceKernelLoadModuleDNAS) is a PGD around a type 3
+// PRX, both keyed to the console by its Fuse ID and to the game by the secure install ID it passes.
+// Replaces data with the PGD's contents; false if it doesn't open with these.
+bool pspUnwrapDNASPGD(std::vector<u8> &data, const u8 *secureId, const u32 *fuseId);
+
+// A DRM BB install package is the EBOOT.PBP of a game patch download, which the install utility
+// (psheet) unpacks onto the memory stick. A .PRX in it comes out as the type 3 module before the
+// install's console-specific step, which pspDecryptPRX can still decrypt if it knows that step's
+// result for the module. secureId is the game's secure install ID, or null to take it from the
+// package's MAC; it's returned in secureIdOut if that's given. False if the package doesn't check out.
+struct DrmBBFile {
+	std::string name;
+	std::vector<u8> data;
+};
+bool pspReadDrmBBPackage(const std::vector<u8> &pbp, const u8 *secureId, std::vector<DrmBBFile> &files, u8 *secureIdOut = nullptr);
+
+// A Fuse ID as PSP tools show it, 12 (or 16) hex digits with the 0xBC100094 word first.
+bool pspParseFuseId(std::string_view text, u32 fuseId[2]);

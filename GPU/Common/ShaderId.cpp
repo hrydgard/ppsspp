@@ -12,6 +12,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/ShaderId.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"  // Just for ClipInfoFlags
 
@@ -278,7 +279,7 @@ std::string FShaderID::Description(bool includeID) const {
 		break;
 	}
 	case ShaderDepalMode::SMOOTHED: desc.C("SmoothDepal "); break;
-	case ShaderDepalMode::CLUT8_8888: desc.C("CLUT8From8888Depal"); break;
+	case ShaderDepalMode::CLUT8: desc.C("CLUT8Depal(").W(GeBufferFormatToString((GEBufferFormat)Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3))).C(") "); break;
 	}
 
 	return desc.as_string();
@@ -335,7 +336,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
 		GEBufferFormat shaderDepalFormat = {};
-		if (shaderDepalMode == ShaderDepalMode::NORMAL) {
+		if (shaderDepalMode == ShaderDepalMode::NORMAL || shaderDepalMode == ShaderDepalMode::CLUT8) {
 			shaderDepalFormat = gstate_c.depalTextureFormat;
 		}
 
@@ -352,9 +353,12 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			if (gstate_c.needShaderTexClamp) {
 				// 4 bits total.
 				id.SetBit(FS_BIT_SHADER_TEX_CLAMP);
-				// Video is always clamped, so it can't wrap around into the garbage outside the frame.
-				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS() || gstate_c.textureIsVideo);
-				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT() || gstate_c.textureIsVideo);
+				// Video is clamped where the frame is smaller than the texture (see CalcTexClamp), so it
+				// can't wrap around into the garbage outside the frame. Where the frame fills it, the
+				// texture wraps as the game says: the VSH's UMD Video player converts into a 256-wide
+				// texture as a ring, and its strips wrap around the right edge.
+				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS() || (gstate_c.textureIsVideo && VideoClampsS()));
+				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT() || (gstate_c.textureIsVideo && VideoClampsT()));
 			}
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
 			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);

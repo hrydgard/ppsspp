@@ -16,7 +16,6 @@
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanBarrier.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Data/Collections/FastVec.h"
 #include "Common/Math/math_util.h"
 #include "Common/GPU/DataFormat.h"
@@ -264,13 +263,15 @@ public:
 	//
 	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
 	// not keeping track of your calls to this function on your own.
-	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
+	// With no framebuffer, renders to swapchain, or the main one if that's null too.
+	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassLoadAction color, VKRRenderPassLoadAction depth, VKRRenderPassLoadAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag, VKRSwapchain *swapchain = nullptr);
 
 	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
 	// as the other backends, even though there's no actual binding happening here.
 	// For layer, we use the same convention as thin3d, where layer = -1 means all layers together. For texturing, that means that you
 	// get an array texture view.
-	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int layer);
+	// With samples, binds the multisampled color image (for texelFetch of single samples) instead of the resolved one.
+	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBits, int layer, bool samples = false);
 
 	bool CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
@@ -290,7 +291,8 @@ public:
 
 	void ReportBadStateForDraw();
 
-	int WaitForPipelines();
+	// True while there are queued or compiling pipelines.
+	bool PipelinesPending();
 
 	void NudgeCompilerThread() {
 		compileQueueMutex_.lock();
@@ -396,11 +398,11 @@ public:
 		data.stencil.stencilRef = refValue;
 	}
 
-	void SetBlendFactor(uint32_t color) {
+	void SetBlendFactor(const float color[4]) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::BLEND;
-		data.blendColor.color = color;
+		memcpy(data.blendColor.color, color, sizeof(data.blendColor.color));
 	}
 
 	void PushConstants(VkShaderStageFlags stages, int offset, int size, void *constants) {
@@ -512,6 +514,12 @@ public:
 	bool CreateBackbuffers();
 	void DestroyBackbuffers();
 
+	// Swapchains other than the main one, for other windows or displays. Use between frames, on the emu thread.
+	// They use the main swapchain's format, and don't pace the frame. Resizing and destroying wait for the GPU.
+	VKRSwapchain *CreateExtraSwapchain(WindowSystem winsys, void *data1, void *data2, int width, int height, std::string *error);
+	void DestroyExtraSwapchain(VKRSwapchain *swapchain);
+	void ResizeExtraSwapchain(VKRSwapchain *swapchain, int width, int height);
+
 	bool HasBackbuffers() {
 		return queueRunner_.HasBackbuffers();
 	}
@@ -568,7 +576,10 @@ private:
 	void ResetDescriptorLists(int frame);
 	void FlushDescriptors(int frame);
 
-	void SanityCheckPassesOnAdd();
+	void SanityCheckPassesOnAdd(VKRFramebuffer *fb, VKRSwapchain *swapchain);
+	bool InitExtraSwapchain(VKRSwapchain *swapchain, std::string *error);
+	void DestroyExtraSwapchainResources(VKRSwapchain *swapchain);
+	void RecreateExtraSwapchain(VKRSwapchain *swapchain);
 	bool CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
 	bool RecreatePresentationIfNeeded();
 
@@ -605,6 +616,7 @@ private:
 	BoundingRect curRenderArea_;
 
 	std::vector<VKRStep *> steps_;
+	std::vector<VKRSwapchain *> extraSwapchains_;
 
 	// Execution time state
 	VulkanContext *vulkan_;

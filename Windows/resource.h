@@ -159,7 +159,6 @@
 #define ID_OPTIONS_SCREEN3X              40027
 #define ID_OPTIONS_SCREEN4X              40028
 #define ID_OPTIONS_SCREEN5X              40029
-#define ID_OPTIONS_HARDWARETRANSFORM     40030
 #define IDC_STEPHLE                      40032
 #define ID_OPTIONS_LINEARFILTERING       40033
 #define ID_OPTIONS_AUTOMAXQUALITYFILTERING 40043
@@ -216,7 +215,6 @@
 #define ID_DISASM_ASSEMBLE               40091
 #define ID_DISASM_ADDNEWBREAKPOINT       40092
 #define ID_DISASM_EDITBREAKPOINT         40093
-#define IDC_DUMP_INCLUDEHACKS            40094
 #define ID_EMULATION_CHEATS              40096
 #define ID_HELP_CHINESE_FORUM            40097
 #define ID_OPTIONS_MORE_SETTINGS         40098
@@ -280,7 +278,6 @@
 #define ID_GEDBG_COPYALL                 40163
 #define ID_GEDBG_WATCH                   40164
 #define ID_FILE_DUMPFRAMES               40165
-#define ID_FILE_USEFFV1                  40166
 #define ID_FILE_DUMPAUDIO                40167
 #define ID_HELP_GITHUB                   40168
 #define IDC_GEDBG_RECORD                 40169

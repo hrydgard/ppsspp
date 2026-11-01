@@ -102,6 +102,8 @@ public:
 
 	const char *tag() const override { return "ConfirmMemstickMove"; }
 
+	bool key(const KeyInput &key) override;
+
 protected:
 	void update() override;
 	void CreateViews() override;

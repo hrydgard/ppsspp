@@ -6,6 +6,9 @@
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/Math/math_util.h"
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include "libretro/LibretroVR.h"
+#endif
 
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -32,10 +35,6 @@
 
 static constexpr int TEXCACHE_NAME_CACHE_SIZE = 16;
 
-#if PPSSPP_PLATFORM(IOS)
-extern void bindDefaultFBO();
-#endif
-
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
@@ -53,6 +52,24 @@ void GLQueueRunner::CreateDeviceObjects() {
 	if (gl_extensions.ARB_vertex_array_object) {
 		glGenVertexArrays(1, &globalVAO_);
 	}
+
+	// Texture uploads pass tightly packed rows. With the default of 4, the driver reads past the end of
+	// any whose rows aren't a multiple of 4 bytes (a 16-bit texture of odd width): the Adreno 840 crashed
+	// on one in SOCOM Fireteam Bravo 3.
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Depth from 0 to w in clip space, as in Vulkan (see depthMinusOneToOne in thin3d_gl.cpp).
+#if defined(USING_GLES2)
+#if defined(__ANDROID__)
+	if (gl_extensions.EXT_clip_control) {
+		glClipControlEXTFunc(GL_LOWER_LEFT_EXT, GL_ZERO_TO_ONE_EXT);
+	}
+#endif
+#else
+	if (gl_extensions.ARB_clip_control) {
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+	}
+#endif
 
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
@@ -695,6 +712,66 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		return;
 	}
 
+#ifdef __LIBRETRO__
+	if (Libretro::VRActive()) {
+		// Keep framebuffer history per eye, including display buffers from earlier frames.
+		// Resolve before rendering: creating a target changes GL bindings.
+		auto resolve = [&](GLRFramebuffer *&fb) {
+			if (!fb) {
+				return;
+			}
+			if (!fb->vrRight) {
+				fb->vrRight = new GLRFramebuffer(caps_, fb->width, fb->height, fb->z_stencil_, fb->Tag());
+				GLRInitStep init{GLRInitStepType::CREATE_FRAMEBUFFER};
+				init.create_framebuffer.framebuffer = fb->vrRight;
+				InitCreateFramebuffer(init);
+			}
+			if (fb->vrGeneration != Libretro::VRGeneration()) {
+				fbo_bind_fb_target(true, fb->handle);
+				fbo_bind_fb_target(false, fb->vrRight->handle);
+				glDisable(GL_SCISSOR_TEST);
+				GLbitfield mask = GL_COLOR_BUFFER_BIT;
+				if (fb->z_stencil_) {
+					mask |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+				}
+				glBlitFramebuffer(0, 0, fb->width, fb->height, 0, 0, fb->width, fb->height, mask, GL_NEAREST);
+				if (scissorTestOn_) {
+					glEnable(GL_SCISSOR_TEST);
+				}
+				fb->vrGeneration = Libretro::VRGeneration();
+			}
+			if (!keepSteps) {
+				fb = fb->vrRight;
+			}
+		};
+		for (auto step : steps) {
+			switch (step->stepType) {
+			case GLRStepType::RENDER:
+				resolve(step->render.framebuffer);
+				for (auto &command : step->commands) {
+					if (command.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
+						resolve(command.bind_fb_texture.framebuffer);
+					}
+				}
+				break;
+			case GLRStepType::COPY:
+				resolve(step->copy.src);
+				resolve(step->copy.dst);
+				break;
+			case GLRStepType::BLIT:
+				resolve(step->blit.src);
+				resolve(step->blit.dst);
+				break;
+			case GLRStepType::READBACK:
+				resolve(step->readback.src);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+#endif
+
 	size_t totalRenderCount = 0;
 	for (auto &step : steps) {
 		if (step->stepType == GLRStepType::RENDER) {
@@ -898,6 +975,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	};
 
 	GLRect2D scissorRc = { -1, -1, -1, -1 };
+	// GL_DEPTH_STENCIL_TEXTURE_MODE needs GL 4.3 or GLES 3.1. Without it a depth-stencil texture samples depth,
+	// and setting the mode is an error (Apple's GL 4.1).
+	const bool stencilTexturing = gl_extensions.ARB_stencil_texturing || (gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 1));
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
@@ -1219,15 +1299,19 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
 					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 				}
-				// This should be uncommon, so always set the mode.
-				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+				// This should be uncommon, so always set the mode (where it exists).
+				if (stencilTexturing) {
+					glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+				}
 			} else if (c.bind_fb_texture.aspect == GL_STENCIL_BUFFER_BIT) {
 				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture) {
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
 					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 				}
-				// This should be uncommon, so always set the mode.
-				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+				// This should be uncommon, so always set the mode (where it exists).
+				if (stencilTexturing) {
+					glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+				}
 			} else {
 				curTex[slot] = nullptr;
 			}
@@ -1384,6 +1468,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			int alignment;
 			Thin3DFormatToGLFormatAndType(c.texture_subimage.format, internalFormat, format, type, alignment);
 			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, format, type, c.texture_subimage.data);
+#ifdef __LIBRETRO__
+			if (Libretro::RetainVRCommands()) {
+				break;
+			}
+#endif
 			if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(c.texture_subimage.data);
 			} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
@@ -1419,7 +1508,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glDisable(GL_DITHER);
 				ditherEnabled = false;
 			}
-#ifndef USING_GLES2
+			// GLES has it too, with GL_EXT_depth_clamp (depthClampSupported).
 			if (c.raster.depthClampEnable) {
 				if (!depthClampEnabled) {
 					glEnable(GL_DEPTH_CLAMP);
@@ -1429,7 +1518,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glDisable(GL_DEPTH_CLAMP);
 				depthClampEnabled = false;
 			}
-#endif
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		default:
@@ -1470,9 +1558,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		glDisable(GL_BLEND);
 	if (cullEnabled)
 		glDisable(GL_CULL_FACE);
-#ifndef USING_GLES2
 	if (depthClampEnabled)
 		glDisable(GL_DEPTH_CLAMP);
+#ifndef USING_GLES2
 	if (!gl_extensions.IsGLES && logicEnabled) {
 		glDisable(GL_COLOR_LOGIC_OP);
 	}
@@ -1567,20 +1655,21 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	GLuint format = GL_RGBA;
 	GLuint type = GL_UNSIGNED_BYTE;
 	int srcAlignment = 4;
+	readbackFormat_ = DataFormat::R8G8B8A8_UNORM;
 
 #ifndef USING_GLES2
 	if (pass.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
 		format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		srcAlignment = 4;
+		readbackFormat_ = DataFormat::D32F;
 	} else if (pass.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
 		format = GL_STENCIL_INDEX;
 		type = GL_UNSIGNED_BYTE;
 		srcAlignment = 1;
+		readbackFormat_ = DataFormat::S8;
 	}
 #endif
-
-	readbackAspectMask_ = pass.readback.aspectMask;
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
@@ -1599,9 +1688,15 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 		readbackBufferSize_ = readbackSize;
 	}
 
+	// Clear any earlier errors, so the check below is about this read. Bounded, since a lost context can
+	// keep reporting itself.
+	for (int i = 0; i < 16 && glGetError() != GL_NO_ERROR; i++) {
+	}
 	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
+	const GLenum readError = glGetError();
+	readbackOk_ = readError == GL_NO_ERROR;
 	#ifdef DEBUG_READ_PIXELS
-	LogReadPixelsError(glGetError());
+	LogReadPixelsError(readError);
 	#endif
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
@@ -1610,9 +1705,14 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 }
 
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
+	readbackFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
+	readbackOk_ = false;
 #ifndef USING_GLES2
 	GLRTexture *tex = pass.readback_image.texture;
 	GLRect2D rect = pass.readback_image.srcRect;
+
+	for (int i = 0; i < 16 && glGetError() != GL_NO_ERROR; i++) {
+	}
 
 	if (gl_extensions.VersionGEThan(4, 5)) {
 		int size = 4 * rect.w * rect.h;
@@ -1642,20 +1742,23 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 		}
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		glPixelStorei(GL_PACK_ROW_LENGTH, rect.x + rect.w);
+		// glGetTexImage writes the whole level, so the rows are the texture's width apart.
+		const int srcWidth = std::max((int)w, rect.x + rect.w);
+		glPixelStorei(GL_PACK_ROW_LENGTH, srcWidth);
 		glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
-		if (rect.x != 0 || rect.y != 0) {
+		if (rect.x != 0 || rect.y != 0 || rect.w != srcWidth) {
 			int dstStride = 4 * rect.w;
-			int srcStride = 4 * (rect.x + rect.w);
+			int srcStride = 4 * srcWidth;
 			int xoff = 4 * rect.x;
 			int yoff = rect.y * srcStride;
 			for (int y = 0; y < rect.h; ++y) {
-				memmove(readbackBuffer_ + h * dstStride, readbackBuffer_ + yoff + h * srcStride + xoff, dstStride);
+				memmove(readbackBuffer_ + y * dstStride, readbackBuffer_ + yoff + y * srcStride + xoff, dstStride);
 			}
 		}
 	}
+	readbackOk_ = glGetError() == GL_NO_ERROR;
 #endif
 
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1677,43 +1780,53 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
+#ifndef __LIBRETRO__
 		if (IsVREnabled()) {
 			BindVRFramebuffer();
 		}
+#endif
 		// Backbuffer is now bound.
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+bool GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
 	// don't usually provide very optimized conversion implementations, though some do.
 	// Just need to be careful about dithering, which may break Danganronpa.
 	int bpp = (int)Draw::DataFormatSizeInBytes(destFormat);
-	if (!readbackBuffer_ || bpp <= 0 || !pixels) {
-		// Something went wrong during the read and no readback buffer was allocated, probably.
-		return;
+	if (!readbackOk_ || !readbackBuffer_ || bpp <= 0 || !pixels) {
+		// The read failed, or never allocated a buffer.
+		return false;
 	}
 
-	// Always read back in 8888 format for the color aspect.
-	GLuint internalFormat = GL_RGBA;
-#ifndef USING_GLES2
-	if (readbackAspectMask_ & GL_DEPTH_BUFFER_BIT) {
-		internalFormat = GL_DEPTH_COMPONENT;
-	} else if (readbackAspectMask_ & GL_STENCIL_BUFFER_BIT) {
-		internalFormat = GL_STENCIL_INDEX;
-	}
-#endif
-
-	bool convert = internalFormat == GL_RGBA && destFormat != Draw::DataFormat::R8G8B8A8_UNORM;
-	if (convert) {
-		// srcStride is width because we read back "packed" (with no gaps) from GL.
+	// The buffer is packed (no gaps), so its stride is the width. readbackFormat_ is what was actually read.
+	switch (readbackFormat_) {
+	case Draw::DataFormat::R8G8B8A8_UNORM:
 		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
-	} else {
-		for (int y = 0; y < height; y++) {
-			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+		return true;
+	case Draw::DataFormat::D32F:
+		if (destFormat == Draw::DataFormat::D32F) {
+			ConvertToD32F(pixels, readbackBuffer_, pixelStride, width, width, height, Draw::DataFormat::D32F);
+			return true;
+		} else if (destFormat == Draw::DataFormat::D16) {
+			ConvertToD16(pixels, readbackBuffer_, pixelStride, width, width, height, Draw::DataFormat::D32F);
+			return true;
 		}
+		break;
+	case Draw::DataFormat::S8:
+		if (destFormat == Draw::DataFormat::S8) {
+			for (int y = 0; y < height; y++) {
+				memcpy(pixels + y * pixelStride, readbackBuffer_ + y * width, width);
+			}
+			return true;
+		}
+		break;
+	default:
+		break;
 	}
+	ERROR_LOG(Log::G3D, "Unsupported readback conversion from %s to %s", Draw::DataFormatToString(readbackFormat_), Draw::DataFormatToString(destFormat));
+	return false;
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 
@@ -1834,10 +1947,6 @@ void GLQueueRunner::fbo_unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 #endif
 
-#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
-	bindDefaultFBO();
-#endif
-
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1849,6 +1958,9 @@ std::string GLQueueRunner::GetGLString(int name) const {
 }
 
 GLRFramebuffer::~GLRFramebuffer() {
+#ifdef __LIBRETRO__
+	delete vrRight;
+#endif
 	if (handle == 0 && z_stencil_buffer == 0 && z_buffer == 0 && stencil_buffer == 0)
 		return;
 

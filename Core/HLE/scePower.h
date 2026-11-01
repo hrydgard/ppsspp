@@ -21,9 +21,12 @@ class PointerWrap;
 
 void __PowerInit();
 void __PowerDoState(PointerWrap &p);
+// Applies a change to the locked CPU speed setting. Called every vblank.
+void __PowerCheckLockedClock();
 
 void Register_scePower();
 void Register_scePower_driver();
+void Register_sceMePower_driver();
 void Register_sceSuspendForUser();
 
 int KernelVolatileMemLock(int type, u32 paddr, u32 psize);

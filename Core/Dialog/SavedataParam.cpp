@@ -171,7 +171,7 @@ namespace
 
 void SaveFileInfo::DoState(PointerWrap &p)
 {
-	auto s = p.Section("SaveFileInfo", 1, 2);
+	auto s = p.Section("SaveFileInfo", 1, 3);
 	if (!s)
 		return;
 
@@ -179,11 +179,16 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	Do(p, saveName);
 	Do(p, idx);
 
-	DoArray(p, title, sizeof(title));
-	DoArray(p, saveTitle, sizeof(saveTitle));
-	DoArray(p, saveDetail, sizeof(saveDetail));
+	DoCString(p, title);
+	DoCString(p, saveTitle);
+	DoCString(p, saveDetail);
 
 	Do(p, modif_time);
+	if (s >= 3) {
+		// The delete dialogs delete by it, and for LISTALLDELETE it isn't the game name and save name.
+		Do(p, saveDir);
+		Do(p, broken);
+	}
 
 	if (s <= 1) {
 		u32 textureData;
@@ -1557,18 +1562,20 @@ int SavedataParam::SetPspParam(SceUtilitySavedataParam *param) {
 
 		saveNameListData = param->saveNameList;
 
-		// Get number of fileName in array
-		saveDataListCount = 0;
-		while (saveNameListData[saveDataListCount][0] != 0) {
+		// Get number of fileName in array. Counted on the side, so a rejected name leaves the
+		// count at 0 to match the list Clear() freed (a savestate walks that many entries).
+		int count = 0;
+		while (saveNameListData[count][0] != 0) {
 			// saveName entries become part of host filesystem paths; reject
 			// path separators and bare dot components (path traversal).
-			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[saveDataListCount]);
+			const std::string_view entry = StringViewFromFixedSizeField(saveNameListData[count]);
 			if (HasPathTraversal(entry)) {
 				ERROR_LOG(Log::sceUtility, "SavedataParam: invalid saveName in list: %s", std::string(entry).c_str());
 				return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 			}
-			saveDataListCount++;
+			count++;
 		}
+		saveDataListCount = count;
 
 		if (saveDataListCount > 0) {
 			hasMultipleFileName = true;
@@ -1958,6 +1965,30 @@ bool SavedataParam::WouldHaveMultiSaveName(const SceUtilitySavedataParam *param)
 	}
 }
 
+// Slots without an icon of their own shared noSaveIcon's image before the save, but come back as
+// separate images of the same texture. Share it again, or Clear() frees it once per slot.
+void SavedataParam::ShareLoadedIcons() {
+	for (int i = 0; i < saveDataListCount; i++) {
+		PPGeImage *texture = saveDataList[i].texture;
+		if (!texture || texture->TextureAddress() == 0) {
+			continue;
+		}
+		for (int j = 0; j < i; j++) {
+			PPGeImage *other = saveDataList[j].texture;
+			if (other && other->TextureAddress() == texture->TextureAddress()) {
+				if (!noSaveIcon) {
+					noSaveIcon = new SaveFileInfo();
+					noSaveIcon->texture = other;
+				}
+				texture->Forget();
+				delete texture;
+				saveDataList[i].texture = other;
+				break;
+			}
+		}
+	}
+}
+
 void SavedataParam::DoState(PointerWrap &p) {
 	auto s = p.Section("SavedataParam", 1, 2);
 	if (!s)
@@ -1991,6 +2022,9 @@ void SavedataParam::DoState(PointerWrap &p) {
 
 	// pspParam is handled in PSPSaveDialog.
 	Do(p, selectedSave);
+	if (p.mode != p.MODE_READ && !saveDataList) {
+		saveDataListCount = 0;
+	}
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ) {
@@ -2007,6 +2041,7 @@ void SavedataParam::DoState(PointerWrap &p) {
 		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);
+			ShareLoadedIcons();
 		} else {
 			saveDataList = nullptr;
 		}

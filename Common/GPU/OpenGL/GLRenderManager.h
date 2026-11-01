@@ -78,6 +78,10 @@ public:
 	int height;
 	GLuint colorDepth = 0;
 	bool z_stencil_;
+#ifdef __LIBRETRO__
+	GLRFramebuffer *vrRight = nullptr;
+	unsigned vrGeneration = 0;
+#endif
 
 private:
 	std::string tag_;
@@ -249,6 +253,11 @@ public:
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
 	bool ThreadFrame();  // False means it's time to exit.
+	// True if ThreadFrame() has queued work and will not block on an empty queue.
+	bool HasQueuedThreadWork() {
+		std::lock_guard<std::mutex> lock(pushMutex_);
+		return !renderThreadQueue_.empty();
+	}
 
 	void NotifyEmuThreadExit();
 
@@ -836,6 +845,10 @@ public:
 		targetWidth_ = width;
 		targetHeight_ = height;
 		queueRunner_.Resize(width, height);
+	}
+
+	void ForgetBoundFramebuffers() {
+		queueRunner_.ForgetBoundFramebuffers();
 	}
 
 	void UnregisterPushBuffer(GLPushBuffer *buffer) {

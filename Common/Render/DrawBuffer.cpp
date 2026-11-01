@@ -429,6 +429,107 @@ void DrawBuffer::DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x
 	DrawTexRect(xb, yb, x2, y2, um, vm, u2, v2, color);
 }
 
+const char *RoundRectCornerImageName(int radiusIndex, RoundRectStyle style) {
+	// Generated from the indices, so the tables in the header are all there is to edit.
+	struct Names {
+		char names[ROUND_RECT_RADIUS_COUNT][(int)RoundRectStyle::COUNT][16];
+		Names() {
+			for (int r = 0; r < ROUND_RECT_RADIUS_COUNT; r++) {
+				for (int s = 0; s < (int)RoundRectStyle::COUNT; s++) {
+					snprintf(names[r][s], sizeof(names[r][s]), "I_RRECT_%d_%d", r, s);
+				}
+			}
+		}
+	};
+	static const Names names;
+	return names.names[radiusIndex][(int)style];
+}
+
+void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float radius, Color color, RoundRectStyle style, RoundCorners corners) {
+	if (!atlas || x2 <= x1 || y2 <= y1) {
+		return;
+	}
+	if (roundRectAtlasImages_ != atlas->images) {
+		for (int r = 0; r < ROUND_RECT_RADIUS_COUNT; r++) {
+			for (int s = 0; s < (int)RoundRectStyle::COUNT; s++) {
+				roundRectCorners_[r][s] = atlas->getImage(ImageID(RoundRectCornerImageName(r, (RoundRectStyle)s)));
+			}
+		}
+		roundRectAtlasImages_ = atlas->images;
+	}
+
+	int radiusIndex = 0;
+	for (int i = 1; i < ROUND_RECT_RADIUS_COUNT; i++) {
+		if (fabsf(ROUND_RECT_RADII[i] - radius) < fabsf(ROUND_RECT_RADII[radiusIndex] - radius)) {
+			radiusIndex = i;
+		}
+	}
+	const AtlasImage *image = roundRectCorners_[radiusIndex][(int)style];
+	if (!image) {
+		return;
+	}
+
+	const bool filled = style == RoundRectStyle::Filled;
+	const float dpiScale = atlas->dpiScale;
+	const float r = ROUND_RECT_RADII[radiusIndex] * dpiScale;
+	const int center = RoundRectCornerCenter(r);
+
+	// The corner quad runs from the center of texel 0 to the center of the last texel, which holds
+	// the straight edge profile that gets stretched along the sides. Shrink it to fit small rects.
+	float scale = std::max(radius, 0.0f) / ROUND_RECT_RADII[radiusIndex];
+	const float maxScale = std::min(x2 - x1, y2 - y1) * dpiScale / (2.0f * (r + 0.5f));
+	scale = std::min(scale, maxScale);
+	if (scale <= 0.0f) {
+		if (filled) {
+			DrawImageCenterTexel(ImageID("I_SOLIDWHITE"), x1, y1, x2, y2, color);
+		}
+		return;
+	}
+	const float texel = scale / dpiScale;
+	const float outside = (center - r - 0.5f) * texel;  // From the rect edge out to texel 0's center.
+	const float inside = (r + 0.5f) * texel;  // From the rect edge in to the last texel's center.
+
+	const float xs[4] = { x1 - outside, x1 + inside, x2 - inside, x2 + outside };
+	const float ys[4] = { y1 - outside, y1 + inside, y2 - inside, y2 + outside };
+	const float us[4] = { image->u1, image->u2, image->u2, image->u1 };
+	const float vs[4] = { image->v1, image->v2, image->v2, image->v1 };
+
+	for (int y = 0; y < 3; y++) {
+		if (ys[y + 1] <= ys[y]) {
+			continue;
+		}
+		for (int x = 0; x < 3; x++) {
+			if (xs[x + 1] <= xs[x] || (x == 1 && y == 1 && !filled)) {
+				continue;
+			}
+			if (x != 1 && y != 1) {
+				const RoundCorners corner = y == 0 ? (x == 0 ? RoundCorners::TopLeft : RoundCorners::TopRight) : (x == 0 ? RoundCorners::BottomLeft : RoundCorners::BottomRight);
+				if (!(corners & corner)) {
+					DrawSquareCorner(xs + x, ys + y, us + x, vs + y, x == 0 ? 0 : 1, y == 0 ? 0 : 1, image->u2, image->v2, color);
+					continue;
+				}
+			}
+			DrawTexRect(xs[x], ys[y], xs[x + 1], ys[y + 1], us[x], vs[y], us[x + 1], vs[y + 1], color);
+		}
+	}
+}
+
+// Splits the corner cell along the diagonal through its outer corner. The half along the horizontal
+// edge takes that edge's profile (the corner image's last column), the other half the vertical edge's
+// (the last row). That's exact coverage for a filled corner, and a mitred one for an outline.
+void DrawBuffer::DrawSquareCorner(const float *xs, const float *ys, const float *us, const float *vs, int ox, int oy, float edgeU, float edgeV, Color color) {
+	const float outerX = xs[ox], outerY = ys[oy];
+	const float innerX = xs[1 - ox], innerY = ys[1 - oy];
+	// Along the horizontal edge: u fixed, v by row.
+	V(outerX, outerY, color, edgeU, vs[oy]);
+	V(innerX, outerY, color, edgeU, vs[oy]);
+	V(innerX, innerY, color, edgeU, vs[1 - oy]);
+	// Along the vertical edge: v fixed, u by column.
+	V(outerX, outerY, color, us[ox], edgeV);
+	V(innerX, innerY, color, us[1 - ox], edgeV);
+	V(outerX, innerY, color, us[ox], edgeV);
+}
+
 void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
 	const AtlasImage *image = atlas->getImage(atlas_image);
 	float um = (image->u1 + image->u2) * 0.5f;

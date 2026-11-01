@@ -76,6 +76,7 @@ struct GLExtensions {
 	bool ARB_clip_distance;
 	bool ARB_cull_distance;
 	bool ARB_depth_clamp;
+	bool ARB_clip_control;
 	bool ARB_uniform_buffer_object;
 	bool ARB_texture_non_power_of_two;
 	bool ARB_stencil_texturing;
@@ -104,6 +105,7 @@ struct GLExtensions {
 	bool EXT_buffer_storage;
 	bool EXT_clip_cull_distance;
 	bool EXT_depth_clamp;
+	bool EXT_clip_control;
 
 	// NV
 	bool NV_copy_image;
@@ -126,8 +128,6 @@ struct GLExtensions {
 	// Shader precision. Only fetched on ES for now.
 	int range[2][6][2];  // [vs,fs][lowf,mediumf,highf,lowi,mediumi,highi][min,max]
 	int precision[2][6];  // [vs,fs][lowf...]
-
-	int maxVertexTextureUnits;
 
 	bool supportsETC2;
 	bool supportsBC123;

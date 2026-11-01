@@ -200,7 +200,15 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->desc = new VKRGraphicsPipelineDesc();
 	VKRGraphicsPipelineDesc *desc = vulkanPipeline->desc;
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	// MoltenVK serializes MSL compiles of pipelines that share a VkPipelineCache (its "retrieve shader
+	// library from the cache" time drops from 142ms to 11ms average without one), and all the cache saves
+	// it is SPIR-V to MSL conversion, under a millisecond. On a cold Wipeout Pure start (no shader caches,
+	// Metal's included), rendering blocked on pipelines for 1.2s instead of 2.9s, longest stall 0.3s instead of 1s.
+	desc->pipelineCache = VK_NULL_HANDLE;
+#else
 	desc->pipelineCache = pipelineCache;
+#endif
 
 	desc->fragmentShader = fs->GetModule();
 	desc->vertexShader = vs->GetModule();

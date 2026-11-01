@@ -27,6 +27,8 @@ namespace UI {
 
 class CustomButtonMappingScreen : public UISimpleBaseDialogScreen {
 public:
+	// Places the button preview from the screen bounds.
+	bool LimitContentArea() const override { return false; }
 	CustomButtonMappingScreen(DeviceOrientation deviceOrientation, const Path &gamePath, int id) : UISimpleBaseDialogScreen(gamePath, SimpleDialogFlags::Default), deviceOrientation_(deviceOrientation), id_(id) {}
 
 	const char *tag() const override { return "CustomButton"; }
@@ -46,15 +48,8 @@ private:
 	void saveArray();
 
 	bool array[ARRAY_SIZE(CustomKeyData::g_customKeyList)]{};
+	bool arrayLoaded_ = false;
 	int id_;
-
-	class ChoiceEventHandler{
-	public:
-		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
-		void onChoiceClick(UI::EventParams &e);
-	private:
-		UI::CheckBox *checkbox_;
-	};
 
 	DeviceOrientation deviceOrientation_;
 };

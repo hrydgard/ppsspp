@@ -20,6 +20,7 @@ enum Draw2DShader {
 	DRAW2D_565_TO_DEPTH,
 	DRAW2D_565_TO_DEPTH_DESWIZZLE,
 	DRAW2D_COPY_COLOR_RECT2LIN,
+	DRAW2D_COPY_COLOR_SAMPLE0,  // From a multisampled framebuffer, its first sample instead of the average. Needs framebufferSampleReadSupported.
 };
 
 inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
@@ -40,6 +41,7 @@ struct Draw2DPipelineInfo {
 	RasterChannel readChannel;
 	RasterChannel writeChannel;
 	Slice<SamplerDef> samplers;
+	bool readSamples = false;  // Binds the source with BindFramebufferSamplesAsTexture.
 };
 
 extern const UniformDef g_draw2Duniforms[2];

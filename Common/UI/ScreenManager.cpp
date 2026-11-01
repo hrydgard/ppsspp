@@ -1,6 +1,9 @@
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/UI/ScreenManager.h"
+#include "Common/UI/Context.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ScrollView.h"
@@ -24,10 +27,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 		return;
 	}
 
-	// Note that if a dialog is found, this will be a silent background switch that
-	// will only become apparent if the dialog is closed. The previous screen will stick around
-	// until that switch.
-	// TODO: is this still true?
 	if (!nextStack_.empty()) {
 		for (int i = 0; i < nextStack_.size(); i++) {
 			INFO_LOG(Log::UI, "NextStack contents[%d].screen->tag(): '%s'", i, nextStack_[i].screen->tag());
@@ -107,10 +106,13 @@ void ScreenManager::ProcessInputEvent(const QueuedEvent &event) {
 	case QueuedEventType::KEY:
 	{
 		const KeyInput &key = event.key;
-		// Send key up to every screen layer, to avoid stuck keys.
+		// Send key up to every screen layer, to avoid stuck keys. A press and release in one (iOS's back swipe,
+		// the mouse wheel) is a press only for the top one, or every dialog below would act on it too.
 		if (key.flags & KeyInputFlags::UP) {
-			for (auto &layer : stack_) {
-				layer.screen->key(key);
+			KeyInput upOnly = key;
+			upOnly.flags &= ~KeyInputFlags::DOWN;
+			for (size_t i = 0; i < stack_.size(); i++) {
+				stack_[i].screen->key(i == stack_.size() - 1 ? key : upOnly);
 			}
 		} else if (!stack_.empty()) {
 			stack_.back().screen->key(key);
@@ -137,27 +139,37 @@ void ScreenManager::Update() {
 		overlayScreen_->update();
 	}
 
+	bool topLevel = false;
 	if (!stack_.empty()) {
 		Screen *backScreen = stack_.back().screen;
 		backScreen->update();
 		passInputToMapper_ = backScreen->PassInputToMapper();
+		topLevel = backScreen->isTopLevel();
+	}
+	if (topIsTopLevel_.exchange(topLevel) != topLevel) {
+		System_Notify(SystemNotification::TOP_LEVEL_CHANGED);
 	}
 }
 
 void ScreenManager::switchToNext() {
 	if (nextStack_.empty()) {
 		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
+		return;
 	}
 
-	Layer temp = {nullptr, 0};
-	if (!stack_.empty()) {
-		temp = stack_.back();
-		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-		stack_.pop_back();
+	// Replaces the whole stack. Most callers switch from a dialog (Play on the game screen, the store,
+	// installers), and replacing only the top left the screens below alive, like one more MainScreen
+	// under every game launched that way.
+	std::vector<Layer> old = std::move(stack_);
+	stack_.clear();
+	if (!old.empty()) {
+		old.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 	}
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-	delete temp.screen;
+	for (auto iter = old.rbegin(); iter != old.rend(); ++iter) {
+		delete iter->screen;
+	}
 	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 
 	// When will this ever happen? Should handle focus here too?
@@ -170,12 +182,78 @@ void ScreenManager::switchToNext() {
 void ScreenManager::deviceLost() {
 	for (auto &iter : stack_)
 		iter.screen->deviceLost();
+	for (Output &output : outputs_) {
+		if (output.display.swapchain) {
+			draw_->DestroySwapchain(output.display.swapchain);
+			output.display.swapchain = nullptr;
+		}
+	}
+	// Outputs added before the device is restored get their swapchains then.
+	deviceLost_ = true;
 }
 
 void ScreenManager::deviceRestored(Draw::DrawContext *draw) {
 	draw_ = draw;
+	deviceLost_ = false;
 	for (auto &iter : stack_)
 		iter.screen->deviceRestored(draw);
+	for (Output &output : outputs_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(output.desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to recreate the swapchain for output %d: %s", output.display.id, error.c_str());
+		}
+	}
+}
+
+void ScreenManager::AddOutput(int id, OutputRole role, const Draw::SwapchainDesc &desc) {
+	Output output{};
+	output.display.id = id;
+	output.display.role = role;
+	output.desc = desc;
+	if (draw_ && !deviceLost_) {
+		std::string error;
+		output.display.swapchain = draw_->CreateSwapchain(desc, &error);
+		if (!output.display.swapchain) {
+			ERROR_LOG(Log::G3D, "Failed to create the swapchain for output %d: %s", id, error.c_str());
+		}
+	}
+	INFO_LOG(Log::G3D, "Added output %d (%dx%d)", id, desc.width, desc.height);
+	outputs_.push_back(output);
+}
+
+void ScreenManager::ResizeOutput(int id, int width, int height) {
+	for (Output &output : outputs_) {
+		if (output.display.id == id) {
+			output.desc.width = width;
+			output.desc.height = height;
+			if (output.display.swapchain) {
+				draw_->ResizeSwapchain(output.display.swapchain, width, height);
+			}
+		}
+	}
+}
+
+void ScreenManager::RemoveOutput(int id) {
+	for (auto iter = outputs_.begin(); iter != outputs_.end(); ++iter) {
+		if (iter->display.id == id) {
+			if (iter->display.swapchain) {
+				draw_->DestroySwapchain(iter->display.swapchain);
+			}
+			outputs_.erase(iter);
+			INFO_LOG(Log::G3D, "Removed output %d", id);
+			return;
+		}
+	}
+}
+
+const OutputDisplay *ScreenManager::FindOutput(OutputRole role) const {
+	for (const Output &output : outputs_) {
+		if (output.display.role == role && output.display.swapchain) {
+			return &output.display;
+		}
+	}
+	return nullptr;
 }
 
 void ScreenManager::resized() {
@@ -205,8 +283,44 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 
 	afterPreRender();
 
-	// Now, start the final render pass. This is now the ONLY place where binding the null fb is allowed.
-	draw_->BindFramebufferAsRenderTarget(nullptr, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
+	// Secondary outputs. The topmost screen with something for one draws it, then the background screen.
+	UIContext *ui = getUIContext();
+	for (const Output &output : outputs_) {
+		Draw::Swapchain *swapchain = output.display.swapchain;
+		if (!swapchain) {
+			continue;
+		}
+		draw_->BindFramebufferAsRenderTarget(swapchain, {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "Output");
+		int w, h;
+		draw_->GetFramebufferDimensions(swapchain, &w, &h);
+		// Only with a render target bound, since it sets the scissor. That's to the primary's size, so ours goes after.
+		ui->BeginFrame();
+		draw_->SetViewport(Draw::Viewport{0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f});
+		draw_->SetScissorRect(0, 0, w, h);
+
+		// UI drawn there gets the primary's DPI scale, over the whole output.
+		const float dpWidth = w * g_display.dpi_scale_x;
+		const float dpHeight = h * g_display.dpi_scale_y;
+		const Bounds primaryBounds = ui->GetBounds();
+		ui->SetBounds(Bounds(0, 0, dpWidth, dpHeight));
+		ui->Draw()->PushDrawMatrix(ComputeOrthoMatrix(dpWidth, dpHeight, draw_->GetDeviceCaps().coordConvention, false));
+		bool drawn = false;
+		for (auto iter = stack_.rbegin(); iter != stack_.rend(); ++iter) {
+			if (iter->screen->renderOutput(output.display)) {
+				drawn = true;
+				break;
+			}
+		}
+		if (!drawn && backgroundScreen_) {
+			backgroundScreen_->renderOutput(output.display);
+		}
+		ui->Flush();
+		ui->Draw()->PopDrawMatrix();
+		ui->SetBounds(primaryBounds);
+	}
+
+	// Now, start the final render pass. This is now the ONLY place where binding the backbuffer is allowed.
+	draw_->BindFramebufferAsRenderTarget(draw_->GetPrimarySwapchain(), {RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR}, "BackBuffer");
 	getUIContext()->BeginFrame();
 
 	const Draw::Viewport viewport{0.0f, 0.0f, (float)g_display.pixel_xres, (float)g_display.pixel_yres, 0.0f, 1.0f};
@@ -275,11 +389,6 @@ ScreenRenderFlags ScreenManager::Render(std::function<void()> afterPreRender) {
 		}
 
 		getUIContext()->Flush();
-
-		if (postRenderCb_) {
-			// Really can't render anything after this! Will crash the screenshot mechanism if we do.
-			postRenderCb_(getUIContext(), postRenderUserdata_);
-		}
 	} else {
 		ERROR_LOG(Log::UI, "No current screen!");
 	}
@@ -390,6 +499,15 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	dialogResult_ = result;
 }
 
+bool ScreenManager::HasScreenAbove(const Screen *screen) const {
+	for (size_t i = 0; i + 1 < stack_.size(); ++i) {
+		if (stack_[i].screen == screen) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 	for (size_t i = 1; i < stack_.size(); ++i) {
 		if (stack_[i].screen == dialog) {
@@ -402,34 +520,37 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 }
 
 void ScreenManager::processFinishDialog() {
-	if (dialogFinished_) {
-		{
-			// Another dialog may have been pushed before the render, so search for it.
-			Screen *caller = dialogParent(dialogFinished_);
-			bool erased = false;
-			for (size_t i = 0; i < stack_.size(); ++i) {
-				if (stack_[i].screen == dialogFinished_) {
-					stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-					stack_.erase(stack_.begin() + i);
-					erased = true;
-				}
-			}
+	// The caller's dialogFinished() can finish the caller too, which sets dialogFinished_ again. So take it
+	// out first (or we'd delete the caller while it's still in the stack) and loop to process the new one.
+	while (dialogFinished_) {
+		const Screen *finished = dialogFinished_;
+		const DialogResult result = dialogResult_;
+		dialogFinished_ = nullptr;
 
-			if (erased && !stack_.empty()) {
-				stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-			}
-
-			if (!caller) {
-				ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
-			} else if (caller != topScreen()) {
-				// The caller may get confused if we call dialogFinished() now.
-				WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
-			} else {
-				caller->dialogFinished(dialogFinished_, dialogResult_);
+		// Another dialog may have been pushed before the render, so search for it.
+		Screen *caller = dialogParent(finished);
+		bool erased = false;
+		for (size_t i = 0; i < stack_.size(); ++i) {
+			if (stack_[i].screen == finished) {
+				stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+				stack_.erase(stack_.begin() + i);
+				erased = true;
 			}
 		}
-		delete dialogFinished_;
-		dialogFinished_ = nullptr;
+
+		if (erased && !stack_.empty()) {
+			stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
+		}
+
+		if (!caller) {
+			ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
+		} else if (caller != topScreen()) {
+			// The caller may get confused if we call dialogFinished() now.
+			WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
+		} else {
+			caller->dialogFinished(finished, result);
+		}
+		delete finished;
 	}
 }
 

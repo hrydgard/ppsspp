@@ -1,5 +1,9 @@
 #include "Controls.h"
 
+#include <algorithm>
+#include <cmath>
+#include <memory>
+
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -24,143 +28,135 @@ static void analogTriggerPressed(InputAxis axis, float value) {
 	NativeAxis(&axisInput, 1);
 }
 
+static void bindButton(GCControllerButtonInput *input, InputKeyCode keyCode) {
+	// Optional buttons are nil on controllers that don't have them.
+	if (input == nil) {
+		return;
+	}
+	input.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		controllerButtonPressed(pressed, keyCode);
+	};
+}
+
+static void bindTrigger(GCControllerButtonInput *trigger, InputAxis axis) {
+	if (trigger == nil) {
+		return;
+	}
+	trigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		analogTriggerPressed(axis, value);
+	};
+}
+
+static void bindDpad(GCControllerDirectionPad *dpad) {
+	if (dpad == nil) {
+		return;
+	}
+	bindButton(dpad.up, NKCODE_DPAD_UP);
+	bindButton(dpad.down, NKCODE_DPAD_DOWN);
+	bindButton(dpad.left, NKCODE_DPAD_LEFT);
+	bindButton(dpad.right, NKCODE_DPAD_RIGHT);
+}
+
+static void bindStick(GCControllerDirectionPad *stick, InputAxis xAxis, InputAxis yAxis) {
+	if (stick == nil) {
+		return;
+	}
+	stick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+		AxisInput axisInput;
+		axisInput.deviceId = DEVICE_ID_PAD_0;
+		axisInput.axisId = xAxis;
+		axisInput.value = value;
+		NativeAxis(&axisInput, 1);
+	};
+	stick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
+		AxisInput axisInput;
+		axisInput.deviceId = DEVICE_ID_PAD_0;
+		axisInput.axisId = yAxis;
+		axisInput.value = -value;
+		NativeAxis(&axisInput, 1);
+	};
+}
+
+// Newer iOS versions (17.4+) also have GCInputDirectionalDpad as a name for it.
+static GCControllerDirectionPad *findDpad(GCPhysicalInputProfile *profile) {
+	GCControllerDirectionPad *dpad = profile.dpads[GCInputDirectionPad];
+	if (dpad == nil) {
+		if (@available(iOS 17.4, tvOS 17.4, *)) {
+			dpad = profile.dpads[GCInputDirectionalDpad];
+		}
+	}
+	return dpad;
+}
+
 bool InitController(GCController *controller) {
 	GCExtendedGamepad *extendedProfile = controller.extendedGamepad;
-	if (extendedProfile == nil) {
+	GCPhysicalInputProfile *profile = controller.physicalInputProfile;
+
+	// Controllers without thumbsticks (like the 8BitDo FlipPad) have no extended profile, only the
+	// physical one. Take those if they at least look like a gamepad.
+	NSDictionary<NSString *, GCControllerButtonInput *> *buttons = profile.buttons;
+	NSDictionary<NSString *, GCControllerDirectionPad *> *dpads = profile.dpads;
+	if (extendedProfile == nil && (buttons[GCInputButtonA] == nil || findDpad(profile) == nil)) {
+		INFO_LOG(Log::System, "Ignoring controller without a gamepad layout: %s", [controller.vendorName ?: @"(unnamed)" UTF8String]);
 		return false;
 	}
 
-	if (@available(iOS 14.0, tvOS 14.0, *)) {
-		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
-			element.preferredSystemGestureState = GCSystemGestureStateDisabled;
-		}
+	for (GCControllerElement* element in profile.allElements) {
+		element.preferredSystemGestureState = GCSystemGestureStateDisabled;
 	}
 
 	const std::string controllerName = [controller.vendorName ?: @"Gamepad" UTF8String];
 	KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, controllerName);
 
-	extendedProfile.buttonA.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_2); // Cross
-	};
-
-	extendedProfile.buttonB.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_3); // Circle
-	};
-
-	extendedProfile.buttonX.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_4); // Square
-	};
-
-	extendedProfile.buttonY.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_1); // Triangle
-	};
-
-	extendedProfile.leftShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_L1); // LTrigger
-	};
-
-	extendedProfile.rightShoulder.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_BUTTON_R1); // RTrigger
-	};
-
-	extendedProfile.dpad.up.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_UP);
-	};
-
-	extendedProfile.dpad.down.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_DOWN);
-	};
-
-	extendedProfile.dpad.left.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_LEFT);
-	};
-
-	extendedProfile.dpad.right.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		controllerButtonPressed(pressed, NKCODE_DPAD_RIGHT);
-	};
-
-	extendedProfile.leftTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(Log::System, "ltrigger: %f %d", value, (int)pressed);
-		analogTriggerPressed(JOYSTICK_AXIS_LTRIGGER, value);
-	};
-
-	extendedProfile.rightTrigger.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		INFO_LOG(Log::System, "rtrigger: %f %d", value, (int)pressed);
-		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
-	};
-
-	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
-		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBL);
-		};
-	}
-	if ([extendedProfile respondsToSelector:@selector(rightThumbstickButton)] && extendedProfile.rightThumbstickButton != nil) {
-		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBR);
-		};
+	if (extendedProfile != nil) {
+		bindButton(extendedProfile.buttonA, NKCODE_BUTTON_2); // Cross
+		bindButton(extendedProfile.buttonB, NKCODE_BUTTON_3); // Circle
+		bindButton(extendedProfile.buttonX, NKCODE_BUTTON_4); // Square
+		bindButton(extendedProfile.buttonY, NKCODE_BUTTON_1); // Triangle
+		bindButton(extendedProfile.leftShoulder, NKCODE_BUTTON_L1); // LTrigger
+		bindButton(extendedProfile.rightShoulder, NKCODE_BUTTON_R1); // RTrigger
+		bindDpad(extendedProfile.dpad);
+		bindTrigger(extendedProfile.leftTrigger, JOYSTICK_AXIS_LTRIGGER);
+		bindTrigger(extendedProfile.rightTrigger, JOYSTICK_AXIS_RTRIGGER);
+		bindButton(extendedProfile.leftThumbstickButton, NKCODE_BUTTON_THUMBL);
+		bindButton(extendedProfile.rightThumbstickButton, NKCODE_BUTTON_THUMBR);
+		bindButton(extendedProfile.buttonOptions, NKCODE_BUTTON_SELECT);
+		bindButton(extendedProfile.buttonMenu, NKCODE_BUTTON_START);
+		bindButton(extendedProfile.buttonHome, NKCODE_HOME);
+		bindStick(extendedProfile.leftThumbstick, JOYSTICK_AXIS_X, JOYSTICK_AXIS_Y);
+		// Map right thumbstick as another analog stick, particularly useful for controllers
+		// like the DualShock 3/4 when connected to an iOS device
+		bindStick(extendedProfile.rightThumbstick, JOYSTICK_AXIS_Z, JOYSTICK_AXIS_RZ);
+		return true;
 	}
 
-	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
-		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_SELECT);
-		};
-	}
-	if ([extendedProfile respondsToSelector:@selector(buttonMenu)] && extendedProfile.buttonMenu != nil) {
-		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-			controllerButtonPressed(pressed, NKCODE_BUTTON_START);
-		};
-	}
+	// The same layout, looked up by element name. Anything the controller lacks is nil.
+	NSMutableArray<NSString *> *names = [NSMutableArray arrayWithArray:buttons.allKeys];
+	[names addObjectsFromArray:dpads.allKeys];
+	INFO_LOG(Log::System, "Controller %s has no extended profile, using its elements: %s", controllerName.c_str(), [[names componentsJoinedByString:@", "] UTF8String]);
 
-	if (@available(iOS 14.0, *)) {
-		if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
-			extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-				controllerButtonPressed(pressed, NKCODE_HOME);
-			};
-		}
-	}
-
-	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_X;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.leftThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Y;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	// Map right thumbstick as another analog stick, particularly useful for controllers
-	// like the DualShock 3/4 when connected to an iOS device
-	extendedProfile.rightThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_Z;
-		axisInput.value = value;
-		NativeAxis(&axisInput, 1);
-	};
-
-	extendedProfile.rightThumbstick.yAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
-		AxisInput axisInput;
-		axisInput.deviceId = DEVICE_ID_PAD_0;
-		axisInput.axisId = JOYSTICK_AXIS_RZ;
-		axisInput.value = -value;
-		NativeAxis(&axisInput, 1);
-	};
-
+	bindButton(buttons[GCInputButtonA], NKCODE_BUTTON_2);
+	bindButton(buttons[GCInputButtonB], NKCODE_BUTTON_3);
+	bindButton(buttons[GCInputButtonX], NKCODE_BUTTON_4);
+	bindButton(buttons[GCInputButtonY], NKCODE_BUTTON_1);
+	bindButton(buttons[GCInputLeftShoulder], NKCODE_BUTTON_L1);
+	bindButton(buttons[GCInputRightShoulder], NKCODE_BUTTON_R1);
+	bindDpad(findDpad(profile));
+	bindTrigger(buttons[GCInputLeftTrigger], JOYSTICK_AXIS_LTRIGGER);
+	bindTrigger(buttons[GCInputRightTrigger], JOYSTICK_AXIS_RTRIGGER);
+	bindButton(buttons[GCInputLeftThumbstickButton], NKCODE_BUTTON_THUMBL);
+	bindButton(buttons[GCInputRightThumbstickButton], NKCODE_BUTTON_THUMBR);
+	bindButton(buttons[GCInputButtonOptions], NKCODE_BUTTON_SELECT);
+	bindButton(buttons[GCInputButtonMenu], NKCODE_BUTTON_START);
+	bindButton(buttons[GCInputButtonHome], NKCODE_HOME);
+	bindStick(dpads[GCInputLeftThumbstick], JOYSTICK_AXIS_X, JOYSTICK_AXIS_Y);
+	bindStick(dpads[GCInputRightThumbstick], JOYSTICK_AXIS_Z, JOYSTICK_AXIS_RZ);
 	return true;
 }
 
 void ShutdownController(GCController *controller) {
-	if (@available(iOS 14.0, tvOS 14.0, *)) {
-		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
-			element.preferredSystemGestureState = GCSystemGestureStateEnabled;
-		}
+	for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+		element.preferredSystemGestureState = GCSystemGestureStateEnabled;
 	}
 	static const InputKeyCode keycodes[] = {
 		NKCODE_BUTTON_1,
@@ -205,21 +201,115 @@ void ShutdownController(GCController *controller) {
 	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
-void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
-	float scale = [UIScreen mainScreen].scale;
-	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
-		scale = [UIScreen mainScreen].nativeScale;
+static void remoteButtonPressed(BOOL pressed, InputKeyCode keyCode) {
+	// As keyboard keys, which the UI already understands (arrows, enter, escape), and which have
+	// default in-game mappings.
+	KeyInput key;
+	key.deviceId = DEVICE_ID_KEYBOARD;
+	key.flags = pressed ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+	key.keyCode = keyCode;
+	NativeKey(key);
+}
+
+// A click on a remote without a separate ring (the 1st generation Siri Remote): an arrow at the
+// edges of the touch surface, enter in the middle. Handlers run on the main queue, so no locking.
+struct RemoteClickState {
+	bool clicking = false;
+	InputKeyCode key = NKCODE_UNKNOWN;
+};
+
+// A click further out than this from the center is an arrow. The surface is -1..1 on each axis.
+static const float REMOTE_EDGE_CLICK = 0.5f;
+
+static void remoteClicked(RemoteClickState *s, GCControllerDirectionPad *touch, BOOL pressed) {
+	if (pressed) {
+		if (s->clicking) {
+			return;
+		}
+		const float x = touch.xAxis.value;
+		const float y = touch.yAxis.value;
+		if (std::max(fabsf(x), fabsf(y)) < REMOTE_EDGE_CLICK) {
+			s->key = NKCODE_ENTER;
+		} else if (fabsf(x) > fabsf(y)) {
+			s->key = x > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT;
+		} else {
+			s->key = y > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN;
+		}
+		s->clicking = true;
+		remoteButtonPressed(YES, s->key);
+	} else if (s->clicking) {
+		s->clicking = false;
+		remoteButtonPressed(NO, s->key);
+	}
+}
+
+bool InitSiriRemote(GCController *controller) {
+	GCMicroGamepad *micro = controller.microGamepad;
+	if (micro == nil || controller.extendedGamepad != nil) {
+		return false;
+	}
+	// A gamepad without thumbsticks can have a micro profile too. Remotes have no B button.
+	if (controller.physicalInputProfile.buttons[GCInputButtonB] != nil) {
+		return false;
 	}
 
-	float dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
-	float dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
+	micro.allowsRotation = NO;
 
-	float scaledX = (int)(x * dp_xscale) * scale;
-	float scaledY = (int)(y * dp_yscale) * scale;
+	// Swiping on the touch surface isn't used for now. One swipe step per so much travel fought
+	// with the ring presses. Maybe it could scroll.
+	GCPhysicalInputProfile *profile = controller.physicalInputProfile;
+	GCControllerDirectionPad *ring = profile.dpads[GCInputDirectionalCardinalDpad];
+	GCControllerButtonInput *center = profile.buttons[GCInputDirectionalCenterButton];
+	if (ring != nil && center != nil) {
+		// The 2nd generation remote, whose ring has real buttons. This takes
+		// GCSupportsMultipleMicroGamepads in Info.plist. buttonA isn't used, since it's pressed
+		// along with every ring button.
+		ring.up.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_UP);
+		};
+		ring.down.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_DOWN);
+		};
+		ring.left.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_LEFT);
+		};
+		ring.right.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_RIGHT);
+		};
+		center.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_ENTER);
+		};
+	} else {
+		// Where the finger is when clicking, rather than how far it moved since it went down.
+		micro.reportsAbsoluteDpadValues = YES;
+		GCControllerDirectionPad *touch = micro.dpad;
+		std::shared_ptr<RemoteClickState> state = std::make_shared<RemoteClickState>();
+		micro.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteClicked(state.get(), touch, pressed);
+		};
+	}
+	// Play/pause. Escape opens the pause menu in-game.
+	micro.buttonX.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_ESCAPE);
+	};
+	// The Menu (or Back) button.
+	micro.buttonMenu.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_BACK);
+	};
+	INFO_LOG(Log::System, "Siri Remote set up: %s (ring: %s)", [controller.vendorName ?: @"Remote" UTF8String], ring != nil ? "yes" : "no");
+	return true;
+}
+
+void TouchTracker::SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId) {
+	// From points to dp. The view covers the whole display.
+	CGSize size = view.bounds.size;
+	if (size.width <= 0.0 || size.height <= 0.0) {
+		return;
+	}
 
 	TouchInput input;
-	input.x = scaledX;
-	input.y = scaledY;
+	input.x = point.x * g_display.dp_xres / size.width;
+	input.y = point.y * g_display.dp_yres / size.height;
 	switch (code) {
 		case 1: input.flags = TouchInputFlags::DOWN; break;
 		case 2: input.flags = TouchInputFlags::UP; break;
@@ -257,7 +347,7 @@ void TouchTracker::Began(NSSet *touches, UIView *view) {
 	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 1, touchId);
+		SendTouchEvent(point, view, 1, touchId);
 	}
 }
 
@@ -265,7 +355,7 @@ void TouchTracker::Moved(NSSet *touches, UIView *view) {
 	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 0, touchId);
+		SendTouchEvent(point, view, 0, touchId);
 	}
 }
 
@@ -274,7 +364,7 @@ void TouchTracker::Ended(NSSet *touches, UIView *view) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point, view, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}
@@ -285,144 +375,41 @@ void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point, view, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}
 }
 
-void ICadeTracker::InitKeyMap() {
-	iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
-	iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
-	iCadeToKeyMap[iCadeJoystickDown]	= NKCODE_DPAD_DOWN;
-	iCadeToKeyMap[iCadeJoystickLeft]	= NKCODE_DPAD_LEFT;
-	iCadeToKeyMap[iCadeButtonA]			= NKCODE_BUTTON_9; // Select
-	iCadeToKeyMap[iCadeButtonB]			= NKCODE_BUTTON_7; // LTrigger
-	iCadeToKeyMap[iCadeButtonC]			= NKCODE_BUTTON_10; // Start
-	iCadeToKeyMap[iCadeButtonD]			= NKCODE_BUTTON_8; // RTrigger
-	iCadeToKeyMap[iCadeButtonE]			= NKCODE_BUTTON_4; // Square
-	iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
-	iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
-	iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
-}
-
-void ICadeTracker::ButtonDown(iCadeState button) {
-	if (simulateAnalog &&
-		((button == iCadeJoystickUp) ||
-		 (button == iCadeJoystickDown) ||
-		 (button == iCadeJoystickLeft) ||
-		 (button == iCadeJoystickRight))) {
-		AxisInput axis;
-		switch (button) {
-			case iCadeJoystickUp :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = -1.0f;
-				break;
-
-			case iCadeJoystickDown :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = 1.0f;
-				break;
-
-			case iCadeJoystickLeft :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = -1.0f;
-				break;
-
-			case iCadeJoystickRight :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = 1.0f;
-				break;
-
-			default:
-				break;
+void TouchTracker::CancelAll() {
+	for (int touchId = 0; touchId < (int)ARRAY_SIZE(touches_); ++touchId) {
+		if (touches_[touchId]) {
+			TouchInput input{};
+			input.flags = TouchInputFlags::UP | TouchInputFlags::CANCEL;
+			input.id = touchId;
+			NativeTouch(input);
+			touches_[touchId] = nullptr;
 		}
-		axis.deviceId = DEVICE_ID_PAD_0;
-		NativeAxis(&axis, 1);
-	} else {
-		KeyInput key;
-		key.flags = KeyInputFlags::DOWN;
-		key.keyCode = iCadeToKeyMap[button];
-		key.deviceId = DEVICE_ID_PAD_0;
-		NativeKey(key);
 	}
 }
 
-void ICadeTracker::ButtonUp(iCadeState button) {
-	if (!iCadeConnectNotified) {
-		iCadeConnectNotified = true;
-		KeyMap::NotifyPadConnected(DEVICE_ID_PAD_0, "iCade");
-	}
-
-	if (button == iCadeButtonA) {
-		// Pressing Select twice within 1 second toggles the DPad between
-		//     normal operation and simulating the Analog stick.
-		if ((lastSelectPress + 1.0f) > time_now_d())
-			simulateAnalog = !simulateAnalog;
-		lastSelectPress = time_now_d();
-	}
-
-	if (button == iCadeButtonC) {
-		// Pressing Start twice within 1 second will take to the Emu menu
-		if ((lastStartPress + 1.0f) > time_now_d()) {
-			KeyInput key;
-			key.flags = KeyInputFlags::DOWN;
-			key.keyCode = NKCODE_ESCAPE;
-			key.deviceId = DEVICE_ID_KEYBOARD;
-			NativeKey(key);
-			return;
-		}
-		lastStartPress = time_now_d();
-	}
-
-	if (simulateAnalog &&
-		((button == iCadeJoystickUp) ||
-		 (button == iCadeJoystickDown) ||
-		 (button == iCadeJoystickLeft) ||
-		 (button == iCadeJoystickRight))) {
-		AxisInput axis;
-		switch (button) {
-			case iCadeJoystickUp :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickDown :
-				axis.axisId = JOYSTICK_AXIS_Y;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickLeft :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = 0.0f;
-				break;
-
-			case iCadeJoystickRight :
-				axis.axisId = JOYSTICK_AXIS_X;
-				axis.value = 0.0f;
-				break;
-
-			default:
-				break;
-		}
-		axis.deviceId = DEVICE_ID_PAD_0;
-		NativeAxis(&axis, 1);
-	} else {
-		KeyInput key;
-		key.flags = KeyInputFlags::UP;
-		key.keyCode = iCadeToKeyMap[button];
-		key.deviceId = DEVICE_ID_PAD_0;
-		NativeKey(key);
-	}
-}
-
+#if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData) {
 	CMAcceleration acc = accData.acceleration;
 	// INFO_LOG(SYSTEM, "%f %f %f", acc.x, acc.y, acc.z);
 
+	// Core Motion reports acceleration in g, with the opposite sign of Android's m/s^2.
 	// Might need to change these for portrait or inverse landscape
-	NativeAccelerometer(-acc.x, -acc.y, -acc.z);
+	const float standardGravity = 9.81f;
+	NativeAccelerometer(-acc.x * standardGravity, -acc.y * standardGravity, -acc.z * standardGravity);
 }
+
+void ProcessGyroData(CMGyroData *gyroData) {
+	// Same axes and units (rad/s, right-handed) as Android.
+	CMRotationRate rate = gyroData.rotationRate;
+	NativeGyroscope(rate.x, rate.y, rate.z, gyroData.timestamp);
+}
+#endif
 
 void SendKeyboardChars(std::string_view str) {
 	UTF8 chars(str);
@@ -436,48 +423,33 @@ void SendKeyboardChars(std::string_view str) {
 	}
 }
 
-void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
+static void SendPresses(NSSet<UIPress *> *presses, KeyInputFlags flags) {
 	for (UIPress *press in presses) {
 		if (!press.key) {
 			// I guess we could support remotes and stuff.
 			continue;
 		}
-		if (@available(iOS 13.0, *)) {
-			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
-			if (code != NKCODE_UNKNOWN) {
-				KeyInput input{};
-				input.deviceId = DEVICE_ID_KEYBOARD;
-				input.keyCode = code;
-				input.flags = KeyInputFlags::DOWN;
-				NativeKey(input);
-				INFO_LOG(Log::System, "pressesBegan %d", code);
-			}
+		InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
+		if (code != NKCODE_UNKNOWN) {
+			KeyInput input{};
+			input.deviceId = DEVICE_ID_KEYBOARD;
+			input.keyCode = code;
+			input.flags = flags;
+			NativeKey(input);
 		}
-		if (press.key.characters) {
+		if ((flags & KeyInputFlags::DOWN) && press.key.characters) {
 			std::string chars([press.key.characters UTF8String]);
 			SendKeyboardChars(chars);
 		}
 	}
 }
 
+void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
+	SendPresses(presses, KeyInputFlags::DOWN);
+}
+
 void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event) {
-	for (UIPress *press in presses) {
-		if (!press.key) {
-			// I guess we could support remotes and stuff.
-			continue;
-		}
-		if (@available(iOS 13.0, *)) {
-			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
-			if (code != NKCODE_UNKNOWN) {
-				KeyInput input{};
-				input.deviceId = DEVICE_ID_KEYBOARD;
-				input.keyCode = code;
-				input.flags = KeyInputFlags::UP;
-				NativeKey(input);
-				INFO_LOG(Log::System, "pressesEnded %d", code);
-			}
-		}
-	}
+	SendPresses(presses, KeyInputFlags::UP);
 }
 
 InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage) {

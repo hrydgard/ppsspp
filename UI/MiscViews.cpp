@@ -14,6 +14,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "Core/Util/VideoPlayer.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
@@ -60,14 +61,18 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		backButton_->OnClick.Add([](UI::EventParams &e) {
 			e.bubbleResult = DR_BACK;
 		});
+		backButton_->SetRoundCorners();
 	} else {
 		Add(new Spacer(4.0f));
 	}
 
 	if (!title.empty()) {
-		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
+		TextView *titleView = Add(new TextView(title, ALIGN_VCENTER | FLAG_ELLIPSIZE_TEXT, false, new LinearLayoutParams(1.0f, Gravity::G_VCENTER)));
 		titleView->SetTextColor(ctx.GetTheme().itemStyle.fgColor);
 		titleView->SetBig(true);
+		if (flags & TopBarFlags::DropShadowTitle) {
+			titleView->SetShadow(true);
+		}
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 		// Add(new Spacer(50.0f));
 	}
@@ -77,6 +82,7 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 		contextMenuButton_->OnClick.Add([this](UI::EventParams &e) {
 			this->OnContextMenuClick.Trigger(e);
 		});
+		contextMenuButton_->SetRoundCorners();
 	}
 }
 
@@ -130,6 +136,10 @@ private:
 	int textureHeight_ = 0;
 };
 
+UI::View *CreateGameIconView(const Path &gamePath, UI::LayoutParams *layoutParams) {
+	return new SimpleGameIconView(gamePath, layoutParams);
+}
+
 PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const std::string_view settingsCategory, UI::LayoutParams *layoutParams) 
 	: UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), gamePath_(gamePath) {
 	using namespace UI;
@@ -142,7 +152,7 @@ PaneTitleBar::PaneTitleBar(const Path &gamePath, std::string_view title, const s
 	auto dlg = GetI18NCategory(I18NCat::DIALOG);
 
 	if (!title.empty()) {
-		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(8, 0, 20, 0))));
+		SimpleTextView *titleView = Add(new SimpleTextView(title, new LinearLayoutParams(0.0f, Gravity::G_VCENTER, Margins(12, 0, 20, 0))));
 		titleView->SetBig(true);
 		// If using HCENTER, to balance the centering, add a spacer on the right.
 	}
@@ -231,6 +241,9 @@ void GameImageView::Draw(UIContext &dc) {
 	int x = bounds_.x + (bounds_.w - nw) / 2.0f;
 
 	dc.Flush();
+	dc.RebindTexture();
+	dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
+	dc.Flush();
 	dc.GetDrawContext()->BindTexture(0, texture);
 	dc.Draw()->Rect(x, bounds_.y, nw, bounds_.h, color);
 	dc.Flush();
@@ -298,7 +311,7 @@ void GameInfoBGView::Draw(UIContext &dc) {
 SettingHint::SettingHint(std::string_view text, UI::View *setting)
 	: UI::TextView(text, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)), setting_(setting) {
 	SetTextSize(UI::TextSize::Tiny);
-	SetPadding(UI::Margins(14, 0, 12, 8));
+	SetPadding(UI::Margins(12, 0, 12, 8));
 	SetAlign(FLAG_WRAP_TEXT);
 }
 
@@ -306,7 +319,9 @@ void SettingHint::Draw(UIContext &dc) {
 	const bool enabled = setting_ ? setting_->IsEnabled() : true;
 	const UI::Style &style = enabled ? dc.GetTheme().itemStyle : dc.GetTheme().itemDisabledStyle;
 	SetTextColor(style.fgColor);  // bit hacky but works
-	dc.FillRect(style.background, bounds_);
+	if (setting_) {
+		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	}
 	UI::TextView::Draw(dc);
 }
 
@@ -433,17 +448,25 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 		}
 	}
 
-	if (firstMatch) {
-		if (setKeyboardFocus) {
-			UI::EnableFocusMovement(true);
-			UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
-		}
+	if (firstMatch && setKeyboardFocus) {
+		UI::EnableFocusMovement(true);
+		UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
+		return;
+	}
+
+	// Don't leave the focus on a view we just hid. A game would keep showing its background and
+	// playing its music, for one.
+	UI::View *focused = UI::GetFocusedView();
+	if (focused && focused->GetVisibility() == UI::V_GONE && viewGroup->ContainsSubview(focused)) {
+		UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_FOCUS_MOVE);
 	}
 }
 
 static bool IsSearchableChar(int unichar) {
 	// 127 gets produced from Ctrl+Backspace on Windows for some reason.
-	return unichar >= 0x20 && unichar != 127;
+	// 0x80-0xBF are C1 controls and Latin-1 symbols like § and ½ (the key left of 1 on Nordic keyboards),
+	// which don't appear in titles. Accented letters start at 0xC0.
+	return unichar >= 0x20 && !(unichar >= 0x7F && unichar < 0xC0);
 }
 
 static bool IsFirstSearchableChar(int unichar) {
@@ -473,8 +496,13 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
 			if (!searchFilter.empty()) {
-				if (input.flags & KeyInputFlags::ModCtrl) {
-					// Ctrl+Backspace deletes the last word. Delete until the last space.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+				const KeyInputFlags wordMod = KeyInputFlags::ModAlt;
+#else
+				const KeyInputFlags wordMod = KeyInputFlags::ModCtrl;
+#endif
+				if (input.flags & wordMod) {
+					// Ctrl+Backspace (Option+Backspace on Apple) deletes the last word. Delete until the last space.
 					size_t pos = searchFilter.find_last_of(' ');
 					if (pos != searchFilter.npos) {
 						searchFilter.erase(pos);
@@ -482,7 +510,10 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 						searchFilter.clear();
 					}
 				} else {
-					searchFilter.pop_back();
+					// Remove a whole UTF-8 character, not just its last byte.
+					int pos = (int)searchFilter.size();
+					u8_dec(searchFilter.c_str(), &pos);
+					searchFilter.erase(pos);
 				}
 				ApplySearchFilter(viewGroup, true);
 				retval = true;
@@ -490,9 +521,8 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 					// TODO: Restore focus state here.
 					UI::EnableFocusMovement(false);
 				}
-			} else {
-				// Empty search filter. Navigate upwards on backspace?
 			}
+			// With an empty filter, it's up to the owner (the game browser goes up a directory).
 		} else if (!searchFilter.empty() && input.keyCode == NKCODE_ESCAPE) {
 			searchFilter.clear();
 			ApplySearchFilter(viewGroup, false);
@@ -503,4 +533,55 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 		}
 	}
 	return retval;
+}
+
+PMFVideoTexture::PMFVideoTexture(std::string data) : data_(std::move(data)) {
+	player_ = pmf_create();
+	if (pmf_init(player_, (const uint8_t *)data_.data(), data_.size(), &width_, &height_) != 0) {
+		ERROR_LOG(Log::G3D, "Couldn't load pmf");
+		pmf_destroy(player_);
+		player_ = nullptr;
+	}
+}
+
+PMFVideoTexture::~PMFVideoTexture() {
+	DeviceLost();
+	if (player_) {
+		pmf_destroy(player_);
+		player_ = nullptr;
+	}
+}
+
+void PMFVideoTexture::DeviceLost() {
+	if (curFrame_) {
+		curFrame_->Release();
+		curFrame_ = nullptr;
+	}
+}
+
+Draw::Texture *PMFVideoTexture::Update(Draw::DrawContext *draw, double timeSeconds) {
+	if (!player_) {
+		return nullptr;
+	}
+
+	// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
+	// so a regression can't overflow the allocation.
+	frame_.resize((size_t)width_ * (size_t)height_ * 4);
+	if (pmf_update(player_, timeSeconds, frame_.data())) {
+		DeviceLost();
+
+		Draw::TextureDesc desc{};
+		desc.width = width_;
+		desc.height = height_;
+		desc.depth = 1;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.generateMips = false;
+		desc.tag = "pmf_frame";
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.mipLevels = 1;
+		desc.initData.push_back(frame_.data());
+
+		curFrame_ = draw->CreateTexture(desc);
+	}
+	return curFrame_;
 }

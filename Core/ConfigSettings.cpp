@@ -8,8 +8,16 @@
 #include "Core/ConfigValues.h"
 #include "Core/Config.h"
 
+void ConfigSettingTableError() {
+	_dbg_assert_msg_(false, "ConfigSetting info setter used on the wrong kind of setting");
+}
+
 bool ConfigSetting::PerGame(void *ptr) {
-	return g_Config.IsGameSpecific() && g_Config.getPtrLUT().count(ptr) > 0 && g_Config.getPtrLUT()[ptr].second->PerGame();
+	if (!g_Config.IsGameSpecific()) {
+		return false;
+	}
+	const ConfigSettingRef *ref = Config::FindSetting(ptr);
+	return ref && ref->setting->PerGame();
 }
 
 bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *section, bool applyDefaultIfMissing) const {
@@ -139,7 +147,7 @@ bool ConfigSetting::ReadFromIniSection(ConfigBlock *configBlock, const Section *
 				if (defaultCallback_.p) {
 					*target = defaultCallback_.p();
 				} else {
-					*target = Path(default_.p);
+					*target = Path(default_.s);
 				}
 			}
 			return false;
@@ -351,8 +359,8 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 		if (defaultCallback_.p) {
 			*ptr_path = defaultCallback_.p();
 			break;
-		} else if (default_.p) {
-			*ptr_path = Path(default_.p);
+		} else if (default_.s) {
+			*ptr_path = Path(default_.s);
 		} else {
 			ptr_path->clear();
 		}

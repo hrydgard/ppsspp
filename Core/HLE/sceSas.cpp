@@ -28,6 +28,7 @@
 
 #include <cstdlib>
 #include <functional>
+#include <atomic>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -77,7 +78,8 @@ static std::mutex sasWakeMutex;
 static std::mutex sasDoneMutex;
 static std::condition_variable sasWake;
 static std::condition_variable sasDone;
-static volatile int sasThreadState = SasThreadState::DISABLED;
+// Changed under sasWakeMutex (and sasDoneMutex for READY), but also read outside them.
+static std::atomic<int> sasThreadState{ SasThreadState::DISABLED };
 static SasThreadParams sasThreadParams;
 static int sasMixEvent = -1;
 
@@ -92,7 +94,10 @@ int __SasThread() {
 
 	std::unique_lock<std::mutex> guard(sasWakeMutex);
 	while (sasThreadState != SasThreadState::DISABLED) {
-		sasWake.wait(guard);
+		// Check before sleeping, the mix may have been queued before we got here.
+		while (sasThreadState == SasThreadState::READY) {
+			sasWake.wait(guard);
+		}
 		if (sasThreadState == SasThreadState::QUEUED) {
 			const bool mute = g_sasMuteFlag;
 			sas->Mix(sasThreadParams.outAddr, sasThreadParams.inAddr, sasThreadParams.leftVol, sasThreadParams.rightVol, mute);

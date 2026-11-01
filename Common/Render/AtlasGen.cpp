@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
+#include <cstring>
 
 #define STB_RECT_PACK_IMPLEMENTATION
 #include "ext/stb/stb_rect_pack.h"
@@ -30,11 +31,13 @@ void Image::copyfrom(const Image &img, int ox, int oy, bool redToWhiteAlpha) {
 	assert(img.width() + ox <= width());
 	assert(img.height() + oy <= height());
 	for (int y = 0; y < (int)img.height(); y++) {
-		for (int x = 0; x < (int)img.width(); x++) {
-			if (!redToWhiteAlpha) {
-				set1(x + ox, y + oy, img.get1(x, y));
-			} else {
-				set1(x + ox, y + oy, 0x00FFFFFF | (img.get1(x, y) << 24));
+		const u32 *src = img.dat.data() + y * img.w;
+		u32 *dst = dat.data() + (y + oy) * w + ox;
+		if (!redToWhiteAlpha) {
+			memcpy(dst, src, img.w * sizeof(u32));
+		} else {
+			for (int x = 0; x < img.w; x++) {
+				dst[x] = 0x00FFFFFF | (src[x] << 24);
 			}
 		}
 	}
@@ -227,78 +230,6 @@ AtlasImage ToAtlasImage(int id, std::string_view name, float tw, float th, const
 	return img;
 }
 
-// The below is ChatGPT-generated drop shadow code. Needs optimization!
-
-static std::vector<float> makeGaussianKernel(int radius) {
-	const float sigma = radius / 2.0f;
-	std::vector<float> kernel(2 * radius + 1);
-	float sum = 0.0f;
-	for (int i = -radius; i <= radius; i++) {
-		float val = std::exp(-(i * i) / (2 * sigma * sigma));
-		kernel[i + radius] = val;
-		sum += val;
-	}
-	sum = 1.0f / sum;
-	for (float &v : kernel)
-		v *= sum;
-	return kernel;
-}
-
-static void blurAlpha(const std::vector<float> &src, std::vector<float> &dst, int w, int h, int radius) {
-	auto kernel = makeGaussianKernel(radius);
-	int ksize = (int)kernel.size();
-	int kr = radius;
-
-	std::vector<float> tmp(w * h, 0.0f);
-
-	// horizontal
-	for (int y = 0; y < h; y++) {
-		for (int x = 0; x < w; x++) {
-			float sum = 0.0f;
-			for (int k = -kr; k <= kr; k++) {
-				int xx = std::clamp(x + k, 0, w - 1);
-				sum += src[y * w + xx] * kernel[k + kr];
-			}
-			tmp[y * w + x] = sum;
-		}
-	}
-
-	// vertical
-	for (int y = 0; y < h; y++) {
-		for (int x = 0; x < w; x++) {
-			float sum = 0.0f;
-			for (int k = -kr; k <= kr; k++) {
-				int yy = std::clamp(y + k, 0, h - 1);
-				sum += tmp[yy * w + x] * kernel[k + kr];
-			}
-			dst[y * w + x] = sum;
-		}
-	}
-}
-
-static inline uint32_t Over_ABGR(uint32_t front, uint32_t back) {
-	const uint32_t fr = front & 0xFFu;
-	const uint32_t fg = (front >> 8) & 0xFFu; // green
-	const uint32_t fb = (front >> 16) & 0xFFu;
-	const uint32_t fa = (front >> 24) & 0xFFu;
-
-	const uint32_t br = back & 0xFFu;
-	const uint32_t bg = (back >> 8) & 0xFFu; // green
-	const uint32_t bb = (back >> 16) & 0xFFu;
-	const uint32_t ba = (back >> 24) & 0xFFu;
-
-	const uint32_t invA = 255u - fa;
-
-	// multiply then divide by 255 with rounding equivalent to (x*invA + 127)/255
-	uint32_t outr = fr + (uint32_t)((br * invA + 127u) / 255u);
-	uint32_t outg = fg + (uint32_t)((bg * invA + 127u) / 255u);
-	uint32_t outb = fb + (uint32_t)((bb * invA + 127u) / 255u);
-	uint32_t outa = fa + (uint32_t)((ba * invA + 127u) / 255u);
-
-	// pack back to ABGR
-	return (outa << 24) | (outb << 16) | (outg << 8) | outr;
-}
-
 void Add1PxTransparentBorder(Image &img) {
 	std::vector<u32> newData((img.w + 2) * (img.h + 2), 0);
 	for (int y = 0; y < img.h; y++) {
@@ -312,52 +243,11 @@ void Add1PxTransparentBorder(Image &img) {
 	img.h += 2;
 }
 
-void AddDropShadow(Image &img, int shadowSize, float intensity) {
-	int radius = std::max(1, (int)(shadowSize * img.scale));
-
-	// Expand canvas so blur has space on all sides
-	int newW = img.w + radius * 2;
-	int newH = img.h + radius * 2;
-
-	// Expanded alpha buffer
-	std::vector<float> alpha(newW * newH, 0.0f);
-	for (int y = 0; y < img.h; y++) {
-		for (int x = 0; x < img.w; x++) {
-			float a = ((img.dat[y * img.w + x] >> 24) & 0xFF) * (1.0f / 255.0f);
-			alpha[(y + radius) * newW + (x + radius)] = a;
-		}
-	}
-
-	// Blur the expanded alpha
-	std::vector<float> blurred(newW * newH, 0.0f);
-	blurAlpha(alpha, blurred, newW, newH, radius);
-
-	// Target buffer with transparent background
-	std::vector<u32> newData(newW * newH, 0);
-
-	// Draw the computed shadow first (black, blurred alpha - automatically premultiplied).
-	for (int y = 0; y < newH; y++) {
-		for (int x = 0; x < newW; x++) {
-			float a = blurred[y * newW + x];
-			if (a > 0.001f) {
-				newData[y * newW + x] = ((u32)(a * 255 * intensity) << 24);
-			}
-		}
-	}
-
-	// Composite original image on top (centered in expanded buffer)
-	for (int y = 0; y < img.h; y++) {
-		for (int x = 0; x < img.w; x++) {
-			u32 c = img.dat[y * img.w + x];
-			if ((c >> 24) & 0xFF) {
-				int nx = x + radius;
-				int ny = y + radius;
-				newData[ny * newW + nx] = Over_ABGR(c, newData[ny * newW + nx]);
-			}
-		}
-	}
-
-	img.w = newW;
-	img.h = newH;
+void AddDropShadow(Image &img, const DropShadowParams &params) {
+	const int pad = params.Padding();
+	std::vector<u32> newData((img.w + pad * 2) * (img.h + pad * 2));
+	CompositeDropShadow(img.dat.data(), img.w, img.h, newData.data(), img.w + pad * 2, params);
+	img.w += pad * 2;
+	img.h += pad * 2;
 	img.dat = std::move(newData);
 }

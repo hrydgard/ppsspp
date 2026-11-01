@@ -39,8 +39,8 @@ int workAreaAddString(u32 workAreaAddr, int workAreaSize, int offset, const char
 }
 
 // FIXME: parsedUriArea, workArea can be 0/null? LittelBigPlanet seems to set workAreaSizeAddr to 0
-static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, currentMIPS->pc);
+static int sceUriParse(MIPSState *mips, u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, mips->pc);
 	if (url == nullptr)
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
@@ -58,6 +58,11 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 			workAreaSz.NotifyWrite("UriParse");
 		}
 		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
+	}
+
+	// workAreaAddString writes into it unchecked.
+	if (workAreaSize < 0 || !Memory::IsValidRange(workAreaAddr, workAreaSize)) {
+		return hleLogError(Log::sceNet, -1, "invalid work area");
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
@@ -156,8 +161,8 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 	return 0;
 }
 
-static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriBuild(%x, %x, %d, %x, %d) at %08x", workAreaAddr, workAreaSizeAddr, workAreaSize, parsedUriAddr, flags, currentMIPS->pc);
+static int sceUriBuild(MIPSState *mips, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriBuild(%x, %x, %d, %x, %d) at %08x", workAreaAddr, workAreaSizeAddr, workAreaSize, parsedUriAddr, flags, mips->pc);
 
 	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
 	
@@ -172,8 +177,7 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 
 	auto getUriComponent = [](u32 addr, int flags, int flagMask) -> std::string {
 		if (addr == 0 || (flags & flagMask) == 0) return "";
-		const char* str = Memory::GetCharPointer(addr);
-		return str ? std::string(str) : "";
+		return Memory::IsValidNullTerminatedString(addr) ? std::string(Memory::GetCharPointerUnchecked(addr)) : "";
 	};
 
 	std::string scheme = getUriComponent(parsedUri->schemeAddr, flags, 0x1);
@@ -214,15 +218,12 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	
 	if (port > 0) {
 		int defaultPort = -1;
-		if (parsedUri->schemeAddr != 0) {
-			const char* protocol = Memory::GetCharPointer(parsedUri->schemeAddr);
-			if (protocol) {
-				std::string protocolStr(protocol);
-				if (protocolStr == "http") defaultPort = 80;
-				//else if (protocolStr == "https") defaultPort = 443;
-				else if (protocolStr == "ftp") defaultPort = 21;
-				else if (protocolStr == "ssh") defaultPort = 22;
-			}
+		if (Memory::IsValidNullTerminatedString(parsedUri->schemeAddr)) {
+			std::string protocolStr(Memory::GetCharPointerUnchecked(parsedUri->schemeAddr));
+			if (protocolStr == "http") defaultPort = 80;
+			//else if (protocolStr == "https") defaultPort = 443;
+			else if (protocolStr == "ftp") defaultPort = 21;
+			else if (protocolStr == "ssh") defaultPort = 22;
 		}
 		if (port != defaultPort) {
 			uri += ":" + std::to_string(port);
@@ -255,14 +256,17 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	if (requiredSize > workAreaSize) {
 		return hleLogError(Log::sceNet, -1, "work area too small: need %d, have %d", requiredSize, workAreaSize);
 	}
+	if (!Memory::IsValidRange(workAreaAddr, requiredSize)) {
+		return hleLogError(Log::sceNet, -1, "invalid work area");
+	}
 
 	Memory::MemcpyUnchecked(workAreaAddr, uri.c_str(), requiredSize);
 
 	return hleLogDebug(Log::sceNet, 0, "built URI: %s", uri.c_str());
 }
 
-static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), currentMIPS->pc);
+static int sceUriEscape(MIPSState *mips, u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), mips->pc);
 
 	if (source == nullptr) {
 		return hleLogError(Log::sceNet, -1, "invalid source");
@@ -313,6 +317,9 @@ static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBuffe
 
 	if (requiredSize > escapedBufferLength) {
 		return hleLogError(Log::sceNet, -1, "buffer too small: need %d, have %d", requiredSize, escapedBufferLength);
+	}
+	if (!Memory::IsValidRange(escapedAddr, requiredSize)) {
+		return hleLogError(Log::sceNet, -1, "invalid buffer");
 	}
 
 	std::string escaped = "";

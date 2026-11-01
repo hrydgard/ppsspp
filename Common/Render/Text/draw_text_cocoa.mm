@@ -137,21 +137,18 @@ TextDrawerCocoa::~TextDrawerCocoa() {
 }
 
 // TODO: Share with other backends.
-void TextDrawerCocoa::SetOrCreateFont(const FontStyle &style) {
+void TextDrawerCocoa::EnsureFont(const FontStyle &style) {
 	if (style.sizePts <= 0) {
 		return;
 	}
 
-	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		fontStyle_ = style;
+	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
 
 	TextDrawerFontContext *font = new TextDrawerFontContext(style, dpiScale_);
 
 	fontMap_[style] = std::unique_ptr<TextDrawerFontContext>(font);
-	fontStyle_ = style;
 }
 
 void TextDrawerCocoa::ClearFonts() {
@@ -163,8 +160,8 @@ void TextDrawerCocoa::ClearFonts() {
 }
 
 // AI added some error checks here.
-void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, float *h) {
-	auto iter = fontMap_.find(fontStyle_);
+void TextDrawerCocoa::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
+	auto iter = fontMap_.find(style);
 	NSDictionary *attributes = nil;
 	if (iter != fontMap_.end()) {
 		attributes = iter->second->attributes;
@@ -226,13 +223,13 @@ void TextDrawerCocoa::MeasureStringInternal(std::string_view str, float *w, floa
 	*h = ceilf(extH);
 }
 
-bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
+bool TextDrawerCocoa::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
 	}
 
-	auto iter = fontMap_.find(fontStyle_);
+	auto iter = fontMap_.find(style);
 	if (iter == fontMap_.end()) {
 		return false;
 	}
@@ -261,10 +258,10 @@ bool TextDrawerCocoa::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 	// Figure out how big an image we need.
 	// We re-use MeasureString here.
 	float w, h;
-	MeasureString(str, &w, &h);
+	MeasureString(style, 1.0f, 1.0f, str, &w, &h);
 	// Reverse the DPI scale that MeasureString baked in.
-	w /= (dpiScale_ * fontScaleX_);
-	h /= (dpiScale_ * fontScaleY_);
+	w /= dpiScale_;
+	h /= dpiScale_;
 
 	int width = (int)ceilf(w);
 	int height = (int)ceilf(h);

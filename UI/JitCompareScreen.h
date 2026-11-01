@@ -12,7 +12,6 @@ public:
 	const char *tag() const override { return "JitCompare"; }
 
 private:
-	bool ShowSearchControls() const override { return false; }
 	void UpdateDisasm();
 
 	// Uses the current ListType

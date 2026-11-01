@@ -159,10 +159,10 @@ namespace MIPSDis
 		static const char * const constan[8] = {"0","1","2","1/2","3","1/3","1/4","1/6"};
 		for (int i=0; i<4; i++)
 		{
-			int regnum = (data>>(i*2)) & 3;
-			int abs		= (data>>(8+i)) & 1;
-			int negate = (data>>(16+i)) & 1;
-			int constants = (data>>(12+i)) & 1;
+			int regnum = VFPUPrefixSwizzle(data, i);
+			bool abs = VFPUPrefixAbs(data, i);
+			bool negate = VFPUPrefixNegate(data, i);
+			bool constants = VFPUPrefixIsConstant(data, i);
 			if (negate && outpos < outSize)
 				outpos += truncate_cpy(out + outpos, outSize - outpos, "-");
 			if (abs && !constants && outpos < outSize)
@@ -191,8 +191,8 @@ namespace MIPSDis
 		static const char * const satNames[4] = {"", "[0:1]", "X", "[-1:1]"};
 		for (int i=0; i<4; i++)
 		{
-			int sat = (data>>i*2)&3;
-			int mask = (data>>(8+i))&1;
+			int sat = VFPUPrefixSat(data, i);
+			bool mask = VFPUPrefixWriteMask(data, i);
 			if (sat && outpos < outSize)
 				outpos += truncate_cpy(out + outpos, outSize - outpos, satNames[sat]);
 			if (mask && outpos < outSize)
@@ -567,9 +567,9 @@ namespace MIPSDis
 	}
 
 	void Dis_Vrnds(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		int vd = _VD;
+		int vs = _VS;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s%s\t%s", name, VSuff(op), VN(vd, V_Single));
+		snprintf(out, outSize, "%s%s\t%s", name, VSuff(op), VN(vs, V_Single));
 	}
 
 	void Dis_VrndX(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

@@ -22,8 +22,10 @@
 #include "Common/Log.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/ARM64/Arm64VfpuDot.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -50,6 +52,12 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	regs_.SetMemoryBase(mipsState->space->base);
+	if (((intptr_t)mipsState->space->base & 0x00000000FFFFFFFFUL) != 0) {
+		jo.enablePointerify = false;
+	}
+	// The Media Engine runs for the slices MeCore::RunFor gives it, and leaves when one runs out.
+	const bool mediaEngine = mipsState->IsMediaEngine();
 	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
 	if (DebugProfilerEnabled()) {
@@ -154,10 +162,9 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	fp_.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Fixed registers, these are always kept when in Jit context.
-	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(MEMBASEREG, mipsState->space->base);
 	MOVP2R(CTXREG, mipsState);
-	// Pre-subtract this to save time later.
-	MOVI2R(JITBASEREG, (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE);
+	MOVP2R(JITBASEREG, GetBasePtr());
 
 	LoadStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
@@ -165,7 +172,10 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	WriteDebugPC(SCRATCH1);
 	outerLoopPCInSCRATCH1_ = GetCodePtr();
 	MovToPC(SCRATCH1);
+	if (mediaEngine)
+		ApplyRoundingMode(true);
 	outerLoop_ = GetCodePtr();
+	if (!mediaEngine) {
 		SaveStaticRegisters();  // Advance can change the downcount, so must save/restore
 		RestoreRoundingMode(true);
 		WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
@@ -173,6 +183,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		ApplyRoundingMode(true);
 		LoadStaticRegisters();
+	}
 
 		dispatcherCheckCoreState_ = GetCodePtr();
 
@@ -181,7 +192,11 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		FixupBranch badCoreState = CBNZ(SCRATCH1);
 
 		// Check downcount.
-		TBNZ(DOWNCOUNTREG, 31, outerLoop_);
+		FixupBranch outOfTime;
+		if (mediaEngine)
+			outOfTime = TBNZ(DOWNCOUNTREG, 31);
+		else
+			TBNZ(DOWNCOUNTREG, 31, outerLoop_);
 		FixupBranch skipToRealDispatch = B();
 
 		dispatcherPCInSCRATCH1_ = GetCodePtr();
@@ -204,20 +219,20 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 			MovFromPC(SCRATCH1);
 			WriteDebugPC(SCRATCH1);
-#ifdef MASKED_PSP_MEMORY
-			ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK);
-#endif
+			ANDI2R(SCRATCH1, SCRATCH1, Memory::BLOCK_SHADOW_ENTRY_MASK);
+			MOVP2R(SCRATCH2_64, mipsState->space->blockShadow);
 			hooks_.dispatchFetch = GetCodePtr();
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1_64);
-			LSR(SCRATCH2, SCRATCH1, 24);   // or UBFX(SCRATCH2, SCRATCH1, 24, 8)
-			// We don't mask SCRATCH1 as that's already baked into JITBASEREG.
-			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE >> 24);
-			FixupBranch skipJump = B(CC_NEQ);
+			LDR(SCRATCH1, SCRATCH2_64, SCRATCH1_64);
+			// The entry is the block's offset into the code space, or 0 for none.
+			FixupBranch skipJump = CBZ(SCRATCH1);
 				ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
+			// A replacement hook's block shadow entry jumps here too (GetBlockShadowHookValue()). JitAt
+			// replaces it with the new block's entry, and destroying that block puts the hook value back.
+			hooks_.blockShadowHook = GetCodePtr();
 			RestoreRoundingMode(true);
 			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 			QuickCallFunctionR(SCRATCH1_64, &MIPSComp::JitAt, CTXREG);
@@ -235,6 +250,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
+	if (mediaEngine)
+		SetJumpTarget(outOfTime);
 
 	WriteDebugProfilerStatus(IRProfilerStatus::NOT_RUNNING);
 	SaveStaticRegisters();
@@ -265,6 +282,44 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		RET();
 	}
 
+	// Guest values live in caller-saved registers too, so these save them all around the call.
+	static_assert((int)IROp::StoreKernel32 - (int)IROp::LoadKernel8 == ARRAY_SIZE(kernelLoadStore_) - 1, "kernel ops in a row");
+	for (int i = 0; i < ARRAY_SIZE(kernelLoadStore_); ++i) {
+		const IROp op = (IROp)((int)IROp::LoadKernel8 + i);
+		const bool isStore = op >= IROp::StoreKernel8;
+		kernelLoadStore_[i] = AlignCode16();
+		static const int SAVE_SIZE = 16 + 16 * 8 + 32 * 16;
+		SUB(SP, SP, SAVE_SIZE);
+		STP(INDEX_SIGNED, X29, X30, SP, 0);
+		for (int r = 0; r < 16; r += 2)
+			STP(INDEX_SIGNED, (ARM64Reg)(X0 + r), (ARM64Reg)(X0 + r + 1), SP, 16 + r * 8);
+		for (int r = 0; r < 32; r += 2)
+			fp_.STP(128, INDEX_SIGNED, (ARM64Reg)(Q0 + r), (ARM64Reg)(Q0 + r + 1), SP, 16 + 16 * 8 + r * 16);
+		MOVP2R(X0, mipsState);
+		MOV(W1, SCRATCH1);
+		if (isStore) {
+			MOV(W2, SCRATCH2);
+			MOVI2R(W3, (u32)op);
+			QuickCallFunction(SCRATCH2_64, &IRRunKernelStore);
+		} else {
+			MOVI2R(W2, (u32)op);
+			QuickCallFunction(SCRATCH2_64, &IRRunKernelLoad);
+			MOV(SCRATCH1, W0);
+		}
+		for (int r = 0; r < 32; r += 2)
+			fp_.LDP(128, INDEX_SIGNED, (ARM64Reg)(Q0 + r), (ARM64Reg)(Q0 + r + 1), SP, 16 + 16 * 8 + r * 16);
+		for (int r = 0; r < 16; r += 2)
+			LDP(INDEX_SIGNED, (ARM64Reg)(X0 + r), (ARM64Reg)(X0 + r + 1), SP, 16 + r * 8);
+		LDP(INDEX_SIGNED, X29, X30, SP, 0);
+		ADD(SP, SP, SAVE_SIZE);
+		RET();
+	}
+
+	vfpuDotSpecial_ = GenerateArm64VfpuDotSpecial(this, &fp_, CTXREG);
+	vfpuDot_ = GenerateArm64VfpuDotCall(this, &fp_, CTXREG, vfpuDotSpecial_);
+	for (int terms = 2; terms <= 4; terms++)
+		vfpuMultiDot_[terms] = GenerateArm64VfpuMultiDot(this, &fp_, CTXREG, terms);
+
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
 		std::vector<std::string> lines = DisassembleArm64(disasmStart, (int)(GetCodePtr() - disasmStart));
@@ -282,6 +337,26 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	// Update our current cached rounding mode func, too.
 	UpdateFCR31(mipsState);
+}
+
+void Arm64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ restoreRoundingMode_, "restoreRoundingMode", true });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ updateRoundingMode_, "updateRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
+	labels.push_back({ vfpuMultiDot_[2], "vfpuMultiDot2", true });
+	labels.push_back({ vfpuMultiDot_[3], "vfpuMultiDot3", true });
+	labels.push_back({ vfpuMultiDot_[4], "vfpuMultiDot4", true });
+	for (int i = 0; i < 8; ++i)
+		labels.push_back({ convertS0ToSCRATCH1_[i], "convertS0ToSCRATCH1", true });
 }
 
 } // namespace MIPSComp

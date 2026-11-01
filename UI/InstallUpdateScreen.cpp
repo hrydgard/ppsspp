@@ -28,7 +28,6 @@
 #include "Common/UI/ScreenManager.h"
 #include "Common/UI/ViewGroup.h"
 
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Util/PathUtil.h"
 

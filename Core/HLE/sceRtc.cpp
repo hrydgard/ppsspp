@@ -23,6 +23,8 @@
 #include <sys/time.h>
 #endif
 
+#include <algorithm>
+#include <climits>
 #include <time.h>
 
 #include "Common/Serialize/Serializer.h"
@@ -320,6 +322,19 @@ static u32 sceRtcGetCurrentClock(u32 pspTimePtr, int tz) {
 	hleEatCycles(1900);
 	hleReSchedule("rtc current clock");
 	return hleLogDebug(Log::sceRtc, 0);
+}
+
+bool __RtcGetCurrentLocalTime(ScePspDateTime *t) {
+	PSPTimeval tv;
+	__RtcTimeOfDay(&tv);
+	time_t sec = (time_t)tv.tv_sec;
+	const tm *local = localtime(&sec);
+	if (!local) {
+		return false;
+	}
+	__RtcTmToPspTime(*t, local);
+	t->microsecond = tv.tv_usec;
+	return true;
 }
 
 static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr) {
@@ -985,7 +1000,8 @@ static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz) {
 		local.tm_year += 400;
 	while (local.tm_year >= 470)
 		local.tm_year -= 400;
-	local.tm_min += tz;
+	// tz is from the game, keep the sum from overflowing.
+	local.tm_min = (int)std::clamp<s64>((s64)local.tm_min + tz, INT_MIN / 2, INT_MAX / 2);
 	rtc_timegm(&local);
 
 	char *out = (char *)Memory::GetPointerWriteUnchecked(outPtr);
@@ -1016,7 +1032,8 @@ static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz) {
 		local.tm_year += 400;
 	while (local.tm_year >= 470)
 		local.tm_year -= 400;
-	local.tm_min += tz;
+	// tz is from the game, keep the sum from overflowing.
+	local.tm_min = (int)std::clamp<s64>((s64)local.tm_min + tz, INT_MIN / 2, INT_MAX / 2);
 	rtc_timegm(&local);
 
 	char *out = (char *)Memory::GetPointerWriteUnchecked(outPtr);

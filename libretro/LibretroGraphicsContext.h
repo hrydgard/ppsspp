@@ -17,6 +17,12 @@
 #define NATIVEHEIGHT 272
 #define SOFT_BMP_SIZE NATIVEWIDTH * NATIVEHEIGHT * 4
 
+namespace Libretro {
+// Frame size to hand to video_cb. Normally the backbuffer size (passed in), but smaller when
+// we present a game's source image for the frontend to scale. Updates the geometry when that changes.
+void GetFrameSize(unsigned *width, unsigned *height);
+}
+
 class LibretroGraphicsContext : public GraphicsContext {
 public:
 	LibretroGraphicsContext() {}
@@ -31,6 +37,8 @@ public:
 	}
 	virtual void SwapBuffers() = 0;
 	void Resize() override {}
+	// True if ThreadFrame() has queued work to run (emu thread backends only).
+	virtual bool ThreadFramePending() { return false; }
 
 	virtual void GotBackbuffer();
 	virtual void LostBackbuffer();
@@ -59,7 +67,10 @@ public:
 	bool InitHW(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
-		video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
+		unsigned w = PSP_CoreParameter().pixelWidth;
+		unsigned h = PSP_CoreParameter().pixelHeight;
+		Libretro::GetFrameSize(&w, &h);
+		video_cb(RETRO_HW_FRAME_BUFFER_VALID, w, h, 0);
 	}
 	virtual void ContextReset();
 	virtual void ContextDestroy();
@@ -75,15 +86,21 @@ public:
 	LibretroSoftwareContext() {}
 	void SwapBuffers() override {
 		GPUDebugBuffer buf;
-		u16 w = NATIVEWIDTH;
-		u16 h = NATIVEHEIGHT;
+		unsigned w = NATIVEWIDTH;
+		unsigned h = NATIVEHEIGHT;
 		if (gpu) {
 			gpu->GetOutputFramebuffer(buf);
-			const std::vector<u32> pixels = ConvertFramebufferForLibretro(&buf, w, h);
-			memcpy(soft_bmp, pixels.data(), SOFT_BMP_SIZE);
 		}
-		u32 offset = g_Config.bDisplayCropTo16x9 ? w << 1 : 0;
-		h -= g_Config.bDisplayCropTo16x9 ? 2 : 0;
+		Libretro::GetFrameSize(&w, &h);
+		u32 offset = 0;
+		if (w == NATIVEWIDTH && g_Config.bDisplayCropTo16x9) {
+			offset = w << 1;
+			h -= 2;
+		}
+		if (gpu) {
+			const std::vector<u32> pixels = ConvertFramebufferForLibretro(&buf, w, w == NATIVEWIDTH ? NATIVEHEIGHT : h);
+			memcpy(soft_bmp, pixels.data(), pixels.size() * sizeof(u32));
+		}
 		video_cb(soft_bmp + offset, w, h, w << 2);
     }
 	GPUCore GetGPUCore() override { return GPUCORE_SOFTWARE; }

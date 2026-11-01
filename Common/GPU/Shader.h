@@ -97,6 +97,7 @@ struct UniformDef {
 
 enum class SamplerFlags {
 	ARRAY_ON_VULKAN = 1,
+	MULTISAMPLE = 2,  // Only supported on Vulkan, read with texelFetch.
 };
 ENUM_CLASS_BITOPS(SamplerFlags);
 

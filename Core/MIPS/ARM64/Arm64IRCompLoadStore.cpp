@@ -172,7 +172,8 @@ void Arm64JitBackend::CompIR_CondStore(IRInst inst) {
 
 	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
-	ARM64Reg valueReg = regs_.MapGPR(inst.src3, MIPSMap::INIT);
+	// The result goes in the same register (dest == src3), so it must be flushed.
+	ARM64Reg valueReg = regs_.MapGPR(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
 
 	regs_.MapGPR(IRREG_LLBIT, MIPSMap::INIT);
 
@@ -317,7 +318,9 @@ void Arm64JitBackend::CompIR_Load(IRInst inst) {
 	regs_.SpillLockGPR(inst.dest, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
-	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+	// Only ll can load into $zero (for the llBit), and must not map it.
+	if (inst.dest != MIPS_REG_ZERO)
+		regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?
 
@@ -405,6 +408,53 @@ void Arm64JitBackend::CompIR_LoadShift(IRInst inst) {
 		INVALIDOP;
 		break;
 	}
+}
+
+// Memory directly, or through the fixed code for a hardware register (0xBC000000-0xBFFFFFFF), where
+// the address may also be one the CPU has no memory at. The main CPU has no views anywhere in kernel
+// segment 1 (0xA0000000-0xBFFFFFFF), so all of it goes there (see Memory::IsMMIOAccess).
+void Arm64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	const bool isStore = inst.op == IROp::StoreKernel8 || inst.op == IROp::StoreKernel16 || inst.op == IROp::StoreKernel32;
+	regs_.Map(inst);
+	ADDI2R(SCRATCH1, regs_.R(inst.src1), inst.constant, SCRATCH2);
+	const ARM64Reg reg = isStore ? regs_.R(inst.src3) : regs_.R(inst.dest);
+
+	if (mips_->IsMediaEngine()) {
+		LSR(SCRATCH2, SCRATCH1, 26);
+		CMPI2R(SCRATCH2, 0xBC000000 >> 26);
+	} else {
+		LSR(SCRATCH2, SCRATCH1, 29);
+		CMPI2R(SCRATCH2, 0xA0000000 >> 29);
+	}
+	FixupBranch memory = B(CC_NEQ);
+	if (isStore)
+		MOV(SCRATCH2, reg);
+	BL(kernelLoadStore_[(int)inst.op - (int)IROp::LoadKernel8]);
+	if (!isStore && inst.dest != MIPS_REG_ZERO)
+		MOV(reg, SCRATCH1);
+	FixupBranch done = B();
+
+	SetJumpTarget(memory);
+	const ArithOption offset(SCRATCH1_64, false, false);
+	if (!isStore && inst.dest == MIPS_REG_ZERO) {
+		// Only a hardware register's read can matter.
+		SetJumpTarget(done);
+		return;
+	}
+	switch (inst.op) {
+	case IROp::LoadKernel8: LDRB(reg, MEMBASEREG, offset); break;
+	case IROp::LoadKernel8Ext: LDRSB(reg, MEMBASEREG, offset); break;
+	case IROp::LoadKernel16: LDRH(reg, MEMBASEREG, offset); break;
+	case IROp::LoadKernel16Ext: LDRSH(reg, MEMBASEREG, offset); break;
+	case IROp::LoadKernel32: LDR(reg, MEMBASEREG, offset); break;
+	case IROp::StoreKernel8: STRB(reg, MEMBASEREG, offset); break;
+	case IROp::StoreKernel16: STRH(reg, MEMBASEREG, offset); break;
+	case IROp::StoreKernel32: STR(reg, MEMBASEREG, offset); break;
+	default: INVALIDOP; break;
+	}
+	SetJumpTarget(done);
 }
 
 void Arm64JitBackend::CompIR_Store(IRInst inst) {

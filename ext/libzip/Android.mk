@@ -132,5 +132,7 @@ LOCAL_SRC_FILES :=\
 	zip_random_unix.c
 
 LOCAL_CFLAGS := -O2
+# The bundled zlib's header, to match the library it's linked with.
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/../zlib
 
 include $(BUILD_STATIC_LIBRARY)

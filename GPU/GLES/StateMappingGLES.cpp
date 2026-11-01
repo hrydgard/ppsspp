@@ -180,9 +180,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
 				if (blendState.useBlendColor) {
-					uint32_t color = blendState.blendColor;
 					float col[4];
-					Uint8x4ToFloat4(col, color);
+					blendState.blendColorToFloat4(col);
 					renderManager->SetBlendFactor(col);
 				}
 			}

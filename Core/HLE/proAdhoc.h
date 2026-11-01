@@ -46,7 +46,8 @@
 
 // Default GameMode definitions
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL 500 // 12000 usec on JPCSP, but lower value works better on BattleZone (in order to get full speed 60 FPS)
+// A PSP sends game mode data about every 12 ms (pspautotests net/adhoc/pair/timing).
+#define GAMEMODE_UPDATE_INTERVAL 12000
 #define GAMEMODE_INIT_DELAY 10000
 #define GAMEMODE_SYNC_TIMEOUT 250000
 #define GAMEMODE_WAITID 0x2001 // Just to differentiate WaitID with other ID on WAITTYPE_NET
@@ -228,6 +229,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   
   u32_le ip_addr; // internal use only
   u16_le port_offset; // IP-specific port offset (internal use only)
+  u64_le left_at; // When the server said it left the group, or 0 (internal use only)
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -324,15 +326,22 @@ typedef struct AdhocSocket {
 	s32 attemptCount; // connect/accept attempts
 	u64 lastAttempt; // timestamp to retry again (attempted by the game)
 	u64 internalLastAttempt; // timestamp to retry again (internal use only)
+	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
+	u64 ptpLastSendAt; // the last PTP send
+	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
+	bool ptpRefused; // a connect was refused, and every later one is too
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
 		SceNetAdhocPtpStat ptp;
 	} data;
 	void *postofficeHandle; // aemu_postoffice mode handle
+	bool postofficePdpEnetReliable;
 	std::thread *connectThread;
 	bool connectThreadDone;
 	int connectThreadResult;
+	// Whether the emulation has already waited for the connect in progress.
+	bool connectThreadWaited;
 } PACK AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
@@ -380,6 +389,15 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 
   // Last Heartbeat
   u64_le lastping; // May need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
+
+  // A host's accept stays in progress until its ESTABLISHED event has been delivered.
+  s32_le accepting;
+
+  // The send was aborted with AbortSendData, so its DATA_ACK is discarded.
+  s32_le ackAborted;
+
+  // Data was sent to a peer that has left the group: DATA_TIMEOUT at this time instead of DATA_ACK.
+  u64_le dataTimeoutAt;
 } SceNetAdhocMatchingMemberInternal;
 
 
@@ -492,20 +510,22 @@ typedef struct SceNetAdhocMatchingContext {
   // Timeout
   u64_le timeout;
 
+  // Child: when GetMembers starts listing the parent first, one keepalive interval after being accepted
+  // (pspautotests net/adhoc/pair/matchingorder). 0 until accepted.
+  u64 parentFirstAt = 0;
+
   // Helper Thread (fake PSP Thread) needed to execute callback
   //HLEHelperThread *matchingThread;
   int matching_thid;
 
-  // Event Caller Thread
-  std::thread eventThread;
-  //s32_le event_thid;
+  // Event delivery and input handling, run by the matching poll while the context is started.
   bool eventRunning = false;
   bool IsMatchingInCB = false;
-
-  // IO Handler Thread
-  std::thread inputThread;
-  //s32_le input_thid;
   bool inputRunning = false;
+
+  // When the input handling last sent a hello and a keepalive.
+  u64 lastHello = 0;
+  u64 lastPing = 0;
 
   // Event Caller Thread Message Stack
   std::recursive_mutex *eventlock; // s32_le event_stack_lock;
@@ -524,7 +544,7 @@ typedef struct SceNetAdhocMatchingContext {
 
 // End of psp definitions
 
-const size_t MAX_ADHOCCTL_HANDLERS = 32; //4
+const size_t MAX_ADHOCCTL_HANDLERS = 4; // pspautotests net/adhoc/adhocctl
 const size_t MAX_MATCHING_HANDLERS = 32; //4
 
 enum {
@@ -768,10 +788,11 @@ extern int actionAfterMatchingMipsCall;
 #define SOCK_PDP	1
 #define SOCK_PTP	2
 // Aux vars
-extern std::atomic<int> metasocket;
+extern void *adhocctlHandle;
+extern int adhocctlId; // for tracking whether there was an instance swap
+extern std::mutex adhocctlMutex;
 extern SceNetAdhocctlParameter parameter;
 extern SceNetAdhocctlAdhocId product_code;
-extern std::thread friendFinderThread;
 extern std::recursive_mutex peerlock;
 extern AdhocSocket* adhocSockets[MAX_SOCKET];
 
@@ -784,9 +805,9 @@ extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
 extern bool isOriPort;
 extern bool isLocalServer;
+extern std::mutex g_adhocServerIPMutex;
 extern SockAddrIN4 g_adhocServerIP; // Resolved Adhoc Server IP so we don't need to repeatedly resolve the DNS again later
 extern SockAddrIN4 g_localhostIP; // Used to differentiate localhost IP on multiple-instance
-extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
 extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 
 extern uint32_t fakePoolSize;
@@ -798,7 +819,19 @@ extern std::atomic<bool> friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;
 extern u64 adhocctlStartTime;
-extern bool isAdhocctlNeedLogin;
+// When CreateEnterGameMode or JoinEnterGameMode was called, in emulated time: its timeout is a PSP-side one.
+extern u64 gameModeEnterTimeUs;
+// The server answers a group join with a CONNECT for each player already in the group, then the group's
+// BSSID. A join the game has given up on (game mode timed out, or it disconnected) before the BSSID came
+// is abandoned: what's left of its answer must not put us in the group.
+extern bool groupJoinInFlight;
+extern int abandonedGroupJoins;
+// Gives up on the join being made, if any: one still queued isn't sent, and the answer to one already
+// sent is dropped.
+void AbandonGroupJoin();
+// Whether we've asked the server to put us in a group, and haven't left it since.
+bool NetAdhocctl_InServerGroup();
+extern std::atomic<bool> isAdhocctlNeedLogin;
 extern bool isAdhocctlBusy;
 extern int adhocctlState;
 extern int adhocctlCurrentMode;
@@ -959,13 +992,13 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullpt
 
 void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count = nullptr);
 
-/**
- * Friend Finder Thread (Receives Peer Information)
- * @param args Length of argp in Bytes (Unused)
- * @param argp Argument (Unused)
- * @return Unused Value - Return 0
- */
-int friendFinder();
+// The adhocctl client: logs in to the Adhoc Server (on a thread of its own) and handles what the
+// server sends. friendFinderPoll() runs on the CPU thread, from a CoreTiming event, while
+// friendFinderRunning is set.
+void friendFinderStart();
+void friendFinderPoll();
+// Call after clearing friendFinderRunning.
+void friendFinderStop();
 
 /**
 * Find Free Matching ID
@@ -1050,12 +1083,6 @@ void sendCancelMessage(SceNetAdhocMatchingContext * context, SceNetAdhocMatching
 */
 void sendBulkData(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer, int datalen, const void * data);
 
-/**
-* Abort Bulk Data Transfer (if in progress)
-* @param context Matching Context Pointer
-* @param peer Target Peer
-*/
-void abortBulkTransfer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
 
 /**
 * Notify all established Peers about new Kid in the Neighborhood
@@ -1141,12 +1168,23 @@ void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEthe
  */
 int getActivePeerCount(const bool excludeTimedout = true);
 
+// Call this before getLocalIp() and getHostLocalIp() to adjust to operating system routing table changes
+void clearLocalIpCache();
+
 /**
- * Returns the locall Ip of this machine
+ * Returns the local IP relative to adhoc server ip,
+ * if adhoc server ip is not resolved when called,
+ * falls back to getHostLocalIp.
+ * If adhoc server is on loopback, will return 127.0.0.x multi-instance loopback IP
  * @param SocketAddres OUT: local ip
  */
 int getLocalIp(sockaddr_in * SocketAddress);
-uint32_t getLocalIp(int sock);
+
+/**
+ * Returns the IP that is used to reach default gateway
+ * @param SocketAddres OUT: local ip
+ */
+int getHostLocalIp(sockaddr_in *SocketAddress);
 
 /*
  * Check if an IP (big-endian/network order) is Private or Public IP
@@ -1290,14 +1328,6 @@ int getPDPSocketCount();
 int getPTPSocketCount();
 
 /**
- * Initialize Networking Components for Adhocctl Emulator
- * @param adhoc_id Game Product Code
- * @param server_ip Server IP
- * @return 0 on success or... -1
- */
-int initNetwork(SceNetAdhocctlAdhocId *adhocid);
-
-/**
  * Zero MAC Check
  * @param addr To-be-checked MAC Address
  * @return true if MAC is all zeroes
@@ -1328,6 +1358,9 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  */
 bool resolveMAC(SceNetEtherAddr* mac, uint32_t* ip, u16* port_offset = nullptr);
 
+// When the server said this peer left the group, or 0 if it's there (or unknown).
+u64 peerLeftAt(const SceNetEtherAddr *mac);
+
 /**
  * Fix mac address if the game messed with the first byte
  * @param mac Peer MAC Address
@@ -1349,3 +1382,9 @@ const char* getMatchingOpcodeStr(int code);
 
 // Convert adhoc ctl state to string
 const char *AdhocCtlStateToString(int state);
+
+// kill adhocctl client after failure so that friend finder thread can reconnect, adhocctlMutex has to be held
+void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lock_proof);
+
+// locks g_adhocServerIPMutex and copys out g_adhocServerIP
+SockAddrIN4 GetAdhocServerIP();

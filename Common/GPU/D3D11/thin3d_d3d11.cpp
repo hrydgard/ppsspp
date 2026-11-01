@@ -64,9 +64,10 @@ public:
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
 class D3D11Framebuffer : public Framebuffer {
 public:
-	D3D11Framebuffer(int width, int height) {
+	D3D11Framebuffer(int width, int height, bool zStencil) {
 		width_ = width;
 		height_ = height;
+		hasDepthStencil_ = zStencil;
 	}
 	~D3D11Framebuffer() {
 	}
@@ -286,7 +287,7 @@ private:
 D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
 	: hWnd_(hWnd),
 		device_(device),
-		context_(deviceContext1),
+		context_(deviceContext),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
@@ -459,6 +460,7 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		bbRenderTargetTex_ = (ID3D11Texture2D *)param2;
 		bbWidth_ = width;
 		bbHeight_ = height;
+		primarySwapchain_->SetSize(width, height);
 
 		// Create matching depth stencil texture. This is not really needed for PPSSPP though,
 		// and probably not for most other renderers either as you're usually rendering to other render targets and
@@ -1495,7 +1497,7 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
-	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
+	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height, desc.z_stencil);
 
 	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
 	// Texture arrays are supported but we don't have any other use cases yet.
@@ -1724,6 +1726,7 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 }
 
 bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+	src = PrimaryToNull(src);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
 	if (fb) {
@@ -1748,12 +1751,13 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		packDesc.BindFlags = 0;
-		packDesc.Width = bw;
-		packDesc.Height = bh;
 		packDesc.ArraySize = 1;
 		packDesc.MipLevels = 1;
 		packDesc.Usage = D3D11_USAGE_STAGING;
 		packDesc.SampleDesc.Count = 1;
+		// The copy below lands at bx, by, and the read starts there, so the texture has to reach that far.
+		packDesc.Width = bx + bw;
+		packDesc.Height = by + bh;
 		switch (channelBits) {
 		case Aspect::COLOR_BIT:
 			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
@@ -1765,6 +1769,9 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 				return false;
 			}
 			packDesc.Format = fb->depthStencilFormat;
+			// CopyResource below needs the whole size.
+			packDesc.Width = fb->Width();
+			packDesc.Height = fb->Height();
 			break;
 		default:
 			_assert_(false);
@@ -1874,6 +1881,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	fbo = PrimaryToNull(fbo);
 	// TODO: deviceContext1 can actually discard.
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
@@ -1971,6 +1979,7 @@ uint64_t D3D11DrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 }
 
 void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	fbo = PrimaryToNull(fbo);
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 	if (fb) {
 		*w = fb->Width();

@@ -158,6 +158,9 @@ usage: frametests.py [OPTIONS] [CONFIG.json]
 | `--filter=SUBSTR`  | Only run dumps whose relative path contains SUBSTR (case-insensitive). |
 | `--strict`         | Treat missing reference images as failures (a configuration error).    |
 | `--out-mode=all\|failures` | `all` keeps everything in the output dir; `failures` keeps only artifacts of non-passing tests (smaller CI artifacts). Default: `all`. |
+| `--variants=NAME=ARGS,...` | Run these variants instead of the config's. |
+| `--adb[=SERIAL]`   | Run on an Android device instead; see "Running on Android" below. |
+| `--ios[=DEVICE]`   | Run on an iPhone or iPad instead; see "Running on iOS" below. |
 
 The headless binary is located, in order of preference:
 
@@ -166,6 +169,65 @@ The headless binary is located, in order of preference:
 3. Well-known paths relative to the current directory (e.g.
    `Windows/x64/Debug/PPSSPPHeadless.exe`, `build/PPSSPPHeadless`), newest
    by modification time.
+
+## Running on Android
+
+`--adb` runs every dump on an Android device over adb, with the `ppsspp_headless` executable from the
+legacy NDK build, and compares each screenshot with the host's Vulkan render of the same dump (through
+`Tools/image_compare.py`, so rasterizer noise doesn't count). The references in the config aren't used:
+the question is whether the device's drivers draw what a desktop GPU does.
+
+```bash
+cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1 SKIPAPP=1 -j8 && cd ..
+python3 frametests.py frametests/frametests.json --adb
+```
+
+The first run pushes the binary, `assets/` and the dumps to `/data/local/tmp/ppsspp-frametests`; later runs
+only push what changed. The variants default to `vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles
+--dump-compat`, and `--host-args` (default `--graphics=vulkan --dump-compat`) sets how the host renders its
+side. `--dump-compat` applies the game's `compat.ini` settings, which headless otherwise skips for dumps;
+without them some games look wrong on every backend (Coded Arms needs `AccurateSplines`). A failing test's diff image shows host, device and the
+differences side by side. Runs go to the device one at a time.
+
+## Running on iOS
+
+`--ios` does the same on an iPhone or iPad, comparing against the host's Vulkan render the same way.
+An iOS device only runs apps, so PPSSPPHeadless is built as one there (`org.ppsspp.headless`,
+`ios/HeadlessMain.mm`): it starts UIKit, runs the usual headless `main` on a thread with the arguments
+`devicectl` launched it with, and exits. The screen stays black meanwhile, since it renders offscreen.
+It needs a development-signed build, which is what lets `devicectl` copy files in and out of it.
+
+```bash
+cmake -S . -B build-ios-headless -GXcode -DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake \
+    -DIOS_APP_STORE=ON -DDEVELOPMENT_TEAM_ID=<team> -DHEADLESS=ON
+xcodebuild -project build-ios-headless/PPSSPP.xcodeproj -scheme PPSSPPHeadless -configuration Release \
+    -destination 'generic/platform=iOS' -allowProvisioningUpdates build
+python3 frametests.py frametests/frametests.json --ios
+```
+
+Keep the device unlocked while it runs. frametests.py installs the app, copies the dumps the device doesn't
+have yet into its `Documents/dumps`, and renders each variant's dumps in launches of up to 100 (each
+`devicectl` call costs a second or two, so one launch per dump would be slow). A dump that crashes the app
+ends its launch; the rest go into the next one. The variants default to `vulkan=--graphics=vulkan
+--dump-compat`, as iOS has no OpenGL. There's no JIT without a debugger attached, so the device runs the
+IR interpreter and decodes vertices without the vertex JIT.
+
+To run the app by hand:
+
+```bash
+xcrun devicectl device copy to --device <udid> --domain-type appDataContainer \
+    --domain-identifier org.ppsspp.headless --source dump.ppdmp --destination Documents/dump.ppdmp
+xcrun devicectl device process launch --device <udid> --terminate-existing --console org.ppsspp.headless \
+    --graphics=vulkan --screenshot-dir=shots dump.ppdmp
+```
+
+Relative paths are relative to `Documents`, and `--console` shows its output. `--ios-clear=DIR`
+(handled by the app, not headless) deletes a folder under `Documents` first. `devicectl` has no way to
+delete files, and **never pass it `--remove-existing-content`**: that empties all of `Documents`, not
+just the destination folder.
+
+The `build-ios` folder works too if it's configured with `-DHEADLESS=ON`, as long as Xcode doesn't
+have that project open: `xcodebuild` then hangs before building anything, even `xcodebuild -list`.
 
 ## CI integration
 

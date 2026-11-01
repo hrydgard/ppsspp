@@ -28,7 +28,7 @@ For headless scripting, `--launch` removes all of that. It starts PPSSPP, learns
 from its output, connects once the socket accepts, and kills it again on the way out:
 
 ```bash
-wsdbg --sync --compact --quiet --launch ./PPSSPPHeadless.exe --vsh -i --graphics=vulkan < script.txt
+wsdbg --sync --compact --quiet --launch ./PPSSPPHeadless.exe --vsh --cpu=interpreter --graphics=vulkan < script.txt
 ```
 
 `--launch` takes the executable and all of its arguments, so it has to come last - everything after
@@ -74,6 +74,9 @@ to "print everything that arrives for `--wait` seconds", which is what you want
 when watching broadcasts (log lines, `gpu.stats.feed`) rather than asking a
 question.
 
+An `error` reply carrying the request's ticket makes it exit non-zero too (with `--wait-all`,
+once the interval is up).
+
 Type `:help` in the REPL for a quick reminder, `:quit` to disconnect.
 
 ## Scripting a multi-step sequence
@@ -88,6 +91,8 @@ broadcast - the actual "the CPU stopped again" signal those commands imply. Ever
 prints as it arrives; this only changes when the *next* line gets sent. A breakpoint that never
 trips would otherwise hang the script forever, so it gives up after `--sync-timeout` seconds
 (default 30), reports it, and makes the run exit non-zero.
+
+An `error` reply to a line doesn't stop the script, but makes the run exit non-zero at the end.
 
 Matching is by ticket, always - `--sync` never waits for "whatever message arrives next", which is
 what used to quietly desynchronise a script. So prefer the `key=value` form for nested parameters

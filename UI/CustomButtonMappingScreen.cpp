@@ -136,14 +136,18 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 	ConfigCustomButton *cfg = nullptr;
 	bool *show = nullptr;
-	memset(array, 0, sizeof(array));
 	cfg = &g_Config.CustomButton[id_];
 	// This screen is reachable from the main menu, so neither GamepadEmu nor the layout screen
 	// need have sanitized these yet - and everything below indexes the tables with them.
 	CustomKeyData::Sanitize(*cfg);
 	show = &touch.touchCustom[id_].show;
-	for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++)
-		array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
+	// Only load once, since the views can be recreated (on rotation, for example) before the array is saved.
+	if (!arrayLoaded_) {
+		for (int i = 0; i < ARRAY_SIZE(g_customKeyList); i++) {
+			array[i] = (0x01 == ((g_Config.CustomButton[id_].key >> i) & 0x01));
+		}
+		arrayLoaded_ = true;
+	}
 
 	// TODO: Less hacky layout work
 	const Bounds layoutBounds = GetLayoutBounds(*screenManager()->getUIContext());
@@ -155,13 +159,13 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
 	root__->Add(rightScroll);
 
-	LinearLayout *vertLayout = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *vertLayout = new ChoiceGroupList(new LayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	rightScroll->Add(vertLayout);
 	
-	vertLayout->Add(new ItemHeader(co->T("Button style")));
-	vertLayout->Add(new CheckBox(show, co->T("Visible")));
+	ChoiceGroup *styleSettings = vertLayout->Add(new ChoiceGroup(co->T("Button style")));
+	styleSettings->Add(new CheckBox(show, co->T("Visible")));
 
-	Choice *icon = vertLayout->Add(new Choice(co->T("Icon")));
+	Choice *icon = styleSettings->Add(new Choice(co->T("Icon")));
 	icon->SetIconRight(ImageID(customKeyImages[cfg->image].i), 1.0f, customKeyImages[cfg->image].r*PI/180, false, false); // Set right icon on the choice
 	icon->OnClick.Add([=](UI::EventParams &e) {
 		auto iconScreen = new ButtonIconScreen(co->T("Icon"), &(cfg->image));
@@ -171,7 +175,7 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		screenManager()->push(iconScreen);
 	});
 
-	Choice *shape = vertLayout->Add(new Choice(co->T("Shape")));
+	Choice *shape = styleSettings->Add(new Choice(co->T("Shape")));
 	shape->SetIconRight(ImageID(customKeyShapes[cfg->shape].l), 0.6f, customKeyShapes[cfg->shape].r*PI/180, customKeyShapes[cfg->shape].f, false); // Set right icon on the choice
 	shape->OnClick.Add([=](UI::EventParams &e) {
 		auto shape = new ButtonShapeScreen(co->T("Shape"), &(cfg->shape));
@@ -181,9 +185,9 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		screenManager()->push(shape);
 	});
 
-	vertLayout->Add(new ItemHeader(co->T("Button Binding")));
-	vertLayout->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
-	vertLayout->Add(new CheckBox(&(cfg->repeat), co->T("Repeat mode")));
+	ChoiceGroup *bindingSettings = vertLayout->Add(new ChoiceGroup(co->T("Button Binding")));
+	bindingSettings->Add(new CheckBox(&(cfg->toggle), co->T("Toggle mode")));
+	bindingSettings->Add(new CheckBox(&(cfg->repeat), co->T("Repeat mode")));
 
 	const int cellSize = 400;
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
@@ -205,8 +209,9 @@ void CustomButtonMappingScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			choice = new Choice(mc->T(KeyMap::GetPspButtonNameCharPointer(g_customKeyList[i].c)), new LinearLayoutParams(1.0f));
 		}
 
-		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
-		choice->OnClick.Handle(choiceEventHandler, &ChoiceEventHandler::onChoiceClick);
+		choice->OnClick.Add([checkbox](UI::EventParams &) {
+			checkbox->Toggle();
+		});
 
 		choice->SetCentered(true);
 
@@ -241,7 +246,3 @@ void CustomButtonMappingScreen::onFinish(DialogResult result) {
 	saveArray();
 	g_Config.Save("CustomButtonMappingScreen::onFinish");
 }
-
-void CustomButtonMappingScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
-	checkbox_->Toggle();
-};

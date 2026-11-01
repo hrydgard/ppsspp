@@ -54,6 +54,8 @@ bool IRReadsFromFPR(const IRInstMeta &inst, int reg, bool *directly) {
 		return true;
 	if (inst.m.types[1] == '2' && reg >= inst.src1 && reg < inst.src1 + 2)
 		return true;
+	if (inst.m.types[1] == 'M' && reg >= inst.src1 && reg < inst.src1 + 16)
+		return true;
 	if (inst.m.types[2] == 'V' && reg >= inst.src2 && reg < inst.src2 + 4)
 		return true;
 	if (inst.m.types[2] == '2' && reg >= inst.src2 && reg < inst.src2 + 2)
@@ -139,14 +141,15 @@ int IRReadsFromGPRs(const IRInstMeta &inst, IRReg regs[4]) {
 	return IRReadsFromList(inst, regs, 'G');
 }
 
-int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[16]) {
+int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[IR_MAX_FPR_READS]) {
 	int c = IRReadsFromList(inst, regs, 'F');
 	if (c == -1)
 		return -1;
 
-	// We also need to check V and 2.  Indirect reads already checked, don't check again.
-	if (inst.m.types[1] == 'V' || inst.m.types[1] == '2') {
-		for (int i = 0; i < (inst.m.types[1] == 'V' ? 4 : 2); ++i)
+	// We also need to check V, 2 and M.  Indirect reads already checked, don't check again.
+	if (inst.m.types[1] == 'V' || inst.m.types[1] == '2' || inst.m.types[1] == 'M') {
+		const int lanes = inst.m.types[1] == 'M' ? 16 : (inst.m.types[1] == 'V' ? 4 : 2);
+		for (int i = 0; i < lanes; ++i)
 			regs[c++] = inst.src1 + i;
 	}
 	if (inst.m.types[2] == 'V' || inst.m.types[2] == '2') {

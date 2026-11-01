@@ -48,3 +48,7 @@ struct ScePspDateTime {
 	s16_le second;
 	u32_le microsecond;
 };
+
+// The emulated PSP's clock, in local time - what sceRtcGetCurrentClockLocalTime gives the game.
+// For host UI that shows the PSP's time. False if the date is out of range.
+bool __RtcGetCurrentLocalTime(ScePspDateTime *t);

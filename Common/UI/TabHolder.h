@@ -22,7 +22,7 @@ ENUM_CLASS_BITOPS(TabHolderFlags);
 
 class TabHolder : public LinearLayout {
 public:
-	TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, std::function<void()> contextMenuCallback, LayoutParams *layoutParams);
+	TabHolder(Orientation orientation, float stripSize, TabHolderFlags flags, View *bannerView, std::function<void()> contextMenuCallback, LayoutParams *layoutParams = nullptr);
 
 	template <class T>
 	T *AddTab(std::string_view title, ImageID imageId, T *tabContents) {

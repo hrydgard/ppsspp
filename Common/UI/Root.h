@@ -18,6 +18,9 @@ void EnableFocusMovement(bool enable);
 bool IsFocusMovementEnabled();
 View *GetFocusedView();
 void SetFocusedView(View *view, FocusFlags cause, bool force = false);
+// Scrolls the focused view into sight at the start of the next update, once it's been laid out.
+// For focusing a view that was just created, since SetFocus doesn't scroll by itself.
+void ScrollFocusedViewIntoView();
 void RemoveQueuedEventsByEvent(Event *e);
 void RemoveQueuedEventsByView(View * v);
 
@@ -32,6 +35,7 @@ class ViewGroup;
 View *FindTabOrderNeighbor(ViewGroup *root, View *focusedView, FocusMove direction);
 
 void LayoutViewHierarchy(const UIContext &dc, const UI::Margins &rootMargins, UI::ViewGroup *root, ViewLayoutMode layoutMode, bool immersiveMode);
+void LayoutViewHierarchy(const UIContext &dc, const Bounds &rootBounds, UI::ViewGroup *root);
 DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement = true);
 
 enum class KeyEventResult {

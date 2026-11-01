@@ -45,6 +45,7 @@ public:
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 
 	u32 DrawSync(int mode) override;
+	void FlushPendingDrawing() override;
 	int ListSync(int listid, int mode) override;
 
 	bool FramebufferDirty() override;
@@ -61,17 +62,6 @@ public:
 	void Execute_TexLevel(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 
-	void Execute_WorldMtxNum(u32 op, u32 diff);
-	void Execute_WorldMtxData(u32 op, u32 diff);
-	void Execute_ViewMtxNum(u32 op, u32 diff);
-	void Execute_ViewMtxData(u32 op, u32 diff);
-	void Execute_ProjMtxNum(u32 op, u32 diff);
-	void Execute_ProjMtxData(u32 op, u32 diff);
-	void Execute_TgenMtxNum(u32 op, u32 diff);
-	void Execute_TgenMtxData(u32 op, u32 diff);
-	void Execute_BoneMtxNum(u32 op, u32 diff);
-	void Execute_BoneMtxData(u32 op, u32 diff);
-
 	void Execute_TexFlush(u32 op, u32 diff);
 
 	// TODO: Have these return an error code if they jump to a bad address. If bad, stop the FastRunLoop.
@@ -81,6 +71,8 @@ public:
 	void ExecuteOp(u32 op, u32 diff) override;
 
 	bool PresentedThisFrame() const override;
+	void SetPresentationOutput(const OutputParams *output) override;
+	bool PresentsToOtherOutput() const override;
 
 private:
 	void CheckDepthUsage(VirtualFramebuffer *vfb) override;

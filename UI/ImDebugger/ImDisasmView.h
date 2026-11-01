@@ -85,6 +85,9 @@ public:
 	void setShowMode(bool s) {
 		showHex_ = s;
 	}
+	// Removes the function symbol and its name, leaving the code without a function (handy for
+	// testing stack walks without symbols).
+	void RemoveFunction(u32 funcStart);
 	void toggleBreakpoint(bool toggleEnabled = false);
 	void editBreakpoint(ImConfig &cfg);
 
@@ -115,6 +118,15 @@ public:
 		bool retval = mapReloaded_;
 		mapReloaded_ = false;
 		return retval;
+	}
+	// The function start "Select in symbol list" was picked for, if it was since the last call.
+	bool TakeSymbolListRequest(u32 *funcStart) {
+		if (symbolListRequest_ == 0xFFFFFFFF) {
+			return false;
+		}
+		*funcStart = symbolListRequest_;
+		symbolListRequest_ = 0xFFFFFFFF;
+		return true;
 	}
 
 private:
@@ -177,6 +189,7 @@ private:
 	bool searching_ = false;
 	bool keyTaken = false;
 	bool mapReloaded_ = false;
+	u32 symbolListRequest_ = 0xFFFFFFFF;
 
 	int positionLocked_ = 0;
 
@@ -227,6 +240,8 @@ private:
 	char symFilter_[64]{};
 	std::vector<int> symMatches_;
 	bool symMatchesDirty_ = true;
+	// Set when the selection was moved from outside the list, so it scrolls there.
+	bool scrollToSelectedSymbol_ = false;
 
 	ImDisasmView disasmView_;
 	char searchTerm_[64]{};

@@ -101,6 +101,12 @@ void RecentFilesManager::Load(const Section *recent, int maxRecent) {
 	// Just zapping any pending command, since they won't matter after this.
 	// TODO: Maybe we should let adds through...
 	WipePendingCommandsUnderLock();
+	// Visible right away, for callers that read the list straight after loading the config (Android's
+	// URI grant pruning). The queued ReplaceAll still runs, in case a command was mid-flight.
+	{
+		std::lock_guard<std::mutex> recentGuard(recentLock_);
+		recentFiles_ = newRecent;
+	}
 	cmds_.push(RecentCommand{ RecentCmd::ReplaceAll, std::make_unique<std::vector<std::string>>(newRecent) });
 	cmdCondVar_.notify_one();
 }
@@ -127,11 +133,6 @@ void RecentFilesManager::Save(Section *recent, int maxRecent) {
 
 void RecentFilesManager::Add(std::string_view filename) {
 	if (g_Config.iMaxRecent <= 0) {
-		return;
-	}
-
-	// Some things should not be added to recent, such as the VSH (which will have a separate UI for launching it)
-	if (equalsNoCase(Path(filename).GetFilename(), "vshmain.prx")) {
 		return;
 	}
 

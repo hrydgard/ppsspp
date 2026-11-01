@@ -18,20 +18,10 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
-#include <unordered_map>
-#include <vector>
 #include <string>
+#include <vector>
 
-#include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
-#include "Common/CodeBlock.h"
-#include "Core/MIPS/MIPS.h"
-
-// Can probably reduce to 2 now that block continuation is gone.
-const int MAX_JIT_BLOCK_EXITS = 4;
-
-constexpr bool JIT_USE_COMPILEDHASH = true;
 
 struct BlockCacheStats {
 	int numBlocks;
@@ -41,41 +31,6 @@ struct BlockCacheStats {
 	float maxBloat;
 	u32 maxBloatBlock;
 };
-
-enum class DestroyType {
-	DESTROY,
-	INVALIDATE,
-	// Skips jit unlink, since it'll be poisoned anyway.
-	CLEAR,
-};
-
-// We should be careful not to access these block structures during runtime as they are large.
-// Fine to mess with them at block compile time though.
-struct JitBlock {
-	bool ContainsAddress(u32 address) const;
-	void DoIntegrityCheck(u32 emAddress, int blockNum, const char *reason) const;
-
-	const u8 *checkedEntry;  // const, we have to translate to writable.
-	const u8 *normalEntry;
-
-	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump
-	u32 exitAddress[MAX_JIT_BLOCK_EXITS];   // 0xFFFFFFFF == unknown
-	u32 sentinel;
-
-	u32 originalAddress;
-	MIPSOpcode originalFirstOpcode; //to be able to restore
-
-	uint64_t compiledHash;
-
-	u32 codeSize;      // in bytes, so it doesn't fit in a u16 for a long block
-	u16 originalSize;  // in instructions, bounded by MAX_BLOCK_INSTRUCTIONS
-	u16 blockNum;
-
-	bool invalid;
-	bool linkStatus[MAX_JIT_BLOCK_EXITS];
-};
-
-typedef void (*CompiledCode)();
 
 struct JitBlockDebugInfo {
 	uint32_t originalAddress;
@@ -108,105 +63,4 @@ public:
 	virtual bool SupportsProfiling() const { return false; }
 
 	virtual ~JitBlockCacheDebugInterface() {}
-};
-
-class JitBlockCache : public JitBlockCacheDebugInterface {
-public:
-	JitBlockCache(MIPSState *mipsState, CodeBlockCommon *codeBlock);
-	~JitBlockCache();
-
-	int AllocateBlock(u32 emAddress);
-	void FinalizeBlock(int block_num, bool block_link);
-
-	void Clear();
-	void Init();
-	void Shutdown();
-	void Reset();
-
-	bool IsFull() const;
-	void ComputeStats(BlockCacheStats &bcStats) const override;
-
-	// Code Cache
-	JitBlock *GetBlock(int no) { return &blocks_[no]; }
-	const JitBlock *GetBlock(int no) const { return &blocks_[no]; }
-
-	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
-	int GetBlockNumberFromStartAddress(u32 em_address) const override;
-
-	// slower, but can get numbers from within blocks, not just the first instruction.
-	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
-	// Returns a list of block numbers - only one block can start at a particular address, but they CAN overlap.
-	// This one is slow so should only be used for one-shots from the debugger UI, not for anything during runtime.
-	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers) const;
-	// Similar to above, but only the first matching address.
-	int GetBlockNumberFromAddress(u32 em_address) const;
-	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad = false) const;
-
-	u32 GetAddressFromBlockPtr(const u8 *ptr) const;
-
-	MIPSOpcode GetOriginalFirstOp(int block_num) const;
-
-	bool RangeMayHaveEmuHacks(u32 start, u32 end) const;
-
-	// DOES NOT WORK CORRECTLY WITH JIT INLINING
-	void InvalidateICache(u32 address, const u32 length);
-	void InvalidateChangedBlocks();
-	void DestroyBlock(int block_num, DestroyType type);
-
-	// No jit operations may be run between these calls.
-	// Meant to be used to make memory safe for savestates, memcpy, etc.
-	std::vector<u32> SaveAndClearEmuHackOps();
-	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
-
-	int GetNumBlocks() const override { return num_blocks_; }
-	bool IsValidBlock(int blockNum) const override { return blockNum >= 0 && blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
-	JitBlockMeta GetBlockMeta(int blockNum) const override {
-		JitBlockMeta meta{};
-		if (IsValidBlock(blockNum)) {
-			meta.valid = true;
-			meta.addr = blocks_[blockNum].originalAddress;
-			meta.sizeInBytes = blocks_[blockNum].originalSize;
-		}
-		return meta;
-	}
-	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
-		return JitBlockProfileStats{};
-	}
-
-	static int GetBlockExitSize();
-
-	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
-
-	enum {
-		MAX_BLOCK_INSTRUCTIONS = 0x4000,
-	};
-
-private:
-	void LinkBlockExits(int i);
-	void LinkBlock(int i);
-	void UnlinkBlock(int i);
-
-	void AddBlockMap(int block_num);
-	void RemoveBlockMap(int block_num);
-
-	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
-
-	int num_blocks_ = 0;
-	CodeBlockCommon *codeBlock_;
-	JitBlock *blocks_ = nullptr;
-	std::unordered_multimap<u32, int> links_to_;
-	std::map<std::pair<u32,u32>, u32> block_map_; // (end_addr, start_addr) -> number
-
-	enum {
-		JITBLOCK_RANGE_SCRATCH = 0,
-		JITBLOCK_RANGE_RAMBOTTOM = 1,
-		JITBLOCK_RANGE_RAMTOP = 2,
-		JITBLOCK_RANGE_COUNT = 3,
-	};
-	std::pair<u32, u32> blockMemRanges_[JITBLOCK_RANGE_COUNT];
-
-	enum {
-		// Where does this number come from?
-		MAX_NUM_BLOCKS = 65536 * 4
-	};
 };

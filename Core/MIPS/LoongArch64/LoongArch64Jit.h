@@ -30,17 +30,19 @@ namespace MIPSComp {
 
 class LoongArch64JitBackend : public LoongArch64Gen::LoongArch64CodeBlock, public IRNativeBackend {
 public:
-    LoongArch64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+    LoongArch64JitBackend(JitOptions &jo);
     ~LoongArch64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
     void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 protected:
+	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
+
 	const CodeBlockCommon &CodeBlock() const override {
 		return *this;
 	}
@@ -123,6 +125,10 @@ private:
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
+	// See GenerateLoongArch64VfpuDotSpecial().
+	const u8 *vfpuDotSpecial_ = nullptr;
+	// See GenerateLoongArch64VfpuDot().
+	const u8 *vfpuDot_ = nullptr;
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
@@ -131,7 +137,7 @@ private:
 
 class LoongArch64Jit : public IRNativeJit {
 public:
-    LoongArch64Jit(MIPSState *mipsState) : IRNativeJit(mipsState), la64Backend_(jo, blocks_) {
+    LoongArch64Jit(MIPSState *mipsState) : IRNativeJit(mipsState), la64Backend_(jo) {
         Init(la64Backend_);
     }
 private:

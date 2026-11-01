@@ -195,7 +195,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 			} else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
-					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
+					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, currentMIPS, 1);
 				}
 			}
 
@@ -232,10 +232,12 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		}
 		else {
 			std::string channel = std::to_string(g_Config.iWlanAdhocChannel);
-			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC)
-				channel = "Automatic";
+			if (g_Config.iWlanAdhocChannel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+				// The WLAN Channel setting's name for it.
+				channel = T(I18NCat::NETWORKING, "Auto");
+			}
 
-			DisplayMessage2(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), std::string(di->T("Channel:")) + std::string(" ") + std::string(di->T(channel)));
+			DisplayMessage2(di->T("ConnectingPleaseWait", "Connecting.\nPlease wait..."), std::string(di->T("Channel:")) + std::string(" ") + channel);
 
 			// Only Join mode is showing Cancel button on KHBBS and the button will fade out before the dialog is fading out, probably because it's already connected thus can't be canceled anymore
 			if (request.netAction == NETCONF_JOIN_ADHOC)
@@ -248,13 +250,13 @@ int PSPNetconfDialog::Update(int animSpeed) {
 					{
 					case NETCONF_CREATE_ADHOC:
 						if (connResult < 0) {
-							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlCreate, request.NetconfData->groupName);
+							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlCreate, currentMIPS, request.NetconfData->groupName);
 						}
 						break;
 					case NETCONF_JOIN_ADHOC:
 						// FIXME: Should we Scan for a matching group first before Joining a Group (like adhoc games normally do)? Or Is it really allowed to join non-existing group?
 						if (scanStep == 0) {
-							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlScan) >= 0) {
+							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlScan, currentMIPS) >= 0) {
 								u32 structsz = sizeof(ScanInfos);
 								if (Memory::IsValidAddress(scanInfosAddr))
 									userMemory.Free(scanInfosAddr);
@@ -267,7 +269,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						else if (scanStep == 1) {
 							s32 sz = Memory::ReadOrException_U32(scanInfosAddr);
 							// Get required buffer size
-							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, 0) >= 0) {
+							if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, currentMIPS, scanInfosAddr, 0) >= 0) {
 								s32 reqsz = Memory::ReadOrException_U32(scanInfosAddr);
 								if (reqsz > sz) {
 									sz = reqsz;
@@ -278,7 +280,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 									Memory::WriteOrException_U32(sz, scanInfosAddr);
 								}
 								if (reqsz > 0) {
-									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
+									if (hleCall(sceNetAdhocctl, int, sceNetAdhocctlGetScanInfo, currentMIPS, scanInfosAddr, scanInfosAddr + (u32)sizeof(s32)) >= 0) {
 										ScanInfos* scanInfos = (ScanInfos*)Memory::GetPointerOrException(scanInfosAddr);
 										int n = scanInfos->sz / sizeof(SceNetAdhocctlScanInfoEmu);
 										// Assuming returned SceNetAdhocctlScanInfoEmu(s) are contiguous where next is pointing to current addr + sizeof(SceNetAdhocctlScanInfoEmu)
@@ -306,7 +308,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						}
 						else if (scanStep == 2) {
 							if (connResult < 0) {
-								connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlJoin, scanInfosAddr + (u32)sizeof(s32));
+								connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlJoin, currentMIPS, scanInfosAddr + (u32)sizeof(s32));
 								if (connResult >= 0) {
 									// We are done!
 									if (Memory::IsValidAddress(scanInfosAddr))
@@ -318,7 +320,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 						break;
 					default:
 						if (connResult < 0) {
-							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, request.NetconfData->groupName);
+							connResult = hleCall(sceNetAdhocctl, int, sceNetAdhocctlConnect, currentMIPS, request.NetconfData->groupName);
 						}
 						break;
 					}

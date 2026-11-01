@@ -678,6 +678,11 @@ PGD_DESC *pgd_open(KirkState *kirk, u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	pgd->data_offset = *(u32*)(pgd_buf+0x4c);
 	memcpy(pgd->dkey, pgd_buf+0x30, 16);
 
+	if(!pgd_valid_block_size(pgd->block_size)){
+		free(pgd);
+		return NULL;
+	}
+
 	pgd->align_size = (pgd->data_size+15)&~15;
 	pgd->table_offset = pgd->data_offset+pgd->align_size;
 	pgd->block_nr = (pgd->align_size+pgd->block_size-1)&~(pgd->block_size-1);
@@ -686,6 +691,10 @@ PGD_DESC *pgd_open(KirkState *kirk, u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	pgd->file_offset = 0;
 	pgd->current_block = -1;
 	pgd->block_buf = (u8*)malloc(pgd->block_size*2);
+	if(pgd->block_buf==NULL){
+		free(pgd);
+		return NULL;
+	}
 
 	return pgd;
 }

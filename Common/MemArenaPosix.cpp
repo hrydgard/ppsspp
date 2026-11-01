@@ -110,6 +110,11 @@ bool MemArena::GrabMemSpace(size_t size) {
 void MemArena::ReleaseSpace() {
 #ifndef NO_MMAP
 	close(fd);
+	if (reserved_mem) {
+		munmap(reserved_mem, reserved_size);
+		reserved_mem = nullptr;
+		reserved_size = 0;
+	}
 #endif
 }
 
@@ -135,7 +140,14 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base)
 
 void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 #ifndef NO_MMAP
-	munmap(view, size);
+	const uintptr_t start = (uintptr_t)view;
+	if (reserved_mem && start >= (uintptr_t)reserved_mem && start + size <= (uintptr_t)reserved_mem + reserved_size) {
+		// Put the reservation back instead of leaving a hole, which another thread could map into before
+		// ReleaseSpace unmaps the whole range.
+		mmap(view, size, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE | MAP_FIXED, -1, 0);
+	} else {
+		munmap(view, size);
+	}
 #endif
 }
 
@@ -165,10 +177,16 @@ u8* MemArena::Find4GBBase() {
     void* base = std::malloc(0x0A000000);
     return static_cast<u8*>(base);
 #else
+	// Keep the range reserved and map the views over it, so nothing else can be allocated in the gaps
+	// between them, or where a view is about to go (see MemArenaAndroid.cpp).
 	size_t size = 0x10000000;
-	void* base = mmap(0, size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED | MAP_NORESERVE, -1, 0);
+	void* base = mmap(0, size, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
 	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
-	munmap(base, size);
+	if (reserved_mem) {
+		munmap(reserved_mem, reserved_size);
+	}
+	reserved_mem = base;
+	reserved_size = size;
 	return static_cast<u8*>(base);
 #endif
 }

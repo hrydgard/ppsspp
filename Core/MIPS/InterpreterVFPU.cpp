@@ -28,6 +28,7 @@
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -74,7 +75,8 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-static const bool USE_VFPU_DOT = false;
+// The VFPU's own handling of NaN and denormal results in vadd, vsub, vmul and vdiv (see Int_VecDo3).
+static const bool USE_VFPU_RESULT_FIXUP = false;
 
 union FloatBits {
 	float f[4];
@@ -129,28 +131,27 @@ static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, 
 
 	int n = GetNumVectorElements(size);
 	float origV[4]{ invalid, invalid, invalid, invalid };
-	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++) {
 		origV[i] = r[i];
 	}
 
 	for (int i = 0; i < n; i++) {
-		int regnum = (data >> (i*2)) & 3;
-		int abs    = (data >> (8+i)) & 1;
-		int negate = (data >> (16+i)) & 1;
-		int constants = (data >> (12+i)) & 1;
+		int regnum = VFPUPrefixSwizzle(data, i);
+		bool abs = VFPUPrefixAbs(data, i);
+		bool negate = VFPUPrefixNegate(data, i);
+		bool constants = VFPUPrefixIsConstant(data, i);
 
 		if (!constants) {
 			if (regnum >= n) {
-				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
+				// We handle this now, let's log anyway.
+				ERROR_LOG(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)
 				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
 		} else {
-			r[i] = constantArray[regnum + (abs<<2)];
+			r[i] = vfpuPrefixConstants[regnum + (abs << 2)];
 		}
 
 		if (negate)
@@ -176,7 +177,7 @@ void ApplyPrefixD(MIPSState *mips, float *v, VectorSize size, bool onlyWriteMask
 	int n = GetNumVectorElements(size);
 	for (int i = 0; i < n; i++)
 	{
-		int sat = (data >> (i * 2)) & 3;
+		int sat = VFPUPrefixSat(data, i);
 		if (sat == 1)
 			v[i] = vfpu_clamp(v[i], 0.0f, 1.0f);
 		else if (sat == 3)
@@ -202,10 +203,10 @@ static void RetainInvalidSwizzleST(MIPSState *mips, float *d, VectorSize sz) {
 
 	// TODO: We can probably do some faster check of sPrefix and tPrefix to skip over this loop.
 	for (int i = 0; i < n; i++) {
-		int swizzleS = (sPrefix >> (i + i)) & 3;
-		int swizzleT = (tPrefix >> (i + i)) & 3;
-		int constS = (sPrefix >> (12 + i)) & 1;
-		int constT = (tPrefix >> (12 + i)) & 1;
+		int swizzleS = VFPUPrefixSwizzle(sPrefix, i);
+		int swizzleT = VFPUPrefixSwizzle(tPrefix, i);
+		bool constS = VFPUPrefixIsConstant(sPrefix, i);
+		bool constT = VFPUPrefixIsConstant(tPrefix, i);
 		if ((swizzleS >= n && !constS) || (swizzleT >= n && !constT))
 			d[i] = 0.0f;
 	}
@@ -230,6 +231,15 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	// The loads write every lane, whatever mask a pending D prefix has, and leave the prefix pending
+	// (cpu/vfpu/prefix_load).
+	static void WriteLoadedVector(MIPSState *mips, const float *d, int vt) {
+		const u32 dprefix = mips->vfpuCtrl[VFPU_CTRL_DPREFIX];
+		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] = dprefix & ~0xF00;
+		WriteVector(mips, d, V_Quad, vt);
+		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] = dprefix;
+	}
+
 	void Int_SVQ(MIPSState *mips, MIPSOpcode op) {
 		int imm = SignExtend16ToS32(op & 0xFFFC);
 		int rs = _RS;
@@ -245,14 +255,14 @@ namespace MIPSInt
 				float d[4];
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
-				const bool valid = Memory::IsValid4AlignedAddress(addr);
+				const bool valid = mips->space->IsValid4AlignedAddress(addr);
 				if ((op & 2) == 0) {
 					if (!valid) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lvl.q");
 					}
 					// It's an LVL
 					for (int i = 0; i < offset + 1; i++) {
-						d[3 - i] = valid ? Memory::ReadUnchecked_Float(addr - 4 * i) : 0.0f;
+						d[3 - i] = valid ? mips->space->ReadUnchecked_Float(addr - 4 * i) : 0.0f;
 					}
 				} else {
 					if (!valid) {
@@ -260,35 +270,35 @@ namespace MIPSInt
 					}
 					// It's an LVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						d[i] = valid ? Memory::ReadUnchecked_Float(addr + 4 * i) : 0.0f;
+						d[i] = valid ? mips->space->ReadUnchecked_Float(addr + 4 * i) : 0.0f;
 					}
 				}
-				WriteVector(mips, d, V_Quad, vt);
+				WriteLoadedVector(mips, d, vt);
 			}
 			break;
 
 		case 54: //lv.q
 			// A quadword access has to be 16-byte aligned, so a misaligned one is simply
 			// rejected - we don't try to carry it out anyway, same as every other path here.
-			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+			if ((addr & 0xF) || !mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
 				const float zero[4]{};
-				WriteVector(mips, zero, V_Quad, vt);
+				WriteLoadedVector(mips, zero, vt);
 				break;
 			}
 
 #ifndef COMMON_BIG_ENDIAN
-			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
-			WriteVector(mips, cf, V_Quad, vt);
+			cf = reinterpret_cast<const float *>(mips->space->GetPointerUnchecked(addr));
+			WriteLoadedVector(mips, cf, vt);
 #else
 			float lvqd[4];
 
-			lvqd[0] = Memory::ReadUnchecked_Float(addr);
-			lvqd[1] = Memory::ReadUnchecked_Float(addr + 4);
-			lvqd[2] = Memory::ReadUnchecked_Float(addr + 8);
-			lvqd[3] = Memory::ReadUnchecked_Float(addr + 12);
+			lvqd[0] = mips->space->ReadUnchecked_Float(addr);
+			lvqd[1] = mips->space->ReadUnchecked_Float(addr + 4);
+			lvqd[2] = mips->space->ReadUnchecked_Float(addr + 8);
+			lvqd[3] = mips->space->ReadUnchecked_Float(addr + 12);
 
-			WriteVector(mips, lvqd, V_Quad, vt);
+			WriteLoadedVector(mips, lvqd, vt);
 #endif
 			break;
 
@@ -298,23 +308,23 @@ namespace MIPSInt
 				ReadVector(mips, d, V_Quad, vt);
 				int offset = (addr >> 2) & 3;
 				if ((op & 2) == 0) {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!mips->space->IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svl.q");
 						break;
 					}
 					// It's an SVL
 					for (int i = 0; i < offset + 1; i++)
 					{
-						Memory::WriteUnchecked_Float(d[3 - i], addr - i * 4);
+						mips->space->WriteUnchecked_Float(d[3 - i], addr - i * 4);
 					}
 				} else {
-					if (!Memory::IsValid4AlignedAddress(addr)) {
+					if (!mips->space->IsValid4AlignedAddress(addr)) {
 						Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "svr.q");
 						break;
 					}
 					// It's an SVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						Memory::WriteUnchecked_Float(d[i], addr + 4 * i);
+						mips->space->WriteUnchecked_Float(d[i], addr + 4 * i);
 					}
 				}
 				break;
@@ -322,12 +332,12 @@ namespace MIPSInt
 
 		case 62: //sv.q
 			// See lv.q above.
-			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
+			if ((addr & 0xF) || !mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::WRITE_WORD, "sv.q");
 				break;
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
+			f = reinterpret_cast<float *>(mips->space->GetPointerUnchecked(addr));
 			if (f) {
 				ReadVector(mips, f, V_Quad, vt);
 			}
@@ -335,10 +345,10 @@ namespace MIPSInt
 			float svqd[4];
 			ReadVector(mips, svqd, V_Quad, vt);
 
-			Memory::WriteUnchecked_Float(svqd[0], addr);
-			Memory::WriteUnchecked_Float(svqd[1], addr + 4);
-			Memory::WriteUnchecked_Float(svqd[2], addr + 8);
-			Memory::WriteUnchecked_Float(svqd[3], addr + 12);
+			mips->space->WriteUnchecked_Float(svqd[0], addr);
+			mips->space->WriteUnchecked_Float(svqd[1], addr + 4);
+			mips->space->WriteUnchecked_Float(svqd[2], addr + 8);
+			mips->space->WriteUnchecked_Float(svqd[3], addr + 12);
 #endif
 			break;
 
@@ -459,7 +469,7 @@ namespace MIPSInt
 		if (type == 6) {
 			f[0] = (float)imm;  // viim
 		} else if (type == 7) {
-			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
+			f[0] = vfpu_h2f_float((u16)uimm16);  // vfim, converted like vh2f (cpu/vfpu/vfim)
 		} else {
 			_dbg_assert_msg_( 0, "Invalid Viim opcode type %d", type);
 			f[0] = 0;
@@ -508,8 +518,6 @@ namespace MIPSInt
 		ReadMatrix(mips, s, sz, vs);
 		ReadMatrix(mips, t, sz, vt);
 
-		// TODO: Always use the more accurate path in interpreter?
-		bool useAccurateDot = USE_VFPU_DOT || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				union { float f; uint32_t u; } sum = { 0.0f };
@@ -519,23 +527,11 @@ namespace MIPSInt
 					ApplySwizzleT(mips, &t[a * 4], V_Quad);
 				}
 
-				if (useAccurateDot) {
-					sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
-					if (my_isnan(sum.f)) {
-						sum.u = 0x7f800001;
-					} else if ((sum.u & 0x7F800000) == 0) {
-						sum.u &= 0xFF800000;
-					}
-				} else {
-					if (a == n - 1 && b == n - 1) {
-						for (int c = 0; c < 4; c++) {
-							sum.f += s[b * 4 + c] * t[a * 4 + c];
-						}
-					} else {
-						for (int c = 0; c < n; c++) {
-							sum.f += s[b * 4 + c] * t[a * 4 + c];
-						}
-					}
+				sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
+				if (my_isnan(sum.f)) {
+					sum.u = 0x7f800001;
+				} else if ((sum.u & 0x7F800000) == 0) {
+					sum.u &= 0xFF800000;
 				}
 
 				d[a * 4 + b] = sum.f;
@@ -798,7 +794,9 @@ namespace MIPSInt
 		ApplySwizzleS(mips, s, V_Quad);
 
 		for (int i = 0; i < n; i++) {
-			float diff = s[i] - t[i];
+			// A NaN's sign counts (cpu/vfpu/specials). Not every host's subtraction keeps it:
+			// RISC-V always makes the positive canonical NaN.
+			float diff = my_isnan(s[i]) ? s[i] : (my_isnan(t[i]) ? t[i] : s[i] - t[i]);
 			// To handle NaNs correctly, we do this with integer hackery. A denormal difference
 			// is zero, like everywhere else on the VFPU.
 			u32 val;
@@ -941,7 +939,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vf2h with invalid elements");
+			ERROR_LOG(Log::CPU, "vf2h with invalid elements");
 			break;
 		}
 		ApplyPrefixD(mips, reinterpret_cast<float *>(d), outsize);
@@ -1011,7 +1009,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vus2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vus2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1037,7 +1035,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vs2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vs2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1209,18 +1207,11 @@ namespace MIPSInt
 		ReadVector(mips, t, sz, vt);
 		ApplySwizzleT(mips, t, V_Quad);
 
-		if (USE_VFPU_DOT) {
-			d.f = vfpu_dot(s, t);
-			if (my_isnan(d.f)) {
-				d.u = 0x7f800001;
-			} else if ((d.u & 0x7F800000) == 0) {
-				d.u &= 0xFF800000;
-			}
-		} else {
-			d.f = 0.0f;
-			for (int i = 0; i < 4; i++) {
-				d.f += s[i] * t[i];
-			}
+		d.f = vfpu_dot(s, t);
+		if (my_isnan(d.f)) {
+			d.u = 0x7f800001;
+		} else if ((d.u & 0x7F800000) == 0) {
+			d.u &= 0xFF800000;
 		}
 
 		ApplyPrefixD(mips, &d.f, V_Single);
@@ -1259,14 +1250,7 @@ namespace MIPSInt
 		}
 		ApplyPrefixST(mips, s, VFPURewritePrefix(mips, VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
 
-		float sum = 0.0f;
-		if (USE_VFPU_DOT) {
-			sum = vfpu_dot(s, t);
-		} else {
-			for (int i = 0; i < 4; i++) {
-				sum += s[i] * t[i];
-			}
-		}
+		float sum = vfpu_dot(s, t);
 		d = my_isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(mips, &d, V_Single);
 		WriteVector(mips, &d, V_Single, vd);
@@ -1480,13 +1464,8 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 0, 0);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
-			s[1] = -s[1];
-			d[0] = vfpu_dot(s, t);
-		} else {
-			d[0] = s[0] * t[0] - s[1] * t[1];
-			d[0] += s[2] * t[2] + s[3] * t[3];
-		}
+		s[1] = -s[1];
+		d[0] = vfpu_dot(s, t);
 
 		ApplyPrefixD(mips, d, V_Single);
 		WriteVector(mips, d, V_Single, vd);
@@ -1508,14 +1487,7 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
-			d = vfpu_dot(s, t);
-		} else {
-			d = 0.0f;
-			for (int i = 0; i < 4; i++) {
-				d += s[i] * t[i];
-			}
-		}
+		d = vfpu_dot(s, t);
 		ApplyPrefixD(mips, &d, V_Single);
 		WriteVector(mips, &d, V_Single, vd);
 		PC += 4;
@@ -1546,14 +1518,7 @@ namespace MIPSInt
 			tprefixAdd = 0;
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
-			d = vfpu_dot(s, t);
-		} else {
-			d = 0.0f;
-			for (int i = 0; i < 4; i++) {
-				d += s[i] * t[i];
-			}
-		}
+		d = vfpu_dot(s, t);
 		ApplyPrefixD(mips, &d, V_Single);
 		WriteVector(mips, &d, V_Single, vd);
 		PC += 4;
@@ -1588,8 +1553,9 @@ namespace MIPSInt
 	}
 
 	void Int_Vrnds(MIPSState *mips, MIPSOpcode op) {
-		int vd = _VD;
-		int seed = VI(vd);
+		// The seed is in the vs field. The toolchain leaves vd zero, so reading vd gets S000.
+		int vs = _VS;
+		int seed = VI(vs);
 		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
 		ApplySwizzleS(mips, reinterpret_cast<float *>(&seed), V_Single);
                 vrnd_init(uint32_t(seed), mips->vfpuCtrl + VFPU_CTRL_RCX0);
@@ -1709,36 +1675,24 @@ namespace MIPSInt
 		ReadMatrix(mips, s, msz, vs);
 		ReadVector(mips, t, sz, vt);
 
-		if (USE_VFPU_DOT) {
-			float t2[4];
-			for (int i = 0; i < 4; i++) {
-				if (i < tn) {
-					t2[i] = t[i];
-				} else if (i == ins) {
-					t2[i] = 1.0f;
-				} else {
-					t2[i] = 0.0f;
-				}
+		float t2[4];
+		for (int i = 0; i < 4; i++) {
+			if (i < tn) {
+				t2[i] = t[i];
+			} else if (i == ins) {
+				t2[i] = 1.0f;
+			} else {
+				t2[i] = 0.0f;
 			}
+		}
 
-			for (int i = 0; i < ins; i++) {
-				d.f[i] = vfpu_dot(&s[i * 4], t2);
+		for (int i = 0; i < ins; i++) {
+			d.f[i] = vfpu_dot(&s[i * 4], t2);
 
-				if (my_isnan(d.f[i])) {
-					d.u[i] = 0x7f800001;
-				} else if ((d.u[i] & 0x7F800000) == 0) {
-					d.u[i] &= 0xFF800000;
-				}
-			}
-		} else {
-			for (int i = 0; i < ins; i++) {
-				d.f[i] = s[i * 4] * t[0];
-				for (int k = 1; k < tn; k++) {
-					d.f[i] += s[i * 4 + k] * t[k];
-				}
-				if (ins >= n) {
-					d.f[i] += s[i * 4 + ins];
-				}
+			if (my_isnan(d.f[i])) {
+				d.u[i] = 0x7f800001;
+			} else if ((d.u[i] & 0x7F800000) == 0) {
+				d.u[i] &= 0xFF800000;
 			}
 		}
 
@@ -1763,19 +1717,12 @@ namespace MIPSInt
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
 		// Really this is the operation all rows probably use (with constant wiring.)
-		if (USE_VFPU_DOT) {
-			d.f[ins] = vfpu_dot(&s[ins * 4], t);
+		d.f[ins] = vfpu_dot(&s[ins * 4], t);
 
-			if (my_isnan(d.f[ins])) {
-				d.u[ins] = 0x7f800001;
-			} else if ((d.u[ins] & 0x7F800000) == 0) {
-				d.u[ins] &= 0xFF800000;
-			}
-		} else {
-			d.f[ins] = s[ins * 4] * t[0];
-			for (int k = 1; k < 4; k++) {
-				d.f[ins] += s[ins * 4 + k] * t[k];
-			}
+		if (my_isnan(d.f[ins])) {
+			d.u[ins] = 0x7f800001;
+		} else if ((d.u[ins] & 0x7F800000) == 0) {
+			d.u[ins] &= 0xFF800000;
 		}
 
 		// D prefix applies to the last element only.
@@ -1798,19 +1745,19 @@ namespace MIPSInt
 		switch (op >> 26)
 		{
 		case 50: //lv.s
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lv.s");
 				VI(vt) = 0;
 				break;
 			}
-			VI(vt) = Memory::ReadUnchecked_U32(addr);
+			VI(vt) = mips->space->ReadUnchecked_U32(addr);
 			break;
 		case 58: //sv.s
-			if (!Memory::IsValid4AlignedAddress(addr)) {
+			if (!mips->space->IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sv.s");
 				break;
 			}
-			Memory::WriteUnchecked_U32(VI(vt), addr);
+			mips->space->WriteUnchecked_U32(VI(vt), addr);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
@@ -1833,10 +1780,9 @@ namespace MIPSInt
 					R(rt) = VI(imm);
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 					R(rt) = mips->vfpuCtrl[imm - 128];
-				} else {
-					//ERROR - maybe need to make this value too an "interlock" value?
-					_dbg_assert_msg_(false,"mfv - invalid register");
 				}
+				// Past the control registers, rt is left alone. Every core does this (the IR
+				// interprets these), but no hardware test has checked it.
 			}
 			break;
 
@@ -1848,10 +1794,8 @@ namespace MIPSInt
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
 					mips->vfpuCtrl[imm - 128] = (R(rt) & mask) | GetVFPUCtrlSetBits(imm - 128);
 				}
-			} else {
-				//ERROR
-				_dbg_assert_msg_(false,"mtv - invalid register");
 			}
+			// Past the control registers, nothing is written (as with mfv above.)
 			break;
 
 		default:
@@ -1974,38 +1918,16 @@ namespace MIPSInt
 		ReadVector(mips, t.f, sz, vt);
 		ApplySwizzleT(mips, t.f, sz);
 
-		// If both are zero, take t's sign.
-		// Otherwise: -NAN < -INF < real < INF < NAN (higher mantissa is farther from 0.)
-
+		// See vfpu_minmax_key for the order.
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
 			for (int i = 0; i < numElements; i++) {
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
-					// If both are negative, we flip the comparison (not two's compliment.)
-					if (s.i[i] < 0 && t.i[i] < 0) {
-						// If at least one side is NAN, we take the highest mantissa bits.
-						d.i[i] = std::max(t.i[i], s.i[i]);
-					} else {
-						// Otherwise, we take the lowest value (negative or lowest mantissa.)
-						d.i[i] = std::min(t.i[i], s.i[i]);
-					}
-				} else {
-					d.f[i] = std::min(t.f[i], s.f[i]);
-				}
+				d.u[i] = vfpu_minmax_key(s.u[i]) < vfpu_minmax_key(t.u[i]) ? s.u[i] : t.u[i];
 			}
 			break;
 		case 3: // vmax
 			for (int i = 0; i < numElements; i++) {
-				// This is the same logic as vmin, just reversed.
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
-					if (s.i[i] < 0 && t.i[i] < 0) {
-						d.i[i] = std::min(t.i[i], s.i[i]);
-					} else {
-						d.i[i] = std::max(t.i[i], s.i[i]);
-					}
-				} else {
-					d.f[i] = std::max(t.f[i], s.f[i]);
-				}
+				d.u[i] = vfpu_minmax_key(s.u[i]) > vfpu_minmax_key(t.u[i]) ? s.u[i] : t.u[i];
 			}
 			break;
 		default:
@@ -2119,18 +2041,17 @@ namespace MIPSInt
 
 		int CC = mips->vfpuCtrl[VFPU_CTRL_CC];
 
-		if (imm3 < 6) {
-			if (((CC >> imm3) & 1) == !tf) {
-				for (int i = 0; i < n; i++)
-					d[i] = s[i];
-			}
-		} else if (imm3 == 6) {
+		if (imm3 == 6) {
 			for (int i = 0; i < n; i++) {
 				if (((CC >> i) & 1) == !tf)
 					d[i] = s[i];
 			}
 		} else {
-			ERROR_LOG_REPORT(Log::CPU, "Bad Imm3 in cmov: %d", imm3);
+			// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+			if (((CC >> imm3) & 1) == !tf) {
+				for (int i = 0; i < n; i++)
+					d[i] = s[i];
+			}
 		}
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -2190,7 +2111,7 @@ namespace MIPSInt
 			case 8: d.f[i] = s[i] * t[i]; break; //vmul
 			}
 
-			if (USE_VFPU_DOT) {
+			if (USE_VFPU_RESULT_FIXUP) {
 				if (my_isnan(d.f[i])) {
 					d.u[i] = (d.u[i] & 0xff800001) | 1;
 				} else if ((d.u[i] & 0x7F800000) == 0) {
@@ -2233,58 +2154,34 @@ namespace MIPSInt
 		switch (sz) {
 		case V_Triple:  // vcrsp.t
 		{
-			if (USE_VFPU_DOT) {
-				float t0[4] = { 0.0f, t[2], -t[1], 0.0f };
-				float t1[4] = { -t[2], 0.0f, t[0], 0.0f };
-				d[0] = vfpu_dot(s, t0);
-				d[1] = vfpu_dot(s, t1);
-			} else {
-				d[0] = s[1] * t[2] - s[2] * t[1];
-				d[1] = s[2] * t[0] - s[0] * t[2];
-			}
+			float t0[4] = { 0.0f, t[2], -t[1], 0.0f };
+			float t1[4] = { -t[2], 0.0f, t[0], 0.0f };
+			d[0] = vfpu_dot(s, t0);
+			d[1] = vfpu_dot(s, t1);
 
 			// T prefix forces swizzle and negate, can be used to have weird constants.
 			tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2) | VFPU_NEGATE(0, 1, 0, 0);
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(mips, s, V_Quad);
-			if (USE_VFPU_DOT) {
-				// TODO: But flush any infs to 0?  This seems sketchy.
-				for (int i = 0; i < 4; ++i) {
-					if (my_isinf(s[i]))
-						s[i] = 0.0f;
-					if (my_isinf(t[i]))
-						t[i] = 0.0f;
-				}
-				d[2] = vfpu_dot(s, t);
-			} else {
-				d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
-			}
+			// Infinities stay: inf * 0 gives the VFPU's NaN here (cpu/vfpu/nan_gen).
+			d[2] = vfpu_dot(s, t);
 			break;
 		}
 
 		case V_Quad:   // vqmul.q
 		{
-			if (USE_VFPU_DOT) {
-				float t0[4] = { t[3], t[2], -t[1], t[0] };
-				float t1[4] = { -t[2], t[3], t[0], t[1] };
-				float t2[4] = { t[1], -t[0], t[3], t[2] };
-				d[0] = vfpu_dot(s, t0);
-				d[1] = vfpu_dot(s, t1);
-				d[2] = vfpu_dot(s, t2);
-			} else {
-				d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
-				d[1] = -s[0] * t[2] + s[1] * t[3] + s[2] * t[0] + s[3] * t[1];
-				d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
-			}
+			float t0[4] = { t[3], t[2], -t[1], t[0] };
+			float t1[4] = { -t[2], t[3], t[0], t[1] };
+			float t2[4] = { t[1], -t[0], t[3], t[2] };
+			d[0] = vfpu_dot(s, t0);
+			d[1] = vfpu_dot(s, t1);
+			d[2] = vfpu_dot(s, t2);
 
 			// T prefix forces swizzle and negate, can be used to have weird constants.
 			tprefixAdd = VFPU_SWIZZLE(0, 1, 2, 3) | VFPU_NEGATE(1, 1, 1, 0);
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(mips, s, sz);
-			if (USE_VFPU_DOT)
-				d[3] = vfpu_dot(s, t);
-			else
-				d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
+			d[3] = vfpu_dot(s, t);
 			break;
 		}
 
@@ -2305,7 +2202,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vcrsp/vqmul with invalid elements");
+			ERROR_LOG(Log::CPU, "vcrsp/vqmul with invalid elements");
 			break;
 		}
 

@@ -398,7 +398,7 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 			int type = PSMF_ATRAC_STREAM;
 			int privateStreamId = currentStreamAddr[1];
 			if ((privateStreamId & 0xF0) != 0) {
-				WARN_LOG_REPORT(Log::ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
+				WARN_LOG(Log::ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
 				type = PSMF_PCM_STREAM;
 			}
 			stream = new PsmfStream(type, privateStreamId & 0x0F);
@@ -975,7 +975,7 @@ static u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 	return hleLogDebug(Log::ME, psmf->version);
 }
 
-static u32 scePsmfVerifyPsmf(u32 psmfAddr)
+static u32 scePsmfVerifyPsmf(MIPSState *mips, u32 psmfAddr)
 {
 	if (!Memory::IsValid4AlignedRange(psmfAddr, 12)) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "bad address");
@@ -990,7 +990,7 @@ static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 	}
 	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
 	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
-	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
+	Memory::Memset(mips->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -1257,7 +1257,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	const u32 magic = *(u32_le *)buf;
 	if (magic != PSMF_MAGIC) {
 		// TODO: Let's keep trying as we were before.
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic (%08x), bad data", magic);
+		ERROR_LOG(Log::ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic (%08x), bad data", magic);
 		//return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "incorrect PSMF magic (%08x), bad data", magic);
 	}
 
@@ -1288,7 +1288,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
 			++psmfplayer->totalAudioStreams;
 		} else {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
+			WARN_LOG(Log::ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
 		}
 	}
 	// TODO: It seems like it's invalid if there's not at least 1 video stream.
@@ -1381,20 +1381,20 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	if (psmfplayer->totalAudioStreams > 0) {
 		if (playerData->audioCodec != 0x0F && playerData->audioCodec != 0x01) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid audio codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->audioCodec);
+			ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid audio codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->audioCodec);
 			return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_STREAM);
 		}
 		if (playerData->audioStreamNum >= psmfplayer->totalAudioStreams) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change audio stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->audioStreamNum);
+			ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change audio stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->audioStreamNum);
 			return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_CONFIG);
 		}
 	}
 	if (playerData->videoCodec != 0x0E && playerData->videoCodec != 0x00) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid video codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->videoCodec);
+		ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid video codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->videoCodec);
 		return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_STREAM);
 	}
 	if (playerData->videoStreamNum < 0 || playerData->videoStreamNum >= psmfplayer->totalVideoStreams) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change video stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->videoStreamNum);
+		ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change video stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->videoStreamNum);
 		return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_CONFIG);
 	}
 
@@ -1402,10 +1402,10 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	case PSMF_PLAYER_MODE_FORWARD:
 	case PSMF_PLAYER_MODE_REWIND:
 		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
+			WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
 			return SCE_PSMFPLAYER_ERROR_INVALID_PARAM;
 		}
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
 		break;
 
 	case PSMF_PLAYER_MODE_PLAY:
@@ -1413,7 +1413,7 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		break;
 
 	default:
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
 		break;
 	}
 
@@ -1827,17 +1827,17 @@ static u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpe
 	case PSMF_PLAYER_MODE_FORWARD:
 	case PSMF_PLAYER_MODE_REWIND:
 		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): no EP data for FORWARD/REWIND", psmfPlayer, playMode, playSpeed);
+			ERROR_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): no EP data for FORWARD/REWIND", psmfPlayer, playMode, playSpeed);
 			return SCE_PSMFPLAYER_ERROR_INVALID_STREAM;
 		}
 		psmfplayer->playSpeed = playSpeed;
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
 		break;
 
 	case PSMF_PLAYER_MODE_PLAY:
 	case PSMF_PLAYER_MODE_PAUSE:
 		if (psmfplayer->playSpeed != playSpeed) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+			WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
 		} else {
 			DEBUG_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer, playMode, playSpeed);
 		}
@@ -1845,9 +1845,9 @@ static u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpe
 
 	default:
 		if (psmfplayer->playSpeed != playSpeed) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+			WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
 		}
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
 		break;
 	}
 
@@ -1873,7 +1873,7 @@ static u32 scePsmfPlayerSelectAudio(u32 psmfPlayer)
 		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
 	}
 
-	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
+	WARN_LOG(Log::ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
 	psmfplayer->audioStreamNum = next;
 	return 0;
 }
@@ -1896,7 +1896,7 @@ static u32 scePsmfPlayerSelectVideo(u32 psmfPlayer)
 		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
 	}
 
-	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
+	WARN_LOG(Log::ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
 	psmfplayer->videoStreamNum = next;
 	return 0;
 }

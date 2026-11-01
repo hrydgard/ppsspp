@@ -42,16 +42,24 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      # Unlimited, a cache once reached 1.2 GB.
+      CCACHE_MAXSIZE: 500M
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
     steps:
+      # The pkgforge mirror often drops a download partway, so retry the whole transaction.
       - name: Install git
-        run: pacman -Syu --noconfirm git
+        shell: bash
+        run: |
+          for i in 1 2 3 4 5; do
+            pacman -Syu --noconfirm git && exit 0
+            sleep 20
+          done
+          exit 1
 
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Check Valid Version Tags
         id: valid-tags
@@ -68,8 +76,16 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
+      - name: Check out submodules
+        shell: bash
+        run: |
+          # The container runs as another user than the one that owns the checkout.
+          git config --global --add safe.directory '*'
+          .github/checkout-submodules.sh
+
+      # Only master saves the cache (see build.yml), so restoring and saving are separate.
       - name: Set up ccache for ${{ matrix.id }}
-        uses: actions/cache@v6.1.0
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
@@ -78,6 +94,10 @@ jobs:
 
       - name: Install dependencies
         shell: bash
+        env:
+          # get-debloated-pkgs.sh queries the GitHub API, which rate-limits unauthenticated
+          # requests per runner IP. It then sleeps 10 minutes and usually fails anyway.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           #sudo su # Why sudo is needed?
           #sudo rm -rf /var/lib/apt/lists/lock # due to permisson issue, why there is such issue?
@@ -95,9 +115,17 @@ jobs:
           echo "ARCH=$ARCH" >> $GITHUB_ENV # Export ARCH to be reused on other steps
           EXTRA_PACKAGES="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/refs/heads/main/useful-tools/get-debloated-pkgs.sh"
 
+          retry() {
+            for i in 1 2 3 4 5; do
+              "$@" && return 0
+              sleep 20
+            done
+            return 1
+          }
+
           echo "Installing build dependencies..."
           echo "---------------------------------------------------------------"
-          pacman -Syu --noconfirm \
+          retry pacman -Syu --noconfirm \
             base-devel \
             curl \
             git \
@@ -115,6 +143,7 @@ jobs:
             glew \
             sdl3 \
             sdl3_ttf \
+            fribidi \
             python \
             patchelf \
             pipewire \
@@ -165,10 +194,17 @@ jobs:
           #./b.sh --release --no-sdl2 --no-png
           mkdir -p build
           pushd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHEADLESS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 
           make -j$(nproc)
           popd
           ccache -s -v
+
+      - name: Save ccache for ${{ matrix.id }}
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
 
       - name: Create AppImage
         shell: bash
@@ -179,6 +215,7 @@ jobs:
 
           # Test for missing modules
           ldd ./build/PPSSPPSDL
+          ldd ./build/PPSSPPHeadless
 
           # Create AppImage package
           echo "Creating AppImage..."
@@ -195,15 +232,9 @@ jobs:
           find . -name "PPSSPP*.AppBundle" -exec chmod +x '{}' \;
           find . -name "PPSSPP*.zsync"
           mkdir artifacts
-          if [ -e ./PPSSPP*.AppImage ]; then
-            cp -a ./PPSSPP*.AppImage artifacts/
-          fi
-          if [ -e ./PPSSPP*.AppBundle ]; then
-            cp -a ./PPSSPP*.AppBundle artifacts/
-          fi
-          if [ -e ./PPSSPP*.zsync ]; then
-            cp ./PPSSPP*.zsync artifacts/
-          fi
+          # There's more than one AppImage (PPSSPP and PPSSPPHeadless), so no [ -e glob ].
+          find . -maxdepth 1 \( -name "PPSSPP*.AppImage" -o -name "PPSSPP*.AppBundle" -o -name "PPSSPP*.zsync" \) -exec cp -a '{}' artifacts/ \;
+          ls -l artifacts/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

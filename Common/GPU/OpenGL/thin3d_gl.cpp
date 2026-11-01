@@ -333,6 +333,7 @@ public:
 	void SetTargetSize(int w, int h) override {
 		DrawContext::SetTargetSize(w, h);
 		renderManager_.Resize(w, h);
+		primarySwapchain_->SetSize(w, h);
 	}
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -548,6 +549,8 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			// 30 is an ok value for the max since it's 2^31-1, which is the max value for a signed int. NVIDIA also reports this.
 			caps_.samplerLodControl = true;
 		}
+		// GL_TEXTURE_LOD_BIAS is desktop GL only, so the shader has to apply the bias.
+		caps_.samplerLodBias = false;
 		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {
@@ -673,6 +676,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 #endif
 
 	shaderLanguageDesc_.Init(GLSL_1xx);
+	// With clip control set up by GLQueueRunner, depth is 0 to w like in Vulkan. Without it, window depth 0
+	// comes from z = -w, where the rasterizer rounds to an ulp of 1.0 rather than of 0: a flat ground at
+	// z = 0 got depths just above 0, and sprites on it that test GEQUAL failed (Puyo Puyo Fever 2).
+	shaderLanguageDesc_.depthMinusOneToOne = !(gl_extensions.ARB_clip_control || gl_extensions.EXT_clip_control);
 
 	shaderLanguageDesc_.glslVersionNumber = gl_extensions.GLSLVersion();
 
@@ -953,6 +960,7 @@ public:
 	OpenGLFramebuffer(GLRenderManager *render, GLRFramebuffer *framebuffer) : render_(render), framebuffer_(framebuffer) {
 		width_ = framebuffer->width;
 		height_ = framebuffer->height;
+		hasDepthStencil_ = framebuffer->z_stencil_;
 	}
 	~OpenGLFramebuffer() {
 		render_->DeleteFramebuffer(framebuffer_);
@@ -1040,6 +1048,7 @@ static void LogReadPixelsError(GLenum error) {
 #endif
 
 bool OpenGLContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
+	src = PrimaryToNull(src);
 	if (gl_extensions.IsGLES && (channelBits & Aspect::COLOR_BIT) == 0) {
 		// Can't readback depth or stencil on GLES.
 		return false;
@@ -1577,6 +1586,7 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 }
 
 void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
+	fbo = PrimaryToNull(fbo);
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	GLRRenderPassAction color = (GLRRenderPassAction)rp.color;
 	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
@@ -1589,6 +1599,14 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+
+	if (aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) {
+		_dbg_assert_msg_(src->HasDepthStencil(), "%s", src->framebuffer_->Tag());
+		_dbg_assert_msg_(dst->HasDepthStencil(), "%s", dst->framebuffer_->Tag());
+		if (!src->HasDepthStencil() || !dst->HasDepthStencil()) {
+			return;
+		}
+	}
 
 	int glAspect = 0;
 	if (aspects & Aspect::COLOR_BIT) {
@@ -1605,6 +1623,14 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter linearFilter, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+	if (aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) {
+		_dbg_assert_msg_(src->HasDepthStencil(), "%s", src->framebuffer_->Tag());
+		_dbg_assert_msg_(dst->HasDepthStencil(), "%s", dst->framebuffer_->Tag());
+		if (!src->HasDepthStencil() || !dst->HasDepthStencil()) {
+			return false;
+		}
+	}
+
 	GLuint aspect = 0;
 	if (aspects & Aspect::COLOR_BIT)
 		aspect |= GL_COLOR_BUFFER_BIT;
@@ -1640,6 +1666,7 @@ void OpenGLContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspe
 }
 
 void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
+	fbo = PrimaryToNull(fbo);
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	if (fb) {
 		*w = fb->Width();

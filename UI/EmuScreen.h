@@ -18,6 +18,8 @@
 #pragma once
 
 #include <list>
+#include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -28,11 +30,14 @@
 #include "Common/UI/Tween.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
+#include "Core/CoreParameter.h"
 #include "UI/ImDebugger/ImCommand.h"
 
 struct AxisInput;
+struct DisplayLayoutConfig;
 
 class AsyncImageFileView;
+class ImposeHomeScreen;
 class ChatMenu;
 class ImDebugger;
 struct ImCommand;
@@ -40,7 +45,9 @@ struct ImGuiContext;
 
 class EmuScreen : public UIScreen, protected ControlListener {
 public:
-	EmuScreen(const Path &filename);
+	// mountIso, if set, is mounted on umd1: when filename is an ELF/PBP (like the VSH).
+	// umdAutoboot overrides the VSH's UMD auto-start setting.
+	EmuScreen(const Path &filename, const Path &mountIso = Path(), std::optional<bool> umdAutoboot = std::nullopt);
 	~EmuScreen();
 
 	const char *tag() const override { return "Emu"; }
@@ -63,8 +70,10 @@ public:
 
 protected:
 	void darken();
+	void drawGameOnOutputMessage();
 	void focusChanged(ScreenFocusChange focusChange) override;
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
+	bool renderOutput(const OutputDisplay &output) override;
 
 	// ControlListener implementations
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
@@ -78,6 +87,9 @@ protected:
 private:
 	void CreateViews() override;
 	ScreenRenderFlags RunEmulation(bool skipBufferEffects);
+	void UpdateGameOutput();
+	DeviceOrientation GameLayoutOrientation() const;
+	const DisplayLayoutConfig &GameLayoutConfig() const;
 	void OnDevTools(UI::EventParams &params);
 	void OpenChat(bool focus);
 
@@ -90,6 +102,7 @@ private:
 
 	void AutoLoadSaveState();
 	bool checkPowerDown();
+	void leaveGame();
 
 	void ProcessQueuedVKeys();
 	void ProcessVKey(VirtKey vkey, bool down);
@@ -100,6 +113,11 @@ private:
 	bool bootPending_ = true;
 	bool bootIsReset_ = false;
 	Path gamePath_;
+	Path mountIso_;
+	std::optional<bool> umdAutoboot_;
+	// The rest of a BootRequest from the emulated system (see PSP_RequestBoot).
+	std::optional<VSHLaunch> launchedFromVSH_;
+	std::vector<u8> vshmainArgs_;
 
 	bool quit_ = false;
 	std::string errorMessage_;
@@ -124,11 +142,17 @@ private:
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
+	// Shown while a savestate is being saved or loaded, if that takes long enough to notice.
+	UI::Spinner *saveStateSpinner_ = nullptr;
+	double saveStateBusySince_ = -1.0;
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
 	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
+	// Set when the chat opens. Stick movements don't reach the control mapper while it's open (key
+	// releases do), so what's held is let go up front.
+	bool releaseMapperInput_ = false;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 
@@ -144,9 +168,17 @@ private:
 	bool autoLoadFailed_ = false;  // to prevent repeat reloads
 	bool readyToFinishBoot_ = false;
 	bool skipBufferEffects_ = false;  // cached state, fetched once per frame.
+	// The game goes to a secondary output (OutputRole::Game) instead of the backbuffer. Per frame too.
+	bool gameOnOutput_ = false;
+	DeviceOrientation gameOutputOrientation_ = DeviceOrientation::Landscape;
 
 	uint32_t clearColor_ = 0;
+
+	// The HOME button's quit screen (as impose draws it on a PSP).
+	std::unique_ptr<ImposeHomeScreen> imposeHome_;
 };
 
 bool MustRunBehind();
 bool ShouldRunBehind();
+// The orientation of the output the game goes to (like a TV), if there's one. Its display layout is the one for that.
+bool GetGameOutputOrientation(ScreenManager *screenManager, DeviceOrientation *orientation);

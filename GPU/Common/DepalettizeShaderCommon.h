@@ -32,6 +32,7 @@ struct DepalConfig {
 	u8 shift;
 	bool smoothedDepal;
 	u8 depthUpperBits;
+	bool depthIntoHalves;
 	GEPaletteFormat clutFormat;
 	GETextureFormat textureFormat;
 	GEBufferFormat bufferFormat;

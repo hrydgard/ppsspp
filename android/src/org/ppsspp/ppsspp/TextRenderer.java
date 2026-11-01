@@ -18,6 +18,8 @@ public class TextRenderer {
 	private static int idGen = 1;
 
 	private static final HashMap<java.lang.Integer, Typeface> fontMap = new HashMap<>();
+	// The native side asks again for every font each time graphics are brought up (every resume).
+	private static final HashMap<String, java.lang.Integer> fontIds = new HashMap<>();
 
 	private static boolean highContrastFontsEnabled = false;
 
@@ -29,6 +31,10 @@ public class TextRenderer {
 	@Keep
 	public static int allocFont(Context ctx, String ttfFile) {
 		try {
+			java.lang.Integer existing = fontIds.get(ttfFile);
+			if (existing != null) {
+				return existing;
+			}
 			Typeface typeFace = Typeface.createFromAsset(ctx.getAssets(), ttfFile);
 			if (typeFace != null) {
 				Log.i(TAG, "Successfully loaded typeface from " + ttfFile);
@@ -37,6 +43,7 @@ public class TextRenderer {
 			}
 			int id = idGen++;
 			fontMap.put(id, typeFace);
+			fontIds.put(ttfFile, id);
 			return id;
 		} catch (Exception e) {
 			Log.e(TAG, "Exception when loading typeface. shouldn't happen but is reported. We just fall back." + e);
@@ -47,12 +54,17 @@ public class TextRenderer {
 	@Keep
 	public static void freeAllFonts() {
 		fontMap.clear();
+		fontIds.clear();
 	}
 
 	public static void init(Context ctx) {
 		Log.i(TAG, "initializing TextDrawerAndroid java side");
-		textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
-		textPaint.setColor(Color.WHITE);
+		// Called for every new activity. With OpenGL the emu thread lives on across those and may be
+		// drawing text with the paint right now, so don't swap it out from under it.
+		if (textPaint == null) {
+			textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
+			textPaint.setColor(Color.WHITE);
+		}
 		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
 	}
 
@@ -100,6 +112,8 @@ public class TextRenderer {
 		Point s = measure(string, font, textSize);
 		return (s.x << 16) | s.y;
 	}
+
+	@Keep
 	public static int[] renderText(String string, int font, double textSize, int w, int h) {
 		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);

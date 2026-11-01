@@ -73,6 +73,7 @@ private:
 
 	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
+	std::vector<std::string> parseErrors_;
 	std::string gameID_;
 	int fileCheckCounter_ = 0;
 	uint64_t fileCheckHash_ = 0;

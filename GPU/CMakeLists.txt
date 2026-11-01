@@ -3,8 +3,6 @@ list(APPEND GPUArch
 	Common/VertexDecoderArm.cpp
 	Common/VertexDecoderArm64.cpp
 	Common/VertexDecoderX86.cpp
-	Software/DrawPixelX86.cpp
-	Software/SamplerX86.cpp
 	Common/VertexDecoderRiscV.cpp
 	Common/VertexDecoderLoongArch64.cpp
 )
@@ -66,9 +64,28 @@ set(GPU_D3D11
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
-set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
+set(GPU_IMPLS ${GPU_VULKAN})
+if(NOT NO_OPENGL)
+	list(APPEND GPU_IMPLS ${GPU_GLES})
+endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D11})
+endif()
+if(APPLE AND NOT LIBRETRO)
+	set(GPU_METAL
+		Metal/DrawEngineMetal.h
+		Metal/DrawEngineMetal.mm
+		Metal/FramebufferManagerMetal.h
+		Metal/FramebufferManagerMetal.mm
+		Metal/GPU_Metal.h
+		Metal/GPU_Metal.mm
+		Metal/ShaderManagerMetal.h
+		Metal/ShaderManagerMetal.mm
+		Metal/TextureCacheMetal.h
+		Metal/TextureCacheMetal.mm
+	)
+	set_source_files_properties(Metal/DrawEngineMetal.mm Metal/FramebufferManagerMetal.mm Metal/GPU_Metal.mm Metal/ShaderManagerMetal.mm Metal/TextureCacheMetal.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	list(APPEND GPU_IMPLS ${GPU_METAL})
 endif()
 
 set(GPU_SOURCES
@@ -97,6 +114,8 @@ set(GPU_SOURCES
 	Common/GPUStateUtils.h
 	Common/DrawEngineCommon.cpp
 	Common/DrawEngineCommon.h
+	Common/Overlay.cpp
+	Common/Overlay.h
 	Common/PresentationCommon.cpp
 	Common/PresentationCommon.h
 	Common/ReinterpretFramebuffer.cpp
@@ -112,6 +131,7 @@ set(GPU_SOURCES
 	Common/StencilCommon.cpp
 	Common/StencilCommon.h
 	Common/SoftwareTransformCommon.cpp
+	Common/SoftwareLighting.h
 	Common/SoftwareTransformCommon.h
 	Common/VertexDecoderCommon.cpp
 	Common/VertexDecoderCommon.h
@@ -182,12 +202,13 @@ set(GPU_SOURCES
 	Software/Rasterizer.h
 	Software/RasterizerRectangle.cpp
 	Software/RasterizerRectangle.h
-	Software/RasterizerRegCache.cpp
-	Software/RasterizerRegCache.h
+	Software/RasterizerTypes.h
 	Software/Sampler.cpp
 	Software/Sampler.h
 	Software/SoftGpu.cpp
 	Software/SoftGpu.h
+	Null/GPU_Null.cpp
+	Null/GPU_Null.h
 	Software/TransformUnit.cpp
 	Software/TransformUnit.h
 )

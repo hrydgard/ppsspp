@@ -57,6 +57,8 @@ static std::map<SceUID, u64> umdPausedWaits;
 
 bool g_UMDReplacePermit = false;
 bool UMDInserted = true;
+// The image a disc swap or insert put in the drive. Empty if it's still the one we booted with.
+static Path g_umdPath;
 
 struct PspUmdInfo {
 	u32_le size;
@@ -81,6 +83,10 @@ void __UmdInit()
 	umdWaitingThreads.clear();
 	umdPausedWaits.clear();
 	g_UMDReplacePermit = false;
+	g_umdPath.clear();
+	// The XMB ejects the disc when it boots without one, and the next game boot mustn't inherit
+	// the empty drive.
+	UMDInserted = true;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_UMD, __UmdBeginCallback, __UmdEndCallback);
 }
@@ -164,10 +170,29 @@ static void __UmdStatChange(u64 userdata, int cyclesLate) {
 	UmdWakeThreads();
 }
 
+// Callback notifications don't queue: a second one before the callback runs replaces the first's
+// argument. So a disc that goes in before the shell has run the callback for the one that came out
+// (both done from the pause menu) would look to it like nothing changed.
+static bool DriveCallbackPending() {
+	u32 error;
+	const PSPCallback *cb = driveCBId != 0 ? kernelObjects.Get<PSPCallback>(driveCBId, error) : nullptr;
+	return cb && cb->nc.notifyCount != 0;
+}
+
+// userdata 1: an insert waiting for the drive callback to see the drive empty, which then gets
+// the callback itself. 0: the second half of a disc swap.
 static void __UmdInsertChange(u64 userdata, int cyclesLate) {
+	if (userdata == 1 && DriveCallbackPending()) {
+		CoreTiming::ScheduleEvent(usToCycles(100 * 1000), umdInsertChangeEvent, 1);
+		return;
+	}
+
 	UMDInserted = true;
 
 	UmdWakeThreads();
+	if (userdata == 1 && driveCBId != 0) {
+		__KernelNotifyCallback(driveCBId, PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED);
+	}
 }
 
 static void __KernelUmdActivate()
@@ -176,6 +201,10 @@ static void __KernelUmdActivate()
 	// PSP_UMD_READY will be returned when sceKernelGetCompiledSdkVersion() != 0
 	if (sceKernelGetCompiledSdkVersion() != 0) {
 		notifyArg |= PSP_UMD_READY;
+	}
+	// An empty drive (the XMB's) says so: the shell otherwise asks for the disc and reports it unreadable.
+	if (!UMDInserted) {
+		notifyArg = PSP_UMD_NOT_PRESENT;
 	}
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
@@ -187,7 +216,7 @@ static void __KernelUmdActivate()
 
 static void __KernelUmdDeactivate()
 {
-	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READY;
+	u32 notifyArg = UMDInserted ? PSP_UMD_PRESENT | PSP_UMD_READY : PSP_UMD_NOT_PRESENT;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 
@@ -283,7 +312,9 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 		if (info->size != 8)
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 
-		info->type = PSP_UMD_TYPE_GAME;
+		// Games see a game disc, whatever else is on it.
+		const u32 type = __UmdDiscType();
+		info->type = (type & PSP_UMD_TYPE_GAME) || type == 0 ? PSP_UMD_TYPE_GAME : type;
 		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
@@ -494,6 +525,7 @@ void __UmdReplace(const Path &filepath) {
 	}
 
 	Achievements::ChangeUMD(filepath, fileLoader);
+	g_umdPath = filepath;
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.
@@ -504,6 +536,87 @@ void __UmdReplace(const Path &filepath) {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+bool __UmdInsert(const Path &filepath, std::string *error) {
+	if (__UmdIsInserted()) {
+		*error = "a disc is already in the drive";
+		return false;
+	}
+	FileLoader *fileLoader;
+	if (!UmdMount(filepath, &fileLoader, *error)) {
+		return false;
+	}
+	Achievements::ChangeUMD(filepath, fileLoader);
+	g_umdPath = filepath;
+
+	CoreTiming::UnscheduleEvent(umdInsertChangeEvent, 1);
+	if (DriveCallbackPending()) {
+		CoreTiming::ScheduleEvent(usToCycles(100 * 1000), umdInsertChangeEvent, 1);
+		return true;
+	}
+
+	UMDInserted = true;
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED);
+	return true;
+}
+
+void __UmdEject() {
+	// A disc still waiting to go in comes back out without the shell ever hearing of it.
+	const bool insertPending = CoreTiming::UnscheduleEvent(umdInsertChangeEvent, 1) != 0;
+	if (!UMDInserted && !insertPending) {
+		return;
+	}
+	pspFileSystem.Unmount("umd0:");
+	pspFileSystem.Unmount("umd1:");
+	pspFileSystem.Unmount("umd:");
+	pspFileSystem.Unmount("disc0:");
+	if (!UMDInserted) {
+		return;
+	}
+	UMDInserted = false;
+	UmdWakeThreads();
+	if (driveCBId != 0)
+		__KernelNotifyCallback(driveCBId, PSP_UMD_NOT_PRESENT | PSP_UMD_CHANGED);
+}
+
+Path __UmdGetPath() {
+	if (!UMDInserted) {
+		return Path();
+	}
+	if (!g_umdPath.empty()) {
+		return g_umdPath;
+	}
+	const CoreParameter &coreParam = PSP_CoreParameter();
+	if (!coreParam.mountIso.empty()) {
+		return coreParam.mountIso;
+	}
+	switch (coreParam.fileType) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+		return coreParam.fileToStart;
+	default:
+		// A homebrew or PS1 EBOOT, with no disc behind disc0:.
+		return Path();
+	}
+}
+
+bool __UmdIsInserted() {
+	// Counting a disc that's on its way in, which can't finish while emulation is paused.
+	return UMDInserted || CoreTiming::IsScheduled(umdInsertChangeEvent);
+}
+
+u32 __UmdDiscType() {
+	if (!UMDInserted) {
+		return 0;
+	}
+	const u32 type = DetectUmdDiscType(&pspFileSystem, "disc0:");
+	// A loose game directory or an ISO without the usual layout still boots as a game.
+	return type != 0 ? type : PSP_UMD_TYPE_GAME;
 }
 
 bool getUMDReplacePermit() {

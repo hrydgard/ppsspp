@@ -150,6 +150,58 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
 }
 
+bool FrameData::AcquireExtraSwapchain(VulkanContext *vulkan, VKRSwapchain *swapchain) {
+	if (swapchain->acquired) {
+		return true;
+	}
+	if (swapchain->outOfDate || swapchain->swapchain == VK_NULL_HANDLE) {
+		return false;
+	}
+	// Doesn't wait, only the main swapchain paces the frame.
+	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), swapchain->swapchain, 0, swapchain->acquireSemaphores[index], (VkFence)VK_NULL_HANDLE, &swapchain->curImage);
+	switch (res) {
+	case VK_SUCCESS:
+	case VK_SUBOPTIMAL_KHR:
+		break;
+	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_ERROR_SURFACE_LOST_KHR:
+		swapchain->outOfDate = true;
+		return false;
+	default:
+		// VK_NOT_READY or VK_TIMEOUT. Skip a frame.
+		return false;
+	}
+	swapchain->acquired = true;
+	acquiredSwapchains.push_back(swapchain);
+	return true;
+}
+
+void FrameData::PresentExtraSwapchains(VulkanContext *vulkan) {
+	for (VKRSwapchain *swapchain : acquiredSwapchains) {
+		VkPresentInfoKHR present{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+		present.swapchainCount = 1;
+		present.pSwapchains = &swapchain->swapchain;
+		present.pImageIndices = &swapchain->curImage;
+		present.waitSemaphoreCount = 1;
+		present.pWaitSemaphores = &swapchain->images[swapchain->curImage].renderingCompleteSemaphore;
+		VkResult res = vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
+		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_ERROR_SURFACE_LOST_KHR) {
+			swapchain->outOfDate = true;
+		} else if (res == VK_SUBOPTIMAL_KHR) {
+			// Like the main swapchain, recreated once it stays that way (a TV's mode changed without a resize).
+			if (++swapchain->suboptimalFrames > VulkanContext::MAX_INFLIGHT_FRAMES) {
+				swapchain->outOfDate = true;
+			}
+		} else if (res == VK_SUCCESS) {
+			swapchain->suboptimalFrames = 0;
+		} else {
+			ERROR_LOG(Log::G3D, "vkQueuePresentKHR failed for an additional swapchain: %s", VulkanResultToString(res));
+		}
+		swapchain->acquired = false;
+	}
+	acquiredSwapchains.clear();
+}
+
 VkCommandBuffer FrameData::GetInitCmd(VulkanContext *vulkan) {
 	if (!hasInitCommands) {
 		VkCommandBufferBeginInfo begin = {
@@ -226,19 +278,35 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 	}
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
-	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (type == FrameSubmitType::FinishFrame && !skipSwap) {
-		_dbg_assert_(hasAcquired);
-		submit_info.waitSemaphoreCount = 1;
-		submit_info.pWaitSemaphores = &acquireSemaphore;
-		submit_info.pWaitDstStageMask = waitStage;
+	// The main swapchain, then the additional ones.
+	VkSemaphore waitSemaphores[1 + MAX_EXTRA_SWAPCHAINS];
+	VkPipelineStageFlags waitStages[1 + MAX_EXTRA_SWAPCHAINS];
+	VkSemaphore signalSemaphores[1 + MAX_EXTRA_SWAPCHAINS];
+	uint32_t numSemaphores = 0;
+	if (type == FrameSubmitType::FinishFrame) {
+		if (!skipSwap) {
+			_dbg_assert_(hasAcquired);
+			waitSemaphores[numSemaphores] = acquireSemaphore;
+			signalSemaphores[numSemaphores] = sharedData.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
+			numSemaphores++;
+		}
+		_dbg_assert_(acquiredSwapchains.size() <= MAX_EXTRA_SWAPCHAINS);
+		for (const VKRSwapchain *swapchain : acquiredSwapchains) {
+			waitSemaphores[numSemaphores] = swapchain->acquireSemaphores[index];
+			signalSemaphores[numSemaphores] = swapchain->images[swapchain->curImage].renderingCompleteSemaphore;
+			numSemaphores++;
+		}
+		for (uint32_t i = 0; i < numSemaphores; i++) {
+			waitStages[i] = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		}
 	}
+	submit_info.waitSemaphoreCount = numSemaphores;
+	submit_info.pWaitSemaphores = waitSemaphores;
+	submit_info.pWaitDstStageMask = waitStages;
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (type == FrameSubmitType::FinishFrame && !skipSwap) {
-		submit_info.signalSemaphoreCount = 1;
-		submit_info.pSignalSemaphores = &sharedData.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
-	}
+	submit_info.signalSemaphoreCount = numSemaphores;
+	submit_info.pSignalSemaphores = signalSemaphores;
 	vulkan->PrepareSubmit(submit_info);
 
 	VkResult res;

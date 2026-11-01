@@ -49,7 +49,9 @@ bool IRWritesToFPR(const IRInstMeta &inst, int reg);
 int IRDestGPR(const IRInstMeta &inst);
 int IRDestFPRs(const IRInstMeta &inst, IRReg regs[4]);
 int IRReadsFromGPRs(const IRInstMeta &inst, IRReg regs[4]);
-int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[16]);
+// A block (M) and a Vec4.
+enum { IR_MAX_FPR_READS = 20 };
+int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[IR_MAX_FPR_READS]);
 
 struct IRSituation {
 	int lookaheadCount;

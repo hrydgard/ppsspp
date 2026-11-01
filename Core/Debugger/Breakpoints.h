@@ -125,7 +125,7 @@ struct MemCheck {
 	// Called on the stored memcheck (affects numHits, etc.)
 	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
 	// Called on a copy.
-	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason);
+	BreakAction Action(u32 addr, bool write, int size, u32 pc, const char *reason, bool skipPause);
 
 	void Log(u32 addr, bool write, int size, u32 pc, const char *reason) const;
 
@@ -251,8 +251,10 @@ public:
 	// instruction that would write to reg - does not itself execute the instruction.
 	BreakAction ExecRegBreakpoint(int reg, u32 pc);
 
+	// Call when starting to run or step from pc. Breakpoints at pc then don't pause until the
+	// instruction there has run, and if one of them is what stopped us, it doesn't report again.
 	void SetSkipFirst(u32 pc);
-	u32 CheckSkipFirst() const;
+	// Execution stopped, or jumped (reset, savestate load).
 	void ClearSkipFirst();
 
 	// Includes uncached addresses.
@@ -301,10 +303,24 @@ private:
 	std::atomic<bool> anyMemChecks_;
 	std::atomic<u32> regBreakpointMask_;
 
+	bool SkipPauseAt(u32 pc) const;
+	bool SkipReportAt(u32 pc) const;
+	void NoteStoppedOnReport(u32 pc);
+
 	std::vector<BreakPoint> breakPoints_;
 	TempBreakPoint tempBreakPoint_;
-	u32 breakSkipFirstAt_ = 0;
-	u64 breakSkipFirstTicks_ = 0;
+	// GetTicks() only moves when an instruction retires, so (pc, ticks) stops matching as soon as
+	// the instruction at pc has run, and a loop back to pc is a new execution.
+	bool skipFirstValid_ = false;
+	u32 skipFirstAt_ = 0;
+	u64 skipFirstTicks_ = 0;
+	// Set when the breakpoint we're resuming from is the one that stopped us, and so already
+	// logged and counted this execution.
+	bool skipFirstReport_ = false;
+	// The instruction whose breakpoint stopped us. Only the address: inside a JIT block the tick
+	// count isn't settled yet, so SetSkipFirst() pairs it with the ticks once we've stopped.
+	bool stoppedOnReport_ = false;
+	u32 stoppedOnReportAt_ = 0;
 
 	std::vector<MemCheck> memChecks_;
 	std::vector<MemCheck> memCheckRangesRead_;

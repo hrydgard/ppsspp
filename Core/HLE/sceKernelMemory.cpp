@@ -73,7 +73,8 @@ u32 FPL::GetMissingErrorCode() {
 
 int FPL::FindFreeBlock() {
 	for (int i = 0; i < nf.numBlocks; i++) {
-		int b = nextBlock++ % nf.numBlocks;
+		int b = nextBlock % nf.numBlocks;
+		nextBlock = b + 1;
 		if (!blocks[b]) {
 			return b;
 		}
@@ -102,6 +103,7 @@ void FPL::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nf);
+	TerminateLoadedCString(p, nf.name);
 	if (p.mode == p.MODE_READ) {
 		if (nf.numBlocks < 0 || !p.CheckRead(nf.numBlocks)) {
 			p.SetError(p.ERROR_FAILURE);
@@ -116,6 +118,11 @@ void FPL::DoState(PointerWrap &p) {
 	FplWaitingThread dv = { 0 };
 	Do(p, waitingThreads, dv);
 	Do(p, pausedWaits);
+	// It's taken modulo the block count, but a negative one stays negative. Older versions let it
+	// overflow, so just restart the search.
+	if (p.mode == p.MODE_READ && nextBlock < 0) {
+		nextBlock = 0;
+	}
 }
 
 void SceKernelVplHeader::Init(u32 ptr, u32 size) {
@@ -293,6 +300,7 @@ void VPL::DoState(PointerWrap &p) {
 	}
 
 	Do(p, nv);
+	TerminateLoadedCString(p, nv.name);
 	Do(p, address);
 	VplWaitingThread dv = { 0 };
 	Do(p, waitingThreads, dv);
@@ -828,11 +836,18 @@ public:
 			return;
 
 		Do(p, address);
-		DoArray(p, name, sizeof(name));
+		DoCString(p, name);
 		if (s >= 2) {
 			int allocType = BlockAllocatorToID(alloc);
 			Do(p, allocType);
-			alloc = BlockAllocatorFromID(allocType);
+			// From BlockAllocatorToID, so not a game's partition id: map it back without
+			// BlockAllocatorFromID's privilege check, which asks about whatever thread is current.
+			switch (allocType) {
+			case KERNEL_PARTITION_ID: alloc = &kernelMemory; break;
+			case USER_PARTITION_ID: alloc = &userMemory; break;
+			case VSHELL_PARTITION_ID: alloc = &volatileMemory; break;
+			default: alloc = nullptr; break;
+			}
 		}
 	}
 
@@ -908,7 +923,7 @@ u32 sceKernelGetBlockHeadAddr(SceUID id) {
 	}
 }
 
-static int sceKernelPrintf(const char *formatString) {
+static int sceKernelPrintf(MIPSState *mips, const char *formatString) {
 	if (!formatString)
 		return -1;
 
@@ -1688,6 +1703,7 @@ struct TLSPL : public KernelObject {
 			return;
 
 		Do(p, ntls);
+		TerminateLoadedCString(p, ntls.name);
 		Do(p, address);
 		if (s >= 2)
 			Do(p, alignment);
@@ -1696,6 +1712,11 @@ struct TLSPL : public KernelObject {
 		Do(p, waitingThreads);
 		Do(p, next);
 		Do(p, usage);
+		// Both index arrays.
+		if (p.mode == p.MODE_READ && (ntls.index < 0 || ntls.index >= TLSPL_NUM_INDEXES || usage.size() != (size_t)ntls.totalBlocks)) {
+			ERROR_LOG(Log::SaveState, "TLSPL: bad index %d or block count %d (%d used) in savestate", ntls.index, ntls.totalBlocks, (int)usage.size());
+			p.SetError(p.ERROR_FAILURE);
+		}
 	}
 
 	NativeTlspl ntls;
@@ -1810,25 +1831,20 @@ void __KernelTlsplThreadEnd(SceUID threadID)
 			tls->waitingThreads.erase(std::remove(tls->waitingThreads.begin(), tls->waitingThreads.end(), threadID), tls->waitingThreads.end());
 	}
 
-	// Unlock all pools the thread had locked.
+	// Unlock all pools the thread had locked. Freeing mutates the map, so collect them first.
+	std::vector<SceUID> lockedIDs;
 	auto locked = tlsplThreadEndChecks.equal_range(threadID);
-	for (TlsplMap::iterator iter = locked.first; iter != locked.second; ++iter)
-	{
-		SceUID tlsID = iter->second;
-		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
-
-		if (tls)
-		{
-			__KernelFreeTls(tls, threadID);
-
-			// Restart the loop, freeing mutated it.
-			locked = tlsplThreadEndChecks.equal_range(threadID);
-			iter = locked.first;
-			if (locked.first == locked.second)
-				break;
-		}
+	for (TlsplMap::iterator iter = locked.first; iter != locked.second; ++iter) {
+		lockedIDs.push_back(iter->second);
 	}
 	tlsplThreadEndChecks.erase(locked.first, locked.second);
+
+	for (SceUID tlsID : lockedIDs) {
+		TLSPL *tls = kernelObjects.Get<TLSPL>(tlsID, error);
+		if (tls) {
+			__KernelFreeTls(tls, threadID);
+		}
+	}
 }
 
 SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 blockSize, u32 count, u32 optionsPtr) {

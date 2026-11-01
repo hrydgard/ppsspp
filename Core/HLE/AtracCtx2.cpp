@@ -11,7 +11,6 @@
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/Util/AtracTrack.h"
 #include "Core/HW/Atrac3Standalone.h"
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Common/File/FileUtil.h"
 
@@ -359,6 +358,13 @@ void Atrac2::DoState(PointerWrap &p) {
 		Do(p, sas_.isStreaming);
 		Do(p, sas_.curBuffer);
 		Do(p, sas_.fileOffset);
+	}
+
+	// Both straight from the file: one is dereferenced, the other indexes the two SAS buffers.
+	if (p.mode == p.MODE_READ && (!context_.IsValid() || sas_.curBuffer < 0 || sas_.curBuffer > 1)) {
+		ERROR_LOG(Log::SaveState, "Atrac2: bad context %08x or SAS buffer %d in savestate", context_.ptr, sas_.curBuffer);
+		p.SetError(p.ERROR_FAILURE);
+		return;
 	}
 
 	const SceAtracIdInfo &info = context_->info;

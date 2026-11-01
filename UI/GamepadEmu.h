@@ -179,6 +179,8 @@ struct TouchControlConfig;
 
 // Initializes the layout from Config. if a default layout does not exist, it sets up default values
 void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, float xres, float yres, float globalScale = 1.15f);
+// Lets the controls use the full width when the side insets don't reach down to them.
+ViewLayoutMode TouchControlsLayoutMode();
 UI::ViewGroup *CreatePadLayout(const TouchControlConfig &config, float xres, float yres, bool *pause, ControlMapper *controlMapper);
 
 const int D_pad_Radius = 50;
@@ -364,6 +366,7 @@ namespace CustomKeyData {
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_DEBUGGER },
 		{ ImageID::invalid(), VIRTKEY_PAUSE_NO_MENU },
 		{ ImageID::invalid(), VIRTKEY_TOGGLE_TILT },
+		{ ImageID("I_HOME"), CTRL_HOME },
 		// IMPORTANT: Only add at the end!
 	};
 	static_assert(ARRAY_SIZE(g_customKeyList) <= 64, "Too many key for a uint64_t bit mask");
@@ -421,6 +424,7 @@ namespace GestureKey {
 		VIRTKEY_AXIS_RIGHT_Y_MAX,
 		VIRTKEY_TOGGLE_DEBUGGER,
 		VIRTKEY_TOGGLE_TILT,
+		CTRL_HOME,
 	};
 }
 

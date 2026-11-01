@@ -95,6 +95,15 @@ static const IRMeta irMeta[] = {
 	{ IROp::Store32Conditional, "Store32Conditional", "GGC", IRFLAG_SRC3DST },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
 	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
+	// Barriers: a hardware register access has side effects, and mustn't move or merge.
+	{ IROp::LoadKernel8, "LoadKernel8", "GGC", IRFLAG_BARRIER },
+	{ IROp::LoadKernel8Ext, "LoadKernel8Ext", "GGC", IRFLAG_BARRIER },
+	{ IROp::LoadKernel16, "LoadKernel16", "GGC", IRFLAG_BARRIER },
+	{ IROp::LoadKernel16Ext, "LoadKernel16Ext", "GGC", IRFLAG_BARRIER },
+	{ IROp::LoadKernel32, "LoadKernel32", "GGC", IRFLAG_BARRIER },
+	{ IROp::StoreKernel8, "StoreKernel8", "GGC", IRFLAG_SRC3 | IRFLAG_BARRIER },
+	{ IROp::StoreKernel16, "StoreKernel16", "GGC", IRFLAG_SRC3 | IRFLAG_BARRIER },
+	{ IROp::StoreKernel32, "StoreKernel32", "GGC", IRFLAG_SRC3 | IRFLAG_BARRIER },
 	{ IROp::FAdd, "FAdd", "FFF" },
 	{ IROp::FSub, "FSub", "FFF" },
 	{ IROp::FMul, "FMul", "FFF" },
@@ -157,9 +166,15 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Div, "Vec4Div", "VVV" },
 	{ IROp::Vec4Mul, "Vec4Mul", "VVV" },
 	{ IROp::Vec4Scale, "Vec4Scale", "VVF" },
-	{ IROp::Vec4Dot, "Vec4Dot", "FVV" },
+	{ IROp::Vec4VfpuDot, "Vec4VfpuDot", "FVV" },
+	{ IROp::Vec4VfpuMultiDot, "Vec4VfpuMultiDot", "VMVc" },
 	{ IROp::Vec4Neg, "Vec4Neg", "VV" },
 	{ IROp::Vec4Abs, "Vec4Abs", "VV" },
+	{ IROp::Vec4Min, "Vec4Min", "VVV" },
+	{ IROp::Vec4Max, "Vec4Max", "VVV" },
+	{ IROp::Vec4Slt, "Vec4Slt", "VVV" },
+	{ IROp::Vec4Sge, "Vec4Sge", "VVV" },
+	{ IROp::Vec4CvtScaledSW, "Vec4CvtScaledSW", "VVI" },
 
 		// Pack/Unpack
 	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "2F" },  // Note that the result is shifted down by 1, hence 31
@@ -317,6 +332,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
+		break;
+	case 'M':
+		snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 15);
 		break;
 	case '2':
 		if (param >= 32) {

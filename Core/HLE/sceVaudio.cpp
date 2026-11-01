@@ -28,17 +28,26 @@
 // Ultra hacky Vaudio implementation. Not sure what the point of this API is.
 
 bool vaudioReserved = false;
+// For a channel reserved with sceVaudio_E8E78DC8, the parameter vaudio.prx hands the ME with each
+// buffer (ME command 0x125). -1 otherwise.
+static int vaudioMeParam = -1;
 
 void __VaudioInit() {
 	vaudioReserved = false;
+	vaudioMeParam = -1;
 }
 
 void __VaudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceVaudio", 1);
+	auto s = p.Section("sceVaudio", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, vaudioReserved);
+	if (s >= 2) {
+		Do(p, vaudioMeParam);
+	} else {
+		vaudioMeParam = -1;
+	}
 }
 
 static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
@@ -92,6 +101,7 @@ static u32 sceVaudioChRelease() {
 	// happily release a reservation that Output2 made. pspautotests calls that the "wrong
 	// release" and the hardware allows it.
 	vaudioReserved = false;
+	vaudioMeParam = -1;
 	if (!g_audioSRC.reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
@@ -132,17 +142,52 @@ static u32 sceVaudioSetAlcMode(int alcMode) {
 	return 0;
 }
 
+// In vaudio.prx this is sceVaudioChReserve with a flag set (a3 = 1 into the shared reserve, 0 for
+// ChReserve), which presumably buffers deeper. Not modelled. The VSH's UMD Video player uses it.
+static u32 sceVaudioChReserveBuffering(int sampleCount, int freq, int format) {
+	return sceVaudioChReserve(sampleCount, freq, format);
+}
+
+// ChReserveBuffering, after setting up an effect on the ME (command 0x124, with the frequency and
+// sample count): vaudio.prx then passes every buffer through the ME with a parameter that starts at
+// 0x800, and ChRelease tears it down (0x126). The VSH's video player uses it, and only it changes
+// the parameter (sceVaudio_504E4745). Unknown what the effect is, so the audio goes out unchanged.
+static u32 sceVaudio_E8E78DC8(int sampleCount, int freq, int format) {
+	u32 result = sceVaudioChReserve(sampleCount, freq, format);
+	if (result == 0) {
+		vaudioMeParam = 0x800;
+	}
+	return result;
+}
+
+static u32 sceVaudio_504E4745(int param) {
+	// As vaudio.prx checks it.
+	if (vaudioMeParam < 0) {
+		return hleLogError(Log::sceAudio, 0x80000001, "not reserved through the ME");
+	}
+	if (param < 0x400 || param > 0x1000) {
+		return hleLogError(Log::sceAudio, SCE_KERNEL_ERROR_INVALID_VALUE, "out of range");
+	}
+	vaudioMeParam = param;
+	return hleLogDebug(Log::sceAudio, 0);
+}
+
 const HLEFunction sceVaudio[] = {
 	{0X8986295E, &WrapU_IU<sceVaudioOutputBlocking>, "sceVaudioOutputBlocking",     'x', "ix" },
 	{0X03B6807D, &WrapU_III<sceVaudioChReserve>,     "sceVaudioChReserve",          'x', "iii"},
 	{0X67585DFD, &WrapU_V<sceVaudioChRelease>,       "sceVaudioChRelease",          'x', ""   },
 	{0X346FBE94, &WrapU_II<sceVaudioSetEffectType>,  "sceVaudioSetEffectType",      'x', "ii" },
 	{0XCBD4AC51, &WrapU_I<sceVaudioSetAlcMode>,      "sceVaudioSetAlcMode",         'x', "i"  },
-	{0X504E4745, nullptr,                            "sceVaudio_504E4745",          '?', ""   },
-	{0X27ACC20B, nullptr,                            "sceVaudioChReserveBuffering", '?', ""   },
-	{0XE8E78DC8, nullptr,                            "sceVaudio_E8E78DC8",          '?', ""   },
+	{0X504E4745, &WrapU_I<sceVaudio_504E4745>,       "sceVaudio_504E4745",          'x', "x"  },
+	{0X27ACC20B, &WrapU_III<sceVaudioChReserveBuffering>, "sceVaudioChReserveBuffering", 'x', "iii"},
+	{0XE8E78DC8, &WrapU_III<sceVaudio_E8E78DC8>,     "sceVaudio_E8E78DC8",          'x', "iii"},
 };
 
 void Register_sceVaudio() {
 	RegisterHLEModule("sceVaudio",ARRAY_SIZE(sceVaudio), sceVaudio );
+}
+
+void Register_sceVaudio_driver() {
+	// The same functions; vshbridge.prx imports them under the driver name for the VSH's video player.
+	RegisterHLEModule("sceVaudio_driver", ARRAY_SIZE(sceVaudio), sceVaudio);
 }

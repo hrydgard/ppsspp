@@ -33,6 +33,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -43,6 +44,8 @@
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
+#include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/MeCore.h"
 
 MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
@@ -72,63 +75,113 @@ static inline void ARM64WriteFPCR(u64 fpcr) {
 #endif
 }
 
+#elif PPSSPP_ARCH(ARM) && !defined(_MSC_VER)
+
+// FPSCR has the rounding mode and flush-to-zero at the same bits as ARM64's FPCR.
+#define ARM32_FPSCR 1
+
+static inline u32 ARM32ReadFPSCR() {
+	u32 fpscr;
+	asm volatile ("vmrs %0, fpscr" : "=r" (fpscr));
+	return fpscr;
+}
+
+static inline void ARM32WriteFPSCR(u32 fpscr) {
+	asm volatile ("vmsr fpscr, %0" : : "r" (fpscr));
+}
+
+#endif
+
+// The host's own mode, saved by the first apply and written back by restore, so restore doesn't have
+// to read the register. Our bits are cleared in it, in case a JIT's asm stub had already set them.
+// Only the CPU thread calls these.
+static bool g_hostModeSaved = false;
+#if PPSSPP_ARCH(SSE2)
+static u32 g_savedHostMode;
+#elif PPSSPP_ARCH(ARM64)
+static u64 g_savedHostMode;
+#elif defined(ARM32_FPSCR)
+static u32 g_savedHostMode;
 #endif
 
 void ApplyHostRoundingMode(const MIPSState *mips) {
 	u32 fcr1Bits = mips->fcr31 & 0x01000003;
-	// If these are 0, we just leave things as they are.
-	if (fcr1Bits) {
-		int rmode = fcr1Bits & 3;
-		bool ftz = (fcr1Bits & 0x01000000) != 0;
-#if PPSSPP_ARCH(SSE2)
-		u32 csr = _mm_getcsr() & ~0x6000;
-		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
-		if (rmode & 1) {
-			rmode ^= 2;
-		}
-		csr |= rmode << 13;
-
-		if (ftz) {
-			// Flush to zero
-			csr |= 0x8000;
-		}
-		_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
-		u64 fpcr = ARM64ReadFPCR();
-		// Translate MIPS to ARM rounding mode
-		static const u8 lookup[4] = {0, 3, 1, 2};
-
-		fpcr &= ~(3 << 22);    // Clear bits [23:22]
-		fpcr |= ((u64)lookup[rmode] << 22);
-
-		if (ftz) {
-			fpcr |= 1 << 24;
-		}
-
-		ARM64WriteFPCR(fpcr);
-#else
-		// No control register access written for this architecture, so go through the standard
-		// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
-		// riscv64 nor loongarch64 has one in the base ISA either, so denormals stay as they are.
-		static const int roundLookup[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
-		fesetround(roundLookup[rmode]);
-		(void)ftz;
-#endif
+	if (!fcr1Bits) {
+		// The default: the host's own mode is the right one.
+		RestoreHostRoundingMode();
+		return;
 	}
+	int rmode = fcr1Bits & 3;
+	bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
+	if (!g_hostModeSaved) {
+		g_savedHostMode = _mm_getcsr() & ~0xE040;
+		g_hostModeSaved = true;
+	}
+	u32 csr = g_savedHostMode;
+	// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+	if (rmode & 1) {
+		rmode ^= 2;
+	}
+	csr |= rmode << 13;
+	if (ftz) {
+		// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
+		csr |= 0x8040;
+	}
+	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64) || defined(ARM32_FPSCR)
+	if (!g_hostModeSaved) {
+#if PPSSPP_ARCH(ARM64)
+		g_savedHostMode = ARM64ReadFPCR() & ~(7 << 22);
+#else
+		g_savedHostMode = ARM32ReadFPSCR() & ~(7 << 22);
+#endif
+		g_hostModeSaved = true;
+	}
+	// Translate MIPS to ARM rounding mode. FPSCR has them at the same bits as FPCR.
+	static const u8 lookup[4] = {0, 3, 1, 2};
+	auto mode = g_savedHostMode | ((decltype(g_savedHostMode))lookup[rmode] << 22);
+	if (ftz) {
+		mode |= 1 << 24;
+	}
+#if PPSSPP_ARCH(ARM64)
+	ARM64WriteFPCR(mode);
+#else
+	ARM32WriteFPSCR(mode);
+#endif
+#else
+	// No control register access written for this architecture, so go through the standard
+	// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
+	// riscv64 nor loongarch64 has one in the base ISA either, so denormals stay as they are.
+	static const int roundLookup[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
+	fesetround(roundLookup[rmode]);
+	g_hostModeSaved = true;
+	(void)ftz;
+#endif
 }
 
-void RestoreHostRoundingMode() {
-	// TODO: We should avoid this if we didn't apply rounding in the first place.
-	// In the meantime, clear out FTZ and rounding mode bits.
+void RestoreHostRoundingMode(bool force) {
+	if (!g_hostModeSaved) {
+		if (force) {
 #if PPSSPP_ARCH(SSE2)
-	u32 csr = _mm_getcsr();
-	csr &= ~(7 << 13);
-	_mm_setcsr(csr);
+			_mm_setcsr(_mm_getcsr() & ~0xE040);
 #elif PPSSPP_ARCH(ARM64)
-	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the register size.
-	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
-	// Write back the modified FPCR
-	ARM64WriteFPCR(fpcr);
+			ARM64WriteFPCR(ARM64ReadFPCR() & ~(7 << 22));
+#elif defined(ARM32_FPSCR)
+			ARM32WriteFPSCR(ARM32ReadFPSCR() & ~(7 << 22));
+#else
+			fesetround(FE_TONEAREST);
+#endif
+		}
+		return;
+	}
+	g_hostModeSaved = false;
+#if PPSSPP_ARCH(SSE2)
+	_mm_setcsr(g_savedHostMode);
+#elif PPSSPP_ARCH(ARM64)
+	ARM64WriteFPCR(g_savedHostMode);
+#elif defined(ARM32_FPSCR)
+	ARM32WriteFPSCR(g_savedHostMode);
 #else
 	fesetround(FE_TONEAREST);
 #endif
@@ -181,7 +234,7 @@ const float cst_constants[32] = {
 };
 
 MIPSState::MIPSState() {
-	MIPSComp::jit = nullptr;
+	space = &Memory::g_mainSpace;
 
 	// Initialize vorder
 
@@ -252,12 +305,22 @@ MIPSState::MIPSState() {
 MIPSState::~MIPSState() {
 }
 
+// The block shadow's replacement hook entries have to match the JIT's dispatcher.
+static void UpdateBlockShadowHook(const MIPSComp::JitInterface *jit) {
+	Replacement_SetBlockShadowHook(jit ? jit->GetBlockShadowHookValue() : Memory::BLOCK_SHADOW_HOOK_NO_JIT);
+}
+
 void MIPSState::Shutdown() {
-	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
+	MIPSComp::JitInterface *oldjit = jit;
 	if (oldjit) {
-		MIPSComp::jit = nullptr;
+		oldjit->FlushProfile();
+		jit = nullptr;
 		delete oldjit;
 	}
+	if (IsMediaEngine()) {
+		return;
+	}
+	UpdateBlockShadowHook(jit);
 	pendingInvalidates_.clear();
 	invalidateAll_ = false;
 }
@@ -268,10 +331,36 @@ void MIPSState::Reset() {
 }
 
 void MIPSState::Init() {
+	InitRegisters();
+	if (IsMediaEngine()) {
+		// Replacement hooks are only the main CPU's.
+		const CPUCore core = PSP_CoreParameter().cpuCore;
+		if ((core == CPUCore::JIT || core == CPUCore::JIT_IR) && MIPSComp::NativeJitRunsMediaEngine()) {
+			jit = MIPSComp::CreateNativeJit(this);
+		} else if (core != CPUCore::INTERPRETER) {
+			jit = new MIPSComp::IRInterpreterJit(this);
+		} else {
+			jit = nullptr;
+		}
+		return;
+	}
+	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
+		jit = MIPSComp::CreateNativeJit(this);
+	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
+		jit = new MIPSComp::IRInterpreterJit(this);
+	} else {
+		jit = nullptr;
+	}
+	UpdateBlockShadowHook(jit);
+}
+
+void MIPSState::InitRegisters() {
 	memset(r, 0, sizeof(r));
 	memset(f, 0, sizeof(f));
 	memset(v, 0, sizeof(v));
 	memset(vfpuCtrl, 0, sizeof(vfpuCtrl));
+	memset(cop0, 0, sizeof(cop0));
+	memset(cop0Control, 0, sizeof(cop0Control));
 
 	vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4; //passthru
 	vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4; //passthru
@@ -294,26 +383,16 @@ void MIPSState::Init() {
 	fpcond = 0;
 	fcr31 = 0;
 	debugCount = 0;
-	currentMIPS = this;
 	inDelaySlot = false;
 	llBit = 0;
 	nextPC = 0;
 	downcount = 0;
 
 	memset(vcmpResult, 0, sizeof(vcmpResult));
-
-	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
-	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
-		MIPSComp::jit = new MIPSComp::IRJit(this, false);
-	} else {
-		MIPSComp::jit = nullptr;
-	}
 }
 
-bool MIPSState::HasDefaultPrefix() const {
-	return vfpuCtrl[VFPU_CTRL_SPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_TPREFIX] == 0xe4 && vfpuCtrl[VFPU_CTRL_DPREFIX] == 0;
-}
+const float vfpuPrefixConstants[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
+
 
 void MIPSState::UpdateCore(CPUCore desired) {
 	if (PSP_CoreParameter().cpuCore == desired) {
@@ -323,9 +402,9 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	IncrementDebugCounter(DebugCounter::CPUCORE_SWITCHES);
 
 	// Get rid of the old JIT first, before switching.
-	if (MIPSComp::jit) {
-		delete MIPSComp::jit;
-		MIPSComp::jit = nullptr;
+	if (jit) {
+		delete jit;
+		jit = nullptr;
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
@@ -335,12 +414,12 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
 		INFO_LOG(Log::CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
-		newjit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
+		newjit = MIPSComp::CreateNativeJit(this);
 		break;
 
 	case CPUCore::IR_INTERPRETER:
 		INFO_LOG(Log::CPU, "Switching to IR interpreter");
-		newjit = new MIPSComp::IRJit(this, false);
+		newjit = new MIPSComp::IRInterpreterJit(this);
 		break;
 
 	case CPUCore::INTERPRETER:
@@ -353,22 +432,35 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 	}
 
-	MIPSComp::jit = newjit;
+	jit = newjit;
+	if (newjit) {
+		// The game may already have set a rounding mode on the previous core.
+		newjit->UpdateFCR31();
+	}
+	UpdateBlockShadowHook(jit);
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 4);
+	auto s = p.Section("MIPSState", 1, 6);
 	if (!s)
 		return;
 
-	// Reset the jit if we're loading.
-	if (p.mode == p.MODE_READ)
-		Reset();
+	if (p.mode == p.MODE_READ) {
+		if (jit && !keepJitBlocks_.empty()) {
+			// Blocks in code the load didn't change can stay. Queued invalidations stay too.
+			InitRegisters();
+			jit->InvalidateCacheExcept(keepJitBlocks_);
+		} else {
+			// Start the JIT over.
+			Reset();
+		}
+		keepJitBlocks_.clear();
+	}
 	// Assume we're not saving state during a CPU core reset, so no lock.
-	if (MIPSComp::jit)
-		MIPSComp::jit->DoState(p);
+	if (jit)
+		jit->DoState(p);
 	else
-		MIPSComp::DoDummyJitState(p);
+		MIPSComp::DoDummyJitState(p, this);
 
 	DoArray(p, r, sizeof(r) / sizeof(r[0]));
 	DoArray(p, f, sizeof(f) / sizeof(f[0]));
@@ -403,10 +495,20 @@ void MIPSState::DoState(PointerWrap &p) {
 	Do(p, inDelaySlot);
 	Do(p, llBit);
 	Do(p, debugCount);
+	if (s >= 5) {
+		DoArray(p, cop0, sizeof(cop0) / sizeof(cop0[0]));
+	} else {
+		memset(cop0, 0, sizeof(cop0));
+	}
+	if (s >= 6) {
+		DoArray(p, cop0Control, sizeof(cop0Control) / sizeof(cop0Control[0]));
+	} else {
+		memset(cop0Control, 0, sizeof(cop0Control));
+	}
 
-	if (p.mode == p.MODE_READ && MIPSComp::jit) {
+	if (p.mode == p.MODE_READ && jit) {
 		// Now that we've loaded fcr31, update any jit state associated.
-		MIPSComp::jit->UpdateFCR31();
+		jit->UpdateFCR31();
 	}
 }
 
@@ -429,64 +531,81 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 			downcount -= cycles;
 		}
 		ProcessPendingInvalidates();
-		MIPSComp::jit->RunLoopUntil(globalTicks);
+		jit->RunLoopUntil(globalTicks);
 		break;
 
 	case CPUCore::INTERPRETER:
+		ProcessPendingInvalidates();
 		return MIPSInterpret_RunUntil(this, globalTicks);
 	}
 	return 1;
 }
 
+// The Media Engine runs code from the same RAM, so it hears about the main CPU's code changes.
+// It isn't running while the main CPU is, so it can always wait.
+static MIPSState *MediaEngineToNotify(const MIPSState *mips) {
+	return mips == &mipsr4k && MeCore::g_meState ? &MeCore::g_meState->cpu : nullptr;
+}
+
 void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
-	if (!MIPSComp::jit) {
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->InvalidateICacheRangeDeferred(address, length);
+	}
+	if (!IsMediaEngine()) {
+		Replacement_CheckRange(address, length);
+	}
+	if (!jit) {
 		// Nothing to do.
 		return;
 	}
 	if (length != 0) {
-		MIPSComp::jit->InvalidateCacheAt(address, length);
+		jit->InvalidateCacheAt(address, length);
 	}
 }
 
+// The replacement hook checks happen here rather than when queued, since callers may queue the
+// invalidation before writing. Dropping a hook queues its address, hence the loop.
 void MIPSState::ProcessPendingInvalidates() {
-	if (!MIPSComp::jit) {
-		// Nothing to do. Clear any old state from CPU core switching.
-		pendingInvalidates_.clear();
-		return;
-	}
-
-	if (invalidateAll_) {
-		MIPSComp::jit->ClearCache();
-		pendingInvalidates_.clear();
+	while (invalidateAll_ || !pendingInvalidates_.empty()) {
+		const bool all = invalidateAll_;
 		invalidateAll_ = false;
-		return;
-	}
-
-	if (!pendingInvalidates_.empty()) {
-		for (const auto &p : pendingInvalidates_) {
-			MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+		std::vector<PendingCacheOperation> pending;
+		pending.swap(pendingInvalidates_);
+		for (const auto &p : pending) {
+			if (!IsMediaEngine())
+				Replacement_CheckRange(p.addr, p.size);
+			if (jit && !all) {
+				jit->InvalidateCacheAt(p.addr, p.size);
+			}
 		}
-		pendingInvalidates_.clear();
+		if (jit && all) {
+			jit->ClearCache();
+		}
 	}
 }
 
 void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
-	if (!MIPSComp::jit) {
-		// Nothing to do.
-		return;
-	}
-
 	// TODO: We can try to merge the invalidate with the previous one.
 	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
-	Core_ReenterDispatcher();
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->InvalidateICacheRangeDeferred(address, length);
+	}
+	if (jit && !IsMediaEngine()) {
+		Core_ReenterDispatcher();
+	}
 }
 
+// Queued ranges still get their replacement hook checks.
 void MIPSState::ClearJitCacheDeferred() {
-	if (!MIPSComp::jit) {
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->ClearJitCacheDeferred();
+	}
+	if (!jit) {
 		return;
 	}
 
-	pendingInvalidates_.clear();
 	invalidateAll_ = true;
-	Core_ReenterDispatcher();
+	if (!IsMediaEngine()) {
+		Core_ReenterDispatcher();
+	}
 }

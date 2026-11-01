@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
+#include "Core/MIPS/ARM64/Arm64VfpuDot.h"
 
 // This file contains compilation for vector instructions.
 //
@@ -90,6 +91,53 @@ void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 	case IROp::Vec4Abs:
 		regs_.Map(inst);
 		fp_.FABS(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+		break;
+
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+	{
+		// vfpu_minmax_key() of each lane of both, compared as signed, picks the lanes. A tie
+		// takes src2. Q0-Q3 are temps the register cache never hands out.
+		regs_.Map(inst);
+		const ARM64Reg a = regs_.FQ(inst.src1), b = regs_.FQ(inst.src2);
+		MOVI2R(SCRATCH1, 0x7F800000);
+		fp_.DUP(32, Q3, SCRATCH1);
+		auto key = [&](ARM64Reg dest, ARM64Reg src) {
+			fp_.SSHR(32, Q2, src, 31);
+			fp_.USHR(32, Q2, Q2, 1);
+			fp_.EOR(dest, src, Q2);
+			fp_.CMTST(32, Q2, src, Q3);
+			fp_.AND(dest, dest, Q2);
+		};
+		key(Q0, a);
+		key(Q1, b);
+		if (inst.op == IROp::Vec4Min)
+			fp_.CMGT(32, Q0, Q1, Q0);
+		else
+			fp_.CMGT(32, Q0, Q0, Q1);
+		fp_.BSL(Q0, a, b);
+		fp_.MOV(regs_.FQ(inst.dest), Q0);
+		break;
+	}
+
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+		// 1.0 where src1 < src2 (vslt) or src1 >= src2 (vsge), 0.0 otherwise, NaN included.
+		regs_.Map(inst);
+		if (inst.op == IROp::Vec4Slt)
+			fp_.FCMGT(32, Q0, regs_.FQ(inst.src2), regs_.FQ(inst.src1));
+		else
+			fp_.FCMGE(32, Q0, regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		fp_.FMOV(32, Q1, 0x70);  // 1.0
+		fp_.AND(regs_.FQ(inst.dest), Q0, Q1);
+		break;
+
+	case IROp::Vec4CvtScaledSW:
+		regs_.Map(inst);
+		if ((inst.src2 & 0x1F) == 0)
+			fp_.SCVTF(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+		else
+			fp_.SCVTF(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), inst.src2 & 0x1F);
 		break;
 
 	default:
@@ -277,8 +325,8 @@ uint8_t Arm64ShuffleResult(uint8_t mask, uint8_t prev) {
 
 	uint8_t result = 0;
 	for (int i = 0; i < 4; ++i) {
-		int takeLane = (mask >> (i * 2)) & 3;
-		int lane = (prev >> (takeLane * 2)) & 3;
+		int takeLane = Vec4ShuffleLane(mask, i);
+		int lane = Vec4ShuffleLane(prev, takeLane);
 		result |= lane << (i * 2);
 	}
 	return result;
@@ -580,24 +628,121 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
+	case IROp::Vec4VfpuDot:
+	{
+		// The operands go to the shared routine in q0 and q1, and the result comes back in w1. The
+		// routine clobbers q4-q6 and x0-x3 too, so whatever guest state is there gets flushed: these
+		// come late in the allocation order, so usually that's nothing.
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		regs_.MapVec4(inst.src1);
+		regs_.MapVec4(inst.src2);
+		fp_.MOV(Q0, regs_.FQ(inst.src1));
+		fp_.MOV(Q1, regs_.FQ(inst.src2));
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		regs_.FlushHostRegs({ Q4, Q5, Q6, W0, W1, W2, W3 });
+		BL(vfpuDot_);
+		fp_.FMOV(SCRATCHF1, W1);
+
 		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
-			// To avoid overlap problems, map a little carefully.
-			regs_.SpillLockFPR(inst.src1, inst.src2);
-			regs_.MapVec4(inst.src1);
-			regs_.MapVec4(inst.src2);
+			// The dest lane is in a mapped Vec4.
 			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
-			fp_.FMUL(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
-			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
-			fp_.FADDP(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
 			fp_.INS(32, regs_.FQ(inst.dest & ~3), inst.dest & 3, EncodeRegToQuad(SCRATCHF1), 0);
 		} else {
-			regs_.Map(inst);
-			fp_.FMUL(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), regs_.FQ(inst.src2));
-			fp_.FADDP(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), regs_.FQ(inst.dest));
-			fp_.FADDP(32, regs_.FQ(inst.dest), regs_.FQ(inst.dest), regs_.FQ(inst.dest));
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			fp_.FMOV(regs_.F(inst.dest), SCRATCHF1);
 		}
 		break;
+	}
+
+	case IROp::Vec4VfpuMultiDot:
+	{
+		// The routine takes the terms in q0-q3 and the vector in q4, and returns the dots in q0. It
+		// clobbers q4-q7 too, which come last in the allocation order, so usually hold nothing.
+		const int terms = IRMULTIDOT_TERMS(inst.constant);
+		const bool transposed = (inst.constant & IRMULTIDOT_TRANSPOSED) != 0;
+		bool blockMapped = false, vecMapped = false;
+		for (int i = 0; i < 16; i++)
+			blockMapped = blockMapped || regs_.IsFPRMapped(inst.src1 + i);
+		for (int i = 0; i < 4; i++)
+			vecMapped = vecMapped || regs_.IsFPRMapped(inst.src2 + i);
+		auto homeOffset = [](IRReg r) { return (s32)(offsetof(MIPSState, f) + 4 * r); };
+
+		regs_.SpillLockFPR(inst.src1, inst.src1 + 4, inst.src1 + 8, inst.src1 + 12);
+		regs_.SpillLockFPR(inst.src2);
+		if (blockMapped) {
+			for (int j = 0; j < 4; j++)
+				fp_.MOV((ARM64Reg)(Q0 + j), regs_.MapVec4(inst.src1 + 4 * j));
+		}
+		// The vector may be in q4-q7, so it goes through memory, to its own home if it's there.
+		s32 vecOffset = homeOffset(inst.src2);
+		if (vecMapped) {
+			vecOffset = (s32)offsetof(MIPSState, vfpuMultiDotArgs) + 64;
+			fp_.STR(128, INDEX_UNSIGNED, regs_.MapVec4(inst.src2), CTXREG, vecOffset);
+		}
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src1 + 4, inst.src1 + 8, inst.src1 + 12);
+		regs_.ReleaseSpillLockFPR(inst.src2);
+		regs_.FlushHostRegs({ Q4, Q5, Q6, Q7 });
+
+		if (!blockMapped) {
+			// LD4 is the transposing load.
+			ADDI2R(SCRATCH1_64, CTXREG, homeOffset(inst.src1), SCRATCH2);
+			if (transposed)
+				fp_.LD4(32, Q0, SCRATCH1_64);
+			else
+				fp_.LD1(32, 4, Q0, SCRATCH1_64);
+		} else if (transposed) {
+			fp_.TRN1(32, Q4, Q0, Q1);
+			fp_.TRN2(32, Q5, Q0, Q1);
+			fp_.TRN1(32, Q6, Q2, Q3);
+			fp_.TRN2(32, Q7, Q2, Q3);
+			fp_.TRN1(64, Q0, Q4, Q6);
+			fp_.TRN2(64, Q2, Q4, Q6);
+			fp_.TRN1(64, Q1, Q5, Q7);
+			fp_.TRN2(64, Q3, Q5, Q7);
+		}
+		fp_.LDR(128, INDEX_UNSIGNED, Q4, CTXREG, vecOffset);
+		// The routine ignores the unused terms, apart from checking the vector for inf and NaN.
+		for (int i = terms; i < 4; i++)
+			fp_.INS(32, Q4, i, WZR);
+
+		// It saves nothing, so keep the guest state in what it clobbers of q16-q31, in pairs where
+		// they come in pairs.
+		const u32 clobbers = Arm64VfpuMultiDotClobbers(terms);
+		u32 keep = 0;
+		for (int i = 0; i < 16; i++) {
+			if ((clobbers & (1 << i)) && regs_.IsHostRegInUse((ARM64Reg)(Q16 + i)))
+				keep |= 1 << i;
+		}
+		const s32 save = (s32)offsetof(MIPSState, vfpuMultiDotSave);
+		auto saveOrRestore = [&](bool restore) {
+			ADDI2R(SCRATCH1_64, CTXREG, save, SCRATCH2);
+			for (int i = 0; i < 16; i++) {
+				if (!(keep & (1 << i)))
+					continue;
+				const ARM64Reg q = (ARM64Reg)(Q16 + i);
+				if (i + 1 < 16 && (keep & (1 << (i + 1)))) {
+					if (restore)
+						fp_.LDP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+					else
+						fp_.STP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+					i++;
+				} else if (restore) {
+					fp_.LDR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+				} else {
+					fp_.STR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+				}
+			}
+		};
+		if (keep)
+			saveOrRestore(false);
+		BL(vfpuMultiDot_[terms]);
+		if (keep)
+			saveOrRestore(true);
+
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		fp_.MOV(regs_.FQ(inst.dest), Q0);
+		break;
+	}
 
 	default:
 		INVALIDOP;

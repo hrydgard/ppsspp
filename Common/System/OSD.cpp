@@ -35,6 +35,9 @@ void OnScreenDisplay::NudgeIngameNotifications() {
 }
 
 float OnScreenDisplay::IngameAlpha() const {
+	if (pretendIngame_) {
+		return 1.0f;
+	}
 	double timeSinceNudge = time_now_d() - sideBarShowTime_;
 
 	// Fade out in 1/4 second, 0.1s after the last nudge.
@@ -342,6 +345,19 @@ void OnScreenDisplay::SetFlags(std::string_view id, OSDMessageFlags flags) {
 		// protect against dupes.
 		if (ent.id == id) {
 			ent.flags = flags;
+		}
+	}
+}
+
+void OnScreenDisplay::ClearNonAchievementEntries() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	for (auto iter = entries_.begin(); iter != entries_.end();) {
+		if (iter->type != OSDType::ACHIEVEMENT_UNLOCKED &&
+			iter->type != OSDType::ACHIEVEMENT_PROGRESS &&
+			iter->type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
+			iter = entries_.erase(iter);
+		} else {
+			iter++;
 		}
 	}
 }

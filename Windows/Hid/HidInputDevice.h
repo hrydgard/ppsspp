@@ -59,10 +59,11 @@ public:
 	}
 private:
 	void ReleaseAllKeys(const ButtonInputMapping *buttonMappings, int count);
+	void Disconnect();
 	InputDeviceID DeviceID(int pad);
 	HIDControllerState prevState_{};
 	HIDControllerType subType_{};
-	HANDLE controller_;
+	HANDLE controller_ = nullptr;
 	std::string name_;
 	std::unordered_set<std::wstring> ignoreHidDevicePaths_;
 	int pad_ = 0;

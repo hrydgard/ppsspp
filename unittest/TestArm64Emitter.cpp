@@ -82,9 +82,9 @@ bool TestArm64Emitter() {
 	emitter.LDRSH(INDEX_UNSIGNED, W3, X7, 18);
 	RET(CheckLast(emitter, "79c024e3 ldrsh w3, [x7, #18]"));
 	fp.SCVTF(32, Q3, Q7, 7);
-	RET(CheckLast(emitter, "4f39e4e3 scvtf q3.s, q7.s, #7"));
+	RET(CheckLast(emitter, "4f39e4e3 scvtf.32 q3, q7, #7"));
 	fp.UCVTF(32, D3, D7, 15);
-	RET(CheckLast(emitter, "2f31e4e3 ucvtf d3.s, d7.s, #15"));
+	RET(CheckLast(emitter, "2f31e4e3 ucvtf.32 d3, d7, #15"));
 
 	fp.LDP(128, INDEX_SIGNED, Q3, Q7, X3, 32);
 	RET(CheckLast(emitter, "ad411c63 ldp q3, q7, [x3, #32]"));
@@ -140,7 +140,7 @@ bool TestArm64Emitter() {
 	fp.INS(32, Q3, 1, Q12, 3);
 	RET(CheckLast(emitter, "6e0c6583 ins q3.s[1], q12.s[3]"));
 	fp.INS(8, D4, 5, D11, 2);
-	RET(CheckLast(emitter, "6e0b1564 ins d4.b[5], d11.b[2]"));
+	RET(CheckLast(emitter, "6e0b1564 ins q4.b[5], q11.b[2]"));
 	emitter.NEG(X1, X2);
 	RET(CheckLast(emitter, "cb0203e1 neg x1, x2"));
 
@@ -175,7 +175,7 @@ bool TestArm64Emitter() {
 	fp.SCVTF(S13, W7);
 	RET(CheckLast(emitter, "1e2200ed scvtf s13, w7"));
 	emitter.UBFM(W1, W3, 0, 7);
-	RET(CheckLast(emitter, "53001c61 ubfm w1, w3, #0, #7"));
+	RET(CheckLast(emitter, "53001c61 uxtb w1, w3"));
 	fp.FMOV(W1, S3);
 	RET(CheckLast(emitter, "1e260061 fmov w1, s3"));
 	fp.FMOV(S1, W3);
@@ -223,19 +223,19 @@ bool TestArm64Emitter() {
 	emitter.CSEL(X3, X5, X7, CC_GT);
 	RET(CheckLast(emitter, "9a87c0a3 csel x3, x5, x7, gt"));
 	emitter.LDR(W23, X3, X12);
-	RET(CheckLast(emitter, "b86c6877 ldr w23, [x3 + x12]"));
+	RET(CheckLast(emitter, "b86c6877 ldr w23, [x3, x12]"));
 	emitter.LDP(INDEX_SIGNED, X23, X5, X3, 32);
 	RET(CheckLast(emitter, "a9421477 ldp x23, x5, [x3, #32]"));
 	emitter.LDP(INDEX_SIGNED, W23, W5, X3, 36);
 	RET(CheckLast(emitter, "29449477 ldp w23, w5, [x3, #36]"));
 	emitter.STP(INDEX_PRE, W23, W5, SP, -16);
-	RET(CheckLast(emitter, "29be17f7 stp w23, w5, [x31, #-16]!"));	
+	RET(CheckLast(emitter, "29be17f7 stp w23, w5, [sp, #-16]!"));	
 	emitter.STP(INDEX_POST, W23, W5, X3, 36);
 	RET(CheckLast(emitter, "28849477 stp w23, w5, [x3], #36"));
 	emitter.LDP(INDEX_POST, W23, W5, X3, 36);
 	RET(CheckLast(emitter, "28c49477 ldp w23, w5, [x3], #36"));
 	emitter.STR(INDEX_PRE, W23, SP, -16);
-	RET(CheckLast(emitter, "b81f0ff7 str w23, [x31, #-16]!"));
+	RET(CheckLast(emitter, "b81f0ff7 str w23, [sp, #-16]!"));
 	emitter.STR(INDEX_UNSIGNED, W23, X3, 36);
 	RET(CheckLast(emitter, "b9002477 str w23, [x3, #36]"));
 	emitter.MOV(X1, X2, ArithOption(X1, ST_LSL, 14));

@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 
 import androidx.annotation.RequiresApi;
 
@@ -27,7 +28,7 @@ public class NativeApp {
 	public static final int RESULT_ERROR_ACTIVITY_NOT_FOUND = 1;
 	public static final int RESULT_ERROR_OTHER_ACTIVITY_ERROR = 2;
 
-	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, String installerName, int androidVersion, String board, int smallestScreenWidthDp);
+	public static native void init(String model, int deviceType, String languageRegion, String apkPath, String dataDir, String externalStorageDir, String extFilesDir, String nativeLibDir, String additionalStorageDirs, String cacheDir, String shortcutParam, String installerName, int androidVersion, String board);
 	public static native void audioInit();
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
@@ -41,9 +42,17 @@ public class NativeApp {
 	public static native int getDesiredBackbufferHeight();
 
 	public static native void setDisplayParameters(int display_xres, int display_yres, int dpi, float refreshRate);
-	public static native void backbufferResize(int bufferWidth, int bufferHeight, int format);
+	// rotation is the Surface.ROTATION_* of the display. A change in it alone (a 180 degree flip) keeps the size
+	// but the swapchain still has to be recreated, for the pre-rotation.
+	public static native void backbufferResize(int bufferWidth, int bufferHeight, int rotation);
 
-	public static native boolean isLandscape();
+	// A second display, like a TV, that the game is shown on. addOutput returns the output's id, or 0.
+	// removeOutput returns once the native side is done with the surface.
+	public static native int addOutput(Surface surface, int width, int height);
+	public static native void resizeOutput(int id, int width, int height);
+	public static native void removeOutput(int id);
+	public static native void setDeviceName(String name);
+
 	public static native boolean isAtTopLevel();
 
 	// These have Android semantics: Resume is always called on bootup, after init
@@ -64,6 +73,7 @@ public class NativeApp {
 	public static native void touch(float x, float y, int data, int pointerId);
 
 	public static native void accelerometer(float x, float y, float z);
+	public static native void gyroscope(float x, float y, float z, long timestampNs);
 
 	public static native void mouse(float x, float y, int button, int action);
 	public static native void mouseDelta(float x, float y);
@@ -72,6 +82,12 @@ public class NativeApp {
 	public static native void setAchievementsHostOverride(String host);
 	public static native void clearAchievementsHostOverride();
 	public static native String queryConfig(String queryName);
+	// The content URIs that the recent list, the remembered shortcuts and the settings still point at.
+	// Null if the config in memory may not be the user's (see HaveUsersConfig).
+	public static native String[] getReferencedUris();
+	// Remembers these as home screen shortcut targets, oldest first, and saves the config. Only call during
+	// Initialize. False if that didn't work out.
+	public static native boolean addShortcutUris(String[] uris);
 
 	public static native int getSelectedCamera();
 	public static native int getDisplayFramerateMode();
@@ -107,7 +123,7 @@ public class NativeApp {
 		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
 			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
 			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
-			Log.i(TAG, "Mouse delta: " + dx + " " + dy);
+			// Log.i(TAG, "Mouse delta: " + dx + " " + dy);
 			NativeApp.mouseDelta(dx, dy);
 		}
 	}
@@ -117,7 +133,7 @@ public class NativeApp {
 	}
 
 	private static void onMouseEventMotion(final MotionEvent ev) {
-		Log.i(TAG, "motion mouse event");
+		// Log.i(TAG, "motion mouse event");
 		switch (ev.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN: {
 				if (PpssppActivity.useModernMouseEvents) {
@@ -177,11 +193,11 @@ public class NativeApp {
 						code = 4;
 					break;
 				case MotionEvent.ACTION_CANCEL:
+					// The whole gesture is over (the system took it, for example), so every pointer in the
+					// event is, not just the one at the action index. Otherwise the rest stay held down
+					// on the native side. Handle like ACTION_UP for now.
 					Log.i(TAG, "ACTION_CANCEL");
-					if (ev.getActionIndex() == i) {
-						// Handle like ACTION_UP for now.
-						code = 4;
-					}
+					code = 4;
 					break;
 				case MotionEvent.ACTION_MOVE: {
 					code = 1;

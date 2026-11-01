@@ -598,17 +598,16 @@ static inline int16_t Clamp16(int32_t sample) {
 }
 
 void SoundEffectMixer::Mix(int16_t *buffer, int sz, int sampleRateHz) {
-	{
-		std::lock_guard<std::mutex> guard(mutex_);
-		if (!queue_.empty()) {
-			for (const auto &entry : queue_) {
-				plays_.push_back(entry);
-			}
-			queue_.clear();
+	// Held for the whole mix: UpdateSample() can replace (and free) a sample we're playing. It's cheap.
+	std::lock_guard<std::mutex> guard(mutex_);
+	if (!queue_.empty()) {
+		for (const auto &entry : queue_) {
+			plays_.push_back(entry);
 		}
-		if (plays_.empty()) {
-			return;
-		}
+		queue_.clear();
+	}
+	if (plays_.empty()) {
+		return;
 	}
 
 	for (std::vector<PlayInstance>::iterator iter = plays_.begin(); iter != plays_.end(); ) {

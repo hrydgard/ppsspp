@@ -46,17 +46,19 @@ namespace MIPSComp {
 
 class X64JitBackend : public Gen::XCodeBlock, public IRNativeBackend {
 public:
-	X64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	X64JitBackend(JitOptions &jo);
 	~X64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 protected:
+	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
+
 	const CodeBlockCommon &CodeBlock() const override {
 		return *this;
 	}
@@ -120,6 +122,9 @@ private:
 	void CompIR_VecPack(IRInst inst) override;
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
+#if PPSSPP_ARCH(AMD64)
+	void CompIR_KernelLoadStore(IRInst inst) override;
+#endif
 
 	void EmitConst4x32(const void **c, uint32_t v);
 	void EmitFPUConstants();
@@ -141,6 +146,11 @@ private:
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
+	// See GenerateX64VfpuDot().
+	const u8 *vfpuDot_ = nullptr;
+	// LoadKernel8 to StoreKernel32 on a hardware register: address in SCRATCH1, a store's value in
+	// MIPSState::temp, a load's result back in SCRATCH1. Every other register is kept.
+	const u8 *kernelLoadStore_[8]{};
 
 	typedef struct { float f[4]; } Float4Constant;
 	struct Constants {
@@ -168,7 +178,7 @@ private:
 class X64IRJit : public IRNativeJit {
 public:
 	X64IRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), x64Backend_(jo, blocks_) {
+		: IRNativeJit(mipsState), x64Backend_(jo) {
 		Init(x64Backend_);
 	}
 

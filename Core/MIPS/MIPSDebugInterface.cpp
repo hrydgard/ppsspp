@@ -25,6 +25,7 @@
 #include "Common/StringUtils.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -308,7 +309,7 @@ bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& d
 
 void DisAsm(u32 pc, char *out, size_t outSize) {
 	if (Memory::IsValid4AlignedAddress(pc))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
+		MIPSDisAsm(Replacement_GetDisplayOp(pc), pc, out, outSize);
 	else
 		truncate_cpy(out, outSize, "-");
 }

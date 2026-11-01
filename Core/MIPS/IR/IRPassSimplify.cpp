@@ -691,6 +691,27 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			}
 			break;
 
+		case IROp::LoadKernel8:
+		case IROp::LoadKernel8Ext:
+		case IROp::LoadKernel16:
+		case IROp::LoadKernel16Ext:
+		case IROp::LoadKernel32:
+		case IROp::StoreKernel8:
+		case IROp::StoreKernel16:
+		case IROp::StoreKernel32:
+			// Barriers, so everything is written out, but they can't change the GPRs, so the values
+			// stay known. A constant address goes in the op, for ResolveKernelMemory.
+			if (gpr.IsImm(inst.src1)) {
+				const u32 addr = gpr.GetImm(inst.src1) + inst.constant;
+				gpr.FlushAll(true);
+				if ((GetIRMeta(inst.op)->flags & IRFLAG_SRC3) == 0)
+					gpr.MapDirty(inst.dest);
+				out.Write(inst.op, inst.dest, 0, 0, addr);
+				break;
+			}
+			gpr.FlushAll(true);
+			goto doDefault;
+
 		case IROp::Load8:
 		case IROp::Load8Ext:
 		case IROp::Load16:
@@ -846,12 +867,18 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Sub:
 		case IROp::Vec4Mul:
 		case IROp::Vec4Div:
-		case IROp::Vec4Dot:
+		case IROp::Vec4VfpuDot:
+		case IROp::Vec4VfpuMultiDot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
 		case IROp::Vec4Blend:
 		case IROp::Vec4Neg:
 		case IROp::Vec4Abs:
+		case IROp::Vec4Min:
+		case IROp::Vec4Max:
+		case IROp::Vec4Slt:
+		case IROp::Vec4Sge:
+		case IROp::Vec4CvtScaledSW:
 		case IROp::Vec4Pack31To8:
 		case IROp::Vec4Pack32To8:
 		case IROp::Vec2Pack32To16:
@@ -1141,6 +1168,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 						srclen = 4;
 					else if (type == '2')
 						srclen = 2;
+					else if (type == 'M')
+						srclen = 16;
 					else if (type != 'F')
 						return;
 
@@ -1156,6 +1185,15 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					checkMismatch(inst.src3, inst.m.types[0]);
 
 				bool cannotReplace = !readsDirectly || lenMismatch;
+				// Nor where a multi-lane result would cover the source it reads instead, which the
+				// backends don't expect (the copy was what kept them apart).
+				IRReg destRegs[4];
+				const int numDest = IRDestFPRs(inst, destRegs);
+				if (numDest > 1 && check.srcReg >= destRegs[0] + 32 && check.srcReg < destRegs[0] + 32 + numDest)
+					cannotReplace = true;
+				// Nor where it's read as src3 that's also the destination, which renaming would move.
+				if ((inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'F' && inst.src3 + 32 == check.reg)
+					cannotReplace = true;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
@@ -1166,7 +1204,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 							inst.src1 = srcReg;
 						if (inst.m.types[2] == 'F' && inst.src2 == reg)
 							inst.src2 = srcReg;
-						if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
+						if ((inst.m.flags & IRFLAG_SRC3) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
 							inst.src3 = srcReg;
 
 						// If this also writes the reg, the check ends here. A full overwrite leaves the
@@ -1285,7 +1323,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 
-		IRReg regs[16];
+		IRReg regs[IR_MAX_FPR_READS];
 		int readGPRs = IRReadsFromGPRs(inst, regs);
 		if (readGPRs == -1) {
 			for (int j = 0; j < 256; ++j)
@@ -1991,6 +2029,14 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				isUsed[r + i] = true;
 			break;
 
+		case 'M':
+			_dbg_assert_((r & 3) == 0);
+			for (int i = 0; i < 16; ++i) {
+				isVec4[(r + i) & ~3] = true;
+				isUsed[r + i] = true;
+			}
+			break;
+
 		default:
 			break;
 		}
@@ -2070,6 +2116,8 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				if (m->types[0] == 'V' && inst.dest == r)
 					return true;
 				if (m->types[1] == 'V' && inst.src1 == r)
+					return true;
+				if (m->types[1] == 'M' && r >= inst.src1 && r < inst.src1 + 16)
 					return true;
 				if (m->types[2] == 'V' && inst.src2 == r)
 					return true;
@@ -2184,7 +2232,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			}
 			break;
 
-		case IROp::Vec4Dot:
+		case IROp::Vec4VfpuDot:
 			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
 				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
 				if (usedLaterAsVec4(inst.dest & ~3)) {
@@ -2320,7 +2368,9 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 			known.erase(std::remove_if(known.begin(), known.end(), [&](const Known &k) {
 				if (k.base != inst.src1 || !plainStore)
 					return true;
-				return !(k.offset + k.size <= inst.constant || inst.constant + info.size <= k.offset);
+				// Signed, as the offsets are: -16 + 16 mustn't wrap to below -12.
+				const s64 known = (s32)k.offset, store = (s32)inst.constant;
+				return !(known + k.size <= store || store + info.size <= known);
 			}), known.end());
 		}
 
@@ -2340,6 +2390,42 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		} else if (plainLoad && info.size >= 4 && !(kindOf(inst.op) == 'G' && inst.dest == inst.src1)) {
 			known.push_back({ inst.src1, inst.constant, info.size, kindOf(inst.op), inst.dest });
 		}
+	}
+	return false;
+}
+
+// The plain op for a kernel load or store, and its size, or Nop.
+static IROp PlainMemoryOp(IROp op, int *size) {
+	switch (op) {
+	case IROp::LoadKernel8: *size = 1; return IROp::Load8;
+	case IROp::LoadKernel8Ext: *size = 1; return IROp::Load8Ext;
+	case IROp::LoadKernel16: *size = 2; return IROp::Load16;
+	case IROp::LoadKernel16Ext: *size = 2; return IROp::Load16Ext;
+	case IROp::LoadKernel32: *size = 4; return IROp::Load32;
+	case IROp::StoreKernel8: *size = 1; return IROp::Store8;
+	case IROp::StoreKernel16: *size = 2; return IROp::Store16;
+	case IROp::StoreKernel32: *size = 4; return IROp::Store32;
+	default: return IROp::Nop;
+	}
+}
+
+bool ResolveKernelMemory(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	for (IRInst inst : in.GetInstructions()) {
+		int size = 0;
+		const IROp plain = PlainMemoryOp(inst.op, &size);
+		if (plain != IROp::Nop && inst.src1 == MIPS_REG_ZERO) {
+			const u32 addr = inst.constant;
+			bool valid;
+			switch (size) {
+			case 1: valid = Memory::IsValidAddress(addr); break;
+			case 2: valid = Memory::IsValid2AlignedAddress(addr); break;
+			default: valid = Memory::IsValid4AlignedAddress(addr); break;
+			}
+			if (valid)
+				inst.op = plain;
+		}
+		out.Write(inst);
 	}
 	return false;
 }

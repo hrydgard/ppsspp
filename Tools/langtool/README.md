@@ -28,6 +28,31 @@ empty. Exits with a non-zero code if it finds anything, so it can be used as a c
 
 The same checks run on anything the AI produces, before it gets written to a file.
 
+## Finding missing keys
+
+```bash
+cargo run -- find-missing-keys
+```
+
+Scans the C++ source for translation lookups whose key isn't in en_US.ini: `T()` calls, settings pages,
+config setting labels and their choices, popup choice lists and context menus. Each one is printed with
+its section, the English default if the code has one, and where it is. It's a regex scan, so it knows
+the patterns in `src/scan.rs` and nothing else. Technical names that are never translated (like
+"XInput") show up too.
+
+Keys built at runtime can't be checked. `find-missing-keys --dynamic` lists those lookups instead.
+
+## Importing translations
+
+```bash
+cargo run -- import-language sv_SE translations.ini
+```
+
+Merges a file laid out like a language file (section headers, `key = translation`, keyed like
+en_US.ini) into one language. Each string goes through the same checks as AI output and is written
+with a `# AI translated` comment, or `# same as English` if it's identical to the English string.
+Keys missing from the target file are reported, not added.
+
 ## AI translation
 
 Some commands (`add-new-key-ai`, `add-new-key-value-ai`, `finish-language-with-ai`) use an LLM to

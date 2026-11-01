@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <mutex>
 
@@ -17,7 +18,8 @@ public:
 	virtual ~AudioContext() {}
 
 protected:
-	void SetErrorString(const std::string &error);
+	static void SetErrorString(const std::string &error);
+	static void SetInfoString(const std::string &info);
 	AndroidAudioCallback audioCallback;
 
 	int framesPerBuffer;
@@ -34,8 +36,16 @@ AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback cb, int optimalFramesP
 bool AndroidAudio_Recording_SetSampleRate(AndroidAudioState *state, int sampleRate);
 bool AndroidAudio_Recording_Start(AndroidAudioState *state);
 bool AndroidAudio_Recording_Stop(AndroidAudioState *state);
-bool AndroidAudio_Recording_State(AndroidAudioState *state);
+// Microphone input is buffered: the input stream pushes it, and AndroidAudio_Recording_Poll hands it
+// over to Microphone::addAudioData. Poll and Clear are for the CPU thread.
+void AndroidAudio_Recording_Push(const int16_t *samples, int count);
+void AndroidAudio_Recording_Poll();
+void AndroidAudio_Recording_Clear();
 bool AndroidAudio_Pause(AndroidAudioState *state);
 bool AndroidAudio_Resume(AndroidAudioState *state);
+// Closes the streams and opens them again, to apply changed settings.
+bool AndroidAudio_Restart(AndroidAudioState *state);
 bool AndroidAudio_Shutdown(AndroidAudioState *state);
 const std::string AndroidAudio_GetErrorString(AndroidAudioState *state);
+// Describes the output stream that's open.
+const std::string AndroidAudio_GetInfoString(AndroidAudioState *state);

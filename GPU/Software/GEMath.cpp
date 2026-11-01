@@ -18,15 +18,8 @@
 #include "Common/BitScan.h"
 #include "GPU/Software/GEMath.h"
 
-// The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
-// 8 bits interpolate linearly. b is the segment's start in units of 2^-17, m its slope in units of
-// 2^-23 per step, and 63 a rounding bias below half. Measured for every mantissa on hardware.
-struct GERecipSegment {
-	int32_t b;
-	int32_t m;
-};
-
-static const GERecipSegment geRecipSegments[128] = {
+// GERecip's segments (GEMath.h).
+const GERecipSegment geRecipSegments[128] = {
 	{ 131072, -254 }, { 130055, -250 }, { 129054, -246 }, { 128071, -243 }, { 127099, -239 }, { 126143, -235 }, { 125203, -232 }, { 124274, -228 },
 	{ 123361, -225 }, { 122461, -222 }, { 121574, -219 }, { 120700, -216 }, { 119836, -212 }, { 118986, -209 }, { 118150, -207 }, { 117323, -204 },
 	{ 116508, -201 }, { 115704, -198 }, { 114913, -196 }, { 114130, -193 }, { 113358, -190 }, { 112599, -188 }, { 111847, -185 }, { 111107, -183 },
@@ -44,17 +37,6 @@ static const GERecipSegment geRecipSegments[128] = {
 	{ 69906, -73 }, { 69615, -72 }, { 69327, -71 }, { 69042, -71 }, { 68759, -70 }, { 68479, -70 }, { 68200, -69 }, { 67925, -69 },
 	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
 };
-
-// w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
-float GERecip(float w) {
-	uint32_t bits;
-	memcpy(&bits, &w, sizeof(bits));
-	const uint32_t i = (bits >> 8) & 0x7FFF;
-	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
-	const GERecipSegment &seg = geRecipSegments[i >> 8];
-	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
-	return copysign(ldexpf((float)q, -16 - e), w);
-}
 
 // The GE's reciprocal square root (gpu/probe exp69, bit exact): for d = 1.i * 2^E, segment i >> 8 of the
 // table for E's parity, linearly interpolated like GERecip by the low 8 bits. Even E stores 1 / sqrt(1.i),
@@ -106,7 +88,53 @@ float GERsqrt(float d) {
 	const int e = (int)((bits >> 23) & 0xFF) - 127;
 	const GERecipSegment &seg = geRsqrtSegments[e & 1][i >> 8];
 	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;
-	return ldexpf((float)q, -16 - (e >> 1));
+	return ScaleByPow2((float)q, -16 - (e >> 1), 0);
+}
+
+Vec4F32 GEAdd4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = GEAdd(av[i], bv[i]);
+	}
+	return Vec4F32::Load(rv);
+}
+
+Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = ProductToFloat24((double)TruncateToFloat24(av[i]) * TruncateToFloat24(bv[i]));
+	}
+	return Vec4F32::Load(rv);
+}
+
+Vec4F32 GERowSumLanesFallback(const Vec4F32 a[4], const float b[4], int count, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4][4], rv[4];
+	alignas(16) int lv[4];
+	for (int k = 0; k < count; ++k)
+		Vec4F32(a[k]).Store(av[k]);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (!lv[i])
+			continue;
+		GERowTerm terms[4];
+		for (int k = 0; k < count; ++k)
+			terms[k] = GEProduct(TruncateToFloat24(av[k][i]), b[k]);
+		rv[i] = GERowSum(terms, count);
+	}
+	return Vec4F32::Load(rv);
 }
 
 float GEAddFloat24(float a, float b) {
@@ -114,6 +142,27 @@ float GEAddFloat24(float a, float b) {
 }
 
 // A dot product as the GE's dot product unit sums it (like a matrix row without translation).
+Vec4F32 GERowSum4Fallback(Vec4F32 a, const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4][4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	for (int k = 0; k < 4; ++k)
+		av[k] = TruncateToFloat24(av[k]);
+	for (int k = 0; k < count; ++k)
+		Vec4F32(b[k]).Store(bv[k]);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (!lv[i])
+			continue;
+		GERowTerm terms[4];
+		for (int k = 0; k < count; ++k)
+			terms[k] = GEProduct(av[k], bv[k][i]);
+		rv[i] = GERowSum(terms, count);
+	}
+	return Vec4F32::Load(rv);
+}
+
 float GEDot(const Vec3f &a, const Vec3f &b) {
 	GERowTerm terms[3] = {
 		GEProduct(TruncateToFloat24(a.x), TruncateToFloat24(b.x)),
@@ -219,6 +268,21 @@ int64_t GESetupRecip(uint64_t absDet, int *e) {
 	const int index = (int)((absDet << 16) >> ex) - 65536;
 	const GESetupRecipSegment &seg = geSetupRecip[index >> 8];
 	return (2 * (int64_t)seg.k + seg.m * (index & 255)) >> 8;
+}
+
+bool GESpriteUPlaneExact(int64_t left, int64_t top, int64_t right, int64_t bottom, double sLeft, double sRight) {
+	const int64_t det = (right - left) * (bottom - top);
+	if (det <= 0)
+		return false;
+	// The plane takes the values as integers at the larger one's exponent, 15 bits (Rasterizer's FixedPlane).
+	const double larger = std::max(std::fabs(sLeft), std::fabs(sRight));
+	const int shift = larger == 0.0 ? 0 : 14 - std::ilogb(larger);
+	const int64_t n = ((int64_t)std::ldexp(sRight, shift) - (int64_t)std::ldexp(sLeft, shift)) * (bottom - top);
+	int e;
+	const int64_t q = GESetupRecip((uint64_t)det, &e);
+	const int64_t kx = (n * q) >> (e + 2);
+	// Exact when it's n / det with its 14 fraction bits per subpixel, all there.
+	return kx * det == n * (1LL << 14);
 }
 
 float GELightPow(float v, float e) {

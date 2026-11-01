@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -131,9 +132,9 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	_assert_(saveOffset <= saveSize);
 
 	// Fixed registers, these are always kept when in Jit context.
-	LI(MEMBASEREG, Memory::base, SCRATCH1);
+	LI(MEMBASEREG, mipsState->space->base, SCRATCH1);
 	LI(CTXREG, mipsState, SCRATCH1);
-	LI(JITBASEREG, GetBasePtr() - MIPS_EMUHACK_OPCODE, SCRATCH1);
+	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
 	LoadStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
@@ -179,23 +180,22 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	LWU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
 	WriteDebugPC(SCRATCH1);
-#ifdef MASKED_PSP_MEMORY
-	LI(SCRATCH2, 0x3FFFFFFF);
+	LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
-#endif
-	ADD(SCRATCH1, SCRATCH1, MEMBASEREG);
+	LI(SCRATCH2, mipsState->space->blockShadow, X7);
+	ADD(SCRATCH1, SCRATCH1, SCRATCH2);
 	hooks_.dispatchFetch = GetCodePtr();
 	LWU(SCRATCH1, SCRATCH1, 0);
-	SRLI(SCRATCH2, SCRATCH1, 24);
-	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
-	ADDI(SCRATCH2, SCRATCH2, -(MIPS_EMUHACK_OPCODE >> 24));
-	FixupBranch needsCompile = BNE(SCRATCH2, R_ZERO);
-	// No need to mask, JITBASEREG has already accounted for the upper bits.
+	// The entry is the block's offset into the code space, or 0 for none.
+	FixupBranch needsCompile = BEQ(SCRATCH1, R_ZERO);
 	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
 	JR(SCRATCH1);
 	SetJumpTarget(needsCompile);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
+	// A replacement hook's block shadow entry jumps here too (GetBlockShadowHookValue()). JitAt
+	// replaces it with the new block's entry, and destroying that block puts the hook value back.
+	hooks_.blockShadowHook = GetCodePtr();
 	RestoreRoundingMode(true);
 	WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 	QuickCallFunctionR(&MIPSComp::JitAt, CTXREG, X7);
@@ -238,6 +238,9 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	SW(SCRATCH2, SCRATCH1, 0);
 	J(quitLoop);
 
+	vfpuDotSpecial_ = GenerateRiscVVfpuDotSpecial(this, CTXREG);
+	vfpuDot_ = GenerateRiscVVfpuDot(this, CTXREG, vfpuDotSpecial_);
+
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
 #if PPSSPP_ARCH(RISCV64)
@@ -254,6 +257,19 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
 	EndWrite();
+}
+
+void RiscVJitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
 }
 
 } // namespace MIPSComp

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Where System_ShareFile can share files from, when they are paths rather than content:// URIs. -->
+<paths>
+	<files-path name="files" path="." />
+	<cache-path name="cache" path="." />
+	<external-files-path name="external_files" path="." />
+	<external-path name="external" path="." />
+	<!-- SD cards, and anything else outside the above. -->
+	<root-path name="root" path="." />
+</paths>

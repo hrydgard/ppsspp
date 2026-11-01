@@ -153,11 +153,13 @@ void Arm64JitBackend::CompIR_Breakpoint(IRInst inst) {
 			if (memchecks.empty())
 				break;
 
+			// The flush may use SCRATCH1 for an imm, so the address waits in SCRATCH2.
 			ARM64Reg addrBase = regs_.MapGPR(inst.src1);
-			ADDI2R(SCRATCH1, addrBase, inst.constant, SCRATCH2);
+			ADDI2R(SCRATCH2, addrBase, inst.constant, SCRATCH1);
 
 			// We need to flush, or conditions and log expressions will see old register values.
 			FlushAll();
+			MOV(SCRATCH1, SCRATCH2);
 
 			std::vector<FixupBranch> hitChecks;
 			for (auto it : memchecks) {
@@ -213,7 +215,8 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		MOVI2R(W0, inst.constant);
+		MOVP2R(X0, mips_);
+		MOVI2R(W1, inst.constant);
 		QuickCallFunction(SCRATCH2_64, &CallSyscall);
 #else
 		// Skip the CallSyscall where possible.
@@ -223,15 +226,18 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 			if (func) {
 				void *quickFunc = GetQuickSyscallFunc(func, op);
 				if (quickFunc) {
-					MOVP2R(X0, func);
+					MOVP2R(X0, mips_);
+					MOVP2R(X1, func);
 					QuickCallFunction(SCRATCH2_64, (const u8 *)quickFunc);
 				} else {
-					MOVI2R(W0, inst.constant);
+					MOVP2R(X0, mips_);
+					MOVI2R(W1, inst.constant);
 					QuickCallFunction(SCRATCH2_64, &CallSyscall);
 				}
 			} else {
 				// Shouldn't get here.
-				MOVI2R(W0, 0);
+				MOVP2R(X0, mips_);
+				MOVI2R(W1, 0);
 				QuickCallFunction(SCRATCH2_64, &CallSyscallUnresolvedAtPC);
 			}
 		}
@@ -246,7 +252,8 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-		MOVI2R(W0, inst.constant);
+		MOVP2R(X0, mips_);
+		MOVI2R(W1, inst.constant);
 		QuickCallFunction(SCRATCH2_64, &CallSyscallUnresolvedAtPC);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
@@ -256,6 +263,7 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
+		MOVP2R(X0, mips_);
 		QuickCallFunction(SCRATCH2_64, GetReplacementFunc(inst.constant)->replaceFunc);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
@@ -434,15 +442,18 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	SetJumpTarget(tooHighScratch);
 
 	// If we got here, something unusual and bad happened, so we'll always go back to the dispatcher.
-	// Because of that, we can avoid flushing outside this case.
+	// Because of that, we can avoid flushing outside this case. The flush may use SCRATCH1 for an
+	// imm, so the address waits in SCRATCH2.
+	MOV(SCRATCH2, SCRATCH1);
 	auto regsCopy = regs_;
 	regsCopy.FlushAll();
 
 	// Ignores the return value, always returns to the dispatcher.
 	// Otherwise would need a thunk to restore regs.
-	MOV(W0, SCRATCH1);
+	MOV(W0, SCRATCH2);
 	MOVI2R(W1, alignment);
 	MOVI2R(W2, isWrite ? 1 : 0);
+	MOVP2R(X3, mips_);
 	QuickCallFunction(SCRATCH2, &ReportBadAddress);
 	B(dispatcherCheckCoreState_);
 

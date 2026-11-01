@@ -90,6 +90,10 @@ bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+// While set, the game sees no buttons and centered sticks (a system overlay such as the HOME
+// button's quit screen has the controls). __CtrlPeekButtons still returns the real state.
+void __CtrlSetGameInputBlocked(bool blocked);
+bool __CtrlIsGameInputBlocked();
 
 // Exposed so sceVshBridge can reuse it directly for vshCtrlReadBufferPositive, matching JPCSP.
 int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs);

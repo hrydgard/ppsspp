@@ -19,6 +19,9 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
 void atrac3_free(ATRAC3Context *ctx);
 void atrac3_flush_buffers(ATRAC3Context *ctx);
 int atrac3_decode_frame(ATRAC3Context *ctx, float *out_data[2], int *nb_samples, const uint8_t *buf, int buf_size);
+// What atrac3_decode_frame returns when a joint stereo frame's second part doesn't start with its
+// marker. The PSP reports that differently from other bad frames.
+#define ATRAC3_ERROR_JOINT_STEREO_MARKER (-0x183)
 
 ATRAC3PContext *atrac3p_alloc(int channels, int *block_align);
 void atrac3p_free(ATRAC3PContext *ctx);

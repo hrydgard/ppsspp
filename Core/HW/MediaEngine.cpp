@@ -177,6 +177,15 @@ void MediaEngine::DoState(PointerWrap &p) {
 
 	Do(p, m_ringbuffersize);
 
+	// All straight from the file. The header ones index m_mpegheader, the ringbuffer size sizes
+	// buffers (the PSP's whole RAM is a generous limit.)
+	if (p.mode == p.MODE_READ && (m_mpegheaderSize < 0 || m_mpegheaderSize > (int)sizeof(m_mpegheader) ||
+		m_mpegheaderReadPos < 0 || m_mpegheaderReadPos > m_mpegheaderSize || m_ringbuffersize < 0 || m_ringbuffersize > 64 * 1024 * 1024)) {
+		ERROR_LOG(Log::SaveState, "MediaEngine: bad header size %d, position %d or ringbuffer size %d in savestate", m_mpegheaderSize, m_mpegheaderReadPos, m_ringbuffersize);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
+
 	u32 hasloadStream = m_pdata != nullptr;
 	Do(p, hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)
@@ -239,13 +248,13 @@ bool MediaEngine::SetupStreams() {
 #ifdef USE_FFMPEG
 	const u32 magic = *(u32_le *)&m_mpegheader[0];
 	if (magic != PSMF_MAGIC) {
-		WARN_LOG_REPORT(Log::ME, "Could not setup streams, bad magic: %08x", magic);
+		WARN_LOG(Log::ME, "Could not setup streams, bad magic: %08x", magic);
 		return false;
 	}
 	int numStreams = *(u16_be *)&m_mpegheader[0x80];
 	if (numStreams <= 0 || numStreams > 8) {
 		// Looks crazy.  Let's bail out and let FFmpeg handle it.
-		WARN_LOG_REPORT(Log::ME, "Could not setup streams, unexpected stream count: %d", numStreams);
+		WARN_LOG(Log::ME, "Could not setup streams, unexpected stream count: %d", numStreams);
 		return false;
 	}
 
@@ -310,7 +319,7 @@ bool MediaEngine::openContext(bool keepReadPos) {
 	}
 
 	if (m_videoStream >= (int)m_pFormatCtx->nb_streams) {
-		WARN_LOG_REPORT(Log::ME, "Bad video stream %d", m_videoStream);
+		WARN_LOG(Log::ME, "Bad video stream %d", m_videoStream);
 		m_videoStream = -1;
 	}
 
@@ -532,13 +541,13 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57, 33, 100)
 		AVCodec *pCodec = avcodec_find_decoder(stream->codecpar->codec_id);
 		if (!pCodec) {
-			WARN_LOG_REPORT(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
+			WARN_LOG(Log::ME, "Could not find decoder for %d", (int)stream->codecpar->codec_id);
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = avcodec_alloc_context3(pCodec);
 		int paramResult = avcodec_parameters_to_context(m_pCodecCtx, stream->codecpar);
 		if (paramResult < 0) {
-			WARN_LOG_REPORT(Log::ME, "Failed to prepare context parameters: %08x", paramResult);
+			WARN_LOG(Log::ME, "Failed to prepare context parameters: %08x", paramResult);
 			return false;
 		}
 #else
@@ -847,6 +856,18 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	}
 }
 
+// Returns -1 if the size is unreasonable. Swizzling writes whole 8-row tiles, at least one.
+static int VideoImageSize(int videoLineSize, int height, bool swizzle) {
+	if (videoLineSize < 0 || height < 0) {
+		return -1;
+	}
+	if (swizzle) {
+		height = std::max(8, (height + 7) & ~7);
+	}
+	const s64 size = (s64)videoLineSize * height;
+	return size > 0x10000000 ? -1 : (int)size;
+}
+
 int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode) {
 	int videoLineSize = 0;
 	switch (videoPixelMode) {
@@ -860,11 +881,13 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		break;
 	}
 
-	int videoImageSize = videoLineSize * m_desHeight;
+	const int height = m_desHeight;
+	const bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	const int videoImageSize = VideoImageSize(videoLineSize, height, swizzle);
 
-	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -875,47 +898,48 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		return 0;
 
 	// lock the image size
-	int height = m_desHeight;
-	int width = m_desWidth;
+	// Rows can't be wider than the stride, or they'd overlap and the last would run past the end.
+	const int width = std::min(m_desWidth, frameWidth);
+	const int srcStride = m_desWidth;
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
 
-	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
 	if (swizzle) {
-		imgbuf = new u8[videoImageSize];
+		// Zeroed, since the padding past width (and the rows of the last tile) gets copied to the guest too.
+		imgbuf = new u8[videoImageSize]();
 	}
 
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u32);
+			data += srcStride * sizeof(u32);
 		}
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
@@ -949,11 +973,12 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoLineSize = frameWidth * sizeof(u16);
 		break;
 	}
-	int videoImageSize = videoLineSize * height;
+	const bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	const int videoImageSize = VideoImageSize(videoLineSize, height, swizzle);
 
-	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
-		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
+		ERROR_LOG(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
 	}
 
@@ -964,16 +989,15 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		return 0;
 
 	// lock the image size
-	u8 *imgbuf = buffer;
+	// imgbuf advances per row, so keep the start for the swizzle.
+	u8 *const swizzleBuf = swizzle ? new u8[videoImageSize]() : nullptr;
+	u8 *imgbuf = swizzle ? swizzleBuf : buffer;
 	const u8 *data = m_pFrameRGB->data[0];
-
-	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
-	if (swizzle) {
-		imgbuf = new u8[videoImageSize];
-	}
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
+	if (width > frameWidth)
+		width = frameWidth;
 	if (height > m_desHeight - ypos)
 		height = m_desHeight - ypos;
 
@@ -1015,7 +1039,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
+		ERROR_LOG(Log::ME, "Unsupported video pixel format %d", videoPixelMode);
 		break;
 	}
 
@@ -1027,8 +1051,8 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		if (byc == 0)
 			byc = 1;
 
-		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
-		delete [] imgbuf;
+		DoSwizzleTex16((const u32 *)swizzleBuf, buffer, bxc, byc, videoLineSize);
+		delete [] swizzleBuf;
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, videoImageSize, "VideoDecodeRange");
 
@@ -1079,7 +1103,7 @@ int MediaEngine::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2)
 int MediaEngine::getAudioSamples(u32 bufferPtr) {
 	int16_t *buffer = (int16_t *)Memory::GetPointerWriteRangeOrException(bufferPtr, 8192);
 	if (buffer == nullptr) {
-		ERROR_LOG_REPORT(Log::ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
+		ERROR_LOG(Log::ME, "Ignoring bad audio decode address %08x during video playback", bufferPtr);
 	}
 	if (!m_demux) {
 		return 0;

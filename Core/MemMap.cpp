@@ -26,6 +26,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemArena.h"
+#include "Common/MemoryUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
@@ -45,6 +46,11 @@ namespace Memory {
 
 // The base pointer to the auto-mirrored arena.
 u8* base = nullptr;
+
+u8 *blockShadow = nullptr;
+AddressSpace g_mainSpace;
+bool g_kernelModeAnywhere = false;
+static const size_t BLOCK_SHADOW_SIZE = (size_t)BLOCK_SHADOW_MASK + 1;
 
 // The MemArena class
 MemArena g_arena;
@@ -72,6 +78,14 @@ u8 *m_pUncachedKernelRAM[3];
 // our software renderer.
 static u8 *m_pPhysicalVRAM[4];
 static u8 *m_pUncachedVRAM[4];
+
+static u8 *m_pBootPage;
+// Only mapped in the Media Engine's space, so these stay null.
+static u8 *m_pMEEdram[3];
+static u8 *m_pMEUncachedRAM[3];
+static u8 *m_pMELocal[12];
+// Where masking leaves no room to map the boot page. There's no Media Engine there to share it with.
+static u8 g_unmappedBootPage[BOOT_PAGE_SIZE];
 
 // Hardware registers are mapped at 0xbc000000 and forwards (physical address 0x1C000000, but we need
 // the 0x80000000 kernel flag and 0x40000000 uncached flag for these). Exception vectors are at 0xbfc00000.
@@ -101,43 +115,74 @@ u32 g_UserPartitionSize;
 static MemMapSetupFlags g_setupFlags;
 
 
-// We don't declare the IO region in here since its handled by other means.
+// We don't declare the IO region in here since its handled by other means (MMIO), except for the
+// boot page, which MMIO reads and writes through its view.
 static MemoryView views[] = {
-	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
-	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
-	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE | MV_MAIN_CPU_ONLY}, // Null page, usually not enabled. Only used for working around some race condition bugs.
+	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, MV_MAIN_CPU_ONLY},
+	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
 	// Kernel-mode code (e.g. flash0:/reboot.bin) sees the scratchpad through these mirrors -
 	// same two address bits as RAM below (0x80000000 = kernel, 0x40000000 = uncached,
 	// independently combinable), just missing here until this was noticed via a real SIGSEGV
 	// writing 0x80010000 (see docs/VSHBootInvestigation.md).
-	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
-	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
-	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
-	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pPhysicalVRAM[3],     0x04600000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM[0],     0x44000000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM[1],     0x44200000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM[2],     0x44400000, 0x00200000, MV_MIRROR_PREVIOUS},
-	{&m_pUncachedVRAM[3],     0x44600000, 0x00200000, MV_MIRROR_PREVIOUS},
+	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL | MV_MAIN_CPU_ONLY},
+	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL | MV_MAIN_CPU_ONLY},
+	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, MV_MAIN_CPU_ONLY},
+	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pPhysicalVRAM[3],     0x04600000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pUncachedVRAM[0],     0x44000000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pUncachedVRAM[1],     0x44200000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pUncachedVRAM[2],     0x44400000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	{&m_pUncachedVRAM[3],     0x44600000, 0x00200000, MV_MIRROR_PREVIOUS | MV_MAIN_CPU_ONLY},
+	// The Media Engine doesn't see VRAM: at its addresses it has memory of its own, separate from VRAM
+	// through 0x44000000 and 0xA4000000 alike (pspautotest me/vram). mcidclan's libraries keep the VME's
+	// buffers and configuration there. Its size isn't known; this covers what VRAM's views do.
+	{&m_pMELocal[0],          0x04000000, 0x00200000, MV_ME_ONLY | MV_ME_LOCAL},
+	{&m_pMELocal[1],          0x04200000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[2],          0x04400000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[3],          0x04600000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[4],          0x44000000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[5],          0x44200000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[6],          0x44400000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[7],          0x44600000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[8],          0xA4000000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[9],          0xA4200000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[10],         0xA4400000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
+	{&m_pMELocal[11],         0xA4600000, 0x00200000, MV_MIRROR_PREVIOUS | MV_ME_ONLY},
 	{&m_pPhysicalRAM[0],      0x08000000, g_MemorySize, MV_IS_PRIMARY_RAM},	// only from 0x08800000 is it usable (last 24 megs)
 	{&m_pUncachedRAM[0],      0x48000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM},
 	{&m_pKernelRAM[0],        0x88000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[0],0xC8000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_KERNEL},
+	// The ME also reaches physical memory uncached through 0xA0000000.
+	{&m_pMEUncachedRAM[0],    0xA8000000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_PRIMARY_RAM | MV_ME_ONLY},
 	// Starts at memory + 31 MB.
 	{&m_pPhysicalRAM[1],      0x09F00000, g_MemorySize, MV_IS_EXTRA1_RAM},
 	{&m_pUncachedRAM[1],      0x49F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM},
 	{&m_pKernelRAM[1],        0x89F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[1],0xC9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_KERNEL},
+	{&m_pMEUncachedRAM[1],    0xA9F00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA1_RAM | MV_ME_ONLY},
 	// Starts at memory + 31 * 2 MB.
 	{&m_pPhysicalRAM[2],      0x0BE00000, g_MemorySize, MV_IS_EXTRA2_RAM},
 	{&m_pUncachedRAM[2],      0x4BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM},
 	{&m_pKernelRAM[2],        0x8BE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
 	{&m_pUncachedKernelRAM[2],0xCBE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_KERNEL},
+	{&m_pMEUncachedRAM[2],    0xABE00000, g_MemorySize, MV_MIRROR_PREVIOUS | MV_IS_EXTRA2_RAM | MV_ME_ONLY},
+
+	// Sized for the model in Init().
+	{&m_pMEEdram[0],          0x00000000, 0, MV_ME_ONLY | MV_EDRAM},
+	{&m_pMEEdram[1],          0x80000000, 0, MV_MIRROR_PREVIOUS | MV_ME_ONLY | MV_EDRAM},
+	{&m_pMEEdram[2],          0xA0000000, 0, MV_MIRROR_PREVIOUS | MV_ME_ONLY | MV_EDRAM},
+
+	// Last, so the views before keep their offsets aligned to the host's pages.
+	{&m_pBootPage,            BOOT_PAGE_ADDRESS, BOOT_PAGE_SIZE, MV_BOOT_PAGE},
 
 	// TODO: There are a few swizzled mirrors of VRAM, not sure about the best way to
 	// implement those.
 };
+
+// Where each view is in g_arena, for mapping the same memory into the Media Engine's space.
+static size_t viewPositions[ARRAY_SIZE(views)];
 
 inline static bool CanIgnoreView(const MemoryView &view) {
 #ifdef MASKED_PSP_MEMORY
@@ -157,8 +202,31 @@ static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
 #endif
 	if ((viewFlags & MV_NULL_PAGE) && !(flags & MemMapSetupFlags::AllocNullPage))
 		return true;
+#ifdef MASKED_PSP_MEMORY
+	// Far above everything else, where a masked map has nothing reserved. And no Media Engine.
+	if (viewFlags & (MV_BOOT_PAGE | MV_ME_ONLY))
+		return true;
+#endif
 	return false;
 }
+
+#if defined(__APPLE__)
+// The address range the views need, from the base.
+static size_t ViewSpan(MemMapSetupFlags flags) {
+	size_t span = 0;
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].size == 0 || SkipView(flags, views[i].flags) || CanIgnoreView(views[i]) || (views[i].flags & MV_ME_ONLY))
+			continue;
+#ifdef MASKED_PSP_MEMORY
+		const u32 address = views[i].virtual_address & MEMVIEW32_MASK;
+#else
+		const u32 address = views[i].virtual_address;
+#endif
+		span = std::max(span, (size_t)address + views[i].size);
+	}
+	return span;
+}
+#endif
 
 static bool Memory_TryBase(MemMapSetupFlags flags) {
 	// OK, we know where to find free space. Now grab it!
@@ -186,11 +254,14 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 			position = last_position;
 		}
 #ifndef MASKED_PSP_MEMORY
-		*view.out_ptr = (u8*)g_arena.CreateView(
-			position, view.size, base + view.virtual_address);
-		if (!*view.out_ptr) {
-			ERROR_LOG(Log::MemMap, "Failed at view %d", i);
-			goto bail;
+		// The ME's own views only get their place in the arena here, for CreateMESpace().
+		if (!(view.flags & MV_ME_ONLY)) {
+			*view.out_ptr = (u8*)g_arena.CreateView(
+				position, view.size, base + view.virtual_address);
+			if (!*view.out_ptr) {
+				ERROR_LOG(Log::MemMap, "Failed at view %d", i);
+				goto bail;
+			}
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -205,6 +276,7 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 			}
 		}
 #endif
+		viewPositions[i] = position;
 		last_position = position;
 		position += g_arena.roundup(view.size);
 	}
@@ -213,9 +285,9 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++) {
-		if (views[i].size == 0)
+		if (views[j].size == 0)
 			continue;
-		if (SkipView(flags, views[i].flags))
+		if (SkipView(flags, views[j].flags))
 			continue;
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
@@ -249,6 +321,30 @@ bool MemoryMap_Setup(MemMapSetupFlags flags) {
 	if (!g_arena.GrabMemSpace(total_mem)) {
 		// It'll already have logged.
 		return false;
+	}
+#endif
+
+#if defined(__APPLE__)
+	// Let the kernel find room for the views, instead of guessing at bases.
+	{
+		const size_t span = ViewSpan(flags);
+#ifdef MASKED_PSP_MEMORY
+		base = MemArena::ReserveViewSpace(span, 0);
+#else
+		// A 4GB aligned base lets the ARM64 JIT pointerify guest addresses with a single MOVK.
+		base = MemArena::ReserveViewSpace(span, 0xFFFFFFFF);
+		if (!base) {
+			base = MemArena::ReserveViewSpace(span, 0);
+		}
+#endif
+	}
+	if (base) {
+		if (Memory_TryBase(flags)) {
+			INFO_LOG(Log::MemMap, "Mapped the memory views into reserved space at %p", base);
+			return true;
+		}
+		WARN_LOG(Log::MemMap, "Couldn't map the memory views into reserved space, falling back");
+		MemArena::ReleaseViewSpace(base);
 	}
 #endif
 
@@ -325,7 +421,30 @@ void MemoryMap_Shutdown() {
 
 #if PPSSPP_PLATFORM(UWP)
 	VirtualFree(base, 0, MEM_RELEASE);
+#elif defined(__APPLE__)
+	MemArena::ReleaseViewSpace(base);
 #endif
+}
+
+// Commits the shadow under every view, so exactly the addresses that are valid PSP memory have entries.
+// Mirrors fold onto the same range under the mask, and committing it again is harmless.
+static bool BlockShadow_Setup(MemMapSetupFlags flags) {
+	blockShadow = (u8 *)ReserveMemoryPages(BLOCK_SHADOW_SIZE);
+	if (!blockShadow) {
+		return false;
+	}
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].size == 0 || SkipView(flags, views[i].flags) || (views[i].flags & MV_ME_ONLY))
+			continue;
+		const u32 start = views[i].virtual_address & BLOCK_SHADOW_MASK;
+		_dbg_assert_((size_t)start + views[i].size <= BLOCK_SHADOW_SIZE);
+		if (!CommitMemoryPages(blockShadow + start, views[i].size)) {
+			FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
+			blockShadow = nullptr;
+			return false;
+		}
+	}
+	return true;
 }
 
 // On some 32 bit platforms (like old Android, old iOS, etc.), there are/were restrictions on memory map sizes.
@@ -346,15 +465,30 @@ bool Init(MemMapSetupFlags flags) {
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE, 0), MAX_MMAP_SIZE);
 		if (views[i].flags & MV_IS_EXTRA2_RAM)
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
+		// The ME's stack in mcidclan's libmecore says 2MB on the PSP-1000 and 4MB on the others. Only the
+		// 1000 is hardware-checked (its ME image, which libmecore keys this on).
+		if (views[i].flags & MV_EDRAM)
+			views[i].size = g_PSPModel == PSP_MODEL_FAT ? 0x00200000 : 0x00400000;
+	}
+
+	// The shadow first, so the base search can't put it in a gap of the PSP's 4GB window, where a bad
+	// guest access would hit it instead of faulting.
+	if (!BlockShadow_Setup(flags)) {
+		return false;
 	}
 
 	if (!MemoryMap_Setup(flags)) {
+		FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
+		blockShadow = nullptr;
 		return false;
 	}
 
 	INFO_LOG(Log::MemMap, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 
+	g_mainSpace.base = base;
+	g_mainSpace.blockShadow = blockShadow;
+	memset(g_unmappedBootPage, 0, sizeof(g_unmappedBootPage));
 	MemFault_Init();
 	return true;
 }
@@ -374,7 +508,60 @@ bool Reinit() {
 	return success;
 }
 
-static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
+// Loads size bytes at start, comparing the parts of it in compare->ranges with what's there as it
+// goes. A chunk that already matches doesn't need copying, and the matching parts are reported in
+// compare->unchanged. The rest is a plain copy.
+static void CopyComparing(uint8_t *dest, const uint8_t *src, u32 start, u32 size, RamCompare *compare) {
+	// In the size of the JIT's block lookup pages. One changed byte costs its chunk's blocks.
+	constexpr u32 CHUNK_SIZE = 1024;
+
+	// As offsets into the copy, in order, merged.
+	std::vector<std::pair<u32, u32>> ranges;
+	for (const auto &[address, length] : compare->ranges) {
+		const u32 rangeStart = std::max(address & 0x3FFFFFFF, start);
+		const u32 rangeEnd = std::min((address & 0x3FFFFFFF) + length, start + size);
+		if (rangeStart < rangeEnd) {
+			ranges.emplace_back(rangeStart - start, rangeEnd - start);
+		}
+	}
+	std::sort(ranges.begin(), ranges.end());
+
+	u32 pos = 0;
+	for (const auto &[rangeStart, rangeEnd] : ranges) {
+		const u32 from = std::max(rangeStart, pos);
+		if (from >= rangeEnd) {
+			continue;
+		}
+		if (from > pos) {
+			ParallelMemcpy(&g_threadManager, dest + pos, src + pos, from - pos);
+		}
+		u32 runStart = 0;
+		bool inRun = false;
+		for (u32 chunk = from; chunk < rangeEnd; chunk += CHUNK_SIZE) {
+			const u32 chunkSize = std::min(CHUNK_SIZE, rangeEnd - chunk);
+			const bool same = memcmp(dest + chunk, src + chunk, chunkSize) == 0;
+			if (same && !inRun) {
+				runStart = chunk;
+				inRun = true;
+			} else if (!same) {
+				memcpy(dest + chunk, src + chunk, chunkSize);
+				if (inRun) {
+					compare->unchanged.emplace_back(start + runStart, chunk - runStart);
+					inRun = false;
+				}
+			}
+		}
+		if (inRun) {
+			compare->unchanged.emplace_back(start + runStart, rangeEnd - runStart);
+		}
+		pos = rangeEnd;
+	}
+	if (pos < size) {
+		ParallelMemcpy(&g_threadManager, dest + pos, src + pos, size - pos);
+	}
+}
+
+static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size, RamCompare *compare = nullptr) {
 	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
@@ -388,7 +575,11 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
-		ParallelMemcpy(&g_threadManager, d, storage, size);
+		if (compare && !compare->ranges.empty()) {
+			CopyComparing(d, storage, start, size, compare);
+		} else {
+			ParallelMemcpy(&g_threadManager, d, storage, size);
+		}
 		break;
 	case PointerWrap::MODE_WRITE:
 		ParallelMemcpy(&g_threadManager, storage, d, size);
@@ -400,7 +591,7 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 		ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
 			for (int i = l; i < h; i++)
 				_dbg_assert_msg_(d[i] == storage[i], "Savestate verification failure: %d (0x%X) (at %p) != %d (0x%X) (at %p).\n", d[i], d[i], &d[i], storage[i], storage[i], &storage[i]);
-		}, 0, size, 128);
+		}, 0, size, 128, 8);
 		break;
 	case PointerWrap::MODE_NOOP:
 		break;
@@ -408,10 +599,12 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 	storage += size;
 }
 
-void DoState(PointerWrap &p) {
+void DoState(PointerWrap &p, RamCompare *compare) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
+
+	const u32 memorySizeBefore = g_MemorySize;
 
 	if (s < 2) {
 		if (!g_RemasterMode)
@@ -454,7 +647,12 @@ void DoState(PointerWrap &p) {
 		}
 	}
 
-	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize);
+	// A new size means Reinit(): RAM is newly mapped, nothing in it to compare with, and the JIT has
+	// to start over (its dispatcher points at the old mapping.)
+	if (g_MemorySize != memorySizeBefore) {
+		compare = nullptr;
+	}
+	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize, compare);
 	p.DoMarker("RAM");
 
 	DoMemoryVoid(p, PSP_GetVidMemBase(), VRAM_SIZE);
@@ -466,8 +664,12 @@ void DoState(PointerWrap &p) {
 void Shutdown() {
 	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 flags = 0;
+	DestroyMESpace();
 	MemoryMap_Shutdown();
 	base = nullptr;
+	FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
+	blockShadow = nullptr;
+	g_mainSpace = AddressSpace();
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
 
@@ -475,78 +677,130 @@ bool IsActive() {
 	return base != nullptr;
 }
 
-static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
-	if (!MIPS_IS_EMUHACK(inst.encoding)) {
-		return inst;
-	}
-
-	// No mutex on jit access here, but we assume the caller has locked, if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		inst = MIPSComp::jit->GetOriginalOp(inst);
-		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
-			u32 op;
-			if (GetReplacedOpAt(address, &op)) {
-				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(Log::MemMap, "WTF 1");
-					return Opcode(op);
-				} else {
-					return Opcode(op);
-				}
-			} else {
-				ERROR_LOG(Log::MemMap, "Replacement, but no replacement op? %08x", inst.encoding);
-			}
-		}
-		return inst;
-	} else if (resolveReplacements && MIPS_IS_REPLACEMENT(inst.encoding)) {
-		u32 op;
-		if (GetReplacedOpAt(address, &op)) {
-			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(Log::MemMap, "WTF 2");
-				return Opcode(op);
-			} else {
-				return Opcode(op);
-			}
-		} else {
-			return inst;
-		}
-	} else {
-		return inst;
-	}
+u8 *GetBootPage() {
+	return m_pBootPage ? m_pBootPage : g_unmappedBootPage;
 }
 
-Opcode Read_Instruction(u32 address, bool resolveReplacements) {
+// The Media Engine's map: g_arena's views again, minus the main CPU's own, plus the eDRAM.
+static AddressSpace g_meSpace;
+static std::vector<std::pair<u8 *, size_t>> g_meViews;
+
+AddressSpace *CreateMESpace() {
+	_dbg_assert_(base != nullptr && g_meSpace.base == nullptr);
+#if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
+	// TODO: Masking would fold the eDRAM mirrors onto the scratchpad and boot page addresses.
+	static_assert(!CanCreateMESpace());
+	return nullptr;
+#else
+	size_t span = 0;
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].size == 0 || SkipView(g_setupFlags, views[i].flags) || (views[i].flags & MV_MAIN_CPU_ONLY))
+			continue;
+		span = std::max(span, (size_t)views[i].virtual_address + views[i].size);
+		if (views[i].flags & MV_EDRAM)
+			g_meSpace.edramSize = views[i].size;
+		if (views[i].flags & MV_ME_LOCAL)
+			g_meSpace.localSize = views[i].size;
+	}
+
+	g_meSpace.blockShadow = (u8 *)ReserveMemoryPages(BLOCK_SHADOW_SIZE);
+#if defined(__APPLE__)
+	g_meSpace.base = MemArena::ReserveViewSpace(span, 0xFFFFFFFF);
+	if (!g_meSpace.base) {
+		g_meSpace.base = MemArena::ReserveViewSpace(span, 0);
+	}
+#else
+	g_meSpace.base = g_arena.Find4GBBase();
+#endif
+	if (!g_meSpace.base || !g_meSpace.blockShadow) {
+		DestroyMESpace();
+		return nullptr;
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		const MemoryView &view = views[i];
+		if (view.size == 0 || SkipView(g_setupFlags, view.flags) || (view.flags & MV_MAIN_CPU_ONLY))
+			continue;
+		u8 *ptr = (u8 *)g_arena.CreateView(viewPositions[i], view.size, g_meSpace.base + view.virtual_address);
+		if (!ptr) {
+			ERROR_LOG(Log::MemMap, "Couldn't map the Media Engine's view at %08x", view.virtual_address);
+			DestroyMESpace();
+			return nullptr;
+		}
+		g_meViews.emplace_back(ptr, view.size);
+		if (!CommitMemoryPages(g_meSpace.blockShadow + (view.virtual_address & BLOCK_SHADOW_MASK), view.size)) {
+			DestroyMESpace();
+			return nullptr;
+		}
+	}
+	INFO_LOG(Log::MemMap, "Media Engine memory at %p, %d KB of eDRAM", g_meSpace.base, g_meSpace.edramSize / 1024);
+	return &g_meSpace;
+#endif
+}
+
+void DestroyMESpace() {
+	for (const auto &[ptr, size] : g_meViews) {
+		g_arena.ReleaseView(0, ptr, size);
+	}
+	g_meViews.clear();
+#if defined(__APPLE__)
+	if (g_meSpace.base) {
+		MemArena::ReleaseViewSpace(g_meSpace.base);
+	}
+#endif
+	if (g_meSpace.blockShadow) {
+		FreeMemoryPages(g_meSpace.blockShadow, BLOCK_SHADOW_SIZE);
+	}
+	g_meSpace = AddressSpace();
+}
+
+Opcode Read_Instruction(u32 address) {
 	if (!IsValid4AlignedAddress(address)) {
 		// BAD!
 		_dbg_assert_(false);
 		return Opcode(0);
 	}
-
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	return Read_Instruction(address, resolveReplacements, inst);
+	return Opcode(ReadUnchecked_U32(address));
 }
 
-Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
+Opcode ReadUnchecked_Instruction(u32 address) {
 	_dbg_assert_((address & 3) == 0);
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	return Read_Instruction(address, resolveReplacements, inst);
+	return Opcode(ReadUnchecked_U32(address));
 }
 
-// WARNING! Caller checks that address is valid!
-Opcode Read_Opcode_JIT(u32 address) {
-	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	// No mutex around jit access here, but we assume caller has if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		return MIPSComp::jit->GetOriginalOp(inst);
-	} else {
-		return inst;
-	}
+u32 ReadBlockShadow(u32 address) {
+	return g_mainSpace.ReadBlockShadow(address);
 }
 
-// WARNING! No checks!
-void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
-	_dbg_assert_((address & 3) == 0);
-	Memory::WriteUnchecked_U32(_Value.encoding, address);
+void WriteBlockShadow(u32 address, u32 value) {
+	g_mainSpace.WriteBlockShadow(address, value);
+}
+
+bool ClearBlockShadow(u32 address, u32 value) {
+	return g_mainSpace.ClearBlockShadow(address, value);
+}
+
+u32 AddressSpace::ReadBlockShadow(u32 address) const {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return 0;
+	return *GetBlockShadowEntry(address);
+}
+
+void AddressSpace::WriteBlockShadow(u32 address, u32 value) const {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return;
+	*GetBlockShadowEntry(address) = value;
+}
+
+bool AddressSpace::ClearBlockShadow(u32 address, u32 value) const {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return false;
+	u32 *entry = GetBlockShadowEntry(address);
+	if (*entry != value)
+		return false;
+	// A replacement hook keeps the entry nonzero, see ReplaceTables.h.
+	*entry = Replacement_IsHooked(address) ? Replacement_GetBlockShadowHook() : 0;
+	return true;
 }
 
 void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {

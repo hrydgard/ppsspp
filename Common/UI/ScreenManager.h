@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -8,6 +9,7 @@
 #include <vector>
 
 #include "Common/Common.h"
+#include "Common/GPU/thin3d.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/System.h"
 #include "Common/UI/Screen.h"
@@ -27,12 +29,11 @@ enum {
 	LAYER_TRANSPARENT = 2,
 };
 
-typedef void (*PostRenderCallback)(UIContext *ui, void *userdata);
-
 class ScreenManager {
 public:
 	virtual ~ScreenManager();
 
+	// Replaces the whole stack with the screen, at the start of the next frame.
 	void switchScreen(Screen *screen);
 	void ProcessScreenSwitches();
 	void ProcessInputEvent(const QueuedEvent &event);
@@ -41,11 +42,6 @@ public:
 	void setUIContext(UIContext *context) { uiContext_ = context; }
 	UIContext *getUIContext() { return uiContext_; }
 	Draw::DrawContext *getDrawContext() { return draw_; }
-
-	void setPostRenderCallback(PostRenderCallback cb, void *userdata) {
-		postRenderCb_ = cb;
-		postRenderUserdata_ = userdata;
-	}
 
 	ScreenRenderFlags Render(std::function<void()> afterPreRender);
 	void resized();
@@ -63,6 +59,8 @@ public:
 	// Pops the dialog away.
 	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 	Screen *dialogParent(const Screen *dialog) const;
+	// True if the screen is in the stack, with something (like a popup) on top of it.
+	bool HasScreenAbove(const Screen *screen) const;
 
 	void sendMessage(UIMessage message, const char *value);
 
@@ -84,6 +82,19 @@ public:
 		return passInputToMapper_;
 	}
 
+	// Safe to call from any thread. Updated once per frame.
+	bool IsTopScreenTopLevel() const {
+		return topIsTopLevel_;
+	}
+
+	// Secondary outputs. Call these on the render thread, between frames. The swapchains are recreated
+	// after a lost device, so the surface in desc has to stay valid until RemoveOutput.
+	void AddOutput(int id, OutputRole role, const Draw::SwapchainDesc &desc);
+	void ResizeOutput(int id, int width, int height);
+	void RemoveOutput(int id);
+	// nullptr if there's no output with the role, or it has no swapchain right now.
+	const OutputDisplay *FindOutput(OutputRole role) const;
+
 private:
 	void pop();
 	void switchToNext();
@@ -91,9 +102,6 @@ private:
 
 	UIContext *uiContext_ = nullptr;
 	Draw::DrawContext *draw_ = nullptr;
-
-	PostRenderCallback postRenderCb_ = nullptr;
-	void *postRenderUserdata_ = nullptr;
 
 	const Screen *dialogFinished_ = nullptr;
 	DialogResult dialogResult_{};
@@ -116,5 +124,13 @@ private:
 
 	std::unordered_map<int64_t, int> lastAxis_;
 
-	InputMode passInputToMapper_ = InputMode::None;
+	struct Output {
+		OutputDisplay display;
+		Draw::SwapchainDesc desc;
+	};
+	std::vector<Output> outputs_;
+	bool deviceLost_ = false;
+
+	std::atomic<InputMode> passInputToMapper_{InputMode::None};
+	std::atomic<bool> topIsTopLevel_{false};
 };

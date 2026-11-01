@@ -21,6 +21,8 @@
 
 #include <cstring>
 #include <cstdint>
+#include <utility>
+#include <vector>
 #ifndef offsetof
 #include <stddef.h>
 #endif
@@ -106,9 +108,52 @@ enum {
 
 #ifdef MASKED_PSP_MEMORY
 	// This wraparound should work for PSP too.
+#if PPSSPP_ARCH(32BIT)
+	// 32-bit only reserves 256 MB at base. Valid addresses never have bits 28-29 set, so dropping them
+	// too keeps stray accesses inside the reservation, away from the heap.
+	MEMVIEW32_MASK  = 0x0FFFFFFF,
+#else
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
+#endif
+
+	// Index mask for the block shadow (see blockShadow below). Dropping bits 30-31 folds the
+	// kernel and uncached mirrors onto the same entry, the way they share physical memory.
+	// Where address space is short, bits 28-29 are dropped too, so garbage PCs with those bits
+	// set alias real code instead of faulting.
+#if PPSSPP_ARCH(64BIT) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
+	BLOCK_SHADOW_MASK = 0x3FFFFFFF,
+#else
+	BLOCK_SHADOW_MASK = 0x0FFFFFFF,
+#endif
+	// For looking up an entry from a PC. A misaligned PC would otherwise read across two entries, and
+	// jump to a garbage offset.
+	BLOCK_SHADOW_ENTRY_MASK = BLOCK_SHADOW_MASK & ~3,
 };
+
+enum : u32 {
+	// The block shadow value for a replacement hook when no JIT is running, and for the IR
+	// interpreter, which keeps this offset in its arena empty.
+	BLOCK_SHADOW_HOOK_NO_JIT = 1,
+};
+
+// One u32 per guest instruction, at the same byte offset as the instruction (after masking with
+// BLOCK_SHADOW_MASK). Holds the JIT's handle for the block starting there, 0 for none, or the
+// replacement hook value (see ReplaceTables.h).
+// Only the ranges backed by PSP memory are committed, so it's never safe to touch an entry for
+// an address that isn't valid. Reallocated by Init(), along with base.
+extern u8 *blockShadow;
+
+inline u32 *GetBlockShadowEntry(u32 address) {
+	return (u32 *)(blockShadow + (address & BLOCK_SHADOW_ENTRY_MASK));
+}
+
+// These check the address, and are safe to call when there's no shadow (after Shutdown()).
+u32 ReadBlockShadow(u32 address);
+void WriteBlockShadow(u32 address, u32 value);
+// Clears the entry only if it still holds value, back to the hook value if the address is hooked.
+// Returns true if it did.
+bool ClearBlockShadow(u32 address, u32 value);
 
 enum {
 	MV_MIRROR_PREVIOUS = 1,
@@ -117,6 +162,11 @@ enum {
 	MV_IS_EXTRA2_RAM = 0x400,
 	MV_KERNEL = 0x800,  // Can be skipped on platforms where memory is tight.
 	MV_NULL_PAGE = 0x1000,
+	MV_MAIN_CPU_ONLY = 0x2000,  // Not in the Media Engine's map.
+	MV_BOOT_PAGE = 0x4000,
+	MV_ME_ONLY = 0x8000,  // In the arena, but only in the Media Engine's map.
+	MV_EDRAM = 0x10000,  // The Media Engine's eDRAM, sized by model.
+	MV_ME_LOCAL = 0x20000,  // The Media Engine's own memory at VRAM's addresses.
 };
 
 struct MemoryView {
@@ -132,22 +182,26 @@ enum class MemMapSetupFlags {
 };
 ENUM_CLASS_BITOPS(MemMapSetupFlags);
 
+// For a savestate load: parts of RAM to compare with what's loaded over them, as they're loaded.
+// Addresses can be in any mirror. The JIT keeps its blocks in code the load doesn't change.
+struct RamCompare {
+	// In: (address, size) ranges.
+	std::vector<std::pair<u32, u32>> ranges;
+	// Out: the parts of them the load left as they were.
+	std::vector<std::pair<u32, u32>> unchanged;
+};
+
 // Init and Shutdown
 bool Init(MemMapSetupFlags flags);
 void Shutdown();
-void DoState(PointerWrap &p);
+void DoState(PointerWrap &p, RamCompare *compare = nullptr);
 
 // False when shutdown has already been called.
 bool IsActive();
 
-// used by JIT to read instructions. Does not resolve replacements.
-Opcode Read_Opcode_JIT(const u32 _Address);
-// used by JIT. Reads in the "Locked cache" mode
-void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
-
-// Should be used by analyzers, disassemblers etc. Does resolve replacements.
-Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
-Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
+Opcode Read_Instruction(const u32 _Address);
+// Caller checks that the address is valid.
+Opcode ReadUnchecked_Instruction(const u32 _Address);
 
 u8  ReadOrException_U8(const u32 _Address);
 u16 ReadOrException_U16(const u32 _Address);
@@ -268,6 +322,71 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
+// What one CPU sees of memory: where its addresses point (base) and its block shadow. The main CPU's
+// is g_mainSpace, which follows base and blockShadow above. The CPU cores go through their
+// MIPSState's, so another CPU (the Media Engine) can have its own.
+struct AddressSpace {
+	u8 *base = nullptr;
+	u8 *blockShadow = nullptr;
+	// The Media Engine's eDRAM size, which also selects its rules for what's valid. 0 for the main CPU.
+	u32 edramSize = 0;
+	// The Media Engine's own memory at 0x04000000 (MV_ME_LOCAL).
+	u32 localSize = 0;
+
+	// As the global functions of the same names, for what this CPU can access.
+	bool IsValidAddress(u32 address) const;
+	bool IsValid2AlignedAddress(u32 address) const;
+	bool IsValid4AlignedAddress(u32 address) const;
+	bool IsMediaEngine() const { return edramSize != 0; }
+
+	u8 *GetPointerUnchecked(u32 address) const {
+#ifdef MASKED_PSP_MEMORY
+		return base + (address & MEMVIEW32_MASK);
+#else
+		return base + address;
+#endif
+	}
+
+	u8 ReadUnchecked_U8(u32 address) const { return *GetPointerUnchecked(address); }
+	u16 ReadUnchecked_U16(u32 address) const { return *(u16_le *)GetPointerUnchecked(Mirrored16(address)); }
+	u32 ReadUnchecked_U32(u32 address) const { return *(u32_le *)GetPointerUnchecked(address); }
+	u64 ReadUnchecked_U64(u32 address) const { return *(u64_le *)GetPointerUnchecked(address); }
+	float ReadUnchecked_Float(u32 address) const { return *(float_le *)GetPointerUnchecked(address); }
+	void WriteUnchecked_U8(u8 data, u32 address) const { *GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_U16(u16 data, u32 address) const { *(u16_le *)GetPointerUnchecked(Mirrored16(address)) = data; }
+	void WriteUnchecked_U32(u32 data, u32 address) const { *(u32_le *)GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_U64(u64 data, u32 address) const { *(u64_le *)GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_Float(float data, u32 address) const { *(float_le *)GetPointerUnchecked(address) = data; }
+
+	// VRAM's depth mirrors. The Media Engine has its own memory at those addresses, plain.
+	u32 Mirrored16(u32 address) const { return IsMediaEngine() ? address : DepthMirrored16(address); }
+
+	u32 *GetBlockShadowEntry(u32 address) const {
+		return (u32 *)(blockShadow + (address & BLOCK_SHADOW_ENTRY_MASK));
+	}
+	// As the functions of the same name above, for this space's shadow.
+	u32 ReadBlockShadow(u32 address) const;
+	void WriteBlockShadow(u32 address, u32 value) const;
+	bool ClearBlockShadow(u32 address, u32 value) const;
+};
+
+extern AddressSpace g_mainSpace;
+
+// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), its
+// own memory where the main CPU has VRAM, the boot page, and the main CPU's RAM, the same host pages
+// as in g_mainSpace. Returns null if this platform can't map memory twice. Only for a boot that runs
+// the ME; Shutdown() (and so Reinit()) destroys it.
+AddressSpace *CreateMESpace();
+// Whether this platform can have one (not with masked memory, or without mmap).
+constexpr bool CanCreateMESpace() {
+#if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
+	return false;
+#else
+	return true;
+#endif
+}
+void DestroyMESpace();
+
 void WriteOrException_U8(const u8 data, const u32 address);
 void WriteOrException_U16(const u16 data, const u32 address);
 void WriteOrException_U32(const u32 data, const u32 address);
@@ -298,9 +417,11 @@ inline bool IsDepthTexVRAMAddress(const u32 address) {
 	return ((address & 0xBFE00000) == 0x04200000) || ((address & 0xBFE00000) == 0x04600000);
 }
 
-// TODO: To re-evaluate.
+// Kernel segment 1 (0xA0000000-0xBFFFFFFF): the hardware registers from 0xBC000000, and below them
+// uncached RAM and VRAM, which only the Media Engine's space maps. Kernel code reaches the rest
+// through MMIO::Read/Write.
 inline bool IsMMIOAccess(const u32 address) {
-	return ((address & 0xFC000000) == 0xBC000000);
+	return (address & 0xE0000000) == 0xA0000000;
 }
 
 // 0x08000000 -> 0x08800000
@@ -406,6 +527,46 @@ inline u32 MaxSizeAtAddress(const u32 address) {
 	}
 }
 
+// The page at 0xBFC00000 that both CPUs boot from, and where the main CPU leaves the Media Engine its
+// commands. It's RAM, which the main CPU reaches through MMIO and the ME as memory. 4KB is a guess, the
+// firmware uses up to 0x700.
+enum : u32 {
+	BOOT_PAGE_ADDRESS = 0xBFC00000,
+	BOOT_PAGE_SIZE = 0x00001000,
+};
+
+// Its storage, which both address spaces map.
+u8 *GetBootPage();
+
+// What the Media Engine accesses as memory. Its eDRAM covers the scratchpad's addresses, and it has no
+// scratchpad.
+template<int A>
+inline bool IsValidMENAlignedAddress(u32 address, const u32 edramSize) {
+	if (address & (A - 1))
+		return false;
+	const u32 segment = address >> 29;
+	if ((segment == 0 || segment == 4 || segment == 5) && (address & 0x1FFFFFFF) < edramSize)
+		return true;
+	if ((address & ~(BOOT_PAGE_SIZE - 1)) == BOOT_PAGE_ADDRESS)
+		return true;
+	// 0xA0000000 reaches physical memory uncached, besides the main CPU's mirrors.
+	if (segment == 5)
+		address &= 0x1FFFFFFF;
+	return IsValidNAlignedAddress<A>(address) && !IsScratchpadAddress(address);
+}
+
+inline bool AddressSpace::IsValidAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<1>(address, edramSize) : Memory::IsValidAddress(address);
+}
+
+inline bool AddressSpace::IsValid2AlignedAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<2>(address, edramSize) : Memory::IsValid2AlignedAddress(address);
+}
+
+inline bool AddressSpace::IsValid4AlignedAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<4>(address, edramSize) : Memory::IsValid4AlignedAddress(address);
+}
+
 inline const char *GetCharPointerUnchecked(const u32 address) {
 	return (const char *)GetPointerUnchecked(address);
 }
@@ -433,6 +594,17 @@ inline bool IsValidTextureAddress(const u32 address) {
 inline bool IsKernelCodeAddress(u32 address) {
 	address &= 0x3FFFFFFF;
 	return ((address & 0x0F800003) == 0x08000000) && address >= 0x08000100;
+}
+
+// Homebrew that runs the Media Engine calls its own code in kernel mode, through a kernel module of
+// its own ("kcall"), so while the ME is emulated any code may access hardware registers.
+// HACK: This makes every block check its computed-address loads and stores for hardware registers.
+// Kernel mode should be part of the CPU's state instead, switched on while a kernel module's export
+// runs, with blocks checking that they were compiled for the mode they run in.
+extern bool g_kernelModeAnywhere;
+
+inline bool MayRunInKernelMode(u32 pc) {
+	return g_kernelModeAnywhere || IsKernelCodeAddress(pc);
 }
 
 // I believe this is the same, but let's keep a separate function.

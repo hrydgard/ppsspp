@@ -7,6 +7,20 @@
 #if PPSSPP_PLATFORM(UWP)
 #include <fileapifromapp.h>
 #include <UWP/UWPHelpers/StorageManager.h>
+#elif defined(_MSC_VER)
+#include <lm.h>
+#include <shlobj.h>
+#include <shobjidl.h>
+#include <condition_variable>
+#include <functional>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include "Common/Thread/ThreadUtil.h"
+#pragma comment(lib, "netapi32.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "ole32.lib")
+#define HAVE_NETWORK_BROWSING
 #endif
 #else
 #include <strings.h>
@@ -89,6 +103,155 @@ void ReadFileAttributes(FileInfo *fileInfo, const T &attrs) {
 		fileInfo->access |= 0111;  // Execute
 	}
 }
+
+#ifdef HAVE_NETWORK_BROWSING
+// Returns the server name if the path is just "//server", which can't be listed like a directory.
+static bool GetUNCServerName(const Path &path, std::wstring *server) {
+	const std::string &str = path.ToString();
+	if (str.size() < 3 || str[0] != '/' || str[1] != '/' || str[2] == '.' || str[2] == '?' || str.find('/', 2) != std::string::npos) {
+		return false;
+	}
+	*server = ConvertUTF8ToWString(str.substr(2));
+	return true;
+}
+
+static FileInfo NetworkDirInfo(const Path &fullName, const std::string &name) {
+	FileInfo info;
+	info.name = name;
+	info.fullName = fullName;
+	info.exists = true;
+	info.isDirectory = true;
+	info.isWritable = false;
+	info.size = 0;
+	return info;
+}
+
+struct NetListing {
+	void Add(FileInfo &&info) {
+		std::lock_guard<std::mutex> guard(lock);
+		files.push_back(std::move(info));
+		lastAdd = std::chrono::steady_clock::now();
+		cond.notify_all();
+	}
+
+	std::mutex lock;
+	std::condition_variable cond;
+	std::vector<FileInfo> files;
+	std::chrono::steady_clock::time_point lastAdd;
+	bool done = false;
+	bool success = false;
+};
+
+// Network calls can block for a long time (half a minute for the shell's network folder, even after it
+// has found everything), and can't be cancelled. So run them on a thread of their own, and abandon it
+// when the deadline passes, or when it has found something and then gone quiet for a while.
+static bool ListNetworkWithTimeout(const Path &directory, std::function<bool(NetListing &)> func, std::vector<FileInfo> *files, const bool *cancel) {
+	// Servers turn up in the network folder after 2 to 6 seconds.
+	constexpr auto timeout = std::chrono::seconds(8);
+	constexpr auto quietTime = std::chrono::seconds(1);
+	constexpr auto cancelPollTime = std::chrono::milliseconds(20);
+	auto listing = std::make_shared<NetListing>();
+	std::thread([listing, func] {
+		SetCurrentThreadName("NetListing");
+		bool success = func(*listing);
+		std::lock_guard<std::mutex> guard(listing->lock);
+		listing->success = success;
+		listing->done = true;
+		listing->cond.notify_all();
+	}).detach();
+
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	std::unique_lock<std::mutex> guard(listing->lock);
+	while (!listing->done) {
+		auto wakeup = deadline;
+		if (!listing->files.empty()) {
+			wakeup = std::min(deadline, listing->lastAdd + quietTime);
+		}
+		if (cancel && *cancel) {
+			return false;
+		}
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= wakeup) {
+			INFO_LOG(Log::IO, "Stopped waiting for the listing of %s, found %d entries", directory.c_str(), (int)listing->files.size());
+			break;
+		}
+		listing->cond.wait_until(guard, cancel ? std::min(wakeup, now + cancelPollTime) : wakeup);
+	}
+	files->insert(files->end(), listing->files.begin(), listing->files.end());
+	return listing->success || !listing->files.empty();
+}
+
+// Lists the disk shares of a server as directories, skipping the admin ones like C$ and IPC$.
+static bool GetUNCServerShares(const Path &directory, const std::wstring &server, std::string_view prefix, NetListing &listing) {
+	bool success = false;
+	DWORD resumeHandle = 0;
+	NET_API_STATUS status;
+	do {
+		SHARE_INFO_1 *shares = nullptr;
+		DWORD count = 0;
+		DWORD total = 0;
+		status = NetShareEnum((LPWSTR)server.c_str(), 1, (LPBYTE *)&shares, MAX_PREFERRED_LENGTH, &count, &total, &resumeHandle);
+		if (status != NERR_Success && status != ERROR_MORE_DATA) {
+			WARN_LOG(Log::IO, "NetShareEnum failed for %s: %d", directory.c_str(), (int)status);
+			break;
+		}
+		success = true;
+		for (DWORD i = 0; i < count; i++) {
+			if ((shares[i].shi1_type & STYPE_MASK) != STYPE_DISKTREE || (shares[i].shi1_type & STYPE_SPECIAL)) {
+				continue;
+			}
+			std::string name = ConvertWStringToUTF8(shares[i].shi1_netname);
+			if (startsWith(name, prefix)) {
+				listing.Add(NetworkDirInfo(directory / name, name));
+			}
+		}
+		if (shares) {
+			NetApiBufferFree(shares);
+		}
+	} while (status == ERROR_MORE_DATA);
+	return success;
+}
+
+// Lists the servers in the shell's network folder, the same ones Explorer shows. The old WNet
+// enumeration finds nothing on a modern network, where servers are found through WSD.
+static bool GetNetworkServers(std::string_view prefix, NetListing &listing) {
+	HRESULT initResult = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	bool success = false;
+	IShellItem *network = nullptr;
+	IEnumShellItems *items = nullptr;
+	if (SUCCEEDED(SHGetKnownFolderItem(FOLDERID_NetworkFolder, KF_FLAG_DEFAULT, nullptr, IID_PPV_ARGS(&network))) &&
+		SUCCEEDED(network->BindToHandler(nullptr, BHID_EnumItems, IID_PPV_ARGS(&items)))) {
+		success = true;
+		std::set<std::string> seen;
+		IShellItem *item = nullptr;
+		while (items->Next(1, &item, nullptr) == S_OK) {
+			// Other devices (media players, printers) have parsing names that aren't UNC paths.
+			LPWSTR parsingName = nullptr;
+			if (SUCCEEDED(item->GetDisplayName(SIGDN_DESKTOPABSOLUTEPARSING, &parsingName))) {
+				if (wcsncmp(parsingName, L"\\\\", 2) == 0) {
+					Path server{std::wstring(parsingName)};
+					std::string name = server.GetFilename();
+					if (startsWith(name, prefix) && seen.insert(name).second) {
+						listing.Add(NetworkDirInfo(server, name));
+					}
+				}
+				CoTaskMemFree(parsingName);
+			}
+			item->Release();
+		}
+		items->Release();
+	} else {
+		WARN_LOG(Log::IO, "Couldn't enumerate the network folder");
+	}
+	if (network) {
+		network->Release();
+	}
+	if (SUCCEEDED(initResult)) {
+		CoUninitialize();
+	}
+	return success;
+}
+#endif
 
 #endif
 
@@ -229,7 +392,7 @@ std::vector<File::FileInfo> ApplyFilter(std::vector<File::FileInfo> files, const
 	return files;
 }
 
-bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix) {
+bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const char *filter, int flags, std::string_view prefix, const bool *cancel) {
 	if (LOG_IO) {
 		INFO_LOG(Log::IO, "GetFilesInDir '%s' (ext %s, prefix %.*s)", directory.ToVisualString().c_str(), filter, (int)prefix.size(), prefix.data());
 	}
@@ -281,8 +444,29 @@ bool GetFilesInDir(const Path &directory, std::vector<FileInfo> *files, const ch
 			fake.isWritable = false;
 			files->push_back(fake);
 		}
+#ifdef HAVE_NETWORK_BROWSING
+		files->push_back(NetworkDirInfo(Path("//"), "Network"));
+#endif
 		return files->size();
 	}
+#ifdef HAVE_NETWORK_BROWSING
+	std::wstring server;
+	if (directory.IsNetworkRoot() || GetUNCServerName(directory, &server)) {
+		std::string prefixCopy(prefix);
+		bool success;
+		if (server.empty()) {
+			success = ListNetworkWithTimeout(directory, [prefixCopy](NetListing &listing) {
+				return GetNetworkServers(prefixCopy, listing);
+			}, files, cancel);
+		} else {
+			success = ListNetworkWithTimeout(directory, [directory, server, prefixCopy](NetListing &listing) {
+				return GetUNCServerShares(directory, server, prefixCopy, listing);
+			}, files, cancel);
+		}
+		std::sort(files->begin(), files->end());
+		return success;
+	}
+#endif
 	// Find the first file in the directory.
 	WIN32_FIND_DATA ffd;
 	std::wstring wpath = directory.ToWString();

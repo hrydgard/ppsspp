@@ -27,18 +27,27 @@ void Screen::focusChanged(ScreenFocusChange focusChange) {
 }
 
 int Screen::GetRequesterToken() {
-	if (token_ < 0) {
-		token_ = g_requestManager.GenerateRequesterToken();
+	int &token = creatingViews_ ? viewsToken_ : token_;
+	if (token < 0) {
+		token = g_requestManager.GenerateRequesterToken();
 	}
-	return token_;
+	return token;
+}
+
+void Screen::ForgetViewRequests() {
+	if (viewsToken_ >= 0) {
+		g_requestManager.ForgetRequestsWithToken(viewsToken_);
+		viewsToken_ = -1;
+	}
 }
 
 Screen::~Screen() {
 	screenManager_ = nullptr;
+	// To avoid expired callbacks getting called.
 	if (token_ >= 0) {
-		// To avoid expired callbacks getting called.
 		g_requestManager.ForgetRequestsWithToken(token_);
 	}
+	ForgetViewRequests();
 }
 
 const char *DialogResultToString(DialogResult result) {

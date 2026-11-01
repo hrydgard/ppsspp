@@ -123,7 +123,7 @@ void Arm64IRRegCache::EmitLoadStaticRegisters() {
 			emit_->LDR(INDEX_UNSIGNED, FromNativeReg(allocs[i].nr), CTXREG, offset);
 			if (allocs[i].pointerified && jo_->enablePointerify) {
 				ARM64Reg r64 = FromNativeReg64(allocs[i].nr);
-				uint32_t membaseHigh = (uint32_t)((uint64_t)Memory::base >> 32);
+				uint32_t membaseHigh = (uint32_t)((uint64_t)membase_ >> 32);
 				emit_->MOVK(r64, membaseHigh & 0xFFFF, SHIFT_32);
 				if (membaseHigh & 0xFFFF0000)
 					emit_->MOVK(r64, membaseHigh >> 16, SHIFT_48);
@@ -145,6 +145,20 @@ void Arm64IRRegCache::EmitSaveStaticRegisters() {
 			emit_->STR(INDEX_UNSIGNED, FromNativeReg(allocs[i].nr), CTXREG, offset);
 		}
 	}
+}
+
+void Arm64IRRegCache::FlushHostRegs(std::initializer_list<ARM64Reg> regs) {
+	for (ARM64Reg r : regs) {
+		if (IsVector(r))
+			FlushNativeReg(VFPToNativeReg(EncodeRegToSingle(r)));
+		else
+			FlushNativeReg(GPRToNativeReg(DecodeReg(r)));
+	}
+}
+
+bool Arm64IRRegCache::IsHostRegInUse(ARM64Reg r) {
+	const IRNativeReg nreg = IsVector(r) ? VFPToNativeReg(EncodeRegToSingle(r)) : GPRToNativeReg(DecodeReg(r));
+	return nr[nreg].mipsReg != IRREG_INVALID;
 }
 
 void Arm64IRRegCache::FlushBeforeCall() {
@@ -333,7 +347,7 @@ void Arm64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 #endif
 			emit_->ADD(r, r, MEMBASEREG);
 		} else {
-			uint32_t membaseHigh = (uint32_t)((uint64_t)Memory::base >> 32);
+			uint32_t membaseHigh = (uint32_t)((uint64_t)membase_ >> 32);
 			emit_->MOVK(r, membaseHigh & 0xFFFF, SHIFT_32);
 			if (membaseHigh & 0xFFFF0000)
 				emit_->MOVK(r, membaseHigh >> 16, SHIFT_48);
@@ -456,6 +470,8 @@ bool Arm64IRRegCache::TransferNativeReg(IRNativeReg nreg, IRNativeReg dest, MIPS
 		if (lanes == 1 && TransferVecTo1(nreg, dest, first, oldlanes))
 			return true;
 		if (oldlanes == 1 && Transfer1ToVec(nreg, dest, first, lanes))
+			return true;
+		if (oldlanes == 2 && lanes == 4 && Transfer2ToVec4(nreg, dest, first))
 			return true;
 	}
 
@@ -722,6 +738,69 @@ bool Arm64IRRegCache::Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg f
 		nr[nreg].isDirty = false;
 	}
 
+	return true;
+}
+
+// Two pairs into a quad, like after two vs2i.p into the halves of one. Either half may be in memory.
+bool Arm64IRRegCache::Transfer2ToVec4(IRNativeReg nreg, IRNativeReg dest, IRReg first) {
+	if ((first & 3) != 0)
+		return false;
+
+	// Each half: the native reg holding just that pair, or -1 for in memory.
+	IRNativeReg half[2];
+	for (int h = 0; h < 2; ++h) {
+		const IRReg m = first + h * 2;
+		const IRNativeReg r = mr[m].nReg;
+		if (r == -1) {
+			if (mr[m].loc != MIPSLoc::MEM || mr[m + 1].loc != MIPSLoc::MEM)
+				return false;
+		} else if (nr[r].mipsReg != m || mr[m].lane != 0 || mr[m + 1].nReg != r || mr[m + 1].lane != 1 || (h == 0 && mr[m + 2].nReg == r)) {
+			return false;
+		}
+		// The other half, if this instruction maps it separately.
+		if (r != nreg && mr[m].spillLockIRIndex >= irIndex_)
+			return false;
+		half[h] = r;
+	}
+	if (half[0] != nreg && half[1] != nreg)
+		return false;
+
+	const ARM64Reg destReg = EncodeRegToQuad(FromNativeReg(dest));
+	auto Q = [&](IRNativeReg r) { return EncodeRegToQuad(FromNativeReg(r)); };
+	if (half[0] != -1 && half[1] != -1) {
+		fp_->ZIP1(64, destReg, Q(half[0]), Q(half[1]));
+	} else {
+		const int inReg = half[0] != -1 ? 0 : 1;
+		if (dest != half[inReg]) {
+			fp_->LDR(128, INDEX_UNSIGNED, destReg, CTXREG, GetMipsRegOffset(first));
+			fp_->INS(64, destReg, inReg, Q(half[inReg]), 0);
+		} else {
+			IRNativeReg freeReg = FindFreeReg(MIPSLoc::FREG, MIPSMap::INIT);
+			if (freeReg == -1)
+				return false;
+			fp_->LDR(64, INDEX_UNSIGNED, EncodeRegToDouble(FromNativeReg(freeReg)), CTXREG, GetMipsRegOffset(first + (1 - inReg) * 2));
+			if (inReg == 0)
+				fp_->INS(64, destReg, 1, Q(freeReg), 0);
+			else
+				fp_->ZIP1(64, destReg, Q(freeReg), destReg);
+		}
+	}
+
+	bool dirty = false;
+	for (int h = 0; h < 2; ++h) {
+		if (half[h] == -1)
+			continue;
+		dirty = dirty || nr[half[h]].isDirty;
+		if (half[h] != dest)
+			DiscardNativeReg(half[h]);
+	}
+	for (int i = 0; i < 4; ++i) {
+		mr[first + i].lane = i;
+		mr[first + i].loc = MIPSLoc::FREG;
+		mr[first + i].nReg = dest;
+	}
+	nr[dest].mipsReg = first;
+	nr[dest].isDirty = dirty;
 	return true;
 }
 

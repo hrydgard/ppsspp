@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include "Common/GPU/Vulkan/VulkanDriverVars.h"
 
 #if PPSSPP_PLATFORM(ANDROID)
 #define VK_USE_PLATFORM_ANDROID_KHR
@@ -31,10 +32,15 @@
 #define VK_USE_PLATFORM_METAL_EXT
 #endif
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+// The iOS app links MoltenVK statically and calls Vulkan directly. Everywhere else (including the
+// iOS libretro core), we load the functions at runtime into the pointers below. The simulator build
+// has no MoltenVK at all (it uses Metal), so it takes the runtime path, which finds no library.
+#if PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(IOS_SIMULATOR) && !defined(__LIBRETRO__)
+#define PPSSPP_VK_STATIC 1
+#else
 #define VK_NO_PROTOTYPES
-#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
 #endif
+#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
 
 #include "ext/vulkan/vulkan.h"
 #include <string>
@@ -45,7 +51,7 @@
 #endif
 
 namespace PPSSPP_VK {
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+#if !PPSSPP_VK_STATIC
 // Putting our own Vulkan function pointers in a namespace ensures that ppsspp_libretro.so doesn't collide with libvulkan.so.
 extern PFN_vkCreateInstance vkCreateInstance;
 extern PFN_vkDestroyInstance vkDestroyInstance;
@@ -246,7 +252,7 @@ extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesE
 extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
-#endif  // !PPSSPP_PLATFORM(IOS_APP_STORE)
+#endif  // !PPSSPP_VK_STATIC
 } // namespace PPSSPP_VK
 
 // For fast extension-enabled checks.
@@ -274,11 +280,14 @@ struct VulkanExtensions {
 	bool KHR_present_wait;  // Same
 	bool GOOGLE_display_timing;
 	bool EXT_provoking_vertex;
+	bool KHR_portability_subset;
 	bool KHR_present_mode_fifo_latest_ready;
 	bool EXT_scalar_block_layout;
 	bool EXT_full_screen_exclusive;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
 };
+
+void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars);
 
 // Way to do a quick check before even attempting to load.
 void VulkanSetNativeLibDir(std::string_view nativeLibDir);

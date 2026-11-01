@@ -30,12 +30,9 @@
 #endif
 
 #if __has_include(<UIKit/UIKit.h>)
-#include "../ios/ViewControllerCommon.h"
+#include "../ios/ViewController.h"
 #include <UIKit/UIKit.h>
-
-@interface DocumentPickerDelegate : NSObject <UIDocumentPickerDelegate>
-@property DarwinDirectoryPanelCallback panelCallback;
-@end
+#include <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 static std::map<std::string, void*> activeAccessTokens;
 
@@ -47,6 +44,14 @@ void DarwinFileSystemServices::ClearDelegate() {
 	__pickerDelegate = NULL;
 }
 
+static void addBookmark(NSURL *url);
+
+// tvOS has no document picker.
+#if !PPSSPP_PLATFORM(TVOS)
+@interface DocumentPickerDelegate : NSObject <UIDocumentPickerDelegate>
+@property DarwinDirectoryPanelCallback panelCallback;
+@end
+
 @implementation DocumentPickerDelegate
 -(instancetype)initWithCallback: (DarwinDirectoryPanelCallback)panelCallback {
 	if (self = [super init]) {
@@ -54,8 +59,6 @@ void DarwinFileSystemServices::ClearDelegate() {
 	}
 	return self;
 }
-
-static void addBookmark(NSURL *url);
 
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
 	NSURL *url = urls.firstObject;
@@ -90,6 +93,7 @@ static void addBookmark(NSURL *url);
 	[sharedViewController hideKeyboard];
 }
 @end
+#endif  // !PPSSPP_PLATFORM(TVOS)
 
 // Internal helper to generate and store a bookmark for a given URL.
 // Also activates the security scope for the current session.
@@ -224,6 +228,42 @@ void DarwinFileSystemServices::terminate() {
 #include <AppKit/AppKit.h>
 #endif // __has_include(<UIKit/UIKit.h>)
 
+#if PPSSPP_PLATFORM(MAC)
+static int g_openPanels = 0;  // Only touched on the main thread.
+
+bool DarwinIsPanelOpen() {
+	return g_openPanels > 0;
+}
+
+void DarwinPresentPanel(NSSavePanel *panel, void (^handler)(NSModalResponse response)) {
+	NSWindow *parent = [NSApp keyWindow] ?: [NSApp mainWindow];
+	g_openPanels++;
+	void (^done)(NSModalResponse) = ^(NSModalResponse response) {
+		g_openPanels--;
+		handler(response);
+		// The sheet is still attached while this runs, so restore focus once it's gone.
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (![NSApp isActive]) {
+				if (@available(macOS 14.0, *)) {
+					[NSApp activate];
+				} else {
+					[NSApp activateIgnoringOtherApps:YES];
+				}
+			}
+			if (parent) {
+				[parent makeKeyAndOrderFront:nil];
+			}
+		});
+	};
+	if (parent && !parent.attachedSheet) {
+		[panel beginSheetModalForWindow:parent completionHandler:done];
+	} else {
+		// No window to attach to (or it already has a sheet): show it on its own.
+		[panel beginWithCompletionHandler:done];
+	}
+}
+#endif
+
 void DarwinFileSystemServices::presentDirectoryPanel(
 	DarwinDirectoryPanelCallback panelCallback,
 	bool allowFiles, bool allowDirectories,
@@ -236,7 +276,7 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		panel.canChooseDirectories = allowDirectories;
 		switch (fileType) {
 		case BrowseFileType::BOOTABLE:
-			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"chd", @"pbp", @"elf", @"zip", @"ppdmp", @"prx", nil]];
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"chd", @"pbp", @"elf", @"zip", @"ppdmp", @"prx", @"cue", @"ccd", @"mds", @"mdf", @"bin", @"img", nil]];
 			break;
 		case BrowseFileType::SAVE_STATE:
 			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"ppst", nil]];
@@ -267,39 +307,34 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		}
 //		if (!allowFiles && allowDirectories)
 //			panel.allowedFileTypes = @[(__bridge NSString *)kUTTypeFolder];
-		NSModalResponse modalResponse = [panel runModal];
-		if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
-			INFO_LOG(Log::System, "Mac: Received OK response from modal");
-			panelCallback(true, Path(panel.URLs.firstObject.path.UTF8String));
-		} else if (modalResponse == NSModalResponseCancel) {
-			INFO_LOG(Log::System, "Mac: Received Cancel response from modal");
-			panelCallback(false, Path());
-		} else {
-			WARN_LOG(Log::System, "Mac: Received unknown responsde from modal");
-			panelCallback(false, Path());
-		}
+		DarwinPresentPanel(panel, ^(NSModalResponse modalResponse) {
+			if (modalResponse == NSModalResponseOK && panel.URLs.firstObject) {
+				INFO_LOG(Log::System, "Mac: Received OK response from panel");
+				panelCallback(true, Path(panel.URLs.firstObject.path.UTF8String));
+			} else if (modalResponse == NSModalResponseCancel) {
+				INFO_LOG(Log::System, "Mac: Received Cancel response from panel");
+				panelCallback(false, Path());
+			} else {
+				WARN_LOG(Log::System, "Mac: Received unknown response from panel");
+				panelCallback(false, Path());
+			}
+		});
+#elif PPSSPP_PLATFORM(TVOS)
+		// No document picker. SYSPROP_HAS_FILE_BROWSER/FOLDER_BROWSER are false, so we shouldn't get here.
+		panelCallback(false, Path());
 #elif PPSSPP_PLATFORM(IOS)
-		UIViewController *rootViewController = UIApplication.sharedApplication
-			.keyWindow
-			.rootViewController;
-
-		// get current window view controller
+		// The window's root view controller.
+		UIViewController *rootViewController = sharedViewController;
 		if (!rootViewController)
 			return;
 
-		NSMutableArray<NSString *> *types = [NSMutableArray array];
-		UIDocumentPickerMode pickerMode = UIDocumentPickerModeOpen;
-
+		// Open, not import - we don't want the files copied, we handle that ourselves if needed.
+		NSMutableArray<UTType *> *types = [NSMutableArray array];
 		if (allowDirectories)
-			[types addObject: (__bridge NSString *)kUTTypeFolder];
-		if (allowFiles) {
-			[types addObject: (__bridge NSString *)kUTTypeItem];
-			// NOTE: We do not want to copy files here - we handle it ourselves if needed.
-			// Previously this was Import mode.
-			pickerMode = UIDocumentPickerModeOpen;
-		}
-
-		UIDocumentPickerViewController *pickerVC = [[UIDocumentPickerViewController alloc] initWithDocumentTypes: types inMode: pickerMode];
+			[types addObject:UTTypeFolder];
+		if (allowFiles)
+			[types addObject:UTTypeItem];
+		UIDocumentPickerViewController *pickerVC = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types];
 		// What if you wanted to go to heaven, but then God showed you the next few lines?
 		// serious note: have to do this, because __pickerDelegate has to stay retained as a class property
 		__pickerDelegate = (void *)CFBridgingRetain([[DocumentPickerDelegate alloc] initWithCallback:panelCallback]);
@@ -318,7 +353,16 @@ Path DarwinFileSystemServices::appropriateMemoryStickDirectoryToUse() {
 }
 
 Path DarwinFileSystemServices::defaultMemoryStickPath() {
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(TVOS)
+    // tvOS apps get no persistent storage beyond NSUserDefaults. Everything else has to be
+    // purgeable, so the memory stick lives in Caches, and the system may clear it when space runs low.
+    // In a folder of its own, since the system keeps things in Caches too.
+    NSString *cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES)
+                            objectAtIndex:0];
+    NSString *memstickPath = [cachesPath stringByAppendingPathComponent:@"PPSSPP"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:memstickPath withIntermediateDirectories:YES attributes:nil error:nil];
+    return Path(memstickPath.UTF8String);
+#elif PPSSPP_PLATFORM(IOS)
     NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)
                                objectAtIndex:0];
     return Path(documentsPath.UTF8String);

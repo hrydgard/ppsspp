@@ -53,7 +53,7 @@ private:
 	Path destination_;
 
 	PkgInfo pkgInfo_;
-	std::string pkgError_;      // Why the package can't be installed, if it can't.
+	std::string pkgError_;      // Why the package can't be read, if it can't. Untranslated.
 	bool canInstall_ = false;
 	u64 installSize_ = 0;
 	s64 freeSpace_ = -1;        // Negative if we couldn't find out.
