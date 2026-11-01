@@ -1464,7 +1464,7 @@ static void SetupAdhocRelayMode() {
 		aemuPostofficeEnetThread = std::thread([] {
 			while (aemuPostofficeEnetPumping) {
 				// no std::chrono::high_resolution_clock::now() in msvc.....
-				static const double target_interval = 1.0 / 120;
+				static const double target_interval = 1.0 / 1000;
 				double begin = time_now_d();
 				int pump_status = pump_enet_aemu_postoffice();
 				if (pump_status == 1) {
