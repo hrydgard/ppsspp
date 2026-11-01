@@ -759,13 +759,16 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 		if (pdp_handle == NULL) {
 			return false;
 		}
-		int peek_len = pdp_buffered_data_size(pdp_handle);
+		int peek_len = pdp_peek_next_size(pdp_handle);
 		if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 			internal->postofficeHandle = NULL;
 			pdp_delete(pdp_handle);
 			return false;
 		}
-		if (peek_len > 0) {
+		if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
+			return false;
+		}
+		if (peek_len >= 0) {
 			return true;
 		}
 	}

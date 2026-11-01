@@ -1464,7 +1464,7 @@ static void SetupAdhocRelayMode() {
 		aemuPostofficeEnetThread = std::thread([] {
 			while (aemuPostofficeEnetPumping) {
 				// no std::chrono::high_resolution_clock::now() in msvc.....
-				static const double target_interval = 1.0 / 120;
+				static const double target_interval = 1.0 / 1000;
 				double begin = time_now_d();
 				int pump_status = pump_enet_aemu_postoffice();
 				if (pump_status == 1) {
@@ -1757,6 +1757,8 @@ void __NetAdhocInit() {
 			config.num_threads = 0;
 			// The port the relay client connects to.
 			config.port = AEMU_POSTOFFICE_PORT;
+			// Disable ENet until the adhocctl side is ready
+			config.enable_enet = false;
 
 			aemu_postoffice_server::Server relay_server(config);
 			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
