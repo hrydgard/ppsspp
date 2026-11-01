@@ -92,6 +92,8 @@ struct CoreParameter {
 	bool startBreak = false;
 	std::string *collectDebugOutput = nullptr;
 	bool headLess = false;   // Try to avoid messageboxes etc
+	// Headless only: allows booting a savestate without its game, for measuring performance.
+	bool bootFromState = false;
 	// Headless leaves out compat settings when replaying frame dumps, unless this is set.
 	bool dumpCompat = false;
 	// Headless: GPU_USE_ feature bits to turn off, to test the fallbacks for GPUs without them.

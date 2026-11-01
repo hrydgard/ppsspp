@@ -297,7 +297,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 	case IdentifiedFileType::PS2_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::PS3_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;
-	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
+	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break;
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
 	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = std::string("UMD Video plays in the XMB, which needs PSP firmware ") + UMD_VIDEO_MIN_FIRMWARE + " or later."; break;
@@ -480,6 +480,15 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_PS1_PBP:
 		// Title and disc ID; the PS1 image itself is read by the firmware's POPS manager.
 		LoadParamSFOFromPBP(fileLoader);
+		break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+		if (!g_CoreParameter.bootFromState) {
+			GetBootError(type, errorString);
+			return false;
+		}
+		if (!MountStateBoot(g_CoreParameter.fileToStart, errorString)) {
+			return false;
+		}
 		break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	{
@@ -666,6 +675,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	case IdentifiedFileType::PSP_PS1_PBP:
 		if (!Load_PSP_POPS(fileLoader, errorString)) {
+			return false;
+		}
+		break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+		// Headless loads the state itself, as with --state.
+		if (!Load_PSP_StateBoot(errorString)) {
 			return false;
 		}
 		break;

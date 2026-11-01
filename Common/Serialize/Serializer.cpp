@@ -403,7 +403,8 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 }
 
 // Streams the file through the decompressor, so the compressed data is never all in memory at once.
-static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8 *out, size_t outSize) {
+// With onlyStart, stops once out is full, rather than requiring the data to be exactly that long.
+static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8 *out, size_t outSize, bool onlyStart = false) {
 	ZSTD_DCtx *ctx = ZSTD_createDCtx();
 	if (!ctx) {
 		return false;
@@ -414,6 +415,9 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 	size_t ret = 1;
 	bool success = true;
 	while (left > 0 && success) {
+		if (onlyStart && output.pos == outSize) {
+			break;
+		}
 		const size_t chunk = std::min(left, in.size());
 		if (!file.ReadBytes(in.data(), chunk)) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
@@ -422,7 +426,7 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 		}
 		left -= chunk;
 		ZSTD_inBuffer input{ in.data(), chunk, 0 };
-		while (input.pos < input.size) {
+		while (input.pos < input.size && !(onlyStart && output.pos == outSize)) {
 			const size_t inPos = input.pos;
 			const size_t outPos = output.pos;
 			ret = ZSTD_decompressStream(ctx, &output, &input);
@@ -434,6 +438,9 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 		}
 	}
 	ZSTD_freeDCtx(ctx);
+	if (onlyStart) {
+		return success && output.pos == outSize;
+	}
 	// ret is 0 once a frame is completely decoded.
 	return success && ret == 0 && output.pos == outSize;
 }
@@ -463,6 +470,22 @@ static bool CompressZstd(const u8 *data, size_t size, std::vector<u8> *out) {
 	} while (!ZSTD_isError(remaining) && remaining != 0);
 	ZSTD_freeCCtx(ctx);
 	return !ZSTD_isError(remaining);
+}
+
+CChunkFileReader::Error CChunkFileReader::LoadFileStart(const Path &filename, u8 *out, size_t size) {
+	File::IOFile pFile(filename, "rb");
+	SChunkHeader header;
+	Error err = LoadFileHeader(pFile, header, nullptr);
+	if (err != ERROR_NONE) {
+		return err;
+	}
+	if (!header.Compress) {
+		return size <= header.ExpectedSize && pFile.ReadBytes(out, size) ? ERROR_NONE : ERROR_BAD_FILE;
+	}
+	if (SerializeCompressType(header.Compress) != SerializeCompressType::ZSTD || size > header.UncompressedSize) {
+		return ERROR_BAD_FILE;
+	}
+	return DecompressZstdFromFile(pFile, header.ExpectedSize, out, size, true) ? ERROR_NONE : ERROR_BAD_FILE;
 }
 
 CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz) {

@@ -204,6 +204,26 @@ int g_screenshotFailures;
 	// we should probably just read back memory then instead (GTA for example). But this is a really unimportant edge case,
 	// when in-game it's just not an issue.
 
+	static constexpr size_t DISC_ID_SIZE = 16;
+	static constexpr size_t DISC_VERSION_SIZE = 8;
+
+	static BootType GetBootType(IdentifiedFileType type) {
+		switch (type) {
+		case IdentifiedFileType::PSP_ISO:
+		case IdentifiedFileType::PSP_ISO_NP:
+			return BootType::ISO;
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+			return BootType::PBP;
+		case IdentifiedFileType::PSP_ELF:
+			return BootType::ELF;
+		case IdentifiedFileType::PSP_DISC_DIRECTORY:
+			return BootType::DISC_DIRECTORY;
+		default:
+			return BootType::UNKNOWN;
+		}
+	}
+
 	void SaveStart::DoState(PointerWrap &p) {
 		// Nothing may still be writing PSP memory while it's saved, or be left to write into what's loaded.
 		__UtilityWaitForIO();
@@ -212,9 +232,32 @@ int g_screenshotFailures;
 		if (gpu)
 			gpu->FlushPendingDrawing();
 
-		auto s = p.Section("SaveStart", 1, 5);
+		auto s = p.Section("SaveStart", 1, 6);
 		if (!s)
 			return;
+
+		if (s >= 6) {
+			// Fixed width and first, so the game a state belongs to can be read without loading it
+			// (see PeekBootInfo).
+			char discID[DISC_ID_SIZE]{};
+			char discVersion[DISC_VERSION_SIZE]{};
+			u8 bootType = 0;
+			if (p.mode != p.MODE_READ) {
+				truncate_cpy(discID, g_paramSFO.GetValueString("DISC_ID").c_str());
+				truncate_cpy(discVersion, g_paramSFO.GetValueString("DISC_VERSION").c_str());
+				bootType = (u8)GetBootType(PSP_CoreParameter().fileType);
+			}
+			p.DoVoid(discID, sizeof(discID));
+			p.DoVoid(discVersion, sizeof(discVersion));
+			Do(p, bootType);
+			if (p.mode == p.MODE_READ) {
+				const std::string stateDiscID(discID, strnlen(discID, sizeof(discID)));
+				const std::string runningDiscID = g_paramSFO.GetValueString("DISC_ID");
+				if (stateDiscID != runningDiscID) {
+					WARN_LOG(Log::SaveState, "Loading a state saved from %s into %s", stateDiscID.c_str(), runningDiscID.c_str());
+				}
+			}
+		}
 
 		if (s >= 2) {
 			// This only increments on save, of course (once, not also in the measuring pass.)
@@ -455,6 +498,15 @@ int g_screenshotFailures;
 			CallbackRefused(op.callback);
 			return false;
 		}
+		// A game booted from a state alone (headless) runs without its disc. A state saved from that
+		// would hold the broken environment, and be no use with the game or without it.
+		if (op.type == OperationType::Save && PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
+			ERROR_LOG(Log::SaveState, "Can't save a state while running from a state without its game");
+			if (op.callback) {
+				op.callback(Status::FAILURE, "Can't save a state while running from a state without its game", "");
+			}
+			return false;
+		}
 		// Verify saves and loads back in place, with the mounts as they are.
 		if (op.type != OperationType::Verify && WarnUserIfVSHSession()) {
 			CallbackRefused(op.callback);
@@ -576,6 +628,34 @@ int g_screenshotFailures;
 
 		// Couldn't detect, use the filename.
 		return title + " (" + filename + ")";
+	}
+
+	bool PeekBootInfo(const Path &filename, BootInfo *info, std::string *error) {
+		// The start of SaveStart, laid out as PointerWrap::Section writes it: a 16 byte name and the
+		// version, then the fields from version 6.
+		u8 start[16 + 4 + DISC_ID_SIZE + DISC_VERSION_SIZE + 1];
+		if (CChunkFileReader::LoadFileStart(filename, start, sizeof(start)) != CChunkFileReader::ERROR_NONE) {
+			*error = "Couldn't read the state";
+			return false;
+		}
+		char name[16]{};
+		strncpy(name, "SaveStart", sizeof(name));
+		if (memcmp(start, name, sizeof(name)) != 0) {
+			*error = "Not a savestate";
+			return false;
+		}
+		s32 version;
+		memcpy(&version, start + 16, sizeof(version));
+		if (version < 6) {
+			*error = "The state is too old to say which game it's from";
+			return false;
+		}
+		const char *discID = (const char *)start + 20;
+		const char *discVersion = discID + DISC_ID_SIZE;
+		info->discID.assign(discID, strnlen(discID, DISC_ID_SIZE));
+		info->discVersion.assign(discVersion, strnlen(discVersion, DISC_VERSION_SIZE));
+		info->bootType = (BootType)start[sizeof(start) - 1];
+		return true;
 	}
 
 	std::string GetTitle(const Path &filename) {

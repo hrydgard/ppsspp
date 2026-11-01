@@ -2618,6 +2618,29 @@ bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::st
 	return true;
 }
 
+void __KernelLoadStateBootStub(MIPSState *mips) {
+	__KernelLoadReset();
+
+	constexpr u32 codeStartAddr = PSP_GetUserMemoryBase();
+	mips->pc = codeStartAddr;
+	// b . (to itself), and the delay slot.
+	Memory::WriteUnchecked_U32(MIPS_MAKE_B(-1), codeStartAddr);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), codeStartAddr + 4);
+
+	PSPModule *module = new PSPModule();
+	kernelObjects.Create(module);
+	loadedModules.insert(module->GetUID());
+	memset(&module->nm, 0, sizeof(module->nm));
+	module->isFake = true;
+	module->nm.entry_addr = codeStartAddr;
+	module->nm.gp_value = -1;
+
+	SceUID threadID = __KernelSetupRootThread(module->GetUID(), 0, nullptr, 0x20, 0x1000, 0);
+	__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+	__KernelStartIdleThreads(module->GetUID());
+}
+
 int __KernelGPUReplay(MIPSState *mips) {
 	// Special ABI: s0 and s1 are the "args".  Not null terminated.
 	const char *filenamep = Memory::GetCharPointer(mips->r[MIPS_REG_S1]);
