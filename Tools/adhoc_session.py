@@ -58,6 +58,8 @@ class Debugger:
 		self.send("broadcast.config.set", disallowed={"logger": not logs, "input": True})
 
 	def close(self):
+		if getattr(self, "shared", False):
+			return
 		try:
 			self.sock.close()
 		except OSError:
@@ -145,6 +147,21 @@ class Debugger:
 			self.wait_for(lambda m: m.get("event") == "cpu.resume")
 
 
+# One connection per instance for the whole command. `wait` polls every few milliseconds, and a
+# connection per poll means thousands of them, each with its own thread and subscribers on the
+# PPSSPP side.
+_connections = {}
+
+
+def connect(inst):
+	dbg = _connections.get(inst["port"])
+	if dbg is None:
+		dbg = Debugger(inst["port"])
+		dbg.shared = True
+		_connections[inst["port"]] = dbg
+	return dbg
+
+
 def session_file(args):
 	return os.path.join(args.dir, "session.json")
 
@@ -168,7 +185,7 @@ def emulated_seconds(session):
 	# The slowest instance's clock: the one a script is waiting for.
 	times = []
 	for inst in session["instances"]:
-		dbg = Debugger(inst["port"])
+		dbg = connect(inst)
 		times.append(dbg.request("cpu.status")["us"] / 1e6)
 		dbg.close()
 	return min(times)
@@ -318,7 +335,7 @@ def cmd_press(args):
 		if t > 0:
 			emulated_sleep(session, args.every)
 		for inst in selected(session, args.i):
-			dbg = Debugger(inst["port"])
+			dbg = connect(inst)
 			# The answer only comes once the press is over, so don't wait for it.
 			dbg.send("input.buttons.press", button=args.button, duration=args.frames)
 			dbg.close()
@@ -340,7 +357,7 @@ def cmd_type(args):
 
 	def press(button):
 		for inst in insts:
-			dbg = Debugger(inst["port"])
+			dbg = connect(inst)
 			dbg.send("input.buttons.press", button=button, duration=3)
 			dbg.close()
 		emulated_sleep(session, 0.15)
@@ -373,12 +390,12 @@ def cmd_stick(args):
 	session = load_session(args)
 	insts = selected(session, args.i)
 	for inst in insts:
-		dbg = Debugger(inst["port"])
+		dbg = connect(inst)
 		dbg.request("input.analog.send", x=args.x, y=args.y)
 		dbg.close()
 	emulated_sleep(session, args.seconds)
 	for inst in insts:
-		dbg = Debugger(inst["port"])
+		dbg = connect(inst)
 		dbg.request("input.analog.send", x=0, y=0)
 		dbg.close()
 
@@ -391,7 +408,7 @@ def grab_png(inst, attempts=3):
 	# An instance busy loading can be slow to answer; try again rather than end a long script.
 	for attempt in range(attempts):
 		try:
-			dbg = Debugger(inst["port"])
+			dbg = connect(inst)
 			dbg.stop_cpu()
 			answer = dbg.request("gpu.buffer.screenshot", type="uri")
 			dbg.resume_cpu()
@@ -428,7 +445,7 @@ def cmd_shot(args):
 def cmd_stats(args):
 	session = load_session(args)
 	for inst in selected(session, args.i):
-		dbg = Debugger(inst["port"])
+		dbg = connect(inst)
 		status = dbg.request("cpu.status")
 		stats = dbg.request("gpu.stats.get", timeout=5)
 		dbg.close()
@@ -487,7 +504,7 @@ def cmd_until(args):
 			sys.exit("until: instances %s never matched; their screens are in until_failed_N.png" % ",".join(str(i["n"]) for i in waiting))
 		if args.press and (last_press is None or now - last_press >= args.every):
 			for inst in waiting:
-				dbg = Debugger(inst["port"])
+				dbg = connect(inst)
 				dbg.send("input.buttons.press", button=args.press, duration=6)
 				dbg.close()
 			last_press = now
@@ -509,7 +526,7 @@ def cmd_log(args):
 		print("log: verbose messages are compiled out (MAX_LOGLEVEL in Common/Log.h); this shows debug and above", file=sys.stderr)
 	session = load_session(args)
 	for inst in selected(session, args.i):
-		dbg = Debugger(inst["port"])
+		dbg = connect(inst)
 		dbg.request("log.channel.set", channel=args.channel, level=args.level, enabled=True)
 		dbg.close()
 
