@@ -250,15 +250,14 @@ void DisplayFireVblankEnd() {
 }
 
 void DisplayFireFlip() {
-	std::vector<FlipListener> toCall = [] {
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return flipListeners;
-	}();
-
 	// This is also the right time to calculate FPS.
 	CalculateFPS();
 
-	for (FlipListener cb : toCall) {
+	// Held across the calls, so that once __DisplayForgetFlip() returns (on a debugger connection's
+	// thread, say) its listener isn't running and won't be called again. A listener must not add or
+	// remove listeners.
+	std::lock_guard<std::mutex> guard(listenersLock);
+	for (const FlipListener &cb : flipListeners) {
 		cb.first(cb.second);
 	}
 }
@@ -281,7 +280,10 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 
 // This is called on game bootup.
 void DisplayHWInit() {
-	flipListeners.clear();
+	{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		flipListeners.clear();
+	}
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;

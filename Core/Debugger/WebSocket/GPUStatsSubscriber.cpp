@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -82,8 +83,9 @@ struct WebSocketGPUStatsState : public DebuggerSubscriber {
 
 protected:
 	bool forced_ = false;
-	bool sendNext_ = false;
-	bool sendFeed_ = false;
+	// Read by FlipListener() on the CPU thread before it takes pendingLock_.
+	std::atomic<bool> sendNext_{ false };
+	std::atomic<bool> sendFeed_{ false };
 
 	std::string lastTicket_;
 	std::mutex pendingLock_;
@@ -186,12 +188,14 @@ void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 	if (!req.ParamBool("enable", &enable, DebuggerParamType::OPTIONAL))
 		return;
 
-	std::lock_guard<std::mutex> guard(pendingLock_);
-	sendFeed_ = enable;
+	// Not under pendingLock_: the CPU thread takes it in FlipListener(), so holding it across
+	// Core_RunOnCPUThread() deadlocks. forced_ is only touched on this connection's thread.
 	if (forced_ != enable) {
 		Core_RunOnCPUThread([enable] { PSP_ForceDebugStats(enable); });
 		forced_ = enable;
 	}
+	std::lock_guard<std::mutex> guard(pendingLock_);
+	sendFeed_ = enable;
 }
 
 void WebSocketGPUStatsState::Broadcast(net::WebSocketServer *ws) {
