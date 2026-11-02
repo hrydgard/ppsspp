@@ -362,7 +362,7 @@ public:
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
 	bool ReadbackStencilToMemory(u32 addr, int size);
-	void WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst);
+	void WriteStencilFromReinterpret(VirtualFramebuffer *src, VirtualFramebuffer *dst, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2);
 
 	// We changed our depth mode, gotta start over.
 	// Ideally, we should convert depth buffers here, not just clear them.
@@ -504,6 +504,7 @@ public:
 
 	// If from==to, returns a copy pipeline.
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
+	Draw2DPipeline *GetReinterpretStencilPipeline(GEBufferFormat from, GEBufferFormat to, bool useExport);
 
 	// Public to be used from the texture cache's depal shenanigans.
 	void BlitUsingRaster(
@@ -688,6 +689,7 @@ protected:
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
 	Draw2DPipeline *reinterpretFromTo_[4][4]{};
+	Draw2DPipeline *reinterpretStencilFromTo_[4][4]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
