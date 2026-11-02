@@ -204,7 +204,6 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
 	UI::Style style = dc.GetTheme().itemStyle;
@@ -232,71 +231,79 @@ void GameButton::Draw(UIContext &dc) {
 	}
 	const float textX = ListTextX(viewMode_);
 
-	if (texture && ginfo) {
-		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
-		shadowColor = blackAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
-		float tw = texture->Width();
-		float th = texture->Height();
-
-		// Adjust position so we don't stretch the image vertically or horizontally.
-		// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
-		float nw = std::min(iconBounds.h * tw / th, (float)iconBounds.w);
-		iconBounds.x += (iconBounds.w - nw) / 2.0f;
-		iconBounds.w = nw;
-	}
-
-	int txOffset = down_ ? 4 : 0;
-	if (viewMode_ != GameBrowserViewMode::GRID) {
-		txOffset = 0;
+	int iconYOffset = 0;
+	if (viewMode_ == GameBrowserViewMode::GRID && down_) {
+		iconYOffset = 4;
 	}
 
 	Bounds overlayBounds = bounds_;
 
 	// Render the icon, all modes have this.
-	int dropsize = 10;
 	if (texture) {
+		float alpha = 1.0f;
+		float dropsize = 10;
+
+		if (ginfo) {
+			float loadPhase = ease((time_now_d() - ginfo->icon.timeLoaded) * 2);
+
+			loadPhase = 0.0f;
+
+			alpha = loadPhase;
+
+			float tw = texture->Width();
+			float th = texture->Height();
+			// Adjust position so we don't stretch the image vertically or horizontally.
+			// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+			float nw = std::min(iconBounds.h * tw / th, (float)iconBounds.w);
+			iconBounds.x += (iconBounds.w - nw) / 2.0f;
+			iconBounds.w = nw;
+		}
+
 		if (viewMode_ == GameBrowserViewMode::LIST) {
 			iconBounds.x += 4;
 		}
-		if (txOffset) {
+
+		if (iconYOffset) {
+			// Button pressed, move the icon down a bit and reduce the shadow.
 			dropsize = 3;
-			iconBounds.y += txOffset * 2;
-			overlayBounds.y += txOffset * 2;
+			iconBounds.y += iconYOffset * 2;
+			overlayBounds.y += iconYOffset * 2;
 		}
+
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
 			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
 
-			dc.DrawRectDropShadow(iconBounds, 10.0f, pulse, alphaMul(color, pulse));
+			dc.DrawRectDropShadow(iconBounds, 10.0f, pulse, style.fgColor);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, shadowColor);
-			// dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, x - dropsize, y - dropsize * 0.5f, x + w + dropsize, y + h + dropsize * 1.5, alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, 0);
 			dc.Draw()->Flush();
 		}
 
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, color);
+		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, 0xFFFFFFFF);
 		dc.Draw()->Flush();
 	}
 
-	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
-		std::string_view idStr = id_version;
-		if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
-			auto ga = GetI18NCategory(I18NCat::GAME);
-			idStr = ga->T("SaveData");
-		}
-		dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
-		dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
-		dc.SetFontScale(1.0f, 1.0f);
-	}
 
 	if (viewMode_ == GameBrowserViewMode::GRID) {
+		if (g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
+			std::string_view idStr = id_version;
+			if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+				auto ga = GetI18NCategory(I18NCat::GAME);
+				idStr = ga->T("SaveData");
+			}
+			dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
+			dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
+			dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
+
 		if (imageIcon.isValid()) {
 			Bounds bounds = bounds_;
 
