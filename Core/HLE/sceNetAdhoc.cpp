@@ -2826,8 +2826,8 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 				// Only touch the part of the buffer that's valid memory.
 				const u32 validLen = Memory::ClampValidSizeAt(bufAddr, std::max((s32)*buflen, 0));
 
-				// Clear Memory
-				memset(buf, 0, validLen);
+				// A buffer too small for one entry is left alone (pspautotests net/adhoc/pair/listsizes).
+				memset(buf, 0, (validLen / sizeof(SceNetAdhocctlScanInfoEmu)) * sizeof(SceNetAdhocctlScanInfoEmu));
 
 				// Network Discovery Counter
 				int discovered = 0;
@@ -5061,10 +5061,13 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 				// Calculate Request Count
 				int requestcount = validLen / sizeof(SceNetAdhocctlPeerInfoEmu);
 
-				// FIXME: When bufAddr is not null but buffer size is smaller than activePeers * sizeof(SceNetAdhocctlPeerInfoEmu), simply return buffer size = 0 without filling the buffer?
-
-				// Clear Memory
-				memset(buf, 0, validLen);
+				// A buffer too small for one entry is left alone and gets size 0; a negative size is
+				// INVALID_ARG (pspautotests net/adhoc/pair/listsizes).
+				if ((s32)*buflen < 0) {
+					peerlock.unlock();
+					return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "negative size");
+				}
+				memset(buf, 0, requestcount * sizeof(SceNetAdhocctlPeerInfoEmu));
 
 				// Minimum Arguments
 				if (requestcount > 0) {
