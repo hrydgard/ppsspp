@@ -906,6 +906,31 @@ static bool ptpInFlight(const AdhocSocket *sock) {
 	return CoreTiming::GetGlobalTimeUsScaled() < sock->ptpDeliveredAt;
 }
 
+// Sent bytes still taking up the send buffer, draining at the same rate until ptpDeliveredAt.
+static u32 ptpUndeliveredNow(const AdhocSocket *sock) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (now >= sock->ptpDeliveredAt) {
+		return 0;
+	}
+	return (u32)std::min<u64>(sock->ptpUndelivered, ((sock->ptpDeliveredAt - now) * 5 + 11) / 12);
+}
+
+// Whether a send of len bytes has to wait for in-flight data to drain. With 8192 bytes in flight in an
+// 8 KB buffer, a non-blocking send of 16 more returns WOULD_BLOCK and poll leaves out SEND for 10-21 ms,
+// which is about when half the buffer has drained; with 4096 in flight neither happens (pspautotests
+// net/adhoc/pair/ptpsendready). A send larger than the whole buffer isn't held back.
+static bool ptpSendMustWait(const AdhocSocket *sock, int len) {
+	u32 bufSize = sock->buffer_size;
+	if (len <= 0 || (u32)len > bufSize) {
+		return false;
+	}
+	return (u32)len > bufSize - std::min(bufSize, ptpUndeliveredNow(sock));
+}
+
+static bool ptpSendReady(const AdhocSocket *sock) {
+	return sock->buffer_size - std::min(sock->buffer_size, ptpUndeliveredNow(sock)) >= sock->buffer_size / 2;
+}
+
 // PDP receive queues. A PSP keeps what arrives in the socket's buffer, of the size given to PdpCreate, and
 // drops a datagram that doesn't fit (pspautotests net/adhoc/pair/flow: a buffer of 0 gets nothing, one of
 // 2048 bytes only some of ten 1000-byte datagrams). So what the transport receives goes into a queue of
@@ -1099,6 +1124,14 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	if (sock->flags & ADHOC_F_ALERTSEND) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTSEND;
+		return 0;
+	}
+	if (req.length && ptpSendMustWait(sock, *req.length)) {
+		u64 now = CoreTiming::GetGlobalTimeUs();
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			return -1;
+		}
+		result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 		return 0;
 	}
 	return Transport().DoBlockingPtpSend(req, result);
@@ -2532,7 +2565,10 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 						sds[i].revents = ADHOC_EV_DISCONNECT;
 						disconnected = true;
 					} else {
-						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
+						// SEND and FLUSH wait for data in flight like PtpSend and PtpFlush do (pspautotests
+						// net/adhoc/pair/ptpsendready).
+						int sendBits = (ptpSendReady(sock) ? ADHOC_EV_SEND : 0) | (ptpInFlight(sock) ? 0 : ADHOC_EV_FLUSH);
+						sds[i].revents = (sendBits | ADHOC_EV_CONNECT | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
 					}
 				} else if (sock->type == SOCK_PTP) {
 					ptpUpdateConnecting(sock);
@@ -3670,9 +3706,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
-					if (ptpInFlight(sock)) {
-						buf[i].snd_sb_cc = std::max((u32)buf[i].snd_sb_cc, sock->ptpUndelivered);
-					}
+					buf[i].snd_sb_cc = std::max((u32)buf[i].snd_sb_cc, ptpUndeliveredNow(sock));
 
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
@@ -4406,6 +4440,13 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
+					if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED && ptpSendMustWait(socket, *len)) {
+						if (flag) {
+							return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "send buffer full");
+						}
+						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+						return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void *)data, len, timeout, nullptr, nullptr, "ptp send");
+					}
 					return Transport().PtpSend(id, data, len, timeout, flag);
 				}
 
