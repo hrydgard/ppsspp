@@ -26,11 +26,10 @@ Verify after every install, not just when something looks odd:
 A second, independent check is worth it when a result is surprising: grep the log for a symbol that
 exists only on the branch under test (a renamed class or log tag, say).
 
-The version string itself can also lie. The Android build regenerates `git-version.cpp` but does not
-always recompile it, so the APK can carry the previous build's string while containing current code.
-When the version matters:
-
-    find android/.cxx -name git-version.cpp.o -delete
+The version string in the app's UI used to lie as well: Ninja regenerated `git-version.cpp` but didn't
+recompile it, so the APK could carry an older commit's string. That's fixed (the file is now declared
+as a `BYPRODUCTS` of the generating step in `Core/CMakeLists.txt`), so on a build directory that has
+been reconfigured since, the string matches the commit the APK was built from.
 
 ## Forcing an activity recreate without touching the device
 
