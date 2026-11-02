@@ -557,6 +557,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *spor
 	ptpSetEstablished(internal);
 	internal->data.ptp.rcv_sb_cc = adhocSockets[idx]->data.ptp.rcv_sb_cc;
 	internal->data.ptp.snd_sb_cc = adhocSockets[idx]->data.ptp.snd_sb_cc;
+	internal->buffer_size = adhocSockets[idx]->buffer_size;
 	internal->flags = 0;
 	internal->connectThread = NULL;
 
@@ -864,6 +865,7 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	internal->data.ptp.paddr = *daddr;
 	internal->data.ptp.pport = dport;
 	internal->data.ptp.rcv_sb_cc = bufsize;
+	internal->buffer_size = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->flags = 0;
 	internal->connectThread = NULL;
@@ -966,6 +968,7 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	internal->data.ptp.lport = sport;
 	internal->data.ptp.state = ADHOC_PTP_STATE_LISTEN;
 	internal->data.ptp.rcv_sb_cc = bufsize;
+	internal->buffer_size = bufsize;
 	internal->data.ptp.snd_sb_cc = 0;
 	internal->flags = 0;
 	internal->connectThread = NULL;

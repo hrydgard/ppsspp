@@ -369,6 +369,7 @@ tests_good = [
   "net/adhoc/alerts",
   "net/adhoc/apctlinit",
   "net/adhoc/discover",
+  "net/adhoc/edges",
   "net/adhoc/gamemode",
   "net/adhoc/limits",
   "net/adhoc/loopback",
@@ -590,6 +591,7 @@ tests_good = [
   "video/psmfplayer/stop",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
   "net/adhoc/pair/basic",
+  "net/adhoc/pair/listsizes",
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",

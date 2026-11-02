@@ -281,6 +281,7 @@ typedef struct GameModeArea {
 	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
+	u64 reportedTimestamp; // what UpdateReplica last gave out as the data's time
 } PACK GameModeArea;
 
 // Socket Polling Event Listener
@@ -332,6 +333,7 @@ typedef struct AdhocSocket {
 	u32 ptpUndelivered; // bytes sent that aren't there yet, until ptpDeliveredAt
 	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool ptpRefused; // a connect was refused, and every later one is too
+	u64 ptpConnectToNobodySince; // the first connect to a MAC that isn't in the group
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
