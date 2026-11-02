@@ -110,6 +110,8 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 
 uint32_t PackLightControlBits();
 uint32_t PackDepalBits(bool pixelMapped);
+// Call before reading the dirty uniforms: the depal uniform depends on pixelMapped, which changes per draw.
+void DirtyDepalIfPixelMappedChanged(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 

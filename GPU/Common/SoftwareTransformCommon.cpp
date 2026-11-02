@@ -1095,6 +1095,29 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 		}
 	}
 
+	// Shader depal filters by hand, with four texel and four palette lookups per pixel, which is a lot for a slow
+	// GPU on a full-screen pass (DBZ Tenkaichi Tag Team has two per frame). When every pixel center lands on a texel
+	// center (1:1 in both directions, at a whole-texel offset), that gives the nearest texel anyway, so report the
+	// draw as pixel mapped, which turns the filter off. Unlike the check above, this changes nothing on screen.
+	bool depalPixelMapped = false;
+	if (!pixelMapped && throughmode && gstate_c.shaderDepalMode != ShaderDepalMode::OFF &&
+		spriteBorderFixL == 0.0f && spriteBorderFixR == 0.0f && spriteBorderFixT == 0.0f && spriteBorderFixB == 0.0f) {
+		depalPixelMapped = true;
+		for (int i = 0; i < vertexCount; i += 2) {
+			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+			const float dx = transVtxBR.x - transVtxTL.x;
+			const float dy = transVtxBR.y - transVtxTL.y;
+			const float offsetU = transVtxTL.u - transVtxTL.x;
+			const float offsetV = transVtxTL.v - transVtxTL.y;
+			if (dx <= 0 || dy <= 0 || transVtxBR.u - transVtxTL.u != dx || transVtxBR.v - transVtxTL.v != dy ||
+				offsetU != floorf(offsetU) || offsetV != floorf(offsetV)) {
+				depalPixelMapped = false;
+				break;
+			}
+		}
+	}
+
 
 	// Like the software renderer's ProcessRect: rectangles aren't clipped, one with a vertex behind the camera
 	// or outside the screen range is dropped whole. With depth clamp, a vertex past the near plane is exempt
@@ -1213,7 +1236,7 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	}
 	numDecodedVerts = outVerts;
 	inds = newInds;
-	*pixelMappedExactly = pixelMapped;
+	*pixelMappedExactly = pixelMapped || depalPixelMapped;
 	*drawIndexCount = indsOut - newInds;
 	return true;
 }
