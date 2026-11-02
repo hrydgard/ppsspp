@@ -206,6 +206,10 @@ ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	  ${SRC}/ext/libadrenotools/src/hook/main_hook.c \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+	ifeq ($(HEADLESS),1)
+		# Linked into an executable, the hooks replace its own fopen and hang it.
+		ADRENOTOOLS_FILES := $(filter-out %_hook.c %hook_impl.cpp,$(ADRENOTOOLS_FILES))
+	endif
 endif
 
 VR_FILES := \
@@ -991,7 +995,8 @@ ifeq ($(HEADLESS),1)
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/HeadlessHost.cpp \
-    $(SRC)/headless/Compare.cpp
+    $(SRC)/headless/Compare.cpp \
+    $(SRC)/headless/VulkanHeadlessContext.cpp
 
   include $(BUILD_EXECUTABLE)
 endif

@@ -2930,6 +2930,8 @@ if(HEADLESS)
 		headless/HeadlessHost.cpp
 		headless/HeadlessHost.h
 		headless/Compare.cpp
+		headless/VulkanHeadlessContext.cpp
+		headless/VulkanHeadlessContext.h
 		headless/Compare.h
 		headless/SDLHeadlessHost.cpp
 		headless/SDLHeadlessHost.h

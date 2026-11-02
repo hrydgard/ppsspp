@@ -56,6 +56,7 @@
 #elif defined(SDL)
 #include "SDLHeadlessHost.h"
 #endif
+#include "headless/VulkanHeadlessContext.h"
 
 static HeadlessHost *g_headlessHost;
 // Backported for benchmarking: --state and --timeout-emulated as in later versions.
@@ -72,6 +73,8 @@ jclass findClass(const char *name) {
 
 bool System_AudioRecordingIsAvailable() { return false; }
 bool System_AudioRecordingState() { return false; }
+// Defined in app-android.cpp for the app; only used for custom Vulkan drivers.
+std::string g_nativeLibDir;
 #endif
 
 // Temporary hacks around annoying linking errors.
@@ -163,6 +166,10 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 	switch (gpuCore) {
 	case GPUCORE_SOFTWARE:
 		return new HeadlessHost();
+#if PPSSPP_PLATFORM(ANDROID)
+	case GPUCORE_VULKAN:
+		return new VulkanHeadlessHost();
+#endif
 #ifdef HEADLESSHOST_CLASS
 	default:
 		return new HEADLESSHOST_CLASS();
@@ -607,7 +614,7 @@ int main(int argc, const char* argv[])
 	Path exePath = File::GetExeDirectory();
 	g_Config.flash0Directory = exePath / "assets/flash0";
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
 	// Mount a filesystem
 	g_Config.memStickDirectory = exePath / "memstick";
 	File::CreateDir(g_Config.memStickDirectory);
@@ -621,9 +628,7 @@ int main(int argc, const char* argv[])
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
 			g_Config.flash0Directory = nextPath / "assets/flash0";
-#if !PPSSPP_PLATFORM(ANDROID)
 			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
-#endif
 			break;
 		}
 
