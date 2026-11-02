@@ -2722,7 +2722,12 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
 			// Returns 0 and reports ALREADY_CONNECTED through the handlers, as on the PSP (pspautotests
-			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event.
+			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event. It empties the scan list
+			// (pspautotests net/adhoc/pair/scaninfo).
+			peerlock.lock();
+			freeGroupsRecursive(networks);
+			networks = NULL;
+			peerlock.unlock();
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 			hleEatMicro(500);
 			return hleLogDebug(Log::sceNet, 0);
@@ -2792,13 +2797,10 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Lock
 			peerlock.lock();
 
-			// FIXME: When already connected to a group GetScanInfo will return size = 0 ? or may be only hides the group created by it's self?
-			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) {
-				*buflen = 0;
-				DEBUG_LOG(Log::sceNet, "NetworkList [Available: 0] Already in a Group");
-			}
+			// The list from the last scan stays after Create, Join and Disconnect (pspautotests
+			// net/adhoc/pair/scaninfo). NBA 2K13's joiner leaves when the joined group isn't in it.
 			// Length Returner Mode
-			else if (buf == NULL) {
+			if (buf == NULL) {
 				int availNetworks = countAvailableNetworks(excludeSelf);
 				*buflen = availNetworks * sizeof(SceNetAdhocctlScanInfoEmu);
 				DEBUG_LOG(Log::sceNet, "NetworkList [Available: %i]", availNetworks);

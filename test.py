@@ -596,6 +596,7 @@ tests_good = [
   "net/adhoc/pair/matchingorder",
   "net/adhoc/pair/ptpmsg",
   "net/adhoc/pair/ptppoll",
+  "net/adhoc/pair/scaninfo",
   "net/adhoc/pair/vanish",
 ]
 
