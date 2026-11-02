@@ -68,10 +68,13 @@ for it:
    the bytes instead, e.g. `python -c "d=open(F,'rb').read(); print(d.count(b'\r\n'), d.count(b'\n'))"`,
    and treat git's "LF will be replaced by CRLF the next time Git touches it" as the warning it is
    rather than autocrlf noise.
-6. **Don't feed Python to `bash -c` via a heredoc when the code needs a literal backslash in its
-   *output*.** Git Bash strips one level of escaping on the way in even with a quoted delimiter
-   (`<<'PY'`), so `"\\n"` reaches Python as `"\n"` and writes a real newline into the file - no error,
-   just a patch that quietly did nothing. Use the Edit tool, or write the script to a file and run it.
+6. **On Windows, never put a backslash in a heredoc.** Not in a search string, a replacement, a regex
+   or a bytes literal; not even with a quoted delimiter (`<<'PY'`). The Bash tool passes the command
+   to Git Bash as a `bash -c` argument, and the MSYS runtime turns every `\\` into `\` before bash
+   parses it (single quotes don't help either), so the script that runs is not the one you wrote. No
+   error, just a patch that quietly did nothing. Use the Edit tool, or Write the script to a file and
+   run `python file.py`, which is not affected. A hook in `.claude/settings.json` refuses such
+   commands. Details: [docs/patching-files.md](docs/patching-files.md).
    Details and the other two failure shapes: [docs/patching-files.md](docs/patching-files.md).
 
 7. **NEVER run more than one PSP hardware operation at a time.** There is one PSP. Every
