@@ -58,6 +58,8 @@
 #endif
 
 static HeadlessHost *g_headlessHost;
+// Backported for benchmarking: --state and --timeout-emulated as in later versions.
+static bool g_stateLoadPending = false;
 
 #if PPSSPP_PLATFORM(ANDROID)
 JNIEnv *getEnv() {
@@ -173,6 +175,7 @@ static HeadlessHost *getHost(GPUCore gpuCore) {
 
 struct AutoTestOptions {
 	double timeout;
+	double timeoutEmulated;
 	double maxScreenshotError;
 	bool compare : 1;
 	bool verbose : 1;
@@ -229,8 +232,23 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
+	double emulatedElapsed = 0.0;
+	double lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU)
 	{
+		SaveState::Process();
+		const double emulatedNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
+		const double emulatedStep = emulatedNow - lastEmulatedTime;
+		lastEmulatedTime = emulatedNow;
+		if (emulatedStep > 0.0 && emulatedStep < 1.0 && !g_stateLoadPending) {
+			emulatedElapsed += emulatedStep;
+		}
+		if (emulatedElapsed > opt.timeoutEmulated) {
+			fprintf(stderr, "TIMEOUT (emulated)\n");
+			Core_Stop();
+			break;
+		}
+
 		int blockTicks = (int)usToCycles(1000000 / 10);
 		PSP_RunLoopFor(blockTicks);
 
@@ -363,6 +381,7 @@ int main(int argc, const char* argv[])
 
 	AutoTestOptions testOptions{};
 	testOptions.timeout = std::numeric_limits<double>::infinity();
+	testOptions.timeoutEmulated = std::numeric_limits<double>::infinity();
 	bool fullLog = false;
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_SOFTWARE;
@@ -437,6 +456,10 @@ int main(int argc, const char* argv[])
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			testOptions.timeout = strtod(argv[i] + strlen("--timeout="), nullptr);
+		else if (!strncmp(argv[i], "--timeout-wall=", strlen("--timeout-wall=")))
+			testOptions.timeout = strtod(argv[i] + strlen("--timeout-wall="), nullptr);
+		else if (!strncmp(argv[i], "--timeout-emulated=", strlen("--timeout-emulated=")))
+			testOptions.timeoutEmulated = strtod(argv[i] + strlen("--timeout-emulated="), nullptr);
 		else if (!strncmp(argv[i], "--max-mse=", strlen("--max-mse=")) && strlen(argv[i]) > strlen("--max-mse="))
 			testOptions.maxScreenshotError = strtod(argv[i] + strlen("--max-mse="), nullptr);
 		else if (!strncmp(argv[i], "--debugger=", strlen("--debugger=")) && strlen(argv[i]) > strlen("--debugger="))
@@ -617,8 +640,13 @@ int main(int argc, const char* argv[])
 		StartWebServer(WebServerFlags::DEBUGGER);
 	}
 
-	if (stateToLoad != NULL)
-		SaveState::Load(Path(stateToLoad), -1);
+	if (stateToLoad != NULL) {
+		g_stateLoadPending = true;
+		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message) {
+			fprintf(stderr, "%.*s\n", (int)message.size(), message.data());
+			g_stateLoadPending = false;
+		});
+	}
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
