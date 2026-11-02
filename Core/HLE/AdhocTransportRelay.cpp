@@ -668,6 +668,13 @@ bool RelayTransport::PtpConnectionUp(AdhocSocket *sock) {
 }
 
 int RelayTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
+	// A PSP refuses a connect to itself at once when nothing listens on the port (pspautotests
+	// net/adhoc/ptp), where the relay would take seconds to give up. NBA 2K13's joiner tries itself first.
+	const AdhocSocket *sock = adhocSockets[id - 1];
+	if (sock->postofficeHandle == NULL && isLocalMac(&sock->data.ptp.paddr) && !isPTPPortInUse(sock->data.ptp.pport, true)) {
+		*error = ECONNREFUSED;
+		return SOCKET_ERROR;
+	}
 	if (ptp_connect_postoffice(id - 1, __func__) != 0) {
 		*error = EAGAIN;
 		return SOCKET_ERROR;
