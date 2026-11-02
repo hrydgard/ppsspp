@@ -221,18 +221,19 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 
 	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
-	if (gpu) {
-		gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
-	}
 	Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
 	if (draw) {
 		draw->BeginFrame(Draw::DebugFlags::NONE);
+	}
+	if (gpu) {
+		gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 	}
 
 	bool passed = true;
 	double deadline = time_now_d() + opt.timeout;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	double emulatedElapsed = 0.0;
+	int startFlips = gpuStats.numFlips;
 	double lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU)
 	{
@@ -240,10 +241,13 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		const double emulatedNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 		const double emulatedStep = emulatedNow - lastEmulatedTime;
 		lastEmulatedTime = emulatedNow;
-		if (emulatedStep > 0.0 && emulatedStep < 1.0 && !g_stateLoadPending) {
+		if (g_stateLoadPending) {
+			startFlips = gpuStats.numFlips;
+		} else if (emulatedStep > 0.0 && emulatedStep < 1.0) {
 			emulatedElapsed += emulatedStep;
 		}
 		if (emulatedElapsed > opt.timeoutEmulated) {
+			fprintf(stderr, "Flips: %d\n", gpuStats.numFlips - startFlips);
 			fprintf(stderr, "TIMEOUT (emulated)\n");
 			Core_Stop();
 			break;
@@ -256,6 +260,19 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		if (coreState == CORE_NEXTFRAME) {
 			coreState = CORE_RUNNING_CPU;
 			headlessHost->SwapBuffers();
+			// Turn the frames over once per flip like the app. With Vulkan, a frame is only finished
+			// by presenting it, and its push buffers are only recycled by BeginFrame.
+			if (draw && GetGPUBackend() == GPUBackend::VULKAN) {
+				if (gpu) {
+					gpu->EndHostFrame();
+				}
+				draw->EndFrame();
+				draw->Present(Draw::PresentMode::FIFO);
+				draw->BeginFrame(Draw::DebugFlags::NONE);
+				if (gpu) {
+					gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+				}
+			}
 		}
 		if (coreState == CORE_STEPPING_CPU && !coreParameter.startBreak) {
 			break;
@@ -293,6 +310,9 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, const
 		}
 
 		draw->EndFrame();
+		if (GetGPUBackend() == GPUBackend::VULKAN) {
+			draw->Present(Draw::PresentMode::FIFO);
+		}
 	}
 
 	PSP_Shutdown(true);

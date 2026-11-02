@@ -1345,8 +1345,36 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 	return str;
 }
 
+VkResult VulkanContext::InitHeadless() {
+	headless_ = true;
+	uint32_t graphicsQueueNodeIndex = UINT32_MAX;
+	for (uint32_t i = 0; i < queue_count; i++) {
+		if (queueFamilyProperties_[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+			graphicsQueueNodeIndex = i;
+			break;
+		}
+	}
+	if (graphicsQueueNodeIndex == UINT32_MAX) {
+		ERROR_LOG(Log::G3D, "Could not find a graphics queue");
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+	graphics_queue_family_index_ = graphicsQueueNodeIndex;
+	swapchainFormat_ = VK_FORMAT_B8G8R8A8_UNORM;
+	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
+
+	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
+		frame_[i].profiler.Init(this);
+	}
+	return VK_SUCCESS;
+}
+
 bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	_assert_(physical_device_ >= 0 && physical_device_ < (int)physical_devices_.size());
+	if (headless_) {
+		swapChainExtent_ = {};
+		swapchainInited_ = true;
+		return true;
+	}
 	if (!surface_) {
 		ERROR_LOG(Log::G3D, "VK: No surface, can't create swapchain");
 		return false;

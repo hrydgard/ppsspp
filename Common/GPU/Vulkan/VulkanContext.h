@@ -216,6 +216,9 @@ public:
 	// The extents will be automatically determined.
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
+	// Instead of InitSurface, for headless: no surface, and InitSwapchain then pretends to have one of size 0,
+	// as when the window is minimized. Frames render, but the backbuffer pass and presenting are skipped.
+	VkResult InitHeadless();
 
 	// If the present mode is not available, will fall back to the first available (which is almost always FIFO).
 	bool InitSwapchain(VkPresentModeKHR desiredPresentMode);
@@ -523,6 +526,7 @@ private:
 
 	uint32_t queue_count = 0;
 	bool swapchainInited_ = false;
+	bool headless_ = false;
 
 	PhysicalDeviceFeatures deviceFeatures_;
 

@@ -1659,6 +1659,10 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
+		// A frame without a backbuffer pass never acquired an image, so there's nothing to present.
+		// Happens in headless, which doesn't draw to the backbuffer every frame.
+		if (!frameData.hasAcquired)
+			frameData.skipSwap = true;
 		frameData.Submit(vulkan_, FrameSubmitType::FinishFrame, frameDataShared_);
 		break;
 

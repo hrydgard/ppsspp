@@ -344,6 +344,10 @@ static const char * const so_names[] = {
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
+	// For PPSSPPHeadless, which isn't in a bundle (the same search as later versions).
+	"@executable_path/PPSSPPSDL.app/Contents/Frameworks/libMoltenVK.dylib",
+	"libMoltenVK.dylib",
+	"/opt/homebrew/lib/libMoltenVK.dylib",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)

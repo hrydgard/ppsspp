@@ -36,6 +36,10 @@
 #include "Common/GraphicsContext.h"
 #include "Common/TimeUtil.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"
@@ -163,7 +167,109 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	return success;
 }
 
+// Vulkan without a window or swapchain (VulkanContext::InitHeadless), so it works on macOS, where a
+// window can only be created on the main thread.
+class VulkanHeadlessGraphicsContext : public GraphicsContext {
+public:
+	~VulkanHeadlessGraphicsContext() { Shutdown(); }
+
+	bool Init(std::string *errorMessage) {
+		init_glslang();
+		glslangInited_ = true;
+
+		std::string errorStr;
+		if (!VulkanLoad(&errorStr)) {
+			*errorMessage = "Failed to load Vulkan driver library: " + errorStr;
+			return false;
+		}
+
+		vulkan_ = new VulkanContext();
+		VulkanContext::CreateInfo info{};
+		InitVulkanCreateInfoFromConfig(&info);
+		if (vulkan_->CreateInstance(info) != VK_SUCCESS) {
+			*errorMessage = vulkan_->InitError();
+			return false;
+		}
+		instanceCreated_ = true;
+		int deviceNum = vulkan_->GetBestPhysicalDevice();
+		if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
+			*errorMessage = vulkan_->InitError();
+			return false;
+		}
+		deviceCreated_ = true;
+		if (vulkan_->InitHeadless() != VK_SUCCESS) {
+			*errorMessage = "No graphics queue";
+			return false;
+		}
+
+		// Headless restores the config defaults only after this, so use the defaults directly:
+		// three frames in flight, multithreaded rendering.
+		draw_ = Draw::T3DCreateVulkanContext(vulkan_, true);
+		vulkan_->InitSwapchain(VK_PRESENT_MODE_FIFO_KHR);
+		SetGPUBackend(GPUBackend::VULKAN);
+		bool success = draw_->CreatePresets();
+		_assert_(success);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+
+		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->SetInflightFrames(3);
+		return success;
+	}
+
+	void Shutdown() override {
+		if (draw_) {
+			draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+			delete draw_;
+			draw_ = nullptr;
+		}
+		if (vulkan_) {
+			if (deviceCreated_) {
+				vulkan_->WaitUntilQueueIdle();
+				vulkan_->DestroySwapchain();
+				vulkan_->DestroyDevice();
+			}
+			if (instanceCreated_) {
+				vulkan_->DestroyInstance();
+			}
+			delete vulkan_;
+			vulkan_ = nullptr;
+		}
+		if (glslangInited_) {
+			finalize_glslang();
+			glslangInited_ = false;
+		}
+	}
+
+	void Resize() override {}
+	void *GetAPIContext() override { return vulkan_; }
+	Draw::DrawContext *GetDrawContext() override { return draw_; }
+
+private:
+	VulkanContext *vulkan_ = nullptr;
+	Draw::DrawContext *draw_ = nullptr;
+	bool glslangInited_ = false;
+	bool instanceCreated_ = false;
+	bool deviceCreated_ = false;
+};
+
 bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext **ctx, GPUCore core) {
+	if (core == GPUCORE_VULKAN) {
+#if PPSSPP_PLATFORM(MAC)
+		// MoltenVK's console logging would mix into the output.
+		setenv("MVK_CONFIG_LOG_LEVEL", "1", 0);
+#endif
+		VulkanHeadlessGraphicsContext *vulkanContext = new VulkanHeadlessGraphicsContext();
+		if (!vulkanContext->Init(error_message)) {
+			fprintf(stderr, "Vulkan init failed: %s\n", error_message->c_str());
+			delete vulkanContext;
+			*ctx = nullptr;
+			return false;
+		}
+		*ctx = vulkanContext;
+		gfx_ = vulkanContext;
+		return true;
+	}
+
 	GraphicsContext *graphicsContext = new GLDummyGraphicsContext();
 	*ctx = graphicsContext;
 	gfx_ = graphicsContext;
@@ -205,7 +311,11 @@ bool SDLHeadlessHost::InitGraphics(std::string *error_message, GraphicsContext *
 }
 
 void SDLHeadlessHost::ShutdownGraphics() {
-	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
+	if (!gfx_) {
+		return;
+	}
+	// Vulkan has no render thread here (its render manager runs its own).
+	while (threadState_ != RenderThreadState::IDLE && threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::START_FAILED)
 		sleep_ms(1, "sdl-stop-poll");
 
 	gfx_->Shutdown();
