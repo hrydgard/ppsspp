@@ -764,7 +764,9 @@ void DepthRasterWorker::WaitForSubmitted() {
 }
 
 void DepthRasterWorker::WaitIfWriting(u32 addr, u32 size) {
-	if (!busy_) {
+	// The mask below would map a RAM address onto the VRAM offsets too. Midnight Club L.A. Remix loads CLUTs
+	// from RAM addresses that land on its depth buffer that way, and waited for the worker on each.
+	if (!busy_ || !Memory::IsVRAMAddress(addr)) {
 		return;
 	}
 	const u32 low = addr & VRAM_OFFSET_MASK;
