@@ -209,10 +209,15 @@ public:
 		SetGPUBackend(GPUBackend::VULKAN);
 		bool success = draw_->CreatePresets();
 		_assert_(success);
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-
+		// Only applied when the backbuffers are created, so before GOT_BACKBUFFER. PPSSPP_INFLIGHT_FRAMES
+		// overrides the default, for comparing with later versions (which default to 2).
+		int inflightFrames = 3;
+		if (const char *env = getenv("PPSSPP_INFLIGHT_FRAMES")) {
+			inflightFrames = atoi(env);
+		}
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->SetInflightFrames(3);
+		renderManager->SetInflightFrames(inflightFrames);
+		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 		return success;
 	}
 
