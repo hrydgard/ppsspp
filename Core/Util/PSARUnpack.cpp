@@ -1337,6 +1337,9 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 			success = false;
 		}
 	}
+
+	// Also reset the category version.
+	g_Config.iSceRegCategoryVersion = 1;
 	return success;
 }
 

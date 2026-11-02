@@ -1180,7 +1180,7 @@ int main(int argc, const char* argv[]) {
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
 	g_Config.sNickName = "shadow";
-	g_Config.iTimeZone = 60;
+	g_Config.iTimeZoneOffset = 60;
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;

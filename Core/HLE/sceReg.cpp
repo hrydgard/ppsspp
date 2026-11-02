@@ -9,17 +9,49 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/ConfigSettings.h"
 #include "Core/System.h"
 
 #define SYSTEM_REGISTRY "/system"
 #define REG_KEYNAME_SIZE 27
 
-enum RegKeyTypes {
-	REG_TYPE_DIR = 1,
-	REG_TYPE_INT = 2,
-	REG_TYPE_STR = 3,
-	REG_TYPE_BIN = 4,
-};
+// Mapping to PPSSPP settings
+// Bools are stored as 4-byte INT registry keys, 0 or 1.
+//
+// CONFIG/SYSTEM/owner_name <-> g_Config.sNickName
+// CONFIG/SYSTEM/XMB/language <-> g_Config.iLanguage
+// CONFIG/SYSTEM/umd_autoboot <-> g_Config.bVshUmdAutoboot - and in addition, auto-controlled when booting UMD VIDEO.
+// CONFIG/SYSTEM/umd_cache <-> (unmapped, ignore)
+// CONFIG/SYSTEM/usb_autoconnect <-> (unmapped, ignore)
+// CONFIG/DATE/date_format <-> g_Config.iDateFormat
+// CONFIG/DATE/time_format <-> g_Config.iTimeFormat
+// CONFIG/DATE/time_zone_area <-> g_Config.iTimeZoneArea
+// CONFIG/DATE/time_zone_offset <-> g_Config.iTimeZoneOffset
+// CONFIG/DATE/summer_time <-> g_Config.bDayLightSavings
+// CONFIG/SYSTEM/LOCK/parental_level <-> g_Config.iLockParentalLevel, int
+// CONFIG/DISPLAY/screensaver_start_time <-> (unmapped, int seconds)
+// CONFIG/SYSTEM/POWER_SAVING/backlight_off_interval <-> (unmapped, int seconds)
+// CONFIG/SYSTEM/POWER_SAVING/suspend_interval_interval <-> (unmapped, int seconds)
+// CONFIG/SYSTEM/POWER_SAVING/wlan_mode <-> (unmapped, bool, "WLAN power save")
+// CONFIG/SYSTEM/SOUND/avls <-> (unmapped, bool)
+// CONFIG/SYSTEM/SOUND/dynamic_normalizer <-> (unmapped, bool)
+// CONFIG/SYSTEM/SOUND/operation_sound_mode <-> (unmapped, bool)  (click sound when navigating the XMB)
+// CONFIG/RSS/download_items (unmapped, int)
+// CONFIG/SYSTEM/XMB/button_assign (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/theme_type (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/THEME/color_mode (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/THEME/system_color (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/THEME/wallpaper_mode (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/THEME/custom_theme_mode (unmapped, int) << TODO
+//
+// UMD video stuff
+// CONFIG/VIDEO/appended_volume (unmapped, int, 0-2) << TODO
+// CONFIG/VIDEO/menu_language (unmapped, 2 byte binary) << TODO
+// CONFIG/VIDEO/sound_language (unmapped, 2 byte binary) << TODO
+// CONFIG/VIDEO/subtitle_language (unmapped, 2 byte binary) << TODO
+// CONFIG/VIDEO/lr_button_enable (unmapped, bool) << TODO
+// CONFIG/VIDEO/list_play_mode (unmapped, bool) << TODO
+// CONFIG/VIDEO/title_display_mode (int, 0-1) << TODO
 
 typedef unsigned int REGHANDLE;
 
@@ -57,12 +89,14 @@ enum class ValueType {
 struct KeyValue {
 	std::string name;
 	ValueType type;
+	// Fixed values.
 	const char *strValue;  // also can be used for bin. Note: can't be std::string/string_view, will cut off the length.
 	int intValue;
 	const KeyValue *dirContents;  // intValue is the count.
 	// If set, an INT key reads this setting (as 0 or 1), even after the guest writes it: the VSH
 	// rewrites every key with its default at each boot, since category_version is below its schema.
-	bool (*boolSetting)() = nullptr;
+	void *configSetting;  // Read/write according to config's type, we look it up by pointer (int or std::string for str/bin).
+	bool (*boolSetting)();  // Dynamic. Only used for UMD autoboot.
 };
 
 static bool UmdAutoboot() {
@@ -664,7 +698,7 @@ static const KeyValue tree_CONFIG_PREMO[] = {
 	{ "custom_video_buffer1", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "custom_video_buffer2", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "setting_internet", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "button_assign", ValueType::INT, "", (int)0x0 },  // decimal: 0
+	{ "button_assign", ValueType::INT, "", (int)0x0 },  // decimal: 0  NOTE: This is not the "real" button_assign, this is something else.
 	{ "flags", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "account_id", ValueType::BIN, "", 16 },  // (all zero)
 	{ "login_id", ValueType::STR, "", 1 },
@@ -735,7 +769,7 @@ static const KeyValue tree_CONFIG_SYSTEM_XMB_THEME[] = {
 static const KeyValue tree_CONFIG_SYSTEM_XMB[] = {
 	{ "theme_type", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "language", ValueType::INT, "", (int)0x1 },  // decimal: 1
-	{ "button_assign", ValueType::INT, "", (int)0x1 },  // decimal: 1
+	{ "button_assign", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iButtonPreference},
 	{ "THEME", ValueType::DIR, "", ARRAY_SIZE(tree_CONFIG_SYSTEM_XMB_THEME), tree_CONFIG_SYSTEM_XMB_THEME },
 };
 
@@ -774,7 +808,7 @@ static const KeyValue tree_CONFIG_SYSTEM_CHARACTER_SET[] = {
 static const KeyValue tree_CONFIG_SYSTEM[] = {
 	{ "owner_name", ValueType::STR, "P939", 5 },
 	{ "backlight_brightness", ValueType::INT, "", (int)0x3 },  // decimal: 3
-	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, &UmdAutoboot },  // decimal: 1
+	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, nullptr, &UmdAutoboot },  // decimal: 1
 	{ "usb_charge", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "umd_cache", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "usb_auto_connect", ValueType::INT, "", (int)0x1 },  // decimal: 1
@@ -990,7 +1024,7 @@ static const KeyValue tree_REGISTRY[] = {
 	// A real 6.6x PSP has 0x66 here, which is what this tree was dumped from - but the VSH treats a
 	// category_version higher than the schema it knows as a corrupt registry and offers to reset your
 	// settings instead of booting. So we go very low.
-	{ "category_version", ValueType::INT, "", 1 },
+	{ "category_version", ValueType::INT, "", 1, nullptr, &g_Config.iSceRegCategoryVersion },
 };
 
 // There might be more categories.
@@ -1141,6 +1175,21 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 
 	*count = (int)cur->keyvals.size();
 	return cur->keyvals.data();
+}
+
+static const KeyValue *LookupCategoryKey(const KeyValue *keyvals, const char *name, int count, int *index = nullptr) {
+	if (!keyvals || !count) {
+		return nullptr;
+	}
+	for (int i = 0; i < count; i++) {
+		if (equals(keyvals[i].name, name)) {
+			if (index) {
+				*index = i;
+			}
+			return &keyvals[i];
+		}
+	};
+	return nullptr;
 }
 
 void __RegDoState(PointerWrap &p) {
@@ -1347,31 +1396,31 @@ int sceRegGetKeyInfo(int catHandle, const char *name, u32 outKeyHandleAddr, u32 
 		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
-	for (int i = 0; i < count; i++) {
-		if (equals(keyvals[i].name, name)) {
-			// Found it!
-			if (Memory::IsValid4AlignedAddress(outKeyHandleAddr)) {
-				// Let's just make the index the key handle.
-				Memory::WriteUnchecked_U32(i, outKeyHandleAddr);
-			}
-			if (Memory::IsValid4AlignedAddress(outTypeAddr)) {
-				// Let's just make the index the key handle.
-				Memory::WriteUnchecked_U32((int)keyvals[i].type, outTypeAddr);
-			}
-			int size = 0;
-			if (Memory::IsValid4AlignedAddress(outSizeAddr)) {
-				switch (keyvals[i].type) {
-				case ValueType::BIN: size = (int)keyvals[i].intValue; break;
-				case ValueType::STR: size = (int)keyvals[i].intValue; break;
-				case ValueType::DIR: size = 0; break;
-				case ValueType::INT: size = 4; break;
-				default: break;
-				}
-				// Let's just make the index the key handle.
-				Memory::WriteUnchecked_U32(size, outSizeAddr);
-			}
-			return hleLogDebug(Log::sceReg, 0, "handle: %d type: %d size: %d", i, (int)keyvals[i].type, size);
+	int index = 0;
+	const KeyValue *keyval = LookupCategoryKey(keyvals, name, count, &index);
+	if (keyval) {
+		// Found it!
+		if (Memory::IsValid4AlignedAddress(outKeyHandleAddr)) {
+			// Let's just make the index the key handle.
+			Memory::WriteUnchecked_U32(index, outKeyHandleAddr);
 		}
+		if (Memory::IsValid4AlignedAddress(outTypeAddr)) {
+			// Let's just make the index the key handle.
+			Memory::WriteUnchecked_U32((int)keyval->type, outTypeAddr);
+		}
+		int size = 0;
+		if (Memory::IsValid4AlignedAddress(outSizeAddr)) {
+			switch (keyval->type) {
+			case ValueType::BIN: size = (int)keyval->intValue; break;
+			case ValueType::STR: size = (int)keyval->intValue; break;
+			case ValueType::DIR: size = 0; break;
+			case ValueType::INT: size = 4; break;
+			default: break;
+			}
+			// Let's just make the index the key handle.
+			Memory::WriteUnchecked_U32(size, outSizeAddr);
+		}
+		return hleLogDebug(Log::sceReg, 0, "type: %d size: %d", (int)keyval->type, size);
 	}
 
 	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
@@ -1393,24 +1442,23 @@ int sceRegGetKeyInfoByName(int catHandle, const char *name, u32 typeAddr, u32 si
 		return hleLogWarning(Log::sceReg, SCE_REG_ERROR_CATEGORY_NOT_FOUND);
 	}
 
-	for (int i = 0; i < count; i++) {
-		if (equals(keyvals[i].name, name)) {
-			int size = 0;
-			if (Memory::IsValid4AlignedAddress(typeAddr)) {
-				Memory::WriteUnchecked_U32((int)keyvals[i].type, typeAddr);
-			}
-			if (Memory::IsValid4AlignedAddress(sizeAddr)) {
-				switch (keyvals[i].type) {
-				case ValueType::BIN: size = (int)keyvals[i].intValue; break;
-				case ValueType::STR: size = (int)keyvals[i].intValue; break;
-				case ValueType::DIR: size = 0; break;
-				case ValueType::INT: size = 4; break;
-				default: break;
-				}
-				Memory::WriteUnchecked_U32(size, sizeAddr);
-			}
-			return hleLogDebug(Log::sceReg, 0, "type: %d size: %d", (int)keyvals[i].type, size);
+	const KeyValue *keyval = LookupCategoryKey(keyvals, name, count);
+	if (keyval) {
+		int size = 0;
+		if (Memory::IsValid4AlignedAddress(typeAddr)) {
+			Memory::WriteUnchecked_U32((int)keyval->type, typeAddr);
 		}
+		if (Memory::IsValid4AlignedAddress(sizeAddr)) {
+			switch (keyval->type) {
+			case ValueType::BIN: size = (int)keyval->intValue; break;
+			case ValueType::STR: size = (int)keyval->intValue; break;
+			case ValueType::DIR: size = 0; break;
+			case ValueType::INT: size = 4; break;
+			default: break;
+			}
+			Memory::WriteUnchecked_U32(size, sizeAddr);
+		}
+		return hleLogDebug(Log::sceReg, 0, "type: %d size: %d", (int)keyval->type, size);
 	}
 
 	return hleLogWarning(Log::sceReg, -1, "key with name '%s' not found", name);
@@ -1421,7 +1469,7 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 		return -1;
 	}
 
-	auto iter = g_openCategories.find(catHandle);
+	const auto iter = g_openCategories.find(catHandle);
 	if (iter == g_openCategories.end()) {
 		return hleLogError(Log::sceReg, 0, "Not found");
 	}
@@ -1440,14 +1488,14 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 	switch (keyval.type) {
 	case ValueType::BIN:
 		Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-		return hleLogDebug(Log::sceReg, 0);
+		return hleLogDebug(Log::sceReg, 0, "%s/%s: value: <binary data>", iter->second.path.c_str(), keyval.name.c_str());
 	case ValueType::STR:
 		Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-		return hleLogDebug(Log::sceReg, 0, "value: '%s'", keyval.strValue);
+		return hleLogDebug(Log::sceReg, 0, "%s/%s: value: '%s'", iter->second.path.c_str(), keyval.name.c_str(), keyval.strValue);
 	case ValueType::INT:
 		if (size >= sizeof(u32))
 			Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
-		return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
+		return hleLogInfo(Log::sceReg, 0, "%s/%s: value: %d (0x%08x)", iter->second.path.c_str(), keyval.name.c_str(), keyval.intValue, keyval.intValue);
 	case ValueType::DIR:
 	case ValueType::FAIL:
 	default:
@@ -1456,6 +1504,7 @@ int sceRegGetKeyValue(int catHandle, int keyHandle, u32 bufAddr, u32 size) {
 	}
 }
 
+// TODO: This one seems to ignore overlays?
 int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 size) {
 	if (!name) {
 		return hleLogError(Log::sceReg, -1, "Invalid name pointer");
@@ -1482,15 +1531,28 @@ int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 si
 		const KeyValue &keyval = keyvals[i];
 		switch (keyval.type) {
 		case ValueType::BIN:
-			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-			return hleLogDebug(Log::sceReg, 0);
 		case ValueType::STR:
 			Memory::MemcpyUnchecked(bufAddr, keyval.strValue, std::min(size, (u32)keyval.intValue));
-			return hleLogDebug(Log::sceReg, 0, "value: '%s'", keyval.strValue);
+			if (keyval.type == ValueType::BIN) {
+				return hleLogDebug(Log::sceReg, 0, "value: <binary data>");
+			} else {
+				return hleLogDebug(Log::sceReg, 0, "value: '%s'", keyval.strValue);
+			}
 		case ValueType::INT:
-			if (size >= sizeof(u32))
-				Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
-			return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
+		{
+			int intValue = keyval.intValue;  // The preset.
+			// Check for a config mapping. Read the value.
+			if (keyval.configSetting) {
+				if (const ConfigSettingRef *ref = g_Config.FindSetting(keyval.configSetting)) {
+					intValue = ref->GetIntValue();
+				}
+			}
+
+			if (size >= sizeof(u32)) {
+				Memory::WriteUnchecked_U32(intValue, bufAddr);
+			}
+			return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", intValue, intValue);
+		}
 		case ValueType::DIR:
 		case ValueType::FAIL:
 		default:
@@ -1552,6 +1614,23 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 			return hleLogError(Log::sceReg, -1, "bad input addr");
 		}
 		value.intValue = (int)Memory::ReadUnchecked_U32(bufAddr);
+
+		// Write to the actual Config setting, if configured.
+		int count = 0;
+		const KeyValue *keyvals = LookupCategory(path, &count);
+		const KeyValue *keyval = LookupCategoryKey(keyvals, name, count);
+		if (keyval->configSetting) {
+			if (const ConfigSettingRef *ref = g_Config.FindSetting(keyval->configSetting)) {
+				ref->SetIntValue(value.intValue);
+			}
+		}
+
+		g_overlay[path][name] = value;
+		InvalidateMergedCache();
+
+		// If we have a config setting mapped, merge with that.
+
+		return hleLogInfo(Log::sceReg, 0, "set %s/%s to %d", path.c_str(), name, value.intValue);
 	} else if (Memory::IsValidRange(bufAddr, size)) {
 		const char *str = (const char *)Memory::GetPointerUnchecked(bufAddr);
 		value.str.assign(str, size);
@@ -1560,13 +1639,21 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 			value.str.push_back('\0');
 		}
 		value.intValue = (int)value.str.size();
+		g_overlay[path][name] = value;
+		InvalidateMergedCache();
+		if (type == ValueType::STR) {
+			return hleLogInfo(Log::sceReg, 0, "set %s/%s to '%.*s'", path.c_str(), name, (int)value.str.size(), value.str.c_str());
+		} else {
+			if (value.str.size() == 2) {
+				// This is probably one of the languages.
+				return hleLogInfo(Log::sceReg, 0, "set %s/%s to binary data of size 2: '%c%c'", path.c_str(), name, value.str[0], value.str[1]);
+			} else {
+				return hleLogInfo(Log::sceReg, 0, "set %s/%s to binary data of size %d", path.c_str(), name, (int)value.str.size());
+			}
+		}
 	} else {
 		return hleLogError(Log::sceReg, -1, "bad input addr");
 	}
-
-	g_overlay[path][name] = value;
-	InvalidateMergedCache();
-	return hleLogDebug(Log::sceReg, 0, "set %s/%s", path.c_str(), name);
 }
 
 int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
@@ -1580,19 +1667,15 @@ int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
 	}
 
 	OverlayValue value;
-	switch (type) {
-	case REG_TYPE_DIR:
-		value.isDir = true;
+	switch ((ValueType)type) {
+	case ValueType::DIR:
 		value.type = ValueType::DIR;
+		value.isDir = true;
 		break;
-	case REG_TYPE_INT:
-		value.type = ValueType::INT;
-		break;
-	case REG_TYPE_STR:
-		value.type = ValueType::STR;
-		break;
-	case REG_TYPE_BIN:
-		value.type = ValueType::BIN;
+	case ValueType::INT:
+	case ValueType::STR:
+	case ValueType::BIN:
+		value.type = (ValueType)type;
 		break;
 	default:
 		return hleLogError(Log::sceReg, -1, "bad type %d", type);
@@ -1612,8 +1695,10 @@ int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
 
 	g_overlay[path][name] = value;
 	InvalidateMergedCache();
-	return hleLogDebug(Log::sceReg, 0, "create %s/%s (type %d)", path.c_str(), name, type);
+
+	return hleLogInfo(Log::sceReg, 0, "create %s/%s (type %d)", path.c_str(), name, type);
 }
+
 // Speculated signature
 int sceRegRemoveKey(int catHandle, int key) {
 	return hleLogError(Log::sceReg, 0);

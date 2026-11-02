@@ -601,7 +601,10 @@ public:
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
-	// SystemParam
+	// SystemParam settings - well, they are queries by systemparam but they're actually stored in the registry.
+	// So now, we mirror these out into the actual registry.
+	int iSceRegCategoryVersion;  // The version of the registry. Resets to 1 if you install an older firmware. The system will reject too-new regs and rewrite too-old ones.
+
 	std::string sNickName;  // AdHoc and system nickname
 	std::string sMACAddress;
 	// The Fuse ID of the PSP a game patch was installed on (12 hex digits), to decrypt it with.
@@ -610,7 +613,8 @@ public:
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
-	int iTimeZone;
+	int iTimeZoneOffset;
+	std::string sTimeZoneArea;
 	bool bDayLightSavings;
 	int iButtonPreference;
 	int iLockParentalLevel;

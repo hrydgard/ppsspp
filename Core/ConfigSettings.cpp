@@ -403,3 +403,36 @@ void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &da
 		return;
 	}
 }
+
+int ConfigSettingRef::GetIntValue() const {
+	_dbg_assert_(setting);
+	_dbg_assert_(setting->GetType() == ConfigSetting::Type::TYPE_INT);
+	int intValue = 0;
+	if (setting->GetType() == ConfigSetting::Type::TYPE_INT) {
+		void *ptr = setting->VoidPtr(block);
+		memcpy(&intValue, ptr, 4);
+	} else if (setting->GetType() == ConfigSetting::Type::TYPE_BOOL) {
+		void *ptr = setting->VoidPtr(block);
+		bool boolValue = false;
+		memcpy(&boolValue, ptr, 1);
+		intValue = boolValue ? 1 : 0;
+	} else {
+		ERROR_LOG(Log::Config, "ConfigSettingRef::GetIntValue: Setting is not an int or bool");
+	}
+	return intValue;
+}
+
+void ConfigSettingRef::SetIntValue(int value) const {
+	_dbg_assert_(setting);
+	_dbg_assert_(setting->GetType() == ConfigSetting::Type::TYPE_INT);
+	if (setting->GetType() == ConfigSetting::Type::TYPE_INT) {
+		void *ptr = setting->VoidPtr(block);
+		memcpy(ptr, &value, 4);
+	} else if (setting->GetType() == ConfigSetting::Type::TYPE_BOOL) {
+		void *ptr = setting->VoidPtr(block);
+		bool boolValue = (value != 0);
+		memcpy(ptr, &boolValue, 1);
+	} else {
+		ERROR_LOG(Log::Config, "ConfigSettingRef::SetIntValue: Setting is not an int or bool");
+	}
+}
