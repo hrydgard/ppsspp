@@ -180,7 +180,14 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 }
 
+void DirtyDepalIfPixelMappedChanged(bool pixelMapped) {
+	if (gstate_c.shaderDepalMode != ShaderDepalMode::OFF && pixelMapped != gstate_c.depalPixelMapped) {
+		gstate_c.Dirty(DIRTY_DEPAL);
+	}
+}
+
 uint32_t PackDepalBits(bool pixelMapped) {
+	gstate_c.depalPixelMapped = pixelMapped;
 	const int indexMask = gstate.getClutIndexMask();
 	const int indexShift = gstate.getClutIndexShift();
 	const int indexOffset = gstate.getClutIndexStartPos() >> 4;
