@@ -860,7 +860,8 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 
 	for (size_t i = 0; i < testFilenames.size(); ++i) {
 		coreParameter.fileToStart = Path(testFilenames[i]);
-		if (!File::Exists(coreParameter.fileToStart)) {
+		// An http:// game is streamed by the loader (HTTPFileLoader), which reports its own errors.
+		if (coreParameter.fileToStart.Type() != PathType::HTTP && !File::Exists(coreParameter.fileToStart)) {
 			fprintf(stderr, "File not found: %s\n", coreParameter.fileToStart.c_str());
 			missingTests.push_back(testFilenames[i]);
 			continue;
