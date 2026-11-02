@@ -1049,6 +1049,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/AndroidEGLGraphicsContext.cpp \
   $(SRC)/android/jni/OboeContext.cpp \
+  $(SRC)/android/jni/PerformanceHint.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
   $(SRC)/UI/ImDebugger/ImGe.cpp \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
