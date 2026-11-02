@@ -1498,6 +1498,11 @@ static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VshUmdAutoboot", SETTING(g_Config, bVshUmdAutoboot), false, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeType", SETTING(g_Config, iXmbThemeType), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeColorMode", SETTING(g_Config, iXmbThemeColorMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeWallpaperMode", SETTING(g_Config, iXmbThemeWallpaperMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeSystemColor", SETTING(g_Config, iXmbThemeSystemColor), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeCustomThemeMode", SETTING(g_Config, iXmbThemeCustomThemeMode), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Memory Stick size").Range(1, 32).Units("GB"),
 	ConfigSetting("FuseID", SETTING(g_Config, sFuseID), "", CfgFlag::DEFAULT),

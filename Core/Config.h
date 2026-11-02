@@ -621,6 +621,12 @@ public:
 	bool bEncryptSave;
 	// /CONFIG/SYSTEM/umd_autoboot: whether the VSH starts an inserted disc by itself.
 	bool bVshUmdAutoboot;
+	// /CONFIG/SYSTEM/XMB (language and button_assign are iLanguage and iButtonPreference).
+	int iXmbThemeType;
+	int iXmbThemeColorMode;
+	int iXmbThemeWallpaperMode;
+	int iXmbThemeSystemColor;
+	int iXmbThemeCustomThemeMode;
 
 	// Networking
 	bool bEnableAdhocServer;

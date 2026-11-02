@@ -39,11 +39,11 @@
 // CONFIG/SYSTEM/SOUND/operation_sound_mode <-> (unmapped, bool)  (click sound when navigating the XMB)
 // CONFIG/RSS/download_items (unmapped, int)
 // CONFIG/SYSTEM/XMB/button_assign <-> g_Config.iButtonPreference
-// CONFIG/SYSTEM/XMB/theme_type (unmapped, int) << TODO
-// CONFIG/SYSTEM/XMB/THEME/color_mode (unmapped, int) << TODO
-// CONFIG/SYSTEM/XMB/THEME/system_color (unmapped, int) << TODO
-// CONFIG/SYSTEM/XMB/THEME/wallpaper_mode (unmapped, int) << TODO
-// CONFIG/SYSTEM/XMB/THEME/custom_theme_mode (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/theme_type <-> g_Config.iXmbThemeType
+// CONFIG/SYSTEM/XMB/THEME/color_mode <-> g_Config.iXmbThemeColorMode
+// CONFIG/SYSTEM/XMB/THEME/system_color <-> g_Config.iXmbThemeSystemColor
+// CONFIG/SYSTEM/XMB/THEME/wallpaper_mode <-> g_Config.iXmbThemeWallpaperMode
+// CONFIG/SYSTEM/XMB/THEME/custom_theme_mode <-> g_Config.iXmbThemeCustomThemeMode
 //
 // UMD video stuff
 // CONFIG/VIDEO/appended_volume (unmapped, int, 0-2) << TODO
@@ -762,15 +762,15 @@ static const KeyValue tree_CONFIG_ONESEG[] = {
 
 // Dump of /CONFIG/SYSTEM/XMB/THEME
 static const KeyValue tree_CONFIG_SYSTEM_XMB_THEME[] = {
-	{ "color_mode", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "wallpaper_mode", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "system_color", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "custom_theme_mode", ValueType::INT, "", (int)0x0 },  // decimal: 0
+	{ "color_mode", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbThemeColorMode },  // decimal: 0
+	{ "wallpaper_mode", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbThemeWallpaperMode },  // decimal: 0
+	{ "system_color", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbThemeSystemColor },  // decimal: 0
+	{ "custom_theme_mode", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbThemeCustomThemeMode },  // decimal: 0
 };
 
 // Dump of /CONFIG/SYSTEM/XMB
 static const KeyValue tree_CONFIG_SYSTEM_XMB[] = {
-	{ "theme_type", ValueType::INT, "", (int)0x0 },  // decimal: 0
+	{ "theme_type", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbThemeType },  // decimal: 0
 	{ "language", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iLanguage, &GetPSPLanguage },  // decimal: 1
 	{ "button_assign", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iButtonPreference },
 	{ "THEME", ValueType::DIR, "", ARRAY_SIZE(tree_CONFIG_SYSTEM_XMB_THEME), tree_CONFIG_SYSTEM_XMB_THEME },
