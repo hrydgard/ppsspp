@@ -25,8 +25,8 @@ AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _S
 		framesPerBuffer = 4096;
 
 	sampleRate = _SampleRate;
-	g_error = "";
-	g_info = "";
+	SetErrorString("");
+	SetInfoString("");
 }
 
 void AudioContext::SetErrorString(const std::string &error) {
