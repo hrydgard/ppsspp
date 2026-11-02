@@ -281,6 +281,7 @@ typedef struct GameModeArea {
 	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
+	u64 reportedTimestamp; // what UpdateReplica last gave out as the data's time
 } PACK GameModeArea;
 
 // Socket Polling Event Listener

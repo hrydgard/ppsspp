@@ -4799,21 +4799,22 @@ static int sceNetAdhocGameModeUpdateReplica(MIPSState *mips, int id, u32 infoAdd
 		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointerOrException(infoAddr);
 	}
 
+	// A PSP leaves the length alone, and with no new data gives the last data's timestamp again, or 0
+	// before any came (pspautotests net/adhoc/pair/gamemodeinfo). Shaun White Snowboarding reads the
+	// timestamp either way, and took the stack garbage left there for the time of the last update.
 	for (auto& gma : replicaGameModeAreas) {
 		if (gma.id == id) {
 			if (gma.data && gma.dataUpdated) {
 				Memory::Memcpy(gma.addr, gma.data, gma.size);
 				gma.dataUpdated = 0;
+				gma.reportedTimestamp = std::min(CoreTiming::GetGlobalTimeUsScaled(), std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
 				if (gmuinfo != NULL) {
-					gmuinfo->length = sizeof(GameModeUpdateInfo);
 					gmuinfo->updated = 1;
-					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+					gmuinfo->timeStamp = gma.reportedTimestamp;
 				}
-			}
-			else {
-				if (gmuinfo != NULL) {
-					gmuinfo->updated = 0;
-				}
+			} else if (gmuinfo != NULL) {
+				gmuinfo->updated = 0;
+				gmuinfo->timeStamp = gma.reportedTimestamp;
 			}
 			break;
 		}
