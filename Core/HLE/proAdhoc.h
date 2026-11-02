@@ -328,6 +328,8 @@ typedef struct AdhocSocket {
 	u64 internalLastAttempt; // timestamp to retry again (internal use only)
 	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
 	u64 ptpLastSendAt; // the last PTP send
+	u64 ptpDeliveredAt; // when everything sent so far is in the peer's buffer, which is what PtpFlush waits for
+	u32 ptpUndelivered; // bytes sent that aren't there yet, until ptpDeliveredAt
 	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool ptpRefused; // a connect was refused, and every later one is too
 	bool isClient; // true if the game is using local port 0 when creating the socket

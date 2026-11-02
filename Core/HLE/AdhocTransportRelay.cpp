@@ -250,7 +250,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OK) {
-		ptpNoteSend(internal);
+		ptpNoteSend(internal, *len);
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
