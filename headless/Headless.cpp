@@ -941,6 +941,8 @@ int main(int argc, const char* argv[]) {
 #endif
 	PROFILE_INIT();
 	TimeInit();
+	// Builds the pointer to setting lookup, which sceReg's registry mapping uses.
+	g_Config.Init();
 #if PPSSPP_PLATFORM(WINDOWS)
 	if (!IsDebuggerPresent()) {
 		SetCleanExitOnAssert();
@@ -1443,6 +1445,14 @@ int main(int argc, const char* argv[]) {
 		}
 		g_Config.nandRootDirectory = nand;
 		coreParameter.nandRoot = nand;
+	}
+
+	// Headless doesn't keep a config, so set the registry version that installing this firmware
+	// in the app would have stored.
+	{
+		InstalledFirmwareInfo firmwareInfo;
+		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmwareInfo, false);
+		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionForFirmware(firmwareInfo.version);
 	}
 
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
