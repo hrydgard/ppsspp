@@ -881,14 +881,29 @@ bool ptpPeerGone(const AdhocSocket *sock) {
 	return lastCheck > unackedSince + limit;
 }
 
-void ptpNoteSend(AdhocSocket *sock) {
+// A non-blocking PtpFlush right after a send returns WOULD_BLOCK, and 0 once the data is in the peer's buffer,
+// whether or not the peer has read it: about 4.5 ms plus 2.4 us per byte (medians 5 ms for 16 bytes, 25 ms for
+// 8192, 44 ms for 16384). Until then GetPtpStat counts the bytes as unsent (pspautotests net/adhoc/pair/ptpflush).
+// A connection to itself has nothing in flight (pspautotests net/adhoc/alerts).
+void ptpNoteSend(AdhocSocket *sock, int bytes) {
 	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (!isLocalMAC(&sock->data.ptp.paddr)) {
+		if (now >= sock->ptpDeliveredAt) {
+			sock->ptpUndelivered = 0;
+		}
+		sock->ptpUndelivered += bytes;
+		sock->ptpDeliveredAt = std::max(sock->ptpDeliveredAt, now + 4500) + (u64)bytes * 12 / 5;
+	}
 	if (peerLeftAt(&sock->data.ptp.paddr) == 0) {
 		sock->ptpSendAfterPeerLeftAt = 0;
 	} else if (sock->ptpSendAfterPeerLeftAt == 0) {
 		sock->ptpSendAfterPeerLeftAt = now;
 	}
 	sock->ptpLastSendAt = now;
+}
+
+static bool ptpInFlight(const AdhocSocket *sock) {
+	return CoreTiming::GetGlobalTimeUsScaled() < sock->ptpDeliveredAt;
 }
 
 // PDP receive queues. A PSP keeps what arrives in the socket's buffer, of the size given to PdpCreate, and
@@ -1237,6 +1252,9 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 
 	// Try Sending Empty Data
 	int sockerr = FlushPtpSocket(ptpsocket.id);
+	if (sockerr == 0 && ptpInFlight(sock)) {
+		sockerr = EAGAIN;
+	}
 	result = 0;
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
@@ -2722,7 +2740,12 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
 			// Returns 0 and reports ALREADY_CONNECTED through the handlers, as on the PSP (pspautotests
-			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event.
+			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event. It empties the scan list
+			// (pspautotests net/adhoc/pair/scaninfo).
+			peerlock.lock();
+			freeGroupsRecursive(networks);
+			networks = NULL;
+			peerlock.unlock();
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 			hleEatMicro(500);
 			return hleLogDebug(Log::sceNet, 0);
@@ -2792,13 +2815,10 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Lock
 			peerlock.lock();
 
-			// FIXME: When already connected to a group GetScanInfo will return size = 0 ? or may be only hides the group created by it's self?
-			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) {
-				*buflen = 0;
-				DEBUG_LOG(Log::sceNet, "NetworkList [Available: 0] Already in a Group");
-			}
+			// The list from the last scan stays after Create, Join and Disconnect (pspautotests
+			// net/adhoc/pair/scaninfo). NBA 2K13's joiner leaves when the joined group isn't in it.
 			// Length Returner Mode
-			else if (buf == NULL) {
+			if (buf == NULL) {
 				int availNetworks = countAvailableNetworks(excludeSelf);
 				*buflen = availNetworks * sizeof(SceNetAdhocctlScanInfoEmu);
 				DEBUG_LOG(Log::sceNet, "NetworkList [Available: %i]", availNetworks);
@@ -3653,6 +3673,9 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
+					if (ptpInFlight(sock)) {
+						buf[i].snd_sb_cc = std::max((u32)buf[i].snd_sb_cc, sock->ptpUndelivered);
+					}
 
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
@@ -4478,6 +4501,9 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 
 				int error = FlushPtpSocket(ptpsocket.id);
+				if (error == 0 && ptpInFlight(socket)) {
+					error = EAGAIN;
+				}
 
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking

@@ -250,7 +250,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len) {
 
 	int ptp_send_status = ptp_send(internal->postofficeHandle, (const char *)data, *len, true);
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_OK) {
-		ptpNoteSend(internal);
+		ptpNoteSend(internal, *len);
 	}
 	if (ptp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 		// the session is dead, need to be reflected to the other side
@@ -668,6 +668,13 @@ bool RelayTransport::PtpConnectionUp(AdhocSocket *sock) {
 }
 
 int RelayTransport::PtpConnect(int id, const sockaddr_in &sin, int *error) {
+	// A PSP refuses a connect to itself at once when nothing listens on the port (pspautotests
+	// net/adhoc/ptp), where the relay would take seconds to give up. NBA 2K13's joiner tries itself first.
+	const AdhocSocket *sock = adhocSockets[id - 1];
+	if (sock->postofficeHandle == NULL && isLocalMac(&sock->data.ptp.paddr) && !isPTPPortInUse(sock->data.ptp.pport, true)) {
+		*error = ECONNREFUSED;
+		return SOCKET_ERROR;
+	}
 	if (ptp_connect_postoffice(id - 1, __func__) != 0) {
 		*error = EAGAIN;
 		return SOCKET_ERROR;

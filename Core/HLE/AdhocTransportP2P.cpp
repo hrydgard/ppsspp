@@ -123,7 +123,7 @@ static int ptpSendToPeer(AdhocSocket *sock, const char *data, int len, int *erro
 	int sent = send(sock->data.ptp.id, data, len, MSG_NOSIGNAL);
 	*error = socket_errno;
 	if (sent > 0) {
-		ptpNoteSend(sock);
+		ptpNoteSend(sock, sent);
 	}
 	return sent;
 }

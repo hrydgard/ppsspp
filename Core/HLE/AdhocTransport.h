@@ -152,7 +152,7 @@ void ptpSetEstablished(AdhocSocket *sock);
 void ptpSetRefused(AdhocSocket *sock);
 void pdpDropAllQueues();
 bool ptpPeerGone(const AdhocSocket *sock);
-void ptpNoteSend(AdhocSocket *sock);
+void ptpNoteSend(AdhocSocket *sock, int bytes);
 // The next free slot in adhocSockets, or MAX_SOCKET.
 int FindFreeAdhocSocketSlot();
 uint16_t get_unused_pdp_port();
