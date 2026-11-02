@@ -369,6 +369,7 @@ tests_good = [
   "net/adhoc/alerts",
   "net/adhoc/apctlinit",
   "net/adhoc/discover",
+  "net/adhoc/edges",
   "net/adhoc/gamemode",
   "net/adhoc/limits",
   "net/adhoc/loopback",

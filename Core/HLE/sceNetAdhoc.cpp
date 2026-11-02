@@ -1071,12 +1071,11 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 				u64 now = CoreTiming::GetGlobalTimeUs();
+				// A blocking broadcast returns 0 at once on a PSP, even with nobody to send to
+				// (pspautotests net/adhoc/edges), so one the host can't take in time is dropped.
 				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
-				else
-					// FIXME: Does Broadcast always success? even with timeout/blocking?
-					result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 			}
 			++peer;
 		}
@@ -1224,7 +1223,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			if (sock->nonblocking)
 				result = SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 			else
-				result = SCE_NET_ADHOC_ERROR_TIMEOUT; // FIXME: PSP never returned SCE_NET_ADHOC_ERROR_TIMEOUT on PtpConnect? or only returned SCE_NET_ADHOC_ERROR_TIMEOUT when the host is too busy? Seems to be returning SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
+				result = SCE_NET_ADHOC_ERROR_TIMEOUT; // As a PSP does (pspautotests net/adhoc/edges). Seems to be returning SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 
 			// Done
 			return 0;
@@ -1414,7 +1413,8 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	int uid = (int)(threadSocketId & 0xFFFFFFFF);
 	if (adhocSocketRequests.find(threadSocketId) != adhocSocketRequests.end()) {
 		WARN_LOG(Log::sceNet, "sceNetAdhoc[%d] - ThreadID[%d] WaitID[%d] already existed, Socket[%d] is busy!", type, static_cast<int>(threadSocketId >> 32), uid, pspSocketId);
-		// FIXME: Not sure if Adhoc Socket can return ADHOC_BUSY or not (assuming it's similar to EINPROGRESS for Adhoc Socket), or may be we should return TIMEOUT instead?
+		// Can't happen from a game: a thread can only wait once. A second thread blocking on the same socket
+		// just waits for its own timeout (pspautotests net/adhoc/edges), which separate keys give it.
 		return SCE_NET_ADHOC_ERROR_BUSY; // SCE_NET_ADHOC_ERROR_TIMEOUT
 	}
 
@@ -1840,7 +1840,6 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, mips->pc);
 
 	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
-	// FIXME: Sometimes returning 0x80410601 (SCE_NET_ADHOC_ERROR_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited) {
 		// On a PSP this also leaves adhocctl uninitialized (GetState fails with NOT_INITIALIZED), and
@@ -2472,7 +2471,7 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	if (id < 1 || id > MAX_SOCKET || adhocSockets[id - 1] == NULL)
 		return SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID;
 
-	// FIXME: Should we check for valid Alert Flags and/or Mask them? Should we return an error if we found an invalid flag?
+	// Flags outside ADHOC_F_ALERTALL (0x3F0) are dropped without an error (pspautotests net/adhoc/edges).
 	s32_le flg = flag & ADHOC_F_ALERTALL;
 
 	adhocSockets[id - 1]->flags = flg;
@@ -2737,7 +2736,6 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int us = adhocDefaultDelay;
-		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
 			// Returns 0 and reports ALREADY_CONNECTED through the handlers, as on the PSP (pspautotests
 			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event. It empties the scan list
@@ -2891,8 +2889,7 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 	return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_INITIALIZED);
 }
 
-// TODO: How many handlers can the PSP actually have for Adhocctl?
-// TODO: Should we allow the same handler to be added more than once?
+// A PSP takes four handlers, and the same one again counts as another (pspautotests net/adhoc/adhocctl).
 // FIXME: Do all Adhocctl HLE returning 0 and expecting error code through callback handler if there were error, instead of returning error code through the HLE ?
 static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	if (!netAdhocctlInited) {
@@ -3008,7 +3005,7 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		// FIXME: When there are no handler the state will immediately became ADHOCCTL_STATE_DISCONNECTED ?
+		// Without a handler the state still takes a while to reach DISCONNECTED (pspautotests net/adhoc/edges).
 		// Note: Metal Gear Acid [2] never register a handler until it's successfully connected to a group and have a connected socket to other player, thus adhocctlHandlers is always empty here.
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 
@@ -3222,9 +3219,9 @@ int NetAdhocctl_Create(const char *groupName) {
 	if (netAdhocctlInited) {
 		// Valid Argument
 		if (validNetworkName(groupName)) {
-			// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
+			// While connected, Create and Connect return 0 and report ALREADY_CONNECTED through the handlers
+			// (pspautotests net/adhoc/adhocctl).
 			if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
-				// TODO: Need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
 				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 				hleEatMicro(500);
 				return 0;
@@ -3855,7 +3852,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_PORT, "invalid port");
 	}
-	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
+	// A PSP takes a buffer size of 0 or -1 (pspautotests net/adhoc/ptp, edges); give the host one segment's worth.
 	if (bufsize <= 0) {
 		bufsize = PSP_ADHOC_PTP_MSS;
 	}
@@ -3871,12 +3868,13 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 			getLocalMac(&localSrcMac);
 			saddr = &localSrcMac;
 		}
-		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		// Outside a group, or with a MAC that isn't the local one, it's INVALID_ADDR (pspautotests net/adhoc/ptp, edges).
 		// The broadcast address is accepted, as on a PSP (pspautotests net/adhoc/ptp); connecting to it just never succeeds.
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
 			if (isPTPPortInUse(sport, false, daddr, dport)) {
-				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
+				// Uses up a socket ID (pspautotests net/adhoc/edges).
+				SkipAdhocSocketId();
 				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
 			}
 
@@ -3930,7 +3928,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 			// Allocated Memory
 			if (internal != NULL) {
 				// Find Free Translator ID
-				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+				// IDs keep increasing, like a PSP's (pspautotests net/adhoc/socketids).
 				int i = 0;
 				i = FindFreeAdhocSocketSlot();
 
@@ -4036,9 +4034,13 @@ static int sceNetAdhocPtpAccept(MIPSState *mips, int id, u32 peerMacAddrPtr, u32
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// The peer's address and port are both optional (pspautotests net/adhoc/alerts passes NULL for
-		// both). GTA: VCS and Bomberman Panic Bomber leave them out.
-		if (true) { // FIXME: Not sure what kind of arguments considered as invalid (need to be tested on a homebrew), might be the flag?
+		// The flag is 0 or 1 (pspautotests net/adhoc/edges). The peer's address and port are both
+		// optional (pspautotests net/adhoc/alerts passes NULL for both). GTA: VCS and Bomberman Panic
+		// Bomber leave them out.
+		if (flag != 0 && flag != 1) {
+			return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid flag");
+		}
+		{
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4182,8 +4184,30 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					}
 				}
 
-				// Peer not found
-				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address"); // SCE_NET_ADHOC_ERROR_WOULD_BLOCK / SCE_NET_ADHOC_ERROR_TIMEOUT
+				// Nobody with that MAC in the group. A PSP keeps trying, as WOULD_BLOCK or TIMEOUT, and refuses
+				// once its retransmits run out: a connect with a 1 s timeout times out, and with a 200 ms
+				// interval and 5 retries it refuses after 0.5-1.5 s (pspautotests net/adhoc/edges), so
+				// (count + 1) * interval as when a peer vanishes. A peer that turns up meanwhile gets connected.
+				u64 now = CoreTiming::GetGlobalTimeUsScaled();
+				if (socket->ptpConnectToNobodySince == 0) {
+					socket->ptpConnectToNobodySince = now;
+				}
+				u64 limit = (u64)std::max(0, socket->retry_interval) * (u64)(std::max(0, socket->retry_count) + 1);
+				u64 refuseAt = socket->ptpConnectToNobodySince + limit;
+				if (now >= refuseAt) {
+					socket->attemptCount++;
+					ptpSetRefused(socket);
+					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "nobody there, refused");
+				}
+				if (flag) {
+					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "nobody there yet");
+				}
+				if (timeout > 0 && (u64)timeout < refuseAt - now) {
+					return hleDelayResult(hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "nobody there, timeout"), "ptp connect", timeout);
+				}
+				socket->attemptCount++;
+				ptpSetRefused(socket);
+				return hleDelayResult(hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "nobody there, refused"), "ptp connect", (int)(refuseAt - now));
 			}
 
 			// Not a valid Client Socket
@@ -4285,7 +4309,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	if (netAdhocInited && (isZeroMAC(saddr) || (saddr->data[0] & 1) != 0)) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address");
 	}
-	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
+	// A PSP takes a buffer size of 0 or -1 (pspautotests net/adhoc/ptp, edges); give the host one segment's worth.
 	if (bufsize <= 0) {
 		bufsize = PSP_ADHOC_PTP_MSS;
 	}
@@ -4300,11 +4324,12 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 			getLocalMac(&localSrcMac);
 			saddr = &localSrcMac;
 		}
-		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		// Outside a group, or with a MAC that isn't the local one, it's INVALID_ADDR (pspautotests net/adhoc/ptp, edges).
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
 			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
 			if (isPTPPortInUse(sport, true)) {
-				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
+				// Uses up a socket ID (pspautotests net/adhoc/edges).
+				SkipAdhocSocketId();
 				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
 			}
 
@@ -4557,7 +4582,7 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_DATALEN, "invalid data length");
 
 	if (masterGameModeArea.data)
-		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // pspautotests net/adhoc/pair/gamemode
 
 	hleEatMicro(1000);
 	SceNetEtherAddr localMac;

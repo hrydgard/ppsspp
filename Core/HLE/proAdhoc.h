@@ -332,6 +332,7 @@ typedef struct AdhocSocket {
 	u32 ptpUndelivered; // bytes sent that aren't there yet, until ptpDeliveredAt
 	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool ptpRefused; // a connect was refused, and every later one is too
+	u64 ptpConnectToNobodySince; // the first connect to a MAC that isn't in the group
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
