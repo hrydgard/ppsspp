@@ -199,22 +199,29 @@ bool TestReinterpretShaders() {
 
 		std::string errorMessage;
 
-		for (int i = 0; i < 3; i++) {
-			for (int j = 0; j < 3; j++) {
-				if (i == j)
-					continue;  // useless shader!
-				ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
-				GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j]);
-				if (strlen(buffer) >= 8192) {
-					printf("Reinterpret fragment shader %d exceeded buffer:\n\n%s\n", (int)j, LineNumberString(buffer).c_str());
-					failed = true;
-				}
-				if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-					printf("Error compiling reinterpret fragment shader %d:\n\n%s\n\n%s\n", (int)j, LineNumberString(buffer).c_str(), errorMessage.c_str());
-					failed = true;
-				} else {
-					if (g_testLog) {
-						printf("===\n%s\n===\n", buffer);
+		// Stencil export only on Vulkan, as GLSL_3xx is ES, which doesn't support it.
+		const int numOutputs = languages[k] == ShaderLanguage::GLSL_VULKAN ? 3 : 2;
+		for (int o = 0; o < numOutputs; o++) {
+			const ReinterpretOutput output = (ReinterpretOutput)o;
+			const char *extensions[1] = { g_stencilExportExtension };
+			const Slice<const char *> writerExtensions = output == ReinterpretOutput::STENCIL_EXPORT ? Slice<const char *>(extensions) : Slice<const char *>::empty();
+			for (int i = 0; i < 3; i++) {
+				for (int j = 0; j < 3; j++) {
+					if (i == j)
+						continue;  // useless shader!
+					ShaderWriter writer(buffer, desc, ShaderStage::Fragment, writerExtensions);
+					GenerateReinterpretFragmentShader(writer, fmts[i], fmts[j], output);
+					if (strlen(buffer) >= 8192) {
+						printf("Reinterpret fragment shader %d (output %d) exceeded buffer:\n\n%s\n", (int)j, o, LineNumberString(buffer).c_str());
+						failed = true;
+					}
+					if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+						printf("Error compiling reinterpret fragment shader %d (output %d):\n\n%s\n\n%s\n", (int)j, o, LineNumberString(buffer).c_str(), errorMessage.c_str());
+						failed = true;
+					} else {
+						if (g_testLog) {
+							printf("===\n%s\n===\n", buffer);
+						}
 					}
 				}
 			}

@@ -942,15 +942,15 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// OK we have the pipeline, now just do the blit.
 				BlitUsingRaster(src->fbo, 0.0f, 0.0f, srcWidth, srcHeight,
 					dst->fbo, dstX1, dstY1, dstX2, dstY2, false, dst->renderScaleFactor, pipeline, pass_name);
+				if (src->fb_format != dst->fb_format) {
+					// In the same render pass.
+					WriteStencilFromReinterpret(src, dst, srcWidth, srcHeight, dstX1, dstY1, dstX2, dstY2);
+				}
 			}
 
 			if (scaleFactorX == 1.0f && dst->z_address == src->z_address && dst->z_stride == src->z_stride) {
 				// We should also copy the depth buffer in this case!
 				BlitFramebufferDepth(src, dst, true);
-			}
-
-			if (pipeline && src->fb_format != dst->fb_format) {
-				WriteStencilFromFramebufferAlpha(dst);
 			}
 		}
 	}
@@ -989,6 +989,22 @@ Draw2DPipeline *FramebufferManagerCommon::GetReinterpretPipeline(GEBufferFormat 
 			return GenerateReinterpretFragmentShader(shaderWriter, from, to);
 		});
 		reinterpretFromTo_[(int)from][(int)to] = pipeline;
+	}
+	return pipeline;
+}
+
+Draw2DPipeline *FramebufferManagerCommon::GetReinterpretStencilPipeline(GEBufferFormat from, GEBufferFormat to, bool useExport) {
+	// Which variant is decided by the device, so it doesn't change.
+	Draw2DPipeline *pipeline = reinterpretStencilFromTo_[(int)from][(int)to];
+	if (!pipeline) {
+		const Draw::Bugs &bugs = draw_->GetBugs();
+		const bool discardNeedsDepthWrite = bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
+		const ReinterpretOutput output = useExport ? ReinterpretOutput::STENCIL_EXPORT : ReinterpretOutput::STENCIL_BITS;
+		static const char *const exportExtensions[1] = { g_stencilExportExtension };
+		pipeline = draw2D_.Create2DPipeline([from, to, output, discardNeedsDepthWrite](ShaderWriter &shaderWriter) -> Draw2DPipelineInfo {
+			return GenerateReinterpretFragmentShader(shaderWriter, from, to, output, discardNeedsDepthWrite);
+		}, useExport ? Slice<const char *>(exportExtensions) : Slice<const char *>::empty());
+		reinterpretStencilFromTo_[(int)from][(int)to] = pipeline;
 	}
 	return pipeline;
 }
@@ -3785,6 +3801,7 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	for (int i = 0; i < ARRAY_SIZE(reinterpretFromTo_); i++) {
 		for (int j = 0; j < ARRAY_SIZE(reinterpretFromTo_); j++) {
 			DoRelease(reinterpretFromTo_[i][j]);
+			DoRelease(reinterpretStencilFromTo_[i][j]);
 		}
 	}
 	DoRelease(stencilWriteSampler_);
