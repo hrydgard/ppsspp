@@ -896,6 +896,8 @@ if(ANDROID)
 		android/jni/AndroidEGLGraphicsContext.h
 		android/jni/OboeContext.cpp
 		android/jni/OboeContext.h
+		android/jni/PerformanceHint.cpp
+		android/jni/PerformanceHint.h
 	)
 	# No target
 elseif(IOS AND NOT LIBRETRO)

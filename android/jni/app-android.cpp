@@ -113,6 +113,7 @@ struct JNIEnv {};
 #include "UI/GameInfoCache.h"
 
 #include "app-android.h"
+#include "android/jni/PerformanceHint.h"
 
 AndroidAudioState *g_audioState;
 
@@ -1781,10 +1782,13 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 	}
 
 	renderer_inited = true;
-	const auto frame = [](GraphicsContext *graphicsContext) {
+	// The frame callback runs on the emu thread, which with OpenGL isn't this one.
+	PerformanceHintSession perfHint;
+	const auto frame = [&perfHint](GraphicsContext *graphicsContext) {
 		ApplyPendingResize();
 		NativeFrame(graphicsContext);
 		ProcessFrameCommands();
+		perfHint.ReportFrame();
 		return !exitRenderLoop;
 	};
 	// Both backends share one lifecycle now, which is the point of all this: RunGraphicsLoop picks
