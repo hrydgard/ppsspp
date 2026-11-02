@@ -308,7 +308,9 @@ struct ConfigSettingRef {
 	const ConfigSetting *setting;
 	std::string_view section;
 
-	// Easy accessors.
+	// Easy accessors. The int ones also handle bools, as 0 or 1.
 	int GetIntValue() const;
 	void SetIntValue(int value) const;
+	const std::string *GetStringPtr() const;  // nullptr if not a string setting.
+	void SetStringValue(std::string_view value) const;
 };

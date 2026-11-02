@@ -5,6 +5,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
+#include "Core/HLE/sceUtility.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
@@ -19,13 +20,13 @@
 // Bools are stored as 4-byte INT registry keys, 0 or 1.
 //
 // CONFIG/SYSTEM/owner_name <-> g_Config.sNickName
-// CONFIG/SYSTEM/XMB/language <-> g_Config.iLanguage
+// CONFIG/SYSTEM/XMB/language <-> g_Config.iLanguage (-1 means auto, and reads as what GetPSPLanguage() picks)
 // CONFIG/SYSTEM/umd_autoboot <-> g_Config.bVshUmdAutoboot - and in addition, auto-controlled when booting UMD VIDEO.
 // CONFIG/SYSTEM/umd_cache <-> (unmapped, ignore)
 // CONFIG/SYSTEM/usb_autoconnect <-> (unmapped, ignore)
 // CONFIG/DATE/date_format <-> g_Config.iDateFormat
 // CONFIG/DATE/time_format <-> g_Config.iTimeFormat
-// CONFIG/DATE/time_zone_area <-> g_Config.iTimeZoneArea
+// CONFIG/DATE/time_zone_area <-> g_Config.sTimeZoneArea
 // CONFIG/DATE/time_zone_offset <-> g_Config.iTimeZoneOffset
 // CONFIG/DATE/summer_time <-> g_Config.bDayLightSavings
 // CONFIG/SYSTEM/LOCK/parental_level <-> g_Config.iLockParentalLevel, int
@@ -37,7 +38,7 @@
 // CONFIG/SYSTEM/SOUND/dynamic_normalizer <-> (unmapped, bool)
 // CONFIG/SYSTEM/SOUND/operation_sound_mode <-> (unmapped, bool)  (click sound when navigating the XMB)
 // CONFIG/RSS/download_items (unmapped, int)
-// CONFIG/SYSTEM/XMB/button_assign (unmapped, int) << TODO
+// CONFIG/SYSTEM/XMB/button_assign <-> g_Config.iButtonPreference
 // CONFIG/SYSTEM/XMB/theme_type (unmapped, int) << TODO
 // CONFIG/SYSTEM/XMB/THEME/color_mode (unmapped, int) << TODO
 // CONFIG/SYSTEM/XMB/THEME/system_color (unmapped, int) << TODO
@@ -93,15 +94,17 @@ struct KeyValue {
 	const char *strValue;  // also can be used for bin. Note: can't be std::string/string_view, will cut off the length.
 	int intValue;
 	const KeyValue *dirContents;  // intValue is the count.
-	// If set, an INT key reads this setting (as 0 or 1), even after the guest writes it: the VSH
-	// rewrites every key with its default at each boot, since category_version is below its schema.
-	void *configSetting;  // Read/write according to config's type, we look it up by pointer (int or std::string for str/bin).
-	bool (*boolSetting)();  // Dynamic. Only used for UMD autoboot.
+	// If set, the key is synced both ways with this g_Config member (looked up by pointer): reads
+	// return the setting and guest writes go to it. INT keys map to int or bool settings, STR keys
+	// to std::string ones.
+	void *configSetting;
+	// If set, reads of an INT key return this instead, while writes still go to configSetting.
+	int (*readOverride)();
 };
 
-static bool UmdAutoboot() {
+static int UmdAutoboot() {
 	// Forced on when a UMD Video disc picked from the game list boots the XMB.
-	return PSP_CoreParameter().umdAutoboot.value_or(g_Config.bVshUmdAutoboot);
+	return PSP_CoreParameter().umdAutoboot.value_or(g_Config.bVshUmdAutoboot) ? 1 : 0;
 }
 
 // Guest-written registry values (sceRegCreateKey / sceRegSetKeyValue), keyed by category path
@@ -768,8 +771,8 @@ static const KeyValue tree_CONFIG_SYSTEM_XMB_THEME[] = {
 // Dump of /CONFIG/SYSTEM/XMB
 static const KeyValue tree_CONFIG_SYSTEM_XMB[] = {
 	{ "theme_type", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "language", ValueType::INT, "", (int)0x1 },  // decimal: 1
-	{ "button_assign", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iButtonPreference},
+	{ "language", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iLanguage, &GetPSPLanguage },  // decimal: 1
+	{ "button_assign", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iButtonPreference },
 	{ "THEME", ValueType::DIR, "", ARRAY_SIZE(tree_CONFIG_SYSTEM_XMB_THEME), tree_CONFIG_SYSTEM_XMB_THEME },
 };
 
@@ -794,7 +797,7 @@ static const KeyValue tree_CONFIG_SYSTEM_POWER_SAVING[] = {
 // Dump of /CONFIG/SYSTEM/LOCK
 static const KeyValue tree_CONFIG_SYSTEM_LOCK[] = {
 	{ "password", ValueType::BIN, "0000", 4 },
-	{ "parental_level", ValueType::INT, "", (int)0x0 },  // decimal: 0
+	{ "parental_level", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iLockParentalLevel },  // decimal: 0
 	{ "browser_start", ValueType::INT, "", (int)0x0 },  // decimal: 0
 };
 
@@ -806,9 +809,9 @@ static const KeyValue tree_CONFIG_SYSTEM_CHARACTER_SET[] = {
 
 // Dump of /CONFIG/SYSTEM
 static const KeyValue tree_CONFIG_SYSTEM[] = {
-	{ "owner_name", ValueType::STR, "P939", 5 },
+	{ "owner_name", ValueType::STR, "P939", 5, nullptr, &g_Config.sNickName },
 	{ "backlight_brightness", ValueType::INT, "", (int)0x3 },  // decimal: 3
-	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, nullptr, &UmdAutoboot },  // decimal: 1
+	{ "umd_autoboot", ValueType::INT, "", (int)0x1, nullptr, &g_Config.bVshUmdAutoboot, &UmdAutoboot },  // decimal: 1
 	{ "usb_charge", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "umd_cache", ValueType::INT, "", (int)0x1 },  // decimal: 1
 	{ "usb_auto_connect", ValueType::INT, "", (int)0x1 },  // decimal: 1
@@ -827,11 +830,11 @@ static const KeyValue tree_CONFIG_SYSTEM[] = {
 
 // Dump of /CONFIG/DATE
 static const KeyValue tree_CONFIG_DATE[] = {
-	{ "time_format", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "date_format", ValueType::INT, "", (int)0x2 },  // decimal: 2
-	{ "summer_time", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "time_zone_offset", ValueType::INT, "", (int)0x3c },  // decimal: 60
-	{ "time_zone_area", ValueType::STR, "sweden", 7 },
+	{ "time_format", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iTimeFormat },  // decimal: 0
+	{ "date_format", ValueType::INT, "", (int)0x2, nullptr, &g_Config.iDateFormat },  // decimal: 2
+	{ "summer_time", ValueType::INT, "", (int)0x0, nullptr, &g_Config.bDayLightSavings },  // decimal: 0
+	{ "time_zone_offset", ValueType::INT, "", (int)0x3c, nullptr, &g_Config.iTimeZoneOffset },  // decimal: 60
+	{ "time_zone_area", ValueType::STR, "sweden", 7, nullptr, &g_Config.sTimeZoneArea },
 };
 
 // Dump of /CONFIG/NETWORK/ADHOC
@@ -1090,10 +1093,45 @@ static const KeyValue *LookupStaticCategory(const std::string &path, int *count)
 	return curDir;
 }
 
+// Points the config-mapped keys at the current g_Config values. Done on every lookup, since the
+// settings can change outside the registry (in our UI, or a per-game config being loaded).
+static void ApplyConfigValues(MergedCategory &merged) {
+	for (KeyValue &kv : merged.keyvals) {
+		if (kv.readOverride && kv.type == ValueType::INT) {
+			kv.intValue = kv.readOverride();
+			continue;
+		}
+		if (!kv.configSetting) {
+			continue;
+		}
+		const ConfigSettingRef *ref = g_Config.FindSetting(kv.configSetting);
+		if (!ref) {
+			continue;
+		}
+		if (kv.type == ValueType::INT) {
+			kv.intValue = ref->GetIntValue();
+		} else if (kv.type == ValueType::STR) {
+			const std::string *str = ref->GetStringPtr();
+			if (!str) {
+				continue;
+			}
+			// Like the static dump, the length includes the null terminator.
+			const int len = (int)str->size() + 1;
+			if (kv.strValue && kv.intValue == len && memcmp(kv.strValue, str->c_str(), len) == 0) {
+				continue;
+			}
+			merged.strStorage.push_back(*str);
+			kv.strValue = merged.strStorage.back().c_str();
+			kv.intValue = len;
+		}
+	}
+}
+
 // Merges the static dump entries for path with the overlay entries written by the guest.
 static const MergedCategory &GetMergedCategory(const std::string &path) {
 	auto cached = g_mergedCache.find(path);
 	if (cached != g_mergedCache.end()) {
+		ApplyConfigValues(cached->second);
 		return cached->second;
 	}
 
@@ -1134,12 +1172,7 @@ static const MergedCategory &GetMergedCategory(const std::string &path) {
 		}
 	}
 
-	for (auto &kv : merged.keyvals) {
-		if (kv.boolSetting) {
-			kv.intValue = kv.boolSetting() ? 1 : 0;
-		}
-	}
-
+	ApplyConfigValues(merged);
 	return merged;
 }
 
@@ -1539,20 +1572,10 @@ int sceRegGetKeyValueByName(int catHandle, const char *name, u32 bufAddr, u32 si
 				return hleLogDebug(Log::sceReg, 0, "value: '%s'", keyval.strValue);
 			}
 		case ValueType::INT:
-		{
-			int intValue = keyval.intValue;  // The preset.
-			// Check for a config mapping. Read the value.
-			if (keyval.configSetting) {
-				if (const ConfigSettingRef *ref = g_Config.FindSetting(keyval.configSetting)) {
-					intValue = ref->GetIntValue();
-				}
-			}
-
 			if (size >= sizeof(u32)) {
-				Memory::WriteUnchecked_U32(intValue, bufAddr);
+				Memory::WriteUnchecked_U32(keyval.intValue, bufAddr);
 			}
-			return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", intValue, intValue);
-		}
+			return hleLogDebug(Log::sceReg, 0, "value: %d (0x%08x)", keyval.intValue, keyval.intValue);
 		case ValueType::DIR:
 		case ValueType::FAIL:
 		default:
@@ -1582,9 +1605,13 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 	// registry upgrade rewrites BIN keys like /CONFIG/NP/account_id, and reports the settings as
 	// corrupted if they read back as anything else.
 	ValueType type = ValueType::FAIL;
+	const ConfigSettingRef *configRef = nullptr;
 	for (const auto &kv : GetMergedCategory(path).keyvals) {
 		if (equals(kv.name, name)) {
 			type = kv.type;
+			if (kv.configSetting) {
+				configRef = g_Config.FindSetting(kv.configSetting);
+			}
 			break;
 		}
 	}
@@ -1614,22 +1641,12 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 			return hleLogError(Log::sceReg, -1, "bad input addr");
 		}
 		value.intValue = (int)Memory::ReadUnchecked_U32(bufAddr);
-
-		// Write to the actual Config setting, if configured.
-		int count = 0;
-		const KeyValue *keyvals = LookupCategory(path, &count);
-		const KeyValue *keyval = LookupCategoryKey(keyvals, name, count);
-		if (keyval->configSetting) {
-			if (const ConfigSettingRef *ref = g_Config.FindSetting(keyval->configSetting)) {
-				ref->SetIntValue(value.intValue);
-			}
+		if (configRef) {
+			configRef->SetIntValue(value.intValue);
 		}
 
 		g_overlay[path][name] = value;
 		InvalidateMergedCache();
-
-		// If we have a config setting mapped, merge with that.
-
 		return hleLogInfo(Log::sceReg, 0, "set %s/%s to %d", path.c_str(), name, value.intValue);
 	} else if (Memory::IsValidRange(bufAddr, size)) {
 		const char *str = (const char *)Memory::GetPointerUnchecked(bufAddr);
@@ -1639,6 +1656,10 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 			value.str.push_back('\0');
 		}
 		value.intValue = (int)value.str.size();
+		if (configRef && type == ValueType::STR) {
+			// Up to the terminator, if the guest included one.
+			configRef->SetStringValue(std::string_view(value.str.c_str()));
+		}
 		g_overlay[path][name] = value;
 		InvalidateMergedCache();
 		if (type == ValueType::STR) {

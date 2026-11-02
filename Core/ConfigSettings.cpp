@@ -406,33 +406,48 @@ void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &da
 
 int ConfigSettingRef::GetIntValue() const {
 	_dbg_assert_(setting);
-	_dbg_assert_(setting->GetType() == ConfigSetting::Type::TYPE_INT);
-	int intValue = 0;
-	if (setting->GetType() == ConfigSetting::Type::TYPE_INT) {
-		void *ptr = setting->VoidPtr(block);
-		memcpy(&intValue, ptr, 4);
-	} else if (setting->GetType() == ConfigSetting::Type::TYPE_BOOL) {
-		void *ptr = setting->VoidPtr(block);
-		bool boolValue = false;
-		memcpy(&boolValue, ptr, 1);
-		intValue = boolValue ? 1 : 0;
-	} else {
-		ERROR_LOG(Log::Config, "ConfigSettingRef::GetIntValue: Setting is not an int or bool");
+	const void *ptr = setting->GetVoidPtr(block);
+	switch (setting->GetType()) {
+	case ConfigSetting::Type::TYPE_INT:
+		return *(const int *)ptr;
+	case ConfigSetting::Type::TYPE_BOOL:
+		return *(const bool *)ptr ? 1 : 0;
+	default:
+		ERROR_LOG(Log::Config, "ConfigSettingRef::GetIntValue: %.*s is not an int or bool", STR_VIEW(setting->IniKey()));
+		return 0;
 	}
-	return intValue;
 }
 
 void ConfigSettingRef::SetIntValue(int value) const {
 	_dbg_assert_(setting);
-	_dbg_assert_(setting->GetType() == ConfigSetting::Type::TYPE_INT);
-	if (setting->GetType() == ConfigSetting::Type::TYPE_INT) {
-		void *ptr = setting->VoidPtr(block);
-		memcpy(ptr, &value, 4);
-	} else if (setting->GetType() == ConfigSetting::Type::TYPE_BOOL) {
-		void *ptr = setting->VoidPtr(block);
-		bool boolValue = (value != 0);
-		memcpy(ptr, &boolValue, 1);
-	} else {
-		ERROR_LOG(Log::Config, "ConfigSettingRef::SetIntValue: Setting is not an int or bool");
+	void *ptr = setting->VoidPtr(block);
+	switch (setting->GetType()) {
+	case ConfigSetting::Type::TYPE_INT:
+		*(int *)ptr = value;
+		break;
+	case ConfigSetting::Type::TYPE_BOOL:
+		*(bool *)ptr = value != 0;
+		break;
+	default:
+		ERROR_LOG(Log::Config, "ConfigSettingRef::SetIntValue: %.*s is not an int or bool", STR_VIEW(setting->IniKey()));
+		break;
 	}
+}
+
+const std::string *ConfigSettingRef::GetStringPtr() const {
+	_dbg_assert_(setting);
+	if (setting->GetType() != ConfigSetting::Type::TYPE_STRING) {
+		ERROR_LOG(Log::Config, "ConfigSettingRef::GetStringPtr: %.*s is not a string", STR_VIEW(setting->IniKey()));
+		return nullptr;
+	}
+	return (const std::string *)setting->GetVoidPtr(block);
+}
+
+void ConfigSettingRef::SetStringValue(std::string_view value) const {
+	_dbg_assert_(setting);
+	if (setting->GetType() != ConfigSetting::Type::TYPE_STRING) {
+		ERROR_LOG(Log::Config, "ConfigSettingRef::SetStringValue: %.*s is not a string", STR_VIEW(setting->IniKey()));
+		return;
+	}
+	*(std::string *)setting->VoidPtr(block) = std::string(value);
 }
