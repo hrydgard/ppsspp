@@ -50,6 +50,7 @@
 #endif
 
 static void closeRelayBacklog(const AdhocSocket *listener);
+static void closeRelayPtpQueue(const AdhocSocket *sock);
 
 void RelayTransport::CloseHostSocket(AdhocSocket *sock) {
 	if (sock->type == SOCK_PTP) {
@@ -67,6 +68,7 @@ void RelayTransport::CloseHostSocket(AdhocSocket *sock) {
 			}
 		}
 		closeRelayBacklog(sock);
+		closeRelayPtpQueue(sock);
 	} else {
 		if (sock->postofficeHandle != NULL) {
 			pdp_delete(sock->postofficeHandle);
@@ -311,6 +313,79 @@ int RelayTransport::DoBlockingPtpSend(AdhocSocketRequest &req, s64 &result) {
 	return 0;
 }
 
+// A PSP's back-to-back PTP sends arrive about a millisecond apart, 0.95 ms plus 0.65 us a byte, so a receiver
+// polling fast reads them one at a time; once they have all arrived they come back together (pspautotests
+// net/adhoc/pair/ptpsegments, ptpmsg). Capcom Classics Collection Reloaded's Street Fighter II needs the
+// split. So the relay session runs in block boundary mode, each block it hands over is queued here, and a
+// block becomes readable no earlier than the previous one plus that gap, counted from when it arrived (the
+// 1 ms poll takes blocks as they come). The queue holds up to the socket's buffer size, so a receiver that
+// stops reading still holds the sender back.
+struct RelayPtpBlock {
+	std::vector<u8> data;
+	u64 readableAt;
+};
+
+struct RelayPtpQueue {
+	std::deque<RelayPtpBlock> blocks;
+	size_t offset = 0; // already read from the first block
+	size_t bytes = 0; // left in all of them
+	u64 lastReadableAt = 0;
+};
+
+static std::map<const AdhocSocket *, RelayPtpQueue> relayPtpQueues;
+
+static void closeRelayPtpQueue(const AdhocSocket *sock) {
+	relayPtpQueues.erase(sock);
+}
+
+// Takes the blocks that have arrived. Returns AEMU_POSTOFFICE_CLIENT_SESSION_DEAD once the session has ended.
+static int fillRelayPtpQueue(AdhocSocket *sock) {
+	RelayPtpQueue &queue = relayPtpQueues[sock];
+	size_t limit = std::max(sock->buffer_size, (u32)1);
+	while (queue.bytes < limit) {
+		int next = ptp_peek_next_size(sock->postofficeHandle);
+		if (next == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			return next;
+		}
+		if (next <= 0) {
+			break;
+		}
+		RelayPtpBlock block;
+		block.data.resize(next);
+		int len = next;
+		int result = ptp_recv(sock->postofficeHandle, (char *)block.data.data(), &len, true);
+		if (result == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			return result;
+		}
+		if (result != AEMU_POSTOFFICE_CLIENT_OK) {
+			break;
+		}
+		block.data.resize(len);
+		u64 now = CoreTiming::GetGlobalTimeUsScaled();
+		block.readableAt = now;
+		if (queue.lastReadableAt != 0) {
+			block.readableAt = std::max(now, queue.lastReadableAt + 950 + (u64)len * 13 / 20);
+		}
+		queue.lastReadableAt = block.readableAt;
+		queue.bytes += len;
+		queue.blocks.push_back(std::move(block));
+	}
+	return 0;
+}
+
+static size_t relayPtpReadable(const RelayPtpQueue &queue) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	size_t bytes = 0;
+	for (const RelayPtpBlock &block : queue.blocks) {
+		if (block.readableAt > now) {
+			break;
+		}
+		bytes += block.data.size();
+	}
+	// Less what's already been read from the first one.
+	return bytes == 0 ? 0 : bytes - queue.offset;
+}
+
 static int ptp_recv_postoffice(int idx, void *data, int *len) {
 	// Out of the group, nothing arrives, and the connection doesn't fail either (pspautotests
 	// net/adhoc/pair/vanish), whatever became of the relay meanwhile.
@@ -333,22 +408,32 @@ static int ptp_recv_postoffice(int idx, void *data, int *len) {
 		return SOCKET_ERROR;
 	}
 
-	int len_copy = *len;
-
-	int ptp_recv_status = ptp_recv(internal->postofficeHandle, (char *)data, &len_copy, true);
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
-		// the session is dead, need to be reflected to the other side
-		// this is not necessarily a relay failure, could simply be the other side disconnecting
-		//handle_relay_connect_failure();
-		return SOCKET_ERROR;
-	}
-	if (ptp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK) {
+	int fill = fillRelayPtpQueue(internal);
+	RelayPtpQueue &queue = relayPtpQueues[internal];
+	size_t readable = relayPtpReadable(queue);
+	if (readable == 0) {
+		// What arrived before the other side closed is still delivered (pspautotests net/adhoc/pair/ptpclose).
+		if (fill == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD && queue.bytes == 0) {
+			return SOCKET_ERROR;
+		}
 		return SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 	}
 
-	// AEMU_POSTOFFICE_CLIENT_SESSION_DATA_TRUNC is okay, it just means it has data in it's user space buffer
-
-	*len = len_copy;
+	size_t want = std::min((size_t)std::max(*len, 0), readable);
+	size_t copied = 0;
+	while (copied < want) {
+		RelayPtpBlock &block = queue.blocks.front();
+		size_t n = std::min(want - copied, block.data.size() - queue.offset);
+		memcpy((u8 *)data + copied, block.data.data() + queue.offset, n);
+		copied += n;
+		queue.offset += n;
+		queue.bytes -= n;
+		if (queue.offset == block.data.size()) {
+			queue.blocks.pop_front();
+			queue.offset = 0;
+		}
+	}
+	*len = (int)copied;
 	return 0;
 }
 
@@ -437,7 +522,7 @@ static void fillRelayBacklog(int idx) {
 		}
 		int state = 0;
 		RelayPendingConnection connection = {};
-		connection.handle = ptp_accept(ptp_listen_socket, (char *)&connection.mac, &connection.port, true, NULL, NULL, &state);
+		connection.handle = ptp_accept(ptp_listen_socket, (char *)&connection.mac, &connection.port, true, true, NULL, NULL, &state);
 		if (connection.handle == NULL) {
 			if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 				handle_relay_connect_failure();
@@ -503,6 +588,12 @@ static const double RELAY_CONNECT_WAIT_SECONDS = 1.0;
 
 void RelayTransport::Poll() {
 	fillRelayBacklogs();
+	for (int i = 0; i < MAX_SOCKET; i++) {
+		AdhocSocket *sock = adhocSockets[i];
+		if (sock != NULL && sock->type == SOCK_PTP && sock->data.ptp.state == ADHOC_PTP_STATE_ESTABLISHED && sock->postofficeHandle != NULL) {
+			fillRelayPtpQueue(sock);
+		}
+	}
 
 	// A connect takes a few round trips through the relay, in real time, and the PSP has an opened
 	// connection up a few ms after PtpOpen (pspautotests net/adhoc/pair/ptppoll). So wait for it here, at
@@ -638,7 +729,7 @@ static int ptp_connect_postoffice(int idx, const char *caller) {
 			int state;
 			SceNetEtherAddr fixed_daddr = internal->data.ptp.paddr;
 			fixGameMac(&fixed_daddr);
-			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), netAdhocUseUdp, NULL, NULL, &state);
+			void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->data.ptp.laddr, offset_port_simple(internal->data.ptp.lport), (const char *)&fixed_daddr, offset_port_simple(internal->data.ptp.pport), netAdhocUseUdp, true, NULL, NULL, &state);
 			if (ptp_socket == NULL) {
 				internal->connectThreadResult = SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED;
 				ERROR_LOG(Log::sceNet, "%s: failed connecting to ptp socket, %d", __func__, state);
@@ -753,12 +844,11 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 			if (ptp_handle == NULL) {
 				return false;
 			}
-			int peek_len = ptp_peek_next_size(ptp_handle);
 			// A closed connection reads as readable, so the poll looks at PtpPeerClosed.
-			if (peek_len == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
+			if (fillRelayPtpQueue(internal) == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD) {
 				return true;
 			}
-			if (peek_len > 0) {
+			if (relayPtpReadable(relayPtpQueues[internal]) > 0) {
 				return true;
 			}
 		}
@@ -842,7 +932,8 @@ void RelayTransport::PtpUpdateRecvStat(AdhocSocket *sock) {
 	// A listener's handle is a listen session, which has no data.
 	int waiting = 0;
 	if (sock->postofficeHandle != NULL && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN) {
-		waiting = ptp_peek_next_size(sock->postofficeHandle);
+		fillRelayPtpQueue(sock);
+		waiting = (int)relayPtpReadable(relayPtpQueues[sock]);
 	}
 	sock->data.ptp.rcv_sb_cc = std::max(0, waiting);
 }
@@ -937,6 +1028,7 @@ static int ptp_close_postoffice(int idx) {
 		}
 	}
 	closeRelayBacklog(internal);
+	closeRelayPtpQueue(internal);
 	adhocSockets[idx] = NULL;
 	free(internal);
 	INFO_LOG(Log::sceNet, "%s: closed ptp socket with id %d", __func__, idx + 1);
