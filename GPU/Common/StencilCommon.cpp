@@ -264,10 +264,8 @@ void FramebufferManagerCommon::DrawStencilWritePasses(GEBufferFormat format, int
 
 // On the PSP the stencil is the alpha bits, so after reinterpreting the colors of another format into a buffer, its
 // stencil has to follow the new alpha (Ultimate Ghosts 'n Goblins sets 5551 alpha through a masked 565 blue write,
-// then stencil tests on it). Called right after the color reinterpret, with the same rectangles, so dst is still the
-// render target and the draws land in the same render pass. They read the alpha the same way from src, so dst needs
-// no copy.
-void FramebufferManagerCommon::WriteStencilFromReinterpret(VirtualFramebuffer *src, VirtualFramebuffer *dst, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2) {
+// then stencil tests on it).
+void FramebufferManagerCommon::WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst) {
 	using namespace Draw;
 
 	int values = 0;
@@ -277,43 +275,57 @@ void FramebufferManagerCommon::WriteStencilFromReinterpret(VirtualFramebuffer *s
 	case GE_FORMAT_8888: values = 256; break;
 	default: return;
 	}
-	if (!src->fbo || !dst->fbo) {
+	if (!dst->fbo) {
 		return;
 	}
 
-	const bool useExport = draw_->GetDeviceCaps().fragmentShaderStencilWriteSupported;
-	Draw2DPipeline *pipeline = GetReinterpretStencilPipeline(src->fb_format, dst->fb_format, useExport);
+	const bool useExportShader = draw_->GetDeviceCaps().fragmentShaderStencilWriteSupported;
+	EnsureStencilWritePipeline(useExportShader);
 
-	int srcW, srcH, dstW, dstH;
-	draw_->GetFramebufferDimensions(src->fbo, &srcW, &srcH);
-	draw_->GetFramebufferDimensions(dst->fbo, &dstW, &dstH);
-	draw_->BindFramebufferAsTexture(src->fbo, 0, Aspect::COLOR_BIT, ALL_LAYERS);
+	// The source can't be the target, so read the alpha from a copy.
+	const int w = dst->renderWidth;
+	const int h = dst->renderHeight;
+	Framebuffer *copy = GetTempFBO(TempFBO::COPY, w, h);
+	BlitUsingRaster(dst->fbo, 0.0f, 0.0f, (float)w, (float)h, copy, 0.0f, 0.0f, (float)w, (float)h, false, dst->renderScaleFactor, Get2DPipeline(DRAW2D_COPY_COLOR), "StencilFromAlpha_Copy");
 
-	auto drawStencil = [&](uint8_t ref, uint8_t writeMask, float stencilValue) {
-		// Vulkan only applies the stencil params to a bound pipeline that uses stencil.
-		draw_->BindPipeline(pipeline->pipeline);
-		draw_->SetStencilParams(ref, writeMask, 0xFF);
-		draw2D_.Blit(pipeline, 0.0f, 0.0f, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, (float)srcW, (float)srcH, (float)dstW, (float)dstH, false, dst->renderScaleFactor, stencilValue);
-	};
-
-	if (useExport) {
-		drawStencil(0xFF, 0xFF, 0.0f);
-	} else {
-		// A draw can only set one bit, so clear first, then set each bit where the alpha has it.
-		drawStencil(0, 0xFF, 0.0f);
-		for (int i = 1; i < values; i += i) {
-			if (dst->fb_format == GE_FORMAT_4444) {
-				drawStencil(0xFF, (i << 4) | i, i * (16.0f / 255.0f));
-			} else if (dst->fb_format == GE_FORMAT_5551) {
-				drawStencil(0xFF, 0xFF, i * (128.0f / 255.0f));
-			} else {
-				drawStencil(0xFF, i, i * (1.0f / 255.0f));
-			}
-		}
-	}
+	draw_->BindFramebufferAsRenderTarget(dst->fbo, { RPAction::KEEP, RPAction::KEEP, RPAction::CLEAR }, "StencilFromAlpha");
+	Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
+	draw_->SetViewport(viewport);
+	draw_->SetScissorRect(0, 0, w, h);
+	draw_->BindFramebufferAsTexture(copy, TEX_SLOT_PSP_TEXTURE, Aspect::COLOR_BIT, 0);
+	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilWriteSampler_);
+	draw_->BindPipeline(stencilWritePipeline_);
+	DrawStencilWritePasses(dst->fb_format, values, 0xFF, useExportShader);
 
 	textureCache_->ForgetLastTexture();
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+}
+
+void FramebufferManagerCommon::RebuildPendingStencil(VirtualFramebuffer *vfb) {
+	// Without the stencil test, draws don't write the stencil. Clears do, but often only part of it.
+	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
+		return;
+	}
+	// A draw that writes the stencil without reading it, where it also writes the alpha, keeps the two in step,
+	// so the rebuild can wait for a draw that reads it (God of War zeroes it every frame). It can't wait past
+	// a stencil write where the color isn't written: a failed stencil or depth test.
+	const GEComparison func = gstate.getStencilTestFunction();
+	const GEStencilOp sFail = gstate.getStencilOpSFail();
+	const GEStencilOp zFail = gstate.getStencilOpZFail();
+	const GEStencilOp zPass = gstate.getStencilOpZPass();
+	const bool readsStencil = (func != GE_COMP_ALWAYS && func != GE_COMP_NEVER) ||
+		sFail >= GE_STENCILOP_INVERT || zFail >= GE_STENCILOP_INVERT || zPass >= GE_STENCILOP_INVERT;
+	const bool writesWithoutColor = (func == GE_COMP_NEVER && sFail != GE_STENCILOP_KEEP) ||
+		(func != GE_COMP_NEVER && gstate.isDepthTestEnabled() && zFail != GE_STENCILOP_KEEP);
+	if (!readsStencil && !writesWithoutColor) {
+		return;
+	}
+	vfb->stencilFromAlphaPending = false;
+	drawEngine_->Flush();
+	WriteStencilFromFramebufferAlpha(vfb);
+	// It reused the temp buffer a self-texturing copy is kept in.
+	DiscardFramebufferCopy();
 }
 
 bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags) {
@@ -348,6 +360,7 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	if (!CheckStencilBits(src, dstBuffer, values, usedBits))
 		return false;
 
+	dstBuffer->stencilFromAlphaPending = false;
 	DiscardFramebufferCopy();
 
 	if (usedBits == 0) {

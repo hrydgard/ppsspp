@@ -14,19 +14,11 @@ static const SamplerDef samplers[1] = {
 	{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN }
 };
 
-const char *const g_stencilExportExtension = "#extension GL_ARB_shader_stencil_export : require";
-
 // Requires full size integer math. It would be possible to make a floating point-only version with lots of
 // modulo and stuff, might do it one day.
-Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBufferFormat from, GEBufferFormat to, ReinterpretOutput output, bool discardNeedsDepthWrite) {
-	const bool stencil = output != ReinterpretOutput::COLOR;
-
+Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBufferFormat from, GEBufferFormat to) {
 	writer.HighPrecisionFloat();
 	writer.DeclareSamplers(samplers);
-
-	if (output == ReinterpretOutput::STENCIL_BITS && discardNeedsDepthWrite) {
-		writer.C("layout (depth_unchanged) out float gl_FragDepth;\n");
-	}
 
 	if (writer.Lang().bitwiseOps) {
 		switch (from) {
@@ -165,11 +157,7 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		}
 	}
 
-	if (stencil) {
-		writer.BeginFSMain(g_draw2DStencilUniforms, varyings);
-	} else {
-		writer.BeginFSMain(g_draw2Duniforms, varyings);
-	}
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
 
 	if (IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
 		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
@@ -201,30 +189,12 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		writer.C("  vec4 outColor = unpackColor(u == 0.0 ? packColor(val.rg) : packColor(val.ba));\n");
 	}
 
-	if (stencil) {
-		// The same rounding as the stencil upload shader.
-		writer.C("  float alpha = floor(outColor.a * 255.99);\n");
-		if (output == ReinterpretOutput::STENCIL_EXPORT) {
-			writer.C("  gl_FragStencilRefARB = int(alpha);\n");
-		} else {
-			writer.C("  if (stencilValue > 0.0) {\n");
-			writer.C("    float shifted = alpha / floor(stencilValue * 255.99);\n");
-			writer.C("    if (mod(floor(shifted), 2.0) < 0.99) DISCARD;\n");
-			writer.C("  }\n");
-			if (discardNeedsDepthWrite) {
-				writer.C("  gl_FragDepth = gl_FragCoord.z;\n");
-			}
-		}
-	}
-
 	writer.EndFSMain("outColor");
 
-	Draw2DPipelineInfo info{
-		stencil ? "reinterpret_stencil" : "reinterpret",
+	return Draw2DPipelineInfo{
+		"reinterpret",
 		RASTER_COLOR,
 		RASTER_COLOR,
 	};
-	info.writeStencil = stencil;
-	return info;
 }
 

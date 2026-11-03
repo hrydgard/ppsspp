@@ -956,6 +956,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->RebuildStencilIfPending(vfb);
 	framebufferManager_->CheckMaskCopy(vfb);
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
@@ -1335,6 +1336,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->RebuildStencilIfPending(vfb);
 	framebufferManager_->CheckMaskCopy(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
@@ -1411,6 +1413,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->RebuildStencilIfPending(vfb);
 	framebufferManager_->CheckMaskCopy(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
