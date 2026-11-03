@@ -354,6 +354,8 @@ static void MountFileSystems() {
 	pspFileSystem.Mount("fatms0:", memstickSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
+	// The memory stick with 8.3 names in the OEM code page. The 1.50 XMB's music browser uses it.
+	pspFileSystem.Mount("msoem0:", memstickSystem);
 
 	// TODO: These should be made "lazy" mounts.
 	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash0", FileSystemFlags::FLASH);

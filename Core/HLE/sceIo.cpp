@@ -211,6 +211,8 @@ struct IoAsyncParams {
 static IoAsyncParams asyncParams[PSP_COUNT_FDS];
 static HLEHelperThread *asyncThreads[PSP_COUNT_FDS]{};
 static int asyncDefaultPriority = -1;
+// See sceIoDevctl("fatmsOem0:"). Not saved in states, since nothing reads it but the guest.
+static u32 g_fatmsOemValue = 0;
 
 class FileNode : public KernelObject {
 public:
@@ -669,6 +671,7 @@ void __IoInit() {
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
 	memset(fds, 0, sizeof(fds));
+	g_fatmsOemValue = 0;
 
 	ioManagerThreadEnabled = true;
 	ioManager.SetThreadEnabled(true);
@@ -953,7 +956,7 @@ static bool IsRemovedMemstickPath(const char *path) {
 	if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
 		return false;
 	}
-	return startsWithNoCase(path, "ms0:") || startsWithNoCase(path, "fatms0:");
+	return startsWithNoCase(path, "ms0:") || startsWithNoCase(path, "fatms0:") || startsWithNoCase(path, "msoem0:");
 }
 
 static u32 sceIoGetstat(const char *filename, u32 addr) {
@@ -2037,6 +2040,26 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		}
 	}
 
+	if (!strcmp(name, "fatmsOem0:")) {
+		// From fatmsmod.prx (1.50): 0x02405852 stores a word in the driver and 0x02405853 reads it
+		// back into the argument. Probably the OEM code page for 8.3 names (the 1.50 VSH sets it
+		// at boot). We don't use it.
+		switch (cmd) {
+		case 0x02405852:
+			if (!Memory::IsValid4AlignedAddress(argAddr) || argLen < 4) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			}
+			g_fatmsOemValue = Memory::ReadUnchecked_U32(argAddr);
+			return hleLogDebug(Log::sceIo, 0, "set %d", g_fatmsOemValue);
+		case 0x02405853:
+			if (!Memory::IsValid4AlignedAddress(argAddr) || argLen < 4) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			}
+			Memory::WriteUnchecked_U32(g_fatmsOemValue, argAddr);
+			return hleLogDebug(Log::sceIo, 0, "get %d", g_fatmsOemValue);
+		}
+	}
+
 	if (!strcmp(name, "fatms0:"))
 	{
 		switch (cmd) {
@@ -2937,9 +2960,44 @@ static u32 IoOpenFatSearch(u32 argAddr, int argLen) {
 	return hleLogDebug(Log::sceIo, id, "%s: %d matching entries", path.c_str(), (int)dir->listing.size());
 }
 
+static void WriteGuestUTF16(u32 addr, const std::string &str, int maxChars) {
+	const std::u16string utf16 = ConvertUTF8ToUCS2(str);
+	int i = 0;
+	for (; i < (int)utf16.size() && i < maxChars - 1; i++) {
+		Memory::WriteUnchecked_U16(utf16[i], addr + i * 2);
+	}
+	Memory::WriteUnchecked_U16(0, addr + i * 2);
+}
+
+// Fills a SceIoDirent with the next entry of dir, like sceIoDread, but with d_private always in
+// the old layout (8.3 name at +0, long name at +13), which is what fatms writes for these ioctls.
+// Returns the entry's index, or -1 at the end.
+static int IoReadFatDirent(DirListing *dir, u32 direntAddr) {
+	if (dir->index >= (int)dir->listing.size()) {
+		return -1;
+	}
+	const int index = dir->index++;
+	const PSPFileInfo &info = dir->listing[index];
+	const std::string &shortName = dir->ShortName(index);
+
+	SceIoDirEnt *entry = (SceIoDirEnt *)Memory::GetPointerUnchecked(direntAddr);
+	__IoGetStat(&entry->d_stat, info, true);
+	strcpy_limit(entry->d_name, info.name.c_str(), ARRAY_SIZE(entry->d_name));
+	if (Memory::IsValidRange(entry->d_private, 13 + 256)) {
+		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
+		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private + 13), entry->d_name, 256);
+	}
+	return index;
+}
+
+// On FAT, a name that's already a valid 8.3 name has no long name entry.
+static std::string FatLongName(DirListing *dir, int index) {
+	const std::string &name = dir->listing[index].name;
+	return name == dir->ShortName(index) ? std::string() : name;
+}
+
 // Reads the next entry of a search started by IoOpenFatSearch. The 0x224 byte argument holds:
-//   +0x000  SceIoDirent *, filled as by sceIoDread, d_private in the old layout (short name at
-//           +0, long name at +13)
+//   +0x000  SceIoDirent *, filled as by sceIoDread
 //   +0x004  the 8.3 name in UTF-16, 13 chars
 //   +0x01E  the long name in UTF-16, 256 chars, empty if the entry has none
 //   +0x220  int *, gets the status of converting the 8.3 name to UTF-16 (1 = lossy, which the
@@ -2953,38 +3011,43 @@ static int IoReadFatSearchEntry(DirListing *dir, u32 argAddr, u32 argLen) {
 	if (!Memory::IsValidRange(direntAddr, sizeof(SceIoDirEnt))) {
 		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	}
-	if (dir->index >= (int)dir->listing.size()) {
+	const int index = IoReadFatDirent(dir, direntAddr);
+	if (index < 0) {
 		return 0;
 	}
-
-	const int index = dir->index++;
-	const PSPFileInfo &info = dir->listing[index];
-	const std::string &shortName = dir->ShortName(index);
-
-	SceIoDirEnt *entry = (SceIoDirEnt *)Memory::GetPointerUnchecked(direntAddr);
-	__IoGetStat(&entry->d_stat, info, true);
-	strcpy_limit(entry->d_name, info.name.c_str(), ARRAY_SIZE(entry->d_name));
-	if (Memory::IsValidRange(entry->d_private, 13 + 256)) {
-		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
-		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private + 13), entry->d_name, 256);
-	}
-
-	auto writeUTF16 = [](u32 addr, const std::string &str, int maxChars) {
-		const std::u16string utf16 = ConvertUTF8ToUCS2(str);
-		int i = 0;
-		for (; i < (int)utf16.size() && i < maxChars - 1; i++) {
-			Memory::WriteUnchecked_U16(utf16[i], addr + i * 2);
-		}
-		Memory::WriteUnchecked_U16(0, addr + i * 2);
-	};
-	writeUTF16(argAddr + 0x4, shortName, 13);
-	// On FAT, a name that's already a valid 8.3 name has no long name entry.
-	writeUTF16(argAddr + 0x1E, info.name == shortName ? std::string() : info.name, 256);
-
+	WriteGuestUTF16(argAddr + 0x4, dir->ShortName(index), 13);
+	WriteGuestUTF16(argAddr + 0x1E, FatLongName(dir, index), 256);
 	const u32 statusAddr = Memory::ReadUnchecked_U32(argAddr + 0x220);
 	if (Memory::IsValid4AlignedAddress(statusAddr)) {
 		Memory::WriteUnchecked_U32(0, statusAddr);
 	}
+	return 1;
+}
+
+// ioctl 0x02425051 on a memory stick directory fd: sceIoDread plus the name in UTF-16, which the
+// 1.50 XMB's music browser reads folders with. From fatmsmod.prx (1.50). The 0x208 byte argument:
+//   +0x000  SceIoDirent *, filled as by sceIoDread
+//   +0x004  the long name in UTF-16, 256 chars. If the entry has none: the 8.3 name if the flag
+//           at +0x204 is 1, else empty.
+//   +0x204  int flag, see above
+// Returns 1 per entry, 0 at the end.
+static int IoReadFatDirentUTF16(DirListing *dir, u32 argAddr, u32 argLen) {
+	if (argLen < 0x208 || !Memory::IsValidRange(argAddr, 0x208)) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const u32 direntAddr = Memory::ReadUnchecked_U32(argAddr);
+	if (!Memory::IsValidRange(direntAddr, sizeof(SceIoDirEnt))) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const int index = IoReadFatDirent(dir, direntAddr);
+	if (index < 0) {
+		return 0;
+	}
+	std::string name = FatLongName(dir, index);
+	if (name.empty() && Memory::ReadUnchecked_U32(argAddr + 0x204) == 1) {
+		name = dir->ShortName(index);
+	}
+	WriteGuestUTF16(argAddr + 0x4, name, 256);
 	return 1;
 }
 
@@ -3268,11 +3331,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 }
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
-	if (cmd == 0x02425069) {
-		// Next entry of a memory stick directory search. That works on a directory fd.
+	if (cmd == 0x02425069 || cmd == 0x02425051) {
+		// Reading a memory stick directory, so these work on a directory fd.
 		u32 error;
 		if (DirListing *dir = kernelObjects.Get<DirListing>(id, error)) {
-			const int result = IoReadFatSearchEntry(dir, indataPtr, inlen);
+			const int result = cmd == 0x02425069 ? IoReadFatSearchEntry(dir, indataPtr, inlen) : IoReadFatDirentUTF16(dir, indataPtr, inlen);
 			if (result == 1) {
 				return hleLogDebug(Log::sceIo, result, "%s", dir->listing[dir->index - 1].name.c_str());
 			}
