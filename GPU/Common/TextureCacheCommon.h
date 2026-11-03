@@ -482,6 +482,20 @@ protected:
 
 	// The primary cache uses the texture address along with the clut hash as the key.
 	TexCache cache_;
+	// cache_ by the range of RAM each texture covers, sorted by start, for Invalidate(), which runs for every block
+	// transfer (MX vs. ATV Untamed: about a thousand a second, each walking hundreds of map nodes to find a few).
+	// Kept in step with cache_ by AddTexRange()/RemoveTexRange(). Textures over BIG_TEX_RANGE go in a list of their
+	// own, so a few large ones don't widen every search.
+	struct TexRange {
+		u32 start;
+		u32 end;
+		TexCacheEntry *entry;
+	};
+	static constexpr u32 BIG_TEX_RANGE = 0x10000;
+	std::vector<TexRange> texRanges_;
+	std::vector<TexRange> bigTexRanges_;
+	void AddTexRange(TexCacheEntry *entry);
+	void RemoveTexRange(TexCacheEntry *entry);
 	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
 	// Cache keys, with a zero CLUT hash, of the textures that have an indexed replacement colored by the GPU. Those

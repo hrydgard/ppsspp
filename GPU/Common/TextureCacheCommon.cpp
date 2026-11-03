@@ -731,7 +731,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 			if (rehash) {
 				// Update in case any of these changed.
-				entry->bufw = bufw;
+				if (entry->bufw != bufw) {
+					RemoveTexRange(entry);
+					entry->bufw = bufw;
+					AddTexRange(entry);
+				}
 				if (entry->cluthash != cluthash) {
 					WARN_LOG(Log::TexCache, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
 				}
@@ -777,6 +781,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					}
 
 					// Release the texture from the cache entry, since we're about to throw it away.
+					RemoveTexRange(entry);
 					entryIter->second.release();
 
 					const u64 secondKeyOld = (u64)entry->fullhash | ((u64)cluthash << 32);
@@ -832,6 +837,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 								DEBUG_LOG(Log::TexCache, "%08x: Texture matched with secondary cache entry with hash %08x at other address %08x. Updating address.", texaddr, newFullHash, entry->addr);
 								entry->addr = texaddr;
 							}
+							AddTexRange(entry);
 							return ApplyTextureFinish(entry, doBind);
 						} else {
 							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x (%dx%d)", texaddr, newFullHash, w, h);
@@ -862,6 +868,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
 			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
 			ReleaseTexture(entryIter->second.get(), true);
+			RemoveTexRange(entryIter->second.get());
 			cache_.erase(entryIter);
 			entryIter = cache_.end();  // make sure we don't look at it again.
 			entry = nullptr;
@@ -952,6 +959,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	entry->maxLevel = maxLevel;
 	entry->bufw = bufw;
 	entry->cluthash = cluthash;
+	AddTexRange(entry);
 	if (clutInShader) {
 		entry->status |= TexStatus::CLUT8_INDEXED;
 	}
@@ -1160,6 +1168,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 				DEBUG_LOG(Log::TexCache, "Decimating cached texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
 				cacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				ReleaseTexture(iter->second.get(), true);
+				RemoveTexRange(iter->second.get());
 				iter = cache_.erase(iter);
 			} else {
 				++iter;
@@ -2801,6 +2810,8 @@ void TextureCacheCommon::Clear(bool delete_them) {
 	if (cache_.size() + secondCache_.size()) {
 		INFO_LOG(Log::TexCache, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
 		cache_.clear();
+		texRanges_.clear();
+		bigTexRanges_.clear();
 		secondCache_.clear();
 	}
 
@@ -2854,23 +2865,56 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		}
 	}
 
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
+	_dbg_assert_(texRanges_.size() + bigTexRanges_.size() == cache_.size());
 
-	// We just loop through all textures in range, and tell them to rehash.
-	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
-		auto &entry = iter->second;
-		u32 texAddr = entry->addr;
-		// Intentional underestimate here.
-		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
+	// Tell every texture that overlaps to rehash. Only those starting at most LARGEST_TEXTURE_SIZE before addr, like
+	// the walk over cache_ this replaces.
+	const u32 searchStart = addr - std::min(addr, (u32)LARGEST_TEXTURE_SIZE);
+	auto overlaps = [&](const TexRange &r) {
 		// Quick check for overlap. Yes the check is right.
-		if (addr < texEnd && addr_end > texAddr) {
-			entry->status |= TexStatus::HASH_RECHECK;
+		return r.start >= searchStart && addr < r.end && addr_end > r.start;
+	};
+	// A small texture overlapping addr starts at most BIG_TEX_RANGE before it.
+	const u32 smallStart = addr - std::min(addr, BIG_TEX_RANGE);
+	auto it = std::lower_bound(texRanges_.begin(), texRanges_.end(), smallStart, [](const TexRange &r, u32 a) { return r.start < a; });
+	for (; it != texRanges_.end() && it->start < addr_end; ++it) {
+		if (overlaps(*it)) {
+			it->entry->status |= TexStatus::HASH_RECHECK;
 		}
 	}
+	for (const TexRange &r : bigTexRanges_) {
+		if (overlaps(r)) {
+			r.entry->status |= TexStatus::HASH_RECHECK;
+		}
+	}
+}
+
+void TextureCacheCommon::AddTexRange(TexCacheEntry *entry) {
+	// Intentional underestimate here.
+	const TexRange r{ entry->addr, entry->addr + entry->SizeInRAM() / 2, entry };
+	if (r.end - r.start > BIG_TEX_RANGE) {
+		bigTexRanges_.push_back(r);
+		return;
+	}
+	auto it = std::upper_bound(texRanges_.begin(), texRanges_.end(), r.start, [](u32 a, const TexRange &other) { return a < other.start; });
+	texRanges_.insert(it, r);
+}
+
+void TextureCacheCommon::RemoveTexRange(TexCacheEntry *entry) {
+	auto it = std::lower_bound(texRanges_.begin(), texRanges_.end(), entry->addr, [](const TexRange &r, u32 a) { return r.start < a; });
+	for (; it != texRanges_.end() && it->start == entry->addr; ++it) {
+		if (it->entry == entry) {
+			texRanges_.erase(it);
+			return;
+		}
+	}
+	for (auto big = bigTexRanges_.begin(); big != bigTexRanges_.end(); ++big) {
+		if (big->entry == entry) {
+			bigTexRanges_.erase(big);
+			return;
+		}
+	}
+	_dbg_assert_msg_(false, "Texture %08x missing from texRanges_", entry->addr);
 }
 
 void TextureCacheCommon::InvalidateAll(GPUInvalidationType /*unused*/) {
