@@ -140,6 +140,9 @@ struct VirtualFramebuffer {
 	bool dirtyAfterDisplay;
 	bool reallyDirtyAfterDisplay;  // takes frame skipping into account
 
+	// A reinterpret changed the alpha, and the stencil hasn't been rebuilt from it yet.
+	bool stencilFromAlphaPending;
+
 	// Global sequence numbers for the last time these were bound.
 	// Not based on frames at all. Can be used to determine new-ness of one framebuffer over another,
 	// can even be within a frame.
@@ -366,7 +369,15 @@ public:
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
 	bool ReadbackStencilToMemory(u32 addr, int size);
-	void WriteStencilFromReinterpret(VirtualFramebuffer *src, VirtualFramebuffer *dst, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2);
+	void WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst);
+	void RebuildPendingStencil(VirtualFramebuffer *vfb);
+	// Call before a draw to the current render target. Rebuilds its stencil if a reinterpret left it pending
+	// and the draw uses the stencil.
+	void RebuildStencilIfPending(VirtualFramebuffer *vfb) {
+		if (vfb->stencilFromAlphaPending) {
+			RebuildPendingStencil(vfb);
+		}
+	}
 
 	// We changed our depth mode, gotta start over.
 	// Ideally, we should convert depth buffers here, not just clear them.
@@ -508,7 +519,6 @@ public:
 
 	// If from==to, returns a copy pipeline.
 	Draw2DPipeline *GetReinterpretPipeline(GEBufferFormat from, GEBufferFormat to, float *scaleFactorX);
-	Draw2DPipeline *GetReinterpretStencilPipeline(GEBufferFormat from, GEBufferFormat to, bool useExport);
 
 	// Public to be used from the texture cache's depal shenanigans.
 	void BlitUsingRaster(
@@ -711,7 +721,6 @@ protected:
 	// Safe, not optimal - there might be input attachment tricks, etc, but we can't use them
 	// since we don't want N different implementations.
 	Draw2DPipeline *reinterpretFromTo_[4][4]{};
-	Draw2DPipeline *reinterpretStencilFromTo_[4][4]{};
 
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.

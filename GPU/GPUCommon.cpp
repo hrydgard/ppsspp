@@ -1607,6 +1607,7 @@ void GPUCommon::FlushImm() {
 	}
 	if (vfb) {
 		CheckDepthUsage(vfb);
+		framebufferManager_->RebuildStencilIfPending(vfb);
 		framebufferManager_->CheckMaskCopy(vfb);
 	}
 

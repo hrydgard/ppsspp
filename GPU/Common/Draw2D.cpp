@@ -42,17 +42,11 @@ const UniformDef g_draw2Duniforms[2] = {
 	{ "float", "scaleFactor", 1},
 };
 
-const UniformDef g_draw2DStencilUniforms[3] = {
-	{ "vec2", "texSize", 0 },
-	{ "float", "scaleFactor", 1},
-	{ "float", "stencilValue", 2},
-};
-
 struct Draw2DUB {
 	float texSizeX;
 	float texSizeY;
 	float scaleFactor;
-	float stencilValue;
+	float zScale;
 	float zScaleInv;
 	float zOffset;
 };
@@ -60,7 +54,6 @@ struct Draw2DUB {
 const UniformBufferDesc draw2DUBDesc{ sizeof(Draw2DUB), {
 	{ "texSize", -1, 0, UniformType::FLOAT2, 0 },
 	{ "scaleFactor", -1, 1, UniformType::FLOAT1, 8 },
-	{ "stencilValue", -1, 2, UniformType::FLOAT1, 12 },
 } };
 
 Draw2DPipelineInfo GenerateDraw2DCopyColorFs(ShaderWriter &writer) {
@@ -260,7 +253,7 @@ void Draw2D::Ensure2DResources() {
 	}
 }
 
-Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (ShaderWriter &)> generate, Slice<const char *> extensions) {
+Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (ShaderWriter &)> generate) {
 	Ensure2DResources();
 
 	using namespace Draw;
@@ -271,7 +264,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
 		flags = ShaderWriterFlags::FS_AUTO_STEREO;
 	}
-	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment, extensions, flags);
+	ShaderWriter writer(fsCode, shaderLanguageDesc, ShaderStage::Fragment, Slice<const char *>::empty(), flags);
 	Draw2DPipelineInfo info = generate(writer);
 	_assert_msg_(strlen(fsCode) < 8192, "Draw2D FS length error: %d", (int)strlen(fsCode));
 
@@ -289,16 +282,10 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	};
 	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
 
-	BlendState *blend = draw_->CreateBlendState({ false, (info.writeChannel == RASTER_COLOR && !info.writeStencil) ? 0xF : 0x0 });
+	BlendState *blend = draw_->CreateBlendState({ false, info.writeChannel == RASTER_COLOR ? 0xF : 0x0 });
 
 	DepthStencilStateDesc dsDesc{};
-	if (info.writeStencil) {
-		dsDesc.stencilEnabled = true;
-		dsDesc.stencil.compareOp = Comparison::ALWAYS;
-		dsDesc.stencil.failOp = StencilOp::REPLACE;
-		dsDesc.stencil.passOp = StencilOp::REPLACE;
-		dsDesc.stencil.depthFailOp = StencilOp::REPLACE;
-	} else if (info.writeChannel == RASTER_DEPTH) {
+	if (info.writeChannel == RASTER_DEPTH) {
 		dsDesc.depthTestEnabled = true;
 		dsDesc.depthWriteEnabled = true;
 		dsDesc.depthCompare = Draw::Comparison::ALWAYS;
@@ -334,7 +321,7 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	};
 }
 
-void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2, float srcWidth, float srcHeight, float dstWidth, float dstHeight, bool linear, int scaleFactor, float stencilValue) {
+void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX2, float srcY2, float dstX1, float dstY1, float dstX2, float dstY2, float srcWidth, float srcHeight, float dstWidth, float dstHeight, bool linear, int scaleFactor) {
 	float dX = 1.0f / (float)dstWidth;
 	float dY = 1.0f / (float)dstHeight;
 	float sX = 1.0f / (float)srcWidth;
@@ -352,10 +339,10 @@ void Draw2D::Blit(Draw2DPipeline *pipeline, float srcX1, float srcY1, float srcX
 		{ -1.0f + 2.0f * dX * dstX2 + xOffset, -(1.0f - 2.0f * dY * dstY2) + yOffset, sX * srcX2, sY * srcY2 },
 	};
 
-	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor, stencilValue);
+	DrawStrip2D(nullptr, vtx, 4, linear, pipeline, srcWidth, srcHeight, scaleFactor);
 }
 
-void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor, float stencilValue) {
+void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vertexCount, bool linearFilter, Draw2DPipeline *pipeline, float texW, float texH, int scaleFactor) {
 	using namespace Draw;
 
 	_dbg_assert_(pipeline);
@@ -367,11 +354,10 @@ void Draw2D::DrawStrip2D(Draw::Texture *tex, const Draw2DVertex *verts, int vert
 		linearFilter = false;
 	}
 
-	Draw2DUB ub{};
+	Draw2DUB ub;
 	ub.texSizeX = tex ? tex->Width() : texW;
 	ub.texSizeY = tex ? tex->Height() : texH;
 	ub.scaleFactor = (float)scaleFactor;
-	ub.stencilValue = stencilValue;
 
 	draw_->BindPipeline(pipeline->pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
