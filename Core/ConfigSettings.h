@@ -251,6 +251,9 @@ struct ConfigSetting {
 		_dbg_assert_(type_ == Type::TYPE_FLOAT);
 		return defaultCallback_.f ? defaultCallback_.f() : default_.f;
 	}
+	Type GetType() const {
+		return type_;
+	}
 
 	constexpr const ConfigSettingInfo &Info() const {
 		return info_;
@@ -273,6 +276,10 @@ struct ConfigSetting {
 	const void *GetVoidPtr(const ConfigBlock *configBlock) const {
 		const char *configBlockBase = (const char *)configBlock;
 		return (const void *)(configBlockBase + offset_);
+	}
+	void *VoidPtr(const ConfigBlock *configBlock) const {
+		const char *configBlockBase = (const char *)configBlock;
+		return (void *)(configBlockBase + offset_);
 	}
 
 private:
@@ -300,4 +307,10 @@ struct ConfigSettingRef {
 	ConfigBlock *block;
 	const ConfigSetting *setting;
 	std::string_view section;
+
+	// Easy accessors. The int ones also handle bools, as 0 or 1.
+	int GetIntValue() const;
+	void SetIntValue(int value) const;
+	const std::string *GetStringPtr() const;  // nullptr if not a string setting.
+	void SetStringValue(std::string_view value) const;
 };

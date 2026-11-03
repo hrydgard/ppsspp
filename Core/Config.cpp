@@ -1470,10 +1470,12 @@ static constexpr const char *paramDateFormatNames[] = { "YYYYMMDD", "MMDDYYYY", 
 
 static constexpr const char *paramTimeFormatNames[] = { "24HR", "12HR" };
 
+// Most of this is just registry settings, stored in our ini format. sceReg reads/writes here.
 static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("PSPModel", SETTING(g_Config, iPSPModel), PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::SYSTEM, "PSP Model").Choices(pSPModelNames),
 	ConfigSetting("PSPFirmwareVersion", SETTING(g_Config, iFirmwareVersion), PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SceRegCategoryVersion", SETTING(g_Config, iSceRegCategoryVersion), 1, CfgFlag::DEFAULT),
 	ConfigSetting("NickName", SETTING(g_Config, sNickName), "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", SETTING(g_Config, sMACAddress), "", CfgFlag::PER_GAME),
 	ConfigSetting("GameLanguage", SETTING(g_Config, iLanguage), -1, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1482,7 +1484,8 @@ static constexpr ConfigSetting systemParamSettings[] = {
 		.Label(I18NCat::SYSTEM, "Time Format").Choices(paramTimeFormatNames),
 	ConfigSetting("ParamDateFormat", SETTING(g_Config, iDateFormat), PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Date Format").Choices(paramDateFormatNames),
-	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZone), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZoneOffset), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZoneArea", SETTING(g_Config, sTimeZoneArea), "sweden", CfgFlag::PER_GAME),  // This doesn't really do much. Just cosmetic in the XMB
 	ConfigSetting("DayLightSavings", SETTING(g_Config, bDayLightSavings), (bool) PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Daylight savings"),
 	ConfigSetting("ButtonPreference", SETTING(g_Config, iButtonPreference), PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1495,6 +1498,11 @@ static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VshUmdAutoboot", SETTING(g_Config, bVshUmdAutoboot), false, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeType", SETTING(g_Config, iXmbThemeType), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeColorMode", SETTING(g_Config, iXmbThemeColorMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeWallpaperMode", SETTING(g_Config, iXmbThemeWallpaperMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeSystemColor", SETTING(g_Config, iXmbThemeSystemColor), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeCustomThemeMode", SETTING(g_Config, iXmbThemeCustomThemeMode), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Memory Stick size").Range(1, 32).Units("GB"),
 	ConfigSetting("FuseID", SETTING(g_Config, sFuseID), "", CfgFlag::DEFAULT),

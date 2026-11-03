@@ -923,7 +923,7 @@ static bool KirkOutputFits(const KIRK_CMD1_ECDSA_HEADER *header, u32 size) {
 }
 
 static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size) {
-	DEBUG_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 0)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -985,9 +985,8 @@ static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
-static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
-{
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size) {
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 1)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -1045,9 +1044,8 @@ static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
-static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
-{
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size) {
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 2)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -1165,9 +1163,8 @@ static int pspFinishType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size
 	return decryptSize;
 }
 
-static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
-	{
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed) {
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 5)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
 	if (!pti)
@@ -1206,7 +1203,7 @@ static int pspDecryptType3(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	{
 		return -1;
 	}
-	INFO_LOG(Log::Loader, "Decrypting tag %08X", (u32)*(u32_le *)&inbuf[0xD0]);
+	DEBUG_LOG(Log::Loader, "Decrypting tag %08X (type 3)", (u32)*(u32_le *)&inbuf[0xD0]);
 
 	auto xorbuf = expandSeed(pti->key, pti->code, secureId);
 	PRXType5 type5(inbuf);
@@ -1221,7 +1218,7 @@ static int pspDecryptType3(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 
 static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 6)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 
@@ -1297,7 +1294,7 @@ static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 // type 6 writes its tail there.
 static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	DEBUG_LOG(Log::Loader, "Decrypting tag %02X (type 9)", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
 	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
 

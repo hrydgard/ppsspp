@@ -1225,6 +1225,8 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
+   // Builds the pointer to setting lookup, which sceReg's registry mapping uses.
+   g_Config.Init();
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
 

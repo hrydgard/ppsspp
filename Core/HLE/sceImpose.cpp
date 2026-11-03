@@ -293,6 +293,10 @@ const HLEFunction sceImpose_driver[] = {
 	{0X01EF0650, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 	{0X2462EFE4, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 	{0XC10C3D39, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+
+	// Unknown, spams in older firmwares (3.80). Probably aliases for Get something.
+	{0x21d3ea22, 0,                                       "sceImpose_21D3EA22",            '?', ""},
+	{0xd4fda428, 0,                                       "sceImpose_d4fda428",            '?', ""},
 };
 
 void Register_sceImpose_driver() {

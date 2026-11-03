@@ -1337,7 +1337,37 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 			success = false;
 		}
 	}
+
+	// Also reset the category version.
+	g_Config.iSceRegCategoryVersion = 1;
 	return success;
+}
+
+int SceRegCategoryVersionForFirmware(std::string_view version) {
+	// The default of /REGISTRY/category_version in each firmware's registry schema, a table of
+	// { name, type, size, default } entries in vsh/module/vshmain.prx (common_util.prx before 2.00).
+	// When the stored version is below this, the shell writes the default of every key added since
+	// that version (from 1, that includes umd_autoboot). One above it means a corrupt registry.
+	static const struct {
+		int firmware;  // The first firmware with this version, as FirmwareVersionToInt() gives it.
+		int categoryVersion;
+	} versions[] = {
+		{ 100, 0x00 }, { 150, 0x01 }, { 200, 0x06 }, { 250, 0x13 }, { 260, 0x14 }, { 270, 0x1b },
+		{ 280, 0x20 }, { 300, 0x26 }, { 310, 0x2c }, { 330, 0x31 }, { 350, 0x35 }, { 360, 0x36 },
+		{ 370, 0x3b }, { 380, 0x3e }, { 395, 0x40 }, { 405, 0x43 }, { 420, 0x46 }, { 500, 0x4c },
+		{ 550, 0x58 }, { 570, 0x61 }, { 600, 0x63 }, { 620, 0x64 }, { 630, 0x66 },
+	};
+	const int fw = FirmwareVersionToInt(version);
+	if (fw < versions[0].firmware) {
+		return 1;
+	}
+	int categoryVersion = versions[0].categoryVersion;
+	for (const auto &v : versions) {
+		if (fw >= v.firmware) {
+			categoryVersion = v.categoryVersion;
+		}
+	}
+	return categoryVersion;
 }
 
 int FirmwareVersionToInt(std::string_view version) {
@@ -1670,6 +1700,11 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 
 	if (ok) {
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
+	}
+	if (ok) {
+		// Match the registry to the new firmware's schema, so its shell doesn't reset the
+		// settings (which sceReg maps to our config) to its defaults at first boot.
+		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionForFirmware(stats->firmwareVersion);
 	}
 
 	// Whether it worked or not, don't leave the staging copy behind.

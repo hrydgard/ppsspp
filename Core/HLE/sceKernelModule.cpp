@@ -850,7 +850,7 @@ void ImportVarSymbol(WriteVarSymbolState &state, const VarSymbolImport &var) {
 	}
 
 	// It hasn't been exported yet, but hopefully it will later.
-	INFO_LOG(Log::Loader, "Variable (%s,%08x) unresolved, storing for later resolving", var.moduleName, var.nid);
+	DEBUG_LOG(Log::Loader, "Variable (%s,%08x) unresolved, storing for later resolving", var.moduleName, var.nid);
 }
 
 void ExportVarSymbol(const VarSymbolExport &var) {
@@ -945,7 +945,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		// We used to report this, but I don't think it's very interesting anymore.
 		WARN_LOG(Log::Loader, "Unknown syscall from known HLE module '%s': 0x%08x (import for '%s')", func.moduleName, func.nid, importingModule);
 	} else {
-		INFO_LOG(Log::Loader, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
+		DEBUG_LOG(Log::Loader, "Function (%s,%08x) unresolved in '%s', storing for later resolving", func.moduleName, func.nid, importingModule);
 	}
 
 	if (shouldHLE || !reimporting) {

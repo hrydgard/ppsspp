@@ -23,7 +23,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 	if (buttonText == di->T("Delete") || buttonText == di->T("Move to trash")) {
 		*image = ImageID("I_TRASHCAN");
 	} else if (buttonText == di->T("Back")) {
-		*image = ImageID("I_NAVIGATE_BACK");
+		*image = ImageID("I_CHEVRON_LEFT");
 	} else if (buttonText == di->T("Add")) {
 		*image = ImageID("I_PLUS");
 	} else if (buttonText == di->T("OK")) {

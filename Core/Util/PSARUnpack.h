@@ -181,6 +181,9 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error);
 // makes the result safe to compare with: an unknown version is older than every real one.
 int FirmwareVersionToInt(std::string_view version);
 
+// The /REGISTRY/category_version the shell of this firmware expects. 1 for an unknown version.
+int SceRegCategoryVersionForFirmware(std::string_view version);
+
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);
