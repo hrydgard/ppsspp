@@ -885,7 +885,14 @@ ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
 
 ChoiceGroupList::ChoiceGroupList(LayoutParams *layoutParams)
 	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
-	SetPadding(Margins(12, 12, 8, 12));
+	SetPadding(Margins(12, 12, 12, 12));
+	SetSpacing(24.0f);
+}
+
+PopupChoiceGroupList::PopupChoiceGroupList(LayoutParams *layoutParams)
+	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
+	// Padding is already present in the popup itself. Just add a little more.
+	SetPadding(Margins(0));
 	SetSpacing(24.0f);
 }
 

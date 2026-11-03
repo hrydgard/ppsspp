@@ -276,6 +276,13 @@ public:
 	ChoiceGroupList(LayoutParams *layoutParams = nullptr);
 };
 
+// A vertical list that spaces out the ChoiceGroups in it and keeps them off its edges.
+// This one is adjusted for popups (i.e. smaller margins and spacing).
+class PopupChoiceGroupList : public LinearLayoutList {
+public:
+	PopupChoiceGroupList(LayoutParams *layoutParams = nullptr);
+};
+
 // GridLayout is a little different from the Android layout. This one has fixed size
 // rows and columns, filled row by row. Items are not allowed to deviate from the set sizes.
 struct GridLayoutSettings {

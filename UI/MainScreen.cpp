@@ -1037,29 +1037,28 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
-	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
-	items->SetSpacing(0.0f);
+	ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+
+	PopupChoiceGroupList *groupList = scroll->Add(new PopupChoiceGroupList());
+
+	ChoiceGroup *group = groupList->Add(new ChoiceGroup());
 
 	// Same order as GameBrowserViewMode.
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
-	items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
+	group->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Icon size")));
-	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
-	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
+	ChoiceGroup *iconSizeGroup = groupList->Add(new ChoiceGroup(sy->T("Icon size")));
+	iconSizeGroup->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
+	iconSizeGroup->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
 
-	items->Add(new ItemHeader(sy->T("Display Extra Info")));
-	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
-	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
+	ChoiceGroup *extraInfoGroup = groupList->Add(new ChoiceGroup(sy->T("Display Extra Info")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
 
 	if (g_Config.iMaxRecent > 0) {
-		items->Add(new ItemHeader(sy->T("Clear Recent")));
-		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
+		ChoiceGroup *recentGroup = groupList->Add(new ChoiceGroup(sy->T("Clear Recent")));
+		recentGroup->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
 	}
-
-	scroll->Add(items);
-	parent->Add(scroll);
 }
 
 void GridSettingsPopupScreen::GridPlusClick(UI::EventParams &e) {

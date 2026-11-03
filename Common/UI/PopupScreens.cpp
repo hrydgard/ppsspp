@@ -153,6 +153,7 @@ void PopupScreen::CreateViews() {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
 
+	// This places the actual popup in the center of the screen.
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	anchor->Overflow(false);
 	root_ = anchor;
@@ -184,16 +185,16 @@ void PopupScreen::CreateViews() {
 			(layoutBounds.w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
-	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
+	// Box is the actual popup shape.
+	box_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, anchorParams));
 
-	root_->Add(box_);
 	box_->SetBG(dc.GetTheme().popupStyle.background);
 	box_->SetHasDropShadow(hasDropShadow_);
 	box_->SetRadiusFactor(1.44f);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
 	box_->SetSpacing(0.0f);
-	box_->SetPadding(Margins(8));
+	box_->SetPadding(Margins(12));
 
 	if (!title_.empty()) {
 		View *title = new PopupHeader(title_);
@@ -214,21 +215,19 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->SetSpacing(0);
-		Margins buttonMargins(5, 5);
-
+		buttonRow->SetSpacing(8);
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
-			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 		} else {
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
-			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		}
 
@@ -256,12 +255,8 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK) {
-		if (callback_)
-			callback_(true);
-	} else {
-		if (callback_)
-			callback_(false);
+	if (callback_) {
+		callback_(result == DR_OK);
 	}
 }
 

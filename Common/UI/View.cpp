@@ -714,22 +714,21 @@ void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 }
 
 void PopupHeader::Draw(UIContext &dc) {
-	const float paddingHorizontal = 12;
-	const float availableWidth = bounds_.w - paddingHorizontal * 2;
+	const float availableWidth = bounds_.w;
 
 	float tw, th;
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontStyle(dc.GetTheme().uiFontBig);
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
 
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
-	float tx = paddingHorizontal;
+	float tx = 0;
 	if (availableWidth < tw) {
 		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
 		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
 		Bounds tb = bounds_;
-		tb.x = bounds_.x + paddingHorizontal;
-		tb.w = bounds_.w - paddingHorizontal * 2;
+		tb.x = bounds_.x;
+		tb.w = bounds_.w;
 		dc.PushScissor(tb);
 	}
 
