@@ -566,6 +566,14 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double statsStart = -1.0;
 	int statsLastFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
+	// Hold the game until a --state has been applied. Otherwise it keeps booting while the state is
+	// read, which on a slow host can reach a different point (even a crash) before the state lands.
+	while (g_stateLoadPending && time_now_d() < wallDeadline) {
+		SaveState::Process();
+		if (g_stateLoadPending) {
+			sleep_ms(1, "state-load");
+		}
+	}
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 
 	// The XMB starting a game, or a game going back to it: boot that, the way the app does, and keep
