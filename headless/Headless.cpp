@@ -1455,14 +1455,6 @@ int main(int argc, const char* argv[]) {
 		coreParameter.nandRoot = nand;
 	}
 
-	// Headless doesn't keep a config, so set the registry version that installing this firmware
-	// in the app would have stored.
-	{
-		InstalledFirmwareInfo firmwareInfo;
-		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmwareInfo, false);
-		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionForFirmware(firmwareInfo.version);
-	}
-
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
 	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
 	if (cmdLineOptions.reDecrypt.has_value()) {

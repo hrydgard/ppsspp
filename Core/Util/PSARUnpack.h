@@ -184,6 +184,9 @@ int FirmwareVersionToInt(std::string_view version);
 // The /REGISTRY/category_version the shell of this firmware expects. 1 for an unknown version.
 int SceRegCategoryVersionForFirmware(std::string_view version);
 
+// The category_version to store when installing a firmware whose shell expects schemaVersion.
+int SceRegCategoryVersionAfterInstall(int storedVersion, int schemaVersion);
+
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);

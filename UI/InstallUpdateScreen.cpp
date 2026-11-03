@@ -87,7 +87,15 @@ void InstallUpdateScreen::CreateContentViews(UI::ViewGroup *parent) {
 			newVersion.clear();
 		}
 
-		if (newVersion != installed_.version) {
+		const int installedNumber = FirmwareVersionToInt(installed_.version);
+		const int newNumber = FirmwareVersionToInt(newVersion);
+		if (newNumber != 0 && installedNumber != 0 && newNumber < installedNumber) {
+			// Installing resets the registry version, so the XMB rewrites its settings at its next start.
+			container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
+				ApplySafeSubstitutions(
+					iz->T("DowngradeFirmware", "Firmware %1 is installed. Going back to the older %2 resets the XMB's settings, like the theme and colors, the next time it starts."),
+					installed_.version, newVersion)));
+		} else if (newVersion != installed_.version) {
 			const std::string_view unknown = "N/A";
 			container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
 				ApplySafeSubstitutions(

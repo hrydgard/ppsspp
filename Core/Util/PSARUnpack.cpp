@@ -1370,6 +1370,20 @@ int SceRegCategoryVersionForFirmware(std::string_view version) {
 	return categoryVersion;
 }
 
+int SceRegCategoryVersionAfterInstall(int storedVersion, int schemaVersion) {
+	// A shell upgrades the registry itself at its first boot: it writes the default of every key added
+	// since the stored version and stores its own (seen booting 3.71 and 6.61 on older versions). So an
+	// upgrade leaves the stored version alone. A PSP can't be downgraded, and an older shell takes a newer
+	// version for a corrupt registry, so a downgrade goes back to 1. Its first boot then rewrites every
+	// key added since 1.50, which includes the theme, colour, wallpaper and UMD autoboot settings; the
+	// language, nickname, button assignment, date and time keys are older and stay. Keeping a newer
+	// shell's values across a downgrade and back broke the theme settings and then 6.61's boot (#22909).
+	if (storedVersion > schemaVersion) {
+		return 1;
+	}
+	return storedVersion;
+}
+
 int FirmwareVersionToInt(std::string_view version) {
 	const size_t dot = version.find('.');
 	if (dot == std::string_view::npos || dot == 0 || dot + 1 >= version.size()) {
@@ -1702,9 +1716,7 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
 	}
 	if (ok) {
-		// Match the registry to the new firmware's schema, so its shell doesn't reset the
-		// settings (which sceReg maps to our config) to its defaults at first boot.
-		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionForFirmware(stats->firmwareVersion);
+		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionAfterInstall(g_Config.iSceRegCategoryVersion, SceRegCategoryVersionForFirmware(stats->firmwareVersion));
 	}
 
 	// Whether it worked or not, don't leave the staging copy behind.
