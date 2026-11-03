@@ -133,6 +133,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
+	// See PVR_UNUSED_DYNAMIC_UBO_OVERRUN: every vertex shader reads the lights UBO, which is bound as dynamic either way.
+	const bool readUnusedLights = compat.shaderLanguage == GLSL_VULKAN && !enableLighting && !doShadeMapping && bugs.Has(Draw::Bugs::PVR_UNUSED_DYNAMIC_UBO_OVERRUN);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
 	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && enableLighting;  // checking lighting here for the shader test's benefit, in reality if ubershader is set, lighting is set.
@@ -177,7 +179,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "\n");
 
 		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
-		if (enableLighting || doShadeMapping)
+		if (enableLighting || doShadeMapping || readUnusedLights)
 			WRITE(p, "layout (std140, set = 0, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 
 		if (useHWTransform)
@@ -1005,6 +1007,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.y *= -1.0;\n");
 	}
 
+	if (readUnusedLights) {
+		// Declaring the block isn't enough, it has to be read. The ambient alpha is never below zero.
+		WRITE(p, "  if (u_ambient.w < -1.0) outPos.x += 1.0;\n");
+	}
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
