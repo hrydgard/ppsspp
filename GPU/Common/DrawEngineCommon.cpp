@@ -402,11 +402,16 @@ static inline Vec4F32 DivideExact(Vec4F32 a, Vec4F32 b) {
 // NOTE: This doesn't handle through-mode (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt, u32 idxFmt>
 static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
-	// Four vertices at a time, one per lane, with the matrix splatted. Past the end, the last vertex fills the lanes,
-	// which changes nothing.
-	Vec4F32 m[16];
-	for (int i = 0; i < 16; i++)
-		m[i] = Vec4F32::Splat(cullMatrix[i]);
+	// Four vertices at a time, one per lane. Past the end, the last vertex fills the lanes, which changes nothing.
+	// The matrix stays in four registers, multiplied by lane. Splatted, it took sixteen, and was reloaded from the
+	// stack every iteration.
+	const Vec4F32 col0 = Vec4F32::Load(cullMatrix);
+	const Vec4F32 col1 = Vec4F32::Load(cullMatrix + 4);
+	const Vec4F32 col2 = Vec4F32::Load(cullMatrix + 8);
+	const Vec4F32 tx = Vec4F32::Splat(cullMatrix[12]);
+	const Vec4F32 ty = Vec4F32::Splat(cullMatrix[13]);
+	const Vec4F32 tz = Vec4F32::Splat(cullMatrix[14]);
+	const Vec4F32 tw = Vec4F32::Splat(cullMatrix[15]);
 
 	// For each side of the clipping cube, whether any vertex is inside it, and whether any is outside the Z sides.
 	Vec4S32 insideLeft = Vec4S32::Zero();
@@ -434,10 +439,10 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		Vec4F32::Transpose(objX, objY, objZ, unused);
 
 		// The same operations in the same order as AsVec3ByMatrix44(), so the same rounding.
-		const Vec4F32 x = (m[0] * objX + m[4] * objY) + (m[8] * objZ + m[12]);
-		const Vec4F32 y = (m[1] * objX + m[5] * objY) + (m[9] * objZ + m[13]);
-		const Vec4F32 z = (m[2] * objX + m[6] * objY) + (m[10] * objZ + m[14]);
-		const Vec4F32 w = (m[3] * objX + m[7] * objY) + (m[11] * objZ + m[15]);
+		const Vec4F32 x = (objX.MulLane<0>(col0) + objY.MulLane<0>(col1)) + (objZ.MulLane<0>(col2) + tx);
+		const Vec4F32 y = (objX.MulLane<1>(col0) + objY.MulLane<1>(col1)) + (objZ.MulLane<1>(col2) + ty);
+		const Vec4F32 z = (objX.MulLane<2>(col0) + objY.MulLane<2>(col1)) + (objZ.MulLane<2>(col2) + tz);
+		const Vec4F32 w = (objX.MulLane<3>(col0) + objY.MulLane<3>(col1)) + (objZ.MulLane<3>(col2) + tw);
 
 		insideLeft |= (x + w).CompareGe(zero);
 		insideRight |= (w - x).CompareGe(zero);
