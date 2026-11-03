@@ -189,7 +189,7 @@ static void OnPSPModelChanged(SettingsPageHost *host, int previous) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	const std::string message = ApplySafeSubstitutions(
-		sy->T("FirmwareModelChange", "Firmware %1 is installed for a different PSP model. With this one, the XMB may not work until you install the firmware again."),
+		sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model than the selected one, so the XMB may not work until you install it again."),
 		firmware.version);
 	host->PageScreenManager()->push(new UI::MessagePopupScreen(sy->T("PSP Model"), message, di->T("OK"), di->T("Cancel"), [host, previous](bool yes) {
 		if (!yes) {

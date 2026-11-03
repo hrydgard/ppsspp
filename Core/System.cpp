@@ -885,7 +885,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			if (!InstalledFirmwareFitsModel(firmware, g_Config.iPSPModel)) {
 				auto sy = GetI18NCategory(I18NCat::SYSTEM);
 				g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
-					sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model, so the XMB may not work. Install it again for this model."),
+					sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model than the selected one, so the XMB may not work until you install it again."),
 					firmware.version), 10.0f, "firmware_model");
 			}
 		}
