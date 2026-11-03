@@ -1503,6 +1503,35 @@ namespace MIPSComp {
 		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
+	void IRFrontend::Comp_Vf2h(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		// The prefixes act oddly here (the S swizzle applies to all four lanes), so leave those to the interpreter.
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
+
+		// Vector pack float to half
+		// d[N] = half(s[N*2]) | half(s[N*2+1]) << 16
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair && sz != V_Quad) {
+			DISABLE;
+		}
+		VectorSize outsize = sz == V_Pair ? V_Single : V_Pair;
+		int nOut = GetNumVectorElements(outsize);
+
+		u8 sregs[4], dregs[2];
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(dregs, outsize, _VD);
+
+		// Through temps, since d may overlap s.
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FFloatToHalf2, IRVTEMP_0 + i, sregs[i * 2], sregs[i * 2 + 1]);
+		}
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FMov, dregs[i], IRVTEMP_0 + i);
+		}
+	}
+
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixD & 0xFF) != 0) {
@@ -2741,6 +2770,60 @@ namespace MIPSComp {
 		}
 
 		ApplyPrefixD(dregs, outsize, _VD);
+	}
+
+	void IRFrontend::Comp_Vsrt(MIPSOpcode op) {
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		// T is S re-swizzled, with the T prefix rewritten around that, so S and T prefixes go to the interpreter.
+		// The D prefix applies normally (Colin McRae masks off half the lanes).
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || js.HasTPrefix() || GetVecSize(op) != V_Quad) {
+			DISABLE;
+		}
+
+		// Sorts pairs of lanes with vmin/vmax, which keep the second operand on a tie, in the
+		// same operand order as Int_Vsrt1-4, so the same lane wins a tie.
+		// vsrt1: (x, y) (z, w) ascending.  vsrt2: (x, w) (y, z) ascending.
+		// vsrt3: (x, y) (z, w) descending. vsrt4: (x, w) (y, z) descending.
+		u8 s[4], dregs[4];
+		GetVectorRegs(s, V_Quad, _VS);
+		GetVectorRegsPrefixD(dregs, V_Quad, _VD);
+
+		u8 tmp[4];
+		for (int i = 0; i < 4; i++) {
+			tmp[i] = IRVTEMP_0 + i;
+		}
+		switch ((op >> 16) & 0x1F) {
+		case 0:  // vsrt1, t = yxwz
+			ir.Write(IROp::FMin, tmp[0], s[1], s[0]);
+			ir.Write(IROp::FMax, tmp[1], s[1], s[0]);
+			ir.Write(IROp::FMin, tmp[2], s[3], s[2]);
+			ir.Write(IROp::FMax, tmp[3], s[3], s[2]);
+			break;
+		case 1:  // vsrt2, t = wzyx
+			ir.Write(IROp::FMin, tmp[0], s[3], s[0]);
+			ir.Write(IROp::FMin, tmp[1], s[2], s[1]);
+			ir.Write(IROp::FMax, tmp[2], s[2], s[1]);
+			ir.Write(IROp::FMax, tmp[3], s[3], s[0]);
+			break;
+		case 8:  // vsrt3, t = yxwz
+			ir.Write(IROp::FMax, tmp[0], s[0], s[1]);
+			ir.Write(IROp::FMin, tmp[1], s[0], s[1]);
+			ir.Write(IROp::FMax, tmp[2], s[2], s[3]);
+			ir.Write(IROp::FMin, tmp[3], s[2], s[3]);
+			break;
+		case 9:  // vsrt4, t = wzyx
+			ir.Write(IROp::FMax, tmp[0], s[0], s[3]);
+			ir.Write(IROp::FMax, tmp[1], s[1], s[2]);
+			ir.Write(IROp::FMin, tmp[2], s[1], s[2]);
+			ir.Write(IROp::FMin, tmp[3], s[0], s[3]);
+			break;
+		default:
+			DISABLE;
+		}
+		for (int i = 0; i < 4; i++) {
+			ir.Write(IROp::FMov, dregs[i], tmp[i]);
+		}
+		ApplyPrefixD(dregs, V_Quad, _VD);
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
