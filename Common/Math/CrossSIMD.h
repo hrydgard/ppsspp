@@ -379,6 +379,9 @@ struct Vec4F32 {
 	float operator[](size_t index) const { return ((float *)&v)[index]; }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
+	// Multiplies by one lane of m.
+	template<int lane>
+	Vec4F32 MulLane(Vec4F32 m) const { return Vec4F32{ _mm_mul_ps(v, _mm_shuffle_ps(m.v, m.v, _MM_SHUFFLE(lane, lane, lane, lane))) }; }
 	Vec4F32 RecipApprox() const { return Vec4F32{ _mm_rcp_ps(v) }; }
 	Vec4F32 Recip() const { return Vec4F32{ _mm_div_ps(_mm_set1_ps(1.0f), v) }; }
 	Vec4F32 RecipSqrt() const { return Vec4F32{ _mm_div_ps(_mm_set1_ps(1.0f), _mm_sqrt_ps(v)) }; }
@@ -837,6 +840,15 @@ struct Vec4F32 {
 	void operator *=(float f) { v = vmulq_f32(v, vdupq_n_f32(f)); }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ vmulq_f32(v, vdupq_n_f32(f)) }; }
+	// Multiplies by one lane of m.
+	template<int lane>
+	Vec4F32 MulLane(Vec4F32 m) const {
+#if PPSSPP_ARCH(ARM64_NEON)
+		return Vec4F32{ vmulq_laneq_f32(v, m.v, lane) };
+#else
+		return Vec4F32{ vmulq_lane_f32(v, lane < 2 ? vget_low_f32(m.v) : vget_high_f32(m.v), lane & 1) };
+#endif
+	}
 
 	Vec4F32 Recip() const {
 		float32x4_t recip = vrecpeq_f32(v);
@@ -1428,6 +1440,9 @@ struct Vec4F32 {
 	void operator *=(float f) { v = (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)); }
 
 	Vec4F32 Mul(float f) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, __lsx_vreplfr2vr_s(f)) }; }
+	// Multiplies by one lane of m.
+	template<int lane>
+	Vec4F32 MulLane(Vec4F32 m) const { return Vec4F32{ (__m128)__lsx_vfmul_s(v, (__m128)__lsx_vreplvei_w((__m128i)m.v, lane)) }; }
 
 	Vec4F32 Recip() const {
 		__m128 recip = (__m128)__lsx_vfrecip_s(v);
@@ -2064,6 +2079,11 @@ struct Vec4F32 {
 
 	Vec4F32 Mul(float f) const {
 		return Vec4F32{ { v[0] * f, v[1] * f, v[2] * f, v[3] * f } };
+	}
+	// Multiplies by one lane of m.
+	template<int lane>
+	Vec4F32 MulLane(Vec4F32 m) const {
+		return Mul(m.v[lane]);
 	}
 
 	Vec4F32 Recip() const {
