@@ -128,6 +128,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "GPU/Common/DepthSwizzle.h"
@@ -393,6 +394,22 @@ bool TestInetPton() {
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::ffff:1.2.3.4", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "", ip6), 0);
+	return true;
+}
+
+bool TestFirmwareVersions() {
+	EXPECT_EQ_INT(FirmwareVersionToInt("6.61"), 661);
+	EXPECT_EQ_INT(FirmwareVersionToInt("5.5"), 550);
+	EXPECT_EQ_INT(FirmwareVersionToInt("junk"), 0);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("1.50"), 0x01);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("2.82"), 0x20);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("3.71"), 0x3b);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("6.61"), 0x66);
+	// An upgrade leaves the version for the new shell to migrate from, a downgrade goes back to 1.
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(1, 0x3b), 1);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x20, 0x3b), 0x20);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x3b, 0x3b), 0x3b);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x3b, 0x20), 1);
 	return true;
 }
 
@@ -4197,6 +4214,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFPUDot),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
+	TEST_ITEM(FirmwareVersions),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(MemBlockInfoRangeWrap),

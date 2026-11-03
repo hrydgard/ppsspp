@@ -199,9 +199,12 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	return hleLogInfo(Log::sceKernel, addr);
 }
 
+// 0 for a PSP-1000, 1 for a PSP-2000, the same numbering as PSP_MODEL_*. The shell goes by this to
+// decide what the model has, and a firmware installed for a PSP-1000 only has that model's files:
+// answering Slim made 3.71 offer the Slim's extra theme colors with no images (13-27.bmp) and 6.61
+// stop at its red error screen (#22909).
 static int sceKernelGetModel() {
-	constexpr u32 model = 2;  // 2 = original slim.
-	return hleLogWarning(Log::sceKernel, model - 1);
+	return hleLogDebug(Log::sceKernel, Memory::g_PSPModel);
 }
 
 // The VSH's sceVshBridge_Driver hands the kernel the PARAM.SFO details of the game it's about to
