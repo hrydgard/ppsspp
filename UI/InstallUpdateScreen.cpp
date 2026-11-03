@@ -95,6 +95,12 @@ void InstallUpdateScreen::CreateContentViews(UI::ViewGroup *parent) {
 				ApplySafeSubstitutions(
 					iz->T("DowngradeFirmware", "Firmware %1 is installed. Going back to the older %2 resets the XMB's settings, like the theme and colors, the next time it starts."),
 					installed_.version, newVersion)));
+		} else if (newNumber != 0 && installedNumber != 0 && newNumber > installedNumber) {
+			// Nothing is lost, so not a warning.
+			container->Add(new NoticeView(NoticeLevel::INFO, di->T("Confirm Overwrite"),
+				ApplySafeSubstitutions(
+					iz->T("UpgradeFirmware", "Firmware %1 is installed. Upgrading to %2 replaces it and keeps the XMB's settings."),
+					installed_.version, newVersion)));
 		} else if (newVersion != installed_.version) {
 			const std::string_view unknown = "N/A";
 			container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
