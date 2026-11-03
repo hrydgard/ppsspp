@@ -127,6 +127,11 @@ public:
 
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL) {
+			// The callback may read the depth buffer on the CPU (light flares in Syphon Filter, Wipeout Pure
+			// and Resistance: Retribution), and on hardware the drawing is done by now.
+			if (!PSP_CoreParameter().compat.flags().DepthRasterNoCallbackWait) {
+				gpu->WaitForSubmittedDepth();
+			}
 			DEBUG_LOG(Log::CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
 			u32 data = dl->subIntrToken;

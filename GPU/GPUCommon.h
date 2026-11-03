@@ -102,6 +102,7 @@ public:
 	virtual void EndHostFrame();
 
 	void InterruptStart(int listid);
+	void WaitForSubmittedDepth();
 	void InterruptEnd(int listid);
 	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads);
 	void EnableInterrupts(bool enable) {
@@ -341,7 +342,6 @@ public:
 	void NotifyFlush();
 
 protected:
-	DLResult RunDLQueue();
 	// While debugging is active, these may block.
 	void NotifyDisplay(u32 framebuf, u32 stride, int format);
 
@@ -403,7 +403,6 @@ protected:
 	TextureCacheCommon *textureCache_ = nullptr;
 
 	bool flushOnParams_ = true;
-	bool listEndedSinceDepthWait_ = false;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_ = nullptr;
