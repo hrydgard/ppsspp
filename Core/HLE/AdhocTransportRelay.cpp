@@ -376,10 +376,14 @@ static int fillRelayPtpQueue(AdhocSocket *sock) {
 static size_t relayPtpReadable(const RelayPtpQueue &queue) {
 	u64 now = CoreTiming::GetGlobalTimeUsScaled();
 	size_t bytes = 0;
-	for (size_t i = 0; i < queue.blocks.size() && queue.blocks[i].readableAt <= now; ++i) {
-		bytes += queue.blocks[i].data.size() - (i == 0 ? queue.offset : 0);
+	for (const RelayPtpBlock &block : queue.blocks) {
+		if (block.readableAt > now) {
+			break;
+		}
+		bytes += block.data.size();
 	}
-	return bytes;
+	// Less what's already been read from the first one.
+	return bytes == 0 ? 0 : bytes - queue.offset;
 }
 
 static int ptp_recv_postoffice(int idx, void *data, int *len) {
