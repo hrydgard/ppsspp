@@ -169,7 +169,11 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	if (!dir) {
 		INFO_LOG(Log::TexReplacement, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
-		dir = new DirectoryReader(basePath_, true);
+		// Android's shared storage, which is all a content URI can point at, already ignores case. Indexing a
+		// big pack there for nothing lists every directory through the content resolver, which can take long
+		// enough that loads and shutdown, which wait for it, hit an ANR.
+		const bool ignoreCase = basePath_.Type() != PathType::CONTENT_URI;
+		dir = new DirectoryReader(basePath_, ignoreCase);
 	} else {
 		if (!replaceEnabled_ && saveEnabled_) {
 			WARN_LOG(Log::TexReplacement, "Found zip file even though only saving is enabled! This is weird.");
