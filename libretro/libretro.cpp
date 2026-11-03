@@ -521,6 +521,8 @@ static void check_dynamic_variables(CoreParameter &coreParam) {
    }
 }
 
+extern int DefaultDepthRaster();
+
 static void check_variables(CoreParameter &coreParam)
 {
    check_dynamic_variables(coreParam);
@@ -814,6 +816,21 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInflightFrames = 1;
       else if (!strcmp(var.value, "Up to 1"))
          g_Config.iInflightFrames = 2;
+   }
+
+   var.key = "ppsspp_depth_raster";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "auto"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::DEFAULT;
+      else if (!strcmp(var.value, "low"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::LOW_QUALITY;
+      else if (!strcmp(var.value, "off"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::OFF;
+      else if (!strcmp(var.value, "always_on"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::FORCE_ON;
+      else
+         g_Config.iDepthRasterMode = DefaultDepthRaster();
    }
 
    var.key = "ppsspp_skip_buffer_effects";
