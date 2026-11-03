@@ -6874,3 +6874,19 @@ extern PFNGLCOPYIMAGESUBDATAOES __glCopyImageSubDataOES;
 #define glCheckFramebufferStatusEXT glCheckFramebufferStatus
 #define glBindFramebufferEXT glBindFramebuffer
 #define glDeleteFramebuffersEXT glDeleteFramebuffers
+
+// glClipControl (GL 4.5, ARB_clip_control), which GLQueueRunner sets the depth
+// range with: libretro-common's glsym map has no entry for it, so
+// LibretroGLContext::CreateDrawContext resolves it itself
+#ifndef GL_LOWER_LEFT
+#define GL_LOWER_LEFT 0x8CA1
+#endif
+#ifndef GL_ZERO_TO_ONE
+#define GL_ZERO_TO_ONE 0x935F
+#endif
+typedef void (APIENTRYP PPSSPP_PFNGLCLIPCONTROLPROC)(GLenum origin, GLenum depth);
+extern PPSSPP_PFNGLCLIPCONTROLPROC ppsspp_glClipControl;
+#ifdef glClipControl
+#undef glClipControl
+#endif
+#define glClipControl ppsspp_glClipControl

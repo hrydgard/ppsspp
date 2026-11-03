@@ -8,6 +8,8 @@
 
 #if PPSSPP_PLATFORM(SWITCH)
 #include <glsym/rglgen.h>
+// not in libretro-common's glsym map (GLSwitch.h)
+PPSSPP_PFNGLCLIPCONTROLPROC ppsspp_glClipControl;
 #endif
 #include "libretro/LibretroGLContext.h"
 #include "libretro/LibretroVR.h"
@@ -465,6 +467,7 @@ void LibretroGLContext::CreateDrawContext() {
     // No glew here - entry points come from eglGetProcAddress through glsym.
     if (!glewInitDone) {
         rglgen_resolve_symbols(&eglGetProcAddress);
+        ppsspp_glClipControl = (PPSSPP_PFNGLCLIPCONTROLPROC)eglGetProcAddress("glClipControl");
         glewInitDone = true;
     }
 #elif !defined(USING_GLES2)
