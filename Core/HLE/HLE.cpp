@@ -286,6 +286,20 @@ DisableHLEFlags GetEffectiveDisableHLEFlags() {
 	return GetDisableHLEFlags();
 }
 
+bool HLEFallBackToHLE(DisableHLEFlags flag) {
+	if (!(GetDisableHLEFlags() & flag)) {
+		return false;
+	}
+	// The latched flags are what a savestate records, so a state made after this restores the HLE too.
+	g_effectiveDisableHLE &= ~flag;
+	for (size_t i = 0; i < ARRAY_SIZE(g_moduleMeta); i++) {
+		if (g_moduleMeta[i].disableFlag == flag && g_moduleMeta[i].importName) {
+			KernelReimportLibrary(g_moduleMeta[i].importName);
+		}
+	}
+	return true;
+}
+
 // Note: name is the modname from prx, not the export module name!
 // See SetForceRealModuleLoads.
 static bool g_forceRealModuleLoads = false;
