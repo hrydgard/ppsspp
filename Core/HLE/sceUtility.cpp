@@ -106,7 +106,8 @@ struct FirmwareModule {
 	const char *moduleName;  // what the module calls itself once loaded
 };
 
-static void LoadFirmwareModules(int utilityModule, const char *library, const FirmwareModule *modules, size_t count) {
+// Returns false if the library ended up on our HLE after all, for want of the firmware's module.
+static bool LoadFirmwareModules(int utilityModule, const char *library, DisableHLEFlags flag, const FirmwareModule *modules, size_t count) {
 	for (size_t i = 0; i < count; i++) {
 		if (KernelModuleIsLoaded(modules[i].moduleName)) {
 			DEBUG_LOG(Log::sceUtility, "%s is already loaded - not loading %s on top of it",
@@ -114,10 +115,18 @@ static void LoadFirmwareModules(int utilityModule, const char *library, const Fi
 			continue;
 		}
 		if (!pspFileSystem.GetFileInfo(modules[i].path).exists) {
-			// Nothing to fall back to: the game's imports were resolved against the real module
-			// when it loaded, so putting our HLE back now is not an option.
-			ERROR_LOG(Log::sceUtility, "%s HLE is disabled, but %s isn't in the firmware and the "
-				"game didn't bring its own - it will get unresolved imports", library, modules[i].path);
+			// The game's imports were left waiting for the real module when it loaded, so they can
+			// still go to our HLE instead. Without that, every call into the library is a missing
+			// stub: MX vs. ATV Untamed, which carries an mpeg.prx it never loads (so boot picked the
+			// real sceMpeg), asks for this one and crashed when the calls returned nothing.
+			HLEFallBackToHLE(flag);
+			INFO_LOG(Log::sceUtility, "%s isn't in the firmware and the game didn't bring its own - using the HLE %s",
+				modules[i].path, library);
+			if (AlwaysDisableHLEFlags() & flag) {
+				// On by default, so not something the user chose: like the boot-time check, nothing on
+				// screen for landing on the HLE.
+				return false;
+			}
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			// Keyed per library, so a game that asks for the module again replaces the message
 			// rather than stacking another copy of it, and two missing libraries still both show.
@@ -126,22 +135,23 @@ static void LoadFirmwareModules(int utilityModule, const char *library, const Fi
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
 				sy->T("%1 needs a firmware installed to run without HLE. Install one, or re-enable HLE for it."),
 				library), 6.0f, osdId);
-			return;
+			return false;
 		}
 		std::string error;
 		SceUID id = KernelLoadModule(modules[i].path, &error, false);
 		if (id < 0) {
 			ERROR_LOG(Log::sceUtility, "Couldn't load %s: %s", modules[i].path, error.c_str());
-			return;
+			return true;
 		}
 		const int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
 		if (result < 0) {
 			ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", modules[i].path, result);
-			return;
+			return true;
 		}
 		swappedFirmwareModules[utilityModule].push_back(id);
 		INFO_LOG(Log::sceUtility, "Loaded the real %s", modules[i].path);
 	}
+	return true;
 }
 
 // The other half: give the memory back when the game says it is done with the library. Reverse
@@ -175,7 +185,7 @@ static void NotifyLoadStatusMpegBase(int state, u32 loadAddr, u32 totalSize) {
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/mpeg.prx", "sceMpeg_library" },
 	};
-	LoadFirmwareModules(0x303, "sceMpeg", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x303, "sceMpeg", DisableHLEFlags::sceMpeg, modules, ARRAY_SIZE(modules));
 }
 
 // libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
@@ -190,7 +200,7 @@ static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/libmp3.prx", "sceMp3_Library" },
 	};
-	LoadFirmwareModules(0x304, "sceMp3", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x304, "sceMp3", DisableHLEFlags::sceMp3, modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
@@ -228,7 +238,7 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 		{ "flash0:/kd/mp4msv.prx", "mp4msv_module" },
 		{ "flash0:/kd/libmp4.prx", "sceMp4_library" },
 	};
-	LoadFirmwareModules(0x308, "sceMp4", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x308, "sceMp4", DisableHLEFlags::sceMp4, modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
@@ -248,8 +258,10 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 			static const FirmwareModule modules[] = {
 				{ "flash0:/kd/libatrac3plus.prx", "sceATRAC3plus_Library" },
 			};
-			LoadFirmwareModules(0x302, "sceAtrac", modules, ARRAY_SIZE(modules));
-			return;
+			if (LoadFirmwareModules(0x302, "sceAtrac", DisableHLEFlags::sceAtrac, modules, ARRAY_SIZE(modules))) {
+				return;
+			}
+			// Back on our HLE, which needs its memory like any other load.
 		}
 
 		// We try to imitate a recent version of the prx.

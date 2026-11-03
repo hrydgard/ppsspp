@@ -2317,6 +2317,21 @@ bool KernelUnloadModuleByID(SceUID moduleId) {
 	return true;
 }
 
+void KernelReimportLibrary(std::string_view importName) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module) {
+			continue;
+		}
+		for (const FuncSymbolImport &func : module->importedFuncs) {
+			if (equals(importName, func.moduleName)) {
+				ImportFuncSymbol(func, true, module->nm.name);
+			}
+		}
+	}
+}
+
 bool KernelModuleIsLoaded(std::string_view name) {
 	u32 error;
 	for (SceUID moduleId : loadedModules) {

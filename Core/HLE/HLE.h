@@ -136,6 +136,9 @@ DisableHLEFlags AlwaysDisableHLEFlags();
 // The flags actually in effect for this boot - latched at the first module load and restored from
 // savestates, so it can differ from what g_Config says if the setting changed since.
 DisableHLEFlags GetEffectiveDisableHLEFlags();
+// For when the real module for a library turns out not to be available after all: runs the library on
+// our HLE from now on, and resolves the imports already waiting for it. False if it already was.
+bool HLEFallBackToHLE(DisableHLEFlags flag);
 
 // Run the current thread's callbacks after the syscall finishes.
 void hleCheckCurrentCallbacks();
