@@ -942,18 +942,6 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
-	const DLResult result = RunDLQueue();
-	// Games read the depth buffer back on the CPU once a list has ended, without waiting for the GE
-	// (Syphon Filter's light flares). So the depth rasterizer has to be done by then. Not at a stall,
-	// though, which some games hit hundreds of times a frame.
-	if (listEndedSinceDepthWait_) {
-		listEndedSinceDepthWait_ = false;
-		drawEngineCommon_->WaitForSubmittedDepth();
-	}
-	return result;
-}
-
-DLResult GPUCommon::RunDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
@@ -1259,7 +1247,6 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	if (flushOnParams_) {
 		drawEngineCommon_->SubmitQueuedDepth();
-		listEndedSinceDepthWait_ = true;
 		Flush();
 	}
 
@@ -2108,6 +2095,10 @@ void GPUCommon::DoState(PointerWrap &p) {
 		}
 		recorder_.RestartAfterLoad();
 	}
+}
+
+void GPUCommon::WaitForSubmittedDepth() {
+	drawEngineCommon_->WaitForSubmittedDepth();
 }
 
 void GPUCommon::InterruptStart(int listid) {
