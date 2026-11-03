@@ -195,6 +195,8 @@ protected:
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
+	// For BindFramebufferAsColorTexture, when the draw reads the target for shader blending.
+	int ShaderReadBindFlags() const;
 
 	void InitDepthRaster();
 	void ShutdownDepthRaster();

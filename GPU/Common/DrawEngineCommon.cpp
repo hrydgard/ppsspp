@@ -30,6 +30,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/GPUStateSIMDUtil.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DepthRaster.h"
@@ -773,6 +774,13 @@ void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 		*fboTexState = FBO_TEX_COPY_BIND_TEX;
 	}
 	gstate_c.Dirty(DIRTY_SHADERBLEND);
+}
+
+int DrawEngineCommon::ShaderReadBindFlags() const {
+	// The mask forces blending and the logic op into the shader too, so check what the GE asks for.
+	const bool maskOnly = pipelineState_.maskState.applyFramebufferRead && !gstate.isAlphaBlendEnabled() &&
+		!(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY);
+	return BINDFBCOLOR_MAY_COPY | (maskOnly ? BINDFBCOLOR_MASK_READ : 0) | BINDFBCOLOR_UNCACHED;
 }
 
 int DrawEngineCommon::ComputeNumVertsToDecode() const {

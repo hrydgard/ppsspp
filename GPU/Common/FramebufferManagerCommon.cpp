@@ -119,6 +119,7 @@ void FramebufferManagerCommon::BeginFrame(const DisplayLayoutConfig &config) {
 	DecimateFBOs();
 	presentation_->BeginFrame(config);
 	currentRenderVfb_ = nullptr;
+	DiscardFramebufferCopy();
 
 	// Hack.
 	displayLayoutConfigCopy_ = config;
@@ -1420,6 +1421,11 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::Aspect::COLOR_BIT, layer);
 			return true;
 		}
+		const bool maskRead = (flags & BINDFBCOLOR_MASK_READ) != 0;
+		if (maskRead && maskCopy_ && maskCopyVfb_ == framebuffer && maskCopyMask_ == gstate.getColorMask()) {
+			draw_->BindFramebufferAsTexture(maskCopy_, stage, Draw::Aspect::COLOR_BIT, layer);
+			return true;
+		}
 
 		// There's a special case we can handle here, where the game is texturing from the same pixels being read, in order to
 		// implement a DST*DST blending function, which the PSP can't do. However on the PC we can absolutely do this!
@@ -1436,7 +1442,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			return true;
 		}
 
-		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
+		Draw::Framebuffer *renderCopy = GetTempFBO(maskRead ? TempFBO::MASK_COPY : TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
@@ -1450,6 +1456,11 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			// TODO: Improve on this.
 			if (!partial && (flags & BINDFBCOLOR_UNCACHED) == 0) {
 				currentFramebufferCopy_ = renderCopy;
+			}
+			if (!partial && maskRead) {
+				maskCopy_ = renderCopy;
+				maskCopyVfb_ = framebuffer;
+				maskCopyMask_ = gstate.getColorMask();
 			}
 			gpuStats.perFrame.numCopiesForSelfTex++;
 		} else {
@@ -3208,6 +3219,14 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	drawPixelsCache_.clear();
 }
 
+void FramebufferManagerCommon::CheckMaskCopyStillValid(const VirtualFramebuffer *vfb) {
+	// Anything but a draw with the same write mask, without blending or a logic op, can change the bits the copy holds.
+	if (vfb != maskCopyVfb_ || gstate.isModeClear() || gstate.getColorMask() != maskCopyMask_ ||
+		gstate.isAlphaBlendEnabled() || (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY)) {
+		maskCopy_ = nullptr;
+	}
+}
+
 static const char *TempFBOReasonToString(TempFBO reason) {
 	switch (reason) {
 	case TempFBO::DEPAL: return "depal";
@@ -3216,6 +3235,7 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::STENCIL: return "stencil";
 	case TempFBO::DEPTH_SHIFT: return "depth_shift";
 	case TempFBO::SAMPLE0: return "sample0";
+	case TempFBO::MASK_COPY: return "mask_copy";
 	default: break;
 	}
 	return "";

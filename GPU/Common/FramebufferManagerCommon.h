@@ -214,6 +214,8 @@ enum BindFramebufferColorFlags {
 	// Used when rendering to a temporary surface (e.g. not the current render target.)
 	BINDFBCOLOR_FORCE_SELF = 8,
 	BINDFBCOLOR_UNCACHED = 16,
+	// The draw reads only the bits its write mask keeps. See maskCopy_.
+	BINDFBCOLOR_MASK_READ = 32,
 };
 
 enum DrawTextureFlags {
@@ -241,6 +243,8 @@ enum class TempFBO {
 	DEPTH_SHIFT,
 	// The first samples of a multisampled framebuffer.
 	SAMPLE0,
+	// A copy for draws that read only the bits outside their write mask.
+	MASK_COPY,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -522,7 +526,19 @@ public:
 
 	void DiscardFramebufferCopy() {
 		currentFramebufferCopy_ = nullptr;
+		maskCopy_ = nullptr;
 	}
+	// The target hasn't changed, but texturing from it should see the latest drawing.
+	void DiscardSelfTextureCopy() {
+		currentFramebufferCopy_ = nullptr;
+	}
+	// Call before a draw to the current render target.
+	void CheckMaskCopy(const VirtualFramebuffer *vfb) {
+		if (maskCopy_) {
+			CheckMaskCopyStillValid(vfb);
+		}
+	}
+	void CheckMaskCopyStillValid(const VirtualFramebuffer *vfb);
 
 	bool PresentedThisFrame() const;
 	void SetPresentationOutput(const OutputParams *output);
@@ -640,6 +656,12 @@ protected:
 	VirtualFramebuffer *currentRenderVfb_ = nullptr;
 
 	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
+	// A draw with a write mask only reads the bits the mask keeps, and doesn't change them. So while the same
+	// mask draws on, without blending or a logic op, one copy serves every draw: DBZ Tenkaichi Tag Team draws
+	// its shadows one bit at a time, which took a copy per flush.
+	Draw::Framebuffer *maskCopy_ = nullptr;
+	const VirtualFramebuffer *maskCopyVfb_ = nullptr;
+	u32 maskCopyMask_ = 0;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufColorRangeEnd_ = 0;

@@ -552,7 +552,7 @@ void DrawEngineMetal::ConvertStateToKeys(int prim) {
 void DrawEngineMetal::BindShaderBlendTex() {
 	if (!gstate.isModeClear() && fboTexBindState_ == FBO_TEX_COPY_BIND_TEX) {
 		VirtualFramebuffer *curRenderVfb = framebufferManager_->GetCurrentRenderVFB();
-		bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, curRenderVfb, BINDFBCOLOR_MAY_COPY | BINDFBCOLOR_UNCACHED, Draw::ALL_LAYERS);
+		bool bindResult = framebufferManager_->BindFramebufferAsColorTexture(1, curRenderVfb, ShaderReadBindFlags(), Draw::ALL_LAYERS);
 		_dbg_assert_(bindResult);
 		boundSecondary_ = (__bridge id<MTLTexture>)(void *)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
 		fboTexBound_ = true;

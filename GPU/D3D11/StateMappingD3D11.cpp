@@ -156,7 +156,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				ApplyStencilReplaceAndLogicOpIgnoreBlend(blendState.replaceAlphaWithStencil, blendState);
 
 				if (fboTexBindState == FBO_TEX_COPY_BIND_TEX) {
-					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY | BINDFBCOLOR_UNCACHED, 0);
+					framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), ShaderReadBindFlags(), 0);
 					// No sampler required, we do a plain Load in the pixel shader.
 					fboTexBound_ = true;
 					fboTexBindState = FBO_TEX_NONE;
