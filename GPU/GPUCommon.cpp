@@ -1607,6 +1607,7 @@ void GPUCommon::FlushImm() {
 	}
 	if (vfb) {
 		CheckDepthUsage(vfb);
+		framebufferManager_->CheckMaskCopy(vfb);
 	}
 
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;

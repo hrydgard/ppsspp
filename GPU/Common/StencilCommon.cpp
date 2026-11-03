@@ -348,6 +348,8 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	if (!CheckStencilBits(src, dstBuffer, values, usedBits))
 		return false;
 
+	DiscardFramebufferCopy();
+
 	if (usedBits == 0) {
 		if (flags & WriteStencil::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.

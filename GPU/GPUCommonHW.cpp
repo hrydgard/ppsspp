@@ -956,6 +956,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->CheckMaskCopy(vfb);
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *inds = nullptr;
@@ -1334,6 +1335,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->CheckMaskCopy(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -1409,6 +1411,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	}
 
 	CheckDepthUsage(vfb);
+	framebufferManager_->CheckMaskCopy(vfb);
 
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
@@ -1522,7 +1525,7 @@ void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {
 	// Games call this when they need the effect of drawing to be visible to texturing.
 	// And for a bunch of other reasons, but either way, this is what we need to do.
 	// It's possible we could also use this as a hint for the texture cache somehow.
-	framebufferManager_->DiscardFramebufferCopy();
+	framebufferManager_->DiscardSelfTextureCopy();
 }
 
 void GPUCommonHW::FlushPendingDrawing() {
