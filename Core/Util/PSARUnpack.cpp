@@ -1323,6 +1323,31 @@ void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info
 	if (File::ReadTextFileToString(flash0 / "vsh/etc/version.txt", &versionTxt)) {
 		ParseVersionTxt(versionTxt, info);
 	}
+
+	// 3.x names them nandipl_psp1000.bin and nandipl_psp2000.ipl (psp02h in 4.x), 5.x on nandipl_01g.bin
+	// and so on. Older firmwares have one psp_ipl.bin or psp_nandipl.bin for every model.
+	std::vector<File::FileInfo> ipls;
+	File::GetFilesInDir(nandRoot / "ipl", &ipls);
+	bool anyModelTagged = false;
+	for (const File::FileInfo &ipl : ipls) {
+		const std::string name = ipl.name;
+		const bool for1000 = name.find("psp1000") != std::string::npos || name.find("_01g") != std::string::npos;
+		const bool for2000 = name.find("psp2000") != std::string::npos || name.find("psp02h") != std::string::npos || name.find("_02g") != std::string::npos;
+		info->forPSP1000 |= for1000;
+		info->forPSP2000 |= for2000;
+		anyModelTagged |= for1000 || for2000 || name.find("g.") != std::string::npos;
+	}
+	if (!anyModelTagged) {
+		info->forPSP1000 = true;
+		info->forPSP2000 = true;
+	}
+}
+
+bool InstalledFirmwareFitsModel(const InstalledFirmwareInfo &info, int pspModel) {
+	if (!info.hasVsh) {
+		return true;
+	}
+	return pspModel == PSP_MODEL_FAT ? info.forPSP1000 : info.forPSP2000;
 }
 
 bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {

@@ -26,6 +26,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/Render/ManagedTexture.h"
@@ -44,6 +45,7 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "UI/Background.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MemStickScreen.h"
@@ -173,6 +175,31 @@ static void OnJitAffectingSetting() {
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 }
 
+// A firmware only has the files of the model it was installed for, and its XMB looks for the files of
+// the model we report. So a change to a model the installed firmware doesn't fit gets a warning.
+static void OnPSPModelChanged(SettingsPageHost *host, int previous) {
+	if (g_Config.iPSPModel == previous) {
+		return;
+	}
+	InstalledFirmwareInfo firmware;
+	ReadInstalledFirmwareInfo(GetSysDirectory(DIRECTORY_NAND), &firmware, false);
+	if (InstalledFirmwareFitsModel(firmware, g_Config.iPSPModel)) {
+		return;
+	}
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	const std::string message = ApplySafeSubstitutions(
+		sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model than the selected one, so the XMB may not work until you install it again."),
+		firmware.version);
+	host->PageScreenManager()->push(new UI::MessagePopupScreen(sy->T("PSP Model"), message, di->T("OK"), di->T("Cancel"), [host, previous](bool yes) {
+		if (!yes) {
+			g_Config.iPSPModel = previous;
+		}
+		// Either way, so the next change compares against the model now set.
+		host->RecreatePageViews();
+	}));
+}
+
 // Using SYSTEM translations
 static void BuildPSPSettingsPage(SettingsPage *page) {
 	SettingsPageHost *host = page->Host();
@@ -181,8 +208,11 @@ static void BuildPSPSettingsPage(SettingsPage *page) {
 
 	// The ordering here is simply mapping directly to PSP_SYSTEMPARAM_LANGUAGE_*.
 	page->Setting(&g_Config.iLanguage);
+	const int modelShown = g_Config.iPSPModel;
 	page->Setting(&g_Config.iPSPModel).EnabledFunc([] {
 		return !PSP_IsInited();
+	}).OnChange([host, modelShown](UI::EventParams &) {
+		OnPSPModelChanged(host, modelShown);
 	});
 	page->Custom("Nickname", [host](UI::ViewGroup *parent) {
 		return AddNicknameChoice(host, parent);
