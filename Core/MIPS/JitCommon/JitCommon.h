@@ -109,6 +109,8 @@ namespace MIPSComp {
 		virtual void Comp_Vocp(MIPSOpcode op) = 0;
 		virtual void Comp_ColorConv(MIPSOpcode op) = 0;
 		virtual void Comp_Vbfy(MIPSOpcode op) = 0;
+		virtual void Comp_Vsrt(MIPSOpcode op) = 0;
+		virtual void Comp_Vf2h(MIPSOpcode op) = 0;
 		virtual void Comp_DoNothing(MIPSOpcode op) = 0;
 
 		virtual int Replace_fabsf() = 0;

@@ -459,6 +459,11 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_FSpecial(inst);
 		break;
 
+	case IROp::FFloatToHalf2:
+		// Rare enough that the backends just call the IR interpreter's version.
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::Interpret:
 		CompIR_Interpret(inst);
 		break;
