@@ -23,10 +23,12 @@ editor.
 
 ## Backslashes in a bash heredoc
 
-**Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash /
-MinGW layer strips one level of backslash escaping on the way in, *even with a quoted delimiter*
-(`<<'PY'`), which normally suppresses all substitution. So the script Python receives is not the one
-you wrote:
+**On Windows, don't put a backslash in a heredoc at all.** The Bash tool hands the command to Git
+Bash as a `bash -c` argument. The MSYS runtime builds bash's `argv` from the Windows command line, and
+in doing so turns `\\` into `\`, before bash parses anything. So a quoted delimiter (`<<'PY'`), which
+normally suppresses all substitution, doesn't help, and neither do single quotes. Bash itself is not
+at fault: the same script run from a file (`bash file.sh`, `python file.py`) keeps every backslash.
+The script Python receives is not the one you wrote:
 
 | You write in the heredoc | Python actually sees | Result |
 |---|---|---|
@@ -38,8 +40,10 @@ The tell for the first case is a compiler error like `C2001: newline in string l
 produces no error at all, just a patch that quietly did nothing. Both are invisible in the heredoc you
 wrote.
 
-The rule: **a heredoc is fine as long as every backslash in the script is one you want Python to
-interpret. The moment you need a literal backslash in the *output*, stop.** Then either:
+A lone backslash like the one in `"\r\n"` survives, but a rule of "only some backslashes are safe" has
+proven too easy to misjudge (matching a `\` line continuation in a makefile went wrong exactly this
+way), so `.claude/hooks/check_heredoc_backslash.py` refuses any Windows Bash command that has both a
+heredoc and a backslash. Instead, either:
 
 - use an exact-string-replacement editor tool instead (no shell in the path - the best option for the
   common case of "insert a few lines of C++ that contain `\n`"), or
@@ -47,4 +51,4 @@ interpret. The moment you need a literal backslash in the *output*, stop.** Then
 - build the backslash as `chr(92)` so no literal backslash appears in the heredoc at all.
 
 Note this is about the *Python source*, not the data: reading and rewriting a CRLF file with
-`newline=''` and `\r\n` anchors works fine in a heredoc, and is the normal way to patch files here.
+`newline=''` and `\r\n` anchors, from a script file, is the normal way to patch files here.
