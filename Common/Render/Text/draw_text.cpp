@@ -400,6 +400,10 @@ static const FontDesc g_fontDescs[] = {
 	{FontFamily::SansSerif, FontStyleFlags::Bold, "Roboto Condensed", "Roboto_Condensed-Bold"},
 	{FontFamily::SansSerif, FontStyleFlags::Italic, "Roboto Condensed", "Roboto_Condensed-Italic"},
 	{FontFamily::SansSerif, FontStyleFlags::Light, "Roboto Condensed", "Roboto_Condensed-Light"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Default, "Roboto SemiCondensed", "Roboto_SemiCondensed-Regular"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Bold, "Roboto SemiCondensed", "Roboto_SemiCondensed-Bold"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Italic, "Roboto SemiCondensed", "Roboto_SemiCondensed-Italic"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Light, "Roboto SemiCondensed", "Roboto_SemiCondensed-Light"},
 	{FontFamily::Fixed, FontStyleFlags::Default, "Inconsolata", "Inconsolata-Regular"},
 };
 

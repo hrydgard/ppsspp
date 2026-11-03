@@ -21,7 +21,8 @@ ENUM_CLASS_BITOPS(FontStyleFlags);
 
 enum class FontFamily : u8 {
 	SansSerif = 1,
-	Fixed = 2,
+	SansSerifWide = 2,
+	Fixed = 3,
 };
 
 struct FontStyle {
