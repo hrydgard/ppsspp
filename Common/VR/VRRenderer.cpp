@@ -283,9 +283,17 @@ void VR_InitRenderer( engine_t* engine ) {
 }
 
 void VR_DestroyRenderer( engine_t* engine ) {
+	if (!initialized) {
+		return;
+	}
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		if (passthroughRunning) {
 			OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+			passthroughRunning = false;
+		}
+		if (passthroughLayer != XR_NULL_HANDLE) {
+			OXR(xrDestroyPassthroughLayerFB(passthroughLayer));
+			passthroughLayer = XR_NULL_HANDLE;
 		}
 		OXR(xrPassthroughPauseFB(passthrough));
 		OXR(xrDestroyPassthroughFB(passthrough));

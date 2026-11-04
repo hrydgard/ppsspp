@@ -105,6 +105,10 @@ so they don't depend on the backend.
   (`GL_EXT_sRGB_write_control`).
 - **The flat screen** stays upright. It used to take the head's pitch at recenter time, often looking
   down while putting the headset on. Recentering is the system gesture (hold the Meta button).
+- **Restarting** (changing the backend): the native shutdown takes OpenXR down (renderer, input,
+  session, instance, `ShutdownVR`), and the recreated activity sets it up again in the same process.
+  It used to `System.exit` in `onDestroy` instead, which killed the restart. Controller input is
+  created per session, since its spaces and attached action set belong to one.
 
 ## Phase 2: PC VR
 
@@ -117,5 +121,5 @@ becomes the non-pacing one. The OpenXR loader on desktop is our dynamic one (`Op
 ## Status
 
 - [x] Phase 1: runs on a Quest 2 (menus, Burnout Legends, GTA LCS in flat mode, stereo and 6DoF on)
-  at 72 fps. Skyplane not checked specifically yet.
+  at 72 fps, backend switching both ways. Skyplane not checked specifically yet.
 - [ ] Phase 2

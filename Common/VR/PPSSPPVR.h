@@ -30,7 +30,10 @@ enum VRAppMode {
 // VR app flow integration
 bool IsVREnabled();
 void InitVROnAndroid(void* vm, void* activity, const char* system, int version, const char* name);
-void EnterVR(bool firstStart);
+// GL: creates the session (once per instance, on the GL thread).
+void EnterVR();
+// Tears down what InitVROnAndroid and EnterVR set up, so a new activity can start over in this process.
+void ShutdownVR();
 void GetVRResolutionPerEye(int* width, int* height);
 void SetVRCallbacks(void(*axis)(const AxisInput *axis, size_t count), bool(*key)(const KeyInput &key), void(*touch)(const TouchInput &touch));
 

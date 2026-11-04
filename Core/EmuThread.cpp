@@ -165,9 +165,7 @@ void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application,
 	std::thread emuThread = EmuThread_Start(graphicsContext, application, frame);
 
 	if (IsVREnabled()) {
-		static bool vrFirstStart = true;
-		EnterVR(vrFirstStart);
-		vrFirstStart = false;
+		EnterVR();
 	}
 
 	// Normally ThreadFrame() returning false is what gets us out of here - the frame callback

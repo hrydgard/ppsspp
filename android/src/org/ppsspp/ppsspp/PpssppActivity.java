@@ -148,6 +148,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// This is to avoid losing the game/menu state etc when we are just
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
+	// Shutting down for a graphics restart (recreate), which comes back up in this process.
+	private boolean restarting;
 
 	// There's one render loop thread. Whether it runs, and on which activity's surface (activityNumber).
 	// surfaceChanged also fires for rotations and resizes, where the thread just keeps going.
@@ -1133,8 +1135,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.i(TAG, "in onDestroy, but not shutting down.");
 			}
 		}
-		// Really ugly workaround for VR issues when PPSSPP restarts
-		if (isVRDevice()) {
+		// Really ugly workaround for VR issues when PPSSPP restarts. A graphics restart is fine, since the
+		// native shutdown takes OpenXR down too and the new activity sets it up again.
+		if (isVRDevice() && !restarting) {
 			System.exit(0);
 		}
 		Log.i(TAG, "onDestroy end");
@@ -1942,6 +1945,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				overrideShortcutParam = params;
 			}
 			shuttingDown = true;
+			restarting = true;
 			recreate();
 			return true;
 		} else if (command.equals("ask_permission") && params.equals("storage")) {

@@ -945,6 +945,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 			INFO_LOG(Log::G3D, "Not shutting down renderer - not initialized");
 		}
 
+		// The instance belongs to this activity. A restart (recreate) creates a new one in this process.
+		if (IsVREnabled()) {
+			ShutdownVR();
+		}
+
 		NativeShutdown();
 		g_VFS.Clear();
 	}

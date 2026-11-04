@@ -188,13 +188,25 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 }
 #endif
 
-void EnterVR(bool firstStart) {
-	if (firstStart) {
-		engine_t* engine = VR_GetEngine();
+void EnterVR() {
+	engine_t* engine = VR_GetEngine();
+	// The session outlives the render loop (it restarts when the surface comes back), not the native side.
+	if (engine->appState.Session == XR_NULL_HANDLE) {
 		VR_EnterVR(engine);
 		IN_VRInit(engine);
 	}
 	VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, false);
+}
+
+void ShutdownVR() {
+	engine_t* engine = VR_GetEngine();
+	if (engine->appState.Instance == XR_NULL_HANDLE) {
+		return;
+	}
+	// GL's swapchains (Vulkan's go with its presentation).
+	VR_DestroyRenderer(engine);
+	VR_LeaveVR(engine);
+	VR_Destroy(engine);
 }
 
 void GetVRResolutionPerEye(int* width, int* height) {

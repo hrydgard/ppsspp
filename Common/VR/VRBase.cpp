@@ -1,4 +1,5 @@
 #include "VRBase.h"
+#include "VRInput.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -165,6 +166,7 @@ void VR_Destroy( engine_t* engine ) {
 	if (engine == &vr_engine) {
 		xrDestroyInstance(engine->appState.Instance);
 		ovrApp_Destroy(&engine->appState);
+		vr_initialized = 0;
 	}
 }
 
@@ -220,6 +222,7 @@ void VR_EnterVR( engine_t* engine ) {
 
 void VR_LeaveVR( engine_t* engine ) {
 	if (engine->appState.Session) {
+		IN_VRShutdown(engine);
 		OXR(xrDestroySpace(engine->appState.HeadSpace));
 		// StageSpace is optional.
 		if (engine->appState.StageSpace != XR_NULL_HANDLE) {
