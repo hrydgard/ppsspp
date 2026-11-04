@@ -365,6 +365,7 @@ tests_good = [
   "net/inet/polledge",
   "net/inet/reuse",
   "net/inet/errnothread",
+  "net/http/ids",
   "net/adhoc/abandon",
   "net/adhoc/alerts",
   "net/adhoc/apctlinit",
