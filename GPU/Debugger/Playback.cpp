@@ -665,7 +665,11 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	// A zero normal lights by a sign the GE keeps from the last Bezier patch drawn, which outlives
 	// programs (ppsspp-re geprobe exp226-253). As the PSP replayer does before the replay, a flat patch
 	// facing +z sets it to +1: alpha test NEVER keeps it from drawing, texturing off from touching the
-	// texture cache, and the registers it uses go back to the context's values.
+	// texture cache, and the registers it uses go back to the context's values. Only the software renderer
+	// keeps that sign, and on the hardware renderers the patch made about 70 dumps replay black.
+	if (PSP_CoreParameter().gpuCore != GPUCORE_SOFTWARE) {
+		return;
+	}
 	if (resetPatch_ == 0) {
 		u32 size = 16 * 3 * 4;
 		resetPatch_ = userMemory.Alloc(size, true, "Reset patch");
