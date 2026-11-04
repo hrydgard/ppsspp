@@ -1083,8 +1083,11 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngine_->transformUnit.SetGeneratedNormals((gstate.vertType & GE_VTYPE_NRM_MASK) == 0);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
+	drawEngine_->transformUnit.SetGeneratedNormals(false);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
+	drawEngine_->transformUnit.NoteBezierPatch(control_points, indices, surface.num_points_u, surface.num_points_v, vertType, surface.patchFacing, drawEngine_);
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
 	MarkDirty(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.getRegionY2() + 1, gstate.FrameBufFormat(), mark);
@@ -1142,7 +1145,9 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngine_->transformUnit.SetGeneratedNormals((gstate.vertType & GE_VTYPE_NRM_MASK) == 0);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, vertType, &bytesRead, "spline");
+	drawEngine_->transformUnit.SetGeneratedNormals(false);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;

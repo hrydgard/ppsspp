@@ -141,6 +141,16 @@ public:
 	bool InRun(const void *vertices, u32 vertexType) const {
 		return runRemaining_ > 0 && vertices == runNext_ && vertexType == runType_;
 	}
+	void NoteBezierPatch(const void *controlPoints, const void *indices, int pointsU, int pointsV, u32 vertType, bool patchFacing, SoftwareDrawEngine *drawEngine);
+	// Normals the curve tessellation computed, which can come out zero at a degenerate corner where the
+	// GE's evidently don't: they don't take the zero-normal sign (NAMCO Museum ULUS10035's spline balls).
+	void SetGeneratedNormals(bool generated) {
+		if (generated != generatedNormals_) {
+			// A run's chunks read it.
+			FinishRun();
+			generatedNormals_ = generated;
+		}
+	}
 	void SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine);
 
 	void Flush(GPUCommon *common, const char *reason);
@@ -191,6 +201,9 @@ private:
 
 	u8 *decoded_ = nullptr;
 	VertexCarry carry_;
+	// What a zero normal lights as, times (1, 1, 1): see NoteBezierPatch().
+	int zeroNormalSign_ = 1;
+	bool generatedNormals_ = false;
 	BinManager *binner_ = nullptr;
 
 	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
