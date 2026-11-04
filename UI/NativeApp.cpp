@@ -373,7 +373,7 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 			// Read the TTF font
 			size_t propSize = 0;
-			const uint8_t *propFontData = g_VFS.ReadFile("Roboto-Regular.ttf", &propSize);
+			const uint8_t *propFontData = g_VFS.ReadFile("Roboto_Condensed-Regular.ttf", &propSize);
 			size_t fixedSize = 0;
 			const uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Regular.ttf", &fixedSize);
 			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
@@ -904,6 +904,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "firmware")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new FirmwareScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(true));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

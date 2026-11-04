@@ -342,6 +342,8 @@ void GameButton::Draw(UIContext &dc) {
 			dc.PopScissor();
 		}
 	} else {
+		// The two list view modes, compat and large.
+
 		Bounds bounds = bounds_;
 
 		std::string_view rightText = g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view();

@@ -71,7 +71,7 @@ class SavedataView;
 
 class SavedataPopupScreen : public UI::PopupScreen {
 public:
-	SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title);
+	SavedataPopupScreen(Path gamePath, Path savePath, bool showHint, std::string_view title);
 
 	const char *tag() const override { return "SavedataPopup"; }
 	void update() override;
@@ -84,6 +84,7 @@ private:
 	SavedataView *savedataView_ = nullptr;
 	Path savePath_;
 	Path gamePath_;
+	bool showHint_ = false;
 };
 
 class SavedataScreen : public UITabbedBaseDialogScreen {

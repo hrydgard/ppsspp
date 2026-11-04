@@ -135,7 +135,7 @@ static const PageDef pageDefs[] = {
 	{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
 	{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
 	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings },
-	{ "GameSettingsVR", "VR", nullptr, nullptr, I18NCat::VR, &BuildVRSettings },
+	{ "GameSettingsVR", "VR", "I_VR", nullptr, I18NCat::VR, &BuildVRSettings},
 };
 
 void GameSettingsScreen::CreateTabs() {

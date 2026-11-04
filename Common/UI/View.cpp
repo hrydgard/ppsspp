@@ -641,6 +641,59 @@ std::string ItemHeader::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
+PopupHeader::PopupHeader(std::string_view text, LayoutParams *layoutParams)
+	: Item(layoutParams), text_(text) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = 44;
+}
+
+void PopupHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	float availWidth = layoutParams_->width;
+	if (availWidth < 0) {
+		// If there's no size, let's grow as big as we want.
+		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	ApplyBoundBySpec(availWidth, horiz);
+	dc.MeasureTextRect(dc.GetTheme().uiFontBig, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+void PopupHeader::Draw(UIContext &dc) {
+	const float availableWidth = bounds_.w;
+
+	float tw, th;
+	dc.SetFontStyle(dc.GetTheme().uiFontBig);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
+
+	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+
+	float tx = 0;
+	if (availableWidth < tw) {
+		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
+		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
+		Bounds tb = bounds_;
+		tb.x = bounds_.x;
+		tb.w = bounds_.w;
+		dc.PushScissor(tb);
+	}
+
+	// Header background
+	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	// Header title text
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+
+	// Underline. Skipping it with the new style.
+	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
+
+	if (availableWidth < tw) {
+		dc.PopScissor();
+	}
+}
+
+std::string PopupHeader::DescribeText() const {
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
+	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
+}
+
 CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, LayoutParams *layoutParams)
 	: CheckBox(toggle, text, "", layoutParams) {
 	layoutParams_->width = FILL_PARENT;
@@ -711,44 +764,6 @@ void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 	// If we have vertical borders, grow to width so they're spaced apart.
 	w = (borderFlags_ & BORDER_VERT) != 0 ? bounds.w : 0;
 	h = (borderFlags_ & BORDER_HORIZ) != 0 ? bounds.h : 0;
-}
-
-void PopupHeader::Draw(UIContext &dc) {
-	const float paddingHorizontal = 12;
-	const float availableWidth = bounds_.w - paddingHorizontal * 2;
-
-	float tw, th;
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
-
-	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-
-	float tx = paddingHorizontal;
-	if (availableWidth < tw) {
-		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
-		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
-		Bounds tb = bounds_;
-		tb.x = bounds_.x + paddingHorizontal;
-		tb.w = bounds_.w - paddingHorizontal * 2;
-		dc.PushScissor(tb);
-	}
-
-	// Header background
-	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
-	// Header title text
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-
-	// Underline. Skipping it with the new style.
-	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
-
-	if (availableWidth < tw) {
-		dc.PopScissor();
-	}
-}
-
-std::string PopupHeader::DescribeText() const {
-	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
 void CheckBox::Toggle() {

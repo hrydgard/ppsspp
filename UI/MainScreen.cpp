@@ -145,7 +145,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			// Show the savedata popup, why not?
 			waitForParamSFO();
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
-			screenManager->push(new SavedataPopupScreen(Path(), path, title));
+			screenManager->push(new SavedataPopupScreen(Path(), path, true, title));
 			return;
 		}
 		case IdentifiedFileType::PSP_PBP:
@@ -992,7 +992,9 @@ void UmdReplaceScreen::CreateViews() {
 
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 	rightColumnItems->Add(new Spacer());
-	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
+	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Add([this](UI::EventParams &e) {
+		screenManager()->push(new GameSettingsScreen(Path()));
+	});
 
 	if (g_recentFiles.HasAny()) {
 		leftColumn->SetCurrentTab(0, true);
@@ -1026,10 +1028,6 @@ void UmdReplaceScreen::UseDisc(const Path &path) {
 	}
 }
 
-void UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path()));
-}
-
 void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -1037,41 +1035,36 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
-	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
-	items->SetSpacing(0.0f);
+	ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+
+	PopupChoiceGroupList *groupList = scroll->Add(new PopupChoiceGroupList());
+
+	ChoiceGroup *group = groupList->Add(new ChoiceGroup());
 
 	// Same order as GameBrowserViewMode.
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
-	items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
+	group->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Icon size")));
-	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
-	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
+	ChoiceGroup *iconSizeGroup = groupList->Add(new ChoiceGroup(sy->T("Icon size")));
+	iconSizeGroup->Add(new Choice(sy->T("Increase size")))->OnClick.Add([this](UI::EventParams &e) {
+		g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
+		screenManager()->RecreateAllViews();
+	});
+	iconSizeGroup->Add(new Choice(sy->T("Decrease size")))->OnClick.Add([this](UI::EventParams &e) {
+		g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+		screenManager()->RecreateAllViews();
+	});
 
-	items->Add(new ItemHeader(sy->T("Display Extra Info")));
-	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
-	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
+	ChoiceGroup *extraInfoGroup = groupList->Add(new ChoiceGroup(sy->T("Display Extra Info")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
 
 	if (g_Config.iMaxRecent > 0) {
-		items->Add(new ItemHeader(sy->T("Clear Recent")));
-		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
+		ChoiceGroup *recentGroup = groupList->Add(new ChoiceGroup(sy->T("Clear Recent")));
+		recentGroup->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Add([this](UI::EventParams &e) {
+			g_recentFiles.Clear();
+			OnRecentChanged.Trigger(e);
+			TriggerFinish(DR_OK);
+		});
 	}
-
-	scroll->Add(items);
-	parent->Add(scroll);
-}
-
-void GridSettingsPopupScreen::GridPlusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::min(g_Config.fGameGridScale*1.25f, MAX_GAME_GRID_SCALE);
-}
-
-void GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::max(g_Config.fGameGridScale/1.25f, MIN_GAME_GRID_SCALE);
-}
-
-void GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_recentFiles.Clear();
-	OnRecentChanged.Trigger(e);
-	TriggerFinish(DR_OK);
 }

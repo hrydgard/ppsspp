@@ -557,6 +557,17 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			}
 		} else if (startsWith(argv[i], "--")) {
 			PRINT_STDERR("Error: Unknown parameter: %s\n", argv[i]);
+			if (mode == CmdLineMode::Application) {
+				// Ignore bad parameters - but inform the user in the Windows debug output at least.
+				OutputDebugStringUTF8("Warning: Unknown parameter: ");
+				OutputDebugStringUTF8(argv[i]);
+				OutputDebugStringUTF8("\n");
+
+				std::string msg = StringFromFormat("Unknown command line parameter: %s\n\nProceeding anyway.", argv[i]);
+				ShowMessageDialog("Unknown Parameter", msg.c_str(), true);
+
+				return CommandLineParseResult::Continue;
+			}
 			return CommandLineParseResult::Error;
 		}
 		// To the next argument.
