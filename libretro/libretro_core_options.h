@@ -441,6 +441,23 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "Up to 1"
    },
    {
+      "ppsspp_depth_raster",
+      "Lens Flare Occlusion",
+      NULL,
+      "Hides lens flares behind objects, in the games that do that by reading the depth buffer. 'Low' is faster and less exact. 'Default' picks per device.",
+      NULL,
+      "video",
+      {
+         { "default",   "Default" },
+         { "auto",      "Auto" },
+         { "low",       "Low" },
+         { "off",       "Off" },
+         { "always_on", "Always on" },
+         { NULL, NULL },
+      },
+      "default"
+   },
+   {
       "ppsspp_button_preference",
       "Confirmation Button",
       NULL,
