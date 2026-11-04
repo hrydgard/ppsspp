@@ -904,6 +904,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "firmware")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new FirmwareScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(true));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

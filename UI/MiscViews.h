@@ -167,3 +167,15 @@ private:
 	int width_ = 0;
 	int height_ = 0;
 };
+
+class HintView : public UI::TextView {
+public:
+	HintView(std::string_view str, UI::LayoutParams *layoutParams = nullptr) : TextView(str, FLAG_WRAP_TEXT, false, layoutParams) {
+		using namespace UI;
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = WRAP_CONTENT;
+		SetTextSize(TextSize::Small);
+		SetPadding(Margins(12));
+		SetFrame(true);
+	}
+};

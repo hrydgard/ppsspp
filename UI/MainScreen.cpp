@@ -145,7 +145,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			// Show the savedata popup, why not?
 			waitForParamSFO();
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
-			screenManager->push(new SavedataPopupScreen(Path(), path, title));
+			screenManager->push(new SavedataPopupScreen(Path(), path, true, title));
 			return;
 		}
 		case IdentifiedFileType::PSP_PBP:

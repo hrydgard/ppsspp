@@ -497,14 +497,14 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 
 	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 10)));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *saveUndoButton = buttonRow->Add(new Choice(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		UI::Button *saveUndoButton = buttonRow->Add(new Button(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
 		saveUndoButton->OnClick.Add([this](UI::EventParams &e) {
 			SaveState::UndoLastSave(saveStatePrefix_);
 			RecreateViews();
 		});
 
-		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		UI::Button *loadUndoButton = buttonRow->Add(new Button(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
 		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
 			CloseAfterStateLoad([this](SaveState::Callback callback) {
@@ -514,7 +514,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 	}
 
 	if (g_Config.iRewindSnapshotInterval > 0 && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
+		UI::Button *rewindButton = buttonRow->Add(new Button(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Add([this](UI::EventParams &e) {
 			CloseAfterStateLoad([](SaveState::Callback callback) {

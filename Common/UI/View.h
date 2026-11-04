@@ -939,12 +939,9 @@ private:
 
 class PopupHeader : public Item {
 public:
-	PopupHeader(std::string_view text, LayoutParams *layoutParams = 0)
-		: Item(layoutParams), text_(text) {
-			layoutParams_->width = FILL_PARENT;
-			layoutParams_->height = 64;
-	}
+	PopupHeader(std::string_view text, LayoutParams *layoutParams = 0);
 	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	std::string DescribeText() const override;
 
 private:
