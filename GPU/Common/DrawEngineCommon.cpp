@@ -421,6 +421,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	Vec4S32 insideNear = Vec4S32::Zero();
 	Vec4S32 insideFar = Vec4S32::Zero();
 	Vec4S32 anyOutsideZ = Vec4S32::Zero();
+	Vec4S32 anyBehindNear = Vec4S32::Zero();
 
 	const int stride = dec->VertexSize();
 	const s8 *srcdata = (const s8 *)vdata + dec->posoff;
@@ -430,6 +431,11 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	const Vec4F32 zero = Vec4F32::Zero();
 	Vec4F32 minZ = Vec4F32::Splat(FLT_MAX);
 	Vec4F32 maxZ = Vec4F32::Splat(-FLT_MAX);
+	// With depth clipping, what's behind the near plane is clipped away before it's drawn, so its screen Z (which
+	// behind the eye is meaningless) doesn't count, and the near plane's does instead, below. Counting it made every
+	// draw crossing the near plane take the fragment shader depth clamp, whose depth doesn't match the other draws'
+	// (Monster Hunter 3rd HD's ground on PowerVR GLES).
+	const bool depthClip = gstate.isDepthClipEnabled();
 
 	for (int i = 0; i < vertexCount; i += 4) {
 		Vec4F32 objX = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i));
@@ -456,11 +462,14 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		insideNear |= nearDist.CompareGe(zero);
 		insideFar |= farDist.CompareGe(zero);
 		anyOutsideZ |= nearDist.CompareLt(zero) | farDist.CompareLt(zero);
+		const Vec4S32 behindNear = (z + w).CompareLt(zero);
+		anyBehindNear |= behindNear;
 
 		// NaN compares false, so it's never picked.
 		const Vec4F32 projZ = DivideExact(vpZScale * z, w);
-		minZ = Select(projZ.CompareLt(minZ), projZ, minZ);
-		maxZ = Select(projZ.CompareGt(maxZ), projZ, maxZ);
+		const Vec4S32 notCounted = depthClip ? behindNear : Vec4S32::Zero();
+		minZ = Select(projZ.CompareLt(minZ).AndNot(notCounted), projZ, minZ);
+		maxZ = Select(projZ.CompareGt(maxZ).AndNot(notCounted), projZ, maxZ);
 	}
 
 	if (!AnyCompareBitsSet(insideLeft) || !AnyCompareBitsSet(insideRight) || !AnyCompareBitsSet(insideTop) ||
@@ -481,6 +490,15 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	const float vpZOffset = gstate.getViewportZCenter();
 	minProjZ += vpZOffset;
 	maxProjZ += vpZOffset;
+	// Of the vertices themselves, without what clipping makes.
+	const float minVertexZ = minProjZ, maxVertexZ = maxProjZ;
+	const bool clipsNear = depthClip && AnyCompareBitsSet(anyBehindNear);
+	// Where clipping puts the vertices it makes (z = -w).
+	const float nearZ = vpZOffset - gstate.getViewportZScale();
+	if (clipsNear) {
+		minProjZ = std::min(minProjZ, nearZ);
+		maxProjZ = std::max(maxProjZ, nearZ);
+	}
 
 	ClipInfoFlags flags = ClipInfoFlags::Valid;
 
@@ -527,9 +545,10 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 			if (minProjZ < 0 || maxProjZ > 65535) {
 				flags |= ClipInfoFlags::DepthClamp;
 			}
-		} else if (minProjZ <= 0 || maxProjZ >= 65535) {
-			// Including draws right on the limit (Puyo Puyo Fever 2's flat Z = 0 ground): hardware clamp keeps
-			// what rounding puts just outside, the clip without it doesn't.
+		} else if (minVertexZ <= 0 || maxVertexZ >= 65535 || (clipsNear && (nearZ < 0 || nearZ > 65535))) {
+			// Including vertices right on the limit (Puyo Puyo Fever 2's flat Z = 0 ground): hardware clamp keeps
+			// what rounding puts just outside, the clip without it doesn't. On the near plane, losing that is the
+			// near clip.
 			flags |= ClipInfoFlags::DepthClampFragment;
 		}
 	}
