@@ -3,6 +3,29 @@
 #if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
 #include "Common/GPU/OpenGL/GLCommon.h"
+#include <cstring>
+
+#ifndef GL_FRAMEBUFFER_SRGB_EXT
+#define GL_FRAMEBUFFER_SRGB_EXT 0x8DB9
+#endif
+
+// GLFeatures.h clashes with the EGL macros the OpenXR headers bring in, so this asks GL itself.
+static bool HasSRGBWriteControl() {
+	static int has = -1;
+	if (has < 0) {
+		GLint count = 0;
+		glGetIntegerv(GL_NUM_EXTENSIONS, &count);
+		has = 0;
+		for (GLint i = 0; i < count; i++) {
+			const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
+			if (ext && !strcmp(ext, "GL_EXT_sRGB_write_control")) {
+				has = 1;
+				break;
+			}
+		}
+	}
+	return has == 1;
+}
 
 #endif
 
@@ -267,6 +290,11 @@ void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 	if (UseGL()) {
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
+		// The swapchain is sRGB and our colors are sRGB-encoded already: GLES would encode them again on
+		// write (too bright). Context state, but the other framebuffers aren't sRGB, so it only affects this.
+		if (HasSRGBWriteControl()) {
+			GL(glDisable(GL_FRAMEBUFFER_SRGB_EXT));
+		}
 	}
 #endif
 	return nullptr;

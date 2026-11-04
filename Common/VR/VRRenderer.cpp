@@ -206,8 +206,9 @@ void VR_Recenter(engine_t* engine) {
 		}
 	}
 
-	// Update menu orientation
-	VR_SetConfigFloat(VR_CONFIG_MENU_PITCH, hmdorientation.x);
+	// Update menu orientation. The screen stays upright: tilting it to the head's pitch at recenter
+	// time (often looking down while putting the headset on) left it at an angle for the session.
+	VR_SetConfigFloat(VR_CONFIG_MENU_PITCH, 0.0f);
 	VR_SetConfigFloat(VR_CONFIG_MENU_YAW, 0.0f);
 }
 

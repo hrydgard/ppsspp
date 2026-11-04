@@ -74,7 +74,7 @@ only on dirty split GTA's scene into two layers moving at different speeds.
 
 ### The OpenGL-only parts, and their Vulkan versions
 
-OpenGL VR goes once these are confirmed on a headset:
+OpenGL VR stays an option for a while. What it does its own way, and the Vulkan equivalent:
 
 - **Skyplane** (`compatvr.ini`, the GTA Stories games): `PreprocessSkyplane` edits GL render steps at
   replay, `PreprocessSkyplaneVulkan` does the same to Vulkan steps in `PreprocessSteps`, before
@@ -95,6 +95,17 @@ The other VR compat flags (`ForceMono`, `ForceFlatScreen`, `IdentityViewHack`, `
 `ProjectionHack`, `UnitsPerMeter`) are read in shared code (`PPSSPPVR.cpp`, the shader generator),
 so they don't depend on the backend.
 
+### Fixes found on the headset
+
+- **Depth** was inverted, on GL too: the shader replaced the lens projection's Z with the game's
+  (`orgPos`) at the very end, skipping the viewport's Z scale, which broke when the viewport transform
+  moved into the shader. It's replaced before the transform now (libretro already did this).
+- **Gamma on GL:** the GL eye swapchains are `GL_SRGB8_ALPHA8`, and GLES encodes writes to an sRGB
+  framebuffer, so our already sRGB-encoded colors came out too bright. Writes skip the encoding now
+  (`GL_EXT_sRGB_write_control`).
+- **The flat screen** stays upright. It used to take the head's pitch at recenter time, often looking
+  down while putting the headset on. Recentering is the system gesture (hold the Meta button).
+
 ## Phase 2: PC VR
 
 The desktop window (Windows, then Linux) stays the primary swapchain and shows a mirror. The
@@ -105,5 +116,6 @@ becomes the non-pacing one. The OpenXR loader on desktop is our dynamic one (`Op
 
 ## Status
 
-- [ ] Phase 1
+- [x] Phase 1: runs on a Quest 2 (menus, Burnout Legends, GTA LCS in flat mode, stereo and 6DoF on)
+  at 72 fps. Skyplane not checked specifically yet.
 - [ ] Phase 2

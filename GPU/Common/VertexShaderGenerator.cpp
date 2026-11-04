@@ -544,11 +544,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
 			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
-#ifdef __LIBRETRO__
 			// Preserve game depth before clipping and viewport conversion. The VR lens
-			// changes XY, but depth must still agree with through-mode draws and clears.
+			// changes XY, but depth must still agree with through-mode draws and clears,
+			// and go through the viewport's Z scale (often negative on the PSP).
 			WRITE(p, "  outPos.z = orgPos.z * (outPos.w / orgPos.w);\n");
-#endif
 		} else {
 			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
@@ -1020,13 +1019,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-#ifndef __LIBRETRO__
-		// Z correction for the depth buffer
-		if (useHWTransform) {
-			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
-		}
-#endif
-
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);
