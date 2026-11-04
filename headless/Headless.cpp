@@ -766,6 +766,8 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		}
 		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
 	}
+	// What shader compiles cost the run, which the times include.
+	fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);
 	if (coreParameter.bootFromState) {
 		// Counted from the state's load. More than a few, and the game has gone off its usual path.
 		fprintf(stderr, "Failed disc reads: %d\n", pspFileSystem.FailedDiscReads());
