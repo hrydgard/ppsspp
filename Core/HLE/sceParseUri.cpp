@@ -21,6 +21,7 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Common/Net/URL.h"
 #include "Common/StringUtils.h"
+#include "Core/HLE/ErrorCodes.h"
 
 
 int workAreaAddString(u32 workAreaAddr, int workAreaSize, int offset, const char* s) {
@@ -38,127 +39,200 @@ int workAreaAddString(u32 workAreaAddr, int workAreaSize, int offset, const char
 	return offset + length;
 }
 
-// FIXME: parsedUriArea, workArea can be 0/null? LittelBigPlanet seems to set workAreaSizeAddr to 0
-static int sceUriParse(MIPSState *mips, u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, mips->pc);
-	if (url == nullptr)
-		return hleLogError(Log::sceNet, -1, "invalid arg");
+// The shape sceUriParse actually splits a URI into, worked out on hardware by
+// pspautotests/tests/net/parseuri:
+//
+//   [scheme ":"] ["//"] [[user [":" password] "@"] host [":" port]] path ["?" query] ["#" frag]
+//
+// Every one of the seven pieces is written into the caller's work area even when empty, so each
+// gets its own address and the required size is the sum of their lengths plus a terminator
+// each. Query and fragment keep their leading "?" and "#". The scheme is stored with its case
+// intact but matched case-insensitively when filling in a default port.
+//
+// This does not use the Url class: that one is built for HTTP, insists on "://", turns an empty
+// path into "/" and has nowhere to put a fragment.
 
-	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
+// A host runs until something that cannot appear in one. Letters, digits, dots and dashes are
+// in; underscore, percent and bracket are not, which is why an IPv6 literal in brackets ends up
+// as the path instead of the host.
+static bool IsUriHostChar(char c) {
+	return isalnum((unsigned char)c) || c == '.' || c == '-';
+}
 
-	// Size query. sceUriParse in libparse_uri.prx (6.60) only measures when either area is missing,
-	// and succeeds as long as it has somewhere to put the size.
-	if (parsedUriAreaAddr == 0 || workAreaAddr == 0) {
-		if (workAreaSizeAddr == 0)
-			return hleLogError(Log::sceNet, 0x804331FE, "no work area and no size pointer");
-		// Based on JPCSP: The required workArea size is maximum the size of the URL + 7 times the null-byte for string termination.
-		int sz = (int)strlen(url) + 7;
-		if (workAreaSz.IsValid()) {
-			*workAreaSz = sz;
-			workAreaSz.NotifyWrite("UriParse");
+// Ports take at most five digits and at most the value 65536, which then wraps to zero. Anything
+// longer or larger is refused outright, and so is anything that isn't a digit.
+static bool ParseUriPort(const std::string &str, u16 *port) {
+	if (str.empty()) {
+		// No port given at all - the caller keeps the scheme's default.
+		return true;
+	}
+	if (str.size() > 5) {
+		return false;
+	}
+	u32 value = 0;
+	for (char c : str) {
+		if (!isdigit((unsigned char)c)) {
+			return false;
 		}
-		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
+		value = value * 10 + (c - '0');
+	}
+	if (value > 65536) {
+		return false;
+	}
+	*port = (u16)value;
+	return true;
+}
+
+static u16 UriDefaultPort(const std::string &scheme) {
+	if (equalsNoCase(scheme, "http")) {
+		return 80;
+	}
+	if (equalsNoCase(scheme, "https")) {
+		return 443;
+	}
+	return 0;
+}
+
+struct UriParts {
+	std::string scheme;
+	std::string user;
+	std::string password;
+	std::string host;
+	std::string path;
+	std::string query;
+	std::string fragment;
+	int noSlash = 1;
+	u16 port = 0;
+};
+
+static bool SplitUri(const std::string &uri, UriParts *parts) {
+	size_t pos = 0;
+
+	// A scheme only counts if its colon comes before any slash.
+	const size_t colon = uri.find(':');
+	const size_t slash = uri.find('/');
+	if (colon != std::string::npos && (slash == std::string::npos || colon < slash)) {
+		parts->scheme = uri.substr(0, colon);
+		pos = colon + 1;
+	}
+	parts->port = UriDefaultPort(parts->scheme);
+
+	// "//" right after the scheme is the only thing that clears noSlash, and it is also the only
+	// way to get an authority when the remainder starts with a slash.
+	bool authority = pos < uri.size() && uri[pos] != '/';
+	if (!parts->scheme.empty() && uri.compare(pos, 2, "//") == 0) {
+		parts->noSlash = 0;
+		pos += 2;
+		authority = true;
 	}
 
-	// workAreaAddString writes into it unchecked.
-	if (workAreaSize < 0 || !Memory::IsValidRange(workAreaAddr, workAreaSize)) {
-		return hleLogError(Log::sceNet, -1, "invalid work area");
+	if (authority) {
+		// Userinfo, if there is an "@" before the authority ends.
+		const size_t end = std::min(uri.find('/', pos), uri.size());
+		const size_t at = uri.find('@', pos);
+		if (at != std::string::npos && at < end) {
+			std::string userInfo = uri.substr(pos, at - pos);
+			const size_t sep = userInfo.find(':');
+			if (sep != std::string::npos) {
+				parts->password = userInfo.substr(sep + 1);
+				userInfo.erase(sep);
+			}
+			parts->user = userInfo;
+			pos = at + 1;
+		}
+
+		const size_t hostStart = pos;
+		while (pos < uri.size() && IsUriHostChar(uri[pos])) {
+			pos++;
+		}
+		parts->host = uri.substr(hostStart, pos - hostStart);
+
+		// Only a colon straight after the host is a port; anything else the scan stopped on is
+		// the start of the path.
+		if (pos < uri.size() && uri[pos] == ':') {
+			const size_t portEnd = std::min(uri.find('/', pos + 1), uri.size());
+			if (!ParseUriPort(uri.substr(pos + 1, portEnd - pos - 1), &parts->port)) {
+				return false;
+			}
+			pos = portEnd;
+		}
 	}
 
-	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
-	
-	// Parse the URL into URI components
-	// Full URI = scheme ":" ["//" [username [":" password] "@"] host [":" port]] path ["?" query] ["#" fragment]
-	Url uri(url);
-	// FIXME: URI without "://" should be valid too, due to PSPParsedUri.noSlash property
-	if (!uri.Valid()) {
-		return hleLogError(Log::sceNet, -1, "invalid arg");
+	// Whatever is left is path, then query from "?", then fragment from "#", each keeping its
+	// leading punctuation.
+	std::string rest = uri.substr(std::min(pos, uri.size()));
+	const size_t hash = rest.find('#');
+	if (hash != std::string::npos) {
+		parts->fragment = rest.substr(hash);
+		rest.erase(hash);
+	}
+	const size_t question = rest.find('?');
+	if (question != std::string::npos) {
+		parts->query = rest.substr(question);
+		rest.erase(question);
+	}
+	parts->path = rest;
+	return true;
+}
+
+static int sceUriParse(u32 parsedUriAreaAddr, const char *url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
+	if (url == nullptr) {
+		return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_URI, "null uri");
 	}
 
-	// Parse Host() into userInfo (in the format "<userName>:<password>") and host
-	std::string host = uri.Host();
-	std::string userInfoUserName = "";
-	std::string userInfoPassword = "";
-	// Extract Host
-	size_t pos = host.find('@');
-	if (pos <= host.size()) {
-		userInfoUserName = host.substr(0, pos);
-		host.erase(0, pos + 1LL); // removing the "@"
-	}
-	// Extract UserName and Password
-	pos = userInfoUserName.find(':');
-	if (pos <= userInfoUserName.size()) {
-		userInfoPassword = userInfoUserName.substr(pos + 1LL); // removing the ":"
-		userInfoUserName.erase(pos);
+	auto workAreaSz = PSPPointer<u32_le>::Create(workAreaSizeAddr);
+	// Leaving out either area means "just tell me how much room this needs", which needs
+	// somewhere to put the answer.
+	const bool sizeOnly = parsedUriAreaAddr == 0 || workAreaAddr == 0;
+	if (sizeOnly && !workAreaSz.IsValid()) {
+		return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_PARAMETER, "nowhere to put the size");
 	}
 
-	// Parse Resource() into path(/), query(?), and fragment(#)
-	std::string path = uri.Resource();
-	std::string query = "";
-	std::string fragment = "";
-	// Extract Path
-	pos = path.find('?');
-	if (pos <= path.size()) {
-		query = path.substr(pos); // Not removing the leading "?". Query must have the leading "?" if it's not empty (according to JPCSP)
-		if (query.size() == 1)
-			query.clear();
-		path.erase(pos);
+	UriParts parts;
+	if (!SplitUri(url, &parts)) {
+		return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_URI, "bad uri: %s", url);
 	}
-	// Extract Query and Fragment
-	pos = query.find('#');
-	if (pos <= query.size()) {
-		fragment = query.substr(pos);  // FIXME: Should we remove the leading "#" ? probably not, just like query
-		query.erase(pos);
+
+	const std::string *pieces[] = {
+		&parts.scheme, &parts.user, &parts.password, &parts.host,
+		&parts.path, &parts.query, &parts.fragment,
+	};
+	int needed = 0;
+	for (const std::string *piece : pieces) {
+		needed += (int)piece->size() + 1;
 	}
-	
-	// FIXME: Related to "scheme-specific-part" (ie. parts after the scheme + ":") ? 0 = start with "//"
-	pos = std::string(url).find("://");
-	if (parsedUri.IsValid())
-		parsedUri->noSlash = (pos != std::string::npos) ? 0 : 1;
 
-	// Store the URI components in sequence into workAreanand store the respective addresses into the parsedUri structure.
-	int offset = 0;
-	if (parsedUri.IsValid())
-		parsedUri->schemeAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, uri.Protocol().c_str()); // FiXME: scheme in lowercase, while protocol in uppercase?
+	if (!sizeOnly) {
+		if (workAreaSize < needed) {
+			return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_OUT_OF_MEMORY, "work area of %d needs %d", workAreaSize, needed);
+		}
+		// workAreaAddString writes into it unchecked.
+		if (!Memory::IsValidRange(workAreaAddr, needed) || !Memory::IsValidRange(parsedUriAreaAddr, sizeof(PSPParsedUri))) {
+			return hleLogError(Log::sceNet, -1, "invalid work area or parsed URI area");
+		}
 
-	if (parsedUri.IsValid())
-		parsedUri->userInfoUserNameAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, userInfoUserName.c_str());
-
-	if (parsedUri.IsValid())
-		parsedUri->userInfoPasswordAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, userInfoPassword.c_str());
-
-	if (parsedUri.IsValid())
-		parsedUri->hostAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, host.c_str());
-
-	if (parsedUri.IsValid())
-		parsedUri->pathAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, path.c_str());
-
-	if (parsedUri.IsValid())
-		parsedUri->queryAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, query.c_str());
-
-	if (parsedUri.IsValid())
-		parsedUri->fragmentAddr = workAreaAddr + offset;
-	offset = workAreaAddString(workAreaAddr, workAreaSize, offset, fragment.c_str());
-
-	if (parsedUri.IsValid()) {
-		parsedUri->port = uri.Port();
+		auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);
+		s32 *fields[] = {
+			&parsedUri->schemeAddr, &parsedUri->userInfoUserNameAddr, &parsedUri->userInfoPasswordAddr,
+			&parsedUri->hostAddr, &parsedUri->pathAddr, &parsedUri->queryAddr, &parsedUri->fragmentAddr,
+		};
+		int offset = 0;
+		for (size_t i = 0; i < ARRAY_SIZE(pieces); ++i) {
+			*fields[i] = workAreaAddr + offset;
+			offset = workAreaAddString(workAreaAddr, workAreaSize, offset, pieces[i]->c_str());
+		}
+		parsedUri->noSlash = parts.noSlash;
+		parsedUri->port = parts.port;
 		memset(parsedUri->unknown, 0, sizeof(parsedUri->unknown));
 		parsedUri.NotifyWrite("UriParse");
+		NotifyMemInfo(MemBlockFlags::WRITE, workAreaAddr, offset, "UriParse");
 	}
 
-	// Update the size
 	if (workAreaSz.IsValid()) {
-		*workAreaSz = offset;
+		*workAreaSz = needed;
 		workAreaSz.NotifyWrite("UriParse");
 	}
-
-	return 0;
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 static int sceUriBuild(MIPSState *mips, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
@@ -265,88 +339,125 @@ static int sceUriBuild(MIPSState *mips, u32 workAreaAddr, u32 workAreaSizeAddr, 
 	return hleLogDebug(Log::sceNet, 0, "built URI: %s", uri.c_str());
 }
 
-static int sceUriEscape(MIPSState *mips, u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), mips->pc);
+// Everything but these gets percent-encoded, with uppercase hex. Note that "*" survives and "~"
+// does not, which is the other way round from RFC 3986's unreserved set - measured on hardware
+// by pspautotests/tests/net/parseuri/escape.
+static bool IsUriUnreserved(unsigned char c) {
+	return isalnum(c) || c == '-' || c == '_' || c == '.' || c == '*';
+}
 
+static int HexDigit(char c) {
+	if (c >= '0' && c <= '9') return c - '0';
+	return (c | 0x20) - 'a' + 10;
+}
+
+// When the buffer is too small the library still fills what it can before giving up, and leaves
+// the length output alone. Returns the value to hand back; the caller does the logging, since
+// the hleLog macros only work directly inside an HLE function.
+static int UriWriteResult(u32 outAddr, u32 lengthAddr, int bufferLength, const std::string &str, int success) {
+	auto lengthPtr = PSPPointer<u32_le>::Create(lengthAddr);
+	const int required = (int)str.size() + 1;
+
+	if (outAddr == 0) {
+		// No buffer at all is a size query.
+		if (lengthPtr.IsValid()) {
+			*lengthPtr = required;
+			lengthPtr.NotifyWrite("UriEscape");
+		}
+		return success;
+	}
+
+	if (required > bufferLength) {
+		const int partial = std::min((int)str.size(), bufferLength);
+		if (partial > 0 && Memory::IsValidRange(outAddr, partial)) {
+			Memory::MemcpyUnchecked(outAddr, str.data(), partial);
+		}
+		return SCE_PARSEURI_ERROR_OUT_OF_MEMORY;
+	}
+
+	if (!Memory::IsValidRange(outAddr, required)) {
+		return -1;
+	}
+	Memory::MemcpyUnchecked(outAddr, str.c_str(), required);
+	if (lengthPtr.IsValid()) {
+		*lengthPtr = required;
+		lengthPtr.NotifyWrite("UriEscape");
+	}
+	return success;
+}
+
+static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char *source) {
+	// The real one reads straight through this pointer with no check, so a game passing null
+	// gets an exception rather than an error. An error is more useful to us.
 	if (source == nullptr) {
-		return hleLogError(Log::sceNet, -1, "invalid source");
+		return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_URI, "null source");
 	}
 
-	auto escapedLength = PSPPointer<u32>::Create(escapedLengthAddr);
-
-	// Helper function to check if a character needs to be escaped
-	auto needsEscaping = [](unsigned char c) -> bool {
-		// Characters that should NOT be escaped (unreserved characters in RFC 3986)
-		// ALPHA / DIGIT / "-" / "." / "_" / "~"
-		if ((c >= 'A' && c <= 'Z') || 
-		    (c >= 'a' && c <= 'z') || 
-		    (c >= '0' && c <= '9') ||
-		    c == '-' || c == '.' || c == '_' || c == '~') {
-			return false;
-		}
-		// Everything else needs to be escaped
-		return true;
-	};
-
-	// Helper function to convert a hex digit to character
-	auto toHexChar = [](int digit) -> char {
-		if (digit < 10) return '0' + digit;
-		return 'A' + (digit - 10);
-	};
-
-	std::string sourceStr(source);
-	int requiredSize = 0;
-	
-	for (unsigned char c : sourceStr) {
-		if (needsEscaping(c)) {
-			requiredSize += 3; // %XX format
+	static const char *hex = "0123456789ABCDEF";
+	std::string escaped;
+	for (const char *p = source; *p != '\0'; ++p) {
+		const unsigned char c = (unsigned char)*p;
+		if (IsUriUnreserved(c)) {
+			escaped.push_back((char)c);
 		} else {
-			requiredSize += 1; // unchanged character
-		}
-	}
-	requiredSize += 1; // null terminator
-
-	if (escapedLength.IsValid()) {
-		*escapedLength = requiredSize;
-		escapedLength.NotifyWrite("UriEscape");
-	}
-
-	if (escapedAddr == 0) {
-		return hleLogDebug(Log::sceNet, 0, "size query, required size: %d", requiredSize);
-	}
-
-	if (requiredSize > escapedBufferLength) {
-		return hleLogError(Log::sceNet, -1, "buffer too small: need %d, have %d", requiredSize, escapedBufferLength);
-	}
-	if (!Memory::IsValidRange(escapedAddr, requiredSize)) {
-		return hleLogError(Log::sceNet, -1, "invalid buffer");
-	}
-
-	std::string escaped = "";
-	
-	for (unsigned char c : sourceStr) {
-		if (needsEscaping(c)) {
-			// Escape as %XX
-			escaped += '%';
-			escaped += toHexChar((c >> 4) & 0xF);
-			escaped += toHexChar(c & 0xF); 
-		} else {
-			// Keep unchanged
-			escaped += c;
+			escaped.push_back('%');
+			escaped.push_back(hex[c >> 4]);
+			escaped.push_back(hex[c & 0xF]);
 		}
 	}
 
-	Memory::MemcpyUnchecked(escapedAddr, escaped.c_str(), (u32)escaped.length() + 1);
+	const int result = UriWriteResult(escapedAddr, escapedLengthAddr, escapedBufferLength, escaped, 0);
+	if (result < 0) {
+		return hleLogError(Log::sceNet, result, "buffer of %d too small", escapedBufferLength);
+	}
+	return hleLogDebug(Log::sceNet, result);
+}
 
-	return hleLogDebug(Log::sceNet, 0, "escaped '%s' to '%s'", source, escaped.c_str());
+static int sceUriUnescape(u32 unescapedAddr, u32 unescapedLengthAddr, int unescapedBufferLength, const char *source) {
+	if (source == nullptr) {
+		return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_URI, "null source");
+	}
+
+	const std::string src(source);
+	std::string unescaped;
+	// Unlike escape, which always answers zero, this one comes back with a running count of one
+	// per plain character and five per escape. Nothing is known to depend on it, but it is what
+	// the hardware returns and it is positive, so callers testing for failure still work.
+	int count = 0;
+
+	for (size_t i = 0; i < src.size(); ) {
+		if (src[i] != '%') {
+			unescaped.push_back(src[i]);
+			i++;
+			count += 1;
+			continue;
+		}
+		if (i + 2 >= src.size() || !isxdigit((unsigned char)src[i + 1]) || !isxdigit((unsigned char)src[i + 2])) {
+			return hleLogError(Log::sceNet, SCE_PARSEURI_ERROR_INVALID_URI, "truncated escape in %s", source);
+		}
+		unescaped.push_back((char)((HexDigit(src[i + 1]) << 4) | HexDigit(src[i + 2])));
+		i += 3;
+		count += 5;
+	}
+
+	const int result = UriWriteResult(unescapedAddr, unescapedLengthAddr, unescapedBufferLength, unescaped, count);
+	if (result < 0) {
+		return hleLogError(Log::sceNet, result, "buffer of %d too small", unescapedBufferLength);
+	}
+	return hleLogDebug(Log::sceNet, result);
 }
 
 const HLEFunction sceParseUri[] =
 {
 	{0X49E950EC, &WrapI_UUIC<sceUriEscape>,          "sceUriEscape",   'i', "xxis"},
-	{0X062BB07E, nullptr,                            "sceUriUnescape", '?', ""},
+	{0X062BB07E, &WrapI_UUIC<sceUriUnescape>,        "sceUriUnescape", 'i', "xxis"},
 	{0X568518C9, &WrapI_UCUUI<sceUriParse>,          "sceUriParse",    'i', "xsxxi" },
 	{0X7EE318AF, &WrapI_UUIUI<sceUriBuild>,          "sceUriBuild",    'i', "xxxxi" },
+	// libparse_uri.prx exports two more that nothing has been seen to call. 8aa55d17 goes
+	// through sceUriParse and sceUriBuild, so it is probably a resolve-against-a-base helper;
+	// 8885a782 stands alone. Listed so a game that does call one is named in the log.
+	{0X8AA55D17, nullptr,                            "sceParseUri_8AA55D17", '?', "" },
+	{0X8885A782, nullptr,                            "sceParseUri_8885A782", '?', "" },
 };
 
 void Register_sceParseUri()
