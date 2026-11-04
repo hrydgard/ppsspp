@@ -33,6 +33,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
+#include "Common/GPU/Vulkan/VulkanMemory.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
@@ -180,6 +181,9 @@ private:
 
 	VulkanPushPool *pushVertex_ = nullptr;
 	VulkanPushPool *pushIndex_ = nullptr;
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU. Filled on first use.
+	VulkanBuffer zeroCpuLitStream_;
+	VkBuffer ZeroCpuLitStream(VulkanRenderManager *renderManager);
 
 	// Other
 	ShaderManagerVulkan *shaderManager_ = nullptr;

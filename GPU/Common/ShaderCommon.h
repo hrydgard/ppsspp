@@ -151,8 +151,9 @@ enum class PspAttributeLocation {
 	POSITION = 0,
 	TEXCOORD = 1,
 	NORMAL = 2,
-	W1 = 3,
-	W2 = 4,
+	// Colors lit on the CPU (DecVtxFormat::cpuLit). Skinning weights are never vertex attributes.
+	CPU_LIT0 = 3,
+	CPU_LIT1 = 4,
 	COLOR0 = 5,
 	COLOR1 = 6,
 
@@ -164,8 +165,8 @@ enum {
 	ATTR_POSITION = 0,
 	ATTR_TEXCOORD = 1,
 	ATTR_NORMAL = 2,
-	ATTR_W1 = 3,
-	ATTR_W2 = 4,
+	ATTR_CPU_LIT0 = 3,
+	ATTR_CPU_LIT1 = 4,
 	ATTR_COLOR0 = 5,
 	ATTR_COLOR1 = 6,
 

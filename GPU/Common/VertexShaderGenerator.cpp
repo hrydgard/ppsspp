@@ -133,6 +133,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
+	// Colors lit on the CPU come in cpulit0 and cpulit1, and are used where cpulit1.a is set.
+	const bool cpuLit = id.Bit(VS_BIT_CPU_LIT) && useHWTransform && enableLighting;
 	// See PVR_UNUSED_DYNAMIC_UBO_OVERRUN: every vertex shader reads the lights UBO, which is bound as dynamic either way.
 	const bool readUnusedLights = compat.shaderLanguage == GLSL_VULKAN && !enableLighting && !doShadeMapping && bugs.Has(Draw::Bugs::PVR_UNUSED_DYNAMIC_UBO_OVERRUN);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
@@ -205,6 +207,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 		}
+		if (cpuLit) {
+			WRITE(p, "layout (location = %d) in vec4 cpulit0;\n", (int)PspAttributeLocation::CPU_LIT0);
+			WRITE(p, "layout (location = %d) in vec4 cpulit1;\n", (int)PspAttributeLocation::CPU_LIT1);
+		}
 
 		// Centroid keeps them inside the primitive on pixels it only partly covers with MSAA, so that
 		// textures aren't sampled from outside the UV range. Without MSAA, it's the same as center.
@@ -236,6 +242,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
+			}
+			if (cpuLit) {
+				WRITE(p, "  vec4 cpulit0 : COLOR2;\n");
+				WRITE(p, "  vec4 cpulit1 : COLOR3;\n");
 			}
 			if (hasNormal) {
 				WRITE(p, "  vec3 normal : NORMAL;\n");
@@ -324,6 +334,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "%s lowp vec3 color1;\n", compat.attribute);
 				*attrMask |= 1 << ATTR_COLOR1;
 			}
+		}
+		if (cpuLit) {
+			WRITE(p, "%s lowp vec4 cpulit0;\n", compat.attribute);
+			WRITE(p, "%s lowp vec4 cpulit1;\n", compat.attribute);
+			*attrMask |= (1 << ATTR_CPU_LIT0) | (1 << ATTR_CPU_LIT1);
 		}
 
 		WRITE(p, "uniform vec4 u_xywh;\n");
@@ -473,6 +488,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (lmode && !useHWTransform) {
 				WRITE(p, "  vec3 color1 = In.color1;\n");
 			}
+		}
+		if (cpuLit) {
+			WRITE(p, "  vec4 cpulit0 = In.cpulit0;\n");
+			WRITE(p, "  vec4 cpulit1 = In.cpulit1;\n");
 		}
 		if (hasNormal) {
 			WRITE(p, "  vec3 normal = In.normal;\n");
@@ -800,6 +819,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				} else {
 					WRITE(p, "  %sv_color0 = clamp(vec4(lightSum0.rgb + lightSum1, lightSum0.a), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
+			}
+			if (cpuLit) {
+				// Without lmode, the CPU summed the specular into cpulit0.
+				WRITE(p, "  if (cpulit1.a > 0.5) {\n");
+				WRITE(p, "    %sv_color0 = cpulit0;\n", compat.vsOutPrefix);
+				if (lmode) {
+					WRITE(p, "    %sv_color1 = cpulit1.rgb;\n", compat.vsOutPrefix);
+				}
+				WRITE(p, "  }\n");
 			}
 		} else {
 			// Lighting doesn't affect color.

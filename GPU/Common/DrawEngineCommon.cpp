@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <optional>
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
@@ -36,6 +37,9 @@
 #include "GPU/Common/DepthRaster.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "Common/CPUDetect.h"
+#include "GPU/Common/TransformCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -540,7 +544,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	// Otherwise the CPU clips at the near plane and culls like the GE, including the range culling after clipping, and
 	// the vertices stay on hardware transform, the same math as the other passes over the surface: mixing in software
 	// transform made those depth tests fail on PowerVR. What it can't clip is left to the clip distance.
-	const bool cpuCulls = cpuCullSupported && !gpuDoesZ && (!clipPlanesDoIt || correctCullAfterClip) && gstate.isDepthClipEnabled() && (gstate_c.Use(GPU_USE_CLIP_DISTANCE) || (CpuCanClipAll() && !gstate.isLightingEnabled()));
+	const bool cpuCulls = cpuCullSupported && !gpuDoesZ && (!clipPlanesDoIt || correctCullAfterClip) && gstate.isDepthClipEnabled() && (gstate_c.Use(GPU_USE_CLIP_DISTANCE) || CpuCanClipAll());
 	if (cpuCulls) {
 		if (AnyCompareBitsSet(anyOutsideZ)) {
 			flags |= ClipInfoFlags::CpuCull;
@@ -902,6 +906,19 @@ DrawEngineCommon::CpuClip DrawEngineCommon::BeginCpuClip(bool useHWTransform) {
 	CpuClip clip;
 	clip.fmt = dec_->GetDecVtxFmt();
 	clip.active = useHWTransform && (clipInfoFlags_ & ClipInfoFlags::Valid) && (clipInfoFlags_ & ClipInfoFlags::CpuCull);
+	// With lighting, the CPU lights the ends of the edges it clips, so the vertices clipping makes get interpolated lit
+	// colors like on the GE. All lit draws have the stream for them then, so whether one is clipped doesn't change its
+	// pipeline.
+	clip.cpuLit = useHWTransform && CpuLightsClipped();
+	if (clip.cpuLit) {
+		clip.fmt.cpuLit = 1;
+		clip.fmt.ComputeID();
+	}
+	if (clip.cpuLit != lastCpuLit_) {
+		// Different vertex shader and vertex layout.
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		lastCpuLit_ = clip.cpuLit;
+	}
 	return clip;
 }
 
@@ -910,8 +927,12 @@ void DrawEngineCommon::DecodeClipCull(CpuClip *clip, GEPrimitiveType *prim, int 
 	DecodeVerts(dec_, decoded_);
 	DecodeIndsAndGetData(prim, vertexCount, maxIndex, useElements, true);
 	clip->numVerts = numDecodedVerts_;
+	const int origVerts = clip->numVerts;
 	*vertexCount = ClipCullPrims(*prim, decoded_, clip->fmt, &clip->numVerts, decIndex_, *vertexCount);
 	*maxIndex = clip->numVerts;
+	if (clip->cpuLit && clip->numVerts > origVerts) {
+		clip->cpuLitStream = cpuLitStream_.data();
+	}
 }
 
 void DrawEngineCommon::DepthRasterSubmitHW(GEPrimitiveType prim, int vertexCount, const CpuClip &clip) {
@@ -920,6 +941,13 @@ void DrawEngineCommon::DepthRasterSubmitHW(GEPrimitiveType prim, int vertexCount
 	} else {
 		DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
 	}
+}
+
+bool DrawEngineCommon::CpuLightsClipped() const {
+	// With the clip distance, the GPU clips lit draws after lighting like the GE, but can't range cull what clipping
+	// makes.
+	return cpuLitStreamSupported_ && gstate.isLightingEnabled() && gstate.getShadeMode() != GE_SHADE_FLAT &&
+		(!gstate_c.Use(GPU_USE_CLIP_DISTANCE) || PSP_CoreParameter().compat.flags().CorrectCullAfterClip);
 }
 
 int DrawEngineCommon::ClipCullPrims(GEPrimitiveType prim, u8 *verts, const DecVtxFormat &fmt, int *numVerts, u16 *inds, int indexCount) {
@@ -976,20 +1004,88 @@ int DrawEngineCommon::ClipCullPrims(GEPrimitiveType prim, u8 *verts, const DecVt
 	// gpu/probe exp43, exp44), into one triangle, or two, (p, a, b) and (p, b, n), with o behind the plane. Each is
 	// then range culled on the vertices clipping made. The shader can't do that: it exempts the vertices behind the
 	// near plane. The new vertices are interpolated from the decoded ones, so the GPU transforms them like the rest.
-	// That's only right where the vertex outputs are linear in them: the GE interpolates the lit colors, so lit draws
-	// are left to the GPU's clip distance, like normal-based texgen and flat shading (whose provoking colors would
-	// have to move), culling only what is culled whole.
+	// That's only right where the vertex outputs are linear in them: the GE interpolates the lit colors, so with
+	// lighting, the ends of the clipped edges are lit here (fmt.cpuLit), and the new vertices take those colors.
+	// Normal-based texgen and flat shading (whose provoking colors would have to move) are left to the GPU's clip
+	// distance, culling only what is culled whole.
 	const bool rangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) && gstate_c.submitType == SubmitType::DRAW;
-	const bool canClip = CpuCanClipAll() && !gstate.isLightingEnabled();
+	const bool canClip = CpuCanClipAll() && (!gstate.isLightingEnabled() || fmt.cpuLit);
 	const bool reversed = BatchTrianglesReversed();
 	const int maxVerts = std::min((int)VERTEX_BUFFER_MAX, (int)DECODED_VERTEX_BUFFER_SIZE / stride);
 	const int maxInds = DECODED_INDEX_BUFFER_SIZE / sizeof(u16);
 	int vertCount = origVerts;
 
+	// Lights a vertex on the CPU, once, like the software transform. Its colors stay unused (cpulit1.a = 0), as the
+	// shader lights it too: only the vertices made from it take them.
+	std::optional<Lighter> lighter;
+	const u32 vertType = dec_->VertexType();
+	const bool lmode = gstate.isUsingSecondaryColor();
+	const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+	VertexReader reader(verts, fmt, vertType);
+	if (fmt.cpuLit) {
+		lighter.emplace(vertType);
+		cpuLitDone_.assign(origVerts, 0);
+		if (cpuLitColors_.size() < origVerts * 2) {
+			cpuLitColors_.resize(origVerts * 2);
+		}
+		// Filled when clipping makes a vertex. Until then, the draw uses a stream of zeroes.
+		cpuLitStream_.clear();
+	}
+	auto lightVertex = [&](int v) {
+		if (cpuLitDone_[v]) {
+			return;
+		}
+		cpuLitDone_[v] = 1;
+		reader.Goto(v);
+		float pos[3];
+		reader.ReadPosNonThrough(pos);
+		Vec4f unlitColor;
+		if (reader.hasColor0()) {
+			reader.ReadColor0(unlitColor.AsArray());
+		} else {
+			unlitColor = materialAmbientRGBA;
+		}
+		Vec3f worldnormal(0, 0, 1);
+		if (reader.hasNormal()) {
+			Vec3f normal;
+			reader.ReadNrm(normal.AsArray());
+			if (gstate.areNormalsReversed()) {
+				normal = -normal;
+			}
+			Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+			worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
+		}
+		float worldpos[3];
+		Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
+
+		Vec4f c0, c1;
+		lighter->Light(c0.AsArray(), c1.AsArray(), unlitColor.AsArray(), Vec3f(worldpos[0], worldpos[1], worldpos[2]), worldnormal);
+		if (!lmode) {
+			c0 = Vec4f(c0.r() + c1.r(), c0.g() + c1.g(), c0.b() + c1.b(), c0.a());
+		}
+		cpuLitColors_[v * 2] = c0.ToRGBA();
+		cpuLitColors_[v * 2 + 1] = lmode ? (c1.ToRGBA() & 0x00FFFFFF) : 0;
+	};
+
 	auto makeVertex = [&](int in, int outside, float t) {
 		u8 *dst = verts + vertCount * stride;
 		const u8 *a = verts + in * stride;
 		const u8 *b = verts + outside * stride;
+		if (fmt.cpuLit) {
+			lightVertex(in);
+			lightVertex(outside);
+			if (cpuLitStream_.empty()) {
+				// The original vertices keep the shader's lighting.
+				cpuLitStream_.assign(origVerts * 8, 0);
+			}
+			_dbg_assert_(cpuLitStream_.size() == vertCount * 8);
+			cpuLitStream_.resize((vertCount + 1) * 8);
+			u8 *litDst = &cpuLitStream_[vertCount * 8];
+			LerpComponent(DEC_U8_4, litDst, (const u8 *)&cpuLitColors_[in * 2], (const u8 *)&cpuLitColors_[outside * 2], t);
+			LerpComponent(DEC_U8_4, litDst + 4, (const u8 *)&cpuLitColors_[in * 2 + 1], (const u8 *)&cpuLitColors_[outside * 2 + 1], t);
+			// Use them.
+			litDst[7] = 255;
+		}
 		LerpComponent(DEC_FLOAT_3, dst + fmt.posoff, a + fmt.posoff, b + fmt.posoff, t);
 		if (fmt.nrmfmt) LerpComponent(fmt.nrmfmt, dst + fmt.nrmoff, a + fmt.nrmoff, b + fmt.nrmoff, t);
 		if (fmt.uvfmt) LerpComponent(fmt.uvfmt, dst + fmt.uvoff, a + fmt.uvoff, b + fmt.uvoff, t);

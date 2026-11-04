@@ -165,6 +165,8 @@ private:
 	id<MTLTexture> boundDepal_;
 	bool boundDepalSmoothed_ = false;
 	id<MTLTexture> nullTexture_;
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU.
+	id<MTLBuffer> zeroCpuLitStream_;
 	id<MTLSamplerState> samplerNearest_;
 	id<MTLSamplerState> samplerLinear_;
 

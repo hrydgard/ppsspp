@@ -194,13 +194,23 @@ protected:
 	}
 
 	int ComputeNumVertsToDecode() const;
-	// A hardware transformed draw that the CPU clips and culls (ClipInfoFlags::CpuCull).
+	// A hardware transformed draw that the CPU clips and culls (ClipInfoFlags::CpuCull), lighting on the CPU what it
+	// clips if needed.
 	struct CpuClip {
 		bool active = false;
+		// The draw has the stream of CPU-lit colors (DecVtxFormat::cpuLit), for the shader to use on the vertices
+		// clipping made. Every lit draw has it where the CPU lights, so they all share one shader and input layout.
+		bool cpuLit = false;
+		// With cpuLit: numVerts * 8 bytes of it in RAM, or null when it's all zeroes (nothing lit on the CPU).
+		const u8 *cpuLitStream = nullptr;
 		int numVerts = 0;
 		// Of the vertices the draw reads, in decoded_ when active.
 		DecVtxFormat fmt;
+		ClipInfoFlags ShaderFlags(ClipInfoFlags flags) const {
+			return cpuLit ? (flags | ClipInfoFlags::CpuLit) : flags;
+		}
 	};
+	// Before the vertex shader is picked, which lighting on the CPU changes.
 	CpuClip BeginCpuClip(bool useHWTransform);
 	// For an active CpuClip: decodes the vertices into decoded_ and the indices into decIndex_, then clips and culls
 	// them there. clip->numVerts vertices of clip->fmt are then in decoded_, to be pushed.
@@ -211,6 +221,8 @@ protected:
 	// primitives the GE culls: those entirely beyond the far plane, and the clipped triangles outside the guardband.
 	// verts are the decoded vertices the indices point into. Returns the new index count.
 	int ClipCullPrims(GEPrimitiveType prim, u8 *verts, const DecVtxFormat &fmt, int *numVerts, u16 *inds, int indexCount);
+	// Whether lit draws get the stream of CPU-lit colors: where the CPU lights the triangles it clips.
+	bool CpuLightsClipped() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 	// For BindFramebufferAsColorTexture, when the draw reads the target for shader blending.
@@ -344,6 +356,13 @@ protected:
 	std::vector<u8> vertClass_;
 	std::vector<float> clipPos_;
 	std::vector<u16> clipInds_;
+	std::vector<u8> cpuLitDone_;
+	// Per original vertex, its colors when lit on the CPU, for the vertices clipping makes from it.
+	std::vector<u32> cpuLitColors_;
+	// The stream of CPU-lit colors (see CpuClip::cpuLitStream).
+	std::vector<u8> cpuLitStream_;
+	// Whether the backend binds the stream of CPU-lit colors.
+	bool cpuLitStreamSupported_ = false;
 
 	// Cached vertex decoders
 	DenseHashMap<u32, VertexDecoder *> decoderMap_;
@@ -427,4 +446,5 @@ protected:
 	double rasterTimeStart_ = 0.0;
 
 	bool lastUseHwTransform_ = true;
+	bool lastCpuLit_ = false;
 };

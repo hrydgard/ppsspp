@@ -52,6 +52,7 @@ enum {
 
 DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), draw_(draw) {
 	cpuCullSupported_ = true;
+	cpuLitStreamSupported_ = true;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	decOptions_.expand8BitNormalsToFloat = false;
@@ -91,6 +92,11 @@ void DrawEngineGLES::InitDeviceObjects() {
 	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color1_32) });
 	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, fog) });
 	softwareInputLayout_ = render_->CreateInputLayout(entries, stride);
+
+	const size_t zeroSize = VERTEX_BUFFER_MAX * 8;
+	zeroCpuLitStream_ = render_->CreateBuffer(GL_ARRAY_BUFFER, zeroSize, GL_STATIC_DRAW);
+	uint8_t *zeroes = new uint8_t[zeroSize]();
+	render_->BufferSubdata(zeroCpuLitStream_, 0, zeroSize, zeroes);
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
@@ -116,6 +122,9 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 	if (softwareInputLayout_)
 		render_->DeleteInputLayout(softwareInputLayout_);
 	softwareInputLayout_ = nullptr;
+	if (zeroCpuLitStream_)
+		render_->DeleteBuffer(zeroCpuLitStream_);
+	zeroCpuLitStream_ = nullptr;
 
 	ClearInputLayoutMap();
 }
@@ -193,8 +202,12 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	}
 
 	std::vector<GLRInputLayout::Entry> entries;
-	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.w0off, entries);
-	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.w1off, entries);
+	if (decFmt.cpuLit) {
+		VertexAttribSetup(ATTR_CPU_LIT0, DEC_U8_4, decFmt.cpuLitOff, entries);
+		VertexAttribSetup(ATTR_CPU_LIT1, DEC_U8_4, decFmt.cpuLitOff + 4, entries);
+		entries[0].stream = 1;
+		entries[1].stream = 1;
+	}
 	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.uvoff, entries);
 	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.c0off, entries);
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.c1off, entries);
@@ -202,7 +215,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(const DecVtxFormat &decFmt) {
 	VertexAttribSetup(ATTR_POSITION, DecVtxFormat::PosFmt(), decFmt.posoff, entries);
 
 	int stride = decFmt.stride;
-	inputLayout = render_->CreateInputLayout(entries, stride);
+	inputLayout = render_->CreateInputLayout(entries, stride, decFmt.cpuLit ? 8 : 0);
 	inputLayoutMap_.Insert(key, inputLayout);
 	return inputLayout;
 }
@@ -271,7 +284,7 @@ void DrawEngineGLES::Flush() {
 
 	CpuClip cpuClip = BeginCpuClip(useHWTransform);
 
-	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
+	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), cpuClip.ShaderFlags(clipInfoFlags_), &vsid);
 	if (!vshader) {
 		// Both the requested shader and the software transform fallback failed to compile.
 		// Not much we can do here, let's skip drawing. Note that the failure is cached.
@@ -344,17 +357,28 @@ void DrawEngineGLES::Flush() {
 		}
 
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(cpuClip.fmt);
+		GLRBuffer *cpuLitBuffer = nullptr;
+		uint32_t cpuLitOffset = 0;
+		if (cpuClip.cpuLit) {
+			if (cpuClip.cpuLitStream) {
+				const uint32_t size = cpuClip.numVerts * 8;
+				u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &cpuLitBuffer, &cpuLitOffset);
+				memcpy(dest, cpuClip.cpuLitStream, size);
+			} else {
+				cpuLitBuffer = zeroCpuLitStream_;
+			}
+		}
 		if (useElements) {
 			if (vertexCount > 0) {
 				render_->DrawIndexed(inputLayout,
 					vertexBuffer, vertexBufferOffset,
 					indexBuffer, indexBufferOffset,
-					glprim[prim], vertexCount, GL_UNSIGNED_SHORT, 1, maxIndex - 1);
+					glprim[prim], vertexCount, GL_UNSIGNED_SHORT, 1, maxIndex - 1, cpuLitBuffer, cpuLitOffset);
 			}
 		} else {
 			render_->Draw(
 				inputLayout, vertexBuffer, vertexBufferOffset,
-				glprim[prim], 0, vertexCount);
+				glprim[prim], 0, vertexCount, cpuLitBuffer, cpuLitOffset);
 		}
 		if (useDepthRaster_) {
 			DepthRasterSubmitHW(prim, vertexCount, cpuClip);

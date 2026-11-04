@@ -111,18 +111,23 @@ static MTLVertexFormat DecFmtToMetal(int fmt) {
 	}
 }
 
-static void SetAttribute(MTLVertexDescriptor *vd, PspAttributeLocation location, int fmt, int offset) {
+static void SetAttribute(MTLVertexDescriptor *vd, PspAttributeLocation location, int fmt, int offset, int bufferIndex = METAL_VERTEX_BUFFER_INDEX) {
 	MTLVertexAttributeDescriptor *attr = vd.attributes[(int)location];
 	attr.format = DecFmtToMetal(fmt);
 	attr.offset = offset;
-	attr.bufferIndex = METAL_VERTEX_BUFFER_INDEX;
+	attr.bufferIndex = bufferIndex;
 }
 
 static MTLVertexDescriptor *CreateVertexDescriptor(const DecVtxFormat *decFmt) {
 	MTLVertexDescriptor *vd = [MTLVertexDescriptor vertexDescriptor];
 	if (decFmt) {
-		if (decFmt->w0fmt != 0) SetAttribute(vd, PspAttributeLocation::W1, decFmt->w0fmt, decFmt->w0off);
-		if (decFmt->w1fmt != 0) SetAttribute(vd, PspAttributeLocation::W2, decFmt->w1fmt, decFmt->w1off);
+		if (decFmt->cpuLit) {
+			// From the second stream.
+			SetAttribute(vd, PspAttributeLocation::CPU_LIT0, DEC_U8_4, decFmt->cpuLitOff, METAL_VERTEX_BUFFER_INDEX1);
+			SetAttribute(vd, PspAttributeLocation::CPU_LIT1, DEC_U8_4, decFmt->cpuLitOff + 4, METAL_VERTEX_BUFFER_INDEX1);
+			vd.layouts[METAL_VERTEX_BUFFER_INDEX1].stride = 8;
+			vd.layouts[METAL_VERTEX_BUFFER_INDEX1].stepFunction = MTLVertexStepFunctionPerVertex;
+		}
 		if (decFmt->uvfmt != 0) SetAttribute(vd, PspAttributeLocation::TEXCOORD, decFmt->uvfmt, decFmt->uvoff);
 		if (decFmt->c0fmt != 0) SetAttribute(vd, PspAttributeLocation::COLOR0, decFmt->c0fmt, decFmt->c0off);
 		if (decFmt->c1fmt != 0) SetAttribute(vd, PspAttributeLocation::COLOR1, decFmt->c1fmt, decFmt->c1off);
@@ -145,6 +150,7 @@ static MTLVertexDescriptor *CreateVertexDescriptor(const DecVtxFormat *decFmt) {
 DrawEngineMetal::DrawEngineMetal(Draw::DrawContext *draw) : draw_(draw), pipelines_(256) {
 	decOptions_.expand8BitNormalsToFloat = false;
 	cpuCullSupported_ = true;
+	cpuLitStreamSupported_ = true;
 	InitDeviceObjects();
 }
 
@@ -167,6 +173,9 @@ void DrawEngineMetal::InitDeviceObjects() {
 	sd.magFilter = MTLSamplerMinMagFilterLinear;
 	samplerLinear_ = [device newSamplerStateWithDescriptor:sd];
 	nullTexture_ = (__bridge id<MTLTexture>)(void *)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
+	const NSUInteger zeroSize = VERTEX_BUFFER_MAX * 8;
+	zeroCpuLitStream_ = [device newBufferWithLength:zeroSize options:MTLResourceStorageModeShared];
+	memset(zeroCpuLitStream_.contents, 0, zeroSize);
 }
 
 void DrawEngineMetal::DeviceLost() {
@@ -179,6 +188,7 @@ void DrawEngineMetal::DeviceLost() {
 	}
 	boundSecondary_ = nil;
 	boundDepal_ = nil;
+	zeroCpuLitStream_ = nil;
 	// Allocated from the old render manager's push buffer.
 	baseUBO_ = MetalPushAlloc{};
 	lightUBO_ = MetalPushAlloc{};
@@ -694,7 +704,7 @@ void DrawEngineMetal::Flush() {
 			}
 			VShaderID vsid;
 			FShaderID fsid;
-			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vsid, &fsid, pipelineState_, hwTransform, hwTransform ? clipInfoFlags_ : clipInfoFlags_);
+			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vsid, &fsid, pipelineState_, hwTransform, hwTransform ? cpuClip.ShaderFlags(clipInfoFlags_) : clipInfoFlags_);
 			// This might copy the framebuffer, which interrupts the render pass. So it goes before the pipeline lookup,
 			// which depends on the render target.
 			BindShaderBlendTex();
@@ -748,6 +758,14 @@ void DrawEngineMetal::Flush() {
 			return;
 		}
 		BindResources(pipeline);
+		if (cpuClip.cpuLit) {
+			if (cpuClip.cpuLitStream) {
+				const MetalPushAlloc litAlloc = rm_->Push().Push(cpuClip.cpuLitStream, cpuClip.numVerts * 8, 16);
+				rm_->SetVertexBuffer(litAlloc.buffer, litAlloc.offset, METAL_VERTEX_BUFFER_INDEX1);
+			} else {
+				rm_->SetVertexBuffer(zeroCpuLitStream_, 0, METAL_VERTEX_BUFFER_INDEX1);
+			}
+		}
 		MTLPrimitiveType mtlPrim = prim == GE_PRIM_TRIANGLE_STRIP ? MTLPrimitiveTypeTriangleStrip : MTLPrimitiveTypeTriangle;
 		if (vertexCount > 0) {
 			DrawPrimitives(mtlPrim, valloc.buffer, valloc.offset, vertexCount, useElements ? decIndex_ : nullptr);

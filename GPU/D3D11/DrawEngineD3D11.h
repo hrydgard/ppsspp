@@ -106,6 +106,8 @@ private:
 
 	// Pushbuffers
 	PushBufferD3D11 *pushVerts_ = nullptr;
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU.
+	ID3D11Buffer *zeroCpuLitStream_ = nullptr;
 	PushBufferD3D11 *pushInds_ = nullptr;
 
 	// D3D11 state object caches. Previously had smart pointers but they were harder to deal with.

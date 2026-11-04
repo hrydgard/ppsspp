@@ -67,7 +67,9 @@ enum VShaderBit : uint8_t {
 
 	VS_BIT_VERTEX_RANGE_CULLING = 50,
 	VS_BIT_SIMPLE_STEREO = 51,
-	// bits 52-63 are free.
+	// With lighting, a vertex can have colors lit on the CPU instead (DecVtxFormat::cpuLit).
+	VS_BIT_CPU_LIT = 52,
+	// bits 53-63 are free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {
