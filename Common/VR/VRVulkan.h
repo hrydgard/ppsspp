@@ -28,6 +28,9 @@ class VulkanPresentation;
 
 // True if OpenXR is up and the runtime can take a Vulkan session.
 bool VR_VulkanSupported();
+// True if we know there will be no Vulkan session: OpenXR is up without it, or this build can't have one.
+// Before OpenXR is up (the config is checked before it), false.
+bool VR_VulkanUnsupported();
 
 // What the runtime needs enabled on our VkInstance and VkDevice. The device list's strings stay valid.
 std::vector<std::string> VR_GetVulkanInstanceExtensions();

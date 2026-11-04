@@ -453,8 +453,9 @@ bool VulkanMayBeAvailable() {
 	g_vulkanMayBeAvailable = true;
 	return true;
 #else
-	// VR needs a runtime that takes a Vulkan session (not cached, OpenXR may not be up yet).
-	if (IsVREnabled() && !VR_VulkanSupported()) {
+	// VR needs a runtime that takes a Vulkan session. Not cached: the config is checked before OpenXR is
+	// up, when only the driver can say no, and app-android checks again after.
+	if (IsVREnabled() && VR_VulkanUnsupported()) {
 		return false;
 	}
 

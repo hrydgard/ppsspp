@@ -68,6 +68,10 @@ bool VR_VulkanSupported() {
 	return VR_GetEngine()->appState.Instance != XR_NULL_HANDLE && VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_VULKAN);
 }
 
+bool VR_VulkanUnsupported() {
+	return VR_GetEngine()->appState.Instance != XR_NULL_HANDLE && !VR_GetPlatformFlag(VR_PLATFORM_EXTENSION_VULKAN);
+}
+
 std::vector<std::string> VR_GetVulkanInstanceExtensions() {
 	std::vector<std::string> list = GetExtensionList("xrGetVulkanInstanceExtensionsKHR");
 	for (const std::string &ext : list) {
@@ -251,6 +255,10 @@ void VR_DestroyVulkanSession() {
 
 bool VR_VulkanSupported() {
 	return false;
+}
+
+bool VR_VulkanUnsupported() {
+	return true;
 }
 
 std::vector<std::string> VR_GetVulkanInstanceExtensions() {
