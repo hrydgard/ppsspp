@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <unordered_set>
 #include <vector>
@@ -238,6 +239,69 @@ std::string TexStatusToString(TexStatus status);
 // Additionally, TexCacheEntry is not that big, maybe it's beneficial to remove the unique_ptr indirection.
 typedef std::map<u64, std::unique_ptr<TexCacheEntry>> TexCache;
 
+// The primary cache: a TexCache, with an index of the RAM range each texture covers, sorted by start, for
+// TextureCacheCommon::Invalidate(), which runs for every block transfer (MX vs. ATV Untamed: about a thousand a
+// second, each walking hundreds of map nodes to find a few). Entries only come and go through here, so the two
+// stay in step, and the map is only handed out const.
+class TexCacheMap {
+public:
+	const TexCache &Map() const { return map_; }
+	size_t size() const { return map_.size(); }
+
+	// Takes ownership. The entry's addr, dim, format and bufw must be set, they make its range.
+	void Insert(u64 key, TexCacheEntry *entry);
+	// Deletes the entry, and returns the next.
+	TexCache::const_iterator Erase(TexCache::const_iterator it);
+	// Takes the entry out, without deleting it.
+	TexCacheEntry *Release(TexCache::const_iterator it);
+	void Clear();
+	// bufw is part of the range.
+	void SetBufw(TexCacheEntry *entry, u16 bufw);
+
+	// Calls func(entry) for the entries whose range overlaps [start, end), among those starting at or after
+	// searchStart.
+	template <class F>
+	void ForEachOverlapping(u32 searchStart, u32 start, u32 end, F func) const;
+
+private:
+	struct Range {
+		u32 start;
+		u32 end;
+		TexCacheEntry *entry;
+	};
+	// Ranges longer than this go in bigRanges_, so a few large ones don't widen every search.
+	static constexpr u32 BIG_RANGE = 0x10000;
+
+	void AddRange(TexCacheEntry *entry);
+	void RemoveRange(TexCacheEntry *entry);
+
+	TexCache map_;
+	std::vector<Range> ranges_;
+	std::vector<Range> bigRanges_;
+};
+
+template <class F>
+void TexCacheMap::ForEachOverlapping(u32 searchStart, u32 start, u32 end, F func) const {
+	_dbg_assert_(ranges_.size() + bigRanges_.size() == map_.size());
+	auto overlaps = [&](const Range &r) {
+		// Quick check for overlap. Yes the check is right.
+		return r.start >= searchStart && start < r.end && end > r.start;
+	};
+	// A small texture overlapping start begins at most BIG_RANGE before it.
+	const u32 smallStart = start - std::min(start, BIG_RANGE);
+	auto it = std::lower_bound(ranges_.begin(), ranges_.end(), smallStart, [](const Range &r, u32 a) { return r.start < a; });
+	for (; it != ranges_.end() && it->start < end; ++it) {
+		if (overlaps(*it)) {
+			func(it->entry);
+		}
+	}
+	for (const Range &r : bigRanges_) {
+		if (overlaps(r)) {
+			func(r.entry);
+		}
+	}
+}
+
 // Urgh.
 #ifdef IGNORE
 #undef IGNORE
@@ -399,7 +463,7 @@ public:
 	// Accessors for the debugger.
 	virtual void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const = 0;
 
-	const TexCache &Cache() const { return cache_; }
+	const TexCache &Cache() const { return cache_.Map(); }
 	const TexCache &SecondCache() const { return secondCache_; }
 
 	const size_t CacheSizeEstimate() const;
@@ -481,7 +545,7 @@ protected:
 	double replacementFrameBudgetSeconds_ = 0.5 / 60.0;
 
 	// The primary cache uses the texture address along with the clut hash as the key.
-	TexCache cache_;
+	TexCacheMap cache_;
 	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
 	// Cache keys, with a zero CLUT hash, of the textures that have an indexed replacement colored by the GPU. Those
