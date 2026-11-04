@@ -11,6 +11,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GPUDefinitions.h"
+#include "GPU/GPU.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
@@ -396,6 +397,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 
 	// If the above failed, we got a null pipeline. We still insert it to keep track.
 	pipelines_.Insert(key, pipeline);
+	gpuStats.totals.numPipelinesCreated++;
 
 	// Don't return placeholder null pipelines.
 	if (pipeline && pipeline->pipeline) {

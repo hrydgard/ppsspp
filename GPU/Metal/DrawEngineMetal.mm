@@ -278,6 +278,7 @@ DrawEngineMetal::Pipeline *DrawEngineMetal::GetOrCreatePipeline(const MetalPipel
 	pipeline->state = [MetalPipelineState new];
 	pipeline->format = format;
 	pipelines_.Insert(key, pipeline);
+	gpuStats.totals.numPipelinesCreated++;
 	if (vs->Failed() || fs->Failed()) {
 		[pipeline->state setPipeline:nil];
 		return pipeline;

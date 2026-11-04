@@ -782,6 +782,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 
 		// Check if we can link these.
 		ls = new LinkedShader(render_, VSID, vs, FSID, fs, vs->UseHWTransform());
+		gpuStats.totals.numPipelinesCreated++;
 		ls->use(VSID);
 		const LinkedShaderCacheEntry entry(vs, fs, ls);
 		linkedShaderCache_.push_back(entry);
@@ -1032,6 +1033,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		fsCache_.Get(fsid, &fs);
 		if (vs && fs) {
 			LinkedShader *ls = new LinkedShader(render_, vsid, vs, fsid, fs, vs->UseHWTransform(), true);
+			gpuStats.totals.numPipelinesCreated++;
 			LinkedShaderCacheEntry entry(vs, fs, ls);
 			linkedShaderCache_.push_back(entry);
 		}
