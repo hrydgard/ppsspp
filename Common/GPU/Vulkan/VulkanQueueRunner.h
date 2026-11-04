@@ -69,6 +69,9 @@ struct VkRenderData {
 			VkDeviceSize voffset;
 			uint32_t count;
 			uint32_t offset;
+			// For the second vertex stream, if any.
+			VkBuffer vbuffer1;
+			uint32_t voffset1;
 		} draw;
 		struct {
 			uint32_t descSetIndex;
@@ -80,6 +83,9 @@ struct VkRenderData {
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
+			// For the second vertex stream, if any.
+			VkBuffer vbuffer1;
+			uint32_t voffset1;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;

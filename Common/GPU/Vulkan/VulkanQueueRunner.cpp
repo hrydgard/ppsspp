@@ -1374,8 +1374,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
-				VkDeviceSize voffset = c.drawIndexed.voffset;
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
+				const VkBuffer vbuffers[2] = { c.drawIndexed.vbuffer, c.drawIndexed.vbuffer1 };
+				const VkDeviceSize voffsets[2] = { c.drawIndexed.voffset, c.drawIndexed.voffset1 };
+				vkCmdBindVertexBuffers(cmd, 0, c.drawIndexed.vbuffer1 ? 2 : 1, vbuffers, voffsets);
 				vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
 			}
 			break;
@@ -1387,7 +1388,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {
-					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+					const VkBuffer vbuffers[2] = { c.draw.vbuffer, c.draw.vbuffer1 };
+					const VkDeviceSize voffsets[2] = { c.draw.voffset, c.draw.voffset1 };
+					vkCmdBindVertexBuffers(cmd, 0, c.draw.vbuffer1 ? 2 : 1, vbuffers, voffsets);
 				}
 				vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			}

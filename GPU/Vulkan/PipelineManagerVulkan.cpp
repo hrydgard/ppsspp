@@ -312,7 +312,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		vertexStride = (int)sizeof(TransformedVertex);
 	}
 
-	VkVertexInputBindingDescription &ibd = desc->ibd;
+	VkVertexInputBindingDescription &ibd = desc->ibd[0];
 	ibd.binding = 0;
 	ibd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	ibd.stride = vertexStride;
@@ -320,7 +320,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	VkPipelineVertexInputStateCreateInfo &vis = desc->vis;
 	vis.flags = 0;
 	vis.vertexBindingDescriptionCount = 1;
-	vis.pVertexBindingDescriptions = &desc->ibd;
+	vis.pVertexBindingDescriptions = desc->ibd;
 	vis.vertexAttributeDescriptionCount = attributeCount;
 	vis.pVertexAttributeDescriptions = attrs;
 

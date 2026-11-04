@@ -109,8 +109,11 @@ struct GLRRenderData {
 			GLRInputLayout *inputLayout;
 			GLRBuffer *vertexBuffer;
 			GLRBuffer *indexBuffer;
+			// For the input layout's stream 1.
+			GLRBuffer *vertexBuffer1;
 			uint32_t vertexOffset;
 			uint32_t indexOffset;
+			uint32_t vertexOffset1;
 			GLenum mode;  // primitive
 			GLint first;
 			GLint count;
