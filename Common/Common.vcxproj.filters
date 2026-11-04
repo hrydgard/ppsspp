@@ -424,6 +424,9 @@
     <ClInclude Include="VR\VRRenderer.h">
       <Filter>VR</Filter>
     </ClInclude>
+    <ClInclude Include="VR\VRVulkan.h">
+      <Filter>VR</Filter>
+    </ClInclude>
     <ClInclude Include="VR\OpenXRLoader.h">
       <Filter>VR</Filter>
     </ClInclude>
@@ -1219,6 +1222,9 @@
       <Filter>VR</Filter>
     </ClCompile>
     <ClCompile Include="VR\VRRenderer.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
+    <ClCompile Include="VR\VRVulkan.cpp">
       <Filter>VR</Filter>
     </ClCompile>
     <ClCompile Include="VR\OpenXRLoader.cpp">

@@ -544,7 +544,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/VR/VRMath.cpp \
 	$(COMMONDIR)/VR/VRFramebuffer.cpp \
 	$(COMMONDIR)/VR/VRInput.cpp \
-	$(COMMONDIR)/VR/VRRenderer.cpp
+	$(COMMONDIR)/VR/VRRenderer.cpp \
+	$(COMMONDIR)/VR/VRVulkan.cpp
 
 SOURCES_C += \
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c

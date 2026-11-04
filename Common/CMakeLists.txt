@@ -60,6 +60,8 @@ set(CommonVR
 	VR/VRMath.h
 	VR/VRRenderer.cpp
 	VR/VRRenderer.h
+	VR/VRVulkan.cpp
+	VR/VRVulkan.h
 )
 
 add_library(Common STATIC

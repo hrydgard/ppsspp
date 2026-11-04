@@ -349,7 +349,7 @@ void DrawEngineVulkan::Flush() {
 		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 
 		descriptors[3].buffer.buffer = baseBuf;
-		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+		descriptors[3].buffer.range = ShaderManagerVulkan::BaseBufferSize();
 		descriptors[3].buffer.offset = 0;
 
 		descriptors[4].buffer.buffer = lightBuf;
@@ -506,7 +506,7 @@ void DrawEngineVulkan::Flush() {
 			descriptors[2].image.view = boundDepal_;
 			descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 			descriptors[3].buffer.buffer = baseBuf;
-			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+			descriptors[3].buffer.range = ShaderManagerVulkan::BaseBufferSize();
 			descriptors[3].buffer.offset = 0;
 			descriptors[4].buffer.buffer = lightBuf;
 			descriptors[4].buffer.range = sizeof(UB_VS_Lights);

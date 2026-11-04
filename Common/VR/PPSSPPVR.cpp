@@ -542,6 +542,10 @@ void* BindVRFramebuffer() {
 bool StartVRRender() {
 #ifndef __LIBRETRO__
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+			// The presentation creates the swapchain with the surface. There isn't one now.
+			return false;
+		}
 		VR_InitRenderer(VR_GetEngine());
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
@@ -620,6 +624,10 @@ bool StartVRRender() {
 }
 
 void FinishVRRender() {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		// The render thread ends the frame once it's submitted.
+		return;
+	}
 	VR_FinishFrame(VR_GetEngine());
 }
 
@@ -630,6 +638,28 @@ void PreVRFrameRender(int fboIndex) {
 
 void PostVRFrameRender() {
 	VR_EndFrame(VR_GetEngine());
+}
+
+bool GetVRMouseCursorRect(int *x, int *y, int *w, int *h) {
+#ifdef __LIBRETRO__
+	return false;
+#else
+	if (!VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		return false;
+	}
+	// The same rect VR_EndFrame clears on OpenGL, where y counts from the bottom.
+	const int vrMode = VR_GetConfig(VR_CONFIG_MODE);
+	const bool screenMode = (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
+	const int size = VR_GetConfig(VR_CONFIG_MOUSE_SIZE);
+	if (!screenMode || size <= 0) {
+		return false;
+	}
+	*w = size;
+	*h = (int)((float)size * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT));
+	*x = VR_GetConfig(VR_CONFIG_MOUSE_X);
+	*y = VR_GetConfig(VR_CONFIG_VIEWPORT_HEIGHT) - VR_GetConfig(VR_CONFIG_MOUSE_Y) - *h;
+	return true;
+#endif
 }
 
 int GetVRFBOIndex() {

@@ -39,9 +39,30 @@ void VR_Init( void* system, const char* name, int version ) {
 	}
 #endif
 
+	std::vector<XrExtensionProperties> available;
+	uint32_t availableCount = 0;
+	if (XR_SUCCEEDED(xrEnumerateInstanceExtensionProperties(nullptr, 0, &availableCount, nullptr)) && availableCount) {
+		available.resize(availableCount, { XR_TYPE_EXTENSION_PROPERTIES });
+		xrEnumerateInstanceExtensionProperties(nullptr, availableCount, &availableCount, available.data());
+	}
+	auto isAvailable = [&](const char *name) {
+		for (const XrExtensionProperties &ext : available) {
+			if (!strcmp(ext.extensionName, name)) {
+				return true;
+			}
+		}
+		return false;
+	};
+
 	std::vector<const char *> extensions;
 #ifdef XR_USE_GRAPHICS_API_OPENGL_ES
 	extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
+#endif
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+	if (isAvailable(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME)) {
+		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
+		VR_SetPlatformFLag(VR_PLATFORM_EXTENSION_VULKAN, true);
+	}
 #endif
 	extensions.push_back(XR_KHR_COMPOSITION_LAYER_CYLINDER_EXTENSION_NAME);
 #ifdef ANDROID
@@ -171,6 +192,12 @@ void VR_EnterVR( engine_t* engine ) {
 	sessionCreateInfo.next = &graphicsBindingGL;
 #else
 	//TODO:PCVR definition
+#endif
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+	if (engine->appState.VulkanBinding.type == XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR) {
+		sessionCreateInfo.next = &engine->appState.VulkanBinding;
+		VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, true);
+	}
 #endif
 	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
 	sessionCreateInfo.createFlags = 0;

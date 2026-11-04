@@ -50,6 +50,9 @@ bool StartVRRender();
 void FinishVRRender();
 void PreVRFrameRender(int fboIndex);
 void PostVRFrameRender();
+// The pointer for the menus, in backbuffer pixels from the top left, if the app has to draw it
+// (Vulkan; OpenGL draws it into the eye buffers itself).
+bool GetVRMouseCursorRect(int *x, int *y, int *w, int *h);
 int GetVRFBOIndex();
 int GetVRPassesCount();
 bool IsPassthroughSupported();

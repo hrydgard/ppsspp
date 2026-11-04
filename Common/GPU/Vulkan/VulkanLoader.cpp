@@ -29,6 +29,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/VR/VRVulkan.h"
 #include "Common/File/FileUtil.h"
 
 #if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
@@ -452,8 +453,8 @@ bool VulkanMayBeAvailable() {
 	g_vulkanMayBeAvailable = true;
 	return true;
 #else
-	// Unsupported in VR at the moment
-	if (IsVREnabled()) {
+	// VR needs a runtime that takes a Vulkan session (not cached, OpenXR may not be up yet).
+	if (IsVREnabled() && !VR_VulkanSupported()) {
 		return false;
 	}
 

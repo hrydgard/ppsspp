@@ -185,6 +185,8 @@ public:
 		int app_ver;
 		VulkanInitFlags flags;
 		std::string customDriver;
+		// Required on top of our own, by OpenXR for example.
+		std::vector<std::string> extraInstanceExtensions;
 	};
 
 	VkResult CreateInstance(const CreateInfo &info);
@@ -428,6 +430,8 @@ public:
 
 	int GetBackbufferWidth() { return (int)(presentation_ ? presentation_->GetExtent().width : swapChainExtent_.width); }
 	int GetBackbufferHeight() { return (int)(presentation_ ? presentation_->GetExtent().height : swapChainExtent_.height); }
+	// More than one means a multiview (stereo) backbuffer pass.
+	int GetBackbufferLayers() const { return presentation_ ? (int)presentation_->GetImageLayers() : 1; }
 
 	void SetProfilerEnabledPtr(bool *enabled) {
 		for (auto &frame : frame_) {
