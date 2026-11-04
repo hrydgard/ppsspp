@@ -215,6 +215,7 @@ enum class ClipInfoFlags {
 	DepthClampFragment = 16,
 	MinMaxZClip = 32,
 	MinMaxZDiscard = 64,
+	CpuCull = 128,
 };
 ENUM_CLASS_BITOPS(ClipInfoFlags);
 

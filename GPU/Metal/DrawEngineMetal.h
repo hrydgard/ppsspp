@@ -134,7 +134,8 @@ private:
 		uint32_t fragmentTextureMask;
 	};
 
-	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform);
+	// hwFmt: the vertex format for hardware transform, null for software transform.
+	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, const DecVtxFormat *hwFmt);
 	Pipeline *GetOrCreatePipeline(const MetalPipelineKey &key, const DecVtxFormat *decFmt, const MetalRenderTargetFormat &format);
 	id<MTLDepthStencilState> GetDepthStencilState(const MetalDepthStencilKey &key);
 	bool ApplyState(const Pipeline *pipeline, bool overrideStencilRef, uint8_t stencilRef);

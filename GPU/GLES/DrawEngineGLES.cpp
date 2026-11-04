@@ -51,6 +51,7 @@ enum {
 };
 
 DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : inputLayoutMap_(16), draw_(draw) {
+	cpuCullSupported_ = true;
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	decOptions_.expand8BitNormalsToFloat = false;
@@ -90,7 +91,6 @@ void DrawEngineGLES::InitDeviceObjects() {
 	entries.push_back({ ATTR_COLOR1, 3, GL_UNSIGNED_BYTE, GL_TRUE, offsetof(TransformedVertex, color1_32) });
 	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, fog) });
 	softwareInputLayout_ = render_->CreateInputLayout(entries, stride);
-
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
@@ -269,6 +269,8 @@ void DrawEngineGLES::Flush() {
 	uint32_t vertexBufferOffset = 0;
 	uint32_t indexBufferOffset = 0;
 
+	CpuClip cpuClip = BeginCpuClip(useHWTransform);
+
 	Shader *vshader = shaderManager_->ApplyVertexShader(useHWTransform, dec_->VertexType(), clipInfoFlags_, &vsid);
 	if (!vshader) {
 		// Both the requested shader and the software transform fallback failed to compile.
@@ -280,10 +282,19 @@ void DrawEngineGLES::Flush() {
 	useHWTransform = vshader->UseHWTransform();  // In case shader compilation failed and it fell back.
 
 	if (useHWTransform) {
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
-			// If software skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
-			DecodeVerts(dec_, decoded_);
-			uint32_t size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		if (cpuClip.active || (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If software skinning, or clipping on the CPU, we're predecoding into "decoded". So make sure we're done,
+			// then push that content.
+			if (cpuClip.active) {
+				DecodeClipCull(&cpuClip, &prim, &vertexCount, &maxIndex, &useElements);
+			} else {
+				DecodeVerts(dec_, decoded_);
+				cpuClip.numVerts = numDecodedVerts_;
+			}
+			uint32_t size = cpuClip.numVerts * cpuClip.fmt.stride;
 			u8 *dest = (u8 *)frameData.pushVertex->Allocate(size, 4, &vertexBuffer, &vertexBufferOffset);
 			memcpy(dest, decoded_, size);
 		} else {
@@ -293,13 +304,12 @@ void DrawEngineGLES::Flush() {
 			DecodeVerts(dec_, dest);
 		}
 
-		int vertexCount;
-		int maxIndex;
-		bool useElements;
-		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		if (!cpuClip.active) {
+			DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		}
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
-		if (useElements) {
+		if (useElements && vertexCount > 0) {
 			uint32_t esz = sizeof(uint16_t) * vertexCount;
 			void *dest = frameData.pushIndex->Allocate(esz, 2, &indexBuffer, &indexBufferOffset);
 			// TODO: When we need to apply an index offset, we can apply it directly when copying the indices here.
@@ -333,19 +343,21 @@ void DrawEngineGLES::Flush() {
 			goto bail;
 		}
 
-		GLRInputLayout *inputLayout = SetupDecFmtForDraw(dec_->GetDecVtxFmt());
+		GLRInputLayout *inputLayout = SetupDecFmtForDraw(cpuClip.fmt);
 		if (useElements) {
-			render_->DrawIndexed(inputLayout,
-				vertexBuffer, vertexBufferOffset,
-				indexBuffer, indexBufferOffset,
-				glprim[prim], vertexCount, GL_UNSIGNED_SHORT, 1, maxIndex - 1);
+			if (vertexCount > 0) {
+				render_->DrawIndexed(inputLayout,
+					vertexBuffer, vertexBufferOffset,
+					indexBuffer, indexBufferOffset,
+					glprim[prim], vertexCount, GL_UNSIGNED_SHORT, 1, maxIndex - 1);
+			}
 		} else {
 			render_->Draw(
 				inputLayout, vertexBuffer, vertexBufferOffset,
 				glprim[prim], 0, vertexCount);
 		}
 		if (useDepthRaster_) {
-			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");

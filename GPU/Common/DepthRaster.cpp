@@ -305,12 +305,9 @@ void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, c
 	}
 }
 
-void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, const VertexDecoder *dec, int count) {
-	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
-	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
-
-	int vertexStride = dec->GetDecVtxFmt().stride;
-	int offset = dec->GetDecVtxFmt().posoff;
+void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, const DecVtxFormat &fmt, int count) {
+	int vertexStride = fmt.stride;
+	int offset = fmt.posoff;
 
 	Mat4F32 mat(worldviewproj);
 

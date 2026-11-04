@@ -103,7 +103,8 @@ public:
 	bool TestBoundingBox(const void *control_points, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType);
 
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
-	static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags);
+	// cpuCullSupported: the backend can take ClipInfoFlags::CpuCull for the draw (see CpuCullSupported()).
+	static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags, bool cpuCullSupported = false);
 	bool TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags);
 	// For a draw too big or complex for TestBoundingBoxFast: the fallbacks it would need on a GPU that lacks
 	// depth clamp or clip distances, assuming the worst, or nothing (not Valid) if none are needed.
@@ -193,6 +194,23 @@ protected:
 	}
 
 	int ComputeNumVertsToDecode() const;
+	// A hardware transformed draw that the CPU clips and culls (ClipInfoFlags::CpuCull).
+	struct CpuClip {
+		bool active = false;
+		int numVerts = 0;
+		// Of the vertices the draw reads, in decoded_ when active.
+		DecVtxFormat fmt;
+	};
+	CpuClip BeginCpuClip(bool useHWTransform);
+	// For an active CpuClip: decodes the vertices into decoded_ and the indices into decIndex_, then clips and culls
+	// them there. clip->numVerts vertices of clip->fmt are then in decoded_, to be pushed.
+	void DecodeClipCull(CpuClip *clip, GEPrimitiveType *prim, int *vertexCount, int *maxIndex, bool *useElements);
+	void DepthRasterSubmitHW(GEPrimitiveType prim, int vertexCount, const CpuClip &clip);
+
+	// With ClipInfoFlags::CpuCull, clips the triangles that cross the near plane, adding vertices to verts, and drops the
+	// primitives the GE culls: those entirely beyond the far plane, and the clipped triangles outside the guardband.
+	// verts are the decoded vertices the indices point into. Returns the new index count.
+	int ClipCullPrims(GEPrimitiveType prim, u8 *verts, const DecVtxFormat &fmt, int *numVerts, u16 *inds, int indexCount);
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
 	// For BindFramebufferAsColorTexture, when the draw reads the target for shader blending.
@@ -201,7 +219,7 @@ protected:
 	void InitDepthRaster();
 	void ShutdownDepthRaster();
 	void DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
-	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount);
+	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount, const DecVtxFormat *fmt = nullptr);
 	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount, int numDecoded);
 	void CommitDepthDraw(const DepthDraw &draw, int vertexCount, int numDecoded);
 
@@ -301,6 +319,11 @@ protected:
 	bool useHWTransform_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
 	bool flushOnParams_ = true;
+	// Whether the backend handles ClipInfoFlags::CpuCull in its hardware transform path.
+	bool cpuCullSupported_ = false;
+public:
+	bool CpuCullSupported() const { return cpuCullSupported_; }
+protected:
 	// Whether SubmitCurve may queue its output as predecoded, rather than through DispatchSubmitPrim.
 	bool curvesPredecoded_ = true;
 
@@ -317,6 +340,10 @@ protected:
 	u16 *decIndex_ = nullptr;
 	// Separate from decoded_, which can hold decoded vertices that haven't been flushed yet.
 	u8 *bboxScratch_ = nullptr;
+	// Per vertex of a CPU clipped draw: VERT_BEHIND_NEAR | VERT_BEYOND_FAR.
+	std::vector<u8> vertClass_;
+	std::vector<float> clipPos_;
+	std::vector<u16> clipInds_;
 
 	// Cached vertex decoders
 	DenseHashMap<u32, VertexDecoder *> decoderMap_;

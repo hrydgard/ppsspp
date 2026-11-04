@@ -144,6 +144,7 @@ static MTLVertexDescriptor *CreateVertexDescriptor(const DecVtxFormat *decFmt) {
 
 DrawEngineMetal::DrawEngineMetal(Draw::DrawContext *draw) : draw_(draw), pipelines_(256) {
 	decOptions_.expand8BitNormalsToFloat = false;
+	cpuCullSupported_ = true;
 	InitDeviceObjects();
 }
 
@@ -254,14 +255,14 @@ id<MTLDepthStencilState> DrawEngineMetal::GetDepthStencilState(const MetalDepthS
 	return dss;
 }
 
-DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform) {
+DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, const FShaderID &fsid, const DecVtxFormat *hwFmt) {
 	MetalPipelineKey key{};
 	key.vsid = vsid;
 	key.fsid = fsid;
-	key.vtxFmtId = useHWTransform ? dec_->decFmt.id : SOFTWARE_TRANSFORM_VTXFMT;
+	key.vtxFmtId = hwFmt ? hwFmt->id : SOFTWARE_TRANSFORM_VTXFMT;
 	key.blend = blendKey_.value;
 	key.targetFormat = rm_->CurTargetFormat().Key();
-	return GetOrCreatePipeline(key, useHWTransform ? &dec_->decFmt : nullptr, rm_->CurTargetFormat());
+	return GetOrCreatePipeline(key, hwFmt, rm_->CurTargetFormat());
 }
 
 DrawEngineMetal::Pipeline *DrawEngineMetal::GetOrCreatePipeline(const MetalPipelineKey &key, const DecVtxFormat *decFmt, const MetalRenderTargetFormat &format) {
@@ -675,6 +676,8 @@ void DrawEngineMetal::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
+	CpuClip cpuClip = BeginCpuClip(useHWTransform);
+
 	auto updateVertexFullAlpha = [&]() {
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -691,11 +694,11 @@ void DrawEngineMetal::Flush() {
 			}
 			VShaderID vsid;
 			FShaderID fsid;
-			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vsid, &fsid, pipelineState_, hwTransform, clipInfoFlags_);
+			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vsid, &fsid, pipelineState_, hwTransform, hwTransform ? clipInfoFlags_ : clipInfoFlags_);
 			// This might copy the framebuffer, which interrupts the render pass. So it goes before the pipeline lookup,
 			// which depends on the render target.
 			BindShaderBlendTex();
-			lastPipeline_ = GetPipeline(vsid, fsid, hwTransform);
+			lastPipeline_ = GetPipeline(vsid, fsid, hwTransform ? &cpuClip.fmt : nullptr);
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			gstate_c.Dirty(dirtyRequiresRecheck_);
 			dirtyRequiresRecheck_ = 0;
@@ -706,20 +709,27 @@ void DrawEngineMetal::Flush() {
 
 	if (useHWTransform) {
 		MetalPushAlloc valloc;
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
-			// If skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
-			DecodeVerts(dec_, decoded_);
-			valloc = rm_->Push().Push(decoded_, numDecodedVerts_ * dec_->GetDecVtxFmt().stride, 16);
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		if (cpuClip.active || (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If skinning, or clipping on the CPU, we're predecoding into "decoded". So make sure we're done, then
+			// push that content.
+			if (cpuClip.active) {
+				DecodeClipCull(&cpuClip, &prim, &vertexCount, &maxIndex, &useElements);
+			} else {
+				DecodeVerts(dec_, decoded_);
+				cpuClip.numVerts = numDecodedVerts_;
+			}
+			valloc = rm_->Push().Push(decoded_, cpuClip.numVerts * cpuClip.fmt.stride, 16);
 		} else {
 			int vertsToDecode = ComputeNumVertsToDecode();
 			valloc = rm_->Push().Allocate(vertsToDecode * dec_->GetDecVtxFmt().stride, 16);
 			DecodeVerts(dec_, valloc.ptr);
 		}
-
-		int vertexCount;
-		int maxIndex;
-		bool useElements;
-		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		if (!cpuClip.active) {
+			DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		}
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
 		updateVertexFullAlpha();
 
@@ -739,9 +749,11 @@ void DrawEngineMetal::Flush() {
 		}
 		BindResources(pipeline);
 		MTLPrimitiveType mtlPrim = prim == GE_PRIM_TRIANGLE_STRIP ? MTLPrimitiveTypeTriangleStrip : MTLPrimitiveTypeTriangle;
-		DrawPrimitives(mtlPrim, valloc.buffer, valloc.offset, vertexCount, useElements ? decIndex_ : nullptr);
+		if (vertexCount > 0) {
+			DrawPrimitives(mtlPrim, valloc.buffer, valloc.offset, vertexCount, useElements ? decIndex_ : nullptr);
+		}
 		if (useDepthRaster_) {
-			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
 		gpuStats.perFrame.numSoftTransformedDraws++;

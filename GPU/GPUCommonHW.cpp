@@ -576,6 +576,8 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLIP_DISTANCE;
 	}
 
+	// With clip distances too, the GPU clips and culls draws crossing the Z planes, as long as the near plane is on
+	// the min Z (see TestBoundingBoxFast). Otherwise the CPU does (DrawEngineCommon::ClipCullPrims).
 	if (draw_->GetDeviceCaps().maxCullDistances >= 1) {
 		features |= GPU_USE_CULL_DISTANCE;
 	}
@@ -1019,6 +1021,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
+	// True means the bounding box test is skipped (through mode, morphing, skinning), not that the draw passed it.
+	// Those get UncheckedClipInfoFlags(), so they're never clipped or culled on the CPU either.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 
 #define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) != 0)
@@ -1036,7 +1040,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 	if (!passCulling && !discardLines) {
 		// Do software culling.
-		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
+		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 			passCulling = true;
 		} else {
 			gpuStats.perFrame.numCulledDraws++;
@@ -1111,7 +1115,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 			if (canExtend) {
 				// Non-indexed draws can be cheaply merged if vertexAddr hasn't changed, that means the vertices
-				// are consecutive in memory. We also ignore culling here which is not ideal.
+				// are consecutive in memory. We also ignore culling here which is not ideal: the merged draws take
+				// the first one's flags, so one crossing a Z plane after one that doesn't isn't clipped on the CPU.
 				_dbg_assert_((vertexType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE);
 				const int maxVerts = Memory::MaxSizeAtAddress(gstate_c.vertexAddr) / decoder->VertexSize();
 				int commandsExecuted = drawEngineCommon_->ExtendNonIndexedPrim(src, stall, decoder, vertTypeID, clockwise, &bytesRead, isTriangle, flags, maxVerts);
@@ -1150,7 +1155,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			}
 			if (!passCulling) {
 				// Do software culling.
-				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
+				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 					passCulling = true;
 				} else {
 					gpuStats.perFrame.numCulledDraws++;
