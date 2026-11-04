@@ -522,67 +522,119 @@ int sceNpAuthDestroyRequest(int requestId)
 	return hleNoLog(0);
 }
 
+// Tickets are big-endian, and params needn't be aligned.
+static u16 ReadTicketU16(u32 addr) {
+	return ((u16)Memory::ReadUnchecked_U8(addr) << 8) | Memory::ReadUnchecked_U8(addr + 1);
+}
+
+static u32 ReadTicketU32(u32 addr) {
+	return ((u32)ReadTicketU16(addr) << 16) | ReadTicketU16(addr + 2);
+}
+
+// Writes one param's value into the 256-byte output, as GetTicketParam does for every param it
+// walks past. A NULL param leaves the output alone, any other clears it first, and a type with no
+// value (unknown ones) leaves it clear. Numbers are read at their full size whatever length the
+// param gives.
+static void WriteTicketParamValue(u32 bufferPtr, u16 type, u32 valuePtr, u32 length) {
+	const u32 PARAM_BUFFER_MAX_SIZE = 256;
+	if (type == PARAM_TYPE_NULL) {
+		return;
+	}
+	Memory::Memset(bufferPtr, 0, PARAM_BUFFER_MAX_SIZE, "NpAuthGetTicketParam");
+
+	u32 readSize = 0;
+	switch (type) {
+	case PARAM_TYPE_INT: readSize = 4; break;
+	case PARAM_TYPE_LONG: case PARAM_TYPE_DATE: readSize = 8; break;
+	case PARAM_TYPE_STRING: case PARAM_TYPE_STRING_ASCII: readSize = std::min(length, PARAM_BUFFER_MAX_SIZE - 1); break;
+	case 0x3011: readSize = 4; break;
+	default: return;
+	}
+	if (!Memory::IsValidRange(valuePtr, readSize)) {
+		return;
+	}
+
+	switch (type) {
+	case PARAM_TYPE_INT:
+		Memory::WriteUnchecked_U32(ReadTicketU32(valuePtr), bufferPtr);
+		break;
+	case PARAM_TYPE_LONG:
+	case PARAM_TYPE_DATE:
+		Memory::WriteUnchecked_U64(((u64)ReadTicketU32(valuePtr) << 32) | ReadTicketU32(valuePtr + 4), bufferPtr);
+		break;
+	case 0x3011:
+		// A big-endian u16 followed by two bytes as they are.
+		Memory::WriteUnchecked_U16(ReadTicketU16(valuePtr), bufferPtr);
+		Memory::Memcpy(bufferPtr + 2, valuePtr + 2, 2, "NpAuthGetTicketParam");
+		break;
+	default:
+		// The terminator is left by the clear.
+		Memory::Memcpy(bufferPtr, valuePtr, readSize, "NpAuthGetTicketParam");
+		break;
+	}
+}
+
+// Behaviour from tests/net/npauth/ticketparam.
 int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 bufferPtr)
 {
 	const u32 PARAM_BUFFER_MAX_SIZE = 256;
+	// The type each param has to have. Param 11 is never found.
+	static const u16 paramTypes[NUMBER_PARAMETERS - 1] = {
+		PARAM_TYPE_STRING_ASCII, PARAM_TYPE_INT, PARAM_TYPE_DATE, PARAM_TYPE_DATE, PARAM_TYPE_LONG, PARAM_TYPE_STRING,
+		PARAM_TYPE_STRING_ASCII, PARAM_TYPE_STRING, PARAM_TYPE_STRING_ASCII, PARAM_TYPE_INT, PARAM_TYPE_DATE,
+	};
+
 	if (!Memory::IsValidRange(bufferPtr, PARAM_BUFFER_MAX_SIZE)) {
 		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT, "invalid buffer");
 	}
-	Memory::Memset(bufferPtr, 0, PARAM_BUFFER_MAX_SIZE); // JPCSP: This clear is always done, even when an error is returned
-	if (paramNum < 0 || paramNum >= NUMBER_PARAMETERS) {
-		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT);
+	// Cleared even when an error is returned.
+	Memory::Memset(bufferPtr, 0, PARAM_BUFFER_MAX_SIZE, "NpAuthGetTicketParam");
+	if (ticketLen < 4 || ticketLen > 0x10000) {
+		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_TICKET_SIZE, "invalid ticket size");
 	}
-	if (ticketLen < (int)sizeof(SceNpTicket) || !Memory::IsValidRange(ticketBufPtr, ticketLen)) {
+	if (paramNum < 0 || paramNum >= NUMBER_PARAMETERS) {
+		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT, "invalid param");
+	}
+	if (!Memory::IsValidRange(ticketBufPtr, ticketLen)) {
 		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT, "invalid ticket");
 	}
 
-	// Like JPCSP: the params follow the header and the body section delimiter, and only the value of
-	// the one asked for is returned.
+	// Major version in the top nibble, minor in the next byte: 2.1 and 3.0 are accepted.
+	const u32 version = ReadTicketU32(ticketBufPtr);
+	const u32 major = version >> 28;
+	const u32 minor = (version >> 16) & 0xFF;
+	if (!(major == 2 && minor == 1) && !(major == 3 && minor == 0)) {
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_TICKET_VERSION, "unsupported ticket version %08x", version);
+	}
+	if (paramNum == NUMBER_PARAMETERS - 1) {
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_TICKET_PARAM_NOT_FOUND);
+	}
+	// The header's size and the section's size aren't used.
+	if (ticketLen < (int)sizeof(SceNpTicket) || ReadTicketU16(ticketBufPtr + 8) != SECTION_TYPE_BODY) {
+		return hleLogError(Log::sceNet, SCE_NP_UTIL_ERROR_PARSER_FAILED, "no body section");
+	}
+
+	// Every param up to the one asked for is written out in turn, so a failure leaves the last
+	// one written in the buffer.
 	const u32 ticketEnd = ticketBufPtr + (u32)ticketLen;
 	u32 inbuf = ticketBufPtr + (u32)sizeof(SceNpTicket);
-	for (int i = 0; ; i++) {
-		if (inbuf + sizeof(SceNpTicketParamData) > ticketEnd || !Memory::IsValidRange(inbuf, sizeof(SceNpTicketParamData))) {
-			return hleLogWarning(Log::sceNet, 0, "Ticket ends before param %d", paramNum);
+	for (int i = 0; i <= paramNum; i++) {
+		if (inbuf + sizeof(SceNpTicketParamData) > ticketEnd) {
+			return hleLogError(Log::sceNet, SCE_NP_UTIL_ERROR_PARSER_FAILED, "ticket ends before param %d", i);
 		}
-		SceNpTicketParamData param;
-		Memory::Memcpy(&param, inbuf, sizeof(param));
-		const u32 valuePtr = inbuf + (u32)sizeof(param);
-		const u32 length = param.length;
+		const u16 type = ReadTicketU16(inbuf);
+		const u32 length = ReadTicketU16(inbuf + 2);
+		const u32 valuePtr = inbuf + (u32)sizeof(SceNpTicketParamData);
+		if (valuePtr + length > ticketEnd) {
+			return hleLogError(Log::sceNet, SCE_NP_UTIL_ERROR_PARSER_FAILED, "param %d runs past the ticket", i);
+		}
+		WriteTicketParamValue(bufferPtr, type, valuePtr, length);
+		if (type != paramTypes[i]) {
+			return hleLogError(Log::sceNet, SCE_NP_UTIL_ERROR_PARSER_FAILED, "param %d has type %04x", i, type);
+		}
 		inbuf = valuePtr + length;
-		if (i < paramNum) {
-			continue;
-		}
-
-		if (inbuf > ticketEnd || !Memory::IsValidRange(valuePtr, length)) {
-			return hleLogWarning(Log::sceNet, 0, "Param %d runs past the ticket", paramNum);
-		}
-		DEBUG_LOG(Log::sceNet, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, paramNum, (u32)param.type, length);
-		switch ((u16)param.type) {
-		case PARAM_TYPE_INT:
-			if (length >= 4) {
-				u32_be value;
-				Memory::Memcpy(&value, valuePtr, sizeof(value));
-				Memory::WriteUnchecked_U32(value, bufferPtr);
-			}
-			break;
-		case PARAM_TYPE_LONG:
-		case PARAM_TYPE_DATE:
-			if (length >= 8) {
-				u64_be value;
-				Memory::Memcpy(&value, valuePtr, sizeof(value));
-				Memory::WriteUnchecked_U64(value, bufferPtr);
-			}
-			break;
-		case PARAM_TYPE_STRING:
-		case PARAM_TYPE_STRING_ASCII:
-			// At most 255 bytes, leaving the terminator from the clear above.
-			Memory::Memcpy(bufferPtr, valuePtr, std::min(length, PARAM_BUFFER_MAX_SIZE - 1), "NpAuthGetTicketParam");
-			break;
-		default:
-			break;
-		}
-		return hleLogDebug(Log::sceNet, 0);
 	}
+	return hleLogDebug(Log::sceNet, 0);
 }
 
 const HLEFunction sceNpAuth[] = {
