@@ -1434,7 +1434,7 @@ void ImGeDebuggerWindow::Draw(ImConfig &cfg, ImControl &control, GPUCommon *gpuD
 			if (gstate.isModeClear()) {
 				ImGui::Text("(clear mode - texturing not used)");
 			} else if (!gstate.isTextureMapEnabled()) {
-				ImGui::Text("(texturing not enabled");
+				ImGui::Text("(texturing not enabled)");
 			} else if (TextureCacheCommon *texcache = gpuDebug->GetTextureCacheCommon()) {  // We don't bother with the texture if previewCmd is BOUNDING_BOX - no texturing happens there.
 				TextureApplyResult result = texcache->ApplyTexture(false);
 				if (TexCacheEntry *tex = result.texCacheEntry) {
