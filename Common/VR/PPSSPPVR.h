@@ -42,6 +42,8 @@ bool UpdateVRKeys(const KeyInput &key);
 
 // VR games compatibility
 void PreprocessStepVR(void* step);
+struct VKRStep;
+void PreprocessVulkanStepVR(VKRStep *step);
 void SetVRCompat(VRCompatFlag flag, long value);
 
 // VR rendering integration

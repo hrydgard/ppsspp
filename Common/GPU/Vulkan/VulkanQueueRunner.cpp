@@ -6,6 +6,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/VR/PPSSPPVR.h"
 
 using namespace PPSSPP_VK;
 
@@ -231,6 +232,13 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards). This will require taking over more of descriptor management so we can
 	//    substitute descriptors, alternatively using texture array layers creatively.
+
+	// Before passes get merged, so it sees them as the game drew them.
+	if (IsVREnabled()) {
+		for (VKRStep *step : steps) {
+			PreprocessVulkanStepVR(step);
+		}
+	}
 
 	for (int j = 0; j < (int)steps.size(); j++) {
 		decltype(steps[j]->render) &render = steps[j]->render;

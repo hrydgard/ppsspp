@@ -241,6 +241,11 @@ void VRUpdateUniforms(UB_VS_FS_Base *base, UB_VS_VR *vr, uint64_t dirtyUniforms)
 		vr->scaleY = 1.0f;
 	}
 
+	if (dirtyUniforms & DIRTY_FOGCOLOR) {
+		// For the skyplane hack's clear.
+		SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
+	}
+
 	// Every draw, not only when the game changes the matrices: the result also depends on whether this
 	// draw is 2D and on the head pose. GL gets away with dirty flags because its uniforms are per program
 	// (2D and 3D draws rarely share one), while this buffer is shared by all draws.

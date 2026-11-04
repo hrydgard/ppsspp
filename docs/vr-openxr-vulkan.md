@@ -72,10 +72,28 @@ depend on whether the draw is 2D and on the head pose, neither of which sets a d
 with dirty flags because its uniforms are per program (2D and 3D draws rarely share one). Recomputing
 only on dirty split GTA's scene into two layers moving at different speeds.
 
-### Not ported (yet)
+### The OpenGL-only parts, and their Vulkan versions
 
-- The skyplane compat hack (`PreprocessStepVR`) edits GL render steps. It stays GL-only for now.
-- The mouse cursor was a GL scissored clear after the frame. On Vulkan it's drawn by the UI.
+OpenGL VR goes once these are confirmed on a headset:
+
+- **Skyplane** (`compatvr.ini`, the GTA Stories games): `PreprocessSkyplane` edits GL render steps at
+  replay, `PreprocessSkyplaneVulkan` does the same to Vulkan steps in `PreprocessSteps`, before
+  passes are merged. A pass that samples another framebuffer is left alone (GL: a
+  `BIND_FB_TEXTURE` command; Vulkan: a dependency on a framebuffer other than the target). The
+  frame's first other pass is cleared to the fog color (GL inserts a `CLEAR`; Vulkan turns the
+  load op into a clear, unless it clears already). Indexed draws with the depth test off are
+  dropped (GL tracks `DEPTH` commands; Vulkan reads the bound pipeline's depth state). GL resets
+  the once-per-frame clear per eye, Vulkan once per frame in `StartVRRender`.
+- **Per-eye view matrices:** GL replays the frame per eye and `UNIFORMSTEREOMATRIX` picks the
+  eye's `u_view`. Vulkan has `u_viewR` in the VR block and picks by `gl_ViewIndex`.
+- **The pointer:** a scissored GL clear after the frame. On Vulkan the UI draws it
+  (`GetVRMouseCursorRect`).
+- **Alpha:** GL clears the eye buffers' alpha to 1 after the frame. Vulkan submits opaque layers instead.
+- **`VRForce`** (developer setting, VR shaders without a headset) works on both.
+
+The other VR compat flags (`ForceMono`, `ForceFlatScreen`, `IdentityViewHack`, `MirroringVariant`,
+`ProjectionHack`, `UnitsPerMeter`) are read in shared code (`PPSSPPVR.cpp`, the shader generator),
+so they don't depend on the backend.
 
 ## Phase 2: PC VR
 

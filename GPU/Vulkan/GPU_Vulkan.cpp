@@ -233,11 +233,12 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	if (IsVREnabled()) {
+	if (IsVREnabled() || g_Config.bForceVR) {
+		// bForceVR runs the VR shaders without a headset, for testing.
 		features |= GPU_USE_VIRTUAL_REALITY;
 		features &= ~GPU_USE_VS_RANGE_CULLING;
 		// Both eyes in one pass. The presentation copies each layer to its eye, so no stereo-to-mono shader.
-		if (GetVRPassesCount() > 1 && draw_->GetDeviceCaps().multiViewSupported) {
+		if (IsVREnabled() && GetVRPassesCount() > 1 && draw_->GetDeviceCaps().multiViewSupported) {
 			features |= GPU_USE_SINGLE_PASS_STEREO;
 		}
 	} else if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
