@@ -625,16 +625,18 @@ static int sceCtrlReadBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 static int sceCtrlPeekBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, true);
+	// ~0.2us more for each sample copied: 15us for 64 on hardware.
+	hleEatCycles(330 + 45 * std::max(done, 0));
 	// Some homebrew call this in a tight loop - so VERBOSE it is.
-	hleEatCycles(330);
 	return hleLogVerbose(Log::sceCtrl, done);
 }
 
 static int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, true, true);
+	// ~0.2us more for each sample copied: 15us for 64 on hardware.
+	hleEatCycles(330 + 45 * std::max(done, 0));
 	// Some homebrew call this in a tight loop - so VERBOSE it is.
-	hleEatCycles(330);
 	return hleLogVerbose(Log::sceCtrl, done);
 }
 

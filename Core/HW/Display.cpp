@@ -160,9 +160,10 @@ uint64_t DisplayFrameStartTicks() {
 
 uint32_t __DisplayGetCurrentHcount() {
 	const int ticksIntoFrame = (int)(CoreTiming::GetTicks(currentMIPS) - frameStartTicks);
-	const int ticksPerVblank = CoreTiming::GetClockFrequencyHz() / 60 / hCountPerVblank;
-	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
-	return 1 + (ticksIntoFrame / ticksPerVblank);
+	// A frame is 1001/60 ms, and lines 0-285 fill it. Line 0 starts at the vblank, and is rarely
+	// seen outside a vblank handler: the interrupt takes most of it (pspautotests display/vblankphase).
+	const s64 ticksPerFrame = (s64)CoreTiming::GetClockFrequencyHz() * 1001 / 60000;
+	return (u32)((s64)ticksIntoFrame * hCountPerVblank / ticksPerFrame);
 }
 
 uint32_t __DisplayGetAccumulatedHcount() {
