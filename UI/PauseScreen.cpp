@@ -661,12 +661,12 @@ void GamePauseScreen::CreateViews() {
 
 	if (showSavestateControls) {
 		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
-			LinearLayout *horiz = new LinearLayout(ORIENT_HORIZONTAL);
-			saveDataScrollItems->Add(horiz);
+			LinearLayout *horiz = saveDataScrollItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
-			horiz->Add(new Button(di->T("More info")))->OnClick.Add([](UI::EventParams &e) {
+			horiz->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
 			});
+			horiz->ApplyRoundCorners();
 		}
 		LinearLayout *extraRow = nullptr;
 		CreateSavestateControls(saveDataScrollItems, &extraRow);
