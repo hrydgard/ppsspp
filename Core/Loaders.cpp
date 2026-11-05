@@ -678,6 +678,10 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	// is quite convenient and makes it easy to add shared heuristics.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
+		if (!fn) {
+			// A corrupt central directory entry.
+			continue;
+		}
 
 		zip_stat_t stat{};
 		zip_stat_index(z, i, 0, &stat);

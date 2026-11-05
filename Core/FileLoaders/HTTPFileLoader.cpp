@@ -89,6 +89,11 @@ void HTTPFileLoader::Prepare() {
 				}
 				if (size_pos != header.npos) {
 					filesize_ = atoll(&header[size_pos]);
+					// The caches size their indexes from this. Nothing we'd load is this big.
+					if (filesize_ < 0 || filesize_ > (64LL << 30)) {
+						ERROR_LOG(Log::Loader, "HTTP: Implausible Content-Length: %s", header.c_str());
+						filesize_ = 0;
+					}
 				}
 			}
 			if (startsWithNoCase(header, "Accept-Ranges:")) {
