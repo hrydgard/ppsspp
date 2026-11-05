@@ -174,6 +174,8 @@ public:
 	// width is the stride. rectWidth, if set, is how many pixels of each row were written, which lets
 	// a write that starts partway into a framebuffer row be uploaded without clobbering the rest.
 	virtual void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth = 0);
+	// The CPU has written a width x height rectangle of pixels at addr, rows stride pixels apart.
+	virtual void PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format);
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags);
 	// Reads the stencil of whole framebuffer rows into the alpha bytes in RAM, leaving the color alone.
 	// For games that test stencil with the CPU. Only 8888 for now.

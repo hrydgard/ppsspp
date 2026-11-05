@@ -2686,6 +2686,14 @@ void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWid
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
+void GPUCommon::PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) {
+	const int bpp = BufferFormatBytesPerPixel(format);
+	if (Memory::IsVRAMAddress(addr) && framebufferManager_) {
+		framebufferManager_->WriteRectFromMemory(addr, height * stride * bpp, stride, format, width);
+	}
+	InvalidateCache(addr, ((height - 1) * stride + width) * bpp, GPU_INVALIDATE_SAFE);
+}
+
 bool GPUCommon::PerformReadbackStencilToMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest) && framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		return framebufferManager_->ReadbackStencilToMemory(dest, size);

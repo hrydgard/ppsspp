@@ -19,6 +19,7 @@
 // This stands in for the parts of the POPS boot PPSSPP doesn't run: the kernel's init, and the
 // Media Engine the manager's ME loop runs on. See docs/POPS.md.
 
+#include <algorithm>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -51,6 +52,8 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Screenshot.h"
 #include "Core/System.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUCommon.h"
 
 static bool g_popsBoot = false;
 static bool g_popsConvertedPBP = false;
@@ -303,10 +306,43 @@ static int __PopsReadIcon0(u32 file, u32 buf, u32 offset, u32 size) {
 	return hleLogDebug(Log::sceKernel, (int)size);
 }
 
+// The emulator's state for a CPU-to-VRAM image transfer through the GP0 port, from its gp: the
+// rectangle (x0, y0, x1, y1), then the current x and y.
+static const u32 POPS_IMAGE_LOAD_STATE = 0x363C;
+
+// The end of a row of such a transfer, which the emulator writes pixel by pixel with the CPU. When
+// it's the last row, the rectangle goes into the framebuffer.
+static void __PopsImageLoadRow() {
+	// The loop's registers are live across the call.
+	hleSkipDeadbeef();
+	const u32 state = currentMIPS->r[MIPS_REG_GP] + POPS_IMAGE_LOAD_STATE;
+	const u16 x0 = Memory::ReadUnchecked_U16(state), y0 = Memory::ReadUnchecked_U16(state + 2);
+	const u16 x1 = Memory::ReadUnchecked_U16(state + 4), y1 = Memory::ReadUnchecked_U16(state + 6);
+	const u16 y = Memory::ReadUnchecked_U16(state + 10);
+	if ((u16)(y + 1) != y1 || !gpu) {
+		return;
+	}
+	// VRAM is 1024x512 and the transfer wraps around its edges.
+	const int w = std::min((u16)(x1 - x0), (u16)1024), h = std::min((u16)(y1 - y0), (u16)512);
+	for (int ys = 0; ys < h;) {
+		const int sy = (y0 + ys) & 511;
+		const int sh = std::min(h - ys, 512 - sy);
+		for (int xs = 0; xs < w;) {
+			const int sx = (x0 + xs) & 1023;
+			const int sw = std::min(w - xs, 1024 - sx);
+			gpu->PerformWriteRectFromMemory(0x04000000 + (sy * 1024 + sx) * 2, 1024, sw, sh, GE_FORMAT_5551);
+			xs += sw;
+		}
+		ys += sh;
+	}
+	DEBUG_LOG(Log::sceKernel, "POPS: image load %d,%d %dx%d", x0, y0, w, h);
+}
+
 const HLEFunction PopsBootCalls[] = {
 	{ 0x13370006, &WrapI_UUU<__PopsDeflateDecompress>,  "__PopsDeflateDecompress", 'i', "xxx" },
 	{ 0x13370007, &WrapI_UUU<__PopsGetVersionKey>,      "__PopsGetVersionKey",     'i', "xxx" },
 	{ 0x13370008, &WrapI_UUUU<__PopsReadIcon0>,         "__PopsReadIcon0",         'i', "xxxx" },
+	{ 0x13370009, &WrapV_V<__PopsImageLoadRow>,         "__PopsImageLoadRow",      'v', "" },
 };
 
 void Register_PopsBootCalls() {
@@ -439,6 +475,23 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 		}
 	}
 	currentMIPS->InvalidateICacheRangeDeferred(textAddr, textSize);
+
+	// The GP0 port's image transfer ends its rows in two places (after the word's first pixel or its
+	// second): lhu rN, y1(gp); addiu rM, a2, 1; beq rM, rN; sh rM, y(gp).
+	int imageLoadRows = 0;
+	for (u32 addr = textAddr; addr + 16 <= textAddr + textSize; addr += 4) {
+		const u32 op = Memory::ReadUnchecked_U32(addr);
+		const u32 next = Memory::ReadUnchecked_U32(addr + 4);
+		const bool first = op == 0x97983642 && next == 0x24C60001 && (Memory::ReadUnchecked_U32(addr + 8) >> 16) == 0x10D8 && Memory::ReadUnchecked_U32(addr + 12) == 0xA7863646;
+		const bool second = op == 0x97903642 && next == 0x24C40001 && (Memory::ReadUnchecked_U32(addr + 8) >> 16) == 0x1090 && Memory::ReadUnchecked_U32(addr + 12) == 0xA7843646;
+		if (first || second) {
+			PatchTrampoline(addr, "__PopsImageLoadRow", op, addr + 8);
+			imageLoadRows++;
+		}
+	}
+	if (imageLoadRows != 2) {
+		WARN_LOG(Log::sceKernel, "POPS: found %d of the 2 GP0 image transfer row ends, hardware renderers may miss its pixels", imageLoadRows);
+	}
 
 	if (!g_popsConvertedPBP) {
 		return;

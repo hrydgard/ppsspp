@@ -1506,6 +1506,10 @@ void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEB
 	NoteVideoRange(addr, (u32)size);
 }
 
+void SoftGPU::PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) {
+	InvalidateCache(addr, ((height - 1) * stride + width) * BufferFormatBytesPerPixel(format), GPU_INVALIDATE_HINT);
+}
+
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	// Drawing can still be queued after a list stalled (FinishDeferred).
 	drawEngine_->transformUnit.FlushIfOverlap(this, "memcpy", false, src, size, size, 1);
