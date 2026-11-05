@@ -422,9 +422,19 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		ERROR_LOG_REPORT(Log::sceUtility, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
+	// Everything below reads these buffers by their sizes, so they have to be in memory. A size of
+	// 2^31 or more would also go negative as the int the encryption uses.
+	if (param->dataBuf.IsValid() && (param->dataSize > 0x7FFFFFF0 || !Memory::IsValidRange(param->dataBuf.ptr, param->dataSize))) {
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata buffer %08x (%d bytes) isn't all in memory", param->dataBuf.ptr, param->dataSize);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
 	auto validateSize = [](const PspUtilitySavedataFileData &data) {
 		if (data.buf.IsValid() && data.bufSize < data.size) {
 			ERROR_LOG_REPORT(Log::sceUtility, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
+			return false;
+		}
+		if (data.buf.IsValid() && !Memory::IsValidRange(data.buf.ptr, data.size)) {
+			ERROR_LOG_REPORT(Log::sceUtility, "Savedata subdata buffer %08x (%d bytes) isn't all in memory", data.buf.ptr, data.size);
 			return false;
 		}
 		return true;
@@ -462,7 +472,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		cryptedSize = param->dataSize;
 		if (cryptedSize == 0 || (SceSize)cryptedSize > param->dataBufSize) {
 			ERROR_LOG(Log::sceUtility, "Bad cryptedSize %d", cryptedSize);
-			cryptedSize = param->dataBufSize; // fallback, should never use this
+			cryptedSize = (int)std::min(Memory::ClampValidSizeAt(param->dataBuf.ptr, param->dataBufSize), (u32)0x7FFFFFF0); // fallback, should never use this
 		}
 		u8 *data_ = param->dataBuf;
 
@@ -568,7 +578,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		{
 			saveSize = param->dataSize;
 			if(saveSize == 0 || saveSize > param->dataBufSize)
-				saveSize = param->dataBufSize; // fallback, should never use this
+				saveSize = Memory::ClampValidSizeAt(param->dataBuf.ptr, param->dataBufSize); // fallback, should never use this
 
 			data_ = param->dataBuf;
 		}
@@ -1117,6 +1127,13 @@ inline std::string FmtPspTime(const ScePspDateTime &dt) {
 	return StringFromFormat("%04d-%02d-%02d %02d:%02d:%02d.%06d", dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond);
 }
 
+// Whether entry `index` of a guest array is all in memory (PSPPointer only checks the first).
+template <class T>
+static bool EntryInRange(const PSPPointer<T> &entries, u32 index) {
+	const u64 end = (u64)entries.ptr + ((u64)index + 1) * sizeof(T);
+	return end <= 0x100000000ULL && Memory::IsValidRange(entries.ptr, (u32)(end - entries.ptr));
+}
+
 int SavedataParam::GetSizes(SceUtilitySavedataParam *param) {
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA;
@@ -1246,6 +1263,10 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 			sfoFiles.push_back(sfoFile);
 		}
 
+		if (!validDir.empty() && !EntryInRange(param->idList->entries, (u32)validDir.size() - 1)) {
+			ERROR_LOG(Log::sceUtility, "SavedataParam::GetList(): entries %08x can't hold %d", param->idList->entries.ptr, (int)validDir.size());
+			return false;
+		}
 		SceUtilitySavedataIdListEntry *entries = param->idList->entries;
 		for (u32 i = 0; i < (u32)validDir.size(); i++)
 		{
@@ -1361,11 +1382,11 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr,
 		SceUtilitySavedataFileListEntry *entry = NULL;
 		int sizeOffset = 0;
 		if (isSystemFile) {
-			if (fileList->systemEntries.IsValid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries) {
+			if (fileList->systemEntries.IsValid() && fileList->resultNumSystemEntries < fileList->maxSystemEntries && EntryInRange(fileList->systemEntries, fileList->resultNumSystemEntries)) {
 				entry = &fileList->systemEntries[fileList->resultNumSystemEntries++];
 			}
 		} else if (secureFilenames.find(file.name) != secureFilenames.end()) {
-			if (fileList->secureEntries.IsValid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries) {
+			if (fileList->secureEntries.IsValid() && fileList->resultNumSecureEntries < fileList->maxSecureEntries && EntryInRange(fileList->secureEntries, fileList->resultNumSecureEntries)) {
 				entry = &fileList->secureEntries[fileList->resultNumSecureEntries++];
 			}
 			// Secure files are slightly bigger.
@@ -1373,7 +1394,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr,
 				sizeOffset = -0x10;
 			}
 		} else {
-			if (fileList->normalEntries.IsValid() && fileList->resultNumNormalEntries < fileList->maxNormalEntries) {
+			if (fileList->normalEntries.IsValid() && fileList->resultNumNormalEntries < fileList->maxNormalEntries && EntryInRange(fileList->normalEntries, fileList->resultNumNormalEntries)) {
 				entry = &fileList->normalEntries[fileList->resultNumNormalEntries++];
 			}
 		}
@@ -1436,6 +1457,14 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 	if (param->sizeInfo.IsValid()) {
 		auto listing = pspFileSystem.GetDirListing(saveDir, &exists);
 		const u64 freeBytes = MemoryStick_FreeSpace(GetGameName(param));
+
+		// The counts and both arrays come from the game.
+		if (param->sizeInfo->numNormalEntries < 0 || param->sizeInfo->numSecureEntries < 0 ||
+			(param->sizeInfo->numNormalEntries > 0 && !EntryInRange(param->sizeInfo->normalEntries, param->sizeInfo->numNormalEntries - 1)) ||
+			(param->sizeInfo->numSecureEntries > 0 && !EntryInRange(param->sizeInfo->secureEntries, param->sizeInfo->numSecureEntries - 1))) {
+			ERROR_LOG(Log::sceUtility, "SavedataParam::GetSize(): bad entry lists");
+			return false;
+		}
 
 		s64 overwriteBytes = 0;
 		s64 writeBytes = 0;
