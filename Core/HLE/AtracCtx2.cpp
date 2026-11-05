@@ -875,9 +875,13 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	int16_t *outPtr;
 
 	_dbg_assert_(samplesToDecode <= info.SamplesPerFrame());
-	if (samplesToDecode != info.SamplesPerFrame()) {
+	// info.codec is in guest memory and can be changed after SetData, so what the decoder actually
+	// writes is decided by the decoder.
+	const int decoderSamples = decoder_->GetAudioType() == PSP_CODEC_AT3PLUS ? ATRAC3PLUS_MAX_SAMPLES : ATRAC3_MAX_SAMPLES;
+	if (samplesToDecode != decoderSamples) {
 		if (!decodeTemp_) {
-			decodeTemp_ = new int16_t[info.SamplesPerFrame() * outputChannels_];
+			// Big enough for any frame, in any channel count.
+			decodeTemp_ = new int16_t[ATRAC3PLUS_MAX_SAMPLES * 2]();
 		}
 		outPtr = decodeTemp_;
 	} else {
@@ -887,8 +891,9 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 	context_->codec.inBuf = inAddr;
 	context_->codec.outBuf = outbufAddr;
 
-	if (!Memory::IsValidAddress(inAddr)) {
-		ERROR_LOG(Log::Atrac, "DecodeInternal: Bad inAddr %08x", inAddr);
+	// The decoder reads a whole frame.
+	if (!Memory::IsValidRange(inAddr, info.sampleSize)) {
+		ERROR_LOG(Log::Atrac, "DecodeInternal: Bad inAddr %08x (frame size %d)", inAddr, info.sampleSize);
 		return SCE_ERROR_ATRAC_API_FAIL;
 	}
 
@@ -918,8 +923,8 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 			*finish = 0;
 		}
 		u8 *outBuf = outbufAddr ? Memory::GetPointerWriteOrException(outbufAddr) : nullptr;
-		if (samplesToDecode != info.SamplesPerFrame() && samplesToDecode != 0 && outBuf) {
-			memcpy(outBuf, decodeTemp_, samplesToDecode * outputChannels_ * sizeof(int16_t));
+		if (outPtr == decodeTemp_ && samplesToDecode != 0 && outBuf) {
+			memcpy(outBuf, decodeTemp_, std::min(samplesToDecode, (int)ATRAC3PLUS_MAX_SAMPLES) * outputChannels_ * sizeof(int16_t));
 		}
 
 		// Handle increments and looping.
@@ -976,9 +981,11 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 					size_t copyLen = info.secondBufferByte % info.sampleSize;
 					if (copyLen > info.bufferByte)
 						copyLen = info.bufferByte;
-					memcpy(Memory::GetPointerWriteOrException(info.buffer),
-						Memory::GetPointerOrException(info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize)),
-						copyLen);
+					const u32 copySrc = info.secondBuffer + (info.secondBufferByte - info.secondBufferByte % info.sampleSize);
+					// Both addresses come from the context in guest memory.
+					if (Memory::IsValidRange(info.buffer, (u32)copyLen) && Memory::IsValidRange(copySrc, (u32)copyLen)) {
+						memcpy(Memory::GetPointerWriteOrException(info.buffer), Memory::GetPointerOrException(copySrc), copyLen);
+					}
 				}
 			}
 		}

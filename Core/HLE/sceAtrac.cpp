@@ -420,7 +420,8 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	int numSamplesWritten = 0;
 	int finish = 0;
 	int remains = 0;
-	if (outAddr != 0 && !Memory::IsValidAddress(outAddr)) {
+	// A whole frame is written.
+	if (outAddr != 0 && !Memory::IsValidRange(outAddr, atrac->GetOutputChannels() * 2 * atrac->SamplesPerFrame())) {
 		// Dunno what error code to return here, but we have to bail in this case to avoid crashing PPSSPP.
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_SIZE_TOO_SMALL);
 	}
@@ -757,6 +758,13 @@ static u32 sceAtracResetPlayPosition(int atracID, int sample, int bytesWrittenFi
 	return hleDelayResult(res, "reset play pos", 3000);
 }
 
+
+// The track parsers read up to the size they're given, which the game picks. Bound it by what's
+// actually mapped, but keep it for invalid pointers so those are still reported as such.
+static u32 GuestReadableSize(u32 addr, u32 size) {
+	return Memory::IsValidAddress(addr) ? Memory::ClampValidSizeAt(addr, size) : size;
+}
+
 static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 bufferSize) {
 	AtracBase *atrac = getAtrac(atracID);
 	// Don't use AtracValidateManaged here.
@@ -770,7 +778,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), readSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, readSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -807,7 +815,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), bufferSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, bufferSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -838,7 +846,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	std::string error;
 	// We let zero-pointer through as zeroes, so the small size check can kick in before it's accessed.
 	// This is needed in Tomb Raider Legend (#20145).
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), bufferSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, bufferSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -864,7 +872,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), readSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, readSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -990,7 +998,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), readSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, readSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -1016,7 +1024,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), bufferSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, bufferSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -1036,7 +1044,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), bufferSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, bufferSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -1065,7 +1073,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), readSize, &track, &error);
+	int ret = AnalyzeAtracTrack(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, readSize), &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -1090,7 +1098,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, u32 metadataSizeAddr) {
 	Track track;
 	std::string error;
-	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), bufferSize, fileSize, &track, &error);
+	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, bufferSize), fileSize, &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
@@ -1116,7 +1124,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 
 	Track track;
 	std::string error;
-	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), readSize, fileSize, &track, &error);
+	int ret = AnalyzeAA3Track(Memory::GetPointerOrNull(buffer), GuestReadableSize(buffer, readSize), fileSize, &track, &error);
 	if (ret < 0) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}

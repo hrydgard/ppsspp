@@ -640,6 +640,12 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		} else if (codec == PSP_CODEC_AT3PLUS && ctx->fmt.at3.outputChannels == 1) {
 			outputChannels = 1;
 		}
+		// The decoder writes a whole frame, but only the first byte of outBuf was checked.
+		const u32 maxFrameSamples = codec == PSP_CODEC_AT3PLUS ? 2048 : (codec == PSP_CODEC_MP3 ? 1152 : 1024);
+		if (!Memory::IsValidRange(ctx->outBuf, maxFrameSamples * outputChannels * 2)) {
+			ctx->err = 0x20b;
+			return hleLogError(Log::ME, 0, "Output buffer at %08x can't hold a frame", ctx->outBuf);
+		}
 		bool result = decoder->Decode(inBuf, bytesPerFrame, &inDataConsumed, outputChannels, outBuf, &outSamples);
 		if (!result && (codec == PSP_CODEC_AT3PLUS || codec == PSP_CODEC_AT3)) {
 			// What the hardware reports for a frame that doesn't decode (0x208 is also possible for
