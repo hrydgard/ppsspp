@@ -104,6 +104,7 @@ void SingleControlMapper::Refresh() {
 	float rightColumnWidth = 350;
 
 	LinearLayout *root = Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	root->SetPadding(Margins(0, 0, 12, 0));
 	root->SetSpacing(3.0f);
 
 	auto iter = keyImages.find(keyName_);
@@ -124,7 +125,7 @@ void SingleControlMapper::Refresh() {
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
-	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, portrait_ ? new LinearLayoutParams(1.0f) : new LinearLayoutParams(rightColumnWidth, WRAP_CONTENT)));
+	LinearLayout *rightColumn = root->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f)));
 	rightColumn->SetSpacing(2.0f);
 	std::vector<MultiInputMapping> mappings;
 	KeyMap::InputMappingsFromPspButton(pspKey_, &mappings, false);
@@ -234,8 +235,6 @@ void ControlMappingScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 
 	// Use the whole width of the narrow settings column.
 	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
-	groups->SetPadding(Margins(0, 12, 0, 0));
-	groups->SetSpacing(12.0f);
 
 	ChoiceGroup *resetChoices = groups->Add(new ChoiceGroup());
 	resetChoices->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
@@ -268,6 +267,7 @@ void ControlMappingScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	LinearLayout *rootLayout = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	rootLayout->SetPadding(Margins(0, 12, 12, 12));
 	mappers_.clear();
 
 	size_t numMappableKeys = 0;
