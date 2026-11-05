@@ -298,7 +298,7 @@ bool ImposeArt::Parse(const std::vector<uint8_t> &file, int pspLanguage) {
 		const uint32_t w = r.U32(rec + 16);
 		const uint32_t h = r.U32(rec + 20);
 		const uint32_t offset = r.U32(rec + 24);
-		if (!r.ok || palette >= NUM_PALETTES || w == 0 || h == 0 || x + w > PSP_W || y + h > PSP_H || (w * h + 1) / 2 != size) {
+		if (!r.ok || palette >= NUM_PALETTES || w == 0 || h == 0 || w > PSP_W || x > PSP_W - w || h > PSP_H || y > PSP_H - h || (w * h + 1) / 2 != size) {
 			return false;
 		}
 		const size_t pixels = block + TEXT_RECORDS + (size_t)offset;
