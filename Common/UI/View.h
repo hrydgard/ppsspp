@@ -1014,8 +1014,8 @@ private:
 	const float paddingW_ = 8;
 	const float paddingH_ = 4;
 
+	// Half the size of the I_RADIO_* images.
 	const float radioRadius_ = 16.0f;
-	const float radioInnerRadius_ = 8.0f;
 };
 
 class CollapsibleHeader : public CheckBox {

@@ -1104,14 +1104,8 @@ void RadioButton::Draw(UIContext &dc) {
 
 	const Bounds bounds = ContentBounds();
 
-	dc.Flush();
-	dc.BeginNoTex();
-	dc.Draw()->Circle(bounds.x + paddingW_ + radioRadius_, bounds.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
-	if (checked) {
-		dc.Draw()->FillCircle(bounds.x + paddingW_ + radioRadius_, bounds.centerY(), radioInnerRadius_, 36, style.fgColor);
-	}
-	dc.Flush();
-	dc.Begin();
+	const ImageID image(checked ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY");
+	dc.Draw()->DrawImage(image, bounds.x + paddingW_ + radioRadius_, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
 	float tw, th;
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
