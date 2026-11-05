@@ -58,7 +58,7 @@ bool Buffer::FlushSocket(uintptr_t sock, double timeout, bool *cancelled) {
 	return true;
 }
 
-bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progress) {
+bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progress, size_t maxBytes) {
 	static constexpr float CANCEL_INTERVAL = 0.25f;
 	std::vector<char> buf;
 	// We're non-blocking and reading from an OS buffer, so try to read as much as we can at a time.
@@ -71,7 +71,7 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 	}
 
 	double st = time_now_d();
-	int total = 0;
+	int64_t total = 0;
 	while (true) {
 		bool ready = false;
 
@@ -94,6 +94,10 @@ bool Buffer::ReadAllWithProgress(int fd, int knownSize, RequestProgress *progres
 
 			// Just try again on a would block error, not a real error.
 			continue;
+		}
+		if ((uint64_t)total + retval > maxBytes) {
+			ERROR_LOG(Log::IO, "Response larger than %lld bytes, giving up", (long long)maxBytes);
+			return false;
 		}
 		char *p = Append((size_t)retval);
 		memcpy(p, &buf[0], retval);

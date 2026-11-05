@@ -13,7 +13,10 @@
 class NewThreadExecutor {
 public:
 	~NewThreadExecutor();
-	void Run(std::function<void()> func);
+	// Returns false, without running func, when MAX_WORKERS threads are already busy.
+	bool Run(std::function<void()> func);
+
+	static constexpr size_t MAX_WORKERS = 64;
 
 private:
 	// Reap threads that have finished. Only called from the thread that calls Run().

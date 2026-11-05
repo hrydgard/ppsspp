@@ -9,6 +9,13 @@
 
 namespace http {
 
+// Caps on a response body, so a server can't make us buffer until we run out of memory. Downloads
+// to a file are buffered in memory too, so they get a cap of their own.
+constexpr size_t MAX_RESPONSE_IN_MEMORY = 64 * 1024 * 1024;
+constexpr size_t MAX_RESPONSE_TO_FILE = 1024 * 1024 * 1024;
+// Redirects we follow before giving up.
+constexpr int MAX_REDIRECTS = 10;
+
 enum class RequestMethod {
 	GET,
 	POST,

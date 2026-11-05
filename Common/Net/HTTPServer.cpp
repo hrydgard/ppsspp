@@ -13,6 +13,7 @@
 
 #else
 
+#include <sys/select.h>       /*  FD_SETSIZE                */
 #include <sys/socket.h>       /*  socket definitions        */
 #include <sys/types.h>        /*  socket types              */
 #include <sys/wait.h>         /*  for waitpid()             */
@@ -43,10 +44,14 @@
 #include "Common/Log.h"
 
 
-void NewThreadExecutor::Run(std::function<void()> func) {
+bool NewThreadExecutor::Run(std::function<void()> func) {
 	// Every connection gets a thread, and we only ever joined them at shutdown - so a server that
 	// had served N connections was still holding N joinable std::threads. Reap the finished ones.
 	Prune();
+	if (workers_.size() >= MAX_WORKERS) {
+		// Otherwise anyone who can connect gets a thread per connection, until creating one throws.
+		return false;
+	}
 
 	auto done = std::make_shared<std::atomic<bool>>(false);
 	Worker worker;
@@ -56,6 +61,7 @@ void NewThreadExecutor::Run(std::function<void()> func) {
 		done->store(true, std::memory_order_release);
 	});
 	workers_.push_back(std::move(worker));
+	return true;
 }
 
 void NewThreadExecutor::Prune() {
@@ -328,7 +334,18 @@ bool Server::RunSlice(double timeout) {
 	socklen_t client_addr_size = sizeof(client_addr);
 	int conn_fd = accept(listenerSock_, &client_addr.sa, &client_addr_size);
 	if (conn_fd >= 0) {
-		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
+#if !PPSSPP_PLATFORM(WINDOWS)
+		// The sinks and the WebSocket server wait on the socket with select().
+		if (conn_fd >= FD_SETSIZE) {
+			WARN_LOG(Log::HTTP, "Too many open files, dropping connection");
+			closesocket(conn_fd);
+			return true;
+		}
+#endif
+		if (!executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd))) {
+			WARN_LOG(Log::HTTP, "Too many connections, dropping one");
+			closesocket(conn_fd);
+		}
 		return true;
 	}
 	else {

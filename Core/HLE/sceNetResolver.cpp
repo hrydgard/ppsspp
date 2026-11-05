@@ -102,7 +102,9 @@ static int CheckNtoAArgs(u32 hostnamePtr, u32 inAddrPtr) {
 
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
-	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
+	// CheckNtoAArgs checked the address. The name needn't be terminated before the end of memory.
+	const char *hostnameChars = Memory::GetCharPointerUnchecked(hostnamePtr);
+	std::string hostname(hostnameChars, strnlen(hostnameChars, Memory::MaxSizeAtAddress(hostnamePtr)));
 	
 	// Process hostname with infra-DNS
 	std::string processedHostname = ProcessHostnameWithInfraDNS(hostname);
@@ -154,7 +156,10 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 		return hleLogError(Log::sceNet, error);
 	}
 
-	for (int attempt = 0; attempt < retry; ++attempt) {
+	// Each attempt blocks the emulator for as long as the host's lookups take (seconds against a dead
+	// DNS server), and the game's count isn't limited, so a couple will do.
+	const int attempts = std::min(retry, 2);
+	for (int attempt = 0; attempt < attempts; ++attempt) {
 		const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
 		if (status >= 0) {
 			return hleDelayResult(hleLogDebugOrError(Log::sceNet, status), "resolver lookup", RESOLVER_LOOKUP_US);

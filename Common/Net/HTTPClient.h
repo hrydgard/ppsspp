@@ -98,10 +98,16 @@ public:
 		httpVersion_ = version;
 	}
 
+	// The most body ReadResponseEntity accepts, before and after decompression.
+	void SetMaxResponseSize(size_t size) {
+		maxResponseSize_ = size;
+	}
+
 protected:
 	std::string userAgent_;
 	const char* httpVersion_;
 	double headerTimeout_ = 900.0;
+	size_t maxResponseSize_ = MAX_RESPONSE_IN_MEMORY;
 };
 
 // Really an asynchronous request.

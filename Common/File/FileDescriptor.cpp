@@ -13,6 +13,12 @@
 namespace fd_util {
 
 bool WaitUntilReady(int fd, double timeout, bool for_write) {
+#if !PPSSPP_PLATFORM(WINDOWS)
+	// FD_SET on an fd past the end of the set writes off the end of it, on the stack.
+	if (fd < 0 || fd >= FD_SETSIZE) {
+		return false;
+	}
+#endif
 	struct timeval tv;
 	tv.tv_sec = (long)floor(timeout);
 	tv.tv_usec = (long)((timeout - floor(timeout)) * 1000000.0);

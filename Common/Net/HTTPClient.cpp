@@ -499,8 +499,13 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 		// Just sanity checking...
 		contentLength = 0;
 	}
+	if ((size_t)contentLength > maxResponseSize_) {
+		ERROR_LOG(Log::HTTP, "Response too large: %d bytes", contentLength);
+		return -1;
+	}
 
-	if (!readbuf->ReadAllWithProgress(sock(), contentLength, progress))
+	// readbuf may already hold the start of the body, read along with the headers.
+	if (readbuf->size() > maxResponseSize_ || !readbuf->ReadAllWithProgress(sock(), contentLength, progress, maxResponseSize_ - readbuf->size()))
 		return -1;
 
 	// output now contains the rest of the reply. Dechunk it.
@@ -521,7 +526,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 		if (gzip) {
 			std::string compressed, decompressed;
 			output->TakeAll(&compressed);
-			bool result = decompress_string(compressed, &decompressed);
+			bool result = decompress_string(compressed, &decompressed, maxResponseSize_);
 			if (!result) {
 				ERROR_LOG(Log::HTTP, "Error decompressing using zlib");
 				if (progress) {
@@ -581,6 +586,7 @@ int HTTPRequest::Perform(const std::string &url) {
 	if (!userAgent_.empty()) {
 		client.SetUserAgent(userAgent_);
 	}
+	client.SetMaxResponseSize(outfile_.empty() ? MAX_RESPONSE_IN_MEMORY : MAX_RESPONSE_TO_FILE);
 
 	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
 		ERROR_LOG(Log::HTTP, "Failed resolving %s", url.c_str());
@@ -625,6 +631,7 @@ void HTTPRequest::Do() {
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;
+	int redirects = 0;
 	while (resultCode_ == 0) {
 		// This is where the new request is performed.
 		int resultCode = Perform(downloadURL);
@@ -640,6 +647,9 @@ void HTTPRequest::Do() {
 				resultCode_ = resultCode;
 			} else if (redirectURL == downloadURL || redirectURL == url_) {
 				// Simple loop detected, bail out.
+				resultCode_ = resultCode;
+			} else if (++redirects > MAX_REDIRECTS) {
+				ERROR_LOG(Log::HTTP, "Too many redirects requesting %s", url_.c_str());
 				resultCode_ = resultCode;
 			}
 

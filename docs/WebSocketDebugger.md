@@ -34,8 +34,18 @@ This doc is a local reference, the user-facing documentation is on the website.
   to `/debugger` without a websocket Upgrade just redirects to the bundled
   web UI at `/debugger/index.html`).
 - Messages are JSON, both directions, always shaped as `{"event": "NAME", ...}`.
-- One WebSocket connection = one client; PPSSPP does not limit the number of
-  simultaneous debugger connections.
+- One WebSocket connection = one client. The web server as a whole handles at
+  most 64 connections at a time (`NewThreadExecutor::MAX_WORKERS`), debugger
+  connections included.
+- Browser pages are checked by their `Origin` header, since any page can open a
+  WebSocket to localhost and the debugger can write memory and files. Allowed:
+  no `Origin` at all (native clients, wsdbg, scripts), pages served from
+  `localhost`, `127.0.0.1` or `[::1]` on any port, pages served by this server
+  itself by IP address (the `Origin` matches `Host`, as for the bundled UI; a
+  hostname doesn't count, since DNS rebinding can point one at us), and
+  `ppsspp-debugger.unknownbrackets.org`. Anything else gets a 403.
+- A client that stops reading gets dropped once 128 MB of responses are queued
+  for it.
 - The debugger only actually does anything while `WebServerFlags::DEBUGGER`
   is enabled (see "Enabling it" below) - the HTTP server itself may also be
   running for other reasons (Remote ISO, upload).
