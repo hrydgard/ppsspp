@@ -9,7 +9,9 @@
 #include <unistd.h>
 #endif
 
+#ifndef NOMINMAX
 #define NOMINMAX  // 7z includes windows.h for some reason.
+#endif
 #include "ext/lzma-sdk/7z.h"
 #include "ext/lzma-sdk/7zCrc.h"
 #include "ext/lzma-sdk/7zFile.h"

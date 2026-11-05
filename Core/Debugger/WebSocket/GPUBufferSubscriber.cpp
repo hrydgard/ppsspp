@@ -22,6 +22,8 @@
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Screenshot.h"
 #include "GPU/Debugger/Stepping.h"
@@ -255,7 +257,7 @@ static void GenericStreamBuffer(DebuggerRequest &req, std::function<bool(const G
 	}
 }
 
-// Retrieve a screenshot (gpu.buffer.screenshot)
+// Retrieve a screenshot (gpu.buffer.screenshot). While the game has the display off, it's black.
 //
 // Parameters:
 //  - type: either 'uri' or 'base64' (optional, defaults to 'uri').
@@ -282,6 +284,16 @@ void WebSocketGPUBufferScreenshot(DebuggerRequest &req) {
 			return true;
 		}
 		// Without a backbuffer (headless Vulkan), the displayed PSP framebuffer is the closest thing.
+		PSPPointer<u8> displayAddr;
+		__DisplayGetFramebuf(&displayAddr, nullptr, nullptr, 0);
+		if (!Memory::IsValidAddress(displayAddr.ptr)) {
+			// The game has turned the display off (sceDisplaySetFrameBuf with 0), so the screen is black.
+			static GPUDebugBuffer black;
+			black.Allocate(480, 272, GE_FORMAT_8888);
+			memset(black.GetData(), 0, 480 * 272 * 4);
+			buf = &black;
+			return true;
+		}
 		*isFramebuffer = true;
 		return GPUStepping::GPU_GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY);
 	});

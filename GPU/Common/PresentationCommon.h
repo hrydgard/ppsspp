@@ -193,6 +193,7 @@ protected:
 
 	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc, bool alphaBlend = false) const;
+	bool UseVRStereoSource() const;
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
 	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
@@ -209,6 +210,8 @@ protected:
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
 	Draw::Pipeline *texColorRBSwizzle_ = nullptr;
+	// VR with a stereo (two-layer) source: each view of the multiview backbuffer samples its own layer.
+	Draw::Pipeline *texColorStereo_ = nullptr;
 	Draw::SamplerState *samplerNearest_ = nullptr;
 	Draw::SamplerState *samplerLinear_ = nullptr;
 	Draw::Buffer *vdata_ = nullptr;

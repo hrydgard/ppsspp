@@ -51,6 +51,8 @@ enum {
 DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 	: draw_(draw) {
 	decOptions_.expand8BitNormalsToFloat = false;
+	cpuCullSupported_ = true;
+	cpuLitStreamSupported_ = true;
 }
 
 void DrawEngineVulkan::InitDeviceObjects() {
@@ -119,6 +121,8 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		delete pushIndex_;
 		pushIndex_ = nullptr;
 	}
+	zeroCpuLitStream_.Destroy(vulkan);
+	zeroCpuLitStream_ = VulkanBuffer();
 
 	if (samplerSecondaryNearest_ != VK_NULL_HANDLE)
 		vulkan->Delete().QueueDeleteSampler(samplerSecondaryNearest_);
@@ -128,6 +132,25 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan->Delete().QueueDeleteSampler(nullSampler_);
 
 	renderManager->DestroyPipelineLayout(pipelineLayout_);
+}
+
+VkBuffer DrawEngineVulkan::ZeroCpuLitStream(VulkanRenderManager *renderManager) {
+	if (!zeroCpuLitStream_.Buffer()) {
+		VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
+		const VkDeviceSize size = VERTEX_BUFFER_MAX * 8;
+		zeroCpuLitStream_.Create(vulkan, "zeroCpuLitStream", size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+		VkCommandBuffer cmdInit = renderManager->GetInitCmd();
+		vkCmdFillBuffer(cmdInit, zeroCpuLitStream_.Buffer(), 0, size, 0);
+		VkBufferMemoryBarrier barrier{ VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.buffer = zeroCpuLitStream_.Buffer();
+		barrier.size = size;
+		vkCmdPipelineBarrier(cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, 0, 0, nullptr, 1, &barrier, 0, nullptr);
+	}
+	return zeroCpuLitStream_.Buffer();
 }
 
 void DrawEngineVulkan::DeviceLost() {
@@ -226,6 +249,7 @@ void DrawEngineVulkan::Flush() {
 			useHWTransform = false;
 		}
 	}
+	CheckSkinnedMinMaxZ(useHWTransform);
 	if (clipInfoFlags_ != lastClipInfoFlags_) {
 		ClipInfoFlags changed = (ClipInfoFlags)((u32)clipInfoFlags_ ^ (u32)lastClipInfoFlags_);
 		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
@@ -250,14 +274,25 @@ void DrawEngineVulkan::Flush() {
 	// This could be avoided with the new dynamic state extensions, but not available enough on mobile.
 	const bool forceIndexed = draw_->GetDeviceCaps().verySlowShaderCompiler;
 
+	CpuClip cpuClip = BeginCpuClip(useHWTransform);
+
 	if (useHWTransform) {
 		uint32_t vbOffset;
 
 		VkBuffer vbuf = VK_NULL_HANDLE;
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
-			// If skinning, we're predecoding into "decoded". So make sure we're done, then push that content.
-			DecodeVerts(dec_, decoded_);
-			VkDeviceSize size = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
+		int vertexCount;
+		int maxIndex;
+		bool useElements;
+		if (cpuClip.active || (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+			// If skinning, or clipping on the CPU, we're predecoding into "decoded". So make sure we're done, then
+			// push that content.
+			if (cpuClip.active) {
+				DecodeClipCull(&cpuClip, &prim, &vertexCount, &maxIndex, &useElements);
+			} else {
+				DecodeVerts(dec_, decoded_);
+				cpuClip.numVerts = numDecodedVerts_;
+			}
+			VkDeviceSize size = cpuClip.numVerts * cpuClip.fmt.stride;
 			u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &vbuf, &vbOffset);
 			memcpy(dest, decoded_, size);
 		} else {
@@ -268,11 +303,22 @@ void DrawEngineVulkan::Flush() {
 			DecodeVerts(dec_, dest);
 		}
 
-		int vertexCount;
-		int maxIndex;
-		bool useElements;
-		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		if (!cpuClip.active) {
+			DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		}
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
+
+		VkBuffer cpuLitBuf = VK_NULL_HANDLE;
+		uint32_t cpuLitOffset = 0;
+		if (cpuClip.cpuLit) {
+			if (cpuClip.cpuLitStream) {
+				const uint32_t size = cpuClip.numVerts * 8;
+				u8 *dest = (u8 *)pushVertex_->Allocate(size, 4, &cpuLitBuf, &cpuLitOffset);
+				memcpy(dest, cpuClip.cpuLitStream, size);
+			} else {
+				cpuLitBuf = ZeroCpuLitStream(renderManager);
+			}
+		}
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
 		if (gstate.isModeThrough()) {
@@ -304,9 +350,9 @@ void DrawEngineVulkan::Flush() {
 			VShaderID vshaderID;
 			FShaderID fshaderID;
 
-			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, true, clipInfoFlags_);
+			shaderManager_->GetShaderIDs(prim, dec_->VertexType(), &vshaderID, &fshaderID, pipelineState_, true, cpuClip.ShaderFlags(clipInfoFlags_));
 			_dbg_assert_msg_(vshaderID.Bit(VS_BIT_USE_HW_TRANSFORM) == true, "Bad vshader ID");
-			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &dec_->decFmt, vshaderID, fshaderID, true, 0, framebufferManager_->GetMSAALevel(), false);
+			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(renderManager, shaderManager_, pipelineLayout_, pipelineKey_, &cpuClip.fmt, vshaderID, fshaderID, true, 0, framebufferManager_->GetMSAALevel(), false);
 			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				ResetAfterSkippedDraw();
@@ -349,7 +395,7 @@ void DrawEngineVulkan::Flush() {
 		descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 
 		descriptors[3].buffer.buffer = baseBuf;
-		descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+		descriptors[3].buffer.range = ShaderManagerVulkan::BaseBufferSize();
 		descriptors[3].buffer.offset = 0;
 
 		descriptors[4].buffer.buffer = lightBuf;
@@ -362,14 +408,16 @@ void DrawEngineVulkan::Flush() {
 			baseUBOOffset, lightUBOOffset,
 		};
 		if (useElements) {
-			VkBuffer ibuf;
-			u32 ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
-			renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1);
+			if (vertexCount > 0) {
+				VkBuffer ibuf;
+				u32 ibOffset = (uint32_t)pushIndex_->Push(decIndex_, sizeof(uint16_t) * vertexCount, 4, &ibuf);
+				renderManager->DrawIndexed(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, 1, cpuLitBuf, cpuLitOffset);
+			}
 		} else {
-			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
+			renderManager->Draw(descSetIndex, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount, 0, cpuLitBuf, cpuLitOffset);
 		}
 		if (useDepthRaster_) {
-			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
 		gpuStats.perFrame.numSoftTransformedDraws++;
@@ -506,7 +554,7 @@ void DrawEngineVulkan::Flush() {
 			descriptors[2].image.view = boundDepal_;
 			descriptors[2].image.sampler = (boundDepal_ && boundDepalSmoothed_) ? samplerSecondaryLinear_ : samplerSecondaryNearest_;
 			descriptors[3].buffer.buffer = baseBuf;
-			descriptors[3].buffer.range = sizeof(UB_VS_FS_Base);
+			descriptors[3].buffer.range = ShaderManagerVulkan::BaseBufferSize();
 			descriptors[3].buffer.offset = 0;
 			descriptors[4].buffer.buffer = lightBuf;
 			descriptors[4].buffer.range = sizeof(UB_VS_Lights);

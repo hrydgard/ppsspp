@@ -57,7 +57,7 @@
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>../..;../../ext/OpenXR-SDK/include;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -74,7 +74,7 @@
       <SDLCheck>false</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../..;../../ext/OpenXR-SDK/include;../../ext/native;../../ext/snappy;../../ext/glslang;../../ext/zlib;../../ext/libpng17;../../ext/zstd/lib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;NOMINMAX;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
@@ -236,6 +236,7 @@
     <ClInclude Include="..\..\Common\VR\VRInput.h" />
     <ClInclude Include="..\..\Common\VR\VRMath.h" />
     <ClInclude Include="..\..\Common\VR\VRRenderer.h" />
+    <ClInclude Include="..\..\Common\VR\VRVulkan.h" />
     <ClInclude Include="..\..\Common\x64Analyzer.h" />
     <ClInclude Include="..\..\Common\x64Emitter.h" />
     <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h" />
@@ -247,6 +248,15 @@
     <ClInclude Include="..\..\ext\aemu_postoffice\client\enet.h" />
     <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.h" />
     <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\server.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\session.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\log.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\common.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\enet.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\native_socket.h" />
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\config.h" />
     <ClInclude Include="..\..\ext\at3_standalone\aac_defines.h" />
     <ClInclude Include="..\..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\..\ext\at3_standalone\atrac.h" />
@@ -426,6 +436,7 @@
     <ClCompile Include="..\..\Common\VR\VRInput.cpp" />
     <ClCompile Include="..\..\Common\VR\VRMath.cpp" />
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp" />
+    <ClCompile Include="..\..\Common\VR\VRVulkan.cpp" />
     <ClCompile Include="..\..\Common\x64Analyzer.cpp" />
     <ClCompile Include="..\..\Common\x64Emitter.cpp" />
     <ClCompile Include="..\..\ext\aemu_postoffice\client\delay_impl_cpp.cpp" />
@@ -438,6 +449,30 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\enet.c" />
     <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.c" />
     <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.c" />
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\server.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\session.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\log.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\common.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\enet.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\native_socket_windows.cpp">
+      <ObjectFileName>$(IntDir)aemu_server_%(Filename).obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="..\..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3.cpp" />
     <ClCompile Include="..\..\ext\at3_standalone\atrac3plus.cpp" />
@@ -480,6 +515,8 @@
     <ClCompile Include="..\..\ext\lzma-sdk\7zFile.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\7zStream.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra.c" />
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra86.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\Delta.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\Lzma2Dec.c" />

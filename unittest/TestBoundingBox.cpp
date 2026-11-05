@@ -53,6 +53,9 @@ static bool RefTestBoundingBoxFast(const float *cullMatrix, const void *vdata, c
 
 	float minProjZ = FLT_MAX;
 	float maxProjZ = -FLT_MAX;
+	// Clipping takes away what's behind the near plane, so with it, only the near plane's Z counts for that.
+	const bool depthClip = gstate.isDepthClipEnabled();
+	bool anyBehindNear = false;
 
 	for (int i = 0; i < vertexCount; i++) {
 		switch (idxFmt) {
@@ -105,12 +108,16 @@ static bool RefTestBoundingBoxFast(const float *cullMatrix, const void *vdata, c
 		Vec4F32 planeDistZ = posZ * planesXY + posW + deltaZ;
 		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
 		insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
+		const bool behindNear = clipPos[2] + clipPos[3] < 0.0f;
+		anyBehindNear = anyBehindNear || behindNear;
 		const float projZ = vpZScale * clipPos[2] / clipPos[3];
-		if (projZ < minProjZ) {
-			minProjZ = projZ;
-		}
-		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
-			maxProjZ = projZ;
+		if (!(depthClip && behindNear)) {
+			if (projZ < minProjZ) {
+				minProjZ = projZ;
+			}
+			if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
+				maxProjZ = projZ;
+			}
 		}
 
 		if (idxFmt == GE_VTYPE_IDX_NONE) {
@@ -126,6 +133,13 @@ static bool RefTestBoundingBoxFast(const float *cullMatrix, const void *vdata, c
 	const float vpZOffset = gstate.getViewportZCenter();
 	minProjZ += vpZOffset;
 	maxProjZ += vpZOffset;
+	const float minVertexZ = minProjZ, maxVertexZ = maxProjZ;
+	const bool clipsNear = depthClip && anyBehindNear;
+	const float nearZ = vpZOffset - vpZScale;
+	if (clipsNear) {
+		minProjZ = std::min(minProjZ, nearZ);
+		maxProjZ = std::max(maxProjZ, nearZ);
+	}
 
 	ClipInfoFlags flags = ClipInfoFlags::Valid;
 
@@ -167,9 +181,10 @@ static bool RefTestBoundingBoxFast(const float *cullMatrix, const void *vdata, c
 			if (minProjZ < 0 || maxProjZ > 65535) {
 				flags |= ClipInfoFlags::DepthClamp;
 			}
-		} else if (minProjZ <= 0 || maxProjZ >= 65535) {
-			// Including draws right on the limit (Puyo Puyo Fever 2's flat Z = 0 ground): hardware clamp keeps
-			// what rounding puts just outside, the clip without it doesn't.
+		} else if (minVertexZ <= 0 || maxVertexZ >= 65535 || (clipsNear && (nearZ < 0 || nearZ > 65535))) {
+			// Including vertices right on the limit (Puyo Puyo Fever 2's flat Z = 0 ground): hardware clamp keeps
+			// what rounding puts just outside, the clip without it doesn't. On the near plane, losing that is the
+			// near clip.
 			flags |= ClipInfoFlags::DepthClampFragment;
 		}
 	}

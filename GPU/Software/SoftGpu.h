@@ -184,6 +184,7 @@ public:
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth) override;
+	void PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformReadbackToMemory(u32 dest, int size) override;

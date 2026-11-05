@@ -148,6 +148,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/SettingsPage.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 #include "UI/PauseScreen.h"
@@ -859,6 +860,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_BackgroundAudio.SFX().Init();
 
+	UI::SetDisabledActivationCallback(&ShowWhyViewDisabled);
+
 	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
 		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
@@ -904,6 +907,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "firmware")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new FirmwareScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(true));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
@@ -1402,6 +1408,13 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 			runImDebugger(g_draw);
 		});
 		renderImDebugger(g_draw);
+		int cursorX, cursorY, cursorW, cursorH;
+		if (IsVREnabled() && GetVRMouseCursorRect(&cursorX, &cursorY, &cursorW, &cursorH)) {
+			UIContext *uiContext = g_screenManager->getUIContext();
+			uiContext->Begin();
+			uiContext->FillRect(UI::Drawable(0xFFFFFFFF), Bounds(cursorX * g_display.dpi_scale_x, cursorY * g_display.dpi_scale_y, cursorW * g_display.dpi_scale_x, cursorH * g_display.dpi_scale_y));
+			uiContext->Flush();
+		}
 		// Last, since the readback ends the backbuffer pass. Nothing can draw after it.
 		ScreenshotNotifyEndOfFrame(g_draw);
 		if (g_screenManager->getUIContext()->Text()) {

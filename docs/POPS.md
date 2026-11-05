@@ -43,7 +43,10 @@ without them.
 
 The emulator keeps the PS1's 1024x512 VRAM at `0x04000000` as one 16-bit framebuffer, and reads and writes
 it outside where it draws. It's a fixed framebuffer: created whole, from memory, and uploaded without
-filtering. Its 24-bit video is unpacked three bytes per pixel into `0x04100000`, which is kept at 1x. It
+filtering. An image the game sends to VRAM through the GP0 port rather than by DMA is written there by the
+CPU, pixel by pixel, which the hardware renderers don't see: the end of each row of that loop is hooked, and
+the finished rectangle is uploaded (Ridge Racer's title screen flag). The loop is found by its shape, which
+is the same in every emulator from 3.80 to 6.61 and every model's, while its registers and offsets aren't. Its 24-bit video is unpacked three bytes per pixel into `0x04100000`, which is kept at 1x. It
 draws sprites on pixel centers, which above 1x read their neighbours' texels, so those are moved back half a
 pixel. And it builds video frames by ORing passes together, so draws whose logic op is done in the shader
 are drawn one at a time.

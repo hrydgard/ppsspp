@@ -682,6 +682,8 @@ public:
 
 	ShaderDepalMode shaderDepalMode;
 	GEBufferFormat depalTextureFormat;
+	// The pixelMapped that the depal uniform was last packed with (it turns bilinear depal off).
+	bool depalPixelMapped;
 
 	void SetShaderDepal(ShaderDepalMode mode, GEBufferFormat texFormat = {}) {
 		if (mode != shaderDepalMode || (mode != ShaderDepalMode::OFF && texFormat != depalTextureFormat)) {

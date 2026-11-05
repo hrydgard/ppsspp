@@ -214,6 +214,20 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		extensionsLookup_.EXT_swapchain_colorspace = true;
 	}
 
+	// createInfo_ owns the strings.
+	for (const std::string &ext : createInfo_.extraInstanceExtensions) {
+		bool found = false;
+		for (const char *enabled : instance_extensions_enabled_) {
+			if (ext == enabled) {
+				found = true;
+				break;
+			}
+		}
+		if (!found) {
+			instance_extensions_enabled_.push_back(ext.c_str());
+		}
+	}
+
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
 		if (!IsInstanceExtensionAvailable(ext)) {

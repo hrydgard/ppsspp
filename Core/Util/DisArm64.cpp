@@ -747,7 +747,7 @@ static void SIMDLoadStoreStructure(uint32_t w, Instruction *instr) {
 	bool R = (w >> 21) & 1;
 	bool S = (w >> 12) & 1;
 	int op = (w >> 13) & 7;
-	int count = (((op & 1) << 1) | R) + 1;
+	int count = (((op & 1) << 1) | (int)R) + 1;
 	if (op >= 6) {
 		// Load and replicate.
 		if (!L || S) {
@@ -787,7 +787,7 @@ static void SIMDLoadStoreStructure(uint32_t w, Instruction *instr) {
 	default:
 		if (size == 0) {
 			esize = 2;
-			index = (Q << 1) | S;
+			index = (Q << 1) | (int)S;
 		} else if (size == 1 && !S) {
 			esize = 3;
 			index = Q;

@@ -154,6 +154,7 @@ void SetAssertCancelCallback(AssertNoCallbackFunc callback, void *userdata);
 void SetCleanExitOnAssert();
 void BreakIntoPSPDebugger(const char *reason = "(userbreak)");
 void SetAssertDialogParent(void *handle);  // HWND on windows. Ignored on other platforms.
+void ShowMessageDialog(const char *title, const char *message, bool isError = false);
 
 #if defined(__ANDROID__)
 // Tricky macro to get the basename, that also works if *built* on Win32.

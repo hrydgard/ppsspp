@@ -1821,7 +1821,7 @@ static uint32_t vfpu_sin_bits(uint32_t bits) {
 	bool odd;
 	if (!vfpu_sin_reduce(bits, &angle, &odd))
 		return (bits & 0x80000000u) ^ 0x7F800001u;
-	return vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+	return vfpu_sin_from_reduced(angle, (bits >> 31) != (u32)odd);
 }
 
 static uint32_t vfpu_cos_bits(uint32_t bits) {
@@ -1850,7 +1850,7 @@ void vfpu_sincos(float a, float &s, float &c) {
 		sinBits = (bits & 0x80000000u) ^ 0x7F800001u;
 		cosBits = 0x7F800001u;
 	} else {
-		sinBits = vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+		sinBits = vfpu_sin_from_reduced(angle, (bits >> 31) != (u32)odd);
 		cosBits = vfpu_cos_from_reduced(angle, odd);
 	}
 	s = vfpu_float_from_bits(sinBits);

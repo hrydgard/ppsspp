@@ -619,7 +619,8 @@ const char * const vulkanDefaultBlacklist[] = {
 
 static int DefaultGPUBackend() {
 	if (IsVREnabled()) {
-		return (int)GPUBackend::OPENGL;
+		// Falls back to OpenGL if the runtime can't take a Vulkan session (VulkanMayBeAvailable).
+		return (int)GPUBackend::VULKAN;
 	}
 
 #if PPSSPP_PLATFORM(UWP)
@@ -907,7 +908,7 @@ static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
 static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive" };
-static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1" };
+static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
 #ifndef MOBILE_DEVICE
 static constexpr const char *texScalingLevelNames[] = { "Off", "2x", "3x", "4x", "5x" };
@@ -1428,6 +1429,9 @@ static constexpr ConfigSetting networkSettings[] = {
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME)
 		.Label(I18NCat::NETWORKING, "Port offset").Range(0, 60000, 100),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
+	ConfigSetting("AdhocSimDelayMs", SETTING(g_Config, iAdhocSimDelayMs), 0, CfgFlag::DEFAULT),
+	ConfigSetting("AdhocSimJitterMs", SETTING(g_Config, iAdhocSimJitterMs), 0, CfgFlag::DEFAULT),
+	ConfigSetting("AdhocSimLossPercent", SETTING(g_Config, iAdhocSimLossPercent), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MinTimeout", SETTING(g_Config, iMinTimeout), 0, CfgFlag::PER_GAME)
 		.Label(I18NCat::NETWORKING, "Minimum Timeout", "Minimum Timeout (override in ms, 0 = default)").Range(0, 15000, 50).Units("ms"),
 	ConfigSetting("ForcedFirstConnect", SETTING(g_Config, bForcedFirstConnect), false, CfgFlag::PER_GAME)
@@ -1476,10 +1480,12 @@ static constexpr const char *paramDateFormatNames[] = { "YYYYMMDD", "MMDDYYYY", 
 
 static constexpr const char *paramTimeFormatNames[] = { "24HR", "12HR" };
 
+// Most of this is just registry settings, stored in our ini format. sceReg reads/writes here.
 static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("PSPModel", SETTING(g_Config, iPSPModel), PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::SYSTEM, "PSP Model").Choices(pSPModelNames),
 	ConfigSetting("PSPFirmwareVersion", SETTING(g_Config, iFirmwareVersion), PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SceRegCategoryVersion", SETTING(g_Config, iSceRegCategoryVersion), 1, CfgFlag::DEFAULT),
 	ConfigSetting("NickName", SETTING(g_Config, sNickName), "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", SETTING(g_Config, sMACAddress), "", CfgFlag::PER_GAME),
 	ConfigSetting("GameLanguage", SETTING(g_Config, iLanguage), -1, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1488,7 +1494,8 @@ static constexpr ConfigSetting systemParamSettings[] = {
 		.Label(I18NCat::SYSTEM, "Time Format").Choices(paramTimeFormatNames),
 	ConfigSetting("ParamDateFormat", SETTING(g_Config, iDateFormat), PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Date Format").Choices(paramDateFormatNames),
-	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZone), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZoneOffset), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZoneArea", SETTING(g_Config, sTimeZoneArea), "sweden", CfgFlag::PER_GAME),  // This doesn't really do much. Just cosmetic in the XMB
 	ConfigSetting("DayLightSavings", SETTING(g_Config, bDayLightSavings), (bool) PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Daylight savings"),
 	ConfigSetting("ButtonPreference", SETTING(g_Config, iButtonPreference), PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1501,6 +1508,11 @@ static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VshUmdAutoboot", SETTING(g_Config, bVshUmdAutoboot), false, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeType", SETTING(g_Config, iXmbThemeType), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeColorMode", SETTING(g_Config, iXmbThemeColorMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeWallpaperMode", SETTING(g_Config, iXmbThemeWallpaperMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeSystemColor", SETTING(g_Config, iXmbThemeSystemColor), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeCustomThemeMode", SETTING(g_Config, iXmbThemeCustomThemeMode), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Memory Stick size").Range(1, 32).Units("GB"),
 	ConfigSetting("FuseID", SETTING(g_Config, sFuseID), "", CfgFlag::DEFAULT),
@@ -1650,6 +1662,48 @@ float Config::GetDefaultValueFloat(const float *configSetting) {
 		return *(const float *)ref->setting->GetVoidPtr(defaults.get());
 	}
 	return ref->setting->GetDefaultFloat();
+}
+
+bool Config::RestoreSettingToDefault(void *ptr) {
+	const ConfigSettingRef *ref = FindSetting(ptr);
+	if (!ref) {
+		return false;
+	}
+	if (!ref->block->CanResetToDefault()) {
+		return ref->setting->RestoreToDefault(ref->block, false);
+	}
+	// Copy the value from a reset copy of the block.
+	std::unique_ptr<ConfigBlock> defaults = ref->block->NewDefault(ref->section);
+	const void *def = ref->setting->GetVoidPtr(defaults.get());
+	switch (ref->setting->type_) {
+	case ConfigSetting::Type::TYPE_BOOL:
+	{
+		bool changed = *(bool *)ptr != *(const bool *)def;
+		*(bool *)ptr = *(const bool *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_INT:
+	{
+		bool changed = *(int *)ptr != *(const int *)def;
+		*(int *)ptr = *(const int *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_FLOAT:
+	{
+		bool changed = *(float *)ptr != *(const float *)def;
+		*(float *)ptr = *(const float *)def;
+		return changed;
+	}
+	case ConfigSetting::Type::TYPE_STRING:
+	{
+		bool changed = *(std::string *)ptr != *(const std::string *)def;
+		*(std::string *)ptr = *(const std::string *)def;
+		return changed;
+	}
+	default:
+		_dbg_assert_msg_(false, "RestoreSettingToDefault: Unsupported type %d in a block", (int)ref->setting->type_);
+		return false;
+	}
 }
 
 void Config::Init() {
@@ -2105,8 +2159,8 @@ void Config::PostLoadCleanup() {
 	// Clamp save state slot count to somewhat sane limits.
 	iSaveStateSlotCount = std::clamp(iSaveStateSlotCount, 1, 100);
 
-	// Three frames in flight showed no benefit over two, so the option is gone. Squash old values.
-	iInflightFrames = std::clamp(iInflightFrames, 1, 2);
+	// Clamp values to a valid range. We limited it to 2 for a while, but there may still be uses for 3.
+	iInflightFrames = std::clamp(iInflightFrames, 1, 3);
 
 	// The touch layout editor divides by this, and loops forever drawing the grid if it's 0.
 	iTouchSnapGridSize = std::clamp(iTouchSnapGridSize, 2, 256);

@@ -29,6 +29,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 #include "Common/VR/PPSSPPVR.h"
+#include "Common/VR/VRVulkan.h"
 #include "Common/File/FileUtil.h"
 
 #if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(SWITCH)
@@ -327,15 +328,14 @@ struct DriverBlackListEntry {
 	uint32_t minOkDriverVersion;
 };
 
-static constexpr DriverBlackListEntry g_gpuNameBlacklist[] = {
-	{"motorola:moto g", "PowerVR BXM-8-256", 0x005d9576},  // avoid an empty array
 #if PPSSPP_PLATFORM(MAC)
+static constexpr DriverBlackListEntry g_gpuNameBlacklist[] = {
 	{"", "Intel(R) Iris(TM) Graphics 6000"},
 	{"", "Intel(R) Iris(TM) Graphics 6100"},
 	{"", "Intel(R) Iris(TM) Pro Graphics 6200"},
 	{"", "Intel Iris Pro Graphics"},
-#endif
 };
+#endif
 
 #if !defined(_WIN32) && !PPSSPP_VK_STATIC
 static const char * const so_names[] = {
@@ -452,8 +452,9 @@ bool VulkanMayBeAvailable() {
 	g_vulkanMayBeAvailable = true;
 	return true;
 #else
-	// Unsupported in VR at the moment
-	if (IsVREnabled()) {
+	// VR needs a runtime that takes a Vulkan session. Not cached: the config is checked before OpenXR is
+	// up, when only the driver can say no, and app-android checks again after.
+	if (IsVREnabled() && VR_VulkanUnsupported()) {
 		return false;
 	}
 
@@ -624,6 +625,7 @@ bool VulkanMayBeAvailable() {
 		{
 			// Check with the device blacklist.
 			bool blacklisted = false;
+#if PPSSPP_PLATFORM(MAC)
 			for (size_t i = 0; i < ARRAY_SIZE(g_gpuNameBlacklist); i++) {
 				if (startsWith(hwDeviceName, g_gpuNameBlacklist[i].deviceNamePrefix)) {
 					if (equals(props.deviceName, g_gpuNameBlacklist[i].gpuDeviceName)) {
@@ -637,6 +639,7 @@ bool VulkanMayBeAvailable() {
 					}
 				}
 			}
+#endif
 			// Note: Must not overwrite the verdict from a previously seen device, one good one is enough.
 			anyGood = anyGood || !blacklisted;
 			if (!blacklisted) {

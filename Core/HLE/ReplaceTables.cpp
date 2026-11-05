@@ -1357,6 +1357,24 @@ static int Hook_infinity_download_frame(MIPSState *mips) {
 	return 0;
 }
 
+static int Hook_koori_download_frame(MIPSState *mips) {
+	u32 stateAddress;
+	// The matched CPU copy reads its source from this renderer state.
+	if (!GetMIPSStaticAddress(mips, stateAddress, 0x0C, 0x10) || !Memory::IsValidRange(stateAddress, 4)) {
+		return 0;
+	}
+	const u32 state = Memory::ReadUnchecked_U32(stateAddress);
+	if (!Memory::IsValidRange(state, 0x54)) {
+		return 0;
+	}
+	const u32 fb = (Memory::ReadUnchecked_U32(state + 0x24) + Memory::ReadUnchecked_U32(state + 0x50)) & 0x3FFFFFFF;
+	if (fb == 0x04000000 || fb == 0x04080000) {
+		gpu->PerformReadbackToMemory(fb, 0x00044000);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb, 0x00044000, "koori_download_frame");
+	}
+	return 0;
+}
+
 static int Hook_takuyo_download_frame(MIPSState *mips) {
 	gpu->PerformReadbackToMemory(0x04088000, 0x00088000); // The offset is hardcoded.
 	NotifyMemInfo(MemBlockFlags::WRITE, 0x04088000, 0x00088000, "takuyo_download_frame");
@@ -2178,6 +2196,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "persona2_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{ "steinsgate_download_frame", &Hook_steinsgate_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{ "infinity_download_frame", &Hook_infinity_download_frame, 0, REPFLAG_HOOKENTER, 0 },
+	{ "koori_download_frame", &Hook_koori_download_frame, 0, REPFLAG_HOOKENTER, 0 },
 	{ "takuyo_1_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},

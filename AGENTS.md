@@ -19,11 +19,13 @@ for it:
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
 | [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests, and running the tests that need the real firmware modules (`--disable-hle`, a firmware memstick) |
 | [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
+| [docs/adhoc-multiplayer-testing.md](docs/adhoc-multiplayer-testing.md) | Playing a game's ad hoc multiplayer with several headless instances (`Tools/adhoc_session.py`), with and without the relay, and simulating network delay, jitter and loss |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests, and replaying a dump on a real PSP |
 | [docs/sceGe.md](docs/sceGe.md) | How the firmware queues display lists, what SIGNAL and FINISH interrupts do and in which order, and how `ProcessDLQueue()` keeps that order |
 | [docs/sceAudio.md](docs/sceAudio.md) | How the audio output calls block, how deep they buffer, and what each error means |
 | [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) | WebSocket debugger protocol reference |
 | [docs/reverse-engineering.md](docs/reverse-engineering.md) | Disassembling a firmware PRX with `--re-module`, to find out what the hardware actually does |
+| [docs/adhoc-packet-decryption.md](docs/adhoc-packet-decryption.md) | Decrypting a sniffed capture of real-PSP ad hoc traffic (`Tools/adhoc_decrypt.py`, `adhoc_recover.c`) to compare hardware framing against PPSSPP's HLE-level ad hoc |
 | [docs/command-line.md](docs/command-line.md) | Adding a command-line option - the `g_autoParams` table, per-mode options, `ApplyToConfig()` |
 | [docs/patching-files.md](docs/patching-files.md) | Editing files from a script without wrecking the diff: line endings, and heredoc backslash escaping |
 | [docs/VSHBootInvestigation.md](docs/VSHBootInvestigation.md) | Booting the PSP's Visual Shell with `--vsh` against a real firmware dump |
@@ -66,10 +68,13 @@ for it:
    the bytes instead, e.g. `python -c "d=open(F,'rb').read(); print(d.count(b'\r\n'), d.count(b'\n'))"`,
    and treat git's "LF will be replaced by CRLF the next time Git touches it" as the warning it is
    rather than autocrlf noise.
-6. **Don't feed Python to `bash -c` via a heredoc when the code needs a literal backslash in its
-   *output*.** Git Bash strips one level of escaping on the way in even with a quoted delimiter
-   (`<<'PY'`), so `"\\n"` reaches Python as `"\n"` and writes a real newline into the file - no error,
-   just a patch that quietly did nothing. Use the Edit tool, or write the script to a file and run it.
+6. **On Windows, never put a backslash in a heredoc.** Not in a search string, a replacement, a regex
+   or a bytes literal; not even with a quoted delimiter (`<<'PY'`). The Bash tool passes the command
+   to Git Bash as a `bash -c` argument, and the MSYS runtime turns every `\\` into `\` before bash
+   parses it (single quotes don't help either), so the script that runs is not the one you wrote. No
+   error, just a patch that quietly did nothing. Use the Edit tool, or Write the script to a file and
+   run `python file.py`, which is not affected. A hook in `.claude/settings.json` refuses such
+   commands. Details: [docs/patching-files.md](docs/patching-files.md).
    Details and the other two failure shapes: [docs/patching-files.md](docs/patching-files.md).
 
 7. **NEVER run more than one PSP hardware operation at a time.** There is one PSP. Every

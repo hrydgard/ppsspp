@@ -1469,8 +1469,13 @@ void CWCheatEngine::Run() {
 
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
+			const size_t start = i;
 			CheatOperation op = InterpretNextCwCheat(cheat, i);
 			ExecuteOp(op, cheat, i);
+			// A skip count near 2^32 wraps i on 32-bit hosts, which would run the same code forever.
+			if (i <= start) {
+				break;
+			}
 		}
 	}
 }

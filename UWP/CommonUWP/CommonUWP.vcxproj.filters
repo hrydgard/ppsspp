@@ -419,6 +419,9 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp">
       <Filter>VR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRVulkan.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\VR\OpenXRLoader.cpp">
       <Filter>VR</Filter>
     </ClCompile>
@@ -560,6 +563,30 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\server.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\session.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\log.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\common.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\enet.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\server_cpp\native_socket_windows.cpp">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\UI\Notice.cpp">
       <Filter>UI</Filter>
     </ClCompile>
@@ -585,6 +612,12 @@
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra86.c">
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c">
@@ -945,6 +978,9 @@
     <ClInclude Include="..\..\Common\VR\VRRenderer.h">
       <Filter>VR</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRVulkan.h">
+      <Filter>VR</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\Common\VR\OpenXRLoader.h">
       <Filter>VR</Filter>
     </ClInclude>
@@ -1111,6 +1147,33 @@
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\server.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\session.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\semaphore.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\log.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\common.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\enet.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\snapshot.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\native_socket.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\server_cpp\config.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\Notice.h">

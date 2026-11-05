@@ -9,6 +9,8 @@
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Math/lin/vec3.h"
 #include "Common/TimeUtil.h"
+#include "Common/VR/PPSSPPVR.h"
+#include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -180,7 +182,105 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	}
 }
 
+bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
+
+	bool hud = true;
+	//HUD shouldn't be modified in nonVR mode
+	if (IsBigScreenVRMode()) hud = false;
+	//HUD can be disabled in settings
+	else if (!g_Config.bRescaleHUD) hud = false;
+	//HUD cannot be rendered in flatscreen
+	else if (flatScreen) hud = false;
+	//HUD has to be 2D
+	else if (!is2D) hud = false;
+	//HUD has to be blended
+	else if (!gstate.isAlphaBlendEnabled()) hud = false;
+#ifdef __LIBRETRO__
+	// Untextured transition fades must cover the view, not be scaled with the HUD.
+	else if (!gstate.isTextureMapEnabled()) hud = false;
+#endif
+	//HUD cannot be rendered with clear color mask
+	else if (gstate.isClearModeColorMask()) hud = false;
+	//HUD cannot be rendered with depth color mask
+	else if (gstate.isClearModeDepthMask()) hud = false;
+	//HUD texture has to contain alpha channel
+	else if (!gstate.isTextureAlphaUsed()) hud = false;
+	//HUD texture cannot be in 5551 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_5551) hud = false;
+	//HUD texture cannot be in CLUT16 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT16) hud = false;
+	//HUD texture cannot be in CLUT32 format
+	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT32) hud = false;
+	//HUD cannot have full texture alpha
+	else if (gstate_c.textureSolidAlpha && gstate.getTextureFormat() != GETextureFormat::GE_TFMT_CLUT4) hud = false;
+	//HUD must have full vertex alpha
+	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
+	//HUD cannot render FB screenshot
+	else if (gstate_c.curTextureHeight % 68 <= 1) hud = false;
+	//HUD cannot be rendered with add function
+	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_ADD) hud = false;
+	//HUD cannot be rendered with replace function
+	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_REPLACE) hud = false;
+	//HUD cannot be rendered with full clear color mask
+	else if ((gstate.getClearModeColorMask() == 0xFFFFFF) && (gstate.getColorMask() == 0xFFFFFF)) hud = false;
+
+	return hud;
+}
+
+void VRUpdateUniforms(UB_VS_FS_Base *base, UB_VS_VR *vr, uint64_t dirtyUniforms) {
+	// Also counts the 3D draws that decide whether the scene is 3D, so once per draw.
+	const bool is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
+	const bool flatScreen = IsFlatVRScene();
+
+	if (GuessVRDrawingHUD(is2D, flatScreen)) {
+		float aspect = 480.0f / 272.0f * (IsImmersiveVRMode() ? 0.5f : 1.0f);
+		vr->scaleX = g_Config.fHeadUpDisplayScale * aspect;
+		vr->scaleY = g_Config.fHeadUpDisplayScale;
+	} else {
+		vr->scaleX = 1.0f;
+		vr->scaleY = 1.0f;
+	}
+
+	if (dirtyUniforms & DIRTY_FOGCOLOR) {
+		// For the skyplane hack's clear.
+		SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
+	}
+
+	// Every draw, not only when the game changes the matrices: the result also depends on whether this
+	// draw is 2D and on the head pose. GL gets away with dirty flags because its uniforms are per program
+	// (2D and 3D draws rarely share one), while this buffer is shared by all draws.
+	{
+		if (flatScreen || is2D) {
+			memcpy(vr->projLens, gstate.projMatrix, sizeof(vr->projLens));
+		} else {
+			UpdateVRProjection(gstate.projMatrix, vr->projLens);
+		}
+		UpdateVRParams(gstate.projMatrix);
+	}
+
+	{
+		float leftEyeView[16];
+		float rightEyeView[16];
+		ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
+		ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
+		if (!is2D) {
+			UpdateVRView(leftEyeView, rightEyeView);
+		}
+		// The head pose is a rotation and a translation, so the last row stays 0 0 0 1 and the
+		// first three are the 3x4 the shaders take.
+		memcpy(base->view, leftEyeView, sizeof(base->view));
+		memcpy(vr->viewRight, rightEyeView, sizeof(vr->viewRight));
+	}
+}
+
+void DirtyDepalIfPixelMappedChanged(bool pixelMapped) {
+	if (gstate_c.shaderDepalMode != ShaderDepalMode::OFF && pixelMapped != gstate_c.depalPixelMapped) {
+		gstate_c.Dirty(DIRTY_DEPAL);
+	}
+}
+
 uint32_t PackDepalBits(bool pixelMapped) {
+	gstate_c.depalPixelMapped = pixelMapped;
 	const int indexMask = gstate.getClutIndexMask();
 	const int indexShift = gstate.getClutIndexShift();
 	const int indexOffset = gstate.getClutIndexStartPos() >> 4;

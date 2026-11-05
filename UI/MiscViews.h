@@ -4,6 +4,7 @@
 #include "Common/UI/View.h"
 #include "UI/ViewGroup.h"
 #include "UI/GameInfoCache.h"
+#include "UI/BackgroundAudio.h"
 
 // Compound view, showing a text with an icon.
 class TextWithImage : public UI::LinearLayout {
@@ -22,6 +23,7 @@ enum class TopBarFlags {
 	Portrait = 1,
 	ContextMenuButton = 2,
 	NoBackButton = 4,
+	DropShadowTitle = 8,
 };
 ENUM_CLASS_BITOPS(TopBarFlags);
 
@@ -166,4 +168,16 @@ private:
 	PMFPlayer *player_ = nullptr;
 	int width_ = 0;
 	int height_ = 0;
+};
+
+class HintView : public UI::TextView {
+public:
+	HintView(std::string_view str, UI::LayoutParams *layoutParams = nullptr) : TextView(str, FLAG_WRAP_TEXT, false, layoutParams) {
+		using namespace UI;
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = WRAP_CONTENT;
+		SetTextSize(TextSize::Small);
+		SetPadding(Margins(12));
+		SetFrame(true);
+	}
 };

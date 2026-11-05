@@ -1051,26 +1051,37 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 		vScale /= gstate_c.curTextureHeight;
 	}
 
+	// Look for pixel mapping, two ways at once:
+	// - pixelMapped (with smart 2D filtering): each rect is 1:1 in at least one direction. Turns the texture filter
+	//   off and the sprite border fix with it. This one can change what's on screen.
+	// - exactlyPixelMapped: each rect is 1:1 in both directions at a whole-texel offset, so every pixel center lands
+	//   on a texel center and bilinear gives the nearest texel anyway. Shader depal filters by hand, with four
+	//   texel and four palette lookups per pixel, a lot for a slow GPU on a full-screen pass (DBZ Tenkaichi Tag
+	//   Team has two per frame), so for it this turns the filter off without changing anything. Positions are only
+	//   in pixels in through mode.
 	bool pixelMapped = g_Config.bSmart2DTexFiltering && !gstate_c.textureIsVideo;
-	if (pixelMapped) {
-		// Check for pixel mapping. If we find pixel mapping, abandon spriteBorderFix.
-		for (int i = 0; i < vertexCount; i += 2) {
-			const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
-			const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
-
-			if (pixelMapped) {
-				float dx = transVtxBR.x - transVtxTL.x;
-				float dy = transVtxBR.y - transVtxTL.y;
-				float du = transVtxBR.u - transVtxTL.u;
-				float dv = transVtxBR.v - transVtxTL.v;
-
-				// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
-				// Though, there could be false positives in other games due to this. Let's see if it is a problem...
-				if (dx <= 0 || dy <= 0 || (dx != du && dy != dv)) {
-					pixelMapped = false;
-					break;
-				}
-			}
+	bool exactlyPixelMapped = throughmode && gstate_c.shaderDepalMode != ShaderDepalMode::OFF;
+	for (int i = 0; i < vertexCount && (pixelMapped || exactlyPixelMapped); i += 2) {
+		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
+		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+		const float dx = transVtxBR.x - transVtxTL.x;
+		const float dy = transVtxBR.y - transVtxTL.y;
+		const float du = transVtxBR.u - transVtxTL.u;
+		const float dv = transVtxBR.v - transVtxTL.v;
+		if (dx <= 0 || dy <= 0) {
+			pixelMapped = false;
+			exactlyPixelMapped = false;
+			break;
+		}
+		// NOTE: We will accept it as pixel mapped if only one dimension is stretched. This fixes dialog frames in FFI.
+		// Though, there could be false positives in other games due to this. Let's see if it is a problem...
+		if (dx != du && dy != dv) {
+			pixelMapped = false;
+		}
+		const float offsetU = transVtxTL.u - transVtxTL.x;
+		const float offsetV = transVtxTL.v - transVtxTL.y;
+		if (dx != du || dy != dv || offsetU != floorf(offsetU) || offsetV != floorf(offsetV)) {
+			exactlyPixelMapped = false;
 		}
 	}
 
@@ -1095,6 +1106,10 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 		}
 	}
 
+	// The sprite border fix moves the UVs off the texel centers.
+	if (spriteBorderFixL != 0.0f || spriteBorderFixR != 0.0f || spriteBorderFixT != 0.0f || spriteBorderFixB != 0.0f) {
+		exactlyPixelMapped = false;
+	}
 
 	// Like the software renderer's ProcessRect: rectangles aren't clipped, one with a vertex behind the camera
 	// or outside the screen range is dropped whole. With depth clamp, a vertex past the near plane is exempt
@@ -1213,7 +1228,7 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	}
 	numDecodedVerts = outVerts;
 	inds = newInds;
-	*pixelMappedExactly = pixelMapped;
+	*pixelMappedExactly = pixelMapped || exactlyPixelMapped;
 	*drawIndexCount = indsOut - newInds;
 	return true;
 }
@@ -1477,8 +1492,7 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 	const int count = upperBound + 1 - lowerBound;
 	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &uvScale, count);
 
-	// OK, morphing eliminated but bones still remain to be taken care of.
-	// Let's do a partial software transform where we only do skinning.
+	// The decoder has morphed and skinned them.
 
 	VertexReader reader(bufPtr, dec->GetDecVtxFmt(), vertType);
 
@@ -1489,80 +1503,29 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 		(u8)gstate.getMaterialAmbientA(),
 	};
 
-	// Let's have two separate loops, one for non skinning and one for skinning.
-	if (!dec->skinInDecode && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
-		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i - lowerBound);
-			SimpleVertex &sv = sverts[i];
-			if (vertType & GE_VTYPE_TC_MASK) {
-				reader.ReadUV(sv.uv);
-			}
-
-			if (vertType & GE_VTYPE_COL_MASK) {
-				sv.color_32 = reader.ReadColor0_8888();
-			} else {
-				memcpy(sv.color, defaultColor, 4);
-			}
-
-			float nrm[3], pos[3];
-			float bnrm[3], bpos[3];
-
-			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tessellation anyway, not sure if any need to supply
-				reader.ReadNrm(nrm);
-			} else {
-				nrm[0] = 0;
-				nrm[1] = 0;
-				nrm[2] = 1.0f;
-			}
-			reader.ReadPosAuto(pos);
-
-			// Apply skinning transform directly
-			float weights[8];
-			reader.ReadWeights(weights);
-			// Skinning
-			Vec3Packedf psum(0, 0, 0);
-			Vec3Packedf nsum(0, 0, 0);
-			for (int w = 0; w < numBoneWeights; w++) {
-				if (weights[w] != 0.0f) {
-					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix + w * 12);
-					Vec3Packedf tpos(bpos);
-					psum += tpos * weights[w];
-
-					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix + w * 12);
-					Vec3Packedf tnorm(bnrm);
-					nsum += tnorm * weights[w];
-				}
-			}
-			sv.pos = psum;
-			sv.nrm = nsum;
+	for (int i = lowerBound; i <= upperBound; i++) {
+		reader.Goto(i - lowerBound);
+		SimpleVertex &sv = sverts[i];
+		if (vertType & GE_VTYPE_TC_MASK) {
+			reader.ReadUV(sv.uv);
+		} else {
+			sv.uv[0] = 0.0f;  // This will get filled in during tessellation
+			sv.uv[1] = 0.0f;
 		}
-	} else {
-		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i - lowerBound);
-			SimpleVertex &sv = sverts[i];
-			if (vertType & GE_VTYPE_TC_MASK) {
-				reader.ReadUV(sv.uv);
-			} else {
-				sv.uv[0] = 0.0f;  // This will get filled in during tessellation
-				sv.uv[1] = 0.0f;
-			}
-			if (vertType & GE_VTYPE_COL_MASK) {
-				sv.color_32 = reader.ReadColor0_8888();
-			} else {
-				memcpy(sv.color, defaultColor, 4);
-			}
-			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tessellation anyway, not sure if any need to supply
-				reader.ReadNrm((float *)&sv.nrm);
-			} else {
-				sv.nrm.x = 0.0f;
-				sv.nrm.y = 0.0f;
-				sv.nrm.z = 1.0f;
-			}
-			reader.ReadPosAuto((float *)&sv.pos);
+		if (vertType & GE_VTYPE_COL_MASK) {
+			sv.color_32 = reader.ReadColor0_8888();
+		} else {
+			memcpy(sv.color, defaultColor, 4);
 		}
+		if (vertType & GE_VTYPE_NRM_MASK) {
+			// Normals are generated during tessellation anyway, not sure if any need to supply
+			reader.ReadNrm((float *)&sv.nrm);
+		} else {
+			sv.nrm.x = 0.0f;
+			sv.nrm.y = 0.0f;
+			sv.nrm.z = 1.0f;
+		}
+		reader.ReadPosAuto((float *)&sv.pos);
 	}
 
 	// Okay, there we are! Return the new type (but keep the index bits)

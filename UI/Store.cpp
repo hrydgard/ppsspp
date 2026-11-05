@@ -210,6 +210,7 @@ private:
 	UI::Button *launchButton_ = nullptr;
 	UI::Button *cancelButton_ = nullptr;
 	bool wasInstalled_ = false;
+	GameManagerState lastState_ = GameManagerState::IDLE;
 };
 
 void ProductView::CreateViews() {
@@ -293,8 +294,13 @@ void ProductView::CreateViews() {
 }
 
 void ProductView::Update() {
-	if (wasInstalled_ != IsGameInstalled()) {
-		CreateViews();
+	// Installing or uninstalling is the only thing that changes it, so don't hit the disk every frame.
+	const GameManagerState state = g_GameManager.GetState();
+	if (state != lastState_) {
+		lastState_ = state;
+		if (state == GameManagerState::IDLE && wasInstalled_ != IsGameInstalled()) {
+			CreateViews();
+		}
 	}
 	if (installButton_) {
 		installButton_->SetEnabled(g_GameManager.GetState() == GameManagerState::IDLE);
@@ -442,7 +448,9 @@ void StoreScreen::ParseListing(const std::string &json) {
 			// (Path::operator/ does no ".." normalization); on platforms/builds where
 			// the store index isn't fetched over HTTPS, a MITM'd or compromised
 			// response could otherwise point "launch" at an arbitrary host path.
-			if (HasParentDirComponent(file))
+			// It's also uninstalled (deleted recursively) by name, so "." or "/" would be the
+			// whole GAME directory.
+			if (HasParentDirComponent(file) || !IsSafePathComponent(file))
 				continue;
 			e.file = file;
 			entries_.push_back(e);

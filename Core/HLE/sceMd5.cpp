@@ -54,20 +54,32 @@ u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 //
 // SHA-1 gets the same treatment further down. Its context is the same size with the same
 // bookkeeping, but note it does not stream whole blocks through buf the way MD5 does.
+//
+// The total length is a u64 on the PSP, but stored as two words here: a u64 member would make the
+// context 8-aligned, and the game's is only 4-aligned. On ARM32 the compiler then copies buf with
+// vld1.64 [:64], which faults on such an address (pspautotests hash/hash).
+struct PSPContextTotalLen {
+	u32_le lo;
+	u32_le hi;
+};
+
 struct PSPMd5Context {
 	u32_le h[4];
 	u32_le pad;           // the kernel leaves this one alone
 	u16_le usRemains;     // bytes currently held in buf
 	u16_le usComputed;    // stays zero on hardware
-	u64_le ullTotalLen;   // total bytes fed in so far
+	PSPContextTotalLen totalLen;  // total bytes fed in so far
 	u8 buf[64];
+
+	u64 TotalLen() const { return ((u64)totalLen.hi << 32) | totalLen.lo; }
+	void SetTotalLen(u64 len) { totalLen.lo = (u32)len; totalLen.hi = (u32)(len >> 32); }
 };
 
 static void Md5ContextRead(const PSPPointer<PSPMd5Context> &ctx, md5_context *out) {
 	for (int i = 0; i < 4; i++) {
 		out->state[i] = ctx->h[i];
 	}
-	u64 total = ctx->ullTotalLen;
+	u64 total = ctx->TotalLen();
 	out->total[0] = (u32)total;
 	out->total[1] = (u32)(total >> 32);
 	memcpy(out->buffer, ctx->buf, sizeof(out->buffer));
@@ -78,7 +90,7 @@ static void Md5ContextWrite(PSPPointer<PSPMd5Context> &ctx, const md5_context *i
 		ctx->h[i] = (u32)in->state[i];
 	}
 	u64 total = (u64)(u32)in->total[0] | ((u64)(u32)in->total[1] << 32);
-	ctx->ullTotalLen = total;
+	ctx->SetTotalLen(total);
 	ctx->usRemains = (u16)(total & 0x3F);
 	ctx->usComputed = 0;
 	ctx.NotifyWrite("Md5Context");
@@ -115,7 +127,7 @@ static int Md5BlockInit(u32 ctxAddr) {
 	}
 	ctx->usRemains = 0;
 	ctx->usComputed = 0;
-	ctx->ullTotalLen = 0;
+	ctx->SetTotalLen(0);
 	ctx.NotifyWrite("Md5Context");
 	return hleLogDebug(Log::HLE, 0);
 }
@@ -126,7 +138,7 @@ static int Md5BlockUpdate(u32 ctxAddr, u32 dataPtr, u32 len) {
 		return hleLogError(Log::HLE, -1, "bad address");
 	md5_context work;
 	Md5ContextRead(ctx, &work);
-	u64 totalBefore = ctx->ullTotalLen;
+	u64 totalBefore = ctx->TotalLen();
 	const u8 *data = Memory::GetPointerWriteUnchecked(dataPtr);
 	ppsspp_md5_update(&work, (unsigned char *)data, (int)len);
 	Md5ContextWrite(ctx, &work);
@@ -198,15 +210,21 @@ struct PSPSha1Context {
 	u32_le h[5];
 	u16_le usRemains;
 	u16_le usComputed;
-	u64_le ullTotalLen;
+	PSPContextTotalLen totalLen;
 	u8 buf[64];
+
+	u64 TotalLen() const { return ((u64)totalLen.hi << 32) | totalLen.lo; }
+	void SetTotalLen(u64 len) { totalLen.lo = (u32)len; totalLen.hi = (u32)(len >> 32); }
 };
+
+static_assert(alignof(PSPMd5Context) == 4 && sizeof(PSPMd5Context) == 96, "PSP MD5 context layout");
+static_assert(alignof(PSPSha1Context) == 4 && sizeof(PSPSha1Context) == 96, "PSP SHA-1 context layout");
 
 static void Sha1ContextRead(const PSPPointer<PSPSha1Context> &ctx, sha1_context *out) {
 	for (int i = 0; i < 5; i++) {
 		out->state[i] = ctx->h[i];
 	}
-	u64 total = ctx->ullTotalLen;
+	u64 total = ctx->TotalLen();
 	out->total[0] = (u32)total;
 	out->total[1] = (u32)(total >> 32);
 	memcpy(out->buffer, ctx->buf, sizeof(out->buffer));
@@ -217,7 +235,7 @@ static void Sha1ContextWrite(PSPPointer<PSPSha1Context> &ctx, const sha1_context
 		ctx->h[i] = (u32)in->state[i];
 	}
 	u64 total = (u64)(u32)in->total[0] | ((u64)(u32)in->total[1] << 32);
-	ctx->ullTotalLen = total;
+	ctx->SetTotalLen(total);
 	ctx->usRemains = (u16)(total & 0x3F);
 	ctx->usComputed = 0;
 	memcpy(ctx->buf, in->buffer, sizeof(ctx->buf));
@@ -235,7 +253,7 @@ static int Sha1BlockInit(u32 ctxAddr) {
 	}
 	ctx->usRemains = 0;
 	ctx->usComputed = 0;
-	ctx->ullTotalLen = 0;
+	ctx->SetTotalLen(0);
 	ctx.NotifyWrite("Sha1Context");
 	return hleLogDebug(Log::HLE, 0);
 }

@@ -100,12 +100,14 @@ public:
 	void SetDropShadowExpand(float s) { dropShadowExpand_ = s; }
 	void SetExclusiveTouch(bool exclusive) { exclusiveTouch_ = exclusive; }
 	void SetClickableBackground(bool clickableBackground) { clickableBackground_ = clickableBackground; }
+	void SetRadiusFactor(float factor) { radiusFactor_ = factor; }
 
 	void SetClip(bool clip) { clip_ = clip; }
 	std::string DescribeLog() const override { return "ViewGroup: " + View::DescribeLog(); }
 	std::string DescribeText() const override;
 
 	void Recurse(std::function<void(View *)> func) override;
+
 
 protected:
 	std::string DescribeListUnordered(std::string_view heading) const;
@@ -118,6 +120,7 @@ protected:
 	View *defaultFocusView_ = nullptr;
 	Drawable bg_;
 	float dropShadowExpand_ = 0.0f;
+	float radiusFactor_ = 1.0f;
 	bool hasDropShadow_ = false;
 	bool clickableBackground_ = false;
 	bool clip_ = false;
@@ -271,6 +274,13 @@ private:
 class ChoiceGroupList : public LinearLayoutList {
 public:
 	ChoiceGroupList(LayoutParams *layoutParams = nullptr);
+};
+
+// A vertical list that spaces out the ChoiceGroups in it and keeps them off its edges.
+// This one is adjusted for popups (i.e. smaller margins and spacing).
+class PopupChoiceGroupList : public LinearLayoutList {
+public:
+	PopupChoiceGroupList(LayoutParams *layoutParams = nullptr);
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size

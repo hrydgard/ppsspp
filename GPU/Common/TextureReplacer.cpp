@@ -169,7 +169,11 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	if (!dir) {
 		INFO_LOG(Log::TexReplacement, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
-		dir = new DirectoryReader(basePath_, true);
+		// Android's shared storage, which is all a content URI can point at, already ignores case. Indexing a
+		// big pack there for nothing lists every directory through the content resolver, which can take long
+		// enough that loads and shutdown, which wait for it, hit an ANR.
+		const bool ignoreCase = basePath_.Type() != PathType::CONTENT_URI;
+		dir = new DirectoryReader(basePath_, ignoreCase);
 	} else {
 		if (!replaceEnabled_ && saveEnabled_) {
 			WARN_LOG(Log::TexReplacement, "Found zip file even though only saving is enabled! This is weird.");
@@ -363,6 +367,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
+	// These are subtracted from the hashed size, so can't be more than the blocks there are.
+	skipLastDXT1Blocks128x64_ = std::clamp(skipLastDXT1Blocks128x64_, 0, (128 / 4) * (64 / 4));
+	skipLastDXT1Blocks128x128_ = std::clamp(skipLastDXT1Blocks128x128_, 0, (128 / 4) * (128 / 4));
 	if (reduceHash_ && textureHash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -631,11 +638,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		}
 
 		// Hack for Yu Gi Oh texture hashing problem. See issue #19714
-		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64) {
+		// (reduceHash can make sizeInRAM smaller than all the blocks, so check it can't underflow.)
+		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64 && (u32)(8 * skipLastDXT1Blocks128x64_) < (u32)sizeInRAM) {
 			// Skip the last few blocks as specified.
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x64_;
 		}
-		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128) {
+		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128 && (u32)(8 * skipLastDXT1Blocks128x128_) < (u32)sizeInRAM) {
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x128_;
 		}
 

@@ -198,8 +198,22 @@ struct CommandLineOptions {
 	// instance's 127.0.0.N address and MAC), and whether to run at PSP speed rather than flat out.
 	// Both are for ad hoc tests where instances talk to each other.
 	std::optional<int> instance;
+	// Headless: keep in step in emulated time with the other instances sharing this file (see
+	// InitInstanceSync), of which there are syncCount in all.
+	std::optional<std::string> syncFile;
+	std::optional<int> syncCount;
 	std::optional<bool> realtime;
+	// Headless with --realtime: run at this percentage of PSP speed, through alternate speed 1.
+	std::optional<int> speedPercent;
+	// Added to every ad hoc port on the host. Back-to-back test runs vary it, so a connection doesn't
+	// collide with the previous run's, still in TCP TIME_WAIT.
+	std::optional<int> portOffset;
 	std::optional<bool> adhocServer;
+	std::optional<bool> lagSync;
+	std::optional<std::string> nickname;
+	std::optional<int> adhocDelayMs;
+	std::optional<int> adhocJitterMs;
+	std::optional<int> adhocLossPercent;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;

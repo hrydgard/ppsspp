@@ -40,10 +40,11 @@ std::string getHeaderString(std::istringstream &headers) {
 
 // FIXME: Is it allowed for fieldName to be null/0 or empty string ? JPCSP seems to ignore it
 static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const char *fieldName, u32 valueAddr, u32 valueLengthAddr) {
-	if (!Memory::IsValidRange(headerAddr, headerLength))
+	if (headerLength < 0 || !Memory::IsValidRange(headerAddr, headerLength))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
-	if (!Memory::IsValidRange(valueLengthAddr, 4))
+	// The value's address gets written to valueAddr.
+	if (!Memory::IsValidRange(valueLengthAddr, 4) || !Memory::IsValidRange(valueAddr, 4))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
 	// FIXME: Not sure whether valueAddr can be null or not (in case the game just need to get the size to allocate the value buffer first)
@@ -53,7 +54,7 @@ static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const ch
 
 	std::string field = fieldName ? fieldName : "";
 	field = StripSpaces(field);
-	std::string headers(Memory::GetCharPointer(headerAddr), headerLength);
+	std::string headers = headerLength > 0 ? std::string(Memory::GetCharPointerUnchecked(headerAddr), headerLength) : std::string();
 	std::istringstream hdrs(headers);
 	u32 addr = 0;
 	u32 len = 0;
@@ -108,7 +109,7 @@ static int sceParseHttpStatusLine(MIPSState *mips, u32 headerAddr, u32 headerLen
 	if (!Memory::IsValidRange(headerAddr, headerLength))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
-	std::string headers(Memory::GetCharPointer(headerAddr), headerLength);
+	std::string headers = headerLength > 0 ? std::string(Memory::GetCharPointerUnchecked(headerAddr), headerLength) : std::string();
 	// Get first line from header, line ending can be '\n' or '\r'
 	std::istringstream hdr(headers);
 	std::string line;

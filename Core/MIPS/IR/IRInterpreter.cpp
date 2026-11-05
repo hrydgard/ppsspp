@@ -272,6 +272,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::FExp2] = &&L_FExp2;
 		dispatch[(int)IROp::FLog2] = &&L_FLog2;
 		dispatch[(int)IROp::FSinCos] = &&L_FSinCos;
+		dispatch[(int)IROp::FFloatToHalf2] = &&L_FFloatToHalf2;
 		dispatch[(int)IROp::FHalfToFloat] = &&L_FHalfToFloat;
 		dispatch[(int)IROp::ShlImm] = &&L_ShlImm;
 		dispatch[(int)IROp::ShrImm] = &&L_ShrImm;
@@ -992,6 +993,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			mips->f[inst->dest + 1] = c;
 			IR_NEXT;
 		}
+		IR_CASE(FFloatToHalf2)
+			mips->fi[inst->dest] = vfpu_f2h(mips->fi[inst->src1]) | ((u32)vfpu_f2h(mips->fi[inst->src2]) << 16);
+			IR_NEXT;
 		IR_CASE(FHalfToFloat)
 			mips->fi[inst->dest] = vfpu_h2f((u16)(inst->src2 ? mips->fi[inst->src1] >> 16 : mips->fi[inst->src1] & 0xFFFF));
 			IR_NEXT;

@@ -36,7 +36,7 @@ public:
 private:
 	// Returns the path (relative to path_) of a file whose name matches path except for case.
 	bool FindIgnoringCase(std::string_view path, std::string *actualPath);
-	void IndexDirectory(const Path &dir, const std::string &prefix);
+	void IndexDirectory(const Path &dir, const std::string &prefix, int depth);
 
 	Path path_;
 	bool ignoreCase_ = false;

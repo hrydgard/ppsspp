@@ -604,7 +604,10 @@ public:
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
-	// SystemParam
+	// SystemParam settings - well, they are queries by systemparam but they're actually stored in the registry.
+	// So now, we mirror these out into the actual registry.
+	int iSceRegCategoryVersion;  // The version of the registry. Resets to 1 if you install an older firmware. The system will reject too-new regs and rewrite too-old ones.
+
 	std::string sNickName;  // AdHoc and system nickname
 	std::string sMACAddress;
 	// The Fuse ID of the PSP a game patch was installed on (12 hex digits), to decrypt it with.
@@ -613,13 +616,20 @@ public:
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
-	int iTimeZone;
+	int iTimeZoneOffset;
+	std::string sTimeZoneArea;
 	bool bDayLightSavings;
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
 	// /CONFIG/SYSTEM/umd_autoboot: whether the VSH starts an inserted disc by itself.
 	bool bVshUmdAutoboot;
+	// /CONFIG/SYSTEM/XMB (language and button_assign are iLanguage and iButtonPreference).
+	int iXmbThemeType;
+	int iXmbThemeColorMode;
+	int iXmbThemeWallpaperMode;
+	int iXmbThemeSystemColor;
+	int iXmbThemeCustomThemeMode;
 
 	// Networking
 	bool bEnableAdhocServer;
@@ -633,6 +643,10 @@ public:
 	bool bInfrastructureAutoDNS;
 	bool bAllowSavestateWhileConnected;  // Developer option, ini-only. No normal users need this, it's always wrong to save/load state when online.
 	bool bAllowSpeedControlWhileConnected;  // Useful in some games but not recommended.
+	// Developer options, ini-only: simulate a slower network for the ad hoc datagrams received.
+	int iAdhocSimDelayMs;  // Added to every datagram's delivery, in emulated time.
+	int iAdhocSimJitterMs;  // Up to this much more, at random (order is kept).
+	int iAdhocSimLossPercent;  // Datagrams dropped.
 
 	std::string sAdhocServerListUrl;
 	std::vector<std::string> vCustomAdhocServerList;
@@ -823,6 +837,8 @@ public:
 	static const ConfigSettingRef *FindSetting(const void *ptr);
 	static int GetDefaultValueInt(const int *configSetting);
 	static float GetDefaultValueFloat(const float *configSetting);
+	// Sets the setting that ptr points to back to its default. Returns true if that changed it.
+	static bool RestoreSettingToDefault(void *ptr);
 
 	void DoNotSaveSetting(void *configSetting) {
 		settingsNotToSave_.push_back(configSetting);

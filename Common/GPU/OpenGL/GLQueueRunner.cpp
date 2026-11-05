@@ -1341,19 +1341,35 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		case GLRRenderCommand::DRAW:
 		{
 			GLRInputLayout *layout = c.draw.inputLayout;
+			if (attrMask != layout->semanticsMask_) {
+				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
+				attrMask = layout->semanticsMask_;
+			}
+			// Stream 1 first, so stream 0 is left bound.
+			if (layout->stride1) {
+				_dbg_assert_(c.draw.vertexBuffer1 && !c.draw.vertexBuffer1->Mapped());
+				GLuint buf1 = c.draw.vertexBuffer1->buffer_;
+				if (buf1 != curArrayBuffer) {
+					glBindBuffer(GL_ARRAY_BUFFER, buf1);
+					curArrayBuffer = buf1;
+				}
+				for (const auto &entry : layout->entries) {
+					if (entry.stream == 1) {
+						glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride1, (const void *)(c.draw.vertexOffset1 + entry.offset));
+					}
+				}
+			}
 			GLuint buf = c.draw.vertexBuffer->buffer_;
 			_dbg_assert_(!c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
 			}
-			if (attrMask != layout->semanticsMask_) {
-				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
-				attrMask = layout->semanticsMask_;
-			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.vertexOffset + entry.offset));
+				if (entry.stream == 0) {
+					glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.vertexOffset + entry.offset));
+				}
 			}
 			if (c.draw.indexBuffer) {
 				GLuint buf = c.draw.indexBuffer->buffer_;

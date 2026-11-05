@@ -134,8 +134,19 @@ bool ViewGroup::Key(const KeyInput &input) {
 	bool ret = false;
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if (view->GetVisibility() == V_VISIBLE)
-			ret = ret || view->Key(input);
+		if (view->GetVisibility() != V_VISIBLE) {
+			continue;
+		}
+		// Disabled views can have focus, but must not be activated. Groups pass keys on to
+		// their children regardless, like CollectTabOrder.
+		if (!view->IsEnabled() && !view->IsViewGroup()) {
+			if (view->HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT) && IsAcceptKey(input)) {
+				NotifyDisabledActivation(view);
+				ret = true;
+			}
+			continue;
+		}
+		ret = ret || view->Key(input);
 	}
 	return ret;
 }
@@ -188,7 +199,8 @@ void ViewGroup::Draw(UIContext &dc) {
 	}
 
 	if (roundCorners_ != RoundCorners::None) {
-		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+		// Surrounding round rects (like windows) need a bigger radius to look right.
+		dc.FillRoundRect(bg_, bounds_, dc.GetTheme().choiceRoundRadius * radiusFactor_, roundCorners_);
 	} else {
 		dc.FillRect(bg_, bounds_);
 	}
@@ -406,7 +418,8 @@ bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, cons
 }
 
 static bool CanTakeFocus(const View *view) {
-	return view->CanBeFocused() && view->IsEnabled() && view->GetVisibility() == V_VISIBLE;
+	// Disabled views can be focused too (they ignore keys, see Key()).
+	return view->CanBeFocused() && view->GetVisibility() == V_VISIBLE;
 }
 
 float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
@@ -553,11 +566,11 @@ void ViewGroup::CollectTabOrder(std::vector<View *> *outViews) const {
 			// A group can be focusable itself (rare), in which case it's a stop and we still
 			// descend into it - same as arrow navigation, which considers both.
 			ViewGroup *vg = static_cast<ViewGroup *>(view);
-			if (vg->CanBeFocused() && vg->IsEnabled()) {
+			if (vg->CanBeFocused()) {
 				outViews->push_back(vg);
 			}
 			vg->CollectTabOrder(outViews);
-		} else if (view->CanBeFocused() && view->IsEnabled()) {
+		} else if (view->CanBeFocused()) {
 			outViews->push_back(view);
 		}
 	}
@@ -884,7 +897,14 @@ ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
 
 ChoiceGroupList::ChoiceGroupList(LayoutParams *layoutParams)
 	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
-	SetPadding(Margins(12, 12, 8, 12));
+	SetPadding(Margins(12, 12, 12, 12));
+	SetSpacing(24.0f);
+}
+
+PopupChoiceGroupList::PopupChoiceGroupList(LayoutParams *layoutParams)
+	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
+	// Padding is already present in the popup itself. Just add a little more.
+	SetPadding(Margins(0));
 	SetSpacing(24.0f);
 }
 

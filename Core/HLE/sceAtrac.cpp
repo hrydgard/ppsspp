@@ -37,6 +37,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceAtrac.h"
+#include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/AtracCtx.h"
 #include "Core/HLE/AtracCtx2.h"
@@ -333,6 +334,8 @@ static int AllocAndRegisterAtrac(int codecType) {
 static int UnregisterAndDeleteAtrac(int atracID) {
 	if (atracID >= 0 && atracID < PSP_MAX_ATRAC_IDS) {
 		if (atracContexts[atracID] != nullptr) {
+			// The SAS thread might be decoding from it.
+			__SasWaitForMix();
 			delete atracContexts[atracID];
 			atracContexts[atracID] = nullptr;
 			return 0;
@@ -776,6 +779,8 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
+	// SetData replaces the decoder, which the SAS thread might be using.
+	__SasWaitForMix();
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		return AtracSetDataError(ret, track);
@@ -811,6 +816,8 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_WRONG_CODECTYPE, "atracID uses different codec type than data");
 	}
 
+	// SetData replaces the decoder, which the SAS thread might be using.
+	__SasWaitForMix();
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		return AtracSetDataError(ret, track);
@@ -988,6 +995,8 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
+	// SetData replaces the decoder, which the SAS thread might be using.
+	__SasWaitForMix();
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		return AtracSetDataError(ret, track);
@@ -1012,6 +1021,8 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 		return hleLogError(Log::Atrac, ret, "%s", error.c_str());
 	}
 
+	// SetData replaces the decoder, which the SAS thread might be using.
+	__SasWaitForMix();
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		return AtracSetDataError(ret, track);
@@ -1225,8 +1236,8 @@ void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 // The context pointer is assumed to be valid.
 int AtracSasBindContextAndGetID(u32 contextAddr) {
 	// Ugly hack, but needed to support both old and new contexts.
-	int atracID = (int)Memory::ReadUnchecked_U32(contextAddr + 0xfc);
-	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
+	int atracID = Memory::IsValid4AlignedAddress(contextAddr + 0xfc) ? (int)Memory::ReadUnchecked_U32(contextAddr + 0xfc) : -1;
+	if (atracID >= 0 && atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
 	} else {
 		// Let's just loop around the contexts and find it by address.
@@ -1244,6 +1255,10 @@ int AtracSasBindContextAndGetID(u32 contextAddr) {
 	}
 
 	AtracBase *atrac = getAtrac(atracID);
+	if (!atrac) {
+		// The SAS voice treats a negative ID as no data.
+		return -1;
+	}
 	atrac->CheckForSas();
 	return atracID;
 }

@@ -9,6 +9,7 @@ enum {
 	ERROR_NET_INTERNAL = 0x80410002,
 	ERROR_NET_INVALID_ARG = 0x80410003,
 	ERROR_NET_NO_ENTRY = 0x80410004,
+	ERROR_NET_NOT_ENOUGH_STACK = 0x80410005,
 
 	// pspnet_core
 	ERROR_NET_CORE_NOT_TERMINATED = 0x80410101,
@@ -325,6 +326,5 @@ int convertSockoptNamePSP2Host(int optname, int level);
 int convertSockoptNameHost2PSP(int optname, int level);
 std::string inetSockoptName2str(int optname, int level);
 int convertInetErrnoHost2PSP(int error);
-int convertInetErrno2PSPError(int error);
 const char *convertInetErrno2str(int error);
 std::string convertNetError2str(uint32_t errorCode);

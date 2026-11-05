@@ -93,6 +93,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & (TwoPaneFlags::SettingsInContextMenu | TwoPaneFlags::CustomContextMenu)) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
 		}
+		if (flags_ & TwoPaneFlags::DropShadowTitle) {
+			topBarFlags |= TopBarFlags::DropShadowTitle;
+		}
 		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
 		root->SetSpacing(0);
 		createContentViews(root);
@@ -131,6 +134,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		TopBarFlags topBarFlags = portrait ? TopBarFlags::Portrait : TopBarFlags::Default;
 		if (flags_ & TwoPaneFlags::CustomContextMenu) {
 			topBarFlags |= TopBarFlags::ContextMenuButton;
+		}
+		if (flags_ & TwoPaneFlags::DropShadowTitle) {
+			topBarFlags |= TopBarFlags::DropShadowTitle;
 		}
 		TopBar *topBar = nullptr;
 		if (!(flags_ & TwoPaneFlags::NoTopbarInLandscape)) {

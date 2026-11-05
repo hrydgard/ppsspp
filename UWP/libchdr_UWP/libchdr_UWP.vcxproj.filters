@@ -13,39 +13,19 @@
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_bitstream.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_cdrom.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_chd.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_avhuff.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdfl.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdlz.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdzl.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdzs.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_flac.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_huff.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_lzma.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_zlib.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_zstd.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_flac.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_huffman.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Alloc.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Bra.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Bra86.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\BraIA64.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\CpuArch.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Delta.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzFind.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Lzma86Dec.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzmaDec.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzmaEnc.c">
-      <Filter>lzma</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Sort.c">
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-26.02\src\LzmaDec.c">
       <Filter>lzma</Filter>
     </ClCompile>
   </ItemGroup>

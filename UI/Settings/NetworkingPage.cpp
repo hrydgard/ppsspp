@@ -208,25 +208,21 @@ void BuildNetworkingSettings(SettingsPage *page) {
 
 	page->Setting(&g_Config.iAdhocServerRelayMode).EnabledFunc([] {
 		return !PSP_IsInited();
-	});
-	page->Hint({ I18NCat::NETWORKING, "PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower." });
+	}).Hint({ I18NCat::NETWORKING, "PacketRelayHint", "Available on servers that provide 'aemu_postoffice' packet relay, like socom.cc. Disable this for LAN or VPN play. Can be more reliable, but sometimes slower." });
 
 	page->Custom({ I18NCat::SYSTEM, "Nickname" }, [host](UI::ViewGroup *parent) {
 		return AddNicknameChoice(host, parent);
-	});
-	page->Hint("Try to pick a unique nickname for ad hoc play");
+	}).Hint("Try to pick a unique nickname for ad hoc play");
 
 	page->Setting(&g_Config.bEnableAdhocServer).OnChange(requestLocalNetwork);
 
 	page->Setting(&g_Config.bAdhocUseUdp).EnabledFunc([] {
 		return !PSP_IsInited();
-	});
-	page->Hint("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP.");
+	}).Hint("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP.");
 
 	page->Setting(&g_Config.bAdhocRelayModeEnetPdpReliable).EnabledFunc([] {
 		return !PSP_IsInited() && g_Config.bAdhocUseUdp;
-	});
-	page->Hint("When disabled, packet loss on datagram adhoc sockets will be exposed to the game's netcode. Keep this enabled if you don't know what that means.");
+	}).Hint("When disabled, packet loss on datagram adhoc sockets will be exposed to the game's netcode. Keep this enabled if you don't know what that means.");
 
 	page->Header("Infrastructure");
 	if (g_Config.sInfrastructureUsername.empty()) {
@@ -261,8 +257,7 @@ void BuildNetworkingSettings(SettingsPage *page) {
 		// away, instead of waiting for a port request that may never come.
 		UPnP_Notify();
 	});
-	page->Setting(&g_Config.bUPnPUseOriginalPort).Enabled(&g_Config.bEnableUPnP);
-	page->Hint({ I18NCat::NETWORKING, "UseOriginalPort Tip", "May not work for all devices or games, see wiki." });
+	page->Setting(&g_Config.bUPnPUseOriginalPort).Enabled(&g_Config.bEnableUPnP).Hint({ I18NCat::NETWORKING, "UseOriginalPort Tip", "May not work for all devices or games, see wiki." });
 
 	page->Header();
 	page->Link({I18NCat::NETWORKING, "Chat"}, I18NCat::NETWORKING, &BuildChatSettingsPage);
@@ -282,8 +277,7 @@ void BuildNetworkingSettings(SettingsPage *page) {
 			wlanChannelChoice->HideChoice(i + 7);
 		}
 	});
-	page->Setting(&g_Config.iPortOffset);
-	page->Hint("PortOffsetHint");
+	page->Setting(&g_Config.iPortOffset).Hint("PortOffsetHint");
 	page->Setting(&g_Config.iMinTimeout);
 	page->Setting(&g_Config.bForcedFirstConnect);
 	page->Setting(&g_Config.bAllowSpeedControlWhileConnected);

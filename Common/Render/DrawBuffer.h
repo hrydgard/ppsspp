@@ -133,6 +133,9 @@ public:
 	}
 	// Results in 18 triangles. Kind of expensive for a button.
 	void DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0);
+	void DrawImage4Grid(ImageID atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF), float corner_scale = 1.0) {
+		DrawImage4Grid(atlas_image, bounds.x, bounds.y, bounds.x2(), bounds.y2(), color, corner_scale);
+	}
 
 	// Uses the nearest precomputed corner radius, scaled to fit, so outlines get thinner or thicker
 	// when radius isn't one of ROUND_RECT_RADII. 18 triangles filled, 16 outlined.

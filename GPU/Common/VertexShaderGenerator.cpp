@@ -133,6 +133,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
+	// Colors lit on the CPU come in cpulit0 and cpulit1, and are used where cpulit1.a is set.
+	const bool cpuLit = id.Bit(VS_BIT_CPU_LIT) && useHWTransform && enableLighting;
+	// See PVR_UNUSED_DYNAMIC_UBO_OVERRUN: every vertex shader reads the lights UBO, which is bound as dynamic either way.
+	const bool readUnusedLights = compat.shaderLanguage == GLSL_VULKAN && !enableLighting && !doShadeMapping && bugs.Has(Draw::Bugs::PVR_UNUSED_DYNAMIC_UBO_OVERRUN);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
 	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && enableLighting;  // checking lighting here for the shader test's benefit, in reality if ubershader is set, lighting is set.
@@ -176,8 +180,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
 
-		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
-		if (enableLighting || doShadeMapping)
+		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr, gstate_c.Use(GPU_USE_VIRTUAL_REALITY) ? ub_vrStr : "");
+		if (enableLighting || doShadeMapping || readUnusedLights)
 			WRITE(p, "layout (std140, set = 0, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 
 		if (useHWTransform)
@@ -202,6 +206,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "layout (location = %d) in vec4 color0;\n", (int)PspAttributeLocation::COLOR0);
 			if (lmode && !useHWTransform)  // only software transform supplies color1 as vertex data
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
+		}
+		if (cpuLit) {
+			WRITE(p, "layout (location = %d) in vec4 cpulit0;\n", (int)PspAttributeLocation::CPU_LIT0);
+			WRITE(p, "layout (location = %d) in vec4 cpulit1;\n", (int)PspAttributeLocation::CPU_LIT1);
 		}
 
 		// Centroid keeps them inside the primitive on pixels it only partly covers with MSAA, so that
@@ -234,6 +242,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 			if (hasColor || !useHWTransform) {
 				WRITE(p, "  vec4 color0 : COLOR0;\n");
+			}
+			if (cpuLit) {
+				WRITE(p, "  vec4 cpulit0 : COLOR2;\n");
+				WRITE(p, "  vec4 cpulit1 : COLOR3;\n");
 			}
 			if (hasNormal) {
 				WRITE(p, "  vec3 normal : NORMAL;\n");
@@ -322,6 +334,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "%s lowp vec3 color1;\n", compat.attribute);
 				*attrMask |= 1 << ATTR_COLOR1;
 			}
+		}
+		if (cpuLit) {
+			WRITE(p, "%s lowp vec4 cpulit0;\n", compat.attribute);
+			WRITE(p, "%s lowp vec4 cpulit1;\n", compat.attribute);
+			*attrMask |= (1 << ATTR_CPU_LIT0) | (1 << ATTR_CPU_LIT1);
 		}
 
 		WRITE(p, "uniform vec4 u_xywh;\n");
@@ -472,6 +489,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "  vec3 color1 = In.color1;\n");
 			}
 		}
+		if (cpuLit) {
+			WRITE(p, "  vec4 cpulit0 = In.cpulit0;\n");
+			WRITE(p, "  vec4 cpulit1 = In.cpulit1;\n");
+		}
 		if (hasNormal) {
 			WRITE(p, "  vec3 normal = In.normal;\n");
 		}
@@ -523,8 +544,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
-		if (useSimpleStereo) {
+		if (useSimpleStereo && gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+			// Each eye's view comes from the headset (multiview, Vulkan).
+			WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), gl_ViewIndex == 0 ? u_view : u_viewR).xyz, 1.0);\n");
+		} else {
+			WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		}
+		if (useSimpleStereo && !gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			float ipd = 0.065f;
 			float scale = 1.0f;
 			if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
@@ -537,11 +563,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
 			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
-#ifdef __LIBRETRO__
 			// Preserve game depth before clipping and viewport conversion. The VR lens
-			// changes XY, but depth must still agree with through-mode draws and clears.
+			// changes XY, but depth must still agree with through-mode draws and clears,
+			// and go through the viewport's Z scale (often negative on the PSP).
 			WRITE(p, "  outPos.z = orgPos.z * (outPos.w / orgPos.w);\n");
-#endif
 		} else {
 			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
@@ -799,6 +824,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					WRITE(p, "  %sv_color0 = clamp(vec4(lightSum0.rgb + lightSum1, lightSum0.a), 0.0, 1.0);\n", compat.vsOutPrefix);
 				}
 			}
+			if (cpuLit) {
+				// Without lmode, the CPU summed the specular into cpulit0.
+				WRITE(p, "  if (cpulit1.a > 0.5) {\n");
+				WRITE(p, "    %sv_color0 = cpulit0;\n", compat.vsOutPrefix);
+				if (lmode) {
+					WRITE(p, "    %sv_color1 = cpulit1.rgb;\n", compat.vsOutPrefix);
+				}
+				WRITE(p, "  }\n");
+			}
 		} else {
 			// Lighting doesn't affect color.
 			if (hasColor) {
@@ -1005,17 +1039,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  outPos.y *= -1.0;\n");
 	}
 
+	if (readUnusedLights) {
+		// Declaring the block isn't enough, it has to be read. The ambient alpha is never below zero.
+		WRITE(p, "  if (u_ambient.w < -1.0) outPos.x += 1.0;\n");
+	}
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-#ifndef __LIBRETRO__
-		// Z correction for the depth buffer
-		if (useHWTransform) {
-			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
-		}
-#endif
-
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);

@@ -61,6 +61,7 @@ struct ThemeInfo {
 	uint32_t uScrollbarColor = 0x80FFFFFF;
 	uint32_t uPopupSliderColor = 0xFFFFFFFF;
 	uint32_t uPopupSliderFocusedColor = 0xFFEDC24C;
+	float choiceRoundRadius = 12.0f;
 
 	bool operator == (const std::string &other) {
 		return name == other;
@@ -161,6 +162,8 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 				section.Get("PopupSliderColor", &info.uPopupSliderColor);
 				section.Get("PopupSliderFocusedColor", &info.uPopupSliderFocusedColor);
 
+				section.Get("ChoiceRoundRadius", &info.choiceRoundRadius);
+
 				appendTheme(info);
 			}
 		}
@@ -246,6 +249,8 @@ void UpdateTheme() {
 
 	ui_theme.popupSliderColor = themeInfo.uPopupSliderColor;
 	ui_theme.popupSliderFocusedColor = themeInfo.uPopupSliderFocusedColor;
+
+	ui_theme.choiceRoundRadius = themeInfo.choiceRoundRadius;
 }
 
 const UI::Theme *GetTheme() {

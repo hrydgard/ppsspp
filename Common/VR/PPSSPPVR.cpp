@@ -1,10 +1,11 @@
+#include <atomic>
 #include <mutex>
 
 #include "Common/VR/PPSSPPVR.h"
 #ifdef __LIBRETRO__
-#include <atomic>
 #include "libretro/LibretroVR.h"
 #endif
+#include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
 #include "Common/VR/VRBase.h"
 #if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES || defined(__LIBRETRO__)
@@ -55,12 +56,8 @@ static std::map<int, std::map<int, float> > pspAxis;
 static std::map<int, bool> pspKeys;  // key can be virtual, so not using the enum.
 
 static int vr3DGeometryCount = 0;
-#ifdef __LIBRETRO__
-// Fog colour is recorded on the emulation thread and consumed during GL replay.
+// Fog colour is recorded on the emulation thread and consumed during replay, on the render thread.
 static std::atomic<long> vrCompat[VR_COMPAT_MAX]{};
-#else
-static long vrCompat[VR_COMPAT_MAX];
-#endif
 static bool vrFlatForced = false;
 static bool vrFlatGame = false;
 static float vrMatrix[VR_MATRIX_COUNT][16];
@@ -191,13 +188,25 @@ void InitVROnAndroid(void* vm, void* activity, const char* system, int version, 
 }
 #endif
 
-void EnterVR(bool firstStart) {
-	if (firstStart) {
-		engine_t* engine = VR_GetEngine();
+void EnterVR() {
+	engine_t* engine = VR_GetEngine();
+	// The session outlives the render loop (it restarts when the surface comes back), not the native side.
+	if (engine->appState.Session == XR_NULL_HANDLE) {
 		VR_EnterVR(engine);
 		IN_VRInit(engine);
 	}
 	VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, false);
+}
+
+void ShutdownVR() {
+	engine_t* engine = VR_GetEngine();
+	if (engine->appState.Instance == XR_NULL_HANDLE) {
+		return;
+	}
+	// GL's swapchains (Vulkan's go with its presentation).
+	VR_DestroyRenderer(engine);
+	VR_LeaveVR(engine);
+	VR_Destroy(engine);
 }
 
 void GetVRResolutionPerEye(int* width, int* height) {
@@ -523,6 +532,45 @@ void PreprocessStepVR(void* step) {}
 
 #endif
 
+// PreprocessSkyplane on a Vulkan step. Depth test lives in the pipelines, and a framebuffer bound
+// as a texture shows up as a dependency on a framebuffer other than the target.
+static void PreprocessSkyplaneVulkan(VKRStep *step) {
+	if (step->stepType != VKRStepType::RENDER || IsFlatVRScene()) {
+		return;
+	}
+	for (size_t i = 0; i < step->dependencies.size(); i++) {
+		if (step->dependencies[i] != step->render.framebuffer) {
+			return;
+		}
+	}
+
+	// Clear sky with the fog color, unless the pass clears anyway (it would win over our clear on GL).
+	if (!vrCompat[VR_COMPAT_FBO_CLEAR]) {
+		if (step->render.colorLoad != VKRRenderPassLoadAction::CLEAR) {
+			step->render.colorLoad = VKRRenderPassLoadAction::CLEAR;
+			step->render.clearColor = (uint32_t)vrCompat[VR_COMPAT_FOG_COLOR];
+		}
+		vrCompat[VR_COMPAT_FBO_CLEAR] = true;
+	}
+
+	// Remove original sky plane.
+	bool depthEnabled = false;
+	for (VkRenderData &command : step->commands) {
+		if (command.cmd == VKRRenderCommand::BIND_GRAPHICS_PIPELINE) {
+			const VKRGraphicsPipelineDesc *desc = command.graphics_pipeline.pipeline->desc;
+			depthEnabled = desc && desc->dss.depthTestEnable;
+		} else if (command.cmd == VKRRenderCommand::DRAW_INDEXED && !depthEnabled) {
+			command.cmd = VKRRenderCommand::REMOVED;
+		}
+	}
+}
+
+void PreprocessVulkanStepVR(VKRStep *step) {
+	if (vrCompat[VR_COMPAT_SKYPLANE]) {
+		PreprocessSkyplaneVulkan(step);
+	}
+}
+
 void SetVRCompat(VRCompatFlag flag, long value) {
 	vrCompat[flag] = value;
 }
@@ -542,6 +590,10 @@ void* BindVRFramebuffer() {
 bool StartVRRender() {
 #ifndef __LIBRETRO__
 	if (!VR_GetConfig(VR_CONFIG_VIEWPORT_VALID)) {
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+			// The presentation creates the swapchain with the surface. There isn't one now.
+			return false;
+		}
 		VR_InitRenderer(VR_GetEngine());
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
 	}
@@ -610,6 +662,10 @@ bool StartVRRender() {
 
 		// Set compatibility
 		vrCompat[VR_COMPAT_SKYPLANE] = PSP_CoreParameter().compat.vrCompat().Skyplane;
+		if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+			// The last frame is done on the render thread, so its steps are too. (On OpenGL, this is per eye in PreVRFrameRender.)
+			vrCompat[VR_COMPAT_FBO_CLEAR] = false;
+		}
 
 		// Set customizations
 		VR_SetConfigFloat(VR_CONFIG_CANVAS_DISTANCE, !IsBigScreenVRMode() && (appMode == VR_GAME_MODE) ? g_Config.fCanvas3DDistance : g_Config.fCanvasDistance);
@@ -620,6 +676,10 @@ bool StartVRRender() {
 }
 
 void FinishVRRender() {
+	if (VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		// The render thread ends the frame once it's submitted.
+		return;
+	}
 	VR_FinishFrame(VR_GetEngine());
 }
 
@@ -630,6 +690,28 @@ void PreVRFrameRender(int fboIndex) {
 
 void PostVRFrameRender() {
 	VR_EndFrame(VR_GetEngine());
+}
+
+bool GetVRMouseCursorRect(int *x, int *y, int *w, int *h) {
+#ifdef __LIBRETRO__
+	return false;
+#else
+	if (!VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN)) {
+		return false;
+	}
+	// The same rect VR_EndFrame clears on OpenGL, where y counts from the bottom.
+	const int vrMode = VR_GetConfig(VR_CONFIG_MODE);
+	const bool screenMode = (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
+	const int size = VR_GetConfig(VR_CONFIG_MOUSE_SIZE);
+	if (!screenMode || size <= 0) {
+		return false;
+	}
+	*w = size;
+	*h = (int)((float)size * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT));
+	*x = VR_GetConfig(VR_CONFIG_MOUSE_X);
+	*y = VR_GetConfig(VR_CONFIG_VIEWPORT_HEIGHT) - VR_GetConfig(VR_CONFIG_MOUSE_Y) - *h;
+	return true;
+#endif
 }
 
 int GetVRFBOIndex() {

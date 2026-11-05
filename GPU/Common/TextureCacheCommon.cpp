@@ -503,7 +503,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 	if (entry->cluthash != 0 && entry->maxSeenV == 0) {
 		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+		for (auto it = cache_.Map().lower_bound(cachekeyMin), end = cache_.Map().upper_bound(cachekeyMax); it != end; ++it) {
 			// They should all be the same, just make sure we take any that has already increased.
 			// This is for a new texture.
 			if (it->second->maxSeenV != 0) {
@@ -535,7 +535,7 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 	if (entry->cluthash != 0) {
 		const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+		for (auto it = cache_.Map().lower_bound(cachekeyMin), end = cache_.Map().upper_bound(cachekeyMax); it != end; ++it) {
 			it->second->maxSeenV = entry->maxSeenV;
 		}
 	}
@@ -608,14 +608,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	u8 maxLevel = gstate.getTextureMaxLevel();
 	const bool swizzled = gstate.isTextureSwizzled();
 
-	TexCache::iterator entryIter = cache_.find(cachekey);
+	TexCache::const_iterator entryIter = cache_.Map().find(cachekey);
 
 	// Note: It's necessary to reset needshadertexclamp, for otherwise DIRTY_TEXCLAMP won't get set later.
 	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
 
-	if (entryIter != cache_.end()) {
+	if (entryIter != cache_.Map().end()) {
 		TexCacheEntry *entry = entryIter->second.get();
 
 		// Validate the texture still matches the cache entry.
@@ -718,6 +718,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				rehash = true;
 			}
 
+			// The PPGe atlas is host data, not in emulated memory, and never changes.
+			if (entry->status & TexStatus::IS_PPGE_ATLAS) {
+				rehash = false;
+			}
+
 			// got one!
 			VERBOSE_LOG(Log::TexCache, "%08x: Texture found in cache. Rehash flag = %d", texaddr, (int)rehash);
 
@@ -726,7 +731,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 			if (rehash) {
 				// Update in case any of these changed.
-				entry->bufw = bufw;
+				cache_.SetBufw(entry, bufw);
 				if (entry->cluthash != cluthash) {
 					WARN_LOG(Log::TexCache, "Mysterious cluthash miss: %08x vs %08x", entry->cluthash, cluthash);
 				}
@@ -764,15 +769,17 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					if (entry->cluthash != 0) {
 						const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
 						const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-						for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+						for (auto it = cache_.Map().lower_bound(cachekeyMin), end = cache_.Map().upper_bound(cachekeyMax); it != end; ++it) {
 							if (it->second->cluthash != entry->cluthash) {
 								it->second->status |= TexStatus::HASH_RECHECK;
 							}
 						}
 					}
 
-					// Release the texture from the cache entry, since we're about to throw it away.
-					entryIter->second.release();
+					// Take it out of the cache, since we're about to throw it away. Erasing the slot too, since the
+					// framebuffer match below can return before it's refilled.
+					cache_.Release(entryIter);
+					entryIter = cache_.Map().end();
 
 					const u64 secondKeyOld = (u64)entry->fullhash | ((u64)cluthash << 32);
 
@@ -820,13 +827,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							// updating the address as appropriate.
 							TexCacheEntry *secondEntry = secondIterNew->second.release();
 							secondCache_.erase(secondIterNew);
-							entryIter->second.reset(secondEntry);  // Here we move it into the main cache.
 							entry = secondEntry;
 							// Make sure the address is correct.
 							if (entry->addr != texaddr) {
 								DEBUG_LOG(Log::TexCache, "%08x: Texture matched with secondary cache entry with hash %08x at other address %08x. Updating address.", texaddr, newFullHash, entry->addr);
 								entry->addr = texaddr;
 							}
+							cache_.Insert(cachekey, entry);  // Here we move it into the main cache.
 							return ApplyTextureFinish(entry, doBind);
 						} else {
 							DEBUG_LOG(Log::TexCache, "%08x: Entry in secondary cache not suitable, ignoring and creating new: %08x (%dx%d)", texaddr, newFullHash, w, h);
@@ -840,10 +847,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							DEBUG_LOG(Log::TexCache, "%08x: No entry for hash %08x in secondary cache, creating new in main cache.", texaddr, newFullHash);
 						}
 					}
-					// The slot was released above. Erase it, since the framebuffer match below can return before it's refilled.
-					cache_.erase(entryIter);
 					entry = nullptr;
-					entryIter = cache_.end();
 				} else {
 					// The texture didn't change after checking the hash, so we can just use it as-is.
 					return ApplyTextureFinish(entry, doBind);
@@ -857,13 +861,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Wasn't a match even in format. Let's just delete it right away, since we know we need to rebuild it,
 			// and it's unlikely that putting it in the secondary cache will do us any good. We do that for things we rehash, though.
 			ReleaseTexture(entryIter->second.get(), true);
-			cache_.erase(entryIter);
-			entryIter = cache_.end();  // make sure we don't look at it again.
+			cache_.Erase(entryIter);
+			entryIter = cache_.Map().end();  // make sure we don't look at it again.
 			entry = nullptr;
 		}
 		// If we fall out here, the iterator must be gone and entry must be nullptr.
 		_dbg_assert_(entry == nullptr);
-		_dbg_assert_(entryIter == cache_.end());
+		_dbg_assert_(entryIter == cache_.Map().end());
 	}
 
 	// No texture found when looking up the key, or changed (depending on entry).
@@ -910,7 +914,13 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 	VERBOSE_LOG(Log::TexCache, "No texture in cache for %08x, decoding...", texaddr);
 	TexCacheEntry *entry = new TexCacheEntry{};
-	cache_[cachekey].reset(entry);
+	entry->addr = texaddr;
+	entry->dim = dim;
+	entry->format = texFormat;
+	entry->maxLevel = maxLevel;
+	entry->bufw = bufw;
+	entry->cluthash = cluthash;
+	cache_.Insert(cachekey, entry);
 	entry->status = {};
 	if (isPPGE) {
 		// It's the builtin font texture.
@@ -927,12 +937,12 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
 
 		int found = 0;
-		for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+		for (auto it = cache_.Map().lower_bound(cachekeyMin), end = cache_.Map().upper_bound(cachekeyMax); it != end; ++it) {
 			found++;
 		}
 
 		if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
-			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+			for (auto it = cache_.Map().lower_bound(cachekeyMin), end = cache_.Map().upper_bound(cachekeyMax); it != end; ++it) {
 				it->second->status |= TexStatus::MANY_CLUT_VARIANTS;
 			}
 
@@ -940,13 +950,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		}
 	}
 
-	// We have to decode it, let's setup the cache entry first.
-	entry->addr = texaddr;
-	entry->dim = dim;
-	entry->format = texFormat;
-	entry->maxLevel = maxLevel;
-	entry->bufw = bufw;
-	entry->cluthash = cluthash;
 	if (clutInShader) {
 		entry->status |= TexStatus::CLUT8_INDEXED;
 	}
@@ -1144,7 +1147,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 		const u32 had = cacheSizeEstimate;
 
 		ForgetLastTexture();
-		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
+		for (TexCache::const_iterator iter = cache_.Map().begin(); iter != cache_.Map().end(); ) {
 			if (iter->second.get() == exceptThisOne) {
 				++iter;
 				continue;
@@ -1155,7 +1158,7 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 				DEBUG_LOG(Log::TexCache, "Decimating cached texture at %08x (hash: %08x)", iter->second->addr, iter->second->fullhash);
 				cacheSizeEstimate -= iter->second->EstimateTexMemoryUsage();
 				ReleaseTexture(iter->second.get(), true);
-				iter = cache_.erase(iter);
+				iter = cache_.Erase(iter);
 			} else {
 				++iter;
 			}
@@ -1225,7 +1228,7 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 		u64 cacheKeyEnd = (u64)fb_endAddr << 32;
 
 		// Color - no need to look in the mirrors.
-		for (auto it = cache_.lower_bound(cacheKey), end = cache_.upper_bound(cacheKeyEnd); it != end; ++it) {
+		for (auto it = cache_.Map().lower_bound(cacheKey), end = cache_.Map().upper_bound(cacheKeyEnd); it != end; ++it) {
 			it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 			gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 		}
@@ -1235,11 +1238,11 @@ void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, Fram
 			// Games don't use 0x04400000 as far as I know - it has no swizzle effect so kinda useless.
 			cacheKey = (u64)z_addr << 32;
 			cacheKeyEnd = (u64)z_endAddr << 32;
-			for (auto it = cache_.lower_bound(cacheKey | 0x200000), end = cache_.upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
+			for (auto it = cache_.Map().lower_bound(cacheKey | 0x200000), end = cache_.Map().upper_bound(cacheKeyEnd | 0x200000); it != end; ++it) {
 				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
-			for (auto it = cache_.lower_bound(cacheKey | 0x600000), end = cache_.upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
+			for (auto it = cache_.Map().lower_bound(cacheKey | 0x600000), end = cache_.Map().upper_bound(cacheKeyEnd | 0x600000); it != end; ++it) {
 				it->second->status |= TexStatus::FRAMEBUFFER_OVERLAP;
 				gpuStats.perFrame.numTextureInvalidationsByFramebuffer++;
 			}
@@ -1786,7 +1789,7 @@ u32 TexCacheEntry::EstimatePSPSizeMemoryUsage() const {
 
 const size_t TextureCacheCommon::CacheSizeEstimate() const {
 	s64 cacheSizeEstimate = 0;
-	for (auto &[_ , value] : cache_) {
+	for (auto &[_ , value] : cache_.Map()) {
 		cacheSizeEstimate += value->EstimateTexMemoryUsage();
 	}
 	return cacheSizeEstimate;
@@ -2786,7 +2789,7 @@ void TextureCacheCommon::DeviceRestore(Draw::DrawContext *draw) {
 
 void TextureCacheCommon::Clear(bool delete_them) {
 	textureShaderCache_.Clear();
-	for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ++iter) {
+	for (TexCache::const_iterator iter = cache_.Map().begin(); iter != cache_.Map().end(); ++iter) {
 		ReleaseTexture(iter->second.get(), delete_them);
 	}
 	// In case the setting was changed, we ALWAYS clear the secondary cache (enabled or not.)
@@ -2795,7 +2798,7 @@ void TextureCacheCommon::Clear(bool delete_them) {
 	}
 	if (cache_.size() + secondCache_.size()) {
 		INFO_LOG(Log::TexCache, "Texture cached cleared from %d (s: %d) textures", (int)cache_.size(), (int)secondCache_.size());
-		cache_.clear();
+		cache_.Clear();
 		secondCache_.clear();
 	}
 
@@ -2818,7 +2821,7 @@ void TextureCacheCommon::ReleaseDynamicClut() {
 void TextureCacheCommon::RecheckAllAfterLoad() {
 	// Decoding them all again stutters, while hashing finds the ones that are still the same. The
 	// secondary cache is keyed by hash, so it's fine as it is.
-	for (auto &iter : cache_) {
+	for (auto &iter : cache_.Map()) {
 		iter.second->status |= TexStatus::HASH_RECHECK;
 	}
 	ReleaseDynamicClut();
@@ -2849,22 +2852,83 @@ void TextureCacheCommon::Invalidate(u32 addr, int size, GPUInvalidationType type
 		}
 	}
 
-	const u64 startKey = (u64)(addr - LARGEST_TEXTURE_SIZE) << 32;
-	u64 endKey = (u64)(addr + size + LARGEST_TEXTURE_SIZE) << 32;
-	if (endKey < startKey) {
-		endKey = (u64)-1;
-	}
+	// Tell every texture that overlaps to rehash. Only those starting at most LARGEST_TEXTURE_SIZE before addr, like
+	// the walk over the map this replaces.
+	const u32 searchStart = addr - std::min(addr, (u32)LARGEST_TEXTURE_SIZE);
+	cache_.ForEachOverlapping(searchStart, addr, addr_end, [](TexCacheEntry *entry) {
+		entry->status |= TexStatus::HASH_RECHECK;
+	});
+}
 
-	// We just loop through all textures in range, and tell them to rehash.
-	for (TexCache::iterator iter = cache_.lower_bound(startKey), end = cache_.upper_bound(endKey); iter != end; ++iter) {
-		auto &entry = iter->second;
-		u32 texAddr = entry->addr;
-		// Intentional underestimate here.
-		u32 texEnd = entry->addr + entry->SizeInRAM() / 2;
-		// Quick check for overlap. Yes the check is right.
-		if (addr < texEnd && addr_end > texAddr) {
-			entry->status |= TexStatus::HASH_RECHECK;
+void TexCacheMap::Insert(u64 key, TexCacheEntry *entry) {
+	std::unique_ptr<TexCacheEntry> &slot = map_[key];
+	_dbg_assert_msg_(!slot, "Texture %08x already in the cache", entry->addr);
+	if (slot) {
+		RemoveRange(slot.get());
+	}
+	slot.reset(entry);
+	AddRange(entry);
+}
+
+TexCache::const_iterator TexCacheMap::Erase(TexCache::const_iterator it) {
+	RemoveRange(it->second.get());
+	return map_.erase(it);
+}
+
+TexCacheEntry *TexCacheMap::Release(TexCache::const_iterator it) {
+	// erase() of an empty range turns it into a non-const iterator, to release the unique_ptr.
+	TexCache::iterator mutableIt = map_.erase(it, it);
+	TexCacheEntry *entry = mutableIt->second.release();
+	RemoveRange(entry);
+	map_.erase(mutableIt);
+	return entry;
+}
+
+void TexCacheMap::Clear() {
+	map_.clear();
+	ranges_.clear();
+	bigRanges_.clear();
+}
+
+void TexCacheMap::SetBufw(TexCacheEntry *entry, u16 bufw) {
+	if (entry->bufw != bufw) {
+		RemoveRange(entry);
+		entry->bufw = bufw;
+		AddRange(entry);
+	}
+}
+
+void TexCacheMap::AddRange(TexCacheEntry *entry) {
+	// Intentional underestimate here.
+	const Range r{ entry->addr, entry->addr + entry->SizeInRAM() / 2, entry };
+	if (r.end - r.start > BIG_RANGE) {
+		bigRanges_.push_back(r);
+		return;
+	}
+	auto it = std::upper_bound(ranges_.begin(), ranges_.end(), r.start, [](u32 a, const Range &other) { return a < other.start; });
+	ranges_.insert(it, r);
+}
+
+void TexCacheMap::RemoveRange(TexCacheEntry *entry) {
+	// Found by its start, unless the entry's addr changed while it was in here, which it mustn't.
+	auto it = std::lower_bound(ranges_.begin(), ranges_.end(), entry->addr, [](const Range &r, u32 a) { return r.start < a; });
+	for (; it != ranges_.end() && it->start == entry->addr; ++it) {
+		if (it->entry == entry) {
+			ranges_.erase(it);
+			return;
 		}
+	}
+	for (auto big = bigRanges_.begin(); big != bigRanges_.end(); ++big) {
+		if (big->entry == entry) {
+			bigRanges_.erase(big);
+			return;
+		}
+	}
+	_dbg_assert_msg_(false, "Texture %08x not found by its address in the range index", entry->addr);
+	// Never leave a pointer to it behind.
+	auto any = std::find_if(ranges_.begin(), ranges_.end(), [entry](const Range &r) { return r.entry == entry; });
+	if (any != ranges_.end()) {
+		ranges_.erase(any);
 	}
 }
 

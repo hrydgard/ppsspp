@@ -11,6 +11,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GPUDefinitions.h"
+#include "GPU/GPU.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
@@ -98,11 +99,11 @@ static const DeclTypeInfo VComp[] = {
 	{ VK_FORMAT_R16G16B16A16_UNORM, "R16G16B16A16_UNORM " }, // DEC_U16_4,
 };
 
-static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
+static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location, uint32_t binding = 0) {
 	_assert_(fmt != DEC_NONE);
 	_assert_(fmt < ARRAY_SIZE(VComp));
 	attr->location = (uint32_t)location;
-	attr->binding = 0;
+	attr->binding = binding;
 	attr->format = VComp[fmt].type;
 	attr->offset = offset;
 }
@@ -112,11 +113,10 @@ static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, 
 // as we will only call this code when we need to create a new VkPipeline.
 static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
 	int count = 0;
-	if (decFmt.w0fmt != 0) {
-		VertexAttribSetup(&attrs[count++], decFmt.w0fmt, decFmt.w0off, PspAttributeLocation::W1);
-	}
-	if (decFmt.w1fmt != 0) {
-		VertexAttribSetup(&attrs[count++], decFmt.w1fmt, decFmt.w1off, PspAttributeLocation::W2);
+	if (decFmt.cpuLit) {
+		// From the second stream.
+		VertexAttribSetup(&attrs[count++], DEC_U8_4, decFmt.cpuLitOff, PspAttributeLocation::CPU_LIT0, 1);
+		VertexAttribSetup(&attrs[count++], DEC_U8_4, decFmt.cpuLitOff + 4, PspAttributeLocation::CPU_LIT1, 1);
 	}
 	if (decFmt.uvfmt != 0) {
 		VertexAttribSetup(&attrs[count++], decFmt.uvfmt, decFmt.uvoff, PspAttributeLocation::TEXCOORD);
@@ -311,15 +311,23 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		vertexStride = (int)sizeof(TransformedVertex);
 	}
 
-	VkVertexInputBindingDescription &ibd = desc->ibd;
+	VkVertexInputBindingDescription &ibd = desc->ibd[0];
 	ibd.binding = 0;
 	ibd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	ibd.stride = vertexStride;
+	// The CPU-lit colors come in a second stream.
+	const bool cpuLitStream = useHwTransform && decFmt->cpuLit;
+	if (cpuLitStream) {
+		VkVertexInputBindingDescription &ibd1 = desc->ibd[1];
+		ibd1.binding = 1;
+		ibd1.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+		ibd1.stride = 8;
+	}
 
 	VkPipelineVertexInputStateCreateInfo &vis = desc->vis;
 	vis.flags = 0;
-	vis.vertexBindingDescriptionCount = 1;
-	vis.pVertexBindingDescriptions = &desc->ibd;
+	vis.vertexBindingDescriptionCount = cpuLitStream ? 2 : 1;
+	vis.pVertexBindingDescriptions = desc->ibd;
 	vis.vertexAttributeDescriptionCount = attributeCount;
 	vis.pVertexAttributeDescriptions = attrs;
 
@@ -396,6 +404,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *
 
 	// If the above failed, we got a null pipeline. We still insert it to keep track.
 	pipelines_.Insert(key, pipeline);
+	gpuStats.totals.numPipelinesCreated++;
 
 	// Don't return placeholder null pipelines.
 	if (pipeline && pipeline->pipeline) {

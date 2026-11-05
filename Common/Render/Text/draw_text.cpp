@@ -117,7 +117,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const FontStyle &style, float sc
 	} else {
 		DataFormat texFormat;
 		// Pick between the supported formats, of which at least one is supported on each platform. Prefer R8 (but only if swizzle is supported)
-		bool emoji = SupportsColorEmoji() && AnyEmojiInString(str.data(), str.length());
+		bool emoji = SupportsColorEmoji() && AnyEmojiInString(str, str.length());
 		if (emoji) {
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 		} else if ((draw_->GetDataFormatSupport(Draw::DataFormat::R8_UNORM) & Draw::FMT_TEXTURE) != 0 && draw_->GetDeviceCaps().textureSwizzleSupported) {
@@ -269,7 +269,9 @@ bool TextDrawer::DrawStringBitmapRect(const FontStyle &style, float scale, std::
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
 	// The bitmap has 1/dpiScale_ pixels per UI unit, so at higher DPI the blur spans more pixels.
-	const DropShadowParams params = UIDropShadowParams(1.0f / dpiScale_);
+	// We use 3.0f / dpiScale_ to make a bigger blur. The intention was to match the image blur
+	// for overlays, but it's just not enough.
+	const DropShadowParams params = UIDropShadowParams(3.0f / dpiScale_);
 	const int pad = params.Padding();
 
 	const int srcW = entry.bmWidth;
@@ -398,6 +400,10 @@ static const FontDesc g_fontDescs[] = {
 	{FontFamily::SansSerif, FontStyleFlags::Bold, "Roboto Condensed", "Roboto_Condensed-Bold"},
 	{FontFamily::SansSerif, FontStyleFlags::Italic, "Roboto Condensed", "Roboto_Condensed-Italic"},
 	{FontFamily::SansSerif, FontStyleFlags::Light, "Roboto Condensed", "Roboto_Condensed-Light"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Default, "Roboto SemiCondensed", "Roboto_SemiCondensed-Regular"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Bold, "Roboto SemiCondensed", "Roboto_SemiCondensed-Bold"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Italic, "Roboto SemiCondensed", "Roboto_SemiCondensed-Italic"},
+	{FontFamily::SansSerifWide, FontStyleFlags::Light, "Roboto SemiCondensed", "Roboto_SemiCondensed-Light"},
 	{FontFamily::Fixed, FontStyleFlags::Default, "Inconsolata", "Inconsolata-Regular"},
 };
 

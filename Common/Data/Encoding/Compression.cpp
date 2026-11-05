@@ -54,7 +54,7 @@ bool compress_string(const std::string& str, std::string *dest, int compressionl
 }
 
 /** Decompress an STL string using zlib and return the original data. */
-bool decompress_string(const std::string& str, std::string *dest) {
+bool decompress_string(const std::string& str, std::string *dest, size_t maxSize) {
 	if (!str.size())
 		return false;
 
@@ -85,7 +85,11 @@ bool decompress_string(const std::string& str, std::string *dest) {
 			outstring.append(outbuffer,
 				zs.total_out - outstring.size());
 		}
-
+		if (outstring.size() > maxSize) {
+			inflateEnd(&zs);
+			ERROR_LOG(Log::IO, "Decompressed data is larger than %d bytes, giving up", (int)maxSize);
+			return false;
+		}
 	} while (ret == Z_OK);
 
 	inflateEnd(&zs);
@@ -95,6 +99,6 @@ bool decompress_string(const std::string& str, std::string *dest) {
 		return false;
 	}
 
-	*dest = outstring;
+	*dest = std::move(outstring);
 	return true;
 }

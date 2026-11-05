@@ -6,6 +6,7 @@
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/VR/PPSSPPVR.h"
 
 using namespace PPSSPP_VK;
 
@@ -114,10 +115,10 @@ bool VulkanQueueRunner::InitBackbufferFramebuffers(int width, int height, FrameD
 
 bool VulkanQueueRunner::InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers) {
 	depth_.format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
-	return CreateDepthStencilImage(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), &depth_.image, &depth_.alloc, &depth_.view, barriers, "BackbufferDepth");
+	return CreateDepthStencilImage(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), vulkan_->GetBackbufferLayers(), &depth_.image, &depth_.alloc, &depth_.view, barriers, "BackbufferDepth");
 }
 
-bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag) {
+bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, int layers, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag) {
 	const VkFormat depth_format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	int aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 	VkImageCreateInfo image_info = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
@@ -127,7 +128,7 @@ bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, VkImage *
 	image_info.extent.height = height;
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1;
-	image_info.arrayLayers = 1;
+	image_info.arrayLayers = layers;
 	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
 	image_info.queueFamilyIndexCount = 0;
 	image_info.pQueueFamilyIndices = nullptr;
@@ -151,6 +152,7 @@ bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, VkImage *
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
 		VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, 0);
 	barrier->subresourceRange.aspectMask = aspectMask;
+	barrier->subresourceRange.layerCount = layers;
 	barrier->oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	barrier->newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	barrier->srcAccessMask = 0;
@@ -169,8 +171,8 @@ bool VulkanQueueRunner::CreateDepthStencilImage(int width, int height, VkImage *
 	depth_view_info.subresourceRange.baseMipLevel = 0;
 	depth_view_info.subresourceRange.levelCount = 1;
 	depth_view_info.subresourceRange.baseArrayLayer = 0;
-	depth_view_info.subresourceRange.layerCount = 1;
-	depth_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	depth_view_info.subresourceRange.layerCount = layers;
+	depth_view_info.viewType = layers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	depth_view_info.flags = 0;
 
 	VkDevice device = vulkan_->GetDevice();
@@ -230,6 +232,13 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards). This will require taking over more of descriptor management so we can
 	//    substitute descriptors, alternatively using texture array layers creatively.
+
+	// Before passes get merged, so it sees them as the game drew them.
+	if (IsVREnabled()) {
+		for (VKRStep *step : steps) {
+			PreprocessVulkanStepVR(step);
+		}
+	}
 
 	for (int j = 0; j < (int)steps.size(); j++) {
 		decltype(steps[j]->render) &render = steps[j]->render;
@@ -1374,8 +1383,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.drawIndexed.numUboOffsets, c.drawIndexed.uboOffsets);
 				vkCmdBindIndexBuffer(cmd, c.drawIndexed.ibuffer, c.drawIndexed.ioffset, VK_INDEX_TYPE_UINT16);
-				VkDeviceSize voffset = c.drawIndexed.voffset;
-				vkCmdBindVertexBuffers(cmd, 0, 1, &c.drawIndexed.vbuffer, &voffset);
+				const VkBuffer vbuffers[2] = { c.drawIndexed.vbuffer, c.drawIndexed.vbuffer1 };
+				const VkDeviceSize voffsets[2] = { c.drawIndexed.voffset, c.drawIndexed.voffset1 };
+				vkCmdBindVertexBuffers(cmd, 0, c.drawIndexed.vbuffer1 ? 2 : 1, vbuffers, voffsets);
 				vkCmdDrawIndexed(cmd, c.drawIndexed.count, c.drawIndexed.instances, 0, 0, 0);
 			}
 			break;
@@ -1387,7 +1397,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				_dbg_assert_(set != VK_NULL_HANDLE);
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &set, c.draw.numUboOffsets, c.draw.uboOffsets);
 				if (c.draw.vbuffer) {
-					vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
+					const VkBuffer vbuffers[2] = { c.draw.vbuffer, c.draw.vbuffer1 };
+					const VkDeviceSize voffsets[2] = { c.draw.voffset, c.draw.voffset1 };
+					vkCmdBindVertexBuffers(cmd, 0, c.draw.vbuffer1 ? 2 : 1, vbuffers, voffsets);
 				}
 				vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			}

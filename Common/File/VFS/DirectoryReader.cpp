@@ -24,13 +24,17 @@ static std::string ToLowerASCII(std::string_view str) {
 	return lower;
 }
 
-void DirectoryReader::IndexDirectory(const Path &dir, const std::string &prefix) {
+void DirectoryReader::IndexDirectory(const Path &dir, const std::string &prefix, int depth) {
+	// A symlink loop would otherwise recurse until the stack runs out.
+	if (depth > 32) {
+		return;
+	}
 	std::vector<File::FileInfo> files;
 	File::GetFilesInDir(dir, &files);
 	for (const File::FileInfo &file : files) {
 		const std::string relative = prefix + file.name;
 		if (file.isDirectory) {
-			IndexDirectory(file.fullName, relative + "/");
+			IndexDirectory(file.fullName, relative + "/", depth + 1);
 		} else {
 			lowerIndex_[ToLowerASCII(relative)] = relative;
 		}
@@ -44,7 +48,7 @@ bool DirectoryReader::FindIgnoringCase(std::string_view path, std::string *actua
 	std::lock_guard<std::mutex> guard(indexLock_);
 	if (!indexBuilt_) {
 		// Only done on the first miss, so a directory where every name matches never pays for it.
-		IndexDirectory(path_, "");
+		IndexDirectory(path_, "", 0);
 		indexBuilt_ = true;
 		INFO_LOG(Log::IO, "Indexed %d files in %s to find names that differ in case", (int)lowerIndex_.size(), path_.c_str());
 	}
@@ -134,13 +138,22 @@ void DirectoryReader::ReleaseFile(VFSFileReference *vfsReference) {
 
 VFSOpenFile *DirectoryReader::OpenFileForRead(VFSFileReference *vfsReference, size_t *size) {
 	DirectoryReaderFileReference *reference = (DirectoryReaderFileReference *)vfsReference;
+	// On some platforms, directories can be opened as files. Their size is meaningless.
+	if (File::IsDirectory(reference->path)) {
+		return nullptr;
+	}
 	FILE *file = File::OpenCFile(reference->path, "rb");
 	if (!file) {
 		return nullptr;
 	}
 	File::Fseek(file, 0, SEEK_END);
-	*size = File::Ftell(file);
+	const int64_t fileSize = File::Ftell(file);
 	File::Fseek(file, 0, SEEK_SET);
+	if (fileSize < 0) {
+		fclose(file);
+		return nullptr;
+	}
+	*size = (size_t)fileSize;
 	DirectoryReaderOpenFile *openFile = new DirectoryReaderOpenFile();
 	openFile->file = file;
 	return openFile;

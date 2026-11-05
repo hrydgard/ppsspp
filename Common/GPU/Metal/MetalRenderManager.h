@@ -49,6 +49,8 @@
 // bottom. Vertex data goes above all of them.
 enum {
 	METAL_VERTEX_BUFFER_INDEX = 16,
+	// A second vertex stream, for the pipelines with one.
+	METAL_VERTEX_BUFFER_INDEX1 = 17,
 	// Push constants (only compute shaders have them) go in a buffer of their own, set with setBytes.
 	METAL_PUSH_CONSTANT_INDEX = 15,
 	METAL_MAX_TEXTURES = 8,
@@ -527,8 +529,8 @@ private:
 		MTLDepthClipMode depthClip;
 		MTLViewport viewport;
 		MTLScissorRect scissor;
-		__unsafe_unretained id<MTLBuffer> vertexBuffers[METAL_VERTEX_BUFFER_INDEX + 1];
-		uint32_t vertexBufferOffsets[METAL_VERTEX_BUFFER_INDEX + 1];
+		__unsafe_unretained id<MTLBuffer> vertexBuffers[METAL_VERTEX_BUFFER_INDEX1 + 1];
+		uint32_t vertexBufferOffsets[METAL_VERTEX_BUFFER_INDEX1 + 1];
 		__unsafe_unretained id<MTLBuffer> fragmentBuffers[METAL_MAX_BUFFERS];
 		uint32_t fragmentBufferOffsets[METAL_MAX_BUFFERS];
 		__unsafe_unretained id<MTLTexture> fragmentTextures[METAL_MAX_TEXTURES];

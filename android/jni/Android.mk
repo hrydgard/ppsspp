@@ -4,26 +4,23 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -DZ7_ST -D__SWITCH__
-
-LZMA_FILES := \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Alloc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra86.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/BraIA64.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/CpuArch.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Delta.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzFind.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaDec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Sort.c
+LOCAL_CFLAGS += -DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD
 
 CHDR_FILES := \
-	${LZMA_FILES} \
+	$(SRC)/ext/libchdr/deps/lzma-26.02/src/LzmaDec.c \
 	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
 	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
 	$(SRC)/ext/libchdr/src/libchdr_chd.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_avhuff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdfl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdlz.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzs.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_flac.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_huff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_lzma.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zlib.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zstd.c \
 	$(SRC)/ext/libchdr/src/libchdr_flac.c \
 	$(SRC)/ext/libchdr/src/libchdr_huffman.c
 
@@ -291,7 +288,8 @@ VR_FILES := \
   $(SRC)/Common/VR/VRFramebuffer.cpp \
   $(SRC)/Common/VR/VRInput.cpp \
   $(SRC)/Common/VR/VRMath.cpp \
-  $(SRC)/Common/VR/VRRenderer.cpp
+  $(SRC)/Common/VR/VRRenderer.cpp \
+  $(SRC)/Common/VR/VRVulkan.cpp
 
 EXT_FILES := \
   $(SRC)/ext/cityhash/city.cpp \
@@ -358,11 +356,17 @@ EXT_FILES := \
   $(SRC)/ext/lzma-sdk/7zArcIn.c \
   $(SRC)/ext/lzma-sdk/7zBuf.c \
   $(SRC)/ext/lzma-sdk/7zCrc.c \
+  $(SRC)/ext/lzma-sdk/7zCrcOpt.c \
   $(SRC)/ext/lzma-sdk/7zDec.c \
   $(SRC)/ext/lzma-sdk/7zFile.c \
   $(SRC)/ext/lzma-sdk/7zStream.c \
   $(SRC)/ext/lzma-sdk/Bcj2.c \
-  $(SRC)/ext/lzma-sdk/Lzma2Dec.c
+  $(SRC)/ext/lzma-sdk/Bra.c \
+  $(SRC)/ext/lzma-sdk/Bra86.c \
+  $(SRC)/ext/lzma-sdk/CpuArch.c \
+  $(SRC)/ext/lzma-sdk/Delta.c \
+  $(SRC)/ext/lzma-sdk/Lzma2Dec.c \
+  $(SRC)/ext/lzma-sdk/LzmaDec.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -808,6 +812,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/proAdhoc.cpp \
   $(SRC)/Core/HLE/proAdhocServer.cpp \
   $(SRC)/Core/HLE/NetAdhocCommon.cpp \
+  $(SRC)/Core/HLE/AdhocTransportP2P.cpp \
+  $(SRC)/Core/HLE/AdhocTransportRelay.cpp \
+  $(SRC)/Core/HLE/AdhocTransportNetSim.cpp \
   $(SRC)/Core/HLE/sceNetAdhoc.cpp \
   $(SRC)/ext/aemu_postoffice/client/postoffice.c \
   $(SRC)/ext/aemu_postoffice/client/postoffice_mem_stdc.c \
@@ -819,6 +826,14 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/aemu_postoffice/client/enet.c \
   $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl.c \
   $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl_mem.c \
+  $(SRC)/ext/aemu_postoffice/server_cpp/server.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/session.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/semaphore.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/log.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/common.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/enet.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/snapshot.cpp \
+  $(SRC)/ext/aemu_postoffice/server_cpp/native_socket_linux.cpp \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceNetApctl.cpp \
   $(SRC)/Core/HLE/sceNetInet.cpp \
@@ -1038,6 +1053,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/AndroidEGLGraphicsContext.cpp \
   $(SRC)/android/jni/OboeContext.cpp \
+  $(SRC)/android/jni/PerformanceHint.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
   $(SRC)/UI/ImDebugger/ImGe.cpp \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
@@ -1058,6 +1074,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/EmuScreen.cpp \
   $(SRC)/UI/ImposeHome.cpp \
   $(SRC)/UI/GameBrowser.cpp \
+  $(SRC)/UI/GameButton.cpp \
   $(SRC)/UI/MainScreen.cpp \
   $(SRC)/UI/TabbedDialogScreen.cpp \
   $(SRC)/UI/SettingsPage.cpp \

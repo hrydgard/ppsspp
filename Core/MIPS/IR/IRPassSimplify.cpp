@@ -809,6 +809,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FLog2:
 		case IROp::FHalfToFloat:
 		case IROp::FSinCos:
+		case IROp::FFloatToHalf2:
 		case IROp::FMin:
 		case IROp::FMax:
 		case IROp::FSign:

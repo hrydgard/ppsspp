@@ -656,12 +656,6 @@
     <None Include="zipup.cmd">
       <Filter>Build</Filter>
     </None>
-    <None Include="build-x64.cmd">
-      <Filter>Build</Filter>
-    </None>
-    <None Include="build-x86.cmd">
-      <Filter>Build</Filter>
-    </None>
     <None Include="..\Dockerfile">
       <Filter>Build</Filter>
     </None>

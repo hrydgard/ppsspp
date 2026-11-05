@@ -6,6 +6,10 @@
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
 
+// Whether custom Vulkan drivers can be loaded through AdrenoTools. Works on Adreno (KGSL)
+// and on Mali (kbase), for drivers that target those kernel interfaces.
+bool SupportsCustomDriver();
+
 // Per-game settings screen - enables you to configure graphic options, control options, etc
 // per game.
 class DriverManagerScreen : public UITabbedBaseDialogScreen {

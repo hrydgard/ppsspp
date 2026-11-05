@@ -96,6 +96,10 @@ static void OnRenderingDevice(SettingsPageHost *host) {
 static void BuildSpeedHacksPage(SettingsPage *page) {
 	using namespace UI;
 
+	page->Description({I18NCat::GRAPHICS, "SpeedHacksDescription", "These settings can improve performance on some devices, but they can also cause graphical issues or make rendering stop working entirely."});
+
+	page->RestoreDefaults();
+
 	page->Header();
 
 	page->Setting(&g_Config.iFrameSkip).EnabledFunc([] {
@@ -109,8 +113,7 @@ static void BuildSpeedHacksPage(SettingsPage *page) {
 
 	page->Header();
 
-	page->Setting(&g_Config.bSkipBufferEffects).Disabled(&g_Config.bSoftwareRendering);
-	page->Hint({I18NCat::GRAPHICS, "RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"});
+	page->Setting(&g_Config.bSkipBufferEffects).Disabled(&g_Config.bSoftwareRendering).Hint({I18NCat::GRAPHICS, "RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"});
 
 	page->Setting(&g_Config.iSkipGPUReadbackMode).Disabled(&g_Config.bSoftwareRendering).Setup([](View *view) {
 		static_cast<PopupMultiChoice *>(view)->SetDefault(0);
@@ -259,9 +262,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 #if !defined(MOBILE_DEVICE)
 		page->Setting(&g_Config.bFullScreen);
 		if (draw->GetDeviceCaps().fullScreenExclusiveSupported) {
-			page->Setting(&g_Config.bAllowFullScreenExclusive).EnabledFunc([] {
-				return g_Config.bFullScreen && !g_Config.bFullScreenMulti;
-			}).OnChange([host](UI::EventParams &e) {
+			page->Setting(&g_Config.bAllowFullScreenExclusive).Disabled(&g_Config.bFullScreenMulti).OnChange([host](UI::EventParams &e) {
 				host->RestartOrDo([host]() {
 					g_Config.bAllowFullScreenExclusive = !g_Config.bAllowFullScreenExclusive;
 					host->RecreatePageViews();
@@ -269,9 +270,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 			});
 		}
 		if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
-			page->Setting(&g_Config.bFullScreenMulti).EnabledFunc([] {
-				return g_Config.bFullScreen && !g_Config.bAllowFullScreenExclusive;
-			});
+			page->Setting(&g_Config.bFullScreenMulti);
 		}
 #endif
 	}
@@ -298,8 +297,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	}
 	page->Setting(&g_Config.bRenderDuplicateFrames).EnabledFunc([] {
 		return !g_Config.bSkipBufferEffects && g_Config.iFrameSkip == 0;
-	});
-	page->Hint({I18NCat::GRAPHICS, "RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"});
+	}).Hint({I18NCat::GRAPHICS, "RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"});
 
 	page->Header("Frame Rate Control");
 
@@ -310,13 +308,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	}
 
 	page->Header();
-	page->Link({I18NCat::GRAPHICS, "Speed Hacks"}, I18NCat::GRAPHICS, &BuildSpeedHacksPage);
+	page->Link({I18NCat::GRAPHICS, "Speed Hacks"}, I18NCat::GRAPHICS, &BuildSpeedHacksPage).Hint({I18NCat::GRAPHICS, "SpeedHacksHint", "These settings can cause rendering errors"});
 
 	page->Header();
-	page->Setting(&g_Config.iBloomHack).EnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
-	});
-	page->Hint("Reduces artifacts");
+	page->Setting(&g_Config.iBloomHack).Disabled(&g_Config.bSoftwareRendering).Hint({I18NCat::GRAPHICS, "ReducesBloomArtifactsHint", "Reduces artifacts in visual effects like blooms at higher resolutions."});
 
 	page->Header("Latency");
 
@@ -328,8 +323,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 					g_Config.iInflightFrames = previous;
 				});
 			}
-		});
-		page->Hint("Faster, input lag");  // TODO: This hint could use improvement.
+		}).Hint("Faster, input lag");  // TODO: This hint could use improvement.
 	}
 
 	page->Header("Texture upscaling");
@@ -355,24 +349,20 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	}
 
 	page->Setting(&g_Config.iTexScalingType).EnabledFunc([]() {
-		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling();
 	});
 	page->Setting(&g_Config.iTexScalingLevel).EnabledFunc([]() {
-		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
-	});
-	page->Hint({ I18NCat::GRAPHICS, "UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter" });
+		return !UsingHardwareTextureScaling();
+	}).Hint({ I18NCat::GRAPHICS, "UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter" });
 
 	page->Setting(&g_Config.bTexDeposterize).EnabledFunc([]() {
-		return !g_Config.bSoftwareRendering && !UsingHardwareTextureScaling();
-	});
-	page->Hint({ I18NCat::GRAPHICS, "Deposterize Tip", "Fixes visual banding glitches in upscaled textures" });
+		return !UsingHardwareTextureScaling();
+	}).Hint({ I18NCat::GRAPHICS, "Deposterize Tip", "Fixes visual banding glitches in upscaled textures" });
 
 	page->Header("Texture Filtering");
 
 	page->Setting(&g_Config.iAnisotropyLevel).Disabled(&g_Config.bSoftwareRendering);
-
 	page->Setting(&g_Config.iTexFiltering).Disabled(&g_Config.bSoftwareRendering);
-
 	page->Setting(&g_Config.bSmart2DTexFiltering).Disabled(&g_Config.bSoftwareRendering);
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)

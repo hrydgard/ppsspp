@@ -57,6 +57,8 @@ list(APPEND UISource
 	MainScreen.cpp
 	GameBrowser.h
 	GameBrowser.cpp
+	GameButton.h
+	GameButton.cpp
 	MiscScreens.h
 	MiscScreens.cpp
 	MiscViews.h

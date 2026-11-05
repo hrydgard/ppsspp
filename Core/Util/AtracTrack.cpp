@@ -179,7 +179,9 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 		}
 		case FACT_CHUNK_MAGIC:
 		{
-			track->endSample = Read32(buffer, offset);
+			if (chunkSize >= 4) {
+				track->endSample = Read32(buffer, offset);
+			}
 			if (chunkSize >= 8) {
 				track->firstSampleOffset = Read32(buffer, offset + 4);
 			}
@@ -202,7 +204,7 @@ int AnalyzeAtracTrack(const u8 *buffer, u32 size, Track *track, std::string *err
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
 			u32 maxLoops = chunkSize >= 36 ? (chunkSize - 36) / 24 : 0;
-			if (checkNumLoops < 0 || checkNumLoops > maxLoops) {
+			if (checkNumLoops < 0 || (u32)checkNumLoops > maxLoops) {
 				*error = StringFromFormat("bad checkNumLoops (%d)", checkNumLoops);
 				return SCE_ERROR_ATRAC_UNKNOWN_FORMAT;
 			}
@@ -386,7 +388,7 @@ int ParseWaveAT3(const u8 *data, u32 dataLength, TrackInfo *track) {
 
 	// Scan RIFF chunks for the RIFFWAVE header. Normally we find this immediately.
 	while (true) {
-		if (offset + 0xC >= dataLength) {
+		if ((u32)offset + 0xC >= dataLength) {
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		const u32 blockID = Read32(data, &offset);
@@ -412,14 +414,18 @@ int ParseWaveAT3(const u8 *data, u32 dataLength, TrackInfo *track) {
 	// Now that we have the header, loop through the rest of the chunks.
 	bool modifiedSampleOffset = false;
 	while (true) {
-		if (offset + 8 >= dataLength) {
+		if ((u32)offset + 8 >= dataLength) {
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		const u32 chunkID = Read32(data, &offset);
 		const int chunkSize = RoundUpToEven(Read32(data, &offset));
+		// A negative size would point back at this chunk's own header, looping forever.
+		if (chunkSize < 0) {
+			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
+		}
 		const int nextOffset = offset + chunkSize;
 		// We allow the data chunk to be bigger than readSize, as we may not have read the whole file.
-		if (offset + chunkSize > dataLength && chunkID != DATA_CHUNK_MAGIC) {
+		if ((u32)(offset + chunkSize) > dataLength && chunkID != DATA_CHUNK_MAGIC) {
 			return SCE_ERROR_ATRAC_SIZE_TOO_SMALL;
 		}
 		int remainingBytes = 0;
@@ -620,7 +626,7 @@ static u32 ParseAA3Headers(u32 readSize, AA3Info *info, u32 fileSize, const u8 *
 			return SCE_ERROR_ATRAC_AA3_INVALID_DATA;
 		}
 		offset += info->tagSize;
-		if (offset >= readSize) {
+		if ((u32)offset >= readSize) {
 			return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 		}
 		if (aa3Data[offset] == 0) {
@@ -634,7 +640,8 @@ static u32 ParseAA3Headers(u32 readSize, AA3Info *info, u32 fileSize, const u8 *
 		offset = 0;
 	}
 
-	if (offset + 0x22 > readSize) {
+	// The header fields read below go up to offset + 0x24.
+	if ((u32)offset + 0x24 > readSize) {
 		return SCE_ERROR_ATRAC_AA3_SIZE_TOO_SMALL;
 	}
 	if (Parse3BytesBE(aa3Data, &offset) != 0x454133) {

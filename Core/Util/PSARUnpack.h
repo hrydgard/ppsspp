@@ -163,12 +163,21 @@ struct InstalledFirmwareInfo {
 	int kernelModuleCount = 0;       // Files in flash0:/kd, which is what --disable-hle wants.
 	int fileCount = 0;
 	u64 totalSize = 0;
+	// Which of the models we emulate the install has files for, from the names of its ipl/ files
+	// ("nandipl_01g.bin", "nandipl_psp2000.ipl"). An install for every model has both, and so does
+	// a firmware from before the PSP-2000, whose one ipl serves every model.
+	bool forPSP1000 = false;
+	bool forPSP2000 = false;
 };
 
 // Walks the NAND directory (the one holding flash0/flash1). Pass countFiles = false when
 // fileCount and totalSize aren't wanted: those are the only fields that need the whole tree read,
 // and a full firmware is a few hundred files, which isn't free on a phone's storage.
 void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info, bool countFiles = true);
+
+// False if a full firmware is installed and has no files for pspModel (PSP_MODEL_*). Its XMB then
+// looks for the other model's files, which aren't there.
+bool InstalledFirmwareFitsModel(const InstalledFirmwareInfo &info, int pspModel);
 
 // Wipes what's in the NAND directory: flash0, flash1 and ipl. Two firmwares can't be merged -
 // files a newer one dropped would linger and still get loaded - so an install starts from empty.
@@ -180,6 +189,12 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error);
 // tens value, so "5.5" is 550 and not 505. Returns 0 if it isn't a version string at all, which
 // makes the result safe to compare with: an unknown version is older than every real one.
 int FirmwareVersionToInt(std::string_view version);
+
+// The /REGISTRY/category_version the shell of this firmware expects. 1 for an unknown version.
+int SceRegCategoryVersionForFirmware(std::string_view version);
+
+// The category_version to store when installing a firmware whose shell expects schemaVersion.
+int SceRegCategoryVersionAfterInstall(int storedVersion, int schemaVersion);
 
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.

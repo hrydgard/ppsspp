@@ -219,6 +219,11 @@ void Clickable::DrawBG(UIContext &dc, const Style &style, float radius) {
 	if (highlighted_) {
 		dc.Draw()->DrawRoundRect(bounds_, radius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
 	}
+	// Disabled items can be focused (to read them), but keep their disabled background.
+	// Outline them in the focus color instead.
+	if (HasFocus() && !IsEnabled()) {
+		dc.Draw()->DrawRoundRect(bounds_, radius, dc.GetTheme().itemFocusedStyle.background.color, RoundRectStyle::OutlineThin, roundCorners_);
+	}
 }
 
 void Clickable::ClickInternal() {
@@ -243,8 +248,22 @@ bool Clickable::Touch(const TouchInput &input) {
 	if (!IsEnabled()) {
 		dragging_ = false;
 		down_ = false;
+		// A tap on a disabled item doesn't click it, but the app gets to say why it's disabled.
+		if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
+			return contains;
+		}
+		if (input.flags & TouchInputFlags::DOWN) {
+			disabledTap_ = contains;
+		}
+		if (input.flags & TouchInputFlags::UP) {
+			if (disabledTap_ && contains && !(input.flags & TouchInputFlags::CANCEL)) {
+				NotifyDisabledActivation(this);
+			}
+			disabledTap_ = false;
+		}
 		return contains;
 	}
+	disabledTap_ = false;
 
 	// Ignore buttons other than the left one.
 	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
@@ -426,17 +445,51 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 void ClickableItem::Draw(UIContext &dc) {
 	Style style = dc.GetTheme().itemStyle;
 
-	if (!IsEnabled()) {
-		style = dc.GetTheme().itemDisabledStyle;
-	}
 	if (HasFocus()) {
 		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
 	}
+	if (!IsEnabled()) {
+		style = dc.GetTheme().itemDisabledStyle;
+	}
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
+}
+
+static constexpr float HINT_PADDING_X = 12.0f;
+static constexpr float HINT_PADDING_BOTTOM = 8.0f;
+// How far the hint is pulled up into the bottom padding of the item's title row,
+// tightening the space between the title and the hint.
+static constexpr float HINT_TITLE_OVERLAP = 8.0f;
+
+void ClickableItem::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	Clickable::Measure(dc, horiz, vert);
+	hintHeight_ = 0.0f;
+	if (hintText_.empty()) {
+		return;
+	}
+	float availWidth = measuredWidth_ - HINT_PADDING_X * 2;
+	if (availWidth <= 0.0f) {
+		availWidth = MAX_ITEM_SIZE;
+	}
+	float w, h;
+	dc.MeasureTextRect(dc.GetTheme().uiFontTiny, 1.0f, 1.0f, hintText_, availWidth, &w, &h, FLAG_WRAP_TEXT);
+	hintHeight_ = h + HINT_PADDING_BOTTOM - HINT_TITLE_OVERLAP;
+	measuredHeight_ += hintHeight_;
+}
+
+void ClickableItem::DrawHint(UIContext &dc, const Style &style) const {
+	if (hintText_.empty()) {
+		return;
+	}
+	dc.SetFontStyle(dc.GetTheme().uiFontTiny);
+	dc.SetFontScale(1.0f, 1.0f);
+	const float textHeight = hintHeight_ - HINT_PADDING_BOTTOM + HINT_TITLE_OVERLAP;
+	Bounds hintBounds(bounds_.x + HINT_PADDING_X, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - HINT_PADDING_X * 2, textHeight);
+	dc.DrawTextRect(hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 }
 
 void Choice::ClickInternal() {
@@ -494,10 +547,12 @@ void Choice::Draw(UIContext &dc) {
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
+	const Bounds bounds = ContentBounds();
+
 	if (image_.isValid() && text_.empty()) {
-		dc.Draw()->DrawImageRotated(image_, bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
+		dc.Draw()->DrawImageRotated(image_, bounds.centerX(), bounds.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 		if (shine_) {
-			Bounds b = Bounds::FromCenter(bounds_.centerX(), bounds_.centerY(), bounds_.h * 0.4f);
+			Bounds b = Bounds::FromCenter(bounds.centerX(), bounds.centerY(), bounds.h * 0.4f);
 			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 		}
 	} else if (!text_.empty() && !hideTitle_) {
@@ -512,9 +567,9 @@ void Choice::Draw(UIContext &dc) {
 			if (image) {
 				_dbg_assert_(image);
 				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-				dc.Draw()->DrawImage(image_, bounds_.x + bounds_.h * 0.5f + paddingLeft, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+				dc.Draw()->DrawImage(image_, bounds.x + bounds.h * 0.5f + paddingLeft, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
-				paddingLeft += bounds_.h;
+				paddingLeft += bounds.h;
 			}
 		}
 
@@ -524,30 +579,32 @@ void Choice::Draw(UIContext &dc) {
 			paddingRight = std::max(ITEM_HEIGHT, imgW);
 		}
 
-		float availWidth = bounds_.w - (paddingLeft + paddingRight + textPadding_.horiz());
+		float availWidth = bounds.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (centered_) {
-			dc.DrawTextRectSqueeze(text_, bounds_, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(text_, bounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
 
-				float iconX = bounds_.x2() - paddingRight + ITEM_HEIGHT * 0.5f;
+				float iconX = bounds.x2() - paddingRight + ITEM_HEIGHT * 0.5f;
 
 				if (shine_) {
-					Bounds b = Bounds::FromCenter(iconX, bounds_.centerY(), bounds_.h * 0.4f);
+					Bounds b = Bounds::FromCenter(iconX, bounds.centerY(), bounds.h * 0.4f);
 					DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 				}
-				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds_.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
+				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
-			Bounds textBounds(bounds_.x + paddingLeft + textPadding_.left, bounds_.y, availWidth, bounds_.h);
+			Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
 			dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 
+	DrawHint(dc, style);
+
 	if (selected_) {
-		dc.Draw()->DrawImage(ImageID("I_CHECKMARK"), bounds_.x2() - 30, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
+		dc.Draw()->DrawImage(ImageID("I_CHECKMARK"), bounds.x2() - 30, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 	}
 }
 
@@ -641,6 +698,59 @@ std::string ItemHeader::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
 }
 
+PopupHeader::PopupHeader(std::string_view text, LayoutParams *layoutParams)
+	: Item(layoutParams), text_(text) {
+	layoutParams_->width = FILL_PARENT;
+	layoutParams_->height = 44;
+}
+
+void PopupHeader::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	float availWidth = layoutParams_->width;
+	if (availWidth < 0) {
+		// If there's no size, let's grow as big as we want.
+		availWidth = horiz.size == 0 ? MAX_ITEM_SIZE : horiz.size;
+	}
+	ApplyBoundBySpec(availWidth, horiz);
+	dc.MeasureTextRect(dc.GetTheme().uiFontBig, 1.0f, 1.0f, text_, availWidth, &w, &h, ALIGN_LEFT | ALIGN_VCENTER);
+}
+
+void PopupHeader::Draw(UIContext &dc) {
+	const float availableWidth = bounds_.w;
+
+	float tw, th;
+	dc.SetFontStyle(dc.GetTheme().uiFontBig);
+	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
+
+	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
+
+	float tx = 0;
+	if (availableWidth < tw) {
+		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
+		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
+		Bounds tb = bounds_;
+		tb.x = bounds_.x;
+		tb.w = bounds_.w;
+		dc.PushScissor(tb);
+	}
+
+	// Header background
+	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	// Header title text
+	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+
+	// Underline. Skipping it with the new style.
+	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
+
+	if (availableWidth < tw) {
+		dc.PopScissor();
+	}
+}
+
+std::string PopupHeader::DescribeText() const {
+	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
+	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
+}
+
 CollapsibleHeader::CollapsibleHeader(bool *toggle, std::string_view text, LayoutParams *layoutParams)
 	: CheckBox(toggle, text, "", layoutParams) {
 	layoutParams_->width = FILL_PARENT;
@@ -713,44 +823,6 @@ void BorderView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec hor
 	h = (borderFlags_ & BORDER_HORIZ) != 0 ? bounds.h : 0;
 }
 
-void PopupHeader::Draw(UIContext &dc) {
-	const float paddingHorizontal = 12;
-	const float availableWidth = bounds_.w - paddingHorizontal * 2;
-
-	float tw, th;
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
-
-	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
-
-	float tx = paddingHorizontal;
-	if (availableWidth < tw) {
-		float overageRatio = 1.5f * availableWidth * 1.0f / tw;
-		tx -= (1.0f + sin(time_now_d() * overageRatio)) * sineWidth;
-		Bounds tb = bounds_;
-		tb.x = bounds_.x + paddingHorizontal;
-		tb.w = bounds_.w - paddingHorizontal * 2;
-		dc.PushScissor(tb);
-	}
-
-	// Header background
-	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
-	// Header title text
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-
-	// Underline. Skipping it with the new style.
-	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
-
-	if (availableWidth < tw) {
-		dc.PopScissor();
-	}
-}
-
-std::string PopupHeader::DescribeText() const {
-	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
-	return ApplySafeSubstitutions(u->T("%1 heading"), text_);
-}
-
 void CheckBox::Toggle() {
 	if (toggle_) {
 		*toggle_ = !(*toggle_);
@@ -774,19 +846,21 @@ void CheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.GetTheme().itemDisabledStyle;
 	}
+	// A focused disabled checkbox keeps its disabled look, DrawBG outlines it.
+	const bool focused = HasFocus() && IsEnabled();
 	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
 
 	// In image mode, light up instead of showing a checkbox.
 	if (imageID_.isValid()) {
 		image = imageID_;
 		if (Toggled()) {
-			if (HasFocus()) {
+			if (focused) {
 				style = dc.GetTheme().itemDownStyle;
 			} else {
 				style = dc.GetTheme().itemFocusedStyle;
 			}
 		} else {
-			if (HasFocus()) {
+			if (focused) {
 				style = dc.GetTheme().itemDownStyle;
 			} else {
 				style = dc.GetTheme().itemStyle;
@@ -798,7 +872,7 @@ void CheckBox::Draw(UIContext &dc) {
 		}
 
 	} else {
-		if (HasFocus()) {
+		if (focused) {
 			style = dc.GetTheme().itemFocusedStyle;
 		}
 		if (down_) {
@@ -817,11 +891,13 @@ void CheckBox::Draw(UIContext &dc) {
 	// Padding right of the checkbox image too.
 	const float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
 
+	const Bounds bounds = ContentBounds();
 	if (!text_.empty()) {
-		Bounds textBounds(bounds_.x + paddingX, bounds_.y, availWidth, bounds_.h);
+		Bounds textBounds(bounds.x + paddingX, bounds.y, availWidth, bounds.h);
 		dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
-	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.Draw()->DrawImage(image, bounds.x2() - paddingX, bounds.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	DrawHint(dc, style);
 	dc.SetFontScale(1.0f, 1.0f);
 }
 
@@ -1137,7 +1213,7 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 TextView *TextView::SetWordWrap() {
-	textAlign_ |= FLAG_WRAP_TEXT; return this;
+	textAlign_ = (TextFlags)((u32)textAlign_ | FLAG_WRAP_TEXT); return this;
 }
 
 void TextView::Draw(UIContext &dc) {
@@ -1163,6 +1239,9 @@ void TextView::Draw(UIContext &dc) {
 		style.background.color &= 0x7fffffff;
 		dc.FillRect(style.background, bounds_);
 	}
+	if (frame_) {
+		dc.Draw()->DrawRoundRect(bounds_, dc.GetTheme().choiceRoundRadius, textColor, RoundRectStyle::OutlineThin);
+	}
 
 	const FontStyle *style = GetTextStyle(dc, textSize_);
 	dc.SetFontStyle(*style);
@@ -1182,11 +1261,16 @@ void TextView::Draw(UIContext &dc) {
 
 	textBounds = textBounds.Inset(pad_.left, pad_.top, pad_.right, pad_.bottom);
 
-	if (shadow_) {
+	int textFlags = textAlign_;
+	if (shadow_ && !(textAlign_ & FLAG_DYNAMIC_ASCII)) {
+		textFlags |= FLAG_DROP_SHADOW;
+	} else if (shadow_) {
+		// Old-fashioned double-draw shadow.
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textAlign_);
+		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textFlags);
 	}
-	dc.DrawTextRect(text_, textBounds, textColor, textAlign_);
+
+	dc.DrawTextRect(text_, textBounds, textColor, textFlags);
 	if (textSize_ != TextSize::Normal) {
 		// If we changed font style, reset it.
 		dc.SetFontStyle(dc.GetTheme().uiFont);

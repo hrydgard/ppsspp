@@ -198,6 +198,9 @@
     <ClCompile Include="GameBrowser.cpp">
       <Filter>Views</Filter>
     </ClCompile>
+    <ClCompile Include="GameButton.cpp">
+      <Filter>Views</Filter>
+    </ClCompile>
     <ClCompile Include="LoadStateConfirmScreen.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -374,6 +377,9 @@
       <Filter>ImDebugger</Filter>
     </ClInclude>
     <ClInclude Include="GameBrowser.h">
+      <Filter>Views</Filter>
+    </ClInclude>
+    <ClInclude Include="GameButton.h">
       <Filter>Views</Filter>
     </ClInclude>
     <ClInclude Include="LoadStateConfirmScreen.h" />

@@ -173,6 +173,7 @@ protected:
 
 private:
 	void AddBuffer();  // asserts on failure
+	bool TryAddBuffer();
 	void NextBuffer(size_t minSize);
 	void Defragment();
 

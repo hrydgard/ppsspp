@@ -375,6 +375,26 @@ void IN_VRInit( engine_t *engine ) {
 	inputInitialized = 1;
 }
 
+void IN_VRShutdown( engine_t* engine ) {
+	if (!inputInitialized) {
+		return;
+	}
+	// The aim spaces belong to the session and the action set is attached to it, so a new session
+	// (a new graphics context or activity) needs new ones.
+	if (leftControllerAimSpace != XR_NULL_HANDLE) {
+		OXR(xrDestroySpace(leftControllerAimSpace));
+		leftControllerAimSpace = XR_NULL_HANDLE;
+	}
+	if (rightControllerAimSpace != XR_NULL_HANDLE) {
+		OXR(xrDestroySpace(rightControllerAimSpace));
+		rightControllerAimSpace = XR_NULL_HANDLE;
+	}
+	// Destroys its actions too.
+	OXR(xrDestroyActionSet(runningActionSet));
+	runningActionSet = XR_NULL_HANDLE;
+	inputInitialized = 0;
+}
+
 void IN_VRInputFrame( engine_t* engine ) {
 
 	// sync action data

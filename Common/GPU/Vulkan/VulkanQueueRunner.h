@@ -69,6 +69,9 @@ struct VkRenderData {
 			VkDeviceSize voffset;
 			uint32_t count;
 			uint32_t offset;
+			// For the second vertex stream, if any.
+			VkBuffer vbuffer1;
+			uint32_t voffset1;
 		} draw;
 		struct {
 			uint32_t descSetIndex;
@@ -80,6 +83,9 @@ struct VkRenderData {
 			uint32_t voffset;
 			uint32_t ioffset;
 			uint32_t count;
+			// For the second vertex stream, if any.
+			VkBuffer vbuffer1;
+			uint32_t voffset1;
 		} drawIndexed;
 		struct {
 			uint32_t clearColor;
@@ -275,7 +281,7 @@ public:
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
 	// For additional swapchains too. The depth image is transitioned by the barriers.
 	VkFramebuffer CreateBackbufferFramebuffer(VkImageView colorView, VkImageView depthView, int width, int height);
-	bool CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
+	bool CreateDepthStencilImage(int width, int height, int layers, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
 private:
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);

@@ -7,8 +7,10 @@ package org.ppsspp.ppsspp;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
+import android.os.Build;
 import android.os.SystemClock;
 import android.text.InputType;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
@@ -26,6 +28,21 @@ public class NativeSurfaceView extends SurfaceView {
 
 	public NativeSurfaceView(Context context) {
 		super(context);
+	}
+
+	@Override
+	protected void onAttachedToWindow() {
+		super.onAttachedToWindow();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			// Without this, touch moves and joystick axis events are batched until the next UI vsync,
+			// adding up to a frame of latency before the emulator sees them. Non-pointer sources only
+			// apply while this view is focused, so keep it focusable.
+			setFocusable(true);
+			setFocusableInTouchMode(true);
+			setDefaultFocusHighlightEnabled(false);
+			requestFocus();
+			requestUnbufferedDispatch(InputDevice.SOURCE_CLASS_POINTER | InputDevice.SOURCE_CLASS_JOYSTICK);
+		}
 	}
 
 	@SuppressLint("ClickableViewAccessibility")
@@ -55,9 +72,12 @@ public class NativeSurfaceView extends SurfaceView {
 		} else {
 			imm.hideSoftInputFromWindow(getWindowToken(), 0);
 			imm.restartInput(this);
-			clearFocus();
-			setFocusableInTouchMode(false);
-			setFocusable(false);
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+				// On R+ we stay focused for unbuffered dispatch, see onAttachedToWindow.
+				clearFocus();
+				setFocusableInTouchMode(false);
+				setFocusable(false);
+			}
 		}
 	}
 

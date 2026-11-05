@@ -115,7 +115,8 @@ void WebSocketGameState::StateOperation(DebuggerRequest &req, StateOp op) {
 	if (useSlot) {
 		if (!req.ParamU32("slot", &slot))
 			return;
-		if (slot >= (uint32_t)g_Config.iSaveStateSlotCount)
+		// The slot count is how many the app's UI shows. Headless has no UI to show them in.
+		if (slot >= (uint32_t)g_Config.iSaveStateSlotCount && !System_GetPropertyBool(SYSPROP_IS_HEADLESS))
 			return req.Fail("Invalid slot");
 	} else if ((op == StateOp::LOAD || op == StateOp::SAVE) && !req.ParamString("path", &path)) {
 		return;

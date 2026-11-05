@@ -21,6 +21,8 @@
 #include "Common/StringUtils.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
+#include "Common/Thread/Promise.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Common/UI/Notice.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/ScreenManager.h"
@@ -42,8 +44,51 @@ std::string_view FirmwareScreen::GetTitle() const {
 }
 
 void FirmwareScreen::BeforeCreateViews() {
-	nandRoot_ = GetSysDirectory(DIRECTORY_NAND);
-	ReadInstalledFirmwareInfo(nandRoot_, &info_);
+	if (!scanned_ && !scan_) {
+		nandRoot_ = GetSysDirectory(DIRECTORY_NAND);
+		StartScan(false);
+	}
+}
+
+void FirmwareScreen::StartScan(bool eraseFirst) {
+	if (scan_) {
+		rescanPending_ = true;
+		erasePending_ = erasePending_ || eraseFirst;
+		return;
+	}
+	scan_ = std::make_shared<ScanState>();
+	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
+		[state = scan_, nandRoot = nandRoot_, eraseFirst]() {
+		if (eraseFirst) {
+			EraseInstalledFirmware(nandRoot, &state->eraseError);
+		}
+		ReadInstalledFirmwareInfo(nandRoot, &state->info);
+		// Everything above is published by this store.
+		state->done = true;
+	}));
+	// Disables the buttons that would touch the NAND while this runs.
+	RecreateViews();
+}
+
+void FirmwareScreen::update() {
+	UITwoPaneBaseDialogScreen::update();
+	if (!scan_ || !scan_->done) {
+		return;
+	}
+	if (!scan_->eraseError.empty()) {
+		ERROR_LOG(Log::Loader, "Failed to erase the firmware: %s", scan_->eraseError.c_str());
+	}
+	info_ = scan_->info;
+	scan_.reset();
+	scanned_ = true;
+	if (rescanPending_) {
+		const bool erase = erasePending_;
+		rescanPending_ = false;
+		erasePending_ = false;
+		StartScan(erase);
+	} else {
+		RecreateViews();
+	}
 }
 
 void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -56,12 +101,23 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	ChoiceGroupList *list = parent->Add(new ChoiceGroupList());
 
+	if (!scanned_) {
+		auto mm = GetI18NCategory(I18NCat::MAINMENU);
+		list->Add(new TextView(mm->T("Loading..."), ALIGN_LEFT, false));
+		return;
+	}
+
+	std::string_view hintText = sy->T("FirmwareSources", "Installing a PSP firmware can improve game compatibility, gives some games their proper fonts, and lets you run the XMB, the real PSP's main menu. PPSSPP works without one, but having one installed is highly recommended.");
+
 	if (!info_.anythingInstalled) {
-		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"),
-			sy->T("FirmwareSources", "PPSSPP has its own replacements for the PSP's system files, so a firmware is optional. Installing one gets you the real fonts, and lets you launch the XMB. Most game discs carry a firmware updater - open a game's info screen to install from it.")));
+		list->Add(new HintView(hintText));
+
+		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"), ""));
 		list->Add(new TextWithImage(ImageID("I_FOLDER"), GetFriendlyPath(nandRoot_)));
 		return;
 	}
+
+	list->Add(new HintView(hintText));
 
 	if (!info_.version.empty()) {
 		std::string versionLine = std::string(sy->T("Firmware version")) + ": " + info_.version;
@@ -82,6 +138,10 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("Partial firmware installed"),
 			sy->T("Some system files are present, but not a complete firmware")));
 	}
+
+	ChoiceGroup *contentSettings = list->Add(new ChoiceGroup());
+	contentSettings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
+		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	// Without any kernel modules there's no firmware here to speak of - it's the fonts we pulled
 	// off a game's disc, and rows reading "Kernel modules: 0 / XMB: No" say nothing useful.
@@ -110,6 +170,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	// Booting anything replaces the running game, and erasing the NAND out from under a game
 	// that has flash0 mounted is worse - so while a game is running, this screen is read-only.
 	const bool gameRunning = PSP_IsInited();
+	const bool scanning = scan_ != nullptr;
 
 	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
 	if (info_.hasVsh && !FirmwareVersionSupportsVSH(info_.version)) {
@@ -119,10 +180,6 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 
 	ChoiceGroup *launchGroup = groups->Add(new ChoiceGroup());
 	Choice *launch = launchGroup->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
-
-	ChoiceGroup *settings = groups->Add(new ChoiceGroup());
-	settings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
-		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	ChoiceGroup *actions = groups->Add(new ChoiceGroup());
 	launch->OnClick.Add([this](UI::EventParams &) {
@@ -135,7 +192,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		install->OnClick.Add([this](UI::EventParams &) {
 			BrowseForUpdater();
 		});
-		install->SetEnabled(!gameRunning);
+		install->SetEnabled(!gameRunning && !scanning);
 	}
 
 	if (info_.anythingInstalled) {
@@ -143,7 +200,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		erase->OnClick.Add([this](UI::EventParams &) {
 			AskToErase();
 		});
-		erase->SetEnabled(!gameRunning);
+		erase->SetEnabled(!gameRunning && !scanning);
 	}
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
@@ -167,10 +224,9 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 }
 
 void FirmwareScreen::dialogFinished(const Screen *dialog, DialogResult result) {
-	// Coming back from the installer (or the erase confirmation), the NAND may well look
-	// different than it did when we scanned it. Rescanning is cheap, so just always redo it -
-	// BeforeCreateViews does the scan.
-	RecreateViews();
+	// Coming back from the installer, the NAND may well look different than it did when we
+	// scanned it, so always rescan.
+	StartScan(false);
 	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
 }
 
@@ -196,12 +252,7 @@ void FirmwareScreen::AskToErase() {
 		if (!erase) {
 			return;
 		}
-		std::string error;
-		if (!EraseInstalledFirmware(nandRoot_, &error)) {
-			ERROR_LOG(Log::Loader, "Failed to erase the firmware: %s", error.c_str());
-		}
-		// Back to our own UI sounds.
+		StartScan(true);
 		g_BackgroundAudio.SFX().ReloadSamples();
-		RecreateViews();
 	}));
 }

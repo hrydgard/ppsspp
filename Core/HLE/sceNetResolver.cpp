@@ -138,6 +138,12 @@ static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inA
 	return 0;
 }
 
+// A PSP takes 4-18 ms to look a name up through its access point (pspautotests net/inet/timing), the
+// thread sleeping while it waits for the answer, so other threads run.
+static const int RESOLVER_LOOKUP_US = 5000;
+
+// TODO: The host lookup still stops the whole emulator while it waits, for seconds if the DNS server is
+// slow. It could run on a worker thread, with the game's thread waiting in emulated time.
 static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	auto iter = g_netResolvers.find(resolverId);
 	if (iter == g_netResolvers.end()) {
@@ -151,10 +157,10 @@ static int sceNetResolverStartNtoA(int resolverId, u32 hostnamePtr, u32 inAddrPt
 	for (int attempt = 0; attempt < retry; ++attempt) {
 		const int status = NetResolver_StartNtoA(&iter->second, hostnamePtr, inAddrPtr, timeout, retry);
 		if (status >= 0) {
-			return hleLogDebugOrError(Log::sceNet, status);
+			return hleDelayResult(hleLogDebugOrError(Log::sceNet, status), "resolver lookup", RESOLVER_LOOKUP_US);
 		}
 	}
-	return hleLogError(Log::sceNet, -1);
+	return hleDelayResult(hleLogError(Log::sceNet, -1), "resolver lookup", RESOLVER_LOOKUP_US);
 }
 
 static int sceNetResolverStartNtoAAsync(int resolverId, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {

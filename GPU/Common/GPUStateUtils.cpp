@@ -189,12 +189,24 @@ static bool StencilToAlphaNeedsDualSource(ReplaceBlendType replaceBlend) {
 	if (replaceBlend == REPLACE_BLEND_NO || replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {
 		return false;
 	}
-	if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
+	// PRE_SRC applies the src factor in the shader, so the hardware blend doesn't see it.
+	const bool srcUsesAlpha = !nonAlphaSrcFactors[gstate.getBlendFuncA()] && replaceBlend != REPLACE_BLEND_PRE_SRC;
+	if (!srcUsesAlpha && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
 		return false;
 	}
 	// With no color written, the color blend can't need the source alpha (WipEout Pure writes only the stencil
 	// this way, then blends with it as the destination alpha).
 	return (gstate.getColorMask() & 0x00FFFFFF) != 0x00FFFFFF;
+}
+
+// Whether the blend uses the src alpha (or src color) only in the src factor, which the shader can then apply.
+static bool SrcAlphaOnlyInSrcFactor() {
+	const GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+	const GEBlendDstFactor funcB = gstate.getBlendFuncB();
+	if (funcA != GE_SRCBLEND_SRCALPHA && funcA != GE_SRCBLEND_INVSRCALPHA) {
+		return false;
+	}
+	return funcB == GE_DSTBLEND_DSTALPHA || funcB == GE_DSTBLEND_INVDSTALPHA || funcB >= GE_DSTBLEND_FIXB;
 }
 
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
@@ -981,6 +993,10 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	if (useFBRead == FBReadSetting::Forced) {
 		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
 		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
+	} else if (replaceBlend == REPLACE_BLEND_STANDARD && StencilToAlphaNeedsDualSource(replaceBlend) && SrcAlphaOnlyInSrcFactor()) {
+		// Apply the src factor in the shader, which leaves the alpha output free for the stencil without dual
+		// source blending (WipEout Pure's additive glows, SRCALPHA + FIXB).
+		replaceBlend = REPLACE_BLEND_PRE_SRC;
 	} else if (useFBRead == FBReadSetting::Allowed && replaceBlend != REPLACE_BLEND_BLUE_TO_ALPHA && !gstate_c.Use(GPU_USE_DUALSOURCE_BLEND) &&
 		gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) && StencilToAlphaNeedsDualSource(replaceBlend)) {
 		// Blend in the shader, which can then write the stencil as alpha. Only with fetch: elsewhere a framebuffer

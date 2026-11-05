@@ -216,7 +216,7 @@ const char *g_ExceptionActionValues[] = {
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
 	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},
-	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
+	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest', 'firmware')", CmdLineMode::Application},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(gameWindow), CmdParamType::Bool, "game-window", '\0', "Show the game in a second window, for testing multiple outputs (Vulkan, or Metal on Mac)", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Exit the application when the game ends, instead of returning to the menu", CmdLineMode::Application},
@@ -255,8 +255,17 @@ static const CommandLineParam g_autoParams[] = {
 	// The old name for --timeout-wall, kept working because it's in a lot of scripts.
 	{POFF(timeoutWall), CmdParamType::Double, "timeout", '\0', "Alias for --timeout-wall", CmdLineMode::Headless},
 	{POFF(instance), CmdParamType::Int, "instance", '\0', "Run as instance N of several talking to each other over ad hoc (own 127.0.0.N address and MAC)", CmdLineMode::Headless},
+	{POFF(syncFile), CmdParamType::String, "sync-file", '\0', "With --instance and --sync-count, keep in step in emulated time with the other instances sharing FILE (made by the launcher, zero-filled)", CmdLineMode::Headless},
+	{POFF(syncCount), CmdParamType::Int, "sync-count", '\0', "How many instances share --sync-file", CmdLineMode::Headless},
 	{POFF(realtime), CmdParamType::Bool, "realtime", '\0', "Run at PSP speed instead of as fast as possible", CmdLineMode::Headless},
+	{POFF(portOffset), CmdParamType::Int, "port-offset", '\0', "Add this to every ad hoc port on the host (default from the config, normally 10000)"},
+	{POFF(speedPercent), CmdParamType::Int, "speed", '\0', "With --realtime, run at this percentage of PSP speed (alternate speed 1)", CmdLineMode::Headless},
 	{POFF(adhocServer), CmdParamType::Bool, "adhoc-server", '\0', "Run the built-in ad hoc server"},
+	{POFF(nickname), CmdParamType::String, "nickname", '\0', "The PSP's nickname (System settings), for this run only"},
+	{POFF(adhocDelayMs), CmdParamType::Int, "adhoc-delay", '\0', "Delay ad hoc datagrams received by MS milliseconds of emulated time, to simulate a distant player"},
+	{POFF(adhocJitterMs), CmdParamType::Int, "adhoc-jitter", '\0', "With --adhoc-delay, up to MS more at random"},
+	{POFF(adhocLossPercent), CmdParamType::Int, "adhoc-loss", '\0', "Drop this percentage of the ad hoc datagrams received"},
+	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
 	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1: when booting an ELF/PBP or --vsh"},
@@ -548,6 +557,17 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			}
 		} else if (startsWith(argv[i], "--")) {
 			PRINT_STDERR("Error: Unknown parameter: %s\n", argv[i]);
+			if (mode == CmdLineMode::Application) {
+				// Ignore bad parameters - but inform the user in the Windows debug output at least.
+				OutputDebugStringUTF8("Warning: Unknown parameter: ");
+				OutputDebugStringUTF8(argv[i]);
+				OutputDebugStringUTF8("\n");
+
+				std::string msg = StringFromFormat("Unknown command line parameter: %s\n\nProceeding anyway.", argv[i]);
+				ShowMessageDialog("Unknown Parameter", msg.c_str(), true);
+
+				return CommandLineParseResult::Continue;
+			}
 			return CommandLineParseResult::Error;
 		}
 		// To the next argument.
@@ -572,6 +592,26 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (adhocServer.has_value()) {
 		g_Config.bEnableAdhocServer = adhocServer.value();
 		g_Config.DoNotSaveSetting(&g_Config.bEnableAdhocServer);
+	}
+	if (nickname.has_value()) {
+		g_Config.sNickName = nickname.value();
+		g_Config.DoNotSaveSetting(&g_Config.sNickName);
+	}
+	if (adhocDelayMs.has_value()) {
+		g_Config.iAdhocSimDelayMs = adhocDelayMs.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimDelayMs);
+	}
+	if (adhocJitterMs.has_value()) {
+		g_Config.iAdhocSimJitterMs = adhocJitterMs.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimJitterMs);
+	}
+	if (adhocLossPercent.has_value()) {
+		g_Config.iAdhocSimLossPercent = adhocLossPercent.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAdhocSimLossPercent);
+	}
+	if (lagSync.has_value()) {
+		g_Config.bForceLagSync = lagSync.value();
+		g_Config.DoNotSaveSetting(&g_Config.bForceLagSync);
 	}
 	if (fuseId.has_value()) {
 		g_Config.sFuseID = fuseId.value();
@@ -651,6 +691,19 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (logLevel.has_value()) {
 		g_logManager.SetAllLogLevels(logLevel.value());
 		g_logManager.DoNotSaveChannels();
+	}
+
+	if (portOffset.has_value()) {
+		g_Config.iPortOffset = portOffset.value();
+		g_Config.DoNotSaveSetting(&g_Config.iPortOffset);
+	}
+
+	if (speedPercent.has_value()) {
+		g_Config.iAltSpeedPercent1 = speedPercent.value();
+		g_Config.DoNotSaveSetting(&g_Config.iAltSpeedPercent1);
+		// Ad hoc tests are what this is for, and speed control is otherwise off while connected.
+		g_Config.bAllowSpeedControlWhileConnected = true;
+		g_Config.DoNotSaveSetting(&g_Config.bAllowSpeedControlWhileConnected);
 	}
 
 	if (lockedCPUSpeed.has_value()) {

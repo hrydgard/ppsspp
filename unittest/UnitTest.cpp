@@ -118,6 +118,8 @@
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/SaveState.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/Loaders.h"
 #include "Core/MemMap.h"
@@ -126,6 +128,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "GPU/Common/DepthSwizzle.h"
@@ -136,7 +139,6 @@
 
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
-#include "Common/Render/AtlasGen.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Net/Resolve.h"
 
@@ -242,6 +244,105 @@ bool TestMathUtil() {
 	return true;
 }
 
+// A filesystem whose state is one number, under a section name of our choosing.
+class SaveStateTestFileSystem : public EmptyFileSystem {
+public:
+	SaveStateTestFileSystem(const char *section, int value) : section_(section), value_(value) {}
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section(section_, 1);
+		if (!s)
+			return;
+		Do(p, value_);
+	}
+	int Value() const { return value_; }
+
+private:
+	const char *section_;
+	int value_;
+};
+
+bool TestSaveStateMounts() {
+	auto a = std::make_shared<SaveStateTestFileSystem>("TestFS", 1);
+	auto b = std::make_shared<SaveStateTestFileSystem>("TestFS", 2);
+	auto c = std::make_shared<SaveStateTestFileSystem>("TestFS", 3);
+	MetaFileSystem saved;
+	saved.Mount("a:", a);
+	saved.Mount("b:", b);
+	saved.Mount("c:", c);
+
+	std::vector<u8> data;
+	EXPECT_TRUE(CChunkFileReader::MeasureAndSavePtr(saved, &data) == CChunkFileReader::ERROR_NONE);
+
+	// Reordered, without b: and with a d: the state doesn't have.
+	auto a2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 0);
+	auto c2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 0);
+	auto d2 = std::make_shared<SaveStateTestFileSystem>("TestFS", 40);
+	MetaFileSystem loaded;
+	loaded.Mount("c:", c2);
+	loaded.Mount("d:", d2);
+	loaded.Mount("a:", a2);
+	std::string error;
+	EXPECT_TRUE(CChunkFileReader::LoadPtr(data.data(), data.size(), loaded, &error) == CChunkFileReader::ERROR_NONE);
+	EXPECT_EQ_INT(a2->Value(), 1);
+	EXPECT_EQ_INT(c2->Value(), 3);
+	EXPECT_EQ_INT(d2->Value(), 40);
+
+	// A mount whose filesystem doesn't match the state's fails the load.
+	MetaFileSystem mismatched;
+	mismatched.Mount("a:", std::make_shared<SaveStateTestFileSystem>("OtherFS", 0));
+	EXPECT_TRUE(CChunkFileReader::LoadPtr(data.data(), data.size(), mismatched, &error) != CChunkFileReader::ERROR_NONE);
+
+	return true;
+}
+
+// The start of a state as SaveStart writes it, and a little more.
+struct PeekTestState {
+	int version;
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("SaveStart", 1, version);
+		if (!s)
+			return;
+		if (s >= 6) {
+			char discID[16] = "ULUS12345";
+			char discVersion[8] = "1.01";
+			u8 bootType = (u8)SaveState::BootType::PBP;
+			p.DoVoid(discID, sizeof(discID));
+			p.DoVoid(discVersion, sizeof(discVersion));
+			Do(p, bootType);
+		}
+		std::vector<u8> rest(100000, 0x55);
+		Do(p, rest);
+	}
+};
+
+static bool SavePeekTestState(const Path &path, int version) {
+	PeekTestState state{ version };
+	u8 *data = nullptr;
+	size_t size = 0;
+	if (CChunkFileReader::MeasureAndSavePtr(state, &data, &size) != CChunkFileReader::ERROR_NONE) {
+		return false;
+	}
+	return CChunkFileReader::SaveFile(path, "Test", "v1.0", data, size) == CChunkFileReader::ERROR_NONE;
+}
+
+bool TestSaveStatePeek() {
+	const Path path = UnitTestTempPath("unittest_peek.ppst");
+	SaveState::BootInfo info;
+	std::string error;
+
+	EXPECT_TRUE(SavePeekTestState(path, 6));
+	EXPECT_TRUE(SaveState::PeekBootInfo(path, &info, &error));
+	EXPECT_EQ_STR(info.discID, std::string("ULUS12345"));
+	EXPECT_EQ_STR(info.discVersion, std::string("1.01"));
+	EXPECT_TRUE(info.bootType == SaveState::BootType::PBP);
+
+	EXPECT_TRUE(SavePeekTestState(path, 5));
+	EXPECT_FALSE(SaveState::PeekBootInfo(path, &info, &error));
+
+	File::Delete(path);
+	return true;
+}
+
 bool TestInetPton() {
 	uint8_t ip4[4];
 	EXPECT_EQ_INT(net::inet_pton(AF_INET, "1.2.3.4", ip4), 1);
@@ -293,6 +394,22 @@ bool TestInetPton() {
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "1:2:3:4:5:6:7", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "::ffff:1.2.3.4", ip6), 0);
 	EXPECT_EQ_INT(net::inet_pton(AF_INET6, "", ip6), 0);
+	return true;
+}
+
+bool TestFirmwareVersions() {
+	EXPECT_EQ_INT(FirmwareVersionToInt("6.61"), 661);
+	EXPECT_EQ_INT(FirmwareVersionToInt("5.5"), 550);
+	EXPECT_EQ_INT(FirmwareVersionToInt("junk"), 0);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("1.50"), 0x01);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("2.82"), 0x20);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("3.71"), 0x3b);
+	EXPECT_EQ_INT(SceRegCategoryVersionForFirmware("6.61"), 0x66);
+	// An upgrade leaves the version for the new shell to migrate from, a downgrade goes back to 1.
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(1, 0x3b), 1);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x20, 0x3b), 0x20);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x3b, 0x3b), 0x3b);
+	EXPECT_EQ_INT(SceRegCategoryVersionAfterInstall(0x3b, 0x20), 1);
 	return true;
 }
 
@@ -3296,6 +3413,19 @@ bool TestConfigSettings() {
 	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutLandscape.fDisplayOffsetY), 0.5f);
 	EXPECT_EQ_FLOAT(Config::GetDefaultValueFloat(&g_Config.displayLayoutPortrait.fDisplayOffsetY), 0.25f);
 	EXPECT_EQ_INT(Config::GetDefaultValueInt(&g_Config.gestureControls[1].iSwipeUp), 0);
+
+	int oldVolume = g_Config.iUIVolume;
+	g_Config.iUIVolume = 10;
+	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.iUIVolume));
+	EXPECT_EQ_INT(g_Config.iUIVolume, 75);
+	EXPECT_FALSE(Config::RestoreSettingToDefault(&g_Config.iUIVolume));
+	g_Config.iUIVolume = oldVolume;
+
+	float oldOffsetY = g_Config.displayLayoutPortrait.fDisplayOffsetY;
+	g_Config.displayLayoutPortrait.fDisplayOffsetY = 0.9f;
+	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.displayLayoutPortrait.fDisplayOffsetY));
+	EXPECT_EQ_FLOAT(g_Config.displayLayoutPortrait.fDisplayOffsetY, 0.25f);
+	g_Config.displayLayoutPortrait.fDisplayOffsetY = oldOffsetY;
 	return true;
 }
 
@@ -3840,32 +3970,6 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
-// The UI shadow has no offset, so it pads the image evenly and stays symmetric around it.
-bool TestAtlasDropShadow() {
-	Image img;
-	img.scale = 2.0f;
-	img.resize(8, 8);
-	for (int y = 2; y < 6; y++) {
-		for (int x = 2; x < 6; x++) {
-			img.set1(x, y, 0xFFFFFFFF);
-		}
-	}
-	AddDropShadow(img, UIDropShadowParams(img.scale));
-	EXPECT_EQ_INT(img.w, 8 + 12);
-	EXPECT_EQ_INT(img.h, 8 + 12);
-	EXPECT_EQ_HEX(img.get1(6 + 3, 6 + 3), 0xFFFFFFFF);
-	EXPECT_EQ_HEX(img.get1(0, 0), 0);
-	for (int y = 0; y < img.h; y++) {
-		for (int x = 0; x < img.w; x++) {
-			EXPECT_EQ_HEX(img.get1(x, y), img.get1(img.w - 1 - x, img.h - 1 - y));
-		}
-	}
-	const u32 edge = img.get1(5, 10);
-	EXPECT_EQ_INT(edge & 0xFFFFFF, 0);
-	EXPECT_TRUE((edge >> 24) > 0 && (edge >> 24) < 0xA8);
-	return true;
-}
-
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -3881,6 +3985,7 @@ bool TestUITabOrder() {
 	// Nested groups are flattened in place, in order.
 	LinearLayout *inner = root.Add(new LinearLayout(ORIENT_HORIZONTAL));
 	Choice *b = inner->Add(new Choice("b"));
+	// Disabled items are stops too, they just can't be activated.
 	Choice *disabled = inner->Add(new Choice("disabled"));
 	disabled->SetEnabled(false);
 
@@ -3897,23 +4002,26 @@ bool TestUITabOrder() {
 
 	std::vector<View *> order;
 	root.CollectTabOrder(&order);
-	EXPECT_EQ_INT((int)order.size(), 3);
+	EXPECT_EQ_INT((int)order.size(), 4);
 	EXPECT_TRUE(order[0] == a);
 	EXPECT_TRUE(order[1] == b);
-	EXPECT_TRUE(order[2] == c);
+	EXPECT_TRUE(order[2] == disabled);
+	EXPECT_TRUE(order[3] == c);
 
 	// Tab walks forwards and wraps at the end, Shift+Tab does the reverse.
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::NEXT) == b);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::NEXT) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::NEXT) == disabled);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::NEXT) == c);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::NEXT) == a);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::PREV) == b);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::PREV) == disabled);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::PREV) == b);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::PREV) == a);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::PREV) == c);
 
 	// A view that has gone away (or was never a stop) doesn't stall navigation - it starts
 	// from whichever end we're heading towards.
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::NEXT) == a);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::PREV) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, invisible, FocusMove::NEXT) == a);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, invisible, FocusMove::PREV) == c);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, nullptr, FocusMove::NEXT) == a);
 
 	// With a single stop, both directions land back on it, and with none there's nothing to do.
@@ -3925,6 +4033,42 @@ bool TestUITabOrder() {
 	LinearLayout empty(ORIENT_VERTICAL);
 	empty.Add(new TextView("just a label"));
 	EXPECT_TRUE(FindTabOrderNeighbor(&empty, nullptr, FocusMove::NEXT) == nullptr);
+
+	// A focused disabled item ignores the accept key, an enabled one clicks.
+	{
+		const std::vector<InputMapping> oldConfirm = confirmKeys;
+		const std::vector<InputMapping> oldCancel = cancelKeys;
+		SetConfirmCancelKeys({ InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ENTER) }, { InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE) });
+
+		LinearLayout keyRoot(ORIENT_VERTICAL);
+		Choice *enabledChoice = keyRoot.Add(new Choice("enabled"));
+		Choice *disabledChoice = keyRoot.Add(new Choice("disabled"));
+		disabledChoice->SetEnabled(false);
+		int enabledClicks = 0;
+		int disabledClicks = 0;
+		enabledChoice->OnClick.Add([&](EventParams &) { enabledClicks++; });
+		disabledChoice->OnClick.Add([&](EventParams &) { disabledClicks++; });
+
+		auto press = [&](View *focus) {
+			SetFocusedView(focus, FocusFlags::CAUSE_OTHER);
+			KeyInput key{};
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			key.keyCode = NKCODE_ENTER;
+			key.flags = KeyInputFlags::DOWN;
+			keyRoot.Key(key);
+			key.flags = KeyInputFlags::UP;
+			keyRoot.Key(key);
+		};
+		press(disabledChoice);
+		press(enabledChoice);
+		// Clicks are queued.
+		DispatchEvents();
+		SetFocusedView(nullptr, FocusFlags::CAUSE_OTHER);
+		SetConfirmCancelKeys(oldConfirm, oldCancel);
+
+		EXPECT_EQ_INT(disabledClicks, 0);
+		EXPECT_EQ_INT(enabledClicks, 1);
+	}
 
 	return true;
 }
@@ -4004,14 +4148,22 @@ bool TestUIFocusNavigation() {
 		// Things that can't take focus are passed over, also inside nested groups.
 		LinearLayout root(ORIENT_VERTICAL);
 		Choice *origin = add(&root, 0, 0, 100, 50);
-		Choice *disabled = add(&root, 0, 60, 100, 50);
-		disabled->SetEnabled(false);
 		LinearLayout *inner = root.Add(new LinearLayout(ORIENT_VERTICAL));
-		Choice *hidden = add(inner, 0, 120, 100, 50);
+		Choice *hidden = add(inner, 0, 60, 100, 50);
 		hidden->SetVisibility(V_INVISIBLE);
-		Choice *last = add(inner, 0, 180, 100, 50);
+		Choice *last = add(inner, 0, 120, 100, 50);
 		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == last);
 		EXPECT_TRUE(move(&root, last, FocusMove::UP) == origin);
+	}
+
+	{
+		// Disabled items can take focus (they ignore activation instead).
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *origin = add(&root, 0, 0, 100, 50);
+		Choice *disabled = add(&root, 0, 60, 100, 50);
+		disabled->SetEnabled(false);
+		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == disabled);
+		EXPECT_TRUE(move(&root, disabled, FocusMove::UP) == origin);
 	}
 
 	return true;
@@ -4110,6 +4262,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(VFPUDot),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
+	TEST_ITEM(FirmwareVersions),
 	TEST_ITEM(TruncateCpy),
 	TEST_ITEM(MemBlockInfoSaveState),
 	TEST_ITEM(MemBlockInfoRangeWrap),
@@ -4183,7 +4336,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(TextDrawerCache),
-	TEST_ITEM(AtlasDropShadow),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(UmdDiscType),
@@ -4191,6 +4343,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),
 	TEST_ITEM(InetPton),
+	TEST_ITEM(SaveStateMounts),
+	TEST_ITEM(SaveStatePeek),
 };
 
 int main(int argc, const char *argv[]) {

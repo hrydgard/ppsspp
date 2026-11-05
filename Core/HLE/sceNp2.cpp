@@ -115,14 +115,14 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(communicationIdPtr) || !Memory::IsValidAddress(passPhrasePtr) || !Memory::IsValidRange(ctxIdPtr, 2))
+	if (!Memory::IsValidRange(communicationIdPtr, sizeof(SceNpCommunicationId)) || !Memory::IsValidRange(passPhrasePtr, sizeof(SceNpCommunicationPassphrase)) || !Memory::IsValidRange(ctxIdPtr, 2))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX);
 
 	// FIXME: It seems Context are mapped to TitleID? may return 0x80550C05 or 0x80550C06 when finding an existing context
-	SceNpCommunicationId* titleid = (SceNpCommunicationId*)Memory::GetCharPointer(communicationIdPtr);
+	const SceNpCommunicationId *titleid = (const SceNpCommunicationId *)Memory::GetPointerUnchecked(communicationIdPtr);
 	memcpy(npTitleId.data, titleid->data, sizeof(npTitleId));
 
-	SceNpCommunicationPassphrase* passph = (SceNpCommunicationPassphrase*)Memory::GetCharPointer(passPhrasePtr);
+	const SceNpCommunicationPassphrase *passph = (const SceNpCommunicationPassphrase *)Memory::GetPointerUnchecked(passPhrasePtr);
 
 	SceNpId npid{};
 	int retval = NpGetNpId(&npid);
@@ -372,7 +372,7 @@ static int sceNpMatching2GetServerIdListLocal(MIPSState *mips, int ctxId, u32 se
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidRange(serverIdsPtr, maxServerIds * sizeof(u16)))
+	if (maxServerIds < 0 || !Memory::IsValidRange(serverIdsPtr, maxServerIds * sizeof(u16)))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
 	// Returning dummy ids, 16-bit variables according to JPCSP
@@ -389,7 +389,7 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidRange(serverIdPtr, 2) || !Memory::IsValid4AlignedRange(unknown2Ptr, 8))
+	if (!Memory::IsValidRange(serverIdPtr, 2) || !Memory::IsValid4AlignedRange(unknown1Ptr, 8) || !Memory::IsValid4AlignedRange(unknown2Ptr, 8))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP

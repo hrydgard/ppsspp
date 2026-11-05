@@ -40,6 +40,8 @@ public:
 	virtual VkImage GetImage(uint32_t index) const = 0;
 	virtual VkExtent2D GetExtent() const = 0;
 	virtual VkFormat GetFormat() const = 0;
+	// Array layers per image. Two makes the backbuffer pass multiview, one view per layer (VR).
+	virtual uint32_t GetImageLayers() const { return 1; }
 
 	// The layout backbuffer images should be left in after rendering, since there's no real presentation
 	// engine to hand them to via a VK_IMAGE_LAYOUT_PRESENT_SRC_KHR transition.

@@ -115,7 +115,6 @@ protected:
 
 private:
 	void OnGameSelected(UI::EventParams &e);
-	void OnGameSettings(UI::EventParams &e);
 	void UseDisc(const Path &path);
 
 	bool insert_;
@@ -130,9 +129,6 @@ public:
 	const char *tag() const override { return "GridSettings"; }
 
 private:
-	void GridPlusClick(UI::EventParams &e);
-	void GridMinusClick(UI::EventParams &e);
-	void OnRecentClearClick(UI::EventParams &e);
 	const float MAX_GAME_GRID_SCALE = 3.0f;
 	const float MIN_GAME_GRID_SCALE = 0.8f;
 };

@@ -49,6 +49,10 @@ public:
 
 	const std::string &DiscID() const { return discID_; }
 	const std::string &Title() const { return title_; }
+	// The disc's size as raw 2352-byte sectors.
+	s64 DiscSize() const { return (s64)numSectors_ * 2352; }
+	// The size of the files the disc is read from, including the cue sheet (or .ccd, .mds) describing them.
+	s64 SourceFilesSize();
 
 private:
 	struct Track {
@@ -85,6 +89,7 @@ private:
 	void BuildHeaders();
 
 	Path path_;
+	Path sheet_;  // The cue sheet, .ccd or .mds it was opened through, if any.
 	std::string error_;
 	std::vector<std::unique_ptr<FileLoader>> files_;
 	std::vector<Extent> extents_;

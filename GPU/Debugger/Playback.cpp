@@ -402,6 +402,8 @@ private:
 	u32 execListID = 0;
 	const int LIST_BUF_SIZE = 256 * 1024;
 	std::vector<u32> execListQueue;
+	// Control points of the patch Init() draws to reset the zero-normal state.
+	u32 resetPatch_ = 0;
 	u16 lastBufw_[8]{};
 	u32 lastTex_[8]{};
 	int prims_ = 0;
@@ -659,6 +661,43 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	}
 	lastBase_ = 0xFFFFFFFF;
 	initialClut_ = true;
+
+	// A zero normal lights by a sign the GE keeps from the last Bezier patch drawn, which outlives
+	// programs (ppsspp-re geprobe exp226-253). As the PSP replayer does before the replay, a flat patch
+	// facing +z sets it to +1: alpha test NEVER keeps it from drawing, texturing off from touching the
+	// texture cache, and the registers it uses go back to the context's values. Only the software renderer
+	// keeps that sign, and on the hardware renderers the patch made about 70 dumps replay black.
+	if (PSP_CoreParameter().gpuCore != GPUCORE_SOFTWARE) {
+		return;
+	}
+	if (resetPatch_ == 0) {
+		u32 size = 16 * 3 * 4;
+		resetPatch_ = userMemory.Alloc(size, true, "Reset patch");
+		if (resetPatch_ == (u32)-1)
+			resetPatch_ = 0;
+		for (int i = 0; resetPatch_ != 0 && i < 16; ++i) {
+			Memory::WriteUnchecked_Float(0.01f * (float)(i & 3), resetPatch_ + i * 12 + 0);
+			Memory::WriteUnchecked_Float(0.01f * (float)(i >> 2), resetPatch_ + i * 12 + 4);
+			Memory::WriteUnchecked_Float(0.0f, resetPatch_ + i * 12 + 8);
+		}
+	}
+	if (resetPatch_ != 0) {
+		const u32 words[] = {
+			((u32)GE_CMD_TEXTUREMAPENABLE << 24) | 0,
+			((u32)GE_CMD_ALPHATESTENABLE << 24) | 1,
+			((u32)GE_CMD_ALPHATEST << 24) | 0,
+			((u32)GE_CMD_VERTEXTYPE << 24) | GE_VTYPE_POS_FLOAT,
+			((u32)GE_CMD_BASE << 24) | ((resetPatch_ >> 8) & 0x00FF0000),
+			((u32)GE_CMD_VADDR << 24) | (resetPatch_ & 0x00FFFFFF),
+			((u32)GE_CMD_PATCHDIVISION << 24) | 1 | (1 << 8),
+			((u32)GE_CMD_PATCHPRIMITIVE << 24) | GE_PATCHPRIM_POINTS,
+			((u32)GE_CMD_PATCHFACING << 24) | 0,
+			((u32)GE_CMD_BEZIER << 24) | 4 | (4 << 8),
+			gstate.textureMapEnable, gstate.alphaTestEnable, gstate.alphatest, gstate.vertType, gstate.base,
+			((u32)GE_CMD_VADDR << 24) | (gstate_c.vertexAddr & 0x00FFFFFF), gstate.patchdivision, gstate.patchprimitive, gstate.patchfacing,
+		};
+		execListQueue.insert(execListQueue.end(), std::begin(words), std::end(words));
+	}
 }
 
 // The drawing-space bounds of a through mode draw's vertices, or false if they aren't simple to read
@@ -1095,6 +1134,8 @@ void DumpExecute::EdramTrans(u32 ptr, u32 sz) {
 }
 
 DumpExecute::~DumpExecute() {
+	if (resetPatch_ != 0)
+		userMemory.Free(resetPatch_);
 	execMemcpyDest = 0;
 	if (execListBuf) {
 		userMemory.Free(execListBuf);

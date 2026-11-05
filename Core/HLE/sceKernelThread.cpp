@@ -1869,7 +1869,7 @@ static PSPThread *__KernelNextThread() {
 	// A busy syscall keeps the CPU unless something better wants it. An idle thread stands in.
 	PSPThread *busy = busySyscalls.empty() ? nullptr : __KernelBestBusyThread();
 	if (busy) {
-		const u32 busyPriority = busy->nt.currentPriority;
+		const s32 busyPriority = busy->nt.currentPriority;
 		const SceUID bestReady = threadReadyQueue.peek_first();
 		PSPThread *bestReadyThread = bestReady != 0 ? kernelObjects.GetFast<PSPThread>(bestReady) : nullptr;
 		const bool readyOutranks = bestReadyThread && bestReadyThread->nt.currentPriority < busyPriority;
@@ -3823,7 +3823,7 @@ bool __KernelCheckCallbacks() {
 	// canceled.)
 	PSPThread *cur = __GetCurrentThread();
 	u32 error;
-	u32 bestPriority = 0xFFFFFFFF;
+	s32 bestPriority = 0x7FFFFFFF;
 	if (cur && cur->isRunning())
 		bestPriority = cur->nt.currentPriority;
 	SceUID bestReady = threadReadyQueue.peek_first();

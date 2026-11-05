@@ -234,7 +234,8 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 {
 	std::lock_guard<std::mutex> guard(g_lock);
-	if(ctx.keyLength >= 17)
+	// The context is in guest memory.
+	if(ctx.keyLength < 0 || ctx.keyLength >= 17)
 		return -1026;
 
 	int num = numFromMode(ctx.mode);
@@ -361,7 +362,8 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 {
 	std::lock_guard<std::mutex> guard(g_lock);
-	if(ctx.keyLength >= 17)
+	// The context is in guest memory.
+	if(ctx.keyLength < 0 || ctx.keyLength >= 17)
 		return -1026;
 
 	if(ctx.keyLength + length < 17)

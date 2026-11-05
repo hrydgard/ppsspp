@@ -148,6 +148,8 @@ struct GPUStatsPerFrame {
 struct GPUStatsTotals {
 	// Flip count. Doesn't really belong here.
 	int numFlips;
+	// Vulkan and Metal pipelines, and OpenGL programs, including those precompiled from the shader cache.
+	int numPipelinesCreated;
 };
 
 // The ToString function lives in GPUCommonHW.cpp.

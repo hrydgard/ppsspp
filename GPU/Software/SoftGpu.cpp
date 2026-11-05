@@ -975,6 +975,10 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, count * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Software: Bad vertex range %08x (%d verts)!", gstate_c.vertexAddr, count);
+		return;
 	}
 
 	if (gstate.isModeThrough()) {
@@ -1054,6 +1058,10 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
@@ -1075,8 +1083,11 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngine_->transformUnit.SetGeneratedNormals((gstate.vertType & GE_VTYPE_NRM_MASK) == 0);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
+	drawEngine_->transformUnit.SetGeneratedNormals(false);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
+	drawEngine_->transformUnit.NoteBezierPatch(control_points, indices, surface.num_points_u, surface.num_points_v, vertType, surface.patchFacing, drawEngine_);
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
 	MarkDirty(gstate.getFrameBufAddress(), gstate.FrameBufStride(), gstate.getRegionY2() + 1, gstate.FrameBufFormat(), mark);
@@ -1107,6 +1118,10 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+		return;
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
@@ -1130,7 +1145,9 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
+	drawEngine_->transformUnit.SetGeneratedNormals((gstate.vertType & GE_VTYPE_NRM_MASK) == 0);
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, vertType, &bytesRead, "spline");
+	drawEngine_->transformUnit.SetGeneratedNormals(false);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
@@ -1487,6 +1504,10 @@ void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEB
 {
 	// Nothing to update, but remember it for EstimateFillCycles.
 	NoteVideoRange(addr, (u32)size);
+}
+
+void SoftGPU::PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) {
+	InvalidateCache(addr, ((height - 1) * stride + width) * BufferFormatBytesPerPixel(format), GPU_INVALIDATE_HINT);
 }
 
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {

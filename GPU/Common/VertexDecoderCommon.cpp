@@ -108,11 +108,14 @@ std::string DecVtxFormat::ToString() const {
 	w.F("C0: %s ", DecFmtComponentToString(c0fmt));
 	w.F("C1: %s ", DecFmtComponentToString(c1fmt));
 	w.F("N: %s", DecFmtComponentToString(nrmfmt));
+	if (cpuLit) {
+		w.C(" CPU lit");
+	}
 	return w.as_string();
 }
 
 void DecVtxFormat::ComputeID() {
-	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20);
+	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | ((cpuLit ? 1 : 0) << 24);
 }
 
 void DecVtxFormat::InitializeFromID(uint32_t id) {
@@ -123,6 +126,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c0fmt = ((id >> 12) & 0xF);
 	c1fmt = ((id >> 16) & 0xF);
 	nrmfmt = ((id >> 20) & 0xF);
+	cpuLit = (id >> 24) & 1;
 	w0off = 0;
 	w1off = w0off + DecFmtSize(w0fmt);
 	uvoff = w1off + DecFmtSize(w1fmt);
@@ -130,6 +134,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c1off = c0off + DecFmtSize(c0fmt);
 	nrmoff = c1off + DecFmtSize(c1fmt);
 	posoff = nrmoff + DecFmtSize(nrmfmt);
+	cpuLitOff = 0;
 	stride = posoff + DecFmtSize(PosFmt());
 }
 

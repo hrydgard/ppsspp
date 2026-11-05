@@ -45,4 +45,16 @@ private:
 
 void RestartMacApp();
 
+#if PPSSPP_PLATFORM(MAC)
+// True while a panel from DarwinPresentPanel is up. SDL delivers input to its window regardless,
+// so the caller has to drop it.
+bool DarwinIsPanelOpen();
+#endif
+
+#if PPSSPP_PLATFORM(MAC) && defined(__OBJC__)
+#import <AppKit/AppKit.h>
+// Shows the panel as a sheet on the key (or main) window, so that focus returns to it afterwards.
+void DarwinPresentPanel(NSSavePanel *panel, void (^handler)(NSModalResponse response));
+#endif
+
 #endif

@@ -34,7 +34,10 @@ Example:
         --game "~/PSP/LocoRoco.cso@~/.config/ppsspp/PSP/PPSSPP_STATE/UCES00304_1.01_0.ppst" \\
         old/PPSSPPHeadless build-release/PPSSPPHeadless
 
-A game is ISO[@SAVESTATE], or a frame dump (.ppdmp), which replays and exits on its own.
+A game is ISO[@SAVESTATE], a frame dump (.ppdmp), which replays and exits on its own, or a savestate (.ppst)
+on its own, which headless boots without its game. --state-dir adds every .ppst in a directory. For those,
+"discfail" counts the disc reads that failed because the game isn't there. When it isn't 0, the game has
+left its usual path at least a little, so a state with fewer is a better benchmark.
 """
 
 import argparse
@@ -168,6 +171,7 @@ def run_once(binary, game, args, prefix, kind):
     is_dump = iso.lower().endswith('.ppdmp')
     if not is_dump:
         cmd += ['--timeout-emulated=%g' % args.emu_secs, '--timeout-wall=%d' % args.wall_limit]
+    is_state_boot = iso.lower().endswith('.ppst')
     if state:
         cmd.append('--state=' + os.path.expanduser(state))
     cmd += args.extra
@@ -194,12 +198,17 @@ def run_once(binary, game, args, prefix, kind):
     if not is_dump and 'TIMEOUT (emulated)' not in output:
         raise RuntimeError('%s didn\'t run %s for its emulated time:\n%s' % (binary, game, output[-2000:]))
     # Loaded State, or a warning that starts with Loaded.
-    if state and not re.search(r'^Loaded', output, re.M):
+    if (state or is_state_boot) and not re.search(r'^Loaded', output, re.M):
         raise RuntimeError('%s didn\'t load the savestate for %s:\n%s' % (binary, game, (stdout + stderr)[-2000:]))
     result = {'wall': wall}
     if cpu is not None:
         result['cpu'] = cpu
     result.update(parse_counters(kind, stderr))
+    if is_state_boot:
+        m = re.search(r'^Failed disc reads: (\d+)', stderr, re.M)
+        if not m:
+            raise RuntimeError('%s didn\'t report failed disc reads for %s (too old to boot a state?)' % (binary, game))
+        result['discfail'] = int(m.group(1))
     return result
 
 
@@ -220,6 +229,8 @@ def report(game, binaries, results):
                 delta = ' (%+.2f%%)' % (100.0 * (med / base[k] - 1.0))
             value = ('%.2fs' % med) if k in ('wall', 'cpu') else ('%.4g' % med)
             cols.append('%s %s%s +-%.1f%%' % (k, value, delta, spread / 2))
+        if all('discfail' in r for r in results[b]):
+            cols.append('discfail %d' % statistics.median(r['discfail'] for r in results[b]))
         print('  %-28s %s' % (os.path.basename(os.path.dirname(b)) + '/' + os.path.basename(b), '  '.join(cols)))
 
 
@@ -228,6 +239,7 @@ def main():
     parser.add_argument('binaries', nargs='+', help='PPSSPPHeadless binaries; the first is the baseline')
     parser.add_argument('--game', action='append', default=[], help='ISO[@SAVESTATE] or a .ppdmp (repeatable)')
     parser.add_argument('--games', help='JSON file: a list of games as for --game')
+    parser.add_argument('--state-dir', action='append', default=[], help='directory of savestates to boot without their games (repeatable)')
     parser.add_argument('--rounds', type=int, default=4, help='runs per binary and game (default 4)')
     parser.add_argument('--warmup', type=int, default=1, help='uncounted rounds first (default 1)')
     parser.add_argument('--emu-secs', type=float, default=5, help='emulated seconds per run (default 5)')
@@ -249,8 +261,13 @@ def main():
     games = list(args.game)
     if args.games:
         games += json.load(open(args.games))
+    for d in args.state_dir:
+        found = sorted(glob.glob(os.path.join(os.path.expanduser(d), '*.ppst')))
+        if not found:
+            parser.error('no .ppst files in ' + d)
+        games += found
     if not games:
-        parser.error('no games: pass --game or --games')
+        parser.error('no games: pass --game, --games or --state-dir')
     binaries = [os.path.abspath(b) for b in args.binaries]
     for b in binaries:
         if not os.access(b, os.X_OK):

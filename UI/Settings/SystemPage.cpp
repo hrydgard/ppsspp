@@ -26,6 +26,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/Render/ManagedTexture.h"
@@ -44,6 +45,7 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/FirmwareSounds.h"
@@ -177,23 +179,51 @@ static void OnJitAffectingSetting() {
 	System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 }
 
+// A firmware only has the files of the model it was installed for, and its XMB looks for the files of
+// the model we report. So a change to a model the installed firmware doesn't fit gets a warning.
+static void OnPSPModelChanged(SettingsPageHost *host, int previous) {
+	if (g_Config.iPSPModel == previous) {
+		return;
+	}
+	InstalledFirmwareInfo firmware;
+	ReadInstalledFirmwareInfo(GetSysDirectory(DIRECTORY_NAND), &firmware, false);
+	if (InstalledFirmwareFitsModel(firmware, g_Config.iPSPModel)) {
+		return;
+	}
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	const std::string message = ApplySafeSubstitutions(
+		sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model than the selected one, so the XMB may not work until you install it again."),
+		firmware.version);
+	host->PageScreenManager()->push(new UI::MessagePopupScreen(sy->T("PSP Model"), message, di->T("OK"), di->T("Cancel"), [host, previous](bool yes) {
+		if (!yes) {
+			g_Config.iPSPModel = previous;
+		}
+		// Either way, so the next change compares against the model now set.
+		host->RecreatePageViews();
+	}));
+}
+
 // Using SYSTEM translations
 static void BuildPSPSettingsPage(SettingsPage *page) {
 	SettingsPageHost *host = page->Host();
 
-	page->Header("PSP Settings");
+	page->Header("PSP system settings");
 
 	// The ordering here is simply mapping directly to PSP_SYSTEMPARAM_LANGUAGE_*.
 	page->Setting(&g_Config.iLanguage);
+	const int modelShown = g_Config.iPSPModel;
 	page->Setting(&g_Config.iPSPModel).EnabledFunc([] {
 		return !PSP_IsInited();
+	}).OnChange([host, modelShown](UI::EventParams &) {
+		OnPSPModelChanged(host, modelShown);
 	});
 	page->Custom("Nickname", [host](UI::ViewGroup *parent) {
 		return AddNicknameChoice(host, parent);
 	});
-	page->Setting(&g_Config.bDayLightSavings);
 	page->Setting(&g_Config.iDateFormat);
 	page->Setting(&g_Config.iTimeFormat);
+	page->Setting(&g_Config.bDayLightSavings);
 	page->Setting(&g_Config.iButtonPreference);
 
 	// How much of PPSSPP looks and sounds like the PSP's own system software. The firmware styles
@@ -225,9 +255,44 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	SettingsPageHost *host = page->Host();
 
 	page->Header();
-	page->Link({I18NCat::SYSTEM, "PSP Settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
+	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
 
-	page->Header("PSP Memory Stick");
+	page->Header("Cheats");
+	page->Setting(&g_Config.bEnableCheats);
+	page->Setting(&g_Config.bEnablePlugins);
+
+	page->Header("Emulation");
+
+	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
+		OnJitAffectingSetting();
+	});
+	page->Setting(&g_Config.bIgnoreBadMemAccess);
+
+	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
+		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
+			return !PSP_IsInited();
+		});
+	}
+
+	page->Setting(&g_Config.iIOTimingMethod);
+	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip);
+	page->Setting(&g_Config.iLockedCPUSpeed);
+
+	page->Header({I18NCat::SAVEDATA, "Save states"});  // Borrow this string from the savedata manager
+
+	page->Setting(&g_Config.bEnableStateUndo);
+	page->Setting(&g_Config.bConfirmLoadState);
+
+	page->Setting(&g_Config.iSaveStateSlotCount);
+
+	// NOTE: We will soon support more states, but we'll keep this niche feature limited to the first five.
+	page->Setting(&g_Config.iAutoLoadSaveState).Setup([](View *view) {
+		if (g_Config.iAutoLoadSaveState != 1) {
+			static_cast<PopupMultiChoice *>(view)->HideChoice(1);  // Hide "Oldest Save" if not using that mode. It doesn't make sense.
+		}
+	});
+
+	page->Header("PSP storage settings");
 
 	if (System_GetPropertyBool(SYSPROP_HAS_OPEN_DIRECTORY)) {
 		page->Choice("Show Memory Stick folder").OnClick([](UI::EventParams &p) {
@@ -288,24 +353,8 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	page->Setting(&g_Config.bMemStickInserted);
 	page->Setting(&g_Config.iMemStickSizeGB);
 
-	page->Header("Emulation");
 
-	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
-		OnJitAffectingSetting();
-	});
-	page->Setting(&g_Config.bIgnoreBadMemAccess);
-
-	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
-		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
-			return !PSP_IsInited();
-		});
-	}
-
-	page->Setting(&g_Config.iIOTimingMethod);
-	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip);
-	page->Setting(&g_Config.iLockedCPUSpeed);
-
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	page->Header("Recording");
 	page->Setting(&g_Config.bDumpFrames);
 	page->Setting(&g_Config.bDumpVideoOutput);

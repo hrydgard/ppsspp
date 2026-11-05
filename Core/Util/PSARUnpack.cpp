@@ -697,6 +697,11 @@ int PSARReader::NextEntry(std::string *error) {
 
 	const u32 chunkSize = ReadU32(block_.data() + 0x104);
 	const u32 expandedSize = ReadU32(block_.data() + 0x108);
+	// pos_ is a u32, so a huge chunk would wrap it back to an earlier entry and loop forever.
+	if (chunkSize > limit_ - std::min((size_t)pos_, limit_)) {
+		*error = StringFromFormat("Entry '%s' runs past the end of the archive (%u bytes)", entryName_.c_str(), chunkSize);
+		return -1;
+	}
 
 	if (expandedSize == 0) {
 		entryIsDirectory_ = true;
@@ -1323,6 +1328,31 @@ void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info
 	if (File::ReadTextFileToString(flash0 / "vsh/etc/version.txt", &versionTxt)) {
 		ParseVersionTxt(versionTxt, info);
 	}
+
+	// 3.x names them nandipl_psp1000.bin and nandipl_psp2000.ipl (psp02h in 4.x), 5.x on nandipl_01g.bin
+	// and so on. Older firmwares have one psp_ipl.bin or psp_nandipl.bin for every model.
+	std::vector<File::FileInfo> ipls;
+	File::GetFilesInDir(nandRoot / "ipl", &ipls);
+	bool anyModelTagged = false;
+	for (const File::FileInfo &ipl : ipls) {
+		const std::string name = ipl.name;
+		const bool for1000 = name.find("psp1000") != std::string::npos || name.find("_01g") != std::string::npos;
+		const bool for2000 = name.find("psp2000") != std::string::npos || name.find("psp02h") != std::string::npos || name.find("_02g") != std::string::npos;
+		info->forPSP1000 |= for1000;
+		info->forPSP2000 |= for2000;
+		anyModelTagged |= for1000 || for2000 || name.find("g.") != std::string::npos;
+	}
+	if (!anyModelTagged) {
+		info->forPSP1000 = true;
+		info->forPSP2000 = true;
+	}
+}
+
+bool InstalledFirmwareFitsModel(const InstalledFirmwareInfo &info, int pspModel) {
+	if (!info.hasVsh) {
+		return true;
+	}
+	return pspModel == PSP_MODEL_FAT ? info.forPSP1000 : info.forPSP2000;
 }
 
 bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
@@ -1337,7 +1367,51 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 			success = false;
 		}
 	}
+
+	// Also reset the category version.
+	g_Config.iSceRegCategoryVersion = 1;
 	return success;
+}
+
+int SceRegCategoryVersionForFirmware(std::string_view version) {
+	// The default of /REGISTRY/category_version in each firmware's registry schema, a table of
+	// { name, type, size, default } entries in vsh/module/vshmain.prx (common_util.prx before 2.00).
+	// When the stored version is below this, the shell writes the default of every key added since
+	// that version (from 1, that includes umd_autoboot). One above it means a corrupt registry.
+	static const struct {
+		int firmware;  // The first firmware with this version, as FirmwareVersionToInt() gives it.
+		int categoryVersion;
+	} versions[] = {
+		{ 100, 0x00 }, { 150, 0x01 }, { 200, 0x06 }, { 250, 0x13 }, { 260, 0x14 }, { 270, 0x1b },
+		{ 280, 0x20 }, { 300, 0x26 }, { 310, 0x2c }, { 330, 0x31 }, { 350, 0x35 }, { 360, 0x36 },
+		{ 370, 0x3b }, { 380, 0x3e }, { 395, 0x40 }, { 405, 0x43 }, { 420, 0x46 }, { 500, 0x4c },
+		{ 550, 0x58 }, { 570, 0x61 }, { 600, 0x63 }, { 620, 0x64 }, { 630, 0x66 },
+	};
+	const int fw = FirmwareVersionToInt(version);
+	if (fw < versions[0].firmware) {
+		return 1;
+	}
+	int categoryVersion = versions[0].categoryVersion;
+	for (const auto &v : versions) {
+		if (fw >= v.firmware) {
+			categoryVersion = v.categoryVersion;
+		}
+	}
+	return categoryVersion;
+}
+
+int SceRegCategoryVersionAfterInstall(int storedVersion, int schemaVersion) {
+	// A shell upgrades the registry itself at its first boot: it writes the default of every key added
+	// since the stored version and stores its own (seen booting 3.71 and 6.61 on older versions). So an
+	// upgrade leaves the stored version alone. A PSP can't be downgraded, and an older shell takes a newer
+	// version for a corrupt registry, so a downgrade goes back to 1. Its first boot then rewrites every
+	// key added since 1.50, which includes the theme, colour, wallpaper and UMD autoboot settings; the
+	// language, nickname, button assignment, date and time keys are older and stay. Keeping a newer
+	// shell's values across a downgrade and back broke the theme settings and then 6.61's boot (#22909).
+	if (storedVersion > schemaVersion) {
+		return 1;
+	}
+	return storedVersion;
 }
 
 int FirmwareVersionToInt(std::string_view version) {
@@ -1670,6 +1744,9 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 
 	if (ok) {
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
+	}
+	if (ok) {
+		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionAfterInstall(g_Config.iSceRegCategoryVersion, SceRegCategoryVersionForFirmware(stats->firmwareVersion));
 	}
 
 	// Whether it worked or not, don't leave the staging copy behind.

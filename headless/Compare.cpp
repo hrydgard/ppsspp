@@ -403,6 +403,13 @@ double ScreenshotComparer::Compare(const Path &screenshotFilename) {
 				return -1.0f;
 			}
 
+			// Everything below reads w_ x h_ pixels from it.
+			if (width < (int)w_ || height < (int)h_) {
+				error_ = StringFromFormat("Screenshot is too small (%dx%d, expected %dx%d): %s", width, height, (int)w_, (int)h_, screenshotFilename.ToVisualString().c_str());
+				free(reference_);
+				reference_ = nullptr;
+				return -1.0f;
+			}
 			referenceStride_ = width;
 		}
 	} else {

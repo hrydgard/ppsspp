@@ -24,6 +24,7 @@
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/TimeUtil.h"
+#include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -210,6 +211,8 @@ struct IoAsyncParams {
 static IoAsyncParams asyncParams[PSP_COUNT_FDS];
 static HLEHelperThread *asyncThreads[PSP_COUNT_FDS]{};
 static int asyncDefaultPriority = -1;
+// See sceIoDevctl("fatmsOem0:"). Not saved in states, since nothing reads it but the guest.
+static u32 g_fatmsOemValue = 0;
 
 class FileNode : public KernelObject {
 public:
@@ -668,6 +671,7 @@ void __IoInit() {
 	__KernelListenThreadEnd(&TellFsThreadEnded);
 
 	memset(fds, 0, sizeof(fds));
+	g_fatmsOemValue = 0;
 
 	ioManagerThreadEnabled = true;
 	ioManager.SetThreadEnabled(true);
@@ -681,8 +685,9 @@ void __IoInit() {
 	lastMemStickFatState = MemoryStick_FatState();
 }
 
+// Savestates call this, also while stepping, when a plain SyncThread() wouldn't wait.
 void __IoWaitForAsync() {
-	ioManager.SyncThread();
+	ioManager.SyncThread(true);
 }
 
 void __IoShutdown() {
@@ -951,7 +956,7 @@ static bool IsRemovedMemstickPath(const char *path) {
 	if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
 		return false;
 	}
-	return startsWithNoCase(path, "ms0:") || startsWithNoCase(path, "fatms0:");
+	return startsWithNoCase(path, "ms0:") || startsWithNoCase(path, "fatms0:") || startsWithNoCase(path, "msoem0:");
 }
 
 static u32 sceIoGetstat(const char *filename, u32 addr) {
@@ -1043,8 +1048,13 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	block  = pgd->file_offset/pgd->block_size;
 	offset = pgd->file_offset%pgd->block_size;
 
-	if (size > (int)pgd->data_size)
-		size = (int)pgd->data_size;
+	// Unsigned: data_size comes from the (forgeable) header, and a value over 2^31 turned the
+	// clamp into a huge read. Only what's left of the file can be read, too.
+	const u32 available = pgd->file_offset < pgd->data_size ? pgd->data_size - pgd->file_offset : 0;
+	if (size < 0)
+		size = 0;
+	if ((u32)size > available)
+		size = (int)available;
 	remain_size = size;
 
 	KirkState *kirk = __ChnnlsvKirkState();
@@ -1763,6 +1773,10 @@ struct DeviceSize {
 	u32_le sectorCount;
 };
 
+static u32 IoOpenFatSearch(u32 argAddr, int argLen);
+static u32 IoGetstatFatComponentPath(u32 argAddr, int argLen);
+static u32 IoOpenFatComponentPath(u32 argAddr, int argLen);
+
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
 		DEBUG_LOG(Log::sceIo,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
@@ -1818,7 +1832,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		}
 		break;
 	case 0x01F20003:
-		if (Memory::IsValid4AlignedRange(argAddr, 4) && argLen >= 4) {
+		if (Memory::IsValid4AlignedRange(argAddr, 4) && argLen >= 4 && Memory::IsValid4AlignedRange(outPtr, 4) && outLen >= 4) {
 			PSPFileInfo info = pspFileSystem.GetFileInfo("umd1:");
 			Memory::WriteUnchecked_U32((u32) (info.size) - 1, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
@@ -2019,6 +2033,35 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02425856:
 			// Used by VSH, no clue what it should do. Let's just return 0.
 			return hleLogError(Log::sceIo, 0, "Unknown memstick devctl: %08x", cmd);
+		case 0x02415864:
+			// Directory search, used by the VSH media browsers before 3.80.
+			return IoOpenFatSearch(argAddr, argLen);
+		case 0x02435865:
+			// Getstat, with the path given the same way as 0x02415864.
+			return IoGetstatFatComponentPath(argAddr, argLen);
+		case 0x02435860:
+			// Open, with the path given the same way as 0x02415864.
+			return IoOpenFatComponentPath(argAddr, argLen);
+		}
+	}
+
+	if (!strcmp(name, "fatmsOem0:")) {
+		// From fatmsmod.prx (1.50): 0x02405852 stores a word in the driver and 0x02405853 reads it
+		// back into the argument. Probably the OEM code page for 8.3 names (the 1.50 VSH sets it
+		// at boot). We don't use it.
+		switch (cmd) {
+		case 0x02405852:
+			if (!Memory::IsValid4AlignedAddress(argAddr) || argLen < 4) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			}
+			g_fatmsOemValue = Memory::ReadUnchecked_U32(argAddr);
+			return hleLogDebug(Log::sceIo, 0, "set %d", g_fatmsOemValue);
+		case 0x02405853:
+			if (!Memory::IsValid4AlignedAddress(argAddr) || argLen < 4) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+			}
+			Memory::WriteUnchecked_U32(g_fatmsOemValue, argAddr);
+			return hleLogDebug(Log::sceIo, 0, "get %d", g_fatmsOemValue);
 		}
 	}
 
@@ -2747,6 +2790,272 @@ static u32 sceIoDclose(int id) {
 	return hleLogDebug(Log::sceIo, kernelObjects.Destroy<DirListing>(id));
 }
 
+// Reads a null-terminated UTF-16 string from guest memory.
+static bool ReadGuestUTF16(u32 addr, std::string *out) {
+	std::u16string str;
+	for (int i = 0; i < 256; i++) {
+		if (!Memory::IsValidRange(addr + i * 2, 2)) {
+			return false;
+		}
+		const char16_t c = Memory::ReadUnchecked_U16(addr + i * 2);
+		if (c == 0) {
+			*out = ConvertUCS2ToUTF8(str);
+			return true;
+		}
+		str.push_back(c);
+	}
+	return false;
+}
+
+// Reads a null-terminated list of pointers to UTF-16 strings.
+static bool ReadGuestUTF16List(u32 addr, std::vector<std::string> *out) {
+	for (int i = 0; i < 64; i++) {
+		if (!Memory::IsValid4AlignedAddress(addr + i * 4)) {
+			return false;
+		}
+		const u32 ptr = Memory::ReadUnchecked_U32(addr + i * 4);
+		if (ptr == 0) {
+			return true;
+		}
+		std::string str;
+		if (!ReadGuestUTF16(ptr, &str)) {
+			return false;
+		}
+		out->push_back(str);
+	}
+	return false;
+}
+
+// A path given as a list of UTF-16 components, like "/", "PSP", "MUSIC".
+static bool ReadFatComponentPath(u32 addr, std::string *path) {
+	std::vector<std::string> components;
+	if (!ReadGuestUTF16List(addr, &components)) {
+		return false;
+	}
+	*path = "ms0:";
+	for (const std::string &component : components) {
+		if (component != "/") {
+			*path += "/" + component;
+		}
+	}
+	if (*path == "ms0:") {
+		*path += "/";
+	}
+	return true;
+}
+
+// sceIoDevctl("ms0:", 0x02435865): sceIoGetstat with the path given as UTF-16 components (see
+// IoOpenFatSearch). The argument is { path list, SceIoStat *, options }.
+static u32 IoGetstatFatComponentPath(u32 argAddr, int argLen) {
+	if (argLen < 12 || !Memory::IsValid4AlignedAddress(argAddr)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 pathListAddr = Memory::ReadUnchecked_U32(argAddr);
+	const u32 statAddr = Memory::ReadUnchecked_U32(argAddr + 4);
+	const u32 optionsAddr = Memory::ReadUnchecked_U32(argAddr + 8);
+	std::string path;
+	if (!pathListAddr || !optionsAddr || !Memory::IsValidRange(statAddr, sizeof(SceIoStat)) || !ReadFatComponentPath(pathListAddr, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const PSPFileInfo info = pspFileSystem.GetFileInfo(path);
+	if (!info.exists) {
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "%s not found", path.c_str());
+	}
+	__IoGetStat((SceIoStat *)Memory::GetPointerUnchecked(statAddr), info, true);
+	return hleLogDebug(Log::sceIo, 0, "%s", path.c_str());
+}
+
+// sceIoDevctl("ms0:", 0x02435860): sceIoOpen with the path given as UTF-16 components (see
+// IoOpenFatSearch). The argument is { path list, flags, mode, options }, and the result a file fd.
+static u32 IoOpenFatComponentPath(u32 argAddr, int argLen) {
+	if (argLen < 16 || !Memory::IsValid4AlignedAddress(argAddr)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 pathListAddr = Memory::ReadUnchecked_U32(argAddr);
+	const int flags = (int)Memory::ReadUnchecked_U32(argAddr + 4);
+	const int mode = (int)Memory::ReadUnchecked_U32(argAddr + 8);
+	const u32 optionsAddr = Memory::ReadUnchecked_U32(argAddr + 12);
+	std::string path;
+	if (!pathListAddr || !optionsAddr || !ReadFatComponentPath(pathListAddr, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	int error = 0;
+	FileNode *f = __IoOpen(error, path.c_str(), flags, mode);
+	if (!f) {
+		return hleLogWarning(Log::sceIo, error, "%s: open failed", path.c_str());
+	}
+	const int id = __IoAllocFd(f);
+	if (id < 0) {
+		kernelObjects.Destroy<FileNode>(f->GetUID());
+		return hleLogError(Log::sceIo, id, "out of fds");
+	}
+	asyncParams[id].priority = asyncDefaultPriority;
+	return hleLogDebug(Log::sceIo, id, "%s", path.c_str());
+}
+
+// Case-insensitive, like FAT. Only * and ?.
+static bool FatPatternMatch(const char *pattern, const char *name) {
+	if (*pattern == '\0') {
+		return *name == '\0';
+	}
+	if (*pattern == '*') {
+		for (const char *n = name; ; n++) {
+			if (FatPatternMatch(pattern + 1, n)) {
+				return true;
+			}
+			if (*n == '\0') {
+				return false;
+			}
+		}
+	}
+	if (*name == '\0') {
+		return false;
+	}
+	if (*pattern != '?' && tolower((unsigned char)*pattern) != tolower((unsigned char)*name)) {
+		return false;
+	}
+	return FatPatternMatch(pattern + 1, name + 1);
+}
+
+// The memory stick FAT driver's directory search, which the VSH's media browsers used before
+// 3.80 switched them to sceIoDopen/sceIoDread. sceIoDevctl("ms0:", 0x02415864) takes three
+// pointers: a null-terminated list of UTF-16 path components ("/", "PSP", "MUSIC"), a list of
+// UTF-16 name patterns, and an options struct. It returns a directory fd, read with
+// sceIoIoctl(0x02425069) and closed with sceIoDclose.
+// From fatmsmod.prx (3.71): the devctl opens "ms0:....****DOPEN MAGIC NAME****...." and passes
+// the arguments on to the dir with ioctl 0x0243D85F, which starts a FAT find-first.
+static u32 IoOpenFatSearch(u32 argAddr, int argLen) {
+	if (argLen < 12 || !Memory::IsValid4AlignedAddress(argAddr)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 pathListAddr = Memory::ReadUnchecked_U32(argAddr);
+	const u32 patternListAddr = Memory::ReadUnchecked_U32(argAddr + 4);
+	const u32 optionsAddr = Memory::ReadUnchecked_U32(argAddr + 8);
+	if (!pathListAddr || !patternListAddr || !optionsAddr) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "null arg");
+	}
+
+	std::string path;
+	std::vector<std::string> patterns;
+	if (!ReadFatComponentPath(pathListAddr, &path) || !ReadGuestUTF16List(patternListAddr, &patterns)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path or pattern list");
+	}
+
+	bool exists = false;
+	std::vector<PSPFileInfo> listing = pspFileSystem.GetDirListing(path, &exists);
+	if (!exists) {
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "%s not found", path.c_str());
+	}
+
+	DirListing *dir = new DirListing();
+	for (const PSPFileInfo &info : listing) {
+		if (info.name == "." || info.name == "..") {
+			continue;
+		}
+		for (const std::string &pattern : patterns) {
+			if (FatPatternMatch(pattern.c_str(), info.name.c_str())) {
+				dir->listing.push_back(info);
+				break;
+			}
+		}
+	}
+	dir->index = 0;
+	dir->name = path;
+	const SceUID id = kernelObjects.Create(dir);
+	return hleLogDebug(Log::sceIo, id, "%s: %d matching entries", path.c_str(), (int)dir->listing.size());
+}
+
+static void WriteGuestUTF16(u32 addr, const std::string &str, int maxChars) {
+	const std::u16string utf16 = ConvertUTF8ToUCS2(str);
+	int i = 0;
+	for (; i < (int)utf16.size() && i < maxChars - 1; i++) {
+		Memory::WriteUnchecked_U16(utf16[i], addr + i * 2);
+	}
+	Memory::WriteUnchecked_U16(0, addr + i * 2);
+}
+
+// Fills a SceIoDirent with the next entry of dir, like sceIoDread, but with d_private always in
+// the old layout (8.3 name at +0, long name at +13), which is what fatms writes for these ioctls.
+// Returns the entry's index, or -1 at the end.
+static int IoReadFatDirent(DirListing *dir, u32 direntAddr) {
+	if (dir->index >= (int)dir->listing.size()) {
+		return -1;
+	}
+	const int index = dir->index++;
+	const PSPFileInfo &info = dir->listing[index];
+	const std::string &shortName = dir->ShortName(index);
+
+	SceIoDirEnt *entry = (SceIoDirEnt *)Memory::GetPointerUnchecked(direntAddr);
+	__IoGetStat(&entry->d_stat, info, true);
+	strcpy_limit(entry->d_name, info.name.c_str(), ARRAY_SIZE(entry->d_name));
+	if (Memory::IsValidRange(entry->d_private, 13 + 256)) {
+		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
+		strcpy_limit((char *)Memory::GetPointerUnchecked(entry->d_private + 13), entry->d_name, 256);
+	}
+	return index;
+}
+
+// On FAT, a name that's already a valid 8.3 name has no long name entry.
+static std::string FatLongName(DirListing *dir, int index) {
+	const std::string &name = dir->listing[index].name;
+	return name == dir->ShortName(index) ? std::string() : name;
+}
+
+// Reads the next entry of a search started by IoOpenFatSearch. The 0x224 byte argument holds:
+//   +0x000  SceIoDirent *, filled as by sceIoDread
+//   +0x004  the 8.3 name in UTF-16, 13 chars
+//   +0x01E  the long name in UTF-16, 256 chars, empty if the entry has none
+//   +0x220  int *, gets the status of converting the 8.3 name to UTF-16 (1 = lossy, which the
+//           music browser skips if there's no long name either)
+// Returns 1 per entry, 0 at the end.
+static int IoReadFatSearchEntry(DirListing *dir, u32 argAddr, u32 argLen) {
+	if (argLen != 0x224 || !Memory::IsValidRange(argAddr, 0x224)) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const u32 direntAddr = Memory::ReadUnchecked_U32(argAddr);
+	if (!Memory::IsValidRange(direntAddr, sizeof(SceIoDirEnt))) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const int index = IoReadFatDirent(dir, direntAddr);
+	if (index < 0) {
+		return 0;
+	}
+	WriteGuestUTF16(argAddr + 0x4, dir->ShortName(index), 13);
+	WriteGuestUTF16(argAddr + 0x1E, FatLongName(dir, index), 256);
+	const u32 statusAddr = Memory::ReadUnchecked_U32(argAddr + 0x220);
+	if (Memory::IsValid4AlignedAddress(statusAddr)) {
+		Memory::WriteUnchecked_U32(0, statusAddr);
+	}
+	return 1;
+}
+
+// ioctl 0x02425051 on a memory stick directory fd: sceIoDread plus the name in UTF-16, which the
+// 1.50 XMB's music browser reads folders with. From fatmsmod.prx (1.50). The 0x208 byte argument:
+//   +0x000  SceIoDirent *, filled as by sceIoDread
+//   +0x004  the long name in UTF-16, 256 chars. If the entry has none: the 8.3 name if the flag
+//           at +0x204 is 1, else empty.
+//   +0x204  int flag, see above
+// Returns 1 per entry, 0 at the end.
+static int IoReadFatDirentUTF16(DirListing *dir, u32 argAddr, u32 argLen) {
+	if (argLen < 0x208 || !Memory::IsValidRange(argAddr, 0x208)) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const u32 direntAddr = Memory::ReadUnchecked_U32(argAddr);
+	if (!Memory::IsValidRange(direntAddr, sizeof(SceIoDirEnt))) {
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+	}
+	const int index = IoReadFatDirent(dir, direntAddr);
+	if (index < 0) {
+		return 0;
+	}
+	std::string name = FatLongName(dir, index);
+	if (name.empty() && Memory::ReadUnchecked_U32(argAddr + 0x204) == 1) {
+		name = dir->ShortName(index);
+	}
+	WriteGuestUTF16(argAddr + 0x4, name, 256);
+	return 1;
+}
+
 int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
@@ -2774,7 +3083,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	case 0x04100001: {
 		u8 keybuf[16];
 		u8 *key_ptr;
-		u8 pgd_header[0x90];
+		// Zeroed in case the file is shorter.
+		u8 pgd_header[0x90]{};
 		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 
 		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
@@ -2788,6 +3098,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		KirkState *kirk = __ChnnlsvKirkState();
+		// Calling this again would otherwise leak the previous one.
+		if (f->pgdInfo) {
+			pgd_close(f->pgdInfo);
+			f->pgdInfo = nullptr;
+		}
 		f->pgdInfo = pgd_open(kirk, pgd_header, 2, key_ptr);
 		if (!f->pgdInfo) {
 			f->npdrm = false;
@@ -3026,6 +3341,17 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 }
 
 u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen) {
+	if (cmd == 0x02425069 || cmd == 0x02425051) {
+		// Reading a memory stick directory, so these work on a directory fd.
+		u32 error;
+		if (DirListing *dir = kernelObjects.Get<DirListing>(id, error)) {
+			const int result = cmd == 0x02425069 ? IoReadFatSearchEntry(dir, indataPtr, inlen) : IoReadFatDirentUTF16(dir, indataPtr, inlen);
+			if (result == 1) {
+				return hleLogDebug(Log::sceIo, result, "%s", dir->listing[dir->index - 1].name.c_str());
+			}
+			return hleLogDebugOrError(Log::sceIo, result);
+		}
+	}
 	int usec = 0;
 	int result = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	if (usec != 0) {

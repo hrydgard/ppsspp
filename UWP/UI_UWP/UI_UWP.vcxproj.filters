@@ -190,6 +190,7 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="..\..\UI\GameBrowser.cpp" />
+    <ClCompile Include="..\..\UI\GameButton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -357,6 +358,7 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\GameBrowser.h" />
+    <ClInclude Include="..\..\UI\GameButton.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ImDebugger">

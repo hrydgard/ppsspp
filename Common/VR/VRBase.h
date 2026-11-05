@@ -69,8 +69,13 @@ typedef struct {
 	void* ColorSwapChainImage;
 	unsigned int* GLDepthBuffers;
 	unsigned int* GLFrameBuffers;
+	// Vulkan: one swapchain whose images have a layer per eye.
+	int ArraySize;
+	int64_t SwapchainFormat;  // As created (sRGB, on Vulkan we render through a UNORM view).
 
 	bool Acquired;
+	// At least one image has been released, so the swapchain can be put in a layer.
+	bool EverReleased;
 } ovrFramebuffer;
 
 typedef struct {
@@ -99,6 +104,11 @@ typedef struct {
 	int LayerCount;
 
 	ovrRenderer Renderer;
+
+#ifdef XR_USE_GRAPHICS_API_VULKAN
+	// Set before VR_EnterVR to create the session for Vulkan instead of OpenGL.
+	XrGraphicsBindingVulkanKHR VulkanBinding;
+#endif
 } ovrApp;
 
 #ifdef ANDROID
@@ -122,6 +132,8 @@ enum VRPlatformFlag {
 	VR_PLATFORM_EXTENSION_PASSTHROUGH,
 	VR_PLATFORM_EXTENSION_PERFORMANCE,
 	VR_PLATFORM_TRACKING_FLOOR,
+	VR_PLATFORM_EXTENSION_VULKAN,  // The runtime has XR_KHR_vulkan_enable.
+	VR_PLATFORM_RENDERER_VULKAN,   // The session is a Vulkan one.
 	VR_PLATFORM_MAX
 };
 

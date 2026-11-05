@@ -59,7 +59,7 @@
       <SDLCheck>false</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../../ext/libchdr/include;../../ext/ffmpeg;../..;../../ext/native;../../ext/snappy;../../ext/libpng17;../../Common;../../ext/zlib;../../ext/zstd/lib;../../ext;../../ext/armips/;../../ext/armips/ext/filesystem/include/;../../ext/armips/ext/tinyformat/;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USE_FFMPEG;WITH_UPNP;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;ARMIPS_USE_STD_FILESYSTEM;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;WITH_UPNP;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_ARM64_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;ARMIPS_USE_STD_FILESYSTEM;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -75,7 +75,7 @@
       <SDLCheck>false</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../../ext/libchdr/include;../../ext/ffmpeg;../..;../../ext/native;../../ext/snappy;../../ext/libpng17;../../Common;../../ext/zlib;../../ext/zstd/lib;../../ext;../../ext/armips/;../../ext/armips/ext/filesystem/include/;../../ext/armips/ext/tinyformat/;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>USE_FFMPEG;WITH_UPNP;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;USE_FFMPEG;WITH_UPNP;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_UNICODE;UNICODE;ARMIPS_USE_STD_FILESYSTEM;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -182,6 +182,7 @@
     <ClInclude Include="..\..\Core\HLE\KUBridge.h" />
     <ClInclude Include="..\..\Core\HLE\sceSysreg.h" />
     <ClInclude Include="..\..\Core\HLE\PopsBoot.h" />
+    <ClInclude Include="..\..\Core\HLE\AdhocTransport.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhoc.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhocServer.h" />
     <ClInclude Include="..\..\Core\HLE\ReplaceTables.h" />
@@ -536,6 +537,9 @@
     <ClCompile Include="..\..\Core\HLE\sceNet.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNet_lib.cpp" />
     <ClCompile Include="..\..\Core\HLE\NetAdhocCommon.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AdhocTransportP2P.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AdhocTransportRelay.cpp" />
+    <ClCompile Include="..\..\Core\HLE\AdhocTransportNetSim.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhoc.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNetAdhocMatching.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceNp.cpp" />

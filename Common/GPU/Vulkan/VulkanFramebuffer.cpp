@@ -299,7 +299,8 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 		_dbg_assert_(key.stencilLoadAction != VKRRenderPassLoadAction::KEEP);
 	}
 	bool hasDepth = RenderPassTypeHasDepth(rpType);
-	bool multiview = RenderPassTypeHasMultiView(rpType);
+	// A layered backbuffer (VR) is drawn to with multiview, so every pipeline compiled for it matches.
+	bool multiview = RenderPassTypeHasMultiView(rpType) || (isBackbuffer && vulkan->GetBackbufferLayers() > 1);
 	bool multisample = RenderPassTypeHasMultisample(rpType);
 
 	_dbg_assert_(!(isBackbuffer && multisample));

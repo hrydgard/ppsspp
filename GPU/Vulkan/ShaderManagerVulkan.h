@@ -92,6 +92,7 @@ protected:
 struct Uniforms {
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base{};
+	UB_VS_VR ub_vr{};  // Right after ub_base, pushed with it in VR.
 	UB_VS_Lights ub_lights{};
 };
 
@@ -126,7 +127,11 @@ public:
 	bool IsBoneDirty() { return true; }
 
 	uint32_t PushBaseBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
-		return dest->Push(&uniforms_->ub_base, sizeof(uniforms_->ub_base), uboAlignment_, buf);
+		return dest->Push(&uniforms_->ub_base, BaseBufferSize(), uboAlignment_, buf);
+	}
+	// With VR, the base buffer has the VR uniforms at the end.
+	static uint32_t BaseBufferSize() {
+		return gstate_c.Use(GPU_USE_VIRTUAL_REALITY) ? (uint32_t)(sizeof(UB_VS_FS_Base) + sizeof(UB_VS_VR)) : (uint32_t)sizeof(UB_VS_FS_Base);
 	}
 	uint32_t PushLightBuffer(VulkanPushPool *dest, VkBuffer *buf) const {
 		return dest->Push(&uniforms_->ub_lights, sizeof(uniforms_->ub_lights), uboAlignment_, buf);

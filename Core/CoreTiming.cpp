@@ -30,6 +30,7 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
+#include "Core/Instance.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPS.h"
@@ -69,6 +70,8 @@ static s64 lastGlobalTimeUs;
 // debugger session, not to the emulated machine.
 static s64 breakDeadlineUs;
 static s64 breakDeadlineTicks;
+// The last emulated millisecond reported to the other instances (see InstanceSyncReached).
+static s64 lastInstanceSyncMs = -1;
 static void RecomputeBreakDeadline();
 
 bool SetClockFrequencyHz(int cpuHz) {
@@ -227,6 +230,7 @@ void Init(MIPSState *mips) {
 	lastGlobalTimeUs = 0;
 	breakDeadlineUs = 0;
 	breakDeadlineTicks = 0;
+	lastInstanceSyncMs = -1;
 	CPU_HZ = initialHz;
 }
 
@@ -454,6 +458,15 @@ void Advance(MIPSState *mips) {
 	globalTimer += cyclesExecuted;
 	mips->downcount = slicelength;
 
+	// Keep in step with the other instances. Before the deadline below, so one stopping there has
+	// still told the others it got this far.
+	// Counted in time, not cycles: a game can change the CPU clock, and the instances wouldn't agree.
+	const bool instanceSync = InstanceSyncEnabled();
+	if (instanceSync && (s64)(GetGlobalTimeUs() / 1000) != lastInstanceSyncMs) {
+		lastInstanceSyncMs = (s64)(GetGlobalTimeUs() / 1000);
+		InstanceSyncReached(lastInstanceSyncMs);
+	}
+
 	// Debugger deadline - see SetBreakDeadlineTicks. Checked before the events so the break lands
 	// on the requested tick rather than after whatever the events do.
 	if (breakDeadlineTicks && globalTimer >= breakDeadlineTicks) {
@@ -485,6 +498,16 @@ void Advance(MIPSState *mips) {
 	// past it - the point of cpu.runUntilTime is that it stops at a reproducible place.
 	if (breakDeadlineTicks) {
 		const s64 remaining = breakDeadlineTicks - globalTimer;
+		if (remaining > 0 && remaining < slicelength) {
+			const int diff = (int)remaining - slicelength;
+			slicelength += diff;
+			mips->downcount += diff;
+		}
+	}
+
+	// Likewise come back at the next millisecond, for the instance sync.
+	if (instanceSync) {
+		const s64 remaining = usToCycles((lastInstanceSyncMs + 1) * 1000 - (s64)GetGlobalTimeUs());
 		if (remaining > 0 && remaining < slicelength) {
 			const int diff = (int)remaining - slicelength;
 			slicelength += diff;
@@ -567,6 +590,9 @@ void DoState(PointerWrap &p) {
 		return;
 	// States are saved between slices.
 	otherCPUsRan = 0;
+	// A debugger's run-until deadline keeps the time it had left, not its absolute time, which
+	// belongs to the timeline being replaced.
+	const s64 deadlineLeftUs = p.mode == PointerWrap::MODE_READ && breakDeadlineUs ? breakDeadlineUs - (s64)GetGlobalTimeUs() : 0;
 
 	int n = (int)event_types.size();
 	int current = n;
@@ -632,7 +658,9 @@ void DoState(PointerWrap &p) {
 		lastGlobalTimeUs = 0;
 	}
 	if (p.mode == PointerWrap::MODE_READ) {
-		// A debugger's run-until deadline is in emulated us, and the ticks it maps to just changed.
+		if (breakDeadlineUs) {
+			breakDeadlineUs = (s64)GetGlobalTimeUs() + std::max(deadlineLeftUs, (s64)0);
+		}
 		RecomputeBreakDeadline();
 	}
 

@@ -942,18 +942,6 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
-	const DLResult result = RunDLQueue();
-	// Games read the depth buffer back on the CPU once a list has ended, without waiting for the GE
-	// (Syphon Filter's light flares). So the depth rasterizer has to be done by then. Not at a stall,
-	// though, which some games hit hundreds of times a frame.
-	if (listEndedSinceDepthWait_) {
-		listEndedSinceDepthWait_ = false;
-		drawEngineCommon_->WaitForSubmittedDepth();
-	}
-	return result;
-}
-
-DLResult GPUCommon::RunDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
@@ -1259,7 +1247,6 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	if (flushOnParams_) {
 		drawEngineCommon_->SubmitQueuedDepth();
-		listEndedSinceDepthWait_ = true;
 		Flush();
 	}
 
@@ -1607,6 +1594,8 @@ void GPUCommon::FlushImm() {
 	}
 	if (vfb) {
 		CheckDepthUsage(vfb);
+		framebufferManager_->RebuildStencilIfPending(vfb);
+		framebufferManager_->CheckMaskCopy(vfb);
 	}
 
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
@@ -2106,6 +2095,10 @@ void GPUCommon::DoState(PointerWrap &p) {
 		}
 		recorder_.RestartAfterLoad();
 	}
+}
+
+void GPUCommon::WaitForSubmittedDepth() {
+	drawEngineCommon_->WaitForSubmittedDepth();
 }
 
 void GPUCommon::InterruptStart(int listid) {
@@ -2691,6 +2684,14 @@ void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWid
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format, rectWidth);
 	}
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
+void GPUCommon::PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) {
+	const int bpp = BufferFormatBytesPerPixel(format);
+	if (Memory::IsVRAMAddress(addr) && framebufferManager_) {
+		framebufferManager_->WriteRectFromMemory(addr, height * stride * bpp, stride, format, width);
+	}
+	InvalidateCache(addr, ((height - 1) * stride + width) * bpp, GPU_INVALIDATE_SAFE);
 }
 
 bool GPUCommon::PerformReadbackStencilToMemory(u32 dest, int size) {

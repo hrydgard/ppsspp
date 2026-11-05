@@ -108,11 +108,10 @@ bool SymbolMap::LoadSymbolMap(const Path &filename) {
 		if (p == NULL)
 			break;
 
-		// Chop any newlines off.
-		for (size_t i = strlen(line) - 1; i > 0; i--) {
-			if (line[i] == '\r' || line[i] == '\n') {
-				line[i] = '\0';
-			}
+		// Chop any newlines off. The line can be empty, if it starts with a NUL.
+		size_t len = strlen(line);
+		while (len > 0 && (line[len - 1] == '\r' || line[len - 1] == '\n')) {
+			line[--len] = '\0';
 		}
 
 		if (strlen(line) < 4 || sscanf(line, "%255s", temp) != 1)

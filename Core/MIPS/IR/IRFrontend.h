@@ -92,6 +92,8 @@ public:
 	void Comp_Vocp(MIPSOpcode op) override;
 	void Comp_ColorConv(MIPSOpcode op) override;
 	void Comp_Vbfy(MIPSOpcode op) override;
+	void Comp_Vsrt(MIPSOpcode op) override;
+	void Comp_Vf2h(MIPSOpcode op) override;
 
 	int Replace_fabsf() override;
 	// Returns true if a loaded state means blocks compiled before it can't run any more.

@@ -287,7 +287,9 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 
 	usec += (width * height) / 14;
 
-	if (!Memory::IsValidRange(imageAddr, mjpegWidth * mjpegHeight * 4)) {
+	// CreateMJpeg doesn't bound the height, so this could overflow in 32 bits.
+	const u64 outSize = (u64)std::max(mjpegWidth, 0) * (u64)std::max(mjpegHeight, 0) * 4;
+	if (outSize > 0x3FFFFFFF || !Memory::IsValidRange(imageAddr, (u32)outSize)) {
 		free(jpegBuf);
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_INVALID_POINTER, "invalid output address");
 	}

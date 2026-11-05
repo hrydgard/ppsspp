@@ -202,6 +202,10 @@ private:
 	// array that callers are trusted to stay inside.
 	std::vector<u32> segmentVAddr;
 	size_t size_ = 0;
+	// Relocation data processed so far. Several relocation sections or segments can point at the
+	// same table, so this is capped at the file size to keep the total work linear.
+	u64 relocBytesProcessed_ = 0;
+	bool ConsumeRelocBudget(u64 bytes);
 	u32 firstSegAlign = 0;
 	std::string loadError_;
 };

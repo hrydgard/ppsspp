@@ -228,6 +228,9 @@ bool TestPS1Eboot() {
 			return false;
 		}
 		EXPECT_EQ_STR(eboot.Title(), std::string("Game"));
+		// The disc's size, and that of its files (the cue sheet too).
+		EXPECT_EQ_INT(eboot.DiscSize(), (s64)disc.size());
+		EXPECT_EQ_INT(eboot.SourceFilesSize(), (s64)(disc.size() + File::GetFileSize(dir / "Game.cue")));
 		// Track 2's pregap starts at LBA 40, and the track at 45.
 		const std::vector<u8> toc = ReadAll(&eboot, Get32(&ReadAll(&eboot, 0, 0x28)[0x24]) + 0x800 + 40, 10);
 		EXPECT_EQ_INT(toc[0], 0x01);
@@ -242,6 +245,7 @@ bool TestPS1Eboot() {
 		if (!CheckEboot(eboot, disc, 2)) {
 			return false;
 		}
+		EXPECT_EQ_INT(eboot.SourceFilesSize(), (s64)(disc.size() + File::GetFileSize(dir / "Game.cue")));
 	}
 
 	// A PREGAP that isn't in the file: generated silence before the track.
@@ -286,6 +290,8 @@ bool TestPS1Eboot() {
 		if (!CheckEboot(eboot, data, 1)) {
 			return false;
 		}
+		EXPECT_EQ_INT(eboot.DiscSize(), (s64)data.size());
+		EXPECT_EQ_INT(eboot.SourceFilesSize(), (s64)(data.size() + File::GetFileSize(dir / "Clone.ccd")));
 	}
 	EXPECT_TRUE(File::WriteDataToFile(false, user.data(), user.size(), dir / "Cooked.iso"));
 	{

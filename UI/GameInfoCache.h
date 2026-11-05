@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <ctime>
 #include <string>
 #include <map>
 #include <memory>
@@ -97,9 +98,10 @@ public:
 	u64 GetGameSavedataSizeInBytes() const;  // For games
 	u64 GetInstallDataSizeInBytes() const;
 
-	// For various kinds of savedata, mainly.
-	// NOTE: This one actually performs I/O directly, not cached.
+	// For various kinds of savedata, mainly. Read along with SIZE, empty before that.
 	std::string GetMTime() const;
+	// The file whose modification time GetMTime() shows.
+	Path GetMTimePath() const;
 
 	void ParseParamSFO(IdentifiedFileType type);
 	const ParamSFOData &GetParamSFO() const {
@@ -190,6 +192,9 @@ public:
 	u64 gameSizeOnDisk = 0;  // compressed size, in case of CSO
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
+	// With SIZE.
+	bool hasMTime = false;
+	tm mtime{};
 
 	// The firmware updater bundled on the disc, if any - see GameInfoFlags::BUNDLED_UPDATE_INFO.
 	// Always left empty for anything that isn't an ISO.

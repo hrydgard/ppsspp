@@ -186,8 +186,12 @@ Five distinct causes, each of which stopped a whole band of versions:
 - **`category_version` in the registry.** Our `sceReg` serves a compiled-in snapshot of a 6.6x PSP's
   registry, `/REGISTRY/category_version` included. Every shell checks it and treats a version higher
   than the schema it knows as a corrupt registry, offering to reset your settings instead of
-  booting - which is what 1.50 through 5.50 did. The check is one-directional, older is always
-  accepted, and nothing tried to migrate anything, so we report 1.
+  booting - which is what 1.50 through 5.50 did. The check is one-directional: an older version is
+  accepted, and the shell migrates from it, writing the default of every key added since and then its
+  own version (seen with 2.82, 3.71, 4.05, 5.50 and 6.61 starting from 1, and 3.71 and 6.61 from the
+  previous firmware's version). The value lives in the config (`SceRegCategoryVersion`, 1 by default).
+  Installing an upgrade leaves it to the new shell; a downgrade sets it back to 1, so the older shell
+  rewrites everything added since 1.50, the theme settings included (#22909).
 
 - **`sceRegCloseRegistry` dropping categories another opener still owned.** See `sceReg.cpp`; the
   VSH's alarm scan nests registry opens and this cost it its own open category.

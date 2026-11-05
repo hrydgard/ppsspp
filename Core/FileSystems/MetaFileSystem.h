@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -64,6 +65,12 @@ public:
 	MetaFileSystem() {
 		Reset();
 	}
+
+	// Opens of files that aren't on the disc, and reads and seeks on handles whose file was dropped
+	// when a savestate loaded. With the real disc these are rare, so they tell when a game booted
+	// from a state alone has missed data it needed.
+	int FailedDiscReads() const { return failedDiscReads_; }
+	void ResetFailedDiscReads() { failedDiscReads_ = 0; }
 
 	// Will replace the existing mount if already exists. Mount with an optional sub-directory inside the filesystem to treat as the root.
 	void Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system, std::string_view subDir = std::string_view());
@@ -144,7 +151,8 @@ public:
 	u64  FreeDiskSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
-	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false);
+	// Fails (without allocating) if the file is larger than maxSize.
+	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false, size_t maxSize = (size_t)-1);
 
 	void SetStartingDirectory(std::string_view dir) {
 		std::lock_guard<std::recursive_mutex> guard(lock);
@@ -158,5 +166,8 @@ public:
 	void Describe(char *buf, size_t size) const override { snprintf(buf, size, "Meta"); }
 
 private:
+	std::atomic<int> failedDiscReads_{};
+
+	void DoStatePositionalMounts(PointerWrap &p);
 	int64_t RecursiveSize(std::string_view dirPath);
 };
