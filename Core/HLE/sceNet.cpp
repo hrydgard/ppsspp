@@ -305,6 +305,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 		if (game.hasChild("domains", JSON_OBJECT)) {
 			const JsonGet domains = game.getDict("domains");
 			for (const auto &iter : domains.value_) {
+				// toString() on anything else isn't a string pointer.
+				if (iter->value.getTag() != JSON_STRING) {
+					continue;
+				}
 				std::string domain = std::string(iter->key);
 				std::string ipAddr = std::string(iter->value.toString());
 				dns->fixedDNS[domain] = ipAddr;

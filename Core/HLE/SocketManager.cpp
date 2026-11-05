@@ -16,7 +16,8 @@ InetSocket *SocketManager::CreateSocket(int *index, int *returned_errno, SocketS
 	int hostProtocol = convertSocketProtoPSP2Host(protocol);
 
 	SOCKET hostSock = ::socket(hostDomain, hostType, hostProtocol);
-	if (hostSock < 0) {
+	// SOCKET is unsigned on Windows, so not < 0.
+	if (hostSock == INVALID_SOCKET) {
 		*returned_errno = socket_errno;
 		return nullptr;
 	}

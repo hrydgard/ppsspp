@@ -922,6 +922,46 @@ static bool StartInetWait(InetWaitOp op, const u32 *args, int numArgs, s64 timeo
 	return true;
 }
 
+// The entry points check the arguments before a wait starts, but a wait can also come from a
+// savestate. Same checks, failing with EFAULT (errno set) like the entry points would.
+static bool InetWaitArgsValid(const InetWait &wait, SceUID threadID) {
+	const u32 *args = wait.args;
+	const char *func = "inet wait";
+	auto optional = [&](u32 ptr, u32 size) {
+		return ptr == 0 || InetValidRange(ptr, size, func, threadID);
+	};
+	switch (wait.op) {
+	case InetWaitOp::Select:
+		if ((int)args[0] < 0 || (int)args[0] > PSP_NET_INET_FD_SETSIZE) {
+			SetInetErrno(ERROR_INET_EINVAL, func, threadID);
+			return false;
+		}
+		return optional(args[1], sizeof(SceNetInetFdSet)) && optional(args[2], sizeof(SceNetInetFdSet)) && optional(args[3], sizeof(SceNetInetFdSet));
+	case InetWaitOp::Poll:
+		if (args[1] > PSP_NET_INET_FD_SETSIZE) {
+			SetInetErrno(ERROR_INET_EINVAL, func, threadID);
+			return false;
+		}
+		return InetValidRange(args[0], args[1] * (u32)sizeof(SceNetInetPollfd), func, threadID);
+	case InetWaitOp::Recv:
+	case InetWaitOp::Send:
+		return InetValidRange(args[1], args[2], func, threadID);
+	case InetWaitOp::RecvFrom:
+		return InetValidRange(args[1], args[2], func, threadID) && optional(args[4], sizeof(SceNetInetSockaddr)) && optional(args[5], 4);
+	case InetWaitOp::SendTo:
+		return InetValidRange(args[1], args[2], func, threadID) && optional(args[4], sizeof(SceNetInetSockaddr));
+	case InetWaitOp::Accept:
+		return optional(args[1], sizeof(SceNetInetSockaddr)) && optional(args[2], 4);
+	case InetWaitOp::Connect:
+	case InetWaitOp::RecvMsg:
+		// Connect has no pointers, and TryRecvMsg checks its msghdr on every attempt.
+		return true;
+	default:
+		SetInetErrno(ERROR_INET_EINVAL, func, threadID);
+		return false;
+	}
+}
+
 static void __NetInetWaitPoll(u64 userdata, int cyclesLate) {
 	const SceUID threadID = (SceUID)userdata;
 	auto it = g_inetWaits.find(threadID);
@@ -936,6 +976,12 @@ static void __NetInetWaitPoll(u64 userdata, int cyclesLate) {
 	}
 
 	const InetWait wait = it->second;
+	if (!InetWaitArgsValid(wait, threadID)) {
+		g_inetWaits.erase(it);
+		__KernelResumeThreadFromWait(threadID, -1);
+		__KernelReSchedule("inet wait failed");
+		return;
+	}
 	const InetTry attempt = TryInetOp(wait.op, threadID, wait.args, false);
 	const s64 now = CoreTiming::GetTicks(currentMIPS);
 	if (attempt.wouldBlock && (wait.deadline < 0 || now < wait.deadline)) {
@@ -1962,6 +2008,12 @@ static bool ReadInetMsghdr(u32 msghdrPtr, InetMsghdr *msg, std::vector<HostIovec
 	*msg = *(const InetMsghdr *)Memory::GetPointerUnchecked(msghdrPtr);
 	if (msg->msg_iovlen < 0) {
 		SetInetErrno(ERROR_INET_EINVAL, func, threadID);
+		return false;
+	}
+	// The BSD stack's limit (UIO_MAXIOV). Otherwise only guest memory bounds it, and a blocking
+	// recvmsg rebuilds the list on every retry.
+	if (msg->msg_iovlen > 1024) {
+		SetInetErrno(ERROR_INET_EMSGSIZE, func, threadID);
 		return false;
 	}
 	// In 64 bits, so a huge count can't wrap around to a small size.
