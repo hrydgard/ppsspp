@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <optional>
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
@@ -36,6 +37,9 @@
 #include "GPU/Common/DepthRaster.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "Common/CPUDetect.h"
+#include "GPU/Common/TransformCommon.h"
+#include "GPU/Common/VertexReader.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -394,6 +398,13 @@ static inline Vec4F32 DivideExact(Vec4F32 a, Vec4F32 b) {
 #endif
 }
 
+// Whether ClipCullPrims can clip every triangle of a draw with this state, not needing the clip distance.
+static bool CpuCanClipAll() {
+	const GETexMapMode uvGen = gstate.getUVGenMode();
+	const bool normalTexGen = uvGen == GE_TEXMAP_ENVIRONMENT_MAP || (uvGen == GE_TEXMAP_TEXTURE_MATRIX && gstate.getUVProjMode() == GE_PROJMAP_NORMALIZED_NORMAL);
+	return gstate.getShadeMode() != GE_SHADE_FLAT && !(gstate.isTextureMapEnabled() && normalTexGen);
+}
+
 // This optionally culls collections of points against the six planes, and always computes the min and max of Z and W.
 //
 // The result of that is then used to determine if we need to drop down to software transform+clip or we can hand
@@ -401,7 +412,7 @@ static inline Vec4F32 DivideExact(Vec4F32 a, Vec4F32 b) {
 //
 // NOTE: This doesn't handle through-mode (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt, u32 idxFmt>
-static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
+static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, bool cpuCullSupported, ClipInfoFlags *clipInfoFlags) {
 	// Four vertices at a time, one per lane. Past the end, the last vertex fills the lanes, which changes nothing.
 	// The matrix stays in four registers, multiplied by lane. Splatted, it took sixteen, and was reloaded from the
 	// stack every iteration.
@@ -526,7 +537,19 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	// Ninja Impact's grass, whose depth then matches the ground's).
 	const bool clipPlanesDoIt = gstate_c.viewportZPlanesOnClipPlanes && gstate.isDepthClipEnabled();
 	const bool hardwareClipsZ = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && (clipPlanesDoIt || (gstate_c.Use(GPU_USE_CULL_DISTANCE) && gstate_c.viewportNearPlaneMatchesOutput));
-	if (AnyCompareBitsSet(anyOutsideZ) && (!hardwareClipsZ || PSP_CoreParameter().compat.flags().CorrectCullAfterClip)) {
+	// The GPU clips and culls like the GE then, except for range culling the parts clipping makes, which the games
+	// flagged CorrectCullAfterClip need.
+	const bool correctCullAfterClip = PSP_CoreParameter().compat.flags().CorrectCullAfterClip;
+	const bool gpuDoesZ = hardwareClipsZ && !correctCullAfterClip;
+	// Otherwise the CPU clips at the near plane and culls like the GE, including the range culling after clipping, and
+	// the vertices stay on hardware transform, the same math as the other passes over the surface: mixing in software
+	// transform made those depth tests fail on PowerVR. What it can't clip is left to the clip distance.
+	const bool cpuCulls = cpuCullSupported && !gpuDoesZ && (!clipPlanesDoIt || correctCullAfterClip) && gstate.isDepthClipEnabled() && (gstate_c.Use(GPU_USE_CLIP_DISTANCE) || CpuCanClipAll());
+	if (cpuCulls) {
+		if (AnyCompareBitsSet(anyOutsideZ)) {
+			flags |= ClipInfoFlags::CpuCull;
+		}
+	} else if (AnyCompareBitsSet(anyOutsideZ) && !gpuDoesZ) {
 		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
 		// Without cull distances the shader can't cull, and triangles entirely beyond the far plane would be
 		// depth clamped and drawn (the stands over the pitch in FIFA Soccer). Without clip distances it can't
@@ -557,6 +580,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	return true;
 }
 
+// Never CpuCull or SoftClipCull: without the bounding box test, nothing says the draw crosses a Z plane.
 ClipInfoFlags DrawEngineCommon::UncheckedClipInfoFlags() {
 	ClipInfoFlags flags{};
 	if (gstate.isModeThrough() || gstate.isModeClear()) {
@@ -572,7 +596,7 @@ ClipInfoFlags DrawEngineCommon::UncheckedClipInfoFlags() {
 	return flags;
 }
 
-bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags) {
+bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags, bool cpuCullSupported) {
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
@@ -586,36 +610,36 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 	switch (vertType & GE_VTYPE_IDX_MASK) {
 	case GE_VTYPE_IDX_NONE:
 		switch (vertType & GE_VTYPE_POS_MASK) {
-		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
-		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
-		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, flags);
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_NONE>(cullMatrix, vdata, nullptr, vertexCount, dec, cpuCullSupported, flags);
 		default:
 			break;
 		}
 		break;
 	case GE_VTYPE_IDX_8BIT:
 		switch (vertType & GE_VTYPE_POS_MASK) {
-		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_8BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
 		default:
 			break;
 		}
 		break;
 	case GE_VTYPE_IDX_16BIT:
 		switch (vertType & GE_VTYPE_POS_MASK) {
-		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_16BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
 		default:
 			break;
 		}
 		break;
 	case GE_VTYPE_IDX_32BIT:
 		switch (vertType & GE_VTYPE_POS_MASK) {
-		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
-		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, flags);
+		case GE_VTYPE_POS_8BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_8BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_16BIT: return ::TestBoundingBoxFast<GE_VTYPE_POS_16BIT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
+		case GE_VTYPE_POS_FLOAT: return ::TestBoundingBoxFast<GE_VTYPE_POS_FLOAT, GE_VTYPE_IDX_32BIT>(cullMatrix, vdata, idata, vertexCount, dec, cpuCullSupported, flags);
 		default:
 			break;
 		}
@@ -813,6 +837,352 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 		sum += drawVerts_[i].indexUpperBound + 1 - drawVerts_[i].indexLowerBound;
 	}
 	return sum;
+}
+
+// DrawEngineCommon::vertClass_ bits.
+enum : u8 {
+	VERT_BEHIND_NEAR = 1,
+	VERT_BEYOND_FAR = 2,
+};
+
+// Where the edge from the inside vertex a crosses the near plane to the outside vertex b, like the software
+// transform's clipper computes it.
+static float NearPlaneT(const float *a, const float *b) {
+	const float denominator = (b[2] - a[2]) + (b[3] - a[3]);
+	const float t = fabsf(denominator) > 0.000001f ? (-a[2] - a[3]) / denominator : 0.0f;
+	return std::clamp(t, 0.0f, 1.0f);
+}
+
+static bool NearPointOutsideRange(const float *a, const float *b, float t) {
+	const float x = a[0] + (b[0] - a[0]) * t;
+	const float y = a[1] + (b[1] - a[1]) * t;
+	const float w = a[3] + (b[3] - a[3]) * t;
+	const float sx = x * gstate.getViewportXScale() / w + gstate.getViewportXCenter();
+	const float sy = y * gstate.getViewportYScale() / w + gstate.getViewportYCenter();
+	return !(sx >= 0.0f && sy >= 0.0f && sx < 4096.0f && sy < 4096.0f);
+}
+
+static void LerpComponent(u8 fmt, u8 *dst, const u8 *a, const u8 *b, float t) {
+	int count = 0;
+	switch (fmt) {
+	case DEC_FLOAT_1: case DEC_FLOAT_2: case DEC_FLOAT_3: case DEC_FLOAT_4:
+		count = fmt - DEC_FLOAT_1 + 1;
+		for (int i = 0; i < count; i++) {
+			const float fa = ((const float *)a)[i], fb = ((const float *)b)[i];
+			((float *)dst)[i] = fa + (fb - fa) * t;
+		}
+		break;
+	case DEC_S8_3:
+		for (int i = 0; i < 3; i++) {
+			const float fa = (s8)a[i], fb = (s8)b[i];
+			dst[i] = (u8)(s8)roundf(fa + (fb - fa) * t);
+		}
+		break;
+	case DEC_S16_3:
+		for (int i = 0; i < 3; i++) {
+			const float fa = ((const s16 *)a)[i], fb = ((const s16 *)b)[i];
+			((s16 *)dst)[i] = (s16)roundf(fa + (fb - fa) * t);
+		}
+		break;
+	case DEC_U8_1: case DEC_U8_2: case DEC_U8_3: case DEC_U8_4:
+		count = fmt - DEC_U8_1 + 1;
+		for (int i = 0; i < count; i++) {
+			dst[i] = (u8)roundf(a[i] + (b[i] - a[i]) * t);
+		}
+		break;
+	case DEC_U16_1: case DEC_U16_2: case DEC_U16_3: case DEC_U16_4:
+		count = fmt - DEC_U16_1 + 1;
+		for (int i = 0; i < count; i++) {
+			const float fa = ((const u16 *)a)[i], fb = ((const u16 *)b)[i];
+			((u16 *)dst)[i] = (u16)roundf(fa + (fb - fa) * t);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+DrawEngineCommon::CpuClip DrawEngineCommon::BeginCpuClip(bool useHWTransform) {
+	CpuClip clip;
+	clip.fmt = dec_->GetDecVtxFmt();
+	clip.active = useHWTransform && (clipInfoFlags_ & ClipInfoFlags::Valid) && (clipInfoFlags_ & ClipInfoFlags::CpuCull);
+	// With lighting, the CPU lights the ends of the edges it clips, so the vertices clipping makes get interpolated lit
+	// colors like on the GE. All lit draws have the stream for them then, so whether one is clipped doesn't change its
+	// pipeline.
+	clip.cpuLit = useHWTransform && CpuLightsClipped();
+	if (clip.cpuLit) {
+		clip.fmt.cpuLit = 1;
+		clip.fmt.ComputeID();
+	}
+	if (clip.cpuLit != lastCpuLit_) {
+		// Different vertex shader and vertex layout.
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		lastCpuLit_ = clip.cpuLit;
+	}
+	return clip;
+}
+
+void DrawEngineCommon::DecodeClipCull(CpuClip *clip, GEPrimitiveType *prim, int *vertexCount, int *maxIndex, bool *useElements) {
+	// In decoded_, not the push buffer, which is too slow to read back.
+	DecodeVerts(dec_, decoded_);
+	DecodeIndsAndGetData(prim, vertexCount, maxIndex, useElements, true);
+	clip->numVerts = numDecodedVerts_;
+	const int origVerts = clip->numVerts;
+	*vertexCount = ClipCullPrims(*prim, decoded_, clip->fmt, &clip->numVerts, decIndex_, *vertexCount);
+	*maxIndex = clip->numVerts;
+	if (clip->cpuLit && clip->numVerts > origVerts) {
+		clip->cpuLitStream = cpuLitStream_.data();
+	}
+}
+
+void DrawEngineCommon::DepthRasterSubmitHW(GEPrimitiveType prim, int vertexCount, const CpuClip &clip) {
+	if (clip.active) {
+		DepthRasterPredecoded(prim, decoded_, clip.numVerts, dec_, vertexCount, &clip.fmt);
+	} else {
+		DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
+	}
+}
+
+bool DrawEngineCommon::CpuLightsClipped() const {
+	// With the clip distance, the GPU clips lit draws after lighting like the GE, but can't range cull what clipping
+	// makes.
+	return cpuLitStreamSupported_ && gstate.isLightingEnabled() && gstate.getShadeMode() != GE_SHADE_FLAT &&
+		(!gstate_c.Use(GPU_USE_CLIP_DISTANCE) || PSP_CoreParameter().compat.flags().CorrectCullAfterClip);
+}
+
+int DrawEngineCommon::ClipCullPrims(GEPrimitiveType prim, u8 *verts, const DecVtxFormat &fmt, int *numVerts, u16 *inds, int indexCount) {
+	// The indices are forced (DecodeIndsAndGetData), which makes strips and fans lists.
+	int perPrim;
+	switch (prim) {
+	case GE_PRIM_TRIANGLES: perPrim = 3; break;
+	case GE_PRIM_LINES: perPrim = 2; break;
+	case GE_PRIM_POINTS: perPrim = 1; break;
+	default: return indexCount;
+	}
+
+	const float *m = gstate_c.worldviewproj;
+	const int stride = fmt.stride;
+	const int origVerts = *numVerts;
+	// Grown, never shrunk, so they aren't cleared every time.
+	if (clipPos_.size() < origVerts * 4) {
+		clipPos_.resize(origVerts * 4);
+		vertClass_.resize(origVerts);
+	}
+	const Mat4F32 mat(m);
+	for (int i = 0; i < origVerts; i++) {
+		// The decoded position is the last member, so the fourth lane reads into the next vertex, or the rest of
+		// decoded_, and AsVec3ByMatrix44 ignores it.
+		const float *pos = (const float *)(verts + i * stride + fmt.posoff);
+		float *c = &clipPos_[i * 4];
+		Vec4F32::Load(pos).AsVec3ByMatrix44(mat).Store(c);
+		// The same as the far cull distance in the vertex shader. With w > 0 and w - z >= 0 it can't be negative, so
+		// the division (in front of the far plane, mostly) is skipped there.
+		const float farDist = c[3] - c[2];
+		const bool beyondFar = (farDist < 0.0f || c[3] <= 0.0f) && farDist + 0.0000304f / c[3] < 0.0f;
+		const bool behindNear = c[2] < -c[3];
+		vertClass_[i] = (behindNear ? VERT_BEHIND_NEAR : 0) | (beyondFar ? VERT_BEYOND_FAR : 0);
+	}
+
+	if (perPrim != 3) {
+		int out = 0;
+		for (int i = 0; i + perPrim <= indexCount; i += perPrim) {
+			bool culled = true;
+			for (int j = 0; j < perPrim; j++) {
+				culled = culled && (vertClass_[inds[i + j]] & VERT_BEYOND_FAR);
+			}
+			if (culled) {
+				continue;
+			}
+			for (int j = 0; j < perPrim; j++) {
+				inds[out++] = inds[i + j];
+			}
+		}
+		return out;
+	}
+
+	// Triangles crossing the near plane get clipped here like the GE does it (ProcessTriangle in Clipper.cpp, from
+	// gpu/probe exp43, exp44), into one triangle, or two, (p, a, b) and (p, b, n), with o behind the plane. Each is
+	// then range culled on the vertices clipping made. The shader can't do that: it exempts the vertices behind the
+	// near plane. The new vertices are interpolated from the decoded ones, so the GPU transforms them like the rest.
+	// That's only right where the vertex outputs are linear in them: the GE interpolates the lit colors, so with
+	// lighting, the ends of the clipped edges are lit here (fmt.cpuLit), and the new vertices take those colors.
+	// Normal-based texgen and flat shading (whose provoking colors would have to move) are left to the GPU's clip
+	// distance, culling only what is culled whole.
+	const bool rangeCulling = gstate_c.Use(GPU_USE_VS_RANGE_CULLING) && gstate_c.submitType == SubmitType::DRAW;
+	const bool canClip = CpuCanClipAll() && (!gstate.isLightingEnabled() || fmt.cpuLit);
+	const bool reversed = BatchTrianglesReversed();
+	const int maxVerts = std::min((int)VERTEX_BUFFER_MAX, (int)DECODED_VERTEX_BUFFER_SIZE / stride);
+	const int maxInds = DECODED_INDEX_BUFFER_SIZE / sizeof(u16);
+	int vertCount = origVerts;
+
+	// Lights a vertex on the CPU, once, like the software transform. Its colors stay unused (cpulit1.a = 0), as the
+	// shader lights it too: only the vertices made from it take them.
+	std::optional<Lighter> lighter;
+	const u32 vertType = dec_->VertexType();
+	const bool lmode = gstate.isUsingSecondaryColor();
+	const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+	VertexReader reader(verts, fmt, vertType);
+	if (fmt.cpuLit) {
+		lighter.emplace(vertType);
+		cpuLitDone_.assign(origVerts, 0);
+		if (cpuLitColors_.size() < origVerts * 2) {
+			cpuLitColors_.resize(origVerts * 2);
+		}
+		// Filled when clipping makes a vertex. Until then, the draw uses a stream of zeroes.
+		cpuLitStream_.clear();
+	}
+	auto lightVertex = [&](int v) {
+		if (cpuLitDone_[v]) {
+			return;
+		}
+		cpuLitDone_[v] = 1;
+		reader.Goto(v);
+		float pos[3];
+		reader.ReadPosNonThrough(pos);
+		Vec4f unlitColor;
+		if (reader.hasColor0()) {
+			reader.ReadColor0(unlitColor.AsArray());
+		} else {
+			unlitColor = materialAmbientRGBA;
+		}
+		Vec3f worldnormal(0, 0, 1);
+		if (reader.hasNormal()) {
+			Vec3f normal;
+			reader.ReadNrm(normal.AsArray());
+			if (gstate.areNormalsReversed()) {
+				normal = -normal;
+			}
+			Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+			worldnormal = worldnormal.NormalizedOr001(cpu_info.bSSE4_1);
+		}
+		float worldpos[3];
+		Vec3ByMatrix43(worldpos, pos, gstate.worldMatrix);
+
+		Vec4f c0, c1;
+		lighter->Light(c0.AsArray(), c1.AsArray(), unlitColor.AsArray(), Vec3f(worldpos[0], worldpos[1], worldpos[2]), worldnormal);
+		if (!lmode) {
+			c0 = Vec4f(c0.r() + c1.r(), c0.g() + c1.g(), c0.b() + c1.b(), c0.a());
+		}
+		cpuLitColors_[v * 2] = c0.ToRGBA();
+		cpuLitColors_[v * 2 + 1] = lmode ? (c1.ToRGBA() & 0x00FFFFFF) : 0;
+	};
+
+	auto makeVertex = [&](int in, int outside, float t) {
+		u8 *dst = verts + vertCount * stride;
+		const u8 *a = verts + in * stride;
+		const u8 *b = verts + outside * stride;
+		if (fmt.cpuLit) {
+			lightVertex(in);
+			lightVertex(outside);
+			if (cpuLitStream_.empty()) {
+				// The original vertices keep the shader's lighting.
+				cpuLitStream_.assign(origVerts * 8, 0);
+			}
+			_dbg_assert_(cpuLitStream_.size() == vertCount * 8);
+			cpuLitStream_.resize((vertCount + 1) * 8);
+			u8 *litDst = &cpuLitStream_[vertCount * 8];
+			LerpComponent(DEC_U8_4, litDst, (const u8 *)&cpuLitColors_[in * 2], (const u8 *)&cpuLitColors_[outside * 2], t);
+			LerpComponent(DEC_U8_4, litDst + 4, (const u8 *)&cpuLitColors_[in * 2 + 1], (const u8 *)&cpuLitColors_[outside * 2 + 1], t);
+			// Use them.
+			litDst[7] = 255;
+		}
+		LerpComponent(DEC_FLOAT_3, dst + fmt.posoff, a + fmt.posoff, b + fmt.posoff, t);
+		if (fmt.nrmfmt) LerpComponent(fmt.nrmfmt, dst + fmt.nrmoff, a + fmt.nrmoff, b + fmt.nrmoff, t);
+		if (fmt.uvfmt) LerpComponent(fmt.uvfmt, dst + fmt.uvoff, a + fmt.uvoff, b + fmt.uvoff, t);
+		if (fmt.c0fmt) LerpComponent(fmt.c0fmt, dst + fmt.c0off, a + fmt.c0off, b + fmt.c0off, t);
+		if (fmt.c1fmt) LerpComponent(fmt.c1fmt, dst + fmt.c1off, a + fmt.c1off, b + fmt.c1off, t);
+		if (fmt.w0fmt) LerpComponent(fmt.w0fmt, dst + fmt.w0off, a + fmt.w0off, b + fmt.w0off, t);
+		if (fmt.w1fmt) LerpComponent(fmt.w1fmt, dst + fmt.w1off, a + fmt.w1off, b + fmt.w1off, t);
+		return (u16)vertCount++;
+	};
+
+	// A triangle becomes at most two.
+	if ((int)clipInds_.size() < indexCount * 2) {
+		clipInds_.resize(indexCount * 2);
+	}
+	u16 *out = clipInds_.data();
+	int numOut = 0;
+	auto emit = [&](const u16 *tri) {
+		out[numOut++] = tri[0];
+		out[numOut++] = tri[1];
+		out[numOut++] = tri[2];
+	};
+	const u8 *vertClass = vertClass_.data();
+	for (int i = 0; i + 3 <= indexCount; i += 3) {
+		const u16 *tri = inds + i;
+		const u8 c0 = vertClass[tri[0]], c1 = vertClass[tri[1]], c2 = vertClass[tri[2]];
+		if (c0 & c1 & c2) {
+			// All behind the near plane, or all beyond the far one.
+			continue;
+		}
+		if (!((c0 | c1 | c2) & VERT_BEHIND_NEAR)) {
+			emit(tri);
+			continue;
+		}
+		const bool outside[3] = { (c0 & VERT_BEHIND_NEAR) != 0, (c1 & VERT_BEHIND_NEAR) != 0, (c2 & VERT_BEHIND_NEAR) != 0 };
+		const int numOutside = (int)outside[0] + (int)outside[1] + (int)outside[2];
+
+		// The two vertices clipping makes, each from an inside vertex to an outside one.
+		int from[2], to[2];
+		if (numOutside == 1) {
+			const int o = outside[0] ? 0 : (outside[1] ? 1 : 2);
+			const int p = reversed ? (o + 1) % 3 : (o + 2) % 3;
+			const int n = reversed ? (o + 2) % 3 : (o + 1) % 3;
+			from[0] = tri[p]; to[0] = tri[o];
+			from[1] = tri[n]; to[1] = tri[o];
+		} else {
+			const int in = !outside[0] ? 0 : (!outside[1] ? 1 : 2);
+			from[0] = tri[in]; to[0] = tri[(in + 1) % 3];
+			from[1] = tri[in]; to[1] = tri[(in + 2) % 3];
+		}
+		float t[2];
+		bool madeOutside[2];
+		for (int j = 0; j < 2; j++) {
+			t[j] = NearPlaneT(&clipPos_[from[j] * 4], &clipPos_[to[j] * 4]);
+			madeOutside[j] = rangeCulling && NearPointOutsideRange(&clipPos_[from[j] * 4], &clipPos_[to[j] * 4], t[j]);
+		}
+
+		if (!canClip || vertCount + 2 > maxVerts) {
+			// Leave the clipping to the GPU, culling only if every part would be culled: b is in both halves.
+			if (!(numOutside == 1 ? madeOutside[1] : (madeOutside[0] || madeOutside[1]))) {
+				emit(tri);
+			}
+			continue;
+		}
+
+		if (numOutside == 2) {
+			if (madeOutside[0] || madeOutside[1]) {
+				continue;
+			}
+			const u16 a = makeVertex(from[0], to[0], t[0]);
+			const u16 b = makeVertex(from[1], to[1], t[1]);
+			const u16 sub[3] = { (u16)from[0], a, b };
+			emit(sub);
+			continue;
+		}
+
+		if (madeOutside[1]) {
+			continue;
+		}
+		const u16 p = (u16)from[0], n = (u16)from[1];
+		const u16 a = madeOutside[0] ? 0 : makeVertex(from[0], to[0], t[0]);
+		const u16 b = makeVertex(from[1], to[1], t[1]);
+		// Keep the winding we were given.
+		const int first = reversed ? 2 : 1, second = reversed ? 1 : 2;
+		if (!madeOutside[0]) {
+			u16 sub[3];
+			sub[0] = p; sub[first] = a; sub[second] = b;
+			emit(sub);
+		}
+		u16 sub[3];
+		sub[0] = p; sub[first] = b; sub[second] = n;
+		emit(sub);
+	}
+
+	numOut = std::min(numOut, maxInds - maxInds % 3);
+	memcpy(inds, out, numOut * sizeof(u16));
+	*numVerts = vertCount;
+	return numOut;
 }
 
 
@@ -1331,7 +1701,7 @@ void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDe
 	CommitDepthDraw(draw, vertexCount, numDecoded);
 }
 
-void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount) {
+void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount, const DecVtxFormat *fmt) {
 	if (!gstate.isModeClear() && (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled())) {
 		return;
 	}
@@ -1355,7 +1725,7 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 		}
 		float worldviewproj[16];
 		ComputeFinalProjMatrix().Store(worldviewproj);
-		TransformPredecodedForDepthRaster(batch.transformed + 4 * draw.vertexOffset, worldviewproj, decoded_, dec, numDecoded);
+		TransformPredecodedForDepthRaster(batch.transformed + 4 * draw.vertexOffset, worldviewproj, decoded_, fmt ? *fmt : dec->GetDecVtxFmt(), numDecoded);
 	}
 
 	// Copy indices.

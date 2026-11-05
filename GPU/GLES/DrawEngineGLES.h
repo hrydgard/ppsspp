@@ -93,6 +93,8 @@ private:
 	DenseHashMap<uint32_t, GLRInputLayout *> inputLayoutMap_;
 
 	GLRInputLayout *softwareInputLayout_ = nullptr;
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU.
+	GLRBuffer *zeroCpuLitStream_ = nullptr;
 	GLRenderManager *render_;
 
 	// Other

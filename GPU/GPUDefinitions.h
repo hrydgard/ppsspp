@@ -215,6 +215,10 @@ enum class ClipInfoFlags {
 	DepthClampFragment = 16,
 	MinMaxZClip = 32,
 	MinMaxZDiscard = 64,
+	CpuCull = 128,
+	// The CPU lit the vertices of the triangles it clipped (DecVtxFormat::cpuLit). Only passed to the shader ID
+	// computation, at flush.
+	CpuLit = 256,
 };
 ENUM_CLASS_BITOPS(ClipInfoFlags);
 

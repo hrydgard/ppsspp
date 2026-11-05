@@ -75,6 +75,10 @@ struct DecVtxFormat {
 	u8 c1fmt; u8 c1off;
 	u8 nrmfmt; u8 nrmoff;
 	u8 posoff;  // Output position format is always DEC_FLOAT_3.
+	// Colors lit on the CPU come in a second vertex stream, 8 bytes a vertex: color0, and color1 with 255 in its
+	// alpha where they are to be used instead of the shader's lighting, both DEC_U8_4, at cpuLitOff in it. Only set by
+	// DrawEngineCommon, never by a decoder.
+	u8 cpuLit; u8 cpuLitOff;
 	u8 stride;
 
 	uint32_t id;

@@ -93,8 +93,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		semantics.push_back({ ATTR_NORMAL, "normal" });
 	else
 		semantics.push_back({ ATTR_NORMAL, "fog" });
-	semantics.push_back({ ATTR_W1, "w1" });
-	semantics.push_back({ ATTR_W2, "w2" });
+	semantics.push_back({ ATTR_CPU_LIT0, "cpulit0" });
+	semantics.push_back({ ATTR_CPU_LIT1, "cpulit1" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });
 	semantics.push_back({ ATTR_COLOR1, "color1" });
 
@@ -870,7 +870,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 47
+#define CACHE_VERSION 48
 
 struct CacheHeader {
 	uint32_t magic;

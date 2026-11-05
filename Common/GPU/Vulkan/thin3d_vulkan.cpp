@@ -1320,13 +1320,13 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	_dbg_assert_((int)input->attributes.size() == (int)input->visc.vertexAttributeDescriptionCount);
 
 	pipeline->stride = input->binding.stride;
-	gDesc.ibd = input->binding;
+	gDesc.ibd[0] = input->binding;
 	for (size_t i = 0; i < input->attributes.size(); i++) {
 		gDesc.attrs[i] = input->attributes[i];
 	}
 	gDesc.vis.vertexAttributeDescriptionCount = input->visc.vertexAttributeDescriptionCount;
 	gDesc.vis.vertexBindingDescriptionCount = input->visc.vertexBindingDescriptionCount;
-	gDesc.vis.pVertexBindingDescriptions = &gDesc.ibd;
+	gDesc.vis.pVertexBindingDescriptions = gDesc.ibd;
 	gDesc.vis.pVertexAttributeDescriptions = gDesc.attrs;
 
 	gDesc.blend0 = blend->attachments[0];

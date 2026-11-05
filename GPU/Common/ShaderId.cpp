@@ -69,6 +69,7 @@ std::string VShaderID::Description(bool includeID) const {
 
 	if (Bit(VS_BIT_SIMPLE_STEREO)) desc.C("SimpleStereo ");
 	if (Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc.C("RangeCull ");
+	if (Bit(VS_BIT_CPU_LIT)) desc.C("CpuLit ");
 
 	return desc.as_string();
 }
@@ -134,6 +135,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
+			id.SetBit(VS_BIT_CPU_LIT, (clipInfoFlags & ClipInfoFlags::CpuLit) != 0);
 			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
 			} else {
