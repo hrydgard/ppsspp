@@ -532,18 +532,18 @@ void MainScreen::CreateViews() {
 	}
 
 	if (vertical) {
-		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 16)));
-		header->SetSpacing(5.0f);
+		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 0, 16)));
+		header->SetSpacing(4.0f);
 		header->Add(new LogoView(true, new LinearLayoutParams(1.0f)));
 
 		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER));
 
-		buttonGroup->SetPadding(Margins(0, 0, 12, 12));
+		buttonGroup->SetPadding(Margins(0, 0, 0, 12));
 
 		CreateMainButtons(buttonGroup, vertical);
 		header->Add(buttonGroup);
 
-		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(12, 0, 12, 0)));
 		rootLayout->SetSpacing(0.0f);
 
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));

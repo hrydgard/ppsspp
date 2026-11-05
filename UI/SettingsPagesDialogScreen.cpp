@@ -152,8 +152,8 @@ void SettingsPagesDialogScreen::CreateSettingsTabContents(int settingsTab, UI::L
 void SettingsPagesDialogScreen::CreateNavBar(UI::ViewGroup *parent, int settingsTab, const std::vector<std::string> &titles, const std::string &helpTag) {
 	using namespace UI;
 	const SettingsTab &tab = settingsTabs_[settingsTab];
-	const Margins barPadding(12, 0, 8, 0);
-	LinearLayout *bar = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT, Margins(0, 8))));
+	const Margins barPadding(12, 0, 12, 0);
+	LinearLayout *bar = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, ITEM_HEIGHT, Margins(0, 12))));
 	bar->SetPadding(barPadding);
 	bar->SetSpacing(8.0f);
 

@@ -465,6 +465,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *btnResetTime = timeHoriz->Add(new Choice(di->T("Reset"), new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
+		btnResetTime->SetRoundCorners();
 		btnResetTime->OnClick.Add([this, ga, timeStr, title](UI::EventParams &) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto gta = GetI18NCategory(I18NCat::GAME);

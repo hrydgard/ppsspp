@@ -21,7 +21,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 		topBarFlags |= TopBarFlags::ContextMenuButton;
 	}
 
-	TopBar *topBar = root_->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
+	TopBar *topBar = root_->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 12, 0))));
 	if (flags_ & SimpleDialogFlags::CustomContextMenu) {
 		View *menuButton = topBar->GetContextMenuButton();
 		topBar->OnContextMenuClick.Add([this, menuButton](UI::EventParams &e) {
@@ -33,7 +33,7 @@ void UISimpleBaseDialogScreen::CreateViews() {
 
 	if (flags_ & SimpleDialogFlags::ContentsCanScroll) {
 		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, portrait ? 0 : 8, 0)));
+		LinearLayout *contents = new LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0, 0, portrait ? 0 : 12, 0)));
 		contents->SetSpacing(0);
 		CreateDialogViews(contents);
 		scroll->Add(contents);
@@ -121,13 +121,13 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (!(flags_ & TwoPaneFlags::SettingsInContextMenu)) {
 			LinearLayout *settingsPane;
 			if (flags_ & TwoPaneFlags::SettingsCanScroll) {
-				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8)));
+				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 				settingsPane->SetSpacing(0.0f);
 				ScrollView *settingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 				settingsScroll->Add(settingsPane);
 				root->Add(settingsScroll);
 			} else {
-				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(8)));
+				settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f));
 				settingsPane->SetSpacing(0.0f);
 				root->Add(settingsPane);
 			}
