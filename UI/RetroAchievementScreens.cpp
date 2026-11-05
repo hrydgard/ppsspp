@@ -79,7 +79,7 @@ static const char *AchievementBucketTitle(int bucketType) {
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNSUPPORTED:          return "Unsupported";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNOFFICIAL:           return "Unofficial";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNPROMOTED:           return "Unofficial";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_RECENTLY_UNLOCKED:    return "Recently unlocked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE:     return "Achievements with active challenges";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_ALMOST_THERE:         return "Almost completed";
@@ -88,9 +88,9 @@ static const char *AchievementBucketTitle(int bucketType) {
 }
 
 static uint32_t GetListFilter() {
-	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
+	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_PROMOTED;
 	if (Achievements::UnofficialEnabled()) {
-		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
+		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_PROMOTED_AND_UNPROMOTED;
 	}
 	return filter;
 }

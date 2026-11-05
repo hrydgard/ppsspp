@@ -2968,9 +2968,33 @@ protected:
 	}
 };
 
+// Leaves trailing spaces out of the width, like DirectWrite.
+class TrimmingUnitTestWordWrapper : public UnitTestWordWrapper {
+public:
+	using UnitTestWordWrapper::UnitTestWordWrapper;
+
+protected:
+	float MeasureWidth(std::string_view str) override {
+		while (!str.empty() && str.back() == ' ') {
+			str.remove_suffix(1);
+		}
+		return UnitTestWordWrapper::MeasureWidth(str);
+	}
+};
+
 #define EXPECT_WORDWRAP_EQ_STR(a, l, f, b) if (UnitTestWordWrapper(a, l, f).Wrapped() != b) { printf("%s: Test Fail (%d, %s)\n%s\nvs\n%s\n", __FUNCTION__, l, #f, UnitTestWordWrapper(a, l, f).Wrapped().c_str(), std::string(b).c_str()); return false; }
 
 static bool TestWrapText() {
+	// The space before "cde" must count even if the measurer drops trailing spaces, and the
+	// hard newline must not add an empty line.
+	{
+		const std::string wrapped = TrimmingUnitTestWordWrapper("ab cde\nf", 10, FLAG_WRAP_TEXT).Wrapped();
+		if (wrapped != "ab \ncde\nf") {
+			printf("%s: Test Fail (trimming measurer)\n%s\n", __FUNCTION__, wrapped.c_str());
+			return false;
+		}
+	}
+
 	// If there's enough space, it shouldn't wrap.  This is exactly enough.
 	EXPECT_WORDWRAP_EQ_STR("Hello", 10, 0, "Hello");
 	EXPECT_WORDWRAP_EQ_STR("Hello", 10, FLAG_WRAP_TEXT, "Hello");

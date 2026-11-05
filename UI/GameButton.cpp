@@ -82,6 +82,7 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 		// The XMB is an ELF too, but has an icon.
 		return ImageID("I_APP");
 	case IdentifiedFileType::UNKNOWN_ELF: return ImageID("I_APP"); break;
+	case IdentifiedFileType::PSP_PBP_DIRECTORY: return ImageID("I_APP"); break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: return ImageID("I_DISPLAY"); break;
 	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PSP_PS1_PBP: return ImageID("I_PSX_ISO"); break;
@@ -176,9 +177,6 @@ void GameButton::Draw(UIContext &dc) {
 				texture = ginfo->icon.texture;
 				// The type icon is only for when there's no picture, and would be drawn on top of it.
 				imageIcon = ImageID::invalid();
-			} else {
-				// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-				imageIcon = ChooseGameIcon(ginfo);
 			}
 		} else if (gamePath_.Type() == PathType::HTTP) {
 			// Make sure that pending HTTP icons show something, instead of just blank.
@@ -290,7 +288,6 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 
-
 	if (viewMode_ == GameBrowserViewMode::GRID) {
 		if (g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
 			std::string_view idStr = id_version;
@@ -354,8 +351,14 @@ void GameButton::Draw(UIContext &dc) {
 		if (imageIcon.isValid()) {
 			const float textX = ListTextX(viewMode_);
 			if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				const float scale = g_Config.fGameGridScale;
-				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
+				float scale = g_Config.fGameGridScale;
+				if (type_ == GameButtonType::Dir) {
+					// Dirs are fixed height
+					scale = 1.0f;
+				} else {
+					scale = g_Config.fGameGridScale * 0.88f;
+				}
+				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale * 0.5f, bounds.centerY(), scale, style.fgColor, ALIGN_CENTER);
 			} else {
 				dc.Draw()->DrawImage(imageIcon, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
 			}

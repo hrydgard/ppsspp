@@ -42,7 +42,7 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			Add(tabScroll_);
 		}
 	} else {
-		SetPadding(Margins(10, 0, 0, 0));
+		SetPadding(Margins(12, 0, 0, 0));
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
 		tabContainer_->Add(new Spacer(8.0f));
 		tabContainer_->SetSpacing(0.0f);

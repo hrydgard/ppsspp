@@ -79,9 +79,29 @@ std::string WordWrapper::Wrapped() {
 	return out_;
 }
 
-bool WordWrapper::WrapBeforeWord() {
+bool WordWrapper::WordFitsOnLine(int endIndex) {
+	if (x_ + wordWidth_ > maxW_) {
+		return false;
+	}
+	if (lastLineStart_ >= out_.size()) {
+		return true;
+	}
+	// x_ was measured on a line that usually ends with a space, and some text drawers
+	// (DirectWrite, for one) leave trailing whitespace out of the width. Measure the
+	// line with the word on it.
+	std::string_view word = str_.substr(lastIndex_, endIndex - lastIndex_);
+	while (!word.empty() && (word.back() == '\n' || word.back() == ' ')) {
+		word.remove_suffix(1);
+	}
+	std::string line = out_.substr(lastLineStart_);
+	line.append(word);
+	return MeasureWidth(line) <= maxW_;
+}
+
+bool WordWrapper::WrapBeforeWord(int endIndex) {
 	if (flags_ & FLAG_WRAP_TEXT) {
-		if (x_ + wordWidth_ > maxW_ && !out_.empty()) {
+		// A word with no width (like a hard newline) has nothing to move to the next line.
+		if (wordWidth_ > 0.0f && !out_.empty() && !WordFitsOnLine(endIndex)) {
 			if (IsShy(lastChar_)) {
 				// Soft hyphen, replace it with a real hyphen since we wrapped at it.
 				// TODO: There's an edge case here where the hyphen might not fit.
@@ -125,7 +145,7 @@ void WordWrapper::AddEllipsis() {
 
 void WordWrapper::AppendWord(int endIndex, int lastChar, bool addNewline) {
 	int lastWordStartIndex = lastIndex_;
-	if (WrapBeforeWord()) {
+	if (WrapBeforeWord(endIndex)) {
 		// Advance to the first non-whitespace UTF-8 character in the following word (if any) to prevent starting the new line with a whitespace
 		UTF8 utf8Word(str_, lastWordStartIndex);
 		while (lastWordStartIndex < endIndex) {

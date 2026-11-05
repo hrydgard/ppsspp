@@ -495,7 +495,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 
 	*extraRow = nullptr;
 
-	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(10, 0, 0, 10)));
+	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(0, 0, 0, 0)));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
 		UI::Button *saveUndoButton = buttonRow->Add(new Button(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
@@ -544,9 +544,9 @@ UI::Margins GamePauseScreen::RootMargins() const {
 void GamePauseScreen::CreateViews() {
 	using namespace UI;
 
-	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
+	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	Margins scrollMargins(0, 10, 0, 0);
+	Margins scrollMargins(12, 10, 12, 0);
 	Margins actionMenuMargins(0, 10, 15, 0);
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
@@ -571,7 +571,7 @@ void GamePauseScreen::CreateViews() {
 		} else {
 			title = g_paramSFO.GetValueString("TITLE");
 		}
-		TopBar *topBar = new TopBar(*screenManager()->getUIContext(), TopBarFlags::ContextMenuButton, title);
+		TopBar *topBar = new TopBar(*screenManager()->getUIContext(), TopBarFlags::ContextMenuButton, title, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 12, 0)));
 		root_->Add(topBar);
 
 		topBar->OnContextMenuClick.Add([this, portrait](UI::EventParams &e) {
@@ -724,7 +724,7 @@ void GamePauseScreen::CreateViews() {
 		root_->Add(buttonColumnScroll);
 	}
 
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
+	LinearLayout *rightColumnItems = new ChoiceGroupList();
 	rightColumnItems->SetSpacing(12.0f);
 
 	buttonColumn->Add(rightColumnItems);
@@ -854,6 +854,7 @@ void GamePauseScreen::CreateViews() {
 		}
 
 		if (!portrait) {
+			middleColumn->Add(new Spacer(12.0f));
 			Choice *menuButton = middleColumn->Add(new Choice("", ImageID("I_THREE_DOTS"), new LinearLayoutParams(64, 64)));
 			menuButton->OnClick.Add([this, menuButton, portrait](UI::EventParams &e) {
 				ShowContextMenu(menuButton, portrait);

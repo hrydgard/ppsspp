@@ -641,6 +641,9 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 		});
 	}
+
+	left->ApplyRoundCorners();
+	right->ApplyRoundCorners();
 }
 
 void CreditsScreen::update() {

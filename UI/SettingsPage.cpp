@@ -219,7 +219,7 @@ SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<voi
 }
 
 SettingItem &SettingsPage::RestoreDefaults() {
-	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
+	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" }, ImageID("I_ROTATE_LEFT"));
 	item.restoresDefaults = true;
 	return item;
 }

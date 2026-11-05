@@ -43,6 +43,7 @@ enum class TwoPaneFlags {
 	CustomContextMenu = 16,
 	NoTopbarInLandscape = 32,
 	DropShadowTitle = 64,
+	NoBackButton = 128,
 };
 ENUM_CLASS_BITOPS(TwoPaneFlags);
 

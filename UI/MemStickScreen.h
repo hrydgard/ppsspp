@@ -31,12 +31,13 @@
 
 #include "UI/BaseScreens.h"
 #include "UI/MiscViews.h"
+#include "UI/SimpleDialogScreen.h"
 
 class NoticeView;
 
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
-class MemStickScreen : public UIBaseDialogScreen {
+class MemStickScreen : public UITwoPaneBaseDialogScreen {
 public:
 	MemStickScreen(bool initialSetup);
 	~MemStickScreen() = default;
@@ -51,7 +52,9 @@ public:
 	};
 
 protected:
-	void CreateViews() override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void update() override;
@@ -59,7 +62,7 @@ protected:
 		// Simple anti-flicker due to delayed finish.
 		if (!done_) {
 			// render as usual.
-			return UIBaseDialogScreen::render(mode);
+			return UITwoPaneBaseDialogScreen::render(mode);
 		} else {
 			// no render. black frame insertion is better than flicker.
 		}

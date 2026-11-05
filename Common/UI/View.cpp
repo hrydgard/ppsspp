@@ -470,7 +470,7 @@ void ClickableItem::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec 
 	if (hintText_.empty()) {
 		return;
 	}
-	float availWidth = measuredWidth_ - HINT_PADDING_X * 2;
+	float availWidth = measuredWidth_ - HintIndent() - HINT_PADDING_X;
 	if (availWidth <= 0.0f) {
 		availWidth = MAX_ITEM_SIZE;
 	}
@@ -487,9 +487,14 @@ void ClickableItem::DrawHint(UIContext &dc, const Style &style) const {
 	dc.SetFontStyle(dc.GetTheme().uiFontTiny);
 	dc.SetFontScale(1.0f, 1.0f);
 	const float textHeight = hintHeight_ - HINT_PADDING_BOTTOM + HINT_TITLE_OVERLAP;
-	Bounds hintBounds(bounds_.x + HINT_PADDING_X, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - HINT_PADDING_X * 2, textHeight);
+	const float indent = HintIndent();
+	Bounds hintBounds(bounds_.x + indent, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - indent - HINT_PADDING_X, textHeight);
 	dc.DrawTextRect(hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
+}
+
+float ClickableItem::HintIndent() const {
+	return HINT_PADDING_X;
 }
 
 void Choice::ClickInternal() {
@@ -1062,17 +1067,24 @@ void Button::Draw(UIContext &dc) {
 	}
 }
 
-void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = 0.0f;
-	h = 0.0f;
-
+void RadioButton::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	// Padding on both sides, and between the radio image and the text.
+	const float decorationW = paddingW_ * 3.0f + radioRadius_ * 2.0f;
+	float textW = 0.0f, textH = 0.0f;
 	if (!text_.empty()) {
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w, &h);
+		float availWidth = horiz.size - decorationW;
+		if (horiz.type == UNSPECIFIED || availWidth <= 0.0f) {
+			availWidth = MAX_ITEM_SIZE;
+		}
+		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 	}
+	w = textW + decorationW;
+	// Same height as a CheckBox, taller if the text wraps.
+	h = std::max(std::max(textH + 16.0f, radioRadius_ * 2), ITEM_HEIGHT);
+}
 
-	// Add some internal padding to not look totally ugly
-	w += paddingW_ * 3.0f + radioRadius_ * 2.0f;
-	h = std::max(h, radioRadius_ * 2) + paddingH_ * 2;
+void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	GetContentDimensionsBySpec(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED), w, h);
 }
 
 std::string RadioButton::DescribeText() const {
@@ -1097,32 +1109,20 @@ void RadioButton::Draw(UIContext &dc) {
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
-	dc.Flush();
-	dc.BeginNoTex();
-	dc.Draw()->Circle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
-	if (checked) {
-		dc.Draw()->FillCircle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioInnerRadius_, 36, style.fgColor);
-	}
-	dc.Flush();
-	dc.Begin();
+	const Bounds bounds = ContentBounds();
 
-	float tw, th;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
-
-	if (tw > bounds_.w) {
-		dc.PushScissor(bounds_);
-	}
+	const ImageID image(checked ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY");
+	dc.Draw()->DrawImage(image, bounds.x + paddingW_ + radioRadius_, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	if (!text_.empty()) {
-		float textX = bounds_.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
-		dc.DrawText(text_, textX, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+		const float textX = bounds.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
+		const Bounds textBounds(textX, bounds.y, bounds.x2() - paddingW_ - textX, bounds.h);
+		dc.DrawTextRect(text_, textBounds, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 
-	if (tw > bounds_.w) {
-		dc.PopScissor();
-	}
+	DrawHint(dc, style);
 }
 
 ImageView::ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams)

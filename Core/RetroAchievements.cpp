@@ -229,7 +229,7 @@ bool UnofficialEnabled() {
 	if (!g_rcClient) {
 		return false;
 	}
-	return rc_client_get_unofficial_enabled(g_rcClient);
+	return rc_client_get_unpromoted_enabled(g_rcClient);
 }
 
 bool HardcoreModeActive() {
@@ -744,7 +744,7 @@ void Initialize() {
 	// Set initial settings properly. Hardcore mode is checked by RAIntegration.
 	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
-	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
+	rc_client_set_unpromoted_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	if (!g_Config.bAchievementsEnableRAIntegration) {
@@ -1096,12 +1096,12 @@ std::string GetGameAchievementSummary(uint32_t subsetId) {
 	}
 
 	std::string summaryString;
-	if (summary.num_core_achievements + summary.num_unofficial_achievements == 0) {
+	if (summary.num_promoted_achievements + summary.num_unpromoted_achievements == 0) {
 		summaryString = ac->T("This game has no achievements");
 	} else {
 		summaryString = ApplySafeSubstitutions(ac->T("Earned", "You have unlocked %1 of %2 achievements, earning %3 of %4 points"),
-			summary.num_unlocked_achievements, summary.num_core_achievements + summary.num_unofficial_achievements,
-			summary.points_unlocked, summary.points_core);
+			summary.num_unlocked_achievements, summary.num_promoted_achievements + summary.num_unpromoted_achievements,
+			summary.points_unlocked, summary.points_available);
 		if (HardcoreModeActive()) {
 			summaryString.append("\n");
 			summaryString.append(ac->T("Hardcore Mode"));
@@ -1248,7 +1248,7 @@ void SetGame(const Path &path, IdentifiedFileType fileType, FileLoader *fileLoad
 	// Apply pre-load settings.
 	rc_client_set_hardcore_enabled(g_rcClient, g_Config.bAchievementsHardcoreMode ? 1 : 0);
 	rc_client_set_encore_mode_enabled(g_rcClient, g_Config.bAchievementsEncoreMode ? 1 : 0);
-	rc_client_set_unofficial_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
+	rc_client_set_unpromoted_enabled(g_rcClient, g_Config.bAchievementsUnofficial ? 1 : 0);
 
 	rc_client_begin_load_game(g_rcClient, s_game_hash.c_str(), &identify_and_load_callback, nullptr);
 }

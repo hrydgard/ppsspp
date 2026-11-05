@@ -104,8 +104,11 @@ public:
 		uint32_t colorBg = colorAlpha(g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080, opacity);
 		uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
-		dc.Draw()->DrawImageRotated(bgImg_, x_, y_, 1.0f, rotS_*PI/180, colorBg, flipS_);
-		dc.Draw()->DrawImageRotated(img_, x_, y_, 1.0f, rotI_*PI/180, color, false);
+		const float x = bounds_.x + x_;
+		const float y = bounds_.y + y_;
+
+		dc.Draw()->DrawImageRotated(bgImg_, x, y, 1.0f, rotS_*PI/180, colorBg, flipS_);
+		dc.Draw()->DrawImageRotated(img_, x, y, 1.0f, rotI_*PI/180, color, false);
 	}
 private:
 	int x_;
