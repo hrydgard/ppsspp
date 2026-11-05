@@ -470,7 +470,7 @@ void ClickableItem::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec 
 	if (hintText_.empty()) {
 		return;
 	}
-	float availWidth = measuredWidth_ - HINT_PADDING_X * 2;
+	float availWidth = measuredWidth_ - HintIndent() - HINT_PADDING_X;
 	if (availWidth <= 0.0f) {
 		availWidth = MAX_ITEM_SIZE;
 	}
@@ -487,9 +487,14 @@ void ClickableItem::DrawHint(UIContext &dc, const Style &style) const {
 	dc.SetFontStyle(dc.GetTheme().uiFontTiny);
 	dc.SetFontScale(1.0f, 1.0f);
 	const float textHeight = hintHeight_ - HINT_PADDING_BOTTOM + HINT_TITLE_OVERLAP;
-	Bounds hintBounds(bounds_.x + HINT_PADDING_X, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - HINT_PADDING_X * 2, textHeight);
+	const float indent = HintIndent();
+	Bounds hintBounds(bounds_.x + indent, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - indent - HINT_PADDING_X, textHeight);
 	dc.DrawTextRect(hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
+}
+
+float ClickableItem::HintIndent() const {
+	return HINT_PADDING_X;
 }
 
 void Choice::ClickInternal() {
@@ -1097,11 +1102,13 @@ void RadioButton::Draw(UIContext &dc) {
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
+	const Bounds bounds = ContentBounds();
+
 	dc.Flush();
 	dc.BeginNoTex();
-	dc.Draw()->Circle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
+	dc.Draw()->Circle(bounds.x + paddingW_ + radioRadius_, bounds.centerY(), radioRadius_, 2.5f, 36, 0, style.fgColor, 1.0f);
 	if (checked) {
-		dc.Draw()->FillCircle(bounds_.x + paddingW_ + radioRadius_, bounds_.centerY(), radioInnerRadius_, 36, style.fgColor);
+		dc.Draw()->FillCircle(bounds.x + paddingW_ + radioRadius_, bounds.centerY(), radioInnerRadius_, 36, style.fgColor);
 	}
 	dc.Flush();
 	dc.Begin();
@@ -1109,20 +1116,22 @@ void RadioButton::Draw(UIContext &dc) {
 	float tw, th;
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
 
-	if (tw > bounds_.w) {
-		dc.PushScissor(bounds_);
+	if (tw > bounds.w) {
+		dc.PushScissor(bounds);
 	}
 
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	if (!text_.empty()) {
-		float textX = bounds_.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
-		dc.DrawText(text_, textX, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+		float textX = bounds.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
+		dc.DrawText(text_, textX, bounds.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	}
 
-	if (tw > bounds_.w) {
+	if (tw > bounds.w) {
 		dc.PopScissor();
 	}
+
+	DrawHint(dc, style);
 }
 
 ImageView::ImageView(ImageID atlasImage, const std::string &text, LayoutParams *layoutParams)

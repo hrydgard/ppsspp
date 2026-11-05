@@ -564,7 +564,6 @@ public:
 	bool CanBeFocused() const override { return false; }
 };
 
-
 // All these light up their background when touched, or have focus.
 class Clickable : public View {
 public:
@@ -637,26 +636,6 @@ private:
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
 	bool ignoreText_ = false;
-};
-
-class RadioButton : public Clickable {
-public:
-	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
-	void Draw(UIContext &dc) override;
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	std::string DescribeText() const override;
-
-private:
-	void ClickInternal() override;
-	int *value_;
-	int thisButtonValue_;
-	std::string text_;
-	const float paddingW_ = 8;
-	const float paddingH_ = 4;
-
-	const float radioRadius_ = 16.0f;
-	const float radioInnerRadius_ = 8.0f;
 };
 
 class Slider : public Clickable {
@@ -768,7 +747,7 @@ public:
 	void Draw(UIContext &dc) override;
 
 	// Small explanatory text under the item, part of it (highlighted and clicked along with it).
-	// Drawn by Choice and CheckBox.
+	// Drawn by Choice and CheckBox and RadioButton.
 	void SetHintText(std::string_view text) {
 		hintText_ = text;
 	}
@@ -784,6 +763,9 @@ protected:
 		return b;
 	}
 	void DrawHint(UIContext &dc, const Style &style) const;
+	// Where the hint starts, from the item's left edge. Items whose text doesn't start at the
+	// default padding override this, to line the hint up with it.
+	virtual float HintIndent() const;
 
 	std::string hintText_;
 	float hintHeight_ = 0.0f;
@@ -1011,6 +993,29 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;
+};
+
+class RadioButton : public ClickableItem {
+public:
+	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
+	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	std::string DescribeText() const override;
+
+protected:
+	float HintIndent() const override { return paddingW_ * 2.0f + radioRadius_ * 2.0f; }
+
+private:
+	void ClickInternal() override;
+	int *value_;
+	int thisButtonValue_;
+	std::string text_;
+	const float paddingW_ = 8;
+	const float paddingH_ = 4;
+
+	const float radioRadius_ = 16.0f;
+	const float radioInnerRadius_ = 8.0f;
 };
 
 class CollapsibleHeader : public CheckBox {
