@@ -1000,6 +1000,7 @@ public:
 	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = nullptr)
 		: ClickableItem(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
 	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	std::string DescribeText() const override;
 

@@ -1067,17 +1067,24 @@ void Button::Draw(UIContext &dc) {
 	}
 }
 
-void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	w = 0.0f;
-	h = 0.0f;
-
+void RadioButton::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	// Padding on both sides, and between the radio image and the text.
+	const float decorationW = paddingW_ * 3.0f + radioRadius_ * 2.0f;
+	float textW = 0.0f, textH = 0.0f;
 	if (!text_.empty()) {
-		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w, &h);
+		float availWidth = horiz.size - decorationW;
+		if (horiz.type == UNSPECIFIED || availWidth <= 0.0f) {
+			availWidth = MAX_ITEM_SIZE;
+		}
+		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 	}
+	w = textW + decorationW;
+	// Same height as a CheckBox, taller if the text wraps.
+	h = std::max(std::max(textH + 16.0f, radioRadius_ * 2), ITEM_HEIGHT);
+}
 
-	// Padding on both sides, and between the radio image and the text. Same height as a CheckBox.
-	w += paddingW_ * 3.0f + radioRadius_ * 2.0f;
-	h = std::max(std::max(h, radioRadius_ * 2), ITEM_HEIGHT);
+void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	GetContentDimensionsBySpec(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED), w, h);
 }
 
 std::string RadioButton::DescribeText() const {
@@ -1107,22 +1114,12 @@ void RadioButton::Draw(UIContext &dc) {
 	const ImageID image(checked ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY");
 	dc.Draw()->DrawImage(image, bounds.x + paddingW_ + radioRadius_, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
-	float tw, th;
-	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &tw, &th);
-
-	if (tw > bounds.w) {
-		dc.PushScissor(bounds);
-	}
-
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	if (!text_.empty()) {
-		float textX = bounds.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
-		dc.DrawText(text_, textX, bounds.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
-	}
-
-	if (tw > bounds.w) {
-		dc.PopScissor();
+		const float textX = bounds.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
+		const Bounds textBounds(textX, bounds.y, bounds.x2() - paddingW_ - textX, bounds.h);
+		dc.DrawTextRect(text_, textBounds, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 
 	DrawHint(dc, style);
