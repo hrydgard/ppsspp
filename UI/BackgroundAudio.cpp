@@ -516,7 +516,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 	int sampleRate = 0;
 	int delay = 0;
 	int padding = 0;
-	while (pos + 4 <= size) {
+	// Sound effects are short. A long file would decode to many times its own size.
+	constexpr int MAX_SECONDS = 60;
+	while (pos + 4 <= size && (sampleRate == 0 || samples.size() < (size_t)sampleRate * 2 * MAX_SECONDS)) {
 		int frameRate = 0;
 		int frameSize = Mp3FrameSize(data + pos, &frameRate);
 		if (frameSize == 0 || pos + frameSize > size) {
@@ -527,6 +529,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 		if (!decoder) {
 			sampleRate = frameRate;
 			decoder.reset(CreateAudioDecoder(PSP_CODEC_MP3, sampleRate, 2));
+			if (!decoder) {
+				return nullptr;
+			}
 			if (ParseXingFrame(data + pos, frameSize, &delay, &padding)) {
 				// It decodes to silence.
 				pos += frameSize;
@@ -559,8 +564,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 Sample *Sample::Load(const std::string &path) {
 	size_t data_size = 0;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &data_size);
-	if (!data || data_size > 100000000) {
+	if (!data || data_size < 4 || data_size > 100000000) {
 		WARN_LOG(Log::Audio, "Failed to load sample '%s'", path.c_str());
+		delete[] data;
 		return nullptr;
 	}
 
