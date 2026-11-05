@@ -354,8 +354,14 @@ void GameButton::Draw(UIContext &dc) {
 		if (imageIcon.isValid()) {
 			const float textX = ListTextX(viewMode_);
 			if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				const float scale = g_Config.fGameGridScale;
-				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
+				float scale = g_Config.fGameGridScale;
+				if (type_ == GameButtonType::Dir) {
+					// Dirs are fixed height
+					scale = 1.0f;
+				} else {
+					scale = g_Config.fGameGridScale * 0.88f;
+				}
+				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale * 0.5f, bounds.centerY(), scale, style.fgColor, ALIGN_CENTER);
 			} else {
 				dc.Draw()->DrawImage(imageIcon, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
 			}
