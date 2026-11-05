@@ -613,6 +613,8 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	using namespace UI;
 	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 
+	savedata->Add(new Spacer(12.0f));
+
 	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
@@ -636,6 +638,8 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 	using namespace UI;
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
+
+	savestate->Add(new Spacer(12.0f));
 
 	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
 	sortStrip->AddChoice(sa->T("Filename"));

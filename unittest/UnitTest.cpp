@@ -3985,6 +3985,7 @@ bool TestUITabOrder() {
 	// Nested groups are flattened in place, in order.
 	LinearLayout *inner = root.Add(new LinearLayout(ORIENT_HORIZONTAL));
 	Choice *b = inner->Add(new Choice("b"));
+	// Disabled items are stops too, they just can't be activated.
 	Choice *disabled = inner->Add(new Choice("disabled"));
 	disabled->SetEnabled(false);
 
@@ -4001,23 +4002,26 @@ bool TestUITabOrder() {
 
 	std::vector<View *> order;
 	root.CollectTabOrder(&order);
-	EXPECT_EQ_INT((int)order.size(), 3);
+	EXPECT_EQ_INT((int)order.size(), 4);
 	EXPECT_TRUE(order[0] == a);
 	EXPECT_TRUE(order[1] == b);
-	EXPECT_TRUE(order[2] == c);
+	EXPECT_TRUE(order[2] == disabled);
+	EXPECT_TRUE(order[3] == c);
 
 	// Tab walks forwards and wraps at the end, Shift+Tab does the reverse.
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::NEXT) == b);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::NEXT) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::NEXT) == disabled);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::NEXT) == c);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::NEXT) == a);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::PREV) == b);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, c, FocusMove::PREV) == disabled);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::PREV) == b);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, b, FocusMove::PREV) == a);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, a, FocusMove::PREV) == c);
 
 	// A view that has gone away (or was never a stop) doesn't stall navigation - it starts
 	// from whichever end we're heading towards.
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::NEXT) == a);
-	EXPECT_TRUE(FindTabOrderNeighbor(&root, disabled, FocusMove::PREV) == c);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, invisible, FocusMove::NEXT) == a);
+	EXPECT_TRUE(FindTabOrderNeighbor(&root, invisible, FocusMove::PREV) == c);
 	EXPECT_TRUE(FindTabOrderNeighbor(&root, nullptr, FocusMove::NEXT) == a);
 
 	// With a single stop, both directions land back on it, and with none there's nothing to do.
@@ -4029,6 +4033,42 @@ bool TestUITabOrder() {
 	LinearLayout empty(ORIENT_VERTICAL);
 	empty.Add(new TextView("just a label"));
 	EXPECT_TRUE(FindTabOrderNeighbor(&empty, nullptr, FocusMove::NEXT) == nullptr);
+
+	// A focused disabled item ignores the accept key, an enabled one clicks.
+	{
+		const std::vector<InputMapping> oldConfirm = confirmKeys;
+		const std::vector<InputMapping> oldCancel = cancelKeys;
+		SetConfirmCancelKeys({ InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ENTER) }, { InputMapping(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE) });
+
+		LinearLayout keyRoot(ORIENT_VERTICAL);
+		Choice *enabledChoice = keyRoot.Add(new Choice("enabled"));
+		Choice *disabledChoice = keyRoot.Add(new Choice("disabled"));
+		disabledChoice->SetEnabled(false);
+		int enabledClicks = 0;
+		int disabledClicks = 0;
+		enabledChoice->OnClick.Add([&](EventParams &) { enabledClicks++; });
+		disabledChoice->OnClick.Add([&](EventParams &) { disabledClicks++; });
+
+		auto press = [&](View *focus) {
+			SetFocusedView(focus, FocusFlags::CAUSE_OTHER);
+			KeyInput key{};
+			key.deviceId = DEVICE_ID_KEYBOARD;
+			key.keyCode = NKCODE_ENTER;
+			key.flags = KeyInputFlags::DOWN;
+			keyRoot.Key(key);
+			key.flags = KeyInputFlags::UP;
+			keyRoot.Key(key);
+		};
+		press(disabledChoice);
+		press(enabledChoice);
+		// Clicks are queued.
+		DispatchEvents();
+		SetFocusedView(nullptr, FocusFlags::CAUSE_OTHER);
+		SetConfirmCancelKeys(oldConfirm, oldCancel);
+
+		EXPECT_EQ_INT(disabledClicks, 0);
+		EXPECT_EQ_INT(enabledClicks, 1);
+	}
 
 	return true;
 }
@@ -4108,14 +4148,22 @@ bool TestUIFocusNavigation() {
 		// Things that can't take focus are passed over, also inside nested groups.
 		LinearLayout root(ORIENT_VERTICAL);
 		Choice *origin = add(&root, 0, 0, 100, 50);
-		Choice *disabled = add(&root, 0, 60, 100, 50);
-		disabled->SetEnabled(false);
 		LinearLayout *inner = root.Add(new LinearLayout(ORIENT_VERTICAL));
-		Choice *hidden = add(inner, 0, 120, 100, 50);
+		Choice *hidden = add(inner, 0, 60, 100, 50);
 		hidden->SetVisibility(V_INVISIBLE);
-		Choice *last = add(inner, 0, 180, 100, 50);
+		Choice *last = add(inner, 0, 120, 100, 50);
 		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == last);
 		EXPECT_TRUE(move(&root, last, FocusMove::UP) == origin);
+	}
+
+	{
+		// Disabled items can take focus (they ignore activation instead).
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *origin = add(&root, 0, 0, 100, 50);
+		Choice *disabled = add(&root, 0, 60, 100, 50);
+		disabled->SetEnabled(false);
+		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == disabled);
+		EXPECT_TRUE(move(&root, disabled, FocusMove::UP) == origin);
 	}
 
 	return true;

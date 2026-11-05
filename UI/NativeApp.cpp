@@ -148,6 +148,7 @@
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/SettingsPage.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 #include "UI/PauseScreen.h"
@@ -858,6 +859,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	}
 
 	g_BackgroundAudio.SFX().Init();
+
+	UI::SetDisabledActivationCallback(&ShowWhyViewDisabled);
 
 	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
 		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);

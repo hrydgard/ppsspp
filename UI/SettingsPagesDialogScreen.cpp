@@ -147,7 +147,8 @@ void SettingsPagesDialogScreen::CreateSettingsTabContents(int settingsTab, UI::L
 	}
 }
 
-// Where you are, with the earlier pages clickable to go back to them. Also has the search button.
+// Creates the navigation bar, which shows where you are in the settings tree, with the previous pages
+// clickable if there's room (horizontal layout). Also has the search and help buttons.
 void SettingsPagesDialogScreen::CreateNavBar(UI::ViewGroup *parent, int settingsTab, const std::vector<std::string> &titles, const std::string &helpTag) {
 	using namespace UI;
 	const SettingsTab &tab = settingsTabs_[settingsTab];
@@ -157,7 +158,7 @@ void SettingsPagesDialogScreen::CreateNavBar(UI::ViewGroup *parent, int settings
 	bar->SetSpacing(8.0f);
 
 	// When stacked in portrait, there's no other back button, so it's always there, and leaves the screen from the root page.
-	if (stacked_ || !searchText_.empty() || !pagePaths_[tab.tag].empty()) {
+	if (stacked_ || !searchText_.empty()) {
 		Choice *backButton = bar->Add(new Choice(ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
 		backButton->SetRoundCorners(RoundCorners::All);
 		backButton->OnClick.Add([this, settingsTab](UI::EventParams &) {
@@ -409,10 +410,9 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 	const I18NCat cat = page.DefaultCat();
 	const std::deque<SettingItem> &items = page.Items();
 
-	// A matching header shows its whole section, and a matching hint the setting it belongs to.
+	// A matching header shows its whole section.
 	std::vector<bool> show(items.size());
 	bool sectionMatches = false;
-	int lastSetting = -1;
 	for (int i = 0; i < (int)items.size(); i++) {
 		const SettingItem &item = items[i];
 		bool matches = SettingTextMatches(item.text, cat, searchText_);
@@ -420,15 +420,12 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 		case SettingType::Header:
 			sectionMatches = matches;
 			break;
-		case SettingType::Hint:
-			if (matches && lastSetting >= 0) {
-				show[lastSetting] = true;
-			}
-			break;
 		case SettingType::Description:
 			break;
 		default:
-			lastSetting = i;
+			if (!item.hint.empty() && SettingTextMatches(item.hint, cat, searchText_)) {
+				matches = true;
+			}
 			show[i] = matches || sectionMatches;
 			break;
 		}

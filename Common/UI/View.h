@@ -473,6 +473,15 @@ public:
 		enabledPtr_ = disabled;
 		enabledMeansDisabled_ = true;
 	}
+	// The bool set by SetEnabledPtr or SetDisabledPtr (*meansDisabled says which), or null.
+	const bool *GetEnabledPtr(bool *meansDisabled) const {
+		*meansDisabled = enabledMeansDisabled_;
+		return enabledPtr_;
+	}
+	// Shown when the user tries to activate the view while it's disabled, instead of the
+	// message worked out from the enabled pointer (see SetDisabledActivationCallback).
+	void SetDisabledReason(std::string_view reason) { disabledReason_ = reason; }
+	const std::string &GetDisabledReason() const { return disabledReason_; }
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -539,6 +548,7 @@ private:
 	bool enabled_ = true;
 	bool enabledMeansDisabled_ = false;
 	bool alwaysVisibleInSearch_ = false;
+	std::string disabledReason_;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
@@ -583,6 +593,8 @@ protected:
 	bool dragging_ = false;
 	bool down_ = false;
 	bool highlighted_ = false;
+	// A touch went down on this while disabled.
+	bool disabledTap_ = false;
 };
 
 // TODO: Very similar to Choice, should probably merge them.
@@ -750,9 +762,31 @@ class ClickableItem : public Clickable {
 public:
 	ClickableItem(LayoutParams *layoutParams);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 
 	// Draws the item background.
 	void Draw(UIContext &dc) override;
+
+	// Small explanatory text under the item, part of it (highlighted and clicked along with it).
+	// Drawn by Choice and CheckBox.
+	void SetHintText(std::string_view text) {
+		hintText_ = text;
+	}
+	const std::string &GetHintText() const {
+		return hintText_;
+	}
+
+protected:
+	// The item's bounds without the hint below.
+	Bounds ContentBounds() const {
+		Bounds b = bounds_;
+		b.h -= hintHeight_;
+		return b;
+	}
+	void DrawHint(UIContext &dc, const Style &style) const;
+
+	std::string hintText_;
+	float hintHeight_ = 0.0f;
 };
 
 // Use to trigger something or open a submenu screen.

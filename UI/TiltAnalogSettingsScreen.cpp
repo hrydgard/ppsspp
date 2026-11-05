@@ -124,9 +124,8 @@ void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
 	Choice *calibrate = new Choice(co->T("Calibrate"));
 	calibrate->OnClick.Handle(this, &TiltAnalogSettingsScreen::OnCalibrate);
 	calibrate->SetEnabledPtr(&g_Config.bTiltInputEnabled);
+	calibrate->SetHintText(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."));
 	calibrationSettings->Add(calibrate);
-	SettingHint *calibrationInfo = new SettingHint(co->T("To Calibrate", "Hold device at your preferred angle and press Calibrate."), calibrate);
-	calibrationSettings->Add(calibrationInfo);
 
 	ChoiceGroup *sensitivitySettings = groups->Add(new ChoiceGroup(co->T("Sensitivity")));
 	if (TiltTypeIsAnalog(g_Config.iTiltInputType)) {
