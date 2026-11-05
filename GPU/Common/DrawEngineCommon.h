@@ -215,6 +215,9 @@ protected:
 	// For an active CpuClip: decodes the vertices into decoded_ and the indices into decIndex_, then clips and culls
 	// them there. clip->numVerts vertices of clip->fmt are then in decoded_, to be pushed.
 	void DecodeClipCull(CpuClip *clip, GEPrimitiveType *prim, int *vertexCount, int *maxIndex, bool *useElements);
+	// Resolves ClipInfoFlags::MinMaxZCheck, decoding the vertices into decoded_ to do so. At the start of the flush,
+	// before the flags are compared with the last ones.
+	void CheckSkinnedMinMaxZ(bool useHWTransform);
 	void DepthRasterSubmitHW(GEPrimitiveType prim, int vertexCount, const CpuClip &clip);
 
 	// With ClipInfoFlags::CpuCull, clips the triangles that cross the near plane, adding vertices to verts, and drops the

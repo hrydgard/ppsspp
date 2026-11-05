@@ -311,6 +311,7 @@ void DrawEngineD3D11::Flush() {
 			useHWTransform = false;
 		}
 	}
+	CheckSkinnedMinMaxZ(useHWTransform);
 	if (clipInfoFlags_ != lastClipInfoFlags_) {
 		ClipInfoFlags changed = (ClipInfoFlags)((u32)clipInfoFlags_ ^ (u32)lastClipInfoFlags_);
 		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
