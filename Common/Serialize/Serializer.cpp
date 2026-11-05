@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
+#include <new>
 #include <snappy-c.h>
 #include <zstd.h>
 
@@ -503,15 +504,19 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	if (header.Compress) {
 		// Sanity cap on the decompressed size to avoid a giant allocation from
-		// an attacker-controlled header field. Real savestates are well under this.
-		if (header.UncompressedSize > 0x40000000) {
+		// an attacker-controlled header field. Real savestates (even with 64MB of
+		// RAM) are well under this.
+		if (header.UncompressedSize > 0x10000000) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: UncompressedSize too large: %u", header.UncompressedSize);
 			return ERROR_BAD_FILE;
 		}
 	}
 
 	if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
-		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		u8 *uncomp_buffer = new (std::nothrow) u8[header.UncompressedSize];
+		if (!uncomp_buffer) {
+			return ERROR_BAD_FILE;
+		}
 		if (!DecompressZstdFromFile(pFile, header.ExpectedSize, uncomp_buffer, header.UncompressedSize)) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
 			delete [] uncomp_buffer;
@@ -525,8 +530,8 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	// Uncompressed, or snappy (older states).
 	sz = header.ExpectedSize;
-	u8 *buffer = new u8[sz];
-	if (!pFile.ReadBytes(buffer, sz))
+	u8 *buffer = new (std::nothrow) u8[sz];
+	if (!buffer || !pFile.ReadBytes(buffer, sz))
 	{
 		ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
 		delete [] buffer;
@@ -534,7 +539,11 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	}
 
 	if (header.Compress) {
-		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		u8 *uncomp_buffer = new (std::nothrow) u8[header.UncompressedSize];
+		if (!uncomp_buffer) {
+			delete [] buffer;
+			return ERROR_BAD_FILE;
+		}
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;
 		if (SerializeCompressType(header.Compress) == SerializeCompressType::SNAPPY) {

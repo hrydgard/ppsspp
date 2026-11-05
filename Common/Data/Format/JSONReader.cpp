@@ -1,3 +1,5 @@
+#include <climits>
+
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/Path.h"
@@ -121,20 +123,31 @@ double JsonGet::getFloat(const char *child_name, double default_value) const {
 	return val->value.toNumber();
 }
 
+// Casting a double that's out of range (or NaN) to int is undefined.
+static int ClampToInt(double d) {
+	if (!(d >= (double)INT_MIN)) {
+		return d != d ? 0 : INT_MIN;
+	}
+	if (d > (double)INT_MAX) {
+		return INT_MAX;
+	}
+	return (int)d;
+}
+
 int JsonGet::getInt(const char *child_name) const {
 	const JsonNode *val = get(child_name, JSON_NUMBER);
 	if (!val) {
 		ERROR_LOG(Log::IO, "Number '%s' missing from node", child_name);
 		return 0;
 	}
-	return (int)val->value.toNumber();
+	return ClampToInt(val->value.toNumber());
 }
 
 int JsonGet::getInt(const char *child_name, int default_value) const {
 	const JsonNode *val = get(child_name, JSON_NUMBER);
 	if (!val)
 		return default_value;
-	return (int)val->value.toNumber();
+	return ClampToInt(val->value.toNumber());
 }
 
 bool JsonGet::getBool(const char *child_name) const {

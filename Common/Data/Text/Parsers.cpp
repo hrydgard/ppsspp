@@ -169,7 +169,10 @@ StringWriter &StringWriter::F(const char *format, ...) {
 	va_list args;
 	va_start(args, format);
 	int wouldHaveBeenWritten = vsnprintf(p_, remainder, format, args);
-	p_ += std::min((int)remainder, wouldHaveBeenWritten);
 	va_end(args);
+	// -1 on encoding errors, which mustn't move p_ backwards.
+	if (wouldHaveBeenWritten > 0) {
+		p_ += std::min((int)remainder, wouldHaveBeenWritten);
+	}
 	return *this;
 }

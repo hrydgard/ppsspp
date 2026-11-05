@@ -126,7 +126,8 @@ bool WavData::Read(RIFFReader &file_) {
 					int playCount;
 				};
 
-				if (numLoops > 0 && smplData.size() >= 36 + sizeof(AtracLoopInfo) * numLoops) {
+				// Divided, since the product wraps a 32-bit size_t.
+				if (numLoops > 0 && smplData.size() >= 36 && (smplData.size() - 36) / sizeof(AtracLoopInfo) >= (size_t)numLoops) {
 					AtracLoopInfo *loops = (AtracLoopInfo *)&smplData[36];
 					int samplesPerFrame = codec == PSP_CODEC_AT3PLUS ? 2048 : 1024;
 

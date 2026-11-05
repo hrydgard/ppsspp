@@ -110,6 +110,12 @@ int u8_charnum(const char *s, int offset)
 uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	uint32_t ch = 0;
 	_dbg_assert_(*index >= 0 && *index < 100000000);
+	// At (or past) the end, there's nothing to read. Leave the index at the end so loops waiting
+	// for end() finish.
+	if (*index < 0 || (size_t)*index >= size) {
+		*index = (int)size;
+		return 0;
+	}
 	int sz = 0;
 	int i = *index;
 	do {
@@ -138,6 +144,7 @@ void u8_dec(const char *s, int *i) {
 
 bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	int i = 0;
+	byteCount = std::min(byteCount, str.size());
 	while (i < byteCount) {
 		uint32_t c = u8_nextchar(str.data(), &i, str.size());
 		if (CodepointIsProbablyEmoji(c)) {
