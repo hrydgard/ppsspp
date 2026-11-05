@@ -244,6 +244,8 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 
 	// TODO: Would be nice to read directly.
 	net::Buffer output;
+	// We only use what we asked for, so don't let the server send more than that.
+	client_.SetMaxResponseSize((size_t)(absoluteEnd - absolutePos));
 	int res = client_.ReadResponseEntity(&readbuf, responseHeaders, &output, &progress_);
 	if (res != 0) {
 		ERROR_LOG(Log::Loader, "Unable to read HTTP response entity: %d", res);
