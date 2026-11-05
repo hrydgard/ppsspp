@@ -17,7 +17,8 @@ protected:
 	virtual float MeasureWidth(std::string_view str) = 0;
 
 	void Wrap();
-	bool WrapBeforeWord();
+	bool WrapBeforeWord(int endIndex);
+	bool WordFitsOnLine(int endIndex);
 	void AppendWord(int endIndex, int lastChar, bool addNewline);
 	void AddEllipsis();
 
