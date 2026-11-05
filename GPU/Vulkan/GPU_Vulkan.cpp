@@ -26,6 +26,7 @@
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -232,7 +233,15 @@ u32 GPU_Vulkan::CheckGPUFeatures() const {
 		}
 	}
 
-	if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
+	if (IsVREnabled() || g_Config.bForceVR) {
+		// bForceVR runs the VR shaders without a headset, for testing.
+		features |= GPU_USE_VIRTUAL_REALITY;
+		features &= ~GPU_USE_VS_RANGE_CULLING;
+		// Both eyes in one pass. The presentation copies each layer to its eye, so no stereo-to-mono shader.
+		if (IsVREnabled() && GetVRPassesCount() > 1 && draw_->GetDeviceCaps().multiViewSupported) {
+			features |= GPU_USE_SINGLE_PASS_STEREO;
+		}
+	} else if (g_Config.bStereoRendering && draw_->GetDeviceCaps().multiViewSupported) {
 		features |= GPU_USE_SINGLE_PASS_STEREO;
 		features |= GPU_USE_SIMPLE_STEREO_PERSPECTIVE;
 	}

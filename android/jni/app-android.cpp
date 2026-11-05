@@ -793,6 +793,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	bFirstResume = true;
 
+	// Before the graphics context: Vulkan has to know what OpenXR needs from its instance and device,
+	// and VulkanMayBeAvailable whether the runtime takes a Vulkan session at all.
+	if (IsVREnabled()) {
+		Version gitVer(PPSSPP_GIT_VERSION);
+		InitVROnAndroid(gJvm, ppssppActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
+		SetVRCallbacks(NativeAxis, NativeKey, NativeTouch);
+	}
+
 	// In debug mode, don't allow creating software Vulkan devices (reject by VulkanMaybeAvailable).
 	// Needed for #16931.
 #ifdef NDEBUG
@@ -837,12 +845,6 @@ retry:
 		ERROR_LOG(Log::System, "NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		goto retry;
-	}
-
-	if (IsVREnabled()) {
-		Version gitVer(PPSSPP_GIT_VERSION);
-		InitVROnAndroid(gJvm, ppssppActivity, systemName.c_str(), gitVer.ToInteger(), "PPSSPP");
-		SetVRCallbacks(NativeAxis, NativeKey, NativeTouch);
 	}
 }
 
@@ -941,6 +943,11 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 			renderer_inited = false;
 		} else {
 			INFO_LOG(Log::G3D, "Not shutting down renderer - not initialized");
+		}
+
+		// The instance belongs to this activity. A restart (recreate) creates a new one in this process.
+		if (IsVREnabled()) {
+			ShutdownVR();
 		}
 
 		NativeShutdown();

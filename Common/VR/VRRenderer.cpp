@@ -8,6 +8,21 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <condition_variable>
+#include <mutex>
+
+// On Vulkan, VR_InitFrame (emu thread) begins the frame and VR_FinishFrame (render thread, after the
+// submit) ends it. The next frame can't begin before that.
+static std::mutex g_frameMutex;
+static std::condition_variable g_frameCond;
+static bool g_frameOpen = false;
+static bool g_presentQueued = false;
+// The runtime may use the VkQueue in xrBeginFrame, xrEndFrame and the swapchain calls.
+static std::recursive_mutex g_queueMutex;
+
+static bool IsVulkan() {
+	return VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN);
+}
 
 XrFovf fov;
 XrView* projections;
@@ -141,8 +156,16 @@ void VR_Recenter(engine_t* engine) {
 	if (engine->appState.CurrentSpace != XR_NULL_HANDLE) {
 		XrSpaceLocation loc = {};
 		loc.type = XR_TYPE_SPACE_LOCATION;
-		OXR(xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
-		hmdorientation = XrQuaternionf_ToEulerAngles(loc.pose.orientation);
+		XrResult locateResult = XR_ERROR_TIME_INVALID;
+		if (engine->predictedDisplayTime != 0) {
+			OXR(locateResult = xrLocateSpace(engine->appState.HeadSpace, engine->appState.CurrentSpace, engine->predictedDisplayTime, &loc));
+		}
+		if (XR_SUCCEEDED(locateResult) && (loc.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
+			hmdorientation = XrQuaternionf_ToEulerAngles(loc.pose.orientation);
+		} else {
+			// Before the first frame, or not tracking. A zero quaternion would make every layer's pose invalid.
+			hmdorientation = {};
+		}
 
 		VR_SetConfigFloat(VR_CONFIG_RECENTER_YAW, VR_GetConfigFloat(VR_CONFIG_RECENTER_YAW) + hmdorientation.y);
 		float recenterYaw = ToRadians(VR_GetConfigFloat(VR_CONFIG_RECENTER_YAW));
@@ -183,8 +206,9 @@ void VR_Recenter(engine_t* engine) {
 		}
 	}
 
-	// Update menu orientation
-	VR_SetConfigFloat(VR_CONFIG_MENU_PITCH, hmdorientation.x);
+	// Update menu orientation. The screen stays upright: tilting it to the head's pitch at recenter
+	// time (often looking down while putting the headset on) left it at an angle for the session.
+	VR_SetConfigFloat(VR_CONFIG_MENU_PITCH, 0.0f);
 	VR_SetConfigFloat(VR_CONFIG_MENU_YAW, 0.0f);
 }
 
@@ -237,7 +261,9 @@ void VR_InitRenderer( engine_t* engine ) {
 		projections[eye].type = XR_TYPE_VIEW;
 	}
 
-	ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer, eyeW, eyeH);
+	if (!ovrRenderer_Create(engine->appState.Session, &engine->appState.Renderer, eyeW, eyeH)) {
+		ALOGE("Failed to create the XR swapchains");
+	}
 
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		XrPassthroughCreateInfoFB ptci = {XR_TYPE_PASSTHROUGH_CREATE_INFO_FB};
@@ -257,9 +283,17 @@ void VR_InitRenderer( engine_t* engine ) {
 }
 
 void VR_DestroyRenderer( engine_t* engine ) {
+	if (!initialized) {
+		return;
+	}
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH)) {
 		if (passthroughRunning) {
 			OXR(xrPassthroughLayerPauseFB(passthroughLayer));
+			passthroughRunning = false;
+		}
+		if (passthroughLayer != XR_NULL_HANDLE) {
+			OXR(xrDestroyPassthroughLayerFB(passthroughLayer));
+			passthroughLayer = XR_NULL_HANDLE;
 		}
 		OXR(xrPassthroughPauseFB(passthrough));
 		OXR(xrDestroyPassthroughFB(passthrough));
@@ -272,6 +306,18 @@ void VR_DestroyRenderer( engine_t* engine ) {
 }
 
 bool VR_InitFrame( engine_t* engine ) {
+	if (IsVulkan()) {
+		// Before the events: they can end the session or recreate the space the last frame ends in.
+		std::unique_lock<std::mutex> lock(g_frameMutex);
+		if (g_frameOpen && !g_presentQueued) {
+			// The last frame never got to the render thread, so nothing there will end it.
+			lock.unlock();
+			VR_FinishFrame(engine);
+			lock.lock();
+		}
+		g_frameCond.wait(lock, [] { return !g_frameOpen; });
+	}
+
 	bool stageBoundsDirty = true;
 	if (ovrApp_HandleXrEvents(&engine->appState)) {
 		VR_Recenter(engine);
@@ -321,6 +367,16 @@ bool VR_InitFrame( engine_t* engine ) {
 			&projectionCountOutput,
 			projections));
 
+	// Not tracking (yet). Layers with these poses would be rejected.
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		if (!(viewState.viewStateFlags & XR_VIEW_STATE_ORIENTATION_VALID_BIT)) {
+			projections[eye].pose.orientation = { 0.0f, 0.0f, 0.0f, 1.0f };
+		}
+		if (!(viewState.viewStateFlags & XR_VIEW_STATE_POSITION_VALID_BIT)) {
+			projections[eye].pose.position = { 0.0f, 0.0f, 0.0f };
+		}
+	}
+
 	// Get the HMD pose, predicted for the middle of the time period during which
 	// the new eye images will be displayed. The number of frames predicted ahead
 	// depends on the pipeline depth of the engine and the synthesis rate.
@@ -328,7 +384,15 @@ bool VR_InitFrame( engine_t* engine ) {
 	XrFrameBeginInfo beginFrameDesc = {};
 	beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
 	beginFrameDesc.next = NULL;
-	OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
+	if (IsVulkan()) {
+		std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
+		OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
+		std::lock_guard<std::mutex> lock(g_frameMutex);
+		g_frameOpen = true;
+		g_presentQueued = false;
+	} else {
+		OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
+	}
 
 	fov = {};
 	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
@@ -345,13 +409,53 @@ bool VR_InitFrame( engine_t* engine ) {
 
 	for (int i = 0; i < ovrMaxNumEyes; i++) {
 		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[i];
-		frameBuffer->TextureSwapChainIndex++;
-		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+		if (frameBuffer->TextureSwapChainLength) {
+			frameBuffer->TextureSwapChainIndex++;
+			frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
+		}
 	}
 
 	engine->appState.LayerCount = 0;
 	memset(engine->appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
 	return true;
+}
+
+void VR_NotifyPresentQueued() {
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	g_presentQueued = true;
+}
+
+void VR_LockQueue() {
+	g_queueMutex.lock();
+}
+
+void VR_UnlockQueue() {
+	g_queueMutex.unlock();
+}
+
+bool VR_AcquireVulkanImage(engine_t *engine, uint32_t *index) {
+	ovrFramebuffer *frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
+	if (frameBuffer->ColorSwapChain.Handle == XR_NULL_HANDLE) {
+		return false;
+	}
+	{
+		std::lock_guard<std::mutex> lock(g_frameMutex);
+		if (!g_frameOpen) {
+			return false;
+		}
+	}
+	std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
+	ovrFramebuffer_Acquire(frameBuffer);
+	if (!frameBuffer->Acquired) {
+		return false;
+	}
+	*index = frameBuffer->TextureSwapChainIndex;
+	return true;
+}
+
+void VR_ReleaseVulkanImage(engine_t *engine) {
+	std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
+	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer[0]);
 }
 
 void VR_BeginFrame( engine_t* engine, int fboIndex ) {
@@ -378,6 +482,29 @@ void VR_EndFrame( engine_t* engine ) {
 }
 
 void VR_FinishFrame( engine_t* engine ) {
+	const bool vulkan = IsVulkan();
+	if (vulkan) {
+		std::lock_guard<std::mutex> lock(g_frameMutex);
+		if (!g_frameOpen) {
+			return;
+		}
+	}
+	if (vulkan && engine->appState.Renderer.FrameBuffer[0].Acquired) {
+		// A frame that never got to present.
+		VR_ReleaseVulkanImage(engine);
+	}
+	// On Vulkan both eyes are layers of FrameBuffer[0]. Its alpha isn't cleared to 1 like the GL path's,
+	// so the layers are opaque instead.
+	ovrFramebuffer *eyeBuffers[ovrMaxNumEyes];
+	uint32_t eyeLayers[ovrMaxNumEyes];
+	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+		eyeBuffers[eye] = &engine->appState.Renderer.FrameBuffer[vulkan ? 0 : eye];
+		eyeLayers[eye] = vulkan ? eye : 0;
+	}
+	const XrCompositionLayerFlags alphaFlag = vulkan ? 0 : XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+	// A swapchain that has never had an image released can't be shown.
+	const bool canShow = !vulkan || engine->appState.Renderer.FrameBuffer[0].EverReleased;
+
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH) && VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
 		if (passthroughLayer != XR_NULL_HANDLE) {
 			XrCompositionLayerPassthroughFB passthrough_layer = {XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
@@ -396,13 +523,15 @@ void VR_FinishFrame( engine_t* engine ) {
 		VR_SetConfigFloat(VR_CONFIG_MENU_YAW, hmdorientation.y);
 
 		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {;
-			ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
+			ovrFramebuffer* frameBuffer = eyeBuffers[0];
+			uint32_t arrayIndex = eyeLayers[0];
 			XrPosef pose = invViewTransform[0];
 			if (vrMode != VR_MODE_MONO_6DOF) {
 				pose = invViewTransform[eye];
 			}
 			if (vrMode == VR_MODE_STEREO_6DOF) {
-				frameBuffer = &engine->appState.Renderer.FrameBuffer[eye];
+				frameBuffer = eyeBuffers[eye];
+				arrayIndex = eyeLayers[eye];
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
@@ -416,7 +545,7 @@ void VR_FinishFrame( engine_t* engine ) {
 			projection_layer_elements[eye].subImage.imageRect.offset.y = 0;
 			projection_layer_elements[eye].subImage.imageRect.extent.width = frameBuffer->ColorSwapChain.Width;
 			projection_layer_elements[eye].subImage.imageRect.extent.height = frameBuffer->ColorSwapChain.Height;
-			projection_layer_elements[eye].subImage.imageArrayIndex = 0;
+			projection_layer_elements[eye].subImage.imageArrayIndex = arrayIndex;
 
 			if (vrMode == VR_MODE_SBS_6DOF) {
 				projection_layer_elements[eye].subImage.imageRect.extent.width /= 2;
@@ -428,7 +557,7 @@ void VR_FinishFrame( engine_t* engine ) {
 
 		XrCompositionLayerProjection projection_layer = {};
 		projection_layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-		projection_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+		projection_layer.layerFlags = alphaFlag;
 		projection_layer.layerFlags |= XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
 		projection_layer.space = engine->appState.CurrentSpace;
 		projection_layer.viewCount = ovrMaxNumEyes;
@@ -453,7 +582,7 @@ void VR_FinishFrame( engine_t* engine ) {
 		// Setup the cylinder layer
 		XrCompositionLayerCylinderKHR cylinder_layer = {};
 		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
-		cylinder_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+		cylinder_layer.layerFlags = alphaFlag;
 		cylinder_layer.space = engine->appState.CurrentSpace;
 		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
 		cylinder_layer.subImage.imageRect.offset.x = 0;
@@ -489,9 +618,14 @@ void VR_FinishFrame( engine_t* engine ) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-			cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[1].ColorSwapChain.Handle;
+			cylinder_layer.subImage.swapchain = eyeBuffers[1]->ColorSwapChain.Handle;
+			cylinder_layer.subImage.imageArrayIndex = eyeLayers[1];
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 		}
+	}
+
+	if (!canShow) {
+		engine->appState.LayerCount = 0;
 	}
 
 	// Compose the layers for this frame.
@@ -506,7 +640,18 @@ void VR_FinishFrame( engine_t* engine ) {
 	endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
 	endFrameInfo.layerCount = engine->appState.LayerCount;
 	endFrameInfo.layers = layers;
-	OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
+	if (!vulkan) {
+		OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
+		return;
+	}
+
+	{
+		std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
+		OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
+	}
+	std::lock_guard<std::mutex> lock(g_frameMutex);
+	g_frameOpen = false;
+	g_frameCond.notify_all();
 }
 
 int VR_GetConfig( VRConfig config ) {

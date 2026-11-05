@@ -291,7 +291,8 @@ VR_FILES := \
   $(SRC)/Common/VR/VRFramebuffer.cpp \
   $(SRC)/Common/VR/VRInput.cpp \
   $(SRC)/Common/VR/VRMath.cpp \
-  $(SRC)/Common/VR/VRRenderer.cpp
+  $(SRC)/Common/VR/VRRenderer.cpp \
+  $(SRC)/Common/VR/VRVulkan.cpp
 
 EXT_FILES := \
   $(SRC)/ext/cityhash/city.cpp \

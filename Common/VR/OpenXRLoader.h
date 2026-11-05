@@ -32,6 +32,12 @@
 #define XR_NO_PROTOTYPES 1
 #endif
 
+#if defined(ANDROID) || (defined(_WIN32) && defined(XR_USE_PLATFORM_WIN32))
+// Brings in the Vulkan types (no prototypes, we load Vulkan ourselves).
+#include "Common/GPU/Vulkan/VulkanLoader.h"
+#define XR_USE_GRAPHICS_API_VULKAN 1
+#endif
+
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 

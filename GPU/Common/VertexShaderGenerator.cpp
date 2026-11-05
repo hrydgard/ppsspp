@@ -180,7 +180,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (compat.shaderLanguage == GLSL_VULKAN) {
 		WRITE(p, "\n");
 
-		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr);
+		WRITE(p, "layout (std140, set = 0, binding = %d) uniform baseVars {\n%s%s};\n", DRAW_BINDING_DYNUBO_BASE, ub_baseStr, gstate_c.Use(GPU_USE_VIRTUAL_REALITY) ? ub_vrStr : "");
 		if (enableLighting || doShadeMapping || readUnusedLights)
 			WRITE(p, "layout (std140, set = 0, binding = %d) uniform lightVars {\n%s};\n", DRAW_BINDING_DYNUBO_LIGHT, ub_vs_lightsStr);
 
@@ -544,8 +544,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			}
 		}
 
-		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
-		if (useSimpleStereo) {
+		if (useSimpleStereo && gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+			// Each eye's view comes from the headset (multiview, Vulkan).
+			WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), gl_ViewIndex == 0 ? u_view : u_viewR).xyz, 1.0);\n");
+		} else {
+			WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
+		}
+		if (useSimpleStereo && !gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			float ipd = 0.065f;
 			float scale = 1.0f;
 			if (PSP_CoreParameter().compat.vrCompat().UnitsPerMeter > 0) {
@@ -558,11 +563,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 			WRITE(p, "  vec4 outPos = mul(u_proj_lens, viewPos);\n");
 			WRITE(p, "  vec4 orgPos = mul(u_proj, viewPos);\n");
-#ifdef __LIBRETRO__
 			// Preserve game depth before clipping and viewport conversion. The VR lens
-			// changes XY, but depth must still agree with through-mode draws and clears.
+			// changes XY, but depth must still agree with through-mode draws and clears,
+			// and go through the viewport's Z scale (often negative on the PSP).
 			WRITE(p, "  outPos.z = orgPos.z * (outPos.w / orgPos.w);\n");
-#endif
 		} else {
 			WRITE(p, "  vec4 outPos = mul(u_proj, viewPos);\n");
 		}
@@ -1043,13 +1047,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
 
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-#ifndef __LIBRETRO__
-		// Z correction for the depth buffer
-		if (useHWTransform) {
-			WRITE(p, "  %sgl_Position.z = orgPos.z / abs(orgPos.w) * abs(outPos.w);\n", compat.vsOutPrefix);
-		}
-#endif
-
 		// HUD scaling
 		WRITE(p, "  %sgl_Position.x *= u_scaleX;\n", compat.vsOutPrefix);
 		WRITE(p, "  %sgl_Position.y *= u_scaleY;\n", compat.vsOutPrefix);

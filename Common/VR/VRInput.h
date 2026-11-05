@@ -29,6 +29,7 @@ typedef enum ovrButton_ {
 } ovrButton;
 
 void IN_VRInit( engine_t *engine );
+void IN_VRShutdown( engine_t *engine );
 void IN_VRInputFrame( engine_t* engine );
 uint32_t IN_VRGetButtonState( int controllerIndex );
 XrVector2f IN_VRGetJoystickState( int controllerIndex );

@@ -610,7 +610,8 @@ const char * const vulkanDefaultBlacklist[] = {
 
 static int DefaultGPUBackend() {
 	if (IsVREnabled()) {
-		return (int)GPUBackend::OPENGL;
+		// Falls back to OpenGL if the runtime can't take a Vulkan session (VulkanMayBeAvailable).
+		return (int)GPUBackend::VULKAN;
 	}
 
 #if PPSSPP_PLATFORM(UWP)

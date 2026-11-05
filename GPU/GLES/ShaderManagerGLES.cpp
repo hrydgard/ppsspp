@@ -301,51 +301,6 @@ static void SetMatrix4x3(GLRenderManager *render, GLint *uniform, const float *m
 	render->SetUniformM4x4(uniform, m4x4);
 }
 
-static inline bool GuessVRDrawingHUD(bool is2D, bool flatScreen) {
-
-	bool hud = true;
-	//HUD shouldn't be modified in nonVR mode
-	if (IsBigScreenVRMode()) hud = false;
-	//HUD can be disabled in settings
-	else if (!g_Config.bRescaleHUD) hud = false;
-	//HUD cannot be rendered in flatscreen
-	else if (flatScreen) hud = false;
-	//HUD has to be 2D
-	else if (!is2D) hud = false;
-	//HUD has to be blended
-	else if (!gstate.isAlphaBlendEnabled()) hud = false;
-#ifdef __LIBRETRO__
-	// Untextured transition fades must cover the view, not be scaled with the HUD.
-	else if (!gstate.isTextureMapEnabled()) hud = false;
-#endif
-	//HUD cannot be rendered with clear color mask
-	else if (gstate.isClearModeColorMask()) hud = false;
-	//HUD cannot be rendered with depth color mask
-	else if (gstate.isClearModeDepthMask()) hud = false;
-	//HUD texture has to contain alpha channel
-	else if (!gstate.isTextureAlphaUsed()) hud = false;
-	//HUD texture cannot be in 5551 format
-	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_5551) hud = false;
-	//HUD texture cannot be in CLUT16 format
-	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT16) hud = false;
-	//HUD texture cannot be in CLUT32 format
-	else if (gstate.getTextureFormat() == GETextureFormat::GE_TFMT_CLUT32) hud = false;
-	//HUD cannot have full texture alpha
-	else if (gstate_c.textureSolidAlpha && gstate.getTextureFormat() != GETextureFormat::GE_TFMT_CLUT4) hud = false;
-	//HUD must have full vertex alpha
-	else if (!gstate_c.vertexFullAlpha && gstate.getDepthTestFunction() == GE_COMP_NEVER) hud = false;
-	//HUD cannot render FB screenshot
-	else if (gstate_c.curTextureHeight % 68 <= 1) hud = false;
-	//HUD cannot be rendered with add function
-	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_ADD) hud = false;
-	//HUD cannot be rendered with replace function
-	else if (gstate.getTextureFunction() == GETexFunc::GE_TEXFUNC_REPLACE) hud = false;
-	//HUD cannot be rendered with full clear color mask
-	else if ((gstate.getClearModeColorMask() == 0xFFFFFF) && (gstate.getColorMask() == 0xFFFFFF)) hud = false;
-
-	return hud;
-}
-
 void LinkedShader::use(const ShaderID &VSID) const {
 	render_->BindProgram(program);
 	// Note that we no longer track attr masks here - we do it for the input layouts instead.

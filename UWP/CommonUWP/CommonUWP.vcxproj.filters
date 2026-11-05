@@ -419,6 +419,9 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp">
       <Filter>VR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRVulkan.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\VR\OpenXRLoader.cpp">
       <Filter>VR</Filter>
     </ClCompile>
@@ -967,6 +970,9 @@
       <Filter>VR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\VR\VRRenderer.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRVulkan.h">
       <Filter>VR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\VR\OpenXRLoader.h">

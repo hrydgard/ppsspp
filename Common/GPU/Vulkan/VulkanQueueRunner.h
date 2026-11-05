@@ -281,7 +281,7 @@ public:
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd, VulkanBarrierBatch *barriers);  // Used for non-buffered rendering.
 	// For additional swapchains too. The depth image is transitioned by the barriers.
 	VkFramebuffer CreateBackbufferFramebuffer(VkImageView colorView, VkImageView depthView, int width, int height);
-	bool CreateDepthStencilImage(int width, int height, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
+	bool CreateDepthStencilImage(int width, int height, int layers, VkImage *image, VmaAllocation *alloc, VkImageView *view, VulkanBarrierBatch *barriers, const char *tag);
 private:
 
 	VKRRenderPass *PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);

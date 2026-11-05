@@ -380,8 +380,9 @@ static void InitSwapchainImageData(VulkanContext *vulkan, VkImage image, Swapcha
 	color_image_view.subresourceRange.baseMipLevel = 0;
 	color_image_view.subresourceRange.levelCount = 1;
 	color_image_view.subresourceRange.baseArrayLayer = 0;
-	color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
-	color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	const int layers = vulkan->GetBackbufferLayers();
+	color_image_view.subresourceRange.layerCount = layers;
+	color_image_view.viewType = layers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	color_image_view.flags = 0;
 	color_image_view.image = image;
 
@@ -660,7 +661,7 @@ bool VulkanRenderManager::InitExtraSwapchain(VKRSwapchain *swapchain, std::strin
 	std::vector<VkImage> images(count);
 	vkGetSwapchainImagesKHR(vulkan_->GetDevice(), swapchain->swapchain, &count, images.data());
 
-	if (!queueRunner_.CreateDepthStencilImage(extent.width, extent.height, &swapchain->depthImage, &swapchain->depthAlloc, &swapchain->depthView, &postInitBarrier_, "ExtraSwapchainDepth")) {
+	if (!queueRunner_.CreateDepthStencilImage(extent.width, extent.height, 1, &swapchain->depthImage, &swapchain->depthAlloc, &swapchain->depthView, &postInitBarrier_, "ExtraSwapchainDepth")) {
 		*error = "Failed to create the depth buffer";
 		return false;
 	}
