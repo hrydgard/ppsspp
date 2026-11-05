@@ -39,6 +39,12 @@
 // Server User Timeout (in seconds)
 #define SERVER_USER_TIMEOUT 15
 
+// A connection has this long to log in, however often it sends something
+#define SERVER_LOGIN_TIMEOUT 30
+
+// Connections from one IP (several players can share one behind a NAT)
+#define SERVER_USER_MAXIMUM_PER_IP 16
+
 // Server SQLite3 Database
 #define SERVER_DATABASE "database.db"
 
@@ -216,6 +222,9 @@ typedef struct SceNetAdhocctlUserNode {
 
 	// Last Ping Update
 	time_t last_recv;
+
+	// When the connection was accepted, for the login deadline
+	time_t connected_at;
 
 	// RX Buffer
 	uint8_t rx[1024];

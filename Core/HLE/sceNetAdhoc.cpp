@@ -948,12 +948,21 @@ struct PdpQueue {
 
 static std::map<const AdhocSocket *, PdpQueue> pdpQueues;
 
+// __GameModeNotify takes up to ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 per run.
+static const size_t GAMEMODE_MAX_QUEUED_DATAGRAMS = ADHOCCTL_GAMEMODE_MAX_MEMBERS * 8;
+
 static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint16_t port, const u8 *data, size_t len) {
 	PdpQueue &queue = pdpQueues[sock];
 	// Game mode's socket is ours rather than the game's: on a PSP game mode doesn't go through it.
 	bool unlimited = sock->data.pdp.lport == ADHOC_GAMEMODE_PORT;
 	if (!unlimited && queue.bytes + len > sock->buffer_size) {
 		VERBOSE_LOG(Log::sceNet, "PDP socket on port %d: %d-byte datagram from %s doesn't fit, dropped", sock->data.pdp.lport, (int)len, mac2str(&mac).c_str());
+		return;
+	}
+	// Still bound it: one datagram larger than the receive buffer would sit at the head forever, and a
+	// peer that sends faster than __GameModeNotify drains would grow the queue without limit.
+	if (unlimited && ((int)len > gameModeBuffSize || queue.datagrams.size() >= GAMEMODE_MAX_QUEUED_DATAGRAMS)) {
+		VERBOSE_LOG(Log::sceNet, "GameMode: %d-byte datagram from %s dropped", (int)len, mac2str(&mac).c_str());
 		return;
 	}
 	queue.datagrams.push_back({ mac, port, std::vector<u8>(data, data + len) });
@@ -965,7 +974,8 @@ static void pdpFillQueue(int id) {
 	SceNetEtherAddr mac;
 	uint16_t port;
 	std::vector<u8> data;
-	while (Transport().PdpTakeDatagram(id, &mac, &port, data)) {
+	// Bounded, so a flood can't stall the emulator thread here. The rest waits for the next call.
+	for (int i = 0; i < 256 && Transport().PdpTakeDatagram(id, &mac, &port, data); i++) {
 		pdpQueueDatagram(sock, mac, port, data.data(), data.size());
 	}
 }

@@ -88,7 +88,8 @@ int P2PTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, 
 
 bool P2PTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) {
 	int fd = adhocSockets[id - 1]->data.pdp.id;
-	while (true) {
+	// Bounded, so a flood from outside the group can't keep us here. The rest waits for the next call.
+	for (int tries = 0; tries < 64; tries++) {
 		struct sockaddr_in sin {};
 		socklen_t sinlen = sizeof(sin);
 		// On Windows this can fail with WSAECONNRESET when an earlier sendto's destination was unreachable;
@@ -106,6 +107,7 @@ bool P2PTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port,
 		data.assign(dummyPeekBuf64k, dummyPeekBuf64k + received);
 		return true;
 	}
+	return false;
 }
 
 // send() and recv() on a PTP socket, as a PSP's radio would see them (pspautotests net/adhoc/pair/vanish):

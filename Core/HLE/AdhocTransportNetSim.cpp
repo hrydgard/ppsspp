@@ -85,7 +85,9 @@ bool NetSimTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *po
 	std::deque<HeldDatagram> &held = datagrams_[adhocSockets[id - 1]];
 	const u64 now = CoreTiming::GetGlobalTimeUs();
 	HeldDatagram datagram{};
-	while (inner_->PdpTakeDatagram(id, &datagram.mac, &datagram.port, datagram.data)) {
+	// Bounded: what doesn't fit stays in the inner transport (a real queue would drop it).
+	const size_t maxHeld = 1024;
+	while (held.size() < maxHeld && inner_->PdpTakeDatagram(id, &datagram.mac, &datagram.port, datagram.data)) {
 		if (Lost()) {
 			continue;
 		}
