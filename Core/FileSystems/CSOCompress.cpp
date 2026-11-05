@@ -187,6 +187,13 @@ bool Compress(const Path &input, const Path &output, Preset preset, const Progre
 		return false;
 	}
 
+	// No PSP disc is anywhere near this. The size can come from a CSO header, which can claim
+	// far more than the file holds, and the index below is sized from it.
+	if (src.size > MAX_CSO_IMAGE_SIZE) {
+		*error = "Input image is too large";
+		return false;
+	}
+
 	const PresetSettings settings = SettingsFor(preset);
 	const uint32_t blockSize = settings.blockSize;
 	const uint32_t sectorsPerBlock = blockSize / SECTOR_SIZE;

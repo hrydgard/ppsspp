@@ -616,7 +616,7 @@ size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
 	return 0;
 }
 
-int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet) {
+int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet, size_t maxSize) {
 	FileAccess access = FILEACCESS_READ;
 	if (quiet) {
 		access = (FileAccess)(access | FILEACCESS_PPSSPP_QUIET);
@@ -626,8 +626,13 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 		return handle;
 
 	SeekFile(handle, 0, FILEMOVE_END);
-	size_t dataSize = GetSeekPos(handle);
+	const s64 fileSize = GetSeekPos(handle);
 	SeekFile(handle, 0, FILEMOVE_BEGIN);
+	if (fileSize < 0 || (u64)fileSize > maxSize) {
+		CloseFile(handle);
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	const size_t dataSize = (size_t)fileSize;
 	data.resize(dataSize);
 
 	size_t result = ReadFile(handle, data.data(), dataSize);

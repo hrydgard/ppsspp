@@ -143,7 +143,8 @@ bool LoadParamSFOFromDisc() {
 	PSPFileInfo fileInfo = pspFileSystem.GetFileInfo(sfoPath.c_str());
 	if (fileInfo.exists) {
 		std::vector<u8> paramsfo;
-		pspFileSystem.ReadEntireFile(sfoPath, paramsfo);
+		// A real PARAM.SFO is a KB or two.
+		pspFileSystem.ReadEntireFile(sfoPath, paramsfo, false, 1024 * 1024);
 		if (g_paramSFO.ReadSFO(paramsfo)) {
 			g_paramSFORaw = g_paramSFO;
 			return true;

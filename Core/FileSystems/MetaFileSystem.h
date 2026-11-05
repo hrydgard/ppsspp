@@ -151,7 +151,8 @@ public:
 	u64  FreeDiskSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.
-	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false);
+	// Fails (without allocating) if the file is larger than maxSize.
+	int ReadEntireFile(const std::string &filename, std::vector<u8> &data, bool quiet = false, size_t maxSize = (size_t)-1);
 
 	void SetStartingDirectory(std::string_view dir) {
 		std::lock_guard<std::recursive_mutex> guard(lock);
