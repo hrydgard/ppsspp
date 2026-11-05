@@ -71,6 +71,10 @@ static SettingText LabelText(const ConfigSettingInfo &info) {
 }
 
 void ShowWhyViewDisabled(UI::View *view) {
+	if (!view->GetDisabledReason().empty()) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, view->GetDisabledReason(), 0.0f, "disabledsetting");
+		return;
+	}
 	bool meansDisabled = false;
 	const bool *ptr = view->GetEnabledPtr(&meansDisabled);
 	if (!ptr) {
@@ -412,6 +416,9 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 		view->SetEnabledPtr(item.enabledPtr);
 	} else if (item.disabledPtr) {
 		view->SetDisabledPtr(item.disabledPtr);
+	}
+	if (!item.disabledReason.empty()) {
+		view->SetDisabledReason(item.disabledReason.Translate(pageCat));
 	}
 	if (item.opensScreen) {
 		if (UI::Choice *choice = dynamic_cast<UI::Choice *>(view)) {

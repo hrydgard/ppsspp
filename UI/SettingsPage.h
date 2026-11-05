@@ -153,6 +153,7 @@ struct SettingItem {
 	bool *enabledPtr = nullptr;
 	bool *disabledPtr = nullptr;
 	std::function<bool()> enabledFunc;
+	SettingText disabledReason;
 	// Called on click (Bool, Choice), choice (choices) or change (sliders).
 	std::function<void(UI::EventParams &)> onChange;
 	// From the config, for settings described there. Called before onChange.
@@ -167,6 +168,8 @@ struct SettingItem {
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
 	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
 	SettingItem &EnabledFunc(std::function<bool()> func) { enabledFunc = std::move(func); return *this; }
+	// Shown when the user tries to use the item while it's disabled (see ShowWhyViewDisabled).
+	SettingItem &DisabledReason(SettingText text) { disabledReason = text; return *this; }
 	SettingItem &OnChange(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &OnClick(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &Setup(std::function<void(UI::View *)> func) { setup = std::move(func); return *this; }
@@ -223,8 +226,9 @@ private:
 };
 
 // If views is set, it gets the view created for each item (or null), in the same order.
-// Explains in an OSD message which setting has to be on or off for a disabled view to be usable,
-// if it's disabled by one (SetEnabledPtr or SetDisabledPtr on a config setting).
+// Explains in an OSD message why a disabled view can't be used: its SetDisabledReason text if it
+// has one, otherwise which setting has to be on or off, if it's disabled by one (SetEnabledPtr or
+// SetDisabledPtr on a config setting).
 void ShowWhyViewDisabled(UI::View *view);
 
 void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views = nullptr);

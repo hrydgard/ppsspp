@@ -478,6 +478,10 @@ public:
 		*meansDisabled = enabledMeansDisabled_;
 		return enabledPtr_;
 	}
+	// Shown when the user tries to activate the view while it's disabled, instead of the
+	// message worked out from the enabled pointer (see SetDisabledActivationCallback).
+	void SetDisabledReason(std::string_view reason) { disabledReason_ = reason; }
+	const std::string &GetDisabledReason() const { return disabledReason_; }
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -544,6 +548,7 @@ private:
 	bool enabled_ = true;
 	bool enabledMeansDisabled_ = false;
 	bool alwaysVisibleInSearch_ = false;
+	std::string disabledReason_;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
