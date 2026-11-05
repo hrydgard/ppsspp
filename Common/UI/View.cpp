@@ -441,6 +441,9 @@ void ClickableItem::Draw(UIContext &dc) {
 
 static constexpr float HINT_PADDING_X = 12.0f;
 static constexpr float HINT_PADDING_BOTTOM = 8.0f;
+// How far the hint is pulled up into the bottom padding of the item's title row,
+// tightening the space between the title and the hint.
+static constexpr float HINT_TITLE_OVERLAP = 8.0f;
 
 void ClickableItem::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
 	Clickable::Measure(dc, horiz, vert);
@@ -454,7 +457,7 @@ void ClickableItem::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec 
 	}
 	float w, h;
 	dc.MeasureTextRect(dc.GetTheme().uiFontTiny, 1.0f, 1.0f, hintText_, availWidth, &w, &h, FLAG_WRAP_TEXT);
-	hintHeight_ = h + HINT_PADDING_BOTTOM;
+	hintHeight_ = h + HINT_PADDING_BOTTOM - HINT_TITLE_OVERLAP;
 	measuredHeight_ += hintHeight_;
 }
 
@@ -464,7 +467,8 @@ void ClickableItem::DrawHint(UIContext &dc, const Style &style) const {
 	}
 	dc.SetFontStyle(dc.GetTheme().uiFontTiny);
 	dc.SetFontScale(1.0f, 1.0f);
-	Bounds hintBounds(bounds_.x + HINT_PADDING_X, bounds_.y2() - hintHeight_, bounds_.w - HINT_PADDING_X * 2, hintHeight_ - HINT_PADDING_BOTTOM);
+	const float textHeight = hintHeight_ - HINT_PADDING_BOTTOM + HINT_TITLE_OVERLAP;
+	Bounds hintBounds(bounds_.x + HINT_PADDING_X, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - HINT_PADDING_X * 2, textHeight);
 	dc.DrawTextRect(hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 }
