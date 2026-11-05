@@ -624,7 +624,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.bboxResult = false;
 	dl.stackAddr = stackAddr;
 
-	if (args.IsValid() && args->context.IsValid())
+	// The whole 512-word context is saved and restored there, not just what PSPPointer checks.
+	if (args.IsValid() && args->context.IsValid() && Memory::IsValidRange(args->context.ptr, 512 * 4))
 		dl.context = args->context;
 	else
 		dl.context = 0;
