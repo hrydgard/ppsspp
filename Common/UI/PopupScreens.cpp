@@ -512,23 +512,27 @@ void PopupSliderChoice::HandleChange(EventParams &e) {
 	}
 }
 
-static bool IsValidNumberFormatString(std::string_view s) {
+// Accepts exactly one conversion, which has to be one of the given ones (with flags, width and precision).
+static bool IsValidNumberFormatString(std::string_view s, std::string_view conversions) {
 	if (s.empty())
 		return false;
 	size_t percentCount = 0;
-	for (int i = 0; i < (int)s.size(); i++) {
-		if (s[i] == '%') {
-			if (i < s.size() - 1) {
-				if (s[i + 1] == 's')
-					return false;
-				if (s[i + 1] == '%') {
-					// Next is another % sign, so it's an escape to emit a % sign, which is fine.
-					i++;
-					continue;
-				}
-			}
-			percentCount++;
+	for (size_t i = 0; i < s.size(); i++) {
+		if (s[i] != '%') {
+			continue;
 		}
+		i++;
+		if (i < s.size() && s[i] == '%') {
+			// An escaped % sign.
+			continue;
+		}
+		while (i < s.size() && std::string_view("-+ #0123456789.").find(s[i]) != std::string_view::npos) {
+			i++;
+		}
+		if (i >= s.size() || conversions.find(s[i]) == std::string_view::npos) {
+			return false;
+		}
+		percentCount++;
 	}
 	return percentCount == 1;
 }
@@ -544,9 +548,9 @@ std::string PopupSliderChoice::ValueText(bool *shadow) const {
 		truncate_cpy(temp, negativeLabel_);
 	} else {
 		// Would normally be dangerous to have user-controlled format strings!
-		// However, let's check that there's only one % sign, and that it's not followed by an S.
+		// However, let's check that there's exactly one conversion, and that it's an integer one.
 		// Also, these strings are from translations, which are kinda-fixed (though can be modified in theory).
-		if (IsValidNumberFormatString(fmt_)) {
+		if (IsValidNumberFormatString(fmt_, "diuxX")) {
 			snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 		} else {
 			truncate_cpy(temp, "(translation error)");
@@ -581,7 +585,7 @@ std::string PopupSliderChoiceFloat::ValueText(bool *shadow) const {
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		truncate_cpy(temp, zeroLabel_);
-	} else if (IsValidNumberFormatString(fmt_)) {
+	} else if (IsValidNumberFormatString(fmt_, "fFeEgG")) {
 		snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 	} else {
 		snprintf(temp, sizeof(temp), "%0.2f", *value_);

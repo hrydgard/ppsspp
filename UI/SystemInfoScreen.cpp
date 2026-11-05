@@ -57,7 +57,7 @@ static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	w.C("CPU: ").W(cpu_info.cpu_string).endl();
 	w.C("ABI: ").W(GetCompilerABI()).endl();
 	w.C("OS: ").W(System_GetProperty(SYSPROP_NAME)).C(" ").W(System_GetProperty(SYSPROP_SYSTEMBUILD)).endl();
-	w.C("Page Size: ").W(StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())).endl();
+	w.C("Page Size: ").W(ApplySafeSubstitutions(si->T("%1 bytes"), GetMemoryProtectPageSize())).endl();
 	w.C("RW/RX exclusive: ").W(PlatformIsWXExclusive() ? "Yes" : "No").endl();
 
 	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
@@ -70,7 +70,7 @@ static void CopySummaryToClipboard(Draw::DrawContext *draw) {
 	w.C("VendorString: ").W(draw->GetInfoString(Draw::InfoField::VENDORSTRING)).endl();
 	w.C("Driver: ").W(draw->GetInfoString(Draw::InfoField::DRIVER)).endl();
 	w.C("Depth buffer format: ").W(DataFormatToString(draw->GetDeviceCaps().preferredDepthBufferFormat)).endl();
-	w.C("Refresh rate: ").W(StringFromFormat(si->T_cstr("%0.2f Hz"), (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))).endl();
+	w.C("Refresh rate: ").W(ApplySafeSubstitutions(si->T("%1 Hz"), StringFromFormat("%0.2f", System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE)))).endl();
 
 	System_CopyStringToClipboard(summary);
 	delete[] summary;
@@ -160,7 +160,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	}
 
 	int totalThreads = cpu_info.num_cores * cpu_info.logical_cpu_count;
-	std::string cores = StringFromFormat(si->T_cstr("%d (%d per core, %d cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
+	std::string cores = ApplySafeSubstitutions(si->T("%1 (%2 per core, %3 cores)"), totalThreads, cpu_info.logical_cpu_count, cpu_info.num_cores);
 	cpuInfo->Add(new InfoItem(si->T("Threads"), cores));
 #if PPSSPP_PLATFORM(IOS)
 	cpuInfo->Add(new InfoItem(si->T("JIT available"), System_GetPropertyBool(SYSPROP_CAN_JIT) ? di->T("Yes") : di->T("No")));
@@ -222,7 +222,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	gpuInfo->Add(new InfoItem(si->T("Compressed texture formats"), texCompressionFormats));
 
 	ChoiceGroup *osInformation = groups->Add(new ChoiceGroup(si->T("OS Information")));
-	osInformation->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T_cstr("%d bytes"), GetMemoryProtectPageSize())));
+	osInformation->Add(new InfoItem(si->T("Memory Page Size"), ApplySafeSubstitutions(si->T("%1 bytes"), GetMemoryProtectPageSize())));
 	osInformation->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #if PPSSPP_PLATFORM(ANDROID)
 	osInformation->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
@@ -274,7 +274,7 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	// Don't show on Windows, since it's always treated as 60 there.
 
 	const double displayHz = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
-	displayInfo->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat(si->T_cstr("%0.2f Hz"), displayHz)));
+	displayInfo->Add(new InfoItem(si->T("Refresh rate"), ApplySafeSubstitutions(si->T("%1 Hz"), StringFromFormat("%0.2f", displayHz))));
 
 	if (displayHz < 55.0f) {
 		groups->Add(new NoticeView(NoticeLevel::WARN, ApplySafeSubstitutions(gr->T("Your display is set to a low refresh rate: %1 Hz. 60 Hz or higher is recommended."), (int)displayHz), ""));
@@ -447,7 +447,7 @@ void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
 		std::string error = g_audioBackend->GetErrorString();
 		audioInformation->Add(new InfoItem(a->T("Audio Error"), error.empty() ? di->T("None") : error));
 	} else {
-		audioInformation->Add(new InfoItem(si->T("Sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
+		audioInformation->Add(new InfoItem(si->T("Sample rate"), ApplySafeSubstitutions(si->T("%1 Hz"), System_GetPropertyInt(SYSPROP_AUDIO_SAMPLE_RATE))));
 #if PPSSPP_PLATFORM(ANDROID)
 		// What actually got opened: the API, whether it's MMAP, the device's rate and buffers.
 		const std::string streamInfo = AndroidAudio_GetInfoString(g_audioState);
@@ -461,7 +461,7 @@ void SystemInfoScreen::CreateAudioInfoTab(UI::LinearLayout *audio) {
 		audioInformation->Add(new InfoItem(si->T("Frames per buffer"), StringFromFormat("%d", framesPerBuffer)));
 	}
 	if (System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE) > 0) {
-		audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), StringFromFormat(si->T_cstr("%d Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
+		audioInformation->Add(new InfoItem(si->T("Optimal sample rate"), ApplySafeSubstitutions(si->T("%1 Hz"), System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE))));
 		audioInformation->Add(new InfoItem(si->T("Optimal frames per buffer"), StringFromFormat("%d", System_GetPropertyInt(SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER))));
 	}
 }
