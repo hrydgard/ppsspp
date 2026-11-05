@@ -411,6 +411,13 @@ static bool CpuCanClipAll() {
 // off to hardware, with whatever capabilities are available.
 //
 // NOTE: This doesn't handle through-mode (morph or skinning can be handled if they're implemented in software during decode).
+// Whether screen Z from minProjZ to maxProjZ reaches past a depth range that isn't the full one.
+static bool ReachesPastDepthRange(float minProjZ, float maxProjZ) {
+	const int depthRangeMin = gstate.getDepthRangeMin();
+	const int depthRangeMax = gstate.getDepthRangeMax();
+	return (depthRangeMin != 0 && minProjZ < depthRangeMin) || (depthRangeMax != 0xFFFF && maxProjZ > depthRangeMax);
+}
+
 template<u32 posFmt, u32 idxFmt>
 static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, bool cpuCullSupported, ClipInfoFlags *clipInfoFlags) {
 	// Four vertices at a time, one per lane. Past the end, the last vertex fills the lanes, which changes nothing.
@@ -521,9 +528,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	//
 	// Alternatively, we just do a compat flag for the affected games until we can solve this.
 
-	const int depthRangeMin = gstate.getDepthRangeMin();
-	const int depthRangeMax = gstate.getDepthRangeMax();
-	if ((depthRangeMin != 0 && minProjZ < depthRangeMin) || (depthRangeMax != 0xFFFF && maxProjZ > depthRangeMax)) {
+	if (ReachesPastDepthRange(minProjZ, maxProjZ)) {
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			flags |= ClipInfoFlags::MinMaxZClip;
 		} else {
@@ -591,9 +596,91 @@ ClipInfoFlags DrawEngineCommon::UncheckedClipInfoFlags() {
 		flags |= ClipInfoFlags::Valid | ClipInfoFlags::DepthClampFragment;
 	}
 	if (needFragmentMinMaxClipping() && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-		flags |= ClipInfoFlags::Valid | ClipInfoFlags::MinMaxZDiscard;
+		// The discard costs fill rate (a quarter of the frame in Tekken 6 at 4x on Mali), and skinned draws are
+		// rarely past the range, so they're checked once decoded. Morphed ones are rare, and keep it.
+		const bool skinned = (gstate.vertType & GE_VTYPE_WEIGHT_MASK) != 0;
+		flags |= ClipInfoFlags::Valid | (skinned ? ClipInfoFlags::MinMaxZCheck : ClipInfoFlags::MinMaxZDiscard);
 	}
 	return flags;
+}
+
+void DrawEngineCommon::CheckSkinnedMinMaxZ(bool useHWTransform) {
+	if (!(clipInfoFlags_ & ClipInfoFlags::Valid) || !(clipInfoFlags_ & ClipInfoFlags::MinMaxZCheck)) {
+		return;
+	}
+	clipInfoFlags_ &= ~ClipInfoFlags::MinMaxZCheck;
+	if (!useHWTransform) {
+		clipInfoFlags_ |= ClipInfoFlags::MinMaxZDiscard;
+		return;
+	}
+
+	// Into decoded_, where the backends put skinned vertices anyway. Then the screen Z of each, as in
+	// TestBoundingBoxFast: four at a time, and only z and w.
+	DecodeVerts(dec_, decoded_);
+	const int count = numDecodedVerts_;
+	if (count == 0) {
+		return;
+	}
+	const DecVtxFormat &fmt = dec_->GetDecVtxFmt();
+	const float *m = gstate_c.cullMatrix;
+	const Vec4F32 col0 = Vec4F32::Load(m);
+	const Vec4F32 col1 = Vec4F32::Load(m + 4);
+	const Vec4F32 col2 = Vec4F32::Load(m + 8);
+	const Vec4F32 tz = Vec4F32::Splat(m[14]);
+	const Vec4F32 tw = Vec4F32::Splat(m[15]);
+	const Vec4F32 vpZScale = Vec4F32::Splat(gstate.getViewportZScale());
+	const Vec4F32 zero = Vec4F32::Zero();
+	const bool depthClip = gstate.isDepthClipEnabled();
+	Vec4F32 minZ = Vec4F32::Splat(FLT_MAX);
+	Vec4F32 maxZ = Vec4F32::Splat(-FLT_MAX);
+	Vec4S32 anyBehindNear = Vec4S32::Zero();
+	// The positions are last in the decoded vertex, so each load reads 4 bytes into the next one, or past the last,
+	// which is still in decoded_.
+	const s8 *posData = (const s8 *)decoded_ + fmt.posoff;
+	const int stride = fmt.stride;
+	auto test4 = [&](const s8 *p0, const s8 *p1, const s8 *p2, const s8 *p3) {
+		Vec4F32 objX = Vec4F32::Load((const float *)p0);
+		Vec4F32 objY = Vec4F32::Load((const float *)p1);
+		Vec4F32 objZ = Vec4F32::Load((const float *)p2);
+		Vec4F32 unused = Vec4F32::Load((const float *)p3);
+		Vec4F32::Transpose(objX, objY, objZ, unused);
+		const Vec4F32 z = (objX.MulLane<2>(col0) + objY.MulLane<2>(col1)) + (objZ.MulLane<2>(col2) + tz);
+		const Vec4F32 w = (objX.MulLane<3>(col0) + objY.MulLane<3>(col1)) + (objZ.MulLane<3>(col2) + tw);
+		const Vec4S32 behindNear = (z + w).CompareLt(zero);
+		anyBehindNear |= behindNear;
+		const Vec4F32 projZ = DivideExact(vpZScale * z, w);
+		// With depth clipping, what's behind the near plane is clipped away, and the near plane counts instead.
+		const Vec4S32 notCounted = depthClip ? behindNear : Vec4S32::Zero();
+		minZ = Select(projZ.CompareLt(minZ).AndNot(notCounted), projZ, minZ);
+		maxZ = Select(projZ.CompareGt(maxZ).AndNot(notCounted), projZ, maxZ);
+	};
+	int i = 0;
+	const s8 *p = posData;
+	for (; i + 4 <= count; i += 4, p += 4 * stride) {
+		test4(p, p + stride, p + 2 * stride, p + 3 * stride);
+	}
+	if (i < count) {
+		// The last vertex fills the remaining lanes, which changes nothing.
+		const int last = count - 1;
+		test4(p, posData + std::min(i + 1, last) * stride, posData + std::min(i + 2, last) * stride, posData + last * stride);
+	}
+	float minProjZ = FLT_MAX;
+	float maxProjZ = -FLT_MAX;
+	for (int i = 0; i < 4; i++) {
+		minProjZ = std::min(minProjZ, minZ[i]);
+		maxProjZ = std::max(maxProjZ, maxZ[i]);
+	}
+	const float vpZOffset = gstate.getViewportZCenter();
+	minProjZ += vpZOffset;
+	maxProjZ += vpZOffset;
+	if (depthClip && AnyCompareBitsSet(anyBehindNear)) {
+		const float nearZ = vpZOffset - gstate.getViewportZScale();
+		minProjZ = std::min(minProjZ, nearZ);
+		maxProjZ = std::max(maxProjZ, nearZ);
+	}
+	if (ReachesPastDepthRange(minProjZ, maxProjZ)) {
+		clipInfoFlags_ |= ClipInfoFlags::MinMaxZDiscard;
+	}
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags, bool cpuCullSupported) {

@@ -219,6 +219,9 @@ enum class ClipInfoFlags {
 	// The CPU lit the vertices of the triangles it clipped (DecVtxFormat::cpuLit). Only passed to the shader ID
 	// computation, at flush.
 	CpuLit = 256,
+	// A skinned draw, whose Z range is only known once it's decoded: at flush, it gets MinMaxZDiscard if it reaches
+	// past the depth range (DrawEngineCommon::CheckSkinnedMinMaxZ).
+	MinMaxZCheck = 512,
 };
 ENUM_CLASS_BITOPS(ClipInfoFlags);
 
