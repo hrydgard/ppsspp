@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstring>
-#include <new>
 #include <snappy-c.h>
 #include <zstd.h>
 
@@ -513,13 +512,13 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	}
 
 	if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
-		u8 *uncomp_buffer = new (std::nothrow) u8[header.UncompressedSize];
+		u8 *uncomp_buffer = (u8 *)malloc(header.UncompressedSize);
 		if (!uncomp_buffer) {
 			return ERROR_BAD_FILE;
 		}
 		if (!DecompressZstdFromFile(pFile, header.ExpectedSize, uncomp_buffer, header.UncompressedSize)) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
-			delete [] uncomp_buffer;
+			free(uncomp_buffer);
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
@@ -530,18 +529,18 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	// Uncompressed, or snappy (older states).
 	sz = header.ExpectedSize;
-	u8 *buffer = new (std::nothrow) u8[sz];
+	u8 *buffer = (u8 *)malloc(sz);
 	if (!buffer || !pFile.ReadBytes(buffer, sz))
 	{
 		ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
-		delete [] buffer;
+		free(buffer);
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Compress) {
-		u8 *uncomp_buffer = new (std::nothrow) u8[header.UncompressedSize];
+		u8 *uncomp_buffer = (u8 *)malloc(header.UncompressedSize);
 		if (!uncomp_buffer) {
-			delete [] buffer;
+			free(buffer);
 			return ERROR_BAD_FILE;
 		}
 		size_t uncomp_size = header.UncompressedSize;
@@ -554,19 +553,19 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		}
 		if (!success) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
-			delete [] uncomp_buffer;
-			delete [] buffer;
+			free(uncomp_buffer);
+			free(buffer);
 			return ERROR_BAD_FILE;
 		}
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(Log::SaveState, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
-			delete [] uncomp_buffer;
-			delete [] buffer;
+			free(uncomp_buffer);
+			free(buffer);
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
 		sz = uncomp_size;
-		delete [] buffer;
+		free(buffer);
 	} else {
 		_buffer = buffer;
 	}
