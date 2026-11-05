@@ -1075,9 +1075,9 @@ void RadioButton::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w, &h);
 	}
 
-	// Add some internal padding to not look totally ugly
+	// Padding on both sides, and between the radio image and the text. Same height as a CheckBox.
 	w += paddingW_ * 3.0f + radioRadius_ * 2.0f;
-	h = std::max(h, radioRadius_ * 2) + paddingH_ * 2;
+	h = std::max(std::max(h, radioRadius_ * 2), ITEM_HEIGHT);
 }
 
 std::string RadioButton::DescribeText() const {

@@ -1011,8 +1011,8 @@ private:
 	int *value_;
 	int thisButtonValue_;
 	std::string text_;
-	const float paddingW_ = 8;
-	const float paddingH_ = 4;
+	// Same as CheckBox.
+	const float paddingW_ = 12;
 
 	// Half the size of the I_RADIO_* images.
 	const float radioRadius_ = 16.0f;
