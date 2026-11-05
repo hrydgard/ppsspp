@@ -170,6 +170,7 @@ struct SettingItem {
 	SettingItem &EnabledFunc(std::function<bool()> func) { enabledFunc = std::move(func); return *this; }
 	// Shown when the user tries to use the item while it's disabled (see ShowWhyViewDisabled).
 	SettingItem &DisabledReason(SettingText text) { disabledReason = text; return *this; }
+
 	SettingItem &OnChange(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &OnClick(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &Setup(std::function<void(UI::View *)> func) { setup = std::move(func); return *this; }
