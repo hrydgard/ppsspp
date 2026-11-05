@@ -3188,12 +3188,18 @@ namespace jpgd {
 		*height = image_height;
 		*actual_comps = decoder.get_num_components();
 
+		// PPSSPP: Nothing we decode is anywhere near this, and the header alone (from a game, or
+		// a file) could otherwise make us allocate gigabytes.
+		if (image_width <= 0 || image_height <= 0 || image_width > 8192 || image_height > 8192)
+			return nullptr;
+
 		if (decoder.begin_decoding() != JPGD_SUCCESS)
 			return nullptr;
 
 		const int dst_bpl = image_width * req_comps;
 
-		uint8* pImage_data = (uint8*)jpgd_malloc(dst_bpl * image_height);
+		// PPSSPP: In size_t, the int product overflows for large (up to 32768x32768) images.
+		uint8* pImage_data = (uint8*)jpgd_malloc((size_t)dst_bpl * image_height);
 		if (!pImage_data)
 			return nullptr;
 
@@ -3207,7 +3213,7 @@ namespace jpgd {
 				return nullptr;
 			}
 
-			uint8* pDst = pImage_data + y * dst_bpl;
+			uint8* pDst = pImage_data + (size_t)y * dst_bpl;
 
 			if (((req_comps == 1) && (decoder.get_num_components() == 1)) || ((req_comps == 4) && (decoder.get_num_components() == 3)))
 				memcpy(pDst, pScan_line, dst_bpl);

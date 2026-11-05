@@ -23,13 +23,28 @@ int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_d
 		*image_data_ptr = nullptr;
 		return 0;
 	}
+	if (png.width == 0 || png.height == 0 || png.width > 8192 || png.height > 8192) {
+		WARN_LOG(Log::IO, "pngLoad: Bad size %dx%d (%s)", (int)png.width, (int)png.height, file);
+		png_image_free(&png);
+		*image_data_ptr = nullptr;
+		return 0;
+	}
 	*pwidth = png.width;
 	*pheight = png.height;
 	png.format = PNG_FORMAT_RGBA;
 
 	int stride = PNG_IMAGE_ROW_STRIDE(png);
 	*image_data_ptr = (unsigned char *)malloc(PNG_IMAGE_SIZE(png));
-	png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL);
+	if (!*image_data_ptr) {
+		png_image_free(&png);
+		return 0;
+	}
+	if (!png_image_finish_read(&png, NULL, *image_data_ptr, stride, NULL)) {
+		WARN_LOG(Log::IO, "pngLoad: %s (%s)", png.message, file);
+		free(*image_data_ptr);
+		*image_data_ptr = nullptr;
+		return 0;
+	}
 	return 1;
 }
 
@@ -50,11 +65,13 @@ struct PngReadContext {
 
 
 int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr, int maxWidth, int maxHeight) {
-	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
-	if (!png) {
+	// The error handler below frees whatever this points to.
+	*image_data_ptr = nullptr;
+	if (input_len == 0) {
 		return 0;
 	}
-	if (input_len == 0) {
+	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
+	if (!png) {
 		return 0;
 	}
 
