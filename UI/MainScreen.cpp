@@ -538,6 +538,8 @@ void MainScreen::CreateViews() {
 
 		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER));
 
+		buttonGroup->SetPadding(Margins(0, 0, 12, 12));
+
 		CreateMainButtons(buttonGroup, vertical);
 		header->Add(buttonGroup);
 

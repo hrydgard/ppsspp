@@ -73,6 +73,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 			if (flags_ & TwoPaneFlags::SettingsToTheRight) {
 				// If settings are in context menu, we want to avoid double margins on the sides.
 				margins.left = 0;
+				if (portrait) {
+					margins.right = 0;
+				}
 			} else {
 				margins.right = 0;
 			}
@@ -95,6 +98,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		}
 		if (flags_ & TwoPaneFlags::DropShadowTitle) {
 			topBarFlags |= TopBarFlags::DropShadowTitle;
+		}
+		if (flags_ & TwoPaneFlags::NoBackButton) {
+			topBarFlags |= TopBarFlags::NoBackButton;
 		}
 		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
 		root->SetSpacing(0);
