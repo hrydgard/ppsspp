@@ -106,12 +106,17 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 		return;
 	}
 
+	std::string_view hintText = sy->T("FirmwareSources", "Installing a PSP firmware can improve game compatibility, gives some games their proper fonts, and lets you run the XMB, the real PSP's main menu. PPSSPP works without one, but having one installed is highly recommended.");
+
 	if (!info_.anythingInstalled) {
-		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"),
-			sy->T("FirmwareSources", "PPSSPP has its own replacements for the PSP's system files, so a firmware is optional. Installing one gets you the real fonts, and lets you launch the XMB. Most game discs carry a firmware updater - open a game's info screen to install from it.")));
+		list->Add(new HintView(hintText));
+
+		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"), ""));
 		list->Add(new TextWithImage(ImageID("I_FOLDER"), GetFriendlyPath(nandRoot_)));
 		return;
 	}
+
+	list->Add(new HintView(hintText));
 
 	if (!info_.version.empty()) {
 		std::string versionLine = std::string(sy->T("Firmware version")) + ": " + info_.version;
@@ -132,6 +137,10 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("Partial firmware installed"),
 			sy->T("Some system files are present, but not a complete firmware")));
 	}
+
+	ChoiceGroup *contentSettings = list->Add(new ChoiceGroup());
+	contentSettings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
+		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	// Without any kernel modules there's no firmware here to speak of - it's the fonts we pulled
 	// off a game's disc, and rows reading "Kernel modules: 0 / XMB: No" say nothing useful.
@@ -170,10 +179,6 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 
 	ChoiceGroup *launchGroup = groups->Add(new ChoiceGroup());
 	Choice *launch = launchGroup->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
-
-	ChoiceGroup *settings = groups->Add(new ChoiceGroup());
-	settings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
-		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	ChoiceGroup *actions = groups->Add(new ChoiceGroup());
 	launch->OnClick.Add([this](UI::EventParams &) {
