@@ -132,15 +132,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_scaleX, "u_scaleX" });
 	queries.push_back({ &u_scaleY, "u_scaleY" });
 
-#ifdef USE_BONE_ARRAY
-	queries.push_back({ &u_bone, "u_bone" });
-#else
-	static constexpr const char * boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
-	for (int i = 0; i < 8; i++) {
-		queries.push_back({ &u_bone[i], boneNames[i] });
-	}
-#endif
-
 	// Lighting, texturing
 	queries.push_back({ &u_ambient, "u_ambient" });
 	queries.push_back({ &u_matambientalpha, "u_matambientalpha" });

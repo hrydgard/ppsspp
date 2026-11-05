@@ -1492,8 +1492,7 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 	const int count = upperBound + 1 - lowerBound;
 	dec->DecodeVerts(bufPtr, inPtr + lowerBound * dec->VertexSize(), &uvScale, count);
 
-	// OK, morphing eliminated but bones still remain to be taken care of.
-	// Let's do a partial software transform where we only do skinning.
+	// The decoder has morphed and skinned them.
 
 	VertexReader reader(bufPtr, dec->GetDecVtxFmt(), vertType);
 
@@ -1504,80 +1503,29 @@ u32 NormalizeVertices(SimpleVertex *sverts, u8 *bufPtr, const u8 *inPtr, int low
 		(u8)gstate.getMaterialAmbientA(),
 	};
 
-	// Let's have two separate loops, one for non skinning and one for skinning.
-	if (!dec->skinInDecode && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
-		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i - lowerBound);
-			SimpleVertex &sv = sverts[i];
-			if (vertType & GE_VTYPE_TC_MASK) {
-				reader.ReadUV(sv.uv);
-			}
-
-			if (vertType & GE_VTYPE_COL_MASK) {
-				sv.color_32 = reader.ReadColor0_8888();
-			} else {
-				memcpy(sv.color, defaultColor, 4);
-			}
-
-			float nrm[3], pos[3];
-			float bnrm[3], bpos[3];
-
-			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tessellation anyway, not sure if any need to supply
-				reader.ReadNrm(nrm);
-			} else {
-				nrm[0] = 0;
-				nrm[1] = 0;
-				nrm[2] = 1.0f;
-			}
-			reader.ReadPosAuto(pos);
-
-			// Apply skinning transform directly
-			float weights[8];
-			reader.ReadWeights(weights);
-			// Skinning
-			Vec3Packedf psum(0, 0, 0);
-			Vec3Packedf nsum(0, 0, 0);
-			for (int w = 0; w < numBoneWeights; w++) {
-				if (weights[w] != 0.0f) {
-					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix + w * 12);
-					Vec3Packedf tpos(bpos);
-					psum += tpos * weights[w];
-
-					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix + w * 12);
-					Vec3Packedf tnorm(bnrm);
-					nsum += tnorm * weights[w];
-				}
-			}
-			sv.pos = psum;
-			sv.nrm = nsum;
+	for (int i = lowerBound; i <= upperBound; i++) {
+		reader.Goto(i - lowerBound);
+		SimpleVertex &sv = sverts[i];
+		if (vertType & GE_VTYPE_TC_MASK) {
+			reader.ReadUV(sv.uv);
+		} else {
+			sv.uv[0] = 0.0f;  // This will get filled in during tessellation
+			sv.uv[1] = 0.0f;
 		}
-	} else {
-		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i - lowerBound);
-			SimpleVertex &sv = sverts[i];
-			if (vertType & GE_VTYPE_TC_MASK) {
-				reader.ReadUV(sv.uv);
-			} else {
-				sv.uv[0] = 0.0f;  // This will get filled in during tessellation
-				sv.uv[1] = 0.0f;
-			}
-			if (vertType & GE_VTYPE_COL_MASK) {
-				sv.color_32 = reader.ReadColor0_8888();
-			} else {
-				memcpy(sv.color, defaultColor, 4);
-			}
-			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tessellation anyway, not sure if any need to supply
-				reader.ReadNrm((float *)&sv.nrm);
-			} else {
-				sv.nrm.x = 0.0f;
-				sv.nrm.y = 0.0f;
-				sv.nrm.z = 1.0f;
-			}
-			reader.ReadPosAuto((float *)&sv.pos);
+		if (vertType & GE_VTYPE_COL_MASK) {
+			sv.color_32 = reader.ReadColor0_8888();
+		} else {
+			memcpy(sv.color, defaultColor, 4);
 		}
+		if (vertType & GE_VTYPE_NRM_MASK) {
+			// Normals are generated during tessellation anyway, not sure if any need to supply
+			reader.ReadNrm((float *)&sv.nrm);
+		} else {
+			sv.nrm.x = 0.0f;
+			sv.nrm.y = 0.0f;
+			sv.nrm.z = 1.0f;
+		}
+		reader.ReadPosAuto((float *)&sv.pos);
 	}
 
 	// Okay, there we are! Return the new type (but keep the index bits)
