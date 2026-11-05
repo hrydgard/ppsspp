@@ -197,6 +197,11 @@ private:
 	u32 funcBegin_ = 0;
 	char funcNameTemp_[128]{};
 
+	// "Scan/remove functions in range" popup.
+	u32 funcRangeAddr_ = 0;
+	u32 funcRangeSize_ = 0;
+	std::string funcRangeError_;
+
 	bool assemblePopup_ = false;
 	u32 assembleAddress_ = 0;
 	char assembleTemp_[256]{};

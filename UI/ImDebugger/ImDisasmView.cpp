@@ -5,6 +5,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/Math/geom2d.h"
+#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/HLE/HLE.h"
 #include "Core/Debugger/DebugInterface.h"
@@ -787,6 +788,7 @@ void ImDisasmView::RemoveFunction(u32 funcStart) {
 
 void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
+	bool funcRangePopup = false;
 	if (ImGui::BeginPopup("context")) {
 		// The source location is the more useful heading when there is one, but keep the address:
 		// it's what you paste into a bug report or another debugger.
@@ -905,9 +907,76 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 				mapReloaded_ = true;
 			}
 		}
+		if (ImGui::MenuItem("Scan/remove functions in range...")) {
+			// Prefill with the selection if there is one, otherwise the function we're in.
+			if (selectRangeEnd_ - selectRangeStart_ > 4 || funcStart == -1) {
+				funcRangeAddr_ = selectRangeStart_;
+				funcRangeSize_ = selectRangeEnd_ - selectRangeStart_;
+			} else {
+				funcRangeAddr_ = funcStart;
+				funcRangeSize_ = g_symbolMap->GetFunctionSize(funcStart);
+			}
+			funcRangeError_.clear();
+			funcRangePopup = true;
+		}
+		if (ImGui::MenuItem("Reapply function replacements", nullptr, false, g_Config.bFuncReplacements)) {
+			MIPSAnalyst::ReplaceFunctions();
+		}
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled)) {
+			ImGui::SetTooltip("Installs the HLE replacements (ReplaceTables) for every known function whose hash matches.");
+		}
 		if (prevBegin != -1) {
 			u32 prevSize = g_symbolMap->GetFunctionSize(prevBegin);
 			ShowInMemoryDumperMenuItem(prevBegin, prevSize, MemDumpMode::Disassembly, control);
+		}
+		ImGui::EndPopup();
+	}
+
+	if (funcRangePopup) {
+		ImGui::OpenPopup("funcRange");
+	}
+	if (ImGui::BeginPopup("funcRange")) {
+		ImGui::TextUnformatted("Scan or remove functions in range");
+		if (ImGui::IsWindowAppearing()) {
+			ImGui::SetKeyboardFocusHere();
+		}
+		ImGui::InputScalar("Address", ImGuiDataType_U32, &funcRangeAddr_, nullptr, nullptr, "%08X", ImGuiInputTextFlags_CharsHexadecimal);
+		ImGui::InputScalar("Size", ImGuiDataType_U32, &funcRangeSize_, nullptr, nullptr, "%08X", ImGuiInputTextFlags_CharsHexadecimal);
+
+		enum class RangeAction { NONE, SCAN, REMOVE, RESCAN };
+		RangeAction action = RangeAction::NONE;
+		if (ImGui::Button("Scan")) {
+			action = RangeAction::SCAN;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Remove")) {
+			action = RangeAction::REMOVE;
+		}
+		ImGui::SameLine();
+		if (ImGui::Button("Remove and rescan")) {
+			action = RangeAction::RESCAN;
+		}
+		if (action != RangeAction::NONE) {
+			if (funcRangeSize_ == 0 || !Memory::IsValidRange(funcRangeAddr_, funcRangeSize_)) {
+				funcRangeError_ = "Invalid range";
+			} else {
+				u32 removed = 0;
+				if (action != RangeAction::SCAN) {
+					removed = MIPSAnalyst::RemoveFunctionsInRange(funcRangeAddr_, funcRangeSize_);
+				}
+				if (action != RangeAction::REMOVE) {
+					MIPSAnalyst::ScanFunctionsInRange(funcRangeAddr_, funcRangeSize_);
+				}
+				g_disassemblyManager.clear();
+				mapReloaded_ = true;
+				if (action == RangeAction::REMOVE) {
+					statusBarText_ = StringFromFormat("Removed %d functions", removed);
+				}
+				ImGui::CloseCurrentPopup();
+			}
+		}
+		if (!funcRangeError_.empty()) {
+			ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", funcRangeError_.c_str());
 		}
 		ImGui::EndPopup();
 	}
