@@ -366,6 +366,13 @@ bool TextureCacheVulkan::LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuff
 		ClearScalingShaders(vulkan);
 		return false;
 	}
+	// The file comes with a downloaded shader, and has to make a valid uniform buffer.
+	if (constantsSize < 16 || (constantsSize & 15) != 0 || constantsSize > vulkan->GetPhysicalDeviceProperties().properties.limits.maxUniformBufferRange) {
+		ERROR_LOG(Log::G3D, "Constant buffer file '%s' has a bad size (%d) - disabling hardware scaling", cbufferPath_.c_str(), (int)constantsSize);
+		delete[] contents;
+		ClearScalingShaders(vulkan);
+		return false;
+	}
 	textureScaleCBuffer_.Create(vulkan, "TextureScale CBuffer", constantsSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 	VulkanPushPool *pushPool = drawEngine_->GetPushBufferForTextureData();
 	VkBuffer srcBuf = VK_NULL_HANDLE;

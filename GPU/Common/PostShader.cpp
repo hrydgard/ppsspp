@@ -31,6 +31,7 @@
 #include "Common/StringUtils.h"
 
 #include "Core/System.h"
+#include "Core/Util/PathUtil.h"
 #include "GPU/Common/PostShader.h"
 
 static std::vector<ShaderInfo> shaderInfo;
@@ -154,12 +155,17 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("Name", &info.name);
 					section.Get("Parent", &info.parent);
 					section.Get("Visible", &info.visible);
-					temp.clear();
-					section.Get("Fragment", &temp);
-					info.fragmentShaderFile = path / temp;
-					temp.clear();
-					section.Get("Vertex", &temp);
-					info.vertexShaderFile = path / temp;
+					std::string fragment;
+					std::string vertex;
+					section.Get("Fragment", &fragment);
+					section.Get("Vertex", &vertex);
+					// Shader inis come from downloads, so keep them to their own folder.
+					if (HasParentDirComponent(fragment) || HasParentDirComponent(vertex)) {
+						WARN_LOG(Log::G3D, "Ignoring shader '%s' with a parent dir in its paths", info.section.c_str());
+						continue;
+					}
+					info.fragmentShaderFile = path / fragment;
+					info.vertexShaderFile = path / vertex;
 					section.Get("OutputResolution", &info.outputResolution);
 					section.Get("Upscaling", &info.isUpscalingFilter);
 					section.Get("SSAA", &info.SSAAFilterLevel);
@@ -221,19 +227,33 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("Hidden", &info.hidden);
 					std::string cbufferFilename;
 					if (section.Get("ConstantBuffer", &cbufferFilename)) {
+						if (HasParentDirComponent(cbufferFilename)) {
+							WARN_LOG(Log::G3D, "Ignoring texture shader '%s' with a parent dir in its paths", info.section.c_str());
+							continue;
+						}
 						Path cbufferPath = path / cbufferFilename;
 						info.constantBuffer = cbufferPath;
 					}
 					if (section.Get("Compute", &temp)) {
+						if (HasParentDirComponent(temp)) {
+							WARN_LOG(Log::G3D, "Ignoring texture shader '%s' with a parent dir in its paths", info.section.c_str());
+							continue;
+						}
 						info.computeShaderFile = path / temp;
 						info.computeShaderFiles.push_back(info.computeShaderFile);
+						bool badPath = false;
 						for (int computeIndex = 2; computeIndex <= 4; ++computeIndex) {
 							temp.clear();
 							if (section.Get(StringFromFormat("Compute%d", computeIndex).c_str(), &temp)) {
+								if (HasParentDirComponent(temp)) {
+									badPath = true;
+								}
 								info.computeShaderFiles.push_back(path / temp);
 							}
 						}
-						if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
+						if (badPath) {
+							WARN_LOG(Log::G3D, "Ignoring texture shader '%s' with a parent dir in its paths", info.section.c_str());
+						} else if (info.scaleFactor >= 2 && info.scaleFactor < 8) {
 							appendTextureShader(info);
 						}
 					} else {
