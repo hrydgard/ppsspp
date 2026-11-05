@@ -9,8 +9,18 @@
 #include "Common/Log.h"
 #include "Common/File/FileDescriptor.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 namespace http {
+
+// Limits on a request's header block, so a client can't hold a connection or grow memory forever.
+static constexpr int MAX_HEADER_LINES = 100;
+static constexpr size_t MAX_HEADER_BYTES = 64 * 1024;
+static constexpr double MAX_HEADER_SECONDS = 10.0;
+
+static bool KeyIs(const char *key, int key_len, const char *name) {
+	return key_len == (int)strlen(name) && !strncasecmp(key, name, key_len);
+}
 
 RequestHeader::RequestHeader() {
 }
@@ -58,13 +68,13 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 	if (first_header_) {
 		// Step 1: Method
 		first_header_ = false;
-		if (!memcmp(buffer, "GET ", 4)) {
+		if (!strncmp(buffer, "GET ", 4)) {
 			method = GET;
 			buffer += 4;
-		} else if (!memcmp(buffer, "HEAD ", 5)) {
+		} else if (!strncmp(buffer, "HEAD ", 5)) {
 			method = HEAD;
 			buffer += 5;
-		} else if (!memcmp(buffer, "POST ", 5)) {
+		} else if (!strncmp(buffer, "POST ", 5)) {
 			method = POST;
 			buffer += 5;
 		} else {
@@ -133,14 +143,16 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 	SkipSpace(&buffer);
 	int value_len = (int)strlen(buffer);
 
-	if (!strncasecmp(key, "User-Agent", key_len)) {
+	if (KeyIs(key, key_len, "User-Agent")) {
+		delete[] user_agent;
 		user_agent = new char[value_len + 1];
 		memcpy(user_agent, buffer, value_len + 1);
 		VERBOSE_LOG(Log::HTTP, "user-agent: %s", user_agent);
-	} else if (!strncasecmp(key, "Referer", key_len)) {
+	} else if (KeyIs(key, key_len, "Referer")) {
+		delete[] referer;
 		referer = new char[value_len + 1];
 		memcpy(referer, buffer, value_len + 1);
-	} else if (!strncasecmp(key, "Content-Length", key_len)) {
+	} else if (KeyIs(key, key_len, "Content-Length")) {
 		content_length = atoi(buffer);
 		VERBOSE_LOG(Log::HTTP, "Content-Length: %i", (int)content_length);
 	} else {
@@ -154,11 +166,20 @@ int RequestHeader::ParseHttpHeader(const char *buffer) {
 
 void RequestHeader::ParseHeaders(net::InputSink *sink) {
 	int line_count = 0;
+	size_t total_bytes = 0;
+	const double deadline = time_now_d() + MAX_HEADER_SECONDS;
 	std::string line;
 	while (sink->ReadLine(line)) {
 		if (line.length() == 0) {
 			// Blank line, this means end of headers.
 			break;
+		}
+		total_bytes += line.length();
+		if (line_count >= MAX_HEADER_LINES || total_bytes > MAX_HEADER_BYTES || time_now_d() > deadline) {
+			WARN_LOG(Log::HTTP, "Request headers too long, dropping the request");
+			status = 431;
+			ok = false;
+			return;
 		}
 
 		ParseHttpHeader(line.c_str());

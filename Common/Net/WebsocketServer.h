@@ -90,6 +90,10 @@ protected:
 
 	bool open_ = true;
 	bool sentClose_ = false;
+	// When sentClose_ was set. A peer that never reads would otherwise keep us waiting forever.
+	double sentCloseTime_ = 0.0;
+	// Set when the peer stopped reading and the backlog hit its cap. Nothing more gets queued.
+	bool outputOverflowed_ = false;
 	int fragmentOpcode_ = -1;
 	size_t fd_ = 0;
 	InputSink *in_ = nullptr;

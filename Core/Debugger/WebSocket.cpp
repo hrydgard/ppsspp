@@ -16,11 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cctype>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <vector>
 
+#include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/TimeUtil.h"
 #include "Core/Core.h"
@@ -226,8 +228,62 @@ void WebSocketDebuggerTick() {
 	}
 }
 
+// Browsers let any page open a WebSocket to localhost, and the debugger can write files and memory.
+// So only accept pages from this machine, from this server (the bundled UI), or the official web
+// debugger. Non-browser clients don't send an Origin.
+static bool IsAllowedOrigin(const http::ServerRequest &request) {
+	std::string origin;
+	if (!request.GetHeader("origin", &origin)) {
+		return true;
+	}
+	auto toLower = [](std::string s) {
+		std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return (char)tolower(c); });
+		return s;
+	};
+	origin = toLower(origin);
+
+	size_t schemeEnd = origin.find("://");
+	if (schemeEnd == std::string::npos) {
+		// Includes "null", sent by file:// pages and sandboxed frames.
+		return false;
+	}
+	const std::string scheme = origin.substr(0, schemeEnd);
+	if (scheme != "http" && scheme != "https") {
+		return false;
+	}
+	const std::string hostPort = origin.substr(schemeEnd + 3);
+	if (hostPort == "ppsspp-debugger.unknownbrackets.org") {
+		return true;
+	}
+
+	std::string hostname = hostPort;
+	if (startsWith(hostname, "[")) {
+		hostname = hostname.substr(0, hostname.find(']') + 1);
+	} else {
+		hostname = hostname.substr(0, hostname.find(':'));
+	}
+	if (hostname == "localhost" || hostname == "127.0.0.1" || hostname == "[::1]") {
+		return true;
+	}
+
+	// A name matching Host proves nothing: an attacker's domain can be made to resolve to us (DNS
+	// rebinding). So only an IP address, the way the bundled UI is reached over the LAN.
+	const bool isIP = startsWith(hostname, "[") || (!hostname.empty() && hostname.find_first_not_of("0123456789.") == std::string::npos);
+	std::string host;
+	return isIP && request.GetHeader("host", &host) && toLower(host) == hostPort;
+}
+
 void HandleDebuggerRequest(const http::ServerRequest &request) {
 	SetCurrentThreadName("WebSocketDebugger");
+
+	if (!IsAllowedOrigin(request)) {
+		std::string origin;
+		request.GetHeader("origin", &origin);
+		WARN_LOG(Log::Debugger, "Rejected debugger connection from origin '%s'", origin.c_str());
+		request.WriteHttpResponseHeader("1.1", 403, -1, "text/plain");
+		request.Out()->Push("Origin not allowed.");
+		return;
+	}
 
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws) {

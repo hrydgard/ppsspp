@@ -27,6 +27,8 @@ public:
 
 	bool Empty() const;
 	bool TryFill();
+	// Waits (up to a few seconds) for more data to arrive. False on timeout, error or end of stream.
+	bool Block();
 	bool HasError() const { return hasError_; }
 	// True once the peer has closed its end. Sticky - no more data can ever arrive, which is not
 	// the same as "nothing right now", and callers that wait for more need to tell them apart.
@@ -44,7 +46,6 @@ public:
 private:
 	std::pair<std::string_view, std::string_view> BufferParts() const;
 	void Fill();
-	bool Block();
 	void AccountDrain(size_t bytes);
 	size_t FindNewline() const;
 
