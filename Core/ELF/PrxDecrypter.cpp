@@ -972,7 +972,7 @@ static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1031,7 +1031,7 @@ static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1099,7 +1099,7 @@ static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1150,7 +1150,7 @@ static int pspFinishType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, code);
 	header->mode = 1;
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1275,7 +1275,7 @@ static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	header->mode = 1;
 	header->ecdsa_hash = 1;
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1352,7 +1352,7 @@ static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	// branch only writes the mode word and zeroes the rest of that region.
 	header->ecdsa_hash = 0;
 
-	if (!KirkOutputFits(header, size))
+	if (!KirkOutputFits(header, size - offset))
 	{
 		return -5;
 	}
@@ -1365,7 +1365,7 @@ static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
-int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u32 *fuseId)
+static int pspDecryptPRXAnyType(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u32 *fuseId)
 {
 	// Every type below reads the tag at 0xD0, the size at 0xB0 and key data as far as 0x150, and
 	// writes a KIRK header into outbuf at a fixed offset derived from sizeof(PSP_Header). Without
@@ -1421,6 +1421,17 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u
 	// Last, because its header check is a subset of type 6's - a genuine type 6 PRX would pass it
 	// and then fail on the hash, so trying it earlier would shadow the real answer.
 	return pspDecryptType9(&kirk, inbuf, outbuf, size);
+}
+
+int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u32 *fuseId)
+{
+	const int res = pspDecryptPRXAnyType(inbuf, outbuf, size, seed, fuseId);
+	// The decrypted size comes from the header, and callers size their reads of outbuf by it.
+	if (res > 0 && (u32)res > size) {
+		ERROR_LOG(Log::Loader, "PRX claims a decrypted size of %d, larger than its %d bytes", res, (int)size);
+		return -1;
+	}
+	return res;
 }
 
 bool pspUnwrapDNASPGD(std::vector<u8> &data, const u8 *secureId, const u32 *fuseId)

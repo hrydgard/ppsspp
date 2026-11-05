@@ -1256,14 +1256,14 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 	return true;
 }
 
-static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
+static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, const u8 *InBuffer, int InBufferLength) {
 	int err;
 	z_stream stream;
 	u8 *outBufferPtr;
 
 	outBufferPtr = OutBuffer;
-	stream.next_in = InBuffer;
-	stream.avail_in = (uInt)OutBufferLength;
+	stream.next_in = (Bytef *)InBuffer;
+	stream.avail_in = (uInt)InBufferLength;
 	stream.next_out = outBufferPtr;
 	stream.avail_out = (uInt)OutBufferLength;
 	stream.zalloc = (alloc_func)0;
@@ -1629,7 +1629,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	if (Read32(ptr) == SCE_MAGIC) { // "~SCE"
 		const u32 headerSize = *(const u32_le*)(ptr + 4);
-		if (headerSize < elfSize) {
+		// Leave at least the magic read below.
+		if (headerSize < elfSize && elfSize - headerSize >= 4) {
 			// Parse and print the lib info
 			parsePrxLibInfo(ptr, headerSize);
 
@@ -1646,11 +1647,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		DEBUG_LOG(Log::sceModule, "Decrypting ~PSP file");
 		head = (const PSP_Header *)ptr;
 		devkitVersion = head->devkitversion;
+		// Not necessarily terminated.
+		const std::string headModName(head->modname, strnlen(head->modname, sizeof(head->modname)));
 
 		bool wasDisabled;
-		if (ShouldHLEModuleForLoad(head->modname, &wasDisabled)) {
+		if (ShouldHLEModuleForLoad(headModName, &wasDisabled)) {
 			int ver = (head->module_ver_hi << 8) | head->module_ver_lo;
-			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", head->modname, ver, head->devkitversion, module->crc);
+			INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x, crc %x", headModName.c_str(), ver, head->devkitversion, module->crc);
 
 			// TODO: Don't conflate these!
 			reportedModule = true;
@@ -1658,7 +1661,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 
 		if (wasDisabled) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for '%s' has been manually disabled", head->modname));
+			g_OSD.Show(OSDType::MESSAGE_WARNING, StringFromFormat("HLE for '%s' has been manually disabled", headModName.c_str()));
 		}
 		const u8 *in = ptr;
 		const bool isCompressed = (head->comp_attribute & 1) != 0;
@@ -1673,7 +1676,17 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			return nullptr;
 		}
 		const auto maxElfSize = std::max(head->elf_size, head->psp_size);
-		newptr = new u8[maxElfSize];
+		// elf_size isn't bounded by anything else. Nothing this big fits in PSP RAM.
+		if (maxElfSize > 64 * 1024 * 1024) {
+			*error_string = StringFromFormat("ELF/PRX corrupt, unreasonable size: %u", (u32)maxElfSize);
+			module->Cleanup();
+			kernelObjects.Destroy<PSPModule>(module->GetUID());
+			error = SCE_KERNEL_ERROR_FILEERR;
+			return nullptr;
+		}
+		// Zeroed, since decryption and decompression can fill less than all of it and the ELF
+		// reader is handed the whole buffer.
+		newptr = new u8[maxElfSize]();
 		elfSize = maxElfSize;
 		ptr = newptr;
 		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed, fuseId);
@@ -1722,13 +1735,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			} else {
 				scheme = "gzip";
 				_dbg_assert_(Read32(ptr + 0x150) != ELF_MAGIC);
-				outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp);
+				outBytes = gzipDecompress((u8 *)ptr, maxElfSize, temp, decryptedSize);
 			}
 			free(temp);
 			if (outBytes < 0) {
 				// Bail out cleanly rather than falling through to parse whatever's left in the
 				// buffer (still compressed, not a valid ELF) as if it were real code.
-				*error_string = StringFromFormat("Module '%s' %s decompression failed", head->modname, scheme);
+				*error_string = StringFromFormat("Module '%s' %s decompression failed", headModName.c_str(), scheme);
 				delete [] newptr;
 				module->Cleanup();
 				kernelObjects.Destroy<PSPModule>(module->GetUID());
@@ -1736,7 +1749,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 				error = SCE_KERNEL_ERROR_FILEERR;
 				return nullptr;
 			}
-			INFO_LOG(Log::sceModule, "'%s' is %s-compressed, decompressing (%d -> %d bytes, bufmax=%d).", head->modname, scheme, decryptedSize, outBytes, maxElfSize);
+			INFO_LOG(Log::sceModule, "'%s' is %s-compressed, decompressing (%d -> %d bytes, bufmax=%d).", headModName.c_str(), scheme, decryptedSize, outBytes, maxElfSize);
 		}
 
 		if (fakeLoadedModule) {
@@ -1745,7 +1758,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			std::string elfFilename(KeepAfterLast(filename, '/'));
 			if (elfFilename.empty() || startsWith(elfFilename, "sce_lbn")) {
 				// Use the name from the header.
-				elfFilename = head->modname;
+				elfFilename = headModName;
 			}
 			DumpFileIfEnabled(ptr, (u32)elfSize, elfFilename.c_str(), DumpFileType::PRX);
 
@@ -1884,7 +1897,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	else
 		modinfoaddr = reader.GetSegmentVaddr(0) + (reader.GetSegmentPaddr(0) & 0x7FFFFFFF) - reader.GetSegmentOffset(0);
 
-	if (!Memory::IsValidAddress(modinfoaddr)) {
+	if (!Memory::IsValidRange(modinfoaddr, sizeof(PspModuleInfo))) {
 		*error_string = StringFromFormat("Bad module info address %08x", modinfoaddr);
 		ERROR_LOG(Log::sceModule, "Bad module info address %08x", modinfoaddr);
 		delete[] newptr;
@@ -1895,6 +1908,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 
 	modinfo = (const PspModuleInfo *)Memory::GetPointerUnchecked(modinfoaddr);
+	// Not necessarily terminated.
+	const std::string modInfoName(modinfo->name, strnlen(modinfo->name, sizeof(modinfo->name)));
 
 	module->nm.nsegment = reader.GetNumSegments();
 	module->nm.attribute = modinfo->moduleAttrs;
@@ -1902,9 +1917,9 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	// name check is for firmware 1.50, whose vshmain.prx declares no attributes at all - Sony
 	// only started setting PSP_MODULE_VSH_MODE in 1.52. Without it the whole VSH bootstrap
 	// below was skipped and the shell ran with none of its support modules loaded.
-	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0 || equals(modinfo->name, "vsh_module")) {
+	if ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0 || modInfoName == "vsh_module") {
 		g_runningVSH = true;
-		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modinfo->name);
+		INFO_LOG(Log::sceModule, "VSH mode module detected: %s", modInfoName.c_str());
 		// The shell booted without a game: its drive starts out empty, for a disc to go in later.
 		if (!pspFileSystem.GetSystem("disc0:")) {
 			__UmdEject();
@@ -1913,7 +1928,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	// OK, even if it's an ELF module, it might be one we shouldn't fully load and execute!
 	// This is seen with mpeg.prx in Tony Hawk's Underground 2, see #20568.
-	if (ShouldHLEModuleForLoad(modinfo->name)) {
+	if (ShouldHLEModuleForLoad(modInfoName)) {
 		// We load it, but at least we don't run any part of it.
 		module->isFake = true;
 	}
@@ -1988,7 +2003,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	module->libstub = modinfo->libstub;
 	module->libstubend = modinfo->libstubend;
 
-	INFO_LOG(Log::Loader, "Module %s: %08x %08x %08x", modinfo->name, modinfo->gp, modinfo->libent, modinfo->libstub);
+	INFO_LOG(Log::Loader, "Module %s: %08x %08x %08x", modInfoName.c_str(), modinfo->gp, modinfo->libent, modinfo->libstub);
 	DEBUG_LOG(Log::Loader,"===================================================");
 
 	u32 firstImportStubAddr = 0;
@@ -2098,16 +2113,24 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	const u32_le *entPos = nullptr;
 	const u32_le *entEnd = nullptr;
+	const u32_le *entBegin = nullptr;
 	// A module that wasn't relocated (cut off before its relocations, see LoadInto) still has
 	// link-time addresses here.
 	if (Memory::IsValidRange(modinfo->libent, modinfo->libentend - modinfo->libent)) {
 		entPos = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libent);
 		entEnd = (const u32_le *)Memory::GetPointerUnchecked(modinfo->libentend);
+		entBegin = entPos;
 	} else {
 		WARN_LOG(Log::Loader, "Garbage libent address %08x or end %08x, no exports", modinfo->libent, modinfo->libentend);
 	}
 
 	for (int m = 0; entPos < entEnd; ++m) {
+		const u32 entAddr = modinfo->libent + (u32)((const u8 *)entPos - (const u8 *)entBegin);
+		// Read as a whole struct below, even when the entry is shorter.
+		if (!Memory::IsValidRange(entAddr, sizeof(PspLibEntEntry))) {
+			WARN_LOG_REPORT(Log::Loader, "Export entry at %08x runs off the end of memory", entAddr);
+			break;
+		}
 		const PspLibEntEntry *ent = (const PspLibEntEntry *)entPos;
 		entPos += ent->size;
 		if (ent->size == 0) {
@@ -2118,7 +2141,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		const u32 variableCount = ent->size <= 4 ? ent->vcount : std::max((u32)ent->vcount , (u32)ent->vcountNew);
 		const char *name;
-		if (Memory::IsValidAddress(ent->name)) {
+		if (ent->name != 0 && Memory::IsValidNullTerminatedString(ent->name)) {
 			name = Memory::GetCharPointer(ent->name);
 		} else if (ent->name == 0) {
 			name = module->nm.name;
@@ -2128,9 +2151,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 		INFO_LOG(Log::Loader, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
 
-		if (!Memory::IsValidAddress(ent->resident)) {
+		// The NIDs, then the addresses, one word each per function and variable.
+		const u32 residentBytes = ((u32)ent->fcount + variableCount) * 8;
+		if (!Memory::IsValidAddress(ent->resident) || !Memory::IsValidRange(ent->resident, residentBytes)) {
 			if (ent->fcount + variableCount > 0) {
-				WARN_LOG_REPORT(Log::Loader, "Invalid export resident address %08x", ent->resident);
+				WARN_LOG_REPORT(Log::Loader, "Invalid export resident address %08x (%d funcs, %d vars)", ent->resident, ent->fcount, variableCount);
 			}
 			continue;
 		}
@@ -2191,6 +2216,12 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 			if (!Memory::IsValidAddress(exportAddr)) {
 				WARN_LOG(Log::Loader, "Invalid var %d, nid %08x, export address %08x", j, nid, exportAddr);
+				continue;
+			}
+			// The thread parameter variables below are four words.
+			const bool isThreadParam = nid == NID_MODULE_START_THREAD_PARAMETER || nid == NID_MODULE_STOP_THREAD_PARAMETER || nid == NID_MODULE_REBOOT_BEFORE_THREAD_PARAMETER;
+			if ((isThreadParam && !Memory::IsValidRange(exportAddr, 16)) || (nid == NID_MODULE_SDK_VERSION && !Memory::IsValidRange(exportAddr, 4))) {
+				WARN_LOG(Log::Loader, "Var %d, nid %08x, export address %08x runs off the end of memory", j, nid, exportAddr);
 				continue;
 			}
 
@@ -2265,8 +2296,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 
 	delete [] newptr;
 
-	if (!reportedModule && ShouldHLEModuleForLoad(modinfo->name)) {
-		INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x", modinfo->name, modinfo->moduleVersion, devkitVersion);
+	if (!reportedModule && ShouldHLEModuleForLoad(modInfoName)) {
+		INFO_LOG(Log::sceModule, "Loading module %s with version %04x, devkit %08x", modInfoName.c_str(), modinfo->moduleVersion, devkitVersion);
 
 		if (!strcmp(modinfo->name, "sceMpeg_library")) {
 			__MpegLoadModule(modinfo->moduleVersion, module->crc);
@@ -2354,7 +2385,7 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string, 
 
 	u32 error = SCE_KERNEL_ERROR_ILLEGAL_OBJECT;
 	u32 magic;
-	PSPModule *module = __KernelLoadELFFromPtr(&buffer[0], buffer.size(), 0, fromTop, error_string, &magic, filename, error);
+	PSPModule *module = __KernelLoadELFFromPtr(buffer.data(), buffer.size(), 0, fromTop, error_string, &magic, filename, error);
 
 	if (module == nullptr)
 		return error;
@@ -2369,11 +2400,12 @@ static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOp
 		// PBP!
 		u32_le version;
 		memcpy(&version, fileptr + 4, 4);
-		u32_le offset0, offsets[16];
+		u32_le offset0, offsets[16]{};
 
 		memcpy(&offset0, fileptr + 8, 4);
 		int numfiles = (offset0 - 8) / 4;
-		if (numfiles <= 0 || numfiles > 16) {
+		// offsets[5] and [6] are used below.
+		if (numfiles < 7 || numfiles > 16) {
 			*error_string = "Invalid PBP header - can't load";
 			return nullptr;
 		}
@@ -3686,11 +3718,13 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	std::string error_string;
 	pspFileSystem.SeekFile(handle, pos, FILEMOVE_BEGIN);
 	PSPModule *module = nullptr;
-	u8 *temp = new u8[size - pos];
-	pspFileSystem.ReadFile(handle, temp, size - pos);
+	// The game may have seeked past the end.
+	const size_t remaining = size > pos ? size - pos : 0;
+	u8 *temp = new u8[remaining]();
+	const size_t bytesRead = pspFileSystem.ReadFile(handle, temp, remaining);
 
 	u32 magic;
-	module = __KernelLoadELFFromPtr(temp, size - pos, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, "", error);
+	module = __KernelLoadELFFromPtr(temp, std::min(bytesRead, remaining), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, "", error);
 	delete [] temp;
 
 	if (!module) {
@@ -3805,6 +3839,9 @@ SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmo
 	char fakeDebugFilename[512];
 	snprintf(fakeDebugFilename, sizeof(fakeDebugFilename), "moduleByPtr_%08x_%d", bufPtr, (int)size);
 
+	if (!Memory::IsValidRange(bufPtr, size)) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "Bad module buffer %08x (%d bytes)", bufPtr, size);
+	}
 	module = __KernelLoadELFFromPtr(Memory::GetPointerOrException(bufPtr), size, 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, fakeDebugFilename, error);
 
 	if (!module) {
