@@ -82,6 +82,7 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 		// The XMB is an ELF too, but has an icon.
 		return ImageID("I_APP");
 	case IdentifiedFileType::UNKNOWN_ELF: return ImageID("I_APP"); break;
+	case IdentifiedFileType::PSP_PBP_DIRECTORY: return ImageID("I_APP"); break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: return ImageID("I_DISPLAY"); break;
 	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PSP_PS1_PBP: return ImageID("I_PSX_ISO"); break;
@@ -176,9 +177,6 @@ void GameButton::Draw(UIContext &dc) {
 				texture = ginfo->icon.texture;
 				// The type icon is only for when there's no picture, and would be drawn on top of it.
 				imageIcon = ImageID::invalid();
-			} else {
-				// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-				imageIcon = ChooseGameIcon(ginfo);
 			}
 		} else if (gamePath_.Type() == PathType::HTTP) {
 			// Make sure that pending HTTP icons show something, instead of just blank.
@@ -289,7 +287,6 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, 0xFFFFFFFF);
 		dc.Draw()->Flush();
 	}
-
 
 	if (viewMode_ == GameBrowserViewMode::GRID) {
 		if (g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
