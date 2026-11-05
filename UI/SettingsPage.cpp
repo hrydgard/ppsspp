@@ -181,11 +181,6 @@ SettingItem &SettingsPage::Info(SettingText text, std::string_view rightText) {
 	return item;
 }
 
-SettingItem &SettingsPage::Hint(SettingText text) {
-	_dbg_assert_(!items_.empty());
-	return Add(SettingType::Hint, text);
-}
-
 SettingItem &SettingsPage::Description(SettingText text) {
 	return Add(SettingType::Description, text);
 }
@@ -279,7 +274,7 @@ static std::function<void(UI::EventParams &)> ChangeHandler(const SettingItem &i
 	};
 }
 
-static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
+static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat, UI::ViewGroup *parent, ScreenManager *screenManager) {
 	using namespace UI;
 
 	std::string_view text = item.text.Translate(pageCat);
@@ -363,8 +358,6 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 	}
 	case SettingType::Info:
 		return parent->Add(new InfoItem(text, item.rightText));
-	case SettingType::Hint:
-		return parent->Add(new SettingHint(text, prevView));
 	case SettingType::Description:
 	{
 		TextView *description = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
@@ -386,8 +379,8 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 	return nullptr;
 }
 
-static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
-	UI::View *view = CreateSettingViewInner(item, pageCat, prevView, parent, screenManager);
+static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::ViewGroup *parent, ScreenManager *screenManager) {
+	UI::View *view = CreateSettingViewInner(item, pageCat, parent, screenManager);
 	if (!view) {
 		return nullptr;
 	}
@@ -403,6 +396,14 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 			choice->SetIconRight(ImageID("I_CHEVRON_RIGHT"));
 		}
 	}
+	if (!item.hint.empty()) {
+		if (UI::ClickableItem *clickable = dynamic_cast<UI::ClickableItem *>(view)) {
+			clickable->SetHintText(item.hint.Translate(pageCat));
+		} else {
+			// Custom views that can't show a hint get it below them.
+			parent->Add(new SettingHint(item.hint.Translate(pageCat), view));
+		}
+	}
 	if (item.setup) {
 		item.setup(view);
 	}
@@ -410,7 +411,6 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 }
 
 void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views) {
-	UI::View *prevView = nullptr;
 	// Each header is a group, which the items after it go in. Items before the first get one without a title.
 	UI::ViewGroup *group = nullptr;
 	for (const SettingItem &item : page.Items()) {
@@ -419,7 +419,7 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 		if (!group && !outsideGroups) {
 			group = parent->Add(new UI::ChoiceGroup());
 		}
-		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, outsideGroups ? parent : group, screenManager);
+		UI::View *view = CreateSettingView(item, page.DefaultCat(), outsideGroups ? parent : group, screenManager);
 		if (views) {
 			views->push_back(view);
 		}
@@ -430,8 +430,6 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 			group = nullptr;
 		} else if (view && item.type == SettingType::Header) {
 			group = static_cast<UI::ViewGroup *>(view);
-		} else if (view) {
-			prevView = view;
 		}
 	}
 }

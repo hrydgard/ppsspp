@@ -103,8 +103,7 @@ void BuildAudioSettings(SettingsPage *page) {
 	sdlAudio = true;
 
 	static const int bufferSizes[] = {128, 256, 512, 1024, 2048};
-	page->IntSlider(&g_Config.iSDLAudioBufferSize, 0, 2048, "Buffer size").Default(256).RestrictTo(bufferSizes, ARRAY_SIZE(bufferSizes));
-	page->Hint({ I18NCat::DIALOG, "This change will not take effect until PPSSPP is restarted." });
+	page->IntSlider(&g_Config.iSDLAudioBufferSize, 0, 2048, "Buffer size").Default(256).RestrictTo(bufferSizes, ARRAY_SIZE(bufferSizes)).Hint({ I18NCat::DIALOG, "This change will not take effect until PPSSPP is restarted." });
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -155,13 +154,11 @@ void BuildAudioSettings(SettingsPage *page) {
 	};
 	// AAudio isn't stable before Android 8.1, so there it's always OpenSL ES.
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
-		page->Setting(&g_Config.iAndroidAudioApi).OnChange(restartAudio);
-		page->Hint({ I18NCat::AUDIO, "AudioApiHint", "Try the other one if you have no sound or other audio problems." });
+		page->Setting(&g_Config.iAndroidAudioApi).OnChange(restartAudio).Hint({ I18NCat::AUDIO, "AudioApiHint", "Try the other one if you have no sound or other audio problems." });
 
 		page->Setting(&g_Config.bAndroidAudioMMap).OnChange(restartAudio).EnabledFunc([]() {
 			return g_Config.iAndroidAudioApi == (int)AndroidAudioApi::AAUDIO;
-		});
-		page->Hint({ I18NCat::AUDIO, "AudioMMapHint", "Lowest audio delay. On some devices, it causes silence over Bluetooth or other connected audio devices. Turn it off if you get no sound." });
+		}).Hint({ I18NCat::AUDIO, "AudioMMapHint", "Lowest audio delay. On some devices, it causes silence over Bluetooth or other connected audio devices. Turn it off if you get no sound." });
 	}
 	// Show Oboe debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);

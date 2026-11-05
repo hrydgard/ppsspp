@@ -307,7 +307,7 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 
 	bool prevIsTitle = false;
-	View *prev = nullptr;
+	CheckBox *prev = nullptr;
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
 		std::string_view text;
 		if (fileInfo_[i].IsTitle(&text)) {
@@ -318,7 +318,17 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 			prevIsTitle = true;
 			prev = nullptr;
 		} else if (fileInfo_[i].IsPostComment(&text)) {
-			rightColumn->Add(new SettingHint(text, prev));
+			if (prev) {
+				// A cheat's comment lines go in its checkbox.
+				std::string hint = prev->GetHintText();
+				if (!hint.empty()) {
+					hint += '\n';
+				}
+				hint += text;
+				prev->SetHintText(hint);
+			} else {
+				rightColumn->Add(new SettingHint(text, nullptr));
+			}
 			prevIsTitle = false;
 		} else {
 			// Regular cheat code.

@@ -750,9 +750,31 @@ class ClickableItem : public Clickable {
 public:
 	ClickableItem(LayoutParams *layoutParams);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 
 	// Draws the item background.
 	void Draw(UIContext &dc) override;
+
+	// Small explanatory text under the item, part of it (highlighted and clicked along with it).
+	// Drawn by Choice and CheckBox.
+	void SetHintText(std::string_view text) {
+		hintText_ = text;
+	}
+	const std::string &GetHintText() const {
+		return hintText_;
+	}
+
+protected:
+	// The item's bounds without the hint below.
+	Bounds ContentBounds() const {
+		Bounds b = bounds_;
+		b.h -= hintHeight_;
+		return b;
+	}
+	void DrawHint(UIContext &dc, const Style &style) const;
+
+	std::string hintText_;
+	float hintHeight_ = 0.0f;
 };
 
 // Use to trigger something or open a submenu screen.

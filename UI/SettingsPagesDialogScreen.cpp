@@ -409,10 +409,9 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 	const I18NCat cat = page.DefaultCat();
 	const std::deque<SettingItem> &items = page.Items();
 
-	// A matching header shows its whole section, and a matching hint the setting it belongs to.
+	// A matching header shows its whole section.
 	std::vector<bool> show(items.size());
 	bool sectionMatches = false;
-	int lastSetting = -1;
 	for (int i = 0; i < (int)items.size(); i++) {
 		const SettingItem &item = items[i];
 		bool matches = SettingTextMatches(item.text, cat, searchText_);
@@ -420,15 +419,12 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 		case SettingType::Header:
 			sectionMatches = matches;
 			break;
-		case SettingType::Hint:
-			if (matches && lastSetting >= 0) {
-				show[lastSetting] = true;
-			}
-			break;
 		case SettingType::Description:
 			break;
 		default:
-			lastSetting = i;
+			if (!item.hint.empty() && SettingTextMatches(item.hint, cat, searchText_)) {
+				matches = true;
+			}
 			show[i] = matches || sectionMatches;
 			break;
 		}

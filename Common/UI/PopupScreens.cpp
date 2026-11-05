@@ -1088,26 +1088,28 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
+		const Bounds bounds = ContentBounds();
 		int imagePadding = 0;
 		if (rightIconImage_.isValid()) {
-			imagePadding = bounds_.h;
+			imagePadding = bounds.h;
 		}
 		dc.SetFontScale(scale, scale);
-		Bounds valueBounds(bounds_.x2() - textPadding_.right - imagePadding, bounds_.y, w, bounds_.h);
+		Bounds valueBounds(bounds.x2() - textPadding_.right - imagePadding, bounds.y, w, bounds.h);
 		dc.DrawTextRect(valueText, valueBounds, color, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	} else {
 		Choice::Draw(dc);
+		const Bounds bounds = ContentBounds();
 
 		if (iconOnly_) {
 			// In this case we only display the image of the choice. Useful for small buttons spawning a popup.
-			dc.Draw()->DrawImageRotated(ValueImage(), bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
+			dc.Draw()->DrawImageRotated(ValueImage(), bounds.centerX(), bounds.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 			return;
 		}
 
-		float scale = CalculateValueScale(dc, valueText, bounds_.w);
+		float scale = CalculateValueScale(dc, valueText, bounds.w);
 		dc.SetFontScale(scale, scale);
-		dc.DrawTextRect(valueText, bounds_.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(valueText, bounds.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 }

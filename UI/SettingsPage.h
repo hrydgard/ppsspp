@@ -86,7 +86,6 @@ enum class SettingType {
 	FloatSlider,
 	Choice,  // A button. onChange is called on click.
 	Info,
-	Hint,  // Explanatory text attached to the previous item.
 	Description,  // Text about the page or a part of it, outside the groups.
 	Custom,
 	Link,  // Opens another page.
@@ -97,6 +96,8 @@ enum class SettingType {
 struct SettingItem {
 	SettingType type;
 	SettingText text;
+	// Explanatory text, shown under the item. Searched along with the text.
+	SettingText hint;
 	void *ptr = nullptr;  // bool *, int * or std::string *, depending on type.
 
 	// IntChoice. The choices are translated in the same category as the text.
@@ -169,6 +170,7 @@ struct SettingItem {
 	SettingItem &OnChange(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &OnClick(std::function<void(UI::EventParams &)> func) { onChange = std::move(func); return *this; }
 	SettingItem &Setup(std::function<void(UI::View *)> func) { setup = std::move(func); return *this; }
+	SettingItem &Hint(SettingText text) { hint = text; return *this; }
 	SettingItem &OpensScreen() { opensScreen = true; return *this; }
 	SettingItem &Default(int value) { defaultValue = value; hasDefault = true; return *this; }
 	SettingItem &Step(int value) { step = value; return *this; }
@@ -197,11 +199,10 @@ public:
 	SettingItem &IntSlider(int *value, int minValue, int maxValue, SettingText text);
 	SettingItem &Choice(SettingText text, ImageID image = ImageID::invalid());
 	SettingItem &Info(SettingText text, std::string_view rightText);
-	SettingItem &Hint(SettingText text);
 	// The items after it start a new group. Not searched.
 	SettingItem &Description(SettingText text);
 	// For anything the other types can't describe. The text is only used for search. The view
-	// returned is the one a following Hint is attached to, and the one search results lead to.
+	// returned is the one its Hint is shown in, and the one search results lead to.
 	SettingItem &Custom(SettingText text, std::function<UI::View *(UI::ViewGroup *parent)> create);
 	// Opens another page, built by build, on top of this one. The text is the new page's title.
 	SettingItem &Link(SettingText text, I18NCat cat, std::function<void(SettingsPage *)> build);
