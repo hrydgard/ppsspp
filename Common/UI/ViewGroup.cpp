@@ -134,8 +134,15 @@ bool ViewGroup::Key(const KeyInput &input) {
 	bool ret = false;
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if (view->GetVisibility() == V_VISIBLE)
-			ret = ret || view->Key(input);
+		if (view->GetVisibility() != V_VISIBLE) {
+			continue;
+		}
+		// Disabled views can have focus, but must not be activated. Groups pass keys on to
+		// their children regardless, like CollectTabOrder.
+		if (!view->IsEnabled() && !view->IsViewGroup()) {
+			continue;
+		}
+		ret = ret || view->Key(input);
 	}
 	return ret;
 }
@@ -407,7 +414,8 @@ bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, cons
 }
 
 static bool CanTakeFocus(const View *view) {
-	return view->CanBeFocused() && view->IsEnabled() && view->GetVisibility() == V_VISIBLE;
+	// Disabled views can be focused too (they ignore keys, see Key()).
+	return view->CanBeFocused() && view->GetVisibility() == V_VISIBLE;
 }
 
 float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
@@ -554,11 +562,11 @@ void ViewGroup::CollectTabOrder(std::vector<View *> *outViews) const {
 			// A group can be focusable itself (rare), in which case it's a stop and we still
 			// descend into it - same as arrow navigation, which considers both.
 			ViewGroup *vg = static_cast<ViewGroup *>(view);
-			if (vg->CanBeFocused() && vg->IsEnabled()) {
+			if (vg->CanBeFocused()) {
 				outViews->push_back(vg);
 			}
 			vg->CollectTabOrder(outViews);
-		} else if (view->CanBeFocused() && view->IsEnabled()) {
+		} else if (view->CanBeFocused()) {
 			outViews->push_back(view);
 		}
 	}

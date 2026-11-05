@@ -219,6 +219,11 @@ void Clickable::DrawBG(UIContext &dc, const Style &style, float radius) {
 	if (highlighted_) {
 		dc.Draw()->DrawRoundRect(bounds_, radius, 0xFFFFFFFF, RoundRectStyle::OutlineThin, roundCorners_);
 	}
+	// Disabled items can be focused (to read them), but keep their disabled background.
+	// Outline them in the focus color instead.
+	if (HasFocus() && !IsEnabled()) {
+		dc.Draw()->DrawRoundRect(bounds_, radius, dc.GetTheme().itemFocusedStyle.background.color, RoundRectStyle::OutlineThin, roundCorners_);
+	}
 }
 
 void Clickable::ClickInternal() {
@@ -426,14 +431,14 @@ ClickableItem::ClickableItem(LayoutParams *layoutParams) : Clickable(layoutParam
 void ClickableItem::Draw(UIContext &dc) {
 	Style style = dc.GetTheme().itemStyle;
 
-	if (!IsEnabled()) {
-		style = dc.GetTheme().itemDisabledStyle;
-	}
 	if (HasFocus()) {
 		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
+	}
+	if (!IsEnabled()) {
+		style = dc.GetTheme().itemDisabledStyle;
 	}
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
@@ -827,19 +832,21 @@ void CheckBox::Draw(UIContext &dc) {
 	if (!IsEnabled()) {
 		style = dc.GetTheme().itemDisabledStyle;
 	}
+	// A focused disabled checkbox keeps its disabled look, DrawBG outlines it.
+	const bool focused = HasFocus() && IsEnabled();
 	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
 
 	// In image mode, light up instead of showing a checkbox.
 	if (imageID_.isValid()) {
 		image = imageID_;
 		if (Toggled()) {
-			if (HasFocus()) {
+			if (focused) {
 				style = dc.GetTheme().itemDownStyle;
 			} else {
 				style = dc.GetTheme().itemFocusedStyle;
 			}
 		} else {
-			if (HasFocus()) {
+			if (focused) {
 				style = dc.GetTheme().itemDownStyle;
 			} else {
 				style = dc.GetTheme().itemStyle;
@@ -851,7 +858,7 @@ void CheckBox::Draw(UIContext &dc) {
 		}
 
 	} else {
-		if (HasFocus()) {
+		if (focused) {
 			style = dc.GetTheme().itemFocusedStyle;
 		}
 		if (down_) {

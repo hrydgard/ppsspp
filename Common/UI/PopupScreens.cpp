@@ -1053,14 +1053,14 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 
 void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	Style style = dc.GetTheme().itemStyle;
-	if (!IsEnabled()) {
-		style = dc.GetTheme().itemDisabledStyle;
-	}
 	if (HasFocus()) {
 		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
+	}
+	if (!IsEnabled()) {
+		style = dc.GetTheme().itemDisabledStyle;
 	}
 	int paddingX = 12;
 	dc.SetFontStyle(dc.GetTheme().uiFont);
