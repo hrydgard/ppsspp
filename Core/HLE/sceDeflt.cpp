@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+
 #include "zlib.h"
 
 #include "Common/CommonTypes.h"
@@ -41,7 +43,8 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 	// We don't know the available length, just let it use as much as it wants.
 	stream.avail_in = (uInt)Memory::ClampValidSizeAt(InBuffer, Memory::g_MemorySize);
 	stream.next_out = outBufferPtr;
-	stream.avail_out = (uInt)OutBufferLength;
+	// The game's length isn't checked against memory anywhere else.
+	stream.avail_out = (uInt)Memory::ClampValidSizeAt(OutBuffer, (u32)std::max(OutBufferLength, 0));
 
 	int err = inflateInit2(&stream, windowBits);
 	if (err != Z_OK) {

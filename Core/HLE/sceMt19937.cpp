@@ -31,7 +31,7 @@
 
 static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 {
-	if (!Memory::IsValidAddress(mt19937Addr))
+	if (!Memory::IsValidRange(mt19937Addr, sizeof(MersenneTwister)))
 		return hleLogError(Log::HLE, -1);
 	void *ptr = Memory::GetPointerWriteUnchecked(mt19937Addr);
 	// This is made to match the memory layout of a PSP MT structure exactly.
@@ -42,7 +42,7 @@ static u32 sceMt19937Init(u32 mt19937Addr, u32 seed)
 
 static u32 sceMt19937UInt(u32 mt19937Addr)
 {
-	if (!Memory::IsValidAddress(mt19937Addr))
+	if (!Memory::IsValidRange(mt19937Addr, sizeof(MersenneTwister)))
 		return hleLogError(Log::HLE, -1);
 	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointerOrException(mt19937Addr);
 	return hleLogVerbose(Log::HLE, mt->R32());

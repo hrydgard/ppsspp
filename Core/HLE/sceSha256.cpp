@@ -22,7 +22,7 @@
 #include "Core/HLE/sceSha256.h"
 
 static int sceSha256Digest(u32 data, int dataLen, u32 digestPtr) {
-	if (!Memory::IsValidAddress(data) || !Memory::IsValidAddress(digestPtr) || !Memory::IsValidAddress(data + dataLen)) {
+	if (dataLen < 0 || !Memory::IsValidAddress(data) || !Memory::IsValidRange(data, (u32)dataLen) || !Memory::IsValidRange(digestPtr, 32)) {
 		ERROR_LOG(Log::HLE, "sceSha256Digest(data=%08x, len=%d, digest=%08x) - bad address(es)", data, dataLen, digestPtr);
 		return -1;
 	}

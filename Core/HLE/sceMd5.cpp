@@ -31,7 +31,7 @@
 // Not really sure where these belong - is it worth giving them their own file?
 u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsMt19937Init(%08x, %08x)", ctx, seed);
-	if (!Memory::IsValidAddress(ctx))
+	if (!Memory::IsValidRange(ctx, sizeof(MersenneTwister)))
 		return -1;
 	void *ptr = Memory::GetPointerWriteOrException(ctx);
 	// This is made to match the memory layout of a PSP MT structure exactly.
@@ -42,7 +42,7 @@ u32 sceKernelUtilsMt19937Init(u32 ctx, u32 seed) {
 
 u32 sceKernelUtilsMt19937UInt(u32 ctx) {
 	VERBOSE_LOG(Log::HLE, "sceKernelUtilsMt19937UInt(%08x)", ctx);
-	if (!Memory::IsValidAddress(ctx))
+	if (!Memory::IsValidRange(ctx, sizeof(MersenneTwister)))
 		return -1;
 	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointerUnchecked(ctx);
 	return mt->R32();
@@ -161,7 +161,7 @@ static int Md5BlockResult(u32 ctxAddr, u32 digestAddr) {
 static int sceMd5Digest(u32 dataAddr, u32 len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
-	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)len) || !Memory::IsValidRange(digestAddr, 16))
 		return -1;
 
 	ppsspp_md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
@@ -183,7 +183,7 @@ static int sceMd5BlockResult(u32 ctxAddr, u32 digestAddr) {
 int sceKernelUtilsMd5Digest(u32 dataAddr, int len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsMd5Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
-	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)len) || !Memory::IsValidRange(digestAddr, 16))
 		return -1;
 
 	ppsspp_md5(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
@@ -262,7 +262,7 @@ static int Sha1BlockInit(u32 ctxAddr) {
 int sceKernelUtilsSha1Digest(u32 dataAddr, int len, u32 digestAddr) {
 	DEBUG_LOG(Log::HLE, "sceKernelUtilsSha1Digest(%08x, %d, %08x)", dataAddr, len, digestAddr);
 
-	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidAddress(digestAddr))
+	if (!Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)len) || !Memory::IsValidRange(digestAddr, 20))
 		return -1;
 
 	sha1(Memory::GetPointerWriteUnchecked(dataAddr), (int)len, Memory::GetPointerWriteUnchecked(digestAddr));
