@@ -57,3 +57,9 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
   (only `android/jni/Android.mk` and `libretro/Makefile.common` genuinely can't be build-tested here - see
   [Building and testing](building.md) for what verification is possible for those.)
 
+
+## Modules to leave out of reviews
+
+`sceNet_lib` (`Core/HLE/sceNet_lib.cpp`) is an experimental implementation of some of the firmware's
+`pspnet.prx` exports, added by a contributor. Games can't call it, so leave it out of HLE reviews and
+hardening passes.
