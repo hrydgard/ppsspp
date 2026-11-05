@@ -9,6 +9,9 @@
 #include "Core/ConfigValues.h"
 #include "UI/MiscViews.h"
 
+constexpr float MIN_GAME_GRID_SCALE = 0.8f;
+constexpr float MAX_GAME_GRID_SCALE = 3.0f;
+
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
 };
@@ -37,6 +40,7 @@ public:
 	void SetPath(const Path &path);
 	void SetSearchBar(SearchBar *searchBar);
 	bool Key(const KeyInput &key) override;
+	bool Touch(const TouchInput &input) override;
 	void SetSearchFilter(const std::string &filter, bool setKeyboardFocus);
 	void Draw(UIContext &dc) override;
 	void Update() override;
@@ -91,6 +95,7 @@ private:
 	// Set when entering a directory, for Refresh to focus its first entry.
 	bool focusFirstItem_ = false;
 	bool backspaceHeld_ = false;
+	bool mouseHover_ = false;
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;

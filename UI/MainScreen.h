@@ -127,10 +127,6 @@ public:
 	UI::Event OnRecentChanged;
 
 	const char *tag() const override { return "GridSettings"; }
-
-private:
-	const float MAX_GAME_GRID_SCALE = 3.0f;
-	const float MIN_GAME_GRID_SCALE = 0.8f;
 };
 
 void LaunchBuyGold(ScreenManager *screenManager);

@@ -96,7 +96,30 @@ void GameBrowser::SetPath(const Path &path) {
 	refreshPending_ = true;
 }
 
+bool GameBrowser::Touch(const TouchInput &input) {
+	if (input.flags & TouchInputFlags::MOUSE) {
+		// The browser can extend past the scroll view it's in, so check that too.
+		mouseHover_ = bounds_.Contains(input.x, input.y) && (!Parent() || Parent()->GetBounds().Contains(input.x, input.y));
+	}
+	return LinearLayout::Touch(input);
+}
+
 bool GameBrowser::Key(const KeyInput &input) {
+	// Ctrl+wheel changes the icon size, like zooming in a file manager. The plain list doesn't scale.
+	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModCtrl) && mouseHover_ &&
+		(input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+		if (ViewMode() == GameBrowserViewMode::LIST) {
+			return false;
+		}
+		if (input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP) {
+			g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
+		} else {
+			g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+		}
+		// Draw notices the change and refreshes every browser.
+		return true;
+	}
+
 	// Alt+Up goes to the parent directory, as in file managers.
 	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
 		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
