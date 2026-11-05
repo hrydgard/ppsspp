@@ -92,6 +92,10 @@ size_t BlobFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
 			entry->second = fileLoader_->FileSize() + position;
 			break;
 		}
+		// Reads take the position as a file offset.
+		if (entry->second < 0) {
+			entry->second = 0;
+		}
 		return (size_t)entry->second;
 	}
 	return 0;

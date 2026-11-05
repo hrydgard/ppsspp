@@ -16,8 +16,10 @@
 #include "Common/StringUtils.h"
 
 // Sanity cap on a single zip entry's declared uncompressed size, so a corrupt or
-// malicious zip can't drive an implausible (or, near UINT64_MAX, wrapping) allocation.
-static constexpr uint64_t MAX_ZIP_ENTRY_SIZE = 1ULL << 32;  // 4GB, generous for any real asset.
+// malicious zip can't drive an implausible allocation (which also has to fit in a
+// 32-bit size_t). Entries are read whole into memory; the largest real asset, an
+// uncompressed 8192x8192 replacement texture with mips, is under 512MB.
+static constexpr uint64_t MAX_ZIP_ENTRY_SIZE = 512ULL * 1024 * 1024;
 
 ZipContainer::ZipContainer() noexcept : sourceData_(nullptr), zip_(nullptr) {}
 
@@ -186,8 +188,13 @@ uint8_t *ZipFileReader::ReadFile(std::string_view path, size_t *size) {
 		return 0;
 	}
 	uint8_t *contents = new uint8_t[zstat.size + 1];
-	zip_fread(file, contents, zstat.size);
+	const zip_int64_t bytesRead = zip_fread(file, contents, zstat.size);
 	zip_fclose(file);
+	if (bytesRead < 0 || (uint64_t)bytesRead != zstat.size) {
+		ERROR_LOG(Log::IO, "Error reading %s from ZIP (%lld of %llu bytes)", temp_path.c_str(), (long long)bytesRead, (unsigned long long)zstat.size);
+		delete[] contents;
+		return 0;
+	}
 	contents[zstat.size] = 0;
 
 	*size = zstat.size;
@@ -402,6 +409,13 @@ VFSOpenFile *ZipFileReader::OpenFileForRead(VFSFileReference *vfsReference, size
 		delete openFile;
 		return nullptr;
 	}
+	// Callers allocate the returned size.
+	if (zstat.size > MAX_ZIP_ENTRY_SIZE) {
+		ERROR_LOG(Log::IO, "Zip entry %d claims an implausible size (%llu), refusing to open", reference->zi, (unsigned long long)zstat.size);
+		lock_.unlock();
+		delete openFile;
+		return nullptr;
+	}
 
 	openFile->zf = zip_fopen_index(zip_file_, reference->zi, 0);
 	if (!openFile->zf) {
@@ -429,15 +443,20 @@ void ZipFileReader::Rewind(VFSOpenFile *vfsOpenFile) {
 size_t ZipFileReader::Read(VFSOpenFile *vfsOpenFile, void *buffer, size_t length) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
 	_assert_(file);
-	_dbg_assert_(file->zf != nullptr);
-	return zip_fread(file->zf, buffer, length);
+	if (!file->zf) {
+		return 0;
+	}
+	// -1 on errors, like a bad CRC or a corrupt stream.
+	const zip_int64_t bytesRead = zip_fread(file->zf, buffer, length);
+	return bytesRead < 0 ? 0 : (size_t)bytesRead;
 }
 
 void ZipFileReader::CloseFile(VFSOpenFile *vfsOpenFile) {
 	ZipFileReaderOpenFile *file = (ZipFileReaderOpenFile *)vfsOpenFile;
 	_assert_(file);
-	_dbg_assert_(file->zf != nullptr);
-	zip_fclose(file->zf);
+	if (file->zf) {
+		zip_fclose(file->zf);
+	}
 	file->zf = nullptr;
 	vfsOpenFile = nullptr;
 	lock_.unlock();

@@ -154,7 +154,8 @@ int sceDrmBBMacUpdate(KirkState *kirk, MAC_KEY *mkey, u8 *buf, int size)
 	int retv = 0, ksize, p, type;
 	u8 *kbuf;
 
-	if(mkey->pad_size>16){
+	// The key can live in guest memory (sceDrmBBMacUpdate), so pad_size can be anything.
+	if(mkey->pad_size<0 || mkey->pad_size>16){
 		retv = 0x80510302;
 		goto _exit;
 	}
@@ -204,7 +205,7 @@ int sceDrmBBMacFinal(KirkState *kirk, MAC_KEY *mkey, u8 *buf, u8 *vkey)
 	u8 *kbuf, tmp[16], tmp1[16];
 	u32 t0, v0, v1;
 
-	if(mkey->pad_size>16)
+	if(mkey->pad_size<0 || mkey->pad_size>16)
 		return 0x80510302;
 
 	code = (mkey->type==2)? 0x3A : 0x38;
@@ -609,6 +610,8 @@ PGD_DESC *pgd_open(KirkState *kirk, u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	//DEBUG_LOG(Log::HLE, "Open PGD ...");
 
 	pgd = (PGD_DESC*)malloc(sizeof(PGD_DESC));
+	if (!pgd)
+		return NULL;
 	memset(pgd, 0, sizeof(PGD_DESC));
 
 	pgd->key_index = *(u32*)(pgd_buf+4);

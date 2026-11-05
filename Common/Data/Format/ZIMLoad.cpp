@@ -63,7 +63,9 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 	memcpy(height, zim + 8, 4);
 	memcpy(flags, zim + 12, 4);
 
-	if (*width <= 0 || *height <= 0) {
+	// Nothing we use is anywhere near this, and the data is often compressed, so the
+	// size is otherwise only bounded by how much memory a decompression bomb can claim.
+	if (*width <= 0 || *height <= 0 || *width > 8192 || *height > 8192) {
 		ERROR_LOG(Log::IO, "Invalid ZIM dimensions %i x %i", *width, *height);
 		return 0;
 	}
@@ -147,9 +149,12 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 			*image = 0;
 			return 0;
 		}
-		if (outlen != total_data_size) {
-			// Shouldn't happen if return value was Z_OK.
+		if (outlen != (long)total_data_size) {
+			// The stream ended early, leaving the rest of the image uninitialized.
 			ERROR_LOG(Log::IO, "Wrong size data in ZIM: %i vs %i", (int)outlen, (int)total_data_size);
+			free(*image);
+			*image = 0;
+			return 0;
 		}
 	} else if (*flags & ZIM_ZSTD_COMPRESSED) {
 		size_t outlen = ZSTD_decompress(*image, total_data_size, zim + 16, payload_size);

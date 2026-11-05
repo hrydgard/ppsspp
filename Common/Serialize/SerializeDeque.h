@@ -32,6 +32,15 @@ void DoDeque(PointerWrap &p, std::deque<T> &x, T &default_val) {
 			return;
 		}
 	}
+	// See DoVector.
+	if (p.mode == PointerWrap::MODE_READ && sizeof(T) > SerializeMinElemSize<T>()) {
+		x.clear();
+		for (u32 i = 0; i < deq_size && !p.Failed(); i++) {
+			x.push_back(default_val);
+			Do(p, x.back());
+		}
+		return;
+	}
 	x.resize(deq_size, default_val);
 	u32 i;
 	for (i = 0; i < deq_size; i++)

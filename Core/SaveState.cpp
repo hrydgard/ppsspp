@@ -122,7 +122,8 @@ enum class OperationType {
 struct PendingRead {
 	std::atomic<bool> done{ false };
 	CChunkFileReader::Error error = CChunkFileReader::ERROR_NONE;
-	std::unique_ptr<u8[]> buffer;
+	// From LoadFile, so malloc'd.
+	std::unique_ptr<u8, decltype(&free)> buffer{ nullptr, &free };
 	size_t size = 0;
 	std::string gitVersion;
 	// "PPSSPP <version>" from the header, for the failure message.

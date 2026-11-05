@@ -697,6 +697,11 @@ int PSARReader::NextEntry(std::string *error) {
 
 	const u32 chunkSize = ReadU32(block_.data() + 0x104);
 	const u32 expandedSize = ReadU32(block_.data() + 0x108);
+	// pos_ is a u32, so a huge chunk would wrap it back to an earlier entry and loop forever.
+	if (chunkSize > limit_ - std::min((size_t)pos_, limit_)) {
+		*error = StringFromFormat("Entry '%s' runs past the end of the archive (%u bytes)", entryName_.c_str(), chunkSize);
+		return -1;
+	}
 
 	if (expandedSize == 0) {
 		entryIsDirectory_ = true;

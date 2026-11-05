@@ -1048,8 +1048,13 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	block  = pgd->file_offset/pgd->block_size;
 	offset = pgd->file_offset%pgd->block_size;
 
-	if (size > (int)pgd->data_size)
-		size = (int)pgd->data_size;
+	// Unsigned: data_size comes from the (forgeable) header, and a value over 2^31 turned the
+	// clamp into a huge read. Only what's left of the file can be read, too.
+	const u32 available = pgd->file_offset < pgd->data_size ? pgd->data_size - pgd->file_offset : 0;
+	if (size < 0)
+		size = 0;
+	if ((u32)size > available)
+		size = (int)available;
 	remain_size = size;
 
 	KirkState *kirk = __ChnnlsvKirkState();
@@ -3093,6 +3098,11 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		pspFileSystem.SeekFile(f->handle, (s32)f->pgd_offset, FILEMOVE_BEGIN);
 		pspFileSystem.ReadFile(f->handle, pgd_header, 0x90);
 		KirkState *kirk = __ChnnlsvKirkState();
+		// Calling this again would otherwise leak the previous one.
+		if (f->pgdInfo) {
+			pgd_close(f->pgdInfo);
+			f->pgdInfo = nullptr;
+		}
 		f->pgdInfo = pgd_open(kirk, pgd_header, 2, key_ptr);
 		if (!f->pgdInfo) {
 			f->npdrm = false;

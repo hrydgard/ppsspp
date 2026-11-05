@@ -187,7 +187,7 @@ bool PkgReader::Open(FileLoader *loader, std::string *error) {
 	info_.contentId = contentId;
 
 	const s64 fileSize = loader->FileSize();
-	if (fileSize < 0 || (u64)fileSize < totalSize || dataOffset_ + dataSize_ > (u64)fileSize) {
+	if (fileSize < 0 || (u64)fileSize < totalSize || dataOffset_ > (u64)fileSize || dataSize_ > (u64)fileSize - dataOffset_) {
 		*error = "PKG file is truncated";
 		return false;
 	}

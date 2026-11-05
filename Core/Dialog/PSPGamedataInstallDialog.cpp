@@ -213,7 +213,7 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 	ParamSFOData sfoFile;
 	std::string sfopath = GetGameDataInstallFileName(&request, SFO_FILENAME);
 	std::vector<u8> sfoFileData;
-	if (pspFileSystem.ReadEntireFile(sfopath, sfoFileData) >= 0) {
+	if (pspFileSystem.ReadEntireFile(sfopath, sfoFileData, false, 1024 * 1024) >= 0) {
 		sfoFile.ReadSFO(sfoFileData);
 	}
 

@@ -367,6 +367,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
+	// These are subtracted from the hashed size, so can't be more than the blocks there are.
+	skipLastDXT1Blocks128x64_ = std::clamp(skipLastDXT1Blocks128x64_, 0, (128 / 4) * (64 / 4));
+	skipLastDXT1Blocks128x128_ = std::clamp(skipLastDXT1Blocks128x128_, 0, (128 / 4) * (128 / 4));
 	if (reduceHash_ && textureHash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -635,11 +638,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		}
 
 		// Hack for Yu Gi Oh texture hashing problem. See issue #19714
-		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64) {
+		// (reduceHash can make sizeInRAM smaller than all the blocks, so check it can't underflow.)
+		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64 && (u32)(8 * skipLastDXT1Blocks128x64_) < (u32)sizeInRAM) {
 			// Skip the last few blocks as specified.
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x64_;
 		}
-		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128) {
+		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128 && (u32)(8 * skipLastDXT1Blocks128x128_) < (u32)sizeInRAM) {
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x128_;
 		}
 

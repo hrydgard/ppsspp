@@ -18,6 +18,7 @@
 #pragma once
 
 // Templates for save state serialization.  See Serializer.h.
+#include <algorithm>
 #include <string>
 #include <type_traits>
 #include "Common/Serialize/Serializer.h"
@@ -133,6 +134,18 @@ void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 			p.SetError(PointerWrap::ERROR_FAILURE);
 			return;
 		}
+	}
+	// Elements that aren't stored raw can serialize to a few bytes but be much bigger in memory, so
+	// the check above still lets a corrupt state ask for gigabytes. Grow as the data arrives instead.
+	if (p.mode == PointerWrap::MODE_READ && sizeof(T) > SerializeMinElemSize<T>()) {
+		x.clear();
+		for (u32 done = 0; done < vec_size && !p.Failed(); ) {
+			const u32 n = std::min(vec_size - done, (u32)1024);
+			x.resize(done + n, default_val);
+			DoArray(p, &x[done], n);
+			done += n;
+		}
+		return;
 	}
 	if (vec_size != x.size())
 		x.resize(vec_size, default_val);

@@ -65,6 +65,10 @@ protected:
 	std::string errorString_;
 };
 
+// A dual-layer UMD holds 1.8 GB, so this is generous. A CSO header can claim any size,
+// independent of how big the file is.
+constexpr u64 MAX_CSO_IMAGE_SIZE = 8ULL * 1024 * 1024 * 1024;
+
 class CISOFileBlockDevice : public BlockDevice {
 public:
 	CISOFileBlockDevice(FileLoader *fileLoader);
