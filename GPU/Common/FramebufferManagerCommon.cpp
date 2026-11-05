@@ -1257,7 +1257,7 @@ void FramebufferManagerCommon::WriteRectFromMemory(u32 addr, int size, int strid
 
 	VirtualFramebuffer *target = nullptr;
 	for (auto vfb : vfbs_) {
-		if (!vfb->fbo || vfb->FbStrideInBytes() != byteStride || addr <= vfb->fb_address || addr >= vfb->fb_address + vfb->BufferByteSize(RASTER_COLOR)) {
+		if (!vfb->fbo || vfb->FbStrideInBytes() != byteStride || addr < vfb->fb_address || addr >= vfb->fb_address + vfb->BufferByteSize(RASTER_COLOR)) {
 			continue;
 		}
 		if (!target || vfb->colorBindSeq > target->colorBindSeq) {
