@@ -265,28 +265,24 @@ SOURCES_C += \
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
-COREFLAGS += -DZ7_ST
-INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-24.05/include
-
-SOURCES_C += \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Alloc.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra86.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/BraIA64.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/CpuArch.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Delta.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzFind.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaDec.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Sort.c
-
+COREFLAGS += -DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD
 INCFLAGS += -I$(EXTDIR)/libchdr/include
 
 SOURCES_C += \
+	$(EXTDIR)/libchdr/deps/lzma-26.02/src/LzmaDec.c \
 	$(EXTDIR)/libchdr/src/libchdr_bitstream.c \
 	$(EXTDIR)/libchdr/src/libchdr_cdrom.c \
 	$(EXTDIR)/libchdr/src/libchdr_chd.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_avhuff.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdfl.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdlz.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdzl.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdzs.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_flac.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_huff.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_lzma.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_zlib.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_zstd.c \
 	$(EXTDIR)/libchdr/src/libchdr_flac.c \
 	$(EXTDIR)/libchdr/src/libchdr_huffman.c
 

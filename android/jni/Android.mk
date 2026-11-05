@@ -4,26 +4,23 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -DZ7_ST -D__SWITCH__
-
-LZMA_FILES := \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Alloc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra86.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/BraIA64.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/CpuArch.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Delta.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzFind.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaDec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Sort.c
+LOCAL_CFLAGS += -DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD
 
 CHDR_FILES := \
-	${LZMA_FILES} \
+	$(SRC)/ext/libchdr/deps/lzma-26.02/src/LzmaDec.c \
 	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
 	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
 	$(SRC)/ext/libchdr/src/libchdr_chd.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_avhuff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdfl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdlz.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzs.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_flac.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_huff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_lzma.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zlib.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zstd.c \
 	$(SRC)/ext/libchdr/src/libchdr_flac.c \
 	$(SRC)/ext/libchdr/src/libchdr_huffman.c
 
@@ -359,11 +356,17 @@ EXT_FILES := \
   $(SRC)/ext/lzma-sdk/7zArcIn.c \
   $(SRC)/ext/lzma-sdk/7zBuf.c \
   $(SRC)/ext/lzma-sdk/7zCrc.c \
+  $(SRC)/ext/lzma-sdk/7zCrcOpt.c \
   $(SRC)/ext/lzma-sdk/7zDec.c \
   $(SRC)/ext/lzma-sdk/7zFile.c \
   $(SRC)/ext/lzma-sdk/7zStream.c \
   $(SRC)/ext/lzma-sdk/Bcj2.c \
-  $(SRC)/ext/lzma-sdk/Lzma2Dec.c
+  $(SRC)/ext/lzma-sdk/Bra.c \
+  $(SRC)/ext/lzma-sdk/Bra86.c \
+  $(SRC)/ext/lzma-sdk/CpuArch.c \
+  $(SRC)/ext/lzma-sdk/Delta.c \
+  $(SRC)/ext/lzma-sdk/Lzma2Dec.c \
+  $(SRC)/ext/lzma-sdk/LzmaDec.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \

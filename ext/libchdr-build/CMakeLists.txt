@@ -1,34 +1,31 @@
 cmake_minimum_required (VERSION 3.10.0)
 project (chdr)
 
-set(LZMA_DIR ../libchdr/deps/lzma-24.05/src)
+set(LZMA_DIR ../libchdr/deps/lzma-26.02/src)
 set(SRC_DIR ../libchdr/src)
 
-include_directories(../libchdr/deps/lzma-24.05/include)
 include_directories(../libchdr/include)
 include_directories(../zlib)
 include_directories(../zstd/lib)
 
-add_definitions(-DZ7_ST)
-
-# Hack - CpuArch.c has a workaround that we reuse.
-add_definitions(-D__SWITCH__)
+# Use our zlib and zstd rather than libchdr's bundled miniz and zstd.
+add_definitions(-DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD)
 
 set(ALL_SOURCE_FILES
-	${LZMA_DIR}/Alloc.c
-	${LZMA_DIR}/Bra.c
-	${LZMA_DIR}/Bra86.c
-	${LZMA_DIR}/BraIA64.c
-	${LZMA_DIR}/CpuArch.c
-	${LZMA_DIR}/Delta.c
-	${LZMA_DIR}/LzFind.c
 	${LZMA_DIR}/LzmaDec.c
-	${LZMA_DIR}/LzmaEnc.c
-	${LZMA_DIR}/Lzma86Dec.c
-	${LZMA_DIR}/Sort.c
 	${SRC_DIR}/libchdr_bitstream.c
 	${SRC_DIR}/libchdr_cdrom.c
 	${SRC_DIR}/libchdr_chd.c
+	${SRC_DIR}/libchdr_codec_avhuff.c
+	${SRC_DIR}/libchdr_codec_cdfl.c
+	${SRC_DIR}/libchdr_codec_cdlz.c
+	${SRC_DIR}/libchdr_codec_cdzl.c
+	${SRC_DIR}/libchdr_codec_cdzs.c
+	${SRC_DIR}/libchdr_codec_flac.c
+	${SRC_DIR}/libchdr_codec_huff.c
+	${SRC_DIR}/libchdr_codec_lzma.c
+	${SRC_DIR}/libchdr_codec_zlib.c
+	${SRC_DIR}/libchdr_codec_zstd.c
 	${SRC_DIR}/libchdr_flac.c
 	${SRC_DIR}/libchdr_huffman.c
 	)
