@@ -962,6 +962,9 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		// joint all blocks into H264Frames
 		for (int i = 0; i < pmp_nBlocks; i++){
 			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
+			// Each block descriptor is in game memory, after the first.
+			if (!lli.IsValid())
+				break;
 			// add source block into pmpframes
 			const uint8_t *ptr = Memory::GetPointerRangeOrException(lli->pSrc, lli->iSize);
 			if (ptr)
