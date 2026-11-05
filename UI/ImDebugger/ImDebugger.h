@@ -132,8 +132,9 @@ struct ImConfig {
 	float fbViewerZoom = 1.0f;
 
 	// Touch / mobile helpers.
-	bool quickScrollEnabled = true;     // Show the quick scroll strip on the right edge.
-	bool quickScrollCollapsed = false;  // Strip collapsed to a single small button.
+	bool quickScrollEnabled;     // Show the quick scroll strip on the right edge.
+
+	bool quickScrollCollapsed;  // Strip collapsed to a single small button.
 	bool forceKeyboard = false;         // Keyboard currently active (toggled from the bar). Asks the platform to keep the soft keyboard up.
 	bool showKeyboardToggle = true;     // Show the keyboard button in the bar. Hiding it also turns the keyboard off.
 	bool keyboardPersist = true;        // Keep the keyboard on after switching to another app and back.

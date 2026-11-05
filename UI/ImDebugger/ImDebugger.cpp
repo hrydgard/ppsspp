@@ -3640,7 +3640,11 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
 	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
+#if defined(MOBILE_DEVICE)
 	sync.Sync("quickScrollEnabled", &quickScrollEnabled, true);
+#else
+	sync.Sync("quickScrollEnabled", &quickScrollEnabled, false);
+#endif
 	sync.Sync("quickScrollCollapsed", &quickScrollCollapsed, false);
 	sync.Sync("forceKeyboard", &forceKeyboard, false);
 	sync.Sync("showKeyboardToggle", &showKeyboardToggle, true);
