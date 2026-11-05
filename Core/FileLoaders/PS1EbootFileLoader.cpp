@@ -428,13 +428,13 @@ bool PS1EbootFileLoader::ParseMds(const Path &mdsPath, const std::string &data) 
 	const u8 *d = (const u8 *)data.data();
 	const size_t size = data.size();
 	auto read32 = [&](size_t offset) -> u32 {
-		return offset + 4 <= size ? (d[offset] | (d[offset + 1] << 8) | (d[offset + 2] << 16) | ((u32)d[offset + 3] << 24)) : 0;
+		return offset <= size && size - offset >= 4 ? (d[offset] | (d[offset + 1] << 8) | (d[offset + 2] << 16) | ((u32)d[offset + 3] << 24)) : 0;
 	};
 	if (size < 0x58 || memcmp(d, "MEDIA DESCRIPTOR", 16) != 0) {
 		return false;
 	}
 	const u32 session = read32(0x50);
-	if (session + 0x18 > size) {
+	if ((size_t)session + 0x18 > size) {
 		return false;
 	}
 	const u32 numBlocks = d[session + 0x0A];
@@ -466,6 +466,9 @@ bool PS1EbootFileLoader::ParseMds(const Path &mdsPath, const std::string &data) 
 		if (file < 0) {
 			// "*.mdf" is the .mds's own name.
 			const u32 nameBlock = read32(b + 0x34);
+			if ((size_t)nameBlock + 5 > size) {
+				return false;
+			}
 			const u32 nameOffset = read32(nameBlock);
 			std::string name;
 			for (u32 p = nameOffset; p < size && d[p] != 0; p += d[nameBlock + 4] ? 2 : 1) {
