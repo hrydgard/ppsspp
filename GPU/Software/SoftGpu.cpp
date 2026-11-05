@@ -969,16 +969,13 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	const void *indices = NULL;
 
 	const u32 vertType = gstate.vertType;
-	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG(Log::G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, count * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
-		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
-		ERROR_LOG(Log::G3D, "Software: Bad vertex range %08x (%d verts)!", gstate_c.vertexAddr, count);
+	// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, count, vertType, drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Software: Bad vertex range %08x (%d verts, indices %08x)!", gstate_c.vertexAddr, count, gstate_c.indexAddr);
 		return;
+	}
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (gstate.isModeThrough()) {
@@ -1052,16 +1049,13 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	const u32 vertType = gstate.vertType;
-	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
-		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
-		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+	// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, (op & 0xFF) * ((op >> 8) & 0xFF), vertType, drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Bad control point range %08x (indices %08x)!", gstate_c.vertexAddr, gstate_c.indexAddr);
 		return;
+	}
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
@@ -1112,16 +1106,13 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	const u32 vertType = gstate.vertType;
-	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
-		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
-		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+	// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, (op & 0xFF) * ((op >> 8) & 0xFF), vertType, drawEngine_->FindVertexDecoder(vertType)->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Bad control point range %08x (indices %08x)!", gstate_c.vertexAddr, gstate_c.indexAddr);
 		return;
+	}
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {

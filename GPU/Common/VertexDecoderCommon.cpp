@@ -201,6 +201,25 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 	}
 }
 
+bool IsValidIndexedDrawRange(u32 vertexAddr, u32 indexAddr, int count, u32 vertType, int vertexSize) {
+	const u32 idx = vertType & GE_VTYPE_IDX_MASK;
+	const int indexShift = (idx >> GE_VTYPE_IDX_SHIFT) - 1;
+	if (!Memory::IsValidRange(indexAddr, count << indexShift)) {
+		return false;
+	}
+	// Indices are at most 16 bits, so this usually saves looking at them.
+	const u32 maxIndex = idx == GE_VTYPE_IDX_8BIT ? 0xFF : 0xFFFF;
+	if (Memory::IsValidRange(vertexAddr, (maxIndex + 1) * vertexSize)) {
+		return true;
+	}
+	if (count <= 0) {
+		return true;
+	}
+	u16 lowerBound, upperBound;
+	GetIndexBounds(Memory::GetPointerUnchecked(indexAddr), count, vertType, &lowerBound, &upperBound);
+	return Memory::IsValidRange(vertexAddr, (upperBound + 1) * vertexSize);
+}
+
 void PrintDecodedVertex(const VertexReader &vtx) {
 	if (vtx.hasNormal()) {
 		float nrm[3];
