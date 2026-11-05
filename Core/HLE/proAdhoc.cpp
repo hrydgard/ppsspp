@@ -261,6 +261,16 @@ void addFriend(const struct adhocctl_event_connect &event) {
 		peer->left_at = 0;
 	}
 	else {
+		// The server decides how many players we hear about, so cap it.
+		int count = 0;
+		for (SceNetAdhocctlPeerInfo *p = friends; p != NULL; p = p->next) {
+			count++;
+		}
+		if (count >= MAX_ADHOC_FRIENDS) {
+			WARN_LOG(Log::sceNet, "Too many friends, ignoring [%s]", mac2str((SceNetEtherAddr *)event.mac).c_str());
+			return;
+		}
+
 		// Allocate Structure
 		peer = (SceNetAdhocctlPeerInfo *)malloc(sizeof(SceNetAdhocctlPeerInfo));
 		// Allocated Structure
@@ -428,15 +438,12 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
 }
 
 void freeGroupsRecursive(SceNetAdhocctlScanInfo * node) {
-	// End of List
-	if (node == NULL) return;
-
-	// Increase Recursion Depth
-	freeGroupsRecursive(node->next);
-
-	// Free Memory
-	free(node);
-	node = NULL;
+	// Iterative, the list length is up to the server.
+	while (node != NULL) {
+		SceNetAdhocctlScanInfo *next = node->next;
+		free(node);
+		node = next;
+	}
 }
 
 void deleteAllAdhocSockets() {
@@ -1082,12 +1089,11 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 */
 void clearStackRecursive(ThreadMessage *& node)
 {
-	// Not End of List
-	if (node != NULL) clearStackRecursive(node->next);
-
-	// Free Last Existing Node of List (NULL is handled in _free)
-	free(node);
-	node = NULL;
+	while (node != NULL) {
+		ThreadMessage *next = node->next;
+		free(node);
+		node = next;
+	}
 }
 
 /**
@@ -1262,28 +1268,20 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 }
 
 void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
-	// End of List
-	if (node == NULL) return;
-
-	// Increase Recursion Depth
-	freeFriendsRecursive(node->next, count);
-
-	// Free Memory
-	free(node);
-	node = NULL;
-	if (count != NULL) (*count)++;
+	// Iterative, the list length is up to the server.
+	while (node != NULL) {
+		SceNetAdhocctlPeerInfo *next = node->next;
+		free(node);
+		node = next;
+		if (count != NULL) (*count)++;
+	}
 }
 
 void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
-	// End of List
-	if (node == NULL) return;
-
-	// Increase Recursion Depth
-	timeoutFriendsRecursive(node->next, count);
-
-	// Set last timestamp
-	node->last_recv = 0;
-	if (count != NULL) (*count)++;
+	for (; node != NULL; node = node->next) {
+		node->last_recv = 0;
+		if (count != NULL) (*count)++;
+	}
 }
 
 void sendChat(std::string_view chatString) {
@@ -1746,7 +1744,9 @@ void friendFinderPoll() {
 
 			// Make sure GameMode participants are all joined (including self MAC)
 			if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
-				if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
+				if (gameModeMacs.size() >= ADHOCCTL_GAMEMODE_MAX_MEMBERS) {
+					WARN_LOG(Log::sceNet, "GameMode is full, ignoring [%s]", mac2str((SceNetEtherAddr *)adhocctl_event.connect.mac).c_str());
+				} else if (std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
 					[&adhocctl_event](SceNetEtherAddr const& e) {
 						return isMacMatch(&e, (SceNetEtherAddr *)adhocctl_event.connect.mac);
 					}) == gameModeMacs.end()) {
@@ -1833,6 +1833,17 @@ void friendFinderPoll() {
 
 			// Multithreading Lock
 			peerlock.lock();
+
+			// The server decides how many groups it sends, so cap it.
+			int groupCount = 0;
+			for (SceNetAdhocctlScanInfo *g = newnetworks; g != NULL; g = g->next) {
+				groupCount++;
+			}
+			if (groupCount >= MAX_ADHOC_SCAN_GROUPS) {
+				peerlock.unlock();
+				WARN_LOG(Log::sceNet, "Too many groups in scan, ignoring");
+				break;
+			}
 
 			// Allocate Structure Data
 			SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));

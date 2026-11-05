@@ -499,16 +499,21 @@ void login_user_stream(int fd, uint32_t ip)
 	if(_db_user_count < SERVER_USER_MAXIMUM)
 	{
 		// Check IP Duplication
-		SceNetAdhocctlUserNode * u = _db_user;
-		while(u != NULL && u->resolver.ip != ip) u = u->next;
+		int sameIP = 0;
+		for (SceNetAdhocctlUserNode *u = _db_user; u != NULL; u = u->next) {
+			if (u->resolver.ip == ip) {
+				sameIP++;
+			}
+		}
 
 		// Players sharing an IP (behind one NAT, or instances on one machine) are told apart by MAC
 		// through the relay. In P2P mode, only one of them can play.
-		if (u != NULL) {
-			INFO_LOG(Log::sceNet, "AdhocServer: Another user from IP %s", ip2str(*(in_addr*)&u->resolver.ip).c_str());
+		if (sameIP > 0) {
+			INFO_LOG(Log::sceNet, "AdhocServer: Another user from IP %s", ip2str(*(in_addr*)&ip).c_str());
 		}
 
-		{
+		// Capped, so one host can't take every slot.
+		if (sameIP < SERVER_USER_MAXIMUM_PER_IP) {
 			// Allocate User Node Memory
 			SceNetAdhocctlUserNode * user = (SceNetAdhocctlUserNode *)malloc(sizeof(SceNetAdhocctlUserNode));
 
@@ -531,6 +536,7 @@ void login_user_stream(int fd, uint32_t ip)
 
 				// Initialize Death Clock
 				user->last_recv = time(NULL);
+				user->connected_at = user->last_recv;
 
 				// Notify User
 				INFO_LOG(Log::sceNet, "AdhocServer: New Connection from %s", ip2str(*(in_addr*)&user->resolver.ip).c_str());
@@ -558,6 +564,9 @@ void login_user_stream(int fd, uint32_t ip)
  */
 void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S * data)
 {
+	// The client's nickname needn't be terminated, and it's printed with %s.
+	data->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+
 	// Product Code Check
 	int valid_product_code = 1;
 
@@ -1227,7 +1236,10 @@ int get_user_state(SceNetAdhocctlUserNode * user)
 	if((time(NULL) - user->last_recv) >= SERVER_USER_TIMEOUT) return USER_STATE_TIMED_OUT;
 
 	// Waiting Status
-	if(user->game == NULL) return USER_STATE_WAITING;
+	if (user->game == NULL) {
+		if ((time(NULL) - user->connected_at) >= SERVER_LOGIN_TIMEOUT) return USER_STATE_TIMED_OUT;
+		return USER_STATE_WAITING;
+	}
 
 	// Logged-In Status
 	return USER_STATE_LOGGED_IN;
@@ -1388,12 +1400,9 @@ void game_product_override(SceNetAdhocctlProductCode * product)
 					// Destroy Prepare SQL Statement
 					sqlite3_finalize(statement);
 				}*/
-				db_productid unkproduct;
-				strncpy(unkproduct.id, productid, sizeof(unkproduct.id));
-				strncpy(unkproduct.name, productid, sizeof(unkproduct.name));
-				productids.push_back(unkproduct); //productids[productids.size()] = unkproduct;
-				// Log Addition
-				INFO_LOG(Log::sceNet, "AdhocServer: Added Unknown Product ID %s to Database", productid);
+				// Not added to productids: any client can send any code, so that would grow forever.
+				// update_status() shows the code itself as the name of an unknown game.
+				INFO_LOG(Log::sceNet, "AdhocServer: Unknown Product ID %s", productid);
 			}
 		}
 

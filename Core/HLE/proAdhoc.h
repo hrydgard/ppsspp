@@ -258,6 +258,13 @@ typedef struct SceNetAdhocMatchingMemberInfoEmu {
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
+
+// Caps on lists filled from what the friend finder server sends.
+#define MAX_ADHOC_FRIENDS 256
+#define MAX_ADHOC_SCAN_GROUPS 256
+// Matching peers and their ports, kept per sender MAC.
+#define MAX_MATCHING_PEERS 256
+
 typedef struct SceNetAdhocctlGameModeInfo {
   s32_le num;
   SceNetEtherAddr members[ADHOCCTL_GAMEMODE_MAX_MEMBERS];

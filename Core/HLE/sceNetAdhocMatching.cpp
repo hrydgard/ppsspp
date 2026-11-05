@@ -647,6 +647,16 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 
 		// Peer not found
 		if (peer == NULL) {
+			// Every sender MAC gets a peer, so cap them.
+			int peerCount = 0;
+			for (SceNetAdhocMatchingMemberInternal *p = context->peerlist; p != NULL; p = p->next) {
+				peerCount++;
+			}
+			if (peerCount >= MAX_MATCHING_PEERS) {
+				WARN_LOG(Log::sceNet, "Matching: Too many peers, ignoring hello from %s", mac2str(sendermac).c_str());
+				return;
+			}
+
 			// Allocate Memory
 			peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
@@ -1055,6 +1065,12 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 		return;
 	}
 
+	// The parent can't have more children than maxpeers allows.
+	if (countChildren(context) >= context->maxpeers) {
+		WARN_LOG(Log::sceNet, "Matching: Birth of %s would exceed maxpeers, ignored", mac2str(&mac).c_str());
+		return;
+	}
+
 	// Allocate Memory
 	SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
@@ -1283,7 +1299,10 @@ static void matchingHandleInput(SceNetAdhocMatchingContext *context) {
 		}
 		// Keep tracks of re-mapped peer's ports for further communication.
 		// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
-		(*context->peerPort)[sendermac] = senderport;
+		// Any sender MAC lands here, so the map is capped.
+		if (context->peerPort->size() < MAX_MATCHING_PEERS || context->peerPort->find(sendermac) != context->peerPort->end()) {
+			(*context->peerPort)[sendermac] = senderport;
+		}
 		peerlock.unlock();
 
 		switch (context->rxbuf[0]) {
