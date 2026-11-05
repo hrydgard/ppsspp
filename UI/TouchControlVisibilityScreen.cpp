@@ -123,7 +123,7 @@ void TouchControlVisibilityScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			char translated[256];
 			int i = 0;
 			if (sscanf(toggle.key.c_str(), "Custom %d", &i) == 1) {
-				snprintf(translated, sizeof(translated), mc->T_cstr("Custom %d"), i);
+				truncate_cpy(translated, sizeof(translated), ApplySafeSubstitutions(mc->T("Custom %1"), i).c_str());
 			} else {
 				truncate_cpy(translated, sizeof(translated), mc->T(toggle.key));
 			}

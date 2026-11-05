@@ -234,7 +234,7 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 
 	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
 
-	std::string title = StringFromFormat(cw->T_cstr("Import from %s"), "PSP/Cheats/cheat.db");
+	std::string title = ApplySafeSubstitutions(cw->T("Import from %1"), "PSP/Cheats/cheat.db");
 
 	importGroup->Add(new Choice(title))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 	importGroup->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);

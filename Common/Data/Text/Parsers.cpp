@@ -36,13 +36,13 @@ std::string NiceSizeFormat(uint64_t size) {
 std::string NiceTimeFormat(int seconds) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	if (seconds < 120) {
-		return StringFromFormat(di->T_cstr("%d seconds"), seconds);
+		return ApplySafeSubstitutions(di->T("%1 seconds"), seconds);
 	} else if (seconds < 120 * 60) {
 		int minutes = seconds / 60;
-		return StringFromFormat(di->T_cstr("%d minutes"), minutes);
+		return ApplySafeSubstitutions(di->T("%1 minutes"), minutes);
 	} else {
 		int hours = seconds / 3600;
-		return StringFromFormat(di->T_cstr("%d hours"), hours);
+		return ApplySafeSubstitutions(di->T("%1 hours"), hours);
 	}
 }
 

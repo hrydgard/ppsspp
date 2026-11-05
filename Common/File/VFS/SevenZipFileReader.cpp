@@ -26,6 +26,8 @@
 static constexpr size_t SEVENZIP_LOOKBUF_SIZE = 1 << 14;
 static constexpr size_t SEVENZIP_STREAM_LOOKAHEAD = 1 << 18;
 static constexpr size_t SEVENZIP_SKIPBUF_SIZE = 1 << 15;
+// Folders that can't be streamed are extracted whole into memory, so only small ones are.
+static constexpr UInt64 SEVENZIP_MAX_MEMORY_EXTRACT = 256 * 1024 * 1024;
 
 static constexpr UInt32 SEVENZIP_METHOD_COPY = 0;
 static constexpr UInt32 SEVENZIP_METHOD_LZMA = 0x30101;
@@ -250,16 +252,41 @@ static bool InitStreamingOpenFile(
 		return false;
 	}
 
+	// The header can ask for a dictionary of up to 4GB. Matches can't reach back further than the
+	// folder's own data, so a dictionary that covers the folder is enough.
+	const UInt64 dicNeeded = std::max(folderSize64, (UInt64)(1 << 12));
 	const Byte *props = folderData + coder.PropsOffset;
 	if (mode == SevenZipOpenFile::Mode::STREAM_LZMA) {
-		if (LzmaDec_Allocate(&openFile->lzma_, props, coder.PropsSize, alloc) != SZ_OK) {
+		if (coder.PropsSize != LZMA_PROPS_SIZE) {
+			openFile->Release();
+			return false;
+		}
+		Byte lzmaProps[LZMA_PROPS_SIZE];
+		memcpy(lzmaProps, props, LZMA_PROPS_SIZE);
+		const UInt32 dicSize = (UInt32)lzmaProps[1] | ((UInt32)lzmaProps[2] << 8) | ((UInt32)lzmaProps[3] << 16) | ((UInt32)lzmaProps[4] << 24);
+		if (dicSize > dicNeeded) {
+			const UInt32 clamped = (UInt32)dicNeeded;
+			for (int i = 0; i < 4; i++) {
+				lzmaProps[1 + i] = (Byte)(clamped >> (8 * i));
+			}
+		}
+		if (LzmaDec_Allocate(&openFile->lzma_, lzmaProps, LZMA_PROPS_SIZE, alloc) != SZ_OK) {
 			openFile->Release();
 			return false;
 		}
 		openFile->lzmaAllocated_ = true;
 		LzmaDec_Init(&openFile->lzma_);
 	} else if (mode == SevenZipOpenFile::Mode::STREAM_LZMA2) {
-		if (coder.PropsSize != 1 || Lzma2Dec_Allocate(&openFile->lzma2_, props[0], alloc) != SZ_OK) {
+		if (coder.PropsSize != 1 || props[0] > 40) {
+			openFile->Release();
+			return false;
+		}
+		// The smallest dictionary size property that still covers the folder (40 is 4GB).
+		Byte prop = 0;
+		while (prop < props[0] && prop < 40 && ((UInt64)(2 | (prop & 1)) << (prop / 2 + 11)) < dicNeeded) {
+			prop++;
+		}
+		if (Lzma2Dec_Allocate(&openFile->lzma2_, prop, alloc) != SZ_OK) {
 			openFile->Release();
 			return false;
 		}
@@ -537,6 +564,13 @@ uint8_t *SevenZipFileReader::ExtractFile(UInt32 fileIndex, size_t *size) {
 	std::lock_guard<std::mutex> guard(lock_);
 
 	if (!valid_) {
+		return nullptr;
+	}
+
+	// SzArEx_Extract unpacks the file's whole folder into memory, at the size the header claims.
+	const UInt32 folderIndex = db_.FileToFolder[fileIndex];
+	if (folderIndex != (UInt32)-1 && SzAr_GetFolderUnpackSize(&db_.db, folderIndex) > SEVENZIP_MAX_MEMORY_EXTRACT) {
+		ERROR_LOG(Log::IO, "Can't extract '%s' from 7z archive: its folder is too big to unpack in memory", entries_[fileIndex].path.c_str());
 		return nullptr;
 	}
 
