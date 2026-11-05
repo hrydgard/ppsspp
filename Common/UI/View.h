@@ -473,6 +473,11 @@ public:
 		enabledPtr_ = disabled;
 		enabledMeansDisabled_ = true;
 	}
+	// The bool set by SetEnabledPtr or SetDisabledPtr (*meansDisabled says which), or null.
+	const bool *GetEnabledPtr(bool *meansDisabled) const {
+		*meansDisabled = enabledMeansDisabled_;
+		return enabledPtr_;
+	}
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -583,6 +588,8 @@ protected:
 	bool dragging_ = false;
 	bool down_ = false;
 	bool highlighted_ = false;
+	// A touch went down on this while disabled.
+	bool disabledTap_ = false;
 };
 
 // TODO: Very similar to Choice, should probably merge them.

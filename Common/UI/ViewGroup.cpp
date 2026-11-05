@@ -140,6 +140,10 @@ bool ViewGroup::Key(const KeyInput &input) {
 		// Disabled views can have focus, but must not be activated. Groups pass keys on to
 		// their children regardless, like CollectTabOrder.
 		if (!view->IsEnabled() && !view->IsViewGroup()) {
+			if (view->HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT) && IsAcceptKey(input)) {
+				NotifyDisabledActivation(view);
+				ret = true;
+			}
 			continue;
 		}
 		ret = ret || view->Key(input);

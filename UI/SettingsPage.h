@@ -223,4 +223,8 @@ private:
 };
 
 // If views is set, it gets the view created for each item (or null), in the same order.
+// Explains in an OSD message which setting has to be on or off for a disabled view to be usable,
+// if it's disabled by one (SetEnabledPtr or SetDisabledPtr on a config setting).
+void ShowWhyViewDisabled(UI::View *view);
+
 void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views = nullptr);

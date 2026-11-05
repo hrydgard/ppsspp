@@ -17,6 +17,8 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
@@ -66,6 +68,26 @@ static SettingText LabelText(const ConfigSettingInfo &info) {
 		return SettingText::Raw("?");
 	}
 	return SettingText(info.cat, info.label, info.labelDefault);
+}
+
+void ShowWhyViewDisabled(UI::View *view) {
+	bool meansDisabled = false;
+	const bool *ptr = view->GetEnabledPtr(&meansDisabled);
+	if (!ptr) {
+		// Disabled by SetEnabled or an enabled func, we can't tell why.
+		return;
+	}
+	const ConfigSettingRef *ref = Config::FindSetting(ptr);
+	if (!ref || !ref->setting->Info().label) {
+		return;
+	}
+	const ConfigSettingInfo &info = ref->setting->Info();
+	std::string_view label = T(info.cat, info.label, info.labelDefault ? info.labelDefault : "");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	std::string_view format = meansDisabled ?
+		di->T("RequiresSettingOff", "This setting requires '%1' to be set to off.") :
+		di->T("RequiresSettingOn", "This setting requires '%1' to be set to on.");
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(format, label), 0.0f, "disabledsetting");
 }
 
 // Units that are symbols or short abbreviations, like %, x, ms and MHz, aren't translated.

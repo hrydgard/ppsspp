@@ -248,8 +248,22 @@ bool Clickable::Touch(const TouchInput &input) {
 	if (!IsEnabled()) {
 		dragging_ = false;
 		down_ = false;
+		// A tap on a disabled item doesn't click it, but the app gets to say why it's disabled.
+		if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
+			return contains;
+		}
+		if (input.flags & TouchInputFlags::DOWN) {
+			disabledTap_ = contains;
+		}
+		if (input.flags & TouchInputFlags::UP) {
+			if (disabledTap_ && contains && !(input.flags & TouchInputFlags::CANCEL)) {
+				NotifyDisabledActivation(this);
+			}
+			disabledTap_ = false;
+		}
 		return contains;
 	}
+	disabledTap_ = false;
 
 	// Ignore buttons other than the left one.
 	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
