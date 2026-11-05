@@ -356,11 +356,17 @@ EXT_FILES := \
   $(SRC)/ext/lzma-sdk/7zArcIn.c \
   $(SRC)/ext/lzma-sdk/7zBuf.c \
   $(SRC)/ext/lzma-sdk/7zCrc.c \
+  $(SRC)/ext/lzma-sdk/7zCrcOpt.c \
   $(SRC)/ext/lzma-sdk/7zDec.c \
   $(SRC)/ext/lzma-sdk/7zFile.c \
   $(SRC)/ext/lzma-sdk/7zStream.c \
   $(SRC)/ext/lzma-sdk/Bcj2.c \
-  $(SRC)/ext/lzma-sdk/Lzma2Dec.c
+  $(SRC)/ext/lzma-sdk/Bra.c \
+  $(SRC)/ext/lzma-sdk/Bra86.c \
+  $(SRC)/ext/lzma-sdk/CpuArch.c \
+  $(SRC)/ext/lzma-sdk/Delta.c \
+  $(SRC)/ext/lzma-sdk/Lzma2Dec.c \
+  $(SRC)/ext/lzma-sdk/LzmaDec.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
