@@ -1049,11 +1049,11 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ChoiceGroup *iconSizeGroup = groupList->Add(new ChoiceGroup(sy->T("Icon size")));
 	iconSizeGroup->Add(new Choice(sy->T("Increase size")))->OnClick.Add([this](UI::EventParams &e) {
-		g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
+		StepGameBrowserIconScale(viewMode_, true);
 		screenManager()->RecreateAllViews();
 	});
 	iconSizeGroup->Add(new Choice(sy->T("Decrease size")))->OnClick.Add([this](UI::EventParams &e) {
-		g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+		StepGameBrowserIconScale(viewMode_, false);
 		screenManager()->RecreateAllViews();
 	});
 

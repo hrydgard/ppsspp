@@ -12,6 +12,10 @@
 constexpr float MIN_GAME_GRID_SCALE = 0.8f;
 constexpr float MAX_GAME_GRID_SCALE = 3.0f;
 
+// The icon size setting for a view mode (grid and list have one each).
+float *GameBrowserIconScale(GameBrowserViewMode viewMode);
+void StepGameBrowserIconScale(GameBrowserViewMode viewMode, bool bigger);
+
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
 };

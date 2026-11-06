@@ -122,11 +122,15 @@ private:
 
 class GridSettingsPopupScreen : public UI::PopupScreen {
 public:
-	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
+	// The icon size buttons change the size for viewMode.
+	GridSettingsPopupScreen(std::string_view label, GameBrowserViewMode viewMode) : PopupScreen(label), viewMode_(viewMode) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
 
 	const char *tag() const override { return "GridSettings"; }
+
+private:
+	GameBrowserViewMode viewMode_;
 };
 
 void LaunchBuyGold(ScreenManager *screenManager);
