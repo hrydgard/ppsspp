@@ -1250,6 +1250,10 @@ set(NativeAssets
 	assets/Roboto_Condensed-Light.ttf
 	assets/Roboto_Condensed-Bold.ttf
 	assets/Roboto_Condensed-Italic.ttf
+	assets/Roboto_SemiCondensed-Regular.ttf
+	assets/Roboto_SemiCondensed-Light.ttf
+	assets/Roboto_SemiCondensed-Bold.ttf
+	assets/Roboto_SemiCondensed-Italic.ttf
 	assets/Inconsolata-Regular.ttf
 	assets/compat.ini
 	assets/adhoc-servers.json
