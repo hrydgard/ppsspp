@@ -486,7 +486,8 @@ void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)
-	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
+	: UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll),
+		newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
 	check_ = CheckNewMemstickFolder(newMemstickFolder, oldMemstickFolder);
@@ -526,105 +527,155 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 	}
 }
 
-void ConfirmMemstickMoveScreen::CreateViews() {
-	using namespace UI;
-	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+// A row like an InfoItem's, for text that can be too long for one line (a folder's location, or what the
+// move is doing).
+class WrappedTextItem : public UI::Item {
+public:
+	// With minLines, it's at least that many lines high, and the text starts at the top, so that text that
+	// changes (like the move's progress) doesn't make it jump as it wraps onto more or fewer lines.
+	WrappedTextItem(std::string_view text, int minLines = 1) : UI::Item(nullptr), text_(text), minLines_(minLines) {}
 
-	// The columns, and below them the progress of a move, across the whole width so file names fit.
-	root_ = new LinearLayout(ORIENT_VERTICAL);
-	doneNotice_ = nullptr;
-	ViewGroup *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-
-	const Path &oldMemstickFolder = g_Config.memStickDirectory;
-
-	// Not FILL_PARENT high: in the row, that would push the progress below off the screen.
-	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0f, WRAP_CONTENT, 0.0f));
-	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	columns->Add(spacerColumn);
-	columns->Add(leftColumn);
-	columns->Add(rightColumn);
-
-	leftColumn->Add(new TextView(ms->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
-	if (!initialSetup_) {
-		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("PPSSPP will restart after the change"), ""));
+	void SetText(std::string_view text) {
+		text_ = text;
 	}
-	leftColumn->Add(new TextView(GetMemstickFolderDisplayName(newMemstickFolder_), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 
-	// TODO: Add spinner
-	// Views get recreated after the free space has come in, so the text can't just be set when it does.
-	const std::string freeSpace = freeSpace_ == FREE_SPACE_PENDING ? std::string("...") : FormatSpaceString(freeSpace_);
-	newFreeSpaceView_ = leftColumn->Add(new TextView(std::string(ms->T("Free space")) + ": " + freeSpace, ALIGN_LEFT, false));
-
-	if (existingFilesInNewFolder_) {
-		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
-		if (!moveData_) {
-			leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("No data will be changed"), ""));
-		} else {
-			leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("MoveReplacesFiles", "Previously existing files in the new folder will be replaced by moved files with the same names"), ""));
+	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override {
+		const float availableWidth = horiz.type == UI::MeasureSpecType::UNSPECIFIED ? 10000.0f : horiz.size - PADDING_X * 2;
+		float tw, th;
+		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availableWidth, &tw, &th, FLAG_WRAP_TEXT);
+		if (minLines_ > 1) {
+			float lw, lineHeight;
+			dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, "Wg", &lw, &lineHeight);
+			th = std::max(th, lineHeight * minLines_);
 		}
+		w = tw + PADDING_X * 2;
+		h = std::max(th + PADDING_Y * 2, UI::ITEM_HEIGHT);
+	}
+
+	void Draw(UIContext &dc) override {
+		const UI::Style &style = dc.GetTheme().itemStyle;
+		dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		if (minLines_ > 1) {
+			dc.DrawTextRect(text_, bounds_.Expand(-PADDING_X, -PADDING_Y), style.fgColor, FLAG_WRAP_TEXT);
+		} else {
+			dc.DrawTextRect(text_, bounds_.Expand(-PADDING_X, 0), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		}
+	}
+
+	std::string DescribeText() const override {
+		return text_;
+	}
+
+private:
+	static constexpr float PADDING_X = 12.0f;
+	static constexpr float PADDING_Y = 8.0f;
+	std::string text_;
+	int minLines_;
+};
+
+std::string_view ConfirmMemstickMoveScreen::GetTitle() const {
+	return T(I18NCat::SYSTEM, "Memory Stick folder");
+}
+
+// Status and warnings first, then the folders.
+void ConfirmMemstickMoveScreen::CreateContentViews(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	doneNotice_ = nullptr;
+	progressView_ = nullptr;
+	progressBar_ = nullptr;
+
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+
+	if (restartTime_ > 0.0) {
+		doneNotice_ = groups->Add(new NoticeView(NoticeLevel::SUCCESS, di->T("Done!"), RestartCountdownText()));
+	} else if (moveDataTask_) {
+		// What it's doing and the count on the first line, the file it's on below.
+		ChoiceGroup *progressGroup = groups->Add(new ChoiceGroup());
+		// The status line, and two for the path, which usually wraps in portrait.
+		progressView_ = progressGroup->Add(new WrappedTextItem(progressReporter_.Format(), 3));
+		progressBar_ = groups->Add(new ProgressBar(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		progressBar_->SetRoundCorners();
+		progressBar_->SetProgress(std::max(0.0f, progressReporter_.Fraction()));
+	}
+
+	if (!error_.empty()) {
+		groups->Add(new NoticeView(NoticeLevel::ERROR, error_, ""));
 	}
 
 	switch (check_) {
 	case MemstickFolderCheck::INSIDE_CURRENT:
-		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("The new folder is inside the previous one"), ""));
+		groups->Add(new NoticeView(NoticeLevel::ERROR, ms->T("The new folder is inside the previous one"), ""));
 		break;
 	case MemstickFolderCheck::INSIDE_OTHER:
-		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("InsideOtherMemstick", "This folder is inside the PSP folder of another memory stick. Choose that memory stick's folder instead."), ""));
+		groups->Add(new NoticeView(NoticeLevel::ERROR, ms->T("InsideOtherMemstick", "This folder is inside the PSP folder of another memory stick. Choose that memory stick's folder instead."), ""));
 		break;
 	case MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER:
-		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("LooksLikePSPFolder", "This looks like a PSP folder. Name it PSP if it isn't, and choose the folder that contains it instead."), ""));
+		groups->Add(new NoticeView(NoticeLevel::ERROR, ms->T("LooksLikePSPFolder", "This looks like a PSP folder. Name it PSP if it isn't, and choose the folder that contains it instead."), ""));
 		break;
 	case MemstickFolderCheck::SAME_PSP_FOLDER:
-		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("SamePSPFolder", "Contains the same PSP folder as the current one. Nothing will be moved."), ""));
+		groups->Add(new NoticeView(NoticeLevel::INFO, ms->T("SamePSPFolder", "Contains the same PSP folder as the current one. Nothing will be moved."), ""));
 		break;
 	case MemstickFolderCheck::CONTAINS_CURRENT:
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("ContainsCurrentMemstick", "The current folder is inside this one, so its data can't be moved here"), ""));
+		groups->Add(new NoticeView(NoticeLevel::WARN, ms->T("ContainsCurrentMemstick", "The current folder is inside this one, so its data can't be moved here"), ""));
 		break;
 	case MemstickFolderCheck::OK:
 		break;
 	}
 
-	if (!error_.empty()) {
-		leftColumn->Add(new TextView(error_, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
+	// Only while it can still be changed.
+	const bool busy = moveDataTask_ || restartTime_ > 0.0;
+	if (!busy) {
+		if (existingFilesInNewFolder_) {
+			groups->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
+			if (!moveData_) {
+				groups->Add(new NoticeView(NoticeLevel::INFO, ms->T("No data will be changed"), ""));
+			} else {
+				groups->Add(new NoticeView(NoticeLevel::WARN, ms->T("MoveReplacesFiles", "Previously existing files in the new folder will be replaced by moved files with the same names"), ""));
+			}
+		}
+		if (!initialSetup_ && !IsBlocked()) {
+			groups->Add(new NoticeView(NoticeLevel::INFO, ms->T("PPSSPP will restart after the change"), ""));
+		}
 	}
 
+	ChoiceGroup *newGroup = groups->Add(new ChoiceGroup(ms->T("Selected PSP Data Folder")));
+	newGroup->Add(new WrappedTextItem(GetMemstickFolderDisplayName(newMemstickFolder_)));
+	// Views get recreated after the free space has come in, so the text can't just be set when it does.
+	const std::string freeSpace = freeSpace_ == FREE_SPACE_PENDING ? std::string("...") : FormatSpaceString(freeSpace_);
+	newFreeSpaceView_ = newGroup->Add(new InfoItem(ms->T("Free space"), freeSpace));
+
+	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	if (!oldMemstickFolder.empty()) {
-		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
-		rightColumn->Add(new TextView(GetMemstickFolderDisplayName(oldMemstickFolder), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
+		ChoiceGroup *currentGroup = groups->Add(new ChoiceGroup(ms->T("Current")));
+		currentGroup->Add(new WrappedTextItem(GetMemstickFolderDisplayName(oldMemstickFolder)));
 	}
+}
 
-	if (restartTime_ > 0.0) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		doneNotice_ = leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, di->T("Done!"), RestartCountdownText()));
-		progressView_ = nullptr;
+void ConfirmMemstickMoveScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+	// Nothing to choose while it's moving, or done.
+	if (moveDataTask_ || restartTime_ > 0.0) {
 		return;
 	}
 
-	if (moveDataTask_) {
-		// What it's doing and the count on the first line, the file it's on below.
-		progressView_ = root_->Add(new TextView(progressReporter_.Format(), ALIGN_LEFT | FLAG_WRAP_TEXT, false,
-			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(20, 10))));
-	} else {
-		progressView_ = nullptr;
+	const bool canChooseMove = !initialSetup_ && CanMoveData() && !dataMoved_;
+	if (!canChooseMove && IsBlocked()) {
+		return;
 	}
-
-	if (!moveDataTask_) {
-		if (!initialSetup_ && CanMoveData() && !dataMoved_) {
-			leftColumn->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
-		}
-
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		if (!IsBlocked()) {
-			leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
-		}
-		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
-			if (moveDataTask_ && !moveDataTask_->Poll()) {
-				return;
-			}
-			UIScreen::OnBack(params);
-		});
+	ChoiceGroup *confirmGroup = groups->Add(new ChoiceGroup());
+	if (canChooseMove) {
+		confirmGroup->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
+	}
+	if (!IsBlocked()) {
+		confirmGroup->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
 	}
 }
 
@@ -637,13 +688,22 @@ void ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
 	RecreateViews();
 }
 
+// Back does nothing during a move: closing the screen would block the UI thread in the destructor until the
+// move is done, and skip FinishFolderMove(). Nor during the countdown to the restart.
 bool ConfirmMemstickMoveScreen::key(const KeyInput &key) {
-	// The Back choice is hidden during a move, but the back key would still close the screen, blocking the
-	// UI thread in the destructor until the move is done, and skipping FinishFolderMove().
+	// Swallowed here, since the dialog marks itself finished before calling TriggerFinish().
 	if ((moveDataTask_ || restartTime_ > 0.0) && UI::IsEscapeKey(key)) {
 		return true;
 	}
-	return UIBaseDialogScreen::key(key);
+	return UITwoPaneBaseDialogScreen::key(key);
+}
+
+// The top bar's back button.
+void ConfirmMemstickMoveScreen::TriggerFinish(DialogResult result) {
+	if (moveDataTask_ || restartTime_ > 0.0) {
+		return;
+	}
+	UITwoPaneBaseDialogScreen::TriggerFinish(result);
 }
 
 void ConfirmMemstickMoveScreen::onFinish(DialogResult result) {
@@ -656,7 +716,7 @@ void ConfirmMemstickMoveScreen::onFinish(DialogResult result) {
 }
 
 void ConfirmMemstickMoveScreen::update() {
-	UIBaseDialogScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
 	if (restartTime_ > 0.0) {
@@ -673,6 +733,9 @@ void ConfirmMemstickMoveScreen::update() {
 	if (moveDataTask_) {
 		if (progressView_) {
 			progressView_->SetText(progressReporter_.Format());
+		}
+		if (progressBar_) {
+			progressBar_->SetProgress(std::max(0.0f, progressReporter_.Fraction()));
 		}
 
 		MoveResult *result = moveDataTask_->Poll();
@@ -705,7 +768,7 @@ void ConfirmMemstickMoveScreen::update() {
 		SpaceResult *result = newSpaceTask_->Poll();
 		if (result) {
 			freeSpace_ = result->bytesFree;
-			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(freeSpace_));
+			newFreeSpaceView_->SetRightText(FormatSpaceString(freeSpace_));
 			delete newSpaceTask_;
 			newSpaceTask_ = nullptr;
 		}

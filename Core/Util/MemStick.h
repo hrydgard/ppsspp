@@ -27,6 +27,15 @@ public:
 
 	std::string Format();
 
+	// How far the current phase is, from 0 to 1. Negative when there's nothing to count.
+	float Fraction() {
+		std::lock_guard<std::mutex> guard(mutex_);
+		if (max_ <= 0) {
+			return -1.0f;
+		}
+		return (float)count_ / (float)max_;
+	}
+
 private:
 	std::string phase_;
 	std::string progress_;

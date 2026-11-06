@@ -34,6 +34,7 @@
 #include "UI/SimpleDialogScreen.h"
 
 class NoticeView;
+class WrappedTextItem;
 
 // A memory stick folder as shown to the user: "Internal storage / PSP" rather than a content URI or a
 // /storage/emulated/0 path, and the app's own folder by name.
@@ -90,7 +91,7 @@ struct SpaceResult {
 	int64_t bytesFree;
 };
 
-class ConfirmMemstickMoveScreen : public UIBaseDialogScreen {
+class ConfirmMemstickMoveScreen : public UITwoPaneBaseDialogScreen {
 public:
 	ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup);
 	~ConfirmMemstickMoveScreen();
@@ -98,11 +99,14 @@ public:
 	const char *tag() const override { return "ConfirmMemstickMove"; }
 
 	bool key(const KeyInput &key) override;
+	void TriggerFinish(DialogResult result) override;
 	void onFinish(DialogResult result) override;
 
 protected:
 	void update() override;
-	void CreateViews() override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 private:
 	void OnMoveDataClick(UI::EventParams &params);
@@ -139,8 +143,9 @@ private:
 	int64_t freeSpace_ = FREE_SPACE_PENDING;
 
 	MoveProgressReporter progressReporter_;
-	UI::TextView *progressView_ = nullptr;
-	UI::TextView *newFreeSpaceView_ = nullptr;
+	WrappedTextItem *progressView_ = nullptr;
+	UI::ProgressBar *progressBar_ = nullptr;
+	UI::InfoItem *newFreeSpaceView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;
 	Promise<SpaceResult *> *newSpaceTask_ = nullptr;
