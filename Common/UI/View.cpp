@@ -1632,7 +1632,14 @@ void ProgressBar::GetContentDimensions(const UIContext &dc, float &w, float &h) 
 void ProgressBar::Draw(UIContext &dc) {
 	char temp[32];
 	snprintf(temp, sizeof(temp), "%d%%", (int)(progress_ * 100.0f));
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
+	// The track, then the part that's done.
+	const float radius = dc.GetTheme().choiceRoundRadius;
+	dc.FillRoundRect(dc.GetTheme().itemStyle.background, bounds_, radius, roundCorners_);
+	if (progress_ > 0.0f) {
+		Bounds done = bounds_;
+		done.w = std::max(bounds_.w * progress_, std::min(bounds_.w, radius * 2.0f));
+		dc.FillRoundRect(dc.GetTheme().itemFocusedStyle.background, done, radius, roundCorners_);
+	}
 	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
 }

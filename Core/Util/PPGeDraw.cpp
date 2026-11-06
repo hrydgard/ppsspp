@@ -115,7 +115,7 @@ static AtlasTextMetrics char_lines_metrics;
 
 static bool textDrawerInited = false;
 static TextDrawer *textDrawer = nullptr;
-static const FontStyle textDrawerFont(FontFamily::SansSerif, 18, FontStyleFlags::Default);
+static const FontStyle textDrawerFont(FontFamily::SansSerifWide, 18, FontStyleFlags::Default);
 struct PPGeTextDrawerCacheKey {
 	bool operator < (const PPGeTextDrawerCacheKey &other) const {
 		if (align != other.align)
