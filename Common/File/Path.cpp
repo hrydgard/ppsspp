@@ -329,6 +329,7 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		}
 #endif
 #else
+	} else if (type_ == PathType::NATIVE) {
 		if (relativeRoot) {
 			std::string root = relativeRoot;
 			if (startsWithNoCase(path_, root)) {
