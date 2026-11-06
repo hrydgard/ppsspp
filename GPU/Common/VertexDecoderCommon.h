@@ -27,6 +27,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
+#include "Core/MemMap.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUState.h"
@@ -91,6 +92,17 @@ struct DecVtxFormat {
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
+
+bool IsValidIndexedDrawRange(u32 vertexAddr, u32 indexAddr, int count, u32 vertType, int vertexSize);
+
+// Checks that the indices of a draw, and every vertex they can reach, are in valid memory.
+// Inline since it runs on every draw, and nearly all of them are non-indexed.
+inline bool IsValidDrawRange(u32 vertexAddr, u32 indexAddr, int count, u32 vertType, int vertexSize) {
+	if ((vertType & GE_VTYPE_IDX_MASK) == GE_VTYPE_IDX_NONE) {
+		return Memory::IsValidRange(vertexAddr, count * vertexSize);
+	}
+	return IsValidIndexedDrawRange(vertexAddr, indexAddr, count, vertType, vertexSize);
+}
 
 inline constexpr int RoundUp4(int x) {
 	return (x + 3) & ~3;

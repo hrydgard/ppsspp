@@ -413,8 +413,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 			std::string_view v = line.Value();
 			if (sscanf(k, "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				// Reject path traversal: a "../" component could make us read
-				// or write files outside the texture pack directory.
-				if (HasParentDirComponent(v)) {
+				// or write files outside the texture pack directory. '|' separates mip levels in the alias,
+				// so it would let a later level skip this check.
+				if (HasParentDirComponent(v) || v.find('|') != std::string_view::npos) {
 					ERROR_LOG(Log::TexReplacement, "Ignoring texture filename with parent dir component: %s", std::string(v).c_str());
 					continue;
 				}
@@ -518,6 +519,12 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 	u32 toH;
 	if (!TryParse(valueParts[0], &toW) || !TryParse(valueParts[1], &toH)) {
 		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, value format is 512,512", key.c_str(), value.c_str());
+		return;
+	}
+
+	// Generous, PSP textures are at most 512x512. Values of 65536 or more would also spill into the other fields of the key.
+	if (fromW > 1024 || fromH > 1024) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, source bigger than 1024x1024", key.c_str(), value.c_str());
 		return;
 	}
 
@@ -934,13 +941,13 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
 	int lookupW;
 	int lookupH;
-	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
+	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH) && lookupW > 0 && lookupH > 0 && lookupW <= origW && lookupH <= origH) {
 		w = lookupW * (scaledW / origW);
 		h = lookupH * (scaledH / origH);
 	}
 
 	constexpr int bpp = 4;
-	size_t saveBufSize = w * h * bpp;
+	size_t saveBufSize = (size_t)w * h * bpp;
 	u8 *saveBuf = (u8 *)malloc(saveBufSize);
 	if (!saveBuf) {
 		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
@@ -950,7 +957,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
 	for (int y = 0; y < h; y++) {
-		memcpy(saveBuf + y * w * bpp, (const u8 *)data + y * srcPitch, w * bpp);
+		memcpy(saveBuf + (size_t)y * w * bpp, (const u8 *)data + (size_t)y * srcPitch, w * bpp);
 	}
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));

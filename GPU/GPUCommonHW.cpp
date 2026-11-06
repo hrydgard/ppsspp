@@ -986,7 +986,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	VertexDecoder *decoder = drawEngineCommon_->GetVertexDecoder(vertTypeID);
 
 	// Nothing is mapped past the end of RAM or VRAM, so a draw running off the end would fault on the first read.
-	if (!inds && !Memory::IsValidRange(gstate_c.vertexAddr, count * decoder->VertexSize())) {
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, count, vertexType, decoder->VertexSize())) {
 		ERROR_LOG(Log::G3D, "Bad vertex range %08x (%d verts of %d bytes)!", gstate_c.vertexAddr, count, decoder->VertexSize());
 		return;
 	}
@@ -1088,6 +1088,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	const u32_le *start = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
 	const u32_le *src = start;
 	const u32_le *stall = currentList->stall ? (const u32_le *)Memory::GetPointerUnchecked(currentList->stall) : 0;
+	// Without a stall ahead, stop at the end of memory.
+	const u32_le *end = start + Memory::MaxSizeAtAddress(currentList->pc + 4) / 4;
+	if (!stall || stall < start || stall > end) {
+		stall = end;
+	}
 
 	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
 	// above for each one. This can be expanded to support additional games that intersperse
@@ -1101,7 +1106,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if (!useFastRunLoop_ || readsFramebufferPerDraw)
 		goto bail;  // we're either recording or stepping, or each draw has to go alone.
 
-	while (src != stall) {
+	while (src < stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
 		case GE_CMD_PRIM:
@@ -1131,19 +1136,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = nullptr;
+			if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, count, vertexType, decoder->VertexSize())) {
+				// Bad index or vertex range, leave it to Execute_Prim.
+				goto bail;
+			}
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				const u32 indexAddr = gstate_c.indexAddr;
-				const int indexShift = ((vertexType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-				if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexShift)) {
-					// Bad index range. Let's give up the fast loop.
-					goto bail;
-				}
-				inds = Memory::GetPointerUnchecked(indexAddr);
+				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			} else {
-				if (!Memory::IsValidRange(gstate_c.vertexAddr, count * decoder->VertexSize())) {
-					// Bad vertex range, leave it to Execute_Prim.
-					goto bail;
-				}
 				// We can extend again after submitting a normal draw.
 				canExtend = isTriangle;
 			}
@@ -1267,7 +1266,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		{
 			// A bone matrix probably. If not we bail.
 			const u32 target = gstate_c.getRelativeAddress(data & 0x00FFFFFC);
-			if (currentList->HardwareCallDepth() < 2 &&
+			if (currentList->HardwareCallDepth() < 2 && Memory::IsValidRange(target, 13 * 4) &&
 				(Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
@@ -1352,16 +1351,13 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	const u32 vertType = gstate.vertType;
-	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
-		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
-		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+	// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, (op & 0xFF) * ((op >> 8) & 0xFF), vertType, drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Bad control point range %08x (indices %08x)!", gstate_c.vertexAddr, gstate_c.indexAddr);
 		return;
+	}
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {
@@ -1429,16 +1425,13 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
 	const u32 vertType = gstate.vertType;
-	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
-			ERROR_LOG(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
-			return;
-		}
-		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	} else if (!Memory::IsValidRange(gstate_c.vertexAddr, (op & 0xFF) * ((op >> 8) & 0xFF) * drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
-		// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
-		ERROR_LOG(Log::G3D, "Bad control point range %08x!", gstate_c.vertexAddr);
+	// Nothing is mapped past the end of RAM or VRAM, so this would fault on the first read.
+	if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, (op & 0xFF) * ((op >> 8) & 0xFF), vertType, drawEngineCommon_->GetVertexDecoder(GetVertTypeID(vertType, gstate.getUVGenMode()))->VertexSize())) {
+		ERROR_LOG(Log::G3D, "Bad control point range %08x (indices %08x)!", gstate_c.vertexAddr, gstate_c.indexAddr);
 		return;
+	}
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {

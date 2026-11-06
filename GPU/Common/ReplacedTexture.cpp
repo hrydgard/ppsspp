@@ -1015,9 +1015,21 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		WARN_LOG(Log::TexReplacement, "Level %d is empty", level);
 		return false;
 	}
+	if (info.w > outW || info.h > outH) {
+		WARN_LOG(Log::TexReplacement, "Level %d (%dx%d) is bigger than its padded size %dx%d", level, info.w, info.h, outW, outH);
+		return false;
+	}
 
 	int blockSize;
-	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
+	const bool blockCompressed = Draw::DataFormatIsBlockCompressed(fmt, &blockSize);
+	const size_t needed = blockCompressed ? (size_t)((outW + 3) / 4) * ((outH + 3) / 4) * blockSize : (size_t)rowPitch * (outH - 1) + outW * 4;
+	// A zero size disables the check, like for the other copies.
+	if (outDataSize != 0 && outDataSize < needed) {
+		WARN_LOG(Log::TexReplacement, "Level %d doesn't fit the buffer (%d < %d)", level, (int)outDataSize, (int)needed);
+		return false;
+	}
+
+	if (!blockCompressed) {
 		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
 			ERROR_LOG(Log::TexReplacement, "Unexpected linear data format");
 			return false;
