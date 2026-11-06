@@ -172,22 +172,42 @@ MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &cu
 	return MemstickFolderCheck::OK;
 }
 
-bool SwitchMemstickFolderTo(Path newMemstickFolder) {
+static bool CanWriteTo(const Path &folder) {
+	const Path testWriteFile = folder / ".write_verify_file";
+	if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
+		return false;
+	}
+	File::Delete(testWriteFile);
+	return true;
+}
+
+bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder) {
 	// Doesn't already exist, create.
 	// Should this ever happen?
 	if (newMemstickFolder.Type() == PathType::NATIVE) {
 		if (!File::Exists(newMemstickFolder)) {
 			File::CreateFullPath(newMemstickFolder);
 		}
-		Path testWriteFile = newMemstickFolder / ".write_verify_file";
-		if (!File::WriteDataToFile(true, "1", 1, testWriteFile)) {
+		if (!CanWriteTo(newMemstickFolder)) {
+			ERROR_LOG(Log::System, "Can't write to '%s'", newMemstickFolder.c_str());
 			return false;
 		}
-		File::Delete(testWriteFile);
 	} else {
 		// TODO: Do the same but with scoped storage? Not really necessary, right? If it came from a browse
 		// for folder, we can assume it exists and is writable, barring wacky race conditions like the user
 		// being connected by USB and deleting it.
+	}
+	// Where memstick_dir.txt goes. Not set on desktops, which only get here through a debug start screen.
+	if (!g_Config.internalDataDirectory.empty() && !CanWriteTo(g_Config.internalDataDirectory)) {
+		ERROR_LOG(Log::System, "Can't write to '%s'", g_Config.internalDataDirectory.c_str());
+		return false;
+	}
+	return true;
+}
+
+bool SwitchMemstickFolderTo(Path newMemstickFolder) {
+	if (!CanSwitchMemstickFolderTo(newMemstickFolder)) {
+		return false;
 	}
 
 	Path memStickDirFile = g_Config.internalDataDirectory / "memstick_dir.txt";

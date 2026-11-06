@@ -48,5 +48,7 @@ enum class MemstickFolderCheck {
 MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &currentFolder);
 
 bool FolderSeemsToBeUsed(const Path &newMemstickFolder);
+// The checks SwitchMemstickFolderTo() starts with, to run before moving any data.
+bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder);
 bool SwitchMemstickFolderTo(Path newMemstickFolder);
 MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter);

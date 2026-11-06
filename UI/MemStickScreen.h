@@ -134,6 +134,8 @@ private:
 	bool moveData_ = true;
 #endif
 	bool initialSetup_;
+	// The data is already in the new folder.
+	bool dataMoved_ = false;
 
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;

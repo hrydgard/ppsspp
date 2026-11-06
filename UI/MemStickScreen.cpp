@@ -551,7 +551,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!error_.empty()) {
-		leftColumn->Add(new TextView(error_, ALIGN_LEFT, false));
+		leftColumn->Add(new TextView(error_, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 	}
 
 	if (!oldMemstickFolder.empty()) {
@@ -566,7 +566,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!moveDataTask_) {
-		if (!initialSetup_ && CanMoveData()) {
+		if (!initialSetup_ && CanMoveData() && !dataMoved_) {
 			leftColumn->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
 		}
 
@@ -611,7 +611,9 @@ void ConfirmMemstickMoveScreen::update() {
 			if (result->success) {
 				progressReporter_.SetProgress(T(I18NCat::DIALOG, "Done!"));
 				INFO_LOG(Log::System, "Move data task finished successfully!");
-				// Succeeded!
+				// Succeeded! If the switch below fails, OK only retries the switch.
+				dataMoved_ = true;
+				moveData_ = false;
 				FinishFolderMove();
 			} else {
 				progressReporter_.SetProgress(ms->T("Failed to move some files!"));
@@ -639,7 +641,20 @@ void ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	// Should probably be done on a background thread so we can show some UI.
 	// So we probably need another screen for this with a progress bar..
 	// If the directory itself is called PSP, don't go below.
-	if (IsBlocked()) {
+	if (IsBlocked() || moveDataTask_) {
+		return;
+	}
+
+	// Only the switch is left to retry, and its own failure message says the data moved.
+	if (dataMoved_) {
+		FinishFolderMove();
+		return;
+	}
+
+	// Find out now if the switch would fail, rather than after moving the data away.
+	if (!CanSwitchMemstickFolderTo(newMemstickFolder_)) {
+		error_ = T(I18NCat::MEMSTICK, "That folder doesn't work as a memstick folder.");
+		RecreateViews();
 		return;
 	}
 
@@ -667,8 +682,11 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	// Successful so far, switch the memstick folder.
 	if (!SwitchMemstickFolderTo(newMemstickFolder_)) {
-		// TODO: More precise errors.
-		error_ = ms->T("That folder doesn't work as a memstick folder.");
+		if (dataMoved_) {
+			error_ = ms->T("DataMovedButNotSwitched", "Your data was moved to the new folder, but PPSSPP couldn't switch to it. Please try again.");
+		} else {
+			error_ = ms->T("That folder doesn't work as a memstick folder.");
+		}
 		RecreateViews();
 		return;
 	}
