@@ -11,6 +11,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.StructStatVfs;
@@ -415,11 +418,47 @@ public class ContentUri {
 		}
 	}
 
+	// The free space of the storage volume a document is on, looked up from the volume in its document ID
+	// ("primary:PSP", "75D7-DC5F:PSP"). The fstatvfs of a descriptor opened through the provider can't be
+	// trusted for that: for a folder on an SD card, some devices report the internal storage. -1 if the volume
+	// isn't found.
+	@RequiresApi(Build.VERSION_CODES.R)
+	private static long getFreeSpaceOfVolume(Context context, Uri uri) {
+		try {
+			if (!"com.android.externalstorage.documents".equals(uri.getAuthority())) {
+				return -1;
+			}
+			final String documentId = DocumentsContract.isDocumentUri(context, uri) ? DocumentsContract.getDocumentId(uri) : DocumentsContract.getTreeDocumentId(uri);
+			final int colon = documentId.indexOf(':');
+			if (colon <= 0) {
+				return -1;
+			}
+			final String volumeId = documentId.substring(0, colon);
+			final StorageManager storageManager = context.getSystemService(StorageManager.class);
+			for (StorageVolume volume : storageManager.getStorageVolumes()) {
+				final boolean match = "primary".equals(volumeId) ? volume.isPrimary() : volumeId.equalsIgnoreCase(volume.getUuid());
+				final File directory = match ? volume.getDirectory() : null;
+				if (directory != null) {
+					return new StatFs(directory.getPath()).getAvailableBytes();
+				}
+			}
+		} catch (Exception e) {
+			Log.w(TAG, "getFreeSpaceOfVolume: " + e);
+		}
+		return -1;
+	}
+
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpace(Activity activity, String str) {
+		Uri uri = Uri.parse(str);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			long space = getFreeSpaceOfVolume(activity, uri);
+			if (space >= 0) {
+				return space;
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			Uri uri = Uri.parse(str);
 			return contentUriGetFreeStorageSpaceSlow(activity, uri);
 		}
 
