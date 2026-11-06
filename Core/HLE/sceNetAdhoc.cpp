@@ -4500,8 +4500,8 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 	int * len = (int *)Memory::GetPointerOrException(dataSizeAddr);
 	// Library is initialized
 	if (netAdhocInited) {
-		// Valid Arguments
-		if (buf != NULL && len != NULL && *len > 0 && Memory::IsValidRange(dataAddr, *len)) {
+		// Valid Arguments. The buffer may run past the end of memory as long as what arrives fits (pspautotests net/adhoc/ptp).
+		if (buf != NULL && len != NULL && *len > 0 && Memory::IsValidAddress(dataAddr)) {
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4520,7 +4520,22 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
-					return Transport().PtpRecv(id, buf, len, timeout, flag);
+					// Receive no more than fits in memory. A blocking recv keeps the pointer, so the clamp goes into
+					// the game's length. A call that fails without waiting gets it back, as a PSP leaves it alone.
+					const int requested = *len;
+					const int valid = (int)Memory::ClampValidSizeAt(dataAddr, requested);
+					if (valid == requested) {
+						return Transport().PtpRecv(id, buf, len, timeout, flag);
+					}
+					*len = valid;
+					int result = Transport().PtpRecv(id, buf, len, timeout, flag);
+					const bool waiting = std::any_of(adhocSocketRequests.begin(), adhocSocketRequests.end(), [&](const auto &it) {
+						return it.second.length == (s32_le *)len;
+					});
+					if (result != 0 && !waiting) {
+						*len = requested;
+					}
+					return result;
 				}
 
 				// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
