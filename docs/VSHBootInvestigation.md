@@ -101,8 +101,11 @@ Two separate things:
   that hands each buffer to the ME (`sceVaudio_E8E78DC8`, then `sceVaudio_504E4745` many times a
   second). Its Motion JPEG thumbnails replace the frame's Huffman tables with the standard ones, so
   a file encoded with optimised tables (ffmpeg's default) gets a garbled thumbnail.
-- **Settings**: the menus open. System Information shows "-" for the MAC address: wlan.prx reads it
-  from IdStorage key 0x44, and IdStorage is left failing on purpose (see below).
+- **Settings**: the menus open. System Information shows the configured MAC address. It reads
+  IdStorage key 0x44 itself (6 bytes at offset 0, through vshbridge.prx's `sceVshBridge_4db43867`),
+  as does wlan.prx's `sceWlanGetEtherAddr`. The real idstorage.prx is left failing on purpose (see
+  below), so `sceIdStorageLookup` is HLE: it answers key 0x44 from the config and fails every other
+  key with the 0x80000108 the real driver returns uninitialized.
 - **Network**: the browser and the online manuals reach their Network Connection screen once
   `sceNetApctl_lib` is there, then stop at 8002013A on `sceHttp` functions only the NetFront browser
   uses (06488A1C, 2C3C82CF, 3A67F306, 739C2D79, 77EE5319, 8046E250, A461A167, B0257723).
