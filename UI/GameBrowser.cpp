@@ -123,7 +123,8 @@ bool GameBrowser::Key(const KeyInput &input) {
 		}
 		// A touchpad sends a stream of small deltas, so add them up and step once per notch's worth.
 		int delta = (input.flags & KeyInputFlags::HAS_WHEEL_DELTA) ? input.Delta() : WHEEL_DELTA_PER_NOTCH;
-		if (input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) {
+		// Zoom by the fingers' direction (up is bigger), whatever the natural scrolling setting.
+		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) != ((input.flags & KeyInputFlags::WHEEL_FLIPPED) != 0)) {
 			delta = -delta;
 		}
 		// Start over on a change of direction, or when a leftover is from an earlier gesture.

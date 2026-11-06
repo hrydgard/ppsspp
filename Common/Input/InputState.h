@@ -179,6 +179,10 @@ enum class KeyInputFlags {
 	ModShift = 1 << 6,
 	ModAlt = 1 << 7,
 	ModMeta = 1 << 8,  // Windows key, command key, etc.
+
+	// A wheel event whose direction the OS has reversed for "natural" scrolling, so it's the opposite
+	// of the fingers' movement. Scrolling should follow it; things like zooming may want to undo it.
+	WHEEL_FLIPPED = 1 << 9,
 };
 
 ENUM_CLASS_BITOPS(KeyInputFlags);
