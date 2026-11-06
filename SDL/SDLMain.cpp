@@ -1826,10 +1826,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			KeyInput key{};
 			key.deviceId = DEVICE_ID_MOUSE;
 			key.flags = KeyInputFlags::DOWN;
-			float wheelY = event.wheel.y;
-			if (event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED) {
-				wheelY = -wheelY;
-			}
+			// SDL has already applied the OS's natural scrolling setting (direction just says whether
+			// it did), so don't undo it.
+			const float wheelY = event.wheel.y;
 			if (wheelY != 0.0f) {
 				const float scale = 30.0f;
 				key.keyCode = wheelY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
