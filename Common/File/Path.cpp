@@ -41,7 +41,9 @@ void Path::Init(std::string_view str) {
 	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
 		type_ = PathType::HTTP;
 		path_ = str;
-	} else if (Android_IsContentUri(str)) {
+	} else if (startsWith(str, "content://")) {
+		// Recognized on every platform, so code that handles them can be tested anywhere. Elsewhere, file
+		// operations on them just fail.
 		// Content URIs on non scoped-storage (and possibly other cases?) can contain
 		// "raw:/" URIs inside. This happens when picking the Download folder using the folder browser
 		// on Android 9.
