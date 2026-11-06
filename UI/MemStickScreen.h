@@ -129,8 +129,12 @@ private:
 	bool initialSetup_;
 	// The data is already in the new folder.
 	bool dataMoved_ = false;
+	std::string RestartCountdownText() const;
+
 	// Set when everything worked: restart then (time_now_d()), after showing that.
+	static constexpr double RESTART_DELAY_SECONDS = 5.0;
 	double restartTime_ = 0.0;
+	NoticeView *doneNotice_ = nullptr;
 	static constexpr int64_t FREE_SPACE_PENDING = -2;
 	int64_t freeSpace_ = FREE_SPACE_PENDING;
 

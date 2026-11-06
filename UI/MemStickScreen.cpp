@@ -17,6 +17,9 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include "android/jni/app-android.h"
 
 #include "Common/Log.h"
@@ -530,6 +533,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	// The columns, and below them the progress of a move, across the whole width so file names fit.
 	root_ = new LinearLayout(ORIENT_VERTICAL);
+	doneNotice_ = nullptr;
 	ViewGroup *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
@@ -591,7 +595,7 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (restartTime_ > 0.0) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, di->T("Done!"), ""));
+		doneNotice_ = leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, di->T("Done!"), RestartCountdownText()));
 		progressView_ = nullptr;
 		return;
 	}
@@ -622,6 +626,11 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 }
 
+std::string ConfirmMemstickMoveScreen::RestartCountdownText() const {
+	const int seconds = std::max(1, (int)ceil(restartTime_ - time_now_d()));
+	return ApplySafeSubstitutions(T(I18NCat::MEMSTICK, "Restarting app in %1 seconds"), seconds);
+}
+
 void ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
 	RecreateViews();
 }
@@ -648,10 +657,15 @@ void ConfirmMemstickMoveScreen::update() {
 	UIBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
-	if (restartTime_ > 0.0 && time_now_d() >= restartTime_) {
-		restartTime_ = 0.0;
-		System_RestartApp("");
-		return;
+	if (restartTime_ > 0.0) {
+		if (time_now_d() >= restartTime_) {
+			restartTime_ = 0.0;
+			System_RestartApp("");
+			return;
+		}
+		if (doneNotice_) {
+			doneNotice_->SetDetailsText(RestartCountdownText());
+		}
 	}
 
 	if (moveDataTask_) {
@@ -776,7 +790,7 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 	if (!initialSetup_) {
 		// We restart the app to get the new settings, once the user has seen that it worked.
 		INFO_LOG(Log::System, "Not initial setup. Restarting in a moment.");
-		restartTime_ = time_now_d() + 3.0;
+		restartTime_ = time_now_d() + RESTART_DELAY_SECONDS;
 		RecreateViews();
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
