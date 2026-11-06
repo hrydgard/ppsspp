@@ -606,9 +606,13 @@ void ConfirmMemstickMoveScreen::update() {
 				moveData_ = false;
 				FinishFolderMove();
 			} else {
-				progressReporter_.SetProgress(ms->T("Failed to move some files!"));
-				INFO_LOG(Log::System, "Move data task finished with failures!");
-				// What do we do here? We might be in the middle of a move... Bad.
+				INFO_LOG(Log::System, "Move data task failed: %s (partly moved: %d)", result->errorMessage.c_str(), (int)result->partlyMoved);
+				// The move puts back what it changed, so this is only rare.
+				if (result->partlyMoved) {
+					error_ = ms->T("MoveFailedDataSplit", "Some of the data couldn't be moved, or moved back. It's now partly in each folder. Please try again.");
+				} else {
+					error_ = ms->T("MoveFailedNothingChanged", "The data couldn't be moved. Nothing was changed.");
+				}
 				RecreateViews();
 			}
 			delete moveDataTask_;
@@ -649,12 +653,16 @@ void ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	}
 
 	if (moveData_ && CanMoveData()) {
+		error_.clear();
 		progressReporter_.SetProgress(T(I18NCat::MEMSTICK, "Starting move..."));
 
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
 			Path moveSrc = g_Config.memStickDirectory;
 			Path moveDest = newMemstickFolder_;
-			MoveResult *result = MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_);
+			// Once copied, the new folder is saved as the one to use before the originals are deleted.
+			MoveResult *result = MoveDirectoryContentsSafe(moveSrc, moveDest, progressReporter_, [moveDest]() {
+				return WriteMemstickDirFile(moveDest);
+			});
 			NOTICE_LOG(Log::System, "Move task finished: %d", (int)(result != nullptr));
 			return result;
 		}, TaskType::IO_BLOCKING, TaskPriority::HIGH);

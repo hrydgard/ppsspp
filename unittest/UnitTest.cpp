@@ -3021,10 +3021,16 @@ static bool TestMemstickMove() {
 	EXPECT_TRUE(File::WriteStringToFile(true, "other", dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
 
 	MoveProgressReporter progress;
-	MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress);
+	bool committed = false;
+	MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress, [&]() {
+		// The originals are still there when the new folder gets saved.
+		committed = File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN");
+		return true;
+	});
 	const bool success = result && result->success;
 	delete result;
 	EXPECT_TRUE(success);
+	EXPECT_TRUE(committed);
 	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
 	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
 	EXPECT_TRUE(File::Exists(dest / "PSP/SYSTEM/ppsspp.ini"));
@@ -3040,7 +3046,40 @@ static bool TestMemstickMove() {
 	EXPECT_TRUE(refused);
 	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
 
+	// A move that fails after part of it was renamed, and part copied, puts everything back.
 	File::DeleteDirRecursively(root);
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/AAA"));
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "a", src / "PSP/AAA/A.BIN"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "save", src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "other", dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+	result = MoveDirectoryContentsSafe(src, dest, progress, []() { return false; });
+	const bool undone = result && !result->success && !result->partlyMoved;
+	delete result;
+	EXPECT_TRUE(undone);
+	EXPECT_TRUE(File::Exists(src / "PSP/AAA/A.BIN"));
+	EXPECT_TRUE(File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_FALSE(File::Exists(dest / "PSP/AAA"));
+	EXPECT_FALSE(File::Exists(dest / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+
+	File::DeleteDirRecursively(root);
+
+	// memstick_dir.txt is replaced, with nothing left beside it.
+	const Path oldInternal = g_Config.internalDataDirectory;
+	g_Config.internalDataDirectory = UnitTestTempPath("unittest_memstick_dirfile");
+	File::DeleteDirRecursively(g_Config.internalDataDirectory);
+	EXPECT_TRUE(File::CreateFullPath(g_Config.internalDataDirectory));
+	const Path dirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	std::string contents;
+	bool dirFileOK = WriteMemstickDirFile(Path("/first/folder")) && WriteMemstickDirFile(Path("/second")) && File::ReadTextFileToString(dirFile, &contents);
+	const bool tempLeft = File::Exists(g_Config.internalDataDirectory / "memstick_dir.txt.tmp");
+	File::DeleteDirRecursively(g_Config.internalDataDirectory);
+	g_Config.internalDataDirectory = oldInternal;
+	EXPECT_TRUE(dirFileOK);
+	EXPECT_EQ_STR(contents, std::string("/second"));
+	EXPECT_FALSE(tempLeft);
 	return true;
 }
 

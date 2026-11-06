@@ -2,6 +2,7 @@
 
 #include "Common/File/Path.h"
 
+#include <functional>
 #include <mutex>
 #include <string_view>
 
@@ -29,7 +30,8 @@ struct MoveResult {
 	bool success;  // Got through the whole move.
 	std::string errorMessage;
 	size_t failedFiles;
-	size_t skippedFiles;
+	// A failed move couldn't put everything back, so the data is partly in each folder.
+	bool partlyMoved = false;
 };
 
 enum class MemstickFolderCheck {
@@ -50,5 +52,9 @@ MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &cu
 bool FolderSeemsToBeUsed(const Path &newMemstickFolder);
 // The checks SwitchMemstickFolderTo() starts with, to run before moving any data.
 bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder);
+// Makes the next start use newMemstickFolder. SwitchMemstickFolderTo() does this and more.
+bool WriteMemstickDirFile(const Path &newMemstickFolder);
 bool SwitchMemstickFolderTo(Path newMemstickFolder);
-MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter);
+// Moves the PSP folder's contents. If it has to copy, beforeDeletingOriginals runs once the copies are
+// verified, and the move is undone if it returns false. A failed move puts back what it can.
+MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter, const std::function<bool()> &beforeDeletingOriginals = nullptr);
