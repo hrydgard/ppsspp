@@ -1908,6 +1908,98 @@ bool TestSymbolMap() {
 	return true;
 }
 
+// Saving a symbol map and loading it back, as the debugger does while a game is running: its modules
+// are loaded then, possibly at other addresses than when the map was saved.
+bool TestSymbolMapFiles() {
+	const u32 kModStart = 0x08804000;
+	const u32 kModSize = 0x00010000;
+	const u32 kMovedStart = 0x08900000;
+	const Path ppmap = UnitTestTempPath("unittest_symbols.ppmap");
+	const Path sym = UnitTestTempPath("unittest_symbols.sym");
+
+	SymbolMap saved;
+	saved.AddModule("TEST", kModStart, kModSize);
+	saved.AddFunction("func", kModStart + 0x100, 0x40);
+	saved.AddData(kModStart + 0x400, 0x20, DATATYPE_WORD);
+	saved.AddData(kModStart + 0x500, 0x10, DATATYPE_BYTE);
+	saved.AddLabel("named_data", kModStart + 0x500);
+	// Absolute: outside any module.
+	saved.AddFunction("absolute", 0x08A00000, 0x20, 0);
+	// A module that isn't loaded any more.
+	saved.AddModule("GONE", 0x08B00000, 0x1000);
+	saved.AddFunction("gone_func", 0x08B00100, 0x40);
+	saved.UnloadModule(0x08B00000, 0x1000);
+	saved.SortSymbols();
+	EXPECT_TRUE(saved.SaveSymbolMap(ppmap));
+	EXPECT_TRUE(saved.SaveNocashSym(sym));
+
+	// Loaded into a map where the module is loaded at another address now.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kMovedStart, kModSize);
+		EXPECT_TRUE(map.LoadSymbolMap(ppmap));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kMovedStart + 0x110), (int)(kMovedStart + 0x100));
+		EXPECT_EQ_STR(map.GetLabelString(kMovedStart + 0x100), std::string("func"));
+		EXPECT_EQ_INT((int)map.GetDataStart(kMovedStart + 0x404), (int)(kMovedStart + 0x400));
+		// Data without a name stays without one.
+		EXPECT_TRUE(map.GetLabelString(kMovedStart + 0x400).empty());
+		EXPECT_EQ_STR(map.GetLabelString(kMovedStart + 0x500), std::string("named_data"));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(0x08A00000), 0x08A00000);
+		// Still loaded after loading the map, and unloading it takes its symbols along.
+		EXPECT_EQ_INT((int)map.getAllModules().size(), 2);
+		map.UnloadModule(kMovedStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kMovedStart + 0x100), (int)SymbolMap::INVALID_ADDRESS);
+		// The module that wasn't loaded comes back when it is.
+		map.AddModule("GONE", 0x08C00000, 0x1000);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(0x08C00100), 0x08C00100);
+	}
+
+	// Loaded at boot, before any module, as System.cpp does.
+	{
+		SymbolMap map;
+		EXPECT_TRUE(map.LoadSymbolMap(ppmap));
+		map.AddModule("TEST", kMovedStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kMovedStart + 0x100), (int)(kMovedStart + 0x100));
+		EXPECT_EQ_INT((int)map.GetDataStart(kMovedStart + 0x400), (int)(kMovedStart + 0x400));
+	}
+
+	// Saved again, it's the same file.
+	{
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		EXPECT_TRUE(map.LoadSymbolMap(ppmap));
+		const Path again = UnitTestTempPath("unittest_symbols2.ppmap");
+		EXPECT_TRUE(map.SaveSymbolMap(again));
+		std::string a, b;
+		EXPECT_TRUE(File::ReadBinaryFileToString(ppmap, &a));
+		EXPECT_TRUE(File::ReadBinaryFileToString(again, &b));
+		File::Delete(again);
+		EXPECT_TRUE(a == b);
+	}
+
+	// no$ files have no modules, only absolute addresses, so only loaded modules' functions are written.
+	{
+		std::string text;
+		EXPECT_TRUE(File::ReadTextFileToString(sym, &text));
+		EXPECT_TRUE(text.find("gone_func") == std::string::npos);
+
+		SymbolMap map;
+		map.AddModule("TEST", kModStart, kModSize);
+		EXPECT_TRUE(map.LoadNocashSym(sym));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kModStart + 0x110), (int)(kModStart + 0x100));
+		EXPECT_EQ_STR(map.GetLabelString(kModStart + 0x100), std::string("func"));
+		EXPECT_EQ_INT((int)map.GetFunctionStart(0x08A00000), 0x08A00000);
+		// Attached to the module they're in, so they move with it.
+		map.UnloadModule(kModStart, kModSize);
+		map.AddModule("TEST", kMovedStart, kModSize);
+		EXPECT_EQ_INT((int)map.GetFunctionStart(kMovedStart + 0x100), (int)(kMovedStart + 0x100));
+	}
+
+	File::Delete(ppmap);
+	File::Delete(sym);
+	return true;
+}
+
 // DenseHashMap/PrehashMap are open-addressed, linear-probing maps used in hot GPU paths - the
 // texture cache, the shader managers, the software renderer's sampler/drawpixel caches. They use
 // tombstones for removal, which is where the interesting failure modes live.
@@ -4607,6 +4699,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Serializer),
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
+	TEST_ITEM(SymbolMapFiles),
 	TEST_ITEM(Hashmaps),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
