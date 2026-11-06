@@ -3007,6 +3007,43 @@ static bool TestMemstickFolderCheck() {
 	return true;
 }
 
+static bool TestMemstickMove() {
+	const Path root = UnitTestTempPath("unittest_memstick_move");
+	File::DeleteDirRecursively(root);
+	const Path src = root / "old";
+	const Path dest = root / "new";
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SYSTEM"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "save", src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "ini", src / "PSP/SYSTEM/ppsspp.ini"));
+	// A non-empty SAVEDATA already there can't be renamed over, which forces the copy path.
+	EXPECT_TRUE(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "other", dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+
+	MoveProgressReporter progress;
+	MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress);
+	const bool success = result && result->success;
+	delete result;
+	EXPECT_TRUE(success);
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SYSTEM/ppsspp.ini"));
+	// Moved, not copied.
+	EXPECT_FALSE(File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_FALSE(File::Exists(src / "PSP/SAVEDATA"));
+	EXPECT_FALSE(File::Exists(src / "PSP/SYSTEM"));
+
+	// Into its own PSP folder: refused, and nothing touched.
+	result = MoveDirectoryContentsSafe(dest, dest / "PSP/SAVEDATA", progress);
+	const bool refused = result && !result->success;
+	delete result;
+	EXPECT_TRUE(refused);
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+
+	File::DeleteDirRecursively(root);
+	return true;
+}
+
 class UnitTestWordWrapper : public WordWrapper {
 public:
 	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
@@ -4395,6 +4432,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(Storage),
 	TEST_ITEM(MemstickFolderCheck),
+	TEST_ITEM(MemstickMove),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),

@@ -371,11 +371,10 @@ void MemStickScreen::UseInternalStorage(UI::EventParams &params) {
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
 		// Let's just accept it and move on. No need to move files either.
-		if (SwitchMemstickFolderTo(pendingMemStickFolder)) {
-			TriggerFinish(DialogResult::DR_OK);
-		} else {
-			// This can't really happen?? Not worth making an error message.
+		if (!SwitchMemstickFolderTo(pendingMemStickFolder)) {
 			ERROR_LOG(Log::System, "Could not switch memstick path in setup (internal)");
+			g_OSD.Show(OSDType::MESSAGE_ERROR, T(I18NCat::MEMSTICK, "That folder doesn't work as a memstick folder."));
+			return;
 		}
 		// Don't have a confirmation dialog that would otherwise do it for us, need to just switch directly to the main screen.
 		screenManager()->switchScreen(new MainScreen());

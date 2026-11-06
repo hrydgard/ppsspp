@@ -198,8 +198,9 @@ bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 
 		std::string str = newMemstickFolder.ToString();
 		if (!File::WriteDataToFile(true, str.c_str(), str.size(), memStickDirFile)) {
+			// Disk full? Without it, the next start would be back on the old folder.
 			ERROR_LOG(Log::System, "Failed to write memstick path '%s' to '%s'", newMemstickFolder.c_str(), memStickDirFile.c_str());
-			// Not sure what to do if this file can't be written.  Disk full?
+			return false;
 		}
 
 #if PPSSPP_PLATFORM(UWP)
@@ -213,38 +214,35 @@ bool SwitchMemstickFolderTo(Path newMemstickFolder) {
 	return true;
 }
 
-// Keep the size with the file, so we can skip overly large ones in the move.
-// The user will have to take care of them afterwards, it'll just take too long probably.
+// Keep the size with the file, to verify the copy.
 struct FileSuffix {
 	std::string suffix;
 	u64 fileSize;
 };
 
+// Fails if any part of the tree can't be listed. The move deletes the source folders afterwards, and on
+// content URIs that deletes whatever is still in them, so anything left out here would be lost.
 static bool ListFileSuffixesRecursively(const Path &root, const Path &folder, std::vector<std::string> &dirSuffixes, std::vector<FileSuffix> &fileSuffixes, MoveProgressReporter &progressReporter) {
 	std::vector<File::FileInfo> files;
 	if (!File::GetFilesInDir(folder, &files)) {
+		ERROR_LOG(Log::System, "Failed to list '%s'", folder.c_str());
 		return false;
 	}
 
 	for (auto &file : files) {
+		std::string suffix;
+		if (!root.ComputePathTo(file.fullName, suffix) || suffix.empty()) {
+			ERROR_LOG_REPORT(Log::System, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), file.fullName.c_str());
+			return false;
+		}
 		if (file.isDirectory) {
-			std::string dirSuffix;
-			if (root.ComputePathTo(file.fullName, dirSuffix)) {
-				if (!dirSuffix.empty()) {
-					dirSuffixes.push_back(dirSuffix);
-					ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes, progressReporter);
-					progressReporter.SetProgress(file.name, fileSuffixes.size(), (size_t)-1);
-				}
-			} else {
-				ERROR_LOG_REPORT(Log::System, "Failed to compute PathTo from '%s' to '%s'", root.c_str(), folder.c_str());
+			dirSuffixes.push_back(suffix);
+			if (!ListFileSuffixesRecursively(root, folder / file.name, dirSuffixes, fileSuffixes, progressReporter)) {
+				return false;
 			}
+			progressReporter.SetProgress(file.name, fileSuffixes.size(), (size_t)-1);
 		} else {
-			std::string fileSuffix;
-			if (root.ComputePathTo(file.fullName, fileSuffix)) {
-				if (!fileSuffix.empty()) {
-					fileSuffixes.push_back(FileSuffix{ fileSuffix, file.size });
-				}
-			}
+			fileSuffixes.push_back(FileSuffix{ suffix, file.size });
 		}
 	}
 
@@ -327,7 +325,6 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
 	if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove, progressReporter)) {
-		// TODO: Handle failure listing files.
 		INFO_LOG(Log::System, "Failed to read old directory");
 		progressReporter.SetProgress(ms->T("Failed to read old directory"));
 		return new MoveResult{ false, "Failed to read old directory" };
@@ -336,10 +333,6 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	bool dryRun = false;  // Useful for debugging. Probably want to remove the MoveChildrenFast path above to test it.
 
 	size_t failedFileCount = 0;
-
-	// We're not moving huge files like ISOs during this process, unless
-	// they can be directly moved, without rewriting the file.
-	const uint64_t BIG_FILE_THRESHOLD = 24 * 1024 * 1024;
 
 	if (moveSrc.empty()) {
 		// Shouldn't happen.
@@ -433,8 +426,21 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	INFO_LOG(Log::System, "Verification complete");
 
-	// Delete all the old, now hopefully empty, directories.
-	// Hopefully DeleteDir actually fails if it contains a file...
+	// Everything arrived, so delete the originals: the files, then the folders. On content URIs DeleteDir
+	// would take the files along anyway, but on native paths it only removes empty folders.
+	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
+		const Path from = moveSrc / fileSuffixesToMove[i].suffix;
+		if (dryRun) {
+			INFO_LOG(Log::System, "dry run: Would have deleted '%s'", from.c_str());
+			continue;
+		}
+		progressReporter.SetProgress(fileSuffixesToMove[i].suffix, i, fileSuffixesToMove.size());
+		if (!File::Delete(from)) {
+			// It's safely copied, so this only leaves a duplicate behind.
+			WARN_LOG(Log::System, "Failed to delete '%s' after copying it", from.c_str());
+		}
+	}
+
 	// Reverse the order to delete subfolders before parents.
 	std::reverse(directorySuffixesToCreate.begin(), directorySuffixesToCreate.end());
 	for (size_t i = 0; i < directorySuffixesToCreate.size(); i++) {
