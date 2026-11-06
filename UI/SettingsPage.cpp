@@ -241,7 +241,7 @@ static std::function<void(UI::EventParams &)> RestoreDefaultsHandler(const Setti
 	SettingsPageHost *host = page.Host();
 	return [host, settings](UI::EventParams &) {
 		std::string_view message = T(I18NCat::DIALOG, "RestorePageDefaults", "Restore the settings on this page to their defaults?");
-		host->PageScreenManager()->push(new PromptScreen(host->PageGamePath(), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
+		host->PageScreenManager()->push(new UI::MessagePopupScreen(T(I18NCat::DIALOG, "Restore defaults"), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
 			if (!yes) {
 				return;
 			}
