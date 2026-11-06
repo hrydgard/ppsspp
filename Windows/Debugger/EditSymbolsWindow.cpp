@@ -147,36 +147,12 @@ bool EditSymbolsWindow::exec() {
 }
 
 void EditSymbolsWindow::Scan() {
-	bool insertSymbols = MIPSAnalyst::ScanForFunctions(address_, address_ + size_ - 1, true);
-	MIPSAnalyst::FinalizeScan(insertSymbols);
+	MIPSAnalyst::ScanFunctionsInRange(address_, size_);
+	g_disassemblyManager.clear();
 }
 
 void EditSymbolsWindow::Remove() {
-	u32 func_address = g_symbolMap->GetFunctionStart(address_);
-	if (func_address == SymbolMap::INVALID_ADDRESS) {
-		func_address = g_symbolMap->GetNextSymbolAddress(address_, SymbolType::ST_FUNCTION);
-	}
-
-	u32 counter = 0;
-	while (func_address < address_ + size_ && func_address != SymbolMap::INVALID_ADDRESS) {
-		g_symbolMap->RemoveFunction(func_address, true);
-		++counter;
-		func_address = g_symbolMap->GetNextSymbolAddress(address_, SymbolType::ST_FUNCTION);
-	}
-
-	if (counter) {
-		MIPSAnalyst::ForgetFunctions(address_, address_ + size_);
-
-		// The following was copied from hle.func.remove:
-		g_symbolMap->SortSymbols();
-
-		MIPSAnalyst::UpdateHashMap();
-		MIPSAnalyst::ApplyHashMap();
-
-		if (g_Config.bFuncReplacements) {
-			MIPSAnalyst::ReplaceFunctions();
-		}
-
+	if (MIPSAnalyst::RemoveFunctionsInRange(address_, size_)) {
 		// Clear cache for branch lines and such.
 		g_disassemblyManager.clear();
 	}

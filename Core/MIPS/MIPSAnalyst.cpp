@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -1315,6 +1316,41 @@ namespace MIPSAnalyst {
 		} else if (originalSize != functions.size()) {
 			UpdateHashToFunctionMap();
 		}
+	}
+
+	void ScanFunctionsInRange(u32 addr, u32 size) {
+		addr = RoundDownToMultipleOf(addr, 4);
+		size = RoundUpToMultipleOf(size, 4);
+		bool insertSymbols = ScanForFunctions(addr, addr + size, true);
+		FinalizeScan(insertSymbols);
+	}
+
+	u32 RemoveFunctionsInRange(u32 addr, u32 size) {
+		addr = RoundDownToMultipleOf(addr, 4);
+		size = RoundUpToMultipleOf(size, 4);
+
+		u32 funcAddr = g_symbolMap->GetFunctionStart(addr);
+		if (funcAddr == SymbolMap::INVALID_ADDRESS) {
+			funcAddr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+		}
+
+		u32 count = 0;
+		while (funcAddr < addr + size && funcAddr != SymbolMap::INVALID_ADDRESS) {
+			g_symbolMap->RemoveFunction(funcAddr, true);
+			++count;
+			funcAddr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+		}
+
+		if (count) {
+			ForgetFunctions(addr, addr + size);
+			g_symbolMap->SortSymbols();
+			UpdateHashMap();
+			ApplyHashMap();
+			if (g_Config.bFuncReplacements) {
+				ReplaceFunctions();
+			}
+		}
+		return count;
 	}
 
 	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out) {
