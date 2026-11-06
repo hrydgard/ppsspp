@@ -100,23 +100,20 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	ChoiceGroupList *list = parent->Add(new ChoiceGroupList());
 
+	// The description needs no scan, so it's there while loading too.
+	list->Add(new HintView(sy->T("FirmwareSources", "Installing a PSP firmware can improve game compatibility, gives some games their proper fonts, and lets you run the XMB, the real PSP's main menu. PPSSPP works without one, but having one installed is highly recommended.")));
+
 	if (!scanned_) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		list->Add(new TextView(mm->T("Loading..."), ALIGN_LEFT, false));
 		return;
 	}
 
-	std::string_view hintText = sy->T("FirmwareSources", "Installing a PSP firmware can improve game compatibility, gives some games their proper fonts, and lets you run the XMB, the real PSP's main menu. PPSSPP works without one, but having one installed is highly recommended.");
-
 	if (!info_.anythingInstalled) {
-		list->Add(new HintView(hintText));
-
 		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("No firmware installed"), ""));
 		list->Add(new TextWithImage(ImageID("I_FOLDER"), GetFriendlyPath(nandRoot_)));
 		return;
 	}
-
-	list->Add(new HintView(hintText));
 
 	if (!info_.version.empty()) {
 		std::string versionLine = std::string(sy->T("Firmware version")) + ": " + info_.version;
