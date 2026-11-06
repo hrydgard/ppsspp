@@ -9,9 +9,7 @@ thread. It opens the picked image's stream three times (bounds, orientation, dec
 then writes the downscaled copy to the cache. With a cloud-backed provider (Google Photos fetching the
 original) or a very large image, that can take long enough to ANR.
 
-Fix: do the copy on a background thread, then call `returnWithResult` back on the UI thread. While
-there: it doesn't fall back to `getClipData()` when `getData()` is null, though the comment near the top
-says some pickers do that (`DocumentResultProxyActivity` handles it).
+Fix: do the copy on a background thread, then call `returnWithResult` back on the UI thread.
 
 ## VR: `System.exit(0)` in `onDestroy`
 
@@ -42,10 +40,6 @@ threads read.
 
 ## Smaller ones
 
-- **Sanitised names read as conflicts:** `ContentUri` treats a name read back that differs from the
-  one asked for as "name taken" (the provider made `name (1)` instead) in `createDocument`, copy and
-  rename. `ExternalStorageProvider` also replaces FAT-invalid characters, which gives a false
-  `ALREADY_EXISTS`. Only report a conflict when the result looks like `name (N)`.
 - **Denied permissions get no answer:** a denied location or microphone permission sends nothing to
   native, so the game's request just stays silent. Storage and local network do report denial.
 - **Picker result after an activity recreate:** if the activity was destroyed and recreated while a
