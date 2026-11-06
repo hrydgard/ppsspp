@@ -286,10 +286,15 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			// Success
 			return true;
 		} else {
-			ERROR_LOG(Log::FileSystem, "File::OpenFD returned an error");
-			// TODO: Need better error codes from OpenFD so we can distinguish
-			// disk full. Just set not found for now.
-			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+			ERROR_LOG(Log::FileSystem, "File::OpenFD returned an error: %s", strerror(errno));
+			// OpenFD sets errno, like the native path below.
+			if (errno == ENOSPC) {
+				auto err = GetI18NCategory(I18NCat::ERRORS);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, err->T("Disk full while writing data"), 0.0f, "diskfull");
+				error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+			} else {
+				error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+			}
 			return false;
 		}
 	}
