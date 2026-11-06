@@ -25,86 +25,105 @@ bool FolderSeemsToBeUsed(const Path &newMemstickFolder) {
 	return File::Exists(pspFolder / "SAVEDATA") || File::Exists(pspFolder / "SYSTEM") || File::Exists(pspFolder / "PPSSPP_STATE");
 }
 
-// Checked by string rather than Type(), which only says CONTENT_URI on Android, so the checks below can
-// be unit tested anywhere.
-static bool IsContentURI(const Path &path) {
-	return startsWith(path.ToString(), "content://");
-}
+namespace {
 
-// A form of a folder's location that compares between content URIs and native paths: "volume:path" for
-// Android shared storage, the plain path otherwise. Empty if the location can't be told.
-static std::string LocationKey(const Path &path) {
-	std::string key;
-	if (IsContentURI(path)) {
-		AndroidContentURI uri(path.ToString());
-		// Other providers (like Downloads) use opaque document IDs.
-		if (uri.Provider() != "com.android.externalstorage.documents") {
-			return std::string();
+// Where a folder is, the same for a content URI and a native path to the same folder (which Path can't
+// compare): on Android shared storage, the volume ID and the path in it, otherwise just the path.
+// Compared case-insensitively, like Android's shared storage.
+struct StorageLocation {
+	// "primary" for internal storage, otherwise an ID like "1234-ABCD". Empty for other paths.
+	std::string volume;
+	// No trailing slash. Empty for the root of a volume.
+	std::string path;
+
+	bool operator==(const StorageLocation &other) const {
+		return equalsNoCase(volume, other.volume) && equalsNoCase(path, other.path);
+	}
+
+	// Strictly inside folder, at any depth.
+	bool IsInside(const StorageLocation &folder) const {
+		if (!equalsNoCase(volume, folder.volume) || path.size() <= folder.path.size() || !startsWithNoCase(path, folder.path)) {
+			return false;
 		}
-		key = uri.FilePath().empty() ? uri.RootPath() : uri.FilePath();
+		// The root of a volume, or "/", contains everything below it.
+		return folder.path.empty() || folder.path.back() == '/' || path[folder.path.size()] == '/';
+	}
+
+	StorageLocation WithComponent(std::string_view name) const {
+		if (path.empty() || path.back() == '/') {
+			return { volume, path + std::string(name) };
+		}
+		return { volume, path + "/" + std::string(name) };
+	}
+};
+
+}  // namespace
+
+// False if the location can't be told (another storage provider, with opaque document IDs).
+static bool GetStorageLocation(const Path &path, StorageLocation *loc) {
+	if (path.Type() == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path.ToString());
+		if (uri.Provider() != "com.android.externalstorage.documents") {
+			return false;
+		}
+		// The document ID, like "primary:Games/PSP".
+		const std::string &id = uri.FilePath().empty() ? uri.RootPath() : uri.FilePath();
+		const size_t colon = id.find(':');
+		if (colon == std::string::npos || colon == 0) {
+			return false;
+		}
+		loc->volume = id.substr(0, colon);
+		loc->path = id.substr(colon + 1);
 	} else if (path.Type() == PathType::NATIVE) {
-		key = path.ToString();
+		loc->volume.clear();
+		loc->path = path.ToString();
 		// Map Android storage paths to the volume IDs that content URIs use.
 		static const std::string_view primaryPrefixes[] = { "/storage/emulated/0", "/sdcard", "/storage/self/primary", "/mnt/sdcard" };
-		bool mapped = false;
 		for (std::string_view prefix : primaryPrefixes) {
-			if (key == prefix || startsWith(key, std::string(prefix) + "/")) {
-				key = "primary:" + key.substr(std::min(key.size(), prefix.size() + 1));
-				mapped = true;
+			if (loc->path == prefix || startsWith(loc->path, std::string(prefix) + "/")) {
+				loc->volume = "primary";
+				loc->path = loc->path.substr(std::min(loc->path.size(), prefix.size() + 1));
 				break;
 			}
 		}
-		if (!mapped && startsWith(key, "/storage/")) {
+		if (loc->volume.empty() && startsWith(loc->path, "/storage/")) {
 			// SD cards and USB drives: /storage/1234-ABCD/...
 			const size_t volStart = strlen("/storage/");
-			const size_t slash = key.find('/', volStart);
-			const std::string volume = key.substr(volStart, slash == std::string::npos ? std::string::npos : slash - volStart);
+			const size_t slash = loc->path.find('/', volStart);
+			std::string volume = loc->path.substr(volStart, slash == std::string::npos ? std::string::npos : slash - volStart);
 			if (!volume.empty() && volume != "emulated" && volume != "self") {
-				key = volume + ":" + (slash == std::string::npos ? std::string() : key.substr(slash + 1));
+				loc->path = slash == std::string::npos ? std::string() : loc->path.substr(slash + 1);
+				loc->volume = std::move(volume);
 			}
 		}
 	} else {
-		return std::string();
+		return false;
 	}
-	while (key.size() > 1 && key.back() == '/') {
-		key.pop_back();
+	while (!loc->path.empty() && loc->path.back() == '/' && (loc->path.size() > 1 || !loc->volume.empty())) {
+		loc->path.pop_back();
 	}
-	return key;
+	return !loc->volume.empty() || !loc->path.empty();
 }
 
 bool SplitStorageLocation(const Path &path, std::string *volume, std::string *pathInVolume) {
-	const std::string key = LocationKey(path);
-	const size_t colon = key.find(':');
-	// A Windows drive letter ("C:/...") isn't a volume ID.
-	if (key.empty() || key[0] == '/' || colon == std::string::npos || colon < 2) {
+	StorageLocation loc;
+	if (!GetStorageLocation(path, &loc) || loc.volume.empty()) {
 		return false;
 	}
-	*volume = key.substr(0, colon);
-	*pathInVolume = key.substr(colon + 1);
+	*volume = loc.volume;
+	*pathInVolume = loc.path;
 	return true;
 }
 
-// True if child is strictly inside parent. Case-insensitive, like Android's shared storage.
-static bool KeyIsInside(std::string_view child, std::string_view parent) {
-	if (parent.empty() || child.size() <= parent.size() || !startsWithNoCase(child, parent)) {
+// The location of GetPSPFolderOf(folder), by the same rule.
+static bool GetPSPFolderLocation(const Path &folder, StorageLocation *loc) {
+	if (!GetStorageLocation(folder, loc)) {
 		return false;
 	}
-	const char last = parent.back();
-	return last == '/' || last == ':' || child[parent.size()] == '/';
-}
-
-// LocationKey() of GetPSPFolderOf(folder), by the same rule.
-static std::string PSPFolderKey(const Path &folder) {
-	const std::string key = LocationKey(folder);
-	if (key.empty()) {
-		return key;
+	if (!equalsNoCase(folder.GetFilename(), "PSP")) {
+		*loc = loc->WithComponent("PSP");
 	}
-	// Path::GetFilename() is GetLastPart() for content URIs.
-	const std::string name = IsContentURI(folder) ? AndroidContentURI(folder.ToString()).GetLastPart() : folder.GetFilename();
-	if (equalsNoCase(name, "PSP")) {
-		return key;
-	}
-	return key + (key.back() == ':' || key.back() == '/' ? "PSP" : "/PSP");
+	return true;
 }
 
 static bool IsPSPSubfolderName(std::string_view name) {
@@ -123,10 +142,9 @@ static bool IsPSPSubfolderName(std::string_view name) {
 // Works from the name alone, for folders whose parents we can't look at (a picked content URI tree):
 // a PSP folder with one of its usual subfolders below it, or a folder only PSP data is called, whatever
 // its parent is called (a PSP folder may have been renamed).
-static bool KeyLooksInsidePSPFolder(std::string_view key) {
-	const size_t colon = key.find(':');
+static bool LooksInsidePSPFolder(const StorageLocation &loc) {
 	std::vector<std::string_view> parts;
-	SplitString(key.substr(colon == std::string_view::npos ? 0 : colon + 1), '/', parts);
+	SplitString(loc.path, '/', parts);
 	parts.erase(std::remove(parts.begin(), parts.end(), std::string_view()), parts.end());
 	for (size_t i = 0; i < parts.size(); i++) {
 		if (equalsNoCase(parts[i], "SAVEDATA") || equalsNoCase(parts[i], "PPSSPP_STATE")) {
@@ -148,11 +166,11 @@ static bool LooksLikePSPFolder(const Path &dir) {
 	return File::Exists(dir / "SAVEDATA") && (File::Exists(dir / "SYSTEM") || File::Exists(dir / "GAME"));
 }
 
-static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
-	if (KeyLooksInsidePSPFolder(key)) {
+static bool IsInsideOtherMemstick(const Path &folder, const StorageLocation &loc) {
+	if (LooksInsidePSPFolder(loc)) {
 		return true;
 	}
-	if (folder.Type() != PathType::NATIVE || IsContentURI(folder)) {
+	if (folder.Type() != PathType::NATIVE) {
 		return false;
 	}
 	// Native paths: look for a memory stick in use among the parents, or a PSP folder by another name.
@@ -163,7 +181,8 @@ static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
 			break;
 		}
 		dir = up;
-		if ((KeyIsInside(key, PSPFolderKey(dir)) && FolderSeemsToBeUsed(dir)) || LooksLikePSPFolder(dir)) {
+		StorageLocation dirPSP;
+		if ((GetPSPFolderLocation(dir, &dirPSP) && loc.IsInside(dirPSP) && FolderSeemsToBeUsed(dir)) || LooksLikePSPFolder(dir)) {
 			return true;
 		}
 	}
@@ -171,30 +190,28 @@ static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
 }
 
 MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &currentFolder) {
-	const std::string newKey = LocationKey(newFolder);
-	if (newKey.empty()) {
+	StorageLocation newLoc;
+	StorageLocation newPSP;
+	if (!GetStorageLocation(newFolder, &newLoc) || !GetPSPFolderLocation(newFolder, &newPSP)) {
 		return MemstickFolderCheck::OK;
 	}
-	const std::string newPSPKey = PSPFolderKey(newFolder);
-	std::string curPSPKey;
-	if (!currentFolder.empty()) {
-		curPSPKey = PSPFolderKey(currentFolder);
-		if (KeyIsInside(newPSPKey, curPSPKey)) {
-			return MemstickFolderCheck::INSIDE_CURRENT;
-		}
+	StorageLocation curPSP;
+	const bool haveCurrent = !currentFolder.empty() && GetPSPFolderLocation(currentFolder, &curPSP);
+	if (haveCurrent && newPSP.IsInside(curPSP)) {
+		return MemstickFolderCheck::INSIDE_CURRENT;
 	}
-	if (IsInsideOtherMemstick(newFolder, newKey)) {
+	if (IsInsideOtherMemstick(newFolder, newLoc)) {
 		return MemstickFolderCheck::INSIDE_OTHER;
 	}
 	// A PSP folder that isn't used as one: we'd make a new PSP folder inside it.
-	if (!equalsNoCase(newPSPKey, newKey) && !FolderSeemsToBeUsed(newFolder) && LooksLikePSPFolder(newFolder)) {
+	if (!(newPSP == newLoc) && !FolderSeemsToBeUsed(newFolder) && LooksLikePSPFolder(newFolder)) {
 		return MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER;
 	}
-	if (!curPSPKey.empty()) {
-		if (equalsNoCase(newPSPKey, curPSPKey)) {
+	if (haveCurrent) {
+		if (newPSP == curPSP) {
 			return MemstickFolderCheck::SAME_PSP_FOLDER;
 		}
-		if (KeyIsInside(curPSPKey, newPSPKey)) {
+		if (curPSP.IsInside(newPSP)) {
 			return MemstickFolderCheck::CONTAINS_CURRENT;
 		}
 	}
@@ -393,9 +410,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	moveDest = GetPSPFolderOf(moveDest);
 
 	// The UI doesn't offer these (see CheckNewMemstickFolder), but moving a folder into itself would be a mess.
-	const std::string srcKey = LocationKey(moveSrc);
-	const std::string destKey = LocationKey(moveDest);
-	if (!srcKey.empty() && !destKey.empty() && (equalsNoCase(srcKey, destKey) || KeyIsInside(srcKey, destKey) || KeyIsInside(destKey, srcKey))) {
+	StorageLocation srcLoc;
+	StorageLocation destLoc;
+	if (GetStorageLocation(moveSrc, &srcLoc) && GetStorageLocation(moveDest, &destLoc) && (srcLoc == destLoc || srcLoc.IsInside(destLoc) || destLoc.IsInside(srcLoc))) {
 		ERROR_LOG(Log::System, "Refusing to move PSP data from '%s' to '%s'", moveSrc.c_str(), moveDest.c_str());
 		return new MoveResult{ false, "Source and destination overlap" };
 	}
