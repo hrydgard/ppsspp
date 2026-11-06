@@ -1,6 +1,5 @@
-use std::fs::File;
 use std::io::{self, BufRead, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::section::Section;
 
@@ -10,16 +9,8 @@ pub struct IniFile {
     pub preamble: Vec<String>,
     pub sections: Vec<Section>,
     pub has_bom: bool,
-}
-
-// Grabbed from a sample, a fast line reader iterator.
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
-{
-    let file = File::open(filename)?;
-    use std::io::BufRead;
-    Ok(io::BufReader::new(file).lines())
+    // Written back the way it was read. On a Windows checkout the files are CRLF.
+    pub crlf: bool,
 }
 
 fn read_lines_from_string(s: &str) -> io::Result<io::Lines<io::BufReader<&[u8]>>> {
@@ -28,9 +19,12 @@ fn read_lines_from_string(s: &str) -> io::Result<io::Lines<io::BufReader<&[u8]>>
 
 impl IniFile {
     pub fn parse_file(filename: &str) -> io::Result<IniFile> {
-        let lines = read_lines(filename)?;
+        let contents = std::fs::read_to_string(filename)?;
+        let lines = read_lines_from_string(&contents)?;
 
-        Self::parse_lines(lines, Some(PathBuf::from(filename)))
+        let mut ini = Self::parse_lines(lines, Some(PathBuf::from(filename)))?;
+        ini.crlf = contents.contains("\r\n");
+        Ok(ini)
     }
 
     pub fn parse_string(s: &str) -> io::Result<IniFile> {
@@ -91,6 +85,7 @@ impl IniFile {
             preamble,
             sections,
             has_bom,
+            crlf: false,
         };
         Ok(ini)
     }
@@ -104,6 +99,7 @@ impl IniFile {
         };
         let file = std::fs::File::create(filename)?;
         let mut file = std::io::LineWriter::new(file);
+        let eol: &[u8] = if self.crlf { b"\r\n" } else { b"\n" };
 
         // Write BOM
         if self.has_bom {
@@ -111,16 +107,17 @@ impl IniFile {
         }
         for line in &self.preamble {
             file.write_all(line.as_bytes())?;
-            file.write_all(b"\n")?;
+            file.write_all(eol)?;
         }
         for section in &self.sections {
             file.write_all(section.title_line.as_bytes())?;
-            file.write_all(b"\n")?;
+            file.write_all(eol)?;
             for line in &section.lines {
                 file.write_all(line.as_bytes())?;
-                file.write_all(b"\n")?;
+                file.write_all(eol)?;
             }
         }
+        file.flush()?;
 
         Ok(())
     }
