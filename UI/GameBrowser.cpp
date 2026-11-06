@@ -302,6 +302,15 @@ void GameBrowser::Update() {
 	}
 }
 
+void GameBrowser::Measure(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert) {
+	// Under a popup (like the one with the icon size buttons), the screen isn't recreated or updated,
+	// only laid out, so the grid picks up a new size here.
+	if (gameGrid_) {
+		gameGrid_->SetCellSize(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale);
+	}
+	LinearLayout::Measure(dc, horiz, vert);
+}
+
 void GameBrowser::Draw(UIContext &dc) {
 	using namespace UI;
 
@@ -396,6 +405,7 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	gameList_ = nullptr;
+	gameGrid_ = nullptr;
 
 	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
 	Add(topBar);
@@ -490,7 +500,9 @@ void GameBrowser::Refresh() {
 	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 	if (gridStyle) {
-		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		// Measure sets the cell size.
+		gameGrid_ = new UI::GridLayoutList(UI::GridLayoutSettings(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		gameList_ = gameGrid_;
 	} else {
 		UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gl->SetSpacing(4.0f);
