@@ -44,10 +44,10 @@ public:
 		UI::LinearLayout::Update();
 		// Propagate rounding flags. TODO: Figure out a more general way.
 		if (macInput_) {
-			macInput_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomLeft));
+			macInput_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::Left));
 		}
 		if (randomize_) {
-			randomize_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomRight));
+			randomize_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::Right));
 		}
 	}
 private:
@@ -80,7 +80,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 
 		std::string_view confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
 		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
+		std::string combined = g_Config.sMACAddress + "\n" + std::string(confirmMessage) + "\n" + std::string(warningMessage);
 
 		auto confirmScreen = new MessagePopupScreen(
 			title,
