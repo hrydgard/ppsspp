@@ -534,7 +534,8 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 
-	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
+	// Not FILL_PARENT high: in the row, that would push the progress below off the screen.
+	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0f, WRAP_CONTENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	columns->Add(spacerColumn);
@@ -548,7 +549,9 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	leftColumn->Add(new TextView(GetMemstickFolderDisplayName(newMemstickFolder_), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 
 	// TODO: Add spinner
-	newFreeSpaceView_ = leftColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
+	// Views get recreated after the free space has come in, so the text can't just be set when it does.
+	const std::string freeSpace = freeSpace_ == FREE_SPACE_PENDING ? std::string("...") : FormatSpaceString(freeSpace_);
+	newFreeSpaceView_ = leftColumn->Add(new TextView(std::string(ms->T("Free space")) + ": " + freeSpace, ALIGN_LEFT, false));
 
 	if (existingFilesInNewFolder_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
@@ -685,7 +688,8 @@ void ConfirmMemstickMoveScreen::update() {
 	if (newSpaceTask_ && newFreeSpaceView_) {
 		SpaceResult *result = newSpaceTask_->Poll();
 		if (result) {
-			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(result->bytesFree));
+			freeSpace_ = result->bytesFree;
+			newFreeSpaceView_->SetText(std::string(ms->T("Free space")) + ": " + FormatSpaceString(freeSpace_));
 			delete newSpaceTask_;
 			newSpaceTask_ = nullptr;
 		}

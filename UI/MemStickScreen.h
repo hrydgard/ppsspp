@@ -131,6 +131,8 @@ private:
 	bool dataMoved_ = false;
 	// Set when everything worked: restart then (time_now_d()), after showing that.
 	double restartTime_ = 0.0;
+	static constexpr int64_t FREE_SPACE_PENDING = -2;
+	int64_t freeSpace_ = FREE_SPACE_PENDING;
 
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;
