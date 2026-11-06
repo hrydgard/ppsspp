@@ -1064,9 +1064,25 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (g_Config.iMaxRecent > 0) {
 		ChoiceGroup *recentGroup = groupList->Add(new ChoiceGroup(sy->T("Clear Recent")));
 		recentGroup->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Add([this](UI::EventParams &e) {
-			g_recentFiles.Clear();
-			OnRecentChanged.Trigger(e);
-			TriggerFinish(DR_OK);
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			// dialogFinished closes this popup once the prompt is gone.
+			screenManager()->push(new MessagePopupScreen(sy->T("Clear Recent"), sy->T("ClearRecentConfirm", "Clear the \"Recent\" list? Your games won't be deleted."), di->T("Clear"), di->T("Cancel"), [this](bool yes) {
+				if (yes) {
+					g_recentFiles.Clear();
+					recentCleared_ = true;
+				}
+			}));
 		});
 	}
+}
+
+void GridSettingsPopupScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (!recentCleared_) {
+		return;
+	}
+	recentCleared_ = false;
+	UI::EventParams e{};
+	OnRecentChanged.Trigger(e);
+	TriggerFinish(DR_OK);
 }
