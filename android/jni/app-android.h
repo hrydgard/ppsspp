@@ -104,8 +104,10 @@ jobject Android_GetActivity(JNIEnv *env);
 // only room for 512 of them, and running out aborts the process.
 class JNILocalFrame {
 public:
+	// env is null in executables without a Java VM (headless, unit tests), where the storage functions
+	// using this then fail on the missing activity.
 	explicit JNILocalFrame(JNIEnv *env, int capacity = 16) : env_(env) {
-		pushed_ = env_->PushLocalFrame(capacity) == 0;
+		pushed_ = env_ && env_->PushLocalFrame(capacity) == 0;
 	}
 	~JNILocalFrame() {
 		if (pushed_) {

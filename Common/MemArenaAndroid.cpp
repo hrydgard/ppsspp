@@ -102,10 +102,11 @@ bool MemArena::GrabMemSpace(size_t size) {
 	// Use ashmem so we don't have to allocate a file on disk!
 	const char* name = "PPSSPP_RAM";
 
-	// Since version 26 Android provides a new api for accessing SharedMemory.
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26) {
-		fd = ashmem_create_region(name, size);
-	} else {
+	// Since version 26 Android provides a new api for accessing SharedMemory. It's looked up at runtime, so
+	// try it first rather than going by SYSPROP_SYSTEMVERSION, which executables without the app (unit
+	// tests, headless) don't know. Newer versions don't let us open /dev/ashmem ourselves.
+	fd = ashmem_create_region(name, size);
+	if (fd < 0) {
 		fd = legacy_ashmem_create_region(name, size);
 	}
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
