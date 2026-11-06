@@ -516,9 +516,35 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 		return fail("Couldn't switch to the new folder", 0);
 	}
 
-	// Delete the originals: the files, then the folders. On content URIs DeleteDir would take the files
-	// along anyway, but on native paths it only removes empty folders.
 	progressReporter.SetPhase(ms->T("Deleting from old folder..."));
+	if (moveSrc.Type() == PathType::CONTENT_URI) {
+		// DeleteDir takes a folder's contents along here, so only the top level needs deleting, one call
+		// each instead of one per file. All of it is safely copied: the listing fails if any part of the
+		// tree can't be read.
+		std::vector<std::string> topLevel;
+		for (const std::string &dirSuffix : directorySuffixesToCreate) {
+			if (dirSuffix.find('/') == std::string::npos) {
+				topLevel.push_back(dirSuffix);
+			}
+		}
+		const size_t dirCount = topLevel.size();
+		for (const FileSuffix &fileSuffix : fileSuffixesToMove) {
+			if (fileSuffix.suffix.find('/') == std::string::npos) {
+				topLevel.push_back(fileSuffix.suffix);
+			}
+		}
+		for (size_t i = 0; i < topLevel.size(); i++) {
+			const Path item = moveSrc / topLevel[i];
+			progressReporter.SetProgress(topLevel[i], i, topLevel.size());
+			if (!(i < dirCount ? File::DeleteDir(item) : File::Delete(item))) {
+				// It's safely copied, so this only leaves a duplicate behind.
+				WARN_LOG(Log::System, "Failed to delete '%s' after copying it", item.c_str());
+			}
+		}
+		return new MoveResult{ true, "", 0 };
+	}
+
+	// Native paths: the files, then the folders, since DeleteDir only removes empty ones.
 	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
 		const Path from = moveSrc / fileSuffixesToMove[i].suffix;
 		progressReporter.SetProgress(fileSuffixesToMove[i].suffix, i, fileSuffixesToMove.size());

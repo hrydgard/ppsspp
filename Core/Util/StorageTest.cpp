@@ -292,6 +292,9 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 		CHECK(ReadAll(dest / "PSP/SAVEDATA/GAME2/DATA.BIN") == "other");
 		CHECK(ReadAll(dest / "PSP/SYSTEM/ppsspp.ini") == "ini");
 		CHECK(!File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+		// The old folders go too.
+		CHECK(!File::Exists(src / "PSP/SAVEDATA"));
+		CHECK(!File::Exists(src / "PSP/SYSTEM"));
 		return "";
 	});
 
