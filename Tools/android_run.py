@@ -60,6 +60,9 @@ def build_and_install(device):
 def start(device, app_args):
 	"""Force-stops the app and starts it with app_args (a list of options)."""
 	adb(["shell", "am force-stop " + PACKAGE], device)
+	# Some devices default every log tag to silent (persist.log.tag=S), which drops all of ours before it
+	# reaches logcat. This lets ours through, until the next reboot.
+	adb(["shell", "setprop log.tag.PPSSPP V"], device)
 	command = "am start -n %s/.PpssppActivity" % PACKAGE
 	if app_args:
 		# The shell on the device parses this once more, so quote the whole thing.
