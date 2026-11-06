@@ -739,8 +739,9 @@ void PSARReader::EnsureContents() {
 		uLongf destLen = contentExpandedSize_;
 		uLong sourceLen = decoded;
 		int zResult = uncompress2(entryData_.data(), &destLen, block2_.data(), &sourceLen);
-		// Handle zip streams missing their Adler-32 checksum.
-		if (zResult == Z_BUF_ERROR && sourceLen == (uLong)decoded && destLen == contentExpandedSize_ && decrypted_) {
+		// Handle zip streams missing their Adler-32 checksum (the pre-decrypted 3.60 archive's). The
+		// input runs out with the output full, which zlib 1.4 reports as Z_DATA_ERROR, 1.3 as Z_BUF_ERROR.
+		if ((zResult == Z_BUF_ERROR || zResult == Z_DATA_ERROR) && sourceLen == (uLong)decoded && destLen == contentExpandedSize_ && decrypted_) {
 			zResult = Z_OK;
 		}
 		if (zResult != Z_OK || destLen != contentExpandedSize_) {
