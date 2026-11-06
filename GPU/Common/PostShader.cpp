@@ -95,10 +95,14 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<File::FileInfo> fileInfo;
-		g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
-
-		if (fileInfo.empty()) {
+		if (directories[d].IsAbsolute()) {
+			// The memory stick's folder. The VFS would list it the same way, so an empty one got listed twice.
 			File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+		} else {
+			g_VFS.GetFileListing(directories[d].c_str(), &fileInfo, "ini:");
+			if (fileInfo.empty()) {
+				File::GetFilesInDir(directories[d], &fileInfo, "ini:");
+			}
 		}
 
 		for (size_t f = 0; f < fileInfo.size(); f++) {
