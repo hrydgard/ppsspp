@@ -2100,6 +2100,13 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
       return true;
 #endif
+   case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+      // Desktops only, like the standalone app.
+#if PPSSPP_ARCH(64BIT) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH) && !PPSSPP_PLATFORM(UWP)
+      return true;
+#else
+      return false;
+#endif
    default:
       return false;
    }
