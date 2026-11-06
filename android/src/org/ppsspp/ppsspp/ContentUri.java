@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -72,13 +73,61 @@ public class ContentUri {
 		}
 	}
 
+	// Whether the provider made a renamed copy because the name was taken. It answers that with "name (1)", or
+	// "name (1).ext" for a file (FileUtils.buildUniqueFile), and before that replaces the characters FAT doesn't
+	// allow with '_' (buildValidFatFilename). The replacement alone isn't a conflict, the name was free.
+	private static boolean isRenamedCopy(String requested, String actual) {
+		if (actual == null || actual.equals(requested)) {
+			return false;
+		}
+		final String sanitized = fatSanitized(requested);
+		// Directories, and files the provider didn't split an extension off, get the number at the end.
+		if (isNumbered(actual, sanitized, "")) {
+			return true;
+		}
+		final int dot = sanitized.lastIndexOf('.');
+		return dot > 0 && isNumbered(actual, sanitized.substring(0, dot), sanitized.substring(dot));
+	}
+
+	// Whether name is "base (N)ext".
+	private static boolean isNumbered(String name, String base, String ext) {
+		final int digitsStart = base.length() + 2;
+		final int digitsEnd = name.length() - ext.length() - 1;
+		if (digitsEnd <= digitsStart || !name.startsWith(base + " (") || !name.endsWith(")" + ext)) {
+			return false;
+		}
+		for (int i = digitsStart; i < digitsEnd; i++) {
+			final char ch = name.charAt(i);
+			if (ch < '0' || ch > '9') {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static String fatSanitized(String name) {
+		final StringBuilder sb = new StringBuilder(name.length());
+		for (int i = 0; i < name.length(); i++) {
+			final char ch = name.charAt(i);
+			sb.append((ch <= 0x1f || ch == 0x7f || "\"*/:<>?\\|".indexOf(ch) >= 0) ? '_' : ch);
+		}
+		return sb.toString();
+	}
+
+	private static void logIfNameChanged(String what, String requested, String actual) {
+		if (actual != null && !actual.equals(requested)) {
+			Log.w(TAG, what + ": the provider named '" + requested + "' '" + actual + "'");
+		}
+	}
+
 	// Without a client of our own, every query and DocumentsContract call acquires the storage provider and
 	// releases it again, and when our reference count drops to zero, each of those is another binder call,
 	// to the system. Holding one keeps the count up. Unstable, so the provider dying doesn't take our process
 	// with it: queries that then fail drop it, and the next one acquires a new one.
+	// One per authority, and only dropped when its provider dies, so a client is never closed while another
+	// thread is still using it. There are rarely more than one or two.
 	private static final Object clientLock = new Object();
-	private static ContentProviderClient client;
-	private static String clientAuthority;
+	private static final HashMap<String, ContentProviderClient> clients = new HashMap<>();
 
 	private static ContentProviderClient getClient(Context context, Uri uri) {
 		final String authority = uri.getAuthority();
@@ -86,28 +135,31 @@ public class ContentUri {
 			return null;
 		}
 		synchronized (clientLock) {
-			if (client != null && authority.equals(clientAuthority)) {
-				return client;
+			ContentProviderClient client = clients.get(authority);
+			if (client == null) {
+				// The application's resolver, so the client doesn't keep the activity alive.
+				client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
+				if (client != null) {
+					clients.put(authority, client);
+				}
 			}
-			dropClientLocked();
-			// The application's resolver, so the client doesn't keep the activity alive.
-			client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
-			clientAuthority = authority;
 			return client;
 		}
 	}
 
-	private static void dropClientLocked() {
-		if (client == null) {
-			return;
+	// Drops the client if it's still the one cached for its authority (another thread may have replaced it already).
+	private static void dropClient(String authority, ContentProviderClient client) {
+		synchronized (clientLock) {
+			if (clients.get(authority) != client) {
+				return;
+			}
+			clients.remove(authority);
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			client.close();
 		} else {
 			client.release();
 		}
-		client = null;
-		clientAuthority = null;
 	}
 
 	private static Cursor query(Context context, Uri uri, String[] projection) throws Exception {
@@ -117,11 +169,7 @@ public class ContentUri {
 				return c.query(uri, projection, null, null, null);
 			} catch (android.os.DeadObjectException e) {
 				Log.w(TAG, "Storage provider died, acquiring it again");
-				synchronized (clientLock) {
-					if (client == c) {
-						dropClientLocked();
-					}
-				}
+				dropClient(uri.getAuthority(), c);
 			}
 		}
 		return context.getContentResolver().query(uri, projection, null, null, null);
@@ -165,6 +213,9 @@ public class ContentUri {
 			return null;
 		}
 		final String documentName = c.getString(0);
+		if (documentName == null) {
+			return null;
+		}
 		if (prefixLowercase != null && !prefixLowercase.isEmpty()) {
 			// Filter by prefix, case insensitive.
 			if (!documentName.regionMatches(true, 0, prefixLowercase, 0, prefixLowercase.length())) {
@@ -205,7 +256,7 @@ public class ContentUri {
 			if (c != null) {
 				while (c.moveToNext()) {
 					final String mimeType = c.getString(2);
-					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+					final boolean isDirectory = DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType);
 					if (isDirectory) {
 						final String childDocumentId = c.getString(0);
 						final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
@@ -309,11 +360,14 @@ public class ContentUri {
 			if (created == null) {
 				return STORAGE_ERROR_UNKNOWN;
 			}
-			if (!name.equals(documentName(activity, created))) {
+			// Null if the provider wouldn't say, which isn't a conflict.
+			final String createdName = documentName(activity, created);
+			if (isRenamedCopy(name, createdName)) {
 				Log.w(TAG, "createDocument: '" + name + "' is taken, removing the renamed copy " + created);
 				DocumentsContract.deleteDocument(resolver, created);
 				return STORAGE_ERROR_ALREADY_EXISTS;
 			}
+			logIfNameChanged("createDocument", name, createdName);
 			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
 			Log.e(TAG, "createDocument exception: " + e);
@@ -371,7 +425,8 @@ public class ContentUri {
 			}
 			// A taken name gets a renamed copy, see createDocument.
 			final String name = documentName(activity, srcUri);
-			if (name != null && !name.equals(documentName(activity, copy))) {
+			final String copyName = documentName(activity, copy);
+			if (name != null && isRenamedCopy(name, copyName)) {
 				Log.w(TAG, "contentUriCopyFile: '" + name + "' is taken, removing the renamed copy " + copy);
 				DocumentsContract.deleteDocument(resolver, copy);
 				return STORAGE_ERROR_ALREADY_EXISTS;
@@ -419,11 +474,13 @@ public class ContentUri {
 			final String oldName = documentName(activity, uri);
 			final Uri newUri = DocumentsContract.renameDocument(resolver, uri, newName);
 			// A taken name gets "name (1)" instead, see createDocument. Put the old name back.
-			if (newUri != null && oldName != null && !newName.equals(documentName(activity, newUri))) {
+			final String renamedName = newUri != null ? documentName(activity, newUri) : null;
+			if (oldName != null && isRenamedCopy(newName, renamedName)) {
 				Log.w(TAG, "contentUriRenameFileTo: '" + newName + "' is taken, renaming back to '" + oldName + "'");
 				DocumentsContract.renameDocument(resolver, newUri, oldName);
 				return STORAGE_ERROR_ALREADY_EXISTS;
 			}
+			logIfNameChanged("contentUriRenameFileTo", newName, renamedName);
 			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRenameFile exception: " + e);
@@ -495,16 +552,13 @@ public class ContentUri {
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpaceSlow(Activity activity, Uri uri) {
-		try {
-			ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r");
+		try (ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r")) {
 			if (pfd == null) {
 				Log.w(TAG, "Failed to get free storage space from URI: " + uri);
 				return -1;
 			}
 			StructStatVfs stats = Os.fstatvfs(pfd.getFileDescriptor());
-			long freeSpace = stats.f_bavail * stats.f_bsize;
-			pfd.close();
-			return freeSpace;
+			return stats.f_bavail * stats.f_bsize;
 		} catch (Exception e) {
 			// FileNotFoundException | ErrnoException e
 			// Log.getStackTraceString(e)

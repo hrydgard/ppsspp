@@ -52,19 +52,27 @@ public class DocumentResultProxyActivity extends AppCompatActivity {
 
 					if (uri != null) {
 						Log.i(TAG, "DocumentResultProxy: Selected URI: " + uri);
+						final boolean isTree = pickerIntent != null && Intent.ACTION_OPEN_DOCUMENT_TREE.equals(pickerIntent.getAction());
 						try {
-							if (pickerIntent != null && Intent.ACTION_OPEN_DOCUMENT_TREE.equals(pickerIntent.getAction())) {
+							if (isTree) {
 								getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+							} else {
+								getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+							}
+						} catch (Exception e) {
+							Log.w(TAG, "DocumentResultProxy: Exception taking the URI permission: " + e);
+						}
+						// Even without a persistable grant, native needs the document URI, not the bare tree URI.
+						if (isTree) {
+							try {
 								DocumentFile documentFile = DocumentFile.fromTreeUri(this, uri);
 								if (documentFile != null) {
 									uri = documentFile.getUri();
 									Log.i(TAG, "DocumentResultProxy: DocumentFile URI: " + uri);
 								}
-							} else {
-								getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+							} catch (Exception e) {
+								Log.w(TAG, "DocumentResultProxy: Exception getting DocumentFile: " + e);
 							}
-						} catch (Exception e) {
-							Log.w(TAG, "DocumentResultProxy: Exception getting permissions or DocumentFile: " + e);
 						}
 						resultPath = uri.toString();
 					} else {

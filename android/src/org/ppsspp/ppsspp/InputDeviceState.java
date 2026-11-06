@@ -220,7 +220,11 @@ public class InputDeviceState {
 	}
 
 	private boolean isEventSentByNintendoSwitchLeftJoyCon(KeyEvent event) {
-		return event.getDevice().getName().contains("Nintendo Switch Left Joy-Con");
+		InputDevice device = event.getDevice();
+		if (device == null || device.getName() == null) {
+			return false;
+		}
+		return device.getName().contains("Nintendo Switch Left Joy-Con");
 	}
 
 	private int remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(int scanCode) {

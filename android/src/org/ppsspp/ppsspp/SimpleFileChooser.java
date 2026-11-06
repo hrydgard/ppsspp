@@ -39,6 +39,8 @@ public class SimpleFileChooser {
 		builder.setTitle(mCurrentPath.getPath());
 		// populate dialog with list of files and directories.
 		builder.setItems(mFileList, onDialogItemClickedListener);
+		// Backing out shouldn't leave the (empty) activity behind.
+		builder.setOnCancelListener(dialog -> mActivity.finish());
 		builder.show();
 	}
 
