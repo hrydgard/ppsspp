@@ -2100,6 +2100,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 #else
       return true;
 #endif
+   case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+#ifdef LIBRETRO_CAN_CACHE_ISO_IN_RAM
+      return true;
+#else
+      return false;
+#endif
    default:
       return false;
    }
