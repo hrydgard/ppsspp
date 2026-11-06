@@ -190,6 +190,10 @@ constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModMeta;
 constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModCtrl;
 #endif
 
+// What one notch of a mouse wheel reports as its delta, on every backend (Windows' WHEEL_DELTA).
+// Touchpads and high resolution wheels send fractions of it.
+constexpr int WHEEL_DELTA_PER_NOTCH = 120;
+
 struct KeyInput {
 	KeyInput() {}
 	// These utility constructors are used a lot in SDL.
@@ -202,7 +206,8 @@ struct KeyInput {
 	};
 	KeyInputFlags flags;
 
-	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags.
+	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags, in units of
+	// WHEEL_DELTA_PER_NOTCH, and is always positive (the key code gives the direction).
 	// TODO: Move mousewheel events to TouchInput?
 	int Delta() const {
 		return (s32)flags >> 16;

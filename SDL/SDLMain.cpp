@@ -1830,7 +1830,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// it did), so don't undo it.
 			const float wheelY = event.wheel.y;
 			if (wheelY != 0.0f) {
-				const float scale = 30.0f;
+				// wheel.y is in notches.
+				const float scale = (float)WHEEL_DELTA_PER_NOTCH;
 				key.keyCode = wheelY > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
 				key.flags |= KeyInputFlags::HAS_WHEEL_DELTA;
 				int wheelDelta = (int)(fabsf(wheelY) * scale);

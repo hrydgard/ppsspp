@@ -241,7 +241,12 @@ void PPSSPP_UWPMain::OnMouseWheel(float delta) {
 	KeyInput keyInput{};
 	keyInput.keyCode = key;
 	keyInput.deviceId = DEVICE_ID_MOUSE;
-	keyInput.flags = KeyInputFlags::DOWN;
+	// MouseWheelDelta is already in WHEEL_DELTA_PER_NOTCH units.
+	int wheelDelta = (int)(delta < 0 ? -delta : delta);
+	if (wheelDelta > 16 * WHEEL_DELTA_PER_NOTCH) {
+		wheelDelta = 16 * WHEEL_DELTA_PER_NOTCH;
+	}
+	keyInput.flags = (KeyInputFlags)((u32)KeyInputFlags::DOWN | (u32)KeyInputFlags::HAS_WHEEL_DELTA | (wheelDelta << 16));
 	NativeKey(keyInput);
 
 	// KeyInputFlags::UP is now sent automatically afterwards for mouse wheel events, see NativeKey.
