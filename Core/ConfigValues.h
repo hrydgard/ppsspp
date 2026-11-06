@@ -320,6 +320,5 @@ enum class RemoteISOShareType : int {
 
 enum class GameBrowserViewMode : int {
 	GRID = 0,
-	LIST = 1,
-	LARGE_LIST = 2,  // XMB-style, with full size icons and the ICON1.PMF video.
+	LIST = 1,  // XMB-style, with full size icons and the ICON1.PMF video. Old configs may have 2 (the large list) here.
 };

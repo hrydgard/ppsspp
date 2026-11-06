@@ -671,11 +671,12 @@ void ConfirmMemstickMoveScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		return;
 	}
 	ChoiceGroup *confirmGroup = groups->Add(new ChoiceGroup());
-	if (canChooseMove) {
-		confirmGroup->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
-	}
 	if (!IsBlocked()) {
 		confirmGroup->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
+	}
+	ChoiceGroup *moveGroup = groups->Add(new ChoiceGroup());
+	if (canChooseMove) {
+		moveGroup->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
 	}
 }
 

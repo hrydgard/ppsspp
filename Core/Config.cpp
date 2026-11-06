@@ -220,10 +220,10 @@ static int GameBrowserViewFromGridView(int legacyGridView, GameBrowserViewMode d
 	return (int)(legacyGridView ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST);
 }
 
-// Recent, Games and Homebrew switch everyone to the large list, ignoring the old setting. Remote keeps it.
-static int DefaultGameBrowserView1() { return (int)GameBrowserViewMode::LARGE_LIST; }
-static int DefaultGameBrowserView2() { return (int)GameBrowserViewMode::LARGE_LIST; }
-static int DefaultGameBrowserView3() { return (int)GameBrowserViewMode::LARGE_LIST; }
+// Recent, Games and Homebrew switch everyone to the list, ignoring the old setting. Remote keeps it.
+static int DefaultGameBrowserView1() { return (int)GameBrowserViewMode::LIST; }
+static int DefaultGameBrowserView2() { return (int)GameBrowserViewMode::LIST; }
+static int DefaultGameBrowserView3() { return (int)GameBrowserViewMode::LIST; }
 static int DefaultGameBrowserView4() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView4, GameBrowserViewMode::LIST); }
 
 static float DefaultGameGridScale() {
@@ -417,6 +417,7 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
+	ConfigSetting("GameListScale", SETTING(g_Config, fGameListScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
 	ConfigSetting("GridView4", SETTING(g_Config, iLegacyGridView4), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
 	// These must come after GridView*, which their defaults are taken from.
 	ConfigSetting("GameBrowserView1", SETTING(g_Config, iGameBrowserView1), &DefaultGameBrowserView1, CfgFlag::DEFAULT),

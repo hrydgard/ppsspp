@@ -33,12 +33,12 @@
 
 class GameInfo;
 
-// Icon dimensions in the large list, and its padding around the icon.
-static constexpr float LARGE_LIST_ICON_W = 144.0f;
-static constexpr float LARGE_LIST_ICON_H = 80.0f;
-static constexpr float LARGE_LIST_PAD = 6.0f;
-static constexpr float LARGE_LIST_LEFT_PAD = 11.0f;
-static constexpr float LARGE_LIST_INFO_SIZE = 64.0f;
+// Icon dimensions in the list, and its padding around the icon.
+static constexpr float LIST_ICON_W = 144.0f;
+static constexpr float LIST_ICON_H = 80.0f;
+static constexpr float LIST_PAD = 6.0f;
+static constexpr float LIST_LEFT_PAD = 11.0f;
+static constexpr float LIST_INFO_SIZE = 64.0f;
 
 enum class GameButtonType {
 	Game,
@@ -212,12 +212,12 @@ private:
 
 	void UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVideo);
 
-	// The large list has room for an info button on each line, doing the same as a long press.
+	// The list has room for an info button on each line, doing the same as a long press.
 	bool HasInfoButton() const {
-		return viewMode_ == GameBrowserViewMode::LARGE_LIST && type_ == GameButtonType::Game;
+		return viewMode_ == GameBrowserViewMode::LIST && type_ == GameButtonType::Game;
 	}
 	Bounds InfoButtonBounds() const {
-		return Bounds(bounds_.x2() - LARGE_LIST_INFO_SIZE - LARGE_LIST_PAD, bounds_.centerY() - LARGE_LIST_INFO_SIZE * 0.5f, LARGE_LIST_INFO_SIZE, LARGE_LIST_INFO_SIZE);
+		return Bounds(bounds_.x2() - LIST_INFO_SIZE - LIST_PAD, bounds_.centerY() - LIST_INFO_SIZE * 0.5f, LIST_INFO_SIZE, LIST_INFO_SIZE);
 	}
 	// Returns true if the info button took the input.
 	bool TouchInfoButton(const TouchInput &input) {
@@ -244,7 +244,7 @@ private:
 	const Path gamePath_;
 	std::string title_;
 
-	// The ICON1.PMF video, played in place of the icon in the large list, like the XMB does.
+	// The ICON1.PMF video, played in place of the icon in the list, like the XMB does.
 	std::unique_ptr<PMFVideoTexture> video_;
 	Instant videoStart_;
 

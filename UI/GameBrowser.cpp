@@ -52,7 +52,7 @@
 #include "Core/Util/DarwinFileSystemServices.h" // For the browser
 
 // Folders get bigger lines too, though not as big as the games.
-static constexpr float LARGE_LIST_FOLDER_H = 50.0f;
+static constexpr float LIST_FOLDER_H = 50.0f;
 
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(ORIENT_VERTICAL, layoutParams), viewMode_(viewMode), browseFlags_(browseFlags), portrait_(portrait), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager), token_(token) {
@@ -104,23 +104,25 @@ bool GameBrowser::Touch(const TouchInput &input) {
 	return LinearLayout::Touch(input);
 }
 
+float *GameBrowserIconScale(GameBrowserViewMode viewMode) {
+	return viewMode == GameBrowserViewMode::GRID ? &g_Config.fGameGridScale : &g_Config.fGameListScale;
+}
+
 // Draw notices the change and refreshes every browser.
-static void StepIconSize(bool bigger) {
+void StepGameBrowserIconScale(GameBrowserViewMode viewMode, bool bigger) {
+	float *scale = GameBrowserIconScale(viewMode);
 	if (bigger) {
-		g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
+		*scale = std::min(*scale * 1.25f, MAX_GAME_GRID_SCALE);
 	} else {
-		g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+		*scale = std::max(*scale / 1.25f, MIN_GAME_GRID_SCALE);
 	}
 }
 
 bool GameBrowser::Key(const KeyInput &input) {
 	// Ctrl+wheel and Ctrl+Plus/Minus (Cmd on Apple platforms) change the icon size, like zooming in a
-	// file manager. The plain list doesn't scale.
+	// file manager.
 	const bool zoomMod = (input.flags & KeyInputFlags::DOWN) && (input.flags & KEY_MOD_SHORTCUT);
 	if (zoomMod && mouseHover_ && (input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
-		if (ViewMode() == GameBrowserViewMode::LIST) {
-			return false;
-		}
 		// A touchpad sends a stream of small deltas, so add them up and step once per notch's worth.
 		int delta = (input.flags & KeyInputFlags::HAS_WHEEL_DELTA) ? input.Delta() : WHEEL_DELTA_PER_NOTCH;
 		// Zoom by the fingers' direction (up is bigger), whatever the natural scrolling setting.
@@ -135,26 +137,26 @@ bool GameBrowser::Key(const KeyInput &input) {
 		lastWheelZoomTime_ = now;
 		wheelZoomAccum_ += delta;
 		while (wheelZoomAccum_ >= WHEEL_DELTA_PER_NOTCH) {
-			StepIconSize(true);
+			StepGameBrowserIconScale(ViewMode(), true);
 			wheelZoomAccum_ -= WHEEL_DELTA_PER_NOTCH;
 		}
 		while (wheelZoomAccum_ <= -WHEEL_DELTA_PER_NOTCH) {
-			StepIconSize(false);
+			StepGameBrowserIconScale(ViewMode(), false);
 			wheelZoomAccum_ += WHEEL_DELTA_PER_NOTCH;
 		}
 		return true;
 	}
-	if (zoomMod && ViewMode() != GameBrowserViewMode::LIST) {
+	if (zoomMod) {
 		// Plus is shifted on most layouts, so accept the key it shares (Equals on US layouts) too.
 		switch (input.keyCode) {
 		case NKCODE_PLUS:
 		case NKCODE_EQUALS:
 		case NKCODE_NUMPAD_ADD:
-			StepIconSize(true);
+			StepGameBrowserIconScale(ViewMode(), true);
 			return true;
 		case NKCODE_MINUS:
 		case NKCODE_NUMPAD_SUBTRACT:
-			StepIconSize(false);
+			StepGameBrowserIconScale(ViewMode(), false);
 			return true;
 		default:
 			break;
@@ -200,10 +202,8 @@ void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFoc
 }
 
 GameBrowserViewMode GameBrowser::ViewMode() const {
-	if (*viewMode_ < (int)GameBrowserViewMode::GRID || *viewMode_ > (int)GameBrowserViewMode::LARGE_LIST) {
-		return GameBrowserViewMode::GRID;
-	}
-	return (GameBrowserViewMode)*viewMode_;
+	// Anything else is the list, including 2 (the old large list).
+	return *viewMode_ == (int)GameBrowserViewMode::GRID ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST;
 }
 
 void GameBrowser::LayoutChange(UI::EventParams &e) {
@@ -302,10 +302,19 @@ void GameBrowser::Update() {
 	}
 }
 
+void GameBrowser::Measure(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert) {
+	// Under a popup (like the one with the icon size buttons), the screen isn't recreated or updated,
+	// only laid out, so the grid picks up a new size here.
+	if (gameGrid_) {
+		gameGrid_->SetCellSize(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale);
+	}
+	LinearLayout::Measure(dc, horiz, vert);
+}
+
 void GameBrowser::Draw(UIContext &dc) {
 	using namespace UI;
 
-	if (lastScale_ != g_Config.fGameGridScale || lastViewMode_ != ViewMode()) {
+	if (lastScale_ != *GameBrowserIconScale(ViewMode()) || lastViewMode_ != ViewMode()) {
 		refreshPending_ = true;
 		// Keep the focus on the same game, as a keyboard zoom leaves it there.
 		if (gameList_ && focusPath_.empty()) {
@@ -385,8 +394,8 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 void GameBrowser::Refresh() {
 	using namespace UI;
 
-	lastScale_ = g_Config.fGameGridScale;
 	lastViewMode_ = ViewMode();
+	lastScale_ = *GameBrowserIconScale(lastViewMode_);
 	const bool gridStyle = lastViewMode_ == GameBrowserViewMode::GRID;
 
 	// Kill all the contents
@@ -396,6 +405,7 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	gameList_ = nullptr;
+	gameGrid_ = nullptr;
 
 	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
 	Add(topBar);
@@ -472,7 +482,6 @@ void GameBrowser::Refresh() {
 
 	ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 	layoutChoice->AddChoice(ImageID("I_GRID"));
-	layoutChoice->AddChoice(ImageID("I_LINES"));
 	layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
 	layoutChoice->SetSelection((int)lastViewMode_, false);
 	layoutChoice->ApplyRoundCorners();
@@ -491,7 +500,9 @@ void GameBrowser::Refresh() {
 	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 	if (gridStyle) {
-		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		// Measure sets the cell size.
+		gameGrid_ = new UI::GridLayoutList(UI::GridLayoutSettings(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		gameList_ = gameGrid_;
 	} else {
 		UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gl->SetSpacing(4.0f);
@@ -739,7 +750,7 @@ void GameBrowser::PathChanged() {
 
 void GameBrowser::GridSettingsClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto gridSettings = new GridSettingsPopupScreen(sy->T("Games list settings"));
+	auto gridSettings = new GridSettingsPopupScreen(sy->T("Games list settings"), ViewMode());
 	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
 	if (e.v)
 		gridSettings->SetPopupOrigin(e.v);

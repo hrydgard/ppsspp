@@ -12,6 +12,10 @@
 constexpr float MIN_GAME_GRID_SCALE = 0.8f;
 constexpr float MAX_GAME_GRID_SCALE = 3.0f;
 
+// The icon size setting for a view mode (grid and list have one each).
+float *GameBrowserIconScale(GameBrowserViewMode viewMode);
+void StepGameBrowserIconScale(GameBrowserViewMode viewMode, bool bigger);
+
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
 };
@@ -42,6 +46,7 @@ public:
 	bool Key(const KeyInput &key) override;
 	bool Touch(const TouchInput &input) override;
 	void SetSearchFilter(const std::string &filter, bool setKeyboardFocus);
+	void Measure(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert) override;
 	void Draw(UIContext &dc) override;
 	void Update() override;
 	void RequestRefresh() {
@@ -82,6 +87,8 @@ private:
 	void OnHomebrewStore(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
+	// Same as gameList_ in the grid view, else null.
+	UI::GridLayoutList *gameGrid_ = nullptr;
 	PathBrowser path_;
 	int *viewMode_ = nullptr;
 	BrowseFlags browseFlags_;

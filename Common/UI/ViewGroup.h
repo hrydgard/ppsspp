@@ -327,6 +327,11 @@ public:
 	void SetPadding(const Margins &padding) {
 		padding_ = padding;
 	}
+	// Takes effect at the next layout.
+	void SetCellSize(int columnWidth, int rowHeight) {
+		settings_.columnWidth = columnWidth;
+		settings_.rowHeight = rowHeight;
+	}
 
 private:
 	GridLayoutSettings settings_;
