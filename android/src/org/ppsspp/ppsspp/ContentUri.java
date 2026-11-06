@@ -1,6 +1,7 @@
 package org.ppsspp.ppsspp;
 
 import android.app.Activity;
+import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +12,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.StructStatVfs;
@@ -40,6 +44,61 @@ public class ContentUri {
 	private static final int STORAGE_ERROR_NOT_FOUND = -2;
 	private static final int STORAGE_ERROR_DISK_FULL = -3;
 	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
+
+	// Without a client of our own, every query and DocumentsContract call acquires the storage provider and
+	// releases it again, and when our reference count drops to zero, each of those is another binder call,
+	// to the system. Holding one keeps the count up. Unstable, so the provider dying doesn't take our process
+	// with it: queries that then fail drop it, and the next one acquires a new one.
+	private static final Object clientLock = new Object();
+	private static ContentProviderClient client;
+	private static String clientAuthority;
+
+	private static ContentProviderClient getClient(Context context, Uri uri) {
+		final String authority = uri.getAuthority();
+		if (authority == null) {
+			return null;
+		}
+		synchronized (clientLock) {
+			if (client != null && authority.equals(clientAuthority)) {
+				return client;
+			}
+			dropClientLocked();
+			// The application's resolver, so the client doesn't keep the activity alive.
+			client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
+			clientAuthority = authority;
+			return client;
+		}
+	}
+
+	private static void dropClientLocked() {
+		if (client == null) {
+			return;
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			client.close();
+		} else {
+			client.release();
+		}
+		client = null;
+		clientAuthority = null;
+	}
+
+	private static Cursor query(Context context, Uri uri, String[] projection) throws Exception {
+		final ContentProviderClient c = getClient(context, uri);
+		if (c != null) {
+			try {
+				return c.query(uri, projection, null, null, null);
+			} catch (android.os.DeadObjectException e) {
+				Log.w(TAG, "Storage provider died, acquiring it again");
+				synchronized (clientLock) {
+					if (client == c) {
+						dropClientLocked();
+					}
+				}
+			}
+		}
+		return context.getContentResolver().query(uri, projection, null, null, null);
+	}
 
 	@Keep
 	@SuppressWarnings("unused")
@@ -107,10 +166,9 @@ public class ContentUri {
 				DocumentsContract.Document.COLUMN_SIZE,
 				DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
 			};
-			final ContentResolver resolver = activity.getContentResolver();
 			final String documentId = DocumentsContract.getDocumentId(uri);
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
-			c = resolver.query(childrenUri, columns, null, null, null);
+			c = query(activity, childrenUri, columns);
 			long sizeSum = 0;
 
 			// Buffer the URIs so we only have one cursor active at once. I don't trust the storage framework
@@ -174,7 +232,6 @@ public class ContentUri {
 	public static String[] listContentUriDir(Activity activity, String uriString, String prefix) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			final ContentResolver resolver = activity.getContentResolver();
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
 				uri, DocumentsContract.getDocumentId(uri));
 			final ArrayList<String> listing = new ArrayList<>();
@@ -191,7 +248,7 @@ public class ContentUri {
 				prefix = prefix.toLowerCase(Locale.ROOT);
 			}
 
-			try (Cursor c = resolver.query(childrenUri, projection, null, null, null)) {
+			try (Cursor c = query(activity, childrenUri, projection)) {
 				if (c == null) {
 					return new String[]{"X"};
 				}
@@ -352,7 +409,7 @@ public class ContentUri {
 		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(fileUri);
-			c = activity.getContentResolver().query(uri, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID }, null, null, null);
+			c = query(activity, uri, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID });
 			if (c != null) {
 				return c.getCount() > 0;
 			} else {
@@ -377,7 +434,7 @@ public class ContentUri {
 			DocumentsContract.Document.COLUMN_LAST_MODIFIED   // index 4
 		};
 
-		try (Cursor c = activity.getContentResolver().query(Uri.parse(fileName), projection, null, null, null)) {
+		try (Cursor c = query(activity, Uri.parse(fileName), projection)) {
 			if (c != null && c.moveToFirst()) {
 				return cursorToString(c, null);
 			} else {
@@ -415,11 +472,47 @@ public class ContentUri {
 		}
 	}
 
+	// The free space of the storage volume a document is on, looked up from the volume in its document ID
+	// ("primary:PSP", "75D7-DC5F:PSP"). The fstatvfs of a descriptor opened through the provider can't be
+	// trusted for that: for a folder on an SD card, some devices report the internal storage. -1 if the volume
+	// isn't found.
+	@RequiresApi(Build.VERSION_CODES.R)
+	private static long getFreeSpaceOfVolume(Context context, Uri uri) {
+		try {
+			if (!"com.android.externalstorage.documents".equals(uri.getAuthority())) {
+				return -1;
+			}
+			final String documentId = DocumentsContract.isDocumentUri(context, uri) ? DocumentsContract.getDocumentId(uri) : DocumentsContract.getTreeDocumentId(uri);
+			final int colon = documentId.indexOf(':');
+			if (colon <= 0) {
+				return -1;
+			}
+			final String volumeId = documentId.substring(0, colon);
+			final StorageManager storageManager = context.getSystemService(StorageManager.class);
+			for (StorageVolume volume : storageManager.getStorageVolumes()) {
+				final boolean match = "primary".equals(volumeId) ? volume.isPrimary() : volumeId.equalsIgnoreCase(volume.getUuid());
+				final File directory = match ? volume.getDirectory() : null;
+				if (directory != null) {
+					return new StatFs(directory.getPath()).getAvailableBytes();
+				}
+			}
+		} catch (Exception e) {
+			Log.w(TAG, "getFreeSpaceOfVolume: " + e);
+		}
+		return -1;
+	}
+
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpace(Activity activity, String str) {
+		Uri uri = Uri.parse(str);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			long space = getFreeSpaceOfVolume(activity, uri);
+			if (space >= 0) {
+				return space;
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			Uri uri = Uri.parse(str);
 			return contentUriGetFreeStorageSpaceSlow(activity, uri);
 		}
 

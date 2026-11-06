@@ -1,0 +1,230 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <algorithm>
+#include <vector>
+
+#include "Common/Data/Text/Parsers.h"
+#include "Common/File/DirListing.h"
+#include "Common/File/DiskFree.h"
+#include "Common/File/FileUtil.h"
+#include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
+#include "Core/Util/StorageTest.h"
+
+// A test returns an empty string if it passed, and what went wrong if it didn't.
+#define CHECK(cond) do { if (!(cond)) { return StringFromFormat("line %d: %s", __LINE__, #cond); } } while (false)
+
+static std::string ReadAll(const Path &path) {
+	std::string str;
+	if (!File::ReadBinaryFileToString(path, &str)) {
+		return "<unreadable>";
+	}
+	return str;
+}
+
+static bool Write(const Path &path, std::string_view str) {
+	return File::WriteStringToFile(false, str, path);
+}
+
+static bool HasEntry(const std::vector<File::FileInfo> &files, std::string_view name, bool isDirectory) {
+	return std::any_of(files.begin(), files.end(), [&](const File::FileInfo &f) {
+		return f.name == name && f.isDirectory == isDirectory;
+	});
+}
+
+int RunStorageTests(const Path &root, const std::function<void(const StorageTestResult &)> &report) {
+	const Path scratch = root / "ppsspp_storage_test";
+	// On content URIs DeleteDir takes everything in the folder along, on native paths it only removes empty
+	// ones. The memory stick move depends on knowing which.
+	const bool contentURI = root.Type() == PathType::CONTENT_URI;
+	int failures = 0;
+	std::string note;
+
+	auto run = [&](const char *name, const std::function<std::string()> &test) {
+		note.clear();
+		std::string error = test();
+		StorageTestResult result{ name, error.empty(), error.empty() ? note : error };
+		if (!result.passed) {
+			failures++;
+		}
+		INFO_LOG(Log::System, "StorageTest: %s %s%s%s", result.passed ? "PASS" : "FAIL", name, result.detail.empty() ? "" : ": ", result.detail.c_str());
+		report(result);
+	};
+
+	run("CreateDir", [&]() -> std::string {
+		if (File::Exists(scratch)) {
+			// Left over from a run that didn't finish.
+			CHECK(File::DeleteDirRecursively(scratch));
+		}
+		CHECK(!File::Exists(scratch));
+		CHECK(File::CreateDir(scratch));
+		CHECK(File::Exists(scratch));
+		CHECK(File::IsDirectory(scratch));
+		return "";
+	});
+	if (failures) {
+		// Nowhere to run the rest.
+		return failures;
+	}
+
+	run("WriteRead", [&]() -> std::string {
+		const Path file = scratch / "a.txt";
+		CHECK(Write(file, "hello"));
+		CHECK(File::Exists(file));
+		CHECK(!File::IsDirectory(file));
+		CHECK(ReadAll(file) == "hello");
+		File::FileInfo info;
+		CHECK(File::GetFileInfo(file, &info));
+		CHECK(info.exists && !info.isDirectory && info.size == 5);
+		return "";
+	});
+
+	run("Overwrite", [&]() -> std::string {
+		// Writing a shorter file over a longer one has to truncate it.
+		const Path file = scratch / "b.txt";
+		CHECK(Write(file, "a longer string"));
+		CHECK(Write(file, "short"));
+		CHECK(ReadAll(file) == "short");
+		return "";
+	});
+
+	run("ListDir", [&]() -> std::string {
+		CHECK(File::CreateDir(scratch / "sub"));
+		std::vector<File::FileInfo> files;
+		CHECK(File::GetFilesInDir(scratch, &files));
+		CHECK(files.size() == 3);
+		CHECK(HasEntry(files, "a.txt", false));
+		CHECK(HasEntry(files, "b.txt", false));
+		CHECK(HasEntry(files, "sub", true));
+		return "";
+	});
+
+	run("CreateFullPath", [&]() -> std::string {
+		CHECK(File::CreateFullPath(scratch / "x/y/z"));
+		CHECK(File::IsDirectory(scratch / "x/y/z"));
+		// Already there is fine.
+		CHECK(File::CreateFullPath(scratch / "x/y"));
+		return "";
+	});
+
+	run("Rename", [&]() -> std::string {
+		CHECK(File::Rename(scratch / "a.txt", scratch / "renamed.txt"));
+		CHECK(!File::Exists(scratch / "a.txt"));
+		CHECK(ReadAll(scratch / "renamed.txt") == "hello");
+		return "";
+	});
+
+	run("MoveIfFast", [&]() -> std::string {
+		CHECK(File::MoveIfFast(scratch / "renamed.txt", scratch / "sub/renamed.txt"));
+		CHECK(!File::Exists(scratch / "renamed.txt"));
+		CHECK(ReadAll(scratch / "sub/renamed.txt") == "hello");
+		// Folders too, which is what the memory stick move does.
+		CHECK(File::MoveIfFast(scratch / "x", scratch / "sub/x"));
+		CHECK(File::IsDirectory(scratch / "sub/x/y/z"));
+		return "";
+	});
+
+	run("Copy", [&]() -> std::string {
+		CHECK(File::Copy(scratch / "b.txt", scratch / "sub/b.txt"));
+		CHECK(ReadAll(scratch / "sub/b.txt") == "short");
+		CHECK(ReadAll(scratch / "b.txt") == "short");
+		return "";
+	});
+
+	run("Delete", [&]() -> std::string {
+		CHECK(File::Delete(scratch / "b.txt"));
+		CHECK(!File::Exists(scratch / "b.txt"));
+		return "";
+	});
+
+	run("DeleteDir", [&]() -> std::string {
+		const Path dir = scratch / "full";
+		CHECK(File::CreateDir(dir));
+		CHECK(Write(dir / "f.txt", "f"));
+		const bool deleted = File::DeleteDir(dir);
+		if (contentURI) {
+			CHECK(deleted && !File::Exists(dir));
+			note = "takes the contents along";
+		} else {
+			CHECK(!deleted && File::Exists(dir / "f.txt"));
+			note = "only empty folders";
+		}
+		CHECK(File::DeleteDirRecursively(dir) || !File::Exists(dir));
+		CHECK(!File::Exists(dir));
+		return "";
+	});
+
+	run("Names", [&]() -> std::string {
+		// Characters that need escaping in a content URI, and outside ASCII.
+		const char *name = "100% #1 & \xC3\xA4.txt";
+		CHECK(Write(scratch / name, "odd"));
+		CHECK(ReadAll(scratch / name) == "odd");
+		std::vector<File::FileInfo> files;
+		CHECK(File::GetFilesInDir(scratch, &files));
+		CHECK(HasEntry(files, name, false));
+		return "";
+	});
+
+	run("FreeSpace", [&]() -> std::string {
+		int64_t space = 0;
+		CHECK(free_disk_space(root, space));
+		CHECK(space > 0);
+		note = NiceSizeFormat(space);
+		return "";
+	});
+
+	// Not a pass/fail test: the cost of the calls the emulator makes most, for comparing implementations.
+	// On content URIs each is a call into Java and a binder transaction to the provider.
+	run("Timing", [&]() -> std::string {
+		const Path dir = scratch / "timing";
+		CHECK(File::CreateDir(dir));
+		const int count = 20;
+		std::string report;
+		auto time = [&](const char *what, int n, const std::function<bool(int)> &op) -> bool {
+			const Instant start = Instant::Now();
+			for (int i = 0; i < n; i++) {
+				if (!op(i)) {
+					return false;
+				}
+			}
+			report += StringFromFormat("%s%s %.2f", report.empty() ? "" : ", ", what, start.ElapsedMs() / n);
+			return true;
+		};
+		auto name = [&](int i) { return dir / StringFromFormat("file%02d.bin", i); };
+		CHECK(time("create+write", count, [&](int i) { return Write(name(i), "0123456789"); }));
+		CHECK(time("overwrite", count, [&](int i) { return Write(name(i), "9876543210"); }));
+		CHECK(time("read", count, [&](int i) { return ReadAll(name(i)) == "9876543210"; }));
+		CHECK(time("exists", count, [&](int i) { return File::Exists(name(i)); }));
+		CHECK(time("missing", count, [&](int i) { return !File::Exists(dir / StringFromFormat("none%02d", i)); }));
+		CHECK(time("info", count, [&](int i) { File::FileInfo info; return File::GetFileInfo(name(i), &info) && info.size == 10; }));
+		CHECK(time("list", 5, [&](int) { std::vector<File::FileInfo> files; return File::GetFilesInDir(dir, &files) && files.size() == count; }));
+		CHECK(time("delete", count, [&](int i) { return File::Delete(name(i)); }));
+		note = "ms per call: " + report;
+		return "";
+	});
+
+	run("Cleanup", [&]() -> std::string {
+		CHECK(File::DeleteDirRecursively(scratch));
+		CHECK(!File::Exists(scratch));
+		return "";
+	});
+
+	INFO_LOG(Log::System, "StorageTest: DONE, %d failed", failures);
+	return failures;
+}

@@ -688,7 +688,9 @@ add_library(Core STATIC
 	Util/AudioFormat.cpp
 	Util/AudioFormat.h
 	Util/MemStick.cpp
+	Util/StorageTest.cpp
 	Util/MemStick.h
+	Util/StorageTest.h
 	Util/GameDB.cpp
 	Util/GameDB.h
 	Util/PathUtil.cpp

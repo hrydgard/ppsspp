@@ -147,6 +147,7 @@
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
+#include "UI/StorageTestScreen.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/SettingsPage.h"
 #include "UI/RemoteISOScreen.h"
@@ -910,6 +911,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new MemStickScreen(true));
+		} else if (equals(cmdLineOptions.startScreen.value(), "storagetest")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new StorageTestScreen());
 		} else if (equals(cmdLineOptions.startScreen.value(), "credits")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new CreditsScreen());

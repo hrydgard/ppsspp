@@ -82,6 +82,15 @@ away within seconds, which reads as "logging stopped" rather than "logging was l
 
     adb logcat -c && adb logcat -s PPSSPP:V PpssppActivity:V   # in the background, then start the app
 
+## Starting the app with options
+
+    python Tools/android_run.py --build --start-screen=memsticksetup   # build, install, open the memory stick setup
+    python Tools/android_run.py --log --start-screen=firmware          # and follow the app's log
+
+It force-stops the app first, since options are only read at startup, and passes them in the
+`org.ppsspp.ppsspp.Args` intent extra. It also sets `log.tag.PPSSPP` to `V`: some devices default every
+tag to silent (`persist.log.tag` is `S`), and then logcat busily shows other apps but never a line of ours. The `--start-screen` names are in `NativeInit()` in `UI/NativeApp.cpp`.
+
 ## Running the C++ unit tests on a device
 
 CI builds the Android unit test executable but doesn't run it. To run it on a connected device:
@@ -97,9 +106,26 @@ failures. Worth doing before a release, and after changing `Common/File` or anyt
 Two things to know when reading its results:
 
 - The executable has no Java VM, so content URIs fail like missing files there. They're only exercised
-  for real inside the app.
+  for real inside the app, by the storage tests below.
 - From Git Bash, set `MSYS_NO_PATHCONV=1` before any `adb push`/`adb shell` of your own, or
   `/data/local/tmp` gets rewritten into a Windows path and the push silently lands somewhere else.
+
+## Running the storage tests in the app
+
+`Core/Util/StorageTest.cpp` exercises the file functions (create, overwrite, list, rename, move, copy,
+delete, odd names, free space) in a scratch folder, and times the calls the emulator makes most. The
+`Storage` unit test runs them on a native folder; to run them on a picked folder, through the content
+URI code:
+
+    python Tools/android_storage_test.py --build    # build and install the normal debug APK, then run
+    python Tools/android_storage_test.py            # with what's installed
+
+That starts the app with `--start-screen=storagetest`. The first time, tap Choose folder on the device,
+create a new empty folder in the picker, and choose it. It's remembered (in `storage_test_dir.txt` in
+the app's internal data), so later runs need no hands and take seconds. Results go to logcat as
+`StorageTest: PASS/FAIL ...` lines, ending with `StorageTest: DONE, N failed`. Run them in a folder on
+an SD card too, if the device has one. Keep the screen on (Stay awake in the developer options) while
+timing: a locked phone throttles the app, and the times double.
 
 ## VR (Quest)
 
