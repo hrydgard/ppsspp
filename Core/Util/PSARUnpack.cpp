@@ -1747,6 +1747,13 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
 	}
 	if (ok) {
+		// The shell refuses to install a theme without this directory, and the updater's archive
+		// doesn't have it (6.61's has nothing under flash1), so the real updater must create it.
+		const Path themeDir = nandRoot / "flash1/vsh/theme";
+		if (!File::CreateFullPath(themeDir)) {
+			WARN_LOG(Log::Loader, "Couldn't create %s", themeDir.c_str());
+		}
+
 		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionAfterInstall(g_Config.iSceRegCategoryVersion, SceRegCategoryVersionForFirmware(stats->firmwareVersion));
 	}
 
