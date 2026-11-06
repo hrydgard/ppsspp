@@ -18,7 +18,7 @@
 
 """Starts PPSSPP on an Android device, with command line options, optionally building and installing it first.
 
-    python Tools/android_run.py --build --start-screen=memsticksetup   # build, install, open the memory stick setup
+    python Tools/android_run.py --build --start-screen=memstick   # build, install, open the memory stick screen
     python Tools/android_run.py --log --start-screen=firmware     # follow the app's log until Ctrl+C
     python Tools/android_run.py -- --some-option=x                # anything after -- goes to the app as is
 
@@ -76,7 +76,7 @@ def main():
 	parser.add_argument("--build", action="store_true", help="build and install the normal debug APK first")
 	parser.add_argument("-s", "--device", help="adb device serial, if there's more than one")
 	parser.add_argument("--log", action="store_true", help="follow the app's log (the PPSSPP tag) until Ctrl+C")
-	parser.add_argument("--start-screen", help="the screen to start on, like memsticksetup, firmware or storagetest")
+	parser.add_argument("--start-screen", help="the screen to start on, like memstick, memsticksetup, firmware or storagetest")
 	parser.add_argument("app_args", nargs="*", help="more options for the app, after --")
 	args = parser.parse_args()
 

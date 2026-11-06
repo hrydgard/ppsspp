@@ -911,6 +911,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new MemStickScreen(true));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memstick")) {
+			// As opened from the settings, to move an existing memory stick.
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(false));
 		} else if (equals(cmdLineOptions.startScreen.value(), "storagetest")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new StorageTestScreen());
