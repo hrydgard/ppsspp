@@ -347,7 +347,7 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 
 		if (pendingMemStickFolder == g_Config.memStickDirectory) {
 			// Same directory as before - all good. Nothing to do.
-			done_ = true;
+			TriggerFinish(DialogResult::DR_OK);
 			return;
 		}
 
@@ -421,7 +421,7 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			// Not sure how this could happen, but let's go with it.
 			g_OSD.Show(OSDType::MESSAGE_SUCCESS, di->T("Done!"));
-			done_ = true;
+			TriggerFinish(DialogResult::DR_OK);
 			return;
 		}
 		screenManager()->push(new ConfirmMemstickMoveScreen(pendingMemStickFolder, initialSetup_));
@@ -451,19 +451,9 @@ void MemStickScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// Other popups, like the missing file browser error, also finish with DR_OK.
 	if (result == DialogResult::DR_OK && !strcmp(dialog->tag(), "ConfirmMemstickMove")) {
 		INFO_LOG(Log::System, "Confirmation screen done - moving on.");
-		// There's a screen manager bug if we call TriggerFinish directly.
-		// Can't be bothered right now, so we pick this up in update().
-		done_ = true;
+		TriggerFinish(DialogResult::DR_OK);
 	}
 	// otherwise, we just keep going.
-}
-
-void MemStickScreen::update() {
-	UITwoPaneBaseDialogScreen::update();
-	if (done_) {
-		TriggerFinish(DialogResult::DR_OK);
-		done_ = false;
-	}
 }
 
 ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup)

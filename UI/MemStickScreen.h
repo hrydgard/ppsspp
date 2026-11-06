@@ -57,17 +57,6 @@ protected:
 	std::string_view GetTitle() const override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void update() override;
-	ScreenRenderFlags render(ScreenRenderMode mode) override {
-		// Simple anti-flicker due to delayed finish.
-		if (!done_) {
-			// render as usual.
-			return UITwoPaneBaseDialogScreen::render(mode);
-		} else {
-			// no render. black frame insertion is better than flicker.
-		}
-		return ScreenRenderFlags::NONE;
-	}
 
 private:
 	// Event handlers
@@ -85,7 +74,6 @@ private:
 
 	bool initialSetup_;
 	bool storageBrowserWorking_;
-	bool done_ = false;
 
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	int choice_ = CHOICE_PRIVATE_DIRECTORY;
