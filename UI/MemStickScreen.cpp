@@ -561,6 +561,8 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, ms->T("Already contains PSP data"), ""));
 		if (!moveData_) {
 			leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("No data will be changed"), ""));
+		} else {
+			leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("MoveReplacesFiles", "Previously existing files in the new folder will be replaced by moved files with the same names"), ""));
 		}
 	}
 

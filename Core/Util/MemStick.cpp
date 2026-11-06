@@ -22,7 +22,7 @@
 bool FolderSeemsToBeUsed(const Path &newMemstickFolder) {
 	// Inspect the potential new folder, quickly. We could add more criteria like checking for actual savegames.
 	const Path pspFolder = GetPSPFolderOf(newMemstickFolder);
-	return File::Exists(pspFolder / "SAVEDATA") || File::Exists(pspFolder / "SYSTEM");
+	return File::Exists(pspFolder / "SAVEDATA") || File::Exists(pspFolder / "SYSTEM") || File::Exists(pspFolder / "PPSSPP_STATE");
 }
 
 // Checked by string rather than Type(), which only says CONTENT_URI on Android, so the checks below can
