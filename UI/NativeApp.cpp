@@ -1521,6 +1521,12 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		return true;
 	}
 	else if (message == UIMessage::PERMISSION_GRANTED && value == "storage") {
+		// Android reports the permission at every startup too (sendInitialGrants). If the config loaded, we had
+		// access all along, and there's nothing to redo: reloading it and creating the directories again cost
+		// half a second of every startup with a memory stick on a content URI.
+		if (g_Config.LoadedFromFile()) {
+			return true;
+		}
 		CreateSysDirectories();
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.
