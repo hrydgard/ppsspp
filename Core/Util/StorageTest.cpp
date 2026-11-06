@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "Common/Data/Text/Parsers.h"
+#include "Common/File/AndroidStorage.h"
 #include "Common/File/DirListing.h"
 #include "Common/File/DiskFree.h"
 #include "Common/File/FileUtil.h"
@@ -167,6 +168,61 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 		}
 		CHECK(File::DeleteDirRecursively(dir) || !File::Exists(dir));
 		CHECK(!File::Exists(dir));
+		return "";
+	});
+
+	run("NoDuplicates", [&]() -> std::string {
+		// Android's storage provider makes "name (1)" rather than fail, when asked to create something
+		// whose name is taken. Nothing may ever do that to the user's files.
+		const Path dir = scratch / "dup";
+		CHECK(File::CreateFullPath(dir / "sub"));
+		CHECK(Write(dir / "a.txt", "a"));
+		CHECK(Write(dir / "b.txt", "b"));
+		CHECK(Write(dir / "sub/a.txt", "old"));
+		auto duplicates = [](const Path &folder) {
+			std::vector<File::FileInfo> files;
+			File::GetFilesInDir(folder, &files);
+			std::string found;
+			for (const File::FileInfo &f : files) {
+				if (f.name.find(" (") != std::string::npos) {
+					found += f.name + " ";
+				}
+			}
+			return found;
+		};
+		std::vector<std::string> outcomes;
+
+		// The memory stick move merges into existing data with this, so it has to overwrite.
+		const bool copied = File::Copy(dir / "a.txt", dir / "sub/a.txt");
+		CHECK(duplicates(dir / "sub").empty());
+		CHECK(copied && ReadAll(dir / "sub/a.txt") == "a");
+
+		// Rename and move onto a taken name differ between platforms (POSIX overwrites, Windows refuses), so
+		// only duplicates are wrong. Note what happened.
+		const bool renamed = File::Rename(dir / "b.txt", dir / "a.txt");
+		CHECK(duplicates(dir).empty());
+		outcomes.push_back(std::string("rename ") + (renamed ? (ReadAll(dir / "a.txt") == "b" ? "overwrote" : "?") : "refused"));
+		if (!renamed) {
+			CHECK(ReadAll(dir / "a.txt") == "a" && ReadAll(dir / "b.txt") == "b");
+		}
+
+		CHECK(Write(dir / "c.txt", "c"));
+		const bool moved = File::MoveIfFast(dir / "c.txt", dir / "sub/a.txt");
+		CHECK(duplicates(dir / "sub").empty());
+		outcomes.push_back(std::string("move ") + (moved ? (ReadAll(dir / "sub/a.txt") == "c" ? "overwrote" : "?") : "refused"));
+
+		// Creating what's there already, below the File functions (which check first).
+		if (contentURI) {
+			const StorageError file = Android_CreateFile(dir.ToString(), "sub");
+			const StorageError folder = Android_CreateDirectory(dir.ToString(), "sub");
+			CHECK(duplicates(dir).empty());
+			outcomes.push_back(StringFromFormat("create file %s, folder %s", Android_ErrorToString(file), Android_ErrorToString(folder)));
+		}
+		note = "";
+		for (const std::string &o : outcomes) {
+			note += (note.empty() ? "" : ", ") + o;
+		}
+		CHECK(File::DeleteDirRecursively(dir));
 		return "";
 	});
 

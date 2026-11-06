@@ -45,6 +45,33 @@ public class ContentUri {
 	private static final int STORAGE_ERROR_DISK_FULL = -3;
 	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
 
+	// So the native side can tell a missing file or a full disk from other failures.
+	private static int errorFromException(Exception e) {
+		if (e instanceof java.io.FileNotFoundException) {
+			return STORAGE_ERROR_NOT_FOUND;
+		}
+		final String message = e.getMessage();
+		if (message != null && (message.contains("ENOSPC") || message.contains("No space left"))) {
+			return STORAGE_ERROR_DISK_FULL;
+		}
+		return STORAGE_ERROR_UNKNOWN;
+	}
+
+	private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
+
+	// The name a document has. For shared storage it's the last part of the document ID ("primary:PSP/SAVEDATA"),
+	// other providers' IDs can be anything, so those are asked.
+	private static String documentName(Context context, Uri documentUri) {
+		if (EXTERNAL_STORAGE_AUTHORITY.equals(documentUri.getAuthority())) {
+			final String id = DocumentsContract.getDocumentId(documentUri);
+			final int slash = id.lastIndexOf('/');
+			return id.substring(slash >= 0 ? slash + 1 : id.indexOf(':') + 1);
+		}
+		try (Cursor c = context.getContentResolver().query(documentUri, new String[] { DocumentsContract.Document.COLUMN_DISPLAY_NAME }, null, null, null)) {
+			return c != null && c.moveToFirst() ? c.getString(0) : null;
+		}
+	}
+
 	// Without a client of our own, every query and DocumentsContract call acquires the storage provider and
 	// releases it again, and when our reference count drops to zero, each of those is another binder call,
 	// to the system. Holding one keeps the count up. Unstable, so the provider dying doesn't take our process
@@ -110,21 +137,21 @@ public class ContentUri {
 					// I'd expect an exception to happen before we get here, so this is probably
 					// never reached.
 					Log.e(TAG, "Failed to get file descriptor for " + uriString);
-					return -1;
+					return STORAGE_ERROR_UNKNOWN;
 				}
 				// Review note: We intentionally "leak" the fd here, the caller takes ownership and closes
 				// it when done with it.
 				return filePfd.detachFd();
 			}
-		} catch (java.lang.IllegalArgumentException e) {
-			// This exception is long and ugly and really just means file not found.
+		} catch (java.io.FileNotFoundException | IllegalArgumentException e) {
+			// The IllegalArgumentException is long and ugly and really just means file not found too.
 			// We don't log anything (the caller can log).
-			return -1;
+			return STORAGE_ERROR_NOT_FOUND;
 		} catch (Exception e) {
 			// Don't know when this might happen. Let's log. Still, the result is just a
 			// failure that the caller may additionally log.
 			Log.e(TAG, "Unexpected openContentUri exception: " + e);
-			return -1;
+			return errorFromException(e);
 		}
 	}
 
@@ -269,46 +296,42 @@ public class ContentUri {
 		}
 	}
 
-	@Keep
-	@SuppressWarnings("unused")
-	public static int contentUriCreateDirectory(Activity activity, String rootTreeUri, String dirName) {
+	// Given a taken name, the provider makes "name (1)" instead of failing. Nothing may leave such a duplicate of
+	// the user's files, so that's undone here and reported as ALREADY_EXISTS.
+	private static int createDocument(Activity activity, String parentUriString, String mimeType, String name) {
 		try {
-			Uri uri = Uri.parse(rootTreeUri);
-			DocumentFile documentFile = DocumentFile.fromTreeUri(activity, uri);
-			if (documentFile != null) {
-				DocumentFile createdDir = documentFile.createDirectory(dirName);
-				return createdDir != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
-			} else {
-				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
+			Uri parentUri = Uri.parse(parentUriString);
+			if (!DocumentsContract.isDocumentUri(activity, parentUri)) {
+				parentUri = DocumentsContract.buildDocumentUriUsingTree(parentUri, DocumentsContract.getTreeDocumentId(parentUri));
+			}
+			final ContentResolver resolver = activity.getContentResolver();
+			final Uri created = DocumentsContract.createDocument(resolver, parentUri, mimeType, name);
+			if (created == null) {
 				return STORAGE_ERROR_UNKNOWN;
 			}
+			if (!name.equals(documentName(activity, created))) {
+				Log.w(TAG, "createDocument: '" + name + "' is taken, removing the renamed copy " + created);
+				DocumentsContract.deleteDocument(resolver, created);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
-			Log.e(TAG, "contentUriCreateDirectory exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			Log.e(TAG, "createDocument exception: " + e);
+			return errorFromException(e);
 		}
 	}
 
 	@Keep
 	@SuppressWarnings("unused")
-	// NOTE: If the file already exists, this will NOT return an error, instead the OS will create a new
-	// file appending an incrementing number, for example (1), to the filename.
+	public static int contentUriCreateDirectory(Activity activity, String rootTreeUri, String dirName) {
+		return createDocument(activity, rootTreeUri, DocumentsContract.Document.MIME_TYPE_DIR, dirName);
+	}
+
+	// Fails with ALREADY_EXISTS if the name is taken.
+	@Keep
+	@SuppressWarnings("unused")
 	public static int contentUriCreateFile(Activity activity, String rootTreeUri, String fileName) {
-		try {
-			Uri uri = Uri.parse(rootTreeUri);
-			DocumentFile documentFile = DocumentFile.fromTreeUri(activity, uri);
-			if (documentFile != null) {
-				// TODO: Check the file extension and choose MIME type appropriately.
-				// Or actually, let's not bother.
-				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
-				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
-			} else {
-				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
-				return STORAGE_ERROR_UNKNOWN;
-			}
-		} catch (Exception e) {
-			Log.e(TAG, "contentUriCreateFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
-		}
+		return createDocument(activity, rootTreeUri, "application/octet-stream", fileName);
 	}
 
 	@Keep
@@ -324,7 +347,7 @@ public class ContentUri {
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRemoveFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -341,10 +364,22 @@ public class ContentUri {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			return DocumentsContract.copyDocument(activity.getContentResolver(), srcUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+			final ContentResolver resolver = activity.getContentResolver();
+			final Uri copy = DocumentsContract.copyDocument(resolver, srcUri, dstParentUri);
+			if (copy == null) {
+				return STORAGE_ERROR_UNKNOWN;
+			}
+			// A taken name gets a renamed copy, see createDocument.
+			final String name = documentName(activity, srcUri);
+			if (name != null && !name.equals(documentName(activity, copy))) {
+				Log.w(TAG, "contentUriCopyFile: '" + name + "' is taken, removing the renamed copy " + copy);
+				DocumentsContract.deleteDocument(resolver, copy);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCopyFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -368,7 +403,7 @@ public class ContentUri {
 			return result;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriMoveFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -380,13 +415,19 @@ public class ContentUri {
 			// Due to a design flaw, we can't use DocumentFile.renameTo().
 			// Instead we use the DocumentsContract API directly.
 			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
-			Uri newUri = DocumentsContract.renameDocument(activity.getContentResolver(), uri, newName);
-			// NOTE: we don't use the returned newUri for anything right now.
+			final ContentResolver resolver = activity.getContentResolver();
+			final String oldName = documentName(activity, uri);
+			final Uri newUri = DocumentsContract.renameDocument(resolver, uri, newName);
+			// A taken name gets "name (1)" instead, see createDocument. Put the old name back.
+			if (newUri != null && oldName != null && !newName.equals(documentName(activity, newUri))) {
+				Log.w(TAG, "contentUriRenameFileTo: '" + newName + "' is taken, renaming back to '" + oldName + "'");
+				DocumentsContract.renameDocument(resolver, newUri, oldName);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
 			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
-			// TODO: More detailed exception processing.
 			Log.e(TAG, "contentUriRenameFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 

@@ -91,10 +91,14 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 	for (const auto &d : directories) {
 		std::vector<File::FileInfo> fileInfo;
-		g_VFS.GetFileListing(d.c_str(), &fileInfo, "ini:");
-
-		if (fileInfo.empty()) {
+		if (d.IsAbsolute()) {
+			// The memory stick's folder. The VFS would list it the same way, so an empty one got listed twice.
 			File::GetFilesInDir(d, &fileInfo, "ini:");
+		} else {
+			g_VFS.GetFileListing(d.c_str(), &fileInfo, "ini:");
+			if (fileInfo.empty()) {
+				File::GetFilesInDir(d, &fileInfo, "ini:");
+			}
 		}
 
 		for (const auto &f : fileInfo) {
