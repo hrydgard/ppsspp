@@ -2943,7 +2943,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				});
 			}
 			if (ImGui::MenuItem("Load No$ .sym...")) {
-				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP_NOCASH, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->LoadNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
@@ -2951,7 +2951,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				});
 			}
 			if (ImGui::MenuItem("Save No$ .sym...")) {
-				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP_NOCASH, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->SaveNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
