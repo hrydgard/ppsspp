@@ -642,8 +642,9 @@ bool PSARReader::Init(std::string *error) {
 
 	if (!oldschool_) {
 		// The second block's size isn't recorded anywhere, so try the ones real updaters use.
-		// 100 covers most, 2.7x is bigger, and some store it in the first block.
-		const u32 candidates[] = { 100, 144, ReadU16(block_.data() + 0x90) };
+		// 100 covers most, 2.7x is bigger, and some store it in the first block. That one is the
+		// unpadded size (408 in a 6.61 updater) and the block is padded to 16 bytes.
+		const u32 candidates[] = { 100, 144, (ReadU16(block_.data() + 0x90) + 15u) & ~15u };
 		decoded = -1;
 		for (u32 candidate : candidates) {
 			if (candidate == 0) {
@@ -698,7 +699,9 @@ int PSARReader::NextEntry(std::string *error) {
 	const u32 chunkSize = ReadU32(block_.data() + 0x104);
 	const u32 expandedSize = ReadU32(block_.data() + 0x108);
 	// pos_ is a u32, so a huge chunk would wrap it back to an earlier entry and loop forever.
-	if (chunkSize > limit_ - std::min((size_t)pos_, limit_)) {
+	// Check against the file, not limit_: the last entry's contents can run past the size the
+	// header declares (1.x updaters, and the 3.60, 4.21 and 5.70 PSARs).
+	if (chunkSize > size_ - std::min((size_t)pos_, size_)) {
 		*error = StringFromFormat("Entry '%s' runs past the end of the archive (%u bytes)", entryName_.c_str(), chunkSize);
 		return -1;
 	}
@@ -738,8 +741,9 @@ void PSARReader::EnsureContents() {
 		uLongf destLen = contentExpandedSize_;
 		uLong sourceLen = decoded;
 		int zResult = uncompress2(entryData_.data(), &destLen, block2_.data(), &sourceLen);
-		// Handle zip streams missing their Adler-32 checksum.
-		if (zResult == Z_BUF_ERROR && sourceLen == (uLong)decoded && destLen == contentExpandedSize_ && decrypted_) {
+		// Handle zip streams missing their Adler-32 checksum (the pre-decrypted 3.60 archive's). The
+		// input runs out with the output full, which zlib 1.4 reports as Z_DATA_ERROR, 1.3 as Z_BUF_ERROR.
+		if ((zResult == Z_BUF_ERROR || zResult == Z_DATA_ERROR) && sourceLen == (uLong)decoded && destLen == contentExpandedSize_ && decrypted_) {
 			zResult = Z_OK;
 		}
 		if (zResult != Z_OK || destLen != contentExpandedSize_) {
@@ -1746,6 +1750,13 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
 	}
 	if (ok) {
+		// The shell refuses to install a theme without this directory, and the updater's archive
+		// doesn't have it (6.61's has nothing under flash1), so the real updater must create it.
+		const Path themeDir = nandRoot / "flash1/vsh/theme";
+		if (!File::CreateFullPath(themeDir)) {
+			WARN_LOG(Log::Loader, "Couldn't create %s", themeDir.c_str());
+		}
+
 		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionAfterInstall(g_Config.iSceRegCategoryVersion, SceRegCategoryVersionForFirmware(stats->firmwareVersion));
 	}
 
