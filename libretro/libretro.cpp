@@ -2101,8 +2101,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
       return true;
 #endif
    case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
-      // Desktops only, like the standalone app.
-#if PPSSPP_ARCH(64BIT) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH) && !PPSSPP_PLATFORM(UWP)
+#ifdef LIBRETRO_CAN_CACHE_ISO_IN_RAM
       return true;
 #else
       return false;
