@@ -82,6 +82,25 @@ away within seconds, which reads as "logging stopped" rather than "logging was l
 
     adb logcat -c && adb logcat -s PPSSPP:V PpssppActivity:V   # in the background, then start the app
 
+## Running the C++ unit tests on a device
+
+CI builds the Android unit test executable but doesn't run it. To run it on a connected device:
+
+    python Tools/android_unittest.py --build        # build for arm64-v8a, push, run everything
+    python Tools/android_unittest.py Path VFS       # just these, with the binary already built
+
+It runs each test as its own process (a crash would otherwise swallow the buffered output of every test
+before it), keeps each test's output in `android/unittest_logs/`, and prints the command to re-run only the
+failures. Worth doing before a release, and after changing `Common/File` or anything with an
+`#if PPSSPP_PLATFORM(ANDROID)` branch, which desktop unit tests compile out.
+
+Two things to know when reading its results:
+
+- The executable has no Java VM, so content URIs fail like missing files there. They're only exercised
+  for real inside the app.
+- From Git Bash, set `MSYS_NO_PATHCONV=1` before any `adb push`/`adb shell` of your own, or
+  `/data/local/tmp` gets rewritten into a Windows path and the push silently lands somewhere else.
+
 ## VR (Quest)
 
 - The VR flavor is a separate package: `./gradlew :android:assembleVrDebug`, installing as
