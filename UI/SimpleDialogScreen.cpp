@@ -144,6 +144,9 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::DropShadowTitle) {
 			topBarFlags |= TopBarFlags::DropShadowTitle;
 		}
+		if (flags_ & TwoPaneFlags::NoBackButton) {
+			topBarFlags |= TopBarFlags::NoBackButton;
+		}
 		TopBar *topBar = nullptr;
 		if (!(flags_ & TwoPaneFlags::NoTopbarInLandscape)) {
 			topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, title, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 12, 12, 12))));
@@ -166,7 +169,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		LinearLayout *settingsPane = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, Margins(0, 8, 0, 0)));
 		settingsPane->SetSpacing(0.0f);
 
-		if (flags_ & TwoPaneFlags::NoTopbarInLandscape) {
+		if ((flags_ & TwoPaneFlags::NoTopbarInLandscape) && !(flags_ & TwoPaneFlags::NoBackButton)) {
 			// We still need a back button.
 			Choice *backButton = settingsPane->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0, 12, 0))));
 			backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
