@@ -159,9 +159,6 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	};
 
 	page->Setting(&g_Config.bEnableWlan).OnChange(requestLocalNetwork);
-	page->Custom("MAC address", [host](UI::ViewGroup *parent) -> UI::View * {
-		return parent->Add(new MacAddressChooser(host->PageRequesterToken(), host->PageGamePath(), &g_Config.sMACAddress, T(I18NCat::NETWORKING, "MAC address"), host->PageScreenManager()));
-	});
 
 	page->Header("Ad Hoc multiplayer");
 
@@ -245,6 +242,11 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	page->Custom("DNS server", [host](UI::ViewGroup *parent) -> UI::View * {
 		return parent->Add(new PopupTextInputChoice(host->PageRequesterToken(), &g_Config.sInfrastructureDNSServer, T(I18NCat::NETWORKING, "DNS server"), "", 32, host->PageScreenManager()));
 	}).Disabled(&g_Config.bInfrastructureAutoDNS);
+
+	page->Header();
+	page->Custom("MAC address", [host](UI::ViewGroup *parent) -> UI::View * {
+		return parent->Add(new MacAddressChooser(host->PageRequesterToken(), host->PageGamePath(), &g_Config.sMACAddress, T(I18NCat::NETWORKING, "MAC address"), host->PageScreenManager()));
+	});
 
 	page->Header("UPnP (port-forwarding)");
 	// Only togglable outside a game - sceNet latches settings like UPnPUseOriginalPort at boot,
