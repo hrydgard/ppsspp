@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -76,9 +77,10 @@ public class ContentUri {
 	// releases it again, and when our reference count drops to zero, each of those is another binder call,
 	// to the system. Holding one keeps the count up. Unstable, so the provider dying doesn't take our process
 	// with it: queries that then fail drop it, and the next one acquires a new one.
+	// One per authority, and only dropped when its provider dies, so a client is never closed while another
+	// thread is still using it. There are rarely more than one or two.
 	private static final Object clientLock = new Object();
-	private static ContentProviderClient client;
-	private static String clientAuthority;
+	private static final HashMap<String, ContentProviderClient> clients = new HashMap<>();
 
 	private static ContentProviderClient getClient(Context context, Uri uri) {
 		final String authority = uri.getAuthority();
@@ -86,28 +88,31 @@ public class ContentUri {
 			return null;
 		}
 		synchronized (clientLock) {
-			if (client != null && authority.equals(clientAuthority)) {
-				return client;
+			ContentProviderClient client = clients.get(authority);
+			if (client == null) {
+				// The application's resolver, so the client doesn't keep the activity alive.
+				client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
+				if (client != null) {
+					clients.put(authority, client);
+				}
 			}
-			dropClientLocked();
-			// The application's resolver, so the client doesn't keep the activity alive.
-			client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
-			clientAuthority = authority;
 			return client;
 		}
 	}
 
-	private static void dropClientLocked() {
-		if (client == null) {
-			return;
+	// Drops the client if it's still the one cached for its authority (another thread may have replaced it already).
+	private static void dropClient(String authority, ContentProviderClient client) {
+		synchronized (clientLock) {
+			if (clients.get(authority) != client) {
+				return;
+			}
+			clients.remove(authority);
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			client.close();
 		} else {
 			client.release();
 		}
-		client = null;
-		clientAuthority = null;
 	}
 
 	private static Cursor query(Context context, Uri uri, String[] projection) throws Exception {
@@ -117,11 +122,7 @@ public class ContentUri {
 				return c.query(uri, projection, null, null, null);
 			} catch (android.os.DeadObjectException e) {
 				Log.w(TAG, "Storage provider died, acquiring it again");
-				synchronized (clientLock) {
-					if (client == c) {
-						dropClientLocked();
-					}
-				}
+				dropClient(uri.getAuthority(), c);
 			}
 		}
 		return context.getContentResolver().query(uri, projection, null, null, null);

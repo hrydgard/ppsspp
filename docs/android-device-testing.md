@@ -70,6 +70,19 @@ stable across repeated trims. After: the same 13 recreates settled back to 1 and
 A JNI global reference is a GC root, so an activity pinned by one shows up here. This is a usable
 check for JNI ownership bugs, not only Java ones.
 
+### LeakCanary and StrictMode
+
+Debug builds set a StrictMode VM policy that logs leaked closables, unregistered receivers and leaked
+activities under the tag `StrictMode`. Building with `-PleakCanary` also adds LeakCanary to the debug
+build: it logs `Watching instance of ...` for each destroyed activity, and `Found N objects retained`
+(then dumps and analyses the heap) only if one isn't collected. No such line after a run of recreates
+means nothing was retained. It adds a second launcher activity to the package, so start the app with
+`adb shell am start -n org.ppsspp.ppsspp/.PpssppActivity` rather than `monkey`, which can pick
+LeakCanary's.
+
+On a device where `persist.log.tag` is `S`, enable the tags first:
+`adb shell setprop log.tag.LeakCanary V`, and the same for `StrictMode`.
+
 ## logcat on a noisy device
 
 Filter to the process, since the tag alone is not enough:
