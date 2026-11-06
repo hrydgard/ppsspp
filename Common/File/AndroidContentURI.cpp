@@ -115,14 +115,18 @@ bool AndroidContentURI::CanNavigateUp() const {
 
 // Only goes downwards in hierarchies. No ".." will ever be generated.
 bool AndroidContentURI::ComputePathTo(const AndroidContentURI &other, std::string &path) const {
-	size_t offset = FilePath().size() + 1;
-	const auto &otherFilePath = other.FilePath();
-	if (offset >= otherFilePath.size()) {
-		ERROR_LOG(Log::IO, "Bad call to PathTo. '%s' -> '%s'", FilePath().c_str(), other.FilePath().c_str());
+	const std::string &base = FilePath();
+	const std::string &otherFilePath = other.FilePath();
+	// The root of a volume ("primary:") ends in the colon, and then there's no separator to skip.
+	const bool endsInSeparator = !base.empty() && (base.back() == ':' || base.back() == '/');
+	const size_t offset = base.size() + (endsInSeparator ? 0 : 1);
+	// Only whole folder names: "primary:Games" isn't a parent of "primary:Games2".
+	if (offset >= otherFilePath.size() || !startsWith(otherFilePath, base) || (!endsInSeparator && otherFilePath[base.size()] != '/')) {
+		ERROR_LOG(Log::IO, "Bad call to PathTo. '%s' -> '%s'", base.c_str(), otherFilePath.c_str());
 		return false;
 	}
 
-	path = other.FilePath().substr(FilePath().size() + 1);
+	path = otherFilePath.substr(offset);
 	return true;
 }
 

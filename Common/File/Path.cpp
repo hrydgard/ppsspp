@@ -428,7 +428,8 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		return true;
 	}
 
-	if (!other.StartsWith(*this)) {
+	// An empty path is a prefix of everything, but the parent of nothing.
+	if (empty() || !other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
 		return false;
 	}
@@ -451,7 +452,12 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		path = other.path_.substr(1);
 		return true;
 	} else {
-		path = other.path_.substr(path_.size() + 1);
+		// StartsWith is a plain string prefix, but "/a/b" isn't a parent of "/a/bc".
+		const bool endsInSlash = path_.back() == '/';
+		if (!endsInSlash && other.path_[path_.size()] != '/') {
+			return false;
+		}
+		path = other.path_.substr(path_.size() + (endsInSlash ? 0 : 1));
 		return true;
 	}
 }

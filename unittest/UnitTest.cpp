@@ -2955,6 +2955,155 @@ static bool TestStorage() {
 	return true;
 }
 
+static bool TestAndroidContentURIMore() {
+	static const char *provider = "content://com.android.externalstorage.documents";
+	// Not content URIs, or the wrong number of parts.
+	AndroidContentURI bad;
+	EXPECT_FALSE(bad.Parse("file:///sdcard/PSP"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/whatever/primary%3APSP"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/tree/primary%3APSP/notdocument/primary%3APSP"));
+	// The file has to be in the tree.
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/tree/primary%3APSP/document/primary%3AOther"));
+
+	// A bare tree URI, as the folder picker returns it.
+	AndroidContentURI tree(std::string(provider) + "/tree/primary%3AGames%2FPSP");
+	EXPECT_TRUE(tree.IsTreeURI());
+	EXPECT_EQ_STR(tree.Provider(), std::string("com.android.externalstorage.documents"));
+	EXPECT_EQ_STR(tree.RootPath(), std::string("primary:Games/PSP"));
+	EXPECT_EQ_STR(tree.FilePath(), std::string());
+	EXPECT_EQ_STR(tree.ToString(), std::string(provider) + "/tree/primary%3AGames%2FPSP");
+	EXPECT_FALSE(tree.CanNavigateUp());
+
+	// Into the tree, and back.
+	AndroidContentURI root = tree.WithRootFilePath("");
+	EXPECT_EQ_STR(root.FilePath(), std::string("primary:Games/PSP"));
+	EXPECT_FALSE(root.CanNavigateUp());
+	// The whole tree path after the volume, not the last folder. GetSysDirectory()'s PSP folder rule
+	// sees this, which is why picking Games/PSP gets Games/PSP/PSP.
+	EXPECT_EQ_STR(root.GetLastPart(), std::string("Games/PSP"));
+	AndroidContentURI save = tree.WithRootFilePath("SAVEDATA/ULUS10000");
+	EXPECT_EQ_STR(save.FilePath(), std::string("primary:Games/PSP/SAVEDATA/ULUS10000"));
+	EXPECT_EQ_STR(save.GetLastPart(), std::string("ULUS10000"));
+	EXPECT_TRUE(tree.TreeContains(save));
+	EXPECT_EQ_STR(root.WithComponent("SAVEDATA").WithComponent("ULUS10000").ToString(), save.ToString());
+	EXPECT_TRUE(save.NavigateUp());
+	EXPECT_TRUE(save.NavigateUp());
+	EXPECT_FALSE(save.NavigateUp());
+	EXPECT_EQ_STR(save.ToString(), root.ToString());
+
+	// Path computation stops at whole folder names.
+	std::string diff;
+	EXPECT_TRUE(root.ComputePathTo(tree.WithRootFilePath("SAVEDATA/x.bin"), diff));
+	EXPECT_EQ_STR(diff, std::string("SAVEDATA/x.bin"));
+	AndroidContentURI games(std::string(provider) + "/tree/primary%3AGames/document/primary%3AGames");
+	AndroidContentURI games2(std::string(provider) + "/tree/primary%3AGames/document/primary%3AGames2%2Fx");
+	EXPECT_FALSE(games.ComputePathTo(games2, diff));
+	// The root of a volume ends in the colon, there's no separator to skip.
+	AndroidContentURI volume(std::string(provider) + "/tree/primary%3A/document/primary%3A");
+	EXPECT_EQ_STR(volume.GetLastPart(), std::string("primary:"));
+	AndroidContentURI inVolume = volume.WithComponent("PSP");
+	EXPECT_EQ_STR(inVolume.FilePath(), std::string("primary:PSP"));
+	EXPECT_TRUE(volume.ComputePathTo(inVolume.WithComponent("SYSTEM"), diff));
+	EXPECT_EQ_STR(diff, std::string("PSP/SYSTEM"));
+
+	// Extensions.
+	AndroidContentURI iso = tree.WithRootFilePath("ISO/Game.v1.ISO");
+	EXPECT_EQ_STR(iso.GetFileExtension(), std::string(".iso"));
+	EXPECT_EQ_STR(tree.WithRootFilePath("v1.2/Game").GetFileExtension(), std::string());
+	EXPECT_EQ_STR(iso.WithExtraExtension(".bak").GetLastPart(), std::string("Game.v1.ISO.bak"));
+	EXPECT_EQ_STR(iso.WithReplacedExtension(".cso").GetLastPart(), std::string("Game.v1.cso"));
+	AndroidContentURI replaced;
+	EXPECT_TRUE(iso.WithReplacedExtension(".iso", ".chd", &replaced));
+	EXPECT_EQ_STR(replaced.GetLastPart(), std::string("Game.v1.chd"));
+	EXPECT_FALSE(iso.WithReplacedExtension(".cso", ".chd", &replaced));
+
+	// Characters that need escaping survive a round trip.
+	AndroidContentURI odd = tree.WithRootFilePath("100% #1 & ä");
+	AndroidContentURI reparsed(odd.ToString());
+	EXPECT_EQ_STR(reparsed.FilePath(), std::string("primary:Games/PSP/100% #1 & ä"));
+	EXPECT_EQ_STR(reparsed.GetLastPart(), std::string("100% #1 & ä"));
+	EXPECT_EQ_STR(reparsed.ToVisualString(), reparsed.FilePath());
+	return true;
+}
+
+static bool TestPathMore() {
+	// Components of a POSIX-style path.
+	const Path p("/storage/emulated/0/PSP/GAME/game.ISO");
+	EXPECT_EQ_INT((int)p.Type(), (int)PathType::NATIVE);
+	EXPECT_TRUE(p.IsAbsolute());
+	EXPECT_EQ_STR(p.GetFilename(), std::string("game.ISO"));
+	EXPECT_EQ_STR(p.GetFileExtension(), std::string(".iso"));
+	EXPECT_EQ_STR(p.GetDirectory(), std::string("/storage/emulated/0/PSP/GAME"));
+	EXPECT_EQ_STR(p.WithReplacedExtension(".cso").ToString(), std::string("/storage/emulated/0/PSP/GAME/game.cso"));
+	EXPECT_EQ_STR(Path("/file").GetDirectory(), std::string("/"));
+	EXPECT_EQ_STR(Path("relative").GetDirectory(), std::string("relative"));
+	EXPECT_FALSE(Path("relative/dir").IsAbsolute());
+	EXPECT_EQ_STR(Path(".hidden").GetFileExtension(), std::string(".hidden"));
+
+	// The root, and navigating up to it.
+	EXPECT_TRUE(Path("/").IsRoot());
+	EXPECT_FALSE(Path("/").CanNavigateUp());
+	EXPECT_FALSE(Path().CanNavigateUp());
+	EXPECT_EQ_STR(Path("/a").NavigateUp().ToString(), std::string("/"));
+	EXPECT_EQ_STR((Path("/") / "a").ToString(), std::string("/a"));
+	EXPECT_EQ_STR(Path("/a/b").GetRootVolume().ToString(), std::string("/"));
+
+	// Joining.
+	Path joined("/a");
+	joined /= "b";
+	joined /= "c/";
+	EXPECT_EQ_STR(joined.ToString(), std::string("/a/b/c"));
+	EXPECT_EQ_STR((Path("/a") / "").ToString(), std::string("/a"));
+
+	// Empty.
+	EXPECT_TRUE(Path().empty());
+	EXPECT_TRUE(Path("").empty());
+	EXPECT_EQ_INT((int)Path("").Type(), (int)PathType::UNDEFINED);
+	Path cleared("/a");
+	cleared.clear();
+	EXPECT_TRUE(cleared.empty());
+	EXPECT_TRUE(cleared == Path());
+
+	// Prefixes. StartsWith is a plain string prefix, ComputePathTo stops at whole folder names.
+	EXPECT_TRUE(Path("/a/b/c").StartsWith(Path("/a/b")));
+	EXPECT_TRUE(Path("/a/b").StartsWith(Path()));
+	EXPECT_TRUE(Path("/a/bc").StartsWith(Path("/a/b")));
+	EXPECT_TRUE(Path("/a/b/c").StartsWithGlobalAndNotEqual(Path("/a/b")));
+	EXPECT_FALSE(Path("/a/b").StartsWithGlobalAndNotEqual(Path("/a/b")));
+	std::string diff;
+	EXPECT_FALSE(Path("/a/b").ComputePathTo(Path("/a/bcd"), diff));
+	EXPECT_FALSE(Path("/a/b").ComputePathTo(Path("/x/y"), diff));
+	EXPECT_FALSE(Path("/a/b/c").ComputePathTo(Path("/a/b"), diff));
+	EXPECT_FALSE(Path().ComputePathTo(Path("/a/b"), diff));
+
+	EXPECT_TRUE(Path("/Games/PSP").FilePathContainsNoCase("games/psp"));
+	EXPECT_FALSE(Path("/Games/PSP").FilePathContainsNoCase("xbox"));
+
+	// Shown relative to a root, which on Windows also flips the slashes.
+#if PPSSPP_PLATFORM(WINDOWS)
+	EXPECT_EQ_STR(Path("C:/ms/PSP/GAME").ToVisualString("C:/ms/"), std::string("PSP\\GAME"));
+	EXPECT_EQ_STR(Path("C:/ms/PSP").ToVisualString(), std::string("C:\\ms\\PSP"));
+#else
+	EXPECT_EQ_STR(Path("/ms/PSP/GAME").ToVisualString("/ms/"), std::string("PSP/GAME"));
+	EXPECT_EQ_STR(Path("/other/PSP").ToVisualString("/ms/"), std::string("/other/PSP"));
+#endif
+
+	// HTTP paths (Remote ISO).
+	const Path http("http://192.168.1.2:8080/games/a.iso");
+	EXPECT_EQ_INT((int)http.Type(), (int)PathType::HTTP);
+	EXPECT_EQ_STR(http.GetFilename(), std::string("a.iso"));
+	EXPECT_EQ_STR(http.GetFileExtension(), std::string(".iso"));
+	EXPECT_TRUE(http.CanNavigateUp());
+	EXPECT_FALSE(Path("http://192.168.1.2:8080/").CanNavigateUp());
+	EXPECT_FALSE(Path("http://192.168.1.2:8080").CanNavigateUp());
+
+	// Ordering is by string, so a sorted list keeps folders together.
+	EXPECT_TRUE(Path("/a/b") < Path("/a/c"));
+	EXPECT_TRUE(Path("/b") > Path("/a/z"));
+	return true;
+}
+
 // A picked folder, the way the folder browser hands it back. docPath is like "primary:Games/PSP".
 static Path PickedTreeURI(std::string_view docPath) {
 	const std::string enc = UriEncode(docPath);
@@ -4489,6 +4638,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(OverlayHole),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(Storage),
+	TEST_ITEM(AndroidContentURIMore),
+	TEST_ITEM(PathMore),
 	TEST_ITEM(MemstickFolderCheck),
 	TEST_ITEM(MemstickMove),
 	TEST_ITEM(ThreadManager),
