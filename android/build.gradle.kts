@@ -63,6 +63,10 @@ dependencies {
 	implementation("androidx.documentfile:documentfile:1.1.0")
 	// Keep the runtime and protoc versions in step.
 	implementation("com.google.protobuf:protobuf-javalite:4.36.2")
+	// Leak detection for debug builds, opt-in since its heap dumps freeze the app: ./gradlew -PleakCanary ...
+	if (project.hasProperty("leakCanary")) {
+		debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+	}
 }
 
 protobuf {

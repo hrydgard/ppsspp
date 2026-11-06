@@ -35,6 +35,7 @@ import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
+import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
@@ -548,7 +549,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mInfraredHelper = null;
 			Log.i(TAG, "InfraredHelper exception: " + e);
 		}
-		mCameraHelper = new CameraHelper(getApplicationContext());
+		if (mCameraHelper == null) {
+			mCameraHelper = new CameraHelper(getApplicationContext());
+		}
 	}
 
 	@NonNull
@@ -725,6 +728,20 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
+		if (BuildConfig.DEBUG) {
+			// Logs unclosed streams/cursors, unregistered receivers and leaked activities (tag StrictMode).
+			StrictMode.VmPolicy.Builder vmPolicy = new StrictMode.VmPolicy.Builder()
+				.detectLeakedClosableObjects()
+				.detectLeakedRegistrationObjects()
+				.detectLeakedSqlLiteObjects()
+				.detectActivityLeaks()
+				.penaltyLog();
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+				vmPolicy.detectContentUriWithoutPermission();
+			}
+			StrictMode.setVmPolicy(vmPolicy.build());
+		}
+
 		if (m_hasNoNativeBinary) {
 			// Nothing else gets set up, so everything else that Android calls has to check for this too
 			// or we'll crash before the user gets to read the message.
@@ -808,7 +825,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		// The render loop thread will be started once we get a surface.
 
-		if (!firstRun && shortcutParam != null && !shortcutParam.isEmpty()) {
+		// A recreate (savedInstanceState set) gets the same intent back, which was already acted on.
+		if (!firstRun && savedInstanceState == null && shortcutParam != null && !shortcutParam.isEmpty()) {
 			// The native side is already up, so it didn't see this through NativeApp.init.
 			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
@@ -2221,7 +2239,15 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				failRequestCommand(command, parameter);
 				return;
 			}
-			if (!processCommand(command, parameter)) {
+			boolean success;
+			try {
+				success = processCommand(command, parameter);
+			} catch (Exception e) {
+				// A bad parameter, or a system service throwing (setPrimaryClip does on some devices).
+				NativeApp.reportException(e, command);
+				success = false;
+			}
+			if (!success) {
 				// Not logging the parameter, an inputbox one can contain a password.
 				Log.e(TAG, "processCommand failed: cmd: '" + command + "'");
 				failRequestCommand(command, parameter);
@@ -2345,6 +2371,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 							// use tombstone...
 						} catch (Exception e) {
 							Log.e(TAG, e.toString());
+						} finally {
+							trace.close();
 						}
 					} else {
 						Log.e(TAG, "Trace input stream was null, ignoring. Reason: " + exitReasonToString(aei.getReason()));

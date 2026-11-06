@@ -165,6 +165,9 @@ public class ContentUri {
 			return null;
 		}
 		final String documentName = c.getString(0);
+		if (documentName == null) {
+			return null;
+		}
 		if (prefixLowercase != null && !prefixLowercase.isEmpty()) {
 			// Filter by prefix, case insensitive.
 			if (!documentName.regionMatches(true, 0, prefixLowercase, 0, prefixLowercase.length())) {
@@ -205,7 +208,7 @@ public class ContentUri {
 			if (c != null) {
 				while (c.moveToNext()) {
 					final String mimeType = c.getString(2);
-					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+					final boolean isDirectory = DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType);
 					if (isDirectory) {
 						final String childDocumentId = c.getString(0);
 						final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
@@ -309,7 +312,9 @@ public class ContentUri {
 			if (created == null) {
 				return STORAGE_ERROR_UNKNOWN;
 			}
-			if (!name.equals(documentName(activity, created))) {
+			// Null if the provider wouldn't say, which isn't a conflict.
+			final String createdName = documentName(activity, created);
+			if (createdName != null && !name.equals(createdName)) {
 				Log.w(TAG, "createDocument: '" + name + "' is taken, removing the renamed copy " + created);
 				DocumentsContract.deleteDocument(resolver, created);
 				return STORAGE_ERROR_ALREADY_EXISTS;
@@ -371,7 +376,8 @@ public class ContentUri {
 			}
 			// A taken name gets a renamed copy, see createDocument.
 			final String name = documentName(activity, srcUri);
-			if (name != null && !name.equals(documentName(activity, copy))) {
+			final String copyName = documentName(activity, copy);
+			if (name != null && copyName != null && !name.equals(copyName)) {
 				Log.w(TAG, "contentUriCopyFile: '" + name + "' is taken, removing the renamed copy " + copy);
 				DocumentsContract.deleteDocument(resolver, copy);
 				return STORAGE_ERROR_ALREADY_EXISTS;
@@ -419,7 +425,8 @@ public class ContentUri {
 			final String oldName = documentName(activity, uri);
 			final Uri newUri = DocumentsContract.renameDocument(resolver, uri, newName);
 			// A taken name gets "name (1)" instead, see createDocument. Put the old name back.
-			if (newUri != null && oldName != null && !newName.equals(documentName(activity, newUri))) {
+			final String renamedName = newUri != null ? documentName(activity, newUri) : null;
+			if (oldName != null && renamedName != null && !newName.equals(renamedName)) {
 				Log.w(TAG, "contentUriRenameFileTo: '" + newName + "' is taken, renaming back to '" + oldName + "'");
 				DocumentsContract.renameDocument(resolver, newUri, oldName);
 				return STORAGE_ERROR_ALREADY_EXISTS;
@@ -495,16 +502,13 @@ public class ContentUri {
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpaceSlow(Activity activity, Uri uri) {
-		try {
-			ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r");
+		try (ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r")) {
 			if (pfd == null) {
 				Log.w(TAG, "Failed to get free storage space from URI: " + uri);
 				return -1;
 			}
 			StructStatVfs stats = Os.fstatvfs(pfd.getFileDescriptor());
-			long freeSpace = stats.f_bavail * stats.f_bsize;
-			pfd.close();
-			return freeSpace;
+			return stats.f_bavail * stats.f_bsize;
 		} catch (Exception e) {
 			// FileNotFoundException | ErrnoException e
 			// Log.getStackTraceString(e)

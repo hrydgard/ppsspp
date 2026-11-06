@@ -37,6 +37,11 @@ public class ShortcutActivity extends Activity {
 		// Ensure library is loaded before any native methods are called.
 		PpssppActivity.CheckABIAndLoadLibrary();
 
+		// Recreated while the picker was open: its result is still on the way.
+		if (savedInstanceState != null) {
+			return;
+		}
+
 		// Show file selector dialog here. If Android version is more than or equal to 11,
 		// use the native document file browser instead of our SimpleFileChooser.
 		boolean scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
