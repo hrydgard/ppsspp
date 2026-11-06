@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Core/Util/MemStick.h"
 #include "Core/Util/StorageTest.h"
 
 // A test returns an empty string if it passed, and what went wrong if it didn't.
@@ -242,6 +243,91 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 		CHECK(free_disk_space(root, space));
 		CHECK(space > 0);
 		note = NiceSizeFormat(space);
+		return "";
+	});
+
+	// The memory stick move, the way the memory stick screen does it.
+	auto makeMemstick = [&](const Path &ms) {
+		return File::CreateFullPath(ms / "PSP/SAVEDATA/GAME1") && File::CreateFullPath(ms / "PSP/SYSTEM") &&
+			Write(ms / "PSP/SAVEDATA/GAME1/DATA.BIN", "save") && Write(ms / "PSP/SYSTEM/ppsspp.ini", "ini");
+	};
+
+	run("MoveRename", [&]() -> std::string {
+		const Path src = scratch / "move1/old";
+		const Path dest = scratch / "move1/new";
+		CHECK(makeMemstick(src));
+		CHECK(File::CreateFullPath(dest));
+		bool committed = false;
+		MoveProgressReporter progress;
+		MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress, [&]() { committed = true; return true; });
+		const bool success = result && result->success;
+		delete result;
+		CHECK(success);
+		CHECK(committed);
+		CHECK(ReadAll(dest / "PSP/SAVEDATA/GAME1/DATA.BIN") == "save");
+		CHECK(ReadAll(dest / "PSP/SYSTEM/ppsspp.ini") == "ini");
+		CHECK(!File::Exists(src / "PSP/SAVEDATA"));
+		CHECK(!File::Exists(src / "PSP/SYSTEM"));
+		return "";
+	});
+
+	run("MoveCopy", [&]() -> std::string {
+		// A non-empty SAVEDATA already there can't be renamed over, which forces the copy.
+		const Path src = scratch / "move2/old";
+		const Path dest = scratch / "move2/new";
+		CHECK(makeMemstick(src));
+		CHECK(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+		CHECK(Write(dest / "PSP/SAVEDATA/GAME2/DATA.BIN", "other"));
+		bool originalsThereAtCommit = false;
+		MoveProgressReporter progress;
+		MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress, [&]() {
+			originalsThereAtCommit = File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN");
+			return true;
+		});
+		const bool success = result && result->success;
+		delete result;
+		CHECK(success);
+		CHECK(originalsThereAtCommit);
+		CHECK(ReadAll(dest / "PSP/SAVEDATA/GAME1/DATA.BIN") == "save");
+		CHECK(ReadAll(dest / "PSP/SAVEDATA/GAME2/DATA.BIN") == "other");
+		CHECK(ReadAll(dest / "PSP/SYSTEM/ppsspp.ini") == "ini");
+		CHECK(!File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+		return "";
+	});
+
+	run("MoveUndo", [&]() -> std::string {
+		// Fails at the end, after part was renamed and part copied, so everything has to be put back.
+		const Path src = scratch / "move3/old";
+		const Path dest = scratch / "move3/new";
+		CHECK(makeMemstick(src));
+		CHECK(File::CreateFullPath(src / "PSP/AAA"));
+		CHECK(Write(src / "PSP/AAA/A.BIN", "a"));
+		CHECK(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+		CHECK(Write(dest / "PSP/SAVEDATA/GAME2/DATA.BIN", "other"));
+		MoveProgressReporter progress;
+		MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress, []() { return false; });
+		const bool undone = result && !result->success && !result->partlyMoved;
+		delete result;
+		CHECK(undone);
+		CHECK(ReadAll(src / "PSP/AAA/A.BIN") == "a");
+		CHECK(ReadAll(src / "PSP/SAVEDATA/GAME1/DATA.BIN") == "save");
+		CHECK(ReadAll(src / "PSP/SYSTEM/ppsspp.ini") == "ini");
+		CHECK(!File::Exists(dest / "PSP/AAA"));
+		CHECK(!File::Exists(dest / "PSP/SAVEDATA/GAME1"));
+		CHECK(ReadAll(dest / "PSP/SAVEDATA/GAME2/DATA.BIN") == "other");
+		return "";
+	});
+
+	run("FolderChecks", [&]() -> std::string {
+		const Path ms = scratch / "check/ms";
+		CHECK(makeMemstick(ms));
+		CHECK(FolderSeemsToBeUsed(ms));
+		CHECK(CheckNewMemstickFolder(ms, Path()) == MemstickFolderCheck::OK);
+		CHECK(CheckNewMemstickFolder(ms / "PSP/SAVEDATA", ms) == MemstickFolderCheck::INSIDE_CURRENT);
+		// A PSP folder under another name.
+		CHECK(File::Rename(ms / "PSP", ms / "Renamed"));
+		CHECK(CheckNewMemstickFolder(ms / "Renamed", Path()) == MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER);
+		CHECK(CanSwitchMemstickFolderTo(ms));
 		return "";
 	});
 

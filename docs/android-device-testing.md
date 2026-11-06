@@ -114,7 +114,8 @@ Two things to know when reading its results:
 ## Running the storage tests in the app
 
 `Core/Util/StorageTest.cpp` exercises the file functions (create, overwrite, list, rename, move, copy,
-delete, odd names, free space) in a scratch folder, and times the calls the emulator makes most. The
+delete, odd names, free space) and the memory stick move (rename, copy, undo, folder checks) in a scratch
+folder, and times the calls the emulator makes most. The
 `Storage` unit test runs them on a native folder; to run them on a picked folder, through the content
 URI code:
 
