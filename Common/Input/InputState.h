@@ -179,6 +179,10 @@ enum class KeyInputFlags {
 	ModShift = 1 << 6,
 	ModAlt = 1 << 7,
 	ModMeta = 1 << 8,  // Windows key, command key, etc.
+
+	// A wheel event whose direction the OS has reversed for "natural" scrolling, so it's the opposite
+	// of the fingers' movement. Scrolling should follow it; things like zooming may want to undo it.
+	WHEEL_FLIPPED = 1 << 9,
 };
 
 ENUM_CLASS_BITOPS(KeyInputFlags);
@@ -189,6 +193,10 @@ constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModMeta;
 #else
 constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModCtrl;
 #endif
+
+// What one notch of a mouse wheel reports as its delta, on every backend (Windows' WHEEL_DELTA).
+// Touchpads and high resolution wheels send fractions of it.
+constexpr int WHEEL_DELTA_PER_NOTCH = 120;
 
 struct KeyInput {
 	KeyInput() {}
@@ -202,7 +210,8 @@ struct KeyInput {
 	};
 	KeyInputFlags flags;
 
-	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags.
+	// Used by mousewheel events. The delta is packed in the upper 16 bits of flags, in units of
+	// WHEEL_DELTA_PER_NOTCH, and is always positive (the key code gives the direction).
 	// TODO: Move mousewheel events to TouchInput?
 	int Delta() const {
 		return (s32)flags >> 16;

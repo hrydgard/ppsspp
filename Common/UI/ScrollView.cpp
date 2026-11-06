@@ -143,10 +143,12 @@ bool ScrollView::Key(const KeyInput &input) {
 		break;
 	}
 
-	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_) {
+	// Ctrl+wheel (Cmd on Apple platforms) is left for the children to zoom with (see GameBrowser::Key).
+	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_ && !(input.flags & KEY_MOD_SHORTCUT)) {
 		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
 			(input.flags & KeyInputFlags::HAS_WHEEL_DELTA)) {
-			scrollSpeed = (float)((s32)input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
+			constexpr float pixelsPerNotch = 150.0f;
+			scrollSpeed = input.Delta() * (pixelsPerNotch / WHEEL_DELTA_PER_NOTCH);
 		}
 
 		switch (input.keyCode) {

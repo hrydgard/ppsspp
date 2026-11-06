@@ -239,7 +239,10 @@ static float DefaultUISaturation() {
 }
 
 static int DefaultUIScaleFactor() {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
+// Android also return true on Linux, so we check it separately first. It was never intended for it to get -1.
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	return 0;
+#elif PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
 	return -1;
 #else
 	return 0;

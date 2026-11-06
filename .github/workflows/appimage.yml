@@ -105,7 +105,7 @@ jobs:
           # Debian-based
           #sudo apt-get update -y -qq
           #sudo apt-get install -q -y zsync patchelf xvfb strace
-          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
+          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl3-ttf-dev libsdl3-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
           #sudo updatedb # to update locate database
 
           # Archlinux
@@ -191,7 +191,7 @@ jobs:
           #clang++ --version
 
           # Build ppsspp
-          #./b.sh --release --no-sdl2 --no-png
+          #./b.sh --release --no-png
           mkdir -p build
           pushd build
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHEADLESS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 

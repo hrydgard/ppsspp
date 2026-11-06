@@ -96,7 +96,71 @@ void GameBrowser::SetPath(const Path &path) {
 	refreshPending_ = true;
 }
 
+bool GameBrowser::Touch(const TouchInput &input) {
+	if (input.flags & TouchInputFlags::MOUSE) {
+		// The browser can extend past the scroll view it's in, so check that too.
+		mouseHover_ = bounds_.Contains(input.x, input.y) && (!Parent() || Parent()->GetBounds().Contains(input.x, input.y));
+	}
+	return LinearLayout::Touch(input);
+}
+
+// Draw notices the change and refreshes every browser.
+static void StepIconSize(bool bigger) {
+	if (bigger) {
+		g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
+	} else {
+		g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+	}
+}
+
 bool GameBrowser::Key(const KeyInput &input) {
+	// Ctrl+wheel and Ctrl+Plus/Minus (Cmd on Apple platforms) change the icon size, like zooming in a
+	// file manager. The plain list doesn't scale.
+	const bool zoomMod = (input.flags & KeyInputFlags::DOWN) && (input.flags & KEY_MOD_SHORTCUT);
+	if (zoomMod && mouseHover_ && (input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+		if (ViewMode() == GameBrowserViewMode::LIST) {
+			return false;
+		}
+		// A touchpad sends a stream of small deltas, so add them up and step once per notch's worth.
+		int delta = (input.flags & KeyInputFlags::HAS_WHEEL_DELTA) ? input.Delta() : WHEEL_DELTA_PER_NOTCH;
+		// Zoom by the fingers' direction (up is bigger), whatever the natural scrolling setting.
+		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) != ((input.flags & KeyInputFlags::WHEEL_FLIPPED) != 0)) {
+			delta = -delta;
+		}
+		// Start over on a change of direction, or when a leftover is from an earlier gesture.
+		const double now = time_now_d();
+		if ((delta > 0) != (wheelZoomAccum_ > 0) || now - lastWheelZoomTime_ > 0.5) {
+			wheelZoomAccum_ = 0;
+		}
+		lastWheelZoomTime_ = now;
+		wheelZoomAccum_ += delta;
+		while (wheelZoomAccum_ >= WHEEL_DELTA_PER_NOTCH) {
+			StepIconSize(true);
+			wheelZoomAccum_ -= WHEEL_DELTA_PER_NOTCH;
+		}
+		while (wheelZoomAccum_ <= -WHEEL_DELTA_PER_NOTCH) {
+			StepIconSize(false);
+			wheelZoomAccum_ += WHEEL_DELTA_PER_NOTCH;
+		}
+		return true;
+	}
+	if (zoomMod && ViewMode() != GameBrowserViewMode::LIST) {
+		// Plus is shifted on most layouts, so accept the key it shares (Equals on US layouts) too.
+		switch (input.keyCode) {
+		case NKCODE_PLUS:
+		case NKCODE_EQUALS:
+		case NKCODE_NUMPAD_ADD:
+			StepIconSize(true);
+			return true;
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+			StepIconSize(false);
+			return true;
+		default:
+			break;
+		}
+	}
+
 	// Alt+Up goes to the parent directory, as in file managers.
 	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
 		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
@@ -243,6 +307,16 @@ void GameBrowser::Draw(UIContext &dc) {
 
 	if (lastScale_ != g_Config.fGameGridScale || lastViewMode_ != ViewMode()) {
 		refreshPending_ = true;
+		// Keep the focus on the same game, as a keyboard zoom leaves it there.
+		if (gameList_ && focusPath_.empty()) {
+			for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+				GameButton *button = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i));
+				if (button && button->HasFocus()) {
+					focusPath_ = button->GetPath();
+					break;
+				}
+			}
+		}
 	}
 
 	if (hasDropShadow_) {

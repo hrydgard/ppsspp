@@ -641,9 +641,6 @@
     <None Include="..\libretro\jni\Application.mk">
       <Filter>Other Platforms\libretro</Filter>
     </None>
-    <None Include="..\SDL\macbundle.sh">
-      <Filter>Other Platforms\SDL</Filter>
-    </None>
     <None Include="..\SDL\SDLCocoaMetalLayer.mm">
       <Filter>Other Platforms\SDL</Filter>
     </None>
@@ -702,9 +699,6 @@
       <Filter>Build\CMake</Filter>
     </None>
     <None Include="..\cmake\Modules\FindLIBZIP.cmake">
-      <Filter>Build\CMake</Filter>
-    </None>
-    <None Include="..\cmake\sdl\FindSDL2.cmake">
       <Filter>Build\CMake</Filter>
     </None>
     <None Include="..\cmake\Toolchains\raspberry.armv6.cmake">

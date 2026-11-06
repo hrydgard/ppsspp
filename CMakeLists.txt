@@ -111,9 +111,6 @@ if(CMAKE_CXX_COMPILER MATCHES "webos" OR
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT IOS)
-	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
-endif()
 
 include(CheckCXXSourceCompiles)
 include(GNUInstallDirs)

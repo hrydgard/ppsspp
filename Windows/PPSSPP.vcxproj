@@ -1083,7 +1083,6 @@
     <None Include="..\cmake\Modules\FindSnappy.cmake" />
     <None Include="..\cmake\Modules\FindWayland.cmake" />
     <None Include="..\cmake\Modules\FindZSTD.cmake" />
-    <None Include="..\cmake\sdl\FindSDL2.cmake" />
     <None Include="..\cmake\Toolchains\beagleboard.cmake" />
     <None Include="..\cmake\Toolchains\generic.armv7.cmake" />
     <None Include="..\cmake\Toolchains\ios.cmake" />
@@ -1202,7 +1201,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </None>
-    <None Include="..\SDL\macbundle.sh" />
     <None Include="..\SDL\SDLCocoaMetalLayer.mm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

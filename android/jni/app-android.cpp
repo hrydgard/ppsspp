@@ -1404,9 +1404,11 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	if (!renderer_inited)
 		return false;
 	// TODO: Mousewheel should probably be an axis instead.
-	int wheelDelta = y * 30.0f;
-	if (wheelDelta > 500) wheelDelta = 500;
-	if (wheelDelta < -500) wheelDelta = -500;
+	// AXIS_VSCROLL is in notches.
+	const int maxDelta = 16 * WHEEL_DELTA_PER_NOTCH;
+	int wheelDelta = y * (float)WHEEL_DELTA_PER_NOTCH;
+	if (wheelDelta > maxDelta) wheelDelta = maxDelta;
+	if (wheelDelta < -maxDelta) wheelDelta = -maxDelta;
 
 	KeyInput key;
 	key.deviceId = DEVICE_ID_MOUSE;
