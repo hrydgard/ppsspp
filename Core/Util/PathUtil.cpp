@@ -94,15 +94,17 @@ static Path PreferUpperCaseDir(const Path &parent, const char *upperCase, const 
 	return upper;
 }
 
-Path GetSysDirectory(PSPDirectories directoryType) {
-	const Path &memStickDirectory = g_Config.memStickDirectory;
-	Path pspDirectory;
+Path GetPSPFolderOf(const Path &memStickDirectory) {
 	if (!strcasecmp(memStickDirectory.GetFilename().c_str(), "PSP")) {
 		// Let's strip this off, to easily allow choosing a root directory named "PSP" on Android.
-		pspDirectory = memStickDirectory;
-	} else {
-		pspDirectory = memStickDirectory / "PSP";
+		return memStickDirectory;
 	}
+	return memStickDirectory / "PSP";
+}
+
+Path GetSysDirectory(PSPDirectories directoryType) {
+	const Path &memStickDirectory = g_Config.memStickDirectory;
+	const Path pspDirectory = GetPSPFolderOf(memStickDirectory);
 
 	switch (directoryType) {
 	case DIRECTORY_PSP:

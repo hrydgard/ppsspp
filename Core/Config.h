@@ -798,6 +798,7 @@ public:
 	void SetSearchPath(const Path &path);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
+	const Path &IniFilename() const { return iniFilename_; }
 
 	bool SupportsUpgradeCheck() const;
 	void CheckForUpdate();

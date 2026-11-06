@@ -117,9 +117,16 @@ private:
 
 	void OnConfirm(UI::EventParams &params);
 
+	bool IsBlocked() const {
+		return check_ == MemstickFolderCheck::INSIDE_CURRENT || check_ == MemstickFolderCheck::INSIDE_OTHER;
+	}
+	bool CanMoveData() const {
+		return check_ == MemstickFolderCheck::OK;
+	}
+
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
-	bool folderConflict_;
+	MemstickFolderCheck check_ = MemstickFolderCheck::OK;
 
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	bool moveData_ = false;

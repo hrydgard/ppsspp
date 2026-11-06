@@ -32,6 +32,21 @@ struct MoveResult {
 	size_t skippedFiles;
 };
 
+enum class MemstickFolderCheck {
+	OK,
+	// A different folder with the same PSP folder as the current one (a PSP folder and its parent). Nothing to move.
+	SAME_PSP_FOLDER,
+	// The current memory stick is inside the new one's PSP folder, so its data can't be moved there.
+	CONTAINS_CURRENT,
+	// Not allowed: inside the current memory stick's PSP folder.
+	INSIDE_CURRENT,
+	// Not allowed: inside the PSP folder of some other memory stick.
+	INSIDE_OTHER,
+};
+
+// Checks a folder the user picked as the new memory stick. currentFolder may be empty.
+MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &currentFolder);
+
 bool FolderSeemsToBeUsed(const Path &newMemstickFolder);
 bool SwitchMemstickFolderTo(Path newMemstickFolder);
 MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter);

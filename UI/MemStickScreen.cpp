@@ -311,9 +311,13 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
 		std::string newPath(value);
+		// Apparently some users got used to leaving out the leading /.
+		if (!newPath.empty() && newPath[0] != '/') {
+			newPath = "/" + newPath;
+		}
 		size_t pos = newPath.find_last_not_of('/');
-		// Gotta have at least something but a /, and also needs to start with a /.
-		if (newPath.empty() || pos == std::string::npos || newPath[0] != '/') {
+		// Gotta have at least something but a /.
+		if (pos == std::string::npos) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), 5.0f);
 			return;
 		}
@@ -329,15 +333,6 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 
 		Path pendingMemStickFolder(newPath);
 
-		if (!File::Exists(pendingMemStickFolder)) {
-			// Try to fix the path string, apparently some users got used to leaving out the /.
-			if (newPath[0] != '/') {
-				newPath = "/" + newPath;
-			}
-
-			pendingMemStickFolder = Path(newPath);
-		}
-
 		if (!File::Exists(pendingMemStickFolder) && pendingMemStickFolder.Type() == PathType::NATIVE) {
 			// Still no path? Try to automatically fix the case.
 			std::string oldNewPath = newPath;
@@ -352,7 +347,7 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 
 		if (pendingMemStickFolder == g_Config.memStickDirectory) {
 			// Same directory as before - all good. Nothing to do.
-			TriggerFinish(DialogResult::DR_OK);
+			done_ = true;
 			return;
 		}
 
@@ -419,6 +414,9 @@ void MemStickScreen::Browse(UI::EventParams &params) {
 	System_BrowseForFolder(GetRequesterToken(), mm->T("Choose folder"), g_Config.memStickDirectory, [this](std::string_view value, int) {
 		Path pendingMemStickFolder(value);
 		INFO_LOG(Log::System, "Got folder: '%s' (old: %s)", pendingMemStickFolder.c_str(), g_Config.memStickDirectory.c_str());
+		if (pendingMemStickFolder.empty()) {
+			return;
+		}
 		// Browse finished. Let's pop up the confirmation dialog.
 		if (!pendingMemStickFolder.empty() && pendingMemStickFolder == g_Config.memStickDirectory && File::IsDirectory(pendingMemStickFolder)) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -473,18 +471,12 @@ ConfirmMemstickMoveScreen::ConfirmMemstickMoveScreen(const Path &newMemstickFold
 	: newMemstickFolder_(newMemstickFolder), initialSetup_(initialSetup), progressReporter_() {
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 	existingFilesInNewFolder_ = FolderSeemsToBeUsed(newMemstickFolder);
-	if (!oldMemstickFolder.empty()) {
-		folderConflict_ = newMemstickFolder != oldMemstickFolder && newMemstickFolder.StartsWithGlobalAndNotEqual(oldMemstickFolder);
-	} else {
-		folderConflict_ = false;
-	}
+	check_ = CheckNewMemstickFolder(newMemstickFolder, oldMemstickFolder);
 	INFO_LOG(Log::System, "Old: '%s'", oldMemstickFolder.c_str());
-	INFO_LOG(Log::System, "New: '%s'", newMemstickFolder.c_str());
+	INFO_LOG(Log::System, "New: '%s' (check: %d)", newMemstickFolder.c_str(), (int)check_);
 
-	// TODO: If you reinstall the app and start by selecting a subfolder of the PSP folder, we don't detect and warn about that -
-	// we can only warn if there's a known previous folder :(
-
-	if (initialSetup_) {
+	// Moving into a folder that already has data would overwrite it, so that has to be asked for.
+	if (initialSetup_ || existingFilesInNewFolder_ || !CanMoveData()) {
 		moveData_ = false;
 	}
 
@@ -542,8 +534,21 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		}
 	}
 
-	if (folderConflict_) {
-		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("The new folder is inside the previous one"), ""));
+	switch (check_) {
+	case MemstickFolderCheck::INSIDE_CURRENT:
+		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("The new folder is inside the previous one"), ""));
+		break;
+	case MemstickFolderCheck::INSIDE_OTHER:
+		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("InsideOtherMemstick", "This folder is inside the PSP folder of another memory stick. Choose that memory stick's folder instead."), ""));
+		break;
+	case MemstickFolderCheck::SAME_PSP_FOLDER:
+		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("SamePSPFolder", "Contains the same PSP folder as the current one. Nothing will be moved."), ""));
+		break;
+	case MemstickFolderCheck::CONTAINS_CURRENT:
+		leftColumn->Add(new NoticeView(NoticeLevel::WARN, ms->T("ContainsCurrentMemstick", "The current folder is inside this one, so its data can't be moved here"), ""));
+		break;
+	case MemstickFolderCheck::OK:
+		break;
 	}
 
 	if (!error_.empty()) {
@@ -562,12 +567,14 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	}
 
 	if (!moveDataTask_) {
-		if (!initialSetup_) {
+		if (!initialSetup_ && CanMoveData()) {
 			leftColumn->Add(new CheckBox(&moveData_, ms->T("Move Data")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnMoveDataClick);
 		}
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
+		if (!IsBlocked()) {
+			leftColumn->Add(new Choice(di->T("OK")))->OnClick.Handle(this, &ConfirmMemstickMoveScreen::OnConfirm);
+		}
 		leftColumn->Add(new Choice(di->T("Back")))->OnClick.Add([this](UI::EventParams &params) {
 			if (moveDataTask_ && !moveDataTask_->Poll()) {
 				return;
@@ -633,8 +640,11 @@ void ConfirmMemstickMoveScreen::OnConfirm(UI::EventParams &params) {
 	// Should probably be done on a background thread so we can show some UI.
 	// So we probably need another screen for this with a progress bar..
 	// If the directory itself is called PSP, don't go below.
+	if (IsBlocked()) {
+		return;
+	}
 
-	if (moveData_) {
+	if (moveData_ && CanMoveData()) {
 		progressReporter_.SetProgress(T(I18NCat::MEMSTICK, "Starting move..."));
 
 		moveDataTask_ = Promise<MoveResult *>::Spawn(&g_threadManager, [&]() -> MoveResult * {
@@ -666,8 +676,14 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 
 	INFO_LOG(Log::System, "Move from '%s' to '%s' complete. Updating config.", oldMemstickFolder.c_str(), newMemstickFolder_.c_str());
 
-	// If the chosen folder already had a config, reload it!
-	g_Config.Load();
+	// If the chosen folder already had a config, reload it! Otherwise keep the current settings, and
+	// write them there.
+	if (File::Exists(g_Config.IniFilename())) {
+		g_Config.Load();
+	} else {
+		INFO_LOG(Log::System, "No config at '%s', keeping the current settings", g_Config.IniFilename().c_str());
+		g_Config.Save("MemstickPathChanged");
+	}
 
 	// If the current browser directory is the old memstick folder, drop it.
 	if (g_Config.currentDirectory == oldMemstickFolder) {

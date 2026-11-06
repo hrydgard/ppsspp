@@ -127,6 +127,7 @@
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/Util/MemStick.h"
 #include "Core/Util/StorageTest.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
@@ -2954,6 +2955,58 @@ static bool TestStorage() {
 	return true;
 }
 
+// A picked folder, the way the folder browser hands it back. docPath is like "primary:Games/PSP".
+static Path PickedTreeURI(std::string_view docPath) {
+	const std::string enc = UriEncode(docPath);
+	return Path("content://com.android.externalstorage.documents/tree/" + enc + "/document/" + enc);
+}
+
+static bool TestMemstickFolderCheck() {
+	using C = MemstickFolderCheck;
+	const Path none;
+
+	// Inside the current memory stick's PSP folder, case-insensitively.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games/PSP/SAVEDATA"), PickedTreeURI("primary:Games")), (int)C::INSIDE_CURRENT);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:games/psp/stuff"), PickedTreeURI("primary:Games")), (int)C::INSIDE_CURRENT);
+	// A folder named PSP is the PSP folder itself.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP/stuff"), PickedTreeURI("primary:PSP")), (int)C::INSIDE_CURRENT);
+	// Next to the PSP folder, or a name that only starts the same, is fine.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games/ISOs"), PickedTreeURI("primary:Games")), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:GamesX"), PickedTreeURI("primary:Games")), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:PSP"), PickedTreeURI("primary:PSP")), (int)C::OK);
+
+	// Inside some other memory stick, with no current one (a reinstall).
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Stuff/PSP/SAVEDATA"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:PSP/GAME/x"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Stuff/PSP/Mine"), none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP"), none), (int)C::OK);
+
+	// Native storage paths and content URIs are compared by location.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP/GAME"), Path("/storage/emulated/0")), (int)C::INSIDE_CURRENT);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(Path("/storage/emulated/0"), PickedTreeURI("primary:PSP")), (int)C::SAME_PSP_FOLDER);
+	// Other names for internal storage, typed in on old versions.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:"), Path("/mnt/sdcard")), (int)C::SAME_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP"), Path("/storage/self/primary/PSP")), (int)C::SAME_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:Mine/PSP/TEXTURES"), Path("/storage/1234-ABCD/Mine")), (int)C::INSIDE_CURRENT);
+
+	// The current memory stick is inside the new one's PSP folder: switching is fine, moving isn't.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games"), PickedTreeURI("primary:Games/PSP/Weird")), (int)C::CONTAINS_CURRENT);
+
+	// Native paths: a memory stick in use among the parents is found on disk, whatever the folder names.
+	const Path root = UnitTestTempPath("unittest_memstick_check");
+	File::DeleteDirRecursively(root);
+	EXPECT_TRUE(File::CreateFullPath(root / "ms/PSP/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "ms/PSP/Mine/deeper"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms/PSP/Mine/deeper", none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms/PSP", none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms", none), (int)C::OK);
+	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms"));
+	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms/PSP"));
+	EXPECT_FALSE(FolderSeemsToBeUsed(root / "ms/PSP/Mine"));
+	File::DeleteDirRecursively(root);
+	return true;
+}
+
 class UnitTestWordWrapper : public WordWrapper {
 public:
 	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
@@ -4341,6 +4394,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(OverlayHole),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(Storage),
+	TEST_ITEM(MemstickFolderCheck),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
