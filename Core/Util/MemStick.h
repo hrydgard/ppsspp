@@ -44,6 +44,9 @@ enum class MemstickFolderCheck {
 	INSIDE_CURRENT,
 	// Not allowed: inside the PSP folder of some other memory stick.
 	INSIDE_OTHER,
+	// Not allowed: has PSP data directly in it, but wouldn't be used as the PSP folder (it's named something
+	// else, or it's a PSP folder deeper in a picked tree), so the data would go into a new one inside.
+	LOOKS_LIKE_PSP_FOLDER,
 };
 
 // Checks a folder the user picked as the new memory stick. currentFolder may be empty.
@@ -55,6 +58,7 @@ bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder);
 // Makes the next start use newMemstickFolder. SwitchMemstickFolderTo() does this and more.
 bool WriteMemstickDirFile(const Path &newMemstickFolder);
 bool SwitchMemstickFolderTo(Path newMemstickFolder);
-// Moves the PSP folder's contents. If it has to copy, beforeDeletingOriginals runs once the copies are
-// verified, and the move is undone if it returns false. A failed move puts back what it can.
+// Moves the PSP folder's contents. beforeDeletingOriginals runs once everything is in the new folder (and
+// for a copy, before the originals are deleted). The move is undone if it returns false. A failed move puts
+// back what it can.
 MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressReporter &progressReporter, const std::function<bool()> &beforeDeletingOriginals = nullptr);

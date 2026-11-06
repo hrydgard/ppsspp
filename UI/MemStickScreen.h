@@ -94,6 +94,7 @@ public:
 	const char *tag() const override { return "ConfirmMemstickMove"; }
 
 	bool key(const KeyInput &key) override;
+	void onFinish(DialogResult result) override;
 
 protected:
 	void update() override;
@@ -106,7 +107,7 @@ private:
 	void OnConfirm(UI::EventParams &params);
 
 	bool IsBlocked() const {
-		return check_ == MemstickFolderCheck::INSIDE_CURRENT || check_ == MemstickFolderCheck::INSIDE_OTHER;
+		return check_ == MemstickFolderCheck::INSIDE_CURRENT || check_ == MemstickFolderCheck::INSIDE_OTHER || check_ == MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER;
 	}
 	bool CanMoveData() const {
 		return check_ == MemstickFolderCheck::OK;

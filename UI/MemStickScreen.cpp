@@ -481,7 +481,13 @@ ConfirmMemstickMoveScreen::~ConfirmMemstickMoveScreen() {
 	// We should no longer end up blocking here since the back button is disabled until the tasks are done.
 	if (moveDataTask_) {
 		INFO_LOG(Log::System, "Move Data task still running, blocking on it");
-		moveDataTask_->BlockUntilReady();
+		MoveResult *result = moveDataTask_->BlockUntilReady();
+		// Replaced mid-move (another app opening a game, say). The data is in the new folder now, and the
+		// next start will use it, so this run has to as well.
+		if (result && result->success && !SwitchMemstickFolderTo(newMemstickFolder_)) {
+			ERROR_LOG(Log::System, "Couldn't switch to '%s' after the move", newMemstickFolder_.c_str());
+		}
+		delete result;
 		delete moveDataTask_;
 	}
 	// This we just cancel / leak.
@@ -529,6 +535,9 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 		break;
 	case MemstickFolderCheck::INSIDE_OTHER:
 		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("InsideOtherMemstick", "This folder is inside the PSP folder of another memory stick. Choose that memory stick's folder instead."), ""));
+		break;
+	case MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER:
+		leftColumn->Add(new NoticeView(NoticeLevel::ERROR, ms->T("LooksLikePSPFolder", "This looks like a PSP folder. Name it PSP if it isn't, and choose the folder that contains it instead."), ""));
 		break;
 	case MemstickFolderCheck::SAME_PSP_FOLDER:
 		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("SamePSPFolder", "Contains the same PSP folder as the current one. Nothing will be moved."), ""));
@@ -586,6 +595,15 @@ bool ConfirmMemstickMoveScreen::key(const KeyInput &key) {
 	return UIBaseDialogScreen::key(key);
 }
 
+void ConfirmMemstickMoveScreen::onFinish(DialogResult result) {
+	// Leaving after the data moved but the switch failed. The move already saved the new folder as the one
+	// to use, so restart onto it rather than stay on the emptied old one.
+	if (dataMoved_ && result != DialogResult::DR_OK) {
+		INFO_LOG(Log::System, "Leaving after moving data, restarting onto '%s'", newMemstickFolder_.c_str());
+		System_RestartApp("");
+	}
+}
+
 void ConfirmMemstickMoveScreen::update() {
 	UIBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
@@ -615,6 +633,7 @@ void ConfirmMemstickMoveScreen::update() {
 				}
 				RecreateViews();
 			}
+			delete result;
 			delete moveDataTask_;
 			moveDataTask_ = nullptr;
 		}

@@ -109,18 +109,31 @@ static bool IsPSPSubfolderName(std::string_view name) {
 }
 
 // Works from the name alone, for folders whose parents we can't look at (a picked content URI tree):
-// a PSP folder with one of its usual subfolders below it.
+// a PSP folder with one of its usual subfolders below it, or a folder only PSP data is called, whatever
+// its parent is called (a PSP folder may have been renamed).
 static bool KeyLooksInsidePSPFolder(std::string_view key) {
 	const size_t colon = key.find(':');
 	std::vector<std::string_view> parts;
 	SplitString(key.substr(colon == std::string_view::npos ? 0 : colon + 1), '/', parts);
 	parts.erase(std::remove(parts.begin(), parts.end(), std::string_view()), parts.end());
-	for (size_t i = 0; i + 1 < parts.size(); i++) {
-		if (equalsNoCase(parts[i], "PSP") && IsPSPSubfolderName(parts[i + 1])) {
+	for (size_t i = 0; i < parts.size(); i++) {
+		if (equalsNoCase(parts[i], "SAVEDATA") || equalsNoCase(parts[i], "PPSSPP_STATE")) {
+			return true;
+		}
+		if (i + 1 < parts.size() && equalsNoCase(parts[i], "PSP") && IsPSPSubfolderName(parts[i + 1])) {
 			return true;
 		}
 	}
 	return false;
+}
+
+// A PSP folder by its contents, whatever it's called. Two of the folders PPSSPP creates, so that some
+// other folder that happens to have a SAVEDATA doesn't count.
+static bool LooksLikePSPFolder(const Path &dir) {
+	if (File::Exists(dir / "PPSSPP_STATE")) {
+		return true;
+	}
+	return File::Exists(dir / "SAVEDATA") && (File::Exists(dir / "SYSTEM") || File::Exists(dir / "GAME"));
 }
 
 static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
@@ -130,7 +143,7 @@ static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
 	if (folder.Type() != PathType::NATIVE || IsContentURI(folder)) {
 		return false;
 	}
-	// Native paths: look for a memory stick in use among the parents.
+	// Native paths: look for a memory stick in use among the parents, or a PSP folder by another name.
 	Path dir = folder;
 	for (int depth = 0; depth < 64 && dir.CanNavigateUp(); depth++) {
 		const Path up = dir.NavigateUp();
@@ -138,7 +151,7 @@ static bool IsInsideOtherMemstick(const Path &folder, const std::string &key) {
 			break;
 		}
 		dir = up;
-		if (KeyIsInside(key, PSPFolderKey(dir)) && FolderSeemsToBeUsed(dir)) {
+		if ((KeyIsInside(key, PSPFolderKey(dir)) && FolderSeemsToBeUsed(dir)) || LooksLikePSPFolder(dir)) {
 			return true;
 		}
 	}
@@ -161,6 +174,10 @@ MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &cu
 	if (IsInsideOtherMemstick(newFolder, newKey)) {
 		return MemstickFolderCheck::INSIDE_OTHER;
 	}
+	// A PSP folder that isn't used as one: we'd make a new PSP folder inside it.
+	if (!equalsNoCase(newPSPKey, newKey) && !FolderSeemsToBeUsed(newFolder) && LooksLikePSPFolder(newFolder)) {
+		return MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER;
+	}
 	if (!curPSPKey.empty()) {
 		if (equalsNoCase(newPSPKey, curPSPKey)) {
 			return MemstickFolderCheck::SAME_PSP_FOLDER;
@@ -182,20 +199,14 @@ static bool CanWriteTo(const Path &folder) {
 }
 
 bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder) {
-	// Doesn't already exist, create.
-	// Should this ever happen?
-	if (newMemstickFolder.Type() == PathType::NATIVE) {
-		if (!File::Exists(newMemstickFolder)) {
-			File::CreateFullPath(newMemstickFolder);
-		}
-		if (!CanWriteTo(newMemstickFolder)) {
-			ERROR_LOG(Log::System, "Can't write to '%s'", newMemstickFolder.c_str());
-			return false;
-		}
-	} else {
-		// TODO: Do the same but with scoped storage? Not really necessary, right? If it came from a browse
-		// for folder, we can assume it exists and is writable, barring wacky race conditions like the user
-		// being connected by USB and deleting it.
+	// Doesn't already exist, create. A picked folder (content URI) exists already.
+	if (newMemstickFolder.Type() == PathType::NATIVE && !File::Exists(newMemstickFolder)) {
+		File::CreateFullPath(newMemstickFolder);
+	}
+	// A picked folder can still be read-only (a write-protected SD card), or gone (deleted over USB).
+	if (!CanWriteTo(newMemstickFolder)) {
+		ERROR_LOG(Log::System, "Can't write to '%s'", newMemstickFolder.c_str());
+		return false;
 	}
 	// Where memstick_dir.txt goes. Not set on desktops, which only get here through a debug start screen.
 	if (!g_Config.internalDataDirectory.empty() && !CanWriteTo(g_Config.internalDataDirectory)) {
@@ -388,6 +399,9 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	// We loop through the files/dirs in the source directory and just try to move them, it should work.
 	if (MoveChildrenFast(moveSrc, moveDest, progressReporter, undo)) {
 		INFO_LOG(Log::System, "Quick-move succeeded after %0.1f ms", moveStart.ElapsedMs());
+		if (beforeDeletingOriginals && !beforeDeletingOriginals()) {
+			return fail("Couldn't switch to the new folder", 0);
+		}
 		progressReporter.SetProgress(StringFromFormat("%s (%0.3f)", T_cstr(I18NCat::DIALOG, "Done!"), moveStart.ElapsedSeconds()));
 		return new MoveResult{ true, "" };
 	} else {

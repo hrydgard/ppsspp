@@ -2980,6 +2980,9 @@ static bool TestMemstickFolderCheck() {
 	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:PSP/GAME/x"), none), (int)C::INSIDE_OTHER);
 	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Stuff/PSP/Mine"), none), (int)C::OK);
 	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP"), none), (int)C::OK);
+	// Folders only PSP data is called, below a PSP folder by any name.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:MyPSP/SAVEDATA"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:MyPSP/ppsspp_state/x"), none), (int)C::INSIDE_OTHER);
 
 	// Native storage paths and content URIs are compared by location.
 	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP/GAME"), Path("/storage/emulated/0")), (int)C::INSIDE_CURRENT);
@@ -3003,6 +3006,22 @@ static bool TestMemstickFolderCheck() {
 	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms"));
 	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms/PSP"));
 	EXPECT_FALSE(FolderSeemsToBeUsed(root / "ms/PSP/Mine"));
+
+	// A PSP folder by another name: refused itself (the data would go into a new PSP folder inside), and so
+	// is anything in it.
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/SYSTEM"));
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/Mine"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "renamed", none), (int)C::LOOKS_LIKE_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "renamed/Mine", none), (int)C::INSIDE_OTHER);
+	// Its parent is fine, if it's named PSP.
+	EXPECT_TRUE(File::Rename(root / "renamed", root / "PSP"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "PSP", none), (int)C::OK);
+	// A SAVEDATA alone doesn't make a PSP folder.
+	EXPECT_TRUE(File::CreateFullPath(root / "other/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "other/Mine"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "other", none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "other/Mine", none), (int)C::OK);
 	File::DeleteDirRecursively(root);
 	return true;
 }
