@@ -420,9 +420,10 @@ static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
 
 static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 	u32 addr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
-	if (Memory::IsValidRange(addr, end)) {
+	// A header is four bytes, read at each offset.
+	if (end >= 4 && Memory::IsValidRange(addr, end)) {
 		const u8 *ptr = Memory::GetPointerUnchecked(addr);
-		for (int offset = 0; offset < end; ++offset) {
+		for (int offset = 0; offset + 4 <= end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
 				header = bswap32(Memory::ReadUnchecked_U32(addr + offset));
@@ -758,12 +759,17 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 		return hleLogError(Log::ME, -1, "invalid address in args");
 	}
 
+	// A frame is at most 1152 stereo samples, and the decoder is handed up to 4096 bytes.
+	if (!Memory::IsValidRange(samplesAddr, 1152 * 2 * 2) || !Memory::IsValidRange(sourceBytesConsumedAddr, 4) || !Memory::IsValidRange(sampleBytesAddr, 4)) {
+		return hleLogError(Log::ME, -1, "invalid address in args");
+	}
 	const u8 *inbuff = Memory::GetPointerWriteUnchecked(sourceAddr);
 	int16_t *outbuf = (int16_t *)Memory::GetPointerWriteUnchecked(samplesAddr);
+	const int inBytes = (int)Memory::ClampValidSizeAt(sourceAddr, 4096);
 	
 	int outSamples = 0;
 	int inbytesConsumed = 0;
-	if (!ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, 2, outbuf, &outSamples)) {
+	if (!ctx->decoder->Decode(inbuff, inBytes, &inbytesConsumed, 2, outbuf, &outSamples)) {
 		WARN_LOG(Log::ME, "sceMp3LowLevelDecode: Decode failed");
 	}
 	int outBytes = outSamples * sizeof(int16_t) * 2;

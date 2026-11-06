@@ -605,7 +605,8 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 	}
 
 	// Let's just dump gstate.
-	if (Memory::IsValidAddress(ctxAddr)) {
+	// A context (SceGeContext) is 512 words.
+	if (Memory::IsValidRange(ctxAddr, 512 * 4)) {
 		gstate.Save((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 
@@ -619,7 +620,7 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_BUSY, "lists in process, aborting");
 	}
 
-	if (Memory::IsValidAddress(ctxAddr)) {
+	if (Memory::IsValidRange(ctxAddr, 512 * 4)) {
 		gstate.Restore((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 

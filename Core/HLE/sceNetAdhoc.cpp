@@ -3401,6 +3401,9 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 
 	if (game_type < ADHOCCTL_GAMETYPE_1A || game_type > ADHOCCTL_GAMETYPE_2A || num_members < 2 || num_members > 16 || (game_type == ADHOCCTL_GAMETYPE_1A && num_members > 4))
 		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
+	// The whole member list is read below.
+	if (!Memory::IsValidRange(membersAddr, num_members * (u32)sizeof(SceNetEtherAddr)))
+		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
 
 	// In a normal group, it reports ALREADY_CONNECTED through the handlers and stays in it
 	// (pspautotests net/adhoc/gamemode).
@@ -4625,7 +4628,8 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 	if (!netAdhocGameModeEntered)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_ENTER_GAMEMODE, "not enter gamemode");
 
-	if (size < 0 || !Memory::IsValidAddress(dataAddr))
+	// The data is copied (and the buffers are sized) by size.
+	if (size < 0 || !Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)size))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
 	// pspautotests net/adhoc/pair/gamemode
@@ -4682,7 +4686,7 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (!netAdhocGameModeEntered)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_ENTER_GAMEMODE, "not enter gamemode");
 
-	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr))
+	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)size))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
 	const SceNetEtherAddr &replicaMac = *(const SceNetEtherAddr *)mac;

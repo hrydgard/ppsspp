@@ -1595,6 +1595,11 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 		// Invalid Receive Buffer Size
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
 	}
+	// We allocate (and clear) this on the host. The PSP takes it from the library's small heap, and
+	// no packet is anywhere near this big.
+	if (rxbuflen > 1024 * 1024) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NO_SPACE, "adhoc matching rxbuf too large");
+	}
 
 	if (mode < 1 || mode > 3) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_MODE, "adhoc matching invalid mode");

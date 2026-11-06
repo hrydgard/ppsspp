@@ -778,13 +778,29 @@ void DumpExecute::MarkDrawn(u32 prim) {
 			return;
 	}
 
+	// Real frames draw to a few targets with a few distinct areas, but a crafted dump can make every
+	// prim new, and each one is checked against all the others. Past these, coarsen instead.
+	const size_t MAX_TARGETS = 1024;
+	const size_t MAX_RECTS = 64;
 	auto add = [&](u32 base, u32 strideBytes, u32 bytesPerPixel, const DrawnRect &rect) {
+		if (drawnTargets_.size() >= MAX_TARGETS && drawnTargets_.find(base) == drawnTargets_.end())
+			return;
 		DrawnTarget &t = drawnTargets_[base];
 		t.strideBytes = strideBytes;
 		t.bpp = bytesPerPixel;
 		for (const DrawnRect &r : t.rects) {
 			if (r.Contains(rect.x1, rect.y1) && r.Contains(rect.x2, rect.y2))
 				return;
+		}
+		if (t.rects.size() >= MAX_RECTS) {
+			// Merge everything into one bounding box. That can only skip more in CopyAroundDrawn.
+			DrawnRect u = rect;
+			for (const DrawnRect &r : t.rects) {
+				u = DrawnRect{ std::min(u.x1, r.x1), std::min(u.y1, r.y1), std::max(u.x2, r.x2), std::max(u.y2, r.y2) };
+			}
+			t.rects.clear();
+			t.rects.push_back(u);
+			return;
 		}
 		t.rects.push_back(rect);
 	};
@@ -1116,6 +1132,12 @@ void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 	haveDisplay_ = disp->topaddr.ptr != 0;
 	if (!haveDisplay_)
 		return;
+	// The dump is a file, so check what sceDisplaySetFramebuf would have.
+	if ((disp->topaddr.ptr & 0xF) != 0 || disp->linesize <= 0 || (disp->linesize & 0x3F) != 0 || disp->linesize > 4096 || disp->pixelFormat < 0 || disp->pixelFormat > GE_FORMAT_8888) {
+		ERROR_LOG(Log::G3D, "Bad display in dump: %08x, stride %d, format %d", disp->topaddr.ptr, disp->linesize, disp->pixelFormat);
+		haveDisplay_ = false;
+		return;
+	}
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
 	if (allowFlip) {
 		__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);

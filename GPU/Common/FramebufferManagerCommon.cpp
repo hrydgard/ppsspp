@@ -1517,8 +1517,10 @@ static bool IsValidDisplayRange(u32 addr, int stride, GEBufferFormat format) {
 	if (stride <= 0) {
 		return false;
 	}
-	const u32 bpp = BufferFormatBytesPerPixel(format);
-	return Memory::IsValidRange(addr, ((272 - 1) * (u32)stride + 480) * bpp);
+	// In 64 bits: a huge stride (a multiple of 64 is all sceDisplaySetFramebuf asks for) wrapped
+	// this to a small size that passed.
+	const u64 bytes = ((272 - 1) * (u64)stride + 480) * BufferFormatBytesPerPixel(format);
+	return bytes <= 0xFFFFFFFF && Memory::IsValidRange(addr, (u32)bytes);
 }
 
 Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {

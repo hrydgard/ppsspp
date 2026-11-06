@@ -1145,6 +1145,11 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
 			u8 *data = (u8 *)Memory::GetPointerUnchecked(data_addr);
 			u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
+			// Block devices count the size in sectors, so clamp what that many sectors cover.
+			if ((pspFileSystem.DevType(f->handle) & PSPDevType::BLOCK) != 0) {
+				const u32 bytes = (u32)std::min<u64>((u64)size * 2048, 0xFFFFFFFF);
+				validSize = Memory::ClampValidSizeAt(data_addr, bytes) / 2048;
+			}
 			if (f->npdrm) {
 				result = npdrmRead(f, data, validSize);
 				currentMIPS->InvalidateICacheRangeDeferred(data_addr, validSize);
@@ -2755,21 +2760,23 @@ static u32 sceIoDread(MIPSState *mips, int id, u32 dirent_addr) {
 			// write d_private for supporting Custom BGM
 			// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
 			if (Memory::IsValidAddress(entry->d_private)){
+				// What's written depends on the layout, so check each one's whole range below.
 				if (sceKernelGetCompiledSdkVersion() <= 0x0307FFFF){
 					// d_private is pointing to an area of unknown size
 					// - [0..12] "8.3" file name (null-terminated), could be empty.
 					// - [13..???] long file name (null-terminated)
-
-					strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
-					strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+					if (Memory::IsValidRange(entry->d_private, 13 + (u32)ARRAY_SIZE(entry->d_name))) {
+						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private), shortName.c_str(), 13);
+						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 13), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
+					}
 				}
 				else {
 					// d_private is pointing to an area of total size 1044
 					// - [0..3] size of area
 					// - [4..19] "8.3" file name (null-terminated), could be empty.
 					// - [20..???] long file name (null-terminated)
-					auto size = Memory::ReadUnchecked_U32(entry->d_private);
-					if (size >= 1044) {
+					auto size = Memory::IsValidRange(entry->d_private, 4) ? Memory::ReadUnchecked_U32(entry->d_private) : 0;
+					if (size >= 1044 && Memory::IsValidRange(entry->d_private, 1044)) {
 						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 4), shortName.c_str(), 16);
 						strcpy_limit((char*)Memory::GetPointerUnchecked(entry->d_private + 20), (const char*)entry->d_name, ARRAY_SIZE(entry->d_name));
 					}
@@ -3087,7 +3094,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		u8 pgd_header[0x90]{};
 		u8 pgd_magic[4] = {0x00, 0x50, 0x47, 0x44};
 
-		if (Memory::IsValidAddress(indataPtr) && inlen == 16) {
+		if (Memory::IsValidRange(indataPtr, 16) && inlen == 16) {
 			memcpy(keybuf, Memory::GetPointerUnchecked(indataPtr), 16);
 			key_ptr = keybuf;
 		}else{
@@ -3285,7 +3292,8 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		//if (GetIOTimingMethod() == IOTIMING_REALISTIC) // Need a check for io timing method?
 		usec += 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
 
-		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
+		// The whole struct is read, whatever inlen says.
+		if (Memory::IsValidRange(indataPtr, 16) && inlen >= 4) {
 			struct SeekInfo {
 				u64_le offset;
 				u32_le unk;

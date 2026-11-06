@@ -647,7 +647,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 				outputFlags |= OutputFlags::PILLARBOX;
 			}
 		}
-	} else if (srcwidth == 0 || srcheight == 0 || displayStride_ < 0 || !Memory::IsValidRange(displayFramebuf_, (displayStride_ == 0 ? srcwidth : displayStride_) * srcheight * (displayFormat_ == GE_FORMAT_8888 ? 4 : 2))) {
+	} else if (srcwidth == 0 || srcheight == 0 || displayStride_ > 4096 || (u64)(displayStride_ == 0 ? srcwidth : displayStride_) * srcheight * (displayFormat_ == GE_FORMAT_8888 ? 4 : 2) > 0xFFFFFFFF ||
+		!Memory::IsValidRange(displayFramebuf_, (displayStride_ == 0 ? srcwidth : displayStride_) * srcheight * (displayFormat_ == GE_FORMAT_8888 ? 4 : 2))) {
 		// Nothing, or not all of it in memory: the PSP takes strides that run past the end of VRAM, or
 		// negative ones (rows going up.)
 		hasImage = false;
@@ -1595,6 +1596,10 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 		size.y = 272;
 		stride = displayStride_;
 		fmt = displayFormat_;
+		// All 272 rows are copied, at the game's stride.
+		const u64 bytes = ((u64)(size.y - 1) * stride + size.x) * (fmt == GE_FORMAT_8888 ? 4 : 2);
+		if (bytes > 0xFFFFFFFF || !Memory::IsValidRange(displayFramebuf_, (u32)bytes))
+			return false;
 		src = Memory::GetPointerOrException(displayFramebuf_);
 	}
 
