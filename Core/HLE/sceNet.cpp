@@ -1103,27 +1103,59 @@ static int sceNetThreadAbort(SceUID thid) {
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
-static u32 sceWlanGetEtherAddr(u32 addrAddr) {
-	if (!Memory::IsValidRange(addrAddr, 6)) {
-		// More correctly, it should crash.
-		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
-	}
-
-	u8 *addr = Memory::GetPointerWriteUnchecked(addrAddr);
+// The console's MAC address: the configured one, or one made from the instance ID when several run.
+static void GetEtherAddr(u8 addr[6]) {
 	if (PPSSPP_ID > 1) {
-		Memory::Memset(addrAddr, PPSSPP_ID, 6);
+		memset(addr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
 		addr[0] &= 0xfc;
 	} else {
 		// Read MAC Address from config
 		if (!ParseMacAddress(g_Config.sMACAddress, addr)) {
 			ERROR_LOG(Log::sceNet, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
-			Memory::Memset(addrAddr, 0, 6);
+			memset(addr, 0, 6);
 		}
 	}
+}
+
+static u32 sceWlanGetEtherAddr(u32 addrAddr) {
+	if (!Memory::IsValidRange(addrAddr, 6)) {
+		// More correctly, it should crash.
+		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
+	}
+
+	GetEtherAddr(Memory::GetPointerWriteUnchecked(addrAddr));
 	NotifyMemInfo(MemBlockFlags::WRITE, addrAddr, 6, "WlanEtherAddr");
 
 	return hleDelayResult(hleLogDebug(Log::sceNet, 0), "get ether mac", 200);
+}
+
+// Reads len bytes at offset from the 512-byte IdStorage leaf for key. We only have the leaf that
+// holds the MAC address, key 0x44, which the VSH's wlan.prx (sceWlanGetEtherAddr) and
+// sysconf_plugin.prx (System Information, through vshbridge.prx's sceVshBridge_4db43867) both read
+// as 6 bytes at offset 0. Every other key gets the error flash0:/kd/idstorage.prx returned before
+// this existed: its init stops at the kernel mutexes we leave unresolved (see ThreadManForKernel),
+// so it never sets its initialized flag. The argument checks come from that function, too.
+static u32 sceIdStorageLookup(u32 key, u32 offset, u32 bufAddr, u32 len) {
+	key &= 0xFFFF;
+	if (key > 0xFFEF) {
+		return hleLogError(Log::sceMisc, 0x80000100, "bad key");
+	}
+	if (offset >= 0x200 || offset + len > 0x200) {
+		return hleLogError(Log::sceMisc, 0x800001FE, "out of range");
+	}
+	if (key != 0x44) {
+		return hleLogDebug(Log::sceMisc, 0x80000108, "key not available");
+	}
+	if (!Memory::IsValidRange(bufAddr, len)) {
+		return hleLogError(Log::sceMisc, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
+	}
+
+	u8 leaf[0x200]{};
+	GetEtherAddr(leaf);
+	Memory::MemcpyUnchecked(bufAddr, leaf + offset, len);
+	NotifyMemInfo(MemBlockFlags::WRITE, bufAddr, len, "IdStorageLookup");
+	return hleLogInfo(Log::sceMisc, 0);
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
@@ -1974,4 +2006,13 @@ void Register_sceNetUpnp() {
 
 void Register_sceNetIfhandle() {
 	RegisterHLEModule("sceNetIfhandle", ARRAY_SIZE(sceNetIfhandle), sceNetIfhandle);
+}
+
+// Just the one function. The rest of the library still resolves to flash0:/kd/idstorage.prx.
+const HLEFunction sceIdStorage_driver[] = {
+	{0x6FE062D1, &WrapU_UUUU<sceIdStorageLookup>,   "sceIdStorageLookup",                'x', "xxpx" },
+};
+
+void Register_sceIdStorage_driver() {
+	RegisterHLEModule("sceIdStorage_driver", ARRAY_SIZE(sceIdStorage_driver), sceIdStorage_driver);
 }

@@ -109,6 +109,7 @@ void Register_sceNetApctl_lib();
 void Register_sceWlanDrv();
 void Register_sceNetUpnp();
 void Register_sceNetIfhandle();
+void Register_sceIdStorage_driver();
 
 void __NetInit();
 void __NetShutdown();
