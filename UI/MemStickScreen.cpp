@@ -41,6 +41,7 @@
 #include "Common/File/DiskFree.h"
 
 #include "Common/Thread/ThreadManager.h"
+#include "Common/TimeUtil.h"
 #include "Common/UI/Notice.h"
 
 #include "Core/Config.h"
@@ -58,6 +59,35 @@ static std::string FormatSpaceString(int64_t space) {
 	} else {
 		return "N/A";
 	}
+}
+
+// The memory stick folder in the app's own storage.
+static Path PrivateMemstickFolder() {
+#if PPSSPP_PLATFORM(UWP)
+	return g_Config.internalDataDirectory;
+#else
+	return Path(g_extFilesDir);
+#endif
+}
+
+std::string GetMemstickFolderDisplayName(const Path &folder) {
+	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+	if (!folder.empty() && folder == PrivateMemstickFolder()) {
+		return std::string(ms->T("App private data"));
+	}
+	std::string volume;
+	std::string inVolume;
+	if (!SplitStorageLocation(folder, &volume, &inVolume)) {
+		return folder.ToVisualString();
+	}
+	std::string name;
+	if (volume == "primary") {
+		name = ms->T("Internal storage");
+	} else {
+		// Could also be a USB drive, which is rare enough. The ID tells them apart.
+		name = ApplySafeSubstitutions(ms->T("SD card (%1)"), volume);
+	}
+	return inVolume.empty() ? name : name + " / " + ReplaceAll(inVolume, "/", " / ");
 }
 
 MemStickScreen::MemStickScreen(bool initialSetup)
@@ -231,7 +261,7 @@ void MemStickScreen::CreateContentViews(UI::ViewGroup *parent) {
 	privateFolder->SetHintText(GetExplanationString(CHOICE_PRIVATE_DIRECTORY));
 
 	if ((choice_ == CHOICE_BROWSE_FOLDER || choice_ == CHOICE_SET_MANUAL) && !g_Config.memStickDirectory.empty()) {
-		groups->Add(new TextView(StringFromFormat("%s: %s", ms->T_cstr("Current"), g_Config.memStickDirectory.ToVisualString().c_str()), ALIGN_LEFT, false));
+		groups->Add(new TextView(StringFromFormat("%s: %s", ms->T_cstr("Current"), GetMemstickFolderDisplayName(g_Config.memStickDirectory).c_str()), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 	}
 
 	INFO_LOG(Log::System, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
@@ -362,11 +392,7 @@ void MemStickScreen::SetFolderManually(UI::EventParams &params) {
 }
 
 void MemStickScreen::UseInternalStorage(UI::EventParams &params) {
-#if PPSSPP_PLATFORM(UWP)
-	Path pendingMemStickFolder = g_Config.internalDataDirectory;
-#else
-	Path pendingMemStickFolder = Path(g_extFilesDir);
-#endif
+	Path pendingMemStickFolder = PrivateMemstickFolder();
 
 	if (initialSetup_) {
 		// There's not gonna be any files here in this case since it's a fresh install.
@@ -502,22 +528,24 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+	// The columns, and below them the progress of a move, across the whole width so file names fit.
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+	ViewGroup *columns = root_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	const Path &oldMemstickFolder = g_Config.memStickDirectory;
 
 	Spacer *spacerColumn = new Spacer(new LinearLayoutParams(20.0, FILL_PARENT, 0.0f));
 	ViewGroup *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
 	ViewGroup *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0));
-	root_->Add(spacerColumn);
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
+	columns->Add(spacerColumn);
+	columns->Add(leftColumn);
+	columns->Add(rightColumn);
 
 	leftColumn->Add(new TextView(ms->T("Selected PSP Data Folder"), ALIGN_LEFT, false));
 	if (!initialSetup_) {
 		leftColumn->Add(new NoticeView(NoticeLevel::INFO, ms->T("PPSSPP will restart after the change"), ""));
 	}
-	leftColumn->Add(new TextView(newMemstickFolder_.ToVisualString(), ALIGN_LEFT, false));
+	leftColumn->Add(new TextView(GetMemstickFolderDisplayName(newMemstickFolder_), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 
 	// TODO: Add spinner
 	newFreeSpaceView_ = leftColumn->Add(new TextView(ApplySafeSubstitutions("%1: ...", ms->T("Free space")), ALIGN_LEFT, false));
@@ -555,11 +583,20 @@ void ConfirmMemstickMoveScreen::CreateViews() {
 
 	if (!oldMemstickFolder.empty()) {
 		rightColumn->Add(new TextView(std::string(ms->T("Current")) + ":", ALIGN_LEFT, false));
-		rightColumn->Add(new TextView(oldMemstickFolder.ToVisualString(), ALIGN_LEFT, false));
+		rightColumn->Add(new TextView(GetMemstickFolderDisplayName(oldMemstickFolder), ALIGN_LEFT | FLAG_WRAP_TEXT, false));
+	}
+
+	if (restartTime_ > 0.0) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		leftColumn->Add(new NoticeView(NoticeLevel::SUCCESS, di->T("Done!"), ""));
+		progressView_ = nullptr;
+		return;
 	}
 
 	if (moveDataTask_) {
-		progressView_ = leftColumn->Add(new TextView(progressReporter_.Format()));
+		// What it's doing and the count on the first line, the file it's on below.
+		progressView_ = root_->Add(new TextView(progressReporter_.Format(), ALIGN_LEFT | FLAG_WRAP_TEXT, false,
+			new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(20, 10))));
 	} else {
 		progressView_ = nullptr;
 	}
@@ -589,7 +626,7 @@ void ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
 bool ConfirmMemstickMoveScreen::key(const KeyInput &key) {
 	// The Back choice is hidden during a move, but the back key would still close the screen, blocking the
 	// UI thread in the destructor until the move is done, and skipping FinishFolderMove().
-	if (moveDataTask_ && UI::IsEscapeKey(key)) {
+	if ((moveDataTask_ || restartTime_ > 0.0) && UI::IsEscapeKey(key)) {
 		return true;
 	}
 	return UIBaseDialogScreen::key(key);
@@ -607,6 +644,12 @@ void ConfirmMemstickMoveScreen::onFinish(DialogResult result) {
 void ConfirmMemstickMoveScreen::update() {
 	UIBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
+
+	if (restartTime_ > 0.0 && time_now_d() >= restartTime_) {
+		restartTime_ = 0.0;
+		System_RestartApp("");
+		return;
+	}
 
 	if (moveDataTask_) {
 		if (progressView_) {
@@ -727,9 +770,10 @@ void ConfirmMemstickMoveScreen::FinishFolderMove() {
 	PostLoadConfig();
 
 	if (!initialSetup_) {
-		// We restart the app here, to get the new settings.
-		INFO_LOG(Log::System, "Not initial setup. Restarting!");
-		System_RestartApp("");
+		// We restart the app to get the new settings, once the user has seen that it worked.
+		INFO_LOG(Log::System, "Not initial setup. Restarting in a moment.");
+		restartTime_ = time_now_d() + 3.0;
+		RecreateViews();
 	} else {
 		// This is initial setup, we now switch to the main screen, if we were successful
 		// (which we better have been...)

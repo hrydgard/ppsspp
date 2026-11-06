@@ -35,6 +35,10 @@
 
 class NoticeView;
 
+// A memory stick folder as shown to the user: "Internal storage / PSP" rather than a content URI or a
+// /storage/emulated/0 path, and the app's own folder by name.
+std::string GetMemstickFolderDisplayName(const Path &folder);
+
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
 class MemStickScreen : public UITwoPaneBaseDialogScreen {
@@ -125,6 +129,8 @@ private:
 	bool initialSetup_;
 	// The data is already in the new folder.
 	bool dataMoved_ = false;
+	// Set when everything worked: restart then (time_now_d()), after showing that.
+	double restartTime_ = 0.0;
 
 	MoveProgressReporter progressReporter_;
 	UI::TextView *progressView_ = nullptr;

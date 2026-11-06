@@ -292,7 +292,7 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	auto addMemstickPath = [host, &page]() {
 		page->Custom("Memory Stick folder", [host](UI::ViewGroup *parent) -> UI::View * {
 			Choice *memstickPath = parent->Add(new ChoiceWithCallbackValueDisplay(T(I18NCat::SYSTEM, "Memory Stick folder"), []() {
-				return g_Config.memStickDirectory.ToVisualString();
+				return GetMemstickFolderDisplayName(g_Config.memStickDirectory);
 			}));
 			memstickPath->OnClick.Add([host](UI::EventParams &e) {
 				host->PageScreenManager()->push(new MemStickScreen(false));

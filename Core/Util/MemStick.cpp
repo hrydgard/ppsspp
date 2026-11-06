@@ -72,6 +72,18 @@ static std::string LocationKey(const Path &path) {
 	return key;
 }
 
+bool SplitStorageLocation(const Path &path, std::string *volume, std::string *pathInVolume) {
+	const std::string key = LocationKey(path);
+	const size_t colon = key.find(':');
+	// A Windows drive letter ("C:/...") isn't a volume ID.
+	if (key.empty() || key[0] == '/' || colon == std::string::npos || colon < 2) {
+		return false;
+	}
+	*volume = key.substr(0, colon);
+	*pathInVolume = key.substr(colon + 1);
+	return true;
+}
+
 // True if child is strictly inside parent. Case-insensitive, like Android's shared storage.
 static bool KeyIsInside(std::string_view child, std::string_view parent) {
 	if (parent.empty() || child.size() <= parent.size() || !startsWithNoCase(child, parent)) {
@@ -297,7 +309,17 @@ std::string MoveProgressReporter::Format() {
 	std::string str;
 	{
 		std::lock_guard<std::mutex> guard(mutex_);
-		if (max_ > 0) {
+		if (!phase_.empty()) {
+			str = phase_;
+			if (max_ > 0) {
+				str += StringFromFormat(" (%d/%d)", count_ + 1, max_);
+			} else if (max_ < 0) {
+				str += StringFromFormat(" (%d/?)", count_ + 1);
+			}
+			if (!progress_.empty()) {
+				str += "\n";
+			}
+		} else if (max_ > 0) {
 			str = StringFromFormat("(%d/%d) ", count_ + 1, max_);
 		} else if (max_ < 0) {
 			str = StringFromFormat("(%d/?) ", count_ + 1);
@@ -386,6 +408,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	// Anything that fails from here on puts back what was changed.
 	auto fail = [&](const char *why, size_t failedFiles) {
 		ERROR_LOG(Log::System, "Move failed: %s. Putting things back.", why);
+		progressReporter.SetPhase(ms->T("Putting things back..."));
 		MoveResult *result = new MoveResult{ false, why, failedFiles };
 		result->partlyMoved = !UndoMove(moveSrc, moveDest, undo);
 		return result;
@@ -397,12 +420,13 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	// First, we try the cheapest and safest way to move: Can we move files directly within the same device?
 	// We loop through the files/dirs in the source directory and just try to move them, it should work.
+	progressReporter.SetPhase(ms->T("Moving..."));
 	if (MoveChildrenFast(moveSrc, moveDest, progressReporter, undo)) {
 		INFO_LOG(Log::System, "Quick-move succeeded after %0.1f ms", moveStart.ElapsedMs());
 		if (beforeDeletingOriginals && !beforeDeletingOriginals()) {
 			return fail("Couldn't switch to the new folder", 0);
 		}
-		progressReporter.SetProgress(StringFromFormat("%s (%0.3f)", T_cstr(I18NCat::DIALOG, "Done!"), moveStart.ElapsedSeconds()));
+		progressReporter.SetPhase(T(I18NCat::DIALOG, "Done!"));
 		return new MoveResult{ true, "" };
 	} else {
 		INFO_LOG(Log::System, "Quick move denied after %0.1f ms, falling back to slow move.", moveStart.ElapsedMs());
@@ -416,14 +440,15 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 	std::vector<FileSuffix> fileSuffixesToMove;
 	std::vector<std::string> directorySuffixesToCreate;
 
+	progressReporter.SetPhase(ms->T("Finding files..."));
 	// NOTE: It's correct to pass moveSrc twice here, it's to keep the root in the recursion.
 	if (!ListFileSuffixesRecursively(moveSrc, moveSrc, directorySuffixesToCreate, fileSuffixesToMove, progressReporter)) {
-		progressReporter.SetProgress(ms->T("Failed to read old directory"));
 		return fail("Failed to read old directory", 0);
 	}
 
 	// Better not interrupt the app while this is happening!
 
+	progressReporter.SetPhase(ms->T("Copying..."));
 	// Create all the necessary directories.
 	for (size_t i = 0; i < directorySuffixesToCreate.size(); i++) {
 		const auto &dirSuffix = directorySuffixesToCreate[i];
@@ -463,9 +488,10 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	// After the whole move, verify that all the files arrived correctly.
 	// If there's a single error, we do not delete the source data.
+	progressReporter.SetPhase(ms->T("Checking..."));
 	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
 		const auto &fileSuffix = fileSuffixesToMove[i];
-		progressReporter.SetProgress(ms->T("Checking..."), i, fileSuffixesToMove.size());
+		progressReporter.SetProgress(fileSuffix.suffix, i, fileSuffixesToMove.size());
 
 		Path to = moveDest / fileSuffix.suffix;
 
@@ -492,6 +518,7 @@ MoveResult *MoveDirectoryContentsSafe(Path moveSrc, Path moveDest, MoveProgressR
 
 	// Delete the originals: the files, then the folders. On content URIs DeleteDir would take the files
 	// along anyway, but on native paths it only removes empty folders.
+	progressReporter.SetPhase(ms->T("Deleting from old folder..."));
 	for (size_t i = 0; i < fileSuffixesToMove.size(); i++) {
 		const Path from = moveSrc / fileSuffixesToMove[i].suffix;
 		progressReporter.SetProgress(fileSuffixesToMove[i].suffix, i, fileSuffixesToMove.size());

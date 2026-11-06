@@ -16,14 +16,23 @@ public:
 		count_ = (int)count;
 		max_ = (int)maxVal;
 	}
+	// What the move is doing (like copying or checking), shown above the item it's on.
+	void SetPhase(std::string_view phase) {
+		std::lock_guard<std::mutex> guard(mutex_);
+		phase_ = phase;
+		progress_.clear();
+		count_ = 0;
+		max_ = 0;
+	}
 
 	std::string Format();
 
 private:
+	std::string phase_;
 	std::string progress_;
 	std::mutex mutex_;
-	int count_;
-	int max_;
+	int count_ = 0;
+	int max_ = 0;
 };
 
 struct MoveResult {
@@ -53,6 +62,11 @@ enum class MemstickFolderCheck {
 MemstickFolderCheck CheckNewMemstickFolder(const Path &newFolder, const Path &currentFolder);
 
 bool FolderSeemsToBeUsed(const Path &newMemstickFolder);
+
+// For showing a location to the user: splits Android shared storage, as a content URI or a native path, into
+// its volume ("primary" for internal storage, otherwise an ID like "1234-ABCD") and the path inside it.
+// False for anything else.
+bool SplitStorageLocation(const Path &path, std::string *volume, std::string *pathInVolume);
 // The checks SwitchMemstickFolderTo() starts with, to run before moving any data.
 bool CanSwitchMemstickFolderTo(const Path &newMemstickFolder);
 // Makes the next start use newMemstickFolder. SwitchMemstickFolderTo() does this and more.
