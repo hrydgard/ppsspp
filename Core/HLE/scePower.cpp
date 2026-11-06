@@ -34,6 +34,8 @@
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "Common/System/System.h"
 
 struct VolatileWaitingThread {
 	SceUID threadID;
@@ -49,7 +51,7 @@ const int PSP_POWER_ERROR_INVALID_SLOT = 0x80000102;
 
 const int PSP_POWER_CB_AC_POWER = 0x00001000;
 const int PSP_POWER_CB_BATTERY_EXIST = 0x00000080;
-const int PSP_POWER_CB_BATTERY_FULL = 0x00000064;
+const int PSP_POWER_CB_BATTERY_PERCENT = 0x0000007F;
 
 const int POWER_CB_AUTO = -1;
 
@@ -196,8 +198,21 @@ void __PowerDoState(PointerWrap &p) {
 	Do(p, volatileWaitingThreads);
 }
 
+// The XMB shows the battery level, so there we report the host's. Games keep a full battery:
+// a changing value would make them behave differently between runs, and some refuse to save
+// when it's low.
+static int BatteryPercent() {
+	if (__KernelIsRunningVSH() && System_GetPropertyBool(SYSPROP_CAN_READ_BATTERY_PERCENTAGE)) {
+		const int64_t percent = System_GetPropertyInt(SYSPROP_BATTERY_PERCENTAGE);
+		if (percent >= 0 && percent <= 100) {
+			return (int)percent;
+		}
+	}
+	return 100;
+}
+
 static int scePowerGetBatteryLifePercent() {
-	return hleLogDebug(Log::HLE, 100);
+	return hleLogDebug(Log::HLE, BatteryPercent());
 }
 
 static int scePowerGetBatteryLifeTime() {
@@ -281,7 +296,7 @@ static int scePowerRegisterCallback(int slot, int cbId) {
 		}
 	}
 	if (retval >= 0) {
-		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | PSP_POWER_CB_BATTERY_FULL;
+		int arg = PSP_POWER_CB_AC_POWER | PSP_POWER_CB_BATTERY_EXIST | (BatteryPercent() & PSP_POWER_CB_BATTERY_PERCENT);
 		__KernelNotifyCallback(cbId, arg);
 	}
 	return hleLogDebugOrError(Log::HLE, retval);
