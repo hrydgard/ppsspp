@@ -699,7 +699,9 @@ int PSARReader::NextEntry(std::string *error) {
 	const u32 chunkSize = ReadU32(block_.data() + 0x104);
 	const u32 expandedSize = ReadU32(block_.data() + 0x108);
 	// pos_ is a u32, so a huge chunk would wrap it back to an earlier entry and loop forever.
-	if (chunkSize > limit_ - std::min((size_t)pos_, limit_)) {
+	// Check against the file, not limit_: the last entry's contents can run past the size the
+	// header declares (1.x updaters, and the 3.60, 4.21 and 5.70 PSARs).
+	if (chunkSize > size_ - std::min((size_t)pos_, size_)) {
 		*error = StringFromFormat("Entry '%s' runs past the end of the archive (%u bytes)", entryName_.c_str(), chunkSize);
 		return -1;
 	}
