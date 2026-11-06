@@ -24,7 +24,7 @@ enum {
 	PSP_NET_APCTL_EVENT_EAP_AUTH = 8,
 	PSP_NET_APCTL_EVENT_KEY_EXCHANGE = 9,
 	PSP_NET_APCTL_EVENT_RECONNECT = 10,
-	PSP_NET_APCTL_EVENT_SCAN_STOP = 11 // FIXME: not sure what this is, MGS:PW seems to check this value within ApctlHandler during Recruit, related to sceNetApctlScanSSID2 ?
+	PSP_NET_APCTL_EVENT_SCAN_STOP = 11 // The end of a sceNetApctlScanSSID2 (pspautotests net/inet/apscan2)
 };
 
 const char *ApctlStateToString(int apctlState);
