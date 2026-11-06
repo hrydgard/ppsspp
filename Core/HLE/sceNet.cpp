@@ -18,6 +18,7 @@
 #include <mutex>
 #include <string>
 #include <algorithm>
+#include <random>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Net/SocketCompat.h"
@@ -89,6 +90,9 @@ static int apctlStateEvent = -1;
 static int actionAfterApctlMipsCall;
 static std::recursive_mutex apctlEvtMtx;
 static std::deque<ApctlArgs> apctlEvents;
+// Whether a scan ends with a SCAN_STOP event after SCAN_COMPLETE. sceNetApctlScanUser's doesn't (pspautotests
+// net/inet/offline); MGS: Peace Walker's sceNetApctlScanSSID2 is thought to.
+static bool apctlScanStopEvent = false;
 
 // Currently loaded auto-config
 static InfraDNSConfig g_infraDNSConfig;
@@ -893,7 +897,7 @@ void __NetApctlCallbacks()
 
 		case PSP_NET_APCTL_EVENT_SCAN_COMPLETE:
 			newState = PSP_NET_APCTL_STATE_DISCONNECTED;
-			if (error == 0)
+			if (error == 0 && apctlScanStopEvent)
 				apctlEvents.push_front({ newState, newState, PSP_NET_APCTL_EVENT_SCAN_STOP, 0 });
 			break;
 
@@ -1658,8 +1662,53 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 	return hleLogError(Log::sceNet, 0x80410A03, "apctl invalid arg"); // pspautotests net/inet/offline
 }
 
+// What a scan finds: the configured access point first, then made-up ones. Games like MGS: Portable Ops and
+// Peace Walker make a recruit out of the strongest access point and won't take the same one again for days, so
+// the made-up ones are new on every scan, and every strength is random (the configured one's too, or it would
+// always be the strongest).
+struct FakeAccessPoint {
+	u8 bssid[ETHER_ADDR_LEN];
+	char ssid[APCTL_SSID_MAXLEN + 1];
+	u8 channel;
+	u8 strength;
+};
+
+static const int APCTL_FAKE_ENTRIES = 4;
+// A scan has this many slots. The User functions number what was found from 1; slot 0 is valid but empty
+// (pspautotests net/inet/apscan).
+static const int APCTL_SCAN_SLOTS = 20;
+static FakeAccessPoint fakeAccessPoints[APCTL_FAKE_ENTRIES];
+
+static void GenerateFakeAccessPoints() {
+	static std::mt19937 random(std::random_device{}());
+	static const u8 channels[] = { 1, 6, 11 };
+	for (int i = 0; i < APCTL_FAKE_ENTRIES; i++) {
+		FakeAccessPoint &ap = fakeAccessPoints[i];
+		if (i == 0) {
+			memcpy(ap.bssid, netApctlInfo.bssid, ETHER_ADDR_LEN);
+			memset(ap.ssid, 0, sizeof(ap.ssid));
+			memcpy(ap.ssid, netApctlInfo.ssid, std::min((size_t)netApctlInfo.ssidLength, (size_t)APCTL_SSID_MAXLEN));
+			ap.channel = netApctlInfo.channel;
+		} else {
+			for (int j = 0; j < ETHER_ADDR_LEN; j++) {
+				ap.bssid[j] = (u8)random();
+			}
+			// A universally administered unicast address (Gran Turismo cares).
+			ap.bssid[0] &= 0xfc;
+			snprintf(ap.ssid, sizeof(ap.ssid), "WifiAP%04X", (unsigned)(random() & 0xFFFF));
+			ap.channel = channels[random() % 3];
+		}
+		// Games use the strength too (MGS: Portable Ops ignores anything under 10).
+		ap.strength = (u8)(20 + random() % 80);
+	}
+	// Strongest first (pspautotests net/inet/apscan).
+	std::stable_sort(fakeAccessPoints, fakeAccessPoints + APCTL_FAKE_ENTRIES, [](const FakeAccessPoint &a, const FakeAccessPoint &b) {
+		return a.strength > b.strength;
+	});
+}
+
 // This one logs like a syscall because it's called at the end of some.
-int NetApctl_ScanUser() {
+int NetApctl_ScanUser(bool scanStopEvent) {
 	if (!g_Config.bEnableWlan)
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_WLAN_SWITCH_OFF);
 
@@ -1667,20 +1716,21 @@ int NetApctl_ScanUser() {
 	if (netApctlState != PSP_NET_APCTL_STATE_DISCONNECTED)
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_DISCONNECTED);
 
+	apctlScanStopEvent = scanStopEvent;
+	GenerateFakeAccessPoints();
 	__UpdateApctlHandlers(0, PSP_NET_APCTL_STATE_SCANNING, PSP_NET_APCTL_EVENT_SCAN_REQUEST, 0);
 	return hleLogInfo(Log::sceNet, 0);
 }
 
 static int sceNetApctlScanUser() {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s()", __FUNCTION__);
-	return NetApctl_ScanUser();
+	return NetApctl_ScanUser(false);
 }
 
 // This one logs like a syscall because it's called at the end of some.
-int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
+// The IDs in the list start at firstId: 1 for the User functions (pspautotests net/inet/offline).
+int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr, int firstId) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
-	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
-	int entries = 4;
+	const int entries = APCTL_FAKE_ENTRIES;
 	// A NULL buffer asks for the size (pspautotests net/inet/offline).
 	if (!Memory::IsValid4AlignedAddress(sizeAddr) || (bufAddr != 0 && !Memory::IsValidAddress(bufAddr)))
 		return hleLogError(Log::sceNet, 0x80410A03, "apctl invalid arg");
@@ -1707,7 +1757,7 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			offset += 4;
 
 			// Entry ID
-			Memory::WriteUnchecked_U32(i, bufAddr + offset);
+			Memory::WriteUnchecked_U32(firstId + i, bufAddr + offset);
 			offset += 4;
 		}
 		// Fix the last Pointer
@@ -1719,14 +1769,19 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 }
 
 static int sceNetApctlGetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
-	return NetApctl_GetBSSDescIDListUser(sizeAddr, bufAddr);
+	return NetApctl_GetBSSDescIDListUser(sizeAddr, bufAddr, 1);
 }
 
-int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
+int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr, int firstId) {
+	// pspautotests net/inet/apscan
+	if (entryId < 0 || entryId >= (firstId == 0 ? APCTL_FAKE_ENTRIES : APCTL_SCAN_SLOTS))
+		return hleLogError(Log::sceNet, 0x80410A82, "bad entry id");
+	if (entryId >= firstId + APCTL_FAKE_ENTRIES)
+		return hleLogError(Log::sceNet, 0x80410A09, "empty entry");
 	u32 resultSize = 4;
 	switch (infoId) {
 	case PSP_NET_APCTL_DESC_IBSS: resultSize = ETHER_ADDR_LEN; break;
-	case PSP_NET_APCTL_DESC_SSID_NAME: resultSize = APCTL_SSID_MAXLEN; break;
+	case PSP_NET_APCTL_DESC_SSID_NAME: resultSize = APCTL_SSID_MAXLEN + 1; break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH: resultSize = 1; break;
 	default: break;
@@ -1734,57 +1789,27 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	if (!Memory::IsValidRange(resultAddr, resultSize))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
-	// Generate an SSID name
-	char dummySSID[APCTL_SSID_MAXLEN] = "WifiAP0";
-	dummySSID[6] += static_cast<char>(entryId);
-
+	// The User functions' slot 0 is empty.
+	static const FakeAccessPoint emptyAccessPoint{};
+	const FakeAccessPoint &ap = entryId < firstId ? emptyAccessPoint : fakeAccessPoints[entryId - firstId];
+	// What each code writes is in pspautotests net/inet/apscan.
 	switch (infoId) {
-	case PSP_NET_APCTL_DESC_IBSS: // IBSS, 6 bytes
-		if (entryId == 0)
-			Memory::Memcpy(resultAddr, netApctlInfo.bssid, sizeof(netApctlInfo.bssid), "GetBSSDescEntryUser");
-		else {
-			// Generate a BSSID/MAC address
-			char dummyMAC[ETHER_ADDR_LEN];
-			memset(dummyMAC, entryId, sizeof(dummyMAC));
-			// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
-			dummyMAC[0] &= 0xfc;
-			Memory::Memcpy(resultAddr, dummyMAC, sizeof(dummyMAC), "GetBSSDescEntryUser");
-		}
+	case PSP_NET_APCTL_DESC_IBSS:
+		Memory::Memcpy(resultAddr, ap.bssid, ETHER_ADDR_LEN, "GetBSSDescEntryUser");
 		break;
 	case PSP_NET_APCTL_DESC_SSID_NAME:
-		// Return 32 bytes
-		if (entryId == 0)
-			Memory::Memcpy(resultAddr, netApctlInfo.ssid, sizeof(netApctlInfo.ssid), "GetBSSDescEntryUser");
-		else {
-			Memory::Memcpy(resultAddr, dummySSID, sizeof(dummySSID), "GetBSSDescEntryUser");
-		}
+		// With the terminator.
+		Memory::Memcpy(resultAddr, ap.ssid, APCTL_SSID_MAXLEN + 1, "GetBSSDescEntryUser");
 		break;
 	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
-		// Return one 32-bit value
-		if (entryId == 0)
-			Memory::WriteUnchecked_U32(netApctlInfo.ssidLength, resultAddr);
-		else {
-			// Calculate the SSID length
-			Memory::WriteUnchecked_U32((u32)strlen(dummySSID), resultAddr);
-		}
+		Memory::WriteUnchecked_U32((u32)strlen(ap.ssid), resultAddr);
 		break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
-		// FIXME: Return one 1 byte value or may be 32-bit if this is not a channel?
-		if (entryId == 0)
-			Memory::WriteUnchecked_U8(netApctlInfo.channel, resultAddr);
-		else {
-			// Generate channel for testing purposes, not even sure whether this is channel or not, MGS:PW seems to treat the data as u8
-			Memory::WriteUnchecked_U8(entryId, resultAddr);
-		}
+		Memory::WriteUnchecked_U8(ap.channel, resultAddr);
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
-		// Return 1 byte
-		if (entryId == 0)
-			Memory::WriteUnchecked_U8(netApctlInfo.strength, resultAddr);
-		else {
-			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
-			Memory::WriteUnchecked_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
-		}
+		// A percentage.
+		Memory::WriteUnchecked_U8(ap.strength, resultAddr);
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
 		// Return one 32-bit value
@@ -1799,11 +1824,11 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 
 static int sceNetApctlGetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i, %08x)", __FUNCTION__, entryId, infoId, resultAddr);
-	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
+	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr, 1);
 }
 
 static int sceNetApctlScanSSID2() {
-	return NetApctl_ScanUser();
+	return NetApctl_ScanUser(true);
 }
 
 /**************
@@ -1813,7 +1838,7 @@ static int sceNetApctlScanSSID2() {
 * Arg4 = input flag? (initially 0/1 ?)
 ***************/
 static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) {
-	return NetApctl_GetBSSDescIDListUser(Arg1, Arg2);
+	return NetApctl_GetBSSDescIDListUser(Arg1, Arg2, 0);
 }
 
 /**************
@@ -1823,7 +1848,7 @@ static int sceNetApctlGetBSSDescIDList2(u32 Arg1, u32 Arg2, u32 Arg3, u32 Arg4) 
 ***************/
 static int sceNetApctlGetBSSDescEntry2(MIPSState *mips, int entryId, int infoId, u32 resultAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED %s(%i, %i, %08x) at %08x", __FUNCTION__, entryId, infoId, resultAddr, mips->pc);
-	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
+	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr, 0);
 }
 
 static int sceNetApctlAddInternalHandler(u32 handlerPtr, u32 handlerArg) {
@@ -1861,7 +1886,7 @@ static int sceNetApctl_lib2_4C19731F(MIPSState *mips, int code, u32 pInfoAddr) {
 }
 
 static int sceNetApctlScan() {
-	return NetApctl_ScanUser();
+	return NetApctl_ScanUser(false);
 }
 
 static int sceNetApctlGetBSSDescIDList(u32 sizeAddr, u32 bufAddr) {

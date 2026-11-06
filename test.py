@@ -370,6 +370,7 @@ tests_good = [
   "net/inet/polledge",
   "net/inet/reuse",
   "net/inet/errnothread",
+  "net/inet/apscan",
   "net/http/ids",
   "net/npauth/ticketparam",
   "net/adhoc/abandon",
