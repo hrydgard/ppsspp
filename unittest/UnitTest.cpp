@@ -127,6 +127,7 @@
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/Util/MemStick.h"
 #include "Core/Util/StorageTest.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
@@ -2954,6 +2955,302 @@ static bool TestStorage() {
 	return true;
 }
 
+static bool TestAndroidContentURIMore() {
+	static const char *provider = "content://com.android.externalstorage.documents";
+	// Not content URIs, or the wrong number of parts.
+	AndroidContentURI bad;
+	EXPECT_FALSE(bad.Parse("file:///sdcard/PSP"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/whatever/primary%3APSP"));
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/tree/primary%3APSP/notdocument/primary%3APSP"));
+	// The file has to be in the tree.
+	EXPECT_FALSE(bad.Parse("content://com.android.externalstorage.documents/tree/primary%3APSP/document/primary%3AOther"));
+
+	// A bare tree URI, as the folder picker returns it.
+	AndroidContentURI tree(std::string(provider) + "/tree/primary%3AGames%2FPSP");
+	EXPECT_TRUE(tree.IsTreeURI());
+	EXPECT_EQ_STR(tree.Provider(), std::string("com.android.externalstorage.documents"));
+	EXPECT_EQ_STR(tree.RootPath(), std::string("primary:Games/PSP"));
+	EXPECT_EQ_STR(tree.FilePath(), std::string());
+	EXPECT_EQ_STR(tree.ToString(), std::string(provider) + "/tree/primary%3AGames%2FPSP");
+	EXPECT_FALSE(tree.CanNavigateUp());
+
+	// Into the tree, and back.
+	AndroidContentURI root = tree.WithRootFilePath("");
+	EXPECT_EQ_STR(root.FilePath(), std::string("primary:Games/PSP"));
+	EXPECT_FALSE(root.CanNavigateUp());
+	// The whole tree path after the volume, not the last folder. GetSysDirectory()'s PSP folder rule
+	// sees this, which is why picking Games/PSP gets Games/PSP/PSP.
+	EXPECT_EQ_STR(root.GetLastPart(), std::string("Games/PSP"));
+	AndroidContentURI save = tree.WithRootFilePath("SAVEDATA/ULUS10000");
+	EXPECT_EQ_STR(save.FilePath(), std::string("primary:Games/PSP/SAVEDATA/ULUS10000"));
+	EXPECT_EQ_STR(save.GetLastPart(), std::string("ULUS10000"));
+	EXPECT_TRUE(tree.TreeContains(save));
+	EXPECT_EQ_STR(root.WithComponent("SAVEDATA").WithComponent("ULUS10000").ToString(), save.ToString());
+	EXPECT_TRUE(save.NavigateUp());
+	EXPECT_TRUE(save.NavigateUp());
+	EXPECT_FALSE(save.NavigateUp());
+	EXPECT_EQ_STR(save.ToString(), root.ToString());
+
+	// Path computation stops at whole folder names.
+	std::string diff;
+	EXPECT_TRUE(root.ComputePathTo(tree.WithRootFilePath("SAVEDATA/x.bin"), diff));
+	EXPECT_EQ_STR(diff, std::string("SAVEDATA/x.bin"));
+	AndroidContentURI games(std::string(provider) + "/tree/primary%3AGames/document/primary%3AGames");
+	AndroidContentURI games2(std::string(provider) + "/tree/primary%3AGames/document/primary%3AGames2%2Fx");
+	EXPECT_FALSE(games.ComputePathTo(games2, diff));
+	// The root of a volume ends in the colon, there's no separator to skip.
+	AndroidContentURI volume(std::string(provider) + "/tree/primary%3A/document/primary%3A");
+	EXPECT_EQ_STR(volume.GetLastPart(), std::string("primary:"));
+	AndroidContentURI inVolume = volume.WithComponent("PSP");
+	EXPECT_EQ_STR(inVolume.FilePath(), std::string("primary:PSP"));
+	EXPECT_TRUE(volume.ComputePathTo(inVolume.WithComponent("SYSTEM"), diff));
+	EXPECT_EQ_STR(diff, std::string("PSP/SYSTEM"));
+
+	// Extensions.
+	AndroidContentURI iso = tree.WithRootFilePath("ISO/Game.v1.ISO");
+	EXPECT_EQ_STR(iso.GetFileExtension(), std::string(".iso"));
+	EXPECT_EQ_STR(tree.WithRootFilePath("v1.2/Game").GetFileExtension(), std::string());
+	EXPECT_EQ_STR(iso.WithExtraExtension(".bak").GetLastPart(), std::string("Game.v1.ISO.bak"));
+	EXPECT_EQ_STR(iso.WithReplacedExtension(".cso").GetLastPart(), std::string("Game.v1.cso"));
+	AndroidContentURI replaced;
+	EXPECT_TRUE(iso.WithReplacedExtension(".iso", ".chd", &replaced));
+	EXPECT_EQ_STR(replaced.GetLastPart(), std::string("Game.v1.chd"));
+	EXPECT_FALSE(iso.WithReplacedExtension(".cso", ".chd", &replaced));
+
+	// Characters that need escaping survive a round trip.
+	AndroidContentURI odd = tree.WithRootFilePath("100% #1 & ä");
+	AndroidContentURI reparsed(odd.ToString());
+	EXPECT_EQ_STR(reparsed.FilePath(), std::string("primary:Games/PSP/100% #1 & ä"));
+	EXPECT_EQ_STR(reparsed.GetLastPart(), std::string("100% #1 & ä"));
+	EXPECT_EQ_STR(reparsed.ToVisualString(), reparsed.FilePath());
+	return true;
+}
+
+static bool TestPathMore() {
+	// Components of a POSIX-style path.
+	const Path p("/storage/emulated/0/PSP/GAME/game.ISO");
+	EXPECT_EQ_INT((int)p.Type(), (int)PathType::NATIVE);
+	EXPECT_TRUE(p.IsAbsolute());
+	EXPECT_EQ_STR(p.GetFilename(), std::string("game.ISO"));
+	EXPECT_EQ_STR(p.GetFileExtension(), std::string(".iso"));
+	EXPECT_EQ_STR(p.GetDirectory(), std::string("/storage/emulated/0/PSP/GAME"));
+	EXPECT_EQ_STR(p.WithReplacedExtension(".cso").ToString(), std::string("/storage/emulated/0/PSP/GAME/game.cso"));
+	EXPECT_EQ_STR(Path("/file").GetDirectory(), std::string("/"));
+	EXPECT_EQ_STR(Path("relative").GetDirectory(), std::string("relative"));
+	EXPECT_FALSE(Path("relative/dir").IsAbsolute());
+	EXPECT_EQ_STR(Path(".hidden").GetFileExtension(), std::string(".hidden"));
+
+	// The root, and navigating up to it.
+	EXPECT_TRUE(Path("/").IsRoot());
+	EXPECT_FALSE(Path("/").CanNavigateUp());
+	EXPECT_FALSE(Path().CanNavigateUp());
+	EXPECT_EQ_STR(Path("/a").NavigateUp().ToString(), std::string("/"));
+	EXPECT_EQ_STR((Path("/") / "a").ToString(), std::string("/a"));
+	EXPECT_EQ_STR(Path("/a/b").GetRootVolume().ToString(), std::string("/"));
+
+	// Joining.
+	Path joined("/a");
+	joined /= "b";
+	joined /= "c/";
+	EXPECT_EQ_STR(joined.ToString(), std::string("/a/b/c"));
+	EXPECT_EQ_STR((Path("/a") / "").ToString(), std::string("/a"));
+
+	// Empty.
+	EXPECT_TRUE(Path().empty());
+	EXPECT_TRUE(Path("").empty());
+	EXPECT_EQ_INT((int)Path("").Type(), (int)PathType::UNDEFINED);
+	Path cleared("/a");
+	cleared.clear();
+	EXPECT_TRUE(cleared.empty());
+	EXPECT_TRUE(cleared == Path());
+
+	// Prefixes. StartsWith is a plain string prefix, ComputePathTo stops at whole folder names.
+	EXPECT_TRUE(Path("/a/b/c").StartsWith(Path("/a/b")));
+	EXPECT_TRUE(Path("/a/b").StartsWith(Path()));
+	EXPECT_TRUE(Path("/a/bc").StartsWith(Path("/a/b")));
+	EXPECT_TRUE(Path("/a/b/c").StartsWithGlobalAndNotEqual(Path("/a/b")));
+	EXPECT_FALSE(Path("/a/b").StartsWithGlobalAndNotEqual(Path("/a/b")));
+	std::string diff;
+	EXPECT_FALSE(Path("/a/b").ComputePathTo(Path("/a/bcd"), diff));
+	EXPECT_FALSE(Path("/a/b").ComputePathTo(Path("/x/y"), diff));
+	EXPECT_FALSE(Path("/a/b/c").ComputePathTo(Path("/a/b"), diff));
+	EXPECT_FALSE(Path().ComputePathTo(Path("/a/b"), diff));
+
+	EXPECT_TRUE(Path("/Games/PSP").FilePathContainsNoCase("games/psp"));
+	EXPECT_FALSE(Path("/Games/PSP").FilePathContainsNoCase("xbox"));
+
+	// Shown relative to a root, which on Windows also flips the slashes.
+#if PPSSPP_PLATFORM(WINDOWS)
+	EXPECT_EQ_STR(Path("C:/ms/PSP/GAME").ToVisualString("C:/ms/"), std::string("PSP\\GAME"));
+	EXPECT_EQ_STR(Path("C:/ms/PSP").ToVisualString(), std::string("C:\\ms\\PSP"));
+#else
+	EXPECT_EQ_STR(Path("/ms/PSP/GAME").ToVisualString("/ms/"), std::string("PSP/GAME"));
+	EXPECT_EQ_STR(Path("/other/PSP").ToVisualString("/ms/"), std::string("/other/PSP"));
+#endif
+
+	// HTTP paths (Remote ISO).
+	const Path http("http://192.168.1.2:8080/games/a.iso");
+	EXPECT_EQ_INT((int)http.Type(), (int)PathType::HTTP);
+	EXPECT_EQ_STR(http.GetFilename(), std::string("a.iso"));
+	EXPECT_EQ_STR(http.GetFileExtension(), std::string(".iso"));
+	EXPECT_TRUE(http.CanNavigateUp());
+	EXPECT_FALSE(Path("http://192.168.1.2:8080/").CanNavigateUp());
+	EXPECT_FALSE(Path("http://192.168.1.2:8080").CanNavigateUp());
+
+	// Ordering is by string, so a sorted list keeps folders together.
+	EXPECT_TRUE(Path("/a/b") < Path("/a/c"));
+	EXPECT_TRUE(Path("/b") > Path("/a/z"));
+	return true;
+}
+
+// A picked folder, the way the folder browser hands it back. docPath is like "primary:Games/PSP".
+static Path PickedTreeURI(std::string_view docPath) {
+	const std::string enc = UriEncode(docPath);
+	return Path("content://com.android.externalstorage.documents/tree/" + enc + "/document/" + enc);
+}
+
+static bool TestMemstickFolderCheck() {
+	using C = MemstickFolderCheck;
+	const Path none;
+
+	// Inside the current memory stick's PSP folder, case-insensitively.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games/PSP/SAVEDATA"), PickedTreeURI("primary:Games")), (int)C::INSIDE_CURRENT);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:games/psp/stuff"), PickedTreeURI("primary:Games")), (int)C::INSIDE_CURRENT);
+	// A folder named PSP is the PSP folder itself.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP/stuff"), PickedTreeURI("primary:PSP")), (int)C::INSIDE_CURRENT);
+	// Next to the PSP folder, or a name that only starts the same, is fine.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games/ISOs"), PickedTreeURI("primary:Games")), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:GamesX"), PickedTreeURI("primary:Games")), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:PSP"), PickedTreeURI("primary:PSP")), (int)C::OK);
+
+	// Inside some other memory stick, with no current one (a reinstall).
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Stuff/PSP/SAVEDATA"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:PSP/GAME/x"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Stuff/PSP/Mine"), none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP"), none), (int)C::OK);
+	// Folders only PSP data is called, below a PSP folder by any name.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:MyPSP/SAVEDATA"), none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:MyPSP/ppsspp_state/x"), none), (int)C::INSIDE_OTHER);
+
+	// Native storage paths and content URIs are compared by location.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP/GAME"), Path("/storage/emulated/0")), (int)C::INSIDE_CURRENT);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(Path("/storage/emulated/0"), PickedTreeURI("primary:PSP")), (int)C::SAME_PSP_FOLDER);
+	// Other names for internal storage, typed in on old versions.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:"), Path("/mnt/sdcard")), (int)C::SAME_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:PSP"), Path("/storage/self/primary/PSP")), (int)C::SAME_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("1234-ABCD:Mine/PSP/TEXTURES"), Path("/storage/1234-ABCD/Mine")), (int)C::INSIDE_CURRENT);
+
+	// The current memory stick is inside the new one's PSP folder: switching is fine, moving isn't.
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(PickedTreeURI("primary:Games"), PickedTreeURI("primary:Games/PSP/Weird")), (int)C::CONTAINS_CURRENT);
+
+	// Native paths: a memory stick in use among the parents is found on disk, whatever the folder names.
+	const Path root = UnitTestTempPath("unittest_memstick_check");
+	File::DeleteDirRecursively(root);
+	EXPECT_TRUE(File::CreateFullPath(root / "ms/PSP/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "ms/PSP/Mine/deeper"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms/PSP/Mine/deeper", none), (int)C::INSIDE_OTHER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms/PSP", none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "ms", none), (int)C::OK);
+	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms"));
+	EXPECT_TRUE(FolderSeemsToBeUsed(root / "ms/PSP"));
+	EXPECT_FALSE(FolderSeemsToBeUsed(root / "ms/PSP/Mine"));
+
+	// A PSP folder by another name: refused itself (the data would go into a new PSP folder inside), and so
+	// is anything in it.
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/SYSTEM"));
+	EXPECT_TRUE(File::CreateFullPath(root / "renamed/Mine"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "renamed", none), (int)C::LOOKS_LIKE_PSP_FOLDER);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "renamed/Mine", none), (int)C::INSIDE_OTHER);
+	// Its parent is fine, if it's named PSP.
+	EXPECT_TRUE(File::Rename(root / "renamed", root / "PSP"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "PSP", none), (int)C::OK);
+	// A SAVEDATA alone doesn't make a PSP folder.
+	EXPECT_TRUE(File::CreateFullPath(root / "other/SAVEDATA"));
+	EXPECT_TRUE(File::CreateFullPath(root / "other/Mine"));
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "other", none), (int)C::OK);
+	EXPECT_EQ_INT((int)CheckNewMemstickFolder(root / "other/Mine", none), (int)C::OK);
+	File::DeleteDirRecursively(root);
+	return true;
+}
+
+static bool TestMemstickMove() {
+	const Path root = UnitTestTempPath("unittest_memstick_move");
+	File::DeleteDirRecursively(root);
+	const Path src = root / "old";
+	const Path dest = root / "new";
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SYSTEM"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "save", src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "ini", src / "PSP/SYSTEM/ppsspp.ini"));
+	// A non-empty SAVEDATA already there can't be renamed over, which forces the copy path.
+	EXPECT_TRUE(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "other", dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+
+	MoveProgressReporter progress;
+	bool committed = false;
+	MoveResult *result = MoveDirectoryContentsSafe(src, dest, progress, [&]() {
+		// The originals are still there when the new folder gets saved.
+		committed = File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN");
+		return true;
+	});
+	const bool success = result && result->success;
+	delete result;
+	EXPECT_TRUE(success);
+	EXPECT_TRUE(committed);
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SYSTEM/ppsspp.ini"));
+	// Moved, not copied.
+	EXPECT_FALSE(File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_FALSE(File::Exists(src / "PSP/SAVEDATA"));
+	EXPECT_FALSE(File::Exists(src / "PSP/SYSTEM"));
+
+	// Into its own PSP folder: refused, and nothing touched.
+	result = MoveDirectoryContentsSafe(dest, dest / "PSP/SAVEDATA", progress);
+	const bool refused = result && !result->success;
+	delete result;
+	EXPECT_TRUE(refused);
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+
+	// A move that fails after part of it was renamed, and part copied, puts everything back.
+	File::DeleteDirRecursively(root);
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/AAA"));
+	EXPECT_TRUE(File::CreateFullPath(src / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "a", src / "PSP/AAA/A.BIN"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "save", src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_TRUE(File::CreateFullPath(dest / "PSP/SAVEDATA/GAME2"));
+	EXPECT_TRUE(File::WriteStringToFile(true, "other", dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+	result = MoveDirectoryContentsSafe(src, dest, progress, []() { return false; });
+	const bool undone = result && !result->success && !result->partlyMoved;
+	delete result;
+	EXPECT_TRUE(undone);
+	EXPECT_TRUE(File::Exists(src / "PSP/AAA/A.BIN"));
+	EXPECT_TRUE(File::Exists(src / "PSP/SAVEDATA/GAME1/DATA.BIN"));
+	EXPECT_FALSE(File::Exists(dest / "PSP/AAA"));
+	EXPECT_FALSE(File::Exists(dest / "PSP/SAVEDATA/GAME1"));
+	EXPECT_TRUE(File::Exists(dest / "PSP/SAVEDATA/GAME2/DATA.BIN"));
+
+	File::DeleteDirRecursively(root);
+
+	// memstick_dir.txt is replaced, with nothing left beside it.
+	const Path oldInternal = g_Config.internalDataDirectory;
+	g_Config.internalDataDirectory = UnitTestTempPath("unittest_memstick_dirfile");
+	File::DeleteDirRecursively(g_Config.internalDataDirectory);
+	EXPECT_TRUE(File::CreateFullPath(g_Config.internalDataDirectory));
+	const Path dirFile = g_Config.internalDataDirectory / "memstick_dir.txt";
+	std::string contents;
+	bool dirFileOK = WriteMemstickDirFile(Path("/first/folder")) && WriteMemstickDirFile(Path("/second")) && File::ReadTextFileToString(dirFile, &contents);
+	const bool tempLeft = File::Exists(g_Config.internalDataDirectory / "memstick_dir.txt.tmp");
+	File::DeleteDirRecursively(g_Config.internalDataDirectory);
+	g_Config.internalDataDirectory = oldInternal;
+	EXPECT_TRUE(dirFileOK);
+	EXPECT_EQ_STR(contents, std::string("/second"));
+	EXPECT_FALSE(tempLeft);
+	return true;
+}
+
 class UnitTestWordWrapper : public WordWrapper {
 public:
 	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
@@ -4341,6 +4638,10 @@ TestItem availableTests[] = {
 	TEST_ITEM(OverlayHole),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(Storage),
+	TEST_ITEM(AndroidContentURIMore),
+	TEST_ITEM(PathMore),
+	TEST_ITEM(MemstickFolderCheck),
+	TEST_ITEM(MemstickMove),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),

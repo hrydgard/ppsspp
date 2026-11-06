@@ -1545,8 +1545,8 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 		fclose(f);
 		return false;
 	}
-	fclose(f);
-	return true;
+	// A full disk can show up only here, when the buffer is flushed.
+	return fclose(f) == 0;
 }
 
 bool WriteDataToNewFile(const void *data, size_t size, const Path &filename) {

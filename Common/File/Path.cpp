@@ -41,7 +41,9 @@ void Path::Init(std::string_view str) {
 	} else if (startsWith(str, "http://") || startsWith(str, "https://")) {
 		type_ = PathType::HTTP;
 		path_ = str;
-	} else if (Android_IsContentUri(str)) {
+	} else if (startsWith(str, "content://")) {
+		// Recognized on every platform, so code that handles them can be tested anywhere. Elsewhere, file
+		// operations on them just fail.
 		// Content URIs on non scoped-storage (and possibly other cases?) can contain
 		// "raw:/" URIs inside. This happens when picking the Download folder using the folder browser
 		// on Android 9.
@@ -329,6 +331,7 @@ std::string Path::ToVisualString(const char *relativeRoot) const {
 		}
 #endif
 #else
+	} else if (type_ == PathType::NATIVE) {
 		if (relativeRoot) {
 			std::string root = relativeRoot;
 			if (startsWithNoCase(path_, root)) {
@@ -428,7 +431,8 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		return true;
 	}
 
-	if (!other.StartsWith(*this)) {
+	// An empty path is a prefix of everything, but the parent of nothing.
+	if (empty() || !other.StartsWith(*this)) {
 		// Can't do this. Should return an error.
 		return false;
 	}
@@ -451,7 +455,12 @@ bool Path::ComputePathTo(const Path &other, std::string &path) const {
 		path = other.path_.substr(1);
 		return true;
 	} else {
-		path = other.path_.substr(path_.size() + 1);
+		// StartsWith is a plain string prefix, but "/a/b" isn't a parent of "/a/bc".
+		const bool endsInSlash = path_.back() == '/';
+		if (!endsInSlash && other.path_[path_.size()] != '/') {
+			return false;
+		}
+		path = other.path_.substr(path_.size() + (endsInSlash ? 0 : 1));
 		return true;
 	}
 }

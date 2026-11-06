@@ -29,7 +29,7 @@ struct StorageTestResult {
 	std::string detail;
 };
 
-// Exercises the file functions in a scratch folder inside root, deleted again
+// Exercises the file functions and the memory stick move in a scratch folder inside root, deleted again
 // afterwards. root can be a native path, or on Android a picked folder (a content URI), which is the case
 // the unit tests can't reach: they have no Java VM. report is called after each test, on the calling thread.
 // Returns the number of failures.

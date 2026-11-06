@@ -84,11 +84,12 @@ away within seconds, which reads as "logging stopped" rather than "logging was l
 
 ## Starting the app with options
 
-    python Tools/android_run.py --build --start-screen=memsticksetup   # build, install, open the memory stick setup
-    python Tools/android_run.py --log --start-screen=firmware          # and follow the app's log
+    python Tools/android_run.py --build --start-screen=memstick   # build, install, open the memory stick screen
+    python Tools/android_run.py --log --start-screen=firmware     # and follow the app's log
 
 It force-stops the app first, since options are only read at startup, and passes them in the
-`org.ppsspp.ppsspp.Args` intent extra. It also sets `log.tag.PPSSPP` to `V`: some devices default every
+`org.ppsspp.ppsspp.Args` intent extra. (`memstick` is the memory stick screen as opened from the
+settings, `memsticksetup` the first-boot one.) It also sets `log.tag.PPSSPP` to `V`: some devices default every
 tag to silent (`persist.log.tag` is `S`), and then logcat busily shows other apps but never a line of ours. The `--start-screen` names are in `NativeInit()` in `UI/NativeApp.cpp`.
 
 ## Running the C++ unit tests on a device
@@ -113,7 +114,8 @@ Two things to know when reading its results:
 ## Running the storage tests in the app
 
 `Core/Util/StorageTest.cpp` exercises the file functions (create, overwrite, list, rename, move, copy,
-delete, odd names, free space) in a scratch folder, and times the calls the emulator makes most. The
+delete, odd names, free space) and the memory stick move (rename, copy, undo, folder checks) in a scratch
+folder, and times the calls the emulator makes most. The
 `Storage` unit test runs them on a native folder; to run them on a picked folder, through the content
 URI code:
 

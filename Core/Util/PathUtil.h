@@ -48,6 +48,9 @@ bool HasPathTraversal(std::string_view path);
 bool IsSafePathComponent(std::string_view name);
 
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists);
+// The PSP folder of a memory stick. A folder named PSP is used as it is (the legacy layout, where its
+// parent acts as the root), anything else gets a PSP folder inside.
+Path GetPSPFolderOf(const Path &memStickDirectory);
 Path GetSysDirectory(PSPDirectories directoryType);
 bool CreateSysDirectories();
 Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool *exists);
