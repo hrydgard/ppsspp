@@ -89,6 +89,7 @@ void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
 
 	const JsonNode *value = req.data.get("ticket");
 	lastTicket_ = value ? json_stringify(value) : "";
+	req.ReplyLater();
 }
 
 // This handles the asynchronous gpu.record.dump response.

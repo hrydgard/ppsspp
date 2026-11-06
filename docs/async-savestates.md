@@ -184,5 +184,5 @@ Rewind deltas went from 4-13 MB to 1.3-3.8 MB each, at 10-24 ms of worker time.
 Headless, wsdbg and the `game.state.*` debugger commands cover all of it. `game.state.save` and
 `game.state.load` take a `slot` instead of a `path`, which goes through the slot code like the save
 and load keys: undo rotation, load undo, repeats. Use a scratch `--memstick` for that, not the app's,
-or the tests overwrite real slots. wsdbg's `--sync` moves on when a request is acknowledged, not when
-a `wait` result arrives, so put a `:sleep` between steps whose order matters, and one at the end.
+or the tests overwrite real slots. With `wait=true`, wsdbg's `--sync` waits for the operation's result
+(it finishes while the CPU is stepping too), and a failed one makes the run exit non-zero.

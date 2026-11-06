@@ -193,6 +193,7 @@ void WebSocketGameState::StateOperation(DebuggerRequest &req, StateOp op) {
 	}
 	const JsonNode *ticket = req.data.get("ticket");
 	waiting_.push_back({ event, ticket ? json_stringify(ticket) : "", result });
+	req.ReplyLater();
 }
 
 void WebSocketGameState::Broadcast(net::WebSocketServer *ws) {
