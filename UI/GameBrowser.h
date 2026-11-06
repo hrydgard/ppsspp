@@ -96,6 +96,8 @@ private:
 	bool focusFirstItem_ = false;
 	bool backspaceHeld_ = false;
 	bool mouseHover_ = false;
+	int wheelZoomAccum_ = 0;
+	double lastWheelZoomTime_ = 0.0;
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;

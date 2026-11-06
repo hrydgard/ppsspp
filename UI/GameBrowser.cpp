@@ -111,10 +111,32 @@ bool GameBrowser::Key(const KeyInput &input) {
 		if (ViewMode() == GameBrowserViewMode::LIST) {
 			return false;
 		}
-		if (input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP) {
+		// A touchpad sends a stream of small deltas, so add them up and step once per notch's worth.
+		// The units are the backend's: WM_MOUSEWHEEL's 120 per notch on Windows, 30 per notch from
+		// SDL and Android. UWP sends no delta, so each event is a notch.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+		constexpr int deltaPerNotch = 120;
+#else
+		constexpr int deltaPerNotch = 30;
+#endif
+		int delta = (input.flags & KeyInputFlags::HAS_WHEEL_DELTA) ? ((u32)input.flags >> 16) : deltaPerNotch;
+		if (input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) {
+			delta = -delta;
+		}
+		// Start over on a change of direction, or when a leftover is from an earlier gesture.
+		const double now = time_now_d();
+		if ((delta > 0) != (wheelZoomAccum_ > 0) || now - lastWheelZoomTime_ > 0.5) {
+			wheelZoomAccum_ = 0;
+		}
+		lastWheelZoomTime_ = now;
+		wheelZoomAccum_ += delta;
+		while (wheelZoomAccum_ >= deltaPerNotch) {
 			g_Config.fGameGridScale = std::min(g_Config.fGameGridScale * 1.25f, MAX_GAME_GRID_SCALE);
-		} else {
+			wheelZoomAccum_ -= deltaPerNotch;
+		}
+		while (wheelZoomAccum_ <= -deltaPerNotch) {
 			g_Config.fGameGridScale = std::max(g_Config.fGameGridScale / 1.25f, MIN_GAME_GRID_SCALE);
+			wheelZoomAccum_ += deltaPerNotch;
 		}
 		// Draw notices the change and refreshes every browser.
 		return true;
