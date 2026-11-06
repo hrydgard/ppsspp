@@ -642,8 +642,9 @@ bool PSARReader::Init(std::string *error) {
 
 	if (!oldschool_) {
 		// The second block's size isn't recorded anywhere, so try the ones real updaters use.
-		// 100 covers most, 2.7x is bigger, and some store it in the first block.
-		const u32 candidates[] = { 100, 144, ReadU16(block_.data() + 0x90) };
+		// 100 covers most, 2.7x is bigger, and some store it in the first block. That one is the
+		// unpadded size (408 in a 6.61 updater) and the block is padded to 16 bytes.
+		const u32 candidates[] = { 100, 144, (ReadU16(block_.data() + 0x90) + 15u) & ~15u };
 		decoded = -1;
 		for (u32 candidate : candidates) {
 			if (candidate == 0) {
