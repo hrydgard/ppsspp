@@ -64,6 +64,7 @@
     <ClCompile Include="LoadStateConfirmScreen.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MemStickScreen.cpp" />
+    <ClCompile Include="StorageTestScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="MiscViews.cpp" />
     <ClCompile Include="NativeApp.cpp" />
@@ -141,6 +142,7 @@
     <ClInclude Include="LoadStateConfirmScreen.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MemStickScreen.h" />
+    <ClInclude Include="StorageTestScreen.h" />
     <ClInclude Include="MiscScreens.h" />
     <ClInclude Include="MiscViews.h" />
     <ClInclude Include="OnScreenDisplay.h" />

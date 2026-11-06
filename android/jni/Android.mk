@@ -892,6 +892,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/AtracTrack.cpp \
   $(SRC)/Core/Util/AudioFormat.cpp \
   $(SRC)/Core/Util/MemStick.cpp \
+  $(SRC)/Core/Util/StorageTest.cpp \
   $(SRC)/Core/Util/PathUtil.cpp \
   $(SRC)/Core/Util/PortManager.cpp \
   $(SRC)/Core/Util/GameDB.cpp \
@@ -1098,6 +1099,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/AdhocServerScreen.cpp \
   $(SRC)/UI/SimpleDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
+  $(SRC)/UI/StorageTestScreen.cpp \
   $(SRC)/UI/IAPScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/MiscViews.cpp \

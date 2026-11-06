@@ -1318,6 +1318,9 @@
     <ClCompile Include="Util\MemStick.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\StorageTest.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="HW\Atrac3Standalone.cpp">
       <Filter>HW</Filter>
     </ClCompile>
@@ -2293,6 +2296,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\MemStick.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\StorageTest.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="HW\Atrac3Standalone.h">

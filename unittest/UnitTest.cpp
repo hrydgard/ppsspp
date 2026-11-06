@@ -127,6 +127,7 @@
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/Util/StorageTest.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -2938,6 +2939,21 @@ static bool TestAndroidContentURI() {
 	return true;
 }
 
+// The tests the storage test screen runs on a picked folder, here on a native one.
+static bool TestStorage() {
+	const Path root = UnitTestTempPath("unittest_storage");
+	File::DeleteDirRecursively(root);
+	EXPECT_TRUE(File::CreateFullPath(root));
+	const int failures = RunStorageTests(root, [](const StorageTestResult &result) {
+		if (!result.passed) {
+			printf("%s: %s\n", result.name.c_str(), result.detail.c_str());
+		}
+	});
+	File::DeleteDirRecursively(root);
+	EXPECT_EQ_INT(failures, 0);
+	return true;
+}
+
 class UnitTestWordWrapper : public WordWrapper {
 public:
 	UnitTestWordWrapper(std::string_view str, float maxW, int flags)
@@ -4324,6 +4340,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Path),
 	TEST_ITEM(OverlayHole),
 	TEST_ITEM(AndroidContentURI),
+	TEST_ITEM(Storage),
 	TEST_ITEM(ThreadManager),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),

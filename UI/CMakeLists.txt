@@ -133,7 +133,9 @@ list(APPEND UISource
 	JitCompareScreen.h
 	JitCompareScreen.cpp
 	MemStickScreen.h
+	StorageTestScreen.h
 	MemStickScreen.cpp
+	StorageTestScreen.cpp
 	ProfilerDraw.h
 	ProfilerDraw.cpp
 	CustomButtonMappingScreen.h

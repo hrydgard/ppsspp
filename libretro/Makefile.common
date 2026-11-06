@@ -937,6 +937,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/AtracTrack.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/MemStick.cpp \
+	       $(COREDIR)/Util/StorageTest.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/KL4E.cpp \
 	       $(COREDIR)/Util/PSARUnpack.cpp \
