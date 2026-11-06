@@ -250,7 +250,7 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	std::vector<std::string_view> messageLines;
 	SplitString(message_, '\n', messageLines);
 	for (auto lineOfText : messageLines) {
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(8))));
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT, false));
 	}
 }
 

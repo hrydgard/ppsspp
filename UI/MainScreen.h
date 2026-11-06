@@ -129,8 +129,11 @@ public:
 
 	const char *tag() const override { return "GridSettings"; }
 
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 private:
 	GameBrowserViewMode viewMode_;
+	bool recentCleared_ = false;
 };
 
 void LaunchBuyGold(ScreenManager *screenManager);

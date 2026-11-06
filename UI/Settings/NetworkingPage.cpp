@@ -44,10 +44,10 @@ public:
 		UI::LinearLayout::Update();
 		// Propagate rounding flags. TODO: Figure out a more general way.
 		if (macInput_) {
-			macInput_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomLeft));
+			macInput_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::Left));
 		}
 		if (randomize_) {
-			randomize_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::BottomRight));
+			randomize_->SetRoundCorners((RoundCorners)((u32)roundCorners_ & (u32)RoundCorners::Right));
 		}
 	}
 private:
@@ -80,7 +80,7 @@ MacAddressChooser::MacAddressChooser(RequesterToken token, Path gamePath, std::s
 
 		std::string_view confirmMessage = n->T("ChangeMacSaveConfirm", "Generate a new MAC address?");
 		std::string_view warningMessage = n->T("ChangeMacSaveWarning", "Some games verify the MAC address when loading savedata, so this may break old saves.");
-		std::string combined = g_Config.sMACAddress + "\n\n" + std::string(confirmMessage) + "\n\n" + std::string(warningMessage);
+		std::string combined = g_Config.sMACAddress + "\n" + std::string(confirmMessage) + "\n" + std::string(warningMessage);
 
 		auto confirmScreen = new MessagePopupScreen(
 			title,
@@ -159,9 +159,6 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	};
 
 	page->Setting(&g_Config.bEnableWlan).OnChange(requestLocalNetwork);
-	page->Custom("MAC address", [host](UI::ViewGroup *parent) -> UI::View * {
-		return parent->Add(new MacAddressChooser(host->PageRequesterToken(), host->PageGamePath(), &g_Config.sMACAddress, T(I18NCat::NETWORKING, "MAC address"), host->PageScreenManager()));
-	});
 
 	page->Header("Ad Hoc multiplayer");
 
@@ -245,6 +242,11 @@ void BuildNetworkingSettings(SettingsPage *page) {
 	page->Custom("DNS server", [host](UI::ViewGroup *parent) -> UI::View * {
 		return parent->Add(new PopupTextInputChoice(host->PageRequesterToken(), &g_Config.sInfrastructureDNSServer, T(I18NCat::NETWORKING, "DNS server"), "", 32, host->PageScreenManager()));
 	}).Disabled(&g_Config.bInfrastructureAutoDNS);
+
+	page->Header();
+	page->Custom("MAC address", [host](UI::ViewGroup *parent) -> UI::View * {
+		return parent->Add(new MacAddressChooser(host->PageRequesterToken(), host->PageGamePath(), &g_Config.sMACAddress, T(I18NCat::NETWORKING, "MAC address"), host->PageScreenManager()));
+	});
 
 	page->Header("UPnP (port-forwarding)");
 	// Only togglable outside a game - sceNet latches settings like UPnPUseOriginalPort at boot,
