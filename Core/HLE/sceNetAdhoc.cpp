@@ -2987,6 +2987,11 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 		if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode != ADHOCCTL_MODE_NONE) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
+		// So is another Disconnect, until the first one's DISCONNECT has come (pspautotests
+		// net/adhoc/pair/joinrace).
+		if (isAdhocctlBusy && adhocctlState != ADHOCCTL_STATE_DISCONNECTED && !adhocctlInServerGroup && adhocctlCurrentMode == ADHOCCTL_MODE_NONE) {
+			return SCE_NET_ADHOCCTL_ERROR_BUSY;
+		}
 		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing),
 		// or 650 ms after ExitGameMode (net/adhoc/pair/gamemodetiming).
 		adhocctlRequestTimeUs = CoreTiming::GetGlobalTimeUs();
@@ -3239,7 +3244,7 @@ int sceNetAdhocctlGetPeerInfo(MIPSState *mips, const char *mac, int size, u32 pe
 			peerlock.lock();
 
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
-			if (peer != NULL && peer->last_recv != 0) {
+			if (peer != NULL && peer->last_recv != 0 && isPeerVisible(peer)) {
 				// Fake Receive Time
 				peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
@@ -5127,10 +5132,9 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 			// Multithreading Lock
 			peerlock.lock();
 
-			bool excludeTimedout = true;
 			// Length Calculation Mode
 			if (buf == NULL) {
-				int activePeers = getActivePeerCount(excludeTimedout);
+				int activePeers = getVisiblePeerCount();
 				*buflen = activePeers * sizeof(SceNetAdhocctlPeerInfoEmu);
 				DEBUG_LOG(Log::sceNet, "PeerList [Active: %i]", activePeers);
 			}
@@ -5161,7 +5165,7 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 					// Iterate Peers
 					for (; peer != NULL && discovered < requestcount; peer = peer->next) {
 						// Exclude Soon to be timedout peers?
-						if (!excludeTimedout || peer->last_recv != 0) {
+						if (isPeerVisible(peer)) {
 							// Faking Last Receive Time
 							if (peer->last_recv != 0)
 								peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
@@ -5581,10 +5585,8 @@ static void DiscoverCheckPeers() {
 	if (discoverPhase < DiscoverPhase::Hosting) {
 		discoverStep = DiscoverStep::Disconnect;
 	}
-	// Our adhocctl state turns CONNECTED a little after the event, while the peer list is there already.
-	// Waiting for the state can miss a host that leaves the group as soon as it sees us.
 	std::lock_guard<std::recursive_mutex> guard(peerlock);
-	if (getActivePeerCount() > 0) {
+	if (getVisiblePeerCount() > 0) {
 		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_PEER_FOUND);
 	}
 }

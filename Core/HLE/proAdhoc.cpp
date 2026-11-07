@@ -242,6 +242,12 @@ SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * contex
 	return peer;
 }
 
+// A joiner and the host see each other in their peer lists about 1.23 s after the Join, within ~11 ms of
+// each other (pspautotests net/adhoc/pair/timing and net/adhoc/pair/joinrace). The server tells
+// both at once, so we count from when it tells us.
+static const u64 PEER_VISIBLE_DELAY_US = 1230000;
+static const u64 PEER_GONE_DELAY_US = 11000;
+
 void addFriend(const struct adhocctl_event_connect &event) {
 	// Multithreading Lock
 	std::lock_guard<std::recursive_mutex> guard(peerlock);
@@ -256,6 +262,10 @@ void addFriend(const struct adhocctl_event_connect &event) {
 		peer->ip_addr = event.id;
 		// Calculate final IP-specific Port Offset
 		peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
+		// Back after leaving: seen again only after the delay.
+		if (peer->last_recv == 0) {
+			peer->visible_at = CoreTiming::GetGlobalTimeUsScaled() + PEER_VISIBLE_DELAY_US;
+		}
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 		peer->left_at = 0;
@@ -292,6 +302,7 @@ void addFriend(const struct adhocctl_event_connect &event) {
 
 			// TimeStamp
 			peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+			peer->visible_at = peer->last_recv + PEER_VISIBLE_DELAY_US;
 
 			// Link to existing Peers
 			peer->next = friends;
@@ -1900,6 +1911,25 @@ void friendFinderPoll() {
 		}
 
 	}
+}
+
+bool isPeerVisible(const SceNetAdhocctlPeerInfo *peer) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (peer->last_recv == 0) {
+		// A peer that left goes from the list about 11 ms after (pspautotests net/adhoc/pair/vanishtiming).
+		return peer->left_at != 0 && now < peer->left_at + PEER_GONE_DELAY_US && now >= peer->visible_at;
+	}
+	return now >= peer->visible_at;
+}
+
+int getVisiblePeerCount() {
+	int count = 0;
+	for (SceNetAdhocctlPeerInfo *peer = friends; peer != NULL; peer = peer->next) {
+		if (isPeerVisible(peer)) {
+			count++;
+		}
+	}
+	return count;
 }
 
 int getActivePeerCount(const bool excludeTimedout) {
