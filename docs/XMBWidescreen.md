@@ -7,9 +7,9 @@ displays, VR and secondary game outputs use the existing display layout.
 
 This is experimental. It has been checked against the stock 6.61 firmware's
 menus, not every firmware resource, media player or custom theme. In particular,
-some overlays still cover only their original logical width. The opening and
-XMB were reported working on a Poco X5 Pro running Android 14. The message-box
-backdrop correction still needs confirmation on that device.
+some overlays still cover only their original logical width. The contributor
+confirmed installation, widescreen menus, the opening and message-box backdrop
+fixes on a Poco X5 Pro running Android 14 with both Vulkan and OpenGL.
 
 ## Firmware findings
 
@@ -148,9 +148,8 @@ Find `android-normal-debug.apk` under `android/build/intermediates/apk/normal/de
 Before sharing it, use the SDK build tools to check `apksigner verify --verbose`
 and `aapt dump badging`: signatures must verify, the ABI must include
 `arm64-v8a`, and `testOnly` must not be true. The corrected local APK was built
-with these settings and passed these checks; the contributor confirmed
-installation of the opening-fix build on Android 14. Each later fix still
-needs its own device validation.
+with these settings and passed these checks. The contributor confirmed the
+review build on a Poco X5 Pro running Android 14 with Vulkan and OpenGL.
 
 Transfer the complete APK to the phone and open it with the file manager.
 Allow installation from that app if Android requests it. In PPSSPP, configure
