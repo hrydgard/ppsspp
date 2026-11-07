@@ -993,7 +993,9 @@ void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		parent->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([this](UI::EventParams &e) {
+		ChoiceGroupList *settings = parent->Add(new ChoiceGroupList());
+		ChoiceGroup *choices = settings->Add(new ChoiceGroup());
+		choices->Add(new Choice(mm->T("Load", "Load..."), ImageID("I_FOLDER_OPEN")))->OnClick.Add([this](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
 			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
 				UseDisc(Path(value));
