@@ -388,11 +388,12 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 		delete loadedFile;
 		return false;
 	}
-	UpdateLoadedFile(loadedFile);
-
 	std::string errorString;
 	IdentifiedFileType fileType;
+	// Can delete loadedFile and return another, or return a ZipFileLoader that owns it, so what it
+	// returns is what g_loadedFile owns.
 	loadedFile = ResolveFileLoaderTarget(loadedFile, &fileType, &errorString);
+	UpdateLoadedFile(loadedFile);
 
 	*fileLoader = loadedFile;
 
