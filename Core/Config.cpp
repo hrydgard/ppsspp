@@ -661,9 +661,6 @@ static int DefaultGPUBackend() {
 	return (int)GPUBackend::OPENGL;
 #endif
 
-#elif PPSSPP_PLATFORM(TVOS) && !defined(__LIBRETRO__)
-	// Metal hasn't been tried on tvOS yet.
-	return (int)GPUBackend::VULKAN;
 #elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	return (int)GPUBackend::METAL;
 #endif

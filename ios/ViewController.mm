@@ -13,7 +13,6 @@
 #include <optional>
 #include <thread>
 #include "Common/GPU/GraphicsContext.h"
-#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/GPU/Metal/MetalGraphicsContext.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
@@ -108,7 +107,7 @@ static void ApplyPendingResolution() {
 	}
 }
 
-static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *metalLayer) {
+static void RenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *metalLayer) {
 	// Only a provisional name, RunGraphicsLoop renames the thread once it knows its role.
 	SetCurrentThreadName("RenderLoop");
 	_assert_(graphicsContext);
@@ -239,10 +238,10 @@ static int GetPickerRequestId(id picker) {
 	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
 
-	g_Config.Save("shutdown vk");
+	g_Config.Save("shutdown");
 
 	// Normally already done by willResignActive, but not when the app is terminated.
-	[self requestExitVulkanRenderLoop];
+	[self requestExitRenderLoop];
 
 	if (graphicsContext) {
 		graphicsContext->ShutdownAPI();
@@ -252,24 +251,24 @@ static int GetPickerRequestId(id picker) {
 }
 
 - (void)dealloc {
-	INFO_LOG(Log::System, "dealloc VK");
+	INFO_LOG(Log::System, "dealloc");
 }
 
-- (bool)runVulkanRenderLoop {
-	INFO_LOG(Log::G3D, "runVulkanRenderLoop");
+- (bool)runRenderLoop {
+	INFO_LOG(Log::G3D, "runRenderLoop");
 
 	if (!graphicsContext) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		ERROR_LOG(Log::G3D, "runRenderLoop: Tried to enter without a created graphics context.");
 		return false;
 	}
 
 	if (g_renderLoopThread.joinable()) {
 		if (renderLoopRunning) {
-			ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+			ERROR_LOG(Log::G3D, "runRenderLoop: Already running");
 			return false;
 		}
 		// The previous thread gave up by itself (failed surface init). Reap it so we can try again.
-		WARN_LOG(Log::G3D, "runVulkanRenderLoop: Joining a render thread that had already exited");
+		WARN_LOG(Log::G3D, "runRenderLoop: Joining a render thread that had already exited");
 		g_renderLoopThread.join();
 		g_renderLoopThread = std::thread();
 	}
@@ -279,12 +278,12 @@ static int GetPickerRequestId(id picker) {
 	CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
 	// Set before the thread exists, so an exit request can't slip in ahead of it.
 	renderLoopRunning = true;
-	g_renderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
+	g_renderLoopThread = std::thread(RenderLoop, graphicsContext, metalLayer);
 	return true;
 }
 
-- (void)requestExitVulkanRenderLoop {
-	INFO_LOG(Log::G3D, "requestExitVulkanRenderLoop");
+- (void)requestExitRenderLoop {
+	INFO_LOG(Log::G3D, "requestExitRenderLoop");
 
 	// Don't go by renderLoopRunning - the thread might have bailed by itself, and still needs joining.
 	if (!g_renderLoopThread.joinable()) {
@@ -343,11 +342,11 @@ static int GetPickerRequestId(id picker) {
 
 	// Spin up the render thread, which in turn starts the emu thread.
 	[self updateResolutionWithView:self.view];
-	[self runVulkanRenderLoop];
+	[self runRenderLoop];
 }
 
 - (void)willResignActive {
-	[self requestExitVulkanRenderLoop];
+	[self requestExitRenderLoop];
 
 #if !PPSSPP_PLATFORM(TVOS)
 	g_touchTracker.CancelAll();
@@ -631,11 +630,7 @@ static int GetPickerRequestId(id picker) {
 	keyboardInputView_ = [[KeyboardInputView alloc] initWithFrame:CGRectZero];
 	[self.view addSubview:keyboardInputView_];
 
-	if (g_Config.iGPUBackend == (int)GPUBackend::METAL) {
-		graphicsContext = new MetalGraphicsContext();
-	} else {
-		graphicsContext = new VulkanGraphicsContext();
-	}
+	graphicsContext = new MetalGraphicsContext();
 	std::string errorMessage;
 	if (!graphicsContext->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
 		delete graphicsContext;
@@ -650,11 +645,9 @@ static int GetPickerRequestId(id picker) {
 	// From iOS 27, an external display scene only goes to apps that register for one like this. Earlier
 	// versions go by the Info.plist role instead. Without the scene, iOS mirrors the phone.
 	if (@available(iOS 27.0, *)) {
-		if (g_Config.iGPUBackend == (int)GPUBackend::METAL || g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-			UISceneConfiguration *sceneConfiguration = [UISceneConfiguration new];
-			sceneConfiguration.delegateClass = [ExternalDisplaySceneDelegate class];
-			self.externalDisplayRegistration = [self registerSceneAccessory:[UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:sceneConfiguration]];
-		}
+		UISceneConfiguration *sceneConfiguration = [UISceneConfiguration new];
+		sceneConfiguration.delegateClass = [ExternalDisplaySceneDelegate class];
+		self.externalDisplayRegistration = [self registerSceneAccessory:[UISceneAccessory externalNonInteractiveSceneAccessoryWithConfiguration:sceneConfiguration]];
 	}
 #endif
 

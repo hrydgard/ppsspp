@@ -117,11 +117,6 @@ static bool g_launched = false;
 		return;
 	}
 	// Without a window, iOS mirrors the phone.
-	// The running backend: the setting is already the new one while the restart prompt for a change is up.
-	if (GetGPUBackend() != GPUBackend::METAL && GetGPUBackend() != GPUBackend::VULKAN) {
-		INFO_LOG(Log::G3D, "External display: mirroring, as the backend can't present to it");
-		return;
-	}
 	if (g_Config.iExternalDisplay != (int)ExternalDisplayMode::SHOW_GAME) {
 		INFO_LOG(Log::G3D, "External display: mirroring, as set");
 		return;
