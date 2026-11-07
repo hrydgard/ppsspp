@@ -939,21 +939,21 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void UmdReplaceScreen::CreateViews() {
+std::string_view UmdReplaceScreen::GetTitle() const {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	return insert_ ? pa->T("Insert UMD") : pa->T("Switch UMD");
+}
+
+void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
-	Margins actionMenuMargins(0, 100, 15, 0);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
-	leftColumn->SetTag("UmdReplace");
-	leftColumn->SetClip(true);
-
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
-	LinearLayout *rightColumnItems = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	rightColumnItems->SetSpacing(0.0f);
+	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	tabs->SetTag("UmdReplace");
+	tabs->SetClip(true);
+	parent->Add(tabs);
 
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -962,7 +962,7 @@ void UmdReplaceScreen::CreateViews() {
 			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
+		tabs->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
@@ -975,14 +975,25 @@ void UmdReplaceScreen::CreateViews() {
 
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
+	tabs->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
 
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
+	if (g_recentFiles.HasAny()) {
+		tabs->SetCurrentTab(0, true);
+	} else if (g_Config.iMaxRecent > 0) {
+		tabs->SetCurrentTab(1, true);
+	}
+}
+
+void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
+		parent->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([this](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
 			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
 				UseDisc(Path(value));
@@ -990,18 +1001,6 @@ void UmdReplaceScreen::CreateViews() {
 			});
 		});
 	}
-
-	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-
-	if (g_recentFiles.HasAny()) {
-		leftColumn->SetCurrentTab(0, true);
-	} else if (g_Config.iMaxRecent > 0) {
-		leftColumn->SetCurrentTab(1, true);
-	}
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
 }
 
 void UmdReplaceScreen::update() {
