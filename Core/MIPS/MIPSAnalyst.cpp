@@ -232,6 +232,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x4cf38c368078181e, 616, "dl_write_matrix", },
 	{ 0x4d3e7085e01d30e4, 324, "memcpy", }, // PoPoLoCrois (JPN)
 	{ 0x4d72b294501cddfb, 80, "copysign", },
+	{ 0x4d94d9f6c7f9cabd, 904, "paf_scene_begin", }, // PSP firmware 6.61 PhScene rendering
 	{ 0x4ddd83b7f4ed8d4e, 844, "memcpy", },
 	{ 0x4e266783291b0220, 28, "vsub_t", },
 	{ 0x4e5950928c0bb082, 44, "vmmul_q_transp4", },
