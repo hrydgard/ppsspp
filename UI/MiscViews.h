@@ -105,7 +105,7 @@ private:
 	UI::View *setting_;
 };
 
-void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);
+UI::View *AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text);
 
 class SearchBar : public UI::InertView {
 public:

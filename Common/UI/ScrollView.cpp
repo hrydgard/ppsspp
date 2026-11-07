@@ -167,6 +167,8 @@ bool ScrollView::Key(const KeyInput &input) {
 
 const float friction = 0.92f;
 const float stop_threshold = 0.1f;
+// Scroll speed (per frame) above which a press only stops the list.
+const float flingStopMinSpeed = 1.0f;
 
 bool ScrollView::Touch(const TouchInput &input) {
 	if (input.flags & TouchInputFlags::MOUSE) {
@@ -180,7 +182,11 @@ bool ScrollView::Touch(const TouchInput &input) {
 		return ViewGroup::Touch(input);
 	}
 
+	bool stopsFling = false;
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		// A press that stops a moving list only stops it, as in Android's lists, so it's kept from the children.
+		// The second check skips a list that is pushing against its end, which doesn't visibly move.
+		stopsFling = fabsf(inertia_) > flingStopMinSpeed && ClampedScrollPos(scrollPos_ - inertia_) != scrollPos_;
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
@@ -241,6 +247,9 @@ bool ScrollView::Touch(const TouchInput &input) {
 		scrollToTarget_ = false;
 	}
 
+	if (stopsFling) {
+		return true;
+	}
 	if (!(input.flags & TouchInputFlags::DOWN) || bounds_.Contains(input.x, input.y)) {
 		return ViewGroup::Touch(input2);
 	} else {

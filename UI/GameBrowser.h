@@ -28,6 +28,7 @@ enum class BrowseFlags {
 	PIN = 8,
 	HOMEBREW_STORE = 16,
 	UPLOAD_BUTTON = 32,
+	UMDS_ONLY = 64,  // Only what can go in the UMD drive (see UmdMount).
 	STANDARD = 1 | 2 | 4 | 8 | 32,
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
