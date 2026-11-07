@@ -150,6 +150,11 @@ if(IOS)
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
+	if(CMAKE_GENERATOR STREQUAL "Xcode")
+		# CMake hardcodes the scheme's Archive action to Release, so Release is what we archive.
+		# Give it full debug info, for the dSYM (the installed binary is still stripped).
+		add_compile_options($<$<CONFIG:Release>:-g>)
+	endif()
 	if(IOS_APP_STORE)
 		add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
 		message("iOS App Store build")
@@ -1627,9 +1632,6 @@ if(IOS AND NOT LIBRETRO)
 	)
 
 	target_compile_options(${TargetBin} PRIVATE
-		$<$<CONFIG:Release>:-g -gline-tables-only>
-	)
-	target_compile_options(${TargetBin} PRIVATE
 		$<$<CONFIG:RelWithDebInfo>:-g>
 	)
 	set_target_properties(${TargetBin} PROPERTIES
@@ -1650,6 +1652,10 @@ if(IOS AND NOT LIBRETRO)
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 
 		XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
+		# CMake points CONFIGURATION_BUILD_DIR (the default dSYM folder) into the CMake build dir,
+		# where Archive doesn't look, so the dSYM never made it into the .xcarchive. Archive overrides
+		# SYMROOT with its own BuildProductsPath, which it collects dSYMs from.
+		XCODE_ATTRIBUTE_DWARF_DSYM_FOLDER_PATH "$(SYMROOT)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
 		XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
 		XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
 
