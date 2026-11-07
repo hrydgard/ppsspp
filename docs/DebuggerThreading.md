@@ -76,6 +76,22 @@ Two more things found while doing this:
   `CDisasm::NotifyMapLoaded()`, which locks it internally) will deadlock. Keep such calls outside
   the queued lambda, same as the modal-dialog and `SendMessage()` rules above.
 
+## The loader thread doesn't take `g_frameMutex`
+
+While a game boots, `PSP_InitStart()` runs `CPU_Init()` on its own thread (`ExecLoader`), and that
+writes memory, kernel objects (the first threads) and the symbol map with no lock at all. It also
+loads modules, and every module load fires `SYMBOL_MAP_UPDATED` from that thread, which posts a
+refill of the debugger's symbol lists to the GUI thread. Holding `g_frameMutex` doesn't stop the
+loader adding the next module's symbols under the refill. The XMB loads a long chain of modules
+there, so with the disassembly window open, `SymbolMap::FillSymbolListBox()` crashed reliably.
+
+So a reader holding `g_frameMutex` also has to check `PSP_IsBooting()` and leave that state alone
+while it's true. Once it's false the reader is safe until it lets go of the lock: a boot only starts
+inside `NativeFrame()`'s locked span (`EmuScreen::PreRender()`), and `PSP_InitUpdate()` joins the
+loader thread before it sets the state to `Complete`. Readers that already require
+`isAlive()`/`PSP_IsInited()` get this for free. The symbol lists don't need a retry of their own:
+`BOOT_DONE` is sent after the state has become `Complete`, and it refills them.
+
 ## Lock ordering: `g_frameMutex` before `Core_LockAgainstShutdown()`, always
 
 `Core_LockAgainstShutdown()` / `CoreShutdownLock` (a `recursive_mutex`, `g_shutdownLock` in
