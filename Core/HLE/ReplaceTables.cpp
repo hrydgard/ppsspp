@@ -801,14 +801,14 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 	}
 
 	float scale = Replacement_GetVSHWidescreenScale();
-	if (pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
+	if (pageName == "page_bg" || pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
 		// Backgrounds fill the output instead of shrinking with the menus.
 		scale = 1.0f;
 	}
 	float anchor = 1.0f;
 	if (pageName == "page_indicator" || pageName == "page_btnnavi") {
 		anchor = -1.0f;
-	} else if (pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
+	} else if (pageName == "page_logo" || pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
 		anchor = 0.0f;
 	}
 	state.appliedX = state.originalX * scale;

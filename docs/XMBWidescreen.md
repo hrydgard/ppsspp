@@ -50,10 +50,14 @@ stretch for menu content. The camera/notch centering setting determines the
 available output frame.
 
 Menu pages use a left anchor. `page_indicator` and `page_btnnavi` use a right
-anchor, while the busy page and names containing `dialog` use a center anchor.
-Default and custom theme pages retain their original projection to fill the
-background. The page classifications are a limitation of this experimental
-approach; a complete responsive implementation needs more resource coverage.
+anchor, while the opening logo, busy page and names containing `dialog` use a
+center anchor.
+The opening background (`page_bg`) and default and custom theme pages retain
+their original projection to fill the background. This prevents a gap at the
+right edge during the Sony Computer Entertainment opening; its `page_logo`
+keeps the corrected width with a center anchor. The page classifications are a
+limitation of this experimental approach; a complete responsive implementation
+needs more resource coverage.
 
 The hook keeps each scene's original and last-applied projection. Repeated
 draws therefore do not accumulate scaling, and a projection the firmware
