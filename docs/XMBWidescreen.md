@@ -7,8 +7,9 @@ displays, VR and secondary game outputs use the existing display layout.
 
 This is experimental. It has been checked against the stock 6.61 firmware's
 menus, not every firmware resource, media player or custom theme. In particular,
-some modal backdrops still cover only their original logical width. Android
-device testing is needed before treating the option as generally supported.
+some overlays still cover only their original logical width. The opening and
+XMB were reported working on a Poco X5 Pro running Android 14. The message-box
+backdrop correction still needs confirmation on that device.
 
 ## Firmware findings
 
@@ -50,14 +51,26 @@ stretch for menu content. The camera/notch centering setting determines the
 available output frame.
 
 Menu pages use a left anchor. `page_indicator` and `page_btnnavi` use a right
-anchor, while the opening logo, busy page and names containing `dialog` use a
-center anchor.
+anchor, while the opening logo, message-box page, busy page and names containing
+`dialog` use a center anchor.
 The opening background (`page_bg`) and default and custom theme pages retain
 their original projection to fill the background. This prevents a gap at the
 right edge during the Sony Computer Entertainment opening; its `page_logo`
 keeps the corrected width with a center anchor. The page classifications are a
 limitation of this experimental approach; a complete responsive implementation
 needs more resource coverage.
+
+The stock message-box page (`page_ms_app`) uses a center anchor. Its
+`mbox_seat` container has an unnamed full-screen background plane. The child
+array is at widget `+0x1b4` with count at `+0x1b8`, and child `+0x1d4` points
+back to its parent. The plane's layout dimensions at `+0x320/+0x324` remain
+unchanged. Only its renderer (`+0x1e8`) gets a wider size at renderer `+0x50`,
+with dirty flag `0x40000` at `+0x24`. This follows size property `0x12` in
+`scePaf_1c0b229d`, its renderer virtual method and `scePaf_481d58ad` (module
+`+0xeced8`, `+0x15aafc` and `+0xd8bb0`). Child counts, parent links, dimensions
+and renderer height are checked before modifying geometry. Applying scale 1
+restores the original renderer width, so disabling widescreen does not leave
+a stretched backdrop. Other overlays and resources need separate coverage.
 
 The hook keeps each scene's original and last-applied projection. Repeated
 draws therefore do not accumulate scaling, and a projection the firmware
@@ -111,8 +124,9 @@ Find `android-normal-debug.apk` under `android/build/intermediates/apk/normal/de
 Before sharing it, use the SDK build tools to check `apksigner verify --verbose`
 and `aapt dump badging`: signatures must verify, the ABI must include
 `arm64-v8a`, and `testOnly` must not be true. The corrected local APK was built
-with these settings and passed these checks; installation on a device remains
-part of validation.
+with these settings and passed these checks; the contributor confirmed
+installation of the opening-fix build on Android 14. Each later fix still
+needs its own device validation.
 
 Transfer the complete APK to the phone and open it with the file manager.
 Allow installation from that app if Android requests it. In PPSSPP, configure

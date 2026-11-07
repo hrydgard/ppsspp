@@ -763,6 +763,65 @@ float Replacement_GetVSHWidescreenScale() {
 	return std::min(1.0f, (480.0f / 272.0f) / (frame.w / frame.h));
 }
 
+static std::string_view VSHWidgetName(u32 widget) {
+	if (!Memory::IsValidRange(widget, 8)) {
+		return {};
+	}
+	const u32 name = Memory::ReadUnchecked_U32(widget + 4);
+	if (!Memory::IsValidRange(name, 64)) {
+		return {};
+	}
+	const char *text = (const char *)Memory::GetPointerUnchecked(name);
+	return std::string_view(text, strnlen(text, 64));
+}
+
+static u32 FindVSHChild(u32 widget, std::string_view name) {
+	if (!Memory::IsValidRange(widget, 0x1DC)) {
+		return 0;
+	}
+	const u32 children = Memory::ReadUnchecked_U32(widget + 0x1B4);
+	const u32 count = Memory::ReadUnchecked_U32(widget + 0x1B8);
+	if (count > 32 || !Memory::IsValidRange(children, count * 4)) {
+		return 0;
+	}
+	for (u32 i = 0; i < count; ++i) {
+		const u32 child = Memory::ReadUnchecked_U32(children + i * 4);
+		if (Memory::IsValidRange(child, 0x1D8) &&
+			Memory::ReadUnchecked_U32(child + 0x1D4) == widget && VSHWidgetName(child) == name) {
+			return child;
+		}
+	}
+	return 0;
+}
+
+static void UpdateVSHMessageBackdrop(u32 page, float scale) {
+	const u32 seat = FindVSHChild(page, "mbox_seat");
+	const u32 backdrop = FindVSHChild(seat, "");
+	if (!Memory::IsValidRange(backdrop, 0x328)) {
+		return;
+	}
+	const float width = Memory::ReadUnchecked_Float(backdrop + 0x320);
+	const float height = Memory::ReadUnchecked_Float(backdrop + 0x324);
+	if (!std::isfinite(width) || !std::isfinite(height) || width < 480.0f ||
+		height < 272.0f || width > 960.0f || height > 544.0f ||
+		std::abs(width / height - 480.0f / 272.0f) > 0.001f) {
+		return;
+	}
+	const u32 renderer = Memory::ReadUnchecked_U32(backdrop + 0x1E8);
+	if (!Memory::IsValidRange(renderer, 0x60) ||
+		Memory::ReadUnchecked_Float(renderer + 0x54) != height) {
+		return;
+	}
+	// 6.61 PhWidget size property 0x12: renderer +0x50, dirty bit 0x40000 at +0x24.
+	// Keep the widget's layout width intact; only its background geometry grows.
+	const float renderWidth = width / scale;
+	if (Memory::ReadUnchecked_Float(renderer + 0x50) != renderWidth) {
+		Memory::WriteUnchecked_Float(renderWidth, renderer + 0x50);
+		const u32 flags = Memory::ReadUnchecked_U32(renderer + 0x24);
+		Memory::WriteUnchecked_U32(flags | 0x40000, renderer + 0x24);
+	}
+}
+
 static int Hook_paf_scene_begin(MIPSState *mips) {
 	if (!__KernelIsRunningVSH()) {
 		return 0;
@@ -790,17 +849,13 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 		state = {x, offset, x, offset};
 	}
 
-	std::string_view pageName;
 	const u32 page = Memory::ReadUnchecked_U32(scene + 0x1D4);
-	if (Memory::IsValidRange(page, 12)) {
-		const u32 name = Memory::ReadUnchecked_U32(page + 4);
-		if (Memory::IsValidRange(name, 64)) {
-			const char *text = (const char *)Memory::GetPointerUnchecked(name);
-			pageName = std::string_view(text, strnlen(text, 64));
-		}
-	}
+	const std::string_view pageName = VSHWidgetName(page);
 
 	float scale = Replacement_GetVSHWidescreenScale();
+	if (pageName == "page_ms_app") {
+		UpdateVSHMessageBackdrop(page, scale);
+	}
 	if (pageName == "page_bg" || pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
 		// Backgrounds fill the output instead of shrinking with the menus.
 		scale = 1.0f;
@@ -808,7 +863,7 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 	float anchor = 1.0f;
 	if (pageName == "page_indicator" || pageName == "page_btnnavi") {
 		anchor = -1.0f;
-	} else if (pageName == "page_logo" || pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
+	} else if (pageName == "page_logo" || pageName == "page_ms_app" || pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
 		anchor = 0.0f;
 	}
 	state.appliedX = state.originalX * scale;
