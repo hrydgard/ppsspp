@@ -10,6 +10,7 @@ menus, not every firmware resource, media player or custom theme. In particular,
 some overlays still cover only their original logical width. The contributor
 confirmed installation, widescreen menus, the opening and message-box backdrop
 fixes on a Poco X5 Pro running Android 14 with both Vulkan and OpenGL.
+The later PSN cancellation adjustment still needs confirmation on that device.
 
 ## Firmware findings
 
@@ -60,8 +61,9 @@ keeps the corrected width with a center anchor. The page classifications are a
 limitation of this experimental approach; a complete responsive implementation
 needs more resource coverage.
 
-The stock message-box page (`page_ms_app`) uses a center anchor. Its
-`mbox_seat` container has an unnamed full-screen background plane. The child
+Message boxes use a center anchor when their `mbox_seat` container and unnamed
+full-screen background plane validate. This includes `page_ms_app` and network
+error dialogs with generated page names, such as after cancelling PSN. The child
 array is at widget `+0x1b4` with count at `+0x1b8`, and child `+0x1d4` points
 back to its parent. The plane's layout dimensions at `+0x320/+0x324` remain
 unchanged. Only its renderer (`+0x1e8`) gets a wider size at renderer `+0x50`,
@@ -73,6 +75,12 @@ have a valid pointer and a NUL terminator within 64 bytes; an invalid name is
 not treated as a valid unnamed background. Applying scale 1
 restores the original renderer width, so disabling widescreen does not leave
 a stretched backdrop. Other overlays and resources need separate coverage.
+
+The network `page_infobar` has an `infobar` plane containing its title and icons.
+Its renderer width is expanded by `2 / scale - 1` to cover the right edge while
+the page remains left-anchored. Layout dimensions and child positions remain
+unchanged. The child link, width, header height and renderer height are checked
+before modifying the same size property used by message-box backgrounds.
 
 The hook keeps each scene's original and last-applied projection. Repeated
 draws therefore do not accumulate scaling, and a projection the firmware
@@ -106,6 +114,9 @@ widescreen enabled and disabled:
   the right edge.
 - Message box (`page_ms_app`): the dim background reaches both edges while
   text and buttons stay centered. Close and reopen it to check scene reuse.
+- PSN cancellation: open PlayStation Network, cancel the network connection with
+  Circle, and check the error dialog backdrop and Network Connection header at
+  both edges. Press Circle again and verify the XMB menu returns normally.
 - Invalid widget name: while paused in the debugger, save the unnamed backdrop's
   name pointer and renderer width. Set the name pointer to an invalid address
   and the renderer width to its original layout width. After running a frame,

@@ -802,17 +802,44 @@ static u32 FindVSHChild(u32 widget, std::string_view name) {
 	return 0;
 }
 
-static void UpdateVSHMessageBackdrop(u32 page, float scale) {
+static bool UpdateVSHMessageBackdrop(u32 page, float scale) {
 	const u32 seat = FindVSHChild(page, "mbox_seat");
 	const u32 backdrop = FindVSHChild(seat, "");
 	if (!Memory::IsValidRange(backdrop, 0x328)) {
-		return;
+		return false;
 	}
 	const float width = Memory::ReadUnchecked_Float(backdrop + 0x320);
 	const float height = Memory::ReadUnchecked_Float(backdrop + 0x324);
 	if (!std::isfinite(width) || !std::isfinite(height) || width < 480.0f ||
 		height < 272.0f || width > 960.0f || height > 544.0f ||
 		std::abs(width / height - 480.0f / 272.0f) > 0.001f) {
+		return false;
+	}
+	const u32 renderer = Memory::ReadUnchecked_U32(backdrop + 0x1E8);
+	if (!Memory::IsValidRange(renderer, 0x60) ||
+		Memory::ReadUnchecked_Float(renderer + 0x54) != height) {
+		return false;
+	}
+	// 6.61 PhWidget size property 0x12: renderer +0x50, dirty bit 0x40000 at +0x24.
+	// Keep the widget's layout width intact; only its background geometry grows.
+	const float renderWidth = width / scale;
+	if (Memory::ReadUnchecked_Float(renderer + 0x50) != renderWidth) {
+		Memory::WriteUnchecked_Float(renderWidth, renderer + 0x50);
+		const u32 flags = Memory::ReadUnchecked_U32(renderer + 0x24);
+		Memory::WriteUnchecked_U32(flags | 0x40000, renderer + 0x24);
+	}
+	return true;
+}
+
+static void UpdateVSHInfobar(u32 page, float scale) {
+	const u32 backdrop = FindVSHChild(page, "infobar");
+	if (!Memory::IsValidRange(backdrop, 0x328)) {
+		return;
+	}
+	const float width = Memory::ReadUnchecked_Float(backdrop + 0x320);
+	const float height = Memory::ReadUnchecked_Float(backdrop + 0x324);
+	if (!std::isfinite(width) || !std::isfinite(height) || width < 480.0f ||
+		width > 960.0f || height < 16.0f || height > 64.0f) {
 		return;
 	}
 	const u32 renderer = Memory::ReadUnchecked_U32(backdrop + 0x1E8);
@@ -820,9 +847,8 @@ static void UpdateVSHMessageBackdrop(u32 page, float scale) {
 		Memory::ReadUnchecked_Float(renderer + 0x54) != height) {
 		return;
 	}
-	// 6.61 PhWidget size property 0x12: renderer +0x50, dirty bit 0x40000 at +0x24.
-	// Keep the widget's layout width intact; only its background geometry grows.
-	const float renderWidth = width / scale;
+	// The header stays left-anchored, so extend its backdrop past the right edge.
+	const float renderWidth = width * (2.0f / scale - 1.0f);
 	if (Memory::ReadUnchecked_Float(renderer + 0x50) != renderWidth) {
 		Memory::WriteUnchecked_Float(renderWidth, renderer + 0x50);
 		const u32 flags = Memory::ReadUnchecked_U32(renderer + 0x24);
@@ -862,8 +888,10 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 	GetVSHWidgetName(page, pageName);
 
 	float scale = Replacement_GetVSHWidescreenScale();
-	if (pageName == "page_ms_app") {
-		UpdateVSHMessageBackdrop(page, scale);
+	// Network dialogs also create message boxes with generated page names.
+	const bool messageBox = UpdateVSHMessageBackdrop(page, scale);
+	if (pageName == "page_infobar") {
+		UpdateVSHInfobar(page, scale);
 	}
 	if (pageName == "page_bg" || pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
 		// Backgrounds fill the output instead of shrinking with the menus.
@@ -872,7 +900,8 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 	float anchor = 1.0f;
 	if (pageName == "page_indicator" || pageName == "page_btnnavi") {
 		anchor = -1.0f;
-	} else if (pageName == "page_logo" || pageName == "page_ms_app" || pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
+	} else if (messageBox || pageName == "page_logo" || pageName == "page_ms_app" ||
+		pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
 		anchor = 0.0f;
 	}
 	state.appliedX = state.originalX * scale;
