@@ -260,7 +260,7 @@ int kirk1_ecdsa_verify(const u8 *hash, const u8 *r, const u8 *s)
   memcpy(kirk1_pub,Px1,20);
   memcpy(kirk1_pub+20,Py1,20);
   ecdsa_set_pub(kirk1_pub);
-  return ecdsa_verify((u8 *)hash, (u8 *)r, (u8 *)s);
+  return ecdsa_verify(hash, r, s);
 }
 
 // This one writes to inbuff.
