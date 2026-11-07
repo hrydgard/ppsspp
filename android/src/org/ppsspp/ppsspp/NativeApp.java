@@ -195,9 +195,9 @@ public class NativeApp {
 				case MotionEvent.ACTION_CANCEL:
 					// The whole gesture is over (the system took it, for example), so every pointer in the
 					// event is, not just the one at the action index. Otherwise the rest stay held down
-					// on the native side. Handle like ACTION_UP for now.
+					// on the native side. UP | CANCEL, so the UI lets go without clicking.
 					Log.i(TAG, "ACTION_CANCEL");
-					code = 4;
+					code = 4 | 8;
 					break;
 				case MotionEvent.ACTION_MOVE: {
 					code = 1;
