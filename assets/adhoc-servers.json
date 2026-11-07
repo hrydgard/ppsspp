@@ -239,13 +239,13 @@
 			"name": "SWAENET",
 			"host": "132.226.189.224",
 			"discord": "https://discord.gg/CgZxfHA8ZC",
-			"web": "http://132.226.189.224:8888/",
-			"location": "Mumbai,India",
+			"web": "https://132.226.189.224/",
+			"location": "Mumbai, India",
 			"location-emoji": "🇮🇳",
-			"description": "Indian adhoc relay from SWAEYERS community",
+			"description": "SWAENET PPSSPP Relay – Mumbai, India – part of the SWAEYERS community, offering low‑latency, reliable gaming connectivity.",
 			"data_mode": "AemuPostoffice",
-			"status_data_json": "http://132.226.189.224:8888/data.json",
-			"icon": "http://132.226.189.224:8888/assets/favicon.svg"
+			"status_data_json": "https://132.226.189.224/data.json",
+			"icon": "https://132.226.189.224/assets/favicon.svg"
 		}
 	]
 }
