@@ -422,6 +422,9 @@ int kirk_CMD12(KirkState *kirk, u8 *outbuff, int outsize) {
   ecdsa_set_curve(ec_p,ec_a,ec_b2,ec_N2,Gx2,Gy2);
   k[0] = 0;
   kirk_CMD14(kirk, k+1,0x14);
+  // ec_priv_to_pub() replaces k with k*2^168 mod N, a leftover from the old byte-based Montgomery
+  // code, and the public key is for that. The private key is still uniformly random, so keep it
+  // (it also keeps results the same as before the rewrite).
   ec_priv_to_pub(k, (u8*)keypair->public_key.x);
   memcpy(keypair->private_key,k+1,0x14);
   
