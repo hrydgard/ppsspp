@@ -293,7 +293,7 @@ int g_screenshotFailures;
 		if (p.mode == p.MODE_READ) {
 			g_loadCount++;
 			hookedOps = Replacement_GetHookedOps();
-			RestoreReplacedInstructions(0, 0xFFFFFFFF);
+			RemoveReplacements(0, 0xFFFFFFFF);
 			codeCompare.ranges = __KernelModuleCodeRanges();
 		}
 		Memory::DoState(p, &codeCompare);

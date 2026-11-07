@@ -2303,7 +2303,7 @@ void Replacement_Init() {
 }
 
 void Replacement_Shutdown() {
-	RestoreReplacedInstructions(0, 0xFFFFFFFF);
+	RemoveReplacements(0, 0xFFFFFFFF);
 	replacementNameLookup.clear();
 	syphonFilterArrivals.clear();
 	syphonFilterFadeHolds.clear();
@@ -2353,7 +2353,7 @@ const ReplacementTableEntry *GetReplacementFunc(size_t i) {
 	return &entries[i];
 }
 
-static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 funcSize, u64 funcHash) {
+static bool InstallReplacement(u32 address, int index, u32 funcStart, u32 funcSize, u64 funcHash) {
 	if (!Memory::IsValid4AlignedAddress(address)) {
 		return false;
 	}
@@ -2375,7 +2375,7 @@ static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 f
 	return true;
 }
 
-void WriteReplaceInstructions(u32 address, u64 hash, int size) {
+void InstallReplacements(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	const u64 funcHash = indexes.empty() ? 0 : HashReplacedFunc(address, size);
 	for (int index : indexes) {
@@ -2386,17 +2386,17 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
 				const u32 op = Memory::Read_Instruction(address + offset).encoding;
 				if (op == MIPS_MAKE_JR_RA()) {
-					if (WriteReplaceInstruction(address + offset, index, address, size, funcHash)) {
+					if (InstallReplacement(address + offset, index, address, size, funcHash)) {
 						didReplace = true;
 					}
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOK) {
-			if (WriteReplaceInstruction(address + entry->hookOffset, index, address, size, funcHash)) {
+			if (InstallReplacement(address + entry->hookOffset, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		} else {
-			if (WriteReplaceInstruction(address, index, address, size, funcHash)) {
+			if (InstallReplacement(address, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		}
@@ -2407,7 +2407,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	}
 }
 
-void RestoreReplacedInstruction(u32 address) {
+void RemoveReplacement(u32 address) {
 	const u32 key = address & Memory::BLOCK_SHADOW_MASK;
 	auto iter = installedReplacements.find(key);
 	if (iter != installedReplacements.end()) {
@@ -2450,7 +2450,7 @@ void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hook
 	}
 }
 
-void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+void RemoveReplacements(u32 startAddr, u32 endAddr) {
 	if (endAddr == startAddr)
 		return;
 	// Need to be in order, or we'll hang.
@@ -2480,7 +2480,7 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", (int)restored.size(), startAddr, endAddr);
 }
 
-void Replacement_CheckRange(u32 address, u32 length) {
+void RemoveModifiedReplacementsInRange(u32 address, u32 length) {
 	const u32 start = address & Memory::BLOCK_SHADOW_MASK;
 	const u32 end = length >= Memory::BLOCK_SHADOW_MASK ? Memory::BLOCK_SHADOW_MASK : start + length;
 	std::vector<u32> dropped;

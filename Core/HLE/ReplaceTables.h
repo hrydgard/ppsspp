@@ -79,9 +79,9 @@ const ReplacementTableEntry *GetReplacementFunc(size_t index);
 // entry: the JIT's block there, or the hook value if there's none. The CPU cores look up every
 // instruction with a nonzero entry when they run or compile it, and substitute the CallRepl
 // pseudo-op.
-void WriteReplaceInstructions(u32 address, u64 hash, int size);
-void RestoreReplacedInstruction(u32 address);
-void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
+void InstallReplacements(u32 address, u64 hash, int size);
+void RemoveReplacement(u32 address);
+void RemoveReplacements(u32 startAddr, u32 endAddr);
 // The address and original instruction of every installed hook.
 std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
 // Some old savestates have hook ops in memory, which the CPU would now take as illegal and which
@@ -89,7 +89,7 @@ std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
 // session hooked at the same addresses (booting the game hooked the same module there).
 void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps);
 // Drops hooks in functions the game has changed. Called when the icache is invalidated over them.
-void Replacement_CheckRange(u32 address, u32 length);
+void RemoveModifiedReplacementsInRange(u32 address, u32 length);
 
 // The JIT's hook value, which its dispatcher sends to the compiler. Rewrites the hooks' entries.
 void Replacement_SetBlockShadowHook(u32 value);

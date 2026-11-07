@@ -1309,7 +1309,7 @@ namespace MIPSAnalyst {
 			functions.erase(prevMatch, functions.end());
 		}
 
-		RestoreReplacedInstructions(startAddr, endAddr);
+		RemoveReplacements(startAddr, endAddr);
 
 		if (functions.empty()) {
 			hashToFunction.clear();
@@ -1386,7 +1386,7 @@ namespace MIPSAnalyst {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		for (size_t i = 0; i < functions.size(); i++) {
-			WriteReplaceInstructions(functions[i].start, functions[i].hash, functions[i].size);
+			InstallReplacements(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 
