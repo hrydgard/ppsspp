@@ -154,6 +154,9 @@ if(IOS)
 		# CMake hardcodes the scheme's Archive action to Release, so Release is what we archive.
 		# Give it full debug info, for the dSYM (the installed binary is still stripped).
 		add_compile_options($<$<CONFIG:Release>:-g>)
+		# Archiving strips every target, which takes the debug info out of the static libraries before
+		# the app links them, leaving the dSYM with only the app's own files. The app target turns it back on.
+		set(CMAKE_XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT NO)
 	endif()
 	if(IOS_APP_STORE)
 		add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
