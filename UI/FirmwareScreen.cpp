@@ -33,6 +33,7 @@
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
 
+#include "UI/BackgroundAudio.h"
 #include "UI/FirmwareScreen.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
@@ -249,5 +250,6 @@ void FirmwareScreen::AskToErase() {
 			return;
 		}
 		StartScan(true);
+		g_BackgroundAudio.SFX().ReloadSamples();
 	}));
 }

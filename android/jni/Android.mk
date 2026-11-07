@@ -1074,6 +1074,8 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ImDebugger/ImStructViewer.cpp \
   $(SRC)/UI/AudioCommon.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
+  $(SRC)/UI/FirmwareSounds.cpp \
+  $(SRC)/UI/GameBootAnimation.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/ChatScreen.cpp \
   $(SRC)/UI/DebugOverlay.cpp \

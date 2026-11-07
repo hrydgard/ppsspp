@@ -115,6 +115,20 @@ void VagDecoder::DecodeBlock(const u8 *&read_pointer) {
 	read_pointer = readp;
 }
 
+void VagDecoder::DecodeAll(const u8 *data, size_t size, std::vector<s16> *out) {
+	VagDecoder dec;
+	dec.Start(0, (u32)size, false);
+	out->reserve(out->size() + size / 16 * 28);
+	const u8 *readp = data;
+	while (true) {
+		dec.DecodeBlock(readp);
+		if (dec.End()) {
+			break;
+		}
+		out->insert(out->end(), dec.samples, dec.samples + 28);
+	}
+}
+
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	if (end_) {
 		memset(outSamples, 0, numSamples * sizeof(s16));

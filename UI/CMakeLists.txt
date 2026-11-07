@@ -29,6 +29,10 @@ list(APPEND UISource
 	AdhocServerScreen.cpp
 	BackgroundAudio.h
 	BackgroundAudio.cpp
+	FirmwareSounds.h
+	FirmwareSounds.cpp
+	GameBootAnimation.h
+	GameBootAnimation.cpp
 	Background.h
 	Background.cpp
 	ChatScreen.h

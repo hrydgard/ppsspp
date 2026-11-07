@@ -386,6 +386,9 @@ public:
 	int iCurrentStateSlot;
 	int iRewindSnapshotInterval;
 	bool bUISound;
+	int iUISoundStyle;  // UISoundStyle
+	int iHomeScreenStyle;  // HomeScreenStyle
+	bool bGameBootAnimation;
 	bool bEnableStateUndo;
 	bool bConfirmLoadState;
 	std::string sStateLoadUndoGame;
