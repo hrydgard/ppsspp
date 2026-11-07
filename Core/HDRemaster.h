@@ -27,11 +27,15 @@ extern bool g_RemasterMode;
 
 extern bool g_DoubleTextureCoordinates;
 
+// Keep sceFont HLE'd and give it our own fonts, never the firmware's.
+extern bool g_RemasterHLEFonts;
+
 struct HDRemaster {
 	const char *gameID;
 	u32 memorySize;
 	bool doubleTextureCoordinates;
 	const char *umdDataValue;
+	bool hleFonts;
 };
 
 extern const struct HDRemaster g_HDRemasters[];
