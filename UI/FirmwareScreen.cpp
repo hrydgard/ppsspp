@@ -177,6 +177,11 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	ChoiceGroup *launchGroup = groups->Add(new ChoiceGroup());
 	Choice *launch = launchGroup->Add(new Choice(sy->T("Launch XMB"), ImageID("I_PLAY")));
 
+	ChoiceGroup *layout = groups->Add(new ChoiceGroup());
+	auto widescreen = layout->Add(new CheckBox(&g_Config.bVshWidescreen, sy->T("XMB widescreen (experimental)")));
+	widescreen->SetEnabled(!gameRunning && info_.version == "6.61");
+	layout->Add(new HintView(sy->T("XMBWidescreenDescription", "Fill widescreen displays while keeping XMB icons proportional. Requires firmware 6.61.")));
+
 	ChoiceGroup *actions = groups->Add(new ChoiceGroup());
 	launch->OnClick.Add([this](UI::EventParams &) {
 		LaunchVSH();

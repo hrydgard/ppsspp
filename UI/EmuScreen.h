@@ -119,6 +119,7 @@ private:
 	std::optional<VSHLaunch> launchedFromVSH_;
 	std::vector<u8> vshmainArgs_;
 
+	mutable std::unique_ptr<DisplayLayoutConfig> vshDisplayLayout_;
 	bool quit_ = false;
 	std::string errorMessage_;
 

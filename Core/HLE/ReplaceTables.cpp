@@ -18,6 +18,8 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <cmath>
+#include <string_view>
 #include <map>
 #include <mutex>
 #include <unordered_map>
@@ -25,6 +27,9 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
+#include "Common/System/Display.h"
+#include "Common/VR/PPSSPPVR.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -39,6 +44,8 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "Core/HW/Display.h"
 #include "Core/HW/MMIO.h"
 
@@ -731,6 +738,84 @@ static bool GetMIPSGPAddress(const MIPSState *mips, u32 &addr, s32 offset) {
 	}
 
 	return false;
+}
+
+struct VSHProjectionState {
+	float originalX;
+	float originalOffset;
+	float appliedX;
+	float appliedOffset;
+};
+
+static std::unordered_map<u32, VSHProjectionState> vshProjections;
+static bool vshProjectionSupported = false;
+
+float Replacement_GetVSHWidescreenScale() {
+	if (!g_Config.bVshWidescreen || !g_Config.bFuncReplacements || !vshProjectionSupported ||
+		!__KernelIsRunningVSH() || IsVREnabled() || (gpu && gpu->PresentsToOtherOutput())) {
+		return 1.0f;
+	}
+	const auto &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	const FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)g_display.pixel_xres, (float)g_display.pixel_yres);
+	if (frame.w <= 0.0f || frame.h <= 0.0f) {
+		return 1.0f;
+	}
+	return std::min(1.0f, (480.0f / 272.0f) / (frame.w / frame.h));
+}
+
+static int Hook_paf_scene_begin(MIPSState *mips) {
+	if (!__KernelIsRunningVSH()) {
+		return 0;
+	}
+	const u32 scene = mips->r[MIPS_REG_A0];
+	if (!Memory::IsValidRange(scene, 0x450) ||
+		Memory::ReadUnchecked_Float(scene + 0x340) != 480.0f ||
+		Memory::ReadUnchecked_Float(scene + 0x344) != 272.0f ||
+		Memory::ReadUnchecked_Float(scene + 0x41C) != -1.0f) {
+		return 0;
+	}
+
+	// Firmware 6.61, scePaf_Module crc 70c3dbcf: PhScene's projection is at +3f0.
+	// Change its horizontal projection, keeping the viewport and widget sizes intact.
+	const float x = Memory::ReadUnchecked_Float(scene + 0x3F0);
+	const float offset = Memory::ReadUnchecked_Float(scene + 0x410);
+	if (!std::isfinite(x) || x <= 0.0f || !std::isfinite(offset)) {
+		return 0;
+	}
+	vshProjectionSupported = true;
+	auto result = vshProjections.emplace(scene, VSHProjectionState{x, offset, x, offset});
+	auto &state = result.first->second;
+	if (x != state.appliedX || offset != state.appliedOffset) {
+		// The firmware rebuilt the projection, or allocated a new scene at this address.
+		state = {x, offset, x, offset};
+	}
+
+	std::string_view pageName;
+	const u32 page = Memory::ReadUnchecked_U32(scene + 0x1D4);
+	if (Memory::IsValidRange(page, 12)) {
+		const u32 name = Memory::ReadUnchecked_U32(page + 4);
+		if (Memory::IsValidRange(name, 64)) {
+			const char *text = (const char *)Memory::GetPointerUnchecked(name);
+			pageName = std::string_view(text, strnlen(text, 64));
+		}
+	}
+
+	float scale = Replacement_GetVSHWidescreenScale();
+	if (pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
+		// Backgrounds fill the output instead of shrinking with the menus.
+		scale = 1.0f;
+	}
+	float anchor = 1.0f;
+	if (pageName == "page_indicator" || pageName == "page_btnnavi") {
+		anchor = -1.0f;
+	} else if (pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
+		anchor = 0.0f;
+	}
+	state.appliedX = state.originalX * scale;
+	state.appliedOffset = state.originalOffset + (1.0f - scale) * anchor;
+	Memory::WriteUnchecked_Float(state.appliedX, scene + 0x3F0);
+	Memory::WriteUnchecked_Float(state.appliedOffset, scene + 0x410);
+	return 0;
 }
 
 static int Hook_godseaterburst_blit_texture(MIPSState *mips) {
@@ -2222,6 +2307,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOKENTER, 0x1610 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x78 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x18C },
+	{ "paf_scene_begin", &Hook_paf_scene_begin, 0, REPFLAG_HOOKENTER },
 	{}
 };
 
@@ -2307,6 +2393,8 @@ void Replacement_Shutdown() {
 	replacementNameLookup.clear();
 	syphonFilterArrivals.clear();
 	syphonFilterFadeHolds.clear();
+	vshProjections.clear();
+	vshProjectionSupported = false;
 }
 
 void Replacement_SetBlockShadowHook(u32 value) {
