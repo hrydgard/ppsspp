@@ -227,6 +227,8 @@ int kirk_CMD13(KirkState *kirk, u8* outbuff, int outsize,u8* inbuff, int insize)
 int kirk_CMD14(KirkState *kirk, u8* outbuff, int outsize);
 int kirk_CMD16(KirkState *kirk, u8* outbuff, int outsize,u8* inbuff, int insize);
 int kirk_CMD17(KirkState *kirk, const u8* inbuff, int insize);
+// KIRK command 1's ECDSA check, against the fixed public key on its own curve.
+int kirk1_ecdsa_verify(const u8 *hash, const u8 *r, const u8 *s);
 
 int kirk_init(KirkState *kirk); //CMD 0xF?
 int kirk_init2(KirkState *kirk, u8 *, u32, u32, u32);
@@ -252,21 +254,38 @@ void encrypt_kirk16_private(KirkState *kirk, u8 *dA_out, u8 *dA_dec);
 int ecdsa_set_curve(const u8* p, const u8* a, const u8* b, const u8* N, const u8* Gx, const u8* Gy);
 void ecdsa_set_pub(u8 *Q);
 void ecdsa_set_priv(u8 *k);
-int ecdsa_verify(u8 *hash, u8 *R, u8 *S);
-void ecdsa_sign(KirkState *kirk, u8 *hash, u8 *R, u8 *S);
+int ecdsa_verify(const u8 *hash, const u8 *R, const u8 *S);
+void ecdsa_sign(KirkState *kirk, const u8 *hash, u8 *R, u8 *S);
 void ec_priv_to_pub(u8 *k, u8 *Q);
-void ec_pub_mult(u8 *k, u8 *Q);
+void ec_pub_mult(const u8 *k, u8 *Q);
 
-void bn_copy(u8 *d, const u8 *a, u32 n);
-int bn_compare(const u8 *a, const u8 *b, u32 n);
-void bn_reduce(u8 *d, const u8 *N, u32 n);
-void bn_add(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n);
-void bn_sub(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n);
-void bn_to_mon(u8 *d, const u8 *N, u32 n);
-void bn_from_mon(u8 *d, const u8 *N, u32 n);
-void bn_mon_mul(u8 *d, const u8 *a, const u8 *b, const u8 *N, u32 n);
-void bn_mon_inv(u8 *d, const u8 *a, const u8 *N, u32 n);
-void hex_dump(const char *str, const u8 *buf, int size);
+// Arithmetic modulo an odd number below 2^160 (both KIRK curves' p and N), on 32-bit words, least
+// significant first. Montgomery form uses R = 2^160.
+#define BN_WORDS 5
+
+typedef struct bn_mod {
+	u32 m[BN_WORDS];
+	u32 minv;           // -m^-1 mod 2^32
+	u32 rr[BN_WORDS];   // R^2 mod m
+	u32 one[BN_WORDS];  // R mod m, 1 in Montgomery form
+} bn_mod;
+
+// Big-endian bytes, as KIRK has them. Inputs of more than 20 bytes have zeros on top.
+void bn_from_bytes(u32 *d, const u8 *b, u32 n);
+void bn_to_bytes(u8 *b, const u32 *a, u32 n);
+void bn_mod_init(bn_mod *M, const u8 *m, u32 n);
+int bn_is_zero(const u32 *a);
+int bn_equal(const u32 *a, const u32 *b);
+// Subtracts m once if a >= m, so takes anything below 2m to below m.
+void bn_reduce(u32 *d, const bn_mod *M);
+// These want their inputs below m.
+void bn_add(u32 *d, const u32 *a, const u32 *b, const bn_mod *M);
+void bn_sub(u32 *d, const u32 *a, const u32 *b, const bn_mod *M);
+void bn_mon_mul(u32 *d, const u32 *a, const u32 *b, const bn_mod *M);
+void bn_to_mon(u32 *d, const u32 *a, const bn_mod *M);
+void bn_from_mon(u32 *d, const u32 *a, const bn_mod *M);
+// Montgomery form in and out. The inverse of 0 comes out as 0.
+void bn_mon_inv(u32 *d, const u32 *a, const bn_mod *M);
 
 #define		round_up(x,n)	(-(-(x) & -(n)))
 

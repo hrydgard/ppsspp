@@ -1375,6 +1375,7 @@ if(UNITTEST)
 		unittest/TestZipSlip.cpp
 		unittest/TestPS1Eboot.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestKirk.cpp
 		unittest/TestCwCheat.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
