@@ -952,9 +952,8 @@ void UmdReplaceScreen::CreateViews() {
 	leftColumn->SetClip(true);
 
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *rightColumnItems = rightColumn->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	rightColumnItems->SetSpacing(0.0f);
-	rightColumn->Add(rightColumnItems);
 
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
@@ -993,10 +992,6 @@ void UmdReplaceScreen::CreateViews() {
 	}
 
 	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-	rightColumnItems->Add(new Spacer());
-	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Add([this](UI::EventParams &e) {
-		screenManager()->push(new GameSettingsScreen(Path()));
-	});
 
 	if (g_recentFiles.HasAny()) {
 		leftColumn->SetCurrentTab(0, true);

@@ -834,7 +834,6 @@ void GamePauseScreen::CreateViews() {
 			g_Config.bRunBehindPauseMenu = !g_Config.bRunBehindPauseMenu;
 			playButton_->SetIconLeft(g_Config.bRunBehindPauseMenu ? ImageID("I_PAUSE_LINE") : ImageID("I_PLAY_LINE"));
 		});
-		playButton_->SetRoundCorners();
 
 		bool mustRunBehind = MustRunBehind();
 		playButton_->SetEnabled(!mustRunBehind);
@@ -843,7 +842,6 @@ void GamePauseScreen::CreateViews() {
 		infoButton->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new GameScreen(gamePath_, true));
 		});
-		infoButton->SetRoundCorners();
 
 		if (System_GetPropertyBool(SYSPROP_CAN_RESTRICT_ORIENTATION)) {
 			AddRotationPicker(screenManager(), middleColumn, false);
@@ -854,8 +852,9 @@ void GamePauseScreen::CreateViews() {
 			menuButton->OnClick.Add([this, menuButton, portrait](UI::EventParams &e) {
 				ShowContextMenu(menuButton, portrait);
 			});
-			menuButton->SetRoundCorners();
 		}
+
+		middleColumn->ApplyRoundCorners();
 	} else {
 		playButton_ = nullptr;
 	}
