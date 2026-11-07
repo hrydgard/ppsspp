@@ -763,16 +763,22 @@ float Replacement_GetVSHWidescreenScale() {
 	return std::min(1.0f, (480.0f / 272.0f) / (frame.w / frame.h));
 }
 
-static std::string_view VSHWidgetName(u32 widget) {
+static bool GetVSHWidgetName(u32 widget, std::string_view &name) {
+	name = {};
 	if (!Memory::IsValidRange(widget, 8)) {
-		return {};
+		return false;
 	}
-	const u32 name = Memory::ReadUnchecked_U32(widget + 4);
-	if (!Memory::IsValidRange(name, 64)) {
-		return {};
+	const u32 nameAddress = Memory::ReadUnchecked_U32(widget + 4);
+	if (!Memory::IsValidRange(nameAddress, 64)) {
+		return false;
 	}
-	const char *text = (const char *)Memory::GetPointerUnchecked(name);
-	return std::string_view(text, strnlen(text, 64));
+	const char *text = (const char *)Memory::GetPointerUnchecked(nameAddress);
+	const size_t length = strnlen(text, 64);
+	if (length == 64) {
+		return false;
+	}
+	name = std::string_view(text, length);
+	return true;
 }
 
 static u32 FindVSHChild(u32 widget, std::string_view name) {
@@ -786,8 +792,10 @@ static u32 FindVSHChild(u32 widget, std::string_view name) {
 	}
 	for (u32 i = 0; i < count; ++i) {
 		const u32 child = Memory::ReadUnchecked_U32(children + i * 4);
+		std::string_view childName;
 		if (Memory::IsValidRange(child, 0x1D8) &&
-			Memory::ReadUnchecked_U32(child + 0x1D4) == widget && VSHWidgetName(child) == name) {
+			Memory::ReadUnchecked_U32(child + 0x1D4) == widget &&
+			GetVSHWidgetName(child, childName) && childName == name) {
 			return child;
 		}
 	}
@@ -850,7 +858,8 @@ static int Hook_paf_scene_begin(MIPSState *mips) {
 	}
 
 	const u32 page = Memory::ReadUnchecked_U32(scene + 0x1D4);
-	const std::string_view pageName = VSHWidgetName(page);
+	std::string_view pageName;
+	GetVSHWidgetName(page, pageName);
 
 	float scale = Replacement_GetVSHWidescreenScale();
 	if (pageName == "page_ms_app") {

@@ -68,7 +68,9 @@ unchanged. Only its renderer (`+0x1e8`) gets a wider size at renderer `+0x50`,
 with dirty flag `0x40000` at `+0x24`. This follows size property `0x12` in
 `scePaf_1c0b229d`, its renderer virtual method and `scePaf_481d58ad` (module
 `+0xeced8`, `+0x15aafc` and `+0xd8bb0`). Child counts, parent links, dimensions
-and renderer height are checked before modifying geometry. Applying scale 1
+and renderer height are checked before modifying geometry. Widget names must
+have a valid pointer and a NUL terminator within 64 bytes; an invalid name is
+not treated as a valid unnamed background. Applying scale 1
 restores the original renderer width, so disabling widescreen does not leave
 a stretched backdrop. Other overlays and resources need separate coverage.
 
@@ -92,6 +94,28 @@ a game from the shell. The game must use its own existing display settings.
 
 Current local results and screenshots are described in the PR validation notes;
 successful desktop captures do not substitute for testing an Android device.
+
+## Regression checks
+
+With the 6.61 XMB running, use a wide output and check the following both with
+widescreen enabled and disabled:
+
+- Opening: the logo stays centered and proportional; the background reaches
+  both edges.
+- Menu: category icons and text stay proportional; clock and battery stay at
+  the right edge.
+- Message box (`page_ms_app`): the dim background reaches both edges while
+  text and buttons stay centered. Close and reopen it to check scene reuse.
+- Invalid widget name: while paused in the debugger, save the unnamed backdrop's
+  name pointer and renderer width. Set the name pointer to an invalid address
+  and the renderer width to its original layout width. After running a frame,
+  the hook must leave the renderer width unchanged. Restore the name pointer
+  and run again; background expansion must resume. Use a disposable session.
+
+The invalid-name check exercises the distinction between malformed memory and
+an intentionally empty name, which identifies the stock backdrop. Desktop
+checks do not establish correctness for custom resource layouts. Rotation,
+media playback, game launch/return and secondary outputs need separate coverage.
 
 ## Android test APK
 
