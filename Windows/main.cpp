@@ -518,7 +518,7 @@ void System_Notify(SystemNotification notification) {
 	case SystemNotification::BOOT_DONE:
 	{
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();  // Always fired from the CPU/NativeFrame thread, see AGENTS.md
+			g_symbolMap->SortSymbols();  // Fired from the CPU/NativeFrame thread. See docs/DebuggerThreading.md.
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 
 		if (Achievements::HardcoreModeActive()) {
@@ -557,8 +557,10 @@ void System_Notify(SystemNotification notification) {
 		break;
 
 	case SystemNotification::SYMBOL_MAP_UPDATED:
+		// Fired by whichever thread just changed the map: the CPU thread, or the loader thread while
+		// booting (see PSP_IsBooting). See docs/DebuggerThreading.md.
 		if (g_symbolMap)
-			g_symbolMap->SortSymbols();  // Always fired from the CPU/NativeFrame thread, see AGENTS.md
+			g_symbolMap->SortSymbols();
 		PostMessage(MainWindow::GetHWND(), WM_USER + 1, 0, 0);
 		break;
 

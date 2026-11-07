@@ -62,6 +62,13 @@ BootState PSP_GetBootState();
 inline bool PSP_IsInited() {
 	return PSP_GetBootState() == BootState::Complete;
 }
+// While this is true, the loader thread is writing memory, kernel objects and the symbol map
+// without g_frameMutex, so readers on other threads have to leave them alone even when holding it.
+// A boot only starts inside NativeFrame()'s g_frameMutex span, so it can't begin under a reader
+// that holds the lock and saw this false.
+inline bool PSP_IsBooting() {
+	return PSP_GetBootState() == BootState::Booting;
+}
 
 // Call this once, then call PSP_InitUpdate repeatedly to monitor progress.
 bool PSP_InitStart(const CoreParameter &coreParam);

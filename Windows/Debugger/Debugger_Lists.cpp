@@ -264,7 +264,10 @@ void CtrlThreadList::reloadThreads()
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
-		threads = GetThreadsInfo();
+		// The loader thread creates the first ones while booting.
+		if (!PSP_IsBooting()) {
+			threads = GetThreadsInfo();
+		}
 	}
 	Update();
 }
@@ -858,7 +861,9 @@ void CtrlModuleList::loadModules()
 	{
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
-		if (g_symbolMap) {
+		if (PSP_IsBooting()) {
+			// The loader thread is still adding them. Refreshed when the boot finishes.
+		} else if (g_symbolMap) {
 			modules = g_symbolMap->getAllModules();
 		} else {
 			modules.clear();

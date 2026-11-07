@@ -10,6 +10,7 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/System.h"
 
 #include "Debugger_MemoryDlg.h"
 #include "CtrlMemView.h"
@@ -137,7 +138,10 @@ void CMemoryDlg::NotifyMapLoaded() {
 		// thread - hold g_frameMutex for the duration of the read, which NativeFrame() also holds
 		// while it's actually touching that state. See g_frameMutex in Core.h.
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
-		g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
+		// Not while the loader thread is still adding symbols. BOOT_DONE sends another of these.
+		if (!PSP_IsBooting()) {
+			g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
+		}
 	} else {
 		mapLoadPending_ = true;
 	}
@@ -228,8 +232,10 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_DEB_UPDATE:
 		if (mapLoadPending_ && m_hDlg && g_symbolMap) {
 			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
-			g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
-			mapLoadPending_ = false;
+			if (!PSP_IsBooting()) {
+				g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
+				mapLoadPending_ = false;
+			}
 		}
 		Update();
 		return TRUE;
