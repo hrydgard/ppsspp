@@ -51,9 +51,9 @@ typedef int (* ReplaceFunc)(MIPSState *mips);
 enum {
 	// Used to keep things around but disable them.
 	REPFLAG_DISABLED = 0x02,
-	// Note that this will re-execute in a function that loops at start.
+	// Executes the replacement, then the original instruction (note: this will re-execute if a function loops here.)
 	REPFLAG_HOOK = 0x04,
-	// Only hooks jr ra, so only use on funcs that have that.
+	// Finds 'jr ra' instructions and hooks only them, so only use on funcs that have that.
 	REPFLAG_HOOKEXIT = 0x08,
 	// Function may take a lot of time and execute in slices (executed multiple times.)
 	REPFLAG_SLICED = 0x10,
@@ -65,7 +65,7 @@ struct ReplacementTableEntry {
 	ReplaceFunc replaceFunc;
 	MIPSComp::MIPSReplaceFunc jitReplaceFunc;
 	int flags;
-	s32 hookOffset;
+	s32 hookOffset;  // hook's offset from the function's start (only for REPFLAG_HOOK)
 };
 
 void Replacement_Init();
