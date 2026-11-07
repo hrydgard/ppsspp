@@ -38,6 +38,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/FileLoaders/PS1EbootFileLoader.h"
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 
 #include "UI/GameBrowser.h"
@@ -277,11 +278,42 @@ void GameBrowser::PinToggleClick(UI::EventParams &e) {
 	refreshPending_ = true;
 }
 
+// Whether UmdMount takes it: a PSP disc image (also a UMD video, or a PSN game's ISO in an EBOOT.PBP),
+// or a disc's files in a directory.
+static bool IsUmdPath(const Path &path, bool isDirectory) {
+	if (!isDirectory) {
+		const std::string ext = path.GetFileExtension();
+		// Trusted by name, since opening every image would make big folders slow to list.
+		if (ext == ".iso" || ext == ".cso") {
+			return true;
+		}
+		// A CHD can hold a PS1 disc, and a PBP can be homebrew or a PS1 game.
+		if (ext != ".chd" && ext != ".pbp") {
+			return false;
+		}
+	}
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+	std::string error;
+	switch (Identify_File(loader.get(), &error)) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_recentFiles.GetRecentFiles()) {
-			filenames.emplace_back(str);
+			Path path(str);
+			if ((browseFlags_ & BrowseFlags::UMDS_ONLY) && !IsUmdPath(path, File::IsDirectory(path))) {
+				continue;
+			}
+			filenames.push_back(path);
 		}
 		return true;
 	}
@@ -524,8 +556,9 @@ void GameBrowser::Refresh() {
 			gameButtons.push_back(new GameButton(GameButtonType::Game, filenames[i], lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	} else if (!listingPending_) {
+		const bool umdsOnly = browseFlags_ & BrowseFlags::UMDS_ONLY;
 		std::vector<File::FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
+		path_.GetListing(fileInfo, umdsOnly ? "iso:cso:chd:pbp:" : "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
 		// PS1 discs: a .bin or .img shows up as its cue sheet or .ccd, when it has one.
 		RemoveDescribedDiscImages(&fileInfo);
 		// Drives and servers aren't games, and probing a server that's gone away can take seconds.
@@ -543,6 +576,10 @@ void GameBrowser::Refresh() {
 			else if (!isGame && File::Exists(path_.GetPath() / fileInfo[i].name / "PARAM.SFO"))
 				isSaveData = true;
 
+			if (umdsOnly && (isSaveData || (isGame && !IsUmdPath(fileInfo[i].fullName, fileInfo[i].isDirectory)))) {
+				continue;
+			}
+
 			if (!isGame && !isSaveData) {
 				if (browseFlags_ & BrowseFlags::NAVIGATE) {
 					dirButtons.push_back(new GameButton(GameButtonType::Dir, fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
@@ -558,7 +595,7 @@ void GameBrowser::Refresh() {
 		// Put RAR/ZIP files at the end to get them out of the way. Game update packages go here
 		// too - they're not something to boot, they're something to install.
 		// We do support unpacking some of them automatically.
-		if (browseFlags_ & BrowseFlags::ARCHIVES) {
+		if ((browseFlags_ & BrowseFlags::ARCHIVES) && !umdsOnly) {
 			fileInfo.clear();
 			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:pkg:");
 			if (!fileInfo.empty()) {
