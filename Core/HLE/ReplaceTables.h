@@ -52,7 +52,7 @@ enum {
 	// Used to keep things around but disable them.
 	REPFLAG_DISABLED = 0x02,
 	// Note that this will re-execute in a function that loops at start.
-	REPFLAG_HOOKENTER = 0x04,
+	REPFLAG_HOOK = 0x04,
 	// Only hooks jr ra, so only use on funcs that have that.
 	REPFLAG_HOOKEXIT = 0x08,
 	// Function may take a lot of time and execute in slices (executed multiple times.)

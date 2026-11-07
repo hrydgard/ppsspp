@@ -196,7 +196,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	bool disabled = (entry->flags & REPFLAG_DISABLED) != 0;
 	if (!disabled && funcSize != SymbolMap::INVALID_ADDRESS && funcSize > sizeof(u32)) {
 		// We don't need to disable hooks, the code will still run.
-		if ((entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+		if ((entry->flags & (REPFLAG_HOOK | REPFLAG_HOOKEXIT)) == 0) {
 			// Any breakpoint at the func entry was already tripped, so we can still run the replacement.
 			// That's a common case - just to see how often the replacement hits.
 			disabled = g_breakpoints.RangeContainsBreakPoint(GetCompilerPC() + sizeof(u32), funcSize - sizeof(u32));
@@ -211,7 +211,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
 		ir.Write(IROp::CallReplacement, IRTEMP_0, 0, 0, index);
 
-		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+		if (entry->flags & (REPFLAG_HOOK | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
