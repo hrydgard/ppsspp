@@ -4203,6 +4203,8 @@ bool TestVFS();
 bool TestZipSlip();
 bool TestPS1Eboot();
 bool TestLzrc();
+bool TestKirkEcdsa();
+bool TestKirkEcdsaBench();
 bool TestCwCheat();
 bool TestMpegCsc();
 bool TestSplineTessellation();
@@ -4761,6 +4763,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(ZipSlip),
 	TEST_ITEM(PS1Eboot),
 	TEST_ITEM(Lzrc),
+	TEST_ITEM(KirkEcdsa),
+	TEST_ITEM(KirkEcdsaBench),
 	TEST_ITEM(CwCheat),
 	TEST_ITEM(MpegCsc),
 	TEST_ITEM(SplineTessellation),

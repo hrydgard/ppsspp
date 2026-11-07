@@ -227,6 +227,8 @@ int kirk_CMD13(KirkState *kirk, u8* outbuff, int outsize,u8* inbuff, int insize)
 int kirk_CMD14(KirkState *kirk, u8* outbuff, int outsize);
 int kirk_CMD16(KirkState *kirk, u8* outbuff, int outsize,u8* inbuff, int insize);
 int kirk_CMD17(KirkState *kirk, const u8* inbuff, int insize);
+// KIRK command 1's ECDSA check, against the fixed public key on its own curve.
+int kirk1_ecdsa_verify(const u8 *hash, const u8 *r, const u8 *s);
 
 int kirk_init(KirkState *kirk); //CMD 0xF?
 int kirk_init2(KirkState *kirk, u8 *, u32, u32, u32);
