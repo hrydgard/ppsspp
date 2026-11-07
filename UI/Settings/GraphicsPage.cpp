@@ -139,6 +139,17 @@ static void BuildCardboardVRPage(SettingsPage *page) {
 	page->Setting(&config.iCardboardYShift).Enabled(&config.bEnableCardboardVR);
 }
 
+// Asking about Vulkan can load its driver, so that's done last, and only when it decides the answer.
+static bool HasBackendChoice() {
+	int count = 0;
+	for (GPUBackend backend : { GPUBackend::OPENGL, GPUBackend::DIRECT3D11, GPUBackend::METAL }) {
+		if (g_Config.IsBackendEnabled(backend)) {
+			count++;
+		}
+	}
+	return count >= 2 || (count == 1 && g_Config.IsBackendEnabled(GPUBackend::VULKAN));
+}
+
 void BuildGraphicsSettings(SettingsPage *page) {
 	using namespace UI;
 	SettingsPageHost *host = page->Host();
@@ -149,7 +160,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Header("Rendering");
 
 #if !PPSSPP_PLATFORM(UWP)
-	page->Setting(&g_Config.iGPUBackend).Setup([host](View *view) {
+	page->Setting(&g_Config.iGPUBackend).Visible(HasBackendChoice()).Setup([host](View *view) {
 		PopupMultiChoice *renderingBackendChoice = static_cast<PopupMultiChoice *>(view);
 		renderingBackendChoice->SetPreOpenCallback([host](UI::PopupMultiChoice *choice) {
 			// Don't filter until the last possible moment, since it involves trying to initialize Vulkan, if we were

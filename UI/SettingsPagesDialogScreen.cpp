@@ -426,7 +426,7 @@ bool SettingsPagesDialogScreen::SearchPage(UI::ViewGroup *parent, int settingsTa
 			if (!item.hint.empty() && SettingTextMatches(item.hint, cat, searchText_)) {
 				matches = true;
 			}
-			show[i] = matches || sectionMatches;
+			show[i] = item.visible && (matches || sectionMatches);
 			break;
 		}
 	}

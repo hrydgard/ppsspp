@@ -900,7 +900,6 @@ void VulkanRenderManager::RenderThreadFunc() {
 void VulkanRenderManager::PresentWaitThreadFunc() {
 	SetCurrentThreadName("PresentWait");
 
-#if !PPSSPP_VK_STATIC
 	_dbg_assert_(vkWaitForPresentKHR != nullptr);
 
 	uint64_t waitedId = frameIdGen_;
@@ -917,7 +916,6 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 		}
 		_dbg_assert_(waitedId <= frameIdGen_);
 	}
-#endif
 
 	INFO_LOG(Log::G3D, "Leaving PresentWaitThreadFunc()");
 }
