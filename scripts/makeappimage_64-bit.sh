@@ -14,41 +14,14 @@ QUICK_SHARUN="https://raw.githubusercontent.com/pkgforge-dev/Anylinux-AppImages/
 wget "$QUICK_SHARUN" -O ./quick-sharun
 chmod +x ./quick-sharun
 
-(
-	export ADD_HOOKS="self-updater.hook"
-	# PPSSPP-, so the headless AppImage's .zsync can't match.
-	export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|PPSSPP-*$ARCH.AppImage.zsync"
-	export DESKTOP="$PWD"/SDL/PPSSPPSDL.desktop
+export ADD_HOOKS="self-updater.hook"
+export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|*$ARCH.AppImage.zsync"
+export DESKTOP="$PWD"/SDL/PPSSPPSDL.desktop
 
-	./quick-sharun ./build/PPSSPPSDL
+./quick-sharun ./build/PPSSPPSDL ./build/PPSSPPHeadless
 
-	# copy assets dir needs to be next to the binary
-	cp -vr ./build/assets ./AppDir/bin
+# copy assets dir needs to be next to the binary
+cp -vr ./build/assets ./AppDir/bin
 
-	# Make AppImage with uruntime
-	./quick-sharun --make-appimage
-)
-
-# PPSSPPHeadless, in an AppImage of its own.
-(
-	export APPDIR="$PWD"/AppDir-headless
-	export UPINFO="gh-releases-zsync|${GITHUB_REPOSITORY%/*}|${GITHUB_REPOSITORY#*/}|latest|PPSSPPHeadless-*$ARCH.AppImage.zsync"
-	export DESKTOP="$PWD"/PPSSPPHeadless.desktop
-	cat > "$DESKTOP" <<-EOF
-	[Desktop Entry]
-	Name=PPSSPPHeadless
-	Exec=PPSSPPHeadless
-	Comment=PPSSPP without a UI, for tests and scripting
-	Icon=ppsspp
-	Type=Application
-	Terminal=true
-	NoDisplay=true
-	Categories=Game;Emulator;
-	EOF
-
-	./quick-sharun ./build/PPSSPPHeadless
-	cp -vr ./build/assets "$APPDIR"/bin
-	./quick-sharun --make-appimage
-)
-# Old PPSSPP AppImages update from any *$ARCH.AppImage.zsync in the release, so don't ship this one.
-rm -f ./PPSSPPHeadless*.zsync
+# Make AppImage with uruntime
+./quick-sharun --make-appimage
