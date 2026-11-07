@@ -75,3 +75,44 @@ a game from the shell. The game must use its own existing display settings.
 
 Current local results and screenshots are described in the PR validation notes;
 successful desktop captures do not substitute for testing an Android device.
+
+## Android test APK
+
+From a checkout with the Android SDK, NDK and Gradle JDK configured, build an
+ARM64 debug APK with the test-only flag explicitly disabled:
+
+```powershell
+./gradlew.bat :android:assembleNormalDebug -Pandroid.injected.build.abi=arm64-v8a -Pandroid.injected.testOnly=false
+```
+
+On Linux or macOS, use `./gradlew` with the same arguments. Selecting an ABI
+through `android.injected.build.abi` can otherwise mark the APK `testOnly=true`.
+Such an APK requires `adb install -t` and cannot be installed by tapping the file
+in Android's file manager. This is a packaging setting, independent of the XMB
+runtime option.
+
+The normal debug APK uses the normal PPSSPP application ID. To test alongside
+an existing installation, save this as an untracked `xmb-test.gradle` file and
+add `--init-script xmb-test.gradle` to the build command:
+
+```groovy
+allprojects { project ->
+    project.plugins.withId('com.android.application') {
+        project.android.buildTypes.getByName('debug').applicationIdSuffix = '.xmbwide'
+    }
+}
+```
+
+Find `android-normal-debug.apk` under `android/build/intermediates/apk/normal/debug/`.
+Before sharing it, use the SDK build tools to check `apksigner verify --verbose`
+and `aapt dump badging`: signatures must verify, the ABI must include
+`arm64-v8a`, and `testOnly` must not be true. The corrected local APK was built
+with these settings and passed these checks; installation on a device remains
+part of validation.
+
+Transfer the complete APK to the phone and open it with the file manager.
+Allow installation from that app if Android requests it. In PPSSPP, configure
+PSP firmware 6.61 in the firmware screen. With the XMB stopped, enable
+**XMB widescreen (experimental)**, then start the XMB and compare the option on
+and off in landscape orientation. A separate `.xmbwide` installation has its
+own settings and needs its firmware configured separately.
