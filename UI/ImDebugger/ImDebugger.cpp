@@ -964,7 +964,7 @@ static void DrawAdhoc(ImConfig &cfg) {
 	}
 
 	const char *discoverStatusStr = "N/A";
-	switch (netAdhocDiscoverStatus) {
+	switch (NetAdhocDiscover_GetStatus()) {
 	case 0: discoverStatusStr = "NONE"; break;
 	case 1: discoverStatusStr = "IN_PROGRESS"; break;
 	case 2: discoverStatusStr = "COMPLETED"; break;

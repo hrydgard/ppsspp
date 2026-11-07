@@ -22,7 +22,10 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <mutex>
+#include <random>
+#include <set>
 #include <string>
 
 #include "Common/Net/SocketCompat.h"
@@ -78,16 +81,6 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-
-#define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
-u64 netAdhocDiscoverStartTime = 0;
-s32 netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
-bool netAdhocDiscoverIsStopping = false;
-SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
-u32 netAdhocDiscoverBufAddr = 0;
-// How many Updates have run since InitStart, and since Stop (pspautotests net/adhoc/discover).
-static int netAdhocDiscoverUpdates = 0;
-static int netAdhocDiscoverStopUpdates = 0;
 
 bool netAdhocGameModeEntered = false;
 
@@ -712,6 +705,15 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	adhocctlRequests.erase(uid);
 }
 
+void NetAdhocDiscover_OnAdhocctlEvent(u32 event, u32 error);
+// The error of the event being delivered, for sceNetAdhocDiscover's handler.
+static u32 adhocctlDeliveringError = 0;
+// What sceNetAdhocDiscover put adhocctl to sleep in: DISCOVER until another console is near, or WOL.
+static int adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+// Handlers added through the kernel library (the firmware's sceNetAdhocDiscover). Only they get
+// DISCOVER events: a game's own handler doesn't (pspautotests net/adhoc/discover).
+static std::set<int> adhocctlKernelHandlers;
+
 static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	int uid = (int)(userdata & 0xFFFFFFFF);
@@ -729,6 +731,9 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
 		adhocctlState = waitVal;
+		// The event reaches the handlers along with the state change, as on a PSP (pspautotests
+		// net/adhoc/timing), and sceNetAdhocDiscover's own handler with them.
+		NetAdhocDiscover_OnAdhocctlEvent(event, adhocctlDeliveringError);
 		// FIXME: It seems Adhocctl is still busy within the Adhocctl Handler function (ie. during callbacks),
 		// so we should probably set isAdhocctlBusy to false after mispscall are fully executed (ie. in afterAction).
 		// But since Adhocctl Handler is optional, there might be cases where there are no handler thus no callback/mipcall being triggered,
@@ -3077,6 +3082,7 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
+		adhocctlKernelHandlers.erase(handlerID);
 		return hleLogInfo(Log::sceNet, 0);
 	} else {
 		return hleLogWarning(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_ID_NOT_FOUND, "Invalid Handler ID");
@@ -4893,10 +4899,13 @@ int sceNetAdhocGetSocketAlert(MIPSState *mips, int id, u32 flagPtr) {
 	return hleLogDebug(Log::sceNet, 0, "flags = %08x", flg);
 }
 
+static void NetAdhocctl_CheckDiscoverWake();
+
 void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	hleSkipDeadbeef();
+	NetAdhocctl_CheckDiscoverWake();
 	int delayus = adhocDefaultDelay;
 
 	auto params = adhocctlEvents.begin();
@@ -4953,7 +4962,7 @@ void __NetTriggerCallbacks()
 			}
 			break;
 			case ADHOCCTL_EVENT_DISCOVER:
-				newState = ADHOCCTL_STATE_DISCOVER;
+				newState = adhocctlSleepState == ADHOCCTL_STATE_WOL ? ADHOCCTL_STATE_WOL : ADHOCCTL_STATE_DISCOVER;
 				break;
 			case ADHOCCTL_EVENT_WOL_INTERRUPT:
 				newState = ADHOCCTL_STATE_WOL;
@@ -4964,6 +4973,9 @@ void __NetTriggerCallbacks()
 			}
 
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
+				if (flags == ADHOCCTL_EVENT_DISCOVER && !adhocctlKernelHandlers.count(it->first)) {
+					continue;
+				}
 				DEBUG_LOG(Log::sceNet, "AdhocctlCallback: [ID=%i][EVENT=%i][Error=%08x]", it->first, flags, error);
 				args[2] = it->second.argument;
 				AfterAdhocMipsCall* after = (AfterAdhocMipsCall*)__KernelCreateAction(actionAfterAdhocMipsCall);
@@ -4971,6 +4983,7 @@ void __NetTriggerCallbacks()
 				hleEnqueueCall(it->second.entryPoint, 3, args, after);
 			}
 			adhocctlEvents.pop_front();
+			adhocctlDeliveringError = error;
 			// Since we don't have beforeAction, simulate it using ScheduleEvent
 			ScheduleAdhocctlState(flags, newState, delayus, "adhocctl callback state");
 			hleNoLogVoid();
@@ -5325,185 +5338,563 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0XB0B80E80, &WrapI_CIIIUUI<sceNetAdhocctlCreateEnterGameModeMin>, "sceNetAdhocctlCreateEnterGameModeMin",   'i', "siiixxi"  }, // ??
 };
 
-// Return value: 0/0x80410005/0x80411301/error returned from sceNetAdhocctl_lib_F8BABD85[/error returned from sceUtilityGetSystemParamInt?]
-int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
-	WARN_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, Log::sceNet, "UNIMPL sceNetAdhocDiscoverInitStart(%08x) at %08x", paramAddr, mips->pc);
-	// FIXME: Most AdhocDiscover syscalls will return 0x80410005 if (sceKernelCheckThreadStack_user() < 0x00000FE0), AdhocDiscover seems to be storing some data in the stack, while we use global variables for these
-	if (sceKernelCheckThreadStack(mips) < 0x00000FE0)
-		return 0x80410005;
-	// Already running (pspautotests net/adhoc/discover).
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
-		return hleLogError(Log::sceNet, 0x80411301, "already started");
-	// TODO: Allocate internal buffer/struct (on the stack?) to be returned on sceNetAdhocDiscoverUpdate (the struct may contains WLAN channel from sceUtilityGetSystemParamInt at offset 0xA0 ?), setup adhocctl state callback handler to detects state change (using sceNetAdhocctl_lib_F8BABD85(stateCallbackFunction=0x09F436F8, adhocctlStateCallbackArg=0x0) on JPCSP+prx)
-	u32 bufSize = 256; // dummy size, not sure how large it supposed to be, may be at least 0x3c bytes like in param->unknown2 ?
-	if (netAdhocDiscoverBufAddr == 0) {
-		u32 addr = userMemory.Alloc(bufSize, true, "AdhocDiscover"); // The address returned on DiscoverUpdate seems to be much higher than the param address, closer to the internal stateCallbackFunction address
-		if (!Memory::IsValidAddress(addr))
-			return 0x80410005;
-		netAdhocDiscoverBufAddr = addr;
-		Memory::Memset(netAdhocDiscoverBufAddr, 0, bufSize);
-	}
-	// FIME: Not sure what is this address 0x000010B0 used for (current Step may be?), but return 0x80411301 if (*((int *) 0x000010B0) != 0)
-	//if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
-	//	return 0x80411301; // Already Initialized/Started?
-	// TODO: Need to findout whether using invalid params or param address will return an error code or not
-	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointerOrException(paramAddr);
-	if (!netAdhocDiscoverParam)
-		return hleLogError(Log::sceNet, -1, "invalid param?");
-	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first
-	//*((int*)Memory::GetPointer(0x000010D8)) = paramAddr;
+// sceNetAdhocDiscover finds another console that wants to play, using adhocctl: it takes turns at
+// scanning for a group of the given name (and joining it) and creating that group itself, for random
+// lengths of time, until a peer turns up in the group or the timeout passes. With mode 0 it first puts
+// adhocctl to sleep in the DISCOVER state until another console comes near (event WOL). With mode 1
+// adhocctl goes into the WOL state and stays there (pspautotests net/adhoc/pair/discover).
+//
+// The steps and flags mirror the firmware library's, so that the status, the adhocctl states and the
+// handler events come in the same order as on a PSP.
+enum class DiscoverStep {
+	None = 0,
+	Create = 1,
+	Join = 2,
+	WaitConnect = 3,
+	CheckPeers = 4,
+	Disconnect = 5,
+	WaitDisconnect = 6,
+	Choose = 7,
+	Scan = 8,
+	WaitScan = 9,
+	PickGroup = 10,
+	Sleep = 11,
+	WaitSleep = 12,
+	Sleeping = 13,
+	Woken = 14,
+	Wol = 15,
+	WaitWol = 16,
+	WolWaiting = 17,
+	WolInterrupted = 18,
+	Done = 19,
+};
 
-	// Based on Legend Of The Dragon:
-	// The 1st 24 x 32bit(addr) seems to be pointers to subroutine containings sceNetAdhocctlCreate/sceNetAdhocctlJoin/sceNetAdhocctlDisconnect/sceNetAdhocctlScan/sceNetRand/sceKernelGetSystemTimeWide/etc.
-	// Offset 0x60: 10 00 06 06
-	// Offset 0x70: FF FF FF FF (before Init) -> 00 00 00 00 (after Init) -> FF FF FF FF (after Term) // Seems to be value returned from sceNetAdhocctl_lib_F8BABD85, and the address (0x000010A0) seems to be the lowest one for storing data
-	// Offset 0x80: 00 -> 0B/0C/0D/13 -> 00 // This seems to be (current step?) at address at 0x000010B0 (ie. *((int *) 0x000010B0) = 0x0000000B), something todo with param->unknown1(sleep mode?)
-	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?)
-	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?)
-	// Offset 0xA0: WLAN channel from sceUtilityGetSystemParamInt (ie. sceUtilityGetSystemParamInt(0x00000002, 0x000010D0) on decompiled prx, but on JPCSP+prx Logs it's sceUtilityGetSystemParamInt(0x00000002, 0x09F43FD0))
-	// Offset 0xA4: Seems to be at 0x000010D4 and related to RequestSuspend
-	// Offset 0xA8: paramAddr // This seems to be a fixed address at 0x000010D8 (ie. *((int *) 0x000010D8) = paramAddr)
-	// The rest are zeroed
-	Memory::WriteUnchecked_U32(0x06060010, netAdhocDiscoverBufAddr + 0x60);
-	Memory::WriteUnchecked_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
-	if (netAdhocDiscoverParam->unknown1 == 0) {
-		Memory::WriteUnchecked_U32(0x0B, netAdhocDiscoverBufAddr + 0x80);
-		Memory::WriteUnchecked_U32(0x03, netAdhocDiscoverBufAddr + 0x84);
-	}
-	else if (netAdhocDiscoverParam->unknown1 == 1) {
-		Memory::WriteUnchecked_U32(0x0F, netAdhocDiscoverBufAddr + 0x80);
-		Memory::WriteUnchecked_U32(0x04, netAdhocDiscoverBufAddr + 0x84);
-	}
-	Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0x98);
-	Memory::WriteUnchecked_U32(g_Config.iWlanAdhocChannel, netAdhocDiscoverBufAddr + 0xA0);
-	Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0xA4);
-	Memory::WriteUnchecked_U32(paramAddr, netAdhocDiscoverBufAddr + 0xA8);
+// What the next Choose step does, and which way the timer flips it.
+enum class DiscoverPhase {
+	Start = 0,
+	Scanning = 1,
+	Hosting = 2,
+	Sleep = 3,
+	Wol = 4,
+};
 
-	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
-	memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Unknown1 : %08x", netAdhocDiscoverParam->unknown1);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.GroupName: [%s]", grpName);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Unknown2 : %08x", netAdhocDiscoverParam->unknown2);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Result   : %08x", netAdhocDiscoverParam->result);
+enum : u32 {
+	DISCOVER_FLAG_ERROR = 0x1,
+	DISCOVER_FLAG_CONNECT = 0x2,
+	DISCOVER_FLAG_DISCONNECT = 0x4,
+	DISCOVER_FLAG_SCAN = 0x8,
+	DISCOVER_FLAG_GAME = 0x10,
+	DISCOVER_FLAG_STOP = 0x20,
+	DISCOVER_FLAG_WOL = 0x40,
+	DISCOVER_FLAG_WOL_INTERRUPT = 0x80,
+	DISCOVER_FLAG_ABORT = 0x100,
+	DISCOVER_FLAG_DISCOVER = 0x200,
+};
 
-	// TODO: Check whether we're already in the correct group and change the status and result accordingly
-	// The result field is only written when it finishes (pspautotests net/adhoc/discover).
-	netAdhocDiscoverIsStopping = false;
-	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
-	netAdhocDiscoverUpdates = 0;
-	netAdhocDiscoverStopUpdates = 0;
-	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
-	return hleLogInfo(Log::sceNet, 0);
+static DiscoverStep discoverStep = DiscoverStep::None;
+static DiscoverPhase discoverPhase = DiscoverPhase::Start;
+static std::atomic<u32> discoverFlags;
+static std::atomic<u32> discoverEventError;
+static bool discoverSuspendAllowed = false;
+static u32 discoverParamAddr = 0;
+static u64 discoverNextFlip = 0;
+static u64 discoverDeadline = 0;
+static SceNetAdhocctlGroupName discoverJoinGroup;
+static std::mt19937 discoverRng;
+static bool discoverRngSeeded = false;
+
+int NetAdhocDiscover_GetStatus() {
+	if ((int)discoverStep <= 0) {
+		return NET_ADHOC_DISCOVER_STATUS_NONE;
+	}
+	if (discoverStep < DiscoverStep::Done) {
+		return NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
+	}
+	return discoverStep == DiscoverStep::Done ? NET_ADHOC_DISCOVER_STATUS_COMPLETED : NET_ADHOC_DISCOVER_STATUS_NONE;
 }
 
-// Note1: When canceling the progress, Legend Of The Dragon will use DiscoverStop -> AdhocctlDisconnect -> DiscoverTerm (when status changed to 2)
-// Note2: When result = NO_PEER_FOUND or PEER_FOUND the progress can no longer be canceled on Legend Of The Dragon
-int sceNetAdhocDiscoverStop(MIPSState *mips) {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverStop()");
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-
-	if (Memory::IsValid4AlignedRange(netAdhocDiscoverBufAddr, 256)) {
-		if (Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0) {
-			Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x98) | 0x20, netAdhocDiscoverBufAddr + 0x98);
-			Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+// The library's own adhocctl handler.
+void NetAdhocDiscover_OnAdhocctlEvent(u32 event, u32 error) {
+	if (discoverStep == DiscoverStep::None) {
+		return;
+	}
+	u32 flag = 0;
+	switch (event) {
+	case ADHOCCTL_EVENT_ERROR: flag = DISCOVER_FLAG_ERROR; break;
+	case ADHOCCTL_EVENT_CONNECT: flag = DISCOVER_FLAG_CONNECT; break;
+	case ADHOCCTL_EVENT_DISCONNECT: flag = DISCOVER_FLAG_DISCONNECT; break;
+	case ADHOCCTL_EVENT_SCAN: flag = DISCOVER_FLAG_SCAN; break;
+	case ADHOCCTL_EVENT_GAME: flag = DISCOVER_FLAG_GAME; break;
+	case ADHOCCTL_EVENT_DISCOVER:
+		if (error != 1) {
+			return;
 		}
+		flag = DISCOVER_FLAG_DISCOVER;
+		break;
+	case ADHOCCTL_EVENT_WOL: flag = DISCOVER_FLAG_WOL; break;
+	case ADHOCCTL_EVENT_WOL_INTERRUPT: flag = DISCOVER_FLAG_WOL_INTERRUPT; break;
+	case 8: flag = DISCOVER_FLAG_ABORT; break;
+	default: return;
 	}
-	// FIXME: Doesn't seems to be immediately changed the status, may be waiting until Disconnected from Adhocctl before changing the status to Completed?
-	netAdhocDiscoverIsStopping = true;
-	//netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
-	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
+	discoverEventError = event == ADHOCCTL_EVENT_ERROR ? error : 0;
+	discoverFlags |= flag;
+}
+
+static SceNetAdhocDiscoverParam *DiscoverParam() {
+	if (!Memory::IsValidRange(discoverParamAddr, sizeof(SceNetAdhocDiscoverParam))) {
+		return nullptr;
+	}
+	return (SceNetAdhocDiscoverParam *)Memory::GetPointerWriteUnchecked(discoverParamAddr);
+}
+
+static void DiscoverFinish(u32 result) {
+	if (SceNetAdhocDiscoverParam *param = DiscoverParam()) {
+		param->result = result;
+	}
+	discoverStep = DiscoverStep::Done;
+}
+
+static bool DiscoverTakeFlag(u32 flag) {
+	return (discoverFlags.fetch_and(~flag) & flag) != 0;
+}
+
+// An adhocctl call failed, or reported an error through the handler.
+static void DiscoverFail(int error) {
+	DiscoverFinish((u32)error);
+}
+
+static bool DiscoverCheckError() {
+	if (DiscoverTakeFlag(DISCOVER_FLAG_ERROR)) {
+		DiscoverFinish(discoverEventError.exchange(0));
+		return true;
+	}
+	return false;
+}
+
+// Our adhocctl stays busy until the game's handler has seen the last event, and changes state a little
+// after it. The next call waits for that, or it would fail with BUSY.
+static bool DiscoverAdhocctlReady(bool needDisconnected) {
+	return !isAdhocctlBusy && (!needDisconnected || adhocctlState == ADHOCCTL_STATE_DISCONNECTED);
+}
+
+static void DiscoverStartCall(int result, DiscoverStep next) {
+	if (result < 0) {
+		DiscoverFail(result);
+	} else {
+		discoverStep = next;
+	}
+}
+
+// How long until the next flip between scanning and hosting: up to 20 seconds.
+static u32 NetRand();
+
+static u64 DiscoverRandomDelay() {
+	return (u64)(NetRand() / 215) + 1;
+}
+
+static u32 NetRand() {
+	if (!discoverRngSeeded) {
+		// Every console picks differently. Instances started together have to, too, or they'd stay in step.
+		SceNetEtherAddr mac{};
+		getLocalMac(&mac);
+		u32 seed = 0;
+		for (int i = 0; i < 6; i++) {
+			seed = seed * 31 + mac.data[i];
+		}
+		discoverRng.seed(seed ^ (u32)CoreTiming::GetGlobalTimeUs());
+		discoverRngSeeded = true;
+	}
+	return discoverRng();
+}
+
+// While adhocctl sleeps in the DISCOVER state, whether another console is near enough to wake it.
+static bool AdhocctlSomeoneNear() {
+	// TODO: Nothing to tell yet. A PSP alone stays asleep (pspautotests net/adhoc/discover).
+	return true;
+}
+
+// sceNetAdhocDiscover puts adhocctl to sleep: in the DISCOVER state until another console is near
+// (event WOL), or in the WOL state. The state changes with the DISCOVER event, one Update after
+// the call (pspautotests net/adhoc/discover).
+static int NetAdhocctl_DiscoverSleep(bool wol) {
+	if (!netAdhocctlInited) {
+		return SCE_NET_ADHOCCTL_ERROR_NOT_INITIALIZED;
+	}
+	if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || isAdhocctlBusy) {
+		return SCE_NET_ADHOCCTL_ERROR_BUSY;
+	}
+	adhocctlSleepState = wol ? ADHOCCTL_STATE_WOL : ADHOCCTL_STATE_DISCOVER;
+	notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCOVER, 1);
 	return 0;
 }
 
-int sceNetAdhocDiscoverTerm(MIPSState *mips) {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverTerm() at %08x", mips->pc);
-	
-	// if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-	// 	return 0x80410005;
-	// 
-	// if (!(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
-	// 	return 0x80411301; // Not Initialized/Started yet?
-	
-	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
-	// 	LinkDiscoverSkip(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
-	// 	Memory::WriteOrException_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
-	// }
-	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0x80);
-	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA8);
-
-	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
-	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND; // Test: Using result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList after DiscoverTerm
-	if (Memory::IsValidAddress(netAdhocDiscoverBufAddr)) {
-		userMemory.Free(netAdhocDiscoverBufAddr);
-		netAdhocDiscoverBufAddr = 0;
+static void NetAdhocctl_CheckDiscoverWake() {
+	if (adhocctlSleepState != ADHOCCTL_STATE_DISCOVER || adhocctlState != ADHOCCTL_STATE_DISCOVER) {
+		return;
 	}
-	netAdhocDiscoverIsStopping = false;
-	return 0;
+	if (!AdhocctlSomeoneNear()) {
+		return;
+	}
+	adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+	notifyAdhocctlHandlers(ADHOCCTL_EVENT_WOL, 0);
 }
 
-int sceNetAdhocDiscoverGetStatus(MIPSState *mips) {
-	DEBUG_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverGetStatus() at %08x", mips->pc);
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
-	// 	return 0;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
-	// 	return 1;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
-	// 	return 2;
-	return hleLogDebug(Log::sceNet, netAdhocDiscoverStatus); // Returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList (only happened if it was the first sceNetAdhocDiscoverGetStatus after sceNetAdhocDiscoverInitStart)
-}
-
-int sceNetAdhocDiscoverRequestSuspend(MIPSState *mips)
-{
-	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverRequestSuspend, Log::sceNet, "UNIMPL sceNetAdhocDiscoverRequestSuspend() at %08x", mips->pc);
-	// FIXME: Not sure what is this syscall used for, may be related to Sleep Mode and can be triggered by using Power/Hold Switch? (based on what's written on Dissidia 012)
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
-	// 	return 0x80411303; // Already Suspended?
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
-	// 	return 0x80411303; // Already Suspended?
-	// int ret = sceNetAdhocctl_lib_1572422C();
-	// if (ret >= 0)
-	// 	Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA4);
-	// return ret;
-	// While discovering with nobody else around, a PSP refuses (pspautotests net/adhoc/discover).
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
-		return hleLogError(Log::sceNet, 0x80411303, "can't suspend");
-	return hleLogError(Log::sceNet, 0);
-}
-
-int sceNetAdhocDiscoverUpdate(MIPSState *mips) {
-	DEBUG_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", mips->pc);
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-
-	// TODO: Use switch case for each Step
-	// What a PSP does with nobody to find (pspautotests net/adhoc/discover): adhocctl goes into the
-	// DISCOVER state after the first Update. After a Stop, one Update later adhocctl is back to
-	// DISCONNECTED and its handlers get DISCONNECT, and one more later the status is COMPLETED with the
-	// result cancelled.
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS) {
-		if (!netAdhocDiscoverIsStopping) {
-			if (++netAdhocDiscoverUpdates == 2 && adhocctlState == ADHOCCTL_STATE_DISCONNECTED)
-				adhocctlState = ADHOCCTL_STATE_DISCOVER;
-		} else {
-			netAdhocDiscoverStopUpdates++;
-			if (netAdhocDiscoverStopUpdates == 2) {
-				if (adhocctlState == ADHOCCTL_STATE_DISCOVER)
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-				notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
-			} else if (netAdhocDiscoverStopUpdates >= 3) {
-				netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
-				if (netAdhocDiscoverParam)
-					netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
+static void DiscoverPickGroup() {
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	bool found = false;
+	SceNetEtherAddr best{};
+	if (param) {
+		std::lock_guard<std::recursive_mutex> guard(peerlock);
+		for (SceNetAdhocctlScanInfo *group = networks; group != nullptr; group = group->next) {
+			if (memcmp(group->group_name.data, param->groupName, ADHOCCTL_GROUPNAME_LEN) != 0) {
+				continue;
+			}
+			// With the channel set to automatic, the library only takes groups on channel 11. Our
+			// channels are made up, so any will do.
+			// Of several groups of that name, the one with the lowest BSSID.
+			if (!found || memcmp(group->bssid.mac_addr.data, best.data, sizeof(best.data)) < 0) {
+				best = group->bssid.mac_addr;
+				discoverJoinGroup = group->group_name;
+				found = true;
 			}
 		}
 	}
-	return hleDelayResult(hleLogDebug(Log::sceNet, 0/*netAdhocDiscoverBufAddr*/), "adhoc discover update", 300); // FIXME: Based on JPCSP+prx, it seems to be returning a pointer to the internal buffer/struct (only when status = 1 ?), But when i stepped the code it returns 0 (might be a bug on JPCSP LLE Logging?)
+	if (!found) {
+		discoverStep = DiscoverStep::Choose;
+		return;
+	}
+	discoverPhase = DiscoverPhase::Hosting;
+	discoverStep = DiscoverStep::Join;
+	discoverNextFlip = CoreTiming::GetGlobalTimeUs() + 10000000;
+}
+
+static void DiscoverCheckPeers() {
+	if (discoverFlags & DISCOVER_FLAG_STOP) {
+		discoverStep = DiscoverStep::Disconnect;
+		return;
+	}
+	if (DiscoverCheckError()) {
+		return;
+	}
+	// Time to go scanning, unless a peer has turned up just now.
+	if (discoverPhase < DiscoverPhase::Hosting) {
+		discoverStep = DiscoverStep::Disconnect;
+	}
+	// Our adhocctl state turns CONNECTED a little after the event, while the peer list is there already.
+	// Waiting for the state can miss a host that leaves the group as soon as it sees us.
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
+	if (getActivePeerCount() > 0) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_PEER_FOUND);
+	}
+}
+
+static void DiscoverChoose() {
+	if (DiscoverTakeFlag(DISCOVER_FLAG_STOP)) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_CANCELED);
+		return;
+	}
+	if (CoreTiming::GetGlobalTimeUs() >= discoverDeadline) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND);
+		return;
+	}
+	switch (discoverPhase) {
+	case DiscoverPhase::Scanning: discoverStep = DiscoverStep::Scan; break;
+	case DiscoverPhase::Hosting: discoverStep = DiscoverStep::Create; break;
+	case DiscoverPhase::Sleep: discoverStep = DiscoverStep::Sleep; break;
+	default: break;
+	}
+}
+
+static int DiscoverDisconnect() {
+	if (adhocctlSleepState != ADHOCCTL_STATE_DISCONNECTED || adhocctlState == ADHOCCTL_STATE_DISCOVER || adhocctlState == ADHOCCTL_STATE_WOL) {
+		adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+		adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		return 0;
+	}
+	return NetAdhocctl_Disconnect();
+}
+
+static void DiscoverSleeping() {
+	if (discoverFlags & DISCOVER_FLAG_STOP) {
+		DiscoverStartCall(DiscoverDisconnect(), DiscoverStep::WaitDisconnect);
+		return;
+	}
+	if (DiscoverCheckError()) {
+		return;
+	}
+	if (DiscoverTakeFlag(DISCOVER_FLAG_WOL)) {
+		discoverStep = DiscoverStep::Woken;
+	}
+}
+
+// Return value: 0/0x80410005/0x80411301/0x80411302, or an error from adding the adhocctl handler.
+int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FE0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	// Already running (pspautotests net/adhoc/discover).
+	if (discoverStep != DiscoverStep::None)
+		return hleLogError(Log::sceNet, 0x80411301, "already started");
+
+	discoverFlags = 0;
+	discoverEventError = 0;
+	discoverSuspendAllowed = false;
+	discoverParamAddr = paramAddr;
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	if (!param)
+		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad param");
+
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	memcpy(grpName, param->groupName, ADHOCCTL_GROUPNAME_LEN);
+	if (param->mode == 0) {
+		discoverStep = DiscoverStep::Sleep;
+		discoverPhase = DiscoverPhase::Sleep;
+	} else if (param->mode == 1) {
+		discoverStep = DiscoverStep::Wol;
+		discoverPhase = DiscoverPhase::Wol;
+	} else {
+		return hleLogError(Log::sceNet, 0x80411302, "bad mode %d", param->mode);
+	}
+	// The library leaves the step set here, so that only a Term lets it start again.
+	if (param->timeoutSec == 0)
+		return hleLogError(Log::sceNet, 0x80411302, "no timeout");
+	discoverNextFlip = 0;
+	discoverDeadline = 0;
+	// The result field is only written when it finishes (pspautotests net/adhoc/discover).
+	return hleLogInfo(Log::sceNet, 0, "mode %d, group %s, timeout %ds", param->mode, grpName, param->timeoutSec);
+}
+
+int sceNetAdhocDiscoverStop(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	if (discoverStep != DiscoverStep::None && discoverStep != DiscoverStep::Done) {
+		discoverSuspendAllowed = false;
+		discoverFlags |= DISCOVER_FLAG_STOP;
+	}
+	return hleLogInfo(Log::sceNet, 0);
+}
+
+int sceNetAdhocDiscoverTerm(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	if (discoverStep != DiscoverStep::None && discoverStep != DiscoverStep::Done)
+		return hleLogError(Log::sceNet, 0x80411301, "still running");
+	discoverStep = DiscoverStep::None;
+	discoverParamAddr = 0;
+	return hleLogInfo(Log::sceNet, 0);
+}
+
+int sceNetAdhocDiscoverGetStatus(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	return hleLogDebug(Log::sceNet, NetAdhocDiscover_GetStatus());
+}
+
+int sceNetAdhocDiscoverRequestSuspend(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	// While discovering with nobody else around, a PSP refuses (pspautotests net/adhoc/discover).
+	if (!discoverSuspendAllowed || discoverStep != DiscoverStep::None)
+		return hleLogError(Log::sceNet, 0x80411303, "can't suspend");
+	discoverSuspendAllowed = false;
+	return hleLogWarning(Log::sceNet, 0, "suspend not implemented");
+}
+
+int sceNetAdhocDiscoverUpdate(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	switch (discoverStep) {
+	case DiscoverStep::None:
+	case DiscoverStep::Done:
+		return hleLogVerbose(Log::sceNet, 0);
+	case DiscoverStep::Create: {
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+		if (param) {
+			memcpy(grpName, param->groupName, ADHOCCTL_GROUPNAME_LEN);
+		}
+		adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
+		adhocConnectionType = ADHOC_CREATE;
+		DiscoverStartCall(NetAdhocctl_Create(grpName), DiscoverStep::WaitConnect);
+		break;
+	}
+	case DiscoverStep::Join: {
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+		memcpy(grpName, discoverJoinGroup.data, ADHOCCTL_GROUPNAME_LEN);
+		adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
+		adhocConnectionType = ADHOC_JOIN;
+		DiscoverStartCall(NetAdhocctl_Create(grpName), DiscoverStep::WaitConnect);
+		break;
+	}
+	case DiscoverStep::WaitConnect:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_CONNECT)) {
+			discoverStep = DiscoverStep::CheckPeers;
+		} else {
+			DiscoverCheckError();
+		}
+		break;
+	case DiscoverStep::CheckPeers:
+		DiscoverCheckPeers();
+		break;
+	case DiscoverStep::Disconnect:
+		if (!DiscoverAdhocctlReady(false)) {
+			break;
+		}
+		DiscoverStartCall(DiscoverDisconnect(), DiscoverStep::WaitDisconnect);
+		break;
+	case DiscoverStep::WaitDisconnect:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_DISCONNECT)) {
+			discoverStep = DiscoverStep::Choose;
+		}
+		break;
+	case DiscoverStep::Choose:
+		DiscoverChoose();
+		break;
+	case DiscoverStep::Scan:
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		DiscoverStartCall(sceNetAdhocctlScan(mips), DiscoverStep::WaitScan);
+		break;
+	case DiscoverStep::WaitScan:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_SCAN)) {
+			discoverStep = DiscoverStep::PickGroup;
+		} else {
+			DiscoverCheckError();
+		}
+		break;
+	case DiscoverStep::PickGroup:
+		DiscoverPickGroup();
+		break;
+	case DiscoverStep::Sleep:
+	case DiscoverStep::Wol:
+		// With mode 1 adhocctl goes into the WOL state and stays there (pspautotests net/adhoc/pair/discover).
+		DiscoverStartCall(NetAdhocctl_DiscoverSleep(discoverStep == DiscoverStep::Wol), discoverStep == DiscoverStep::Sleep ? DiscoverStep::WaitSleep : DiscoverStep::WaitWol);
+		break;
+	case DiscoverStep::WaitSleep:
+	case DiscoverStep::WaitWol:
+		if (!DiscoverCheckError() && DiscoverTakeFlag(DISCOVER_FLAG_DISCOVER)) {
+			discoverStep = discoverStep == DiscoverStep::WaitSleep ? DiscoverStep::Sleeping : DiscoverStep::WolWaiting;
+		}
+		break;
+	case DiscoverStep::Sleeping:
+		DiscoverSleeping();
+		break;
+	case DiscoverStep::Woken:
+		if (discoverPhase == DiscoverPhase::Sleep) {
+			discoverStep = DiscoverStep::Choose;
+			discoverPhase = DiscoverPhase::Start;
+		}
+		break;
+	case DiscoverStep::WolWaiting:
+		if (DiscoverCheckError()) {
+			break;
+		}
+		if (DiscoverTakeFlag(DISCOVER_FLAG_WOL_INTERRUPT)) {
+			discoverStep = DiscoverStep::WolInterrupted;
+		} else if (DiscoverTakeFlag(DISCOVER_FLAG_ABORT)) {
+			DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_ABORTED);
+		}
+		break;
+	case DiscoverStep::WolInterrupted:
+		if (discoverPhase == DiscoverPhase::Wol) {
+			discoverStep = DiscoverStep::Choose;
+			discoverPhase = DiscoverPhase::Start;
+		}
+		break;
+	}
+
+	// Flip between scanning and hosting at random times, and give up at the deadline.
+	if (discoverStep != DiscoverStep::Done && discoverPhase != DiscoverPhase::Sleep && discoverPhase != DiscoverPhase::Wol) {
+		u64 now = CoreTiming::GetGlobalTimeUs();
+		if (now > discoverNextFlip) {
+			u64 delay = 0;
+			switch (discoverPhase) {
+			case DiscoverPhase::Start:
+				discoverPhase = DiscoverPhase::Scanning;
+				delay = DiscoverRandomDelay();
+				discoverDeadline = now + (u64)(param ? param->timeoutSec : 0) * 1000000;
+				break;
+			case DiscoverPhase::Scanning:
+				discoverPhase = DiscoverPhase::Hosting;
+				delay = DiscoverRandomDelay();
+				break;
+			case DiscoverPhase::Hosting:
+				discoverPhase = DiscoverPhase::Scanning;
+				delay = DiscoverRandomDelay();
+				break;
+			default:
+				break;
+			}
+			discoverNextFlip = std::min(now + delay, discoverDeadline);
+		}
+	}
+	return hleLogVerbose(Log::sceNet, 0, "step %d, phase %d", (int)discoverStep, (int)discoverPhase);
+}
+
+// The kernel library the firmware's sceNetAdhocDiscover module imports, for running that module
+// instead of our HLE (DisableHLEFlags::sceNetAdhocDiscover). The names are what it uses them for.
+static int sceNetAdhocctl_lib_AddHandler(u32 handlerPtr, u32 handlerArg) {
+	int id = (int)sceNetAdhocctlAddHandler(handlerPtr, handlerArg);
+	if (id >= 0) {
+		adhocctlKernelHandlers.insert(id);
+	}
+	return hleLogInfo(Log::sceNet, id);
+}
+
+static int sceNetAdhocctl_lib_DelHandler(u32 handlerId) {
+	return hleLogInfo(Log::sceNet, sceNetAdhocctlDelHandler(handlerId));
+}
+
+static int sceNetAdhocctl_lib_DiscoverSleep(u32 groupNameAddr) {
+	return hleLogInfo(Log::sceNet, NetAdhocctl_DiscoverSleep(false));
+}
+
+static int sceNetAdhocctl_lib_WolSleep(u32 groupNameAddr) {
+	return hleLogInfo(Log::sceNet, NetAdhocctl_DiscoverSleep(true));
+}
+
+static int sceNetAdhocctl_lib_Suspend() {
+	return hleLogWarning(Log::sceNet, 0, "suspend not implemented");
+}
+
+static u32 sceNetIfhandle_lib_Malloc(u32 size) {
+	u32 addr = userMemory.Alloc(size, false, "NetIfhandle");
+	return hleLogDebug(Log::sceNet, Memory::IsValidAddress(addr) ? addr : 0);
+}
+
+static int sceNetIfhandle_lib_Free(u32 addr) {
+	userMemory.Free(addr);
+	return hleLogDebug(Log::sceNet, 0);
+}
+
+const HLEFunction sceNetAdhocctl_lib[] = {
+	{0XF8BABD85, &WrapI_UU<sceNetAdhocctl_lib_AddHandler>,             "sceNetAdhocctl_lib_AddHandler",          'i', "xx",      HLE_KERNEL_SYSCALL },
+	{0X1C679240, &WrapI_U<sceNetAdhocctl_lib_DelHandler>,              "sceNetAdhocctl_lib_DelHandler",          'i', "x",       HLE_KERNEL_SYSCALL },
+	{0XF6057CC4, &WrapI_U<sceNetAdhocctl_lib_DiscoverSleep>,           "sceNetAdhocctl_lib_DiscoverSleep",       'i', "x",       HLE_KERNEL_SYSCALL },
+	{0X1A2B6D03, &WrapI_U<sceNetAdhocctl_lib_WolSleep>,                "sceNetAdhocctl_lib_WolSleep",            'i', "x",       HLE_KERNEL_SYSCALL },
+	{0X1572422C, &WrapI_V<sceNetAdhocctl_lib_Suspend>,                 "sceNetAdhocctl_lib_Suspend",             'i', "",        HLE_KERNEL_SYSCALL },
+};
+
+const HLEFunction sceNetIfhandle_lib[] = {
+	{0X15CFE3C0, &WrapU_U<sceNetIfhandle_lib_Malloc>,                  "sceNetMallocInternal",                   'x', "x",       HLE_KERNEL_SYSCALL },
+	{0X76BAD213, &WrapI_U<sceNetIfhandle_lib_Free>,                    "sceNetFreeInternal",                     'i', "x",       HLE_KERNEL_SYSCALL },
+};
+
+void Register_sceNetAdhocctl_lib() {
+	RegisterHLEModule("sceNetAdhocctl_lib", ARRAY_SIZE(sceNetAdhocctl_lib), sceNetAdhocctl_lib);
+}
+
+void Register_sceNetIfhandle_lib() {
+	RegisterHLEModule("sceNetIfhandle_lib", ARRAY_SIZE(sceNetIfhandle_lib), sceNetIfhandle_lib);
 }
 
 const HLEFunction sceNetAdhocDiscover[] = {

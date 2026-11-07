@@ -378,7 +378,6 @@ tests_good = [
   "net/adhoc/abandon",
   "net/adhoc/alerts",
   "net/adhoc/apctlinit",
-  "net/adhoc/discover",
   "net/adhoc/edges",
   "net/adhoc/gamemode",
   "net/adhoc/limits",
@@ -761,7 +760,8 @@ tests_next = [
   "net/inet/udp",
   "net/primary/ether",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
-  "net/adhoc/pair/discover",  # sceNetAdhocDiscover isn't implemented
+  "net/adhoc/discover",  # A console alone sleeps until another comes near; PPSSPP wakes at once
+  "net/adhoc/pair/discover",  # Same, and the host sees a joiner before the joiner sees it (the host leaves first)
   "net/adhoc/pair/flow",  # PDP matches; the PTP send and receive windows aren't emulated
   "net/adhoc/pair/gamemode",
   "net/adhoc/pair/lifecycle",

@@ -1635,7 +1635,14 @@ static u32 sceUtilityLoadNetModule(MIPSState *mips, u32 module) {
 		mod_list.push_back("flash0:/kd/pspnet_adhocctl.prx");
 		mod_list.push_back("flash0:/kd/pspnet_adhoc_matching.prx");
 		mod_list.push_back("flash0:/kd/pspnet_adhoc_download.prx");
-		mod_list.push_back("flash0:/kd/pspnet_adhoc_discover.prx");
+		if (GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceNetAdhocDiscover) {
+			static const FirmwareModule modules[] = {
+				{ "flash0:/kd/pspnet_adhoc_discover.prx", "sceNetAdhocDiscover_Library" },
+			};
+			LoadFirmwareModules(0x10002, "sceNetAdhocDiscover", DisableHLEFlags::sceNetAdhocDiscover, modules, ARRAY_SIZE(modules));
+		} else {
+			mod_list.push_back("flash0:/kd/pspnet_adhoc_discover.prx");
+		}
 	}
 
 	for (const char *mod_path : mod_list) {

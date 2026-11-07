@@ -191,7 +191,9 @@ enum class DisableHLEFlags : int {
 	sceSfmt19937 = (1 << 14),
 	sceHeap = (1 << 15),
 	sceParseUri = (1 << 16),
-	Count = 17,
+	// Runs flash0:/kd/pspnet_adhoc_discover.prx on top of our adhocctl. For checking our HLE against.
+	sceNetAdhocDiscover = (1 << 17),
+	Count = 18,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);
