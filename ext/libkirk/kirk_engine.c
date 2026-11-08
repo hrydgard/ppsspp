@@ -253,6 +253,16 @@ int kirk_CMD0(KirkState *kirk, u8* outbuff, const u8* inbuff, int size, int gene
   return KIRK_OPERATION_SUCCESS;
 }
 
+int kirk1_ecdsa_verify(const u8 *hash, const u8 *r, const u8 *s)
+{
+  u8 kirk1_pub[40];
+  ecdsa_set_curve(ec_p,ec_a,ec_b1,ec_N1,Gx1,Gy1);
+  memcpy(kirk1_pub,Px1,20);
+  memcpy(kirk1_pub+20,Py1,20);
+  ecdsa_set_pub(kirk1_pub);
+  return ecdsa_verify(hash, r, s);
+}
+
 // This one writes to inbuff.
 int kirk_CMD1(KirkState *kirk, u8* outbuff, u8* inbuff, int size)
 {
@@ -270,26 +280,21 @@ int kirk_CMD1(KirkState *kirk, u8* outbuff, u8* inbuff, int size)
   {
   	SHA_CTX sha;
   	KIRK_CMD1_ECDSA_HEADER* eheader = (KIRK_CMD1_ECDSA_HEADER*) inbuff;
-  	u8 kirk1_pub[40];
   	u8 header_hash[20];
 	u8 data_hash[20];
-  	ecdsa_set_curve(ec_p,ec_a,ec_b1,ec_N1,Gx1,Gy1);
-  	memcpy(kirk1_pub,Px1,20);
-  	memcpy(kirk1_pub+20,Py1,20);
-  	ecdsa_set_pub(kirk1_pub);
 		//Hash the Header
 		SHAInit(&sha);
 		SHAUpdate(&sha, (u8*)eheader+0x60, 0x30);
-		SHAFinal(header_hash, &sha);		
-		
-	  if(!ecdsa_verify(header_hash,eheader->header_sig_r,eheader->header_sig_s)) {
+		SHAFinal(header_hash, &sha);
+
+	  if(!kirk1_ecdsa_verify(header_hash,eheader->header_sig_r,eheader->header_sig_s)) {
 	    return KIRK_HEADER_HASH_INVALID;
 	  }
 	  SHAInit(&sha);
 		SHAUpdate(&sha, (u8*)eheader+0x60, size-0x60);
-		SHAFinal(data_hash, &sha);  
-		
-	  if(!ecdsa_verify(data_hash,eheader->data_sig_r,eheader->data_sig_s)) {
+		SHAFinal(data_hash, &sha);
+
+	  if(!kirk1_ecdsa_verify(data_hash,eheader->data_sig_r,eheader->data_sig_s)) {
 	    return KIRK_DATA_HASH_INVALID;
 	  }
 
@@ -417,6 +422,9 @@ int kirk_CMD12(KirkState *kirk, u8 *outbuff, int outsize) {
   ecdsa_set_curve(ec_p,ec_a,ec_b2,ec_N2,Gx2,Gy2);
   k[0] = 0;
   kirk_CMD14(kirk, k+1,0x14);
+  // ec_priv_to_pub() replaces k with k*2^168 mod N, a leftover from the old byte-based Montgomery
+  // code, and the public key is for that. The private key is still uniformly random, so keep it
+  // (it also keeps results the same as before the rewrite).
   ec_priv_to_pub(k, (u8*)keypair->public_key.x);
   memcpy(keypair->private_key,k+1,0x14);
   

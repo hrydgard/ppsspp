@@ -26,6 +26,7 @@
 #include "Common/UI/TabHolder.h"
 #include "Common/UI/PopupScreens.h"
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 #include "Common/File/PathBrowser.h"
 
 #include "UI/GameBrowser.h"
@@ -103,14 +104,17 @@ private:
 	void InstantHighlight(const Path &path);
 };
 
-class UmdReplaceScreen : public UIBaseDialogScreen {
+class UmdReplaceScreen : public UITwoPaneBaseDialogScreen {
 public:
 	// insert: put a disc into the empty drive (the VSH) rather than swap the one a game is running from.
-	explicit UmdReplaceScreen(bool insert = false) : insert_(insert) {}
+	explicit UmdReplaceScreen(bool insert = false)
+		: UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::NoTopbarInLandscape), insert_(insert) {}
 	const char *tag() const override { return "UmdReplace"; }
 
 protected:
-	void CreateViews() override;
+	std::string_view GetTitle() const override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 
 private:

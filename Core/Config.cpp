@@ -458,7 +458,7 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteISOSharedDir", SETTING(g_Config, sRemoteISOSharedDir), "", CfgFlag::DEFAULT),
 	ConfigSetting("RemoteISOShareType", SETTING(g_Config, iRemoteISOShareType), (int)RemoteISOShareType::RECENT, CfgFlag::DEFAULT),
 	ConfigSetting("AskForExitConfirmationAfterSeconds", SETTING(g_Config, iAskForExitConfirmationAfterSeconds), 300, CfgFlag::PER_GAME)
-		.Label(I18NCat::SYSTEM, "Ask for exit confirmation after seconds").Range(0, 1200).Units("s").ZeroLabel("Off"),
+		.Label(I18NCat::SYSTEM, "Ask for exit confirmation after seconds").Range(0, 1200).Units("seconds").ZeroLabel("Off"),
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), ROTATION_AUTO, CfgFlag::DEFAULT),
@@ -661,9 +661,6 @@ static int DefaultGPUBackend() {
 	return (int)GPUBackend::OPENGL;
 #endif
 
-#elif PPSSPP_PLATFORM(TVOS) && !defined(__LIBRETRO__)
-	// Metal hasn't been tried on tvOS yet.
-	return (int)GPUBackend::VULKAN;
 #elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	return (int)GPUBackend::METAL;
 #endif

@@ -197,6 +197,7 @@ void InitMemorySizeForGame() {
 		g_RemasterMode = true;
 		Memory::g_MemorySize = entry.memorySize;
 		g_DoubleTextureCoordinates = entry.doubleTextureCoordinates;
+		g_RemasterHLEFonts = entry.hleFonts;
 		break;
 	}
 	if (g_RemasterMode) {

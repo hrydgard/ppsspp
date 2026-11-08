@@ -154,6 +154,8 @@ struct SettingItem {
 	bool *disabledPtr = nullptr;
 	std::function<bool()> enabledFunc;
 	SettingText disabledReason;
+	// A hidden item still gets its view (it's gone from the layout), so views stay in step with items.
+	bool visible = true;
 	// Called on click (Bool, Choice), choice (choices) or change (sliders).
 	std::function<void(UI::EventParams &)> onChange;
 	// From the config, for settings described there. Called before onChange.
@@ -168,6 +170,7 @@ struct SettingItem {
 	SettingItem &Enabled(bool *ptr) { enabledPtr = ptr; return *this; }
 	SettingItem &Disabled(bool *ptr) { disabledPtr = ptr; return *this; }
 	SettingItem &EnabledFunc(std::function<bool()> func) { enabledFunc = std::move(func); return *this; }
+	SettingItem &Visible(bool value) { visible = value; return *this; }
 	// Shown when the user tries to use the item while it's disabled (see ShowWhyViewDisabled).
 	SettingItem &DisabledReason(SettingText text) { disabledReason = text; return *this; }
 

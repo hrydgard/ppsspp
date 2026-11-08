@@ -1200,6 +1200,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestVFS.cpp \
     $(SRC)/unittest/TestDemangle.cpp \
     $(SRC)/unittest/TestLzrc.cpp \
+    $(SRC)/unittest/TestKirk.cpp \
     $(SRC)/unittest/TestCwCheat.cpp \
     $(SRC)/unittest/TestMpegCsc.cpp \
     $(SRC)/unittest/TestSplineTessellation.cpp \

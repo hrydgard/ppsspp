@@ -103,6 +103,11 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	// The description needs no scan, so it's there while loading too.
 	list->Add(new HintView(sy->T("FirmwareSources", "Installing a PSP firmware can improve game compatibility, gives some games their proper fonts, and lets you run the XMB, the real PSP's main menu. PPSSPP works without one, but having one installed is highly recommended.")));
 
+	// Matters most when there's no firmware yet, since that's when a disc's updater gets installed.
+	ChoiceGroup *contentSettings = list->Add(new ChoiceGroup());
+	contentSettings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
+		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
+
 	if (!scanned_) {
 		auto mm = GetI18NCategory(I18NCat::MAINMENU);
 		list->Add(new TextView(mm->T("Loading..."), ALIGN_LEFT, false));
@@ -134,10 +139,6 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 		list->Add(new NoticeView(NoticeLevel::INFO, sy->T("Partial firmware installed"),
 			sy->T("Some system files are present, but not a complete firmware")));
 	}
-
-	ChoiceGroup *contentSettings = list->Add(new ChoiceGroup());
-	contentSettings->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
-		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	// Without any kernel modules there's no firmware here to speak of - it's the fonts we pulled
 	// off a game's disc, and rows reading "Kernel modules: 0 / XMB: No" say nothing useful.
@@ -214,7 +215,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 
 	Choice *moreInfo = groups->Add(new ChoiceGroup())->Add(new Choice(di->T("More info")));
 	moreInfo->OnClick.Add([](UI::EventParams &) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/getting-started/how-to-run-the-vsh/");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/getting-started/how-to-run-the-xmb/");
 	});
 	moreInfo->SetIconRight(ImageID("I_LINK_OUT"));
 

@@ -1333,7 +1333,7 @@ namespace MIPSInt {
 			int cycles = entry->replaceFunc(mips);
 			ApplyHostRoundingMode(mips);
 
-			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
+			if (entry->flags & (REPFLAG_HOOK | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.
 				MIPSInterpret(mips, Memory::Read_Instruction(PC));
 			} else if (cycles < 0) {

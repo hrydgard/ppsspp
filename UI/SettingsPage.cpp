@@ -430,11 +430,17 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 			clickable->SetHintText(item.hint.Translate(pageCat));
 		} else {
 			// Custom views that can't show a hint get it below them.
-			parent->Add(new SettingHint(item.hint.Translate(pageCat), view));
+			UI::View *hint = parent->Add(new SettingHint(item.hint.Translate(pageCat), view));
+			if (!item.visible) {
+				hint->SetVisibility(UI::V_GONE);
+			}
 		}
 	}
 	if (item.setup) {
 		item.setup(view);
+	}
+	if (!item.visible) {
+		view->SetVisibility(UI::V_GONE);
 	}
 	return view;
 }

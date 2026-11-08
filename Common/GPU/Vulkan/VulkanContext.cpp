@@ -251,9 +251,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
-#if PPSSPP_VK_STATIC
-	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-#elif PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(MAC)
 	// Through the Khronos loader (like the SDK's, for the validation layers), MoltenVK is only
 	// listed if we ask for portability drivers.
 	if (IsInstanceExtensionAvailable(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)) {

@@ -3312,6 +3312,10 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 	} else if (entryAddr == 0 || entryAddr == (u32)-1) {
 		INFO_LOG(Log::sceModule, "__KernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): no entry address", moduleId, argsize, argAddr, returnValueAddr);
 		module->nm.status = MODULE_STATUS_STARTED;
+		// The status is still set to 0 (modules/nostart). R-Type Tactics gives up on its fonts otherwise.
+		if (returnValueAddr) {
+			Memory::WriteOrException_U32(0, returnValueAddr);
+		}
 	} else {
 		ERROR_LOG(Log::sceModule, "__KernelStartModule(%d,asize=%08x,aptr=%08x,retptr=%08x): invalid entry address", moduleId, argsize, argAddr, returnValueAddr);
 		return -1;

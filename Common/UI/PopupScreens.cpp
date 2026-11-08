@@ -662,13 +662,13 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	Button *decrease = lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)));
 	decrease->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	decrease->SetRoundCorners();
 	Button *increase = lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)));
 	increase->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
-	increase->SetRoundCorners();
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.GetTheme().itemStyle.fgColor);
+	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = true;
 	UpdateTextBox();
@@ -676,7 +676,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_));
+		lin->Add(new TextView(units_, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -687,11 +687,12 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			UpdateTextBox();
 			changing_ = false;
 		});
-		reset->SetRoundCorners();
 	}
 
 	if (!negativeLabel_.empty())
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
+
+	lin->ApplyRoundCorners();
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
@@ -708,8 +709,10 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
-	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	Button *decrease = lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)));
+	decrease->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	Button *increase = lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)));
+	increase->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -720,18 +723,22 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	UpdateTextBox();
 	changing_ = false;
 	lin->Add(edit_);
+
 	if (!units_.empty())
 		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
+		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
+		reset->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
 			}
 		});
+		reset->SetRoundCorners();
 	}
+	lin->ApplyRoundCorners();
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
