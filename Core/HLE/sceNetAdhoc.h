@@ -75,27 +75,24 @@ enum AdhocSocketRequestType : int
 	ADHOC_POLL_SOCKET = 7,
 };
 
-// TODO: maybe move these to sceNetAdhocDiscover?
 typedef struct SceNetAdhocDiscoverParam {
-    u32_le unknown1; // SleepMode? (ie. 0 on on Legend Of The Dragon, 1 on Dissidia 012)
-    char   groupName[ADHOCCTL_GROUPNAME_LEN];
-    u32_le unknown2; // size of something? (ie. 0x3c on Legend Of The Dragon, 0x14 on Dissidia 012) // Note: the param size is 0x14 may be it can contains extra data too?
-    u32_le result; // inited to 0?
+	u32_le mode;  // 0 sleeps in the DISCOVER state until another console is near (Legend of the Dragon), 1 goes into the WOL state (Dissidia 012).
+	char groupName[ADHOCCTL_GROUPNAME_LEN];
+	u32_le timeoutSec;  // How long to look once awake (0x3c in Legend of the Dragon, 0x14 in Dissidia 012).
+	u32_le result;  // AdhocDiscoverResult or an adhocctl error, written when it finishes.
 } PACK SceNetAdhocDiscoverParam;
 
-enum AdhocDiscoverStatus : int
-{
+enum AdhocDiscoverStatus : int {
 	NET_ADHOC_DISCOVER_STATUS_NONE = 0,
 	NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS = 1,
 	NET_ADHOC_DISCOVER_STATUS_COMPLETED = 2,
 };
 
-enum AdhocDiscoverResult : int
-{
-	NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND = 0, // Initial value
-	NET_ADHOC_DISCOVER_RESULT_CANCELED = 1, // CANCELED or STOPPED?
-	NET_ADHOC_DISCOVER_RESULT_PEER_FOUND = 2,
-	NET_ADHOC_DISCOVER_RESULT_ABORTED = 3, // Internal Error occured?
+enum AdhocDiscoverResult : int {
+	NET_ADHOC_DISCOVER_RESULT_PEER_FOUND = 0,  // In the group with a peer (pspautotests net/adhoc/pair/discover).
+	NET_ADHOC_DISCOVER_RESULT_CANCELED = 1,  // After a Stop (pspautotests net/adhoc/discover).
+	NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND = 2,  // The timeout passed.
+	NET_ADHOC_DISCOVER_RESULT_ABORTED = 3,
 };
 
 enum class AdhocDataMode {
@@ -165,6 +162,9 @@ int sceNetAdhocctlTerm();
 int NetAdhocctl_Term();
 int NetAdhocctl_GetState();
 int NetAdhocctl_Create(const char* groupName);
+int NetAdhocDiscover_GetStatus();
+void Register_sceNetAdhocctl_lib();
+void Register_sceNetIfhandle_lib();
 
 int NetAdhoc_Term();
 
@@ -173,7 +173,6 @@ extern bool netAdhocInited; // TODO: keep here
 extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
 
 extern bool netAdhocGameModeEntered;
-extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 extern bool netAdhocUseUdp;
 
 // Exposing those for the matching routines

@@ -133,6 +133,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceMp3_Library", "sceMp3", DisableHLEFlags::sceMp3},
 	{"sceNetAdhocctl_Library"},
 	{"sceNetAdhocDownload_Library"},
+	{"sceNetAdhocDiscover_Library", "sceNetAdhocDiscover", DisableHLEFlags::sceNetAdhocDiscover},
 	{"sceNetAdhocMatching_Library"},
 	{"sceNetApDialogDummy_Library"},
 	{"sceNetAdhoc_Library"},

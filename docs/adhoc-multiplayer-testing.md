@@ -66,7 +66,9 @@ until --pixel 20,30 --color ff0000 -i 2                  # or until one pixel ha
 
 `until` takes screenshots until each selected instance shows the reference image at `--box` (a mean
 difference of up to `--tolerance` per channel, 12 by default, so moving backgrounds still match). When
-it gives up (`--timeout`, 60 s), it saves the screens it saw as `until_failed_N.png`. Make references
+it gives up (`--timeout`, 60 s), it saves the screens it saw as `until_failed_N.png`. A screen that
+lands a pixel away from where it was when the reference was cut (a dialog panel, say) needs `--slack 1`,
+which also tries the reference that far off in each direction. Make references
 with `crop SHOT.png X,Y,W,H OUT.png` from a screenshot of the screen you want, and keep them next to the
 script: paths in a script are relative to it. A title screen left alone too long may start an attract
 demo, so don't wait for one without pressing.
