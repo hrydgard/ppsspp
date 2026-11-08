@@ -282,7 +282,8 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 			inGameDir_ = true;
 		}
 		hFile = fd;
-		if (fd != -1) {
+		// Content URI opens fail with any negative StorageError, not just -1.
+		if (fd >= 0) {
 			// Success
 			return true;
 		} else {
