@@ -2384,6 +2384,10 @@ void __KernelReturnFromThread(MIPSState *mips)
 	hleSkipDeadbeef();
 
 	int exitStatus = mips->r[MIPS_REG_V0];
+	// Returning a negative value works like passing it to sceKernelExitThread (threads/returnstatus).
+	if (exitStatus < 0) {
+		exitStatus = SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+	}
 	PSPThread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(thread != NULL, "Returned from a NULL thread.");
 

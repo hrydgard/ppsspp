@@ -508,6 +508,7 @@ tests_good = [
   "threads/semaphores/refer",
   "threads/semaphores/signal",
   "threads/semaphores/wait",
+  "threads/returnstatus/returnstatus",
   "threads/threads/change",
   "threads/threads/exitstatus",
   "threads/threads/extend",
