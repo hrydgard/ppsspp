@@ -361,7 +361,6 @@ void DrawEngineVulkan::Flush() {
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 
 			if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
-				renderManager->ReportBadStateForDraw();
 				ResetAfterSkippedDraw();
 				return;
 			}
@@ -520,7 +519,6 @@ void DrawEngineVulkan::Flush() {
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 
 				if (!renderManager->BindPipeline(pipeline->pipeline, pipeline->pipelineFlags, pipelineLayout_)) {
-					renderManager->ReportBadStateForDraw();
 					ResetAfterSkippedDraw();
 					return;
 				}

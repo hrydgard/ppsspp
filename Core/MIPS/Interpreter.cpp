@@ -155,7 +155,7 @@ namespace MIPSInt {
 				}
 				if (alignedAddr <= PC + 4 && alignedAddr + size >= PC - 4) {
 					// This is probably rare so we don't use a static bool.
-					WARN_LOG_REPORT_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					WARN_LOG_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 				}
 			}
 			break;
@@ -219,7 +219,6 @@ namespace MIPSInt {
 	}
 
 	void Int_Break(MIPSState *mips, MIPSOpcode op) {
-		Reporting::ReportMessage("BREAK instruction hit");
 		Core_BreakException(PC);
 		PC += 4;
 	}

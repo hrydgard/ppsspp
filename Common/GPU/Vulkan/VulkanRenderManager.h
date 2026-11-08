@@ -290,8 +290,6 @@ public:
 	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, const char *tag);
 	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);
 
-	void ReportBadStateForDraw();
-
 	// True while there are queued or compiling pipelines.
 	bool PipelinesPending();
 

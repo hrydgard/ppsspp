@@ -232,9 +232,9 @@ public:
 		contentGravity_ = gravity;
 	}
 
-	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+	// Override, applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 	// Note that if the view's spacing is not 0.0f, all views will get the rounded corners since they will appear separate.
-	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
+	void SetRoundCorners(RoundCorners outerCorners = RoundCorners::All) override;
 
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
 

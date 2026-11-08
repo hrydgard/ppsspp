@@ -687,7 +687,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (param->secureVersion != 0) {
-		WARN_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
+		INFO_LOG(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 	}
 
 	std::string filename = GetFileName(param);

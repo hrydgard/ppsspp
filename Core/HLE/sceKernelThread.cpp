@@ -1703,7 +1703,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 		t->nt.waitType = WAITTYPE_NONE;
 		t->nt.waitID = 0;
 	} else {
-		ERROR_LOG_REPORT(Log::sceKernel, "__KernelStopThread: thread %d does not exist (%s)", threadID, reason ? reason : "?");
+		ERROR_LOG(Log::sceKernel, "__KernelStopThread: thread %d does not exist (%s)", threadID, reason ? reason : "?");
 	}
 }
 
@@ -2175,7 +2175,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	}
 
 	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported attributes %08x, ignoring", threadName, attr & ~PSP_THREAD_ATTR_SUPPORTED);
+		WARN_LOG(Log::sceKernel, "sceKernelCreateThread(name=%s): unsupported attributes %08x, ignoring", threadName, attr & ~PSP_THREAD_ATTR_SUPPORTED);
 	}
 
 	// TODO: Not sure what these values are, but they are removed from the attr silently.

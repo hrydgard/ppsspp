@@ -240,7 +240,7 @@ void PopupScreen::CreateViews() {
 
 	box_->SetRoundCorners(RoundCorners::All);
 	// Rounds the top of the header and the bottom of the last view, to match the box.
-	box_->ApplyRoundCorners(RoundCorners::All);
+	box_->SetRoundCorners(RoundCorners::All);
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -692,7 +692,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (!negativeLabel_.empty())
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
 
-	lin->ApplyRoundCorners();
+	lin->SetRoundCorners();
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
@@ -738,7 +738,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		});
 		reset->SetRoundCorners();
 	}
-	lin->ApplyRoundCorners();
+	lin->SetRoundCorners();
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())

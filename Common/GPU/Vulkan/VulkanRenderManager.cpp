@@ -1116,21 +1116,6 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].GetInitCmd(vulkan_);
 }
 
-void VulkanRenderManager::ReportBadStateForDraw() {
-	const char *cause1 = "";
-	char cause2[256];
-	cause2[0] = '\0';
-	if (!curRenderStep_) {
-		cause1 = "No current render step";
-	}
-	if (curRenderStep_ && curRenderStep_->stepType != VKRStepType::RENDER) {
-		cause1 = "Not a render step: ";
-		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
-		truncate_cpy(cause2, str);
-	}
-	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
-}
-
 bool VulkanRenderManager::PipelinesPending() {
 	// Pipelines still in the queue, or taken off it but not yet made into tasks, aren't in flight yet.
 	std::unique_lock<std::mutex> lock(compileQueueMutex_);

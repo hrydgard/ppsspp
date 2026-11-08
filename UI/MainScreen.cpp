@@ -386,7 +386,7 @@ void MainScreen::CreateMainButtons(UI::LinearLayout *parent, bool portrait) {
 			gold->SetImageScale(0.6f);  // for the left icon.
 			gold->SetShine(true);
 		}
-		parent->ApplyRoundCorners();
+		parent->SetRoundCorners();
 		return;
 	} else {
 		ChoiceGroupList *buttons = parent->Add(new ChoiceGroupList());

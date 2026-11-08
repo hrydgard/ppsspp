@@ -86,7 +86,7 @@ void TabHolder::AddTabContents(std::string_view title, ImageID imageId, ViewGrou
 	} else {
 		tabStrip_->AddChoice(title);
 	}
-	tabStrip_->ApplyRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
+	tabStrip_->SetRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
 
 	contents_->Add(tabContents);
 	if (tabs_.size() > 1)
@@ -108,7 +108,7 @@ void TabHolder::AddTabDeferred(std::string_view title, ImageID imageId, std::fun
 	} else {
 		tabStrip_->AddChoice(title);
 	}
-	tabStrip_->ApplyRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
+	tabStrip_->SetRoundCorners(orientation_ == Orientation::ORIENT_HORIZONTAL ? RoundCorners::Left : RoundCorners::Top);
 	
 	tabTweens_.push_back(nullptr);
 	createFuncs_.push_back(createCb);

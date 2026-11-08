@@ -1413,7 +1413,7 @@ static int sceUtilityGetNetParamLatestID(u32 idAddr) {
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
 static int sceUtilityScreenshotInitStart(u32 paramAddr) {
-	return hleReportWarning(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
+	return hleLogInfo(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
 }
 
 static int sceUtilityScreenshotShutdownStart() {

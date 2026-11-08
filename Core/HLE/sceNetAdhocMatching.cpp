@@ -1525,7 +1525,7 @@ int sceNetAdhocMatchingDelete(MIPSState *mips, int matchingId) {
 }
 
 int sceNetAdhocMatchingInit(MIPSState *mips, u32 memsize) {
-	WARN_LOG_REPORT_ONCE(sceNetAdhocMatchingInit, Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, mips->pc);
+	INFO_LOG(Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, mips->pc);
 
 	// Uninitialized Library
 	if (netAdhocMatchingInited)

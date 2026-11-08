@@ -665,7 +665,7 @@ void TouchControlLayoutScreen::CreateViews() {
 			layoutView_->mode_ = mode;
 		}
 	});
-	mode_->ApplyRoundCorners();
+	mode_->SetRoundCorners();
 
 	leftColumn->Add(mode_);
 	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Add([this](UI::EventParams &e) {
@@ -680,7 +680,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	leftColumn->ApplyRoundCorners();
+	leftColumn->SetRoundCorners();
 
 	leftColumnScroll->SetShadows(false);
 

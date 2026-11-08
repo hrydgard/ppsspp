@@ -27,4 +27,5 @@ private:
 	void OnCustomDriverChange(UI::EventParams &e);
 
 	void CreateDriverTab(UI::ViewGroup *drivers);
+	void CreateTurnipFlagsTab(UI::ViewGroup *turnipFlags);
 };

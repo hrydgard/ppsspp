@@ -852,7 +852,7 @@ void LinearLayout::Layout() {
 
 // Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 // Ignores invisible views.
-void LinearLayout::ApplyRoundCorners(RoundCorners outerCorners) {
+void LinearLayout::SetRoundCorners(RoundCorners outerCorners) {
 	// Easy case first: There's spacing, just apply round corners to all subviews.
 	if (spacing_ > 0.0f) {
 		for (View *view : views_) {
@@ -916,7 +916,7 @@ void ChoiceGroup::Draw(UIContext &dc) {
 
 	// Maybe we should require the user to Finish() the ChoiceGroup instead of running this every frame.
 	// At least it's not recursive.
-	ApplyRoundCorners(RoundCorners::All);
+	SetRoundCorners(RoundCorners::All);
 
 	// Draw a roundrect as background.
 	LinearLayout::Draw(dc);

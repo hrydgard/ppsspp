@@ -628,6 +628,19 @@ InfoItem::InfoItem(std::string_view text, int rightValue, LayoutParams *layoutPa
 
 void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	float w1, h1, w2, h2;
+
+	if (rightText_.empty()) {
+		// There's only one text, and that should wrap.
+		if (horiz.type == MeasureSpecType::AT_MOST) {
+			float availableWidth = horiz.size - 24;
+			dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availableWidth, &w, &h, FLAG_WRAP_TEXT);
+		} else {
+			dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w, &h, 0);
+		}
+		h += 24;
+		return;
+	}
+
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
 
 	if (horiz.type == MeasureSpecType::AT_MOST) {
@@ -653,6 +666,13 @@ void InfoItem::Draw(UIContext &dc) {
 	}
 
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+
+	if (rightText_.empty()) {
+		int paddingX = 12;
+		Bounds padBounds = bounds_.Expand(-paddingX, 0);
+		dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		return;
+	}
 
 	int paddingX = 12;
 	Bounds padBounds = bounds_.Expand(-paddingX, 0);
