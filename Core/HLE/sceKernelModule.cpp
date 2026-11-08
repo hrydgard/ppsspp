@@ -3143,6 +3143,18 @@ static bool IsModuleLoadedNotStarted(const PSPModule *module) {
 	return module->nm.status < MODULE_STATUS_STARTING;
 }
 
+// What stopping a module that isn't started returns (modules/startresult).
+static u32 ModuleStopStateError(const PSPModule *module) {
+	if (IsModuleLoadedNotStarted(module)) {
+		return SCE_KERNEL_ERROR_NOT_STARTED;
+	} else if (module->nm.status == MODULE_STATUS_STOPPED) {
+		return SCE_KERNEL_ERROR_ALREADY_STOPPED;
+	} else if (module->nm.status == MODULE_STATUS_STOPPING) {
+		return SCE_KERNEL_ERROR_ALREADY_STOPPING;
+	}
+	return SCE_KERNEL_ERROR_ERROR;
+}
+
 static int ValidateSMOption(const SceKernelSMOption *option) {
 	if ((u32)(sceKernelGetCompiledSdkVersion() & 0xFFFF0000) > 0x0207FFFF && option->size != sizeof(SceKernelSMOption)) {
 		return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
@@ -3387,16 +3399,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 		return hleLogInfo(Log::sceModule, 0, "faking");
 	}
 	if (module->nm.status != MODULE_STATUS_STARTED) {
-		// modules/startresult.
-		u32 stopError = SCE_KERNEL_ERROR_ERROR;
-		if (IsModuleLoadedNotStarted(module)) {
-			stopError = SCE_KERNEL_ERROR_NOT_STARTED;
-		} else if (module->nm.status == MODULE_STATUS_STOPPED) {
-			stopError = SCE_KERNEL_ERROR_ALREADY_STOPPED;
-		} else if (module->nm.status == MODULE_STATUS_STOPPING) {
-			stopError = SCE_KERNEL_ERROR_ALREADY_STOPPING;
-		}
-		return hleLogError(Log::sceModule, stopError, "module status %d", module->nm.status);
+		return hleLogError(Log::sceModule, ModuleStopStateError(module), "module status %d", module->nm.status);
 	}
 
 	u32 stopFunc = module->nm.module_stop_func;
@@ -3444,7 +3447,50 @@ static u32 sceKernelUnloadModule(u32 moduleId) {
 	return __KernelBusyDelayResult(hleLogDebug(Log::sceModule, moduleId), (int)usToCycles(400), "module unloaded");
 }
 
-u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
+// The module an address belongs to. The range starts at the text and is as long as the text, data
+// and bss sizes together, which leaves out any alignment gap before the data, so the end of the
+// data or bss may not count (modules/selfunload).
+static PSPModule *FindModuleByAddress(u32 addr) {
+	PSPModule *found = nullptr;
+	kernelObjects.Iterate<PSPModule>([&](int id, PSPModule *module) -> bool {
+		const NativeModule &nm = module->nm;
+		const u32 size = nm.text_size + nm.data_size + nm.bss_size;
+		if (nm.text_addr != 0 && addr >= nm.text_addr && addr - nm.text_addr < size) {
+			found = module;
+			return false;
+		}
+		return true;
+	});
+	return found;
+}
+
+// "The caller's module" is the one the return address is in, not the thread's (modules/selfunload).
+static SceUID GetCallerModuleId() {
+	PSPModule *module = FindModuleByAddress(currentMIPS->r[MIPS_REG_RA]);
+	if (module) {
+		return module->GetUID();
+	}
+	// Can't happen on hardware, where all code is in some module.
+	WARN_LOG(Log::sceModule, "Caller at %08x isn't in a module, using the thread's", currentMIPS->r[MIPS_REG_RA]);
+	return __KernelGetCurThreadModuleId();
+}
+
+// A user caller can't pass kernel addresses.
+static bool IsUserKernelAddress(u32 addr) {
+	return (addr & 0x80000000) != 0 && !__KernelCurThreadIsKernelMode();
+}
+
+static bool IsUserKernelRange(u32 addr, u32 size) {
+	return ((addr | size | (addr + size)) & 0x80000000) != 0 && !__KernelCurThreadIsKernelMode();
+}
+
+static u32 __KernelStopUnloadSelfModule(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+	if (__IsInInterrupt()) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+	}
+	if ((argp != 0 && IsUserKernelRange(argp, argSize)) || (statusAddr != 0 && IsUserKernelRange(statusAddr, 4)) || (optionAddr != 0 && IsUserKernelRange(optionAddr, sizeof(SceKernelSMOption)))) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad pointer");
+	}
 	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 	if (smoption.IsValid()) {
 		int result = ValidateSMOption(smoption.PtrOrNull());
@@ -3453,79 +3499,58 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		}
 	}
 
-	if (loadedModules.size() > 1) {
-		if (WithStatus) {
-			WARN_LOG(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x)", exitCode, argSize, argp, statusAddr, optionAddr);
-		} else {
-			// NOTE: The previous "may have crashed" message is not accurate, Splinter Cell Essentials uses this normally when leaving/entering in-game.
-			// We should not report this.
-			WARN_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x)", exitCode, argSize, argp);
-		}
-		SceUID moduleID = __KernelGetCurThreadModuleId();
-		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
-
-		u32 error;
-		PSPModule *module = kernelObjects.Get<PSPModule>(moduleID, error);
-		if (!module) {
-			if (WithStatus)
-				ERROR_LOG(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): invalid module id", exitCode, argSize, argp, statusAddr, optionAddr);
-			else
-				ERROR_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): invalid module id", exitCode, argSize, argp);
-			return error;
-		}
-
-		u32 stopFunc = module->nm.module_stop_func;
-		if (Memory::IsValidAddress(stopFunc)) {
-			ModuleThreadParams params;
-			int result = ResolveModuleThreadParams(module, module->nm.module_stop_thread_priority, module->nm.module_stop_thread_stacksize, module->nm.module_stop_thread_attr, smoption.PtrOrNull(), params);
-			if (result < 0) {
-				return hleLogError(Log::sceModule, result, "bad stack partition");
-			}
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, params.priority, params.stacksize, params.attr, 0, (module->nm.attribute & 0x1000) != 0, nullptr, params.stackAllocator);
-			if (threadID < 0) {
-				return hleLogError(Log::sceModule, threadID, "couldn't create stop thread");
-			}
-			__KernelStartThreadValidate(threadID, argSize, argp);
-			__KernelSetThreadRA(threadID, NID_MODULERETURN);
-			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
-
-			const ModuleWaitingThread mwt = {__KernelGetCurThread(), statusAddr};
-			module->nm.status = MODULE_STATUS_UNLOADING;
-			module->waitingThreads.push_back(mwt);
-		} else if (stopFunc == 0) {
-			if (WithStatus)
-				INFO_LOG(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): no stop func", exitCode, argSize, argp, statusAddr, optionAddr);
-			else
-				INFO_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): no stop func", exitCode, argSize, argp);
-			hleCall(ThreadManForKernel, int, sceKernelExitDeleteThread, exitCode);
-			module->Cleanup();
-			kernelObjects.Destroy<PSPModule>(moduleID);
-		} else {
-			if (WithStatus)
-				ERROR_LOG_REPORT(Log::sceModule, "sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): bad stop func address", exitCode, argSize, argp, statusAddr, optionAddr);
-			else
-				ERROR_LOG_REPORT(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x): bad stop func address", exitCode, argSize, argp);
-			hleCall(ThreadManForKernel, int, sceKernelExitDeleteThread, exitCode);
-			module->Cleanup();
-			kernelObjects.Destroy<PSPModule>(moduleID);
-		}
-	} else {
-		if (WithStatus)
-			ERROR_LOG_REPORT(Log::sceModule, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp, statusAddr, optionAddr);
-		else
-			ERROR_LOG_REPORT(Log::sceModule, "UNIMPL sceKernelSelfStopUnloadModule(%08x, %08x, %08x): game has likely crashed", exitCode, argSize, argp);
+	SceUID moduleID = GetCallerModuleId();
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(moduleID, error);
+	if (!module || (module->nm.attribute & 1) != 0) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_CAN_NOT_STOP, "no module, or it can't be stopped");
+	}
+	if (module->nm.status != MODULE_STATUS_STARTED) {
+		return hleLogError(Log::sceModule, ModuleStopStateError(module), "module status %d", module->nm.status);
 	}
 
+	u32 stopFunc = module->nm.module_stop_func;
+	if (Memory::IsValid4AlignedAddress(stopFunc)) {
+		ModuleThreadParams params;
+		int result = ResolveModuleThreadParams(module, module->nm.module_stop_thread_priority, module->nm.module_stop_thread_stacksize, module->nm.module_stop_thread_attr, smoption.PtrOrNull(), params);
+		if (result < 0) {
+			return hleLogError(Log::sceModule, result, "bad stack partition");
+		}
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, params.priority, params.stacksize, params.attr, 0, (module->nm.attribute & 0x1000) != 0, nullptr, params.stackAllocator);
+		if (threadID < 0) {
+			return hleLogError(Log::sceModule, threadID, "couldn't create stop thread");
+		}
+		__KernelStartThreadValidate(threadID, argSize, argp);
+		__KernelSetThreadRA(threadID, NID_MODULERETURN);
+		// The wait value keeps the exit code until module_stop returns.
+		__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, exitCode, 0, false, "unloadstopped module");
+
+		const ModuleWaitingThread mwt = {__KernelGetCurThread(), statusAddr};
+		module->nm.status = MODULE_STATUS_UNLOADING;
+		module->waitingThreads.push_back(mwt);
+		return hleLogDebug(Log::sceModule, 0);
+	}
+
+	// No module_stop: the module is unloaded and the thread exits right away.
+	INFO_LOG(Log::sceModule, "No stop func, unloading module %d", moduleID);
+	module->Cleanup();
+	kernelObjects.Destroy<PSPModule>(moduleID);
+	hleCall(ThreadManForKernel, int, sceKernelExitDeleteThread, exitCode);
 	return hleNoLog(0);
 }
 
+// Used in Tom Clancy's Splinter Cell Essentials, Ghost in the Shell Stand Alone Complex.
 static u32 sceKernelSelfStopUnloadModule(u32 exitCode, u32 argSize, u32 argp) {
-	// Used in Tom Clancy's Splinter Cell Essentials, Ghost in the Shell Stand Alone Complex
-	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, 0, 0, false);
+	return __KernelStopUnloadSelfModule(exitCode, argSize, argp, 0, 0);
+}
+
+// No exit code here: the thread exits with 0.
+static u32 sceKernelStopUnloadSelfModule(u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
+	return __KernelStopUnloadSelfModule(0, argSize, argp, statusAddr, optionAddr);
 }
 
 static u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr) {
-	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
+	return __KernelStopUnloadSelfModule(exitCode, argSize, argp, statusAddr, optionAddr);
 }
 
 void __KernelReturnFromModuleFunc(MIPSState *mips) {
@@ -3555,9 +3580,11 @@ void __KernelReturnFromModuleFunc(MIPSState *mips) {
 
 	// What the start or stop call returns (modules/startresult). A nonzero module_start result
 	// gets rid of the module, and returns 0 for 1 (no resident) and the value itself otherwise.
-	// A nonzero module_stop result leaves the module started; 1 means it refused to stop.
+	// A nonzero module_stop result leaves the module started; 1 means it refused to stop. When
+	// stopping and unloading itself, other values refuse the unload instead (modules/selfunload).
 	u32 waitResult = 0;
 	bool deleteModule = false;
+	bool unloadedSelf = false;
 	if (module->nm.status == MODULE_STATUS_STARTING) {
 		if (exitStatus == 0) {
 			module->nm.status = MODULE_STATUS_STARTED;
@@ -3574,17 +3601,29 @@ void __KernelReturnFromModuleFunc(MIPSState *mips) {
 			module->nm.status = MODULE_STATUS_STARTED;
 			waitResult = exitStatus == 1 ? SCE_KERNEL_ERROR_CAN_NOT_STOP : exitStatus;
 		}
+	} else if (module->nm.status == MODULE_STATUS_UNLOADING) {
+		if (exitStatus == 0) {
+			unloadedSelf = true;
+		} else {
+			module->nm.status = MODULE_STATUS_STARTED;
+			waitResult = exitStatus == 1 ? SCE_KERNEL_ERROR_CAN_NOT_STOP : SCE_KERNEL_ERROR_NOT_REMOVABLE;
+		}
 	}
 	for (auto it = module->waitingThreads.begin(), end = module->waitingThreads.end(); it < end; ++it) {
 		// Still waiting?
 		if (HLEKernel::VerifyWait(it->threadID, WAITTYPE_MODULE, leftModuleID))
 		{
-			if (module->nm.status == MODULE_STATUS_UNLOADING) {
-				// TODO: Maybe should maintain the exitCode?
-				hleCall(ThreadManForKernel, int, sceKernelTerminateDeleteThread, mips, it->threadID);
+			if (it->statusPtr != 0)
+				Memory::WriteOrException_U32(exitStatus, it->statusPtr);
+			if (unloadedSelf) {
+				// The thread that asked exits with its exit code, which was kept as the wait value.
+				u32 waitError;
+				int exitCode = (int)__KernelGetWaitValue(it->threadID, waitError);
+				if (exitCode < 0) {
+					exitCode = SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+				}
+				__KernelDeleteThread(it->threadID, exitCode, "stopped and unloaded own module");
 			} else {
-				if (it->statusPtr != 0)
-					Memory::WriteOrException_U32(exitStatus, it->statusPtr);
 				__KernelResumeThreadFromWait(it->threadID, waitResult);
 			}
 		}
@@ -3617,19 +3656,12 @@ void __KernelReturnFromModuleFunc(MIPSState *mips) {
 		}
 	}
 
-	if (module->nm.status == MODULE_STATUS_UNLOADING || deleteModule) {
-		// TODO: Delete the waiting thread?
+	if (unloadedSelf || deleteModule) {
 		module->Cleanup();
 		kernelObjects.Destroy<PSPModule>(leftModuleID);
 	}
 	hleNoLogVoid();
 }
-
-struct GetModuleIdByAddressArg
-{
-	u32 addr;
-	SceUID result;
-};
 
 // ModuleMgrForUser_D2FBC957. Looks up the gp value of whichever module contains an address, which
 // is how a library that is handed function pointers from another module can call them: MIPS code
@@ -3637,55 +3669,32 @@ struct GetModuleIdByAddressArg
 // Named after what it does; the official name isn't known.
 static u32 sceKernelGetModuleGPByAddress(u32 addr, u32 gpPtr) {
 	// Four bytes get written, so check for four - IsValidAddress would pass on the last three
-	// bytes of a region.
-	if (!Memory::IsValidRange(gpPtr, 4)) {
-		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad gp pointer");
+	// bytes of a region. A user caller can't pass kernel addresses (modules/selfunload).
+	if (IsUserKernelAddress(addr) || !Memory::IsValidRange(gpPtr, 4) || IsUserKernelRange(gpPtr, 4)) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad address or gp pointer");
 	}
 
-	u32 gp = 0;
-	bool found = false;
-	kernelObjects.Iterate<PSPModule>([&](int id, PSPModule *module) -> bool {
-		const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-		if (start != 0 && start <= addr && start + size > addr) {
-			gp = module->nm.gp_value;
-			found = true;
-			return false;
-		}
-		return true;
-	});
-
-	if (!found) {
+	PSPModule *module = FindModuleByAddress(addr);
+	if (!module) {
 		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_UNKNOWN_MODULE, "no module at %08x", addr);
 	}
-	Memory::WriteUnchecked_U32(gp, gpPtr);
-	return hleLogDebug(Log::sceModule, 0, "gp=%08x", gp);
+	Memory::WriteUnchecked_U32(module->nm.gp_value, gpPtr);
+	return hleLogDebug(Log::sceModule, 0, "gp=%08x", module->nm.gp_value);
 }
 
-static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr)
-{
-	GetModuleIdByAddressArg state;
-	state.addr = moduleAddr;
-	state.result = SCE_KERNEL_ERROR_UNKNOWN_MODULE;
-
-	kernelObjects.Iterate<PSPModule>([&state](int id, PSPModule *module) -> bool {
-		const u32 start = module->memoryBlockAddr, size = module->memoryBlockSize;
-		if (start != 0 && start <= state.addr && start + size > state.addr) {
-			state.result = module->GetUID();
-			return false;
-		}
-		return true;
-	});
-
-	if (state.result == (SceUID)SCE_KERNEL_ERROR_UNKNOWN_MODULE) {
-		return hleLogError(Log::sceModule, state.result, "module not found at address");
-	} else {
-		return hleLogDebugOrError(Log::sceModule, state.result, "%08x", state.result);
+static u32 sceKernelGetModuleIdByAddress(u32 moduleAddr) {
+	if (IsUserKernelAddress(moduleAddr)) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "kernel address");
 	}
+	PSPModule *module = FindModuleByAddress(moduleAddr);
+	if (!module) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_UNKNOWN_MODULE, "module not found at address");
+	}
+	return hleLogDebug(Log::sceModule, module->GetUID());
 }
 
-static u32 sceKernelGetModuleId()
-{
-	return hleLogDebug(Log::sceModule, __KernelGetCurThreadModuleId());
+static u32 sceKernelGetModuleId() {
+	return hleLogDebug(Log::sceModule, GetCallerModuleId());
 }
 
 u32 sceKernelFindModuleByUID(u32 uid)
@@ -3957,9 +3966,12 @@ static u32 sceKernelQueryModuleInfo(u32 uid, u32 infoAddr)
 static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 idCountAddr)
 {
 	// pspautotests modules/idlist: the size is in bytes, a partial entry at the end still gets
-	// written, and the count covers every module whether it fit or not.
-	if (resultBuffer == 0 || (int)resultBufferSize < 0) {
+	// written, and the count covers every module whether it fit or not. Both pointers are required.
+	if (resultBuffer == 0 || (int)resultBufferSize < 0 || IsUserKernelRange(resultBuffer, resultBufferSize)) {
 		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad buffer");
+	}
+	if (!Memory::IsValidRange(idCountAddr, 4) || IsUserKernelRange(idCountAddr, 4)) {
+		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad count pointer");
 	}
 
 	int idCount = 0;
@@ -4055,7 +4067,7 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x"      },
 	{0X710F61B5, nullptr,                                               "sceKernelLoadModuleMs",                   '?', ""       },
 	{0XF9275D98, &WrapI_UUUU<sceKernelLoadModuleBufferUsbWlan>,         "sceKernelLoadModuleBufferUsbWlan",        'i', "xxxx"   }, /// ??
-	{0XCC1D3699, nullptr,                                               "sceKernelStopUnloadSelfModule",           '?', ""       },
+	{0XCC1D3699, &WrapU_UUUU<sceKernelStopUnloadSelfModule>,            "sceKernelStopUnloadSelfModule",           'x', "xxxx"   },
 	{0X748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx"     },
 	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x"      },
 	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', ""       },
@@ -4072,7 +4084,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x50F0C1EC, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
-	{0xCC1D3699, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelStopUnloadSelfModule",           'x', "xxx",   HLE_KERNEL_SYSCALL }, // used in Dissidia final fantasy chinese patch
+	{0xCC1D3699, &WrapU_UUUU<sceKernelStopUnloadSelfModule>,            "sceKernelStopUnloadSelfModule",           'x', "xxxx",  HLE_KERNEL_SYSCALL }, // used in Dissidia final fantasy chinese patch
 	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used in Dissidia final fantasy chinese patch
 	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },

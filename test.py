@@ -362,6 +362,7 @@ tests_good = [
   "modules/loadrace/loadrace",
   "modules/nostart/nostart",
   "modules/queryinfo/queryinfo",
+  "modules/selfunload/selfunload",
   "modules/startoptions/startoptions",
   "modules/startresult/startresult",
   "modules/unresolved/unresolved",
