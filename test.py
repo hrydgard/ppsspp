@@ -360,6 +360,7 @@ tests_good = [
   "modules/cutrel/kernel/cutrel",
   "modules/idlist/idlist",
   "modules/loadrace/loadrace",
+  "modules/nostart/nostart",
   "modules/startoptions/startoptions",
   "modules/unresolved/unresolved",
   "net/inet/blocking",
