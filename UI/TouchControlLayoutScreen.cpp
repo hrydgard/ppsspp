@@ -591,14 +591,21 @@ ViewLayoutMode TouchControlLayoutScreen::LayoutMode() const {
 }
 
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), co->T("Are you sure you want to reset the touch control layout?"), di->T("Reset"), di->T("Cancel"), [this](bool yes) {
+		if (!yes) {
+			return;
+		}
+		INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
 
-	const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
-	touch.ResetLayout();
-	InitPadLayout(&touch, orientation, bounds.w, bounds.h);
-	RecreateViews();
+		const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
+		const DeviceOrientation orientation = GetDeviceOrientation();
+		TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
+		touch.ResetLayout();
+		InitPadLayout(&touch, orientation, bounds.w, bounds.h);
+		RecreateViews();
+	}));
 };
 
 void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
