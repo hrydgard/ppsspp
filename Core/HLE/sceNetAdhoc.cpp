@@ -4995,10 +4995,33 @@ static int sceNetAdhocPdpSendSyscall(MIPSState *mips, int id, u32 macAddr, u32 p
 }
 
 static int sceNetAdhocPdpRecvSyscall(MIPSState *mips, int id, u32 macAddr, u32 portAddr, u32 bufAddr, u32 lenAddr, u32 timeout, u32 flag) {
-	void *len = GuestBuffer(lenAddr, 4);
-	void *buf = GuestBuffer(bufAddr, len ? *(s32_le *)len : 0);
+	s32_le *len = (s32_le *)GuestBuffer(lenAddr, 4);
 	// NULL for the sender's MAC and port is fine.
-	return sceNetAdhocPdpRecv(mips, id, macAddr ? GuestBuffer(macAddr, ETHER_ADDR_LEN) : nullptr, portAddr ? GuestBuffer(portAddr, 2) : nullptr, buf, len, timeout, (int)flag);
+	void *mac = macAddr ? GuestBuffer(macAddr, ETHER_ADDR_LEN) : nullptr;
+	void *port = portAddr ? GuestBuffer(portAddr, 2) : nullptr;
+	if (!len || *len <= 0 || !Memory::IsValidAddress(bufAddr)) {
+		void *buf = len ? GuestBuffer(bufAddr, *len) : nullptr;
+		return sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	}
+	// The buffer may run past the end of memory: Gods Eater Burst receives into the scratchpad's last
+	// 2048 bytes with a length of 2049, and a PSP takes it (pspautotests net/adhoc/pdp). Receive no more
+	// than fits, as PtpRecv does. A blocking recv keeps the pointer, so the clamp goes into the game's
+	// length, and a call that fails without waiting or touching the length gets the game's back.
+	void *buf = Memory::GetPointerWriteUnchecked(bufAddr);
+	const s32 requested = *len;
+	const s32 valid = (s32)Memory::ClampValidSizeAt(bufAddr, (u32)requested);
+	if (valid == requested) {
+		return sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	}
+	*len = valid;
+	int result = sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	const bool waiting = std::any_of(adhocSocketRequests.begin(), adhocSocketRequests.end(), [&](const auto &it) {
+		return it.second.length == len;
+	});
+	if (result != 0 && !waiting && *len == valid) {
+		*len = requested;
+	}
+	return result;
 }
 
 const HLEFunction sceNetAdhoc[] = {
