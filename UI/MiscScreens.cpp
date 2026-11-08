@@ -304,9 +304,8 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 			continue;
 		}
 
-		// We only support Arabic on platforms where we have support for the native text rendering
-		// APIs, as proper Arabic support is way too difficult to implement ourselves.
-#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+		// Arabic script needs a text drawer that does shaping (see TextDrawer::Create), the atlas font can't.
+#if defined(__LIBRETRO__) || !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(USE_SDL3_TTF))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
