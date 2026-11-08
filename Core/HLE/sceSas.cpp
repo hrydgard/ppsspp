@@ -225,23 +225,23 @@ void __SasShutdown() {
 
 static u32 sceSasInit(u32 core, u32 grainSize, u32 maxVoices, u32 outputMode, u32 sampleRate) {
 	if (!Memory::IsValidAddress(core) || (core & 0x3F) != 0) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad core address", core, grainSize, maxVoices, outputMode, sampleRate);
+		ERROR_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad core address", core, grainSize, maxVoices, outputMode, sampleRate);
 		return hleNoLog(SCE_SAS_ERROR_BAD_ADDRESS);
 	}
 	if (maxVoices == 0 || maxVoices > PSP_SAS_VOICES_MAX) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad max voices", core, grainSize, maxVoices, outputMode, sampleRate);
+		ERROR_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad max voices", core, grainSize, maxVoices, outputMode, sampleRate);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_MAX_VOICES);
 	}
 	if (grainSize < 0x40 || grainSize > 0x800 || (grainSize & 0x1F) != 0) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad grain size", core, grainSize, maxVoices, outputMode, sampleRate);
+		ERROR_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad grain size", core, grainSize, maxVoices, outputMode, sampleRate);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_GRAIN);
 	}
 	if (outputMode != 0 && outputMode != 1) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad output mode", core, grainSize, maxVoices, outputMode, sampleRate);
+		ERROR_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad output mode", core, grainSize, maxVoices, outputMode, sampleRate);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_OUTPUT_MODE);
 	}
 	if (sampleRate != 44100) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad sample rate", core, grainSize, maxVoices, outputMode, sampleRate);
+		ERROR_LOG(Log::sceSas, "sceSasInit(%08x, %i, %i, %i, %i): bad sample rate", core, grainSize, maxVoices, outputMode, sampleRate);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_SAMPLE_RATE);
 	}
 
@@ -292,7 +292,7 @@ static u32 _sceSasCore(u32 core, u32 outAddr) {
 	PROFILE_THIS_SCOPE("mixer");
 
 	if (!Memory::IsValidAddress(outAddr)) {
-		return hleReportError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
+		return hleLogError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
 	}
 	if (!__KernelIsDispatchEnabled()) {
 		return hleLogError(Log::sceSas, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
@@ -308,10 +308,10 @@ static u32 _sceSasCoreWithMix(u32 core, u32 inoutAddr, int leftVolume, int right
 	PROFILE_THIS_SCOPE("mixer");
 
 	if (!Memory::IsValidAddress(inoutAddr)) {
-		return hleReportError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
+		return hleLogError(Log::sceSas, SCE_SAS_ERROR_INVALID_PARAMETER, "invalid address");
 	}
 	if (sas->outputMode == PSP_SAS_OUTPUTMODE_RAW) {
-		return hleReportError(Log::sceSas, SCE_KERNEL_ERROR_BAD_ARGUMENT, "unsupported outputMode");
+		return hleLogError(Log::sceSas, SCE_KERNEL_ERROR_BAD_ARGUMENT, "unsupported outputMode");
 	}
 	if (!__KernelIsDispatchEnabled()) {
 		return hleLogError(Log::sceSas, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
@@ -571,7 +571,7 @@ static u32 sceSasSetADSRMode(u32 core, int voiceNum, int flag, int a, int d, int
 			// Some games do this right at init.  It seems to fail even on a PSP, but let's not report it.
 			return hleLogDebug(Log::sceSas, SCE_SAS_ERROR_INVALID_ADSR_CURVE_MODE, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
 		} else {
-			WARN_LOG_REPORT(Log::sceSas, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
+			WARN_LOG(Log::sceSas, "sceSasSetADSRMode(%08x, %i, %i, %08x, %08x, %08x, %08x): invalid modes", core, voiceNum, flag, a, d, s, r);
 			return hleNoLog(SCE_SAS_ERROR_INVALID_ADSR_CURVE_MODE);
 		}
 	}
@@ -660,7 +660,7 @@ static u32 sceSasSetGrain(u32 core, int grain) {
 	// allocated value beyond PSP_SAS_MAX_GRAIN) read out of bounds of the fixed-size
 	// mixTemp_ buffer during mixing. Apply the same bounds sceSasInit uses.
 	if (grain < 0x40 || grain > 0x800 || (grain & 0x1F) != 0) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasSetGrain(%08x, %i): bad grain size", core, grain);
+		ERROR_LOG(Log::sceSas, "sceSasSetGrain(%08x, %i): bad grain size", core, grain);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_GRAIN);
 	}
 	__SasDrain();
@@ -674,7 +674,7 @@ static u32 sceSasGetOutputMode(u32 core) {
 
 static u32 sceSasSetOutputMode(u32 core, u32 outputMode) {
 	if (outputMode != 0 && outputMode != 1) {
-		ERROR_LOG_REPORT(Log::sceSas, "sceSasSetOutputMode(%08x, %i): bad output mode", core, outputMode);
+		ERROR_LOG(Log::sceSas, "sceSasSetOutputMode(%08x, %i): bad output mode", core, outputMode);
 		return hleNoLog(SCE_SAS_ERROR_INVALID_OUTPUT_MODE);
 	}
 

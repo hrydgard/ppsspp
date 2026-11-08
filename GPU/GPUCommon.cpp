@@ -2609,7 +2609,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG(Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 
@@ -2655,7 +2655,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG(Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 

@@ -1261,7 +1261,6 @@ void PSPSaveDialog::StartIOThread() {
 	ioThreadStatus = SAVEIO_PENDING;
 	ioThread = std::thread([this]() {
 		SetCurrentThreadName("SaveIO");
-
 		AndroidJNIThreadContext jniContext;
 		this->ExecuteIOAction();
 	});

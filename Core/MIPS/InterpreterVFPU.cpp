@@ -23,11 +23,11 @@
 
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
+#include "Common/Log.h"
 
 #include "Core/Compatibility.h"
 #include "Core/Core.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 
@@ -1280,7 +1280,7 @@ namespace MIPSInt
 
 			// Other sizes don't seem completely predictable.
 			if (sz != V_Quad) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby2 with incorrect size");
+				ERROR_LOG(Log::CPU, "vfby2 with incorrect size");
 			}
 		} else {
 			// vbfy1
@@ -1295,7 +1295,7 @@ namespace MIPSInt
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 			if (sz != V_Quad && sz != V_Pair) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby1 with incorrect size");
+				ERROR_LOG(Log::CPU, "vfby1 with incorrect size");
 			}
 		}
 
