@@ -37,7 +37,7 @@ inline struct tm* localtime_r(const time_t *clock, struct tm *result) {
 
 namespace File {
 
-// Mostly to handle UTF-8 filenames better on Windows.
+// Mostly to handle UTF-8 filenames better on Windows. Takes the fopen modes, on content URIs too.
 FILE *OpenCFile(const Path &filename, const char *mode);
 
 // Reminiscent of PSP's FileAccess enum, due to its use in emulating it.
@@ -85,40 +85,44 @@ uint64_t GetFileSize(FILE *f);
 // Computes the recursive size of a directory. Warning: Might be slow!
 uint64_t ComputeRecursiveDirectorySize(const Path &path);
 
-// Returns true if successful, or path already exists.
+// Returns true if successful, or the folder already exists. False if a file has the name.
 bool CreateDir(const Path &filename, bool quiet = false);
 
+// Does nothing on content URIs, which have no way to.
 void ChangeMTime(const Path &path, time_t mtime);
 
-// Creates the full path of fullPath returns true on success
+// Creates the folder and any missing parents. Returns true if the folder is there in the end.
 bool CreateFullPath(const Path &fullPath);
 
 // Deletes a given file by name, return true on success. Fails if the file isn't there.
 // quiet: don't log that it wasn't there.
-// Doesn't support deleting a directory (although it will work on some platforms - ideally shouldn't)
+// Not for folders: it refuses them, except on content URIs, where it deletes them with their contents
+// (checking would take an extra query to the provider on every delete).
 bool Delete(const Path &filename, bool quiet = false);
 
 // Deletes a directory by name, returns true on success
-// Directory must be empty.
+// Directory must be empty, except on content URIs, where it deletes the contents along with it.
 bool DeleteDir(const Path &filename);
 
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const Path &directory);
 
-// Renames/moves file srcFilename to destFilename, returns true on success 
+// Renames/moves file srcFilename to destFilename, returns true on success. Fails if destFilename exists
+// (unless only the case differs).
 // Will usually only work with in the same partition or other unit of storage,
-// so you might have to fall back to copy/delete.
+// so you might have to fall back to copy/delete. On content URIs, only within a folder.
 bool Rename(const Path &srcFilename, const Path &destFilename);
 
-// copies file srcFilename to destFilename, returns true on success 
+// Copies file srcFilename to destFilename, overwriting it. Returns true on success.
 bool Copy(const Path &srcFilename, const Path &destFilename);
 
 // Tries to rename srcFilename to destFilename, if that fails,
 // it tries to copy and delete the src if succeeded. If that fails too,
-// returns false, otherwise returns true.
+// returns false, otherwise returns true. Overwrites destFilename.
 bool Move(const Path &srcFilename, const Path &destFilename);
 
-// Move file, but only if it can be done quickly (rename or similar).
+// Move file, but only if it can be done quickly (rename or similar). Fails if destFilename exists.
+// On content URIs, only if the name stays the same.
 bool MoveIfFast(const Path &srcFilename, const Path &destFilename);
 
 // creates an empty file filename, returns true on success 

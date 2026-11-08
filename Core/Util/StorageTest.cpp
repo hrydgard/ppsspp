@@ -146,6 +146,41 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 		CHECK(File::Copy(scratch / "b.txt", scratch / "sub/b.txt"));
 		CHECK(ReadAll(scratch / "sub/b.txt") == "short");
 		CHECK(ReadAll(scratch / "b.txt") == "short");
+		// To another name, which the provider's own copy can't do.
+		CHECK(File::Copy(scratch / "b.txt", scratch / "sub/other.txt"));
+		CHECK(ReadAll(scratch / "sub/other.txt") == "short");
+		CHECK(!File::Exists(scratch / "sub/b (1).txt"));
+		CHECK(File::Delete(scratch / "sub/other.txt"));
+		return "";
+	});
+
+	run("OpenModes", [&]() -> std::string {
+		const Path file = scratch / "modes.bin";
+		// r and r+ don't create.
+		CHECK(File::OpenCFile(file, "rb") == nullptr);
+		CHECK(File::OpenCFile(file, "rb+") == nullptr);
+		CHECK(!File::Exists(file));
+		FILE *f = File::OpenCFile(file, "wb+");
+		CHECK(f);
+		fwrite("abc", 1, 3, f);
+		fseek(f, 0, SEEK_SET);
+		char buf[4]{};
+		const size_t readBack = fread(buf, 1, 3, f);
+		fclose(f);
+		CHECK(readBack == 3 && std::string(buf) == "abc");
+		f = File::OpenCFile(file, "ab");
+		CHECK(f);
+		fwrite("de", 1, 2, f);
+		fclose(f);
+		CHECK(ReadAll(file) == "abcde");
+		f = File::OpenCFile(file, "rb+");
+		CHECK(f);
+		fwrite("X", 1, 1, f);
+		fclose(f);
+		CHECK(ReadAll(file) == "Xbcde");
+		CHECK(File::GetFileSize(file) == 5);
+		CHECK(File::GetFileSize(scratch) == 0);
+		CHECK(File::Delete(file));
 		return "";
 	});
 
@@ -200,19 +235,20 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 		CHECK(duplicates(dir / "sub").empty());
 		CHECK(copied && ReadAll(dir / "sub/a.txt") == "a");
 
-		// Rename and move onto a taken name differ between platforms (POSIX overwrites, Windows refuses), so
-		// only duplicates are wrong. Note what happened.
-		const bool renamed = File::Rename(dir / "b.txt", dir / "a.txt");
+		// Rename and move refuse a taken name, everywhere.
+		CHECK(!File::Rename(dir / "b.txt", dir / "a.txt"));
 		CHECK(duplicates(dir).empty());
-		outcomes.push_back(std::string("rename ") + (renamed ? (ReadAll(dir / "a.txt") == "b" ? "overwrote" : "?") : "refused"));
-		if (!renamed) {
-			CHECK(ReadAll(dir / "a.txt") == "a" && ReadAll(dir / "b.txt") == "b");
-		}
+		CHECK(ReadAll(dir / "a.txt") == "a" && ReadAll(dir / "b.txt") == "b");
 
 		CHECK(Write(dir / "c.txt", "c"));
-		const bool moved = File::MoveIfFast(dir / "c.txt", dir / "sub/a.txt");
+		CHECK(!File::MoveIfFast(dir / "c.txt", dir / "sub/a.txt"));
 		CHECK(duplicates(dir / "sub").empty());
-		outcomes.push_back(std::string("move ") + (moved ? (ReadAll(dir / "sub/a.txt") == "c" ? "overwrote" : "?") : "refused"));
+		CHECK(ReadAll(dir / "sub/a.txt") == "a" && ReadAll(dir / "c.txt") == "c");
+
+		// Neither does a folder go where a file is.
+		CHECK(!File::CreateDir(dir / "a.txt"));
+		CHECK(!File::CreateFullPath(dir / "a.txt/deeper"));
+		CHECK(duplicates(dir).empty());
 
 		// Creating what's there already, below the File functions (which check first).
 		if (contentURI) {

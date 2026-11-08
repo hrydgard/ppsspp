@@ -194,40 +194,56 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 		break;
 #ifndef HAVE_LIBRETRO_VFS
 	case PathType::CONTENT_URI:
-		// We're gonna need some error codes..
-		if (!strcmp(mode, "r") || !strcmp(mode, "rb") || !strcmp(mode, "rt")) {
-			DEBUG_LOG(Log::IO, "Opening content file for read: '%s'", path.c_str());
-			// Read, let's support this - easy one.
-			int descriptor = Android_OpenContentUriFd(path.ToString(), Android_OpenContentUriMode::READ);
+	{
+		// The fopen modes: r, w or a, then any of b, t and +. Text mode is the same as binary here.
+		char kind = mode[0];
+		bool update = false;
+		for (const char *c = mode + 1; *c; c++) {
+			if (*c == '+') {
+				update = true;
+			} else if (*c != 'b' && *c != 't') {
+				kind = 0;
+			}
+		}
+		int descriptor;
+		const char *fmode;
+		switch (kind) {
+		case 'r':
+			// Like fopen, never creates.
+			descriptor = Android_OpenContentUriFd(path.ToString(), update ? Android_OpenContentUriMode::READ_WRITE : Android_OpenContentUriMode::READ);
 			if (descriptor < 0) {
 				errno = ErrnoFromStorageError(StorageErrorFromInt(descriptor));
-				return nullptr;
 			}
-			return fdopen(descriptor, "rb");
-		} else if (!strcmp(mode, "w") || !strcmp(mode, "wb") || !strcmp(mode, "wt") || !strcmp(mode, "at") || !strcmp(mode, "a")) {
-			// TODO: Support append modes and stuff... For now let's go with the most common one.
-			Android_OpenContentUriMode openMode = Android_OpenContentUriMode::READ_WRITE_TRUNCATE;
-			const char *fmode = "wb";
-			if (!strcmp(mode, "at") || !strcmp(mode, "a")) {
-				openMode = Android_OpenContentUriMode::READ_WRITE;
-				fmode = "ab";
-			}
-			int descriptor = OpenContentUriForWrite(path, openMode);
-			if (descriptor < 0) {
-				INFO_LOG(Log::IO, "Opening '%s' for write failed", path.ToString().c_str());
-				return nullptr;
-			}
-			FILE *f = fdopen(descriptor, fmode);
-			if (f && (!strcmp(mode, "at") || !strcmp(mode, "a"))) {
-				// Append mode - not sure we got a "true" append mode, so seek to the end.
-				Fseek(f, 0, SEEK_END);
-			}
-			return f;
-		} else {
-			ERROR_LOG(Log::IO, "OpenCFile(%s): Mode not yet supported: %s", path.c_str(), mode);
+			fmode = update ? "rb+" : "rb";
+			break;
+		case 'w':
+			descriptor = OpenContentUriForWrite(path, Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+			fmode = update ? "wb+" : "wb";
+			break;
+		case 'a':
+			descriptor = OpenContentUriForWrite(path, Android_OpenContentUriMode::READ_WRITE);
+			fmode = update ? "ab+" : "ab";
+			break;
+		default:
+			ERROR_LOG(Log::IO, "OpenCFile(%s): Bad mode: %s", path.c_str(), mode);
+			errno = EINVAL;
 			return nullptr;
 		}
-		break;
+		if (descriptor < 0) {
+			INFO_LOG(Log::IO, "OpenCFile(%s, %s) failed: %s", path.c_str(), mode, strerror(errno));
+			return nullptr;
+		}
+		FILE *f = fdopen(descriptor, fmode);
+		if (!f) {
+			CloseFD(descriptor);
+			return nullptr;
+		}
+		if (kind == 'a') {
+			// In case fdopen didn't set O_APPEND on the descriptor.
+			Fseek(f, 0, SEEK_END);
+		}
+		return f;
+	}
 #endif
 	default:
 		ERROR_LOG(Log::IO, "OpenCFile(%s): PathType not yet supported", path.c_str());
@@ -455,7 +471,12 @@ static int64_t RecursiveSize(const Path &path) {
 	int64_t sizeSum = 0;
 	for (const auto &file : fileInfo) {
 		if (file.isDirectory) {
-			sizeSum += RecursiveSize(file.fullName);
+			// Like the content URI version, a folder that can't be listed fails the whole thing.
+			const int64_t dirSize = RecursiveSize(file.fullName);
+			if (dirSize < 0) {
+				return -1;
+			}
+			sizeSum += dirSize;
 		} else {
 			sizeSum += file.size;
 		}
@@ -499,18 +520,12 @@ bool Exists(const Path &path) {
 #endif
 	WIN32_FILE_ATTRIBUTE_DATA data{};
 #if PPSSPP_PLATFORM(UWP)
-	if (!GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
-		return false;
-	}
+	const bool found = GetFileAttributesExFromAppW(path.ToWString().c_str(), GetFileExInfoStandard, &data) && data.dwFileAttributes != INVALID_FILE_ATTRIBUTES;
 #else
-	if (!GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) || data.dwFileAttributes == INVALID_FILE_ATTRIBUTES) {
-		return false;
-	}
-#endif
-#if !PPSSPP_PLATFORM(UWP)
+	const bool found = GetFileAttributesEx(path.ToWString().c_str(), GetFileExInfoStandard, &data) && data.dwFileAttributes != INVALID_FILE_ATTRIBUTES;
 	SetErrorMode(OldMode);
 #endif
-	return true;
+	return found;
 #else  // !WIN32
 	struct stat file_info{};
 	return stat(path.c_str(), &file_info) == 0;
@@ -563,7 +578,10 @@ bool IsDirectory(const Path &path) {
 	struct stat file_info{};
 	int result = stat(copy.c_str(), &file_info);
 	if (result < 0) {
-		WARN_LOG(Log::IO, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
+		// Not being there is a plain no, as on Windows.
+		if (errno != ENOENT) {
+			WARN_LOG(Log::IO, "IsDirectory: stat failed on %s: %s", copy.c_str(), GetLastErrorMsg().c_str());
+		}
 		return false;
 	}
 	return S_ISDIR(file_info.st_mode);
@@ -579,6 +597,8 @@ bool Delete(const Path &filename, bool quiet) {
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
+		// Unlike below, this removes a folder too, with its contents: refusing would take an extra query
+		// to the provider on every delete.
 		const StorageError removed = Android_RemoveFile(filename.ToString());
 		if (removed != StorageError::SUCCESS && !(quiet && removed == StorageError::NOT_FOUND)) {
 			WARN_LOG(Log::IO, "Delete: '%s' failed: %s", filename.c_str(), Android_ErrorToString(removed));
@@ -644,8 +664,12 @@ bool CreateDir(const Path &path, bool quiet) {
 	{
 		// Given a taken name, the storage API creates "name (1)", which the Java side then deletes again.
 		// Checking first saves that.
-		if (File::Exists(path)) {
-			return true;
+		FileInfo info;
+		if (Android_GetFileInfo(path.ToString(), &info) && info.exists) {
+			if (!info.isDirectory && !quiet) {
+				WARN_LOG(Log::IO, "CreateDir: '%s' is a file", path.c_str());
+			}
+			return info.isDirectory;
 		}
 
 		// Convert it to a "CreateDirIn" call, if possible, since that's
@@ -658,7 +682,7 @@ bool CreateDir(const Path &path, bool quiet) {
 			}
 			// ALREADY_EXISTS if it showed up since the check, or the check failed.
 			const StorageError created = Android_CreateDirectory(uri.ToString(), newDirName);
-			return created == StorageError::SUCCESS || created == StorageError::ALREADY_EXISTS;
+			return created == StorageError::SUCCESS || (created == StorageError::ALREADY_EXISTS && IsDirectory(path));
 		} else {
 			// Bad path - can't create this directory.
 			if (!quiet) {
@@ -680,6 +704,8 @@ bool CreateDir(const Path &path, bool quiet) {
 	switch (LibretroMkdir(path.ToString().c_str())) {
 		case -2:
 			DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+			// Only fine if it's a folder.
+			return IsDirectory(path);
 		case 0:
 			return true;
 		default:
@@ -700,7 +726,8 @@ bool CreateDir(const Path &path, bool quiet) {
 		if (!quiet) {
 			DEBUG_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
 		}
-		return true;
+		// Only fine if it's a folder.
+		return IsDirectory(path);
 	}
 	if (!quiet) {
 		ERROR_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
@@ -720,7 +747,8 @@ bool CreateDir(const Path &path, bool quiet) {
 		}
 		// Don't touch the permissions of existing directories: CreateFullPath calls this
 		// on every component of a path, including the user's home directory.
-		return true;
+		// Only fine if it's a folder.
+		return IsDirectory(path);
 	}
 
 	if (!quiet) {
@@ -732,13 +760,12 @@ bool CreateDir(const Path &path, bool quiet) {
 
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
-	if (File::Exists(path)) {
+	if (File::IsDirectory(path)) {
 		VERBOSE_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
 #if !defined(HAVE_LIBRETRO_VFS) && !defined(_WIN32)
 		// Repair directories created with older, narrower permissions. Only the last
 		// component, the parents can be anything (like the user's home directory).
-		struct stat info;
-		if (path.Type() == PathType::NATIVE && stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) {
+		if (path.Type() == PathType::NATIVE) {
 			chmod(path.c_str(), 0775);
 		}
 #endif
@@ -785,13 +812,18 @@ bool CreateFullPath(const Path &path) {
 		return false;
 	}
 
+	// Only the last one counts: a parent we can't create (or see) may well be there already.
+	bool created = false;
 	for (auto part : parts) {
 		// Path("") / "a" would be "/a".
 		curPath = curPath.empty() ? Path(std::string(part)) : curPath / part;
-		File::CreateDir(curPath);
+		created = File::CreateDir(curPath);
 	}
 
-	return true;
+	if (!created) {
+		ERROR_LOG(Log::IO, "CreateFullPath: couldn't create %s", path.ToVisualString().c_str());
+	}
+	return created;
 }
 
 // renames file srcFilename to destFilename, returns true on success
@@ -808,6 +840,16 @@ bool Rename(const Path &srcFilename, const Path &destFilename) {
 		// of Rename.
 		return false;
 	}
+
+#if !defined(_WIN32) || defined(HAVE_LIBRETRO_VFS)
+	// Never over an existing file or folder: content URIs can't, and Windows doesn't, so POSIX doesn't either.
+	// Those two refuse by themselves (without the cost of asking a content provider first).
+	// A rename that only changes the case is fine, on file systems that ignore case the target "exists".
+	if (srcFilename.Type() == PathType::NATIVE && !equalsNoCase(srcFilename.ToString(), destFilename.ToString()) && Exists(destFilename)) {
+		WARN_LOG(Log::IO, "Rename: %s --> %s: the target exists", srcFilename.c_str(), destFilename.c_str());
+		return false;
+	}
+#endif
 
 	// We've already asserted that they're the same Type, so only need to check either src or dest.
 	switch (srcFilename.Type()) {
@@ -869,7 +911,8 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		if (destFilename.Type() == PathType::CONTENT_URI && destFilename.CanNavigateUp()) {
+		// The provider's copy keeps the name, so it can only be used when that's what's wanted.
+		if (destFilename.Type() == PathType::CONTENT_URI && destFilename.CanNavigateUp() && srcFilename.GetFilename() == destFilename.GetFilename()) {
 			Path destParent = destFilename.NavigateUp();
 			// Use native file copy.
 			if (Android_CopyFile(srcFilename.ToString(), destParent.ToString()) == StorageError::SUCCESS) {
@@ -954,9 +997,12 @@ bool Copy(const Path &srcFilename, const Path &destFilename) {
 		WARN_LOG(Log::IO, "Copy: No bytes written (must mean that input was empty)");
 	}
 
-	// close flushes
 	fclose(input);
-	fclose(output);
+	// A full disk can show up only here, when the buffer is flushed.
+	if (fclose(output) != 0) {
+		ERROR_LOG(Log::IO, "Copy: failed writing to output, %s --> %s: %s", srcFilename.c_str(), destFilename.c_str(), GetLastErrorMsg().c_str());
+		return false;
+	}
 	return true;
 #endif
 }
@@ -1017,7 +1063,8 @@ uint64_t GetFileSize(const Path &filename) {
 	case PathType::CONTENT_URI:
 		{
 			FileInfo info;
-			if (Android_GetFileInfo(filename.ToString(), &info)) {
+			// 0 for folders, like below.
+			if (Android_GetFileInfo(filename.ToString(), &info) && !info.isDirectory) {
 				return info.size;
 			} else {
 				return 0;
@@ -1536,8 +1583,8 @@ bool WriteStringToFile(bool text_file, std::string_view str, const Path &filenam
 		fclose(f);
 		return false;
 	}
-	fclose(f);
-	return true;
+	// A full disk can show up only here, when the buffer is flushed.
+	return fclose(f) == 0;
 }
 
 bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &filename) {
