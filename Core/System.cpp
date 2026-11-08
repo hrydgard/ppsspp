@@ -387,6 +387,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
+	g_RemasterHLEFonts = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	g_CoreParameter.fileType = type;

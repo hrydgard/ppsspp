@@ -24,6 +24,7 @@
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Font/PGF.h"
+#include "Core/HDRemaster.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
 #include "Common/Data/Text/I18n.h"
@@ -1001,8 +1002,12 @@ static void __LoadInternalFonts() {
 	const std::string gameFontPath = "disc0:/PSP_GAME/USRDIR/";
 
 	const bool checkClassicOverrides = pspFileSystem.GetFileInfo(fontOverridePath).exists;
+	// See g_HDRemasters. Our own fonts, from assets, then.
+	const bool useNand = !checkClassicOverrides && !g_RemasterHLEFonts;
 	if (checkClassicOverrides) {
 		WARN_LOG(Log::sceFont, "Classic font overrides active, ignoring NAND: %s", fontOverridePath.c_str());
+	} else if (g_RemasterHLEFonts) {
+		INFO_LOG(Log::sceFont, "Not using the NAND's fonts for this HD remaster");
 	} else if (!NandFontsComplete()) {
 		InstallFontsFromDiscUpdater();
 	}
@@ -1035,7 +1040,7 @@ static void __LoadInternalFonts() {
 			// No game font, let's try classic override path. NOTE: This is not recommended - use flash0.
 			fontFilename = fontOverridePath + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
-		} else if (!bufferRead) {
+		} else if (useNand && !bufferRead) {
 			// The real fonts, from a firmware the user installed or that we took off a disc.
 			fontFilename = std::string(g_nandFontPath) + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
