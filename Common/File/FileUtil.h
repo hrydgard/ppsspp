@@ -93,7 +93,8 @@ void ChangeMTime(const Path &path, time_t mtime);
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &fullPath);
 
-// Deletes a given file by name, return true on success
+// Deletes a given file by name, return true on success. Fails if the file isn't there.
+// quiet: don't log that it wasn't there.
 // Doesn't support deleting a directory (although it will work on some platforms - ideally shouldn't)
 bool Delete(const Path &filename, bool quiet = false);
 

@@ -152,6 +152,8 @@ int RunStorageTests(const Path &root, const std::function<void(const StorageTest
 	run("Delete", [&]() -> std::string {
 		CHECK(File::Delete(scratch / "b.txt"));
 		CHECK(!File::Exists(scratch / "b.txt"));
+		// Like unlink, on every kind of storage.
+		CHECK(!File::Delete(scratch / "b.txt", true));
 		return "";
 	});
 

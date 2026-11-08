@@ -394,7 +394,11 @@ public class ContentUri {
 			Uri uri = Uri.parse(fileName);
 			DocumentFile documentFile = DocumentFile.fromSingleUri(activity, uri);
 			if (documentFile != null) {
-				return documentFile.delete() ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+				if (documentFile.delete()) {
+					return STORAGE_ERROR_SUCCESS;
+				}
+				// delete() swallows the exception that would say why.
+				return documentFile.exists() ? STORAGE_ERROR_UNKNOWN : STORAGE_ERROR_NOT_FOUND;
 			} else {
 				// This can return null on old Android versions (that we no longer supports).
 				return STORAGE_ERROR_UNKNOWN;

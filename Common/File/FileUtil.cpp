@@ -570,8 +570,6 @@ bool IsDirectory(const Path &path) {
 #endif
 }
 
-// Deletes a given filename, return true on success
-// Doesn't supports deleting a directory
 bool Delete(const Path &filename, bool quiet) {
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(200, "slow-io-sim");
@@ -580,18 +578,22 @@ bool Delete(const Path &filename, bool quiet) {
 	case PathType::NATIVE:
 		break; // OK
 	case PathType::CONTENT_URI:
-		return Android_RemoveFile(filename.ToString()) == StorageError::SUCCESS;
+	{
+		const StorageError removed = Android_RemoveFile(filename.ToString());
+		if (removed != StorageError::SUCCESS && !(quiet && removed == StorageError::NOT_FOUND)) {
+			WARN_LOG(Log::IO, "Delete: '%s' failed: %s", filename.c_str(), Android_ErrorToString(removed));
+		}
+		return removed == StorageError::SUCCESS;
+	}
 	default:
 		return false;
 	}
 
-	// Return true because we care about the file no
-	// being there, not the actual delete.
 	if (!Exists(filename)) {
 		if (!quiet) {
-			WARN_LOG(Log::IO, "Delete: '%s' already does not exist", filename.c_str());
+			WARN_LOG(Log::IO, "Delete: '%s' doesn't exist", filename.c_str());
 		}
-		return true;
+		return false;
 	}
 
 	// We can't delete a directory
