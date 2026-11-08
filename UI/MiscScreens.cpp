@@ -602,8 +602,8 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		right->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 	}
 
-	left->ApplyRoundCorners();
-	right->ApplyRoundCorners();
+	left->SetRoundCorners();
+	right->SetRoundCorners();
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -641,8 +641,8 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		});
 	}
 
-	left->ApplyRoundCorners();
-	right->ApplyRoundCorners();
+	left->SetRoundCorners();
+	right->SetRoundCorners();
 }
 
 void CreditsScreen::update() {

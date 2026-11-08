@@ -878,6 +878,7 @@ protected:
 
 class InfoItem : public Item {
 public:
+	// If you pass an empty string for rightText, it will be left blank.
 	InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams = nullptr);
 	InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams = nullptr);
 

@@ -353,7 +353,7 @@ void DisplayLayoutScreen::CreateViews() {
 		mode_->SetSelection(0, false);
 		// The game goes to another output, like a TV, which doesn't use this layout.
 		mode_->SetEnabled(screenManager()->FindOutput(OutputRole::Game) == nullptr);
-		mode_->ApplyRoundCorners();
+		mode_->SetRoundCorners();
 		bottomControls->Add(mode_);
 	}
 
@@ -428,7 +428,7 @@ void DisplayLayoutScreen::CreateViews() {
 		return g_Config.bStereoRendering && multiViewSupported;
 	};
 
-	leftColumn->ApplyRoundCorners();
+	leftColumn->SetRoundCorners();
 
 	leftColumn->Add(new ItemHeader(gr->T("Postprocessing shaders")));
 

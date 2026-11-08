@@ -526,7 +526,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 	if (buttonRow->GetNumSubviews() == 0) {
 		delete buttonRow;
 	} else {
-		buttonRow->ApplyRoundCorners();
+		buttonRow->SetRoundCorners();
 		*extraRow = buttonRow;
 	}
 }
@@ -666,7 +666,7 @@ void GamePauseScreen::CreateViews() {
 			horiz->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps");
 			});
-			horiz->ApplyRoundCorners();
+			horiz->SetRoundCorners();
 		}
 		LinearLayout *extraRow = nullptr;
 		CreateSavestateControls(saveDataScrollItems, &extraRow);
@@ -854,7 +854,7 @@ void GamePauseScreen::CreateViews() {
 			});
 		}
 
-		middleColumn->ApplyRoundCorners();
+		middleColumn->SetRoundCorners();
 	} else {
 		playButton_ = nullptr;
 	}

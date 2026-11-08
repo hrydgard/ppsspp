@@ -142,6 +142,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/FirmwareScreen.h"
+#include "UI/DriverManagerScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
@@ -921,6 +922,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "credits")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new CreditsScreen());
+		} else if (equals(cmdLineOptions.startScreen.value(), "driver")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DriverManagerScreen(Path()));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

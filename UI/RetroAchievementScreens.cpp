@@ -35,7 +35,7 @@ public:
 constexpr double MAX_AUDIO_DURATION_SECONDS = 5.0;
 AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
 	using namespace UI;
-	SetSpacing(2.0f);
+	SetSpacing(0.0f);
 	if (!layoutParams) {
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
@@ -455,6 +455,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 		});
 		regLink->SetIconRight(ImageID("I_LINK_OUT"));
+		regLink->SetRoundCorners();
 	}
 
 	using namespace UI;
