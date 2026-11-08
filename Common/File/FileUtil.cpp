@@ -640,8 +640,8 @@ bool CreateDir(const Path &path, bool quiet) {
 		break; // OK
 	case PathType::CONTENT_URI:
 	{
-		// NOTE: The Android storage API will simply create a renamed directory (append a number) if it already exists.
-		// We want to avoid that, so let's just return true if the directory already is there.
+		// Given a taken name, the storage API creates "name (1)", which the Java side then deletes again.
+		// Checking first saves that.
 		if (File::Exists(path)) {
 			return true;
 		}
@@ -654,7 +654,9 @@ bool CreateDir(const Path &path, bool quiet) {
 			if (!quiet) {
 				INFO_LOG(Log::IO, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
 			}
-			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
+			// ALREADY_EXISTS if it showed up since the check, or the check failed.
+			const StorageError created = Android_CreateDirectory(uri.ToString(), newDirName);
+			return created == StorageError::SUCCESS || created == StorageError::ALREADY_EXISTS;
 		} else {
 			// Bad path - can't create this directory.
 			if (!quiet) {
