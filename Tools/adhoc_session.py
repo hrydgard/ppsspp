@@ -478,9 +478,16 @@ def screen_matches(args, image):
 	mask = ref.getchannel("A").point(lambda a: 255 if a >= 128 else 0) if "A" in ref.getbands() else None
 	ref = ref.convert("RGB")
 	x, y = parse_ints(args.box, 2)[:2] if args.box else (0, 0)
-	region = image.convert("RGB").crop((x, y, x + ref.width, y + ref.height))
-	diff = ImageStat.Stat(ImageChops.difference(region, ref), mask).mean
-	return sum(diff) / len(diff) <= args.tolerance
+	screen = image.convert("RGB")
+	# --slack N also tries the reference up to N pixels off in each direction, for screens that land a
+	# pixel or two away from where they did when the reference was cut.
+	for dy in range(-args.slack, args.slack + 1):
+		for dx in range(-args.slack, args.slack + 1):
+			region = screen.crop((x + dx, y + dy, x + dx + ref.width, y + dy + ref.height))
+			diff = ImageStat.Stat(ImageChops.difference(region, ref), mask).mean
+			if sum(diff) / len(diff) <= args.tolerance:
+				return True
+	return False
 
 
 def cmd_until(args):
@@ -629,6 +636,7 @@ def build_parser():
 	p.add_argument("--pixel", help="X,Y of a pixel to check instead")
 	p.add_argument("--color", help="With --pixel: RRGGBB")
 	p.add_argument("--tolerance", type=float, default=12, help="Mean difference per channel allowed (0-255; default 12)")
+	p.add_argument("--slack", type=int, default=0, help="Also try the reference up to this many pixels off in each direction")
 	p.add_argument("--press", help="Keep pressing this button while waiting")
 	p.add_argument("--every", type=float, default=2, help="With --press: seconds between presses (default 2)")
 	p.add_argument("--timeout", type=float, default=60)
