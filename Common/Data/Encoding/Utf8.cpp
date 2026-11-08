@@ -169,6 +169,24 @@ bool UTF8StringHasNonASCII(std::string_view utf8string) {
 	return UTF8StringNonASCIICount(utf8string) > 0;
 }
 
+static bool CodepointIsRTL(uint32_t c) {
+	return (c >= 0x0590 && c <= 0x08FF) ||  // Hebrew, Arabic, Syriac, Thaana, NKo, ...
+		(c >= 0xFB1D && c <= 0xFDFF) ||  // Hebrew and Arabic presentation forms
+		(c >= 0xFE70 && c <= 0xFEFF) ||
+		(c >= 0x10800 && c <= 0x10FFF) ||
+		(c >= 0x1E800 && c <= 0x1EFFF);
+}
+
+bool UTF8StringHasRTL(std::string_view utf8string) {
+	UTF8 utf(utf8string);
+	while (!utf.end()) {
+		if (CodepointIsRTL(utf.next())) {
+			return true;
+		}
+	}
+	return false;
+}
+
 #ifdef _WIN32
 
 std::string ConvertWStringToUTF8(const wchar_t *wstr) {

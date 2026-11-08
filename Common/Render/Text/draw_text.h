@@ -114,6 +114,10 @@ protected:
 	// Wraps and/or ellipsizes, caching the result. The reference stays valid until the next OncePerFrame.
 	const std::string &WrapString(const FontStyle &style, float scale, std::string_view str, float maxWidth, int flags);
 
+	// When the UI language is right to left, puts each line containing right-to-left text in an RTL embedding,
+	// so every backend lays it out right to left, whatever its first character. Otherwise returns str as is.
+	static std::string_view ApplyBaseDirection(std::string_view str, std::string *storage);
+
 	// v has the 8-bit alpha.
 	static u16 AlphaToPremul4444(u32 v) {
 		v = (v >> 4) & 0x0F;

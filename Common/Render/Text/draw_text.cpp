@@ -17,6 +17,7 @@
 #include "Common/System/Display.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Hash/Hash.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
 
@@ -90,6 +91,33 @@ const std::string &TextDrawer::WrapString(const FontStyle &style, float scale, s
 	return entry.wrapped;
 }
 
+// The backends disagree on a line's base direction: GDI and DirectWrite always start left to right, the others
+// go by the first strong character, which is wrong for a Hebrew sentence that starts with "PPSSPP". An explicit
+// embedding (RLE ... PDF) means the same to all of them.
+std::string_view TextDrawer::ApplyBaseDirection(std::string_view str, std::string *storage) {
+	if (!g_i18nrepo.IsRTL() || !UTF8StringHasRTL(str)) {
+		return str;
+	}
+	static constexpr std::string_view RLE = "\xE2\x80\xAB";  // U+202B
+	static constexpr std::string_view PDF = "\xE2\x80\xAC";  // U+202C
+	storage->clear();
+	std::vector<std::string_view> lines;
+	SplitString(str, '\n', lines);
+	for (size_t i = 0; i < lines.size(); i++) {
+		if (i > 0) {
+			storage->push_back('\n');
+		}
+		if (UTF8StringHasRTL(lines[i])) {
+			storage->append(RLE);
+			storage->append(lines[i]);
+			storage->append(PDF);
+		} else {
+			storage->append(lines[i]);
+		}
+	}
+	return *storage;
+}
+
 float TextDrawer::CalculateDPIScale() const {
 	if (ignoreGlobalDpi_)
 		return dpiScale_;
@@ -143,7 +171,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const FontStyle &style, float sc
 		TextureDesc desc{};
 		std::vector<uint8_t> bitmapData;
 		EnsureFont(style);
-		if (!DrawStringBitmap(style, bitmapData, *entry, bitmapFormat, str, align, emoji)) {
+		std::string bidiStorage;
+		if (!DrawStringBitmap(style, bitmapData, *entry, bitmapFormat, ApplyBaseDirection(str, &bidiStorage), align, emoji)) {
 			// Nothing drawn. The entry without a texture records that fact.
 			return;
 		}
@@ -199,7 +228,8 @@ void TextDrawer::MeasureString(const FontStyle &style, float scaleX, float scale
 	if (inserted) {
 		EnsureFont(style);
 		float extW = 0.0f, extH = 0.0f;
-		MeasureStringInternal(style, str, &extW, &extH);
+		std::string bidiStorage;
+		MeasureStringInternal(style, ApplyBaseDirection(str, &bidiStorage), &extW, &extH);
 		entry.width = extW;
 		entry.height = extH;
 		// Hm, use the old calculation?
@@ -264,7 +294,9 @@ bool TextDrawer::DrawStringBitmapRect(const FontStyle &style, float scale, std::
 
 	const int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
 	EnsureFont(style);
-	return DrawStringBitmap(style, bitmapData, entry, texFormat, wrap ? std::string_view(WrapString(style, scale, str, bounds.w, wrap)) : str, align, fullColor);
+	std::string bidiStorage;
+	const std::string_view text = wrap ? std::string_view(WrapString(style, scale, str, bounds.w, wrap)) : str;
+	return DrawStringBitmap(style, bitmapData, entry, texFormat, ApplyBaseDirection(text, &bidiStorage), align, fullColor);
 }
 
 void TextDrawer::AddDropShadow(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat srcFormat) const {
