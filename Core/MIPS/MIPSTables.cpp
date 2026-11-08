@@ -1145,7 +1145,7 @@ static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
 		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
 			// A hook runs the original instruction and goes on, like a disabled replacement.
 			const ReplacementTableEntry *entry = GetReplacementFunc(enc & MIPS_REPLACEMENT_INDEX_MASK);
-			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOK | REPFLAG_HOOKEXIT)) == 0) {
 				return IRBlockEnd::NOW;
 			}
 		}

@@ -51,9 +51,9 @@ typedef int (* ReplaceFunc)(MIPSState *mips);
 enum {
 	// Used to keep things around but disable them.
 	REPFLAG_DISABLED = 0x02,
-	// Note that this will re-execute in a function that loops at start.
-	REPFLAG_HOOKENTER = 0x04,
-	// Only hooks jr ra, so only use on funcs that have that.
+	// Executes the replacement, then the original instruction (note: this will re-execute if a function loops here.)
+	REPFLAG_HOOK = 0x04,
+	// Finds 'jr ra' instructions and hooks only them, so only use on funcs that have that.
 	REPFLAG_HOOKEXIT = 0x08,
 	// Function may take a lot of time and execute in slices (executed multiple times.)
 	REPFLAG_SLICED = 0x10,
@@ -65,7 +65,7 @@ struct ReplacementTableEntry {
 	ReplaceFunc replaceFunc;
 	MIPSComp::MIPSReplaceFunc jitReplaceFunc;
 	int flags;
-	s32 hookOffset;
+	s32 hookOffset;  // hook's offset from the function's start (only for REPFLAG_HOOK)
 };
 
 void Replacement_Init();
@@ -79,9 +79,9 @@ const ReplacementTableEntry *GetReplacementFunc(size_t index);
 // entry: the JIT's block there, or the hook value if there's none. The CPU cores look up every
 // instruction with a nonzero entry when they run or compile it, and substitute the CallRepl
 // pseudo-op.
-void WriteReplaceInstructions(u32 address, u64 hash, int size);
-void RestoreReplacedInstruction(u32 address);
-void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
+void InstallReplacements(u32 address, u64 hash, int size);
+void RemoveReplacement(u32 address);
+void RemoveReplacements(u32 startAddr, u32 endAddr);
 // The address and original instruction of every installed hook.
 std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
 // Some old savestates have hook ops in memory, which the CPU would now take as illegal and which
@@ -89,7 +89,7 @@ std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
 // session hooked at the same addresses (booting the game hooked the same module there).
 void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps);
 // Drops hooks in functions the game has changed. Called when the icache is invalidated over them.
-void Replacement_CheckRange(u32 address, u32 length);
+void RemoveModifiedReplacementsInRange(u32 address, u32 length);
 
 // The JIT's hook value, which its dispatcher sends to the compiler. Rewrites the hooks' entries.
 void Replacement_SetBlockShadowHook(u32 value);

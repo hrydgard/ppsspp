@@ -378,7 +378,7 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	// Removing the hook while a block holds the entry clears it once the block is destroyed.
 	mipsr4k.UpdateCore(CPUCore::JIT);
 	compile();
-	RestoreReplacedInstructions(func, func + size);
+	RemoveReplacements(func, func + size);
 	EXPECT_FALSE(Replacement_IsHooked(func));
 	currentMIPS->ProcessPendingInvalidates();
 	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), 0);
@@ -456,7 +456,7 @@ bool TestJitReplacementHooks() {
 
 	const bool success = CheckReplacementHooks(func, size, code);
 
-	RestoreReplacedInstructions(func, func + size);
+	RemoveReplacements(func, func + size);
 	Replacement_Shutdown();
 	MIPSAnalyst::Reset();
 	DestroyJitHarness();
