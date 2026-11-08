@@ -50,6 +50,10 @@ std::string I18NRepo::LanguageID() {
 	return languageID_;
 }
 
+bool I18NRepo::IsRTL() const {
+	return languageID_ == "he_IL" || languageID_ == "ar_AE" || languageID_ == "fa_IR" || languageID_ == "ku_SO";
+}
+
 I18NRepo::I18NRepo() {
 	Clear();
 }
