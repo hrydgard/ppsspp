@@ -893,12 +893,6 @@ public:
 		return queueRunner_.GetGLString(name);
 	}
 
-	// Used during Android-style ugly shutdown. No need to have a way to set it back because we'll be
-	// destroyed.
-	void SetSkipGLCalls() {
-		skipGLCalls_ = true;
-	}
-
 	int GetNumSteps() const {
 		return (int)steps_.size();
 	}
@@ -953,8 +947,6 @@ private:
 	bool syncDone_ = false;
 
 	GLDeleter deleter_;
-	// Set from either thread, read on the render thread.
-	std::atomic<bool> skipGLCalls_{false};
 
 	int curFrame_ = 0;
 

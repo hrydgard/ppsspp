@@ -126,9 +126,9 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
-void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
-	if (skipGLCalls) {
-		// Some bookkeeping still needs to be done.
+void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool dryRun) {
+	if (dryRun) {
+		// Steps that will never run (left over at shutdown): only free what they own.
 		for (size_t i = 0; i < steps.size(); i++) {
 			const GLRInitStep &step = steps[i];
 			switch (step.stepType) {
@@ -156,14 +156,8 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				}
 				break;
 			}
-			case GLRInitStepType::CREATE_PROGRAM:
-			{
-				WARN_LOG(Log::G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
-				break;
-			}
 			case GLRInitStepType::CREATE_SHADER:
 			{
-				WARN_LOG(Log::G3D, "CREATE_SHADER found with skipGLCalls, not good");
 				delete[] step.create_shader.code;
 				break;
 			}
@@ -675,8 +669,8 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
-	if (skipGLCalls) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool dryRun, bool keepSteps, bool useVR) {
+	if (dryRun) {
 		if (keepSteps) {
 			return;
 		}

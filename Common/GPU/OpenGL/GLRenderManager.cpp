@@ -44,7 +44,7 @@ GLRenderManager::~GLRenderManager() {
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
-	deleter_.Perform(this, skipGLCalls_);
+	deleter_.Perform(this);
 	_assert_(deleter_.IsEmpty());
 }
 
@@ -55,7 +55,6 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 
 	exitNotified_ = false;
 	hitExit_ = false;
-	skipGLCalls_ = false;
 
 	if (newInflightFrames_ != -1) {
 		INFO_LOG(Log::G3D, "OpenGL: Updating inflight frames to %d", newInflightFrames_);
@@ -106,13 +105,12 @@ void GLRenderManager::ThreadEnd() {
 
 	VLOG("  PULL: Quitting");
 
-	// Good time to run all the deleters to get rid of leftover objects.
+	// Good time to run all the deleters to get rid of leftover objects. The context is still current.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		// Since we're in shutdown, we should skip the GL calls on Android.
-		frameData_[i].deleter.Perform(this, skipGLCalls_);
-		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
+		frameData_[i].deleter.Perform(this);
+		frameData_[i].deleter_prev.Perform(this);
 	}
-	deleter_.Perform(this, skipGLCalls_);
+	deleter_.Perform(this);
 	// Steps that never got submitted. A dry run frees the data they own (texture uploads etc), and the steps.
 	queueRunner_.RunInitSteps(initSteps_, true);
 	initSteps_.clear();
@@ -458,15 +456,15 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 	if (!frameData.hasBegun) {
 		frameData.hasBegun = true;
 
-		frameData.deleter_prev.Perform(this, skipGLCalls_);
+		frameData.deleter_prev.Perform(this);
 		frameData.deleter_prev.Take(frameData.deleter);
 	}
 
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunInitSteps(task.initSteps, skipGLCalls_);
+	queueRunner_.RunInitSteps(task.initSteps, false);
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
-	if (!skipGLCalls_) {
+	{
 		std::lock_guard<std::mutex> lock(pushBuffersMutex_);
 		for (auto iter : frameData.activePushBuffers) {
 			iter->Flush();
@@ -479,7 +477,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 	}
 
 #ifdef __LIBRETRO__
-	if (Libretro::VRActive() && !skipGLCalls_) {
+	if (Libretro::VRActive()) {
 		for (int eye = 0; eye < 2; ++eye) {
 			Libretro::BeginVREye(eye);
 			queueRunner_.RunSteps(task.steps, frameData, false, eye == 0, false);
@@ -491,18 +489,18 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		int passes = GetVRPassesCount();
 		for (int i = 0; i < passes; i++) {
 			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, i < passes - 1, true);
+			queueRunner_.RunSteps(task.steps, frameData, false, i < passes - 1, true);
 			PostVRFrameRender();
 		}
 	} else {
-		queueRunner_.RunSteps(task.steps, frameData, skipGLCalls_, false, false);
+		queueRunner_.RunSteps(task.steps, frameData, false, false, false);
 	}
 
 	if (frameData.profile.enabled) {
 		frameData.profile.cpuEndTime = time_now_d();
 	}
 
-	if (!skipGLCalls_) {
+	{
 		std::lock_guard<std::mutex> lock(pushBuffersMutex_);
 		for (auto iter : frameData.activePushBuffers) {
 			iter->MapDevice(bufferStrategy_);

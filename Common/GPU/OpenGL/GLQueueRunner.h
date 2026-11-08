@@ -369,9 +369,10 @@ public:
 		caps_ = caps;
 	}
 
-	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls);
+	// dryRun: the steps will never run (left over at shutdown), so only free what they own.
+	void RunInitSteps(const FastVec<GLRInitStep> &steps, bool dryRun);
 
-	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR);
+	void RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool dryRun, bool keepSteps, bool useVR);
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
