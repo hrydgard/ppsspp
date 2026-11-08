@@ -626,9 +626,10 @@ int MetaFileSystem::ReadEntireFile(const std::string &filename, std::vector<u8> 
 		return handle;
 
 	SeekFile(handle, 0, FILEMOVE_END);
-	const s64 fileSize = GetSeekPos(handle);
+	// A failed seek is (size_t)-1, which an s64 only sees as negative on 64-bit.
+	const size_t fileSize = GetSeekPos(handle);
 	SeekFile(handle, 0, FILEMOVE_BEGIN);
-	if (fileSize < 0 || (u64)fileSize > maxSize) {
+	if (fileSize == (size_t)-1 || fileSize > maxSize || fileSize > data.max_size()) {
 		CloseFile(handle);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
