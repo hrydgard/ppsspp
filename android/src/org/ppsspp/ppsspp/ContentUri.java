@@ -175,12 +175,27 @@ public class ContentUri {
 		return context.getContentResolver().query(uri, projection, null, null, null);
 	}
 
+	// Like query. The resolver's own open is slower: it takes a stable reference to the provider for each
+	// call, and drops it after.
+	private static ParcelFileDescriptor openFile(Context context, Uri uri, String mode) throws Exception {
+		final ContentProviderClient c = getClient(context, uri);
+		if (c != null) {
+			try {
+				return c.openFile(uri, mode);
+			} catch (android.os.DeadObjectException e) {
+				Log.w(TAG, "Storage provider died, acquiring it again");
+				dropClient(uri.getAuthority(), c);
+			}
+		}
+		return context.getContentResolver().openFileDescriptor(uri, mode);
+	}
+
 	@Keep
 	@SuppressWarnings("unused")
 	public static int openContentUri(Activity activity, String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			try (ParcelFileDescriptor filePfd = activity.getContentResolver().openFileDescriptor(uri, mode)) {
+			try (ParcelFileDescriptor filePfd = openFile(activity, uri, mode)) {
 				if (filePfd == null) {
 					// I'd expect an exception to happen before we get here, so this is probably
 					// never reached.
