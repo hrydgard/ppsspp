@@ -383,9 +383,12 @@ void InstanceSyncReached(int64_t ms) {
 	const int32_t value = (int32_t)std::min<int64_t>(ms + 1, SYNC_LEFT - 1);
 	syncPublished = value;
 	syncSlots[syncIndex - 1].store(value, std::memory_order_release);
-	// Usually the others are a few microseconds of wall time away, so yield first. Spinning longer
-	// would take the CPU from the instance being waited for.
-	for (int tries = 0; ; tries++) {
+	// Usually the others are a few microseconds of wall time away, so yield (which gives the CPU to
+	// the instance being waited for if it needs it). Only sleep once the wait has gone on for a while:
+	// a short sleep takes a millisecond or more, 15.6 ms on Windows by default, and at the tests' 8x to
+	// 16x speed one per emulated millisecond slows them down tenfold.
+	const double start = time_now_d();
+	for (;;) {
 		const double now = time_now_d();
 		bool behind = false;
 		for (int i = 0; i < syncCount && !behind; i++) {
@@ -396,7 +399,7 @@ void InstanceSyncReached(int64_t ms) {
 		if (!behind) {
 			return;
 		}
-		if (tries < 16) {
+		if (now - start < 0.005) {
 			std::this_thread::yield();
 		} else {
 			std::this_thread::sleep_for(std::chrono::microseconds(50));
