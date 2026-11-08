@@ -4969,9 +4969,6 @@ void __NetTriggerCallbacks()
 			case ADHOCCTL_EVENT_DISCOVER:
 				newState = adhocctlSleepState == ADHOCCTL_STATE_WOL ? ADHOCCTL_STATE_WOL : ADHOCCTL_STATE_DISCOVER;
 				break;
-			case ADHOCCTL_EVENT_WOL_INTERRUPT:
-				newState = ADHOCCTL_STATE_WOL;
-				break;
 			case ADHOCCTL_EVENT_ERROR:
 				delayus = adhocDefaultDelay * 3;
 				break;
@@ -5436,7 +5433,10 @@ void NetAdhocDiscover_OnAdhocctlEvent(u32 event, u32 error) {
 		flag = DISCOVER_FLAG_DISCOVER;
 		break;
 	case ADHOCCTL_EVENT_WOL: flag = DISCOVER_FLAG_WOL; break;
-	case ADHOCCTL_EVENT_WOL_INTERRUPT: flag = DISCOVER_FLAG_WOL_INTERRUPT; break;
+	case ADHOCCTL_EVENT_WOL_INTERRUPT:
+		flag = DISCOVER_FLAG_WOL_INTERRUPT;
+		discoverSuspendAllowed = true;
+		break;
 	case 8: flag = DISCOVER_FLAG_ABORT; break;
 	default: return;
 	}
@@ -5532,16 +5532,20 @@ static int NetAdhocctl_DiscoverSleep(bool wol) {
 	return 0;
 }
 
+// Wakes a sleeping adhocctl: from DISCOVER with event WOL, from WOL with event WOL_INTERRUPT. The WOL
+// state is for consoles in sleep mode (Dissidia's card exchange asks for both to be put to sleep),
+// which we don't have, so it wakes at once like DISCOVER.
 static void NetAdhocctl_CheckDiscoverWake() {
-	if (adhocctlSleepState != ADHOCCTL_STATE_DISCOVER || adhocctlState != ADHOCCTL_STATE_DISCOVER) {
+	if (adhocctlSleepState == ADHOCCTL_STATE_DISCONNECTED || adhocctlState != adhocctlSleepState) {
 		return;
 	}
 	if (!AdhocctlSomeoneNear()) {
 		return;
 	}
+	bool wol = adhocctlSleepState == ADHOCCTL_STATE_WOL;
 	adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
 	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-	notifyAdhocctlHandlers(ADHOCCTL_EVENT_WOL, 0);
+	notifyAdhocctlHandlers(wol ? ADHOCCTL_EVENT_WOL_INTERRUPT : ADHOCCTL_EVENT_WOL, 0);
 }
 
 static void DiscoverPickGroup() {
