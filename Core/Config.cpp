@@ -899,6 +899,7 @@ static constexpr const char *androidHwScaleNames[] = { "Native device resolution
 static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
+static constexpr const char *frameRateLimit30Names[] = { "Auto", "Always", "Off" };
 static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive" };
 static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
@@ -1043,6 +1044,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Buffer graphics commands").Choices(inflightFramesNames, 1),
 	ConfigSetting("RenderDuplicateFrames", SETTING(g_Config, bRenderDuplicateFrames), false, CfgFlag::PER_GAME)
 		.Label(I18NCat::GRAPHICS, "Render duplicate frames to 60hz"),
+	ConfigSetting("LimitFrameRateTo30", SETTING(g_Config, iLimitFrameRateTo30), (int)FrameRateLimit30::AUTO, CfgFlag::PER_GAME | CfgFlag::REPORT)
+		.Label(I18NCat::GRAPHICS, "Limit framerate to 30 fps").Choices(frameRateLimit30Names),
 
 	ConfigSetting("MultiThreading", SETTING(g_Config, bRenderMultiThreading), true, CfgFlag::DEFAULT)
 		.Label(I18NCat::DEVELOPER, "Multi-threaded rendering"),

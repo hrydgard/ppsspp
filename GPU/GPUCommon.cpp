@@ -26,6 +26,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/HLE/scePower.h"
 #include "Core/Util/PPGeDraw.h"
@@ -996,6 +997,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 			if (!list.started && list.context.IsValid()) {
 				gstate.Save(list.context);
 			}
+			if (!list.started) {
+				paceListStartTicks_ = startingTicks + cyclesExecuted;
+			}
 			list.started = true;
 
 			gstate_c.offsetAddr = list.offsetAddr;
@@ -1425,6 +1429,14 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			FlushImm();
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
+
+			if (__DisplayLimitTo30FPS()) {
+				// Make the GE look slow enough that the frame misses the next vblank. Games that drop
+				// to 30fps when they can't make 60 then do. Everything that follows (interrupt, list
+				// and draw sync, busy time) is timed from here.
+				const u64 doneTicks = startingTicks + cyclesExecuted;
+				cyclesExecuted += (int)(__DisplayPaceFrameEnd(paceListStartTicks_, doneTicks) - doneTicks);
+			}
 
 			if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 				// The context is restored once the finish callback has run, which gets to see the state
@@ -2083,6 +2095,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 	Do(p, isbreak);
 	Do(p, drawCompleteTicks);
 	Do(p, busyTicks);
+	if (p.mode == PointerWrap::MODE_READ) {
+		paceListStartTicks_ = 0;
+	}
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
