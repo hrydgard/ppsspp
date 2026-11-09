@@ -19,7 +19,7 @@ class GLRenderManager;
 
 class GLDeleter {
 public:
-	void Perform(GLRenderManager *renderManager, bool skipGLCalls);
+	void Perform(GLRenderManager *renderManager);
 
 	bool IsEmpty() const {
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();

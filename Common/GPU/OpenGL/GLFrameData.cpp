@@ -22,36 +22,25 @@ void GLDeleter::Take(GLDeleter &other) {
 }
 
 // Runs on the GPU thread.
-void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
+void GLDeleter::Perform(GLRenderManager *renderManager) {
 	for (auto pushBuffer : pushBuffers) {
 		renderManager->UnregisterPushBuffer(pushBuffer);
-		if (skipGLCalls) {
-			pushBuffer->Destroy(false);
-		}
 		delete pushBuffer;
 	}
 	pushBuffers.clear();
 	for (auto shader : shaders) {
-		if (skipGLCalls && shader)
-			shader->shader = 0;  // prevent the glDeleteShader
 		delete shader;
 	}
 	shaders.clear();
 	for (auto program : programs) {
-		if (skipGLCalls && program)
-			program->program = 0;  // prevent the glDeleteProgram
 		delete program;
 	}
 	programs.clear();
 	for (auto buffer : buffers) {
-		if (skipGLCalls && buffer)
-			buffer->buffer_ = 0;
 		delete buffer;
 	}
 	buffers.clear();
 	for (auto texture : textures) {
-		if (skipGLCalls && texture)
-			texture->texture = 0;
 		delete texture;
 	}
 	textures.clear();
@@ -61,17 +50,9 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 	}
 	inputLayouts.clear();
 	for (auto framebuffer : framebuffers) {
-		if (skipGLCalls) {
-			framebuffer->handle = 0;
-			framebuffer->color_texture.texture = 0;
-			framebuffer->z_stencil_buffer = 0;
-			framebuffer->z_stencil_texture.texture = 0;
-			framebuffer->z_buffer = 0;
-			framebuffer->stencil_buffer = 0;
-		}
 		delete framebuffer;
 	}
-	if (!framebuffers.empty() && !skipGLCalls) {
+	if (!framebuffers.empty()) {
 		// The destructor bound the default framebuffer. Without this, the next readback from the framebuffer
 		// that was bound before could read the default one (zeros for Cars Race-O-Rama's luminance, #15914).
 		renderManager->ForgetBoundFramebuffers();
