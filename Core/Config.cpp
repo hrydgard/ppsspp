@@ -1147,6 +1147,7 @@ static constexpr ConfigSetting soundSettings[] = {
 		.Label(I18NCat::AUDIO, "Reverb volume").Range(VOLUME_OFF, 2 * VOLUMEHI_FULL).Units("%").ZeroLabel("Disabled"),
 	ConfigSetting("AltSpeedRelativeVolume", SETTING(g_Config, iAltSpeedVolume), VOLUMEHI_FULL, CfgFlag::PER_GAME)
 		.Label(I18NCat::AUDIO, "Alternate speed volume").Range(VOLUME_OFF, VOLUMEHI_FULL).Units("%").ZeroLabel("Mute"),
+	ConfigSetting("ReverbFilter", SETTING(g_Config, bReverbFilter), true, CfgFlag::PER_GAME),
 	ConfigSetting("AchievementVolume", SETTING(g_Config, iAchievementVolume), &DefaultAchievementVolume, CfgFlag::PER_GAME)
 		.Label(I18NCat::AUDIO, "Achievement sound volume").Range(VOLUME_OFF, VOLUMEHI_FULL).Units("%").ZeroLabel("Mute"),
 	ConfigSetting("UIVolume", SETTING(g_Config, iUIVolume), 75, CfgFlag::DEFAULT)

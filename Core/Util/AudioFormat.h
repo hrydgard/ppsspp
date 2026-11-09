@@ -65,5 +65,4 @@ static inline s16 ApplySampleVolume20Bit(s16 sample, int vol20) {
 	return clamp_s16((sample * (vol20 >> 4)) >> 12);
 }
 
-void AdjustVolumeBlock(s16 *out, s16 *in, size_t size, int leftVol, int rightVol);
 void ConvertS16ToF32(float *ou, const s16 *in, size_t size);
