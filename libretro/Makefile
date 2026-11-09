@@ -213,6 +213,10 @@ else ifeq ($(platform), libnx)
    # Stand-in until that submodule learns about __SWITCH__; nothing else in the
    # compiled set tests __unix (the two libretro-common users spell it __unix__).
    PLATCFLAGS += -D__unix
+   # The Switch's struct in6_addr starts with its 16-bit words, so the
+   # IPv6 constants of ext/aemu_postoffice's enet don't compile; its sockets
+   # are IPv4 only anyway, as the postoffice client already builds enet
+   PLATCFLAGS += -DENET_IPV4_ONLY
    WITH_DYNAREC = 1
    STATIC_LINKING = 1
    HAVE_NEON = 1
