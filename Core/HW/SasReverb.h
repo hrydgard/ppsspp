@@ -39,17 +39,19 @@ public:
 private:
 	enum {
 		BUFSIZE = 0x20000,
-		// The 22khz wet signal's interpolation filter: taps per side, and a power-of-two
-		// history that holds both sides.
+		// The 22khz wet signal's interpolation filter: taps per side, and the history it keeps
+		// between calls (both sides).
 		UPSAMPLE_HALF_TAPS = 12,
-		UPSAMPLE_RING = 32,
+		UPSAMPLE_HISTORY = UPSAMPLE_HALF_TAPS * 2,
+		// The most 22khz frames one call can produce: half of PSP_SAS_MAX_GRAIN.
+		MAX_INPUT_FRAMES = 1024,
 	};
 
 	// Copies the current preset into data_, then patches it for Echo/Delay. Called whenever the
 	// preset or the parameters change.
 	void ApplyParams();
-	// Writes two stereo frames at 44khz from the wet history.
-	void UpsampleWet(int16_t *out);
+	// Writes count * 2 stereo frames at 44khz from the count newest frames in wet_.
+	void UpsampleWet(int16_t *out, int count);
 
 	int16_t *workspace_;
 	// The preset in effect, as a mutable copy: Echo and Delay are partly computed at runtime.
@@ -58,8 +60,8 @@ private:
 	int pos_;
 	int delay_ = 0;
 	int feedback_ = 0;
-	// Recent wet output at 22khz, after volume, for the interpolation filter. Not saved in
-	// savestates: it is under a millisecond of audio, and the delay line itself isn't saved either.
-	int32_t wetRing_[UPSAMPLE_RING][2]{};
-	int wetRingPos_ = 0;
+	// Wet output at 22khz after volume, interleaved stereo: UPSAMPLE_HISTORY frames kept from the
+	// previous call, then this call's. Not saved in savestates: the history is about a millisecond
+	// of audio, and the delay line itself isn't saved either.
+	float *wet_;
 };

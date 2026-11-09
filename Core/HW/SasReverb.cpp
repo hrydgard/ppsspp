@@ -19,6 +19,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "Common/Log.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/HW/SasAudio.h"
@@ -173,11 +175,13 @@ static const SasReverbData presets[10] = {
 SasReverb::SasReverb() : preset_(-1), pos_(0) {
 	workspace_ = new int16_t[BUFSIZE];
 	data_ = new SasReverbData{};
+	wet_ = new float[(UPSAMPLE_HISTORY + MAX_INPUT_FRAMES) * 2]();
 }
 
 SasReverb::~SasReverb() {
 	delete[] workspace_;
 	delete data_;
+	delete[] wet_;
 }
 
 const char *SasReverb::GetPresetName(int preset) {
@@ -199,7 +203,7 @@ void SasReverb::SetPreset(int preset) {
 	if (preset_ != -1) {
 		pos_ = BUFSIZE - presets[preset_].size;
 		memset(workspace_, 0, sizeof(int16_t) * BUFSIZE);
-		memset(wetRing_, 0, sizeof(wetRing_));
+		memset(wet_, 0, sizeof(float) * UPSAMPLE_HISTORY * 2);
 	} else {
 		pos_ = 0;
 	}
@@ -281,20 +285,48 @@ static const int32_t upsampleCoefs[12] = {
 	20754, -6625, 3643, -2278, 1478, -958, 605, -367, 209, -109, 50, -18,
 };
 
-void SasReverb::UpsampleWet(int16_t *out) {
-	static_assert(ARRAY_SIZE(upsampleCoefs) == UPSAMPLE_HALF_TAPS, "coefficient count");
-	// The newest sample is at wetRingPos_. Output frames sit UPSAMPLE_HALF_TAPS samples behind it,
-	// between the "center" sample and the one after.
-	const int center = wetRingPos_ - UPSAMPLE_HALF_TAPS;
-	const int mask = UPSAMPLE_RING - 1;
-	for (int ch = 0; ch < 2; ch++) {
-		int64_t sum = 0;
-		for (int j = 0; j < UPSAMPLE_HALF_TAPS; j++) {
-			sum += (int64_t)upsampleCoefs[j] * (wetRing_[(center - j) & mask][ch] + wetRing_[(center + 1 + j) & mask][ch]);
-		}
-		out[ch] = clamp_s16(wetRing_[center & mask][ch]);
-		out[ch + 2] = (int16_t)std::clamp(sum >> 15, (int64_t)-32768, (int64_t)32767);
+// One output vector per input frame is (L, R) of the even frame and (L, R) of the odd one, which is
+// exactly the order they're stored in. So each tap is a single multiply-add of an unaligned load of
+// two consecutive input frames, (Lf, Rf, Lf+1, Rf+1), by a coefficient vector (a, a, b, b): the
+// even half sees frame f with weight a, the odd half frame f+1 with weight b. That costs one tap
+// more than using the symmetry, and saves every shuffle.
+struct UpsampleTable {
+	float v[24][4];
+};
+
+static UpsampleTable MakeUpsampleTable() {
+	UpsampleTable t{};
+	const int halfTaps = (int)ARRAY_SIZE(upsampleCoefs);
+	for (int m = 0; m < halfTaps * 2; m++) {
+		// The even frame is the center sample itself. The odd frame lies between the center and
+		// the next one, and d counts from it: d = 1 is the sample after the center, d = 0 the center.
+		const int d = m + 1 - halfTaps;
+		const float a = m == halfTaps ? 1.0f : 0.0f;
+		const float b = (float)(d >= 1 ? upsampleCoefs[d - 1] : upsampleCoefs[-d]) * (1.0f / 32768.0f);
+		t.v[m][0] = a;
+		t.v[m][1] = a;
+		t.v[m][2] = b;
+		t.v[m][3] = b;
 	}
+	return t;
+}
+
+void SasReverb::UpsampleWet(int16_t *out, int count) {
+	static_assert(ARRAY_SIZE(upsampleCoefs) == UPSAMPLE_HALF_TAPS, "coefficient count");
+	static const UpsampleTable table = MakeUpsampleTable();
+	static_assert(ARRAY_SIZE(table.v) == UPSAMPLE_HISTORY, "table size");
+
+	// Output frame i is centered UPSAMPLE_HALF_TAPS frames behind input frame i, which is at
+	// UPSAMPLE_HISTORY + i, so its taps start at frame i.
+	for (int i = 0; i < count; i++) {
+		const float *x = wet_ + i * 2;
+		Vec4F32 acc = Vec4F32::Zero();
+		for (int m = 0; m < UPSAMPLE_HISTORY; m++) {
+			acc = MulAdd(Vec4F32::Load(x + m * 2), Vec4F32::Load(table.v[m]), acc);
+		}
+		Vec4S32FromF32Round(acc).StoreS16Sat(out + i * 4);
+	}
+	memmove(wet_, wet_ + count * 2, sizeof(float) * UPSAMPLE_HISTORY * 2);
 }
 
 void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight) {
@@ -316,6 +348,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	if (reverbVolumeMultiplier <= 0.0f) {
 		// Force to zero output, which is not the same as "Off."
 		memset(output, 0, inputSize * 4 * sizeof(int16_t));
+		memset(wet_, 0, sizeof(float) * UPSAMPLE_HISTORY * 2);
 		return;
 	} else {
 		// The ME's reverb return is (evol * out) >> 11, one bit more than the "off" path's
@@ -327,6 +360,7 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		volRight *= reverbVolumeMultiplier;
 	}
 
+	_dbg_assert_(inputSize <= MAX_INPUT_FRAMES);
 	const SasReverbData &d = *data_;
 
 	// We put this on the stack instead of in the object to let the compiler optimize better (avoid mem r/w).
@@ -371,15 +405,16 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
 		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits. The result is kept
 		// unclamped until after interpolation.
-		wetRing_[wetRingPos_][0] = (int32_t)(((int64_t)Lout * volLeft) >> 15);
-		wetRing_[wetRingPos_][1] = (int32_t)(((int64_t)Rout * volRight) >> 15);
-		UpsampleWet(output + i * 4);
-		wetRingPos_ = (wetRingPos_ + 1) & (UPSAMPLE_RING - 1);
+		float *wet = wet_ + (UPSAMPLE_HISTORY + i) * 2;
+		wet[0] = (float)(((int64_t)Lout * volLeft) >> 15);
+		wet[1] = (float)(((int64_t)Rout * volRight) >> 15);
 
 		b.Next();
 	}
 
 	// Save the state in the object.
 	pos_ = b.GetPosition();
+
+	UpsampleWet(output, (int)inputSize);
 }
 
