@@ -4,7 +4,6 @@
 #include "Common/System/Request.h"
 #include "Common/System/OSD.h"
 #include "Common/GPU/Vulkan/VulkanDriverVars.h"
-#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/UI/PopupScreens.h"
