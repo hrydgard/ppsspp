@@ -439,7 +439,10 @@ void GameBrowser::Refresh() {
 	gameList_ = nullptr;
 	gameGrid_ = nullptr;
 
-	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
+	// Wraps the buttons onto another row when the screen is too narrow for them.
+	FlowLayout *topBar = new FlowLayout(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
+	topBar->SetSpacing(10.0f);
+	topBar->SetRowSpacing(10.0f);
 	Add(topBar);
 
 	// Recent isn't a real folder, so it gets no path or refresh.

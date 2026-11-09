@@ -283,6 +283,48 @@ public:
 	PopupChoiceGroupList(LayoutParams *layoutParams = nullptr);
 };
 
+// Lays out its children left to right at their natural size, starting a new row when the next
+// one doesn't fit. Takes LinearLayoutParams: the gravity places a child vertically in its row,
+// and children with weight share whatever space is left in their row.
+class FlowLayout : public ViewGroup {
+public:
+	FlowLayout(LayoutParams *layoutParams = nullptr) : ViewGroup(layoutParams) {}
+
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
+	void SetSpacing(float spacing) {
+		spacing_ = spacing;
+	}
+	void SetRowSpacing(float spacing) {
+		rowSpacing_ = spacing;
+	}
+	// Where the children go in a row that has space left over, and no weighted children to take it.
+	// G_LEFT, G_RIGHT or G_HCENTER.
+	void SetRowGravity(Gravity gravity) {
+		rowGravity_ = gravity;
+	}
+	// Space between the layout's edges and its children, on top of the children's own margins.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
+	std::string DescribeLog() const override { return "FlowLayout: " + View::DescribeLog(); }
+
+private:
+	struct Row {
+		size_t first;  // Index into views_.
+		size_t end;
+		float width;  // Including margins and spacing.
+		float height;
+		float weightSum;
+	};
+	void BuildRows(float maxWidth, std::vector<Row> *rows) const;
+
+	Margins padding_;
+	float spacing_ = 5.0f;
+	float rowSpacing_ = 5.0f;
+	Gravity rowGravity_ = Gravity::G_LEFT;
+};
+
 // GridLayout is a little different from the Android layout. This one has fixed size
 // rows and columns, filled row by row. Items are not allowed to deviate from the set sizes.
 struct GridLayoutSettings {

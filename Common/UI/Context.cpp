@@ -21,7 +21,8 @@ UIContext::UIContext() {
 }
 
 UIContext::~UIContext() {
-	sampler_->Release();
+	if (sampler_)
+		sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
 	if (uitexture_)
