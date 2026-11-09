@@ -24,12 +24,13 @@ PC VR, where the desktop window stays the primary swapchain and the headset is a
 There's no Android window to present to in VR, so the main swapchain is replaced the same way
 libretro and the offscreen mode replace it (`VulkanPresentation`):
 
-- One XR swapchain, `arraySize = 2`. We write sRGB-encoded values and want them shown as they are.
-  On the Quest it's plain `R8G8B8A8_UNORM`, which its compositor shows as it is. The spec's way,
-  `R8G8B8A8_SRGB` with `XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT` drawn through a UNORM view, makes the
-  Quest compositor show "snow" along edges (worst when it reprojects a late frame), with or without
-  the view formats listed through `XR_KHR_vulkan_swapchain_format_list`, and with clean
-  synchronization validation on our side.
+- One XR swapchain, `arraySize = 2`, `R8G8B8A8_SRGB`, drawn through sRGB views: our colors are
+  sRGB-encoded already and get encoded once more on write (blending in linear), which is how the GL
+  eye buffers have always looked (see Gamma below). The alternative is showing them as they are,
+  with plain `R8G8B8A8_UNORM`, which the Quest compositor shows as it is. Not usable: `R8G8B8A8_SRGB` with `XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT` drawn through a UNORM view,
+  which makes the Quest compositor show "snow" along edges (worst when it reprojects a late frame),
+  with or without the view formats listed through `XR_KHR_vulkan_swapchain_format_list`, and with
+  clean synchronization validation on our side.
 - **The backbuffer pass is multiview** (view mask 0b11), always, in VR. The backbuffer views are
   2D arrays, the depth buffer has two layers. Everything that draws to the backbuffer (UI,
   presentation) is the same in both views unless its shader reads `gl_ViewIndex`. That costs a
@@ -100,9 +101,11 @@ so they don't depend on the backend.
 - **Depth** was inverted, on GL too: the shader replaced the lens projection's Z with the game's
   (`orgPos`) at the very end, skipping the viewport's Z scale, which broke when the viewport transform
   moved into the shader. It's replaced before the transform now (libretro already did this).
-- **Gamma on GL:** the GL eye swapchains are `GL_SRGB8_ALPHA8`, and GLES encodes writes to an sRGB
-  framebuffer, so our already sRGB-encoded colors came out too bright. Writes skip the encoding now
-  (`GL_EXT_sRGB_write_control`).
+- **Gamma:** the GL eye swapchains are `GL_SRGB8_ALPHA8`, and GLES encodes writes to an sRGB
+  framebuffer, so our already sRGB-encoded colors are encoded twice, which is brighter than the
+  game on a flat screen. Skipping that (`GL_EXT_sRGB_write_control`) changed the look from what
+  OpenGL VR users know, possibly for the worse, so as an experiment GL is back to encoding, and
+  Vulkan does the same with sRGB views.
 - **The flat screen** stays upright. It used to take the head's pitch at recenter time, often looking
   down while putting the headset on. Recentering is the system gesture (hold the Meta button).
 - **Restarting** (changing the backend): the native shutdown takes OpenXR down (renderer, input,

@@ -71,7 +71,7 @@ typedef struct {
 	unsigned int* GLFrameBuffers;
 	// Vulkan: one swapchain whose images have a layer per eye.
 	int ArraySize;
-	int64_t SwapchainFormat;  // As created (sRGB, on Vulkan we render through a UNORM view).
+	int64_t SwapchainFormat;  // Vulkan: sRGB where available, rendered through views of the same format.
 
 	bool Acquired;
 	// At least one image has been released, so the swapchain can be put in a layer.

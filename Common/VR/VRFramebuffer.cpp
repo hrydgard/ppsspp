@@ -3,29 +3,6 @@
 #if XR_USE_GRAPHICS_API_OPENGL || XR_USE_GRAPHICS_API_OPENGL_ES
 
 #include "Common/GPU/OpenGL/GLCommon.h"
-#include <cstring>
-
-#ifndef GL_FRAMEBUFFER_SRGB_EXT
-#define GL_FRAMEBUFFER_SRGB_EXT 0x8DB9
-#endif
-
-// GLFeatures.h clashes with the EGL macros the OpenXR headers bring in, so this asks GL itself.
-static bool HasSRGBWriteControl() {
-	static int has = -1;
-	if (has < 0) {
-		GLint count = 0;
-		glGetIntegerv(GL_NUM_EXTENSIONS, &count);
-		has = 0;
-		for (GLint i = 0; i < count; i++) {
-			const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
-			if (ext && !strcmp(ext, "GL_EXT_sRGB_write_control")) {
-				has = 1;
-				break;
-			}
-		}
-	}
-	return has == 1;
-}
 
 #endif
 
@@ -96,15 +73,14 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 	frameBuffer->Height = height;
 	frameBuffer->ArraySize = layers;
 
-	// We write sRGB-encoded values and want them shown as they are. The Quest shows UNORM images as
-	// they are. By the spec, an sRGB image drawn through a UNORM view (mutable) would be the way, but
-	// the Quest's compositor shows that with snow along edges, even with the view formats listed
-	// (XR_KHR_vulkan_swapchain_format_list). So sRGB only where there's no UNORM.
+	// The same as GL's eye buffers: an sRGB swapchain drawn through sRGB views, so our (already
+	// sRGB-encoded) colors are encoded once more on write, and blended in linear. That's brighter than
+	// showing them as they are, but it's how OpenGL VR has always looked. UNORM only where there's no sRGB.
 	uint32_t formatCount = 0;
 	OXR(xrEnumerateSwapchainFormats(session, 0, &formatCount, nullptr));
 	std::vector<int64_t> formats(formatCount);
 	OXR(xrEnumerateSwapchainFormats(session, formatCount, &formatCount, formats.data()));
-	const int64_t preferred[] = { VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB };
+	const int64_t preferred[] = { VK_FORMAT_R8G8B8A8_SRGB, VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8A8_UNORM };
 	int64_t format = 0;
 	for (int64_t want : preferred) {
 		for (int64_t have : formats) {
@@ -125,10 +101,6 @@ static bool ovrFramebuffer_CreateVK(XrSession session, ovrFramebuffer* frameBuff
 
 	XrSwapchainCreateInfo swapChainCreateInfo{ XR_TYPE_SWAPCHAIN_CREATE_INFO };
 	swapChainCreateInfo.usageFlags = XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
-	if (format == VK_FORMAT_R8G8B8A8_SRGB || format == VK_FORMAT_B8G8R8A8_SRGB) {
-		// Drawn through a UNORM view.
-		swapChainCreateInfo.usageFlags |= XR_SWAPCHAIN_USAGE_MUTABLE_FORMAT_BIT;
-	}
 	swapChainCreateInfo.format = format;
 	swapChainCreateInfo.sampleCount = 1;
 	swapChainCreateInfo.width = width;
@@ -290,11 +262,6 @@ void* ovrFramebuffer_SetCurrent(ovrFramebuffer* frameBuffer) {
 #if XR_USE_GRAPHICS_API_OPENGL_ES || XR_USE_GRAPHICS_API_OPENGL
 	if (UseGL()) {
 		GL(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, frameBuffer->GLFrameBuffers[frameBuffer->TextureSwapChainIndex]));
-		// The swapchain is sRGB and our colors are sRGB-encoded already: GLES would encode them again on
-		// write (too bright). Context state, but the other framebuffers aren't sRGB, so it only affects this.
-		if (HasSRGBWriteControl()) {
-			GL(glDisable(GL_FRAMEBUFFER_SRGB_EXT));
-		}
 	}
 #endif
 	return nullptr;

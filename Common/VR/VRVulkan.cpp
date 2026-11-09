@@ -146,14 +146,6 @@ static bool CreateSession(VulkanContext *vulkan, std::string *error) {
 	return true;
 }
 
-static VkFormat ToUnormFormat(VkFormat format) {
-	switch (format) {
-	case VK_FORMAT_R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_UNORM;
-	case VK_FORMAT_B8G8R8A8_SRGB: return VK_FORMAT_B8G8R8A8_UNORM;
-	default: return format;
-	}
-}
-
 // The XR swapchain in place of the main swapchain. Acquire and present signal and wait on the
 // frame's semaphores with empty submits (like the offscreen presentation), around the XR calls.
 class OpenXRVulkanPresentation : public VulkanPresentation {
@@ -221,7 +213,8 @@ public:
 	uint32_t GetImageCount() const override { return fb_->TextureSwapChainLength; }
 	VkImage GetImage(uint32_t index) const override { return (VkImage)ovrFramebuffer_GetVulkanImage(fb_, index); }
 	VkExtent2D GetExtent() const override { return VkExtent2D{ (uint32_t)fb_->Width, (uint32_t)fb_->Height }; }
-	VkFormat GetFormat() const override { return ToUnormFormat((VkFormat)fb_->SwapchainFormat); }
+	// The backbuffer pass draws through views of this format, sRGB if available (see ovrFramebuffer_CreateVK).
+	VkFormat GetFormat() const override { return (VkFormat)fb_->SwapchainFormat; }
 	uint32_t GetImageLayers() const override { return (uint32_t)fb_->ArraySize; }
 	// What OpenXR expects a released color image to be in.
 	VkImageLayout GetPresentLayout() const override { return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; }

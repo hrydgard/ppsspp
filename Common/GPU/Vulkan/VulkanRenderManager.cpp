@@ -1474,8 +1474,9 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 				return false;
 			}
 			switch (vulkan_->GetSwapchainFormat()) {
-			case VK_FORMAT_B8G8R8A8_UNORM: srcFormat = Draw::DataFormat::B8G8R8A8_UNORM; break;
-			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
+			// sRGB (VR): a copy gives the encoded bytes, as from UNORM.
+			case VK_FORMAT_B8G8R8A8_UNORM: case VK_FORMAT_B8G8R8A8_SRGB: srcFormat = Draw::DataFormat::B8G8R8A8_UNORM; break;
+			case VK_FORMAT_R8G8B8A8_UNORM: case VK_FORMAT_R8G8B8A8_SRGB: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			// NOTE: If you add supported formats here, make sure to also support them in VulkanQueueRunner::CopyReadbackBuffer.
 			default:
 				ERROR_LOG(Log::G3D, "Unsupported backbuffer format for screenshots");
