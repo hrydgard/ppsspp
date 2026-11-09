@@ -997,7 +997,8 @@ void ColorTestView::Wheel(DrawBuffer *draw, float cx, float cy, float radius, ui
 // Alternating black and white pixel rows average to 50% light. Blurred (by squinting, or resampling
 // like a VR compositor's), they match 188 when averaged in linear light, 128 when averaged as encoded.
 void ColorTestView::GammaCheck(DrawBuffer *draw, std::vector<Label> &labels, float x, float y, float w, float h) {
-	const float px = g_display.pixel_in_dps_y;
+	// The height of a pixel in UI coordinates. Not pixel_in_dps_y, which is the inverse.
+	const float px = (float)g_display.dp_yres / (float)g_display.pixel_yres;
 	const int firstRow = (int)ceilf(y / px);
 	const int lastRow = (int)floorf((y + h) / px);
 	for (int row = firstRow; row < lastRow; row++) {
