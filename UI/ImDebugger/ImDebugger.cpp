@@ -1717,7 +1717,7 @@ void DrawAudioOut(ImConfig &cfg, ImControl &control) {
 		ImGui::Text("Queued (smooth): %0.3f", stats.smoothedQueuedGranules);
 		ImGui::Text("Target: %d", stats.targetQueueSize);
 		ImGui::Text("Max: %d", stats.maxQueuedGranules);
-		ImGui::Text("Computed queue latency: %d ms", (int)(stats.smoothedQueuedGranules * (GranularMixer::GRANULE_SIZE * 1000.0 / 44100.0)));
+		ImGui::Text("Computed queue latency: %d ms", (int)(stats.smoothedQueuedGranules * (GranularMixer::GRANULE_SIZE / 2 * 1000.0 / 44100.0)));
 		ImGui::Text("Fade volume: %0.2f", stats.fadeVolume);
 		ImGui::Text("Looping: %s", BoolStr(stats.looping));
 		ImGui::Text("Under/Over: %d / %d", stats.underruns, stats.overruns);
