@@ -10,8 +10,6 @@ enum VRConfig {
 	VR_CONFIG_MOUSE_SIZE, VR_CONFIG_MOUSE_X, VR_CONFIG_MOUSE_Y,
 	//viewport setup
 	VR_CONFIG_VIEWPORT_WIDTH, VR_CONFIG_VIEWPORT_HEIGHT, VR_CONFIG_VIEWPORT_VALID,
-	//render status
-	VR_CONFIG_CURRENT_FBO,
 
 	//end
 	VR_CONFIG_MAX
@@ -42,8 +40,6 @@ void VR_InitRenderer( engine_t* engine );
 void VR_DestroyRenderer( engine_t* engine );
 
 bool VR_InitFrame( engine_t* engine );
-void VR_BeginFrame( engine_t* engine, int fboIndex );
-void VR_EndFrame( engine_t* engine );
 void VR_FinishFrame( engine_t* engine );
 
 int VR_GetConfig( VRConfig config );
@@ -51,9 +47,7 @@ void VR_SetConfig( VRConfig config, int value);
 float VR_GetConfigFloat( VRConfigFloat config );
 void VR_SetConfigFloat( VRConfigFloat config, float value );
 
-void* VR_BindFramebuffer(engine_t *engine);
-
-// Vulkan. VR_InitFrame begins the frame on the emu thread, and the render thread ends it with
+// VR_InitFrame begins the frame on the emu thread, and the render thread ends it with
 // VR_FinishFrame after submitting. Present() calls VR_NotifyPresentQueued so the next VR_InitFrame
 // knows to wait for that, instead of ending the frame itself.
 void VR_NotifyPresentQueued();

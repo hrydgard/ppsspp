@@ -58,7 +58,7 @@ bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std
 // thread (Vulkan, D3D11).
 // The surface has to be initialized already, and is left alone - use MainThreadFunc if you want
 // that taken care of too.
-// shouldExit is optional, but required if you might run this in VR: see the comment on the render
-// loop in EmuThread.cpp for why ThreadFrame() alone isn't enough to get out of there.
+// shouldExit is optional, but required if you might run this in VR: while the session is idle
+// (in the background, for one) no frame runs, so the frame callback can't say emulation is done.
 // NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
 void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool(GraphicsContext *)> frame, std::function<bool()> shouldExit = nullptr);

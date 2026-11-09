@@ -1082,7 +1082,8 @@ SOURCES_CXX += \
 		$(LIBRETRODIR)/libretro.cpp \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
 		$(LIBRETRODIR)/LibretroGLContext.cpp \
-		$(LIBRETRODIR)/LibretroGLCoreContext.cpp
+		$(LIBRETRODIR)/LibretroGLCoreContext.cpp \
+		$(LIBRETRODIR)/LibretroVR.cpp
 
 SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/common/entropy_common.c \

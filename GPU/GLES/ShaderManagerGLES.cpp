@@ -36,7 +36,6 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/System/Display.h"
 #include "Common/System/OSD.h"
-#include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
 #include "Common/File/FileUtil.h"
@@ -105,7 +104,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_fbotex, "fbotex" });
 
 	queries.push_back({ &u_proj, "u_proj" });
-	queries.push_back({ &u_proj_lens, "u_proj_lens" });
 	queries.push_back({ &u_xywh, "u_xywh" });
 	queries.push_back({ &u_vpScale, "u_vpScale" });
 	queries.push_back({ &u_vpOffset, "u_vpOffset"});
@@ -127,10 +125,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_view, "u_view" });
 	queries.push_back({ &u_world, "u_world" });
 	queries.push_back({ &u_texmtx, "u_texmtx" });
-
-	// These two are only used for VR, but let's always query them for simplicity.
-	queries.push_back({ &u_scaleX, "u_scaleX" });
-	queries.push_back({ &u_scaleY, "u_scaleY" });
 
 	// Lighting, texturing
 	queries.push_back({ &u_ambient, "u_ambient" });
@@ -301,53 +295,15 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	u64 dirty = dirtyUniforms & availableUniforms;
 	dirtyUniforms = 0;
 
-	// Analyze scene
-	bool is2D = false, flatScreen = false;
-
-	const bool useVR = gstate_c.Use(GPU_USE_VIRTUAL_REALITY);
-
-	if (useVR) {
-		is2D = Is2DVRObject(gstate.projMatrix, gstate.isModeThrough());
-		flatScreen = IsFlatVRScene();
-	}
-
-#ifdef __LIBRETRO__
-	// Blend and texture-enable changes can change HUD classification without dirtying uniforms.
-	if (!dirty && !useVR)
-#else
 	if (!dirty)
-#endif
 		return;
 
 	if (dirty & DIRTY_DEPAL) {
 		render_->SetUniformUI1(&u_depal_mask_shift_off_fmt, PackDepalBits(pixelMapped));
 	}
 
-	// Set HUD mode
-	if (useVR) {
-		if (GuessVRDrawingHUD(is2D, flatScreen)) {
-			float aspect = 480.0f / 272.0f * (IsImmersiveVRMode() ? 0.5f : 1.0f);
-			render_->SetUniformF1(&u_scaleX, g_Config.fHeadUpDisplayScale * aspect);
-			render_->SetUniformF1(&u_scaleY, g_Config.fHeadUpDisplayScale);
-		} else {
-			render_->SetUniformF1(&u_scaleX, 1.0f);
-			render_->SetUniformF1(&u_scaleY, 1.0f);
-		}
-	}
-
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
-		if (useVR) {
-			Matrix4x4 vrProjection;
-			if (flatScreen || is2D) {
-				memcpy(&vrProjection, gstate.projMatrix, 16 * sizeof(float));
-			} else {
-				UpdateVRProjection(gstate.projMatrix, vrProjection.m);
-			}
-			UpdateVRParams(gstate.projMatrix);
-			render_->SetUniformM4x4(&u_proj_lens, vrProjection.m);
-		}
-
 		Matrix4x4 matrix;
 		memcpy(&matrix, gstate.projMatrix, 16 * sizeof(float));
 		render_->SetUniformM4x4(&u_proj, matrix.m);
@@ -388,9 +344,6 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 	if (dirty & DIRTY_FOGCOLOR) {
 		SetColorUniform3(render_, &u_fogcolor, gstate.fogcolor);
-		if (useVR) {
-			SetVRCompat(VR_COMPAT_FOG_COLOR, gstate.fogcolor);
-		}
 	}
 	if (dirty & DIRTY_FOGCOEF) {
 		float fogcoef[2];
@@ -431,18 +384,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		SetMatrix4x3(render_, &u_world, gstate.worldMatrix);
 	}
 	if (dirty & DIRTY_VIEWMATRIX) {
-		if (useVR) {
-			float leftEyeView[16];
-			float rightEyeView[16];
-			ConvertMatrix4x3To4x4Transposed(leftEyeView, gstate.viewMatrix);
-			ConvertMatrix4x3To4x4Transposed(rightEyeView, gstate.viewMatrix);
-			if (!is2D) {
-				UpdateVRView(leftEyeView, rightEyeView);
-			}
-			render_->SetUniformM4x4Stereo("u_view", &u_view, leftEyeView, rightEyeView);
-		} else {
-			SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
-		}
+		SetMatrix4x3(render_, &u_view, gstate.viewMatrix);
 	}
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);

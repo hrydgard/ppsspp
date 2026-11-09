@@ -164,28 +164,11 @@ void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application,
 	// is called directly here.
 	std::thread emuThread = EmuThread_Start(graphicsContext, application, frame);
 
-	if (IsVREnabled()) {
-		EnterVR();
-	}
-
 	// Normally ThreadFrame() returning false is what gets us out of here - the frame callback
 	// decides emulation is done, and the emu thread's NotifyEmuThreadExit then queues the exit.
-	// That isn't enough in VR: while the session is idle we skip ThreadFrame() entirely, and going
-	// to the background is precisely when the session goes idle, so the exit would never be seen
-	// and whoever is waiting to join this thread would wait forever. Hence shouldExit.
 	while (!(shouldExit && shouldExit())) {
-		if (IsVREnabled() && !StartVRRender()) {
-			// The session isn't active, so there's no frame to render into. Nothing to do until it
-			// comes back - wait out a frame rather than spinning on it.
-			sleep_ms(16, "vr-session-idle");
-			continue;
-		}
 		if (!graphicsContext->ThreadFrame()) {
 			break;
-		}
-		if (IsVREnabled()) {
-			UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
-			FinishVRRender();
 		}
 	}
 

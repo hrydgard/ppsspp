@@ -20,14 +20,8 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
-#include "Common/VR/PPSSPPVR.h"
 
 #include "android/jni/AndroidEGLGraphicsContext.h"
-
-// EGL_OPENGL_ES3_BIT_KHR, from EGL_KHR_create_context. Not in every platform header.
-#ifndef EGL_OPENGL_ES3_BIT_KHR
-#define EGL_OPENGL_ES3_BIT_KHR 0x0040
-#endif
 
 namespace {
 
@@ -77,8 +71,8 @@ const ConfigAttempt kConfigAttempts[] = {
 
 }  // namespace
 
-bool AndroidEGLGraphicsContext::ChooseConfig(bool wantGLES3, std::string *errorMessage) {
-	const EGLint renderableType = wantGLES3 ? EGL_OPENGL_ES3_BIT_KHR : EGL_OPENGL_ES2_BIT;
+bool AndroidEGLGraphicsContext::ChooseConfig(std::string *errorMessage) {
+	const EGLint renderableType = EGL_OPENGL_ES2_BIT;
 
 	for (const ConfigAttempt &attempt : kConfigAttempts) {
 		const EGLint attribs[] = {
@@ -140,11 +134,9 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 	INFO_LOG(Log::G3D, "EGL %d.%d initialized (vendor: %s)", eglMajor, eglMinor,
 		eglQueryString(display_, EGL_VENDOR));
 
-	// Mirrors what NativeRenderer used to ask for: setEGLContextClientVersion(isVRDevice() ? 3 : 2).
 	// Asking for 2 is not a cap: GLES3 is detected from GL_VERSION at runtime (see GLFeatures.cpp),
 	// which is how the Java path always ended up using GLES3 on devices that have it.
-	const bool wantGLES3 = IsVREnabled();
-	if (!ChooseConfig(wantGLES3, errorMessage)) {
+	if (!ChooseConfig(errorMessage)) {
 		DestroyEGL();
 		return false;
 	}
@@ -161,7 +153,7 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 		WARN_LOG(Log::G3D, "Couldn't get EGL_NATIVE_VISUAL_ID, leaving the window format alone");
 	}
 
-	const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, wantGLES3 ? 3 : 2, EGL_NONE };
+	const EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
 	context_ = eglCreateContext(display_, config_, EGL_NO_CONTEXT, contextAttribs);
 	if (context_ == EGL_NO_CONTEXT) {
 		*errorMessage = EGLFailure("eglCreateContext");
@@ -221,8 +213,7 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 }
 
 bool AndroidEGLGraphicsContext::CanChangeSwapInterval() const {
-	// In VR, OpenXR presents, not eglSwapBuffers.
-	if (IsVREnabled() || display_ == EGL_NO_DISPLAY) {
+	if (display_ == EGL_NO_DISPLAY) {
 		return false;
 	}
 	// eglSwapInterval silently clamps to the config's minimum, which some configs have at 1.

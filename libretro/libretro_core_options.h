@@ -683,9 +683,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_vr_mode",
-      "VR Mode (OpenGL/GLES/Vulkan)",
+      "VR Mode (Vulkan)",
       NULL,
-      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views and OpenGL 3, OpenGL ES 3, or Vulkan with multiview. Game compatibility varies.",
+      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views, and Vulkan with multiview. Game compatibility varies.",
       NULL,
       "video",
       {
