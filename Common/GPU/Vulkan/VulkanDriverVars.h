@@ -15,3 +15,6 @@ struct AdrenoEnvVarDef {
 };
 
 const AdrenoEnvVarDef *GetAdrenoEnvVarDefs(int *count);
+
+// False where AdrenoTools' linker namespace tricks are known or suspected to break (Android 17 and its previews).
+bool VulkanCustomDriverAllowedByOS();

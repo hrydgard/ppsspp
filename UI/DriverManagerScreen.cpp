@@ -37,7 +37,7 @@ static bool CheckKbasePresent() {
 
 bool SupportsCustomDriver() {
 #if PPSSPP_PLATFORM(ANDROID)
-	return android_get_device_api_level() >= 28 && (CheckKgslPresent() || CheckKbasePresent());
+	return android_get_device_api_level() >= 28 && VulkanCustomDriverAllowedByOS() && (CheckKgslPresent() || CheckKbasePresent());
 #elif defined(_DEBUG)
 	return false;  // change to true to debug driver installation on other platforms. DO NOT commit as true.
 #else
