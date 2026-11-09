@@ -130,7 +130,7 @@ void UIScreen::deviceRestored(Draw::DrawContext *draw) {
 }
 
 Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
-	return dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode());
+	return dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode(), ReserveHiddenNavBar());
 }
 
 // On TVs and big monitors, controls out at the edges are hard to see and far apart. Grows with the
@@ -151,7 +151,7 @@ static float LargeScreenInset() {
 
 Bounds UIScreen::GetContentBounds(const UIContext &dc) const {
 	const UI::Margins margins = RootMargins();
-	Bounds bounds = dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode());
+	Bounds bounds = dc.GetLayoutBounds(LayoutMode(), UseImmersiveMode(), ReserveHiddenNavBar());
 	bounds.x += margins.left;
 	bounds.y += margins.top;
 	bounds.w -= margins.horiz();

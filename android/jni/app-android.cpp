@@ -173,6 +173,10 @@ static float g_safeInsetLeft = 0.0;
 static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
+static float g_navBarInsetLeft = 0.0;
+static float g_navBarInsetRight = 0.0;
+static float g_navBarInsetTop = 0.0;
+static float g_navBarInsetBottom = 0.0;
 static bool g_hasCameraCutout = false;
 static bool g_hasAccelerometer = false;
 static bool g_hasGyro = false;
@@ -400,6 +404,14 @@ float System_GetPropertyFloat(SystemProperty prop) {
 		return g_safeInsetTop * display_scale_y * g_display.dpi_scale_y;
 	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
 		return g_safeInsetBottom * display_scale_y * g_display.dpi_scale_y;
+	case SYSPROP_DISPLAY_NAVBAR_INSET_LEFT:
+		return g_navBarInsetLeft * display_scale_x * g_display.dpi_scale_x;
+	case SYSPROP_DISPLAY_NAVBAR_INSET_RIGHT:
+		return g_navBarInsetRight * display_scale_x * g_display.dpi_scale_x;
+	case SYSPROP_DISPLAY_NAVBAR_INSET_TOP:
+		return g_navBarInsetTop * display_scale_y * g_display.dpi_scale_y;
+	case SYSPROP_DISPLAY_NAVBAR_INSET_BOTTOM:
+		return g_navBarInsetBottom * display_scale_y * g_display.dpi_scale_y;
 	default:
 		return -1;
 	}
@@ -1466,13 +1478,17 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "safe_insets") {
 		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
-		int left, right, top, bottom, cutout;
-		if (5 == sscanf(prm.c_str(), "%d:%d:%d:%d:%d", &left, &right, &top, &bottom, &cutout)) {
+		int left, right, top, bottom, cutout, navLeft, navRight, navTop, navBottom;
+		if (9 == sscanf(prm.c_str(), "%d:%d:%d:%d:%d:%d:%d:%d:%d", &left, &right, &top, &bottom, &cutout, &navLeft, &navRight, &navTop, &navBottom)) {
 			g_safeInsetLeft = (float)left;
 			g_safeInsetRight = (float)right;
 			g_safeInsetTop = (float)top;
 			g_safeInsetBottom = (float)bottom;
 			g_hasCameraCutout = cutout != 0;
+			g_navBarInsetLeft = (float)navLeft;
+			g_navBarInsetRight = (float)navRight;
+			g_navBarInsetTop = (float)navTop;
+			g_navBarInsetBottom = (float)navBottom;
 		}
 	} else if (msg == "sensors") {
 		int accelerometer, gyro;
