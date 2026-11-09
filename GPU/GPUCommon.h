@@ -430,6 +430,8 @@ protected:
 	u64 startingTicks;
 	u32 cycleLastPC;
 	int cyclesExecuted;
+	// For the 30fps limit: when the last list started. Not saved.
+	u64 paceListStartTicks_ = 0;
 
 	bool resumingFromDebugBreak_ = false;
 	bool dumpNextFrame_ = false;

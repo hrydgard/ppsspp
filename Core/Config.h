@@ -425,6 +425,7 @@ public:
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
+	int iLimitFrameRateTo30;  // FrameRateLimit30
 	bool bRenderMultiThreading;
 
 	// HW debug

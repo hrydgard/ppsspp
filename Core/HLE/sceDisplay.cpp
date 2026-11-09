@@ -172,6 +172,14 @@ static int lastFlipsTooFrequent = 0;
 static u64 lastFlipCycles = 0;
 static u64 nextFlipCycles = 0;
 
+// For limiting the frame rate to 30fps. Not saved: after a load, pacing starts over.
+static u64 lastVblankTicks = 0;
+// When the GE was done with the last frame, paced or not. 0 when there's none yet.
+static u64 pacedFrameDoneTicks = 0;
+static bool flippedSincePacedFrame = false;
+// How far past a vblank a paced frame is done.
+static const double PACE_MARGIN_MS = 1.0;
+
 void hleEnterVblank(u64 userdata, int cyclesLate);
 void hleLeaveVblank(u64 userdata, int cyclesLate);
 static void hleVblankWake(u64 userdata, int cyclesLate);
@@ -227,6 +235,9 @@ void __DisplayInit() {
 	lastFlipsTooFrequent = 0;
 	lastFlipCycles = 0;
 	nextFlipCycles = 0;
+	lastVblankTicks = 0;
+	pacedFrameDoneTicks = 0;
+	flippedSincePacedFrame = false;
 	wasPaused = false;
 
 	enterVblankEvent = CoreTiming::RegisterEvent("EnterVBlank", &hleEnterVblank);
@@ -351,6 +362,9 @@ void __DisplayDoState(PointerWrap &p) {
 	if (p.mode == p.MODE_READ) {
 		// Not saved. Start counting again rather than carry over the session before the load.
 		lastFlipsTooFrequent = 0;
+		lastVblankTicks = 0;
+		pacedFrameDoneTicks = 0;
+		flippedSincePacedFrame = false;
 	}
 
 	gpu->DoState(p);
@@ -587,6 +601,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
 	VERBOSE_LOG(Log::sceDisplay, "Enter VBlank %i", vbCount);
+
+	lastVblankTicks = CoreTiming::GetTicks(currentMIPS) - cyclesLate;
 
 	__PowerCheckLockedClock();
 
@@ -1031,6 +1047,10 @@ int sceDisplaySetFramebuf(MIPSState *mips, u32 topaddr, int linesize, int pixelf
 
 	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
 
+	if (topaddr != 0) {
+		flippedSincePacedFrame = true;
+	}
+
 	// No delaying while inside an interrupt.  It'll cause idle threads to starve.
 	if (delayCycles > 0 && !__IsInInterrupt()) {
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
@@ -1044,6 +1064,44 @@ int sceDisplaySetFramebuf(MIPSState *mips, u32 topaddr, int linesize, int pixelf
 			return hleLogDebug(Log::sceDisplay, 0);
 		}
 	}
+}
+
+// The start of the vblank that ticks falls in (it can be in the future, for a list the GE isn't done with).
+static s64 VblankAtOrBefore(u64 ticks, s64 frameCycles) {
+	s64 offset = (s64)(ticks - lastVblankTicks);
+	s64 frames = offset >= 0 ? offset / frameCycles : -((-offset + frameCycles - 1) / frameCycles);
+	return (s64)lastVblankTicks + frames * frameCycles;
+}
+
+bool __DisplayLimitTo30FPS() {
+	switch ((FrameRateLimit30)g_Config.iLimitFrameRateTo30) {
+	case FrameRateLimit30::ALWAYS: return true;
+	case FrameRateLimit30::OFF: return false;
+	default: return PSP_CoreParameter().compat.flags().LimitFrameRateTo30;
+	}
+}
+
+u64 __DisplayPaceFrameEnd(u64 listStartTicks, u64 doneTicks) {
+	if (lastVblankTicks == 0) {
+		return doneTicks;
+	}
+	const s64 frameCycles = msToCycles(frameMs);
+	// The first list after a flip starts a new frame. Some games (Midnight Club) never flip during
+	// gameplay, and enqueue each frame's list from the vblank interrupt instead, so a list that starts
+	// after a vblank does too. Other lists are part of the frame before.
+	if (pacedFrameDoneTicks != 0 && !flippedSincePacedFrame && (s64)listStartTicks < VblankAtOrBefore(pacedFrameDoneTicks, frameCycles) + frameCycles) {
+		return doneTicks;
+	}
+	u64 endTicks = doneTicks;
+	if (pacedFrameDoneTicks != 0) {
+		// Just after the vblank two on from the one the previous frame was done in. Whether the game flips
+		// as soon as it's done or waits for a vblank, latched or not, the flip lands every other vblank.
+		const s64 paceTicks = VblankAtOrBefore(pacedFrameDoneTicks, frameCycles) + 2 * frameCycles + msToCycles(PACE_MARGIN_MS);
+		endTicks = std::max(endTicks, (u64)paceTicks);
+	}
+	pacedFrameDoneTicks = endTicks;
+	flippedSincePacedFrame = false;
+	return endTicks;
 }
 
 bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat *pixelFormat, int latchedMode) {

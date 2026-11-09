@@ -301,6 +301,12 @@ enum class DebugOverlay : int {
 	JIT_STATS,
 };
 
+enum class FrameRateLimit30 : int {
+	AUTO = 0,  // Games with the LimitFrameRateTo30 compat flag.
+	ALWAYS = 1,
+	OFF = 2,
+};
+
 // Android-only for now
 enum class DisplayFramerateMode : int {
 	DEFAULT,
