@@ -44,6 +44,9 @@ public:
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();
 
+	// The buffer fill to aim for, in 44.1 kHz stereo frames. GranularMixer sizes its queue from this too.
+	static int TargetBufferSize();
+
 private:
 	void UpdateBufferSize();
 

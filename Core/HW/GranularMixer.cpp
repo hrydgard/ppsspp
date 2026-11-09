@@ -14,6 +14,7 @@
 #include "Common/Swap.h"
 #include "Core/Config.h"
 #include "Core/HW/Display.h"
+#include "Core/HW/StereoResampler.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u16
@@ -102,13 +103,17 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	const float fade_in_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_IN_RC));
 	const float fade_out_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_OUT_RC));
 
-	// Calculate the ideal length of the granule queue.
-	// NOTE: We must have enough room here for 20fps games, generating all their audio
-	// in a burst each frame (since we can't force real clock sync). That means 16*3 = 48 or rather 50ms.
-	// However, in case of faster framerates, we should apply some pressure to reduce this. And if real clock sync
-	// is on, we should also be able to get away with a shorter buffer here.
-	// const u32 buffer_size_ms = frameTimeEstimate_ * 44100.0f;
-	const u32 buffer_size_samples = smoothedReadSize_ * 4 + std::llround(frameTimeEstimate_ * inSampleRate);
+	// Calculate the length of the granule queue. Dequeue() cuts the queue back to half when it
+	// goes over, so this is a cap rather than a fill level.
+	// We aim for the same latency as StereoResampler, but must also have room for slow (like 20fps)
+	// games, which generate all their audio in a burst each frame (since we can't force real
+	// clock sync), and keep half the queue above what one output callback reads, or each callback
+	// runs dry. Bluetooth and other non-fast outputs read in large chunks.
+	// One more granule on top, for the two half-overlapping granules being played.
+	const int targetSamples = StereoResampler::TargetBufferSize();
+	const int frameSamples = (int)std::llround(frameTimeEstimate_ * inSampleRate);
+	const int readSamples = (int)(smoothedReadSize_ * inSampleRate / out_sample_rate);
+	const u32 buffer_size_samples = std::max({ targetSamples, frameSamples + targetSamples / 2, readSamples * 2 }) + GRANULE_SIZE;
 	queuedSamplesTarget_ = buffer_size_samples;
 
 	// Limit the possible queue sizes to any number between 4 and 64.
