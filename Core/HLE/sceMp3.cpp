@@ -420,9 +420,10 @@ static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
 
 static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 	u32 addr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
-	if (Memory::IsValidRange(addr, end)) {
+	// A header is four bytes, read at each offset.
+	if (end >= 4 && Memory::IsValidRange(addr, end)) {
 		const u8 *ptr = Memory::GetPointerUnchecked(addr);
-		for (int offset = 0; offset < end; ++offset) {
+		for (int offset = 0; offset + 4 <= end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
 				header = bswap32(Memory::ReadUnchecked_U32(addr + offset));
@@ -758,15 +759,31 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 		return hleLogError(Log::ME, -1, "invalid address in args");
 	}
 
+	if (!Memory::IsValidRange(sourceBytesConsumedAddr, 4) || !Memory::IsValidRange(sampleBytesAddr, 4)) {
+		return hleLogError(Log::ME, -1, "invalid address in args");
+	}
 	const u8 *inbuff = Memory::GetPointerWriteUnchecked(sourceAddr);
 	int16_t *outbuf = (int16_t *)Memory::GetPointerWriteUnchecked(samplesAddr);
-	
+	// The decoder is handed up to 4096 bytes.
+	const int inBytes = (int)Memory::ClampValidSizeAt(sourceAddr, 4096);
+
+	// A frame is at most 1152 stereo samples, but an MPEG-2 or 2.5 one is 576. When the game's buffer
+	// can't take the biggest, decode aside and copy only what this frame made.
+	constexpr u32 maxFrameBytes = 1152 * 2 * 2;
+	const u32 outRoom = Memory::ClampValidSizeAt(samplesAddr, maxFrameBytes);
+	int16_t aside[1152 * 2];
 	int outSamples = 0;
 	int inbytesConsumed = 0;
-	if (!ctx->decoder->Decode(inbuff, 4096, &inbytesConsumed, 2, outbuf, &outSamples)) {
+	if (!ctx->decoder->Decode(inbuff, inBytes, &inbytesConsumed, 2, outRoom == maxFrameBytes ? outbuf : aside, &outSamples)) {
 		WARN_LOG(Log::ME, "sceMp3LowLevelDecode: Decode failed");
 	}
 	int outBytes = outSamples * sizeof(int16_t) * 2;
+	if (outRoom != maxFrameBytes) {
+		if ((u32)outBytes > outRoom) {
+			return hleLogError(Log::ME, -1, "output buffer too small for the frame");
+		}
+		memcpy(outbuf, aside, outBytes);
+	}
 	NotifyMemInfo(MemBlockFlags::WRITE, samplesAddr, outBytes, "Mp3LowLevelDecode");
 	
 	Memory::WriteOrException_U32(inbytesConsumed, sourceBytesConsumedAddr);

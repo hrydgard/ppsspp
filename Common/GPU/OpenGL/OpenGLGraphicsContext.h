@@ -35,7 +35,6 @@ public:
 
 	// Call from emu thread
 	void NotifyEmuThreadExit() override {
-		renderManager_->SetSkipGLCalls();
 		renderManager_->NotifyEmuThreadExit();
 	}
 

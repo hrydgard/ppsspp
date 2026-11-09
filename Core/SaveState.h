@@ -94,6 +94,25 @@ namespace SaveState {
 
 	std::string GetTitle(const Path &filename);
 
+	// What the game was booted from. Stored in states, so the values are fixed.
+	enum class BootType : u8 {
+		UNKNOWN = 0,
+		ISO = 1,
+		PBP = 2,
+		ELF = 3,
+		DISC_DIRECTORY = 4,
+	};
+
+	// What a boot needs to know about a state before it's loaded.
+	struct BootInfo {
+		std::string discID;
+		std::string discVersion;
+		BootType bootType = BootType::UNKNOWN;
+	};
+
+	// Reads only the start of the state. Fails for states older than the disc ID in them.
+	bool PeekBootInfo(const Path &filename, BootInfo *info, std::string *error);
+
 	// Load the specified file into the current state (async.) The file is read while emulation goes
 	// on, and the state applied in a later Process().
 	// Returns true if queued. The callback runs from Process(), once the state has been applied.

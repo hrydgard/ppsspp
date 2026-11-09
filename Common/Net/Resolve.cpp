@@ -51,8 +51,10 @@ void Init() {
 	// either. HTTPSAvailable is cheap to ask twice - on Linux it's a cached dlopen result.
 #ifndef HTTPS_NOT_AVAILABLE
 #if PPSSPP_PLATFORM(ANDROID)
-	_assert_(gJvm != nullptr);
-	naettInit(gJvm);
+	// Headless has no JVM, and so no HTTPS.
+	if (gJvm) {
+		naettInit(gJvm);
+	}
 #else
 	if (HTTPSAvailable()) {
 		naettInit(NULL);
@@ -64,7 +66,9 @@ void Init() {
 bool HTTPSAvailable() {
 #ifdef HTTPS_NOT_AVAILABLE
 	return false;
-#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+#elif PPSSPP_PLATFORM(ANDROID)
+	return gJvm != nullptr;
+#elif PPSSPP_PLATFORM(LINUX)
 	return naettCurlLoad() != 0;
 #else
 	return true;

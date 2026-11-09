@@ -553,6 +553,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		ERROR_LOG(Log::TexReplacement, "Could not load texture replacement info: %s - unsupported format %s", filename.c_str(), magic.c_str());
 	}
 
+	// The sizes come straight from the file headers, and everything below sizes buffers from them.
+	if (good && (level.w <= 0 || level.h <= 0 || level.w > 8192 || level.h > 8192)) {
+		ERROR_LOG(Log::TexReplacement, "Replacement texture %s has a bad size: %dx%d", filename.c_str(), level.w, level.h);
+		good = false;
+	}
+
 	// TODO: We no longer really need to have a split in this function, the upper and lower parts can be merged now.
 
 	if (good && mipLevel != 0) {
@@ -723,19 +729,22 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			bool result = transcoder.get_image_level_info(levelInfo, i, 0, 0);
 			_dbg_assert_(result);
 
-			size_t dataSizeBytes = levelInfo.m_total_blocks * blockSize;
+			size_t dataSizeBytes = (size_t)levelInfo.m_total_blocks * blockSize;
 			size_t outputSize = levelInfo.m_total_blocks;
 			size_t outputPitch = levelInfo.m_num_blocks_x;
 			// Support transcoded-to-RGBA8888 images too.
 			if (!bc) {
-				dataSizeBytes = levelInfo.m_orig_width * levelInfo.m_orig_height * 4;
-				outputSize = levelInfo.m_orig_width * levelInfo.m_orig_height;
+				dataSizeBytes = (size_t)levelInfo.m_orig_width * levelInfo.m_orig_height * 4;
+				outputSize = (size_t)levelInfo.m_orig_width * levelInfo.m_orig_height;
 				outputPitch = levelInfo.m_orig_width;
 			}
 			out.resize(dataSizeBytes);
 
 			transcodeState.clear();
-			transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, level.h, -1, -1, &transcodeState);
+			if (!result || dataSizeBytes == 0 || !transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, levelInfo.m_orig_height, -1, -1, &transcodeState)) {
+				WARN_LOG(Log::TexReplacement, "KTX2: Failed to transcode level %d of %s", i, filename.c_str());
+				std::fill(out.begin(), out.end(), 0);
+			}
 			level.w = levelInfo.m_orig_width;
 			level.h = levelInfo.m_orig_height;
 			if (i != 0)
@@ -822,15 +831,15 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		// We only use the first level for now.
 		int numLevels = LoadZIMPtr(&zim[0], fileSize, w, h, &f, image);
 		if (numLevels > 0) {
-			if (w[0] > level.w || h[0] > level.h) {
+			if (w[0] > level.w || h[0] > level.h || (f & ZIM_FORMAT_MASK) != ZIM_RGBA8888) {
 				ERROR_LOG(Log::TexReplacement, "Texture replacement changed since header read: %s", filename.c_str());
 				free(image[0]);
 				return LoadLevelResult::LOAD_ERROR;
 			}
 
-			out.resize(level.w * level.h * 4);
+			out.resize((size_t)level.w * level.h * 4);
 			if (w[0] == level.w) {
-				memcpy(&out[0], image[0], level.w * 4 * level.h);
+				memcpy(&out[0], image[0], (size_t)level.w * 4 * h[0]);
 			} else {
 				for (int y = 0; y < h[0]; ++y) {
 					memcpy(&out[level.w * 4 * y], image[0] + w[0] * 4 * y, w[0] * 4);
@@ -1006,9 +1015,21 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		WARN_LOG(Log::TexReplacement, "Level %d is empty", level);
 		return false;
 	}
+	if (info.w > outW || info.h > outH) {
+		WARN_LOG(Log::TexReplacement, "Level %d (%dx%d) is bigger than its padded size %dx%d", level, info.w, info.h, outW, outH);
+		return false;
+	}
 
 	int blockSize;
-	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
+	const bool blockCompressed = Draw::DataFormatIsBlockCompressed(fmt, &blockSize);
+	const size_t needed = blockCompressed ? (size_t)((outW + 3) / 4) * ((outH + 3) / 4) * blockSize : (size_t)rowPitch * (outH - 1) + outW * 4;
+	// A zero size disables the check, like for the other copies.
+	if (outDataSize != 0 && outDataSize < needed) {
+		WARN_LOG(Log::TexReplacement, "Level %d doesn't fit the buffer (%d < %d)", level, (int)outDataSize, (int)needed);
+		return false;
+	}
+
+	if (!blockCompressed) {
 		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
 			ERROR_LOG(Log::TexReplacement, "Unexpected linear data format");
 			return false;

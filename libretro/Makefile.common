@@ -253,55 +253,61 @@ INCFLAGS += -I$(EXTDIR)/rcheevos/include
 COREFLAGS += -DRC_DISABLE_LUA
 
 SOURCES_C += \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_common.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_editor.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_info.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/format.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
-	$(EXTDIR)/rcheevos/src/rc_client.c \
-	$(EXTDIR)/rcheevos/src/rc_util.c \
-	$(EXTDIR)/rcheevos/src/rc_compat.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
-	$(EXTDIR)/rcheevos/src/rhash/md5.c
+	$(EXTDIR)/rcheevos/src/api/rc_api_common.c \
+	$(EXTDIR)/rcheevos/src/api/rc_api_editor.c \
+	$(EXTDIR)/rcheevos/src/api/rc_api_info.c \
+	$(EXTDIR)/rcheevos/src/api/rc_api_runtime.c \
+	$(EXTDIR)/rcheevos/src/api/rc_api_user.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_async.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_do_frame.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_external.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_game.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_info.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_load.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_raintegration.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_server.c \
+	$(EXTDIR)/rcheevos/src/client/rc_client_user.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_alloc.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_condition.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_condset.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_consoleinfo.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_format.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_lboard.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_memref.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_operand.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_richpresence.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_runtime.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_runtime_progress.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_trigger.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_typed_value.c \
+	$(EXTDIR)/rcheevos/src/runtime/rc_value.c \
+	$(EXTDIR)/rcheevos/src/util/md5.c \
+	$(EXTDIR)/rcheevos/src/util/rc_compat.c \
+	$(EXTDIR)/rcheevos/src/util/rc_util.c \
+	$(EXTDIR)/rcheevos/src/util/rc_version.c
 
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
-COREFLAGS += -DZ7_ST
-INCFLAGS += -I$(EXTDIR)/libchdr/deps/lzma-24.05/include
-
-SOURCES_C += \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Alloc.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Bra86.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/BraIA64.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/CpuArch.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Delta.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzFind.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaDec.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
-	$(EXTDIR)/libchdr/deps/lzma-24.05/src/Sort.c
-
+COREFLAGS += -DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD
 INCFLAGS += -I$(EXTDIR)/libchdr/include
 
 SOURCES_C += \
+	$(EXTDIR)/libchdr/deps/lzma-26.02/src/LzmaDec.c \
 	$(EXTDIR)/libchdr/src/libchdr_bitstream.c \
 	$(EXTDIR)/libchdr/src/libchdr_cdrom.c \
 	$(EXTDIR)/libchdr/src/libchdr_chd.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_avhuff.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdfl.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdlz.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdzl.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_cdzs.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_flac.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_huff.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_lzma.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_zlib.c \
+	$(EXTDIR)/libchdr/src/libchdr_codec_zstd.c \
 	$(EXTDIR)/libchdr/src/libchdr_flac.c \
 	$(EXTDIR)/libchdr/src/libchdr_huffman.c
 
@@ -572,7 +578,8 @@ SOURCES_CXX += \
 	$(COMMONDIR)/VR/VRMath.cpp \
 	$(COMMONDIR)/VR/VRFramebuffer.cpp \
 	$(COMMONDIR)/VR/VRInput.cpp \
-	$(COMMONDIR)/VR/VRRenderer.cpp
+	$(COMMONDIR)/VR/VRRenderer.cpp \
+	$(COMMONDIR)/VR/VRVulkan.cpp
 
 SOURCES_C += \
 	$(COMMONDIR)/GPU/OpenGL/gl3stub.c
@@ -969,6 +976,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/AtracTrack.cpp \
 	       $(COREDIR)/Util/BlockAllocator.cpp \
 	       $(COREDIR)/Util/MemStick.cpp \
+	       $(COREDIR)/Util/StorageTest.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/KL4E.cpp \
 	       $(COREDIR)/Util/PSARUnpack.cpp \

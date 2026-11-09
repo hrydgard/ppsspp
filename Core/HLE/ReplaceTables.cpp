@@ -1357,6 +1357,24 @@ static int Hook_infinity_download_frame(MIPSState *mips) {
 	return 0;
 }
 
+static int Hook_koori_download_frame(MIPSState *mips) {
+	u32 stateAddress;
+	// The matched CPU copy reads its source from this renderer state.
+	if (!GetMIPSStaticAddress(mips, stateAddress, 0x0C, 0x10) || !Memory::IsValidRange(stateAddress, 4)) {
+		return 0;
+	}
+	const u32 state = Memory::ReadUnchecked_U32(stateAddress);
+	if (!Memory::IsValidRange(state, 0x54)) {
+		return 0;
+	}
+	const u32 fb = (Memory::ReadUnchecked_U32(state + 0x24) + Memory::ReadUnchecked_U32(state + 0x50)) & 0x3FFFFFFF;
+	if (fb == 0x04000000 || fb == 0x04080000) {
+		gpu->PerformReadbackToMemory(fb, 0x00044000);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb, 0x00044000, "koori_download_frame");
+	}
+	return 0;
+}
+
 static int Hook_takuyo_download_frame(MIPSState *mips) {
 	gpu->PerformReadbackToMemory(0x04088000, 0x00088000); // The offset is hardcoded.
 	NotifyMemInfo(MemBlockFlags::WRITE, 0x04088000, 0x00088000, "takuyo_download_frame");
@@ -2095,114 +2113,115 @@ static const ReplacementTableEntry entries[] = {
 
 	// { "vmmul_q_transp", &Replace_vmmul_q_transp, 0, REPFLAG_DISABLED },
 
-	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOKENTER },
-	{ "godseaterburst_depthmask_5551", &Hook_godseaterburst_depthmask_5551, 0, REPFLAG_HOOKENTER },
-	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOKENTER, 0x58 },
-	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOKENTER, 0x260 },
-	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOKENTER, 0x34 },
-	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOKENTER },
+	{ "godseaterburst_blit_texture", &Hook_godseaterburst_blit_texture, 0, REPFLAG_HOOK },
+	{ "godseaterburst_depthmask_5551", &Hook_godseaterburst_depthmask_5551, 0, REPFLAG_HOOK },
+	{ "hexyzforce_monoclome_thread", &Hook_hexyzforce_monoclome_thread, 0, REPFLAG_HOOK, 0x58 },
+	{ "starocean_write_stencil", &Hook_starocean_write_stencil, 0, REPFLAG_HOOK, 0x260 },
+	{ "topx_create_saveicon", &Hook_topx_create_saveicon, 0, REPFLAG_HOOK, 0x34 },
+	{ "ff1_battle_effect", &Hook_ff1_battle_effect, 0, REPFLAG_HOOK },
 	// This is actually used in other games, not just Dissidia.
-	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOKENTER },
-	{ "brandish_download_frame", &Hook_brandish_download_frame, 0, REPFLAG_HOOKENTER },
-	{ "growlanser_create_saveicon", &Hook_growlanser_create_saveicon, 0, REPFLAG_HOOKENTER, 0x7C },
-	{ "sd_gundam_g_generation_download_frame", &Hook_sd_gundam_g_generation_download_frame, 0, REPFLAG_HOOKENTER, 0x48},
-	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
-	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOKENTER },
-	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOKENTER },
-	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOKENTER, 0xF8 },
-	{ "suikoden1_and_2_download_frame_1", &Hook_suikoden1_and_2_download_frame_1, 0, REPFLAG_HOOKENTER, 0x9C },
-	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x48 },
-	{ "rezel_cross_download_frame", &Hook_rezel_cross_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
-	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
-	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
-	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
-	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOKENTER, 0x68 },
-	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
-	{ "danganronpa1_1_download_frame", &Hook_danganronpa1_1_download_frame, 0, REPFLAG_HOOKENTER, 0x78 },
-	{ "danganronpa1_2_download_frame", &Hook_danganronpa1_2_download_frame, 0, REPFLAG_HOOKENTER, 0xA8 },
-	{ "kankabanchoutbr_download_frame", &Hook_kankabanchoutbr_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "orenoimouto_download_frame_2", &Hook_orenoimouto_download_frame_2, 0, REPFLAG_HOOKENTER, },
-	{ "rewrite_download_frame", &Hook_rewrite_download_frame, 0, REPFLAG_HOOKENTER, 0x5C },
-	{ "kudwafter_download_frame", &Hook_kudwafter_download_frame, 0, REPFLAG_HOOKENTER, 0x58 },
-	{ "kumonohatateni_download_frame", &Hook_kumonohatateni_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "otomenoheihou_download_frame", &Hook_otomenoheihou_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
-	{ "grisaianokajitsu_download_frame", &Hook_grisaianokajitsu_download_frame, 0, REPFLAG_HOOKENTER, 0x14 },
-	{ "kokoroconnect_download_frame", &Hook_kokoroconnect_download_frame, 0, REPFLAG_HOOKENTER, 0x60 },
-	{ "toheart2_download_frame", &Hook_toheart2_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "toheart2_download_frame_2", &Hook_toheart2_download_frame_2, 0, REPFLAG_HOOKENTER, 0x18 },
-	{ "flowers_download_frame", &Hook_flowers_download_frame, 0, REPFLAG_HOOKENTER, 0x44 },
-	{ "motorstorm_download_frame", &Hook_motorstorm_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "utawarerumono_download_frame", &Hook_utawarerumono_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "photokano_download_frame", &Hook_photokano_download_frame, 0, REPFLAG_HOOKENTER, 0x2C },
-	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOKENTER, },
-	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
+	{ "dissidia_recordframe_avi", &Hook_dissidia_recordframe_avi, 0, REPFLAG_HOOK },
+	{ "brandish_download_frame", &Hook_brandish_download_frame, 0, REPFLAG_HOOK },
+	{ "growlanser_create_saveicon", &Hook_growlanser_create_saveicon, 0, REPFLAG_HOOK, 0x7C },
+	{ "sd_gundam_g_generation_download_frame", &Hook_sd_gundam_g_generation_download_frame, 0, REPFLAG_HOOK, 0x48},
+	{ "narisokonai_download_frame", &Hook_narisokonai_download_frame, 0, REPFLAG_HOOK, 0x14 },
+	{ "kirameki_school_life_download_frame", &Hook_kirameki_school_life_download_frame, 0, REPFLAG_HOOK },
+	{ "orenoimouto_download_frame", &Hook_orenoimouto_download_frame, 0, REPFLAG_HOOK },
+	{ "sakurasou_download_frame", &Hook_sakurasou_download_frame, 0, REPFLAG_HOOK, 0xF8 },
+	{ "suikoden1_and_2_download_frame_1", &Hook_suikoden1_and_2_download_frame_1, 0, REPFLAG_HOOK, 0x9C },
+	{ "suikoden1_and_2_download_frame_2", &Hook_suikoden1_and_2_download_frame_2, 0, REPFLAG_HOOK, 0x48 },
+	{ "rezel_cross_download_frame", &Hook_rezel_cross_download_frame, 0, REPFLAG_HOOK, 0x54 },
+	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOK, 0x38 },
+	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOK, 0x180 },
+	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOK, },
+	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOK, 0x8C },
+	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOK, 0x68 },
+	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOK, 0x94 },
+	{ "danganronpa1_1_download_frame", &Hook_danganronpa1_1_download_frame, 0, REPFLAG_HOOK, 0x78 },
+	{ "danganronpa1_2_download_frame", &Hook_danganronpa1_2_download_frame, 0, REPFLAG_HOOK, 0xA8 },
+	{ "kankabanchoutbr_download_frame", &Hook_kankabanchoutbr_download_frame, 0, REPFLAG_HOOK, },
+	{ "orenoimouto_download_frame_2", &Hook_orenoimouto_download_frame_2, 0, REPFLAG_HOOK, },
+	{ "rewrite_download_frame", &Hook_rewrite_download_frame, 0, REPFLAG_HOOK, 0x5C },
+	{ "kudwafter_download_frame", &Hook_kudwafter_download_frame, 0, REPFLAG_HOOK, 0x58 },
+	{ "kumonohatateni_download_frame", &Hook_kumonohatateni_download_frame, 0, REPFLAG_HOOK, },
+	{ "otomenoheihou_download_frame", &Hook_otomenoheihou_download_frame, 0, REPFLAG_HOOK, 0x14 },
+	{ "grisaianokajitsu_download_frame", &Hook_grisaianokajitsu_download_frame, 0, REPFLAG_HOOK, 0x14 },
+	{ "kokoroconnect_download_frame", &Hook_kokoroconnect_download_frame, 0, REPFLAG_HOOK, 0x60 },
+	{ "toheart2_download_frame", &Hook_toheart2_download_frame, 0, REPFLAG_HOOK, },
+	{ "toheart2_download_frame_2", &Hook_toheart2_download_frame_2, 0, REPFLAG_HOOK, 0x18 },
+	{ "flowers_download_frame", &Hook_flowers_download_frame, 0, REPFLAG_HOOK, 0x44 },
+	{ "motorstorm_download_frame", &Hook_motorstorm_download_frame, 0, REPFLAG_HOOK, },
+	{ "utawarerumono_download_frame", &Hook_utawarerumono_download_frame, 0, REPFLAG_HOOK, },
+	{ "photokano_download_frame", &Hook_photokano_download_frame, 0, REPFLAG_HOOK, 0x2C },
+	{ "photokano_download_frame_2", &Hook_photokano_download_frame_2, 0, REPFLAG_HOOK, },
+	{ "gakuenheaven_download_frame", &Hook_gakuenheaven_download_frame, 0, REPFLAG_HOOK, },
+	{ "youkosohitsujimura_download_frame", &Hook_youkosohitsujimura_download_frame, 0, REPFLAG_HOOK, 0x94 },
 	{ "zettai_hero_update_minimap_tex", &Hook_zettai_hero_update_minimap_tex, 0, REPFLAG_HOOKEXIT, },
-	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOKENTER, },
-	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOKENTER, 0x34 },
-	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOKENTER, 0xA0 },
-	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
-	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOKENTER, },
-	{ "shinigamitoshoujo_download_frame", &Hook_shinigamitoshoujo_download_frame, 0, REPFLAG_HOOKENTER, 0xBC },
-	{ "atvoffroadfuryprodemo_download_frame", &Hook_atvoffroadfuryprodemo_download_frame, 0, REPFLAG_HOOKENTER, 0x80 },
-	{ "unendingbloodycall_download_frame", &Hook_unendingbloodycall_download_frame, 0, REPFLAG_HOOKENTER, 0x54 },
-	{ "omertachinmokunookitethelegacy_download_frame", &Hook_omertachinmokunookitethelegacy_download_frame, 0, REPFLAG_HOOKENTER, 0x88 },
-	{ "katamari_render_check", &Hook_katamari_render_check, 0, REPFLAG_HOOKENTER, 0, },
-	{ "katamari_screenshot_to_565", &Hook_katamari_screenshot_to_565, 0, REPFLAG_HOOKENTER, 0 },
-	{ "mytranwars_upload_frame", &Hook_mytranwars_upload_frame, 0, REPFLAG_HOOKENTER, 0x128 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x284 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x2bc },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x2e8 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x320 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOKENTER, 0x3b0 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x3e8 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOKENTER, 0x410 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x448 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x600 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x638 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x664 },
-	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x69c },
-	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
+	{ "tonyhawkp8_upload_tutorial_frame", &Hook_tonyhawkp8_upload_tutorial_frame, 0, REPFLAG_HOOK, },
+	{ "sdgundamggenerationportable_download_frame", &Hook_sdgundamggenerationportable_download_frame, 0, REPFLAG_HOOK, 0x34 },
+	{ "atvoffroadfurypro_download_frame", &Hook_atvoffroadfurypro_download_frame, 0, REPFLAG_HOOK, 0xA0 },
+	{ "atvoffroadfuryblazintrails_download_frame", &Hook_atvoffroadfuryblazintrails_download_frame, 0, REPFLAG_HOOK, 0x80 },
+	{ "littlebustersce_download_frame", &Hook_littlebustersce_download_frame, 0, REPFLAG_HOOK, },
+	{ "shinigamitoshoujo_download_frame", &Hook_shinigamitoshoujo_download_frame, 0, REPFLAG_HOOK, 0xBC },
+	{ "atvoffroadfuryprodemo_download_frame", &Hook_atvoffroadfuryprodemo_download_frame, 0, REPFLAG_HOOK, 0x80 },
+	{ "unendingbloodycall_download_frame", &Hook_unendingbloodycall_download_frame, 0, REPFLAG_HOOK, 0x54 },
+	{ "omertachinmokunookitethelegacy_download_frame", &Hook_omertachinmokunookitethelegacy_download_frame, 0, REPFLAG_HOOK, 0x88 },
+	{ "katamari_render_check", &Hook_katamari_render_check, 0, REPFLAG_HOOK, 0, },
+	{ "katamari_screenshot_to_565", &Hook_katamari_screenshot_to_565, 0, REPFLAG_HOOK, 0 },
+	{ "mytranwars_upload_frame", &Hook_mytranwars_upload_frame, 0, REPFLAG_HOOK, 0x128 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOK, 0x284 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x2bc },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOK, 0x2e8 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x320 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOK, 0x3b0 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x3e8 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a2_before, 0, REPFLAG_HOOK, 0x410 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x448 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOK, 0x600 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x638 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOK, 0x664 },
+	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOK, 0x69c },
+	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOK, 0 },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
-	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
-	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOKENTER, 0x0CC },
-	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOKENTER, 0x2F0 },
-	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOKENTER, 0 },
+	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOK, 0 },
+	{ "worms_copy_normalize_alpha", &Hook_worms_copy_normalize_alpha, 0, REPFLAG_HOOK, 0x0CC },
+	{ "openseason_data_decode", &Hook_openseason_data_decode, 0, REPFLAG_HOOK, 0x2F0 },
+	{ "soltrigger_render_ucschar", &Hook_soltrigger_render_ucschar, 0, REPFLAG_HOOK, 0 },
 	{ "gow_fps_hack", &Hook_gow_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
-	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOKENTER, 0x60 },
-	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOKENTER, 0xC4 },
+	{ "gow_vortex_hack", &Hook_gow_vortex_hack, 0, REPFLAG_HOOK, 0x60 },
+	{ "ZZT3_select_hack", &Hook_ZZT3_select_hack, 0, REPFLAG_HOOK, 0xC4 },
 	{ "blitz_fps_hack", &Hook_blitz_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
 	{ "brian_lara_fps_hack", &Hook_brian_lara_fps_hack, 0, REPFLAG_HOOKEXIT , 0 },
-	{ "persona1_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
-	{ "persona2_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOKENTER, 0 },
-	{ "steinsgate_download_frame", &Hook_steinsgate_download_frame, 0, REPFLAG_HOOKENTER, 0 },
-	{ "infinity_download_frame", &Hook_infinity_download_frame, 0, REPFLAG_HOOKENTER, 0 },
-	{ "takuyo_1_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
-	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
-	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
-	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
-	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
-	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
-	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
-	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
-	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOKENTER, 0x8C },
-	{ "resistance_draw_trail", &Hook_resistance_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
-	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x438 },
-	{ "resistance_muzzle_light", &Hook_resistance_muzzle_light, 0, REPFLAG_HOOKENTER, 0xF0 },
-	{ "bejeweled2_draw_dirty_stuff", &Hook_bejeweled2_draw_dirty_stuff, 0, REPFLAG_HOOKENTER, 0 },
-	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_1, 0, REPFLAG_HOOKENTER, 0x620 },
-	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_2, 0, REPFLAG_HOOKENTER, 0x6AC },
-	{ "medievil_projectile_update", &Hook_medievil_projectile_update, 0, REPFLAG_HOOKENTER, 0x6BC },
+	{ "persona1_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOK, 0 },
+	{ "persona2_download_frame", &Hook_persona_download_frame, 0, REPFLAG_HOOK, 0 },
+	{ "steinsgate_download_frame", &Hook_steinsgate_download_frame, 0, REPFLAG_HOOK, 0 },
+	{ "infinity_download_frame", &Hook_infinity_download_frame, 0, REPFLAG_HOOK, 0 },
+	{ "koori_download_frame", &Hook_koori_download_frame, 0, REPFLAG_HOOK, 0 },
+	{ "takuyo_1_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOK, 0},
+	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOK, 0},
+	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOK, 0},
+	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOK, 0},
+	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOK, 0x50 },
+	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOK, 0x54 },
+	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOK, 0x50 },
+	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOK, 0x138 },
+	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOK, 0x8C },
+	{ "resistance_draw_trail", &Hook_resistance_draw_trail, 0, REPFLAG_HOOK, 0x198 },
+	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOK, 0x438 },
+	{ "resistance_muzzle_light", &Hook_resistance_muzzle_light, 0, REPFLAG_HOOK, 0xF0 },
+	{ "bejeweled2_draw_dirty_stuff", &Hook_bejeweled2_draw_dirty_stuff, 0, REPFLAG_HOOK, 0 },
+	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_1, 0, REPFLAG_HOOK, 0x620 },
+	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_2, 0, REPFLAG_HOOK, 0x6AC },
+	{ "medievil_projectile_update", &Hook_medievil_projectile_update, 0, REPFLAG_HOOK, 0x6BC },
 	{ "activisionhits_frame_limit", &Hook_activisionhits_frame_limit, 0, REPFLAG_HOOKEXIT, 0 },
-	{ "syphonfilterls_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x434 },
-	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
-	{ "zuma_pad_analog", &Hook_zuma_pad_analog, 0, REPFLAG_HOOKENTER, 0x234 },
-	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOKENTER, 0x210 },
-	{ "syphonfilter_steer", &Hook_syphonfilter_steer_arrived, 0, REPFLAG_HOOKENTER, 0x13E8 },
-	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOKENTER, 0x1610 },
-	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x78 },
-	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOKENTER, 0x18C },
+	{ "syphonfilterls_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOK, 0x434 },
+	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOK, 0x198 },
+	{ "zuma_pad_analog", &Hook_zuma_pad_analog, 0, REPFLAG_HOOK, 0x234 },
+	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOK, 0x210 },
+	{ "syphonfilter_steer", &Hook_syphonfilter_steer_arrived, 0, REPFLAG_HOOK, 0x13E8 },
+	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOK, 0x1610 },
+	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x78 },
+	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x18C },
 	{}
 };
 
@@ -2284,7 +2303,7 @@ void Replacement_Init() {
 }
 
 void Replacement_Shutdown() {
-	RestoreReplacedInstructions(0, 0xFFFFFFFF);
+	RemoveReplacements(0, 0xFFFFFFFF);
 	replacementNameLookup.clear();
 	syphonFilterArrivals.clear();
 	syphonFilterFadeHolds.clear();
@@ -2334,7 +2353,7 @@ const ReplacementTableEntry *GetReplacementFunc(size_t i) {
 	return &entries[i];
 }
 
-static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 funcSize, u64 funcHash) {
+static bool InstallReplacement(u32 address, int index, u32 funcStart, u32 funcSize, u64 funcHash) {
 	if (!Memory::IsValid4AlignedAddress(address)) {
 		return false;
 	}
@@ -2356,7 +2375,7 @@ static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 f
 	return true;
 }
 
-void WriteReplaceInstructions(u32 address, u64 hash, int size) {
+void InstallReplacements(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
 	const u64 funcHash = indexes.empty() ? 0 : HashReplacedFunc(address, size);
 	for (int index : indexes) {
@@ -2367,17 +2386,17 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
 				const u32 op = Memory::Read_Instruction(address + offset).encoding;
 				if (op == MIPS_MAKE_JR_RA()) {
-					if (WriteReplaceInstruction(address + offset, index, address, size, funcHash)) {
+					if (InstallReplacement(address + offset, index, address, size, funcHash)) {
 						didReplace = true;
 					}
 				}
 			}
-		} else if (entry->flags & REPFLAG_HOOKENTER) {
-			if (WriteReplaceInstruction(address + entry->hookOffset, index, address, size, funcHash)) {
+		} else if (entry->flags & REPFLAG_HOOK) {
+			if (InstallReplacement(address + entry->hookOffset, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		} else {
-			if (WriteReplaceInstruction(address, index, address, size, funcHash)) {
+			if (InstallReplacement(address, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		}
@@ -2388,7 +2407,7 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	}
 }
 
-void RestoreReplacedInstruction(u32 address) {
+void RemoveReplacement(u32 address) {
 	const u32 key = address & Memory::BLOCK_SHADOW_MASK;
 	auto iter = installedReplacements.find(key);
 	if (iter != installedReplacements.end()) {
@@ -2431,7 +2450,7 @@ void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hook
 	}
 }
 
-void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
+void RemoveReplacements(u32 startAddr, u32 endAddr) {
 	if (endAddr == startAddr)
 		return;
 	// Need to be in order, or we'll hang.
@@ -2461,7 +2480,7 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", (int)restored.size(), startAddr, endAddr);
 }
 
-void Replacement_CheckRange(u32 address, u32 length) {
+void RemoveModifiedReplacementsInRange(u32 address, u32 length) {
 	const u32 start = address & Memory::BLOCK_SHADOW_MASK;
 	const u32 end = length >= Memory::BLOCK_SHADOW_MASK ? Memory::BLOCK_SHADOW_MASK : start + length;
 	std::vector<u32> dropped;

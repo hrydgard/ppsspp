@@ -52,6 +52,8 @@ enum SceHttpErrorCode {
 	SCE_HTTP_ERROR_BAD_RESPONSE = 0x80431064,
 	SCE_HTTP_ERROR_BEFORE_SEND = 0x80431065,
 	SCE_HTTP_ERROR_AFTER_SEND = 0x80431066,
+	// sceHttpDeleteConnection, while the connection has requests (tests/net/http/ids).
+	SCE_HTTP_ERROR_CONNECTION_HAS_REQUESTS = 0x80431067,
 	SCE_HTTP_ERROR_TIMEOUT = 0x80431068,
 	SCE_HTTP_ERROR_UNKOWN_AUTH_TYPE = 0x80431069,
 	SCE_HTTP_ERROR_INVALID_VERSION = 0x8043106A,
@@ -258,6 +260,7 @@ private:
 	u32 headerAddr_ = 0;
 	u32 headerSize_ = 0;
 	bool cancelled_ = false;
+	bool sent_ = false;
 	int responseCode_ = -1;
 	int entityLength_ = -1;
 
@@ -275,6 +278,8 @@ public:
 
 	void setInternalHeaderAddr(u32 addr) { headerAddr_ = addr; }
 	int getConnectionID() { return connectionID; }
+	// Until a send succeeds, the calls that read the response fail with SCE_HTTP_ERROR_BEFORE_SEND.
+	bool wasSent() const { return sent_; }
 	int getResponseRemainingContentLength() { return (int)responseContent_.size(); }
 
 	int getResponseContentLength();

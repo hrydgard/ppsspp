@@ -360,7 +360,8 @@ const ShaderLanguage languages[] = {
 };
 const int numLanguages = ARRAY_SIZE(languages);
 
-bool TestVertexShaders() {
+// vr: GPU_USE_VIRTUAL_REALITY is set, which only the GLSL backends (OpenGL, Vulkan) use.
+bool TestVertexShaders(bool vr) {
 	char *buffer[numLanguages];
 
 	for (int i = 0; i < numLanguages; i++) {
@@ -393,6 +394,10 @@ bool TestVertexShaders() {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
+			if (vr && languages[j] == ShaderLanguage::HLSL_D3D11) {
+				buffer[j][0] = '\0';
+				continue;
+			}
 			generateSuccess[j] = GenerateVShader(id, buffer[j], languages[j], bugs, &genErrorString[j]);
 			if (!genErrorString[j].empty()) {
 				if (g_testLog) {
@@ -538,7 +543,16 @@ bool TestShaderGenerators() {
 		return false;
 	}
 
-	if (!TestVertexShaders()) {
+	if (!TestVertexShaders(false)) {
+		return false;
+	}
+
+	// Again with the VR uniforms and the per-eye view (with VS_BIT_SIMPLE_STEREO on Vulkan).
+	const u32 oldFlags = gstate_c.GetUseFlags();
+	gstate_c.SetUseFlags(oldFlags | GPU_USE_VIRTUAL_REALITY);
+	const bool vrResult = TestVertexShaders(true);
+	gstate_c.SetUseFlags(oldFlags);
+	if (!vrResult) {
 		return false;
 	}
 

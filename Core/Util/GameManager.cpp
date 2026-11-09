@@ -912,7 +912,8 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		return false;
 	}
 	std::string fn = fnPtr;
-	size_t nameOffset = fn.rfind('/');
+	// Zips made on Windows can use either separator.
+	size_t nameOffset = fn.find_last_of("/\\");
 	if (nameOffset == std::string::npos) {
 		nameOffset = 0;
 	} else {
@@ -934,6 +935,13 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 		name = name.substr(2);
 	}
 
+	// The name is used as a filename in the destination, so mustn't be able to point outside it.
+	if (!IsSafePathComponent(name)) {
+		ERROR_LOG(Log::IO, "Bad ISO filename in zip: '%s'", fn.c_str());
+		SetInstallError(I18NCat::INSTALLZIP, "Zip archive corrupt");
+		return false;
+	}
+
 	Path outputISOFilename = destDir;
 	if (outputISOFilename.empty()) {
 		outputISOFilename = Path(g_Config.currentDirectory);
@@ -952,8 +960,12 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, const Path &
 
 	installProgress_ = 1.0f;
 	InstallDone();
-	ResetInstallError();
-	return true;
+	if (success) {
+		ResetInstallError();
+	} else {
+		SetInstallError(I18NCat::INSTALLZIP, "Installation failed");
+	}
+	return success;
 }
 
 bool GameManager::InstallZippedPS1Disc(struct zip *z, const std::vector<std::string> &files, const Path &destDir) {

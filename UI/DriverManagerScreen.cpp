@@ -114,10 +114,10 @@ public:
 
 DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_VERTICAL, layoutParams), name_(driverName) {
 	using namespace UI;
-	SetSpacing(2.0f);
+	SetSpacing(0.0f);
 	if (!layoutParams) {
 		layoutParams_->width = FILL_PARENT;
-		layoutParams_->height = 220;
+		layoutParams_->height = WRAP_CONTENT;
 	}
 	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -126,7 +126,7 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 	DriverMeta meta{};
 	bool isDefault = driverName.empty();
 	if (isDefault) {
-		meta.description = gr->T("Default GPU driver");
+		meta.name = gr->T("Default GPU driver");
 	}
 
 	Path metaPath = GetDriverPath() / driverName / "meta.json";
@@ -135,7 +135,6 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 		std::string errorStr;
 		meta.Read(metaJson, &errorStr);
 	}
-	Add(new Spacer(12.0));
 
 #if PPSSPP_PLATFORM(ANDROID)
 	bool usable = isDefault || meta.minApi <= System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
@@ -144,35 +143,34 @@ DriverChoice::DriverChoice(const std::string &driverName, bool current, UI::Layo
 	bool usable = isDefault || true;
 #endif
 
-	Add(new ItemHeader(driverName.empty() ? gr->T("Default GPU driver") : driverName))->SetLarge(true);
-	if (current) {
-		Add(new NoticeView(NoticeLevel::SUCCESS, gr->T("Current GPU driver"), ""));
-	}
-
-	auto horizBar = Add(new UI::LinearLayout(ORIENT_HORIZONTAL));
-	std::string desc = meta.description;
-	if (!desc.empty()) desc += "\n";
-	if (!isDefault)
-		desc += meta.vendor + ": " + meta.driverVersion;
-	horizBar->Add(new TextView(desc));
-	if (!current && !isDefault) {
-		horizBar->Add(new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([=](UI::EventParams &) {
-			UI::EventParams e{};
-			e.s = name_;
-			OnDelete.Trigger(e);
-		});
-	}
+	Choice *radio = Add(new Choice(meta.name, ImageID(current ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	if (usable) {
 		if (!current) {
-			Add(new Choice(di->T("Select")))->OnClick.Add([=](UI::EventParams &) {
+			radio->OnClick.Add([this](UI::EventParams &) {
 				UI::EventParams e{};
 				e.s = name_;
 				OnUse.Trigger(e);
 			});
 		}
-	} else {
+	}
+	if (!isDefault) {
+		std::string desc = meta.description;
+		Add(new InfoItem(desc, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		std::string vendorInfo = meta.vendor + ": " + meta.driverVersion;
+		Add(new InfoItem(vendorInfo, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	}
+	if (!current && !isDefault) {
+		Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Add([this](UI::EventParams &) {
+			UI::EventParams e{};
+			e.s = name_;
+			OnDelete.Trigger(e);
+		});
+	}
+	if (!usable) {
 		Add(new NoticeView(NoticeLevel::WARN, ApplySafeSubstitutions(gr->T("Driver requires Android API version %1, current is %2"), meta.minApi, System_GetPropertyInt(SYSPROP_SYSTEMVERSION)),""));
 	}
+
+	SetRoundCorners();
 }
 
 DriverManagerScreen::DriverManagerScreen(const Path & gamePath) : UITabbedBaseDialogScreen(gamePath) {}
@@ -184,58 +182,71 @@ void DriverManagerScreen::CreateTabs() {
 	AddTab("DriverManagerDrivers", gr->T("Drivers"), [this](UI::LinearLayout *parent) {
 		CreateDriverTab(parent);
 	});
-}
 
-void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *drivers) {
-	using namespace UI;
-	auto di = GetI18NCategory(I18NCat::DIALOG);
-	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-
-	// Like SettingsPage::Description().
-	TextView *description = drivers->Add(new TextView(gr->T("CustomDriversDescription", "Custom drivers loaded through AdrenoTools replace the GPU driver that came with your device. They can be faster and have fewer bugs, but they can also be slower or less stable. Only install drivers made for your GPU. If rendering breaks, switch back to the default driver."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
-	description->SetTextSize(TextSize::Small);
-	description->SetPadding(Margins(12));
-	description->SetFrame(true);
-
-	ChoiceGroupList *groups = drivers->Add(new ChoiceGroupList());
-
-	ChoiceGroup *driverManagerGroup = groups->Add(new ChoiceGroup(gr->T("Custom driver manager")));
-	auto customDriverInstallChoice = driverManagerGroup->Add(new Choice(gr->T("Install custom driver...")));
-	driverManagerGroup->Add(new Choice(di->T("More info")))->OnClick.Add([=](UI::EventParams &e) {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
-	});
-
-	// Turnip is Adreno-only. Keep the flags visible off Android, for debugging the screen.
 #if PPSSPP_PLATFORM(ANDROID)
 	const bool showTurnipFlags = CheckKgslPresent();
 #else
 	const bool showTurnipFlags = true;
 #endif
 	if (showTurnipFlags) {
-		ChoiceGroup *adrenoEnvVarGroup = groups->Add(new ChoiceGroup(gr->T("Turnip driver flags")));
-		int count = 0;
-		const AdrenoEnvVarDef *adrenoEnvVarDefs = GetAdrenoEnvVarDefs(&count);
-		for (int i = 0; i < count; i++) {
-			adrenoEnvVarGroup->Add(new BitCheckBox(&g_Config.iAdrenoEnvVars, (int)adrenoEnvVarDefs[i].var, adrenoEnvVarDefs[i].name));
-		}
+		AddTab("DriverManagerTurnipFlags", gr->T("Turnip driver flags"), [this](UI::LinearLayout *parent) {
+			CreateTurnipFlagsTab(parent);
+		});
 	}
+}
+
+void DriverManagerScreen::CreateTurnipFlagsTab(UI::ViewGroup *parent) {
+	using namespace UI;
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+
+	// Turnip is Adreno-only. Keep the flags visible off Android, for debugging the screen.
+	ChoiceGroup *adrenoEnvVarGroup = groups->Add(new ChoiceGroup());
+	int count = 0;
+	const AdrenoEnvVarDef *adrenoEnvVarDefs = GetAdrenoEnvVarDefs(&count);
+	for (int i = 0; i < count; i++) {
+		adrenoEnvVarGroup->Add(new BitCheckBox(&g_Config.iAdrenoEnvVars, (int)adrenoEnvVarDefs[i].var, adrenoEnvVarDefs[i].name));
+	}
+}
+
+void DriverManagerScreen::CreateDriverTab(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+
+	// Like SettingsPage::Description().
+	TextView *description = groups->Add(new TextView(gr->T("CustomDriversDescription", "Custom drivers loaded through AdrenoTools replace the GPU driver that came with your device. They can be faster and have fewer bugs, but they can also be slower or less stable. Only install drivers made for your GPU. If rendering breaks, switch back to the default driver."), FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
+	description->SetTextSize(TextSize::Small);
+	description->SetPadding(Margins(12));
+	description->SetFrame(true);
+
+	Choice *moreInfo = groups->Add(new ChoiceGroup())->Add(new Choice(di->T("More info")));
+	moreInfo->SetIconRight(ImageID("I_LINK_OUT"));
+	moreInfo->OnClick.Add([=](UI::EventParams &e) {
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/custom-drivers/");
+	});
+
+	ChoiceGroup *driverManagerGroup = groups->Add(new ChoiceGroup(gr->T("Custom driver manager")));
+	auto customDriverInstallChoice = driverManagerGroup->Add(new Choice(gr->T("Install custom driver...")));
 
 	customDriverInstallChoice->OnClick.Handle(this, &DriverManagerScreen::OnCustomDriverInstall);
 
-	drivers->Add(new ItemHeader(gr->T("Drivers")));
-	bool isDefault = g_Config.sCustomDriver.empty();
-	drivers->Add(new DriverChoice("", isDefault))->OnUse.Handle(this, &DriverManagerScreen::OnCustomDriverChange);
+	groups->Add(new TextView(gr->T("Drivers")))->SetBig(true);
+
+	const bool isDefault = g_Config.sCustomDriver.empty();
+	groups->Add(new DriverChoice("", isDefault))->OnUse.Handle(this, &DriverManagerScreen::OnCustomDriverChange);
 
 	const Path driverPath = GetDriverPath();
 	std::vector<File::FileInfo> listing;
 	if (File::GetFilesInDir(driverPath, &listing)) {
 		for (auto driver : listing) {
-			auto choice = drivers->Add(new DriverChoice(driver.name, g_Config.sCustomDriver == driver.name));
+			// A DriverChoice is itself a group.
+			auto choice = groups->Add(new DriverChoice(driver.name, g_Config.sCustomDriver == driver.name));
 			choice->OnUse.Handle(this, &DriverManagerScreen::OnCustomDriverChange);
 			choice->OnDelete.Handle(this, &DriverManagerScreen::OnCustomDriverUninstall);
 		}
 	}
-	drivers->Add(new Spacer(12.0));
 }
 
 void DriverManagerScreen::OnCustomDriverChange(UI::EventParams &e) {

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <map>
 
@@ -83,19 +84,20 @@ public:
 		return Fail();
 	}
 	int64_t SLEB() {
-		int64_t result = 0;
+		// Unsigned, so shifting into (and past) the sign bit is defined.
+		uint64_t result = 0;
 		int shift = 0;
 		for (int i = 0; i < 10; i++) {
 			const uint8_t b = U8();
 			if (!ok_)
 				return 0;
 			if (shift < 64)
-				result |= (int64_t)(b & 0x7f) << shift;
+				result |= (uint64_t)(b & 0x7f) << shift;
 			shift += 7;
 			if (!(b & 0x80)) {
 				if (shift < 64 && (b & 0x40))
-					result -= (int64_t)1 << shift;
-				return result;
+					result |= ~(uint64_t)0 << shift;
+				return (int64_t)result;
 			}
 		}
 		return Fail();
@@ -147,6 +149,13 @@ enum {
 
 // One .debug_line unit: header, then a bytecode program that walks a virtual machine whose output
 // rows are (address, file, line). See the DWARF spec, "Line Number Information".
+// Line 0 marks the end of a sequence, so real rows are at least 1.
+static u32 ClampLine(int64_t line) {
+	return line > 0 ? (u32)std::min<int64_t>(line, UINT32_MAX) : 1;
+}
+
+static constexpr size_t MAX_FILES = 1 << 16;
+
 static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries,
 	std::vector<std::string> *files, std::map<std::string, u32> *fileIndex, u32 moduleStart, u32 moduleSize, u32 addressDelta) {
 	const uint16_t version = r.U16();
@@ -158,6 +167,8 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 	}
 
 	const uint32_t headerLength = r.U32();
+	if ((u64)r.pos() + headerLength > unitEnd)
+		return false;
 	const size_t programStart = r.pos() + headerLength;
 
 	const uint8_t minInstLength = r.U8();
@@ -192,6 +203,11 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 		// Deduped across units so a header included by 500 files is stored once.
 		auto it = fileIndex->find(name);
 		if (it == fileIndex->end()) {
+			// Each one costs far more memory than its bytes in the file.
+			if (files->size() >= MAX_FILES) {
+				unitFiles.push_back(0);
+				continue;
+			}
 			it = fileIndex->insert({ name, (u32)files->size() }).first;
 			files->push_back(name);
 		}
@@ -204,14 +220,20 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 
 	u32 address = 0;
 	u32 file = 1;
-	int line = 1;
+	// 64 bits, so the file can't overflow it with line advances.
+	int64_t line = 1;
 	bool sawAddress = false;
+	// Every one-byte special opcode can emit a row. After deduplication there's at most one per
+	// address, so more than a couple per instruction is a file trying to exhaust memory.
+	const size_t maxEntries = (size_t)moduleSize / 2 + 65536;
 
 	auto emit = [&](u32 lineNo) {
 		// Rows before a DW_LNE_set_address belong to no real code, and anything that doesn't land
 		// inside the module after relocation would only produce bogus lookups.
 		const u32 finalAddress = addressDelta + address;
 		if (!sawAddress || finalAddress < moduleStart || finalAddress - moduleStart >= moduleSize)
+			return;
+		if (entries->size() >= maxEntries)
 			return;
 		LineEntry e;
 		e.address = finalAddress;
@@ -227,10 +249,14 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 			const uint8_t adjusted = op - opcodeBase;
 			address += (adjusted / lineRange) * minInstLength;
 			line += lineBase + (adjusted % lineRange);
-			emit(line > 0 ? (u32)line : 1);
+			emit(ClampLine(line));
 		} else if (op == 0) {
 			// Extended opcode, length-prefixed so unknown ones can be skipped.
 			const uint64_t length = r.ULEB();
+			// The length covers at least the sub-opcode. Check it before adding: a huge one wraps
+			// back to this opcode, which then loops forever.
+			if (!r.ok() || length == 0 || r.pos() > unitEnd || length > unitEnd - r.pos())
+				return false;
 			const size_t next = r.pos() + (size_t)length;
 			const uint8_t sub = r.U8();
 			if (sub == DW_LNE_end_sequence) {
@@ -248,13 +274,13 @@ static bool ParseUnit(Reader &r, size_t unitEnd, std::vector<LineEntry> *entries
 		} else {
 			switch (op) {
 			case DW_LNS_copy:
-				emit(line > 0 ? (u32)line : 1);
+				emit(ClampLine(line));
 				break;
 			case DW_LNS_advance_pc:
 				address += (u32)r.ULEB() * minInstLength;
 				break;
 			case DW_LNS_advance_line:
-				line += (int)r.SLEB();
+				line = std::clamp<int64_t>(line + std::clamp<int64_t>(r.SLEB(), INT32_MIN, INT32_MAX), INT32_MIN, UINT32_MAX);
 				break;
 			case DW_LNS_set_file:
 				file = (u32)r.ULEB();
@@ -293,36 +319,46 @@ int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 module
 	if (data[0] != ELFMAG0 || data[1] != ELFMAG1 || data[2] != ELFMAG2 || data[3] != ELFMAG3)
 		return 0;
 
-	const Elf32_Ehdr *header = (const Elf32_Ehdr *)data;
+	// Copied out, since the offsets in the file needn't be aligned. Sums in 64 bits, so they can't
+	// wrap a 32-bit size_t.
+	Elf32_Ehdr headerCopy;
+	memcpy(&headerCopy, data, sizeof(headerCopy));
+	const Elf32_Ehdr *header = &headerCopy;
 	if (header->e_shoff == 0 || header->e_shnum == 0 || header->e_shentsize < sizeof(Elf32_Shdr))
 		return 0;
-	if ((size_t)header->e_shoff + (size_t)header->e_shnum * header->e_shentsize > size)
+	if ((u64)header->e_shoff + (u64)header->e_shnum * header->e_shentsize > size)
 		return 0;
 	if (header->e_shstrndx >= header->e_shnum)
 		return 0;
 
 	auto section = [&](int i) {
-		return (const Elf32_Shdr *)(data + header->e_shoff + (size_t)i * header->e_shentsize);
+		Elf32_Shdr s;
+		memcpy(&s, data + header->e_shoff + (size_t)i * header->e_shentsize, sizeof(s));
+		return s;
 	};
 
-	const Elf32_Shdr *shstr = section(header->e_shstrndx);
-	if ((size_t)shstr->sh_offset + shstr->sh_size > size)
+	const Elf32_Shdr shstr = section(header->e_shstrndx);
+	if ((u64)shstr.sh_offset + shstr.sh_size > size)
 		return 0;
 
-	const Elf32_Shdr *debugLine = nullptr;
+	static const char debugLineName[] = ".debug_line";
+	Elf32_Shdr debugLine{};
+	bool foundDebugLine = false;
 	for (int i = 0; i < header->e_shnum; i++) {
-		const Elf32_Shdr *s = section(i);
-		if (s->sh_name >= shstr->sh_size)
+		const Elf32_Shdr s = section(i);
+		// The name, with its terminator, has to fit in the string table.
+		if (s.sh_name >= shstr.sh_size || shstr.sh_size - s.sh_name < sizeof(debugLineName))
 			continue;
-		const char *name = (const char *)data + shstr->sh_offset + s->sh_name;
-		if (!strcmp(name, ".debug_line")) {
+		const char *name = (const char *)data + shstr.sh_offset + s.sh_name;
+		if (!memcmp(name, debugLineName, sizeof(debugLineName))) {
 			debugLine = s;
+			foundDebugLine = true;
 			break;
 		}
 	}
-	if (!debugLine || debugLine->sh_size == 0)
+	if (!foundDebugLine || debugLine.sh_size == 0)
 		return 0;
-	if ((size_t)debugLine->sh_offset + debugLine->sh_size > size)
+	if ((u64)debugLine.sh_offset + debugLine.sh_size > size)
 		return 0;
 
 	ModuleLines mod;
@@ -331,9 +367,9 @@ int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 module
 	mod.files.push_back("<unknown>");
 	std::map<std::string, u32> fileIndex;
 
-	Reader r(data + debugLine->sh_offset, debugLine->sh_size);
+	Reader r(data + debugLine.sh_offset, debugLine.sh_size);
 	int skippedUnits = 0;
-	while (r.ok() && !r.AtEnd(debugLine->sh_size)) {
+	while (r.ok() && !r.AtEnd(debugLine.sh_size)) {
 		const size_t unitStart = r.pos();
 		const uint32_t unitLength = r.U32();
 		if (!r.ok() || unitLength == 0)
@@ -342,9 +378,9 @@ int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 module
 		// produces, and misreading it would walk off into nonsense.
 		if (unitLength >= 0xfffffff0)
 			break;
-		const size_t unitEnd = unitStart + 4 + unitLength;
-		if (unitEnd > debugLine->sh_size)
+		if ((u64)unitStart + 4 + unitLength > debugLine.sh_size)
 			break;
+		const size_t unitEnd = unitStart + 4 + unitLength;
 
 		if (!ParseUnit(r, unitEnd, &mod.entries, &mod.files, &fileIndex, moduleStart, moduleSize, addressDelta))
 			skippedUnits++;
@@ -363,9 +399,16 @@ int LineInfoMap::AddModule(std::string_view elfData, u32 moduleStart, u32 module
 	std::stable_sort(mod.entries.begin(), mod.entries.end(), [](const LineEntry &a, const LineEntry &b) {
 		return a.address < b.address;
 	});
-	mod.entries.erase(std::unique(mod.entries.begin(), mod.entries.end(), [](const LineEntry &a, const LineEntry &b) {
-		return a.address == b.address;
-	}), mod.entries.end());
+	// (std::unique would keep the first.)
+	size_t out = 0;
+	for (size_t i = 0; i < mod.entries.size(); i++) {
+		if (out > 0 && mod.entries[out - 1].address == mod.entries[i].address) {
+			mod.entries[out - 1] = mod.entries[i];
+		} else {
+			mod.entries[out++] = mod.entries[i];
+		}
+	}
+	mod.entries.resize(out);
 
 	const int count = (int)mod.entries.size();
 	INFO_LOG(Log::Loader, "Line info: %d rows across %d files for module at %08x",

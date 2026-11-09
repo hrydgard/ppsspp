@@ -19,6 +19,8 @@
 //#define SHADERLOG
 #endif
 
+#include <cstddef>
+
 #include "Common/LogReporting.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
@@ -176,6 +178,7 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 	_assert_(uniforms_);
 
 	static_assert(sizeof(uniforms_->ub_base) <= 512, "ub_base grew too big");
+	static_assert(offsetof(Uniforms, ub_vr) == sizeof(UB_VS_FS_Base), "ub_vr must follow ub_base");
 	static_assert(sizeof(uniforms_->ub_lights) <= 512, "ub_lights grew too big");
 }
 
@@ -218,12 +221,18 @@ void ShaderManagerVulkan::ClearShaders() {
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
+	DirtyDepalIfPixelMappedChanged(pixelMapped);
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
 			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering, pixelMapped);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
+	}
+	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
+		VRUpdateUniforms(&uniforms_->ub_base, &uniforms_->ub_vr, dirty);
+		// It rewrote the view and the VR block for this draw, so the base buffer is pushed again.
+		dirty |= DIRTY_VIEWMATRIX;
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
@@ -369,7 +378,7 @@ enum class VulkanCacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 64
+#define CACHE_VERSION 65
 
 struct VulkanCacheHeader {
 	uint32_t magic;

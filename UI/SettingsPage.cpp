@@ -17,6 +17,8 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Common/Data/Text/I18n.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/PopupScreens.h"
@@ -66,6 +68,30 @@ static SettingText LabelText(const ConfigSettingInfo &info) {
 		return SettingText::Raw("?");
 	}
 	return SettingText(info.cat, info.label, info.labelDefault);
+}
+
+void ShowWhyViewDisabled(UI::View *view) {
+	if (!view->GetDisabledReason().empty()) {
+		g_OSD.Show(OSDType::MESSAGE_INFO, view->GetDisabledReason(), 0.0f, "disabledsetting");
+		return;
+	}
+	bool meansDisabled = false;
+	const bool *ptr = view->GetEnabledPtr(&meansDisabled);
+	if (!ptr) {
+		// Disabled by SetEnabled or an enabled func, we can't tell why.
+		return;
+	}
+	const ConfigSettingRef *ref = Config::FindSetting(ptr);
+	if (!ref || !ref->setting->Info().label) {
+		return;
+	}
+	const ConfigSettingInfo &info = ref->setting->Info();
+	std::string_view label = T(info.cat, info.label, info.labelDefault ? info.labelDefault : "");
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	std::string_view format = meansDisabled ?
+		di->T("RequiresSettingOff", "This setting requires '%1' to be set to off.") :
+		di->T("RequiresSettingOn", "This setting requires '%1' to be set to on.");
+	g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(format, label), 0.0f, "disabledsetting");
 }
 
 // Units that are symbols or short abbreviations, like %, x, ms and MHz, aren't translated.
@@ -181,11 +207,6 @@ SettingItem &SettingsPage::Info(SettingText text, std::string_view rightText) {
 	return item;
 }
 
-SettingItem &SettingsPage::Hint(SettingText text) {
-	_dbg_assert_(!items_.empty());
-	return Add(SettingType::Hint, text);
-}
-
 SettingItem &SettingsPage::Description(SettingText text) {
 	return Add(SettingType::Description, text);
 }
@@ -198,7 +219,7 @@ SettingItem &SettingsPage::Link(SettingText text, I18NCat cat, std::function<voi
 }
 
 SettingItem &SettingsPage::RestoreDefaults() {
-	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" });
+	SettingItem &item = Choice({ I18NCat::DIALOG, "Restore defaults" }, ImageID("I_ROTATE_LEFT"));
 	item.restoresDefaults = true;
 	return item;
 }
@@ -220,7 +241,7 @@ static std::function<void(UI::EventParams &)> RestoreDefaultsHandler(const Setti
 	SettingsPageHost *host = page.Host();
 	return [host, settings](UI::EventParams &) {
 		std::string_view message = T(I18NCat::DIALOG, "RestorePageDefaults", "Restore the settings on this page to their defaults?");
-		host->PageScreenManager()->push(new PromptScreen(host->PageGamePath(), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
+		host->PageScreenManager()->push(new UI::MessagePopupScreen(T(I18NCat::DIALOG, "Restore defaults"), message, T(I18NCat::DIALOG, "Reset"), T(I18NCat::DIALOG, "Cancel"), [host, settings](bool yes) {
 			if (!yes) {
 				return;
 			}
@@ -279,7 +300,7 @@ static std::function<void(UI::EventParams &)> ChangeHandler(const SettingItem &i
 	};
 }
 
-static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
+static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat, UI::ViewGroup *parent, ScreenManager *screenManager) {
 	using namespace UI;
 
 	std::string_view text = item.text.Translate(pageCat);
@@ -363,8 +384,6 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 	}
 	case SettingType::Info:
 		return parent->Add(new InfoItem(text, item.rightText));
-	case SettingType::Hint:
-		return parent->Add(new SettingHint(text, prevView));
 	case SettingType::Description:
 	{
 		TextView *description = parent->Add(new TextView(text, FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 4))));
@@ -386,8 +405,8 @@ static UI::View *CreateSettingViewInner(const SettingItem &item, I18NCat pageCat
 	return nullptr;
 }
 
-static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::View *prevView, UI::ViewGroup *parent, ScreenManager *screenManager) {
-	UI::View *view = CreateSettingViewInner(item, pageCat, prevView, parent, screenManager);
+static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI::ViewGroup *parent, ScreenManager *screenManager) {
+	UI::View *view = CreateSettingViewInner(item, pageCat, parent, screenManager);
 	if (!view) {
 		return nullptr;
 	}
@@ -398,19 +417,35 @@ static UI::View *CreateSettingView(const SettingItem &item, I18NCat pageCat, UI:
 	} else if (item.disabledPtr) {
 		view->SetDisabledPtr(item.disabledPtr);
 	}
+	if (!item.disabledReason.empty()) {
+		view->SetDisabledReason(item.disabledReason.Translate(pageCat));
+	}
 	if (item.opensScreen) {
 		if (UI::Choice *choice = dynamic_cast<UI::Choice *>(view)) {
 			choice->SetIconRight(ImageID("I_CHEVRON_RIGHT"));
 		}
 	}
+	if (!item.hint.empty()) {
+		if (UI::ClickableItem *clickable = dynamic_cast<UI::ClickableItem *>(view)) {
+			clickable->SetHintText(item.hint.Translate(pageCat));
+		} else {
+			// Custom views that can't show a hint get it below them.
+			UI::View *hint = parent->Add(new SettingHint(item.hint.Translate(pageCat), view));
+			if (!item.visible) {
+				hint->SetVisibility(UI::V_GONE);
+			}
+		}
+	}
 	if (item.setup) {
 		item.setup(view);
+	}
+	if (!item.visible) {
+		view->SetVisibility(UI::V_GONE);
 	}
 	return view;
 }
 
 void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenManager *screenManager, std::vector<UI::View *> *views) {
-	UI::View *prevView = nullptr;
 	// Each header is a group, which the items after it go in. Items before the first get one without a title.
 	UI::ViewGroup *group = nullptr;
 	for (const SettingItem &item : page.Items()) {
@@ -419,7 +454,7 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 		if (!group && !outsideGroups) {
 			group = parent->Add(new UI::ChoiceGroup());
 		}
-		UI::View *view = CreateSettingView(item, page.DefaultCat(), prevView, outsideGroups ? parent : group, screenManager);
+		UI::View *view = CreateSettingView(item, page.DefaultCat(), outsideGroups ? parent : group, screenManager);
 		if (views) {
 			views->push_back(view);
 		}
@@ -430,8 +465,6 @@ void CreateSettingViews(const SettingsPage &page, UI::ViewGroup *parent, ScreenM
 			group = nullptr;
 		} else if (view && item.type == SettingType::Header) {
 			group = static_cast<UI::ViewGroup *>(view);
-		} else if (view) {
-			prevView = view;
 		}
 	}
 }

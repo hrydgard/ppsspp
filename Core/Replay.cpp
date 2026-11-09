@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstring>
 #include <ctime>
 #include <vector>
@@ -482,8 +483,11 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, b
 	{
 		auto item = ReplayNextDisk(ReplayAction::FILE_READ, t);
 		if (item && item->data.size() <= dataSize) {
-			memcpy(data, &item->data[0], item->data.size());
-			return item->info.result;
+			if (!item->data.empty()) {
+				memcpy(data, item->data.data(), item->data.size());
+			}
+			// The game sizes its next steps by this, so don't claim more than was copied.
+			return std::min((uint32_t)item->info.result, (uint32_t)item->data.size());
 		}
 		return readSize;
 	}
@@ -492,7 +496,9 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, b
 	{
 		ReplayItem item = ReplayItemHeader(ReplayAction::FILE_READ, t, readSize);
 		item.data.resize(readSize);
-		memcpy(&item.data[0], data, readSize);
+		if (readSize) {
+			memcpy(item.data.data(), data, readSize);
+		}
 		replayItems.push_back(item);
 		return readSize;
 	}

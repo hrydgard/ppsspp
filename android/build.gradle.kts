@@ -58,17 +58,20 @@ val gitVersionCode =
 		commitsSinceTag
 
 dependencies {
-	// 1.6.1 is the newest version we can use that won't complain about minSdk version,
-	// and also doesn't collide kotlin versions with com.gladed.androidgitversion.
-	// Will replace with a different plugin soon.
+	// appcompat 1.8.0 and later need minSdk 23.
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.documentfile:documentfile:1.1.0")
-	implementation("com.google.protobuf:protobuf-javalite:4.35.1")
+	// Keep the runtime and protoc versions in step.
+	implementation("com.google.protobuf:protobuf-javalite:4.36.2")
+	// Leak detection for debug builds, opt-in since its heap dumps freeze the app: ./gradlew -PleakCanary ...
+	if (project.hasProperty("leakCanary")) {
+		debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
+	}
 }
 
 protobuf {
 	protoc {
-		artifact = "com.google.protobuf:protoc:3.25.3"
+		artifact = "com.google.protobuf:protoc:4.36.2"
 	}
 
 	generateProtoTasks {

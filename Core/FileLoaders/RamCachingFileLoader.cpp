@@ -88,6 +88,11 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, F
 
 void RamCachingFileLoader::InitCache() {
 	std::lock_guard<std::mutex> guard(blocksMutex_);
+	// The whole file has to fit in memory (and a size_t, which may be 32 bits).
+	if (filesize_ <= 0 || (u64)filesize_ > (u64)(SIZE_MAX - BLOCK_SIZE) || (u64)filesize_ > (8ULL << 30)) {
+		ERROR_LOG(Log::IO, "Can't cache a file of %lld bytes in RAM, will fall back to regular reads.", (long long)filesize_);
+		return;
+	}
 	u32 blockCount = (u32)((filesize_ + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
 	// Overallocate for the last block.
 	cache_ = (u8 *)malloc((size_t)blockCount << BLOCK_SHIFT);

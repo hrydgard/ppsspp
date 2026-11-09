@@ -101,7 +101,8 @@ public:
 
 	VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	VkVertexInputAttributeDescription attrs[8]{};
-	VkVertexInputBindingDescription ibd{};
+	// The second is only used by pipelines with two vertex streams.
+	VkVertexInputBindingDescription ibd[2]{};
 	VkPipelineVertexInputStateCreateInfo vis{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 	VkPipelineViewportStateCreateInfo views{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 
@@ -289,8 +290,6 @@ public:
 	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, const char *tag);
 	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);
 
-	void ReportBadStateForDraw();
-
 	// True while there are queued or compiling pipelines.
 	bool PipelinesPending();
 
@@ -466,7 +465,8 @@ public:
 		return retval;
 	}
 
-	void Draw(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
+	// vbuffer1 is for the pipeline's second vertex stream, if it has one.
+	void Draw(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0, VkBuffer vbuffer1 = VK_NULL_HANDLE, uint32_t voffset1 = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::DRAW;
@@ -475,6 +475,8 @@ public:
 		data.draw.descSetIndex = descSetIndex;
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
+		data.draw.vbuffer1 = vbuffer1;
+		data.draw.voffset1 = voffset1;
 		data.draw.numUboOffsets = numUboOffsets;
 		_dbg_assert_(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
@@ -482,7 +484,7 @@ public:
 		curRenderStep_->render.numDraws++;
 	}
 
-	void DrawIndexed(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances) {
+	void DrawIndexed(int descSetIndex, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkBuffer vbuffer1 = VK_NULL_HANDLE, uint32_t voffset1 = 0) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::DRAW_INDEXED;
@@ -491,6 +493,8 @@ public:
 		data.drawIndexed.descSetIndex = descSetIndex;
 		data.drawIndexed.vbuffer = vbuffer;
 		data.drawIndexed.voffset = voffset;
+		data.drawIndexed.vbuffer1 = vbuffer1;
+		data.drawIndexed.voffset1 = voffset1;
 		data.drawIndexed.ibuffer = ibuffer;
 		data.drawIndexed.ioffset = ioffset;
 		data.drawIndexed.numUboOffsets = numUboOffsets;

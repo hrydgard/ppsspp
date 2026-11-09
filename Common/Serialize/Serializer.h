@@ -303,7 +303,7 @@ public:
 		if (error == ERROR_NONE) {
 			failureReason->clear();
 			error = LoadPtr(ptr, sz, _class, failureReason);
-			delete [] ptr;
+			free(ptr);
 			INFO_LOG(Log::SaveState, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
 			WARN_LOG(Log::SaveState, "ChunkReader: Error found during load of '%s'", filename.c_str());
@@ -359,7 +359,11 @@ public:
 
 	// The file half of Load() and Save(), for doing it away from the state itself. LoadFile hands back
 	// a new[]'d buffer; SaveFile takes ownership of a malloc'd one (as from MeasureAndSavePtr).
+	// The buffer is allocated with malloc (so the allocation can fail cleanly), free it with free().
 	static Error LoadFile(const Path &filename, std::string *gitVersion, u8 *&buffer, size_t &sz);
+	// Reads only the first size bytes of the state, decompressing no more than that. Not for snappy
+	// compressed (old) states.
+	static Error LoadFileStart(const Path &filename, u8 *out, size_t size);
 	static Error SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 
 private:

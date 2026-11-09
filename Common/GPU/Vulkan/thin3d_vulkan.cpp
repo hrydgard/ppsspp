@@ -1140,6 +1140,15 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	} else if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
 		// Not sure about driver versions, so let's just ban, impact is tiny.
 		bugs_.Infest(Bugs::PVR_BAD_16BIT_TEXFORMATS);
+		// At draw time, the driver writes the address of every dynamic UBO in the bound descriptor set into a
+		// table it sized for the ones the shader stage uses, so a stage that skips one runs off the end of it.
+		// Seen on a BXM-8-256 (Moto G54): a page fault in vkCmdDrawIndexed every few seconds in F1 2009.
+		bugs_.Infest(Bugs::PVR_UNUSED_DYNAMIC_UBO_OVERRUN);
+		// A shader that writes both clip and cull distances doesn't get culled (either one alone works), so
+		// geometry the PSP culls gets drawn. Seen on a BXM-8-256 (Moto G54) in DBZ Tenkaichi Tag Team and
+		// Monster Hunter 3rd. Without cull distances, draws reaching past the Z planes get clipped and culled on
+		// the CPU instead.
+		caps_.maxCullDistances = 0;
 	}
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {
@@ -1311,13 +1320,13 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	_dbg_assert_((int)input->attributes.size() == (int)input->visc.vertexAttributeDescriptionCount);
 
 	pipeline->stride = input->binding.stride;
-	gDesc.ibd = input->binding;
+	gDesc.ibd[0] = input->binding;
 	for (size_t i = 0; i < input->attributes.size(); i++) {
 		gDesc.attrs[i] = input->attributes[i];
 	}
 	gDesc.vis.vertexAttributeDescriptionCount = input->visc.vertexAttributeDescriptionCount;
 	gDesc.vis.vertexBindingDescriptionCount = input->visc.vertexBindingDescriptionCount;
-	gDesc.vis.pVertexBindingDescriptions = &gDesc.ibd;
+	gDesc.vis.pVertexBindingDescriptions = gDesc.ibd;
 	gDesc.vis.pVertexAttributeDescriptions = gDesc.attrs;
 
 	gDesc.blend0 = blend->attachments[0];

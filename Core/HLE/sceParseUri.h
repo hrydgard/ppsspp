@@ -23,14 +23,8 @@
 
 #pragma once
 
-#ifdef _MSC_VER
-#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
-#pragma pack(push, 1)
-#else
-#define PACK __attribute__((packed))
-#endif
-
-typedef struct PSPParsedUri {
+// This used to have pragma pack, but useless as all members are naturally aligned.
+struct PSPParsedUri {
 	s32 noSlash;
 	s32 schemeAddr;
 	s32 userInfoUserNameAddr;
@@ -41,10 +35,8 @@ typedef struct PSPParsedUri {
 	s32 fragmentAddr;
 	u16 port;
 	u8 unknown[10]; // padding might be included here?
-} PACK PSPParsedUri;
+};
 
-#ifdef _MSC_VER 
-#pragma pack(pop)
-#endif
+static_assert(sizeof(PSPParsedUri) == 44, "PSPParsedUri size mismatch");
 
 void Register_sceParseUri();

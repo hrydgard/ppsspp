@@ -23,7 +23,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 	if (buttonText == di->T("Delete") || buttonText == di->T("Move to trash")) {
 		*image = ImageID("I_TRASHCAN");
 	} else if (buttonText == di->T("Back")) {
-		*image = ImageID("I_NAVIGATE_BACK");
+		*image = ImageID("I_CHEVRON_LEFT");
 	} else if (buttonText == di->T("Add")) {
 		*image = ImageID("I_PLUS");
 	} else if (buttonText == di->T("OK")) {
@@ -153,6 +153,7 @@ void PopupScreen::CreateViews() {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();
 
+	// This places the actual popup in the center of the screen.
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	anchor->Overflow(false);
 	root_ = anchor;
@@ -184,16 +185,16 @@ void PopupScreen::CreateViews() {
 			(layoutBounds.w - RootMargins().horiz()) * 0.5, y, NONE, NONE, vCentering | Centering::Horizontal);
 	}
 
-	box_ = new LinearLayout(ORIENT_VERTICAL, anchorParams);
+	// Box is the actual popup shape.
+	box_ = root_->Add(new LinearLayout(ORIENT_VERTICAL, anchorParams));
 
-	root_->Add(box_);
 	box_->SetBG(dc.GetTheme().popupStyle.background);
 	box_->SetHasDropShadow(hasDropShadow_);
 	box_->SetRadiusFactor(1.44f);
 	// Since we scale a bit, make the dropshadow bleed past the edges.
 	box_->SetDropShadowExpand(std::max(g_display.dp_xres, g_display.dp_yres));
-	box_->SetSpacing(0.0f);
-	box_->SetPadding(Margins(8));
+	box_->SetSpacing(12.0f);
+	box_->SetPadding(Margins(12));
 
 	if (!title_.empty()) {
 		View *title = new PopupHeader(title_);
@@ -214,21 +215,19 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->SetSpacing(0);
-		Margins buttonMargins(5, 5);
-
+		buttonRow->SetSpacing(8);
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
-			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
 		} else {
 			if (!button2_.empty()) {
-				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
+				buttonRow->Add(new Choice(button2_, button2Image_, new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
 			}
-			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f, buttonMargins)));
+			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
 			defaultButton_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 		}
 
@@ -241,7 +240,7 @@ void PopupScreen::CreateViews() {
 
 	box_->SetRoundCorners(RoundCorners::All);
 	// Rounds the top of the header and the bottom of the last view, to match the box.
-	box_->ApplyRoundCorners(RoundCorners::All);
+	box_->SetRoundCorners(RoundCorners::All);
 }
 
 void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
@@ -251,17 +250,13 @@ void MessagePopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	std::vector<std::string_view> messageLines;
 	SplitString(message_, '\n', messageLines);
 	for (auto lineOfText : messageLines) {
-		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(8))));
+		parent->Add(new UI::TextView(lineOfText, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT, false));
 	}
 }
 
 void MessagePopupScreen::OnCompleted(DialogResult result) {
-	if (result == DR_OK) {
-		if (callback_)
-			callback_(true);
-	} else {
-		if (callback_)
-			callback_(false);
+	if (callback_) {
+		callback_(result == DR_OK);
 	}
 }
 
@@ -517,23 +512,27 @@ void PopupSliderChoice::HandleChange(EventParams &e) {
 	}
 }
 
-static bool IsValidNumberFormatString(std::string_view s) {
+// Accepts exactly one conversion, which has to be one of the given ones (with flags, width and precision).
+static bool IsValidNumberFormatString(std::string_view s, std::string_view conversions) {
 	if (s.empty())
 		return false;
 	size_t percentCount = 0;
-	for (int i = 0; i < (int)s.size(); i++) {
-		if (s[i] == '%') {
-			if (i < s.size() - 1) {
-				if (s[i + 1] == 's')
-					return false;
-				if (s[i + 1] == '%') {
-					// Next is another % sign, so it's an escape to emit a % sign, which is fine.
-					i++;
-					continue;
-				}
-			}
-			percentCount++;
+	for (size_t i = 0; i < s.size(); i++) {
+		if (s[i] != '%') {
+			continue;
 		}
+		i++;
+		if (i < s.size() && s[i] == '%') {
+			// An escaped % sign.
+			continue;
+		}
+		while (i < s.size() && std::string_view("-+ #0123456789.").find(s[i]) != std::string_view::npos) {
+			i++;
+		}
+		if (i >= s.size() || conversions.find(s[i]) == std::string_view::npos) {
+			return false;
+		}
+		percentCount++;
 	}
 	return percentCount == 1;
 }
@@ -549,9 +548,9 @@ std::string PopupSliderChoice::ValueText(bool *shadow) const {
 		truncate_cpy(temp, negativeLabel_);
 	} else {
 		// Would normally be dangerous to have user-controlled format strings!
-		// However, let's check that there's only one % sign, and that it's not followed by an S.
+		// However, let's check that there's exactly one conversion, and that it's an integer one.
 		// Also, these strings are from translations, which are kinda-fixed (though can be modified in theory).
-		if (IsValidNumberFormatString(fmt_)) {
+		if (IsValidNumberFormatString(fmt_, "diuxX")) {
 			snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 		} else {
 			truncate_cpy(temp, "(translation error)");
@@ -586,7 +585,7 @@ std::string PopupSliderChoiceFloat::ValueText(bool *shadow) const {
 	temp[0] = '\0';
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		truncate_cpy(temp, zeroLabel_);
-	} else if (IsValidNumberFormatString(fmt_)) {
+	} else if (IsValidNumberFormatString(fmt_, "fFeEgG")) {
 		snprintf(temp, sizeof(temp), fmt_.c_str(), *value_);
 	} else {
 		snprintf(temp, sizeof(temp), "%0.2f", *value_);
@@ -663,13 +662,13 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	Button *decrease = lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)));
 	decrease->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	decrease->SetRoundCorners();
 	Button *increase = lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)));
 	increase->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
-	increase->SetRoundCorners();
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
+	edit_->SetTextColor(dc.GetTheme().itemStyle.fgColor);
+	edit_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	edit_->OnTextChange.Handle(this, &SliderPopupScreen::OnTextChange);
 	changing_ = true;
 	UpdateTextBox();
@@ -677,7 +676,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_));
+		lin->Add(new TextView(units_, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -688,11 +687,12 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			UpdateTextBox();
 			changing_ = false;
 		});
-		reset->SetRoundCorners();
 	}
 
 	if (!negativeLabel_.empty())
 		vert->Add(new CheckBox(&disabled_, negativeLabel_));
+
+	lin->SetRoundCorners();
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_, FocusFlags::CAUSE_SCREEN_CHANGE);
@@ -709,8 +709,10 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
-	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	Button *decrease = lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)));
+	decrease->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	Button *increase = lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)));
+	increase->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -721,18 +723,22 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	UpdateTextBox();
 	changing_ = false;
 	lin->Add(edit_);
+
 	if (!units_.empty())
 		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
+		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
+		reset->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
 			}
 		});
+		reset->SetRoundCorners();
 	}
+	lin->SetRoundCorners();
 
 	// slider_ = parent->Add(new SliderFloat(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 5))));
 	if (IsFocusMovementEnabled())
@@ -1058,14 +1064,14 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 
 void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	Style style = dc.GetTheme().itemStyle;
-	if (!IsEnabled()) {
-		style = dc.GetTheme().itemDisabledStyle;
-	}
 	if (HasFocus()) {
 		style = dc.GetTheme().itemFocusedStyle;
 	}
 	if (down_) {
 		style = dc.GetTheme().itemDownStyle;
+	}
+	if (!IsEnabled()) {
+		style = dc.GetTheme().itemDisabledStyle;
 	}
 	int paddingX = 12;
 	dc.SetFontStyle(dc.GetTheme().uiFont);
@@ -1093,26 +1099,28 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		textPadding_.right = w + paddingX;
 
 		Choice::Draw(dc);
+		const Bounds bounds = ContentBounds();
 		int imagePadding = 0;
 		if (rightIconImage_.isValid()) {
-			imagePadding = bounds_.h;
+			imagePadding = bounds.h;
 		}
 		dc.SetFontScale(scale, scale);
-		Bounds valueBounds(bounds_.x2() - textPadding_.right - imagePadding, bounds_.y, w, bounds_.h);
+		Bounds valueBounds(bounds.x2() - textPadding_.right - imagePadding, bounds.y, w, bounds.h);
 		dc.DrawTextRect(valueText, valueBounds, color, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	} else {
 		Choice::Draw(dc);
+		const Bounds bounds = ContentBounds();
 
 		if (iconOnly_) {
 			// In this case we only display the image of the choice. Useful for small buttons spawning a popup.
-			dc.Draw()->DrawImageRotated(ValueImage(), bounds_.centerX(), bounds_.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
+			dc.Draw()->DrawImageRotated(ValueImage(), bounds.centerX(), bounds.centerY(), imgScale_, imgRot_, style.fgColor, imgFlipH_);
 			return;
 		}
 
-		float scale = CalculateValueScale(dc, valueText, bounds_.w);
+		float scale = CalculateValueScale(dc, valueText, bounds.w);
 		dc.SetFontScale(scale, scale);
-		dc.DrawTextRect(valueText, bounds_.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(valueText, bounds.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 }

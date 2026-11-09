@@ -1,6 +1,7 @@
 package org.ppsspp.ppsspp;
 
 import android.app.Activity;
+import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +12,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
+import android.os.StatFs;
+import android.os.storage.StorageManager;
+import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.StructStatVfs;
@@ -26,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -41,31 +46,175 @@ public class ContentUri {
 	private static final int STORAGE_ERROR_DISK_FULL = -3;
 	private static final int STORAGE_ERROR_ALREADY_EXISTS = -4;
 
+	// So the native side can tell a missing file or a full disk from other failures.
+	private static int errorFromException(Exception e) {
+		if (e instanceof java.io.FileNotFoundException) {
+			return STORAGE_ERROR_NOT_FOUND;
+		}
+		final String message = e.getMessage();
+		if (message != null && (message.contains("ENOSPC") || message.contains("No space left"))) {
+			return STORAGE_ERROR_DISK_FULL;
+		}
+		return STORAGE_ERROR_UNKNOWN;
+	}
+
+	private static final String EXTERNAL_STORAGE_AUTHORITY = "com.android.externalstorage.documents";
+
+	// The name a document has. For shared storage it's the last part of the document ID ("primary:PSP/SAVEDATA"),
+	// other providers' IDs can be anything, so those are asked.
+	private static String documentName(Context context, Uri documentUri) {
+		if (EXTERNAL_STORAGE_AUTHORITY.equals(documentUri.getAuthority())) {
+			final String id = DocumentsContract.getDocumentId(documentUri);
+			final int slash = id.lastIndexOf('/');
+			return id.substring(slash >= 0 ? slash + 1 : id.indexOf(':') + 1);
+		}
+		try (Cursor c = context.getContentResolver().query(documentUri, new String[] { DocumentsContract.Document.COLUMN_DISPLAY_NAME }, null, null, null)) {
+			return c != null && c.moveToFirst() ? c.getString(0) : null;
+		}
+	}
+
+	// Whether the provider made a renamed copy because the name was taken. It answers that with "name (1)", or
+	// "name (1).ext" for a file (FileUtils.buildUniqueFile), and before that replaces the characters FAT doesn't
+	// allow with '_' (buildValidFatFilename). The replacement alone isn't a conflict, the name was free.
+	private static boolean isRenamedCopy(String requested, String actual) {
+		if (actual == null || actual.equals(requested)) {
+			return false;
+		}
+		final String sanitized = fatSanitized(requested);
+		// Directories, and files the provider didn't split an extension off, get the number at the end.
+		if (isNumbered(actual, sanitized, "")) {
+			return true;
+		}
+		final int dot = sanitized.lastIndexOf('.');
+		return dot > 0 && isNumbered(actual, sanitized.substring(0, dot), sanitized.substring(dot));
+	}
+
+	// Whether name is "base (N)ext".
+	private static boolean isNumbered(String name, String base, String ext) {
+		final int digitsStart = base.length() + 2;
+		final int digitsEnd = name.length() - ext.length() - 1;
+		if (digitsEnd <= digitsStart || !name.startsWith(base + " (") || !name.endsWith(")" + ext)) {
+			return false;
+		}
+		for (int i = digitsStart; i < digitsEnd; i++) {
+			final char ch = name.charAt(i);
+			if (ch < '0' || ch > '9') {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static String fatSanitized(String name) {
+		final StringBuilder sb = new StringBuilder(name.length());
+		for (int i = 0; i < name.length(); i++) {
+			final char ch = name.charAt(i);
+			sb.append((ch <= 0x1f || ch == 0x7f || "\"*/:<>?\\|".indexOf(ch) >= 0) ? '_' : ch);
+		}
+		return sb.toString();
+	}
+
+	private static void logIfNameChanged(String what, String requested, String actual) {
+		if (actual != null && !actual.equals(requested)) {
+			Log.w(TAG, what + ": the provider named '" + requested + "' '" + actual + "'");
+		}
+	}
+
+	// Without a client of our own, every query and DocumentsContract call acquires the storage provider and
+	// releases it again, and when our reference count drops to zero, each of those is another binder call,
+	// to the system. Holding one keeps the count up. Unstable, so the provider dying doesn't take our process
+	// with it: queries that then fail drop it, and the next one acquires a new one.
+	// One per authority, and only dropped when its provider dies, so a client is never closed while another
+	// thread is still using it. There are rarely more than one or two.
+	private static final Object clientLock = new Object();
+	private static final HashMap<String, ContentProviderClient> clients = new HashMap<>();
+
+	private static ContentProviderClient getClient(Context context, Uri uri) {
+		final String authority = uri.getAuthority();
+		if (authority == null) {
+			return null;
+		}
+		synchronized (clientLock) {
+			ContentProviderClient client = clients.get(authority);
+			if (client == null) {
+				// The application's resolver, so the client doesn't keep the activity alive.
+				client = context.getApplicationContext().getContentResolver().acquireUnstableContentProviderClient(authority);
+				if (client != null) {
+					clients.put(authority, client);
+				}
+			}
+			return client;
+		}
+	}
+
+	// Drops the client if it's still the one cached for its authority (another thread may have replaced it already).
+	private static void dropClient(String authority, ContentProviderClient client) {
+		synchronized (clientLock) {
+			if (clients.get(authority) != client) {
+				return;
+			}
+			clients.remove(authority);
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			client.close();
+		} else {
+			client.release();
+		}
+	}
+
+	private static Cursor query(Context context, Uri uri, String[] projection) throws Exception {
+		final ContentProviderClient c = getClient(context, uri);
+		if (c != null) {
+			try {
+				return c.query(uri, projection, null, null, null);
+			} catch (android.os.DeadObjectException e) {
+				Log.w(TAG, "Storage provider died, acquiring it again");
+				dropClient(uri.getAuthority(), c);
+			}
+		}
+		return context.getContentResolver().query(uri, projection, null, null, null);
+	}
+
+	// Like query. The resolver's own open is slower: it takes a stable reference to the provider for each
+	// call, and drops it after.
+	private static ParcelFileDescriptor openFile(Context context, Uri uri, String mode) throws Exception {
+		final ContentProviderClient c = getClient(context, uri);
+		if (c != null) {
+			try {
+				return c.openFile(uri, mode);
+			} catch (android.os.DeadObjectException e) {
+				Log.w(TAG, "Storage provider died, acquiring it again");
+				dropClient(uri.getAuthority(), c);
+			}
+		}
+		return context.getContentResolver().openFileDescriptor(uri, mode);
+	}
+
 	@Keep
 	@SuppressWarnings("unused")
 	public static int openContentUri(Activity activity, String uriString, String mode) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			try (ParcelFileDescriptor filePfd = activity.getContentResolver().openFileDescriptor(uri, mode)) {
+			try (ParcelFileDescriptor filePfd = openFile(activity, uri, mode)) {
 				if (filePfd == null) {
 					// I'd expect an exception to happen before we get here, so this is probably
 					// never reached.
 					Log.e(TAG, "Failed to get file descriptor for " + uriString);
-					return -1;
+					return STORAGE_ERROR_UNKNOWN;
 				}
 				// Review note: We intentionally "leak" the fd here, the caller takes ownership and closes
 				// it when done with it.
 				return filePfd.detachFd();
 			}
-		} catch (java.lang.IllegalArgumentException e) {
-			// This exception is long and ugly and really just means file not found.
+		} catch (java.io.FileNotFoundException | IllegalArgumentException e) {
+			// The IllegalArgumentException is long and ugly and really just means file not found too.
 			// We don't log anything (the caller can log).
-			return -1;
+			return STORAGE_ERROR_NOT_FOUND;
 		} catch (Exception e) {
 			// Don't know when this might happen. Let's log. Still, the result is just a
 			// failure that the caller may additionally log.
 			Log.e(TAG, "Unexpected openContentUri exception: " + e);
-			return -1;
+			return errorFromException(e);
 		}
 	}
 
@@ -79,6 +228,9 @@ public class ContentUri {
 			return null;
 		}
 		final String documentName = c.getString(0);
+		if (documentName == null) {
+			return null;
+		}
 		if (prefixLowercase != null && !prefixLowercase.isEmpty()) {
 			// Filter by prefix, case insensitive.
 			if (!documentName.regionMatches(true, 0, prefixLowercase, 0, prefixLowercase.length())) {
@@ -107,10 +259,9 @@ public class ContentUri {
 				DocumentsContract.Document.COLUMN_SIZE,
 				DocumentsContract.Document.COLUMN_MIME_TYPE,  // check for MIME_TYPE_DIR
 			};
-			final ContentResolver resolver = activity.getContentResolver();
 			final String documentId = DocumentsContract.getDocumentId(uri);
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, documentId);
-			c = resolver.query(childrenUri, columns, null, null, null);
+			c = query(activity, childrenUri, columns);
 			long sizeSum = 0;
 
 			// Buffer the URIs so we only have one cursor active at once. I don't trust the storage framework
@@ -120,7 +271,7 @@ public class ContentUri {
 			if (c != null) {
 				while (c.moveToNext()) {
 					final String mimeType = c.getString(2);
-					final boolean isDirectory = mimeType.equals(DocumentsContract.Document.MIME_TYPE_DIR);
+					final boolean isDirectory = DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType);
 					if (isDirectory) {
 						final String childDocumentId = c.getString(0);
 						final Uri childUri = DocumentsContract.buildDocumentUriUsingTree(uri, childDocumentId);
@@ -174,7 +325,6 @@ public class ContentUri {
 	public static String[] listContentUriDir(Activity activity, String uriString, String prefix) {
 		try {
 			Uri uri = Uri.parse(uriString);
-			final ContentResolver resolver = activity.getContentResolver();
 			final Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
 				uri, DocumentsContract.getDocumentId(uri));
 			final ArrayList<String> listing = new ArrayList<>();
@@ -191,7 +341,7 @@ public class ContentUri {
 				prefix = prefix.toLowerCase(Locale.ROOT);
 			}
 
-			try (Cursor c = resolver.query(childrenUri, projection, null, null, null)) {
+			try (Cursor c = query(activity, childrenUri, projection)) {
 				if (c == null) {
 					return new String[]{"X"};
 				}
@@ -212,46 +362,45 @@ public class ContentUri {
 		}
 	}
 
-	@Keep
-	@SuppressWarnings("unused")
-	public static int contentUriCreateDirectory(Activity activity, String rootTreeUri, String dirName) {
+	// Given a taken name, the provider makes "name (1)" instead of failing. Nothing may leave such a duplicate of
+	// the user's files, so that's undone here and reported as ALREADY_EXISTS.
+	private static int createDocument(Activity activity, String parentUriString, String mimeType, String name) {
 		try {
-			Uri uri = Uri.parse(rootTreeUri);
-			DocumentFile documentFile = DocumentFile.fromTreeUri(activity, uri);
-			if (documentFile != null) {
-				DocumentFile createdDir = documentFile.createDirectory(dirName);
-				return createdDir != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
-			} else {
-				Log.e(TAG, "contentUriCreateDirectory: fromTreeUri returned null");
+			Uri parentUri = Uri.parse(parentUriString);
+			if (!DocumentsContract.isDocumentUri(activity, parentUri)) {
+				parentUri = DocumentsContract.buildDocumentUriUsingTree(parentUri, DocumentsContract.getTreeDocumentId(parentUri));
+			}
+			final ContentResolver resolver = activity.getContentResolver();
+			final Uri created = DocumentsContract.createDocument(resolver, parentUri, mimeType, name);
+			if (created == null) {
 				return STORAGE_ERROR_UNKNOWN;
 			}
+			// Null if the provider wouldn't say, which isn't a conflict.
+			final String createdName = documentName(activity, created);
+			if (isRenamedCopy(name, createdName)) {
+				Log.w(TAG, "createDocument: '" + name + "' is taken, removing the renamed copy " + created);
+				DocumentsContract.deleteDocument(resolver, created);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
+			logIfNameChanged("createDocument", name, createdName);
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
-			Log.e(TAG, "contentUriCreateDirectory exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			Log.e(TAG, "createDocument exception: " + e);
+			return errorFromException(e);
 		}
 	}
 
 	@Keep
 	@SuppressWarnings("unused")
-	// NOTE: If the file already exists, this will NOT return an error, instead the OS will create a new
-	// file appending an incrementing number, for example (1), to the filename.
+	public static int contentUriCreateDirectory(Activity activity, String rootTreeUri, String dirName) {
+		return createDocument(activity, rootTreeUri, DocumentsContract.Document.MIME_TYPE_DIR, dirName);
+	}
+
+	// Fails with ALREADY_EXISTS if the name is taken.
+	@Keep
+	@SuppressWarnings("unused")
 	public static int contentUriCreateFile(Activity activity, String rootTreeUri, String fileName) {
-		try {
-			Uri uri = Uri.parse(rootTreeUri);
-			DocumentFile documentFile = DocumentFile.fromTreeUri(activity, uri);
-			if (documentFile != null) {
-				// TODO: Check the file extension and choose MIME type appropriately.
-				// Or actually, let's not bother.
-				DocumentFile createdFile = documentFile.createFile("application/octet-stream", fileName);
-				return createdFile != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
-			} else {
-				Log.e(TAG, "contentUriCreateFile: fromTreeUri returned null");
-				return STORAGE_ERROR_UNKNOWN;
-			}
-		} catch (Exception e) {
-			Log.e(TAG, "contentUriCreateFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
-		}
+		return createDocument(activity, rootTreeUri, "application/octet-stream", fileName);
 	}
 
 	@Keep
@@ -267,7 +416,7 @@ public class ContentUri {
 			}
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriRemoveFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -284,10 +433,23 @@ public class ContentUri {
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
-			return DocumentsContract.copyDocument(activity.getContentResolver(), srcUri, dstParentUri) != null ? STORAGE_ERROR_SUCCESS : STORAGE_ERROR_UNKNOWN;
+			final ContentResolver resolver = activity.getContentResolver();
+			final Uri copy = DocumentsContract.copyDocument(resolver, srcUri, dstParentUri);
+			if (copy == null) {
+				return STORAGE_ERROR_UNKNOWN;
+			}
+			// A taken name gets a renamed copy, see createDocument.
+			final String name = documentName(activity, srcUri);
+			final String copyName = documentName(activity, copy);
+			if (name != null && isRenamedCopy(name, copyName)) {
+				Log.w(TAG, "contentUriCopyFile: '" + name + "' is taken, removing the renamed copy " + copy);
+				DocumentsContract.deleteDocument(resolver, copy);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
+			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriCopyFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -311,7 +473,7 @@ public class ContentUri {
 			return result;
 		} catch (Exception e) {
 			Log.e(TAG, "contentUriMoveFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -323,13 +485,21 @@ public class ContentUri {
 			// Due to a design flaw, we can't use DocumentFile.renameTo().
 			// Instead we use the DocumentsContract API directly.
 			// See https://stackoverflow.com/questions/37168200/android-5-0-new-sd-card-access-api-documentfile-renameto-unsupportedoperation.
-			Uri newUri = DocumentsContract.renameDocument(activity.getContentResolver(), uri, newName);
-			// NOTE: we don't use the returned newUri for anything right now.
+			final ContentResolver resolver = activity.getContentResolver();
+			final String oldName = documentName(activity, uri);
+			final Uri newUri = DocumentsContract.renameDocument(resolver, uri, newName);
+			// A taken name gets "name (1)" instead, see createDocument. Put the old name back.
+			final String renamedName = newUri != null ? documentName(activity, newUri) : null;
+			if (oldName != null && isRenamedCopy(newName, renamedName)) {
+				Log.w(TAG, "contentUriRenameFileTo: '" + newName + "' is taken, renaming back to '" + oldName + "'");
+				DocumentsContract.renameDocument(resolver, newUri, oldName);
+				return STORAGE_ERROR_ALREADY_EXISTS;
+			}
+			logIfNameChanged("contentUriRenameFileTo", newName, renamedName);
 			return STORAGE_ERROR_SUCCESS;
 		} catch (Exception e) {
-			// TODO: More detailed exception processing.
 			Log.e(TAG, "contentUriRenameFile exception: " + e);
-			return STORAGE_ERROR_UNKNOWN;
+			return errorFromException(e);
 		}
 	}
 
@@ -352,7 +522,7 @@ public class ContentUri {
 		Cursor c = null;
 		try {
 			Uri uri = Uri.parse(fileUri);
-			c = activity.getContentResolver().query(uri, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID }, null, null, null);
+			c = query(activity, uri, new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID });
 			if (c != null) {
 				return c.getCount() > 0;
 			} else {
@@ -377,7 +547,7 @@ public class ContentUri {
 			DocumentsContract.Document.COLUMN_LAST_MODIFIED   // index 4
 		};
 
-		try (Cursor c = activity.getContentResolver().query(Uri.parse(fileName), projection, null, null, null)) {
+		try (Cursor c = query(activity, Uri.parse(fileName), projection)) {
 			if (c != null && c.moveToFirst()) {
 				return cursorToString(c, null);
 			} else {
@@ -397,16 +567,13 @@ public class ContentUri {
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpaceSlow(Activity activity, Uri uri) {
-		try {
-			ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r");
+		try (ParcelFileDescriptor pfd = activity.getContentResolver().openFileDescriptor(uri, "r")) {
 			if (pfd == null) {
 				Log.w(TAG, "Failed to get free storage space from URI: " + uri);
 				return -1;
 			}
 			StructStatVfs stats = Os.fstatvfs(pfd.getFileDescriptor());
-			long freeSpace = stats.f_bavail * stats.f_bsize;
-			pfd.close();
-			return freeSpace;
+			return stats.f_bavail * stats.f_bsize;
 		} catch (Exception e) {
 			// FileNotFoundException | ErrnoException e
 			// Log.getStackTraceString(e)
@@ -415,11 +582,47 @@ public class ContentUri {
 		}
 	}
 
+	// The free space of the storage volume a document is on, looked up from the volume in its document ID
+	// ("primary:PSP", "75D7-DC5F:PSP"). The fstatvfs of a descriptor opened through the provider can't be
+	// trusted for that: for a folder on an SD card, some devices report the internal storage. -1 if the volume
+	// isn't found.
+	@RequiresApi(Build.VERSION_CODES.R)
+	private static long getFreeSpaceOfVolume(Context context, Uri uri) {
+		try {
+			if (!"com.android.externalstorage.documents".equals(uri.getAuthority())) {
+				return -1;
+			}
+			final String documentId = DocumentsContract.isDocumentUri(context, uri) ? DocumentsContract.getDocumentId(uri) : DocumentsContract.getTreeDocumentId(uri);
+			final int colon = documentId.indexOf(':');
+			if (colon <= 0) {
+				return -1;
+			}
+			final String volumeId = documentId.substring(0, colon);
+			final StorageManager storageManager = context.getSystemService(StorageManager.class);
+			for (StorageVolume volume : storageManager.getStorageVolumes()) {
+				final boolean match = "primary".equals(volumeId) ? volume.isPrimary() : volumeId.equalsIgnoreCase(volume.getUuid());
+				final File directory = match ? volume.getDirectory() : null;
+				if (directory != null) {
+					return new StatFs(directory.getPath()).getAvailableBytes();
+				}
+			}
+		} catch (Exception e) {
+			Log.w(TAG, "getFreeSpaceOfVolume: " + e);
+		}
+		return -1;
+	}
+
 	@Keep
 	@SuppressWarnings("unused")
 	public static long contentUriGetFreeStorageSpace(Activity activity, String str) {
+		Uri uri = Uri.parse(str);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+			long space = getFreeSpaceOfVolume(activity, uri);
+			if (space >= 0) {
+				return space;
+			}
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-			Uri uri = Uri.parse(str);
 			return contentUriGetFreeStorageSpaceSlow(activity, uri);
 		}
 

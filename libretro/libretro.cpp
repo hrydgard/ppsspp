@@ -521,6 +521,8 @@ static void check_dynamic_variables(CoreParameter &coreParam) {
    }
 }
 
+extern int DefaultDepthRaster();
+
 static void check_variables(CoreParameter &coreParam)
 {
    check_dynamic_variables(coreParam);
@@ -814,6 +816,23 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iInflightFrames = 1;
       else if (!strcmp(var.value, "Up to 1"))
          g_Config.iInflightFrames = 2;
+      else if (!strcmp(var.value, "Up to 2"))
+         g_Config.iInflightFrames = 3;
+   }
+
+   var.key = "ppsspp_depth_raster";
+   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+   {
+      if (!strcmp(var.value, "auto"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::DEFAULT;
+      else if (!strcmp(var.value, "low"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::LOW_QUALITY;
+      else if (!strcmp(var.value, "off"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::OFF;
+      else if (!strcmp(var.value, "always_on"))
+         g_Config.iDepthRasterMode = (int)DepthRasterMode::FORCE_ON;
+      else
+         g_Config.iDepthRasterMode = DefaultDepthRaster();
    }
 
    var.key = "ppsspp_skip_buffer_effects";
@@ -1225,6 +1244,8 @@ void retro_init(void)
    if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
       libretro_supports_bitmasks = true;
 
+   // Builds the pointer to setting lookup, which sceReg's registry mapping uses.
+   g_Config.Init();
    g_Config.Load("", "");
    g_Config.iInternalResolution = 0;
 
@@ -2081,6 +2102,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
       return (environ_cb(RETRO_ENVIRONMENT_GET_JIT_CAPABLE, &can_jit) && can_jit);
 #else
       return true;
+#endif
+   case SYSPROP_ENOUGH_RAM_FOR_FULL_ISO:
+#ifdef LIBRETRO_CAN_CACHE_ISO_IN_RAM
+      return true;
+#else
+      return false;
 #endif
    default:
       return false;

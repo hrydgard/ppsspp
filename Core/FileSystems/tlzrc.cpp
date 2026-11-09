@@ -177,7 +177,9 @@ static int rc_bittree(LZRC_DECODE *rc, u8 *probs, int limit)
  */
 static int rc_number(LZRC_DECODE *rc, u8 *prob, int n)
 {
-	int i, number = 1;
+	// Unsigned, since corrupt data can ask for more direct bits than fit (it then wraps).
+	int i;
+	u32 number = 1;
 
 	if(n>3){
 		number = (number<<1)+rc_bit(rc, prob+3);
@@ -210,7 +212,7 @@ static int rc_number(LZRC_DECODE *rc, u8 *prob, int n)
 		}	
 	}
 
-	return number;
+	return (int)number;
 }
 
 
@@ -305,13 +307,15 @@ int lzrc_decompress(void *out, int out_len, void *in, int in_len)
 			}
 
 			/* copy match bytes */
-			if(match_dist>rc.out_ptr || match_dist<0){
+			if(match_dist>rc.out_ptr || match_dist<=0){
 				printf("match_dist out of range! %08x\n", match_dist);
 				return -1;
 			}
 			match_src = rc.output+rc.out_ptr-match_dist;
 			for(i=0; i<match_len+1; i++){
 				rc_putbyte(&rc, *match_src++);
+				if (rc.error)
+					return -1;
 			}
 			rc_state = 6+((rc.out_ptr+1)&1);
 		}

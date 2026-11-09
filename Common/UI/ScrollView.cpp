@@ -143,10 +143,12 @@ bool ScrollView::Key(const KeyInput &input) {
 		break;
 	}
 
-	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_) {
+	// Ctrl+wheel (Cmd on Apple platforms) is left for the children to zoom with (see GameBrowser::Key).
+	if ((input.flags & KeyInputFlags::DOWN) && mouseHover_ && !(input.flags & KEY_MOD_SHORTCUT)) {
 		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) &&
 			(input.flags & KeyInputFlags::HAS_WHEEL_DELTA)) {
-			scrollSpeed = (float)((s32)input.flags >> 16) * 1.25f;  // Fudge factor. TODO: Should be moved to the backends.
+			constexpr float pixelsPerNotch = 150.0f;
+			scrollSpeed = input.Delta() * (pixelsPerNotch / WHEEL_DELTA_PER_NOTCH);
 		}
 
 		switch (input.keyCode) {
@@ -165,6 +167,8 @@ bool ScrollView::Key(const KeyInput &input) {
 
 const float friction = 0.92f;
 const float stop_threshold = 0.1f;
+// Scroll speed (per frame) above which a press only stops the list.
+const float flingStopMinSpeed = 1.0f;
 
 bool ScrollView::Touch(const TouchInput &input) {
 	if (input.flags & TouchInputFlags::MOUSE) {
@@ -178,7 +182,11 @@ bool ScrollView::Touch(const TouchInput &input) {
 		return ViewGroup::Touch(input);
 	}
 
+	bool stopsFling = false;
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
+		// A press that stops a moving list only stops it, as in Android's lists, so it's kept from the children.
+		// The second check skips a list that is pushing against its end, which doesn't visibly move.
+		stopsFling = fabsf(inertia_) > flingStopMinSpeed && ClampedScrollPos(scrollPos_ - inertia_) != scrollPos_;
 		if (orientation_ == ORIENT_VERTICAL) {
 			Bob bob = ComputeBob();
 			float internalY = input.y - bounds_.y;
@@ -239,6 +247,9 @@ bool ScrollView::Touch(const TouchInput &input) {
 		scrollToTarget_ = false;
 	}
 
+	if (stopsFling) {
+		return true;
+	}
 	if (!(input.flags & TouchInputFlags::DOWN) || bounds_.Contains(input.x, input.y)) {
 		return ViewGroup::Touch(input2);
 	} else {
@@ -663,7 +674,7 @@ void ListView::CreateAllItems() {
 			OnItemCallback(i, e);
 		});
 	}
-	linLayout_->ApplyRoundCorners();
+	linLayout_->SetRoundCorners();
 }
 
 void ListView::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {

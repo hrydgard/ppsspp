@@ -397,12 +397,12 @@ void PSPDialog::DisplayButtons(int flags, std::string_view caption) {
 	}
 	if (flags & DS_BUTTON_OK) {
 		std::string_view text = useCaption ? safeCaption : di->T("Enter");
-		PPGeDrawImage(okButtonImg, x2, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawImage(okButtonImg, x2, 254, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x2 + 14.5f, 252, textStyle);
 	}
 	if (flags & DS_BUTTON_CANCEL) {
 		std::string_view text = useCaption ? safeCaption : di->T("Back");
-		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
+		PPGeDrawImage(cancelButtonImg, x1, 254, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}
 }

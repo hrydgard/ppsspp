@@ -19,20 +19,20 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Alloc.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Bra.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Bra86.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\BraIA64.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\CpuArch.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Delta.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzFind.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Lzma86Dec.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzmaDec.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\LzmaEnc.c" />
-    <ClCompile Include="..\..\ext\libchdr\deps\lzma-24.05\src\Sort.c" />
+    <ClCompile Include="..\..\ext\libchdr\deps\lzma-26.02\src\LzmaDec.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_bitstream.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_cdrom.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_chd.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_avhuff.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdfl.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdlz.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdzl.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_cdzs.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_flac.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_huff.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_lzma.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_zlib.c" />
+    <ClCompile Include="..\..\ext\libchdr\src\libchdr_codec_zstd.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_flac.c" />
     <ClCompile Include="..\..\ext\libchdr\src\libchdr_huffman.c" />
   </ItemGroup>
@@ -76,9 +76,9 @@
     <ClCompile>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>..\..\ext\zlib;..\..\ext\zstd\lib;..\..\ext\libchdr\include;..\..\ext\libchdr\deps\lzma-24.05\include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\..\ext\zlib;..\..\ext\zstd\lib;..\..\ext\libchdr\include;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PreprocessorDefinitions>Z7_ST;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CHDR_SYSTEM_ZLIB;CHDR_SYSTEM_ZSTD;_CRT_SECURE_NO_WARNINGS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

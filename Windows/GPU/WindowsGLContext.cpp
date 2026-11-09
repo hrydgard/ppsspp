@@ -494,6 +494,5 @@ void WindowsGLContext::ThreadEnd() {
 }
 
 void WindowsGLContext::NotifyEmuThreadExit() {
-	// renderManager_->SetSkipGLCalls();   // not necessary on desktop, maybe unadvisable?
 	renderManager_->NotifyEmuThreadExit();
 }

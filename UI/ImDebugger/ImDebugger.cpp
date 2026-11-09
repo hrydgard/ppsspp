@@ -964,7 +964,7 @@ static void DrawAdhoc(ImConfig &cfg) {
 	}
 
 	const char *discoverStatusStr = "N/A";
-	switch (netAdhocDiscoverStatus) {
+	switch (NetAdhocDiscover_GetStatus()) {
 	case 0: discoverStatusStr = "NONE"; break;
 	case 1: discoverStatusStr = "IN_PROGRESS"; break;
 	case 2: discoverStatusStr = "COMPLETED"; break;
@@ -1949,7 +1949,7 @@ static const char *VoiceTypeToString(VoiceType type) {
 	}
 }
 
-void DrawSasAudio(ImConfig &cfg) {
+static void DrawSasAudio(ImConfig &cfg, ImControl &control) {
 	if (!ImGui::Begin("sasAudio", &cfg.sasAudioOpen)) {
 		ImGui::End();
 		return;
@@ -2012,8 +2012,8 @@ void DrawSasAudio(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			switch (voice.type) {
 			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
-			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vagAddr); break;
-			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmAddr); break;
+			case VOICETYPE_VAG: ImClickableValue("vagaddr", voice.vagAddr, control, ImCmd::SHOW_IN_MEMORY_VIEWER); break;
+			case VOICETYPE_PCM: ImClickableValue("pcmaddr", voice.pcmAddr, control, ImCmd::SHOW_IN_MEMORY_VIEWER); break;
 			case VOICETYPE_ATRAC3: ImGui::Text("atrac: %d", voice.atrac3.AtracID()); break;
 			default:
 				ImGui::TextUnformatted("N/A");
@@ -2022,8 +2022,8 @@ void DrawSasAudio(ImConfig &cfg) {
 			ImGui::TableNextColumn();
 			switch (voice.type) {
 			case VOICETYPE_OFF: ImGui::TextUnformatted("(off)"); break;
-			case VOICETYPE_VAG: ImGui::Text("%08x", voice.vagSize); break;
-			case VOICETYPE_PCM: ImGui::Text("%08x", voice.pcmSize); break;
+			case VOICETYPE_VAG: ImGui::Text("%x", voice.vagSize); break;
+			case VOICETYPE_PCM: ImGui::Text("%x", voice.pcmSize); break;
 			case VOICETYPE_ATRAC3: ImGui::Text("atrac: n/a"); break;
 			default:
 				ImGui::TextUnformatted("N/A");
@@ -2943,7 +2943,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				});
 			}
 			if (ImGui::MenuItem("Load No$ .sym...")) {
-				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+				System_BrowseForFile(reqToken_, "Load No$ symbol map", BrowseFileType::SYMBOL_MAP_NOCASH, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->LoadNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to load No$ symbol map");
@@ -2951,7 +2951,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				});
 			}
 			if (ImGui::MenuItem("Save No$ .sym...")) {
-				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP, [](std::string_view responseString, int) {
+				System_BrowseForFileSave(reqToken_, "Save No$ symbol map", "symbols.sym", BrowseFileType::SYMBOL_MAP_NOCASH, [](std::string_view responseString, int) {
 					Path path(responseString);
 					if (!g_symbolMap->SaveNocashSym(path)) {
 						ERROR_LOG(Log::Common, "Failed to save No$ symbol map");
@@ -3165,7 +3165,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 		}
 
 		if (cfg_.sasAudioOpen) {
-			DrawSasAudio(cfg_);
+			DrawSasAudio(cfg_, control);
 		}
 
 		if (cfg_.kernelObjectsOpen) {
@@ -3640,7 +3640,11 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.SetSection(ini->GetOrCreateSection("Settings"));
 	sync.Sync("displayLatched", &displayLatched, false);
 	sync.Sync("realtimePixelPreview", &realtimePixelPreview, false);
+#if defined(MOBILE_DEVICE)
 	sync.Sync("quickScrollEnabled", &quickScrollEnabled, true);
+#else
+	sync.Sync("quickScrollEnabled", &quickScrollEnabled, false);
+#endif
 	sync.Sync("quickScrollCollapsed", &quickScrollCollapsed, false);
 	sync.Sync("forceKeyboard", &forceKeyboard, false);
 	sync.Sync("showKeyboardToggle", &showKeyboardToggle, true);

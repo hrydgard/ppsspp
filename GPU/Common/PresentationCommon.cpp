@@ -22,6 +22,7 @@
 #include <cstring>
 #include <memory>
 #include "Common/GPU/thin3d.h"
+#include "Common/GPU/ShaderWriter.h"
 
 #include "Common/System/Display.h"
 #include "Common/System/System.h"
@@ -598,6 +599,30 @@ void PresentationCommon::CreateDeviceObjects() {
 	texColor_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc);
 	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
 	texColorBlend_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc, true);
+	if (IsVREnabled() && lang_ == GLSL_VULKAN && draw_->GetDeviceCaps().multiViewSupported) {
+		// FS_TEXTURE_COLOR_2D, sampling the layer of the eye being drawn.
+		static const VaryingDef varyings[] = {
+			{ "vec4", "oColor0", SEM_COLOR0, 0, "lowp" },
+			{ "vec2", "oTexCoord0", SEM_TEXCOORD0, 1, "highp" },
+		};
+		static const SamplerDef samplers[] = {
+			{ 0, "tex", SamplerFlags::ARRAY_ON_VULKAN },
+		};
+		char code[2048];
+		ShaderWriter writer(code, draw_->GetShaderLanguageDesc(), ShaderStage::Fragment, Slice<const char *>::empty(), ShaderWriterFlags::FS_AUTO_STEREO);
+		writer.DeclareSamplers(samplers);
+		writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+		writer.C("vec4 col = ");
+		writer.SampleTexture2D("tex", "oTexCoord0");
+		writer.C(" * oColor0;\n");
+		writer.C("col.rgb *= oColor0.a;\n");
+		writer.EndFSMain("col");
+		ShaderModule *fs = draw_->CreateShaderModule(ShaderStage::Fragment, lang_, (const uint8_t *)code, strlen(code), "present_stereo");
+		if (fs) {
+			texColorStereo_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), fs }, false, &vsTexColBufDesc);
+			fs->Release();
+		}
+	}
 	overlayVdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	// Not resetting restorePostShader_: after a device loss, BeginFrame uses it to bring the post-shader back.
 }
@@ -623,6 +648,7 @@ static void DoReleaseVector(std::vector<T *> &list) {
 void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(texColor_);
 	DoRelease(texColorRBSwizzle_);
+	DoRelease(texColorStereo_);
 	DoRelease(texColorBlend_);
 	DoRelease(overlayVdata_);
 	DoRelease(overlayTexture_);
@@ -698,6 +724,10 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 	srcHeight_ = bufferHeight;
 }
 
+bool PresentationCommon::UseVRStereoSource() const {
+	return texColorStereo_ && !srcTexture_ && srcFramebuffer_ && srcFramebuffer_->Layers() > 1;
+}
+
 // Return value is if stereo binding succeeded.
 bool PresentationCommon::BindSource(int binding, bool bindStereo) {
 	if (srcTexture_) {
@@ -739,8 +769,10 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 
 	bool useNearest = flags & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
+	// Post shaders output one layer, which would show the left eye's view to both.
+	const bool vrStereo = UseVRStereoSource();
 
-	const bool usePostShader = usePostShader_ && !useStereo && !(flags & (OutputFlags::RB_SWIZZLE | OutputFlags::NO_POST_SHADER));
+	const bool usePostShader = usePostShader_ && !useStereo && !vrStereo && !(flags & (OutputFlags::RB_SWIZZLE | OutputFlags::NO_POST_SHADER));
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
@@ -1032,8 +1064,9 @@ void PresentationCommon::DrawOverlay(const OverlayLayout &layout, const OutputPa
 void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	bool useNearest = outputFlags_ & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
+	const bool vrStereo = UseVRStereoSource();
 
-	const bool usePostShader = usePostShader_ && !useStereo && !(outputFlags_ & (OutputFlags::RB_SWIZZLE | OutputFlags::NO_POST_SHADER));
+	const bool usePostShader = usePostShader_ && !useStereo && !vrStereo && !(outputFlags_ & (OutputFlags::RB_SWIZZLE | OutputFlags::NO_POST_SHADER));
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
@@ -1071,6 +1104,9 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 			draw_->BindPipeline(texColor_);
 			useStereo = false;  // Otherwise we end up uploading the wrong uniforms
 		}
+	} else if (vrStereo) {
+		draw_->BindPipeline(texColorStereo_);
+		BindSource(0, true);
 	} else {
 		if (isFinalAtOutputResolution && previousFramebuffers_.empty()) {
 			pipeline = postShaderPipelines_.back();

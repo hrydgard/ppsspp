@@ -295,15 +295,22 @@ public:
 		// the unwrapped count.
 		const u64 epMapBytes = EP_MAP_STRIDE * (u64)psmf->EPMapEntriesNum;
 		if (psmf->headerOffset != 0) {
-			if (epMapBytes > 0xFFFFFFFFull - psmf->EPMapOffset || !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + (u32)epMapBytes)) {
+			// The entries are read from data + EPMapOffset, so the map has to start inside the
+			// address space (the sum used to wrap around to a valid address) and be mapped.
+			const u64 epMapAddr = (u64)psmf->headerOffset + psmf->EPMapOffset;
+			if (epMapAddr > 0xFFFFFFFFull || !Memory::IsValidAddress((u32)epMapAddr)) {
+				ERROR_LOG(Log::ME, "Invalid PSMF EP map offset: %08x", psmf->EPMapOffset);
+				psmf->EPMapEntriesNum = 0;
+			} else if (epMapBytes > 0xFFFFFFFFull - psmf->EPMapOffset || !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + (u32)epMapBytes)) {
 				ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
-				psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, (u32)epMapBytes) / EP_MAP_STRIDE;
+				psmf->EPMapEntriesNum = Memory::ClampValidSizeAt((u32)epMapAddr, (u32)epMapBytes) / EP_MAP_STRIDE;
 			}
 		} else {
 			// No guest address to validate against (player tempbuf path,
 			// where the buffer is 64KB): cap so the reads below stay in bounds.
-			if (epMapBytes > 0x10000) {
-				psmf->EPMapEntriesNum = 0x10000 / EP_MAP_STRIDE;
+			const u32 available = psmf->EPMapOffset < 0x10000 ? 0x10000 - psmf->EPMapOffset : 0;
+			if (epMapBytes > available) {
+				psmf->EPMapEntriesNum = available / EP_MAP_STRIDE;
 			}
 		}
 
@@ -385,6 +392,10 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 	if (data != 0 && !Memory::IsValidRange(data, 0x82 + numStreams * 16)) {
 		ERROR_LOG(Log::ME, "Invalid PSMF stream count: %d", numStreams);
 		numStreams = Memory::ClampValidSizeAt(data + 0x82, numStreams * 16) / 16;
+	} else if (data == 0 && 0x82 + numStreams * 16 > 0x10000) {
+		// The player's 64KB tempbuf.
+		ERROR_LOG(Log::ME, "Invalid PSMF stream count: %d", numStreams);
+		numStreams = (0x10000 - 0x82) / 16;
 	}
 
 	for (int i = 0; i < numStreams; i++) {
@@ -765,7 +776,8 @@ static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
 }
 
 static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
-	if (!Memory::IsValidAddress(psmfStruct) || !Memory::IsValidAddress(psmfData)) {
+	// The header fields Psmf reads go up to 0x82.
+	if (!Memory::IsValidAddress(psmfStruct) || !Memory::IsValidRange(psmfData, 0x82)) {
 		// Crashes on a PSP.
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}

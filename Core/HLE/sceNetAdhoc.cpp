@@ -22,7 +22,10 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <mutex>
+#include <random>
+#include <set>
 #include <string>
 
 #include "Common/Net/SocketCompat.h"
@@ -78,16 +81,6 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-
-#define DISCOVER_DURATION_US	2000000 // 2 seconds is probably the normal time it takes for PSP to connect to a group (ie. similar to NetconfigDialog time)
-u64 netAdhocDiscoverStartTime = 0;
-s32 netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
-bool netAdhocDiscoverIsStopping = false;
-SceNetAdhocDiscoverParam* netAdhocDiscoverParam = nullptr;
-u32 netAdhocDiscoverBufAddr = 0;
-// How many Updates have run since InitStart, and since Stop (pspautotests net/adhoc/discover).
-static int netAdhocDiscoverUpdates = 0;
-static int netAdhocDiscoverStopUpdates = 0;
 
 bool netAdhocGameModeEntered = false;
 
@@ -712,6 +705,15 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 	adhocctlRequests.erase(uid);
 }
 
+void NetAdhocDiscover_OnAdhocctlEvent(u32 event, u32 error);
+// The error of the event being delivered, for sceNetAdhocDiscover's handler.
+static u32 adhocctlDeliveringError = 0;
+// What sceNetAdhocDiscover put adhocctl to sleep in: DISCOVER until another console is near, or WOL.
+static int adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+// Handlers added through the kernel library (the firmware's sceNetAdhocDiscover). Only they get
+// DISCOVER events: a game's own handler doesn't (pspautotests net/adhoc/discover).
+static std::set<int> adhocctlKernelHandlers;
+
 static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	SceUID threadID = userdata >> 32;
 	int uid = (int)(userdata & 0xFFFFFFFF);
@@ -729,6 +731,9 @@ static void __AdhocctlState(u64 userdata, int cyclesLate) {
 	u32 waitVal = __KernelGetWaitValue(threadID, error);
 	if (error == 0) {
 		adhocctlState = waitVal;
+		// The event reaches the handlers along with the state change, as on a PSP (pspautotests
+		// net/adhoc/timing), and sceNetAdhocDiscover's own handler with them.
+		NetAdhocDiscover_OnAdhocctlEvent(event, adhocctlDeliveringError);
 		// FIXME: It seems Adhocctl is still busy within the Adhocctl Handler function (ie. during callbacks),
 		// so we should probably set isAdhocctlBusy to false after mispscall are fully executed (ie. in afterAction).
 		// But since Adhocctl Handler is optional, there might be cases where there are no handler thus no callback/mipcall being triggered,
@@ -881,14 +886,54 @@ bool ptpPeerGone(const AdhocSocket *sock) {
 	return lastCheck > unackedSince + limit;
 }
 
-void ptpNoteSend(AdhocSocket *sock) {
+// A non-blocking PtpFlush right after a send returns WOULD_BLOCK, and 0 once the data is in the peer's buffer,
+// whether or not the peer has read it: about 4.5 ms plus 2.4 us per byte (medians 5 ms for 16 bytes, 25 ms for
+// 8192, 44 ms for 16384). Until then GetPtpStat counts the bytes as unsent (pspautotests net/adhoc/pair/ptpflush).
+// A connection to itself has nothing in flight (pspautotests net/adhoc/alerts).
+void ptpNoteSend(AdhocSocket *sock, int bytes) {
 	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (!isLocalMAC(&sock->data.ptp.paddr)) {
+		if (now >= sock->ptpDeliveredAt) {
+			sock->ptpUndelivered = 0;
+		}
+		sock->ptpUndelivered += bytes;
+		sock->ptpDeliveredAt = std::max(sock->ptpDeliveredAt, now + 4500) + (u64)bytes * 12 / 5;
+	}
 	if (peerLeftAt(&sock->data.ptp.paddr) == 0) {
 		sock->ptpSendAfterPeerLeftAt = 0;
 	} else if (sock->ptpSendAfterPeerLeftAt == 0) {
 		sock->ptpSendAfterPeerLeftAt = now;
 	}
 	sock->ptpLastSendAt = now;
+}
+
+static bool ptpInFlight(const AdhocSocket *sock) {
+	return CoreTiming::GetGlobalTimeUsScaled() < sock->ptpDeliveredAt;
+}
+
+// Sent bytes still taking up the send buffer, draining at the same rate until ptpDeliveredAt.
+static u32 ptpUndeliveredNow(const AdhocSocket *sock) {
+	u64 now = CoreTiming::GetGlobalTimeUsScaled();
+	if (now >= sock->ptpDeliveredAt) {
+		return 0;
+	}
+	return (u32)std::min<u64>(sock->ptpUndelivered, ((sock->ptpDeliveredAt - now) * 5 + 11) / 12);
+}
+
+// Whether a send of len bytes has to wait for in-flight data to drain. With 8192 bytes in flight in an
+// 8 KB buffer, a non-blocking send of 16 more returns WOULD_BLOCK and poll leaves out SEND for 10-21 ms,
+// which is about when half the buffer has drained; with 4096 in flight neither happens (pspautotests
+// net/adhoc/pair/ptpsendready). A send larger than the whole buffer isn't held back.
+static bool ptpSendMustWait(const AdhocSocket *sock, int len) {
+	u32 bufSize = sock->buffer_size;
+	if (len <= 0 || (u32)len > bufSize) {
+		return false;
+	}
+	return (u32)len > bufSize - std::min(bufSize, ptpUndeliveredNow(sock));
+}
+
+static bool ptpSendReady(const AdhocSocket *sock) {
+	return sock->buffer_size - std::min(sock->buffer_size, ptpUndeliveredNow(sock)) >= sock->buffer_size / 2;
 }
 
 // PDP receive queues. A PSP keeps what arrives in the socket's buffer, of the size given to PdpCreate, and
@@ -908,12 +953,21 @@ struct PdpQueue {
 
 static std::map<const AdhocSocket *, PdpQueue> pdpQueues;
 
+// __GameModeNotify takes up to ADHOCCTL_GAMEMODE_MAX_MEMBERS * 2 per run.
+static const size_t GAMEMODE_MAX_QUEUED_DATAGRAMS = ADHOCCTL_GAMEMODE_MAX_MEMBERS * 8;
+
 static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint16_t port, const u8 *data, size_t len) {
 	PdpQueue &queue = pdpQueues[sock];
 	// Game mode's socket is ours rather than the game's: on a PSP game mode doesn't go through it.
 	bool unlimited = sock->data.pdp.lport == ADHOC_GAMEMODE_PORT;
 	if (!unlimited && queue.bytes + len > sock->buffer_size) {
 		VERBOSE_LOG(Log::sceNet, "PDP socket on port %d: %d-byte datagram from %s doesn't fit, dropped", sock->data.pdp.lport, (int)len, mac2str(&mac).c_str());
+		return;
+	}
+	// Still bound it: one datagram larger than the receive buffer would sit at the head forever, and a
+	// peer that sends faster than __GameModeNotify drains would grow the queue without limit.
+	if (unlimited && ((int)len > gameModeBuffSize || queue.datagrams.size() >= GAMEMODE_MAX_QUEUED_DATAGRAMS)) {
+		VERBOSE_LOG(Log::sceNet, "GameMode: %d-byte datagram from %s dropped", (int)len, mac2str(&mac).c_str());
 		return;
 	}
 	queue.datagrams.push_back({ mac, port, std::vector<u8>(data, data + len) });
@@ -925,7 +979,8 @@ static void pdpFillQueue(int id) {
 	SceNetEtherAddr mac;
 	uint16_t port;
 	std::vector<u8> data;
-	while (Transport().PdpTakeDatagram(id, &mac, &port, data)) {
+	// Bounded, so a flood can't stall the emulator thread here. The rest waits for the next call.
+	for (int i = 0; i < 256 && Transport().PdpTakeDatagram(id, &mac, &port, data); i++) {
 		pdpQueueDatagram(sock, mac, port, data.data(), data.size());
 	}
 }
@@ -1056,12 +1111,11 @@ int DoBlockingPdpSend(AdhocSocketRequest& req, s64& result, AdhocSendTargets& ta
 		else {
 			if (ret == SOCKET_ERROR && (sockerr == EAGAIN || sockerr == EWOULDBLOCK)) {
 				u64 now = CoreTiming::GetGlobalTimeUs();
+				// A blocking broadcast returns 0 at once on a PSP, even with nobody to send to
+				// (pspautotests net/adhoc/edges), so one the host can't take in time is dropped.
 				if (req.timeout == 0 || now - req.startTime <= req.timeout) {
 					retry = true;
 				}
-				else
-					// FIXME: Does Broadcast always success? even with timeout/blocking?
-					result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 			}
 			++peer;
 		}
@@ -1085,6 +1139,14 @@ int DoBlockingPtpSend(AdhocSocketRequest& req, s64& result) {
 	if (sock->flags & ADHOC_F_ALERTSEND) {
 		result = SCE_NET_ADHOC_ERROR_SOCKET_ALERTED;
 		sock->alerted_flags |= ADHOC_F_ALERTSEND;
+		return 0;
+	}
+	if (req.length && ptpSendMustWait(sock, *req.length)) {
+		u64 now = CoreTiming::GetGlobalTimeUs();
+		if (req.timeout == 0 || now - req.startTime <= req.timeout) {
+			return -1;
+		}
+		result = SCE_NET_ADHOC_ERROR_TIMEOUT;
 		return 0;
 	}
 	return Transport().DoBlockingPtpSend(req, result);
@@ -1209,7 +1271,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 			if (sock->nonblocking)
 				result = SCE_NET_ADHOC_ERROR_WOULD_BLOCK;
 			else
-				result = SCE_NET_ADHOC_ERROR_TIMEOUT; // FIXME: PSP never returned SCE_NET_ADHOC_ERROR_TIMEOUT on PtpConnect? or only returned SCE_NET_ADHOC_ERROR_TIMEOUT when the host is too busy? Seems to be returning SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
+				result = SCE_NET_ADHOC_ERROR_TIMEOUT; // As a PSP does (pspautotests net/adhoc/edges). Seems to be returning SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED on timedout instead (if the other side in not listening yet, which is similar to BSD).
 
 			// Done
 			return 0;
@@ -1237,6 +1299,9 @@ int DoBlockingPtpFlush(AdhocSocketRequest& req, s64& result) {
 
 	// Try Sending Empty Data
 	int sockerr = FlushPtpSocket(ptpsocket.id);
+	if (sockerr == 0 && ptpInFlight(sock)) {
+		sockerr = EAGAIN;
+	}
 	result = 0;
 
 	if (sockerr == EAGAIN || sockerr == EWOULDBLOCK) {
@@ -1396,7 +1461,8 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 	int uid = (int)(threadSocketId & 0xFFFFFFFF);
 	if (adhocSocketRequests.find(threadSocketId) != adhocSocketRequests.end()) {
 		WARN_LOG(Log::sceNet, "sceNetAdhoc[%d] - ThreadID[%d] WaitID[%d] already existed, Socket[%d] is busy!", type, static_cast<int>(threadSocketId >> 32), uid, pspSocketId);
-		// FIXME: Not sure if Adhoc Socket can return ADHOC_BUSY or not (assuming it's similar to EINPROGRESS for Adhoc Socket), or may be we should return TIMEOUT instead?
+		// Can't happen from a game: a thread can only wait once. A second thread blocking on the same socket
+		// just waits for its own timeout (pspautotests net/adhoc/edges), which separate keys give it.
 		return SCE_NET_ADHOC_ERROR_BUSY; // SCE_NET_ADHOC_ERROR_TIMEOUT
 	}
 
@@ -1464,7 +1530,7 @@ static void SetupAdhocRelayMode() {
 		aemuPostofficeEnetThread = std::thread([] {
 			while (aemuPostofficeEnetPumping) {
 				// no std::chrono::high_resolution_clock::now() in msvc.....
-				static const double target_interval = 1.0 / 120;
+				static const double target_interval = 1.0 / 1000;
 				double begin = time_now_d();
 				int pump_status = pump_enet_aemu_postoffice();
 				if (pump_status == 1) {
@@ -1757,6 +1823,8 @@ void __NetAdhocInit() {
 			config.num_threads = 0;
 			// The port the relay client connects to.
 			config.port = AEMU_POSTOFFICE_PORT;
+			// Disable ENet until the adhocctl side is ready
+			config.enable_enet = false;
 
 			aemu_postoffice_server::Server relay_server(config);
 			if (relay_server.pump() == aemu_postoffice_server::ServerPumpStatus::LISTEN_SOCK_DEAD) {
@@ -1820,7 +1888,6 @@ int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr
 	INFO_LOG(Log::sceNet, "sceNetAdhocctlInit(%i, %i, %08x) at %08x", stackSize, prio, productAddr, mips->pc);
 
 	// FIXME: Returning 0x8002013a (SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED) without adhoc module loaded first?
-	// FIXME: Sometimes returning 0x80410601 (SCE_NET_ADHOC_ERROR_AUTH_ALREADY_INITIALIZED / Library module is already initialized ?) when AdhocctlTerm is not fully done?
 
 	if (netAdhocctlInited) {
 		// On a PSP this also leaves adhocctl uninitialized (GetState fails with NOT_INITIALIZED), and
@@ -2452,7 +2519,7 @@ int NetAdhoc_SetSocketAlert(int id, s32_le flag) {
 	if (id < 1 || id > MAX_SOCKET || adhocSockets[id - 1] == NULL)
 		return SCE_NET_ADHOC_ERROR_INVALID_SOCKET_ID;
 
-	// FIXME: Should we check for valid Alert Flags and/or Mask them? Should we return an error if we found an invalid flag?
+	// Flags outside ADHOC_F_ALERTALL (0x3F0) are dropped without an error (pspautotests net/adhoc/edges).
 	s32_le flg = flag & ADHOC_F_ALERTALL;
 
 	adhocSockets[id - 1]->flags = flg;
@@ -2513,7 +2580,10 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 						sds[i].revents = ADHOC_EV_DISCONNECT;
 						disconnected = true;
 					} else {
-						sds[i].revents = (ADHOC_EV_SEND | ADHOC_EV_CONNECT | ADHOC_EV_FLUSH | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
+						// SEND and FLUSH wait for data in flight like PtpSend and PtpFlush do (pspautotests
+						// net/adhoc/pair/ptpsendready).
+						int sendBits = (ptpSendReady(sock) ? ADHOC_EV_SEND : 0) | (ptpInFlight(sock) ? 0 : ADHOC_EV_FLUSH);
+						sds[i].revents = (sendBits | ADHOC_EV_CONNECT | (readable ? ADHOC_EV_RECV : 0)) & sds[i].events;
 					}
 				} else if (sock->type == SOCK_PTP) {
 					ptpUpdateConnecting(sock);
@@ -2717,10 +2787,14 @@ int sceNetAdhocctlScan(MIPSState *mips) {
 	// Library initialized
 	if (netAdhocctlInited) {
 		int us = adhocDefaultDelay;
-		// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
 		if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
 			// Returns 0 and reports ALREADY_CONNECTED through the handlers, as on the PSP (pspautotests
-			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event.
+			// net/adhoc/adhocctl). Valhalla Knights 2 needs the event. It empties the scan list
+			// (pspautotests net/adhoc/pair/scaninfo).
+			peerlock.lock();
+			freeGroupsRecursive(networks);
+			networks = NULL;
+			peerlock.unlock();
 			notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 			hleEatMicro(500);
 			return hleLogDebug(Log::sceNet, 0);
@@ -2790,13 +2864,10 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Lock
 			peerlock.lock();
 
-			// FIXME: When already connected to a group GetScanInfo will return size = 0 ? or may be only hides the group created by it's self?
-			if (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE) {
-				*buflen = 0;
-				DEBUG_LOG(Log::sceNet, "NetworkList [Available: 0] Already in a Group");
-			}
+			// The list from the last scan stays after Create, Join and Disconnect (pspautotests
+			// net/adhoc/pair/scaninfo). NBA 2K13's joiner leaves when the joined group isn't in it.
 			// Length Returner Mode
-			else if (buf == NULL) {
+			if (buf == NULL) {
 				int availNetworks = countAvailableNetworks(excludeSelf);
 				*buflen = availNetworks * sizeof(SceNetAdhocctlScanInfoEmu);
 				DEBUG_LOG(Log::sceNet, "NetworkList [Available: %i]", availNetworks);
@@ -2806,8 +2877,8 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 				// Only touch the part of the buffer that's valid memory.
 				const u32 validLen = Memory::ClampValidSizeAt(bufAddr, std::max((s32)*buflen, 0));
 
-				// Clear Memory
-				memset(buf, 0, validLen);
+				// A buffer too small for one entry is left alone (pspautotests net/adhoc/pair/listsizes).
+				memset(buf, 0, (validLen / sizeof(SceNetAdhocctlScanInfoEmu)) * sizeof(SceNetAdhocctlScanInfoEmu));
 
 				// Network Discovery Counter
 				int discovered = 0;
@@ -2869,8 +2940,7 @@ int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr) {
 	return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_INITIALIZED);
 }
 
-// TODO: How many handlers can the PSP actually have for Adhocctl?
-// TODO: Should we allow the same handler to be added more than once?
+// A PSP takes four handlers, and the same one again counts as another (pspautotests net/adhoc/adhocctl).
 // FIXME: Do all Adhocctl HLE returning 0 and expecting error code through callback handler if there were error, instead of returning error code through the HLE ?
 static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	if (!netAdhocctlInited) {
@@ -2915,6 +2985,11 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 		// Until a Create or Connect has connected, it's BUSY, and the join goes on (pspautotests
 		// net/adhoc/abandon).
 		if (isAdhocctlBusy && adhocctlState == ADHOCCTL_STATE_DISCONNECTED && adhocctlCurrentMode != ADHOCCTL_MODE_NONE) {
+			return SCE_NET_ADHOCCTL_ERROR_BUSY;
+		}
+		// So is another Disconnect, until the first one's DISCONNECT has come (pspautotests
+		// net/adhoc/pair/joinrace).
+		if (isAdhocctlBusy && adhocctlState != ADHOCCTL_STATE_DISCONNECTED && !adhocctlInServerGroup && adhocctlCurrentMode == ADHOCCTL_MODE_NONE) {
 			return SCE_NET_ADHOCCTL_ERROR_BUSY;
 		}
 		// Returns at once on a PSP, and DISCONNECT follows after about 105 ms (pspautotests net/adhoc/timing),
@@ -2986,7 +3061,7 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 
 		adhocctlCurrentMode = ADHOCCTL_MODE_NONE;
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		// FIXME: When there are no handler the state will immediately became ADHOCCTL_STATE_DISCONNECTED ?
+		// Without a handler the state still takes a while to reach DISCONNECTED (pspautotests net/adhoc/edges).
 		// Note: Metal Gear Acid [2] never register a handler until it's successfully connected to a group and have a connected socket to other player, thus adhocctlHandlers is always empty here.
 		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 
@@ -3012,6 +3087,7 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 
 	if (adhocctlHandlers.find(handlerID) != adhocctlHandlers.end()) {
 		adhocctlHandlers.erase(handlerID);
+		adhocctlKernelHandlers.erase(handlerID);
 		return hleLogInfo(Log::sceNet, 0);
 	} else {
 		return hleLogWarning(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_ID_NOT_FOUND, "Invalid Handler ID");
@@ -3168,7 +3244,7 @@ int sceNetAdhocctlGetPeerInfo(MIPSState *mips, const char *mac, int size, u32 pe
 			peerlock.lock();
 
 			SceNetAdhocctlPeerInfo * peer = findFriend(maddr);
-			if (peer != NULL && peer->last_recv != 0) {
+			if (peer != NULL && peer->last_recv != 0 && isPeerVisible(peer)) {
 				// Fake Receive Time
 				peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
 
@@ -3200,9 +3276,9 @@ int NetAdhocctl_Create(const char *groupName) {
 	if (netAdhocctlInited) {
 		// Valid Argument
 		if (validNetworkName(groupName)) {
-			// FIXME: When tested with JPCSP + official prx files it seems when adhocctl in a connected state (ie. joined to a group) attempting to create/connect/join/scan will return a success (without doing anything?)
+			// While connected, Create and Connect return 0 and report ALREADY_CONNECTED through the handlers
+			// (pspautotests net/adhoc/adhocctl).
 			if ((adhocctlState == ADHOCCTL_STATE_CONNECTED) || (adhocctlState == ADHOCCTL_STATE_GAMEMODE)) {
-				// TODO: Need to test this on games that doesn't use Adhocctl Handler too (not sure if there are games like that tho)
 				notifyAdhocctlHandlers(ADHOCCTL_EVENT_ERROR, SCE_NET_ADHOCCTL_ERROR_ALREADY_CONNECTED);
 				hleEatMicro(500);
 				return 0;
@@ -3335,6 +3411,9 @@ int NetAdhocctl_CreateEnterGameMode(const char* group_name, int game_type, int n
 		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
 
 	if (game_type < ADHOCCTL_GAMETYPE_1A || game_type > ADHOCCTL_GAMETYPE_2A || num_members < 2 || num_members > 16 || (game_type == ADHOCCTL_GAMETYPE_1A && num_members > 4))
+		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
+	// The whole member list is read below.
+	if (!Memory::IsValidRange(membersAddr, num_members * (u32)sizeof(SceNetEtherAddr)))
 		return SCE_NET_ADHOCCTL_ERROR_INVALID_ARG;
 
 	// In a normal group, it reports ALREADY_CONNECTED through the handlers and stays in it
@@ -3651,6 +3730,7 @@ static int sceNetAdhocGetPtpStat(MIPSState *mips, u32 structSize, u32 structAddr
 
 					// Copy Socket Data from internal Memory
 					memcpy(&buf[i], &sock->data.ptp, sizeof(SceNetAdhocPtpStat));
+					buf[i].snd_sb_cc = std::max((u32)buf[i].snd_sb_cc, ptpUndeliveredNow(sock));
 
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
@@ -3830,7 +3910,7 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 		SkipAdhocSocketId();
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_PORT, "invalid port");
 	}
-	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
+	// A PSP takes a buffer size of 0 or -1 (pspautotests net/adhoc/ptp, edges); give the host one segment's worth.
 	if (bufsize <= 0) {
 		bufsize = PSP_ADHOC_PTP_MSS;
 	}
@@ -3846,12 +3926,13 @@ static int sceNetAdhocPtpOpen(MIPSState *mips, const char *srcmac, int sport, co
 			getLocalMac(&localSrcMac);
 			saddr = &localSrcMac;
 		}
-		// Valid Addresses. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		// Outside a group, or with a MAC that isn't the local one, it's INVALID_ADDR (pspautotests net/adhoc/ptp, edges).
 		// The broadcast address is accepted, as on a PSP (pspautotests net/adhoc/ptp); connecting to it just never succeeds.
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isZeroMAC(daddr)) {
 			// Dissidia 012 will try to reOpen the port without Closing the old one first when PtpConnect failed to try again.
 			if (isPTPPortInUse(sport, false, daddr, dport)) {
-				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
+				// Uses up a socket ID (pspautotests net/adhoc/edges).
+				SkipAdhocSocketId();
 				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
 			}
 
@@ -3905,7 +3986,7 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 			// Allocated Memory
 			if (internal != NULL) {
 				// Find Free Translator ID
-				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+				// IDs keep increasing, like a PSP's (pspautotests net/adhoc/socketids).
 				int i = 0;
 				i = FindFreeAdhocSocketSlot();
 
@@ -4011,9 +4092,13 @@ static int sceNetAdhocPtpAccept(MIPSState *mips, int id, u32 peerMacAddrPtr, u32
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// The peer's address and port are both optional (pspautotests net/adhoc/alerts passes NULL for
-		// both). GTA: VCS and Bomberman Panic Bomber leave them out.
-		if (true) { // FIXME: Not sure what kind of arguments considered as invalid (need to be tested on a homebrew), might be the flag?
+		// The flag is 0 or 1 (pspautotests net/adhoc/edges). The peer's address and port are both
+		// optional (pspautotests net/adhoc/alerts passes NULL for both). GTA: VCS and Bomberman Panic
+		// Bomber leave them out.
+		if (flag != 0 && flag != 1) {
+			return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid flag");
+		}
+		{
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4157,8 +4242,30 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					}
 				}
 
-				// Peer not found
-				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address"); // SCE_NET_ADHOC_ERROR_WOULD_BLOCK / SCE_NET_ADHOC_ERROR_TIMEOUT
+				// Nobody with that MAC in the group. A PSP keeps trying, as WOULD_BLOCK or TIMEOUT, and refuses
+				// once its retransmits run out: a connect with a 1 s timeout times out, and with a 200 ms
+				// interval and 5 retries it refuses after 0.5-1.5 s (pspautotests net/adhoc/edges), so
+				// (count + 1) * interval as when a peer vanishes. A peer that turns up meanwhile gets connected.
+				u64 now = CoreTiming::GetGlobalTimeUsScaled();
+				if (socket->ptpConnectToNobodySince == 0) {
+					socket->ptpConnectToNobodySince = now;
+				}
+				u64 limit = (u64)std::max(0, socket->retry_interval) * (u64)(std::max(0, socket->retry_count) + 1);
+				u64 refuseAt = socket->ptpConnectToNobodySince + limit;
+				if (now >= refuseAt) {
+					socket->attemptCount++;
+					ptpSetRefused(socket);
+					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "nobody there, refused");
+				}
+				if (flag) {
+					return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "nobody there yet");
+				}
+				if (timeout > 0 && (u64)timeout < refuseAt - now) {
+					return hleDelayResult(hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_TIMEOUT, "nobody there, timeout"), "ptp connect", timeout);
+				}
+				socket->attemptCount++;
+				ptpSetRefused(socket);
+				return hleDelayResult(hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED, "nobody there, refused"), "ptp connect", (int)(refuseAt - now));
 			}
 
 			// Not a valid Client Socket
@@ -4260,7 +4367,7 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 	if (netAdhocInited && (isZeroMAC(saddr) || (saddr->data[0] & 1) != 0)) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ADDR, "invalid address");
 	}
-	// What the PSP does with a buffer size under 1 isn't known; give the host one segment's worth.
+	// A PSP takes a buffer size of 0 or -1 (pspautotests net/adhoc/ptp, edges); give the host one segment's worth.
 	if (bufsize <= 0) {
 		bufsize = PSP_ADHOC_PTP_MSS;
 	}
@@ -4275,11 +4382,12 @@ static int sceNetAdhocPtpListen(MIPSState *mips, const char *srcmac, int sport, 
 			getLocalMac(&localSrcMac);
 			saddr = &localSrcMac;
 		}
-		// Valid Address. FIXME: MAC only valid after successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode != ADHOCCTL_MODE_NONE)
+		// Outside a group, or with a MAC that isn't the local one, it's INVALID_ADDR (pspautotests net/adhoc/ptp, edges).
 		if ((adhocctlCurrentMode != ADHOCCTL_MODE_NONE) && saddr != NULL && isLocalMAC(saddr)) {
 			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice.
 			if (isPTPPortInUse(sport, true)) {
-				// FIXME: When PORT_IN_USE error occured it seems the index to the socket id also increased, which means it tries to create & bind the socket first and then closes it due to failed to bind
+				// Uses up a socket ID (pspautotests net/adhoc/edges).
+				SkipAdhocSocketId();
 				return hleLogDebug(Log::sceNet, SCE_NET_ADHOC_ERROR_PORT_IN_USE, "port in use");
 			}
 
@@ -4356,6 +4464,13 @@ static int sceNetAdhocPtpSend(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
+					if (ptpsocket.state == ADHOC_PTP_STATE_ESTABLISHED && ptpSendMustWait(socket, *len)) {
+						if (flag) {
+							return hleLogVerbose(Log::sceNet, SCE_NET_ADHOC_ERROR_WOULD_BLOCK, "send buffer full");
+						}
+						u64 threadSocketId = ((u64)__KernelGetCurThread()) << 32 | ptpsocket.id;
+						return WaitBlockingAdhocSocket(threadSocketId, PTP_SEND, id, (void *)data, len, timeout, nullptr, nullptr, "ptp send");
+					}
 					return Transport().PtpSend(id, data, len, timeout, flag);
 				}
 
@@ -4396,8 +4511,8 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 	int * len = (int *)Memory::GetPointerOrException(dataSizeAddr);
 	// Library is initialized
 	if (netAdhocInited) {
-		// Valid Arguments
-		if (buf != NULL && len != NULL && *len > 0 && Memory::IsValidRange(dataAddr, *len)) {
+		// Valid Arguments. The buffer may run past the end of memory as long as what arrives fits (pspautotests net/adhoc/ptp).
+		if (buf != NULL && len != NULL && *len > 0 && Memory::IsValidAddress(dataAddr)) {
 			// Valid Socket
 			if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
 				// Cast Socket
@@ -4416,7 +4531,22 @@ static int sceNetAdhocPtpRecv(MIPSState *mips, int id, u32 dataAddr, u32 dataSiz
 						return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_SOCKET_ALERTED, "socket alerted");
 					}
 
-					return Transport().PtpRecv(id, buf, len, timeout, flag);
+					// Receive no more than fits in memory. A blocking recv keeps the pointer, so the clamp goes into
+					// the game's length. A call that fails without waiting gets it back, as a PSP leaves it alone.
+					const int requested = *len;
+					const int valid = (int)Memory::ClampValidSizeAt(dataAddr, requested);
+					if (valid == requested) {
+						return Transport().PtpRecv(id, buf, len, timeout, flag);
+					}
+					*len = valid;
+					int result = Transport().PtpRecv(id, buf, len, timeout, flag);
+					const bool waiting = std::any_of(adhocSocketRequests.begin(), adhocSocketRequests.end(), [&](const auto &it) {
+						return it.second.length == (s32_le *)len;
+					});
+					if (result != 0 && !waiting) {
+						*len = requested;
+					}
+					return result;
 				}
 
 				// A connection whose peer has gone stays DISCONNECTED (pspautotests net/adhoc/ptp).
@@ -4476,6 +4606,9 @@ static int sceNetAdhocPtpFlush(MIPSState *mips, int id, int timeout, int nonbloc
 				// There are two ways to flush, you can either set TCP_NODELAY to 1 or TCP_CORK to 0.
 
 				int error = FlushPtpSocket(ptpsocket.id);
+				if (error == 0 && ptpInFlight(socket)) {
+					error = EAGAIN;
+				}
 
 				if (error == EAGAIN || error == EWOULDBLOCK) {
 					// Non-Blocking
@@ -4521,7 +4654,8 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 	if (!netAdhocGameModeEntered)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_ENTER_GAMEMODE, "not enter gamemode");
 
-	if (size < 0 || !Memory::IsValidAddress(dataAddr))
+	// The data is copied (and the buffers are sized) by size.
+	if (size < 0 || !Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)size))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
 	// pspautotests net/adhoc/pair/gamemode
@@ -4529,7 +4663,7 @@ static int sceNetAdhocGameModeCreateMaster(MIPSState *mips, u32 dataAddr, int si
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_DATALEN, "invalid data length");
 
 	if (masterGameModeArea.data)
-		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // FIXME: Should we return a success instead? (need to test this on a homebrew)
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_ALREADY_CREATED, "already created"); // pspautotests net/adhoc/pair/gamemode
 
 	hleEatMicro(1000);
 	SceNetEtherAddr localMac;
@@ -4578,7 +4712,7 @@ static int sceNetAdhocGameModeCreateReplica(MIPSState *mips, const char *mac, u3
 	if (!netAdhocGameModeEntered)
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_NOT_ENTER_GAMEMODE, "not enter gamemode");
 
-	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr))
+	if (mac == nullptr || size < 0 || !Memory::IsValidAddress(dataAddr) || !Memory::IsValidRange(dataAddr, (u32)size))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "invalid arg");
 
 	const SceNetEtherAddr &replicaMac = *(const SceNetEtherAddr *)mac;
@@ -4705,21 +4839,22 @@ static int sceNetAdhocGameModeUpdateReplica(MIPSState *mips, int id, u32 infoAdd
 		gmuinfo = (GameModeUpdateInfo*)Memory::GetPointerOrException(infoAddr);
 	}
 
+	// A PSP leaves the length alone, and with no new data gives the last data's timestamp again, or 0
+	// before any came (pspautotests net/adhoc/pair/gamemodeinfo). Shaun White Snowboarding reads the
+	// timestamp either way, and took the stack garbage left there for the time of the last update.
 	for (auto& gma : replicaGameModeAreas) {
 		if (gma.id == id) {
 			if (gma.data && gma.dataUpdated) {
 				Memory::Memcpy(gma.addr, gma.data, gma.size);
 				gma.dataUpdated = 0;
+				gma.reportedTimestamp = std::min(CoreTiming::GetGlobalTimeUsScaled(), std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta));
 				if (gmuinfo != NULL) {
-					gmuinfo->length = sizeof(GameModeUpdateInfo);
 					gmuinfo->updated = 1;
-					gmuinfo->timeStamp = std::max(gma.updateTimestamp, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
+					gmuinfo->timeStamp = gma.reportedTimestamp;
 				}
-			}
-			else {
-				if (gmuinfo != NULL) {
-					gmuinfo->updated = 0;
-				}
+			} else if (gmuinfo != NULL) {
+				gmuinfo->updated = 0;
+				gmuinfo->timeStamp = gma.reportedTimestamp;
 			}
 			break;
 		}
@@ -4769,10 +4904,13 @@ int sceNetAdhocGetSocketAlert(MIPSState *mips, int id, u32 flagPtr) {
 	return hleLogDebug(Log::sceNet, 0, "flags = %08x", flg);
 }
 
+static void NetAdhocctl_CheckDiscoverWake();
+
 void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
 	hleSkipDeadbeef();
+	NetAdhocctl_CheckDiscoverWake();
 	int delayus = adhocDefaultDelay;
 
 	auto params = adhocctlEvents.begin();
@@ -4829,10 +4967,7 @@ void __NetTriggerCallbacks()
 			}
 			break;
 			case ADHOCCTL_EVENT_DISCOVER:
-				newState = ADHOCCTL_STATE_DISCOVER;
-				break;
-			case ADHOCCTL_EVENT_WOL_INTERRUPT:
-				newState = ADHOCCTL_STATE_WOL;
+				newState = adhocctlSleepState == ADHOCCTL_STATE_WOL ? ADHOCCTL_STATE_WOL : ADHOCCTL_STATE_DISCOVER;
 				break;
 			case ADHOCCTL_EVENT_ERROR:
 				delayus = adhocDefaultDelay * 3;
@@ -4840,6 +4975,9 @@ void __NetTriggerCallbacks()
 			}
 
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
+				if (flags == ADHOCCTL_EVENT_DISCOVER && !adhocctlKernelHandlers.count(it->first)) {
+					continue;
+				}
 				DEBUG_LOG(Log::sceNet, "AdhocctlCallback: [ID=%i][EVENT=%i][Error=%08x]", it->first, flags, error);
 				args[2] = it->second.argument;
 				AfterAdhocMipsCall* after = (AfterAdhocMipsCall*)__KernelCreateAction(actionAfterAdhocMipsCall);
@@ -4847,6 +4985,7 @@ void __NetTriggerCallbacks()
 				hleEnqueueCall(it->second.entryPoint, 3, args, after);
 			}
 			adhocctlEvents.pop_front();
+			adhocctlDeliveringError = error;
 			// Since we don't have beforeAction, simulate it using ScheduleEvent
 			ScheduleAdhocctlState(flags, newState, delayus, "adhocctl callback state");
 			hleNoLogVoid();
@@ -4871,10 +5010,33 @@ static int sceNetAdhocPdpSendSyscall(MIPSState *mips, int id, u32 macAddr, u32 p
 }
 
 static int sceNetAdhocPdpRecvSyscall(MIPSState *mips, int id, u32 macAddr, u32 portAddr, u32 bufAddr, u32 lenAddr, u32 timeout, u32 flag) {
-	void *len = GuestBuffer(lenAddr, 4);
-	void *buf = GuestBuffer(bufAddr, len ? *(s32_le *)len : 0);
+	s32_le *len = (s32_le *)GuestBuffer(lenAddr, 4);
 	// NULL for the sender's MAC and port is fine.
-	return sceNetAdhocPdpRecv(mips, id, macAddr ? GuestBuffer(macAddr, ETHER_ADDR_LEN) : nullptr, portAddr ? GuestBuffer(portAddr, 2) : nullptr, buf, len, timeout, (int)flag);
+	void *mac = macAddr ? GuestBuffer(macAddr, ETHER_ADDR_LEN) : nullptr;
+	void *port = portAddr ? GuestBuffer(portAddr, 2) : nullptr;
+	if (!len || *len <= 0 || !Memory::IsValidAddress(bufAddr)) {
+		void *buf = len ? GuestBuffer(bufAddr, *len) : nullptr;
+		return sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	}
+	// The buffer may run past the end of memory: Gods Eater Burst receives into the scratchpad's last
+	// 2048 bytes with a length of 2049, and a PSP takes it (pspautotests net/adhoc/pdp). Receive no more
+	// than fits, as PtpRecv does. A blocking recv keeps the pointer, so the clamp goes into the game's
+	// length, and a call that fails without waiting or touching the length gets the game's back.
+	void *buf = Memory::GetPointerWriteUnchecked(bufAddr);
+	const s32 requested = *len;
+	const s32 valid = (s32)Memory::ClampValidSizeAt(bufAddr, (u32)requested);
+	if (valid == requested) {
+		return sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	}
+	*len = valid;
+	int result = sceNetAdhocPdpRecv(mips, id, mac, port, buf, len, timeout, (int)flag);
+	const bool waiting = std::any_of(adhocSocketRequests.begin(), adhocSocketRequests.end(), [&](const auto &it) {
+		return it.second.length == len;
+	});
+	if (result != 0 && !waiting && *len == valid) {
+		*len = requested;
+	}
+	return result;
 }
 
 const HLEFunction sceNetAdhoc[] = {
@@ -4990,10 +5152,9 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 			// Multithreading Lock
 			peerlock.lock();
 
-			bool excludeTimedout = true;
 			// Length Calculation Mode
 			if (buf == NULL) {
-				int activePeers = getActivePeerCount(excludeTimedout);
+				int activePeers = getVisiblePeerCount();
 				*buflen = activePeers * sizeof(SceNetAdhocctlPeerInfoEmu);
 				DEBUG_LOG(Log::sceNet, "PeerList [Active: %i]", activePeers);
 			}
@@ -5008,10 +5169,13 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 				// Calculate Request Count
 				int requestcount = validLen / sizeof(SceNetAdhocctlPeerInfoEmu);
 
-				// FIXME: When bufAddr is not null but buffer size is smaller than activePeers * sizeof(SceNetAdhocctlPeerInfoEmu), simply return buffer size = 0 without filling the buffer?
-
-				// Clear Memory
-				memset(buf, 0, validLen);
+				// A buffer too small for one entry is left alone and gets size 0; a negative size is
+				// INVALID_ARG (pspautotests net/adhoc/pair/listsizes).
+				if ((s32)*buflen < 0) {
+					peerlock.unlock();
+					return hleLogError(Log::sceNet, SCE_NET_ADHOCCTL_ERROR_INVALID_ARG, "negative size");
+				}
+				memset(buf, 0, requestcount * sizeof(SceNetAdhocctlPeerInfoEmu));
 
 				// Minimum Arguments
 				if (requestcount > 0) {
@@ -5021,7 +5185,7 @@ static int sceNetAdhocctlGetPeerList(MIPSState *mips, u32 sizeAddr, u32 bufAddr)
 					// Iterate Peers
 					for (; peer != NULL && discovered < requestcount; peer = peer->next) {
 						// Exclude Soon to be timedout peers?
-						if (!excludeTimedout || peer->last_recv != 0) {
+						if (isPeerVisible(peer)) {
 							// Faking Last Receive Time
 							if (peer->last_recv != 0)
 								peer->last_recv = std::max(peer->last_recv, CoreTiming::GetGlobalTimeUsScaled() - defaultLastRecvDelta);
@@ -5198,185 +5362,568 @@ const HLEFunction sceNetAdhocctl[] = {
 	{0XB0B80E80, &WrapI_CIIIUUI<sceNetAdhocctlCreateEnterGameModeMin>, "sceNetAdhocctlCreateEnterGameModeMin",   'i', "siiixxi"  }, // ??
 };
 
-// Return value: 0/0x80410005/0x80411301/error returned from sceNetAdhocctl_lib_F8BABD85[/error returned from sceUtilityGetSystemParamInt?]
-int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
-	WARN_LOG_REPORT_ONCE(sceNetAdhocDiscoverInitStart, Log::sceNet, "UNIMPL sceNetAdhocDiscoverInitStart(%08x) at %08x", paramAddr, mips->pc);
-	// FIXME: Most AdhocDiscover syscalls will return 0x80410005 if (sceKernelCheckThreadStack_user() < 0x00000FE0), AdhocDiscover seems to be storing some data in the stack, while we use global variables for these
-	if (sceKernelCheckThreadStack(mips) < 0x00000FE0)
-		return 0x80410005;
-	// Already running (pspautotests net/adhoc/discover).
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
-		return hleLogError(Log::sceNet, 0x80411301, "already started");
-	// TODO: Allocate internal buffer/struct (on the stack?) to be returned on sceNetAdhocDiscoverUpdate (the struct may contains WLAN channel from sceUtilityGetSystemParamInt at offset 0xA0 ?), setup adhocctl state callback handler to detects state change (using sceNetAdhocctl_lib_F8BABD85(stateCallbackFunction=0x09F436F8, adhocctlStateCallbackArg=0x0) on JPCSP+prx)
-	u32 bufSize = 256; // dummy size, not sure how large it supposed to be, may be at least 0x3c bytes like in param->unknown2 ?
-	if (netAdhocDiscoverBufAddr == 0) {
-		u32 addr = userMemory.Alloc(bufSize, true, "AdhocDiscover"); // The address returned on DiscoverUpdate seems to be much higher than the param address, closer to the internal stateCallbackFunction address
-		if (!Memory::IsValidAddress(addr))
-			return 0x80410005;
-		netAdhocDiscoverBufAddr = addr;
-		Memory::Memset(netAdhocDiscoverBufAddr, 0, bufSize);
-	}
-	// FIME: Not sure what is this address 0x000010B0 used for (current Step may be?), but return 0x80411301 if (*((int *) 0x000010B0) != 0)
-	//if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0) //if (*((int*)Memory::GetPointer(0x000010B0)) != 0)
-	//	return 0x80411301; // Already Initialized/Started?
-	// TODO: Need to findout whether using invalid params or param address will return an error code or not
-	netAdhocDiscoverParam = (SceNetAdhocDiscoverParam*)Memory::GetPointerOrException(paramAddr);
-	if (!netAdhocDiscoverParam)
-		return hleLogError(Log::sceNet, -1, "invalid param?");
-	// FIXME: paramAddr seems to be stored at 0x000010D8 without validating the value first
-	//*((int*)Memory::GetPointer(0x000010D8)) = paramAddr;
+// sceNetAdhocDiscover finds another console that wants to play, using adhocctl: it takes turns at
+// scanning for a group of the given name (and joining it) and creating that group itself, for random
+// lengths of time, until a peer turns up in the group or the timeout passes. With mode 0 it first puts
+// adhocctl to sleep in the DISCOVER state until another console comes near (event WOL). With mode 1
+// adhocctl goes into the WOL state and stays there (pspautotests net/adhoc/pair/discover).
+//
+// The steps and flags mirror the firmware library's, so that the status, the adhocctl states and the
+// handler events come in the same order as on a PSP.
+enum class DiscoverStep {
+	None = 0,
+	Create = 1,
+	Join = 2,
+	WaitConnect = 3,
+	CheckPeers = 4,
+	Disconnect = 5,
+	WaitDisconnect = 6,
+	Choose = 7,
+	Scan = 8,
+	WaitScan = 9,
+	PickGroup = 10,
+	Sleep = 11,
+	WaitSleep = 12,
+	Sleeping = 13,
+	Woken = 14,
+	Wol = 15,
+	WaitWol = 16,
+	WolWaiting = 17,
+	WolInterrupted = 18,
+	Done = 19,
+};
 
-	// Based on Legend Of The Dragon:
-	// The 1st 24 x 32bit(addr) seems to be pointers to subroutine containings sceNetAdhocctlCreate/sceNetAdhocctlJoin/sceNetAdhocctlDisconnect/sceNetAdhocctlScan/sceNetRand/sceKernelGetSystemTimeWide/etc.
-	// Offset 0x60: 10 00 06 06
-	// Offset 0x70: FF FF FF FF (before Init) -> 00 00 00 00 (after Init) -> FF FF FF FF (after Term) // Seems to be value returned from sceNetAdhocctl_lib_F8BABD85, and the address (0x000010A0) seems to be the lowest one for storing data
-	// Offset 0x80: 00 -> 0B/0C/0D/13 -> 00 // This seems to be (current step?) at address at 0x000010B0 (ie. *((int *) 0x000010B0) = 0x0000000B), something todo with param->unknown1(sleep mode?)
-	// Offset 0x84: 00 -> 03 -> 03 // somekind of State? Something todo with param->unknown1(sleep mode?) along with data at 0x000010B0 (current step?)
-	// Offset 0x98: 0000 -> 0000/0200 -> 0000 // This seems to be somekind of flags at 0x000010C8 (ie. *((int *) 0x000010C8) = (var4 | 0x00000080)), something todo with data at 0x000010B0 (current step?)
-	// Offset 0xA0: WLAN channel from sceUtilityGetSystemParamInt (ie. sceUtilityGetSystemParamInt(0x00000002, 0x000010D0) on decompiled prx, but on JPCSP+prx Logs it's sceUtilityGetSystemParamInt(0x00000002, 0x09F43FD0))
-	// Offset 0xA4: Seems to be at 0x000010D4 and related to RequestSuspend
-	// Offset 0xA8: paramAddr // This seems to be a fixed address at 0x000010D8 (ie. *((int *) 0x000010D8) = paramAddr)
-	// The rest are zeroed
-	Memory::WriteUnchecked_U32(0x06060010, netAdhocDiscoverBufAddr + 0x60);
-	Memory::WriteUnchecked_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
-	if (netAdhocDiscoverParam->unknown1 == 0) {
-		Memory::WriteUnchecked_U32(0x0B, netAdhocDiscoverBufAddr + 0x80);
-		Memory::WriteUnchecked_U32(0x03, netAdhocDiscoverBufAddr + 0x84);
-	}
-	else if (netAdhocDiscoverParam->unknown1 == 1) {
-		Memory::WriteUnchecked_U32(0x0F, netAdhocDiscoverBufAddr + 0x80);
-		Memory::WriteUnchecked_U32(0x04, netAdhocDiscoverBufAddr + 0x84);
-	}
-	Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0x98);
-	Memory::WriteUnchecked_U32(g_Config.iWlanAdhocChannel, netAdhocDiscoverBufAddr + 0xA0);
-	Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0xA4);
-	Memory::WriteUnchecked_U32(paramAddr, netAdhocDiscoverBufAddr + 0xA8);
+// What the next Choose step does, and which way the timer flips it.
+enum class DiscoverPhase {
+	Start = 0,
+	Scanning = 1,
+	Hosting = 2,
+	Sleep = 3,
+	Wol = 4,
+};
 
-	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
-	memcpy(grpName, netAdhocDiscoverParam->groupName, ADHOCCTL_GROUPNAME_LEN); // For logging purpose, must not be truncated
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Unknown1 : %08x", netAdhocDiscoverParam->unknown1);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.GroupName: [%s]", grpName);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Unknown2 : %08x", netAdhocDiscoverParam->unknown2);
-	DEBUG_LOG(Log::sceNet, "sceNetAdhocDiscoverInitStart - Param.Result   : %08x", netAdhocDiscoverParam->result);
+enum : u32 {
+	DISCOVER_FLAG_ERROR = 0x1,
+	DISCOVER_FLAG_CONNECT = 0x2,
+	DISCOVER_FLAG_DISCONNECT = 0x4,
+	DISCOVER_FLAG_SCAN = 0x8,
+	DISCOVER_FLAG_GAME = 0x10,
+	DISCOVER_FLAG_STOP = 0x20,
+	DISCOVER_FLAG_WOL = 0x40,
+	DISCOVER_FLAG_WOL_INTERRUPT = 0x80,
+	DISCOVER_FLAG_ABORT = 0x100,
+	DISCOVER_FLAG_DISCOVER = 0x200,
+};
 
-	// TODO: Check whether we're already in the correct group and change the status and result accordingly
-	// The result field is only written when it finishes (pspautotests net/adhoc/discover).
-	netAdhocDiscoverIsStopping = false;
-	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
-	netAdhocDiscoverUpdates = 0;
-	netAdhocDiscoverStopUpdates = 0;
-	netAdhocDiscoverStartTime = CoreTiming::GetGlobalTimeUsScaled();
-	return hleLogInfo(Log::sceNet, 0);
+static DiscoverStep discoverStep = DiscoverStep::None;
+static DiscoverPhase discoverPhase = DiscoverPhase::Start;
+static std::atomic<u32> discoverFlags;
+static std::atomic<u32> discoverEventError;
+static bool discoverSuspendAllowed = false;
+static u32 discoverParamAddr = 0;
+static u64 discoverNextFlip = 0;
+static u64 discoverDeadline = 0;
+static SceNetAdhocctlGroupName discoverJoinGroup;
+static std::mt19937 discoverRng;
+static bool discoverRngSeeded = false;
+
+int NetAdhocDiscover_GetStatus() {
+	if ((int)discoverStep <= 0) {
+		return NET_ADHOC_DISCOVER_STATUS_NONE;
+	}
+	if (discoverStep < DiscoverStep::Done) {
+		return NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS;
+	}
+	return discoverStep == DiscoverStep::Done ? NET_ADHOC_DISCOVER_STATUS_COMPLETED : NET_ADHOC_DISCOVER_STATUS_NONE;
 }
 
-// Note1: When canceling the progress, Legend Of The Dragon will use DiscoverStop -> AdhocctlDisconnect -> DiscoverTerm (when status changed to 2)
-// Note2: When result = NO_PEER_FOUND or PEER_FOUND the progress can no longer be canceled on Legend Of The Dragon
-int sceNetAdhocDiscoverStop(MIPSState *mips) {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverStop()");
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-
-	if (Memory::IsValid4AlignedRange(netAdhocDiscoverBufAddr, 256)) {
-		if (Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0) {
-			Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(netAdhocDiscoverBufAddr + 0x98) | 0x20, netAdhocDiscoverBufAddr + 0x98);
-			Memory::WriteUnchecked_U32(0, netAdhocDiscoverBufAddr + 0xA4);
+// The library's own adhocctl handler.
+void NetAdhocDiscover_OnAdhocctlEvent(u32 event, u32 error) {
+	if (discoverStep == DiscoverStep::None) {
+		return;
+	}
+	u32 flag = 0;
+	switch (event) {
+	case ADHOCCTL_EVENT_ERROR: flag = DISCOVER_FLAG_ERROR; break;
+	case ADHOCCTL_EVENT_CONNECT: flag = DISCOVER_FLAG_CONNECT; break;
+	case ADHOCCTL_EVENT_DISCONNECT: flag = DISCOVER_FLAG_DISCONNECT; break;
+	case ADHOCCTL_EVENT_SCAN: flag = DISCOVER_FLAG_SCAN; break;
+	case ADHOCCTL_EVENT_GAME: flag = DISCOVER_FLAG_GAME; break;
+	case ADHOCCTL_EVENT_DISCOVER:
+		if (error != 1) {
+			return;
 		}
+		flag = DISCOVER_FLAG_DISCOVER;
+		break;
+	case ADHOCCTL_EVENT_WOL: flag = DISCOVER_FLAG_WOL; break;
+	case ADHOCCTL_EVENT_WOL_INTERRUPT:
+		flag = DISCOVER_FLAG_WOL_INTERRUPT;
+		discoverSuspendAllowed = true;
+		break;
+	case 8: flag = DISCOVER_FLAG_ABORT; break;
+	default: return;
 	}
-	// FIXME: Doesn't seems to be immediately changed the status, may be waiting until Disconnected from Adhocctl before changing the status to Completed?
-	netAdhocDiscoverIsStopping = true;
-	//netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
-	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
+	discoverEventError = event == ADHOCCTL_EVENT_ERROR ? error : 0;
+	discoverFlags |= flag;
+}
+
+static SceNetAdhocDiscoverParam *DiscoverParam() {
+	if (!Memory::IsValidRange(discoverParamAddr, sizeof(SceNetAdhocDiscoverParam))) {
+		return nullptr;
+	}
+	return (SceNetAdhocDiscoverParam *)Memory::GetPointerWriteUnchecked(discoverParamAddr);
+}
+
+static void DiscoverFinish(u32 result) {
+	if (SceNetAdhocDiscoverParam *param = DiscoverParam()) {
+		param->result = result;
+	}
+	discoverStep = DiscoverStep::Done;
+}
+
+static bool DiscoverTakeFlag(u32 flag) {
+	return (discoverFlags.fetch_and(~flag) & flag) != 0;
+}
+
+// An adhocctl call failed, or reported an error through the handler.
+static void DiscoverFail(int error) {
+	DiscoverFinish((u32)error);
+}
+
+static bool DiscoverCheckError() {
+	if (DiscoverTakeFlag(DISCOVER_FLAG_ERROR)) {
+		DiscoverFinish(discoverEventError.exchange(0));
+		return true;
+	}
+	return false;
+}
+
+// Our adhocctl stays busy until the game's handler has seen the last event, and changes state a little
+// after it. The next call waits for that, or it would fail with BUSY.
+static bool DiscoverAdhocctlReady(bool needDisconnected) {
+	return !isAdhocctlBusy && (!needDisconnected || adhocctlState == ADHOCCTL_STATE_DISCONNECTED);
+}
+
+static void DiscoverStartCall(int result, DiscoverStep next) {
+	if (result < 0) {
+		DiscoverFail(result);
+	} else {
+		discoverStep = next;
+	}
+}
+
+// How long until the next flip between scanning and hosting: up to 20 seconds.
+static u32 NetRand();
+
+static u64 DiscoverRandomDelay() {
+	return (u64)(NetRand() / 215) + 1;
+}
+
+static u32 NetRand() {
+	if (!discoverRngSeeded) {
+		// Every console picks differently. Instances started together have to, too, or they'd stay in step.
+		SceNetEtherAddr mac{};
+		getLocalMac(&mac);
+		u32 seed = 0;
+		for (int i = 0; i < 6; i++) {
+			seed = seed * 31 + mac.data[i];
+		}
+		discoverRng.seed(seed ^ (u32)CoreTiming::GetGlobalTimeUs());
+		discoverRngSeeded = true;
+	}
+	return discoverRng();
+}
+
+// While adhocctl sleeps in the DISCOVER state, whether another console is near enough to wake it.
+static bool AdhocctlSomeoneNear() {
+	// TODO: Nothing to tell yet. A PSP alone stays asleep (pspautotests net/adhoc/discover).
+	return true;
+}
+
+// sceNetAdhocDiscover puts adhocctl to sleep: in the DISCOVER state until another console is near
+// (event WOL), or in the WOL state. The state changes with the DISCOVER event, one Update after
+// the call (pspautotests net/adhoc/discover).
+static int NetAdhocctl_DiscoverSleep(bool wol) {
+	if (!netAdhocctlInited) {
+		return SCE_NET_ADHOCCTL_ERROR_NOT_INITIALIZED;
+	}
+	if (adhocctlState != ADHOCCTL_STATE_DISCONNECTED || isAdhocctlBusy) {
+		return SCE_NET_ADHOCCTL_ERROR_BUSY;
+	}
+	adhocctlSleepState = wol ? ADHOCCTL_STATE_WOL : ADHOCCTL_STATE_DISCOVER;
+	notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCOVER, 1);
 	return 0;
 }
 
-int sceNetAdhocDiscoverTerm(MIPSState *mips) {
-	WARN_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverTerm() at %08x", mips->pc);
-	
-	// if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-	// 	return 0x80410005;
-	// 
-	// if (!(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
-	// 	return 0x80411301; // Not Initialized/Started yet?
-	
-	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
-	// 	LinkDiscoverSkip(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240
-	// 	Memory::WriteOrException_U32(0xffffffff, netAdhocDiscoverBufAddr + 0x70);
-	// }
-	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0x80);
-	// Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA8);
-
-	netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_NONE;
-	//if (netAdhocDiscoverParam) netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND; // Test: Using result = NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList after DiscoverTerm
-	if (Memory::IsValidAddress(netAdhocDiscoverBufAddr)) {
-		userMemory.Free(netAdhocDiscoverBufAddr);
-		netAdhocDiscoverBufAddr = 0;
+// Wakes a sleeping adhocctl: from DISCOVER with event WOL, from WOL with event WOL_INTERRUPT. The WOL
+// state is for consoles in sleep mode (Dissidia's card exchange asks for both to be put to sleep),
+// which we don't have, so it wakes at once like DISCOVER.
+static void NetAdhocctl_CheckDiscoverWake() {
+	if (adhocctlSleepState == ADHOCCTL_STATE_DISCONNECTED || adhocctlState != adhocctlSleepState) {
+		return;
 	}
-	netAdhocDiscoverIsStopping = false;
-	return 0;
+	if (!AdhocctlSomeoneNear()) {
+		return;
+	}
+	bool wol = adhocctlSleepState == ADHOCCTL_STATE_WOL;
+	adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+	adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+	notifyAdhocctlHandlers(wol ? ADHOCCTL_EVENT_WOL_INTERRUPT : ADHOCCTL_EVENT_WOL, 0);
 }
 
-int sceNetAdhocDiscoverGetStatus(MIPSState *mips) {
-	DEBUG_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverGetStatus() at %08x", mips->pc);
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0)
-	// 	return 0;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) <= 0x13)
-	// 	return 1;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) == 0x13)
-	// 	return 2;
-	return hleLogDebug(Log::sceNet, netAdhocDiscoverStatus); // Returning 2 will trigger Legend Of The Dragon to call sceNetAdhocctlGetPeerList (only happened if it was the first sceNetAdhocDiscoverGetStatus after sceNetAdhocDiscoverInitStart)
-}
-
-int sceNetAdhocDiscoverRequestSuspend(MIPSState *mips)
-{
-	ERROR_LOG_REPORT_ONCE(sceNetAdhocDiscoverRequestSuspend, Log::sceNet, "UNIMPL sceNetAdhocDiscoverRequestSuspend() at %08x", mips->pc);
-	// FIXME: Not sure what is this syscall used for, may be related to Sleep Mode and can be triggered by using Power/Hold Switch? (based on what's written on Dissidia 012)
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0xA4) == 0)
-	// 	return 0x80411303; // Already Suspended?
-	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) != 0)
-	// 	return 0x80411303; // Already Suspended?
-	// int ret = sceNetAdhocctl_lib_1572422C();
-	// if (ret >= 0)
-	// 	Memory::WriteOrException_U32(0, netAdhocDiscoverBufAddr + 0xA4);
-	// return ret;
-	// While discovering with nobody else around, a PSP refuses (pspautotests net/adhoc/discover).
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS)
-		return hleLogError(Log::sceNet, 0x80411303, "can't suspend");
-	return hleLogError(Log::sceNet, 0);
-}
-
-int sceNetAdhocDiscoverUpdate(MIPSState *mips) {
-	DEBUG_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverUpdate() at %08x", mips->pc);
-	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
-		return 0x80410005;
-
-	// TODO: Use switch case for each Step
-	// What a PSP does with nobody to find (pspautotests net/adhoc/discover): adhocctl goes into the
-	// DISCOVER state after the first Update. After a Stop, one Update later adhocctl is back to
-	// DISCONNECTED and its handlers get DISCONNECT, and one more later the status is COMPLETED with the
-	// result cancelled.
-	if (netAdhocDiscoverStatus == NET_ADHOC_DISCOVER_STATUS_IN_PROGRESS) {
-		if (!netAdhocDiscoverIsStopping) {
-			if (++netAdhocDiscoverUpdates == 2 && adhocctlState == ADHOCCTL_STATE_DISCONNECTED)
-				adhocctlState = ADHOCCTL_STATE_DISCOVER;
-		} else {
-			netAdhocDiscoverStopUpdates++;
-			if (netAdhocDiscoverStopUpdates == 2) {
-				if (adhocctlState == ADHOCCTL_STATE_DISCOVER)
-					adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
-				notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
-			} else if (netAdhocDiscoverStopUpdates >= 3) {
-				netAdhocDiscoverStatus = NET_ADHOC_DISCOVER_STATUS_COMPLETED;
-				if (netAdhocDiscoverParam)
-					netAdhocDiscoverParam->result = NET_ADHOC_DISCOVER_RESULT_CANCELED;
+static void DiscoverPickGroup() {
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	bool found = false;
+	SceNetEtherAddr best{};
+	if (param) {
+		std::lock_guard<std::recursive_mutex> guard(peerlock);
+		for (SceNetAdhocctlScanInfo *group = networks; group != nullptr; group = group->next) {
+			if (memcmp(group->group_name.data, param->groupName, ADHOCCTL_GROUPNAME_LEN) != 0) {
+				continue;
+			}
+			// With the channel set to automatic, the library only takes groups on channel 11. Our
+			// channels are made up, so any will do.
+			// Of several groups of that name, the one with the lowest BSSID.
+			if (!found || memcmp(group->bssid.mac_addr.data, best.data, sizeof(best.data)) < 0) {
+				best = group->bssid.mac_addr;
+				discoverJoinGroup = group->group_name;
+				found = true;
 			}
 		}
 	}
-	return hleDelayResult(hleLogDebug(Log::sceNet, 0/*netAdhocDiscoverBufAddr*/), "adhoc discover update", 300); // FIXME: Based on JPCSP+prx, it seems to be returning a pointer to the internal buffer/struct (only when status = 1 ?), But when i stepped the code it returns 0 (might be a bug on JPCSP LLE Logging?)
+	if (!found) {
+		discoverStep = DiscoverStep::Choose;
+		return;
+	}
+	discoverPhase = DiscoverPhase::Hosting;
+	discoverStep = DiscoverStep::Join;
+	discoverNextFlip = CoreTiming::GetGlobalTimeUs() + 10000000;
+}
+
+static void DiscoverCheckPeers() {
+	if (discoverFlags & DISCOVER_FLAG_STOP) {
+		discoverStep = DiscoverStep::Disconnect;
+		return;
+	}
+	if (DiscoverCheckError()) {
+		return;
+	}
+	// Time to go scanning, unless a peer has turned up just now.
+	if (discoverPhase < DiscoverPhase::Hosting) {
+		discoverStep = DiscoverStep::Disconnect;
+	}
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
+	if (getVisiblePeerCount() > 0) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_PEER_FOUND);
+	}
+}
+
+static void DiscoverChoose() {
+	if (DiscoverTakeFlag(DISCOVER_FLAG_STOP)) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_CANCELED);
+		return;
+	}
+	if (CoreTiming::GetGlobalTimeUs() >= discoverDeadline) {
+		DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_NO_PEER_FOUND);
+		return;
+	}
+	switch (discoverPhase) {
+	case DiscoverPhase::Scanning: discoverStep = DiscoverStep::Scan; break;
+	case DiscoverPhase::Hosting: discoverStep = DiscoverStep::Create; break;
+	case DiscoverPhase::Sleep: discoverStep = DiscoverStep::Sleep; break;
+	default: break;
+	}
+}
+
+static int DiscoverDisconnect() {
+	if (adhocctlSleepState != ADHOCCTL_STATE_DISCONNECTED || adhocctlState == ADHOCCTL_STATE_DISCOVER || adhocctlState == ADHOCCTL_STATE_WOL) {
+		adhocctlSleepState = ADHOCCTL_STATE_DISCONNECTED;
+		adhocctlState = ADHOCCTL_STATE_DISCONNECTED;
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		return 0;
+	}
+	return NetAdhocctl_Disconnect();
+}
+
+static void DiscoverSleeping() {
+	if (discoverFlags & DISCOVER_FLAG_STOP) {
+		DiscoverStartCall(DiscoverDisconnect(), DiscoverStep::WaitDisconnect);
+		return;
+	}
+	if (DiscoverCheckError()) {
+		return;
+	}
+	if (DiscoverTakeFlag(DISCOVER_FLAG_WOL)) {
+		discoverStep = DiscoverStep::Woken;
+	}
+}
+
+// Return value: 0/0x80410005/0x80411301/0x80411302, or an error from adding the adhocctl handler.
+int sceNetAdhocDiscoverInitStart(MIPSState *mips, u32 paramAddr) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FE0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	// Already running (pspautotests net/adhoc/discover).
+	if (discoverStep != DiscoverStep::None)
+		return hleLogError(Log::sceNet, 0x80411301, "already started");
+
+	discoverFlags = 0;
+	discoverEventError = 0;
+	discoverSuspendAllowed = false;
+	discoverParamAddr = paramAddr;
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	if (!param)
+		return hleLogError(Log::sceNet, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad param");
+
+	char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+	memcpy(grpName, param->groupName, ADHOCCTL_GROUPNAME_LEN);
+	if (param->mode == 0) {
+		discoverStep = DiscoverStep::Sleep;
+		discoverPhase = DiscoverPhase::Sleep;
+	} else if (param->mode == 1) {
+		discoverStep = DiscoverStep::Wol;
+		discoverPhase = DiscoverPhase::Wol;
+	} else {
+		return hleLogError(Log::sceNet, 0x80411302, "bad mode %d", param->mode);
+	}
+	// The library leaves the step set here, so that only a Term lets it start again.
+	if (param->timeoutSec == 0)
+		return hleLogError(Log::sceNet, 0x80411302, "no timeout");
+	discoverNextFlip = 0;
+	discoverDeadline = 0;
+	// The result field is only written when it finishes (pspautotests net/adhoc/discover).
+	return hleLogInfo(Log::sceNet, 0, "mode %d, group %s, timeout %ds", param->mode, grpName, param->timeoutSec);
+}
+
+int sceNetAdhocDiscoverStop(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	if (discoverStep != DiscoverStep::None && discoverStep != DiscoverStep::Done) {
+		discoverSuspendAllowed = false;
+		discoverFlags |= DISCOVER_FLAG_STOP;
+	}
+	return hleLogInfo(Log::sceNet, 0);
+}
+
+int sceNetAdhocDiscoverTerm(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	if (discoverStep != DiscoverStep::None && discoverStep != DiscoverStep::Done)
+		return hleLogError(Log::sceNet, 0x80411301, "still running");
+	discoverStep = DiscoverStep::None;
+	discoverParamAddr = 0;
+	return hleLogInfo(Log::sceNet, 0);
+}
+
+int sceNetAdhocDiscoverGetStatus(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	return hleLogDebug(Log::sceNet, NetAdhocDiscover_GetStatus());
+}
+
+int sceNetAdhocDiscoverRequestSuspend(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+	// While discovering with nobody else around, a PSP refuses (pspautotests net/adhoc/discover).
+	if (!discoverSuspendAllowed || discoverStep != DiscoverStep::None)
+		return hleLogError(Log::sceNet, 0x80411303, "can't suspend");
+	discoverSuspendAllowed = false;
+	return hleLogWarning(Log::sceNet, 0, "suspend not implemented");
+}
+
+int sceNetAdhocDiscoverUpdate(MIPSState *mips) {
+	if (sceKernelCheckThreadStack(mips) < 0x00000FF0)
+		return hleLogError(Log::sceNet, 0x80410005, "stack");
+
+	SceNetAdhocDiscoverParam *param = DiscoverParam();
+	switch (discoverStep) {
+	case DiscoverStep::None:
+	case DiscoverStep::Done:
+		return hleLogVerbose(Log::sceNet, 0);
+	case DiscoverStep::Create: {
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+		if (param) {
+			memcpy(grpName, param->groupName, ADHOCCTL_GROUPNAME_LEN);
+		}
+		adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
+		adhocConnectionType = ADHOC_CREATE;
+		DiscoverStartCall(NetAdhocctl_Create(grpName), DiscoverStep::WaitConnect);
+		break;
+	}
+	case DiscoverStep::Join: {
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		char grpName[ADHOCCTL_GROUPNAME_LEN + 1] = { 0 };
+		memcpy(grpName, discoverJoinGroup.data, ADHOCCTL_GROUPNAME_LEN);
+		adhocctlCurrentMode = ADHOCCTL_MODE_NORMAL;
+		adhocConnectionType = ADHOC_JOIN;
+		DiscoverStartCall(NetAdhocctl_Create(grpName), DiscoverStep::WaitConnect);
+		break;
+	}
+	case DiscoverStep::WaitConnect:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_CONNECT)) {
+			discoverStep = DiscoverStep::CheckPeers;
+		} else {
+			DiscoverCheckError();
+		}
+		break;
+	case DiscoverStep::CheckPeers:
+		DiscoverCheckPeers();
+		break;
+	case DiscoverStep::Disconnect:
+		if (!DiscoverAdhocctlReady(false)) {
+			break;
+		}
+		DiscoverStartCall(DiscoverDisconnect(), DiscoverStep::WaitDisconnect);
+		break;
+	case DiscoverStep::WaitDisconnect:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_DISCONNECT)) {
+			discoverStep = DiscoverStep::Choose;
+		}
+		break;
+	case DiscoverStep::Choose:
+		DiscoverChoose();
+		break;
+	case DiscoverStep::Scan:
+		if (!DiscoverAdhocctlReady(true)) {
+			break;
+		}
+		DiscoverStartCall(sceNetAdhocctlScan(mips), DiscoverStep::WaitScan);
+		break;
+	case DiscoverStep::WaitScan:
+		if (DiscoverTakeFlag(DISCOVER_FLAG_SCAN)) {
+			discoverStep = DiscoverStep::PickGroup;
+		} else {
+			DiscoverCheckError();
+		}
+		break;
+	case DiscoverStep::PickGroup:
+		DiscoverPickGroup();
+		break;
+	case DiscoverStep::Sleep:
+	case DiscoverStep::Wol:
+		// With mode 1 adhocctl goes into the WOL state and stays there (pspautotests net/adhoc/pair/discover).
+		DiscoverStartCall(NetAdhocctl_DiscoverSleep(discoverStep == DiscoverStep::Wol), discoverStep == DiscoverStep::Sleep ? DiscoverStep::WaitSleep : DiscoverStep::WaitWol);
+		break;
+	case DiscoverStep::WaitSleep:
+	case DiscoverStep::WaitWol:
+		if (!DiscoverCheckError() && DiscoverTakeFlag(DISCOVER_FLAG_DISCOVER)) {
+			discoverStep = discoverStep == DiscoverStep::WaitSleep ? DiscoverStep::Sleeping : DiscoverStep::WolWaiting;
+		}
+		break;
+	case DiscoverStep::Sleeping:
+		DiscoverSleeping();
+		break;
+	case DiscoverStep::Woken:
+		if (discoverPhase == DiscoverPhase::Sleep) {
+			discoverStep = DiscoverStep::Choose;
+			discoverPhase = DiscoverPhase::Start;
+		}
+		break;
+	case DiscoverStep::WolWaiting:
+		if (DiscoverCheckError()) {
+			break;
+		}
+		if (DiscoverTakeFlag(DISCOVER_FLAG_WOL_INTERRUPT)) {
+			discoverStep = DiscoverStep::WolInterrupted;
+		} else if (DiscoverTakeFlag(DISCOVER_FLAG_ABORT)) {
+			DiscoverFinish(NET_ADHOC_DISCOVER_RESULT_ABORTED);
+		}
+		break;
+	case DiscoverStep::WolInterrupted:
+		if (discoverPhase == DiscoverPhase::Wol) {
+			discoverStep = DiscoverStep::Choose;
+			discoverPhase = DiscoverPhase::Start;
+		}
+		break;
+	}
+
+	// Flip between scanning and hosting at random times, and give up at the deadline.
+	if (discoverStep != DiscoverStep::Done && discoverPhase != DiscoverPhase::Sleep && discoverPhase != DiscoverPhase::Wol) {
+		u64 now = CoreTiming::GetGlobalTimeUs();
+		if (now > discoverNextFlip) {
+			u64 delay = 0;
+			switch (discoverPhase) {
+			case DiscoverPhase::Start:
+				discoverPhase = DiscoverPhase::Scanning;
+				delay = DiscoverRandomDelay();
+				discoverDeadline = now + (u64)(param ? param->timeoutSec : 0) * 1000000;
+				break;
+			case DiscoverPhase::Scanning:
+				discoverPhase = DiscoverPhase::Hosting;
+				delay = DiscoverRandomDelay();
+				break;
+			case DiscoverPhase::Hosting:
+				discoverPhase = DiscoverPhase::Scanning;
+				delay = DiscoverRandomDelay();
+				break;
+			default:
+				break;
+			}
+			discoverNextFlip = std::min(now + delay, discoverDeadline);
+		}
+	}
+	return hleLogVerbose(Log::sceNet, 0, "step %d, phase %d", (int)discoverStep, (int)discoverPhase);
+}
+
+// The kernel library the firmware's sceNetAdhocDiscover module imports, for running that module
+// instead of our HLE (DisableHLEFlags::sceNetAdhocDiscover). The names are what it uses them for.
+static int sceNetAdhocctl_lib_AddHandler(u32 handlerPtr, u32 handlerArg) {
+	int id = (int)sceNetAdhocctlAddHandler(handlerPtr, handlerArg);
+	if (id >= 0) {
+		adhocctlKernelHandlers.insert(id);
+	}
+	return hleLogInfo(Log::sceNet, id);
+}
+
+static int sceNetAdhocctl_lib_DelHandler(u32 handlerId) {
+	return hleLogInfo(Log::sceNet, sceNetAdhocctlDelHandler(handlerId));
+}
+
+static int sceNetAdhocctl_lib_DiscoverSleep(u32 groupNameAddr) {
+	return hleLogInfo(Log::sceNet, NetAdhocctl_DiscoverSleep(false));
+}
+
+static int sceNetAdhocctl_lib_WolSleep(u32 groupNameAddr) {
+	return hleLogInfo(Log::sceNet, NetAdhocctl_DiscoverSleep(true));
+}
+
+static int sceNetAdhocctl_lib_Suspend() {
+	return hleLogWarning(Log::sceNet, 0, "suspend not implemented");
+}
+
+static u32 sceNetIfhandle_lib_Malloc(u32 size) {
+	u32 addr = userMemory.Alloc(size, false, "NetIfhandle");
+	return hleLogDebug(Log::sceNet, Memory::IsValidAddress(addr) ? addr : 0);
+}
+
+static int sceNetIfhandle_lib_Free(u32 addr) {
+	userMemory.Free(addr);
+	return hleLogDebug(Log::sceNet, 0);
+}
+
+const HLEFunction sceNetAdhocctl_lib[] = {
+	{0XF8BABD85, &WrapI_UU<sceNetAdhocctl_lib_AddHandler>,             "sceNetAdhocctl_lib_AddHandler",          'i', "xx",      HLE_KERNEL_SYSCALL },
+	{0X1C679240, &WrapI_U<sceNetAdhocctl_lib_DelHandler>,              "sceNetAdhocctl_lib_DelHandler",          'i', "x",       HLE_KERNEL_SYSCALL },
+	{0XF6057CC4, &WrapI_U<sceNetAdhocctl_lib_DiscoverSleep>,           "sceNetAdhocctl_lib_DiscoverSleep",       'i', "x",       HLE_KERNEL_SYSCALL },
+	{0X1A2B6D03, &WrapI_U<sceNetAdhocctl_lib_WolSleep>,                "sceNetAdhocctl_lib_WolSleep",            'i', "x",       HLE_KERNEL_SYSCALL },
+	{0X1572422C, &WrapI_V<sceNetAdhocctl_lib_Suspend>,                 "sceNetAdhocctl_lib_Suspend",             'i', "",        HLE_KERNEL_SYSCALL },
+};
+
+const HLEFunction sceNetIfhandle_lib[] = {
+	{0X15CFE3C0, &WrapU_U<sceNetIfhandle_lib_Malloc>,                  "sceNetMallocInternal",                   'x', "x",       HLE_KERNEL_SYSCALL },
+	{0X76BAD213, &WrapI_U<sceNetIfhandle_lib_Free>,                    "sceNetFreeInternal",                     'i', "x",       HLE_KERNEL_SYSCALL },
+};
+
+void Register_sceNetAdhocctl_lib() {
+	RegisterHLEModule("sceNetAdhocctl_lib", ARRAY_SIZE(sceNetAdhocctl_lib), sceNetAdhocctl_lib);
+}
+
+void Register_sceNetIfhandle_lib() {
+	RegisterHLEModule("sceNetIfhandle_lib", ARRAY_SIZE(sceNetIfhandle_lib), sceNetIfhandle_lib);
 }
 
 const HLEFunction sceNetAdhocDiscover[] = {

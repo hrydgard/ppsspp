@@ -441,6 +441,9 @@ void RegisterAllModules() {
 	Register_sceVaudio_driver();
 	Register_sceNetApctl_lib();
 	Register_sceMeCore_driver();
+	Register_sceIdStorage_driver();
+	Register_sceNetAdhocctl_lib();
+	Register_sceNetIfhandle_lib();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

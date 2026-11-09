@@ -52,6 +52,9 @@ bool InitFFmpeg();
 
 class MediaEngine {
 public:
+	// Also the most DoState accepts.
+	static constexpr int MAX_RINGBUFFER_SIZE = 64 * 1024 * 1024;
+
 	MediaEngine();
 	~MediaEngine();
 

@@ -169,7 +169,11 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	if (!dir) {
 		INFO_LOG(Log::TexReplacement, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
-		dir = new DirectoryReader(basePath_, true);
+		// Android's shared storage, which is all a content URI can point at, already ignores case. Indexing a
+		// big pack there for nothing lists every directory through the content resolver, which can take long
+		// enough that loads and shutdown, which wait for it, hit an ANR.
+		const bool ignoreCase = basePath_.Type() != PathType::CONTENT_URI;
+		dir = new DirectoryReader(basePath_, ignoreCase);
 	} else {
 		if (!replaceEnabled_ && saveEnabled_) {
 			WARN_LOG(Log::TexReplacement, "Found zip file even though only saving is enabled! This is weird.");
@@ -363,6 +367,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	}
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
+	// These are subtracted from the hashed size, so can't be more than the blocks there are.
+	skipLastDXT1Blocks128x64_ = std::clamp(skipLastDXT1Blocks128x64_, 0, (128 / 4) * (64 / 4));
+	skipLastDXT1Blocks128x128_ = std::clamp(skipLastDXT1Blocks128x128_, 0, (128 / 4) * (128 / 4));
 	if (reduceHash_ && textureHash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(Log::TexReplacement, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -406,8 +413,9 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 			std::string_view v = line.Value();
 			if (sscanf(k, "%16llx%8x_%d", &key.cachekey, &key.hash, &level) >= 1) {
 				// Reject path traversal: a "../" component could make us read
-				// or write files outside the texture pack directory.
-				if (HasParentDirComponent(v)) {
+				// or write files outside the texture pack directory. '|' separates mip levels in the alias,
+				// so it would let a later level skip this check.
+				if (HasParentDirComponent(v) || v.find('|') != std::string_view::npos) {
 					ERROR_LOG(Log::TexReplacement, "Ignoring texture filename with parent dir component: %s", std::string(v).c_str());
 					continue;
 				}
@@ -511,6 +519,12 @@ void TextureReplacer::ParseHashRange(const std::string &key, const std::string &
 	u32 toH;
 	if (!TryParse(valueParts[0], &toW) || !TryParse(valueParts[1], &toH)) {
 		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, value format is 512,512", key.c_str(), value.c_str());
+		return;
+	}
+
+	// Generous, PSP textures are at most 512x512. Values of 65536 or more would also spill into the other fields of the key.
+	if (fromW > 1024 || fromH > 1024) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid hashrange %s = %s, source bigger than 1024x1024", key.c_str(), value.c_str());
 		return;
 	}
 
@@ -631,11 +645,12 @@ u32 TextureReplacer::ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled
 		}
 
 		// Hack for Yu Gi Oh texture hashing problem. See issue #19714
-		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64) {
+		// (reduceHash can make sizeInRAM smaller than all the blocks, so check it can't underflow.)
+		if (skipLastDXT1Blocks128x64_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 64 && (u32)(8 * skipLastDXT1Blocks128x64_) < (u32)sizeInRAM) {
 			// Skip the last few blocks as specified.
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x64_;
 		}
-		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128) {
+		if (skipLastDXT1Blocks128x128_ && fmt == GE_TFMT_DXT1 && w == 128 && h == 128 && (u32)(8 * skipLastDXT1Blocks128x128_) < (u32)sizeInRAM) {
 			sizeInRAM -= 8 * skipLastDXT1Blocks128x128_;
 		}
 
@@ -926,13 +941,13 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
 	int lookupW;
 	int lookupH;
-	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH)) {
+	if (LookupHashRange(replacedInfo.addr, origW, origH, &lookupW, &lookupH) && lookupW > 0 && lookupH > 0 && lookupW <= origW && lookupH <= origH) {
 		w = lookupW * (scaledW / origW);
 		h = lookupH * (scaledH / origH);
 	}
 
 	constexpr int bpp = 4;
-	size_t saveBufSize = w * h * bpp;
+	size_t saveBufSize = (size_t)w * h * bpp;
 	u8 *saveBuf = (u8 *)malloc(saveBufSize);
 	if (!saveBuf) {
 		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", (int)saveBufSize);
@@ -942,7 +957,7 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	// Copy data to a buffer so we can send it to the thread. Might as well compact-away the pitch
 	// while we're at it.
 	for (int y = 0; y < h; y++) {
-		memcpy(saveBuf + y * w * bpp, (const u8 *)data + y * srcPitch, w * bpp);
+		memcpy(saveBuf + (size_t)y * w * bpp, (const u8 *)data + (size_t)y * srcPitch, w * bpp);
 	}
 
 	SaveTextureTask *task = new SaveTextureTask(std::move(saveBuf));

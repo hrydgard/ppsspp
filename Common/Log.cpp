@@ -174,3 +174,16 @@ bool HitAnyAsserts() {
 void ResetHitAnyAsserts() {
 	hitAnyAsserts = false;
 }
+
+void ShowMessageDialog(const char *title, const char *message, bool isError) {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	const int msgBoxStyle = MB_ICONINFORMATION | MB_OK;
+	std::string text = message;
+	const char *caption = title;
+	std::wstring wcaption = ConvertUTF8ToWString(std::string(caption));
+	MessageBox(g_dialogParent, ConvertUTF8ToWString(text).c_str(), wcaption.c_str(), msgBoxStyle);
+#else
+	// Just printf.
+	fprintf(stderr, "%s: %s\n", title, message);
+#endif
+}

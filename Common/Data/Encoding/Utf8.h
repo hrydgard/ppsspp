@@ -92,6 +92,8 @@ private:
 int UTF8StringNonASCIICount(std::string_view utf8string);
 
 bool UTF8StringHasNonASCII(std::string_view utf8string);
+// True if the string contains a character from a right-to-left script (Hebrew, Arabic, ...).
+bool UTF8StringHasRTL(std::string_view utf8string);
 
 
 // Removes overlong encodings and similar.

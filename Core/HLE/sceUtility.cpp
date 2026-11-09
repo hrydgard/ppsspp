@@ -86,6 +86,11 @@ static const int atrac3PlusModuleDeps[] = {0x0300, 0};
 static const int mpegBaseModuleDeps[] = {0x0300, 0};
 static const int mp4ModuleDeps[] = {0x0300, 0};
 
+static u32 vshHtmlViewerWorkspaceAddr;
+static u32 vshHtmlViewerWorkspaceSize;
+
+static constexpr const char *VSH_HTMLVIEWER_WORKSPACE_TAG = "VSH htmlviewer workspace";
+
 // Loading the firmware's module for a library we've been told not to HLE.
 //
 // This is the path for a game that brings no copy of its own. One that does loads it directly and
@@ -106,7 +111,8 @@ struct FirmwareModule {
 	const char *moduleName;  // what the module calls itself once loaded
 };
 
-static void LoadFirmwareModules(int utilityModule, const char *library, const FirmwareModule *modules, size_t count) {
+// Returns false if the library ended up on our HLE after all, for want of the firmware's module.
+static bool LoadFirmwareModules(int utilityModule, const char *library, DisableHLEFlags flag, const FirmwareModule *modules, size_t count) {
 	for (size_t i = 0; i < count; i++) {
 		if (KernelModuleIsLoaded(modules[i].moduleName)) {
 			DEBUG_LOG(Log::sceUtility, "%s is already loaded - not loading %s on top of it",
@@ -114,10 +120,18 @@ static void LoadFirmwareModules(int utilityModule, const char *library, const Fi
 			continue;
 		}
 		if (!pspFileSystem.GetFileInfo(modules[i].path).exists) {
-			// Nothing to fall back to: the game's imports were resolved against the real module
-			// when it loaded, so putting our HLE back now is not an option.
-			ERROR_LOG(Log::sceUtility, "%s HLE is disabled, but %s isn't in the firmware and the "
-				"game didn't bring its own - it will get unresolved imports", library, modules[i].path);
+			// The game's imports were left waiting for the real module when it loaded, so they can
+			// still go to our HLE instead. Without that, every call into the library is a missing
+			// stub: MX vs. ATV Untamed, which carries an mpeg.prx it never loads (so boot picked the
+			// real sceMpeg), asks for this one and crashed when the calls returned nothing.
+			HLEFallBackToHLE(flag);
+			INFO_LOG(Log::sceUtility, "%s isn't in the firmware and the game didn't bring its own - using the HLE %s",
+				modules[i].path, library);
+			if (AlwaysDisableHLEFlags() & flag) {
+				// On by default, so not something the user chose: like the boot-time check, nothing on
+				// screen for landing on the HLE.
+				return false;
+			}
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
 			// Keyed per library, so a game that asks for the module again replaces the message
 			// rather than stacking another copy of it, and two missing libraries still both show.
@@ -126,22 +140,23 @@ static void LoadFirmwareModules(int utilityModule, const char *library, const Fi
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
 				sy->T("%1 needs a firmware installed to run without HLE. Install one, or re-enable HLE for it."),
 				library), 6.0f, osdId);
-			return;
+			return false;
 		}
 		std::string error;
 		SceUID id = KernelLoadModule(modules[i].path, &error, false);
 		if (id < 0) {
 			ERROR_LOG(Log::sceUtility, "Couldn't load %s: %s", modules[i].path, error.c_str());
-			return;
+			return true;
 		}
 		const int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
 		if (result < 0) {
 			ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", modules[i].path, result);
-			return;
+			return true;
 		}
 		swappedFirmwareModules[utilityModule].push_back(id);
 		INFO_LOG(Log::sceUtility, "Loaded the real %s", modules[i].path);
 	}
+	return true;
 }
 
 // The other half: give the memory back when the game says it is done with the library. Reverse
@@ -175,7 +190,7 @@ static void NotifyLoadStatusMpegBase(int state, u32 loadAddr, u32 totalSize) {
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/mpeg.prx", "sceMpeg_library" },
 	};
-	LoadFirmwareModules(0x303, "sceMpeg", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x303, "sceMpeg", DisableHLEFlags::sceMpeg, modules, ARRAY_SIZE(modules));
 }
 
 // libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
@@ -190,7 +205,7 @@ static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/libmp3.prx", "sceMp3_Library" },
 	};
-	LoadFirmwareModules(0x304, "sceMp3", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x304, "sceMp3", DisableHLEFlags::sceMp3, modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
@@ -228,7 +243,7 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 		{ "flash0:/kd/mp4msv.prx", "mp4msv_module" },
 		{ "flash0:/kd/libmp4.prx", "sceMp4_library" },
 	};
-	LoadFirmwareModules(0x308, "sceMp4", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x308, "sceMp4", DisableHLEFlags::sceMp4, modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
@@ -248,8 +263,10 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 			static const FirmwareModule modules[] = {
 				{ "flash0:/kd/libatrac3plus.prx", "sceATRAC3plus_Library" },
 			};
-			LoadFirmwareModules(0x302, "sceAtrac", modules, ARRAY_SIZE(modules));
-			return;
+			if (LoadFirmwareModules(0x302, "sceAtrac", DisableHLEFlags::sceAtrac, modules, ARRAY_SIZE(modules))) {
+				return;
+			}
+			// Back on our HLE, which needs its memory like any other load.
 		}
 
 		// We try to imitate a recent version of the prx.
@@ -1396,7 +1413,7 @@ static int sceUtilityGetNetParamLatestID(u32 idAddr) {
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
 static int sceUtilityScreenshotInitStart(u32 paramAddr) {
-	return hleReportWarning(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
+	return hleLogInfo(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
 }
 
 static int sceUtilityScreenshotShutdownStart() {
@@ -1577,7 +1594,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 			param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
-		param = g_Config.iTimeZone;
+		param = g_Config.iTimeZoneOffset;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
 		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
@@ -1618,7 +1635,14 @@ static u32 sceUtilityLoadNetModule(MIPSState *mips, u32 module) {
 		mod_list.push_back("flash0:/kd/pspnet_adhocctl.prx");
 		mod_list.push_back("flash0:/kd/pspnet_adhoc_matching.prx");
 		mod_list.push_back("flash0:/kd/pspnet_adhoc_download.prx");
-		mod_list.push_back("flash0:/kd/pspnet_adhoc_discover.prx");
+		if (GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceNetAdhocDiscover) {
+			static const FirmwareModule modules[] = {
+				{ "flash0:/kd/pspnet_adhoc_discover.prx", "sceNetAdhocDiscover_Library" },
+			};
+			LoadFirmwareModules(0x10002, "sceNetAdhocDiscover", DisableHLEFlags::sceNetAdhocDiscover, modules, ARRAY_SIZE(modules));
+		} else {
+			mod_list.push_back("flash0:/kd/pspnet_adhoc_discover.prx");
+		}
 	}
 
 	for (const char *mod_path : mod_list) {
@@ -1770,6 +1794,34 @@ static u32 sceUtilityUnloadUsbModule(u32 module) {
 	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
+static u32 VshHtmlViewerAcquireWorkspace(u32 stateAddr, u32 ownerAddr) {
+	if (!Memory::IsValidRange(stateAddr, 12))
+		return 0;
+
+	u32 workspaceAddr = Memory::ReadUnchecked_U32(stateAddr);
+	u32 workspaceSize = Memory::ReadUnchecked_U32(stateAddr + 4);
+
+	if (workspaceAddr == 0) {
+		workspaceSize =
+			Memory::g_MemorySize > 0x023FFFFF ? 0x00C00000 : 0x00800000;
+
+		workspaceAddr = userMemory.Alloc(
+			workspaceSize, false, VSH_HTMLVIEWER_WORKSPACE_TAG);
+
+		if (workspaceAddr == (u32)-1)
+			return 0;
+
+		vshHtmlViewerWorkspaceAddr = workspaceAddr;
+		vshHtmlViewerWorkspaceSize = workspaceSize;
+
+		Memory::WriteUnchecked_U32(workspaceAddr, stateAddr);
+		Memory::WriteUnchecked_U32(workspaceSize, stateAddr + 4);
+	}
+
+	Memory::WriteUnchecked_U32(ownerAddr, stateAddr + 8);
+	return workspaceAddr;
+}
+
 const HLEFunction sceUtility[] = {
 	{0X1579A159, &WrapU_U<sceUtilityLoadNetModule>,                "sceUtilityLoadNetModule",                'x', "x"  },
 	{0X64D50C56, &WrapU_U<sceUtilityUnloadNetModule>,              "sceUtilityUnloadNetModule",              'x', "x"  },
@@ -1915,6 +1967,8 @@ const HLEFunction sceUtility[] = {
 	{0xC0DE0001, &WrapI_I<UtilityFinishDialog>,                    "__UtilityFinishDialog",                  'i', "i"  },
 	{0xC0DE0002, &WrapI_I<UtilityWorkUs>,                          "__UtilityWorkUs",                        'i', "i"  },
 	{0xC0DE0003, &WrapI_I<UtilityInitDialog>,                      "__UtilityInitDialog",                    'i', "i"  },
+
+	{0xC0DE0004, &WrapU_UU<VshHtmlViewerAcquireWorkspace>,         "__VshHtmlViewerAcquireWorkspace", 'x', "xx"},
 };
 
 void Register_sceUtility()

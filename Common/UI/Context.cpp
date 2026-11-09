@@ -21,7 +21,8 @@ UIContext::UIContext() {
 }
 
 UIContext::~UIContext() {
-	sampler_->Release();
+	if (sampler_)
+		sampler_->Release();
 	delete fontStyle_;
 	delete textDrawer_;
 	if (uitexture_)
@@ -354,7 +355,9 @@ float UIContext::CalculateTextScale(std::string_view str, float availWidth) cons
 	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
 		// TODO: Return feedback that wrapping was needed.
-		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth);
+		// Shave off a little, since float rounding can otherwise leave the scaled text a hair
+		// wider than availWidth, and then it gets wrapped anyway.
+		return std::max(MIN_TEXT_SCALE, availWidth / actualWidth * 0.999f);
 	}
 	return 1.0f;
 }

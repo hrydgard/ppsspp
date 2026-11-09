@@ -1,12 +1,12 @@
 # The Metal backend
 
 A native Metal backend for Mac and iOS (tvOS too), alongside OpenGL, D3D11 and Vulkan. It's selected as
-`GPUBackend::METAL` (`--graphics=metal`). It's the default on iOS since 2026-10-22; Vulkan through MoltenVK
-stays the default on Mac and tvOS. Written 2026-10-19; file references will drift.
+`GPUBackend::METAL` (`--graphics=metal`). It's the only backend in the iOS and tvOS apps, which no longer ship
+MoltenVK; Vulkan through MoltenVK stays the default on Mac. Written 2026-10-19; file references will drift.
 
 **Why:** programmable blending. Apple GPUs let a fragment shader read the color it's about to blend with
 (`[[color(0)]]`), so PSP blend modes that need shader blending no longer copy the framebuffer for every
-draw. MoltenVK can't expose that. Removing the MoltenVK dependency is a smaller benefit, and comes later.
+draw. MoltenVK can't expose that.
 
 ## Where things are
 

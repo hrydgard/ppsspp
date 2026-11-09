@@ -145,7 +145,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			// Show the savedata popup, why not?
 			waitForParamSFO();
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
-			screenManager->push(new SavedataPopupScreen(Path(), path, title));
+			screenManager->push(new SavedataPopupScreen(Path(), path, true, title));
 			return;
 		}
 		case IdentifiedFileType::PSP_PBP:
@@ -386,7 +386,7 @@ void MainScreen::CreateMainButtons(UI::LinearLayout *parent, bool portrait) {
 			gold->SetImageScale(0.6f);  // for the left icon.
 			gold->SetShine(true);
 		}
-		parent->ApplyRoundCorners();
+		parent->SetRoundCorners();
 		return;
 	} else {
 		ChoiceGroupList *buttons = parent->Add(new ChoiceGroupList());
@@ -532,16 +532,18 @@ void MainScreen::CreateViews() {
 	}
 
 	if (vertical) {
-		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 8, 8, 16)));
-		header->SetSpacing(5.0f);
+		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 0, 16)));
+		header->SetSpacing(4.0f);
 		header->Add(new LogoView(true, new LinearLayoutParams(1.0f)));
 
 		LinearLayout *buttonGroup = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f, UI::Gravity::G_VCENTER));
 
+		buttonGroup->SetPadding(Margins(0, 0, 0, 12));
+
 		CreateMainButtons(buttonGroup, vertical);
 		header->Add(buttonGroup);
 
-		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
+		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f, Margins(12, 0, 12, 0)));
 		rootLayout->SetSpacing(0.0f);
 
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
@@ -937,51 +939,63 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void UmdReplaceScreen::CreateViews() {
+std::string_view UmdReplaceScreen::GetTitle() const {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	return insert_ ? pa->T("Insert UMD") : pa->T("Switch UMD");
+}
+
+void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
-	Margins actionMenuMargins(0, 100, 15, 0);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	const bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
-	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
-	leftColumn->SetTag("UmdReplace");
-	leftColumn->SetClip(true);
-
-	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(270, FILL_PARENT, actionMenuMargins));
-	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	rightColumnItems->SetSpacing(0.0f);
-	rightColumn->Add(rightColumnItems);
+	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+	tabs->SetTag("UmdReplace");
+	tabs->SetClip(true);
+	parent->Add(tabs);
 
 	if (g_Config.iMaxRecent > 0) {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
+			Path("!RECENT"), BrowseFlags::UMDS_ONLY, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
-		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
+		tabs->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
 		tabRecentGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 		tabRecentGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 	}
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
-	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, portrait, &g_Config.iGameBrowserView2, screenManager(),
+	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD | BrowseFlags::UMDS_ONLY, portrait, &g_Config.iGameBrowserView2, screenManager(),
 		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollAllGames->Add(tabAllGames);
 
-	leftColumn->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
+	tabs->AddTab(mm->T("Games"), ImageID::invalid(), scrollAllGames);
 
 	tabAllGames->OnChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
 	tabAllGames->OnHoldChoice.Handle(this, &UmdReplaceScreen::OnGameSelected);
 
+	if (g_recentFiles.HasAny()) {
+		tabs->SetCurrentTab(0, true);
+	} else if (g_Config.iMaxRecent > 0) {
+		tabs->SetCurrentTab(1, true);
+	}
+}
+
+void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+	using namespace UI;
+	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
-		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
+		ChoiceGroupList *settings = parent->Add(new ChoiceGroupList());
+		ChoiceGroup *choices = settings->Add(new ChoiceGroup());
+		choices->Add(new Choice(mm->T("Load", "Load..."), ImageID("I_FOLDER_OPEN")))->OnClick.Add([this](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
 			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
 				UseDisc(Path(value));
@@ -989,20 +1003,6 @@ void UmdReplaceScreen::CreateViews() {
 			});
 		});
 	}
-
-	rightColumnItems->Add(new Choice(di->T("Cancel")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnCancel);
-	rightColumnItems->Add(new Spacer());
-	rightColumnItems->Add(new Choice(mm->T("Game Settings")))->OnClick.Handle(this, &UmdReplaceScreen::OnGameSettings);
-
-	if (g_recentFiles.HasAny()) {
-		leftColumn->SetCurrentTab(0, true);
-	} else if (g_Config.iMaxRecent > 0) {
-		leftColumn->SetCurrentTab(1, true);
-	}
-
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
 }
 
 void UmdReplaceScreen::update() {
@@ -1026,10 +1026,6 @@ void UmdReplaceScreen::UseDisc(const Path &path) {
 	}
 }
 
-void UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
-	screenManager()->push(new GameSettingsScreen(Path()));
-}
-
 void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
@@ -1037,41 +1033,52 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
-	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
-	items->SetSpacing(0.0f);
+	ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+
+	PopupChoiceGroupList *groupList = scroll->Add(new PopupChoiceGroupList());
+
+	ChoiceGroup *group = groupList->Add(new ChoiceGroup());
 
 	// Same order as GameBrowserViewMode.
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
-	items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
+	group->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Icon size")));
-	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
-	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
+	ChoiceGroup *iconSizeGroup = groupList->Add(new ChoiceGroup(sy->T("Icon size")));
+	iconSizeGroup->Add(new Choice(sy->T("Increase size")))->OnClick.Add([this](UI::EventParams &e) {
+		StepGameBrowserIconScale(viewMode_, true);
+		screenManager()->RecreateAllViews();
+	});
+	iconSizeGroup->Add(new Choice(sy->T("Decrease size")))->OnClick.Add([this](UI::EventParams &e) {
+		StepGameBrowserIconScale(viewMode_, false);
+		screenManager()->RecreateAllViews();
+	});
 
-	items->Add(new ItemHeader(sy->T("Display Extra Info")));
-	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
-	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
+	ChoiceGroup *extraInfoGroup = groupList->Add(new ChoiceGroup(sy->T("Display Extra Info")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
+	extraInfoGroup->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
 
 	if (g_Config.iMaxRecent > 0) {
-		items->Add(new ItemHeader(sy->T("Clear Recent")));
-		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsPopupScreen::OnRecentClearClick);
+		ChoiceGroup *recentGroup = groupList->Add(new ChoiceGroup(sy->T("Clear Recent")));
+		recentGroup->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Add([this](UI::EventParams &e) {
+			auto di = GetI18NCategory(I18NCat::DIALOG);
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			// dialogFinished closes this popup once the prompt is gone.
+			screenManager()->push(new MessagePopupScreen(sy->T("Clear Recent"), sy->T("ClearRecentConfirm", "Clear the \"Recent\" list? Your games won't be deleted."), di->T("Clear"), di->T("Cancel"), [this](bool yes) {
+				if (yes) {
+					g_recentFiles.Clear();
+					recentCleared_ = true;
+				}
+			}));
+		});
 	}
-
-	scroll->Add(items);
-	parent->Add(scroll);
 }
 
-void GridSettingsPopupScreen::GridPlusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::min(g_Config.fGameGridScale*1.25f, MAX_GAME_GRID_SCALE);
-}
-
-void GridSettingsPopupScreen::GridMinusClick(UI::EventParams &e) {
-	g_Config.fGameGridScale = std::max(g_Config.fGameGridScale/1.25f, MIN_GAME_GRID_SCALE);
-}
-
-void GridSettingsPopupScreen::OnRecentClearClick(UI::EventParams &e) {
-	g_recentFiles.Clear();
+void GridSettingsPopupScreen::dialogFinished(const Screen *dialog, DialogResult result) {
+	if (!recentCleared_) {
+		return;
+	}
+	recentCleared_ = false;
+	UI::EventParams e{};
 	OnRecentChanged.Trigger(e);
 	TriggerFinish(DR_OK);
 }

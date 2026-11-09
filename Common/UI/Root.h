@@ -63,6 +63,11 @@ enum class UISound {
 
 void SetSoundCallback(std::function<void(UISound)> func);
 
+// Called when the user tries to activate a disabled view (tapping it, or pressing accept
+// while it's focused), so the app can say why it's disabled.
+void SetDisabledActivationCallback(std::function<void(View *)> func);
+void NotifyDisabledActivation(View *view);
+
 // This is only meant for actual UI navigation sound, not achievements.
 // Call directly into the player for other UI effects.
 void PlayUISound(UISound sound);

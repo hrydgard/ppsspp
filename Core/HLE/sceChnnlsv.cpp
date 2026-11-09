@@ -223,6 +223,9 @@ static int sub_17A8(KirkState *kirk, u8* data)
 
 static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 	auto ctx = PSPPointer<pspChnnlsvContext1>::Create(addressCtx);
+	// The hash and key are 16 bytes each.
+	if (!Memory::IsValidRange(addressHash, 16) || (addressKey && !Memory::IsValidRange(addressKey, 16)))
+		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 	u8 *hash = Memory::GetPointerWriteOrException(addressHash);
 	if (!ctx.IsValid() || !hash)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
@@ -234,7 +237,8 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 {
 	std::lock_guard<std::mutex> guard(g_lock);
-	if(ctx.keyLength >= 17)
+	// The context is in guest memory.
+	if(ctx.keyLength < 0 || ctx.keyLength >= 17)
 		return -1026;
 
 	int num = numFromMode(ctx.mode);
@@ -353,7 +357,7 @@ int sceSdMacInit(pspChnnlsvContext1& ctx, int value)
 
 static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 	auto ctx = PSPPointer<pspChnnlsvContext1>::Create(addressCtx);
-	if (!ctx.IsValid() || !Memory::IsValidAddress(addressData))
+	if (!ctx.IsValid() || !Memory::IsValidAddress(addressData) || length < 0 || !Memory::IsValidRange(addressData, (u32)length))
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 	return hleLogDebug(Log::sceMisc, sceSdMacUpdate(*ctx, Memory::GetPointerWriteOrException(addressData), length));
 }
@@ -361,7 +365,8 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 {
 	std::lock_guard<std::mutex> guard(g_lock);
-	if(ctx.keyLength >= 17)
+	// The context is in guest memory.
+	if(ctx.keyLength < 0 || ctx.keyLength >= 17)
 		return -1026;
 
 	if(ctx.keyLength + length < 17)
@@ -403,6 +408,8 @@ int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 
 static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 cryptkeyAddr) {
 	auto ctx2 = PSPPointer<pspChnnlsvContext2>::Create(ctx2Addr);
+	if (!Memory::IsValidRange(dataAddr, 16) || (cryptkeyAddr && !Memory::IsValidRange(cryptkeyAddr, 16)))
+		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 	u8* data = Memory::GetPointerWriteOrException(dataAddr);
 	// Optional, as in sceSdGetLastIndex.
 	u8* cryptkey = cryptkeyAddr ? Memory::GetPointerWriteOrException(cryptkeyAddr) : nullptr;
@@ -469,6 +476,9 @@ int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, cons
 
 static int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen) {
 	auto ctx = PSPPointer<pspChnnlsvContext2>::Create(ctxAddr);
+	// The data is decrypted in place.
+	if (alignedLen < 0 || !Memory::IsValidRange(dataAddr, (u32)alignedLen))
+		return hleLogError(Log::sceMisc, 0, "Invalid pointer");
 	u8 *data = Memory::GetPointerWriteOrException(dataAddr);
 	if (!ctx.IsValid() || !data)
 		return hleLogError(Log::sceMisc, 0, "Invalid pointer");

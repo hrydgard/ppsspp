@@ -241,6 +241,8 @@ class MIPSState;
 u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string);
+// A placeholder program that loops until a savestate is loaded over it.
+void __KernelLoadStateBootStub(MIPSState *mips);
 // hostArgs, if set, are passed to the module instead of what paramPtr points to.
 bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string, const std::vector<u8> *hostArgs = nullptr);
 // The VSH (the XMB) is what's running, not a game it launched.
@@ -274,6 +276,8 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string, 
 // Whether a real (non-HLE-stub) module calling itself this is loaded. Lets a caller tell whether a
 // library is already provided before bringing in another copy of it.
 bool KernelModuleIsLoaded(std::string_view name);
+// Resolves every loaded module's imports from importName again, for when the side it's on has changed.
+void KernelReimportLibrary(std::string_view importName);
 
 // Take back out a module we brought in ourselves (the firmware swap in sceUtility). Frees the
 // memory block, which is the point: a game that unloads its video libraries before a level load

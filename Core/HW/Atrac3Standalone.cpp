@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "SimpleAudioDec.h"
 #include "Common/LogReporting.h"
 #include "ext/at3_standalone/at3_decoders.h"
@@ -16,10 +18,11 @@ inline int16_t clamp16(float f) {
 class Atrac3Audio : public AudioDecoder {
 public:
 	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize)
-		: audioType_(audioType), channels_(channels) {
+		// The channel count can come straight from the game, and buffers_ only has room for two.
+		: audioType_(audioType), channels_(std::clamp(channels, 1, 2)) {
 		blockAlign_ = (int)blockAlign;
 		if (audioType_ == PSP_CODEC_AT3) {
-			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
+			at3Ctx_ = atrac3_alloc(channels_, &blockAlign_, extraData, (int)extraDataSize);
 			if (at3Ctx_) {
 				codecOpen_ = true;
 			} else {

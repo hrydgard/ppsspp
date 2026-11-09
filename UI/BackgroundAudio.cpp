@@ -2,6 +2,7 @@
 #include <string>
 #include <mutex>
 #include <algorithm>
+#include <climits>
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/UI/Root.h"
@@ -126,19 +127,25 @@ bool WavData::Read(RIFFReader &file_) {
 					int playCount;
 				};
 
-				if (numLoops > 0 && smplData.size() >= 36 + sizeof(AtracLoopInfo) * numLoops) {
+				// Divided, since the product wraps a 32-bit size_t.
+				if (numLoops > 0 && smplData.size() >= 36 && (smplData.size() - 36) / sizeof(AtracLoopInfo) >= (size_t)numLoops) {
 					AtracLoopInfo *loops = (AtracLoopInfo *)&smplData[36];
 					int samplesPerFrame = codec == PSP_CODEC_AT3PLUS ? 2048 : 1024;
 
 					for (int i = 0; i < numLoops; ++i) {
-						// Only seen forward loops, so let's ignore others.
-						if (loops[i].type != 0)
+						// Only seen forward loops, so let's ignore others. Also ones that don't go forwards,
+						// which would point playback before the data.
+						if (loops[i].type != 0 || loops[i].startSample < 0 || loops[i].endSample <= loops[i].startSample)
 							continue;
 
 						// We ignore loop interpolation (fraction) and play count for now.
-						raw_offset_loop_start = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame;
+						const s64 loopStart = (s64)(loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame;
+						const s64 loopEnd = (s64)(loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame;
+						if (loopEnd > INT_MAX)
+							continue;
+						raw_offset_loop_start = (int)loopStart;
 						loop_start_offset = loops[i].startSample % samplesPerFrame;
-						raw_offset_loop_end = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame;
+						raw_offset_loop_end = (int)loopEnd;
 						loop_end_offset = loops[i].endSample % samplesPerFrame;
 
 						if (loops[i].playCount == 0) {
@@ -199,6 +206,14 @@ bool WavData::Read(RIFFReader &file_) {
 	} else {
 		ERROR_LOG(Log::Audio, "Could not descend into RIFF file.");
 		return false;
+	}
+	// The loop points came from the smpl chunk, so they have to land in the data. The sample
+	// offsets (within a frame) are always positive, since the loop samples were checked above.
+	if (raw_offset_loop_start < 0 || raw_offset_loop_end > raw_data_size || raw_offset_loop_start > raw_offset_loop_end) {
+		raw_offset_loop_start = 0;
+		raw_offset_loop_end = 0;
+		loop_start_offset = 0;
+		loop_end_offset = 0;
 	}
 	sample_rate = samplesPerSec;
 	return true;
@@ -501,7 +516,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 	int sampleRate = 0;
 	int delay = 0;
 	int padding = 0;
-	while (pos + 4 <= size) {
+	// Sound effects are short. A long file would decode to many times its own size.
+	constexpr int MAX_SECONDS = 60;
+	while (pos + 4 <= size && (sampleRate == 0 || samples.size() < (size_t)sampleRate * 2 * MAX_SECONDS)) {
 		int frameRate = 0;
 		int frameSize = Mp3FrameSize(data + pos, &frameRate);
 		if (frameSize == 0 || pos + frameSize > size) {
@@ -512,6 +529,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 		if (!decoder) {
 			sampleRate = frameRate;
 			decoder.reset(CreateAudioDecoder(PSP_CODEC_MP3, sampleRate, 2));
+			if (!decoder) {
+				return nullptr;
+			}
 			if (ParseXingFrame(data + pos, frameSize, &delay, &padding)) {
 				// It decodes to silence.
 				pos += frameSize;
@@ -544,8 +564,9 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 Sample *Sample::Load(const std::string &path) {
 	size_t data_size = 0;
 	uint8_t *data = g_VFS.ReadFile(path.c_str(), &data_size);
-	if (!data || data_size > 100000000) {
+	if (!data || data_size < 4 || data_size > 100000000) {
 		WARN_LOG(Log::Audio, "Failed to load sample '%s'", path.c_str());
+		delete[] data;
 		return nullptr;
 	}
 

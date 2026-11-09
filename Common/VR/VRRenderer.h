@@ -52,5 +52,15 @@ float VR_GetConfigFloat( VRConfigFloat config );
 void VR_SetConfigFloat( VRConfigFloat config, float value );
 
 void* VR_BindFramebuffer(engine_t *engine);
+
+// Vulkan. VR_InitFrame begins the frame on the emu thread, and the render thread ends it with
+// VR_FinishFrame after submitting. Present() calls VR_NotifyPresentQueued so the next VR_InitFrame
+// knows to wait for that, instead of ending the frame itself.
+void VR_NotifyPresentQueued();
+bool VR_AcquireVulkanImage(engine_t *engine, uint32_t *index);
+void VR_ReleaseVulkanImage(engine_t *engine);
+// Around every use of the VkQueue the session was created with.
+void VR_LockQueue();
+void VR_UnlockQueue();
 XrView VR_GetView(int eye);
 XrVector3f VR_GetHMDAngles();

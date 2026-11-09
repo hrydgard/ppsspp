@@ -156,7 +156,8 @@ void AsyncIOManager::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	SyncThread();
+	// Even while stepping, an operation in flight could write into the memory being loaded.
+	SyncThread(true);
 	std::lock_guard<std::mutex> guard(resultsLock_);
 	Do(p, resultsPending_);
 	if (s >= 2) {

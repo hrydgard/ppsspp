@@ -451,7 +451,7 @@ static u32 sceRtcIsLeapYear(u32 year)
 static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
-	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidAddress(tickUTCPtr))
+	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidRange(tickUTCPtr, 8))
 	{
 		u64 srcTick = Memory::ReadUnchecked_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
@@ -606,7 +606,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
 }
 
 static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
-	if (!Memory::IsValidAddress(datePtr))
+	if (!Memory::IsValidRange(datePtr, sizeof(ScePspDateTime)))
 	{
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
 		return -1;
@@ -621,7 +621,7 @@ static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
 }
 
 static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr) {
-	if (!Memory::IsValidAddress(datePtr)) {
+	if (!Memory::IsValidRange(datePtr, sizeof(ScePspDateTime))) {
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
 		return -1;
 	}
@@ -917,7 +917,7 @@ static bool rtcParseRFC2822(const char *s, RtcParseResult &r) {
 
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValidAddress(dateStringPtr))
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValidNullTerminatedString(dateStringPtr))
 		return hleLogError(Log::sceRtc, -1, "bad address");
 
 	const char *s = Memory::GetCharPointer(dateStringPtr);
@@ -1052,7 +1052,7 @@ static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz) {
 
 static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
+	if (!Memory::IsValidRange(outPtr, 32) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -1065,7 +1065,7 @@ static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
+	if (!Memory::IsValidRange(outPtr, 32) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
@@ -1089,7 +1089,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 
 static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
+	if (!Memory::IsValidRange(outPtr, 32) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -1102,7 +1102,7 @@ static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
+	if (!Memory::IsValidRange(outPtr, 32) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);

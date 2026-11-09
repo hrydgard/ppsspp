@@ -613,7 +613,7 @@ static const MIPSInstruction tableVFPU7[32] = // 110100 00001 xxxxx . ....... . 
 	//16
 	INVALID,
 	INVALID,
-	INSTR("vf2h", JITFUNC(Comp_Generic), Dis_Vf2h, Int_Vf2h, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vf2h", JITFUNC(Comp_Vf2h), Dis_Vf2h, Int_Vf2h, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vh2f", JITFUNC(Comp_Vh2f), Dis_Vh2f, Int_Vh2f, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 
 	INVALID,
@@ -738,8 +738,8 @@ static const MIPSInstruction tableVFPUMatrixSet1[16] = // 111100 11100 .xxxx . .
 
 static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . .......
 {
-	INSTR("vsrt1", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsrt2", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt1", JITFUNC(Comp_Vsrt), Dis_Vbfy, Int_Vsrt1, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt2", JITFUNC(Comp_Vsrt), Dis_Vbfy, Int_Vsrt2, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vbfy1", JITFUNC(Comp_Vbfy), Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vbfy2", JITFUNC(Comp_Vbfy), Dis_Vbfy, Int_Vbfy, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//4
@@ -748,8 +748,8 @@ static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . 
 	INSTR("vfad", JITFUNC(Comp_Vhoriz), Dis_Vfad, Int_Vfad, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vavg", JITFUNC(Comp_Vhoriz), Dis_Vfad, Int_Vavg, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	//8
-	INSTR("vsrt3", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
-	INSTR("vsrt4", JITFUNC(Comp_Generic), Dis_Vbfy, Int_Vsrt4, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt3", JITFUNC(Comp_Vsrt), Dis_Vbfy, Int_Vsrt3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	INSTR("vsrt4", JITFUNC(Comp_Vsrt), Dis_Vbfy, Int_Vsrt4, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsgn", JITFUNC(Comp_Vsgn), Dis_Vbfy, Int_Vsgn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID,
 	//12
@@ -1145,7 +1145,7 @@ static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
 		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
 			// A hook runs the original instruction and goes on, like a disabled replacement.
 			const ReplacementTableEntry *entry = GetReplacementFunc(enc & MIPS_REPLACEMENT_INDEX_MASK);
-			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOK | REPFLAG_HOOKEXIT)) == 0) {
 				return IRBlockEnd::NOW;
 			}
 		}

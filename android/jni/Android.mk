@@ -4,26 +4,23 @@ SRC := ../..
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
-LOCAL_CFLAGS += -DZ7_ST -D__SWITCH__
-
-LZMA_FILES := \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Alloc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Bra86.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/BraIA64.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/CpuArch.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Delta.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzFind.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaDec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/LzmaEnc.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Lzma86Dec.c \
-	$(SRC)/ext/libchdr/deps/lzma-24.05/src/Sort.c
+LOCAL_CFLAGS += -DCHDR_SYSTEM_ZLIB -DCHDR_SYSTEM_ZSTD
 
 CHDR_FILES := \
-	${LZMA_FILES} \
+	$(SRC)/ext/libchdr/deps/lzma-26.02/src/LzmaDec.c \
 	$(SRC)/ext/libchdr/src/libchdr_bitstream.c \
 	$(SRC)/ext/libchdr/src/libchdr_cdrom.c \
 	$(SRC)/ext/libchdr/src/libchdr_chd.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_avhuff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdfl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdlz.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzl.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_cdzs.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_flac.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_huff.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_lzma.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zlib.c \
+	$(SRC)/ext/libchdr/src/libchdr_codec_zstd.c \
 	$(SRC)/ext/libchdr/src/libchdr_flac.c \
 	$(SRC)/ext/libchdr/src/libchdr_huffman.c
 
@@ -253,29 +250,39 @@ AT3_STANDALONE_FILES := \
 	${SRC}/ext/at3_standalone/mem.cpp
 
 RCHEEVOS_FILES := \
-  ${SRC}/ext/rcheevos/src/rapi/rc_api_common.c \
-  ${SRC}/ext/rcheevos/src/rapi/rc_api_editor.c \
-  ${SRC}/ext/rcheevos/src/rapi/rc_api_info.c \
-  ${SRC}/ext/rcheevos/src/rapi/rc_api_runtime.c \
-  ${SRC}/ext/rcheevos/src/rapi/rc_api_user.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/alloc.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/condition.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/condset.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/consoleinfo.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/format.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/lboard.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/memref.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/operand.c \
-  ${SRC}/ext/rcheevos/src/rc_client.c \
-  ${SRC}/ext/rcheevos/src/rc_util.c \
-  ${SRC}/ext/rcheevos/src/rc_compat.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/rc_validate.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/richpresence.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/runtime.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/runtime_progress.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/trigger.c \
-  ${SRC}/ext/rcheevos/src/rcheevos/value.c \
-  ${SRC}/ext/rcheevos/src/rhash/md5.c
+  ${SRC}/ext/rcheevos/src/api/rc_api_common.c \
+  ${SRC}/ext/rcheevos/src/api/rc_api_editor.c \
+  ${SRC}/ext/rcheevos/src/api/rc_api_info.c \
+  ${SRC}/ext/rcheevos/src/api/rc_api_runtime.c \
+  ${SRC}/ext/rcheevos/src/api/rc_api_user.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_async.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_do_frame.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_external.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_game.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_info.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_load.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_raintegration.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_server.c \
+  ${SRC}/ext/rcheevos/src/client/rc_client_user.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_alloc.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_condition.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_condset.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_consoleinfo.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_format.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_lboard.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_memref.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_operand.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_richpresence.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_runtime.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_runtime_progress.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_trigger.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_typed_value.c \
+  ${SRC}/ext/rcheevos/src/runtime/rc_value.c \
+  ${SRC}/ext/rcheevos/src/util/md5.c \
+  ${SRC}/ext/rcheevos/src/util/rc_compat.c \
+  ${SRC}/ext/rcheevos/src/util/rc_util.c \
+  ${SRC}/ext/rcheevos/src/util/rc_version.c
 
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	ADRENOTOOLS_FILES := \
@@ -291,7 +298,8 @@ VR_FILES := \
   $(SRC)/Common/VR/VRFramebuffer.cpp \
   $(SRC)/Common/VR/VRInput.cpp \
   $(SRC)/Common/VR/VRMath.cpp \
-  $(SRC)/Common/VR/VRRenderer.cpp
+  $(SRC)/Common/VR/VRRenderer.cpp \
+  $(SRC)/Common/VR/VRVulkan.cpp
 
 EXT_FILES := \
   $(SRC)/ext/cityhash/city.cpp \
@@ -358,11 +366,17 @@ EXT_FILES := \
   $(SRC)/ext/lzma-sdk/7zArcIn.c \
   $(SRC)/ext/lzma-sdk/7zBuf.c \
   $(SRC)/ext/lzma-sdk/7zCrc.c \
+  $(SRC)/ext/lzma-sdk/7zCrcOpt.c \
   $(SRC)/ext/lzma-sdk/7zDec.c \
   $(SRC)/ext/lzma-sdk/7zFile.c \
   $(SRC)/ext/lzma-sdk/7zStream.c \
   $(SRC)/ext/lzma-sdk/Bcj2.c \
-  $(SRC)/ext/lzma-sdk/Lzma2Dec.c
+  $(SRC)/ext/lzma-sdk/Bra.c \
+  $(SRC)/ext/lzma-sdk/Bra86.c \
+  $(SRC)/ext/lzma-sdk/CpuArch.c \
+  $(SRC)/ext/lzma-sdk/Delta.c \
+  $(SRC)/ext/lzma-sdk/Lzma2Dec.c \
+  $(SRC)/ext/lzma-sdk/LzmaDec.c
 
 EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
@@ -878,6 +892,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/AtracTrack.cpp \
   $(SRC)/Core/Util/AudioFormat.cpp \
   $(SRC)/Core/Util/MemStick.cpp \
+  $(SRC)/Core/Util/StorageTest.cpp \
   $(SRC)/Core/Util/PathUtil.cpp \
   $(SRC)/Core/Util/PortManager.cpp \
   $(SRC)/Core/Util/GameDB.cpp \
@@ -1049,6 +1064,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/AndroidEGLGraphicsContext.cpp \
   $(SRC)/android/jni/OboeContext.cpp \
+  $(SRC)/android/jni/PerformanceHint.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
   $(SRC)/UI/ImDebugger/ImGe.cpp \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
@@ -1083,6 +1099,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/AdhocServerScreen.cpp \
   $(SRC)/UI/SimpleDialogScreen.cpp \
   $(SRC)/UI/MemStickScreen.cpp \
+  $(SRC)/UI/StorageTestScreen.cpp \
   $(SRC)/UI/IAPScreen.cpp \
   $(SRC)/UI/MiscScreens.cpp \
   $(SRC)/UI/MiscViews.cpp \
@@ -1183,6 +1200,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestVFS.cpp \
     $(SRC)/unittest/TestDemangle.cpp \
     $(SRC)/unittest/TestLzrc.cpp \
+    $(SRC)/unittest/TestKirk.cpp \
     $(SRC)/unittest/TestCwCheat.cpp \
     $(SRC)/unittest/TestMpegCsc.cpp \
     $(SRC)/unittest/TestSplineTessellation.cpp \

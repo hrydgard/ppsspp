@@ -779,7 +779,7 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 	// glyph smears across them - see the "Linesize = 1" case in pspautotests font/charglyphimage.
 	// The bufWidth/bufHeight rectangle above and the address check below are what keep this sane.
 	int framebufferAddr = base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes);
-	if (!Memory::IsValidAddress(framebufferAddr)) {
+	if (!Memory::IsValidRange(framebufferAddr, pixelBytes == 0 ? 1 : pixelBytes)) {
 		return;
 	}
 

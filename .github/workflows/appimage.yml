@@ -105,7 +105,7 @@ jobs:
           # Debian-based
           #sudo apt-get update -y -qq
           #sudo apt-get install -q -y zsync patchelf xvfb strace
-          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl2-ttf-dev libsdl2-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
+          #sudo apt-get install -q -y libstdc++6 ffmpeg libvulkan-dev libglew-dev libsdl3-ttf-dev libsdl3-dev libasound2-dev alsa-base alsa-utils libglu1-mesa pulseaudio linux-modules-extra-$(uname -r) #build-essential #plocate
           #sudo updatedb # to update locate database
 
           # Archlinux
@@ -158,12 +158,12 @@ jobs:
             alsa-lib sndio hidapi ibus jack libdecor libgl libpulse libusb \
             libx11 libxcursor libxext libxinerama libxkbcommon libxrandr libxrender libxss libxtst \
             wayland wayland-protocols
-  
+
             echo "Installing debloated packages..."
             echo "---------------------------------------------------------------"
             wget --retry-connrefused --tries=30 "$EXTRA_PACKAGES" -O ./get-debloated-pkgs.sh
             chmod +x ./get-debloated-pkgs.sh
-            ./get-debloated-pkgs.sh --add-mesa libxml2-mini opus-mini llvm-libs-nano
+            ./get-debloated-pkgs.sh --add-mesa libxml2-mini opus-mini
 
       - name: Build Release
         id: version
@@ -191,10 +191,10 @@ jobs:
           #clang++ --version
 
           # Build ppsspp
-          #./b.sh --release --no-sdl2 --no-png
+          #./b.sh --release --no-png
           mkdir -p build
           pushd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHEADLESS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache .. 
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHEADLESS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_FFMPEG=OFF -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ..
           make -j$(nproc)
           popd
           ccache -s -v
@@ -229,12 +229,14 @@ jobs:
         run: |
           find . -name "PPSSPPSDL"
           find . -name "PPSSPP*.AppImage" -exec chmod +x '{}' \;
-          find . -name "PPSSPP*.AppBundle" -exec chmod +x '{}' \;
           find . -name "PPSSPP*.zsync"
           mkdir artifacts
-          # There's more than one AppImage (PPSSPP and PPSSPPHeadless), so no [ -e glob ].
-          find . -maxdepth 1 \( -name "PPSSPP*.AppImage" -o -name "PPSSPP*.AppBundle" -o -name "PPSSPP*.zsync" \) -exec cp -a '{}' artifacts/ \;
-          ls -l artifacts/
+          if [ -e ./PPSSPP*.AppImage ]; then
+            cp -a ./PPSSPP*.AppImage artifacts/
+          fi
+          if [ -e ./PPSSPP*.zsync ]; then
+            cp ./PPSSPP*.zsync artifacts/
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

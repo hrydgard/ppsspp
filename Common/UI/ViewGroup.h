@@ -232,9 +232,9 @@ public:
 		contentGravity_ = gravity;
 	}
 
-	// Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
+	// Override, applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 	// Note that if the view's spacing is not 0.0f, all views will get the rounded corners since they will appear separate.
-	void ApplyRoundCorners(RoundCorners outerCorners = RoundCorners::All);
+	void SetRoundCorners(RoundCorners outerCorners = RoundCorners::All) override;
 
 	std::string DescribeLog() const override { return (orientation_ == ORIENT_HORIZONTAL ? "LinearLayoutHoriz: " : "LinearLayoutVert: ") + View::DescribeLog(); }
 
@@ -274,6 +274,55 @@ private:
 class ChoiceGroupList : public LinearLayoutList {
 public:
 	ChoiceGroupList(LayoutParams *layoutParams = nullptr);
+};
+
+// A vertical list that spaces out the ChoiceGroups in it and keeps them off its edges.
+// This one is adjusted for popups (i.e. smaller margins and spacing).
+class PopupChoiceGroupList : public LinearLayoutList {
+public:
+	PopupChoiceGroupList(LayoutParams *layoutParams = nullptr);
+};
+
+// Lays out its children left to right at their natural size, starting a new row when the next
+// one doesn't fit. Takes LinearLayoutParams: the gravity places a child vertically in its row,
+// and children with weight share whatever space is left in their row.
+class FlowLayout : public ViewGroup {
+public:
+	FlowLayout(LayoutParams *layoutParams = nullptr) : ViewGroup(layoutParams) {}
+
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void Layout() override;
+	void SetSpacing(float spacing) {
+		spacing_ = spacing;
+	}
+	void SetRowSpacing(float spacing) {
+		rowSpacing_ = spacing;
+	}
+	// Where the children go in a row that has space left over, and no weighted children to take it.
+	// G_LEFT, G_RIGHT or G_HCENTER.
+	void SetRowGravity(Gravity gravity) {
+		rowGravity_ = gravity;
+	}
+	// Space between the layout's edges and its children, on top of the children's own margins.
+	void SetPadding(const Margins &padding) {
+		padding_ = padding;
+	}
+	std::string DescribeLog() const override { return "FlowLayout: " + View::DescribeLog(); }
+
+private:
+	struct Row {
+		size_t first;  // Index into views_.
+		size_t end;
+		float width;  // Including margins and spacing.
+		float height;
+		float weightSum;
+	};
+	void BuildRows(float maxWidth, std::vector<Row> *rows) const;
+
+	Margins padding_;
+	float spacing_ = 5.0f;
+	float rowSpacing_ = 5.0f;
+	Gravity rowGravity_ = Gravity::G_LEFT;
 };
 
 // GridLayout is a little different from the Android layout. This one has fixed size
@@ -319,6 +368,11 @@ public:
 	// Space between the layout's edges and the cells.
 	void SetPadding(const Margins &padding) {
 		padding_ = padding;
+	}
+	// Takes effect at the next layout.
+	void SetCellSize(int columnWidth, int rowHeight) {
+		settings_.columnWidth = columnWidth;
+		settings_.rowHeight = rowHeight;
 	}
 
 private:

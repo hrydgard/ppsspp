@@ -448,7 +448,9 @@ void StoreScreen::ParseListing(const std::string &json) {
 			// (Path::operator/ does no ".." normalization); on platforms/builds where
 			// the store index isn't fetched over HTTPS, a MITM'd or compromised
 			// response could otherwise point "launch" at an arbitrary host path.
-			if (HasParentDirComponent(file))
+			// It's also uninstalled (deleted recursively) by name, so "." or "/" would be the
+			// whole GAME directory.
+			if (HasParentDirComponent(file) || !IsSafePathComponent(file))
 				continue;
 			e.file = file;
 			entries_.push_back(e);

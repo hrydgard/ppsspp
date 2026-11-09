@@ -220,10 +220,10 @@ static int GameBrowserViewFromGridView(int legacyGridView, GameBrowserViewMode d
 	return (int)(legacyGridView ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST);
 }
 
-// Recent, Games and Homebrew switch everyone to the large list, ignoring the old setting. Remote keeps it.
-static int DefaultGameBrowserView1() { return (int)GameBrowserViewMode::LARGE_LIST; }
-static int DefaultGameBrowserView2() { return (int)GameBrowserViewMode::LARGE_LIST; }
-static int DefaultGameBrowserView3() { return (int)GameBrowserViewMode::LARGE_LIST; }
+// Recent, Games and Homebrew switch everyone to the list, ignoring the old setting. Remote keeps it.
+static int DefaultGameBrowserView1() { return (int)GameBrowserViewMode::LIST; }
+static int DefaultGameBrowserView2() { return (int)GameBrowserViewMode::LIST; }
+static int DefaultGameBrowserView3() { return (int)GameBrowserViewMode::LIST; }
 static int DefaultGameBrowserView4() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView4, GameBrowserViewMode::LIST); }
 
 static float DefaultGameGridScale() {
@@ -239,7 +239,10 @@ static float DefaultUISaturation() {
 }
 
 static int DefaultUIScaleFactor() {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
+// Android also return true on Linux, so we check it separately first. It was never intended for it to get -1.
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	return 0;
+#elif PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC)
 	return -1;
 #else
 	return 0;
@@ -414,6 +417,7 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
+	ConfigSetting("GameListScale", SETTING(g_Config, fGameListScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
 	ConfigSetting("GridView4", SETTING(g_Config, iLegacyGridView4), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
 	// These must come after GridView*, which their defaults are taken from.
 	ConfigSetting("GameBrowserView1", SETTING(g_Config, iGameBrowserView1), &DefaultGameBrowserView1, CfgFlag::DEFAULT),
@@ -454,7 +458,7 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteISOSharedDir", SETTING(g_Config, sRemoteISOSharedDir), "", CfgFlag::DEFAULT),
 	ConfigSetting("RemoteISOShareType", SETTING(g_Config, iRemoteISOShareType), (int)RemoteISOShareType::RECENT, CfgFlag::DEFAULT),
 	ConfigSetting("AskForExitConfirmationAfterSeconds", SETTING(g_Config, iAskForExitConfirmationAfterSeconds), 300, CfgFlag::PER_GAME)
-		.Label(I18NCat::SYSTEM, "Ask for exit confirmation after seconds").Range(0, 1200).Units("s").ZeroLabel("Off"),
+		.Label(I18NCat::SYSTEM, "Ask for exit confirmation after seconds").Range(0, 1200).Units("seconds").ZeroLabel("Off"),
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	ConfigSetting("ScreenRotation", SETTING(g_Config, iScreenRotation), ROTATION_AUTO, CfgFlag::DEFAULT),
@@ -610,7 +614,8 @@ const char * const vulkanDefaultBlacklist[] = {
 
 static int DefaultGPUBackend() {
 	if (IsVREnabled()) {
-		return (int)GPUBackend::OPENGL;
+		// Falls back to OpenGL if the runtime can't take a Vulkan session (VulkanMayBeAvailable).
+		return (int)GPUBackend::VULKAN;
 	}
 
 #if PPSSPP_PLATFORM(UWP)
@@ -656,9 +661,6 @@ static int DefaultGPUBackend() {
 	return (int)GPUBackend::OPENGL;
 #endif
 
-#elif PPSSPP_PLATFORM(TVOS) && !defined(__LIBRETRO__)
-	// Metal hasn't been tried on tvOS yet.
-	return (int)GPUBackend::VULKAN;
 #elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	return (int)GPUBackend::METAL;
 #endif
@@ -1475,10 +1477,12 @@ static constexpr const char *paramDateFormatNames[] = { "YYYYMMDD", "MMDDYYYY", 
 
 static constexpr const char *paramTimeFormatNames[] = { "24HR", "12HR" };
 
+// Most of this is just registry settings, stored in our ini format. sceReg reads/writes here.
 static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("PSPModel", SETTING(g_Config, iPSPModel), PSP_MODEL_SLIM, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::SYSTEM, "PSP Model").Choices(pSPModelNames),
 	ConfigSetting("PSPFirmwareVersion", SETTING(g_Config, iFirmwareVersion), PSP_DEFAULT_FIRMWARE, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("SceRegCategoryVersion", SETTING(g_Config, iSceRegCategoryVersion), 1, CfgFlag::DEFAULT),
 	ConfigSetting("NickName", SETTING(g_Config, sNickName), "PPSSPP", CfgFlag::PER_GAME),
 	ConfigSetting("MacAddress", SETTING(g_Config, sMACAddress), "", CfgFlag::PER_GAME),
 	ConfigSetting("GameLanguage", SETTING(g_Config, iLanguage), -1, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1487,7 +1491,8 @@ static constexpr ConfigSetting systemParamSettings[] = {
 		.Label(I18NCat::SYSTEM, "Time Format").Choices(paramTimeFormatNames),
 	ConfigSetting("ParamDateFormat", SETTING(g_Config, iDateFormat), PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Date Format").Choices(paramDateFormatNames),
-	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZone), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZone", SETTING(g_Config, iTimeZoneOffset), 0, CfgFlag::PER_GAME),
+	ConfigSetting("TimeZoneArea", SETTING(g_Config, sTimeZoneArea), "sweden", CfgFlag::PER_GAME),  // This doesn't really do much. Just cosmetic in the XMB
 	ConfigSetting("DayLightSavings", SETTING(g_Config, bDayLightSavings), (bool) PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Daylight savings"),
 	ConfigSetting("ButtonPreference", SETTING(g_Config, iButtonPreference), PSP_SYSTEMPARAM_BUTTON_CROSS, CfgFlag::PER_GAME | CfgFlag::REPORT)
@@ -1500,6 +1505,11 @@ static constexpr ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("VshUmdAutoboot", SETTING(g_Config, bVshUmdAutoboot), false, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeType", SETTING(g_Config, iXmbThemeType), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeColorMode", SETTING(g_Config, iXmbThemeColorMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeWallpaperMode", SETTING(g_Config, iXmbThemeWallpaperMode), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeSystemColor", SETTING(g_Config, iXmbThemeSystemColor), 0, CfgFlag::DEFAULT),
+	ConfigSetting("XmbThemeCustomThemeMode", SETTING(g_Config, iXmbThemeCustomThemeMode), 0, CfgFlag::DEFAULT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Memory Stick size").Range(1, 32).Units("GB"),
 	ConfigSetting("FuseID", SETTING(g_Config, sFuseID), "", CfgFlag::DEFAULT),

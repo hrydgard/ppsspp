@@ -58,6 +58,7 @@
 #include "Core/Instance.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/HLE.h"
@@ -565,6 +566,14 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double statsStart = -1.0;
 	int statsLastFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
+	// Hold the game until a --state has been applied. Otherwise it keeps booting while the state is
+	// read, which on a slow host can reach a different point (even a crash) before the state lands.
+	while (g_stateLoadPending && time_now_d() < wallDeadline) {
+		SaveState::Process();
+		if (g_stateLoadPending) {
+			sleep_ms(1, "state-load");
+		}
+	}
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 
 	// The XMB starting a game, or a game going back to it: boot that, the way the app does, and keep
@@ -757,6 +766,12 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		}
 		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
 	}
+	// What shader compiles cost the run, which the times include.
+	fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);
+	if (coreParameter.bootFromState) {
+		// Counted from the state's load. More than a few, and the game has gone off its usual path.
+		fprintf(stderr, "Failed disc reads: %d\n", pspFileSystem.FailedDiscReads());
+	}
 
 	// Before EndDrawFrame: Vulkan can only read back a framebuffer inside a frame.
 	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
@@ -855,7 +870,8 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 
 	for (size_t i = 0; i < testFilenames.size(); ++i) {
 		coreParameter.fileToStart = Path(testFilenames[i]);
-		if (!File::Exists(coreParameter.fileToStart)) {
+		// An http:// game is streamed by the loader (HTTPFileLoader), which reports its own errors.
+		if (coreParameter.fileToStart.Type() != PathType::HTTP && !File::Exists(coreParameter.fileToStart)) {
 			fprintf(stderr, "File not found: %s\n", coreParameter.fileToStart.c_str());
 			missingTests.push_back(testFilenames[i]);
 			continue;
@@ -935,6 +951,8 @@ int main(int argc, const char* argv[]) {
 #endif
 	PROFILE_INIT();
 	TimeInit();
+	// Builds the pointer to setting lookup, which sceReg's registry mapping uses.
+	g_Config.Init();
 #if PPSSPP_PLATFORM(WINDOWS)
 	if (!IsDebuggerPresent()) {
 		SetCleanExitOnAssert();
@@ -1041,6 +1059,17 @@ int main(int argc, const char* argv[]) {
 		),
 		testFilenames.end()
 	);
+
+	// A savestate on its own boots without its game, and then loads.
+	std::string stateBootPath;
+	if (testFilenames.size() == 1 && endsWithNoCase(testFilenames[0], ".ppst")) {
+		stateBootPath = testFilenames[0];
+		if (stateToLoad || cmdLineOptions.stateToSave.has_value()) {
+			fprintf(stderr, "--state and --save-state can't be used when booting a state\n");
+			return 1;
+		}
+		stateToLoad = stateBootPath.c_str();
+	}
 
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_logManager.Init(&g_Config.bEnableLogging, outputDebugStringLog);
@@ -1163,7 +1192,7 @@ int main(int argc, const char* argv[]) {
 	g_Config.iTimeFormat = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 	g_Config.bEncryptSave = true;
 	g_Config.sNickName = "shadow";
-	g_Config.iTimeZone = 60;
+	g_Config.iTimeZoneOffset = 60;
 	g_Config.iDateFormat = PSP_SYSTEMPARAM_DATE_FORMAT_DDMMYYYY;
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
@@ -1333,6 +1362,7 @@ int main(int argc, const char* argv[]) {
 	coreParameter.mountRoot = mountRoot.empty() ? Path() : Path(mountRoot);
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
+	coreParameter.bootFromState = !stateBootPath.empty();
 	coreParameter.dumpCompat = cmdLineOptions.dumpCompat.value_or(false);
 	if (cmdLineOptions.disableGPUFeatures.has_value()) {
 		std::vector<std::string> names;
@@ -1570,6 +1600,7 @@ int main(int argc, const char* argv[]) {
 				}
 				g_stateLoadFailed = true;
 			}
+			pspFileSystem.ResetFailedDiscReads();
 			g_stateLoadPending = false;
 		});
 	}

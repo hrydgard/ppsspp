@@ -91,6 +91,9 @@
     <ClCompile Include="MemStickScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="StorageTestScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="Theme.cpp" />
     <ClCompile Include="GamepadEmu.cpp">
       <Filter>Views</Filter>
@@ -289,6 +292,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="MemStickScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="StorageTestScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="Theme.h" />

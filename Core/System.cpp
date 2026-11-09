@@ -298,7 +298,7 @@ static void GetBootError(IdentifiedFileType type, std::string *errorString) {
 	case IdentifiedFileType::PS2_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::PS3_ISO:  *errorString = "PS2 game image detected."; break;
 	case IdentifiedFileType::NORMAL_DIRECTORY: *errorString = "Just a directory."; break;
-	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break; // Actually, we could make it load it...
+	case IdentifiedFileType::PPSSPP_SAVESTATE: *errorString = "This is a saved state, not a game."; break;
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY: *errorString = "This is save data, not a game."; break;
 	case IdentifiedFileType::PSP_PS1_PBP: *errorString = "PS1 EBOOTs are not supported by PPSSPP."; break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO: *errorString = std::string("UMD Video plays in the XMB, which needs PSP firmware ") + UMD_VIDEO_MIN_FIRMWARE + " or later."; break;
@@ -355,6 +355,8 @@ static void MountFileSystems() {
 	pspFileSystem.Mount("fatms0:", memstickSystem);
 	pspFileSystem.Mount("fatms:", memstickSystem);
 	pspFileSystem.Mount("pfat0:", memstickSystem);
+	// The memory stick with 8.3 names in the OEM code page. The 1.50 XMB's music browser uses it.
+	pspFileSystem.Mount("msoem0:", memstickSystem);
 
 	// TODO: These should be made "lazy" mounts.
 	auto flash0System = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.nandRootDirectory / "flash0", FileSystemFlags::FLASH);
@@ -386,6 +388,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
+	g_RemasterHLEFonts = false;
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	g_CoreParameter.fileType = type;
@@ -481,6 +484,15 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_PS1_PBP:
 		// Title and disc ID; the PS1 image itself is read by the firmware's POPS manager.
 		LoadParamSFOFromPBP(fileLoader);
+		break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+		if (!g_CoreParameter.bootFromState) {
+			GetBootError(type, errorString);
+			return false;
+		}
+		if (!MountStateBoot(g_CoreParameter.fileToStart, errorString)) {
+			return false;
+		}
 		break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	{
@@ -667,6 +679,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	case IdentifiedFileType::PSP_PS1_PBP:
 		if (!Load_PSP_POPS(fileLoader, errorString)) {
+			return false;
+		}
+		break;
+	case IdentifiedFileType::PPSSPP_SAVESTATE:
+		// Headless loads the state itself, as with --state.
+		if (!Load_PSP_StateBoot(errorString)) {
 			return false;
 		}
 		break;
@@ -859,6 +877,18 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 				}
 				filename = vshmain;
 				loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
+			}
+		}
+
+		if (filename.GetFilename() == "vshmain.prx") {
+			// A firmware installed for the other model makes the XMB look for files it doesn't have.
+			InstalledFirmwareInfo firmware;
+			ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmware, false);
+			if (!InstalledFirmwareFitsModel(firmware, g_Config.iPSPModel)) {
+				auto sy = GetI18NCategory(I18NCat::SYSTEM);
+				g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
+					sy->T("FirmwareOtherModel", "Firmware %1 was installed for a different PSP model than the selected one, so the XMB may not work until you install it again."),
+					firmware.version), 10.0f, "firmware_model");
 			}
 		}
 

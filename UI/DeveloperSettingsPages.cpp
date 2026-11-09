@@ -260,6 +260,9 @@ static void BuildTestsPage(SettingsPage *page) {
 	page->Choice("Touchscreen Test").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new TouchTestScreen(host->PageGamePath()));
 	});
+	page->Choice("Color test").OpensScreen().OnClick([host](UI::EventParams &e) {
+		host->PageScreenManager()->push(new ColorTestScreen());
+	});
 	page->Choice("Framedump tests").OpensScreen().OnClick([host](UI::EventParams &e) {
 		host->PageScreenManager()->push(new FrameDumpTestScreen());
 	}).EnabledFunc([] {

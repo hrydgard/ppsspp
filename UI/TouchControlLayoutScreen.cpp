@@ -591,14 +591,21 @@ ViewLayoutMode TouchControlLayoutScreen::LayoutMode() const {
 }
 
 void TouchControlLayoutScreen::OnReset(UI::EventParams &e) {
-	INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
+	auto co = GetI18NCategory(I18NCat::CONTROLS);
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), co->T("Are you sure you want to reset the touch control layout?"), di->T("Reset"), di->T("Cancel"), [this](bool yes) {
+		if (!yes) {
+			return;
+		}
+		INFO_LOG(Log::G3D, "Resetting touch control layout to default.");
 
-	const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
-	const DeviceOrientation orientation = GetDeviceOrientation();
-	TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
-	touch.ResetLayout();
-	InitPadLayout(&touch, orientation, bounds.w, bounds.h);
-	RecreateViews();
+		const Bounds &bounds = GetLayoutBounds(*screenManager()->getUIContext());
+		const DeviceOrientation orientation = GetDeviceOrientation();
+		TouchControlConfig &touch = g_Config.GetTouchControlsConfig(orientation);
+		touch.ResetLayout();
+		InitPadLayout(&touch, orientation, bounds.w, bounds.h);
+		RecreateViews();
+	}));
 };
 
 void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -658,7 +665,7 @@ void TouchControlLayoutScreen::CreateViews() {
 			layoutView_->mode_ = mode;
 		}
 	});
-	mode_->ApplyRoundCorners();
+	mode_->SetRoundCorners();
 
 	leftColumn->Add(mode_);
 	leftColumn->Add(new Choice(co->T("Customize")))->OnClick.Add([this](UI::EventParams &e) {
@@ -673,7 +680,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
-	leftColumn->ApplyRoundCorners();
+	leftColumn->SetRoundCorners();
 
 	leftColumnScroll->SetShadows(false);
 

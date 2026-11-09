@@ -305,12 +305,9 @@ void DecodeAndTransformForDepthRaster(float *dest, const float *worldviewproj, c
 	}
 }
 
-void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, const VertexDecoder *dec, int count) {
-	// TODO: Ditch skinned and morphed prims for now since we don't have a fast way to skin without running the full decoder.
-	_dbg_assert_((dec->VertexType() & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) == 0);
-
-	int vertexStride = dec->GetDecVtxFmt().stride;
-	int offset = dec->GetDecVtxFmt().posoff;
+void TransformPredecodedForDepthRaster(float *dest, const float *worldviewproj, const void *decodedVertexData, const DecVtxFormat &fmt, int count) {
+	int vertexStride = fmt.stride;
+	int offset = fmt.posoff;
 
 	Mat4F32 mat(worldviewproj);
 
@@ -764,7 +761,9 @@ void DepthRasterWorker::WaitForSubmitted() {
 }
 
 void DepthRasterWorker::WaitIfWriting(u32 addr, u32 size) {
-	if (!busy_) {
+	// The mask below would map a RAM address onto the VRAM offsets too. Midnight Club L.A. Remix loads CLUTs
+	// from RAM addresses that land on its depth buffer that way, and waited for the worker on each.
+	if (!busy_ || !Memory::IsVRAMAddress(addr)) {
 		return;
 	}
 	const u32 low = addr & VRAM_OFFSET_MASK;

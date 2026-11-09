@@ -102,6 +102,7 @@ public:
 	virtual void EndHostFrame();
 
 	void InterruptStart(int listid);
+	void WaitForSubmittedDepth();
 	void InterruptEnd(int listid);
 	void SyncEnd(GPUSyncType waitType, int listid, bool wokeThreads);
 	void EnableInterrupts(bool enable) {
@@ -173,6 +174,8 @@ public:
 	// width is the stride. rectWidth, if set, is how many pixels of each row were written, which lets
 	// a write that starts partway into a framebuffer row be uploaded without clobbering the rest.
 	virtual void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth = 0);
+	// The CPU has written a width x height rectangle of pixels at addr, rows stride pixels apart.
+	virtual void PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format);
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags);
 	// Reads the stencil of whole framebuffer rows into the alpha bytes in RAM, leaving the color alone.
 	// For games that test stencil with the CPU. Only 8888 for now.
@@ -341,7 +344,6 @@ public:
 	void NotifyFlush();
 
 protected:
-	DLResult RunDLQueue();
 	// While debugging is active, these may block.
 	void NotifyDisplay(u32 framebuf, u32 stride, int format);
 
@@ -403,7 +405,6 @@ protected:
 	TextureCacheCommon *textureCache_ = nullptr;
 
 	bool flushOnParams_ = true;
-	bool listEndedSinceDepthWait_ = false;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_ = nullptr;

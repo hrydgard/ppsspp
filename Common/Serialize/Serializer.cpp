@@ -403,7 +403,8 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 }
 
 // Streams the file through the decompressor, so the compressed data is never all in memory at once.
-static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8 *out, size_t outSize) {
+// With onlyStart, stops once out is full, rather than requiring the data to be exactly that long.
+static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8 *out, size_t outSize, bool onlyStart = false) {
 	ZSTD_DCtx *ctx = ZSTD_createDCtx();
 	if (!ctx) {
 		return false;
@@ -414,6 +415,9 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 	size_t ret = 1;
 	bool success = true;
 	while (left > 0 && success) {
+		if (onlyStart && output.pos == outSize) {
+			break;
+		}
 		const size_t chunk = std::min(left, in.size());
 		if (!file.ReadBytes(in.data(), chunk)) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
@@ -422,7 +426,7 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 		}
 		left -= chunk;
 		ZSTD_inBuffer input{ in.data(), chunk, 0 };
-		while (input.pos < input.size) {
+		while (input.pos < input.size && !(onlyStart && output.pos == outSize)) {
 			const size_t inPos = input.pos;
 			const size_t outPos = output.pos;
 			ret = ZSTD_decompressStream(ctx, &output, &input);
@@ -434,6 +438,9 @@ static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8
 		}
 	}
 	ZSTD_freeDCtx(ctx);
+	if (onlyStart) {
+		return success && output.pos == outSize;
+	}
 	// ret is 0 once a frame is completely decoded.
 	return success && ret == 0 && output.pos == outSize;
 }
@@ -465,6 +472,22 @@ static bool CompressZstd(const u8 *data, size_t size, std::vector<u8> *out) {
 	return !ZSTD_isError(remaining);
 }
 
+CChunkFileReader::Error CChunkFileReader::LoadFileStart(const Path &filename, u8 *out, size_t size) {
+	File::IOFile pFile(filename, "rb");
+	SChunkHeader header;
+	Error err = LoadFileHeader(pFile, header, nullptr);
+	if (err != ERROR_NONE) {
+		return err;
+	}
+	if (!header.Compress) {
+		return size <= header.ExpectedSize && pFile.ReadBytes(out, size) ? ERROR_NONE : ERROR_BAD_FILE;
+	}
+	if (SerializeCompressType(header.Compress) != SerializeCompressType::ZSTD || size > header.UncompressedSize) {
+		return ERROR_BAD_FILE;
+	}
+	return DecompressZstdFromFile(pFile, header.ExpectedSize, out, size, true) ? ERROR_NONE : ERROR_BAD_FILE;
+}
+
 CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz) {
 	if (!File::Exists(filename)) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
@@ -480,18 +503,22 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	if (header.Compress) {
 		// Sanity cap on the decompressed size to avoid a giant allocation from
-		// an attacker-controlled header field. Real savestates are well under this.
-		if (header.UncompressedSize > 0x40000000) {
+		// an attacker-controlled header field. Real savestates (even with 64MB of
+		// RAM) are well under this.
+		if (header.UncompressedSize > 0x10000000) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: UncompressedSize too large: %u", header.UncompressedSize);
 			return ERROR_BAD_FILE;
 		}
 	}
 
 	if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
-		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		u8 *uncomp_buffer = (u8 *)malloc(header.UncompressedSize);
+		if (!uncomp_buffer) {
+			return ERROR_BAD_FILE;
+		}
 		if (!DecompressZstdFromFile(pFile, header.ExpectedSize, uncomp_buffer, header.UncompressedSize)) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
-			delete [] uncomp_buffer;
+			free(uncomp_buffer);
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
@@ -502,16 +529,20 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 
 	// Uncompressed, or snappy (older states).
 	sz = header.ExpectedSize;
-	u8 *buffer = new u8[sz];
-	if (!pFile.ReadBytes(buffer, sz))
+	u8 *buffer = (u8 *)malloc(sz);
+	if (!buffer || !pFile.ReadBytes(buffer, sz))
 	{
 		ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
-		delete [] buffer;
+		free(buffer);
 		return ERROR_BAD_FILE;
 	}
 
 	if (header.Compress) {
-		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		u8 *uncomp_buffer = (u8 *)malloc(header.UncompressedSize);
+		if (!uncomp_buffer) {
+			free(buffer);
+			return ERROR_BAD_FILE;
+		}
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;
 		if (SerializeCompressType(header.Compress) == SerializeCompressType::SNAPPY) {
@@ -522,19 +553,19 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		}
 		if (!success) {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
-			delete [] uncomp_buffer;
-			delete [] buffer;
+			free(uncomp_buffer);
+			free(buffer);
 			return ERROR_BAD_FILE;
 		}
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(Log::SaveState, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
-			delete [] uncomp_buffer;
-			delete [] buffer;
+			free(uncomp_buffer);
+			free(buffer);
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
 		sz = uncomp_size;
-		delete [] buffer;
+		free(buffer);
 	} else {
 		_buffer = buffer;
 	}

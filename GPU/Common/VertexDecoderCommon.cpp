@@ -108,11 +108,14 @@ std::string DecVtxFormat::ToString() const {
 	w.F("C0: %s ", DecFmtComponentToString(c0fmt));
 	w.F("C1: %s ", DecFmtComponentToString(c1fmt));
 	w.F("N: %s", DecFmtComponentToString(nrmfmt));
+	if (cpuLit) {
+		w.C(" CPU lit");
+	}
 	return w.as_string();
 }
 
 void DecVtxFormat::ComputeID() {
-	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20);
+	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | ((cpuLit ? 1 : 0) << 24);
 }
 
 void DecVtxFormat::InitializeFromID(uint32_t id) {
@@ -123,6 +126,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c0fmt = ((id >> 12) & 0xF);
 	c1fmt = ((id >> 16) & 0xF);
 	nrmfmt = ((id >> 20) & 0xF);
+	cpuLit = (id >> 24) & 1;
 	w0off = 0;
 	w1off = w0off + DecFmtSize(w0fmt);
 	uvoff = w1off + DecFmtSize(w1fmt);
@@ -130,6 +134,7 @@ void DecVtxFormat::InitializeFromID(uint32_t id) {
 	c1off = c0off + DecFmtSize(c0fmt);
 	nrmoff = c1off + DecFmtSize(c1fmt);
 	posoff = nrmoff + DecFmtSize(nrmfmt);
+	cpuLitOff = 0;
 	stride = posoff + DecFmtSize(PosFmt());
 }
 
@@ -194,6 +199,25 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 			*indexUpperBound = 0;
 		}
 	}
+}
+
+bool IsValidIndexedDrawRange(u32 vertexAddr, u32 indexAddr, int count, u32 vertType, int vertexSize) {
+	const u32 idx = vertType & GE_VTYPE_IDX_MASK;
+	const int indexShift = (idx >> GE_VTYPE_IDX_SHIFT) - 1;
+	if (!Memory::IsValidRange(indexAddr, count << indexShift)) {
+		return false;
+	}
+	// Indices are at most 16 bits, so this usually saves looking at them.
+	const u32 maxIndex = idx == GE_VTYPE_IDX_8BIT ? 0xFF : 0xFFFF;
+	if (Memory::IsValidRange(vertexAddr, (maxIndex + 1) * vertexSize)) {
+		return true;
+	}
+	if (count <= 0) {
+		return true;
+	}
+	u16 lowerBound, upperBound;
+	GetIndexBounds(Memory::GetPointerUnchecked(indexAddr), count, vertType, &lowerBound, &upperBound);
+	return Memory::IsValidRange(vertexAddr, (upperBound + 1) * vertexSize);
 }
 
 void PrintDecodedVertex(const VertexReader &vtx) {
@@ -1198,7 +1222,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	memset(&decFmt, 0, sizeof(decFmt));
 
 	if (morphcount > 1) {
-		DEBUG_LOG_REPORT_ONCE(vtypeM, Log::G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
+		DEBUG_LOG(Log::G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	} else {
 		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}

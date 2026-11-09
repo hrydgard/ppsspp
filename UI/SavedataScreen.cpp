@@ -132,7 +132,7 @@ SavedataView::SavedataView(UIContext &dc, GameInfo *ginfo, IdentifiedFileType ty
 	}
 }
 
-SavedataPopupScreen::SavedataPopupScreen(Path gamePath, Path savePath, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath) {}
+SavedataPopupScreen::SavedataPopupScreen(Path gamePath, Path savePath, bool showHint, std::string_view title) : PopupScreen(StripSpaces(title)), savePath_(savePath), gamePath_(gamePath), showHint_(showHint) {}
 
 void SavedataPopupScreen::update() {
 	PopupScreen::update();
@@ -158,17 +158,23 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *contentScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, UI::Margins(0, 3)));
 	parent->Add(contentScroll);
 
+	LinearLayout *content = contentScroll->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	if (showHint_) {
+		auto g = GetI18NCategory(I18NCat::GAME);
+		content->Add(new HintView(g->T("SaveData")));
+	}
+
 	// TODO: If the game info wasn't already loaded, we'll get a bogus fileType here.
-	savedataView_ = contentScroll->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
+	savedataView_ = content->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	buttonRow->SetSpacing(0);
-	Margins buttonMargins(5, 5, 5, 13);  // not sure why we need more at the bottom to make it look right
+	buttonRow->SetSpacing(12);
 
-	buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+	buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
 
@@ -183,10 +189,11 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}));
 	});
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f, buttonMargins)))->OnClick.Add([this](UI::EventParams &e) {
+		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(savePath_);
 		});
 	}
+	buttonRow->SetRoundCorners();
 	parent->Add(buttonRow);
 }
 
@@ -606,6 +613,8 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	using namespace UI;
 	Path savedata_dir = GetSysDirectory(DIRECTORY_SAVEDATA);
 
+	savedata->Add(new Spacer(12.0f));
+
 	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
@@ -615,7 +624,7 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 		sortOption_ = SavedataSortOption(e.a);
 		dataBrowser_->SetSortOption(sortOption_);
 	});
-	sortStrip->ApplyRoundCorners();
+	sortStrip->SetRoundCorners();
 	savedata->Add(sortStrip);
 
 	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
@@ -630,6 +639,8 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	using namespace UI;
 	Path savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
+	savestate->Add(new Spacer(12.0f));
+
 	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new LinearLayoutParams(0.0f, UI::Gravity::G_CENTER));
 	sortStrip->AddChoice(sa->T("Filename"));
 	sortStrip->AddChoice(sa->T("Size"));
@@ -639,7 +650,7 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 		sortOption_ = SavedataSortOption(e.a);
 		stateBrowser_->SetSortOption(sortOption_);
 	});
-	sortStrip->ApplyRoundCorners();
+	sortStrip->SetRoundCorners();
 	savestate->Add(sortStrip);
 
 	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir));
@@ -690,7 +701,7 @@ void SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
 
 	// Sanitize the title.
 	std::string title = SanitizeString(ginfo->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
-	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), title);
+	SavedataPopupScreen *popupScreen = new SavedataPopupScreen(gamePath_, Path(e.s), false, title);
 	if (e.v) {
 		popupScreen->SetPopupOrigin(e.v);
 	}

@@ -234,7 +234,7 @@ void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
 
 	std::string root = GetSysDirectory(DIRECTORY_MEMSTICK_ROOT).ToString();
 
-	std::string title = StringFromFormat(cw->T_cstr("Import from %s"), "PSP/Cheats/cheat.db");
+	std::string title = ApplySafeSubstitutions(cw->T("Import from %1"), "PSP/Cheats/cheat.db");
 
 	importGroup->Add(new Choice(title))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 	importGroup->Add(new Choice(mm->T("Browse"), ImageID("I_FOLDER_OPEN")))->OnClick.Handle(this, &CwCheatScreen::OnImportBrowse);
@@ -307,7 +307,7 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 
 	bool prevIsTitle = false;
-	View *prev = nullptr;
+	CheckBox *prev = nullptr;
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
 		std::string_view text;
 		if (fileInfo_[i].IsTitle(&text)) {
@@ -318,7 +318,17 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 			prevIsTitle = true;
 			prev = nullptr;
 		} else if (fileInfo_[i].IsPostComment(&text)) {
-			rightColumn->Add(new SettingHint(text, prev));
+			if (prev) {
+				// A cheat's comment lines go in its checkbox.
+				std::string hint = prev->GetHintText();
+				if (!hint.empty()) {
+					hint += '\n';
+				}
+				hint += text;
+				prev->SetHintText(hint);
+			} else {
+				rightColumn->Add(new SettingHint(text, nullptr));
+			}
 			prevIsTitle = false;
 		} else {
 			// Regular cheat code.

@@ -56,6 +56,8 @@
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanPresentation.h"
+#include "Common/VR/PPSSPPVR.h"
+#include "Common/VR/VRVulkan.h"
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/thin3d_create.h"
@@ -183,8 +185,13 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 
 	vulkan_ = new VulkanContext();
 
+	vr_ = offscreenWidth_ == 0 && IsVREnabled() && VR_VulkanSupported();
+
 	VulkanContext::CreateInfo info{};
 	InitVulkanCreateInfoFromConfig(&info);
+	if (vr_) {
+		info.extraInstanceExtensions = VR_GetVulkanInstanceExtensions();
+	}
 	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
 		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
@@ -192,6 +199,13 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 		return false;
 	}
 	int deviceNum = vulkan_->GetPhysicalDeviceByName(*deviceName);
+	if (vr_) {
+		// The runtime decides, it has to be the GPU the headset is on.
+		int xrDevice = VR_GetVulkanPhysicalDevice(vulkan_);
+		if (xrDevice >= 0) {
+			deviceNum = xrDevice;
+		}
+	}
 	if (deviceNum < 0) {
 		deviceNum = vulkan_->GetBestPhysicalDevice();
 		if (!deviceName->empty()) {
@@ -199,14 +213,15 @@ bool VulkanGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::str
 		}
 	}
 
-	if (vulkan_->CreateDevice(deviceNum) != VK_SUCCESS) {
+	static const std::vector<const char *> noExtensions;
+	if (vulkan_->CreateDevice(deviceNum, vr_ ? VR_GetVulkanDeviceExtensions() : noExtensions) != VK_SUCCESS) {
 		*errorMessage = vulkan_->InitError();
 		delete vulkan_;
 		vulkan_ = nullptr;
 		return false;
 	}
 	// Normally the queue is picked along with the surface, which must be able to present from it.
-	if (offscreenWidth_ > 0 && !vulkan_->ChooseGraphicsQueueWithoutSurface()) {
+	if ((offscreenWidth_ > 0 || vr_) && !vulkan_->ChooseGraphicsQueueWithoutSurface()) {
 		*errorMessage = "No graphics queue";
 		return false;
 	}
@@ -219,6 +234,13 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 		if (!presentation->Create(vulkan_)) {
 			presentation->Destroy(vulkan_);
 			*errorMessage = "Failed to create the offscreen images";
+			return false;
+		}
+		vulkan_->SetPresentation(std::move(presentation));
+	} else if (vr_) {
+		// The headset is the display. The window's surface isn't used.
+		std::unique_ptr<VulkanPresentation> presentation = VR_CreateVulkanPresentation(vulkan_, errorMessage);
+		if (!presentation) {
 			return false;
 		}
 		vulkan_->SetPresentation(std::move(presentation));
@@ -243,7 +265,7 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
 
-	if (offscreenWidth_ == 0) {
+	if (!vulkan_->GetPresentation()) {
 		VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
 
 #ifdef VK_EXT_full_screen_exclusive
@@ -297,6 +319,10 @@ void VulkanGraphicsContext::ShutdownSurface() {
 }
 
 void VulkanGraphicsContext::ShutdownAPI() {
+	if (vr_) {
+		// The session goes before the device it was created with.
+		VR_DestroyVulkanSession();
+	}
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 
@@ -308,7 +334,7 @@ void VulkanGraphicsContext::ShutdownAPI() {
 }
 
 void VulkanGraphicsContext::Resize() {
-	if (offscreenWidth_ > 0) {
+	if (offscreenWidth_ > 0 || vr_) {
 		// The images have a fixed size.
 		return;
 	}

@@ -40,6 +40,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
+#include "Core/HW/Display.h"
 #include "Core/MemFault.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -55,6 +56,9 @@
 namespace Memory {
 
 static int64_t g_numReportedBadAccesses = 0;
+static const int MAX_IGNORED_ACCESSES_PER_FRAME = 1000;
+static int g_numIgnoredAccessesThisFrame = 0;
+static int g_ignoredAccessesVCount = -1;
 const uint8_t *g_lastCrashAddress;
 MemoryExceptionType g_lastMemoryExceptionType;
 static bool inCrashHandler = false;
@@ -64,6 +68,8 @@ std::unordered_set<const uint8_t *> g_ignoredAddresses;
 
 void MemFault_Init() {
 	g_numReportedBadAccesses = 0;
+	g_numIgnoredAccessesThisFrame = 0;
+	g_ignoredAccessesVCount = -1;
 	g_lastCrashAddress = nullptr;
 	g_lastMemoryExceptionType = MemoryExceptionType::NONE;
 	g_ignoredAddresses.clear();
@@ -255,8 +261,19 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	g_lastMemoryExceptionType = type;
 
+	// An ignored access costs microseconds of host time and no emulated cycles, so a guest looping over a bad
+	// pointer can stretch one emulated frame out for seconds, past Android's ANR timeout as the app waits for
+	// the emulator to reach a frame end. Past a limit per frame, we stop ignoring them.
+	const int vCount = __DisplayGetVCount();
+	if (vCount != g_ignoredAccessesVCount) {
+		g_ignoredAccessesVCount = vCount;
+		g_numIgnoredAccessesThisFrame = 0;
+	}
+	const bool tooManyThisFrame = g_numIgnoredAccessesThisFrame >= MAX_IGNORED_ACCESSES_PER_FRAME;
+
 	bool handled = true;
-	if (success && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
+	if (success && !tooManyThisFrame && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
+		g_numIgnoredAccessesThisFrame++;
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
@@ -283,8 +300,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			infoString += "(" + temp + ") ";
 		}
 
-		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
+		// Either bIgnoreBadMemAccess is off, we failed recovery analysis, or there were too many this frame.
 		// We can't ignore this memory access.
+		if (tooManyThisFrame) {
+			infoString += StringFromFormat("(over %d ignored bad accesses in one frame) ", MAX_IGNORED_ACCESSES_PER_FRAME);
+		}
 		uint32_t approximatePC = currentMIPS->pc;
 		// TODO: Determine access size from the disassembled native instruction. We have some partial info already,
 		// just need to clean it up.

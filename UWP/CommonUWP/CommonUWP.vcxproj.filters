@@ -419,6 +419,9 @@
     <ClCompile Include="..\..\Common\VR\VRRenderer.cpp">
       <Filter>VR</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Common\VR\VRVulkan.cpp">
+      <Filter>VR</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\VR\OpenXRLoader.cpp">
       <Filter>VR</Filter>
     </ClCompile>
@@ -609,6 +612,12 @@
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\lzma-sdk\Bcj2.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra.c">
+      <Filter>ext\lzma-sdk</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\lzma-sdk\Bra86.c">
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\lzma-sdk\CpuArch.c">
@@ -967,6 +976,9 @@
       <Filter>VR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\VR\VRRenderer.h">
+      <Filter>VR</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\VR\VRVulkan.h">
       <Filter>VR</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\VR\OpenXRLoader.h">

@@ -647,6 +647,16 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 
 		// Peer not found
 		if (peer == NULL) {
+			// Every sender MAC gets a peer, so cap them.
+			int peerCount = 0;
+			for (SceNetAdhocMatchingMemberInternal *p = context->peerlist; p != NULL; p = p->next) {
+				peerCount++;
+			}
+			if (peerCount >= MAX_MATCHING_PEERS) {
+				WARN_LOG(Log::sceNet, "Matching: Too many peers, ignoring hello from %s", mac2str(sendermac).c_str());
+				return;
+			}
+
 			// Allocate Memory
 			peer = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
@@ -1055,6 +1065,12 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 		return;
 	}
 
+	// The parent can't have more children than maxpeers allows.
+	if (countChildren(context) >= context->maxpeers) {
+		WARN_LOG(Log::sceNet, "Matching: Birth of %s would exceed maxpeers, ignored", mac2str(&mac).c_str());
+		return;
+	}
+
 	// Allocate Memory
 	SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
@@ -1283,7 +1299,10 @@ static void matchingHandleInput(SceNetAdhocMatchingContext *context) {
 		}
 		// Keep tracks of re-mapped peer's ports for further communication.
 		// Note: This will only works if this player were able to receives data on normal port from other players (ie. this player's port wasn't remapped)
-		(*context->peerPort)[sendermac] = senderport;
+		// Any sender MAC lands here, so the map is capped.
+		if (context->peerPort->size() < MAX_MATCHING_PEERS || context->peerPort->find(sendermac) != context->peerPort->end()) {
+			(*context->peerPort)[sendermac] = senderport;
+		}
 		peerlock.unlock();
 
 		switch (context->rxbuf[0]) {
@@ -1506,7 +1525,7 @@ int sceNetAdhocMatchingDelete(MIPSState *mips, int matchingId) {
 }
 
 int sceNetAdhocMatchingInit(MIPSState *mips, u32 memsize) {
-	WARN_LOG_REPORT_ONCE(sceNetAdhocMatchingInit, Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, mips->pc);
+	INFO_LOG(Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, mips->pc);
 
 	// Uninitialized Library
 	if (netAdhocMatchingInited)
@@ -1575,6 +1594,11 @@ static int sceNetAdhocMatchingCreate(MIPSState *mips, int mode, int maxnum, int 
 	if (rxbuflen < 6 * maxnum + 4) {
 		// Invalid Receive Buffer Size
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_RXBUF_TOO_SHORT, "adhoc matching rxbuf too short");
+	}
+	// We allocate (and clear) this on the host. The PSP takes it from the library's small heap, and
+	// no packet is anywhere near this big.
+	if (rxbuflen > 1024 * 1024) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NO_SPACE, "adhoc matching rxbuf too large");
 	}
 
 	if (mode < 1 || mode > 3) {
@@ -1830,6 +1854,10 @@ static int sceNetAdhocMatchingSelectTarget(MIPSState *mips, int matchingId, cons
 
 	void * opt = NULL;
 	if (Memory::IsValidRange(optDataPtr, std::max(optLen, 1))) opt = Memory::GetPointerWriteUnchecked(optDataPtr);
+	// The messages copy optLen bytes from it.
+	if (optLen > 0 && opt == NULL) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching bad opt buffer");
+	}
 	// Host Mode
 	if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
 		// Already Connected. Right after accepting, it's still in progress (pspautotests net/adhoc/pair/matching).
@@ -2365,6 +2393,10 @@ int sceNetAdhocMatchingSendData(MIPSState *mips, int matchingId, const char *mac
 
 	void* data = NULL;
 	if (Memory::IsValidRange(dataAddr, dataLen)) data = Memory::GetPointerWriteUnchecked(dataAddr);
+	// The bulk packet copies all dataLen bytes from it.
+	if (data == NULL) {
+		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "bad data buffer");
+	}
 
 	// Lock the peer
 	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);

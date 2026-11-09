@@ -87,10 +87,14 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 	Prepare();
 	size_t readSize;
 
-	if (absolutePos >= filesize_) {
+	if (absolutePos < 0 || absolutePos >= filesize_) {
 		bytes = 0;
 	} else if (absolutePos + (s64)bytes >= filesize_) {
 		bytes = (size_t)(filesize_ - absolutePos);
+	}
+	// The cache computes the last block as pos + bytes - 1.
+	if (bytes == 0) {
+		return 0;
 	}
 
 	if (cache_ && cache_->IsValid() && (flags & Flags::HINT_UNCACHED) == 0) {
@@ -357,6 +361,7 @@ bool DiskCachingFileLoaderCache::MakeCacheSpaceFor(size_t blocks) {
 
 	while (cacheSize_ > goal) {
 		u16 minGeneration = generation_;
+		bool evicted = false;
 
 		// We increment the iterator inside because we delete things inside.
 		for (size_t i = 0; i < blockIndexLookup_.size(); ++i) {
@@ -377,6 +382,7 @@ bool DiskCachingFileLoaderCache::MakeCacheSpaceFor(size_t blocks) {
 				info.generation = 0;
 				info.hits = 0;
 				--cacheSize_;
+				evicted = true;
 
 				// TODO: Doing this in chunks might be a lot better.
 				WriteIndexData(blockIndexLookup_[i], info);
@@ -389,6 +395,12 @@ bool DiskCachingFileLoaderCache::MakeCacheSpaceFor(size_t blocks) {
 			}
 		}
 
+		// If we found nothing to evict and the next pass would look for the same generation,
+		// it can't make progress either.
+		if (!evicted && minGeneration == oldestGeneration_) {
+			ERROR_LOG(Log::Loader, "Disk cache: Nothing left to evict, %d blocks counted", (int)cacheSize_);
+			break;
+		}
 		// If we didn't find any, update to the lowest we did find.
 		oldestGeneration_ = minGeneration;
 	}
@@ -548,6 +560,9 @@ bool DiskCachingFileLoaderCache::LoadCacheFile(const Path &path) {
 	} else if (header.maxBlocks < MAX_BLOCKS_LOWER_BOUND || header.maxBlocks > MAX_BLOCKS_UPPER_BOUND) {
 		// This means it's not in our safety bounds, reject.
 		valid = false;
+	} else if (header.blockSize != DEFAULT_BLOCK_SIZE) {
+		// We only ever create these, and everything below divides by and allocates the block size.
+		valid = false;
 	}
 
 	// If it's valid, retain the file pointer.
@@ -598,6 +613,12 @@ void DiskCachingFileLoaderCache::LoadCacheIndex() {
 			index_[i].block = INVALID_BLOCK;
 		}
 		if (index_[i].block == INVALID_BLOCK) {
+			continue;
+		}
+		// Two entries can't share a data block. Keeping both would serve one of them the wrong
+		// data, and count a block that eviction can't find (which then never finishes).
+		if (blockIndexLookup_[index_[i].block] != INVALID_INDEX) {
+			index_[i].block = INVALID_BLOCK;
 			continue;
 		}
 

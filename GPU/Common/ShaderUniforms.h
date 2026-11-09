@@ -104,12 +104,34 @@ R"(  vec4 u_ambient;
   vec3 u_lightspecular[4];
 )";
 
+// VR (GPU_USE_VIRTUAL_REALITY) on Vulkan. Pushed right after UB_VS_FS_Base, as the end of the
+// vertex shader's base block, so other backends and non-VR drawing don't pay for it.
+struct alignas(16) UB_VS_VR {
+	float projLens[16];  // The headset's projection, with the game's signs.
+	float viewRight[12];  // The right eye's view. The left eye's (or the only one) is in the base view.
+	float scaleX; float scaleY; float padding[2];  // HUD scaling.
+};
+static_assert(sizeof(UB_VS_VR) == 128);
+
+static const char * const ub_vrStr =
+R"(  mat4 u_proj_lens;
+  mat3x4 u_viewR;
+  float u_scaleX; float u_scaleY; vec2 u_vrPadding;
+)";
+
 // useBufferedRendering is only used to determine the rotation uniform.
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
+// Call for every draw after BaseUpdateUniforms: the HUD guess depends on state that dirties nothing.
+// Replaces the base view with the left eye's.
+void VRUpdateUniforms(UB_VS_FS_Base *base, UB_VS_VR *vr, uint64_t dirtyUniforms);
+// Whether a draw looks like part of the HUD, which VR scales down to keep in view.
+bool GuessVRDrawingHUD(bool is2D, bool flatScreen);
 
 uint32_t PackLightControlBits();
 uint32_t PackDepalBits(bool pixelMapped);
+// Call before reading the dirty uniforms: the depal uniform depends on pixelMapped, which changes per draw.
+void DirtyDepalIfPixelMappedChanged(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 

@@ -35,6 +35,7 @@ struct NaettBodySink {
 	std::string postData;
 	// Written by us, read by the transfer thread.
 	std::atomic<bool> cancelled{false};
+	size_t maxBytes = MAX_RESPONSE_IN_MEMORY;
 };
 
 // Sinks belonging to requests that hadn't finished when they were torn down, which only happens
@@ -62,6 +63,11 @@ int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) 
 	if (bytes <= 0) {
 		return 0;
 	}
+	if (sink->buffer.size() + (size_t)bytes > sink->maxBytes) {
+		// Fails the request, like cancelling does.
+		ERROR_LOG(Log::HTTP, "Response larger than %lld bytes, giving up", (long long)sink->maxBytes);
+		return 0;
+	}
 	char *dest = sink->buffer.Append((size_t)bytes);
 	memcpy(dest, source, bytes);
 	return bytes;
@@ -84,6 +90,7 @@ void HTTPSRequest::Start() {
 	// In case someone managed to cancel us between construction and here.
 	sink_->cancelled = cancelled_;
 	sink_->postData = postData_;
+	sink_->maxBytes = outfile_.empty() ? MAX_RESPONSE_IN_MEMORY : MAX_RESPONSE_TO_FILE;
 
 	std::vector<naettOption *> options;
 	options.push_back(naettMethod(method_ == RequestMethod::GET ? "GET" : "POST"));

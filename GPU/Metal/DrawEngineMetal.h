@@ -134,7 +134,8 @@ private:
 		uint32_t fragmentTextureMask;
 	};
 
-	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform);
+	// hwFmt: the vertex format for hardware transform, null for software transform.
+	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, const DecVtxFormat *hwFmt);
 	Pipeline *GetOrCreatePipeline(const MetalPipelineKey &key, const DecVtxFormat *decFmt, const MetalRenderTargetFormat &format);
 	id<MTLDepthStencilState> GetDepthStencilState(const MetalDepthStencilKey &key);
 	bool ApplyState(const Pipeline *pipeline, bool overrideStencilRef, uint8_t stencilRef);
@@ -164,6 +165,8 @@ private:
 	id<MTLTexture> boundDepal_;
 	bool boundDepalSmoothed_ = false;
 	id<MTLTexture> nullTexture_;
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU.
+	id<MTLBuffer> zeroCpuLitStream_;
 	id<MTLSamplerState> samplerNearest_;
 	id<MTLSamplerState> samplerLinear_;
 

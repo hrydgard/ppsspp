@@ -380,8 +380,9 @@ static void InitSwapchainImageData(VulkanContext *vulkan, VkImage image, Swapcha
 	color_image_view.subresourceRange.baseMipLevel = 0;
 	color_image_view.subresourceRange.levelCount = 1;
 	color_image_view.subresourceRange.baseArrayLayer = 0;
-	color_image_view.subresourceRange.layerCount = 1;  // TODO: Investigate hw-assisted stereo.
-	color_image_view.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	const int layers = vulkan->GetBackbufferLayers();
+	color_image_view.subresourceRange.layerCount = layers;
+	color_image_view.viewType = layers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	color_image_view.flags = 0;
 	color_image_view.image = image;
 
@@ -660,7 +661,7 @@ bool VulkanRenderManager::InitExtraSwapchain(VKRSwapchain *swapchain, std::strin
 	std::vector<VkImage> images(count);
 	vkGetSwapchainImagesKHR(vulkan_->GetDevice(), swapchain->swapchain, &count, images.data());
 
-	if (!queueRunner_.CreateDepthStencilImage(extent.width, extent.height, &swapchain->depthImage, &swapchain->depthAlloc, &swapchain->depthView, &postInitBarrier_, "ExtraSwapchainDepth")) {
+	if (!queueRunner_.CreateDepthStencilImage(extent.width, extent.height, 1, &swapchain->depthImage, &swapchain->depthAlloc, &swapchain->depthView, &postInitBarrier_, "ExtraSwapchainDepth")) {
 		*error = "Failed to create the depth buffer";
 		return false;
 	}
@@ -899,7 +900,6 @@ void VulkanRenderManager::RenderThreadFunc() {
 void VulkanRenderManager::PresentWaitThreadFunc() {
 	SetCurrentThreadName("PresentWait");
 
-#if !PPSSPP_VK_STATIC
 	_dbg_assert_(vkWaitForPresentKHR != nullptr);
 
 	uint64_t waitedId = frameIdGen_;
@@ -916,7 +916,6 @@ void VulkanRenderManager::PresentWaitThreadFunc() {
 		}
 		_dbg_assert_(waitedId <= frameIdGen_);
 	}
-#endif
 
 	INFO_LOG(Log::G3D, "Leaving PresentWaitThreadFunc()");
 }
@@ -1115,21 +1114,6 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	int curFrame = vulkan_->GetCurFrame();
 	return frameData_[curFrame].GetInitCmd(vulkan_);
-}
-
-void VulkanRenderManager::ReportBadStateForDraw() {
-	const char *cause1 = "";
-	char cause2[256];
-	cause2[0] = '\0';
-	if (!curRenderStep_) {
-		cause1 = "No current render step";
-	}
-	if (curRenderStep_ && curRenderStep_->stepType != VKRStepType::RENDER) {
-		cause1 = "Not a render step: ";
-		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
-		truncate_cpy(cause2, str);
-	}
-	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
 bool VulkanRenderManager::PipelinesPending() {

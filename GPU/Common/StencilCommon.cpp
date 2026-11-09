@@ -302,6 +302,32 @@ void FramebufferManagerCommon::WriteStencilFromFramebufferAlpha(VirtualFramebuff
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
+void FramebufferManagerCommon::RebuildPendingStencil(VirtualFramebuffer *vfb) {
+	// Without the stencil test, draws don't write the stencil. Clears do, but often only part of it.
+	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
+		return;
+	}
+	// A draw that writes the stencil without reading it, where it also writes the alpha, keeps the two in step,
+	// so the rebuild can wait for a draw that reads it (God of War zeroes it every frame). It can't wait past
+	// a stencil write where the color isn't written: a failed stencil or depth test.
+	const GEComparison func = gstate.getStencilTestFunction();
+	const GEStencilOp sFail = gstate.getStencilOpSFail();
+	const GEStencilOp zFail = gstate.getStencilOpZFail();
+	const GEStencilOp zPass = gstate.getStencilOpZPass();
+	const bool readsStencil = (func != GE_COMP_ALWAYS && func != GE_COMP_NEVER) ||
+		sFail >= GE_STENCILOP_INVERT || zFail >= GE_STENCILOP_INVERT || zPass >= GE_STENCILOP_INVERT;
+	const bool writesWithoutColor = (func == GE_COMP_NEVER && sFail != GE_STENCILOP_KEEP) ||
+		(func != GE_COMP_NEVER && gstate.isDepthTestEnabled() && zFail != GE_STENCILOP_KEEP);
+	if (!readsStencil && !writesWithoutColor) {
+		return;
+	}
+	vfb->stencilFromAlphaPending = false;
+	drawEngine_->Flush();
+	WriteStencilFromFramebufferAlpha(vfb);
+	// It reused the temp buffer a self-texturing copy is kept in.
+	DiscardFramebufferCopy();
+}
+
 bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags) {
 	using namespace Draw;
 
@@ -333,6 +359,9 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 	// Could skip this when doing useExportShader, but then we couldn't optimize usedBits == 0.
 	if (!CheckStencilBits(src, dstBuffer, values, usedBits))
 		return false;
+
+	dstBuffer->stencilFromAlphaPending = false;
+	DiscardFramebufferCopy();
 
 	if (usedBits == 0) {
 		if (flags & WriteStencil::STENCIL_IS_ZERO) {

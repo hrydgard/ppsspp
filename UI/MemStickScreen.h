@@ -31,12 +31,18 @@
 
 #include "UI/BaseScreens.h"
 #include "UI/MiscViews.h"
+#include "UI/SimpleDialogScreen.h"
 
 class NoticeView;
+class WrappedTextItem;
+
+// A memory stick folder as shown to the user: "Internal storage / PSP" rather than a content URI or a
+// /storage/emulated/0 path, and the app's own folder by name.
+std::string GetMemstickFolderDisplayName(const Path &folder);
 
 // MemStickScreen - let's you configure your memory stick directory.
 // Currently only useful for Android.
-class MemStickScreen : public UIBaseDialogScreen {
+class MemStickScreen : public UITwoPaneBaseDialogScreen {
 public:
 	MemStickScreen(bool initialSetup);
 	~MemStickScreen() = default;
@@ -51,20 +57,11 @@ public:
 	};
 
 protected:
-	void CreateViews() override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void update() override;
-	ScreenRenderFlags render(ScreenRenderMode mode) override {
-		// Simple anti-flicker due to delayed finish.
-		if (!done_) {
-			// render as usual.
-			return UIBaseDialogScreen::render(mode);
-		} else {
-			// no render. black frame insertion is better than flicker.
-		}
-		return ScreenRenderFlags::NONE;
-	}
 
 private:
 	// Event handlers
@@ -82,7 +79,6 @@ private:
 
 	bool initialSetup_;
 	bool storageBrowserWorking_;
-	bool done_ = false;
 
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	int choice_ = CHOICE_PRIVATE_DIRECTORY;
@@ -95,7 +91,7 @@ struct SpaceResult {
 	int64_t bytesFree;
 };
 
-class ConfirmMemstickMoveScreen : public UIBaseDialogScreen {
+class ConfirmMemstickMoveScreen : public UITwoPaneBaseDialogScreen {
 public:
 	ConfirmMemstickMoveScreen(const Path &newMemstickFolder, bool initialSetup);
 	~ConfirmMemstickMoveScreen();
@@ -103,10 +99,14 @@ public:
 	const char *tag() const override { return "ConfirmMemstickMove"; }
 
 	bool key(const KeyInput &key) override;
+	void TriggerFinish(DialogResult result) override;
+	void onFinish(DialogResult result) override;
 
 protected:
 	void update() override;
-	void CreateViews() override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 private:
 	void OnMoveDataClick(UI::EventParams &params);
@@ -114,9 +114,16 @@ private:
 
 	void OnConfirm(UI::EventParams &params);
 
+	bool IsBlocked() const {
+		return check_ == MemstickFolderCheck::INSIDE_CURRENT || check_ == MemstickFolderCheck::INSIDE_OTHER || check_ == MemstickFolderCheck::LOOKS_LIKE_PSP_FOLDER;
+	}
+	bool CanMoveData() const {
+		return check_ == MemstickFolderCheck::OK;
+	}
+
 	Path newMemstickFolder_;
 	bool existingFilesInNewFolder_;
-	bool folderConflict_;
+	MemstickFolderCheck check_ = MemstickFolderCheck::OK;
 
 #if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 	bool moveData_ = false;
@@ -124,10 +131,21 @@ private:
 	bool moveData_ = true;
 #endif
 	bool initialSetup_;
+	// The data is already in the new folder.
+	bool dataMoved_ = false;
+	std::string RestartCountdownText() const;
+
+	// Set when everything worked: restart then (time_now_d()), after showing that.
+	static constexpr double RESTART_DELAY_SECONDS = 5.0;
+	double restartTime_ = 0.0;
+	NoticeView *doneNotice_ = nullptr;
+	static constexpr int64_t FREE_SPACE_PENDING = -2;
+	int64_t freeSpace_ = FREE_SPACE_PENDING;
 
 	MoveProgressReporter progressReporter_;
-	UI::TextView *progressView_ = nullptr;
-	UI::TextView *newFreeSpaceView_ = nullptr;
+	WrappedTextItem *progressView_ = nullptr;
+	UI::ProgressBar *progressBar_ = nullptr;
+	UI::InfoItem *newFreeSpaceView_ = nullptr;
 
 	Promise<MoveResult *> *moveDataTask_ = nullptr;
 	Promise<SpaceResult *> *newSpaceTask_ = nullptr;

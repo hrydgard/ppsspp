@@ -108,6 +108,8 @@ public:
 	bool LoadIni(const std::string &languageID, const Path &overridePath = Path()); // NOT the filename!
 
 	std::string LanguageID();
+	// The loaded language is written right to left.
+	bool IsRTL() const;
 
 	std::shared_ptr<I18NCategory> GetCategory(I18NCat category);
 

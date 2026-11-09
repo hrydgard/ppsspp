@@ -180,7 +180,7 @@ void MediaEngine::DoState(PointerWrap &p) {
 	// All straight from the file. The header ones index m_mpegheader, the ringbuffer size sizes
 	// buffers (the PSP's whole RAM is a generous limit.)
 	if (p.mode == p.MODE_READ && (m_mpegheaderSize < 0 || m_mpegheaderSize > (int)sizeof(m_mpegheader) ||
-		m_mpegheaderReadPos < 0 || m_mpegheaderReadPos > m_mpegheaderSize || m_ringbuffersize < 0 || m_ringbuffersize > 64 * 1024 * 1024)) {
+		m_mpegheaderReadPos < 0 || m_mpegheaderReadPos > m_mpegheaderSize || m_ringbuffersize < 0 || m_ringbuffersize > MAX_RINGBUFFER_SIZE)) {
 		ERROR_LOG(Log::SaveState, "MediaEngine: bad header size %d, position %d or ringbuffer size %d in savestate", m_mpegheaderSize, m_mpegheaderReadPos, m_ringbuffersize);
 		p.SetError(p.ERROR_FAILURE);
 		return;
@@ -479,7 +479,7 @@ int MediaEngine::addStreamData(const u8 *buffer, int addSize) {
 		if (!m_pFormatCtx && m_pdata->getQueueSize() >= 2048) {
 			m_mpegheaderSize = m_pdata->get_front(m_mpegheader, sizeof(m_mpegheader));
 			int streamOffset = (int)(*(s32_be *)(m_mpegheader + 8));
-			if (streamOffset <= m_mpegheaderSize) {
+			if (streamOffset >= 0 && streamOffset <= m_mpegheaderSize) {
 				m_mpegheaderSize = streamOffset;
 				m_pdata->pop_front(0, m_mpegheaderSize);
 				openContext();
@@ -1000,6 +1000,9 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		width = frameWidth;
 	if (height > m_desHeight - ypos)
 		height = m_desHeight - ypos;
+	// A range starting outside the frame clamps to nothing (or less).
+	if (xpos < 0 || ypos < 0 || width <= 0 || height <= 0)
+		return 0;
 
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:

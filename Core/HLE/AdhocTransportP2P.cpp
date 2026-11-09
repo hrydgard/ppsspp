@@ -88,7 +88,8 @@ int P2PTransport::PdpSendTo(int id, const SceNetEtherAddr *mac, uint16_t dport, 
 
 bool P2PTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port, std::vector<u8> &data) {
 	int fd = adhocSockets[id - 1]->data.pdp.id;
-	while (true) {
+	// Bounded, so a flood from outside the group can't keep us here. The rest waits for the next call.
+	for (int tries = 0; tries < 64; tries++) {
 		struct sockaddr_in sin {};
 		socklen_t sinlen = sizeof(sin);
 		// On Windows this can fail with WSAECONNRESET when an earlier sendto's destination was unreachable;
@@ -106,6 +107,7 @@ bool P2PTransport::PdpTakeDatagram(int id, SceNetEtherAddr *mac, uint16_t *port,
 		data.assign(dummyPeekBuf64k, dummyPeekBuf64k + received);
 		return true;
 	}
+	return false;
 }
 
 // send() and recv() on a PTP socket, as a PSP's radio would see them (pspautotests net/adhoc/pair/vanish):
@@ -123,7 +125,7 @@ static int ptpSendToPeer(AdhocSocket *sock, const char *data, int len, int *erro
 	int sent = send(sock->data.ptp.id, data, len, MSG_NOSIGNAL);
 	*error = socket_errno;
 	if (sent > 0) {
-		ptpNoteSend(sock);
+		ptpNoteSend(sock, sent);
 	}
 	return sent;
 }
@@ -450,7 +452,7 @@ int P2PTransport::PdpCreate(const SceNetEtherAddr *saddr, int port, int bufferSi
 	}
 
 	// Find Free Translator Index
-	// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+	// IDs keep increasing, like a PSP's (pspautotests net/adhoc/socketids).
 	int i = 0;
 	i = FindFreeAdhocSocketSlot();
 
@@ -657,7 +659,7 @@ int P2PTransport::PtpOpen(const SceNetEtherAddr *saddr, int sport, const SceNetE
 			// Allocated Memory
 			if (internal != NULL) {
 				// Find Free Translator ID
-				// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+				// IDs keep increasing, like a PSP's (pspautotests net/adhoc/socketids).
 				int i = 0;
 				i = FindFreeAdhocSocketSlot();
 
@@ -862,7 +864,7 @@ int P2PTransport::PtpListen(const SceNetEtherAddr *saddr, int sport, int bufsize
 				// Allocated Memory
 				if (internal != NULL) {
 					// Find Free Translator ID
-					// FIXME: We should probably use an increasing index instead of looking for an empty slot from beginning if we want to simulate a real socket id
+					// IDs keep increasing, like a PSP's (pspautotests net/adhoc/socketids).
 					int i = 0;
 					i = FindFreeAdhocSocketSlot();
 

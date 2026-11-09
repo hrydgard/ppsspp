@@ -233,7 +233,17 @@ std::string ISOFileSystem::TreeEntry::BuildPath() {
 }
 
 void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
-	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
+	// Real directories are a few KB. The size comes from the image, so cap it to keep a corrupt
+	// one from making us parse (and allocate entries for) gigabytes of sectors.
+	const u32 MAX_DIRECTORY_SIZE = 4 * 1024 * 1024;
+	u32 dirsize = root->dirsize;
+	if (dirsize > MAX_DIRECTORY_SIZE) {
+		blockDevice->NotifyReadError();
+		ERROR_LOG(Log::FileSystem, "Directory '%s' claims an implausible size (%u), truncating", root->name.c_str(), dirsize);
+		dirsize = MAX_DIRECTORY_SIZE;
+	}
+	const u32 endsector = (u32)std::min<u64>((u64)root->startsector + (dirsize + 2047) / 2048, blockDevice->GetNumBlocks());
+	for (u32 secnum = root->startsector; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
 			blockDevice->NotifyReadError();
@@ -252,9 +262,10 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				break;
 
 			const int IDENTIFIER_OFFSET = 33;
-			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
+			if (offset + IDENTIFIER_OFFSET > 2048 || offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
 				blockDevice->NotifyReadError();
 				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
+				root->valid = true;  // Prevents re-reading (and duplicating the children so far)
 				return;
 			}
 			// dir.size (the record length actually consumed) must cover at least its
@@ -265,6 +276,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			if (dir.size < IDENTIFIER_OFFSET + dir.identifierLength) {
 				blockDevice->NotifyReadError();
 				ERROR_LOG(Log::FileSystem, "Directory entry size too small, corrupt iso?");
+				root->valid = true;
 				return;
 			}
 
@@ -522,7 +534,9 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			u8 *out = Memory::GetPointerWriteRangeOrException(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
-			blockDevice->ReadBlocks(block, blocks, out);
+			if (blocks > 0) {
+				blockDevice->ReadBlocks(block, blocks, out);
+			}
 			size -= blocks * blockDevice->GetBlockSize();
 			out += blocks * blockDevice->GetBlockSize();
 

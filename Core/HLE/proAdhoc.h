@@ -230,6 +230,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   u32_le ip_addr; // internal use only
   u16_le port_offset; // IP-specific port offset (internal use only)
   u64_le left_at; // When the server said it left the group, or 0 (internal use only)
+  u64_le visible_at; // When the game starts seeing it in the peer list (internal use only)
 } PACK SceNetAdhocctlPeerInfo;
 
 // Peer Information with u32 pointers
@@ -258,6 +259,13 @@ typedef struct SceNetAdhocMatchingMemberInfoEmu {
 
 // Game Mode Peer List
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
+
+// Caps on lists filled from what the friend finder server sends.
+#define MAX_ADHOC_FRIENDS 256
+#define MAX_ADHOC_SCAN_GROUPS 256
+// Matching peers and their ports, kept per sender MAC.
+#define MAX_MATCHING_PEERS 256
+
 typedef struct SceNetAdhocctlGameModeInfo {
   s32_le num;
   SceNetEtherAddr members[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
@@ -281,6 +289,7 @@ typedef struct GameModeArea {
 	int dataSent;
 	SceNetEtherAddr mac;
 	u8* data;  // upto "size" bytes started from "addr" ?
+	u64 reportedTimestamp; // what UpdateReplica last gave out as the data's time
 } PACK GameModeArea;
 
 // Socket Polling Event Listener
@@ -328,8 +337,11 @@ typedef struct AdhocSocket {
 	u64 internalLastAttempt; // timestamp to retry again (internal use only)
 	u64 ptpEstablishedAt; // when a PTP connection was established, which sets the phase of its timeout checks
 	u64 ptpLastSendAt; // the last PTP send
+	u64 ptpDeliveredAt; // when everything sent so far is in the peer's buffer, which is what PtpFlush waits for
+	u32 ptpUndelivered; // bytes sent that aren't there yet, until ptpDeliveredAt
 	u64 ptpSendAfterPeerLeftAt; // the first PTP send after the peer left the group, which it never acknowledges
 	bool ptpRefused; // a connect was refused, and every later one is too
+	u64 ptpConnectToNobodySince; // the first connect to a MAC that isn't in the group
 	bool isClient; // true if the game is using local port 0 when creating the socket
 	union {
 		SceNetAdhocPdpStat pdp;
@@ -1167,6 +1179,10 @@ void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEthe
  * @return Number of active Peers
  */
 int getActivePeerCount(const bool excludeTimedout = true);
+
+// Whether the game sees the peer in its peer list yet, or still. See PEER_VISIBLE_DELAY_US.
+bool isPeerVisible(const SceNetAdhocctlPeerInfo *peer);
+int getVisiblePeerCount();
 
 // Call this before getLocalIp() and getHostLocalIp() to adjust to operating system routing table changes
 void clearLocalIpCache();

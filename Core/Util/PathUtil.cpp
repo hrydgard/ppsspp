@@ -2,6 +2,7 @@
 #include <string_view>
 
 #include "Common/File/Path.h"
+#include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
@@ -81,7 +82,9 @@ Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool 
 // lower case directory that already exists, so nobody has to move their files.
 static Path PreferUpperCaseDir(const Path &parent, const char *upperCase, const char *lowerCase) {
 	const Path upper = parent / upperCase;
-	if (File::Exists(upper)) {
+	// Android's shared storage is case-insensitive, so either spelling is found as the upper case one. And
+	// on content URIs, each Exists is a call to the storage provider.
+	if (parent.Type() == PathType::CONTENT_URI || File::Exists(upper)) {
 		return upper;
 	}
 	const Path lower = parent / lowerCase;
@@ -91,15 +94,17 @@ static Path PreferUpperCaseDir(const Path &parent, const char *upperCase, const 
 	return upper;
 }
 
-Path GetSysDirectory(PSPDirectories directoryType) {
-	const Path &memStickDirectory = g_Config.memStickDirectory;
-	Path pspDirectory;
+Path GetPSPFolderOf(const Path &memStickDirectory) {
 	if (!strcasecmp(memStickDirectory.GetFilename().c_str(), "PSP")) {
 		// Let's strip this off, to easily allow choosing a root directory named "PSP" on Android.
-		pspDirectory = memStickDirectory;
-	} else {
-		pspDirectory = memStickDirectory / "PSP";
+		return memStickDirectory;
 	}
+	return memStickDirectory / "PSP";
+}
+
+Path GetSysDirectory(PSPDirectories directoryType) {
+	const Path &memStickDirectory = g_Config.memStickDirectory;
+	const Path pspDirectory = GetPSPFolderOf(memStickDirectory);
 
 	switch (directoryType) {
 	case DIRECTORY_PSP:
@@ -164,11 +169,26 @@ bool CreateSysDirectories() {
 
 	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
 	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
-	File::CreateFullPath(pspDir);
-	if (!File::Exists(pspDir)) {
-		INFO_LOG(Log::IO, "Not a workable memstick directory (%s). Giving up for now", pspDir.c_str());
-		return false;
+	// One listing says which are there already. On Android content URIs, asking about each one is a call to the
+	// storage provider, and this runs at every startup.
+	std::vector<File::FileInfo> listing;
+	if (!File::GetFilesInDir(pspDir, &listing)) {
+		File::CreateFullPath(pspDir);
+		if (!File::Exists(pspDir)) {
+			INFO_LOG(Log::IO, "Not a workable memstick directory (%s). Giving up for now", pspDir.c_str());
+			return false;
+		}
 	}
+	auto exists = [&](const Path &path) {
+		std::string name;
+		if (!pspDir.ComputePathTo(path, name) || name.find('/') != std::string::npos) {
+			// Deeper than the listing.
+			return File::Exists(path);
+		}
+		return std::any_of(listing.begin(), listing.end(), [&](const File::FileInfo &f) {
+			return f.isDirectory && f.name == name;
+		});
+	};
 
 	// Create the default directories that a real PSP creates. Good for homebrew so they can
 	// expect a standard environment. Skipping THEME though, that's pointless.
@@ -185,6 +205,10 @@ bool CreateSysDirectories() {
 
 	for (auto dir : sysDirs) {
 		Path path = GetSysDirectory(dir);
+		if (exists(path)) {
+			// With its .nomedia, from when it was created.
+			continue;
+		}
 		File::CreateFullPath(path);
 		if (createNoMedia) {
 			// Create a nomedia file in each specified subdirectory.

@@ -127,6 +127,11 @@ public:
 
 		SubIntrHandler* handler = get(subintr);
 		if (handler != NULL) {
+			// The callback may read the depth buffer on the CPU (light flares in Syphon Filter, Wipeout Pure
+			// and Resistance: Retribution), and on hardware the drawing is done by now.
+			if (!PSP_CoreParameter().compat.flags().DepthRasterNoCallbackWait) {
+				gpu->WaitForSubmittedDepth();
+			}
 			DEBUG_LOG(Log::CPU, "Entering GE interrupt handler %08x", handler->handlerAddress);
 			currentMIPS->pc = handler->handlerAddress;
 			u32 data = dl->subIntrToken;
@@ -600,7 +605,8 @@ u32 sceGeSaveContext(u32 ctxAddr) {
 	}
 
 	// Let's just dump gstate.
-	if (Memory::IsValidAddress(ctxAddr)) {
+	// A context (SceGeContext) is 512 words.
+	if (Memory::IsValidRange(ctxAddr, 512 * 4)) {
 		gstate.Save((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 
@@ -614,7 +620,7 @@ u32 sceGeRestoreContext(u32 ctxAddr) {
 		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_BUSY, "lists in process, aborting");
 	}
 
-	if (Memory::IsValidAddress(ctxAddr)) {
+	if (Memory::IsValidRange(ctxAddr, 512 * 4)) {
 		gstate.Restore((u32_le *)Memory::GetPointerOrException(ctxAddr));
 	}
 

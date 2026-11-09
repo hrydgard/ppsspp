@@ -213,6 +213,18 @@
 			"icon": "https://raw.githubusercontent.com/MainPiyushHoon/Alpha-Community-Webpage/refs/heads/main/src/images/ALPHA.webp"
 		},
 		{
+			"name": "SWAENET",
+			"host": "132.226.189.224",
+			"discord": "https://discord.gg/CgZxfHA8ZC",
+			"web": "https://132.226.189.224/",
+			"location": "Mumbai, India",
+			"location-emoji": "🇮🇳",
+			"description": "SWAENET PPSSPP Relay – Mumbai, India – part of the SWAEYERS community, offering low‑latency, reliable gaming connectivity.",
+			"data_mode": "AemuPostoffice",
+			"status_data_json": "https://132.226.189.224/data.json",
+			"icon": "https://132.226.189.224/assets/favicon.svg"
+		},
+		{
 			"name": "aemu_postoffice test server",
 			"host": "185.183.157.234",
 			"discord": "https://discord.com/invite/wxeGVkM",
@@ -228,24 +240,11 @@
 			"name": "Andexplaystream",
 			"host": "psp.andexplaystream.online",
 			"discord": "",
-			"web": "",
 			"location": "Jakarta, Indonesia",
 			"location-emoji": "🇮🇩",
 			"description": "For players looking to play any games",
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "http://psp.andexplaystream.online/data.json"
-		},
-		{
-			"name": "SWAENET",
-			"host": "132.226.189.224",
-			"discord": "https://discord.gg/CgZxfHA8ZC",
-			"web": "http://132.226.189.224:8888/",
-			"location": "Mumbai,India",
-			"location-emoji": "🇮🇳",
-			"description": "Indian adhoc relay from SWAEYERS community",
-			"data_mode": "AemuPostoffice",
-			"status_data_json": "http://132.226.189.224:8888/data.json",
-			"icon": "http://132.226.189.224:8888/assets/favicon.svg"
 		}
 	]
 }

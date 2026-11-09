@@ -496,31 +496,8 @@ void WebSocketHLEFuncRemove(DebuggerRequest &req) {
 // (Note: this makes no checks whether the range is valid)
 // Returns the number of removed functions
 static u32 RemoveFuncSymbolsInRange(u32 addr, u32 size) {
-	u32 func_address = g_symbolMap->GetFunctionStart(addr);
-	if (func_address == SymbolMap::INVALID_ADDRESS) {
-		func_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
-	}
-
-	u32 counter = 0;
-	while (func_address < addr + size && func_address != SymbolMap::INVALID_ADDRESS) {
-		g_symbolMap->RemoveFunction(func_address, true);
-		++counter;
-		func_address = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
-	}
-
+	u32 counter = MIPSAnalyst::RemoveFunctionsInRange(addr, size);
 	if (counter) {
-		MIPSAnalyst::ForgetFunctions(addr, addr + size);
-
-		// The following was copied from hle.func.remove:
-		g_symbolMap->SortSymbols();
-
-		MIPSAnalyst::UpdateHashMap();
-		MIPSAnalyst::ApplyHashMap();
-
-		if (g_Config.bFuncReplacements) {
-			MIPSAnalyst::ReplaceFunctions();
-		}
-
 		// Clear cache for branch lines and such.
 		g_disassemblyManager.clear();
 	}
@@ -664,8 +641,8 @@ void WebSocketHLEFuncScan(DebuggerRequest &req) {
 			RemoveFuncSymbolsInRange(addr, size);
 		}
 
-		bool insertSymbols = MIPSAnalyst::ScanForFunctions(addr, addr + size, true);
-		MIPSAnalyst::FinalizeScan(insertSymbols);
+		MIPSAnalyst::ScanFunctionsInRange(addr, size);
+		g_disassemblyManager.clear();
 
 		req.Respond();
 	});

@@ -304,9 +304,8 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 			continue;
 		}
 
-		// We only support Arabic on platforms where we have support for the native text rendering
-		// APIs, as proper Arabic support is way too difficult to implement ourselves.
-#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+		// Arabic script needs a text drawer that does shaping (see TextDrawer::Create), the atlas font can't.
+#if defined(__LIBRETRO__) || !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(USE_SDL3_TTF))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
@@ -603,8 +602,8 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		right->Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 	}
 
-	left->ApplyRoundCorners();
-	right->ApplyRoundCorners();
+	left->SetRoundCorners();
+	right->SetRoundCorners();
 
 	int rightYOffset = 0;
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
@@ -641,6 +640,9 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			System_ShareText(cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 		});
 	}
+
+	left->SetRoundCorners();
+	right->SetRoundCorners();
 }
 
 void CreditsScreen::update() {

@@ -20,10 +20,13 @@
 
 bool g_RemasterMode;
 bool g_DoubleTextureCoordinates;
+bool g_RemasterHLEFonts;
 
 // TODO: Do all of the remasters aside from Monster Hunter/Shin Sangoku use double texture coordinates?
 extern const struct HDRemaster g_HDRemasters[] = {
-	{ "NPJB40001", 0x04000000, false }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
+	// It only ever ran in the PS3's emulator, never on a PSP. Its unofficial Simplified Chinese
+	// translation renders no Chinese text with the firmware's sceFont and fonts (#22982).
+	{ "NPJB40001", 0x04000000, false, nullptr, true }, // MONSTER HUNTER PORTABLE 3rd HD Ver.
 	{ "NPJB40002", 0x04000000, true }, // K-ON Houkago Live HD Ver
 	{ "NPJB40003", 0x04000000, false }, // Shin Sangoku Musou Multi Raid 2 HD Ver
 	{ "ULJM05170", 0x04000000, true, "ULJM-05170|55C069C631B22685|0001|G" }, // Eiyuu Densetsu Sora no Kiseki FC Kai HD Edition

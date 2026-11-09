@@ -38,6 +38,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
 #include "Core/FileLoaders/PS1EbootFileLoader.h"
+#include "Core/Loaders.h"
 #include "Core/MemMap.h"
 
 #include "UI/GameBrowser.h"
@@ -52,7 +53,7 @@
 #include "Core/Util/DarwinFileSystemServices.h" // For the browser
 
 // Folders get bigger lines too, though not as big as the games.
-static constexpr float LARGE_LIST_FOLDER_H = 50.0f;
+static constexpr float LIST_FOLDER_H = 50.0f;
 
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
 	: LinearLayout(ORIENT_VERTICAL, layoutParams), viewMode_(viewMode), browseFlags_(browseFlags), portrait_(portrait), lastText_(lastText), lastLink_(lastLink), screenManager_(screenManager), token_(token) {
@@ -96,7 +97,73 @@ void GameBrowser::SetPath(const Path &path) {
 	refreshPending_ = true;
 }
 
+bool GameBrowser::Touch(const TouchInput &input) {
+	if (input.flags & TouchInputFlags::MOUSE) {
+		// The browser can extend past the scroll view it's in, so check that too.
+		mouseHover_ = bounds_.Contains(input.x, input.y) && (!Parent() || Parent()->GetBounds().Contains(input.x, input.y));
+	}
+	return LinearLayout::Touch(input);
+}
+
+float *GameBrowserIconScale(GameBrowserViewMode viewMode) {
+	return viewMode == GameBrowserViewMode::GRID ? &g_Config.fGameGridScale : &g_Config.fGameListScale;
+}
+
+// Draw notices the change and refreshes every browser.
+void StepGameBrowserIconScale(GameBrowserViewMode viewMode, bool bigger) {
+	float *scale = GameBrowserIconScale(viewMode);
+	if (bigger) {
+		*scale = std::min(*scale * 1.25f, MAX_GAME_GRID_SCALE);
+	} else {
+		*scale = std::max(*scale / 1.25f, MIN_GAME_GRID_SCALE);
+	}
+}
+
 bool GameBrowser::Key(const KeyInput &input) {
+	// Ctrl+wheel and Ctrl+Plus/Minus (Cmd on Apple platforms) change the icon size, like zooming in a
+	// file manager.
+	const bool zoomMod = (input.flags & KeyInputFlags::DOWN) && (input.flags & KEY_MOD_SHORTCUT);
+	if (zoomMod && mouseHover_ && (input.keyCode == NKCODE_EXT_MOUSEWHEEL_UP || input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN)) {
+		// A touchpad sends a stream of small deltas, so add them up and step once per notch's worth.
+		int delta = (input.flags & KeyInputFlags::HAS_WHEEL_DELTA) ? input.Delta() : WHEEL_DELTA_PER_NOTCH;
+		// Zoom by the fingers' direction (up is bigger), whatever the natural scrolling setting.
+		if ((input.keyCode == NKCODE_EXT_MOUSEWHEEL_DOWN) != ((input.flags & KeyInputFlags::WHEEL_FLIPPED) != 0)) {
+			delta = -delta;
+		}
+		// Start over on a change of direction, or when a leftover is from an earlier gesture.
+		const double now = time_now_d();
+		if ((delta > 0) != (wheelZoomAccum_ > 0) || now - lastWheelZoomTime_ > 0.5) {
+			wheelZoomAccum_ = 0;
+		}
+		lastWheelZoomTime_ = now;
+		wheelZoomAccum_ += delta;
+		while (wheelZoomAccum_ >= WHEEL_DELTA_PER_NOTCH) {
+			StepGameBrowserIconScale(ViewMode(), true);
+			wheelZoomAccum_ -= WHEEL_DELTA_PER_NOTCH;
+		}
+		while (wheelZoomAccum_ <= -WHEEL_DELTA_PER_NOTCH) {
+			StepGameBrowserIconScale(ViewMode(), false);
+			wheelZoomAccum_ += WHEEL_DELTA_PER_NOTCH;
+		}
+		return true;
+	}
+	if (zoomMod) {
+		// Plus is shifted on most layouts, so accept the key it shares (Equals on US layouts) too.
+		switch (input.keyCode) {
+		case NKCODE_PLUS:
+		case NKCODE_EQUALS:
+		case NKCODE_NUMPAD_ADD:
+			StepGameBrowserIconScale(ViewMode(), true);
+			return true;
+		case NKCODE_MINUS:
+		case NKCODE_NUMPAD_SUBTRACT:
+			StepGameBrowserIconScale(ViewMode(), false);
+			return true;
+		default:
+			break;
+		}
+	}
+
 	// Alt+Up goes to the parent directory, as in file managers.
 	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
 		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
@@ -136,10 +203,8 @@ void GameBrowser::SetSearchFilter(const std::string &filter, bool setKeyboardFoc
 }
 
 GameBrowserViewMode GameBrowser::ViewMode() const {
-	if (*viewMode_ < (int)GameBrowserViewMode::GRID || *viewMode_ > (int)GameBrowserViewMode::LARGE_LIST) {
-		return GameBrowserViewMode::GRID;
-	}
-	return (GameBrowserViewMode)*viewMode_;
+	// Anything else is the list, including 2 (the old large list).
+	return *viewMode_ == (int)GameBrowserViewMode::GRID ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST;
 }
 
 void GameBrowser::LayoutChange(UI::EventParams &e) {
@@ -213,11 +278,42 @@ void GameBrowser::PinToggleClick(UI::EventParams &e) {
 	refreshPending_ = true;
 }
 
+// Whether UmdMount takes it: a PSP disc image (also a UMD video, or a PSN game's ISO in an EBOOT.PBP),
+// or a disc's files in a directory.
+static bool IsUmdPath(const Path &path, bool isDirectory) {
+	if (!isDirectory) {
+		const std::string ext = path.GetFileExtension();
+		// Trusted by name, since opening every image would make big folders slow to list.
+		if (ext == ".iso" || ext == ".cso") {
+			return true;
+		}
+		// A CHD can hold a PS1 disc, and a PBP can be homebrew or a PS1 game.
+		if (ext != ".chd" && ext != ".pbp") {
+			return false;
+		}
+	}
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+	std::string error;
+	switch (Identify_File(loader.get(), &error)) {
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+		return true;
+	default:
+		return false;
+	}
+}
+
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
 		for (auto &str : g_recentFiles.GetRecentFiles()) {
-			filenames.emplace_back(str);
+			Path path(str);
+			if ((browseFlags_ & BrowseFlags::UMDS_ONLY) && !IsUmdPath(path, File::IsDirectory(path))) {
+				continue;
+			}
+			filenames.push_back(path);
 		}
 		return true;
 	}
@@ -238,11 +334,30 @@ void GameBrowser::Update() {
 	}
 }
 
+void GameBrowser::Measure(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert) {
+	// Under a popup (like the one with the icon size buttons), the screen isn't recreated or updated,
+	// only laid out, so the grid picks up a new size here.
+	if (gameGrid_) {
+		gameGrid_->SetCellSize(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale);
+	}
+	LinearLayout::Measure(dc, horiz, vert);
+}
+
 void GameBrowser::Draw(UIContext &dc) {
 	using namespace UI;
 
-	if (lastScale_ != g_Config.fGameGridScale || lastViewMode_ != ViewMode()) {
+	if (lastScale_ != *GameBrowserIconScale(ViewMode()) || lastViewMode_ != ViewMode()) {
 		refreshPending_ = true;
+		// Keep the focus on the same game, as a keyboard zoom leaves it there.
+		if (gameList_ && focusPath_.empty()) {
+			for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+				GameButton *button = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i));
+				if (button && button->HasFocus()) {
+					focusPath_ = button->GetPath();
+					break;
+				}
+			}
+		}
 	}
 
 	if (hasDropShadow_) {
@@ -311,8 +426,8 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 void GameBrowser::Refresh() {
 	using namespace UI;
 
-	lastScale_ = g_Config.fGameGridScale;
 	lastViewMode_ = ViewMode();
+	lastScale_ = *GameBrowserIconScale(lastViewMode_);
 	const bool gridStyle = lastViewMode_ == GameBrowserViewMode::GRID;
 
 	// Kill all the contents
@@ -322,8 +437,12 @@ void GameBrowser::Refresh() {
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
 	gameList_ = nullptr;
+	gameGrid_ = nullptr;
 
-	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
+	// Wraps the buttons onto another row when the screen is too narrow for them.
+	FlowLayout *topBar = new FlowLayout(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 8, 0)));
+	topBar->SetSpacing(10.0f);
+	topBar->SetRowSpacing(10.0f);
 	Add(topBar);
 
 	// Recent isn't a real folder, so it gets no path or refresh.
@@ -398,10 +517,9 @@ void GameBrowser::Refresh() {
 
 	ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
 	layoutChoice->AddChoice(ImageID("I_GRID"));
-	layoutChoice->AddChoice(ImageID("I_LINES"));
 	layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
 	layoutChoice->SetSelection((int)lastViewMode_, false);
-	layoutChoice->ApplyRoundCorners();
+	layoutChoice->SetRoundCorners();
 	layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 	if (!isRecent) {
 		Choice *rotateChoice = topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)));
@@ -417,7 +535,9 @@ void GameBrowser::Refresh() {
 	gridSettingsChoice->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
 	if (gridStyle) {
-		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		// Measure sets the cell size.
+		gameGrid_ = new UI::GridLayoutList(UI::GridLayoutSettings(), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 0, 6, 0)));
+		gameList_ = gameGrid_;
 	} else {
 		UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gl->SetSpacing(4.0f);
@@ -439,8 +559,9 @@ void GameBrowser::Refresh() {
 			gameButtons.push_back(new GameButton(GameButtonType::Game, filenames[i], lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	} else if (!listingPending_) {
+		const bool umdsOnly = browseFlags_ & BrowseFlags::UMDS_ONLY;
 		std::vector<File::FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
+		path_.GetListing(fileInfo, umdsOnly ? "iso:cso:chd:pbp:" : "iso:cso:chd:pbp:elf:prx:ppdmp:cue:ccd:mds:bin:img:");
 		// PS1 discs: a .bin or .img shows up as its cue sheet or .ccd, when it has one.
 		RemoveDescribedDiscImages(&fileInfo);
 		// Drives and servers aren't games, and probing a server that's gone away can take seconds.
@@ -458,6 +579,10 @@ void GameBrowser::Refresh() {
 			else if (!isGame && File::Exists(path_.GetPath() / fileInfo[i].name / "PARAM.SFO"))
 				isSaveData = true;
 
+			if (umdsOnly && (isSaveData || (isGame && !IsUmdPath(fileInfo[i].fullName, fileInfo[i].isDirectory)))) {
+				continue;
+			}
+
 			if (!isGame && !isSaveData) {
 				if (browseFlags_ & BrowseFlags::NAVIGATE) {
 					dirButtons.push_back(new GameButton(GameButtonType::Dir, fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
@@ -473,7 +598,7 @@ void GameBrowser::Refresh() {
 		// Put RAR/ZIP files at the end to get them out of the way. Game update packages go here
 		// too - they're not something to boot, they're something to install.
 		// We do support unpacking some of them automatically.
-		if (browseFlags_ & BrowseFlags::ARCHIVES) {
+		if ((browseFlags_ & BrowseFlags::ARCHIVES) && !umdsOnly) {
 			fileInfo.clear();
 			path_.GetListing(fileInfo, "zip:rar:r00:r01:7z:pkg:");
 			if (!fileInfo.empty()) {
@@ -665,7 +790,7 @@ void GameBrowser::PathChanged() {
 
 void GameBrowser::GridSettingsClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	auto gridSettings = new GridSettingsPopupScreen(sy->T("Games list settings"));
+	auto gridSettings = new GridSettingsPopupScreen(sy->T("Games list settings"), ViewMode());
 	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
 	if (e.v)
 		gridSettings->SetPopupOrigin(e.v);

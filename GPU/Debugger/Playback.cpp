@@ -402,6 +402,8 @@ private:
 	u32 execListID = 0;
 	const int LIST_BUF_SIZE = 256 * 1024;
 	std::vector<u32> execListQueue;
+	// Control points of the patch Init() draws to reset the zero-normal state.
+	u32 resetPatch_ = 0;
 	u16 lastBufw_[8]{};
 	u32 lastTex_[8]{};
 	int prims_ = 0;
@@ -659,6 +661,43 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	}
 	lastBase_ = 0xFFFFFFFF;
 	initialClut_ = true;
+
+	// A zero normal lights by a sign the GE keeps from the last Bezier patch drawn, which outlives
+	// programs (ppsspp-re geprobe exp226-253). As the PSP replayer does before the replay, a flat patch
+	// facing +z sets it to +1: alpha test NEVER keeps it from drawing, texturing off from touching the
+	// texture cache, and the registers it uses go back to the context's values. Only the software renderer
+	// keeps that sign, and on the hardware renderers the patch made about 70 dumps replay black.
+	if (PSP_CoreParameter().gpuCore != GPUCORE_SOFTWARE) {
+		return;
+	}
+	if (resetPatch_ == 0) {
+		u32 size = 16 * 3 * 4;
+		resetPatch_ = userMemory.Alloc(size, true, "Reset patch");
+		if (resetPatch_ == (u32)-1)
+			resetPatch_ = 0;
+		for (int i = 0; resetPatch_ != 0 && i < 16; ++i) {
+			Memory::WriteUnchecked_Float(0.01f * (float)(i & 3), resetPatch_ + i * 12 + 0);
+			Memory::WriteUnchecked_Float(0.01f * (float)(i >> 2), resetPatch_ + i * 12 + 4);
+			Memory::WriteUnchecked_Float(0.0f, resetPatch_ + i * 12 + 8);
+		}
+	}
+	if (resetPatch_ != 0) {
+		const u32 words[] = {
+			((u32)GE_CMD_TEXTUREMAPENABLE << 24) | 0,
+			((u32)GE_CMD_ALPHATESTENABLE << 24) | 1,
+			((u32)GE_CMD_ALPHATEST << 24) | 0,
+			((u32)GE_CMD_VERTEXTYPE << 24) | GE_VTYPE_POS_FLOAT,
+			((u32)GE_CMD_BASE << 24) | ((resetPatch_ >> 8) & 0x00FF0000),
+			((u32)GE_CMD_VADDR << 24) | (resetPatch_ & 0x00FFFFFF),
+			((u32)GE_CMD_PATCHDIVISION << 24) | 1 | (1 << 8),
+			((u32)GE_CMD_PATCHPRIMITIVE << 24) | GE_PATCHPRIM_POINTS,
+			((u32)GE_CMD_PATCHFACING << 24) | 0,
+			((u32)GE_CMD_BEZIER << 24) | 4 | (4 << 8),
+			gstate.textureMapEnable, gstate.alphaTestEnable, gstate.alphatest, gstate.vertType, gstate.base,
+			((u32)GE_CMD_VADDR << 24) | (gstate_c.vertexAddr & 0x00FFFFFF), gstate.patchdivision, gstate.patchprimitive, gstate.patchfacing,
+		};
+		execListQueue.insert(execListQueue.end(), std::begin(words), std::end(words));
+	}
 }
 
 // The drawing-space bounds of a through mode draw's vertices, or false if they aren't simple to read
@@ -739,13 +778,29 @@ void DumpExecute::MarkDrawn(u32 prim) {
 			return;
 	}
 
+	// Real frames draw to a few targets with a few distinct areas, but a crafted dump can make every
+	// prim new, and each one is checked against all the others. Past these, coarsen instead.
+	const size_t MAX_TARGETS = 1024;
+	const size_t MAX_RECTS = 64;
 	auto add = [&](u32 base, u32 strideBytes, u32 bytesPerPixel, const DrawnRect &rect) {
+		if (drawnTargets_.size() >= MAX_TARGETS && drawnTargets_.find(base) == drawnTargets_.end())
+			return;
 		DrawnTarget &t = drawnTargets_[base];
 		t.strideBytes = strideBytes;
 		t.bpp = bytesPerPixel;
 		for (const DrawnRect &r : t.rects) {
 			if (r.Contains(rect.x1, rect.y1) && r.Contains(rect.x2, rect.y2))
 				return;
+		}
+		if (t.rects.size() >= MAX_RECTS) {
+			// Merge everything into one bounding box. That can only skip more in CopyAroundDrawn.
+			DrawnRect u = rect;
+			for (const DrawnRect &r : t.rects) {
+				u = DrawnRect{ std::min(u.x1, r.x1), std::min(u.y1, r.y1), std::max(u.x2, r.x2), std::max(u.y2, r.y2) };
+			}
+			t.rects.clear();
+			t.rects.push_back(u);
+			return;
 		}
 		t.rects.push_back(rect);
 	};
@@ -1077,6 +1132,12 @@ void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 	haveDisplay_ = disp->topaddr.ptr != 0;
 	if (!haveDisplay_)
 		return;
+	// The dump is a file, so check what sceDisplaySetFramebuf would have.
+	if ((disp->topaddr.ptr & 0xF) != 0 || disp->linesize <= 0 || (disp->linesize & 0x3F) != 0 || disp->linesize > 4096 || disp->pixelFormat < 0 || disp->pixelFormat > GE_FORMAT_8888) {
+		ERROR_LOG(Log::G3D, "Bad display in dump: %08x, stride %d, format %d", disp->topaddr.ptr, disp->linesize, disp->pixelFormat);
+		haveDisplay_ = false;
+		return;
+	}
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
 	if (allowFlip) {
 		__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
@@ -1095,6 +1156,8 @@ void DumpExecute::EdramTrans(u32 ptr, u32 sz) {
 }
 
 DumpExecute::~DumpExecute() {
+	if (resetPatch_ != 0)
+		userMemory.Free(resetPatch_);
 	execMemcpyDest = 0;
 	if (execListBuf) {
 		userMemory.Free(execListBuf);

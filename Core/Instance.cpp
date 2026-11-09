@@ -25,6 +25,9 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include <semaphore.h>
+#endif
 #endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -49,6 +52,39 @@ static HANDLE mapLock = nullptr;
 #else
 static int hIDMapFile = -1;
 static long BUF_SIZE = 4096;
+#endif
+
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__) && !PPSSPP_PLATFORM(SWITCH)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+// flock() on shm fails with ENOTSUP on Darwin.
+static sem_t *counterLock = SEM_FAILED;
+
+static bool LockCounter() {
+	counterLock = sem_open("/PPSSPP_ID_lock", O_CREAT, S_IRUSR | S_IWUSR, 1);
+	if (counterLock == SEM_FAILED) {
+		return false;
+	}
+	// A holder that died never posts, so take it anyway after a second.
+	for (int i = 0; i < 100 && sem_trywait(counterLock) != 0; i++) {
+		usleep(10000);
+	}
+	return true;
+}
+
+static void UnlockCounter() {
+	sem_post(counterLock);
+	sem_close(counterLock);
+	counterLock = SEM_FAILED;
+}
+#else
+static bool LockCounter() {
+	return flock(hIDMapFile, LOCK_EX) == 0;
+}
+
+static void UnlockCounter() {
+	flock(hIDMapFile, LOCK_UN);
+}
+#endif
 #endif
 
 struct InstanceInfo {
@@ -106,12 +142,12 @@ static bool UpdateInstanceCounter(void (*callback)(volatile InstanceInfo *)) {
 	// pages in RAM and provides no mutual exclusion whatsoever - two instances starting at the
 	// same moment could both read the counter and come away with the same PPSSPP_ID, then both
 	// believe they were the first instance and write the config over each other.
-	if (flock(hIDMapFile, LOCK_EX) == 0) {
+	if (LockCounter()) {
 		callback(buf);
-		flock(hIDMapFile, LOCK_UN);
+		UnlockCounter();
 		result = true;
 	} else {
-		ERROR_LOG(Log::sceNet, "flock(%s) failure: %s", ID_SHM_NAME, GetLastErrorMsg().c_str());
+		ERROR_LOG(Log::sceNet, "Could not lock %s: %s", ID_SHM_NAME, GetLastErrorMsg().c_str());
 	}
 
 	munmap(buf, BUF_SIZE);
@@ -161,7 +197,9 @@ void InitInstanceCounter() {
 	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
 	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
 
-	if (hIDMapFile < 0 || (ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size
+	// macOS fails ftruncate on a shm object that already has a size.
+	struct stat st;
+	if (hIDMapFile < 0 || fstat(hIDMapFile, &st) == -1 || (st.st_size < BUF_SIZE && ftruncate(hIDMapFile, BUF_SIZE) == -1)) {
 		ERROR_LOG(Log::sceNet, "ftruncate(%s) failure.", ID_SHM_NAME);
 		PPSSPP_ID = 1;
 		return;
@@ -185,8 +223,10 @@ void InitInstanceCounter() {
 }
 
 void ShutdownInstanceCounter() {
+	static bool lastInstance = false;
 	UpdateInstanceCounter([](volatile InstanceInfo *buf) {
 		buf->total--;
+		lastInstance = buf->total == 0;
 	});
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -203,7 +243,9 @@ void ShutdownInstanceCounter() {
 #else
 	if (hIDMapFile >= 0) {
 		close(hIDMapFile);
-		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
+		if (lastInstance) {
+			shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
+		}
 		hIDMapFile = -1;
 	}
 #endif
@@ -341,9 +383,12 @@ void InstanceSyncReached(int64_t ms) {
 	const int32_t value = (int32_t)std::min<int64_t>(ms + 1, SYNC_LEFT - 1);
 	syncPublished = value;
 	syncSlots[syncIndex - 1].store(value, std::memory_order_release);
-	// Usually the others are a few microseconds of wall time away, so yield first. Spinning longer
-	// would take the CPU from the instance being waited for.
-	for (int tries = 0; ; tries++) {
+	// Usually the others are a few microseconds of wall time away, so yield (which gives the CPU to
+	// the instance being waited for if it needs it). Only sleep once the wait has gone on for a while:
+	// a short sleep takes a millisecond or more, 15.6 ms on Windows by default, and at the tests' 8x to
+	// 16x speed one per emulated millisecond slows them down tenfold.
+	const double start = time_now_d();
+	for (;;) {
 		const double now = time_now_d();
 		bool behind = false;
 		for (int i = 0; i < syncCount && !behind; i++) {
@@ -354,7 +399,7 @@ void InstanceSyncReached(int64_t ms) {
 		if (!behind) {
 			return;
 		}
-		if (tries < 16) {
+		if (now - start < 0.005) {
 			std::this_thread::yield();
 		} else {
 			std::this_thread::sleep_for(std::chrono::microseconds(50));

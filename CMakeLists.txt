@@ -111,9 +111,6 @@ if(CMAKE_CXX_COMPILER MATCHES "webos" OR
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/Modules)
-if(NOT IOS)
-	list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/sdl)
-endif()
 
 include(CheckCXXSourceCompiles)
 include(GNUInstallDirs)
@@ -153,6 +150,14 @@ if(IOS)
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
+	if(CMAKE_GENERATOR STREQUAL "Xcode")
+		# CMake hardcodes the scheme's Archive action to Release, so Release is what we archive.
+		# Give it full debug info, for the dSYM (the installed binary is still stripped).
+		add_compile_options($<$<CONFIG:Release>:-g>)
+		# Archiving strips every target, which takes the debug info out of the static libraries before
+		# the app links them, leaving the dSYM with only the app's own files. The app target turns it back on.
+		set(CMAKE_XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT NO)
+	endif()
 	if(IOS_APP_STORE)
 		add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
 		message("iOS App Store build")
@@ -329,7 +334,7 @@ elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
-# The iOS app is Vulkan (MoltenVK) only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
+# The iOS app is Metal only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
 if(IOS AND NOT LIBRETRO)
 	set(NO_OPENGL ON)
 endif()
@@ -905,6 +910,8 @@ if(ANDROID)
 		android/jni/AndroidEGLGraphicsContext.h
 		android/jni/OboeContext.cpp
 		android/jni/OboeContext.h
+		android/jni/PerformanceHint.cpp
+		android/jni/PerformanceHint.h
 	)
 	# No target
 elseif(IOS AND NOT LIBRETRO)
@@ -1260,6 +1267,10 @@ set(NativeAssets
 	assets/Roboto_Condensed-Light.ttf
 	assets/Roboto_Condensed-Bold.ttf
 	assets/Roboto_Condensed-Italic.ttf
+	assets/Roboto_SemiCondensed-Regular.ttf
+	assets/Roboto_SemiCondensed-Light.ttf
+	assets/Roboto_SemiCondensed-Bold.ttf
+	assets/Roboto_SemiCondensed-Italic.ttf
 	assets/Inconsolata-Regular.ttf
 	assets/compat.ini
 	assets/adhoc-servers.json
@@ -1381,6 +1392,7 @@ if(UNITTEST)
 		unittest/TestZipSlip.cpp
 		unittest/TestPS1Eboot.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestKirk.cpp
 		unittest/TestCwCheat.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
@@ -1566,11 +1578,6 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	if(TVOS)
-		set(MOLTENVK_SLICE tvos-arm64)
-	else()
-		set(MOLTENVK_SLICE ios-arm64)
-	endif()
 	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
 
 	set_source_files_properties(${RSRC_XIB_FILES}
@@ -1583,15 +1590,6 @@ if(IOS AND NOT LIBRETRO)
 	#else()
 	set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
-
-	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
-	# The simulator renders with Metal only, and loads no Vulkan (see PPSSPP_VK_STATIC).
-	if(IOS_PLATFORM STREQUAL "SIMULATOR")
-		set(MOLTENVK_LIB "")
-	else()
-		set(MOLTENVK_LIB "${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a")
-	endif()
-	target_link_libraries(${TargetBin} ${MOLTENVK_LIB})
 
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
@@ -1632,9 +1630,6 @@ if(IOS AND NOT LIBRETRO)
 	)
 
 	target_compile_options(${TargetBin} PRIVATE
-		$<$<CONFIG:Release>:-g -gline-tables-only>
-	)
-	target_compile_options(${TargetBin} PRIVATE
 		$<$<CONFIG:RelWithDebInfo>:-g>
 	)
 	set_target_properties(${TargetBin} PROPERTIES
@@ -1655,6 +1650,10 @@ if(IOS AND NOT LIBRETRO)
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 
 		XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
+		# CMake points CONFIGURATION_BUILD_DIR (the default dSYM folder) into the CMake build dir,
+		# where Archive doesn't look, so the dSYM never made it into the .xcarchive. Archive overrides
+		# SYMROOT with its own BuildProductsPath, which it collects dSYMs from.
+		XCODE_ATTRIBUTE_DWARF_DSYM_FOLDER_PATH "$(SYMROOT)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
 		XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
 		XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
 
@@ -1696,7 +1695,6 @@ if(IOS AND NOT LIBRETRO)
 		# PPSSPPHeadless as an app of its own (org.ppsspp.headless), for running frame dumps on a
 		# device. Signed for development, so devicectl can copy files in and out of its container.
 		target_link_libraries(PPSSPPHeadless
-			${MOLTENVK_LIB}
 			"-framework Foundation -framework UIKit -framework CoreGraphics -framework CoreText -framework QuartzCore -framework Metal -framework IOSurface -framework AudioToolbox -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework UniformTypeIdentifiers"
 		)
 		if(NOT ICONV_LIBRARY)

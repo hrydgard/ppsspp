@@ -473,6 +473,15 @@ public:
 		enabledPtr_ = disabled;
 		enabledMeansDisabled_ = true;
 	}
+	// The bool set by SetEnabledPtr or SetDisabledPtr (*meansDisabled says which), or null.
+	const bool *GetEnabledPtr(bool *meansDisabled) const {
+		*meansDisabled = enabledMeansDisabled_;
+		return enabledPtr_;
+	}
+	// Shown when the user tries to activate the view while it's disabled, instead of the
+	// message worked out from the enabled pointer (see SetDisabledActivationCallback).
+	void SetDisabledReason(std::string_view reason) { disabledReason_ = reason; }
+	const std::string &GetDisabledReason() const { return disabledReason_; }
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -539,6 +548,7 @@ private:
 	bool enabled_ = true;
 	bool enabledMeansDisabled_ = false;
 	bool alwaysVisibleInSearch_ = false;
+	std::string disabledReason_;
 
 	DISALLOW_COPY_AND_ASSIGN(View);
 };
@@ -553,7 +563,6 @@ public:
 	bool Touch(const TouchInput &input) override { return false; }
 	bool CanBeFocused() const override { return false; }
 };
-
 
 // All these light up their background when touched, or have focus.
 class Clickable : public View {
@@ -583,6 +592,8 @@ protected:
 	bool dragging_ = false;
 	bool down_ = false;
 	bool highlighted_ = false;
+	// A touch went down on this while disabled.
+	bool disabledTap_ = false;
 };
 
 // TODO: Very similar to Choice, should probably merge them.
@@ -625,26 +636,6 @@ private:
 	int paddingH_ = 8;
 	float scale_ = 1.0f;
 	bool ignoreText_ = false;
-};
-
-class RadioButton : public Clickable {
-public:
-	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
-	void Draw(UIContext &dc) override;
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	std::string DescribeText() const override;
-
-private:
-	void ClickInternal() override;
-	int *value_;
-	int thisButtonValue_;
-	std::string text_;
-	const float paddingW_ = 8;
-	const float paddingH_ = 4;
-
-	const float radioRadius_ = 16.0f;
-	const float radioInnerRadius_ = 8.0f;
 };
 
 class Slider : public Clickable {
@@ -750,9 +741,34 @@ class ClickableItem : public Clickable {
 public:
 	ClickableItem(LayoutParams *layoutParams);
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
 
 	// Draws the item background.
 	void Draw(UIContext &dc) override;
+
+	// Small explanatory text under the item, part of it (highlighted and clicked along with it).
+	// Drawn by Choice and CheckBox and RadioButton.
+	void SetHintText(std::string_view text) {
+		hintText_ = text;
+	}
+	const std::string &GetHintText() const {
+		return hintText_;
+	}
+
+protected:
+	// The item's bounds without the hint below.
+	Bounds ContentBounds() const {
+		Bounds b = bounds_;
+		b.h -= hintHeight_;
+		return b;
+	}
+	void DrawHint(UIContext &dc, const Style &style) const;
+	// Where the hint starts, from the item's left edge. Items whose text doesn't start at the
+	// default padding override this, to line the hint up with it.
+	virtual float HintIndent() const;
+
+	std::string hintText_;
+	float hintHeight_ = 0.0f;
 };
 
 // Use to trigger something or open a submenu screen.
@@ -862,6 +878,7 @@ protected:
 
 class InfoItem : public Item {
 public:
+	// If you pass an empty string for rightText, it will be left blank.
 	InfoItem(std::string_view text, std::string_view rightText, LayoutParams *layoutParams = nullptr);
 	InfoItem(std::string_view text, int rightValue, LayoutParams *layoutParams = nullptr);
 
@@ -939,12 +956,9 @@ private:
 
 class PopupHeader : public Item {
 public:
-	PopupHeader(std::string_view text, LayoutParams *layoutParams = 0)
-		: Item(layoutParams), text_(text) {
-			layoutParams_->width = FILL_PARENT;
-			layoutParams_->height = 64;
-	}
+	PopupHeader(std::string_view text, LayoutParams *layoutParams = 0);
 	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	std::string DescribeText() const override;
 
 private:
@@ -980,6 +994,30 @@ protected:
 	std::string text_;
 	std::string smallText_;
 	ImageID imageID_;
+};
+
+class RadioButton : public ClickableItem {
+public:
+	RadioButton(int *value, int thisButtonValue, std::string_view text, LayoutParams *layoutParams = nullptr)
+		: ClickableItem(layoutParams), value_(value), thisButtonValue_(thisButtonValue), text_(text) {}
+	void Draw(UIContext &dc) override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	std::string DescribeText() const override;
+
+protected:
+	float HintIndent() const override { return paddingW_ * 2.0f + radioRadius_ * 2.0f; }
+
+private:
+	void ClickInternal() override;
+	int *value_;
+	int thisButtonValue_;
+	std::string text_;
+	// Same as CheckBox.
+	const float paddingW_ = 12;
+
+	// Half the size of the I_RADIO_* images.
+	const float radioRadius_ = 16.0f;
 };
 
 class CollapsibleHeader : public CheckBox {

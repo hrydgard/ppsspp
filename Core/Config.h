@@ -468,6 +468,7 @@ public:
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
+	float fGameListScale;
 	int iBackgroundAnimation;  // enum BackgroundAnimation
 	bool bTransparentBackground;
 	int iSettingsCurrentTab;
@@ -601,7 +602,10 @@ public:
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
-	// SystemParam
+	// SystemParam settings - well, they are queries by systemparam but they're actually stored in the registry.
+	// So now, we mirror these out into the actual registry.
+	int iSceRegCategoryVersion;  // The version of the registry. Resets to 1 if you install an older firmware. The system will reject too-new regs and rewrite too-old ones.
+
 	std::string sNickName;  // AdHoc and system nickname
 	std::string sMACAddress;
 	// The Fuse ID of the PSP a game patch was installed on (12 hex digits), to decrypt it with.
@@ -610,13 +614,20 @@ public:
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
-	int iTimeZone;
+	int iTimeZoneOffset;
+	std::string sTimeZoneArea;
 	bool bDayLightSavings;
 	int iButtonPreference;
 	int iLockParentalLevel;
 	bool bEncryptSave;
 	// /CONFIG/SYSTEM/umd_autoboot: whether the VSH starts an inserted disc by itself.
 	bool bVshUmdAutoboot;
+	// /CONFIG/SYSTEM/XMB (language and button_assign are iLanguage and iButtonPreference).
+	int iXmbThemeType;
+	int iXmbThemeColorMode;
+	int iXmbThemeWallpaperMode;
+	int iXmbThemeSystemColor;
+	int iXmbThemeCustomThemeMode;
 
 	// Networking
 	bool bEnableAdhocServer;
@@ -788,6 +799,7 @@ public:
 	void SetSearchPath(const Path &path);
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
+	const Path &IniFilename() const { return iniFilename_; }
 
 	bool SupportsUpgradeCheck() const;
 	void CheckForUpdate();

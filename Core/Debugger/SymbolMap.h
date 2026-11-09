@@ -164,7 +164,9 @@ public:
 	// store: -1 means "work it out from the address", and an address in no module is module 0
 	// ("absolute"), never -1. See the implementation for why that distinction matters.
 	int ResolveModuleIndex(u32 address, int moduleIndex);
-	bool IsModuleActive(int moduleIndex);
+	bool IsModuleActive(int moduleIndex) const;
+	// Unused by any module so far, including ones loaded from a symbol map.
+	int NextModuleIndex() const;
 	std::vector<LoadedModuleInfo> getAllModules() const;
 
 	// updateName controls whether an existing label at this address gets its name overwritten -

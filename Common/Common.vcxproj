@@ -593,6 +593,7 @@
     <ClInclude Include="VR\VRInput.h" />
     <ClInclude Include="VR\VRMath.h" />
     <ClInclude Include="VR\VRRenderer.h" />
+    <ClInclude Include="VR\VRVulkan.h" />
     <ClInclude Include="x64Analyzer.h" />
     <ClInclude Include="x64Emitter.h" />
   </ItemGroup>
@@ -971,6 +972,8 @@
     <ClCompile Include="..\ext\lzma-sdk\7zFile.c" />
     <ClCompile Include="..\ext\lzma-sdk\7zStream.c" />
     <ClCompile Include="..\ext\lzma-sdk\Bcj2.c" />
+    <ClCompile Include="..\ext\lzma-sdk\Bra.c" />
+    <ClCompile Include="..\ext\lzma-sdk\Bra86.c" />
     <ClCompile Include="..\ext\lzma-sdk\CpuArch.c" />
     <ClCompile Include="..\ext\lzma-sdk\Delta.c" />
     <ClCompile Include="..\ext\lzma-sdk\Lzma2Dec.c" />
@@ -1147,6 +1150,7 @@
     <ClCompile Include="VR\VRInput.cpp" />
     <ClCompile Include="VR\VRMath.cpp" />
     <ClCompile Include="VR\VRRenderer.cpp" />
+    <ClCompile Include="VR\VRVulkan.cpp" />
     <ClCompile Include="x64Analyzer.cpp" />
     <ClCompile Include="x64Emitter.cpp" />
   </ItemGroup>

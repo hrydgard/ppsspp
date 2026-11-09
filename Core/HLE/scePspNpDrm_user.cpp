@@ -59,7 +59,8 @@ static bool isEncrypted(u32 edataFd) {
 	
 	// Read 8 bytes from the file
 	u8 header[8];
-	size_t bytesRead = pspFileSystem.ReadFile(fileHandle, header, 8);
+	// Negative on error.
+	s64 bytesRead = pspFileSystem.ReadFile(fileHandle, header, 8);
 	
 	// Restore the original file position
 	pspFileSystem.SeekFile(fileHandle, (s32)originalPos, FILEMOVE_BEGIN);

@@ -744,6 +744,7 @@
     <ClCompile Include="Util\GameDB.cpp" />
     <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\MemStick.cpp" />
+    <ClCompile Include="Util\StorageTest.cpp" />
     <ClCompile Include="Util\PathUtil.cpp" />
     <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
@@ -1078,6 +1079,7 @@
     <ClInclude Include="Util\GameDB.h" />
     <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\MemStick.h" />
+    <ClInclude Include="Util\StorageTest.h" />
     <ClInclude Include="Util\PathUtil.h" />
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />

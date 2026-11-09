@@ -134,8 +134,19 @@ bool ViewGroup::Key(const KeyInput &input) {
 	bool ret = false;
 	for (View *view : views_) {
 		// TODO: If there is a transformation active, transform input coordinates accordingly.
-		if (view->GetVisibility() == V_VISIBLE)
-			ret = ret || view->Key(input);
+		if (view->GetVisibility() != V_VISIBLE) {
+			continue;
+		}
+		// Disabled views can have focus, but must not be activated. Groups pass keys on to
+		// their children regardless, like CollectTabOrder.
+		if (!view->IsEnabled() && !view->IsViewGroup()) {
+			if (view->HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT) && IsAcceptKey(input)) {
+				NotifyDisabledActivation(view);
+				ret = true;
+			}
+			continue;
+		}
+		ret = ret || view->Key(input);
 	}
 	return ret;
 }
@@ -407,7 +418,8 @@ bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, cons
 }
 
 static bool CanTakeFocus(const View *view) {
-	return view->CanBeFocused() && view->IsEnabled() && view->GetVisibility() == V_VISIBLE;
+	// Disabled views can be focused too (they ignore keys, see Key()).
+	return view->CanBeFocused() && view->GetVisibility() == V_VISIBLE;
 }
 
 float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
@@ -554,11 +566,11 @@ void ViewGroup::CollectTabOrder(std::vector<View *> *outViews) const {
 			// A group can be focusable itself (rare), in which case it's a stop and we still
 			// descend into it - same as arrow navigation, which considers both.
 			ViewGroup *vg = static_cast<ViewGroup *>(view);
-			if (vg->CanBeFocused() && vg->IsEnabled()) {
+			if (vg->CanBeFocused()) {
 				outViews->push_back(vg);
 			}
 			vg->CollectTabOrder(outViews);
-		} else if (view->CanBeFocused() && view->IsEnabled()) {
+		} else if (view->CanBeFocused()) {
 			outViews->push_back(view);
 		}
 	}
@@ -709,7 +721,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		if (horiz.type == AT_MOST && measuredWidth_ < horiz.size) {
-			measuredWidth_ += usedWidth;
+			measuredWidth_ = std::min(measuredWidth_ + usedWidth, horiz.size);
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
@@ -757,7 +769,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
-			measuredHeight_ += usedHeight;
+			measuredHeight_ = std::min(measuredHeight_ + usedHeight, vert.size);
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
@@ -840,7 +852,7 @@ void LinearLayout::Layout() {
 
 // Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 // Ignores invisible views.
-void LinearLayout::ApplyRoundCorners(RoundCorners outerCorners) {
+void LinearLayout::SetRoundCorners(RoundCorners outerCorners) {
 	// Easy case first: There's spacing, just apply round corners to all subviews.
 	if (spacing_ > 0.0f) {
 		for (View *view : views_) {
@@ -885,7 +897,14 @@ ChoiceGroup::ChoiceGroup(std::string_view title, LayoutParams *layoutParams)
 
 ChoiceGroupList::ChoiceGroupList(LayoutParams *layoutParams)
 	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
-	SetPadding(Margins(12, 12, 8, 12));
+	SetPadding(Margins(12, 12, 12, 12));
+	SetSpacing(24.0f);
+}
+
+PopupChoiceGroupList::PopupChoiceGroupList(LayoutParams *layoutParams)
+	: LinearLayoutList(ORIENT_VERTICAL, layoutParams ? layoutParams : new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)) {
+	// Padding is already present in the popup itself. Just add a little more.
+	SetPadding(Margins(0));
 	SetSpacing(24.0f);
 }
 
@@ -897,7 +916,7 @@ void ChoiceGroup::Draw(UIContext &dc) {
 
 	// Maybe we should require the user to Finish() the ChoiceGroup instead of running this every frame.
 	// At least it's not recursive.
-	ApplyRoundCorners(RoundCorners::All);
+	SetRoundCorners(RoundCorners::All);
 
 	// Draw a roundrect as background.
 	LinearLayout::Draw(dc);
@@ -908,6 +927,130 @@ void ChoiceGroup::Draw(UIContext &dc) {
 		const Bounds &titleBounds = views_[i]->GetBounds();
 		dc.FillRect(dc.)
 	}*/
+}
+
+static Margins FlowLayoutMargins(const View *view) {
+	const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+	return (lp && lp->HasMargins()) ? lp->margins : Margins(0);
+}
+
+static float FlowLayoutWeight(const View *view) {
+	const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+	return lp ? lp->weight : 0.0f;
+}
+
+void FlowLayout::BuildRows(float maxWidth, std::vector<Row> *rows) const {
+	rows->clear();
+	Row row{};
+	bool rowOpen = false;
+	for (size_t i = 0; i < views_.size(); i++) {
+		const View *view = views_[i];
+		if (view->GetVisibility() == V_GONE)
+			continue;
+		const Margins margins = FlowLayoutMargins(view);
+		const float w = view->GetMeasuredWidth() + margins.horiz();
+		const float h = view->GetMeasuredHeight() + margins.vert();
+		if (rowOpen && row.width + spacing_ + w > maxWidth) {
+			rows->push_back(row);
+			rowOpen = false;
+		}
+		if (!rowOpen) {
+			row = Row{ i, i + 1, w, h, FlowLayoutWeight(view) };
+			rowOpen = true;
+		} else {
+			row.end = i + 1;
+			row.width += spacing_ + w;
+			row.height = std::max(row.height, h);
+			row.weightSum += FlowLayoutWeight(view);
+		}
+	}
+	if (rowOpen) {
+		rows->push_back(row);
+	}
+}
+
+void FlowLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {
+	// Without a width limit, everything goes on one row.
+	float maxWidth = INFINITY;
+	if (horiz.type != UNSPECIFIED) {
+		maxWidth = std::max(0.0f, horiz.size - padding_.horiz());
+	}
+	if (layoutParams_->width > 0.0f) {
+		maxWidth = std::min(maxWidth, std::max(0.0f, layoutParams_->width - padding_.horiz()));
+	}
+
+	for (View *view : views_) {
+		if (view->GetVisibility() == V_GONE)
+			continue;
+		const Margins margins = FlowLayoutMargins(view);
+		view->Measure(dc, MeasureSpec(UNSPECIFIED, 0.0f), MeasureSpec(UNSPECIFIED, 0.0f));
+		if (view->GetMeasuredWidth() + margins.horiz() > maxWidth) {
+			// Too wide even for a row of its own, so let it wrap its text or shrink.
+			view->Measure(dc, MeasureSpec(AT_MOST, std::max(0.0f, maxWidth - margins.horiz())), MeasureSpec(UNSPECIFIED, 0.0f));
+		}
+	}
+
+	std::vector<Row> rows;
+	BuildRows(maxWidth, &rows);
+
+	float contentWidth = 0.0f;
+	float contentHeight = 0.0f;
+	for (const Row &row : rows) {
+		contentWidth = std::max(contentWidth, row.width);
+		contentHeight += row.height;
+	}
+	if (!rows.empty()) {
+		contentHeight += rowSpacing_ * (rows.size() - 1);
+	}
+
+	MeasureBySpec(layoutParams_->width, contentWidth + padding_.horiz(), horiz, &measuredWidth_);
+	MeasureBySpec(layoutParams_->height, contentHeight + padding_.vert(), vert, &measuredHeight_);
+}
+
+void FlowLayout::Layout() {
+	const float maxWidth = bounds_.w - padding_.horiz();
+	std::vector<Row> rows;
+	BuildRows(maxWidth, &rows);
+
+	float y = bounds_.y + padding_.top;
+	for (const Row &row : rows) {
+		const float leftover = std::max(0.0f, maxWidth - row.width);
+		float x = bounds_.x + padding_.left;
+		if (row.weightSum <= 0.0f) {
+			const Gravity rowGravity = (Gravity)((int)rowGravity_ & (int)Gravity::G_HORIZMASK);
+			if (rowGravity == Gravity::G_RIGHT) {
+				x += leftover;
+			} else if (rowGravity == Gravity::G_HCENTER) {
+				x += leftover * 0.5f;
+			}
+		}
+
+		for (size_t i = row.first; i < row.end; i++) {
+			View *view = views_[i];
+			if (view->GetVisibility() == V_GONE)
+				continue;
+			const LinearLayoutParams *lp = view->GetLayoutParams()->As<LinearLayoutParams>();
+			const Margins margins = FlowLayoutMargins(view);
+			const float weight = FlowLayoutWeight(view);
+			const Gravity gravity = lp ? (Gravity)((int)lp->gravity & (int)Gravity::G_VERTMASK) : Gravity::G_TOP;
+
+			float w = view->GetMeasuredWidth() + margins.horiz();
+			float innerWidth = view->GetMeasuredWidth();
+			if (weight > 0.0f && row.weightSum > 0.0f) {
+				w += leftover * weight / row.weightSum;
+				innerWidth = w - margins.horiz();
+			}
+
+			Bounds itemBounds(x, y, w, row.height);
+			Bounds innerBounds;
+			ApplyGravity(itemBounds, margins, innerWidth, view->GetMeasuredHeight(), gravity, innerBounds);
+			view->SetBounds(innerBounds);
+			view->Layout();
+
+			x += w + spacing_;
+		}
+		y += row.height + rowSpacing_;
+	}
 }
 
 void AnchorLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) {

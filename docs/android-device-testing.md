@@ -26,11 +26,10 @@ Verify after every install, not just when something looks odd:
 A second, independent check is worth it when a result is surprising: grep the log for a symbol that
 exists only on the branch under test (a renamed class or log tag, say).
 
-The version string itself can also lie. The Android build regenerates `git-version.cpp` but does not
-always recompile it, so the APK can carry the previous build's string while containing current code.
-When the version matters:
-
-    find android/.cxx -name git-version.cpp.o -delete
+The version string in the app's UI used to lie as well: Ninja regenerated `git-version.cpp` but didn't
+recompile it, so the APK could carry an older commit's string. That's fixed (the file is now declared
+as a `BYPRODUCTS` of the generating step in `Core/CMakeLists.txt`), so on a build directory that has
+been reconfigured since, the string matches the commit the APK was built from.
 
 ## Forcing an activity recreate without touching the device
 
@@ -71,6 +70,19 @@ stable across repeated trims. After: the same 13 recreates settled back to 1 and
 A JNI global reference is a GC root, so an activity pinned by one shows up here. This is a usable
 check for JNI ownership bugs, not only Java ones.
 
+### LeakCanary and StrictMode
+
+Debug builds set a StrictMode VM policy that logs leaked closables, unregistered receivers and leaked
+activities under the tag `StrictMode`. Building with `-PleakCanary` also adds LeakCanary to the debug
+build: it logs `Watching instance of ...` for each destroyed activity, and `Found N objects retained`
+(then dumps and analyses the heap) only if one isn't collected. No such line after a run of recreates
+means nothing was retained. It adds a second launcher activity to the package, so start the app with
+`adb shell am start -n org.ppsspp.ppsspp/.PpssppActivity` rather than `monkey`, which can pick
+LeakCanary's.
+
+On a device where `persist.log.tag` is `S`, enable the tags first:
+`adb shell setprop log.tag.LeakCanary V`, and the same for `StrictMode`.
+
 ## logcat on a noisy device
 
 Filter to the process, since the tag alone is not enough:
@@ -82,6 +94,53 @@ away within seconds, which reads as "logging stopped" rather than "logging was l
 *before* launching the app instead:
 
     adb logcat -c && adb logcat -s PPSSPP:V PpssppActivity:V   # in the background, then start the app
+
+## Starting the app with options
+
+    python Tools/android_run.py --build --start-screen=memstick   # build, install, open the memory stick screen
+    python Tools/android_run.py --log --start-screen=firmware     # and follow the app's log
+
+It force-stops the app first, since options are only read at startup, and passes them in the
+`org.ppsspp.ppsspp.Args` intent extra. (`memstick` is the memory stick screen as opened from the
+settings, `memsticksetup` the first-boot one.) It also sets `log.tag.PPSSPP` to `V`: some devices default every
+tag to silent (`persist.log.tag` is `S`), and then logcat busily shows other apps but never a line of ours. The `--start-screen` names are in `NativeInit()` in `UI/NativeApp.cpp`.
+
+## Running the C++ unit tests on a device
+
+CI builds the Android unit test executable but doesn't run it. To run it on a connected device:
+
+    python Tools/android_unittest.py --build        # build for arm64-v8a, push, run everything
+    python Tools/android_unittest.py Path VFS       # just these, with the binary already built
+
+It runs each test as its own process (a crash would otherwise swallow the buffered output of every test
+before it), keeps each test's output in `android/unittest_logs/`, and prints the command to re-run only the
+failures. Worth doing before a release, and after changing `Common/File` or anything with an
+`#if PPSSPP_PLATFORM(ANDROID)` branch, which desktop unit tests compile out.
+
+Two things to know when reading its results:
+
+- The executable has no Java VM, so content URIs fail like missing files there. They're only exercised
+  for real inside the app, by the storage tests below.
+- From Git Bash, set `MSYS_NO_PATHCONV=1` before any `adb push`/`adb shell` of your own, or
+  `/data/local/tmp` gets rewritten into a Windows path and the push silently lands somewhere else.
+
+## Running the storage tests in the app
+
+`Core/Util/StorageTest.cpp` exercises the file functions (create, overwrite, list, rename, move, copy,
+delete, odd names, free space) and the memory stick move (rename, copy, undo, folder checks) in a scratch
+folder, and times the calls the emulator makes most. The
+`Storage` unit test runs them on a native folder; to run them on a picked folder, through the content
+URI code:
+
+    python Tools/android_storage_test.py --build    # build and install the normal debug APK, then run
+    python Tools/android_storage_test.py            # with what's installed
+
+That starts the app with `--start-screen=storagetest`. The first time, tap Choose folder on the device,
+create a new empty folder in the picker, and choose it. It's remembered (in `storage_test_dir.txt` in
+the app's internal data), so later runs need no hands and take seconds. Results go to logcat as
+`StorageTest: PASS/FAIL ...` lines, ending with `StorageTest: DONE, N failed`. Run them in a folder on
+an SD card too, if the device has one. Keep the screen on (Stay awake in the developer options) while
+timing: a locked phone throttles the app, and the times double.
 
 ## VR (Quest)
 

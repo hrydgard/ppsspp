@@ -22,8 +22,6 @@ do
 			;;
 		--no-png) CMAKE_ARGS="-DUSE_SYSTEM_LIBPNG=OFF ${CMAKE_ARGS}"
 			;;
-		--no-sdl2) CMAKE_ARGS="-DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
-			;;
 		--rpi-armv6)
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv6.cmake ${CMAKE_ARGS}"
 			;;
@@ -34,17 +32,17 @@ do
 			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/raspberry.armv8.cmake ${CMAKE_ARGS}"
 			;;
 		--loongarch64)
-			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/loongarch64-linux-gnu.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/loongarch64-linux-gnu.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF ${CMAKE_ARGS}"
 			TARGET_OS=loongarch64
 			CROSS_STUB_CC=loongarch64-linux-gnu-gcc-14
 			;;
 		--riscv64)
-			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/riscv64-linux-gnu.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/riscv64-linux-gnu.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF ${CMAKE_ARGS}"
 			TARGET_OS=riscv64
 			CROSS_STUB_CC=riscv64-linux-gnu-gcc-14
 			;;
 		--armhf)
-			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/arm-linux-gnueabihf.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF -DUSE_SYSTEM_LIBSDL2=OFF ${CMAKE_ARGS}"
+			CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/arm-linux-gnueabihf.cmake -DHEADLESS=ON -DHEADLESS_CROSS=ON -DUSE_SYSTEM_LIBPNG=OFF ${CMAKE_ARGS}"
 			TARGET_OS=armhf
 			CROSS_STUB_CC=$(command -v arm-linux-gnueabihf-gcc-14 || command -v arm-linux-gnueabihf-gcc-15 || echo arm-linux-gnueabihf-gcc)
 			;;

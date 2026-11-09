@@ -732,8 +732,11 @@ void CDisasm::Show(bool bShow, bool includeToTop) {
 			// holds while it's actually touching that state. See g_frameMutex in Core.h.
 			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 			CoreShutdownLock coreLock = Core_LockAgainstShutdown();
-			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
-			deferredSymbolFill_ = false;
+			// BOOT_DONE fills it if a boot is still loading modules.
+			if (!PSP_IsBooting()) {
+				g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+				deferredSymbolFill_ = false;
+			}
 		}
 	}
 	Dialog::Show(bShow, includeToTop);
@@ -743,7 +746,11 @@ void CDisasm::NotifyMapLoaded() {
 	if (m_bShowState != SW_HIDE && g_symbolMap) {
 		std::lock_guard<std::mutex> frameGuard(g_frameMutex);
 		CoreShutdownLock coreLock = Core_LockAgainstShutdown();
-		g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+		// The loader thread sends one of these for every module it loads, while it goes on adding
+		// symbols. BOOT_DONE sends another once it's done.
+		if (!PSP_IsBooting()) {
+			g_symbolMap->FillSymbolListBox(GetDlgItem(m_hDlg, IDC_FUNCTIONLIST), ST_FUNCTION);
+		}
 	} else {
 		deferredSymbolFill_ = true;
 	}

@@ -262,6 +262,17 @@ void BinManager::UpdateState() {
 		drawTargetAddr_ = gstate.getFrameBufAddress();
 		DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 		DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
+		// fb.data points into VRAM's mirrors, which end 8MB from its start. A wide 32-bit stride can
+		// reach past that within 1024 rows, so leave out the rows that would.
+		const int fbStride = gstate.FrameBufStride();
+		if (fbStride > 0) {
+			const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+			const int bytesLeft = 0x00800000 - (int)gstate.getFrameBufRawAddress() - (scissorBR.x + 1) * bpp;
+			const int maxY = bytesLeft / (fbStride * bpp);
+			if (scissorBR.y > maxY) {
+				scissorBR.y = maxY;
+			}
+		}
 		ScreenCoords screenScissorTL = TransformUnit::DrawingToScreen(scissorTL, 0);
 		ScreenCoords screenScissorBR = TransformUnit::DrawingToScreen(scissorBR, 0);
 

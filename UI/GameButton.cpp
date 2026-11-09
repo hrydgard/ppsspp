@@ -32,21 +32,13 @@
 #include "UI/GamePacker.h"
 
 
-// Where the text starts in the list modes.
-static float ListTextX(GameBrowserViewMode viewMode) {
-	if (viewMode == GameBrowserViewMode::LARGE_LIST) {
-		return LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale + 20.0f;
-	}
-	return 150.0f;
+// Where the text starts in the list.
+static float ListTextX() {
+	return LIST_LEFT_PAD + LIST_ICON_W * g_Config.fGameListScale + 20.0f;
 }
 
-// Space to the right of the text in the list modes, for the info button.
-static float ListTextRightMargin(GameBrowserViewMode viewMode) {
-	if (viewMode == GameBrowserViewMode::LARGE_LIST) {
-		return LARGE_LIST_INFO_SIZE + LARGE_LIST_PAD * 2;
-	}
-	return 0.0f;
-}
+// Space to the right of the text in the list, for the info button.
+static constexpr float LIST_TEXT_RIGHT_MARGIN = LIST_INFO_SIZE + LIST_PAD * 2;
 
 
 void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVideo) {
@@ -82,6 +74,7 @@ static ImageID ChooseGameIcon(const std::shared_ptr<GameInfo> &ginfo) {
 		// The XMB is an ELF too, but has an icon.
 		return ImageID("I_APP");
 	case IdentifiedFileType::UNKNOWN_ELF: return ImageID("I_APP"); break;
+	case IdentifiedFileType::PSP_PBP_DIRECTORY: return ImageID("I_APP"); break;
 	case IdentifiedFileType::PPSSPP_GE_DUMP: return ImageID("I_DISPLAY"); break;
 	case IdentifiedFileType::PSX_ISO:
 	case IdentifiedFileType::PSP_PS1_PBP: return ImageID("I_PSX_ISO"); break;
@@ -113,17 +106,13 @@ void GameButton::GetContentDimensions(const UIContext &dc, float &w, float &h) c
 		w = 144 * g_Config.fGameGridScale;
 		h = 80 * g_Config.fGameGridScale;
 		break;
-	case GameBrowserViewMode::LARGE_LIST:
+	case GameBrowserViewMode::LIST:
 		w = 500;
 		if (type_ == GameButtonType::Dir) {
 			h = UI::ITEM_HEIGHT;
 		} else {
-			h = LARGE_LIST_ICON_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2;
+			h = LIST_ICON_H * g_Config.fGameListScale + LIST_PAD * 2;
 		}
-		break;
-	default:  // List
-		w = 500;
-		h = 56;
 		break;
 	}
 }
@@ -140,7 +129,7 @@ static const ImageID regionIcons[(int)GameRegion::COUNT] = {
 void GameButton::Draw(UIContext &dc) {
 	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
 	// touch or the mouse, getting a video to play without launching the game was too fiddly.
-	const bool wantVideo = viewMode_ == GameBrowserViewMode::LARGE_LIST && HasFocus() && pmf_player_available();
+	const bool wantVideo = viewMode_ == GameBrowserViewMode::LIST && HasFocus() && pmf_player_available();
 
 	std::shared_ptr<GameInfo> ginfo;
 
@@ -176,9 +165,6 @@ void GameButton::Draw(UIContext &dc) {
 				texture = ginfo->icon.texture;
 				// The type icon is only for when there's no picture, and would be drawn on top of it.
 				imageIcon = ImageID::invalid();
-			} else {
-				// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-				imageIcon = ChooseGameIcon(ginfo);
 			}
 		} else if (gamePath_.Type() == PathType::HTTP) {
 			// Make sure that pending HTTP icons show something, instead of just blank.
@@ -204,7 +190,6 @@ void GameButton::Draw(UIContext &dc) {
 		}
 	}
 
-	u32 color = 0, shadowColor = 0;
 	using namespace UI;
 
 	UI::Style style = dc.GetTheme().itemStyle;
@@ -223,80 +208,82 @@ void GameButton::Draw(UIContext &dc) {
 
 	// Some types we just draw a default icon for.
 	Bounds iconBounds = bounds_;
-	iconBounds.w = viewMode_ == GameBrowserViewMode::GRID ? bounds_.w : 144;
-	if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-		iconBounds.x += LARGE_LIST_LEFT_PAD;
-		iconBounds.y += LARGE_LIST_PAD;
-		iconBounds.w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
-		iconBounds.h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
+	if (viewMode_ == GameBrowserViewMode::LIST) {
+		iconBounds.x += LIST_LEFT_PAD;
+		iconBounds.y += LIST_PAD;
+		iconBounds.w = LIST_ICON_W * g_Config.fGameListScale;
+		iconBounds.h = LIST_ICON_H * g_Config.fGameListScale;
 	}
-	const float textX = ListTextX(viewMode_);
+	const float textX = ListTextX();
 
-	if (texture && ginfo) {
-		color = whiteAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
-		shadowColor = blackAlpha(ease((time_now_d() - ginfo->icon.timeLoaded) * 2));
-		float tw = texture->Width();
-		float th = texture->Height();
-
-		// Adjust position so we don't stretch the image vertically or horizontally.
-		// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
-		float nw = std::min(iconBounds.h * tw / th, (float)iconBounds.w);
-		iconBounds.x += (iconBounds.w - nw) / 2.0f;
-		iconBounds.w = nw;
-	}
-
-	int txOffset = down_ ? 4 : 0;
-	if (viewMode_ != GameBrowserViewMode::GRID) {
-		txOffset = 0;
+	int iconYOffset = 0;
+	if (viewMode_ == GameBrowserViewMode::GRID && down_) {
+		iconYOffset = 4;
 	}
 
 	Bounds overlayBounds = bounds_;
 
 	// Render the icon, all modes have this.
-	int dropsize = 10;
 	if (texture) {
-		if (viewMode_ == GameBrowserViewMode::LIST) {
-			iconBounds.x += 4;
+		float alpha = 1.0f;
+		float dropsize = 10;
+
+		if (ginfo) {
+			float loadPhase = ease((time_now_d() - ginfo->icon.timeLoaded) * 2);
+
+			loadPhase = 0.0f;
+
+			alpha = loadPhase;
+
+			float tw = texture->Width();
+			float th = texture->Height();
+			// Adjust position so we don't stretch the image vertically or horizontally.
+			// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+			float nw = std::min(iconBounds.h * tw / th, (float)iconBounds.w);
+			iconBounds.x += (iconBounds.w - nw) / 2.0f;
+			iconBounds.w = nw;
 		}
-		if (txOffset) {
+
+		if (iconYOffset) {
+			// Button pressed, move the icon down a bit and reduce the shadow.
 			dropsize = 3;
-			iconBounds.y += txOffset * 2;
-			overlayBounds.y += txOffset * 2;
+			iconBounds.y += iconYOffset * 2;
+			overlayBounds.y += iconYOffset * 2;
 		}
+
 		if (HasFocus()) {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
 			float pulse = sin(time_now_d() * 7.0) * 0.25 + 0.8;
 
-			dc.DrawRectDropShadow(iconBounds, 10.0f, pulse, alphaMul(color, pulse));
+			dc.DrawRectDropShadow(iconBounds, 10.0f, pulse, style.fgColor);
 			dc.Draw()->Flush();
 		} else {
 			dc.Draw()->Flush();
 			dc.RebindTexture();
-			dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, shadowColor);
-			// dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, x - dropsize, y - dropsize * 0.5f, x + w + dropsize, y + h + dropsize * 1.5, alphaMul(shadowColor, 0.5f), 1.0f);
+			dc.DrawRectDropShadow(iconBounds, 8.0f, 0.7f, 0);
 			dc.Draw()->Flush();
 		}
 
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
-		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, color);
+		dc.Draw()->DrawTexRect(iconBounds, 0, 0, 1, 1, 0xFFFFFFFF);
 		dc.Draw()->Flush();
 	}
 
-	if (viewMode_ == GameBrowserViewMode::GRID && g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
-		std::string_view idStr = id_version;
-		if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
-			auto ga = GetI18NCategory(I18NCat::GAME);
-			idStr = ga->T("SaveData");
-		}
-		dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
-		dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
-		dc.SetFontScale(1.0f, 1.0f);
-	}
-
 	if (viewMode_ == GameBrowserViewMode::GRID) {
+		if (g_Config.bShowIDOnGameIcon && fileType != IdentifiedFileType::PSP_ELF && !id_version.empty()) {
+			std::string_view idStr = id_version;
+			if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
+				auto ga = GetI18NCategory(I18NCat::GAME);
+				idStr = ga->T("SaveData");
+			}
+			dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
+			dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
+			dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
+
 		if (imageIcon.isValid()) {
 			Bounds bounds = bounds_;
 
@@ -343,17 +330,13 @@ void GameButton::Draw(UIContext &dc) {
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
 
 		if (imageIcon.isValid()) {
-			const float textX = ListTextX(viewMode_);
-			if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				const float scale = g_Config.fGameGridScale;
-				dc.Draw()->DrawImage(imageIcon, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
-			} else {
-				dc.Draw()->DrawImage(imageIcon, bounds.x + 72, bounds.centerY(), 0.88f, style.fgColor, ALIGN_CENTER);
-			}
+			// Dirs are fixed height.
+			const float scale = type_ == GameButtonType::Dir ? 1.0f : g_Config.fGameListScale * 0.88f;
+			dc.Draw()->DrawImage(imageIcon, bounds.x + LIST_LEFT_PAD + LIST_ICON_W * g_Config.fGameListScale * 0.5f, bounds.centerY(), scale, style.fgColor, ALIGN_CENTER);
 		}
 
 		float tx = textX;
-		int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode_);
+		int availableWidth = bounds.w - textX - LIST_TEXT_RIGHT_MARGIN;
 		if (!rightText.empty()) {
 			float vw, vh;
 			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
@@ -381,10 +364,8 @@ void GameButton::Draw(UIContext &dc) {
 		if (gearImage) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, iconBounds.y2() - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
-			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_LEFT_PAD, iconBounds.y2() - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, iconBounds.y, 1.0f);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LIST_LEFT_PAD, iconBounds.y2() - gearImage->h * g_Config.fGameListScale, g_Config.fGameListScale);
 			}
 		}
 	}
@@ -396,11 +377,9 @@ void GameButton::Draw(UIContext &dc) {
 			if (viewMode_ == GameBrowserViewMode::GRID) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (regionImage->w + 5) * g_Config.fGameGridScale,
 					iconBounds.y2() - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
-			} else if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - regionImage->w - 5) * g_Config.fGameGridScale,
-					iconBounds.y2() - (regionImage->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, iconBounds.y2() - regionImage->h - 5, 1.0f);
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LIST_LEFT_PAD + (LIST_ICON_W - regionImage->w - 5) * g_Config.fGameListScale,
+					iconBounds.y2() - (regionImage->h + 5) * g_Config.fGameListScale, g_Config.fGameListScale);
 			}
 		}
 	}
@@ -441,7 +420,7 @@ void GameButton::Draw(UIContext &dc) {
 	if (GamePacker::IsPacking(gamePath_) && GamePacker::GetStatus(&packStatus)) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		dc.FillRect(Drawable(0xD0505050), iconBounds);
-		const float scale = viewMode_ == GameBrowserViewMode::GRID || viewMode_ == GameBrowserViewMode::LARGE_LIST ? 0.8f * g_Config.fGameGridScale : 0.6f;
+		const float scale = 0.8f * (viewMode_ == GameBrowserViewMode::GRID ? g_Config.fGameGridScale : g_Config.fGameListScale);
 		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.SetFontScale(scale, scale);
 		const std::string text = std::string(ga->T("Compressing...")) + StringFromFormat("\n%d%%", (int)(packStatus.progress * 100.0f));

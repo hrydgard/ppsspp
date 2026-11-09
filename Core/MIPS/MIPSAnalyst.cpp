@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
+#include "Common/Math/math_util.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
@@ -423,6 +424,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xba76a8e853426baa, 544, "soranokiseki_fc_download_frame", }, // Sora no kiseki FC
 	{ 0xbb3c6592ed319ba4, 132, "sceGuFog", },
 	{ 0xbb7d7c93e4c08577, 124, "__truncdfsf2", },
+	{ 0xbd015888f2167ac9, 532, "koori_download_frame", }, // Koori no Bohyou (NPJH50186)
 	{ 0xbdf54d66079afb96, 200, "sceGuBoneMatrix", },
 	{ 0xbe773f78afd1a70f, 128, "rand", },
 	{ 0xbf5d02ccb8514881, 108, "strcmp", },
@@ -1307,13 +1309,48 @@ namespace MIPSAnalyst {
 			functions.erase(prevMatch, functions.end());
 		}
 
-		RestoreReplacedInstructions(startAddr, endAddr);
+		RemoveReplacements(startAddr, endAddr);
 
 		if (functions.empty()) {
 			hashToFunction.clear();
 		} else if (originalSize != functions.size()) {
 			UpdateHashToFunctionMap();
 		}
+	}
+
+	void ScanFunctionsInRange(u32 addr, u32 size) {
+		addr = RoundDownToMultipleOf(addr, 4);
+		size = RoundUpToMultipleOf(size, 4);
+		bool insertSymbols = ScanForFunctions(addr, addr + size, true);
+		FinalizeScan(insertSymbols);
+	}
+
+	u32 RemoveFunctionsInRange(u32 addr, u32 size) {
+		addr = RoundDownToMultipleOf(addr, 4);
+		size = RoundUpToMultipleOf(size, 4);
+
+		u32 funcAddr = g_symbolMap->GetFunctionStart(addr);
+		if (funcAddr == SymbolMap::INVALID_ADDRESS) {
+			funcAddr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+		}
+
+		u32 count = 0;
+		while (funcAddr < addr + size && funcAddr != SymbolMap::INVALID_ADDRESS) {
+			g_symbolMap->RemoveFunction(funcAddr, true);
+			++count;
+			funcAddr = g_symbolMap->GetNextSymbolAddress(addr, SymbolType::ST_FUNCTION);
+		}
+
+		if (count) {
+			ForgetFunctions(addr, addr + size);
+			g_symbolMap->SortSymbols();
+			UpdateHashMap();
+			ApplyHashMap();
+			if (g_Config.bFuncReplacements) {
+				ReplaceFunctions();
+			}
+		}
+		return count;
 	}
 
 	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out) {
@@ -1349,7 +1386,7 @@ namespace MIPSAnalyst {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		for (size_t i = 0; i < functions.size(); i++) {
-			WriteReplaceInstructions(functions[i].start, functions[i].hash, functions[i].size);
+			InstallReplacements(functions[i].start, functions[i].hash, functions[i].size);
 		}
 	}
 

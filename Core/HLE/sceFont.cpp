@@ -24,6 +24,7 @@
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Font/PGF.h"
+#include "Core/HDRemaster.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
 #include "Common/Data/Text/I18n.h"
@@ -1001,8 +1002,12 @@ static void __LoadInternalFonts() {
 	const std::string gameFontPath = "disc0:/PSP_GAME/USRDIR/";
 
 	const bool checkClassicOverrides = pspFileSystem.GetFileInfo(fontOverridePath).exists;
+	// See g_HDRemasters. Our own fonts, from assets, then.
+	const bool useNand = !checkClassicOverrides && !g_RemasterHLEFonts;
 	if (checkClassicOverrides) {
 		WARN_LOG(Log::sceFont, "Classic font overrides active, ignoring NAND: %s", fontOverridePath.c_str());
+	} else if (g_RemasterHLEFonts) {
+		INFO_LOG(Log::sceFont, "Not using the NAND's fonts for this HD remaster");
 	} else if (!NandFontsComplete()) {
 		InstallFontsFromDiscUpdater();
 	}
@@ -1035,7 +1040,7 @@ static void __LoadInternalFonts() {
 			// No game font, let's try classic override path. NOTE: This is not recommended - use flash0.
 			fontFilename = fontOverridePath + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
-		} else if (!bufferRead) {
+		} else if (useNand && !bufferRead) {
 			// The real fonts, from a firmware the user installed or that we took off a disc.
 			fontFilename = std::string(g_nandFontPath) + entry.fileName;
 			bufferRead = pspFileSystem.ReadEntireFile(fontFilename, buffer, true) >= 0;
@@ -1316,14 +1321,14 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 		return hleReportError(Log::sceFont, 0, "invalid font lib");
 	}
 
-	if (!Memory::IsValidAddress(fontStylePtr)) {
+	if (!Memory::IsValidRange(fontStylePtr, sizeof(PGFFontStyle))) {
 		// Yes, actually.  Must've been a typo in the library.
 		*errorCode = SCE_FONT_ERROR_INVALID_LIBID;
 		return hleReportError(Log::sceFont, 0, "invalid style address");
 	}
 
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
-	DEBUG_LOG(Log::sceFont, "requestedStyle fontAttributes %i,fontCountry %i,fontExpire %i,fontFamily %i,fontFileName %s,fontH %f,fontHRes %f,fontLanguage %i,fontName %s,fontRegion %i,fontStyle %i,fontStyleSub %i,fontV %f,fontVRes %f,fontWeight %f", requestedStyle->fontAttributes, requestedStyle->fontCountry, requestedStyle->fontExpire, requestedStyle->fontFamily, requestedStyle->fontFileName, requestedStyle->fontH, requestedStyle->fontHRes, requestedStyle->fontLanguage, requestedStyle->fontName, requestedStyle->fontRegion, requestedStyle->fontStyle, requestedStyle->fontStyleSub, requestedStyle->fontV, requestedStyle->fontVRes, requestedStyle->fontWeight);
+	DEBUG_LOG(Log::sceFont, "requestedStyle fontAttributes %i,fontCountry %i,fontExpire %i,fontFamily %i,fontFileName %.64s,fontH %f,fontHRes %f,fontLanguage %i,fontName %.64s,fontRegion %i,fontStyle %i,fontStyleSub %i,fontV %f,fontVRes %f,fontWeight %f", requestedStyle->fontAttributes, requestedStyle->fontCountry, requestedStyle->fontExpire, requestedStyle->fontFamily, requestedStyle->fontFileName, requestedStyle->fontH, requestedStyle->fontHRes, requestedStyle->fontLanguage, requestedStyle->fontName, requestedStyle->fontRegion, requestedStyle->fontStyle, requestedStyle->fontStyleSub, requestedStyle->fontV, requestedStyle->fontVRes, requestedStyle->fontWeight);
 
 	// Find the first nearest match for H/V, OR the last exact match for others.
 	float hRes = requestedStyle->fontHRes > 0.0f ? (float)requestedStyle->fontHRes : fontLib->FontHRes();
@@ -1383,7 +1388,7 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 		return hleNoLog(0);
 	}
 
-	if (!Memory::IsValidAddress(fontStylePtr)) {
+	if (!Memory::IsValidRange(fontStylePtr, sizeof(PGFFontStyle))) {
 		ERROR_LOG(Log::sceFont, "sceFontFindFont(%08x, %08x, %08x): invalid style address", libHandle, fontStylePtr, errorCodePtr);
 		*errorCode = SCE_FONT_ERROR_INVALID_PARAMETER;
 		return hleNoLog(0);
@@ -1392,7 +1397,7 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	DEBUG_LOG(Log::sceFont, "sceFontFindFont(%x, %x, %x)", libHandle, fontStylePtr, errorCodePtr);
 
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
-	DEBUG_LOG(Log::sceFont, "requestedStyle fontAttributes %i,fontCountry %i,fontExpire %i,fontFamily %i,fontFileName %s,fontH %f,fontHRes %f,fontLanguage %i,fontName %s,fontRegion %i,fontStyle %i,fontStyleSub %i,fontV %f,fontVRes %f,fontWeight %f", requestedStyle->fontAttributes, requestedStyle->fontCountry, requestedStyle->fontExpire, requestedStyle->fontFamily, requestedStyle->fontFileName, requestedStyle->fontH, requestedStyle->fontHRes, requestedStyle->fontLanguage, requestedStyle->fontName, requestedStyle->fontRegion, requestedStyle->fontStyle, requestedStyle->fontStyleSub, requestedStyle->fontV, requestedStyle->fontVRes, requestedStyle->fontWeight);
+	DEBUG_LOG(Log::sceFont, "requestedStyle fontAttributes %i,fontCountry %i,fontExpire %i,fontFamily %i,fontFileName %.64s,fontH %f,fontHRes %f,fontLanguage %i,fontName %.64s,fontRegion %i,fontStyle %i,fontStyleSub %i,fontV %f,fontVRes %f,fontWeight %f", requestedStyle->fontAttributes, requestedStyle->fontCountry, requestedStyle->fontExpire, requestedStyle->fontFamily, requestedStyle->fontFileName, requestedStyle->fontH, requestedStyle->fontHRes, requestedStyle->fontLanguage, requestedStyle->fontName, requestedStyle->fontRegion, requestedStyle->fontStyle, requestedStyle->fontStyleSub, requestedStyle->fontV, requestedStyle->fontVRes, requestedStyle->fontWeight);
 
 	// Find the closest exact match for the fields specified.
 	float hRes = requestedStyle->fontHRes > 0.0f ? (float)requestedStyle->fontHRes : fontLib->FontHRes();
@@ -1418,7 +1423,7 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 }
 
 static int sceFontGetFontInfo(u32 fontHandle, u32 fontInfoPtr) {
-	if (!Memory::IsValidAddress(fontInfoPtr)) {
+	if (!Memory::IsValidRange(fontInfoPtr, sizeof(PGFFontInfo))) {
 		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad fontInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
@@ -1455,7 +1460,7 @@ static int sceFontGetFontInfoByIndexNumber(u32 libHandle, u32 fontInfoPtr, u32 i
 
 static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	charCode &= 0xffff;
-	if (!Memory::IsValidAddress(charInfoPtr)) {
+	if (!Memory::IsValidRange(charInfoPtr, sizeof(PGFCharInfo))) {
 		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad charInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
@@ -1494,7 +1499,7 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 
 static int sceFontGetShadowInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	charCode &= 0xffff;
-	if (!Memory::IsValidAddress(charInfoPtr)) {
+	if (!Memory::IsValidRange(charInfoPtr, sizeof(PGFCharInfo))) {
 		return hleLogError(Log::sceFont, SCE_FONT_ERROR_INVALID_PARAMETER, "bad charInfo pointer");
 	}
 	LoadedFont *font = GetLoadedFont(fontHandle, true);
@@ -1618,6 +1623,8 @@ static int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts)
 	DEBUG_LOG(Log::sceFont, "sceFontGetFontList(%08x, %08x, %i)", fontLibHandle, fontStylePtr, numFonts);
 	if (fl->handle() != 0) {
 		numFonts = std::min(numFonts, (int)internalFonts.size());
+		// Only the first entry was checked above.
+		numFonts = std::min(numFonts, (int)(Memory::ClampValidSizeAt(fontStylePtr, (u32)std::max(numFonts, 0) * sizeof(PGFFontStyle)) / sizeof(PGFFontStyle)));
 		for (int i = 0; i < numFonts; i++)
 			fontStyles[i] = internalFonts[i]->GetFontStyle();
 	}

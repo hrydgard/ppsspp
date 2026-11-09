@@ -149,6 +149,7 @@ void ShaderManagerD3D11::ClearShaders() {
 }
 
 uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
+	DirtyDepalIfPixelMappedChanged(pixelMapped);
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		D3D11_MAPPED_SUBRESOURCE map;

@@ -160,9 +160,10 @@ uint64_t DisplayFrameStartTicks() {
 
 uint32_t __DisplayGetCurrentHcount() {
 	const int ticksIntoFrame = (int)(CoreTiming::GetTicks(currentMIPS) - frameStartTicks);
-	const int ticksPerVblank = CoreTiming::GetClockFrequencyHz() / 60 / hCountPerVblank;
-	// Can't seem to produce a 0 on real hardware, offsetting by 1 makes things look right.
-	return 1 + (ticksIntoFrame / ticksPerVblank);
+	// A frame is 1001/60 ms, and lines 0-285 fill it. Line 0 starts at the vblank, and is rarely
+	// seen outside a vblank handler: the interrupt takes most of it (pspautotests display/vblankphase).
+	const s64 ticksPerFrame = (s64)CoreTiming::GetClockFrequencyHz() * 1001 / 60000;
+	return (u32)((s64)ticksIntoFrame * hCountPerVblank / ticksPerFrame);
 }
 
 uint32_t __DisplayGetAccumulatedHcount() {
@@ -250,15 +251,14 @@ void DisplayFireVblankEnd() {
 }
 
 void DisplayFireFlip() {
-	std::vector<FlipListener> toCall = [] {
-		std::lock_guard<std::mutex> guard(listenersLock);
-		return flipListeners;
-	}();
-
 	// This is also the right time to calculate FPS.
 	CalculateFPS();
 
-	for (FlipListener cb : toCall) {
+	// Held across the calls, so that once __DisplayForgetFlip() returns (on a debugger connection's
+	// thread, say) its listener isn't running and won't be called again. A listener must not add or
+	// remove listeners.
+	std::lock_guard<std::mutex> guard(listenersLock);
+	for (const FlipListener &cb : flipListeners) {
 		cb.first(cb.second);
 	}
 }
@@ -281,7 +281,10 @@ void __DisplayForgetFlip(FlipCallback callback, void *userdata) {
 
 // This is called on game bootup.
 void DisplayHWInit() {
-	flipListeners.clear();
+	{
+		std::lock_guard<std::mutex> guard(listenersLock);
+		flipListeners.clear();
+	}
 	frameStartTicks = 0;
 	numVBlanks = 0;
 	isVblank = 0;

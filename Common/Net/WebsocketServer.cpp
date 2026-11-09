@@ -12,6 +12,7 @@
 #include "Common/Crypto/sha1.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 
 static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -19,6 +20,10 @@ static const char *const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 // claiming an enormous frame length before sending any actual data.
 // TODO: Make configurable?
 static constexpr uint64_t MAX_WS_MESSAGE_SIZE = 128 * 1024 * 1024;
+// How much we queue for a client that isn't reading, before giving up on it.
+static constexpr size_t MAX_WS_OUT_BACKLOG = 128 * 1024 * 1024;
+// How long we wait for our close frame to go out.
+static constexpr double WS_CLOSE_TIMEOUT_SECONDS = 2.0;
 
 namespace net {
 
@@ -214,6 +219,7 @@ void WebSocketServer::Close(WebSocketClose reason) {
 	}
 
 	sentClose_ = true;
+	sentCloseTime_ = time_now_d();
 }
 
 // The connection is gone or unusable - there's nothing left to send and no point waiting for
@@ -245,6 +251,11 @@ bool WebSocketServer::Process(float timeout) {
 	if (OutBufPending() == 0 && out_->Empty() && sentClose_) {
 		// Okay, we've sent the close.  Don't wait for anything else (whether we got a close or not.)
 		open_ = false;
+		return false;
+	}
+	if (sentClose_ && time_now_d() - sentCloseTime_ > WS_CLOSE_TIMEOUT_SECONDS) {
+		// The peer isn't reading, so the close frame is never going out.
+		CloseAbnormally();
 		return false;
 	}
 
@@ -437,11 +448,14 @@ bool WebSocketServer::ReadFrame() {
 }
 
 bool WebSocketServer::ReadPending() {
+	// Grow by at most what one read can return, not by the length the frame claims: a client could
+	// otherwise make us commit (and zero, on every lap) MAX_WS_MESSAGE_SIZE without sending it.
 	size_t pos = pendingBuf_.size();
-	pendingBuf_.resize(pendingBuf_.size() + pendingLeft_);
+	size_t chunk = (size_t)std::min(pendingLeft_, (uint64_t)InputSink::BUFFER_SIZE);
+	pendingBuf_.resize(pos + chunk);
 
 	// Read what we can.
-	size_t readBytes = in_->TakeAtMost((char *)&pendingBuf_[pos], pendingLeft_);
+	size_t readBytes = in_->TakeAtMost((char *)&pendingBuf_[pos], chunk);
 	for (size_t i = 0; i < readBytes; ++i) {
 		pendingBuf_[pos + i] ^= pendingMask_[i & 3];
 	}
@@ -599,6 +613,9 @@ void WebSocketServer::SendHeader(bool fin, int opcode, size_t sz) {
 }
 
 void WebSocketServer::SendBytes(const void *p, size_t sz) {
+	if (outputOverflowed_) {
+		return;
+	}
 	const char *data = (const char *)p;
 	if (OutBufPending() == 0) {
 		size_t pushed = out_->PushAtMost(data, sz);
@@ -607,6 +624,18 @@ void WebSocketServer::SendBytes(const void *p, size_t sz) {
 	}
 
 	if (sz != 0) {
+		if (OutBufPending() + sz > MAX_WS_OUT_BACKLOG) {
+			// The client stopped reading. Drop the connection rather than buffer without limit.
+			ERROR_LOG(Log::IO, "WebSocket client isn't reading, dropping it");
+			outputOverflowed_ = true;
+			closeReason_ = WebSocketClose::ABNORMAL;
+			sentClose_ = true;
+			sentCloseTime_ = time_now_d();
+			outBuf_.clear();
+			outBufOffset_ = 0;
+			out_->Discard();
+			return;
+		}
 		size_t pos = outBuf_.size();
 		outBuf_.resize(pos + sz);
 		memcpy(&outBuf_[pos], data, sz);

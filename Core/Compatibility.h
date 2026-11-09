@@ -116,6 +116,7 @@ struct CompatFlags {
 	bool ForceEnableGPUReadback;
 	bool UseFFMPEGFindStreamInfo;
 	bool SoftwareRasterDepth;
+	bool DepthRasterNoCallbackWait;
 	bool DisableHLESceFont;
 	bool ForceHLEPsmf;
 	bool SaveStatesNotRecommended;

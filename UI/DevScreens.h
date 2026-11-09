@@ -201,6 +201,15 @@ protected:
 	void OnRecreateActivity(UI::EventParams &e);
 };
 
+// Ramps, steps, hue wheels and a gamma check, to compare how outputs (window, VR headset, backends)
+// show the same values.
+class ColorTestScreen : public UIBaseDialogScreen {
+public:
+	bool LimitContentArea() const override { return false; }
+	void CreateViews() override;
+	const char *tag() const override { return "ColorTest"; }
+};
+
 void DrawProfile(UIContext &ui);
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);

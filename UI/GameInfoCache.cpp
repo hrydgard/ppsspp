@@ -396,17 +396,26 @@ bool GameInfo::DeleteAllSaveData() const {
 
 void GameInfo::ParseParamSFO(IdentifiedFileType type) {
 	title = paramSFO.GetValueString("TITLE");
-	if (type != IdentifiedFileType::PSP_UMD_VIDEO_ISO) {
+	switch (type) {
+	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
+		id.clear();
+		id_version.clear();
+		region = GameRegion::UNKNOWN;
+		break;
+	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
+		// Sniff the ID from the folder name.
+		id = paramSFO.GetValueString("SAVEDATA_DIRECTORY").substr(0, 9);
+		id_version = id;
+		region = DetectGameRegionFromID(id);
+		break;
+	default:
 		id = paramSFO.GetValueString("DISC_ID");
 		id_version = id + "_" + paramSFO.GetValueString("DISC_VERSION");
 		disc_total = paramSFO.GetValueInt("DISC_TOTAL");
 		disc_number = paramSFO.GetValueInt("DISC_NUMBER");
 		// region = paramSFO.GetValueInt("REGION");  // Always seems to be 32768?
 		region = DetectGameRegionFromID(id);
-	} else {
-		id.clear();
-		id_version.clear();
-		region = GameRegion::UNKNOWN;
+		break;
 	}
 }
 

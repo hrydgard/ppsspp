@@ -26,6 +26,7 @@
 #include "Common/UI/TabHolder.h"
 #include "Common/UI/PopupScreens.h"
 #include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 #include "Common/File/PathBrowser.h"
 
 #include "UI/GameBrowser.h"
@@ -103,19 +104,21 @@ private:
 	void InstantHighlight(const Path &path);
 };
 
-class UmdReplaceScreen : public UIBaseDialogScreen {
+class UmdReplaceScreen : public UITwoPaneBaseDialogScreen {
 public:
 	// insert: put a disc into the empty drive (the VSH) rather than swap the one a game is running from.
-	explicit UmdReplaceScreen(bool insert = false) : insert_(insert) {}
+	explicit UmdReplaceScreen(bool insert = false)
+		: UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::NoTopbarInLandscape), insert_(insert) {}
 	const char *tag() const override { return "UmdReplace"; }
 
 protected:
-	void CreateViews() override;
+	std::string_view GetTitle() const override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 
 private:
 	void OnGameSelected(UI::EventParams &e);
-	void OnGameSettings(UI::EventParams &e);
 	void UseDisc(const Path &path);
 
 	bool insert_;
@@ -123,18 +126,18 @@ private:
 
 class GridSettingsPopupScreen : public UI::PopupScreen {
 public:
-	GridSettingsPopupScreen(std::string_view label) : PopupScreen(label) {}
+	// The icon size buttons change the size for viewMode.
+	GridSettingsPopupScreen(std::string_view label, GameBrowserViewMode viewMode) : PopupScreen(label), viewMode_(viewMode) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	UI::Event OnRecentChanged;
 
 	const char *tag() const override { return "GridSettings"; }
 
+	void dialogFinished(const Screen *dialog, DialogResult result) override;
+
 private:
-	void GridPlusClick(UI::EventParams &e);
-	void GridMinusClick(UI::EventParams &e);
-	void OnRecentClearClick(UI::EventParams &e);
-	const float MAX_GAME_GRID_SCALE = 3.0f;
-	const float MIN_GAME_GRID_SCALE = 0.8f;
+	GameBrowserViewMode viewMode_;
+	bool recentCleared_ = false;
 };
 
 void LaunchBuyGold(ScreenManager *screenManager);

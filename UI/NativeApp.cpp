@@ -142,12 +142,15 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/FirmwareScreen.h"
+#include "UI/DriverManagerScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
+#include "UI/StorageTestScreen.h"
 #include "UI/OnScreenDisplay.h"
+#include "UI/SettingsPage.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/Theme.h"
 #include "UI/PauseScreen.h"
@@ -373,7 +376,7 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 			// Read the TTF font
 			size_t propSize = 0;
-			const uint8_t *propFontData = g_VFS.ReadFile("Roboto-Regular.ttf", &propSize);
+			const uint8_t *propFontData = g_VFS.ReadFile("Roboto_Condensed-Regular.ttf", &propSize);
 			size_t fixedSize = 0;
 			const uint8_t *fixedFontData = g_VFS.ReadFile("Inconsolata-Regular.ttf", &fixedSize);
 			// This call works even if fontData is nullptr, in which case the font just won't get loaded.
@@ -859,6 +862,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_BackgroundAudio.SFX().Init();
 
+	UI::SetDisabledActivationCallback(&ShowWhyViewDisabled);
+
 	if (!boot_filename.empty() && cmdLineOptions.stateToLoad.has_value()) {
 		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
@@ -894,6 +899,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new TouchTestScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "colortest")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new ColorTestScreen());
 		} else if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
@@ -904,6 +912,22 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "firmware")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new FirmwareScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memsticksetup")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(true));
+		} else if (equals(cmdLineOptions.startScreen.value(), "memstick")) {
+			// As opened from the settings, to move an existing memory stick.
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new MemStickScreen(false));
+		} else if (equals(cmdLineOptions.startScreen.value(), "storagetest")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new StorageTestScreen());
+		} else if (equals(cmdLineOptions.startScreen.value(), "credits")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new CreditsScreen());
+		} else if (equals(cmdLineOptions.startScreen.value(), "driver")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new DriverManagerScreen(Path()));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
@@ -1402,6 +1426,13 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 			runImDebugger(g_draw);
 		});
 		renderImDebugger(g_draw);
+		int cursorX, cursorY, cursorW, cursorH;
+		if (IsVREnabled() && GetVRMouseCursorRect(&cursorX, &cursorY, &cursorW, &cursorH)) {
+			UIContext *uiContext = g_screenManager->getUIContext();
+			uiContext->Begin();
+			uiContext->FillRect(UI::Drawable(0xFFFFFFFF), Bounds(cursorX * g_display.dpi_scale_x, cursorY * g_display.dpi_scale_y, cursorW * g_display.dpi_scale_x, cursorH * g_display.dpi_scale_y));
+			uiContext->Flush();
+		}
 		// Last, since the readback ends the backbuffer pass. Nothing can draw after it.
 		ScreenshotNotifyEndOfFrame(g_draw);
 		if (g_screenManager->getUIContext()->Text()) {
@@ -1501,6 +1532,12 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		return true;
 	}
 	else if (message == UIMessage::PERMISSION_GRANTED && value == "storage") {
+		// Android reports the permission at every startup too (sendInitialGrants). If the config loaded, we had
+		// access all along, and there's nothing to redo: reloading it and creating the directories again cost
+		// half a second of every startup with a memory stick on a content URI.
+		if (g_Config.LoadedFromFile()) {
+			return true;
+		}
 		CreateSysDirectories();
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.

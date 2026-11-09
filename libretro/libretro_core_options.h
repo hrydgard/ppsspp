@@ -7,6 +7,13 @@
 #include <libretro.h>
 #include <retro_inline.h>
 
+#include "ppsspp_config.h"
+
+// Desktops only, like the standalone app (SYSPROP_ENOUGH_RAM_FOR_FULL_ISO).
+#if PPSSPP_ARCH(64BIT) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH) && !PPSSPP_PLATFORM(UWP)
+#define LIBRETRO_CAN_CACHE_ISO_IN_RAM 1
+#endif
+
 #ifndef HAVE_NO_LANGEXTRA
 #include "libretro_core_options_intl.h"
 #endif
@@ -223,6 +230,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       BOOL_OPTIONS,
       "enabled"
    },
+#ifdef LIBRETRO_CAN_CACHE_ISO_IN_RAM
    {
       "ppsspp_cache_iso",
       "Cache Full ISO in RAM",
@@ -233,6 +241,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       BOOL_OPTIONS,
       "disabled"
    },
+#endif
    {
       "ppsspp_cheats",
       "Internal Cheats Support",
@@ -436,9 +445,27 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       {
          { "No buffer", NULL },
          { "Up to 1",   NULL },
+         { "Up to 2",   NULL },
          { NULL, NULL },
       },
       "Up to 1"
+   },
+   {
+      "ppsspp_depth_raster",
+      "Lens Flare Occlusion",
+      NULL,
+      "Hides lens flares behind objects, in the games that do that by reading the depth buffer. 'Low' is faster and less exact. 'Default' picks per device.",
+      NULL,
+      "video",
+      {
+         { "default",   "Default" },
+         { "auto",      "Auto" },
+         { "low",       "Low" },
+         { "off",       "Off" },
+         { "always_on", "Always on" },
+         { NULL, NULL },
+      },
+      "default"
    },
    {
       "ppsspp_button_preference",

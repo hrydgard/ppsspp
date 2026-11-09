@@ -250,7 +250,7 @@ void GameImageView::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
-void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text) {
+UI::View *AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool text) {
 	using namespace UI;
 	static const char *screenRotation[] = { "Auto", "Landscape", "Portrait", "Landscape Reversed", "N/A", "Landscape Auto"};
 	static const std::map<int, ImageID> screenRotationIcons{
@@ -277,6 +277,7 @@ void AddRotationPicker(ScreenManager *screenManager, UI::ViewGroup *parent, bool
 		INFO_LOG(Log::System, "New display rotation: %d", g_Config.iScreenRotation);
 		System_Notify(SystemNotification::ROTATE_UPDATED);
 	});
+	return rot;
 }
 
 void GameInfoBGView::Draw(UIContext &dc) {

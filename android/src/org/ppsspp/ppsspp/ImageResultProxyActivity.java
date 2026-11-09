@@ -24,7 +24,6 @@ public class ImageResultProxyActivity extends AppCompatActivity {
 	private String copyAndDownscaleToCache(Uri selectedImage) {
 		Log.i(TAG, "Selected image: " + selectedImage);
 		if (selectedImage == null) {
-			// Some pickers only return a ClipData.
 			Log.e(TAG, "No image URI in the result");
 			return null;
 		}
@@ -147,7 +146,13 @@ public class ImageResultProxyActivity extends AppCompatActivity {
 
 				String localPath;
 				if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-					localPath = copyAndDownscaleToCache(result.getData().getData());
+					Intent data = result.getData();
+					Uri uri = data.getData();
+					// Some pickers only return a ClipData.
+					if (uri == null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+						uri = data.getClipData().getItemAt(0).getUri();
+					}
+					localPath = copyAndDownscaleToCache(uri);
 				} else {
 					localPath = null;
 				}

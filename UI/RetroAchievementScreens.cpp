@@ -35,7 +35,7 @@ public:
 constexpr double MAX_AUDIO_DURATION_SECONDS = 5.0;
 AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
 	using namespace UI;
-	SetSpacing(2.0f);
+	SetSpacing(0.0f);
 	if (!layoutParams) {
 		layoutParams_->width = FILL_PARENT;
 		layoutParams_->height = ITEM_HEIGHT;
@@ -79,7 +79,7 @@ static const char *AchievementBucketTitle(int bucketType) {
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_LOCKED:               return "Locked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNLOCKED:             return "Unlocked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNSUPPORTED:          return "Unsupported";
-	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNOFFICIAL:           return "Unofficial";
+	case RC_CLIENT_ACHIEVEMENT_BUCKET_UNPROMOTED:           return "Unofficial";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_RECENTLY_UNLOCKED:    return "Recently unlocked";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_ACTIVE_CHALLENGE:     return "Achievements with active challenges";
 	case RC_CLIENT_ACHIEVEMENT_BUCKET_ALMOST_THERE:         return "Almost completed";
@@ -88,9 +88,9 @@ static const char *AchievementBucketTitle(int bucketType) {
 }
 
 static uint32_t GetListFilter() {
-	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE;
+	int filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_PROMOTED;
 	if (Achievements::UnofficialEnabled()) {
-		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL;
+		filter = RC_CLIENT_ACHIEVEMENT_CATEGORY_PROMOTED_AND_UNPROMOTED;
 	}
 	return filter;
 }
@@ -455,6 +455,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://retroachievements.org/createaccount.php");
 		});
 		regLink->SetIconRight(ImageID("I_LINK_OUT"));
+		regLink->SetRoundCorners();
 	}
 
 	using namespace UI;

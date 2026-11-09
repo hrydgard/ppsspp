@@ -126,9 +126,9 @@ static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
 	return infoLog;
 }
 
-void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLCalls) {
-	if (skipGLCalls) {
-		// Some bookkeeping still needs to be done.
+void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool dryRun) {
+	if (dryRun) {
+		// Steps that will never run (left over at shutdown): only free what they own.
 		for (size_t i = 0; i < steps.size(); i++) {
 			const GLRInitStep &step = steps[i];
 			switch (step.stepType) {
@@ -156,14 +156,8 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				}
 				break;
 			}
-			case GLRInitStepType::CREATE_PROGRAM:
-			{
-				WARN_LOG(Log::G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
-				break;
-			}
 			case GLRInitStepType::CREATE_SHADER:
 			{
-				WARN_LOG(Log::G3D, "CREATE_SHADER found with skipGLCalls, not good");
 				delete[] step.create_shader.code;
 				break;
 			}
@@ -675,8 +669,8 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool skipGLCalls, bool keepSteps, bool useVR) {
-	if (skipGLCalls) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool dryRun, bool keepSteps, bool useVR) {
+	if (dryRun) {
 		if (keepSteps) {
 			return;
 		}
@@ -1341,19 +1335,35 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		case GLRRenderCommand::DRAW:
 		{
 			GLRInputLayout *layout = c.draw.inputLayout;
+			if (attrMask != layout->semanticsMask_) {
+				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
+				attrMask = layout->semanticsMask_;
+			}
+			// Stream 1 first, so stream 0 is left bound.
+			if (layout->stride1) {
+				_dbg_assert_(c.draw.vertexBuffer1 && !c.draw.vertexBuffer1->Mapped());
+				GLuint buf1 = c.draw.vertexBuffer1->buffer_;
+				if (buf1 != curArrayBuffer) {
+					glBindBuffer(GL_ARRAY_BUFFER, buf1);
+					curArrayBuffer = buf1;
+				}
+				for (const auto &entry : layout->entries) {
+					if (entry.stream == 1) {
+						glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride1, (const void *)(c.draw.vertexOffset1 + entry.offset));
+					}
+				}
+			}
 			GLuint buf = c.draw.vertexBuffer->buffer_;
 			_dbg_assert_(!c.draw.vertexBuffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
 			}
-			if (attrMask != layout->semanticsMask_) {
-				EnableDisableVertexArrays(attrMask, layout->semanticsMask_);
-				attrMask = layout->semanticsMask_;
-			}
 			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
-				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.vertexOffset + entry.offset));
+				if (entry.stream == 0) {
+					glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, layout->stride, (const void *)(c.draw.vertexOffset + entry.offset));
+				}
 			}
 			if (c.draw.indexBuffer) {
 				GLuint buf = c.draw.indexBuffer->buffer_;

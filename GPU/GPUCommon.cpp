@@ -624,7 +624,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	dl.bboxResult = false;
 	dl.stackAddr = stackAddr;
 
-	if (args.IsValid() && args->context.IsValid())
+	// The whole 512-word context is saved and restored there, not just what PSPPointer checks.
+	if (args.IsValid() && args->context.IsValid() && Memory::IsValidRange(args->context.ptr, 512 * 4))
 		dl.context = args->context;
 	else
 		dl.context = 0;
@@ -696,7 +697,8 @@ u32 GPUCommon::UpdateStall(int listid, u32 newstall, bool *runList) {
 	if (dl.state == PSP_GE_DL_STATE_COMPLETED)
 		return SCE_KERNEL_ERROR_ALREADY;
 
-	dl.stall = newstall & 0x0FFFFFFF;
+	// The GE fetches whole words, and an unaligned stall would never equal the PC.
+	dl.stall = newstall & 0x0FFFFFFC;
 
 	gpuStats.perFrame.numUpdateStall++;
 
@@ -875,6 +877,12 @@ bool GPUCommon::SlowRunLoop(DisplayList &list) {
 	return true;
 }
 
+// How many commands can run from pc: up to the stall, and never past the end of memory.
+static int ListDowncount(u32 pc, u32 stall) {
+	const u32 toStall = stall == 0 ? 0x0FFFFFFF : (stall - pc) / 4;
+	return (int)std::min(toStall, std::min(Memory::MaxSizeAtAddress(pc) / 4, (u32)0x0FFFFFFF));
+}
+
 // The newPC parameter is used for jumps, we don't count cycles between.
 void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	// Rough estimate, 2 CPU ticks (it's double the clock rate) per GPU instruction.
@@ -884,7 +892,7 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
 	if (currentList)
-		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
+		downcount = ListDowncount(newPC, currentList->stall);
 	else
 		downcount = 0;
 }
@@ -942,18 +950,6 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
-	const DLResult result = RunDLQueue();
-	// Games read the depth buffer back on the CPU once a list has ended, without waiting for the GE
-	// (Syphon Filter's light flares). So the depth rasterizer has to be done by then. Not at a stall,
-	// though, which some games hit hundreds of times a frame.
-	if (listEndedSinceDepthWait_) {
-		listEndedSinceDepthWait_ = false;
-		drawEngineCommon_->WaitForSubmittedDepth();
-	}
-	return result;
-}
-
-DLResult GPUCommon::RunDLQueue() {
 	if (!resumingFromDebugBreak_) {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
@@ -1015,7 +1011,7 @@ DLResult GPUCommon::RunDLQueue() {
 
 			cycleLastPC = list.pc;
 			cyclesExecuted += 60;
-			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			downcount = ListDowncount(list.pc, list.stall);
 			list.state = PSP_GE_DL_STATE_RUNNING;
 			list.interrupted = false;
 
@@ -1028,7 +1024,7 @@ DLResult GPUCommon::RunDLQueue() {
 			resumingFromDebugBreak_ = false;
 			// The bottom part of the gpuState loop below, that wasn't executed
 			// when we bailed.
-			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			downcount = ListDowncount(list.pc, list.stall);
 			if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
 				// Unstalled (Can this happen?)
 				gpuState = GPUSTATE_RUNNING;
@@ -1042,6 +1038,11 @@ DLResult GPUCommon::RunDLQueue() {
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
 				downcount = 0;
+			} else if (downcount == 0 && !Memory::IsValidAddress(list.pc)) {
+				// Ran (or jumped) off the end of memory. There's nothing more to run.
+				ERROR_LOG(Log::G3D, "Display list %d ran off the end of memory at %08x", listIndex, list.pc);
+				gpuState = GPUSTATE_ERROR;
+				break;
 			}
 
 			if (useFastRunLoop) {
@@ -1060,7 +1061,7 @@ DLResult GPUCommon::RunDLQueue() {
 				}
 			}
 
-			downcount = list.stall == 0 ? 0x0FFFFFFF : (list.stall - list.pc) / 4;
+			downcount = ListDowncount(list.pc, list.stall);
 			if (gpuState == GPUSTATE_STALL && list.pc != list.stall) {
 				// Unstalled (Can this happen?)
 				gpuState = GPUSTATE_RUNNING;
@@ -1259,11 +1260,10 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	if (flushOnParams_) {
 		drawEngineCommon_->SubmitQueuedDepth();
-		listEndedSinceDepthWait_ = true;
 		Flush();
 	}
 
-	const u32 prev = Memory::ReadUnchecked_U32(currentList->pc - 4);
+	const u32 prev = Memory::IsValidAddress(currentList->pc - 4) ? Memory::ReadUnchecked_U32(currentList->pc - 4) : 0;
 	UpdatePC(currentList->pc, currentList->pc);
 	// Count in a few extra cycles on END.
 	cyclesExecuted += 60;
@@ -1493,8 +1493,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 
 	const void *inds = nullptr;
 	if (useInds) {
-		const int indexSizeShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
-		if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexSizeShift)) {
+		if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, count, vertType, dec->VertexSize())) {
 			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
 			currentList->bboxResult = true;
 			return;
@@ -1607,6 +1606,8 @@ void GPUCommon::FlushImm() {
 	}
 	if (vfb) {
 		CheckDepthUsage(vfb);
+		framebufferManager_->RebuildStencilIfPending(vfb);
+		framebufferManager_->CheckMaskCopy(vfb);
 	}
 
 	bool antialias = (immFlags_ & GE_IMM_ANTIALIAS) != 0;
@@ -1691,7 +1692,7 @@ void GPUCommon::Execute_WorldMtxNum(u32 op, u32 diff) {
 	// We must record the individual data commands while debugRecording_.
 	bool fastLoad = !debugRecording_ && end > 0;
 	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+	if ((currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) || !Memory::IsValidRange(currentList->pc + 4, end * 4)) {
 		fastLoad = false;
 	}
 
@@ -1744,7 +1745,7 @@ void GPUCommon::Execute_ViewMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+	if ((currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) || !Memory::IsValidRange(currentList->pc + 4, end * 4)) {
 		fastLoad = false;
 	}
 
@@ -1797,7 +1798,7 @@ void GPUCommon::Execute_ProjMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	bool fastLoad = !debugRecording_;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+	if ((currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) || !Memory::IsValidRange(currentList->pc + 4, end * 4)) {
 		fastLoad = false;
 	}
 
@@ -1851,7 +1852,7 @@ void GPUCommon::Execute_TgenMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+	if ((currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) || !Memory::IsValidRange(currentList->pc + 4, end * 4)) {
 		fastLoad = false;
 	}
 
@@ -1905,7 +1906,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	int i = 0;
 
 	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
+	if ((currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) || !Memory::IsValidRange(currentList->pc + 4, end * 4)) {
 		fastLoad = false;
 	}
 
@@ -2106,6 +2107,10 @@ void GPUCommon::DoState(PointerWrap &p) {
 		}
 		recorder_.RestartAfterLoad();
 	}
+}
+
+void GPUCommon::WaitForSubmittedDepth() {
+	drawEngineCommon_->WaitForSubmittedDepth();
 }
 
 void GPUCommon::InterruptStart(int listid) {
@@ -2394,8 +2399,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	// NOTE: The sizes are only used for validity checks and memory info tracking.
 	const uint32_t src = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 	const uint32_t dst = dstBasePtr + (dstY * dstStride + dstX) * bpp;
-	const uint32_t srcSize = ((height - 1) * srcStride) + width * bpp;
-	const uint32_t dstSize = ((height - 1) * dstStride) + width * bpp;
+	const uint32_t srcSize = ((height - 1) * srcStride + width) * bpp;
+	const uint32_t dstSize = ((height - 1) * dstStride + width) * bpp;
 
 	bool srcDstOverlap = src + srcSize > dst && dst + dstSize > src;
 	bool srcValid = Memory::IsValidRange(src, srcSize);
@@ -2604,7 +2609,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG(Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 
@@ -2650,7 +2655,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG(Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 
@@ -2691,6 +2696,14 @@ void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWid
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format, rectWidth);
 	}
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
+}
+
+void GPUCommon::PerformWriteRectFromMemory(u32 addr, int stride, int width, int height, GEBufferFormat format) {
+	const int bpp = BufferFormatBytesPerPixel(format);
+	if (Memory::IsVRAMAddress(addr) && framebufferManager_) {
+		framebufferManager_->WriteRectFromMemory(addr, height * stride * bpp, stride, format, width);
+	}
+	InvalidateCache(addr, ((height - 1) * stride + width) * bpp, GPU_INVALIDATE_SAFE);
 }
 
 bool GPUCommon::PerformReadbackStencilToMemory(u32 dest, int size) {

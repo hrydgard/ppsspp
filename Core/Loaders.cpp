@@ -388,13 +388,11 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 		delete loadedFile;
 		return false;
 	}
-	UpdateLoadedFile(loadedFile);
-
 	std::string errorString;
 	IdentifiedFileType fileType;
+	// Can delete loadedFile and return another, or return a ZipFileLoader that owns it, so what it
+	// returns is what g_loadedFile owns.
 	loadedFile = ResolveFileLoaderTarget(loadedFile, &fileType, &errorString);
-
-	*fileLoader = loadedFile;
 
 	switch (fileType) {
 	case IdentifiedFileType::PSP_ISO:
@@ -403,14 +401,21 @@ bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error)
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 		if (!MountGameISO(loadedFile, &error)) {
 			error = "mounting the ISO failed: " + error;
+			delete loadedFile;
 			return false;
 		}
 		break;
 	default:
 		error = "Unsupported file type: " + std::string(IdentifiedFileTypeToString(fileType)) + " " + errorString;
+		delete loadedFile;
 		return false;
-		break;
 	}
+
+	// Only now, with the old disc's file systems replaced, is the old loader unused: a swap that
+	// fails leaves the old disc mounted. Reads hold pspFileSystem's lock, which Mount takes, so none
+	// is still going on the IO thread either.
+	UpdateLoadedFile(loadedFile);
+	*fileLoader = loadedFile;
 	return true;
 }
 
@@ -678,6 +683,10 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	// is quite convenient and makes it easy to add shared heuristics.
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
+		if (!fn) {
+			// A corrupt central directory entry.
+			continue;
+		}
 
 		zip_stat_t stat{};
 		zip_stat_index(z, i, 0, &stat);

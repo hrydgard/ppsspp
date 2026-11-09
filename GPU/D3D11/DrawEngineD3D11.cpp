@@ -72,6 +72,8 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 		rasterCache_(4) {
 	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
 	decOptions_.expand8BitNormalsToFloat = true;
+	cpuCullSupported_ = true;
+	cpuLitStreamSupported_ = true;
 
 	InitDeviceObjects();
 }
@@ -83,6 +85,20 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
+
+	// All zeroes, the stream of CPU-lit colors for draws with nothing lit on the CPU.
+	const UINT zeroSize = VERTEX_BUFFER_MAX * 8;
+	std::vector<uint8_t> zeroes(zeroSize);
+	D3D11_BUFFER_DESC desc{};
+	desc.ByteWidth = zeroSize;
+	desc.Usage = D3D11_USAGE_IMMUTABLE;
+	desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	D3D11_SUBRESOURCE_DATA data{};
+	data.pSysMem = zeroes.data();
+	if (FAILED(device_->CreateBuffer(&desc, &data, &zeroCpuLitStream_))) {
+		ERROR_LOG(Log::G3D, "Failed to create the zero CPU-lit stream");
+		zeroCpuLitStream_ = nullptr;
+	}
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
@@ -96,6 +112,10 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	delete pushInds_;
 	pushVerts_ = nullptr;
 	pushInds_ = nullptr;
+	if (zeroCpuLitStream_) {
+		zeroCpuLitStream_->Release();
+		zeroCpuLitStream_ = nullptr;
+	}
 
 	// Clear state caches.
 	blendCache_.Iterate([&](const uint64_t &key, ID3D11BlendState *state) {
@@ -201,14 +221,13 @@ HRESULT DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const De
 		D3D11_INPUT_ELEMENT_DESC *VertexElement = &VertexElements[0];
 
 		// Vertices Elements orders
-		// WEIGHT
-		if (decFmt.w0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, "TEXCOORD", 1);
+		if (decFmt.cpuLit) {
+			// From the second stream, in slot 1.
+			VertexAttribSetup(VertexElement, DEC_U8_4, decFmt.cpuLitOff, "COLOR", 2);
+			VertexElement->InputSlot = 1;
 			VertexElement++;
-		}
-
-		if (decFmt.w1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, "TEXCOORD", 2);
+			VertexAttribSetup(VertexElement, DEC_U8_4, decFmt.cpuLitOff + 4, "COLOR", 3);
+			VertexElement->InputSlot = 1;
 			VertexElement++;
 		}
 
@@ -292,6 +311,7 @@ void DrawEngineD3D11::Flush() {
 			useHWTransform = false;
 		}
 	}
+	CheckSkinnedMinMaxZ(useHWTransform);
 	if (clipInfoFlags_ != lastClipInfoFlags_) {
 		ClipInfoFlags changed = (ClipInfoFlags)((u32)clipInfoFlags_ ^ (u32)lastClipInfoFlags_);
 		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
@@ -308,6 +328,8 @@ void DrawEngineD3D11::Flush() {
 		lastUseHwTransform_ = useHWTransform;
 	}
 
+	CpuClip cpuClip = BeginCpuClip(useHWTransform);
+
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
 		ID3D11Buffer *ib_ = nullptr;
@@ -315,8 +337,13 @@ void DrawEngineD3D11::Flush() {
 		int vertexCount;
 		int maxIndex;
 		bool useElements;
-		DecodeVerts(dec_, decoded_);
-		DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+		if (cpuClip.active) {
+			DecodeClipCull(&cpuClip, &prim, &vertexCount, &maxIndex, &useElements);
+		} else {
+			DecodeVerts(dec_, decoded_);
+			DecodeIndsAndGetData(&prim, &vertexCount, &maxIndex, &useElements, false);
+			cpuClip.numVerts = numDecodedVerts_;
+		}
 		gpuStats.perFrame.numVertsDrawn += vertexCount;
 
 		bool hasColor = (lastVType_ & GE_VTYPE_COL_MASK) != GE_VTYPE_COL_NONE;
@@ -341,13 +368,13 @@ void DrawEngineD3D11::Flush() {
 
 		D3D11VertexShader *vshader;
 		D3D11FragmentShader *fshader;
-		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, clipInfoFlags_);
+		shaderManager_->GetShaders(prim, dec_->VertexType(), &vshader, &fshader, pipelineState_, useHWTransform, cpuClip.ShaderFlags(clipInfoFlags_));
 		if (vshader->Failed() || fshader->Failed()) {
 			WARN_LOG_N_TIMES(d3d11shaderfail, 5, Log::G3D, "Skipping draw, shader compilation failed");
 			goto bail;
 		}
 		ID3D11InputLayout *inputLayout;
-		if (FAILED(SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType(), &inputLayout))) {
+		if (FAILED(SetupDecFmtForDraw(vshader, cpuClip.fmt, dec_->VertexType(), &inputLayout))) {
 			// Can't draw without an input layout - the draw would silently do nothing anyway.
 			goto bail;
 		}
@@ -357,13 +384,13 @@ void DrawEngineD3D11::Flush() {
 		shaderManager_->BindUniforms();
 
 		context_->IASetInputLayout(inputLayout);
-		UINT stride = dec_->GetDecVtxFmt().stride;
+		UINT stride = cpuClip.fmt.stride;
 		context_->IASetPrimitiveTopology(d3d11prim[prim]);
 
 		if (!vb_) {
 			// Push!
 			UINT vOffset;
-			int vSize = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
+			int vSize = cpuClip.numVerts * cpuClip.fmt.stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
 			if (!vptr) {
 				goto bail;
@@ -372,7 +399,23 @@ void DrawEngineD3D11::Flush() {
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
 			context_->IASetVertexBuffers(0, 1, &buf, &stride, &vOffset);
-			if (useElements) {
+			if (cpuClip.cpuLit) {
+				ID3D11Buffer *litBuf = zeroCpuLitStream_;
+				UINT litOffset = 0;
+				if (cpuClip.cpuLitStream) {
+					const int litSize = cpuClip.numVerts * 8;
+					uint8_t *litPtr = pushVerts_->BeginPush(context_, &litOffset, litSize);
+					if (!litPtr) {
+						goto bail;
+					}
+					memcpy(litPtr, cpuClip.cpuLitStream, litSize);
+					pushVerts_->EndPush(context_);
+					litBuf = pushVerts_->Buf();
+				}
+				const UINT litStride = 8;
+				context_->IASetVertexBuffers(1, 1, &litBuf, &litStride, &litOffset);
+			}
+			if (useElements && vertexCount > 0) {
 				UINT iOffset;
 				int iSize = 2 * vertexCount;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
@@ -383,7 +426,7 @@ void DrawEngineD3D11::Flush() {
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
 				context_->DrawIndexed(vertexCount, 0, 0);
-			} else {
+			} else if (!useElements) {
 				context_->Draw(vertexCount, 0);
 			}
 		} else {
@@ -397,7 +440,7 @@ void DrawEngineD3D11::Flush() {
 			}
 		}
 		if (useDepthRaster_) {
-			DepthRasterSubmitRaw(prim, dec_, dec_->VertexType(), vertexCount);
+			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
 		PROFILE_THIS_SCOPE("soft");

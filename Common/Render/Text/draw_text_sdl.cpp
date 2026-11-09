@@ -58,6 +58,15 @@ static bool ReorderBidi(std::string_view str, std::string *out) {
 			result.push_back('\n');
 		}
 		std::string_view line = lines[i];
+		FriBidiParType baseDir = FRIBIDI_PAR_ON;
+		// TextDrawer::ApplyBaseDirection wraps RTL lines in RLE ... PDF. Take the direction from that instead,
+		// so the marks don't count as a second level and send pure Arabic lines down the reordering path.
+		const std::string_view rle = "\xE2\x80\xAB";
+		const std::string_view pdf = "\xE2\x80\xAC";
+		if (line.size() >= rle.size() + pdf.size() && startsWith(line, rle) && endsWith(line, pdf)) {
+			line = line.substr(rle.size(), line.size() - rle.size() - pdf.size());
+			baseDir = FRIBIDI_PAR_RTL;
+		}
 		logical.resize(line.size() + 1);
 		FriBidiStrIndex len = fribidi_charset_to_unicode(FRIBIDI_CHAR_SET_UTF8, line.data(), (FriBidiStrIndex)line.size(), logical.data());
 		if (len <= 0) {
@@ -66,7 +75,6 @@ static bool ReorderBidi(std::string_view str, std::string *out) {
 		}
 		visual.resize(len + 1);
 		levels.resize(len);
-		FriBidiParType baseDir = FRIBIDI_PAR_ON;
 		if (!fribidi_log2vis(logical.data(), len, &baseDir, visual.data(), nullptr, nullptr, levels.data())) {
 			return false;
 		}

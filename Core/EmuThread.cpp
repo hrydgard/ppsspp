@@ -133,7 +133,23 @@ void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application,
 	if (!graphicsContext->NeedsSeparateEmuThread()) {
 		// The backend spawns its own render thread, so this thread is simply where emulation runs.
 		SetCurrentThreadName("EmuThread");
-		RunMainLoop(graphicsContext, application, frame);
+		if (!IsVREnabled()) {
+			RunMainLoop(graphicsContext, application, frame);
+			return;
+		}
+		// Vulkan VR. The frame begins here, so its view poses are there for the emulator's uniforms,
+		// and the render thread ends it once it's submitted. While the session is idle, nothing runs.
+		RunMainLoop(graphicsContext, application, [&](GraphicsContext *ctx) {
+			while (!StartVRRender()) {
+				if (shouldExit && shouldExit()) {
+					return false;
+				}
+				sleep_ms(16, "vr-session-idle");
+			}
+			const bool result = frame(ctx);
+			UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
+			return result;
+		});
 		return;
 	}
 
@@ -149,9 +165,7 @@ void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application,
 	std::thread emuThread = EmuThread_Start(graphicsContext, application, frame);
 
 	if (IsVREnabled()) {
-		static bool vrFirstStart = true;
-		EnterVR(vrFirstStart);
-		vrFirstStart = false;
+		EnterVR();
 	}
 
 	// Normally ThreadFrame() returning false is what gets us out of here - the frame callback

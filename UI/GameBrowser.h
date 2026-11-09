@@ -9,6 +9,13 @@
 #include "Core/ConfigValues.h"
 #include "UI/MiscViews.h"
 
+constexpr float MIN_GAME_GRID_SCALE = 0.8f;
+constexpr float MAX_GAME_GRID_SCALE = 3.0f;
+
+// The icon size setting for a view mode (grid and list have one each).
+float *GameBrowserIconScale(GameBrowserViewMode viewMode);
+void StepGameBrowserIconScale(GameBrowserViewMode viewMode, bool bigger);
+
 enum GameBrowserFlags {
 	FLAG_HOMEBREWSTOREBUTTON = 1
 };
@@ -21,6 +28,7 @@ enum class BrowseFlags {
 	PIN = 8,
 	HOMEBREW_STORE = 16,
 	UPLOAD_BUTTON = 32,
+	UMDS_ONLY = 64,  // Only what can go in the UMD drive (see UmdMount).
 	STANDARD = 1 | 2 | 4 | 8 | 32,
 };
 ENUM_CLASS_BITOPS(BrowseFlags);
@@ -37,7 +45,9 @@ public:
 	void SetPath(const Path &path);
 	void SetSearchBar(SearchBar *searchBar);
 	bool Key(const KeyInput &key) override;
+	bool Touch(const TouchInput &input) override;
 	void SetSearchFilter(const std::string &filter, bool setKeyboardFocus);
+	void Measure(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert) override;
 	void Draw(UIContext &dc) override;
 	void Update() override;
 	void RequestRefresh() {
@@ -78,6 +88,8 @@ private:
 	void OnHomebrewStore(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
+	// Same as gameList_ in the grid view, else null.
+	UI::GridLayoutList *gameGrid_ = nullptr;
 	PathBrowser path_;
 	int *viewMode_ = nullptr;
 	BrowseFlags browseFlags_;
@@ -91,6 +103,9 @@ private:
 	// Set when entering a directory, for Refresh to focus its first entry.
 	bool focusFirstItem_ = false;
 	bool backspaceHeld_ = false;
+	bool mouseHover_ = false;
+	int wheelZoomAccum_ = 0;
+	double lastWheelZoomTime_ = 0.0;
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;

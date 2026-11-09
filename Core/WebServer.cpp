@@ -310,7 +310,10 @@ static void DiscHandler(const http::ServerRequest &request, const Path &filename
 			s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
 			if (fread(buf, chunklen, 1, fp) != 1)
 				break;
-			request.Out()->Push(buf, chunklen);
+			if (!request.Out()->Push(buf, chunklen)) {
+				// The client stopped reading or went away. Each failed Push already waited a while.
+				break;
+			}
 		}
 		fclose(fp);
 		delete[] buf;
@@ -679,10 +682,11 @@ static MultiPartResult HandleMultipartPart(const http::ServerRequest &request, s
 		}
 		progress.AddBytes(readBytes);
 		bytesTransferred += readBytes;
-		if (readBytes == 0 && !terminatorFound && (request.In()->AtEnd() || request.In()->HasError())) {
-			// Peer went away mid-upload (a cancelled browser upload, say). Without this the loop
-			// spins forever, which also blocks web server shutdown since it joins its threads.
-			ERROR_LOG(Log::HTTP, "Connection closed during upload of '%s'", filename.c_str());
+		// ReadBinaryUntilTerminator doesn't wait, so wait here for more data when there was none.
+		if (readBytes == 0 && !terminatorFound && !request.In()->Block()) {
+			// Peer went away mid-upload (a cancelled browser upload, say), or stopped sending. Without
+			// this the loop spins forever, which also blocks web server shutdown since it joins its threads.
+			ERROR_LOG(Log::HTTP, "Connection closed or timed out during upload of '%s'", filename.c_str());
 			if (fp) {
 				fclose(fp);
 				File::Delete(destPath);
