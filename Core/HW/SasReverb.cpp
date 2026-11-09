@@ -199,6 +199,7 @@ void SasReverb::SetPreset(int preset) {
 	if (preset_ != -1) {
 		pos_ = BUFSIZE - presets[preset_].size;
 		memset(workspace_, 0, sizeof(int16_t) * BUFSIZE);
+		memset(wetRing_, 0, sizeof(wetRing_));
 	} else {
 		pos_ = 0;
 	}
@@ -267,6 +268,35 @@ private:
 	int size_;
 };
 
+// The hardware upsamples the reverb's 22khz output by zero-stuffing, with no filter after it. That
+// leaves a mirror image of the whole wet signal just below 22khz, at full amplitude: it is barely
+// audible itself, but it eats the headroom of the final mix, so loud scenes clip much more (Outrun
+// 2006 while racing). We deliberately replace that with a proper interpolation filter.
+//
+// A half-band filter: even output frames are the input samples, odd frames are interpolated from
+// UPSAMPLE_HALF_TAPS samples on each side. Kaiser-windowed sinc (beta 7.25), Q15, summing to
+// exactly unity. Flat to within 0.003dB up to 9khz and -69dB from 13khz up. The cost is a delay
+// of UPSAMPLE_HALF_TAPS samples at 22khz, about half a millisecond, which is nothing for a reverb.
+static const int32_t upsampleCoefs[12] = {
+	20754, -6625, 3643, -2278, 1478, -958, 605, -367, 209, -109, 50, -18,
+};
+
+void SasReverb::UpsampleWet(int16_t *out) {
+	static_assert(ARRAY_SIZE(upsampleCoefs) == UPSAMPLE_HALF_TAPS, "coefficient count");
+	// The newest sample is at wetRingPos_. Output frames sit UPSAMPLE_HALF_TAPS samples behind it,
+	// between the "center" sample and the one after.
+	const int center = wetRingPos_ - UPSAMPLE_HALF_TAPS;
+	const int mask = UPSAMPLE_RING - 1;
+	for (int ch = 0; ch < 2; ch++) {
+		int64_t sum = 0;
+		for (int j = 0; j < UPSAMPLE_HALF_TAPS; j++) {
+			sum += (int64_t)upsampleCoefs[j] * (wetRing_[(center - j) & mask][ch] + wetRing_[(center + 1 + j) & mask][ch]);
+		}
+		out[ch] = clamp_s16(wetRing_[center & mask][ch]);
+		out[ch + 2] = (int16_t)std::clamp(sum >> 15, (int64_t)-32768, (int64_t)32767);
+	}
+}
+
 void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight) {
 	// This means replicate the input signal in the processed buffer.
 	// Can also be used to verify that the error is in here...
@@ -288,12 +318,11 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		memset(output, 0, inputSize * 4 * sizeof(int16_t));
 		return;
 	} else {
-		// The ME's reverb return is (evol * out) >> 11, not >> 12. Our caller passes
-		// leftVol << 3 to pair with the >> 15 below, which is one bit short of that.
-		// The "off" path above is deliberately left alone: it really is >> 12, because the
-		// hardware runs a separate full-rate loop when no reverb is selected.
-		volLeft <<= 1;
-		volRight <<= 1;
+		// The ME's reverb return is (evol * out) >> 11, one bit more than the "off" path's
+		// >> 12, because it only puts the wet signal on every other 44khz frame and leaves the
+		// rest at zero. We interpolate instead (see below), which gives every frame the signal,
+		// so the same average level comes from the plain >> 12 that our caller's leftVol << 3
+		// pairs with the >> 15 below.
 		volLeft *= reverbVolumeMultiplier;
 		volRight *= reverbVolumeMultiplier;
 	}
@@ -340,11 +369,12 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits.
-		output[i * 4 + 0] = (int16_t)std::clamp(((int64_t)Lout * volLeft) >> 15, (int64_t)-32768, (int64_t)32767);
-		output[i * 4 + 1] = (int16_t)std::clamp(((int64_t)Rout * volRight) >> 15, (int64_t)-32768, (int64_t)32767);
-		output[i * 4 + 2] = 0;
-		output[i * 4 + 3] = 0;
+		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits. The result is kept
+		// unclamped until after interpolation.
+		wetRing_[wetRingPos_][0] = (int32_t)(((int64_t)Lout * volLeft) >> 15);
+		wetRing_[wetRingPos_][1] = (int32_t)(((int64_t)Rout * volRight) >> 15);
+		UpsampleWet(output + i * 4);
+		wetRingPos_ = (wetRingPos_ + 1) & (UPSAMPLE_RING - 1);
 
 		b.Next();
 	}
