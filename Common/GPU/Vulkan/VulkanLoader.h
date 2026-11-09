@@ -282,6 +282,9 @@ struct VulkanExtensions {
 
 void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars);
 
+// False where AdrenoTools' linker namespace tricks are known or suspected to break (Android 17 and its previews).
+bool VulkanCustomDriverAllowedByOS();
+
 // Way to do a quick check before even attempting to load.
 void VulkanSetNativeLibDir(std::string_view nativeLibDir);
 bool VulkanMayBeAvailable();
