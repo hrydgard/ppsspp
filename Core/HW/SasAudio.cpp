@@ -622,7 +622,9 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
 			// Reduce it to 14 bits, by shifting off 15.  Round up by adding (1 << 14) first.
-			int envelopeValue = voice.envelope.GetHeight();
+			// A fast decay can leave the height below zero for a sample, as the switch to sustain
+			// doesn't reset it. Don't let that invert the waveform into a full-scale click.
+			int envelopeValue = std::max(voice.envelope.GetHeight(), 0);
 			voice.envelope.Step();
 			envelopeValue = (envelopeValue + (1 << 14)) >> 15;
 

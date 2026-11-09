@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 
@@ -325,8 +326,9 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mLDIFF] = clamp_s16(Lin + (b[d.dRDIFF] * d.vWALL >> 15) - (b[d.mLDIFF - 1]*d.vIIR >> 15) + b[d.mLDIFF - 1]); // R - to - L
 		b[d.mRDIFF] = clamp_s16(Rin + (b[d.dLDIFF] * d.vWALL >> 15) - (b[d.mRDIFF - 1]*d.vIIR >> 15) + b[d.mRDIFF - 1]); // L - to - R
 		// ___Early Echo(Comb Filter, with input from buffer)__________________________
-		int32_t Lout = ((d.vCOMB1*b[d.mLCOMB1] + d.vCOMB2*b[d.mLCOMB2] + d.vCOMB3*b[d.mLCOMB3] + d.vCOMB4*b[d.mLCOMB4]) >> 15);
-		int32_t Rout = ((d.vCOMB1*b[d.mRCOMB1] + d.vCOMB2*b[d.mRCOMB2] + d.vCOMB3*b[d.mRCOMB3] + d.vCOMB4*b[d.mRCOMB4]) >> 15);
+		// Four full-scale products can sum past 32 bits.
+		int32_t Lout = (int32_t)(((int64_t)d.vCOMB1*b[d.mLCOMB1] + (int64_t)d.vCOMB2*b[d.mLCOMB2] + (int64_t)d.vCOMB3*b[d.mLCOMB3] + (int64_t)d.vCOMB4*b[d.mLCOMB4]) >> 15);
+		int32_t Rout = (int32_t)(((int64_t)d.vCOMB1*b[d.mRCOMB1] + (int64_t)d.vCOMB2*b[d.mRCOMB2] + (int64_t)d.vCOMB3*b[d.mRCOMB3] + (int64_t)d.vCOMB4*b[d.mRCOMB4]) >> 15);
 		// ___Late Reverb APF1(All Pass Filter 1, with input from COMB)________________
 		b[d.mLAPF1] = clamp_s16(Lout - (d.vAPF1*b[(d.mLAPF1 - d.dAPF1)] >> 15));
 		Lout = b[(d.mLAPF1 - d.dAPF1)] + (b[d.mLAPF1] * d.vAPF1 >> 15);
@@ -338,8 +340,9 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		output[i * 4 + 0] = clamp_s16((Lout * volLeft) >> 15);
-		output[i * 4 + 1] = clamp_s16((Rout * volRight) >> 15);
+		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits.
+		output[i * 4 + 0] = (int16_t)std::clamp(((int64_t)Lout * volLeft) >> 15, (int64_t)-32768, (int64_t)32767);
+		output[i * 4 + 1] = (int16_t)std::clamp(((int64_t)Rout * volRight) >> 15, (int64_t)-32768, (int64_t)32767);
 		output[i * 4 + 2] = 0;
 		output[i * 4 + 3] = 0;
 

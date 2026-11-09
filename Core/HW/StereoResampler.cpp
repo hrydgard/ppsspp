@@ -99,7 +99,8 @@ inline void ClampBufferToS16(s16 *out, const s32 *in, size_t size, int factor) {
 		// so CrossSIMD won't be very useful.
 		// LLVM autovec does an okay job with this on ARM64, it turns out.
 		for (size_t i = 0; i < size; i++) {
-			out[i] = clamp_s16((in[i] * factor) >> 12);
+			// A loud mix times a 12-bit factor can pass 32 bits.
+			out[i] = (s16)std::clamp(((s64)in[i] * factor) >> 12, (s64)-32768, (s64)32767);
 		}
 	} else {
 #ifdef _M_SSE
@@ -150,7 +151,8 @@ void StereoResampler::Clear() {
 }
 
 inline int16_t MixSingleSample(int16_t s1, int16_t s2, uint16_t frac) {
-	int32_t value = s1 + (((s2 - s1) * frac) >> 16);
+	// The difference is up to 17 bits and frac 16, so the product needs 64 bits.
+	int32_t value = s1 + (int32_t)(((int64_t)(s2 - s1) * frac) >> 16);
 	if (value < -32767)
 		return -32767;
 	else if (value > 32767)
@@ -237,8 +239,9 @@ void StereoResampler::Mix(s16 *samples, unsigned int numSamples, bool consider_f
 
 	// Padding with the last value to reduce clicking
 	short s[2];
-	s[0] = clamp_s16(buffer_[(indexR - 1) & INDEX_MASK]);
-	s[1] = clamp_s16(buffer_[(indexR - 2) & INDEX_MASK]);
+	// The last frame consumed starts at indexR - 2, left first.
+	s[0] = buffer_[(indexR - 2) & INDEX_MASK];
+	s[1] = buffer_[(indexR - 1) & INDEX_MASK];
 	for (; currentSample < numSamples * 2; currentSample += 2) {
 		samples[currentSample] = s[0];
 		samples[currentSample + 1] = s[1];
