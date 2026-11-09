@@ -217,12 +217,12 @@ private:
 };
 
 AdhocServerCompactInfo::AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams)
-	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), entry_(entry) {
+	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)), entry_(entry) {
 	using namespace UI;
 
 	SetSpacing(5.0f);
 
-	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
+	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL));
 	lines->SetSpacing(0.0f);
 	TextView *name = lines->Add(new TextView(entry.name));
 
@@ -234,21 +234,15 @@ AdhocServerCompactInfo::AdhocServerCompactInfo(const AdhocServerListEntry &entry
 
 	lines->Add(new TextView(secondLine))->SetTextSize(TextSize::Small)->SetWordWrap();
 
-	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f, Margins(0.0f, 5.0f))));
+	Add(new Spacer(0.0f, new LinearLayoutParams(1.0f)));
 
 	if (entry.mode == AdhocDataMode::AemuPostoffice) {
-		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(10.0))));
+		TextView *relay = Add(new TextView(n->T("Relay"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0.0))));
 	}
 
 	Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([host = entry_.host](UI::EventParams &) {
 		System_CopyStringToClipboard(host);
 	});
-}
-
-void AdhocServerCompactInfo::Draw(UIContext &dc) {
-	UI::LinearLayout::Draw(dc);
-	// Underline
-	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
 }
 
 static UI::View *CreateInfoItemWithButton(std::string_view text, ImageID buttonImage, std::function<void(UI::EventParams &)> onClick) {
@@ -372,22 +366,18 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto ni = GetI18NCategory(I18NCat::NETWORKING);
 
-	Margins contentMargins(12, 0);
-
-	parent->Add(new AdhocServerCompactInfo(entry_, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
-	parent->Add(new Spacer(5.0f));
+	parent->Add(new AdhocServerCompactInfo(entry_, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-	content->SetSpacing(6.0f);
+	content->SetSpacing(8.0f);
 	if (!entry_.ip.empty()) {
 		content->Add(new InfoItem(entry_.ip, ""));
 	}
-	TextView *desc = content->Add(new TextView(entry_.description, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
-	desc->SetTextSize(TextSize::Small);
-	desc->SetWordWrap();
+	InfoItem *desc = content->Add(new InfoItem(entry_.description, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	desc->SetRoundCorners();
 
-	LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, contentMargins)));
+	LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	buttonStrip->SetSpacing(8);
 	if (!entry_.web.empty() || !entry_.discord.empty()) {
 		if (!entry_.web.empty()) {
@@ -411,6 +401,8 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	} else {
 		CreateAdhocServerGameList(content, games_, statusRequest_.get() ? true : false);
 	}
+
+	buttonStrip->SetRoundCorners();
 
 	scroll->Add(content);
 	parent->Add(scroll);
@@ -500,16 +492,17 @@ private:
 };
 
 AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntry &entry, bool showDeleteButton, ScreenManager *screenManager, UI::LayoutParams *layoutParams)
-	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT, UI::Margins(5.0f, 0.0f))), value_(editValue), entry_(entry) {
+	: UI::LinearLayout(ORIENT_HORIZONTAL, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)), value_(editValue), entry_(entry) {
 	using namespace UI;
 
 	SetSpacing(5.0f);
+	SetPadding(Margins(10.0f, 2.0f, 0.0f, 2.0f));
 	// Show as radio button to make it really clear that selection actually is the choice.
 	int number = 0;
 	Add(new ImageView([editValue, host = entry.host]() { return host == *editValue ? ImageID("I_RADIO_SELECTED") : ImageID("I_RADIO_EMPTY"); },
-		new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(5, 0, 0, 0))));
+		new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity::G_VCENTER, Margins(0.0f, 0.0f, 6.0f, 0.0f))));
 
-	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(5, 5))));
+	LinearLayout *lines = Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(Margins(0.0f, 5))));
 	lines->SetSpacing(0.0f);
 	ClickableTextView *name = lines->Add(new ClickableTextView(entry.name));
 	name->SetFocusable(true);
@@ -547,6 +540,7 @@ AdhocServerRow::AdhocServerRow(std::string *editValue, const AdhocServerListEntr
 			e.v = this;
 			screenManager->push(new AdhocServerInfoScreen(copy));
 		});
+		infoButton->SetRoundCorners();
 	}
 }
 

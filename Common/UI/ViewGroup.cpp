@@ -853,6 +853,7 @@ void LinearLayout::Layout() {
 // Applies rounding to the corners of the child views, based on their position in the layout and the orientation. Masked by the outerCorners.
 // Ignores invisible views.
 void LinearLayout::SetRoundCorners(RoundCorners outerCorners) {
+	roundCorners_ = outerCorners;
 	// Easy case first: There's spacing, just apply round corners to all subviews.
 	if (spacing_ > 0.0f) {
 		for (View *view : views_) {

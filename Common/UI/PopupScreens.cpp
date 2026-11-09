@@ -238,7 +238,6 @@ void PopupScreen::CreateViews() {
 		box_->Add(buttonRow);
 	}
 
-	box_->SetRoundCorners(RoundCorners::All);
 	// Rounds the top of the header and the bottom of the last view, to match the box.
 	box_->SetRoundCorners(RoundCorners::All);
 }

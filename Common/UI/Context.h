@@ -118,7 +118,8 @@ public:
 	// in dps, like dp_xres and dp_yres
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
-	Bounds GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode) const;
+	// reserveHiddenNavBar keeps out of where the navigation bar comes back on a swipe, even while it's hidden.
+	Bounds GetLayoutBounds(ViewLayoutMode layoutMode, bool immersiveMode, bool reserveHiddenNavBar = false) const;
 	Draw::DrawContext *GetDrawContext() const { return draw_; }
 	const UI::Theme &GetTheme() const {
 		return *theme;

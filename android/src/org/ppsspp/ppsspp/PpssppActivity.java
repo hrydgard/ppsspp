@@ -975,7 +975,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
-		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0));
+		// Where the navigation bar is when shown, which it is for a while after a swipe from the edge even when hidden.
+		Insets navBar = insetCompat.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars());
+		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0)
+			+ ":" + navBar.left + ":" + navBar.right + ":" + navBar.top + ":" + navBar.bottom);
 	}
 
 	public void notifySurface(Surface surface) {

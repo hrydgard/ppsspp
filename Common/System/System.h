@@ -200,6 +200,11 @@ enum SystemProperty {
 	// How far down the screen the side insets are needed (they're for something in a top corner), or -1.
 	SYSPROP_DISPLAY_SIDE_INSETS_BOTTOM,
 	SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT,
+	// The navigation bar's insets, also while it's hidden (a swipe from the edge brings it back).
+	SYSPROP_DISPLAY_NAVBAR_INSET_LEFT,
+	SYSPROP_DISPLAY_NAVBAR_INSET_RIGHT,
+	SYSPROP_DISPLAY_NAVBAR_INSET_TOP,
+	SYSPROP_DISPLAY_NAVBAR_INSET_BOTTOM,
 
 	SYSPROP_DEVICE_TYPE,
 	SYSPROP_APP_GOLD,  // To avoid having #ifdef GOLD other than in main.cpp and similar.
