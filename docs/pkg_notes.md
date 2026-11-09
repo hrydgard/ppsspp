@@ -212,6 +212,11 @@ letting the user find out, since they installed it deliberately. This is not wha
 It comes up in practice - the LittleBigPlanet v2.05 update targets disc version 1.00, and the
 common European dump is 1.01, and it works.
 
+An update whose `APP_VER` isn't newer than the disc's is ignored, and the disc boots as it is.
+Fan translations can build the latest update into the disc and set its `APP_VER` to match. Booting
+the stock `PBOOT.PBP` over such a disc runs the untranslated executable, which may then reject the
+translated data files.
+
 There's no setting to turn this off. Anyone who has a `PBOOT.PBP` sitting in a game folder either
 installed it here or copied it off a real memory stick, and in both cases booting it is what they
 were after.
