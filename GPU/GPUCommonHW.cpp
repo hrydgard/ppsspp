@@ -991,9 +991,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	// This is the check from #21678 for Evangelion JO.
+	// This is the check from #21678 for Evangelion JO, whose menu text is rendered into small framebuffers
+	// that are then used as textures, so they need to reach memory on the first frame.
+	// Only for buffers smaller than the screen. A partial readback of a screen-sized one leaves a strip of
+	// stale pixels in VRAM, which GTA's Japanese versions then display for a few frames when pausing (#21802).
 	// TODO: Make this less specific.
-	if (gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
+	if (vfb && (vfb->width < 480 || vfb->height < 272) &&
+		gstate.isModeThrough() && gstate.isTextureMapEnabled() && gstate.getColorMask() != 0xFFFFFFFF &&
 		gstate.getScissorX1() == 0 && gstate.getScissorY1() == 0 && Memory::IsVRAMAddress(gstate.getFrameBufAddress())) {
 		int safeWidth;
 		int safeHeight;
