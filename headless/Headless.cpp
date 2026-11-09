@@ -689,9 +689,11 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 				paceStart += -maxBehind - ahead;
 				ahead = -maxBehind;
 			}
-			// With --lag-sync, lag sync paces every emulated millisecond instead, and two pacers out of
-			// phase would undo each other.
-			if (ahead > 0.001 && !g_Config.bForceLagSync) {
+			// While lag sync paces every emulated millisecond (--lag-sync), two pacers out of phase would
+			// undo each other.
+			LagSyncStats lagSync;
+			__DisplayGetLagSyncStats(&lagSync);
+			if (ahead > 0.001 && (!g_Config.bForceLagSync || lagSync.bursting)) {
 				sleep_ms((int)(std::min(ahead, 0.05) * 1000.0), "realtime");
 			}
 		}
@@ -765,6 +767,12 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			perSecond += StringFromFormat(" %d", flips);
 		}
 		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
+		if (g_Config.bForceLagSync) {
+			LagSyncStats lagSync;
+			__DisplayGetLagSyncStats(&lagSync);
+			fprintf(stderr, "Lag sync: %d sleeps, %.2fs slept, %.0fus late on average, %d resets, %d fallbacks to bursting%s\n",
+				lagSync.sleeps, lagSync.slept, lagSync.sleeps ? lagSync.late / lagSync.sleeps * 1e6 : 0.0, lagSync.resets, lagSync.bursts, lagSync.bursting ? " (bursting now)" : "");
+		}
 	}
 	// What shader compiles cost the run, which the times include.
 	fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);

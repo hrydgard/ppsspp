@@ -27,6 +27,9 @@ void sleep_ms(int ms, const char *reason);
 void sleep_us(int us, const char *reason);
 // Precise sleep. Can consume a little bit of CPU on Windows at least.
 void sleep_precise(double seconds, const char *reason);
+// Sleeps about this long without spinning, so it can wake up late (by the OS's timer slack). For
+// waits that are made up for afterwards, where spinning to the exact time would only burn a core.
+void sleep_approx(double seconds, const char *reason);
 
 // Random sleep, used for debugging.
 void sleep_random(double minSeconds, double maxSeconds, const char *reason);

@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdint>
 
@@ -315,6 +316,32 @@ void sleep_precise(double seconds, const char *reason) {
 		QueryPerformanceCounter(&qpc);
 	}
 	// On other platforms, we just do a conversion with more input precision than in sleep_ms which is restricted to whole milliseconds.
+#elif defined(HAVE_LIBNX)
+	svcSleepThread((int64_t)(seconds * 1000000000.0));
+#elif defined(__EMSCRIPTEN__)
+	emscripten_sleep(seconds * 1000.0);
+#else
+	usleep(seconds * 1000000.0);
+#endif
+}
+
+void sleep_approx(double seconds, const char *reason) {
+	if (seconds <= 0.0) {
+		return;
+	}
+#if SLEEP_LOG_ENABLED
+	INFO_LOG(Log::System, "Sleep approx %f s: %s", seconds, reason);
+#endif
+#ifdef _WIN32
+	if (Timer) {
+		LARGE_INTEGER due;
+		due.QuadPart = -std::max((INT64)1, (INT64)(seconds * 10'000'000));
+		if (SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE)) {
+			WaitForSingleObject(Timer, INFINITE);
+			return;
+		}
+	}
+	Sleep(std::max(1, (int)(seconds * 1000.0 + 0.5)));
 #elif defined(HAVE_LIBNX)
 	svcSleepThread((int64_t)(seconds * 1000000000.0));
 #elif defined(__EMSCRIPTEN__)

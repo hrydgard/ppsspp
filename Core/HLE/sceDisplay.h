@@ -44,6 +44,19 @@ void __DisplaySetWasPaused();
 // speeds, and the netplay/achievement restrictions have all had their say. 0 means unlimited.
 int __DisplayGetFrameTimingLimit();
 
+struct LagSyncStats {
+	int sleeps = 0;
+	double slept = 0.0;
+	// Summed over the sleeps: how late they woke up for the time they were waiting for.
+	double late = 0.0;
+	// Times it started over, too far behind or ahead.
+	int resets = 0;
+	// Times it fell back to bursting.
+	int bursts = 0;
+	bool bursting = false;
+};
+void __DisplayGetLagSyncStats(LagSyncStats *stats);
+
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
 
