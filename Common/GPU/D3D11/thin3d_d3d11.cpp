@@ -1652,6 +1652,11 @@ void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
 	context_->IASetInputLayout(curInputLayout_.Get());
 	context_->VSSetShader(curVS_.Get(), nullptr, 0);
 	context_->PSSetShader(curPS_.Get(), nullptr, 0);
+	// We never use these stages, but a libretro frontend sharing the context may leave a shader bound
+	// in them (RetroArch draws its sprites with a geometry shader).
+	context_->GSSetShader(nullptr, nullptr, 0);
+	context_->HSSetShader(nullptr, nullptr, 0);
+	context_->DSSetShader(nullptr, nullptr, 0);
 	if (curTopology_ != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED) {
 		context_->IASetPrimitiveTopology(curTopology_);
 	}
