@@ -7,6 +7,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #if PPSSPP_PLATFORM(SWITCH)
+#include "Common/GPU/OpenGL/GLCommon.h"
 #include <glsym/rglgen.h>
 // not in libretro-common's glsym map (GLSwitch.h)
 PPSSPP_PFNGLCLIPCONTROLPROC ppsspp_glClipControl;
