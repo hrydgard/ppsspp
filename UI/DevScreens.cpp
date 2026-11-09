@@ -44,6 +44,7 @@
 #include "Common/UI/UI.h"
 #include "Common/UI/IconCache.h"
 #include "Common/UI/ScreenManager.h"
+#include "Common/Render/DrawBuffer.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Profiler/Profiler.h"
 
@@ -51,6 +52,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/ShaderWriter.h"
+#include "Common/VR/PPSSPPVR.h"
 
 #include "Core/WebServer.h"
 #include "Core/MemMap.h"
@@ -910,4 +912,176 @@ void TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 
 void TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
 	RecreateActivity();
+}
+
+static const float kPi = 3.14159265f;
+
+static uint32_t RGB8(int r, int g, int b) {
+	return 0xFF000000 | (b << 16) | (g << 8) | r;
+}
+
+static uint32_t Gray8(int v) {
+	return RGB8(v, v, v);
+}
+
+// Fully saturated, full value. HSV is piecewise linear between multiples of 60 degrees, so a wheel
+// with vertices on those angles interpolates to what a texture would show.
+static uint32_t HueColor(float degrees) {
+	float h = fmodf(degrees, 360.0f) / 60.0f;
+	int sector = (int)h;
+	float f = h - sector;
+	float r = 0.0f, g = 0.0f, b = 0.0f;
+	switch (sector) {
+	case 0: r = 1.0f; g = f; break;
+	case 1: r = 1.0f - f; g = 1.0f; break;
+	case 2: g = 1.0f; b = f; break;
+	case 3: g = 1.0f - f; b = 1.0f; break;
+	case 4: r = f; b = 1.0f; break;
+	default: r = 1.0f; b = 1.0f - f; break;
+	}
+	return RGB8((int)(r * 255.0f + 0.5f), (int)(g * 255.0f + 0.5f), (int)(b * 255.0f + 0.5f));
+}
+
+class ColorTestView : public UI::View {
+public:
+	ColorTestView(UI::LayoutParams *layoutParams) : UI::View(layoutParams) {}
+	void Draw(UIContext &dc) override;
+	std::string DescribeText() const override { return "Color test"; }
+
+private:
+	struct Label {
+		std::string text;
+		float x;
+		float y;
+		uint32_t color;
+	};
+
+	static void HRamp(DrawBuffer *draw, float x, float y, float w, float h, uint32_t left, uint32_t right);
+	static void Steps(DrawBuffer *draw, std::vector<Label> &labels, float x, float y, float w, float h, int first, int step, int count);
+	static void Wheel(DrawBuffer *draw, float cx, float cy, float radius, uint32_t center);
+	static void GammaCheck(DrawBuffer *draw, std::vector<Label> &labels, float x, float y, float w, float h);
+};
+
+void ColorTestView::HRamp(DrawBuffer *draw, float x, float y, float w, float h, uint32_t left, uint32_t right) {
+	draw->V(x, y, left, 0.0f, 0.0f);
+	draw->V(x + w, y, right, 1.0f, 0.0f);
+	draw->V(x + w, y + h, right, 1.0f, 1.0f);
+	draw->V(x, y, left, 0.0f, 0.0f);
+	draw->V(x + w, y + h, right, 1.0f, 1.0f);
+	draw->V(x, y + h, left, 0.0f, 1.0f);
+}
+
+void ColorTestView::Steps(DrawBuffer *draw, std::vector<Label> &labels, float x, float y, float w, float h, int first, int step, int count) {
+	const float stepW = w / count;
+	for (int i = 0; i < count; i++) {
+		const int v = std::min(first + i * step, 255);
+		draw->Rect(x + i * stepW, y, stepW, h, Gray8(v));
+		labels.push_back({ StringFromFormat("%d", v), x + (i + 0.5f) * stepW, y + h * 0.5f, v < 128 ? 0xFFFFFFFF : 0xFF000000 });
+	}
+}
+
+void ColorTestView::Wheel(DrawBuffer *draw, float cx, float cy, float radius, uint32_t center) {
+	// A multiple of 6, so the 60 degree corners are vertices.
+	const int segments = 360;
+	for (int i = 0; i < segments; i++) {
+		const float a1 = i * (360.0f / segments);
+		const float a2 = (i + 1) * (360.0f / segments);
+		const float r1 = a1 * kPi / 180.0f;
+		const float r2 = a2 * kPi / 180.0f;
+		draw->V(cx, cy, center, 0.0f, 0.0f);
+		draw->V(cx + cosf(r1) * radius, cy - sinf(r1) * radius, HueColor(a1), 0.0f, 0.0f);
+		draw->V(cx + cosf(r2) * radius, cy - sinf(r2) * radius, HueColor(a2), 0.0f, 0.0f);
+	}
+}
+
+// Alternating black and white pixel rows average to 50% light. Blurred (by squinting, or resampling
+// like a VR compositor's), they match 188 when averaged in linear light, 128 when averaged as encoded.
+void ColorTestView::GammaCheck(DrawBuffer *draw, std::vector<Label> &labels, float x, float y, float w, float h) {
+	// The height of a pixel in UI coordinates. Not pixel_in_dps_y, which is the inverse.
+	const float px = (float)g_display.dp_yres / (float)g_display.pixel_yres;
+	const int firstRow = (int)ceilf(y / px);
+	const int lastRow = (int)floorf((y + h) / px);
+	for (int row = firstRow; row < lastRow; row++) {
+		draw->Rect(x, row * px, w, px, (row & 1) ? 0xFFFFFFFF : 0xFF000000);
+	}
+	const float patchW = w * 0.3f;
+	const float patchH = h * 0.5f;
+	const float patchY = y + (h - patchH) * 0.5f;
+	const int values[2] = { 128, 188 };
+	for (int i = 0; i < 2; i++) {
+		const float patchX = x + w * (i == 0 ? 0.15f : 0.55f);
+		draw->Rect(patchX, patchY, patchW, patchH, Gray8(values[i]));
+		labels.push_back({ StringFromFormat("%d", values[i]), patchX + patchW * 0.5f, patchY + patchH * 0.5f, values[i] < 160 ? 0xFFFFFFFF : 0xFF000000 });
+	}
+}
+
+void ColorTestView::Draw(UIContext &dc) {
+	using namespace UI;
+	const float margin = 8.0f;
+	const float x = bounds_.x + margin;
+	const float w = bounds_.w - margin * 2.0f;
+	const float headerH = 30.0f;
+	float y = bounds_.y + headerH;
+	const float h = bounds_.y2() - y - margin;
+
+	std::vector<Label> labels;
+	DrawBuffer *draw = dc.Draw();
+	dc.Flush();
+	dc.BeginNoTex();
+	draw->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, 0xFF000000);
+
+	// Smooth ramps.
+	const float rampH = h * 0.07f;
+	const uint32_t rampColors[4] = { RGB8(255, 0, 0), RGB8(0, 255, 0), RGB8(0, 0, 255), RGB8(255, 255, 255) };
+	for (uint32_t color : rampColors) {
+		HRamp(draw, x, y, w, rampH, 0xFF000000, color);
+		y += rampH + 2.0f;
+	}
+	y += margin;
+
+	// Steps: the whole range, then the ends, where crushed blacks and clipped whites show.
+	const float stepH = h * 0.075f;
+	Steps(draw, labels, x, y, w, stepH, 0, 16, 17);
+	y += stepH + 2.0f;
+	Steps(draw, labels, x, y, w * 0.5f - 1.0f, stepH, 0, 2, 16);
+	Steps(draw, labels, x + w * 0.5f + 1.0f, y, w * 0.5f - 1.0f, stepH, 225, 2, 16);
+	y += stepH + margin;
+
+	// Bars: white, the secondaries and primaries, black.
+	const uint32_t bars[8] = { RGB8(255, 255, 255), RGB8(255, 255, 0), RGB8(0, 255, 255), RGB8(0, 255, 0), RGB8(255, 0, 255), RGB8(255, 0, 0), RGB8(0, 0, 255), RGB8(0, 0, 0) };
+	const float barW = w / 8.0f;
+	for (int i = 0; i < 8; i++) {
+		draw->Rect(x + i * barW, y, barW, stepH, bars[i]);
+	}
+	y += stepH + margin;
+
+	// The wheels (fading to white and to black in the middle), and the gamma check.
+	const float bottomH = bounds_.y2() - margin - y;
+	const float radius = std::max(0.0f, std::min(bottomH, w * 0.25f) * 0.5f - margin);
+	Wheel(draw, x + radius, y + bottomH * 0.5f, radius, 0xFFFFFFFF);
+	Wheel(draw, x + radius * 3.0f + margin * 2.0f, y + bottomH * 0.5f, radius, 0xFF000000);
+	const float gammaX = x + radius * 4.0f + margin * 4.0f;
+	const float captionH = 24.0f;
+	GammaCheck(draw, labels, gammaX, y + captionH, x + w - gammaX, bottomH - captionH);
+	dc.Flush();
+
+	dc.Begin();
+	dc.SetFontStyle(*GetTextStyle(dc, TextSize::Tiny));
+	for (const Label &label : labels) {
+		dc.DrawText(label.text, label.x, label.y, label.color, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+	}
+	dc.DrawText("Blurred, the lines match 188 if averaged in linear light, 128 if averaged as encoded", gammaX, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	const std::string header = StringFromFormat("%s%s, %dx%d pixels", dc.GetDrawContext()->GetInfoString(Draw::InfoField::APINAME).c_str(), IsVREnabled() ? ", VR" : "", g_display.pixel_xres, g_display.pixel_yres);
+	dc.SetFontStyle(*GetTextStyle(dc, TextSize::Small));
+	dc.DrawText(header, bounds_.x + margin, bounds_.y + 4.0f, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.Flush();
+	dc.Begin();
+}
+
+void ColorTestScreen::CreateViews() {
+	using namespace UI;
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_->Add(new ColorTestView(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f)));
+	root_->Add(new Button(di->T("Back"), new LinearLayoutParams(FILL_PARENT, 64, Margins(10, 0))))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
