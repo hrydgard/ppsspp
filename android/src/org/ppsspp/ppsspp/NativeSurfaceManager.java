@@ -36,6 +36,34 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 			return;
 
 		surfaceView.getHolder().addCallback(this);
+		surfaceView.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+			if (right - left != oldRight - oldLeft || bottom - top != oldBottom - oldTop) {
+				viewSizeChanged();
+			}
+		});
+	}
+
+	// A fixed-size (hardware scaled) surface keeps its size when the view is resized by a rotation, so no
+	// surfaceChanged follows. Re-fix it here for the new view size, which brings one with the new size.
+	private void viewSizeChanged() {
+		if (desiredSize.x == 0 && desiredSize.y == 0) {
+			// Sized from layout, so surfaceChanged handles it.
+			return;
+		}
+		// onConfigurationChanged measured before this layout, so the size it reported is the old one.
+		updateDisplayMeasurements();
+		Point newDesired = new Point();
+		getDesiredBackbufferSize(newDesired);
+		if (newDesired.equals(desiredSize)) {
+			return;
+		}
+		Log.i(TAG, "View resized, re-fixing surface size to " + newDesired.x + " x " + newDesired.y);
+		desiredSize.set(newDesired.x, newDesired.y);
+		if (newDesired.x > 0 && newDesired.y > 0) {
+			surfaceView.getHolder().setFixedSize(newDesired.x, newDesired.y);
+		} else {
+			surfaceView.getHolder().setSizeFromLayout();
+		}
 	}
 
 	@Override
