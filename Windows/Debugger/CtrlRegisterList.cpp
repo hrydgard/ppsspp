@@ -559,8 +559,9 @@ void CtrlRegisterList::editRegisterValue()
 void CtrlRegisterList::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	int x = (s16)LOWORD(lParam); 
-	int y = (s16)HIWORD(lParam); 
-	if (x>16)
+	int y = (s16)HIWORD(lParam);
+	// The left margin only belongs to the register rows, the category tabs span the whole width.
+	if (x > 16 || y <= rowHeight)
 	{
 		oldSelection=selection;
 
@@ -654,6 +655,11 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 		selecting=false;
 		ReleaseCapture();
 		redraw();
+	}
+	else
+	{
+		// A click on the category tabs captures the mouse too, at any x.
+		ReleaseCapture();
 	}
 }
 
