@@ -176,12 +176,16 @@ SasReverb::SasReverb() : preset_(-1), pos_(0) {
 	workspace_ = new int16_t[BUFSIZE];
 	data_ = new SasReverbData{};
 	wet_ = new float[(UPSAMPLE_HISTORY + MAX_INPUT_FRAMES) * 2]();
+	sendEven_ = new float[(UPSAMPLE_HISTORY + MAX_INPUT_FRAMES) * 2]();
+	sendOdd_ = new float[(UPSAMPLE_HISTORY + MAX_INPUT_FRAMES) * 2]();
 }
 
 SasReverb::~SasReverb() {
 	delete[] workspace_;
 	delete data_;
 	delete[] wet_;
+	delete[] sendEven_;
+	delete[] sendOdd_;
 }
 
 const char *SasReverb::GetPresetName(int preset) {
@@ -204,6 +208,8 @@ void SasReverb::SetPreset(int preset) {
 		pos_ = BUFSIZE - presets[preset_].size;
 		memset(workspace_, 0, sizeof(int16_t) * BUFSIZE);
 		memset(wet_, 0, sizeof(float) * UPSAMPLE_HISTORY * 2);
+		memset(sendEven_, 0, sizeof(float) * UPSAMPLE_HISTORY * 2);
+		memset(sendOdd_, 0, sizeof(float) * UPSAMPLE_HISTORY * 2);
 	} else {
 		pos_ = 0;
 	}
@@ -328,6 +334,55 @@ void SasReverb::UpsampleWet(int16_t *out, int count) {
 		Vec4S32FromF32Round(acc).StoreS16Sat(out + i * 4);
 	}
 	memmove(wet_, wet_ + count * 2, sizeof(float) * UPSAMPLE_HISTORY * 2);
+}
+
+// The hardware decimates the send by keeping one frame of each pair, with no filter
+// (tests/audio/reverb/upsample: a 22.05khz tone reaches the reverb as DC), so everything above
+// 11khz aliases into the reverb. We filter it instead, with the same half-band filter as the
+// output, at half gain: the center frame times one half, plus the odd frames on each side.
+//
+// With the send split into its even frames E and odd frames O, output n is
+// E[n] / 2 + sum(c[j] / 2 * (O[n - 1 - j] + O[n + j])), so one load of O gives that tap for two
+// consecutive outputs, both channels, with the same coefficient. Delayed by UPSAMPLE_HALF_TAPS
+// frames at 22khz, like the output side.
+void SasReverb::DownsampleSend(int16_t *output, const int32_t *input, int outputFrames) {
+	_dbg_assert_(outputFrames <= MAX_INPUT_FRAMES);
+	const int halfTaps = UPSAMPLE_HALF_TAPS;
+	float *even = sendEven_ + UPSAMPLE_HISTORY * 2;
+	float *odd = sendOdd_ + UPSAMPLE_HISTORY * 2;
+	for (int i = 0; i < outputFrames; i++) {
+		even[i * 2 + 0] = (float)input[i * 4 + 0];
+		even[i * 2 + 1] = (float)input[i * 4 + 1];
+		odd[i * 2 + 0] = (float)input[i * 4 + 2];
+		odd[i * 2 + 1] = (float)input[i * 4 + 3];
+	}
+
+	float coefs[UPSAMPLE_HALF_TAPS];
+	for (int j = 0; j < halfTaps; j++) {
+		coefs[j] = (float)upsampleCoefs[j] * (0.5f / 32768.0f);
+	}
+
+	// Output n centers on history frame n + halfTaps, so its newest tap is frame n - 1 of this call.
+	for (int n = 0; n < outputFrames; n += 2) {
+		Vec4F32 acc = Vec4F32::Load(sendEven_ + (n + halfTaps) * 2) * 0.5f;
+		for (int j = 0; j < halfTaps; j++) {
+			const Vec4F32 pair = Vec4F32::Load(sendOdd_ + (n + halfTaps - 1 - j) * 2) + Vec4F32::Load(sendOdd_ + (n + halfTaps + j) * 2);
+			acc = MulAdd(pair, Vec4F32::Splat(coefs[j]), acc);
+		}
+		if (n + 1 < outputFrames) {
+			Vec4S32FromF32Round(acc).StoreS16Sat(output + n * 2);
+		} else {
+			// An odd count: the second output belongs to the next call (its taps haven't all
+			// arrived yet), so only the first is stored.
+			int16_t last[4];
+			Vec4S32FromF32Round(acc).StoreS16Sat(last);
+			output[n * 2 + 0] = last[0];
+			output[n * 2 + 1] = last[1];
+		}
+	}
+
+	memmove(sendEven_, sendEven_ + outputFrames * 2, sizeof(float) * UPSAMPLE_HISTORY * 2);
+	memmove(sendOdd_, sendOdd_ + outputFrames * 2, sizeof(float) * UPSAMPLE_HISTORY * 2);
 }
 
 void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight) {

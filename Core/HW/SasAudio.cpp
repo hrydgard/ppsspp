@@ -792,14 +792,8 @@ void SasInstance::ApplyWaveformEffect() {
 		return;
 	}
 
-	// First, downsample the send buffer to 22khz. The ME keeps one frame of each pair, with no
-	// filter (tests/audio/reverb/upsample: a 22.05khz tone reaches the reverb as DC). It keeps the
-	// second frame; we keep the first.
-	for (int i = 0; i < grainSize / 2; i++) {
-		sendBufferDownsampled[i * 2] = clamp_s16(sendBuffer[i * 4]);
-		sendBufferDownsampled[i * 2 + 1] = clamp_s16(sendBuffer[i * 4 + 1]);
-	}
-
+	// First, downsample the send buffer to 22khz, with a filter the hardware doesn't have.
+	reverb_.DownsampleSend(sendBufferDownsampled, sendBuffer, grainSize / 2);
 	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, volLeft, volRight);
 }
 

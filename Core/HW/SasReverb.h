@@ -32,6 +32,10 @@ public:
 
 	static const char *GetPresetName(int preset);
 
+	// Halves the rate of the 44khz send (interleaved stereo, outputFrames * 2 frames of it), into
+	// ProcessReverb's input.
+	void DownsampleSend(int16_t *output, const int32_t *input, int outputFrames);
+
 	// Input should be a mixdown of all the channels that have reverb enabled, at 22khz.
 	// Output is written back at 44khz.
 	void ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight);
@@ -64,4 +68,8 @@ private:
 	// previous call, then this call's. Not saved in savestates: the history is about a millisecond
 	// of audio, and the delay line itself isn't saved either.
 	float *wet_;
+	// The send at 44khz split into its even and its odd frames (interleaved stereo each), with
+	// UPSAMPLE_HISTORY frames of history, for DownsampleSend. Not saved either.
+	float *sendEven_;
+	float *sendOdd_;
 };
