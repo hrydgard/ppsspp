@@ -446,6 +446,8 @@ void runImDebugger(Draw::DrawContext *draw) {
 		SetOverrideScreenFrame(nullptr);
 		if (imDebugger_) {
 			imDebugger_->OnHidden();
+			// Key events don't reach imgui while it's hidden, so it would miss the release of a key held when it closed.
+			ImGui::GetIO().ClearInputKeys();
 		}
 	}
 
