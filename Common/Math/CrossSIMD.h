@@ -163,6 +163,8 @@ struct Vec4S32 {
 
 	void Store(int *dst) const { _mm_storeu_si128((__m128i *)dst, v); }
 	void Store2(int *dst) const { _mm_storel_epi64((__m128i *)dst, v); }
+	// Four signed 16-bit values, each lane clamped to -32768..32767.
+	void StoreS16Sat(int16_t *dst) const { _mm_storel_epi64((__m128i *)dst, _mm_packs_epi32(v, v)); }
 	void StoreAligned(int *dst) const { _mm_store_si128((__m128i *)dst, v);}
 
 	Vec4S32 SignBits32ToMask() {
@@ -684,6 +686,8 @@ struct Vec4S32 {
 
 	void Store(int *dst) const { vst1q_s32(dst, v); }
 	void Store2(int *dst) const { vst1_s32(dst, vget_low_s32(v)); }
+	// Four signed 16-bit values, each lane clamped to -32768..32767.
+	void StoreS16Sat(int16_t *dst) const { vst1_s16(dst, vqmovn_s32(v)); }
 	void StoreAligned(int *dst) const { vst1q_s32(dst, v); }
 
 	// Warning: Unlike on x86, this is a full 32-bit multiplication.
@@ -1276,6 +1280,8 @@ struct Vec4S32 {
 
 	void Store(int *dst) const { __lsx_vst(v, dst, 0); }
 	void Store2(int *dst) const { __lsx_vstelm_d(v, dst, 0, 0); }
+	// Four signed 16-bit values, each lane clamped to -32768..32767.
+	void StoreS16Sat(int16_t *dst) const { __lsx_vstelm_d(__lsx_vssrani_h_w(v, v, 0), dst, 0, 0); }
 	void StoreAligned(int *dst) const { __lsx_vst(v, dst, 0); }
 
 	// Warning: Unlike on x86, this is a full 32-bit multiplication.
@@ -1771,6 +1777,12 @@ struct Vec4S32 {
 
 	void Store(int *dst) const { memcpy(dst, v, sizeof(v)); }
 	void Store2(int *dst) const { memcpy(dst, v, sizeof(v[0]) * 2); }
+	// Four signed 16-bit values, each lane clamped to -32768..32767.
+	void StoreS16Sat(int16_t *dst) const {
+		for (int i = 0; i < 4; i++) {
+			dst[i] = (int16_t)(v[i] < -32768 ? -32768 : (v[i] > 32767 ? 32767 : v[i]));
+		}
+	}
 	void StoreAligned(int *dst) const { memcpy(dst, v, sizeof(v)); }
 
 	// Warning: Unlike on x86 SSE2, this is a full 32-bit multiplication.
