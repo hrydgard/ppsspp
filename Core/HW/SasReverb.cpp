@@ -282,7 +282,8 @@ private:
 // (tests/audio/reverb/upsample: with dry off, every odd frame is exactly zero). That
 // leaves a mirror image of the whole wet signal just below 22khz, at full amplitude: it is barely
 // audible itself, but it eats the headroom of the final mix, so loud scenes clip much more (Outrun
-// 2006 while racing). We deliberately replace that with a proper interpolation filter.
+// 2006 while racing). We deliberately replace that with a proper interpolation filter, unless the
+// hidden ReverbFilter setting is off.
 //
 // A half-band filter: even output frames are the input samples, odd frames are interpolated from
 // UPSAMPLE_HALF_TAPS samples on each side. Kaiser-windowed sinc (beta 7.25), Q15, summing to
@@ -347,6 +348,15 @@ void SasReverb::UpsampleWet(int16_t *out, int count) {
 // frames at 22khz, like the output side.
 void SasReverb::DownsampleSend(int16_t *output, const int32_t *input, int outputFrames) {
 	_dbg_assert_(outputFrames <= MAX_INPUT_FRAMES);
+	if (!g_Config.bReverbFilter) {
+		// What the hardware does: the second frame of each pair, unfiltered.
+		for (int i = 0; i < outputFrames; i++) {
+			output[i * 2 + 0] = clamp_s16(input[i * 4 + 2]);
+			output[i * 2 + 1] = clamp_s16(input[i * 4 + 3]);
+		}
+		return;
+	}
+
 	const int halfTaps = UPSAMPLE_HALF_TAPS;
 	float *even = sendEven_ + UPSAMPLE_HISTORY * 2;
 	float *odd = sendOdd_ + UPSAMPLE_HISTORY * 2;
@@ -404,10 +414,13 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		// >> 12, because it only puts the wet signal on every other 44khz frame and leaves the
 		// rest at zero. We interpolate instead (see below), which gives every frame the signal,
 		// so the same average level comes from the plain >> 12 that our caller's leftVol << 3
-		// pairs with the >> 15 below.
+		// pairs with the >> 15 below. Unfiltered, the output uses >> 14 to match the ME.
 		volLeft *= reverbVolumeMultiplier;
 		volRight *= reverbVolumeMultiplier;
 	}
+
+	// Read once per grain, so a change can't split one between the two output paths.
+	const bool filter = g_Config.bReverbFilter;
 
 	_dbg_assert_(inputSize <= MAX_INPUT_FRAMES);
 	const SasReverbData &d = *data_;
@@ -452,11 +465,19 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		b[d.mRAPF2] = clamp_s16(Rout - (d.vAPF2*b[(d.mRAPF2 - d.dAPF2)] >> 15));
 		Rout = b[(d.mRAPF2 - d.dAPF2)] + (b[d.mRAPF2] * d.vAPF2 >> 15);
 		// ___Output to Mixer(Output volume multiplied with input from APF2)___________
-		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits. The result is kept
-		// unclamped until after interpolation.
-		float *wet = wet_ + (UPSAMPLE_HISTORY + i) * 2;
-		wet[0] = (float)(((int64_t)Lout * volLeft) >> 15);
-		wet[1] = (float)(((int64_t)Rout * volRight) >> 15);
+		// Lout reaches about 17 bits and the volume 18, so this needs 64 bits.
+		if (filter) {
+			// Kept unclamped until after interpolation.
+			float *wet = wet_ + (UPSAMPLE_HISTORY + i) * 2;
+			wet[0] = (float)(((int64_t)Lout * volLeft) >> 15);
+			wet[1] = (float)(((int64_t)Rout * volRight) >> 15);
+		} else {
+			// What the hardware does: every other frame at twice the level (its >> 11), the rest zero.
+			output[i * 4 + 0] = (int16_t)std::clamp(((int64_t)Lout * volLeft) >> 14, (int64_t)-32768, (int64_t)32767);
+			output[i * 4 + 1] = (int16_t)std::clamp(((int64_t)Rout * volRight) >> 14, (int64_t)-32768, (int64_t)32767);
+			output[i * 4 + 2] = 0;
+			output[i * 4 + 3] = 0;
+		}
 
 		b.Next();
 	}
@@ -464,6 +485,8 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// Save the state in the object.
 	pos_ = b.GetPosition();
 
-	UpsampleWet(output, (int)inputSize);
+	if (filter) {
+		UpsampleWet(output, (int)inputSize);
+	}
 }
 

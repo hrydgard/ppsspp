@@ -451,6 +451,10 @@ public:
 	int iAchievementVolume;
 	int iAltSpeedVolume;
 
+	// Filter the SAS reverb's rate conversions to and from 22khz. Off gives the hardware's
+	// unfiltered decimation and zero-stuffing. No UI.
+	bool bReverbFilter;
+
 	bool bExtraAudioBuffering;  // For bluetooth
 	// Android only.
 	int iAndroidAudioApi;  // AndroidAudioApi
