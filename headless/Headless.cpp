@@ -1457,6 +1457,15 @@ int main(int argc, const char* argv[]) {
 		coreParameter.nandRoot = nand;
 	}
 
+	// The app stores the registry's category_version when it installs a firmware; headless has no
+	// config to keep it in. Left at 1, every XMB boot runs the registry upgrade and rewrites the
+	// defaults of every key added since 1.50, mapped settings included.
+	{
+		InstalledFirmwareInfo firmware;
+		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmware, false);
+		g_Config.iSceRegCategoryVersion = SceRegCategoryVersionForFirmware(firmware.version);
+	}
+
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
 	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
 	if (cmdLineOptions.reDecrypt.has_value()) {

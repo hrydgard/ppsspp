@@ -628,6 +628,21 @@ public:
 	int iXmbThemeWallpaperMode;
 	int iXmbThemeSystemColor;
 	int iXmbThemeCustomThemeMode;
+	// /CONFIG/VIDEO (UMD Video). The languages are two-letter codes, "00" meaning the disc's own.
+	std::string sXmbVideoMenuLanguage;
+	std::string sXmbVideoAudioLanguage;
+	std::string sXmbVideoSubtitleLanguage;
+	int iXmbVideoAppendedVolume;
+	bool bXmbVideoLRButtonEnable;
+	bool bXmbVideoListPlayMode;
+	int iXmbVideoTitleDisplayMode;
+	// /CONFIG/PHOTO/slideshow_speed
+	int iXmbPhotoSlideshowSpeed;
+	// /CONFIG/SYSTEM/CHARACTER_SET: code page indices, for file names and for text in files.
+	int iXmbCharsetOem;
+	int iXmbCharsetAnsi;
+	// /CONFIG/SYSTEM/LOCK/password: four digits.
+	std::string sXmbLockPassword;
 
 	// Networking
 	bool bEnableAdhocServer;
