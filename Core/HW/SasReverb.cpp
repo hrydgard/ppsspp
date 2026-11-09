@@ -272,7 +272,8 @@ private:
 	int size_;
 };
 
-// The hardware upsamples the reverb's 22khz output by zero-stuffing, with no filter after it. That
+// The hardware upsamples the reverb's 22khz output by zero-stuffing, with no filter after it
+// (tests/audio/reverb/upsample: with dry off, every odd frame is exactly zero). That
 // leaves a mirror image of the whole wet signal just below 22khz, at full amplitude: it is barely
 // audible itself, but it eats the headroom of the final mix, so loud scenes clip much more (Outrun
 // 2006 while racing). We deliberately replace that with a proper interpolation filter.
@@ -330,16 +331,9 @@ void SasReverb::UpsampleWet(int16_t *out, int count) {
 }
 
 void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inputSize, int volLeft, int volRight) {
-	// This means replicate the input signal in the processed buffer.
-	// Can also be used to verify that the error is in here...
+	// "Off" runs at the full rate and never gets here (see SasInstance::ApplyWaveformEffect).
 	if (preset_ == -1) {
-		// Strangely, OFF is not filled with zeroes every other.  Seems special cased.
-		for (size_t i = 0; i < inputSize; ++i) {
-			output[i * 4 + 0] = clamp_s16((int)input[i * 2 + 0] * volLeft >> 15);
-			output[i * 4 + 1] = clamp_s16((int)input[i * 2 + 1] * volRight >> 15);
-			output[i * 4 + 2] = clamp_s16((int)input[i * 2 + 0] * volLeft >> 15);
-			output[i * 4 + 3] = clamp_s16((int)input[i * 2 + 1] * volRight >> 15);
-		}
+		memset(output, 0, inputSize * 4 * sizeof(int16_t));
 		return;
 	}
 

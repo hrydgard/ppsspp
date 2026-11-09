@@ -778,14 +778,29 @@ void SasInstance::SetWaveformEffectParams(int delay, int feedback) {
 // See http://report.ppsspp.org/logs/kind/772 for a list of games that use different types. Maybe can help us figure out
 // which is which.
 void SasInstance::ApplyWaveformEffect() {
-	// First, downsample the send buffer to 22khz. We do this naively for now.
+	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting left by 3 fixes that.
+	const int volLeft = (uint16_t)(waveformEffect.leftVol << 3);
+	const int volRight = (uint16_t)(waveformEffect.rightVol << 3);
+
+	if (reverb_.GetPreset() == -1) {
+		// With no reverb selected, the ME runs a separate loop at the full 44.1khz, so the send
+		// goes straight through (tests/audio/reverb/upsample: a 22.05khz tone survives).
+		for (int i = 0; i < grainSize * 2; i += 2) {
+			sendBufferProcessed[i + 0] = clamp_s16(clamp_s16(sendBuffer[i + 0]) * volLeft >> 15);
+			sendBufferProcessed[i + 1] = clamp_s16(clamp_s16(sendBuffer[i + 1]) * volRight >> 15);
+		}
+		return;
+	}
+
+	// First, downsample the send buffer to 22khz. The ME keeps one frame of each pair, with no
+	// filter (tests/audio/reverb/upsample: a 22.05khz tone reaches the reverb as DC). It keeps the
+	// second frame; we keep the first.
 	for (int i = 0; i < grainSize / 2; i++) {
 		sendBufferDownsampled[i * 2] = clamp_s16(sendBuffer[i * 4]);
 		sendBufferDownsampled[i * 2 + 1] = clamp_s16(sendBuffer[i * 4 + 1]);
 	}
 
-	// Volume max is 0x1000, while our factor is up to 0x8000. Shifting left by 3 fixes that.
-	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, (uint16_t)(waveformEffect.leftVol << 3), (uint16_t)(waveformEffect.rightVol << 3));
+	reverb_.ProcessReverb(sendBufferProcessed, sendBufferDownsampled, grainSize / 2, volLeft, volRight);
 }
 
 void SasInstance::DoState(PointerWrap &p) {
