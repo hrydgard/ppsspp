@@ -40,6 +40,15 @@ public:
 	// True if ThreadFrame() has queued work to run (emu thread backends only).
 	virtual bool ThreadFramePending() { return false; }
 
+	// For a frontend that shares its context with us only while we hold a lock on it (D3D11 interface
+	// version 2). LockContext/UnlockContext nest. BeginFrameAccess is called at the top of retro_run, and
+	// what it takes, SwapBuffers lets go of before handing the frame over; EndFrameAccess lets go of it on
+	// the paths that don't swap. All no-ops elsewhere.
+	virtual void LockContext() {}
+	virtual void UnlockContext() {}
+	virtual void BeginFrameAccess() {}
+	virtual void EndFrameAccess() {}
+
 	virtual void GotBackbuffer();
 	virtual void LostBackbuffer();
 
@@ -124,6 +133,24 @@ enum class EmuThreadState {
 };
 extern bool useEmuThread;
 extern std::atomic<EmuThreadState> emuThreadState;
+
+// Holds the graphics context (see LibretroGraphicsContext::LockContext) for a scope.
+class ScopedContextLock {
+public:
+	ScopedContextLock() : ctx_(ctx) {
+		if (ctx_) {
+			ctx_->LockContext();
+		}
+	}
+	~ScopedContextLock() {
+		if (ctx_) {
+			ctx_->UnlockContext();
+		}
+	}
+
+private:
+	LibretroGraphicsContext *ctx_;
+};
 void EmuThreadStart();
 void EmuThreadStop();
 void EmuThreadPause();

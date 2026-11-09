@@ -1660,10 +1660,13 @@ void retro_unload_game(void) {
       Libretro::EmuThreadStop();
    }
 
-	Libretro::FinishPendingBoot();
-	// A failed boot has already shut down.
-	if (PollBootState() != BootState::Off)
-		PSP_Shutdown(true);
+	{
+		ScopedContextLock contextLock;
+		Libretro::FinishPendingBoot();
+		// A failed boot has already shut down.
+		if (PollBootState() != BootState::Off)
+			PSP_Shutdown(true);
+	}
 	g_VFS.Clear();
 
 	if (ctx && ctx->GetGPUCore() == GPUCORE_GLES && ctx->GetDrawContext()) {
@@ -1682,6 +1685,7 @@ void retro_reset(void) {
    if (Libretro::useEmuThread)
       Libretro::EmuThreadStop();
 
+   ScopedContextLock contextLock;
    Libretro::FinishPendingBoot();
    if (PollBootState() != BootState::Off)
       PSP_Shutdown(true);
@@ -1786,6 +1790,16 @@ static void retro_input(void) {
 
 // Called every frame by retroarch.
 void retro_run(void) {
+   // Hold the graphics context for the frame. SwapBuffers lets go of it before handing the frame over.
+   ctx->BeginFrameAccess();
+   struct FrameAccessEnd {
+      ~FrameAccessEnd() {
+         if (ctx) {
+            ctx->EndFrameAccess();
+         }
+      }
+   } frameAccessEnd;
+
    if (g_pendingBoot) {
       BootState state = PSP_InitUpdate(&g_bootErrorString);
       switch (state) {
@@ -1879,6 +1893,7 @@ size_t retro_serialize_size(void)
    if (!gpu) // The HW renderer isn't ready on first pass.
       return 134217728; // 128MB ought to be enough for anybody.
 
+   ScopedContextLock contextLock;
    SaveState::SaveStart state;
    // TODO: Libretro API extension to use the savestate queue
    if (useEmuThread)
@@ -1897,6 +1912,7 @@ bool retro_serialize(void *data, size_t size) {
       EmuThreadPause(); // Does nothing if already paused
    }
 
+   ScopedContextLock contextLock;
    SaveState::SaveStart state;
    // The buffer was sized by an earlier retro_serialize_size(); the state
    // may have grown since, so never write past 'size'.
@@ -1931,6 +1947,7 @@ bool retro_unserialize(const void *data, size_t size) {
    if (useEmuThread)
       EmuThreadPause(); // Does nothing if already paused
 
+   ScopedContextLock contextLock;
    std::string errorString;
    SaveState::SaveStart state;
    bool retVal = CChunkFileReader::LoadPtr((u8 *)data, size, state, &errorString)
