@@ -23,16 +23,21 @@
 // CONFIG/SYSTEM/XMB/language <-> g_Config.iLanguage (-1 means auto, and reads as what GetPSPLanguage() picks)
 // CONFIG/SYSTEM/umd_autoboot <-> g_Config.bVshUmdAutoboot - and in addition, auto-controlled when booting UMD VIDEO.
 // CONFIG/SYSTEM/umd_cache <-> (unmapped, ignore)
-// CONFIG/SYSTEM/usb_autoconnect <-> (unmapped, ignore)
+// CONFIG/SYSTEM/usb_auto_connect <-> (unmapped, ignore)
+// CONFIG/SYSTEM/CHARACTER_SET/oem <-> g_Config.iXmbCharsetOem (code page for file names)
+// CONFIG/SYSTEM/CHARACTER_SET/ansi <-> g_Config.iXmbCharsetAnsi (code page for text in files)
 // CONFIG/DATE/date_format <-> g_Config.iDateFormat
 // CONFIG/DATE/time_format <-> g_Config.iTimeFormat
 // CONFIG/DATE/time_zone_area <-> g_Config.sTimeZoneArea
 // CONFIG/DATE/time_zone_offset <-> g_Config.iTimeZoneOffset
 // CONFIG/DATE/summer_time <-> g_Config.bDayLightSavings
 // CONFIG/SYSTEM/LOCK/parental_level <-> g_Config.iLockParentalLevel, int
+// CONFIG/SYSTEM/LOCK/password <-> g_Config.sXmbLockPassword (4 byte binary, ASCII digits)
+// CONFIG/SYSTEM/LOCK/browser_start <-> (unmapped, bool)
 // CONFIG/DISPLAY/screensaver_start_time <-> (unmapped, int seconds)
+// CONFIG/PHOTO/slideshow_speed <-> g_Config.iXmbPhotoSlideshowSpeed
 // CONFIG/SYSTEM/POWER_SAVING/backlight_off_interval <-> (unmapped, int seconds)
-// CONFIG/SYSTEM/POWER_SAVING/suspend_interval_interval <-> (unmapped, int seconds)
+// CONFIG/SYSTEM/POWER_SAVING/suspend_interval <-> (unmapped, int seconds)
 // CONFIG/SYSTEM/POWER_SAVING/wlan_mode <-> (unmapped, bool, "WLAN power save")
 // CONFIG/SYSTEM/SOUND/avls <-> (unmapped, bool)
 // CONFIG/SYSTEM/SOUND/dynamic_normalizer <-> (unmapped, bool)
@@ -45,14 +50,14 @@
 // CONFIG/SYSTEM/XMB/THEME/wallpaper_mode <-> g_Config.iXmbThemeWallpaperMode
 // CONFIG/SYSTEM/XMB/THEME/custom_theme_mode <-> g_Config.iXmbThemeCustomThemeMode
 //
-// UMD video stuff
-// CONFIG/VIDEO/appended_volume (unmapped, int, 0-2) << TODO
-// CONFIG/VIDEO/menu_language (unmapped, 2 byte binary) << TODO
-// CONFIG/VIDEO/sound_language (unmapped, 2 byte binary) << TODO
-// CONFIG/VIDEO/subtitle_language (unmapped, 2 byte binary) << TODO
-// CONFIG/VIDEO/lr_button_enable (unmapped, bool) << TODO
-// CONFIG/VIDEO/list_play_mode (unmapped, bool) << TODO
-// CONFIG/VIDEO/title_display_mode (int, 0-1) << TODO
+// UMD Video. The languages are 2 byte binary keys, kept in the config as text ("en", "00" = the disc's own).
+// CONFIG/VIDEO/menu_language <-> g_Config.sXmbVideoMenuLanguage
+// CONFIG/VIDEO/sound_language <-> g_Config.sXmbVideoAudioLanguage
+// CONFIG/VIDEO/subtitle_language <-> g_Config.sXmbVideoSubtitleLanguage
+// CONFIG/VIDEO/appended_volume <-> g_Config.iXmbVideoAppendedVolume (int, 0-2)
+// CONFIG/VIDEO/lr_button_enable <-> g_Config.bXmbVideoLRButtonEnable
+// CONFIG/VIDEO/list_play_mode <-> g_Config.bXmbVideoListPlayMode
+// CONFIG/VIDEO/title_display_mode <-> g_Config.iXmbVideoTitleDisplayMode (int, 0-1)
 
 typedef unsigned int REGHANDLE;
 
@@ -95,8 +100,8 @@ struct KeyValue {
 	int intValue;
 	const KeyValue *dirContents;  // intValue is the count.
 	// If set, the key is synced both ways with this g_Config member (looked up by pointer): reads
-	// return the setting and guest writes go to it. INT keys map to int or bool settings, STR keys
-	// to std::string ones.
+	// return the setting and guest writes go to it. INT keys map to int or bool settings, STR and
+	// BIN keys to std::string ones.
 	void *configSetting;
 	// If set, reads of an INT key return this instead, while writes still go to configSetting.
 	int (*readOverride)();
@@ -569,20 +574,20 @@ static const KeyValue tree_SYSPROFILE[] = {
 
 // Dump of /CONFIG/VIDEO
 static const KeyValue tree_CONFIG_VIDEO[] = {
-	{ "menu_language", ValueType::BIN, "en", 2 },
-	{ "sound_language", ValueType::BIN, "00", 2 },
-	{ "subtitle_language", ValueType::BIN, "en", 2 },
-	{ "appended_volume", ValueType::INT, "", (int)0x0 },  // decimal: 0
-	{ "lr_button_enable", ValueType::INT, "", (int)0x1 },  // decimal: 1
-	{ "list_play_mode", ValueType::INT, "", (int)0x1 },  // decimal: 1
-	{ "title_display_mode", ValueType::INT, "", (int)0x0 },  // decimal: 0
+	{ "menu_language", ValueType::BIN, "en", 2, nullptr, &g_Config.sXmbVideoMenuLanguage },
+	{ "sound_language", ValueType::BIN, "00", 2, nullptr, &g_Config.sXmbVideoAudioLanguage },
+	{ "subtitle_language", ValueType::BIN, "en", 2, nullptr, &g_Config.sXmbVideoSubtitleLanguage },
+	{ "appended_volume", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbVideoAppendedVolume },  // decimal: 0
+	{ "lr_button_enable", ValueType::INT, "", (int)0x1, nullptr, &g_Config.bXmbVideoLRButtonEnable },  // decimal: 1
+	{ "list_play_mode", ValueType::INT, "", (int)0x1, nullptr, &g_Config.bXmbVideoListPlayMode },  // decimal: 1
+	{ "title_display_mode", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iXmbVideoTitleDisplayMode },  // decimal: 0
 	{ "output_ext_menu", ValueType::INT, "", (int)0x0 },  // decimal: 0
 	{ "output_ext_func", ValueType::INT, "", (int)0x0 },  // decimal: 0
 };
 
 // Dump of /CONFIG/PHOTO
 static const KeyValue tree_CONFIG_PHOTO[] = {
-	{ "slideshow_speed", ValueType::INT, "", (int)0x1 },  // decimal: 1
+	{ "slideshow_speed", ValueType::INT, "", (int)0x1, nullptr, &g_Config.iXmbPhotoSlideshowSpeed },  // decimal: 1
 };
 
 // Dump of /CONFIG/MUSIC
@@ -796,15 +801,15 @@ static const KeyValue tree_CONFIG_SYSTEM_POWER_SAVING[] = {
 
 // Dump of /CONFIG/SYSTEM/LOCK
 static const KeyValue tree_CONFIG_SYSTEM_LOCK[] = {
-	{ "password", ValueType::BIN, "0000", 4 },
+	{ "password", ValueType::BIN, "0000", 4, nullptr, &g_Config.sXmbLockPassword },
 	{ "parental_level", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iLockParentalLevel },  // decimal: 0
 	{ "browser_start", ValueType::INT, "", (int)0x0 },  // decimal: 0
 };
 
 // Dump of /CONFIG/SYSTEM/CHARACTER_SET
 static const KeyValue tree_CONFIG_SYSTEM_CHARACTER_SET[] = {
-	{ "oem", ValueType::INT, "", (int)0x5 },  // decimal: 5
-	{ "ansi", ValueType::INT, "", (int)0x13 },  // decimal: 19
+	{ "oem", ValueType::INT, "", (int)0x5, nullptr, &g_Config.iXmbCharsetOem },  // decimal: 5
+	{ "ansi", ValueType::INT, "", (int)0x13, nullptr, &g_Config.iXmbCharsetAnsi },  // decimal: 19
 };
 
 // Dump of /CONFIG/SYSTEM
@@ -1093,6 +1098,20 @@ static const KeyValue *LookupStaticCategory(const std::string &path, int *count)
 	return curDir;
 }
 
+// The BIN keys we map hold ASCII (language codes, password digits), so they can be stored as
+// text in the ini. Anything else stays in the registry only.
+static bool IsPrintableBin(std::string_view data) {
+	if (data.empty()) {
+		return false;
+	}
+	for (char c : data) {
+		if (c < 0x20 || c > 0x7E) {
+			return false;
+		}
+	}
+	return true;
+}
+
 // Points the config-mapped keys at the current g_Config values. Done on every lookup, since the
 // settings can change outside the registry (in our UI, or a per-game config being loaded).
 static void ApplyConfigValues(MergedCategory &merged) {
@@ -1123,6 +1142,18 @@ static void ApplyConfigValues(MergedCategory &merged) {
 			merged.strStorage.push_back(*str);
 			kv.strValue = merged.strStorage.back().c_str();
 			kv.intValue = len;
+		} else if (kv.type == ValueType::BIN) {
+			// The setting holds the bytes as text ("en", "0000"). A BIN key has a fixed size, so a
+			// setting of any other length is ignored and the key keeps its value.
+			const std::string *str = ref->GetStringPtr();
+			if (!str || (int)str->size() != kv.intValue) {
+				continue;
+			}
+			if (kv.strValue && memcmp(kv.strValue, str->data(), str->size()) == 0) {
+				continue;
+			}
+			merged.strStorage.push_back(*str);
+			kv.strValue = merged.strStorage.back().c_str();
 		}
 	}
 }
@@ -1659,6 +1690,8 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 		if (configRef && type == ValueType::STR) {
 			// Up to the terminator, if the guest included one.
 			configRef->SetStringValue(std::string_view(value.str.c_str()));
+		} else if (configRef && type == ValueType::BIN && IsPrintableBin(value.str)) {
+			configRef->SetStringValue(value.str);
 		}
 		g_overlay[path][name] = value;
 		InvalidateMergedCache();
