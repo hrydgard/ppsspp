@@ -6,6 +6,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include "Common/CommonTypes.h"
@@ -80,6 +81,7 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
 	// The estimate is 0 until a second has gone by.
 	frameTimeEstimate_ = 1.0f / std::max(fpsEstimate, 1.0f);
+	outSampleRate_ = outSampleRate;
 
 	smoothedReadSize_ = smoothedReadSize_ == 0 ? num_samples : (smoothedReadSize_ * 0.95f + num_samples * 0.05f);
 
@@ -308,4 +310,36 @@ void GranularMixer::GetStats(GranularStats *stats) {
 	stats->queuedSamplesTarget = queuedSamplesTarget_;
 	queuedGranulesMin_ = 10000;
 	queuedGranulesMax_ = 0;
+}
+
+void GranularMixer::GetAudioDebugStats(char *buf, size_t bufSize) {
+	GranularStats stats;
+	GetStats(&stats);
+	// Each queued granule holds GRANULE_OVERLAP new samples.
+	const double msPerGranule = GRANULE_OVERLAP * 1000.0 / 44100.0;
+	snprintf(buf, bufSize,
+		"Granular mixer\n"
+		"Queued: %0.1f granules (%0.1fms)\n"
+		"Queued min/max: %d / %d\n"
+		"Cap: %d granules (%0.1fms, %d samples)\n"
+		"Underruns: %d\n"
+		"Overruns: %d\n"
+		"Output sample rate: %d\n"
+		"Read size: %0.1f\n"
+		"Frame time estimate: %0.1fms\n"
+		"Fade volume: %0.2f%s\n",
+		stats.smoothedQueuedGranules, stats.smoothedQueuedGranules * msPerGranule,
+		stats.queuedGranulesMin, stats.queuedGranulesMax,
+		stats.targetQueueSize, stats.targetQueueSize * msPerGranule, stats.queuedSamplesTarget,
+		stats.underruns,
+		stats.overruns,
+		outSampleRate_,
+		stats.smoothedReadSize,
+		stats.frameTimeEstimate * 1000.0f,
+		stats.fadeVolume, stats.looping ? " (looping)" : "");
+}
+
+void GranularMixer::ResetStatCounters() {
+	underruns_ = 0;
+	overruns_ = 0;
 }
