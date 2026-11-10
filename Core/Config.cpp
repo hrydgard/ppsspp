@@ -2115,9 +2115,11 @@ void Config::PostLoadCleanup() {
 
 	// IsBackendEnabled below triggers a Vulkan driver load. So we must first apply the environment vars for custom drivers,
 	// so the environment variables are set on load. Not super pretty.
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (!g_Config.sCustomDriver.empty()) {
 		VulkanApplyCustomDriverEnvVars((AdrenoEnvVar)g_Config.iAdrenoEnvVars);
 	}
+#endif
 
 	if (!IsBackendEnabled((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default", iGPUBackend);
