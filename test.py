@@ -96,6 +96,7 @@ tests_good = [
   "cpu/cpu_alu/shift_encodings",
   "cpu/cpu_alu/allegrex_encodings",
   "cpu/jump/unaligned",
+  "cpu/delayslot/branch",
   "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",

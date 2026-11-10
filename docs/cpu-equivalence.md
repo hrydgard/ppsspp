@@ -25,7 +25,7 @@ Environment variables:
 |---|---|
 | `PPSSPP_CPUFUZZ_COUNT` | number of cases (default 2000) |
 | `PPSSPP_CPUFUZZ_SEED` | seed of the first case; case i uses seed + i |
-| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory), `r` (a run of vdots the IR batches into one `Vec4VfpuMultiDot`); `b` anywhere adds forward conditional branches |
+| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory), `r` (a run of vdots the IR batches into one `Vec4VfpuMultiDot`); `b` anywhere adds forward conditional branches; `d` adds those, `j`/`jal`, the likely links and the FPU and VFPU branches, sometimes in each other's delay slots |
 | `PPSSPP_CPUFUZZ_CODE` | comma-separated hex instructions to run instead of the generated code |
 | `PPSSPP_CPUFUZZ_CODE_SEED` | apply `PPSSPP_CPUFUZZ_CODE` to this seed only |
 | `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT |
@@ -126,6 +126,9 @@ IR-based (the "IR JIT" and "native IR backend" entries).
 - The IR frontend continues past conditional branches, so a block can now leave with a prefix
   pending at a mid-block exit. It doesn't continue then, as only the end of a block checks that.
 - Hardware answers 1, 2 (host agreement), 5, 7 (the interpreter and `vcmov`), 8, 9 and 10 below.
+- Branches and jumps in delay slots, which neither core ran as the hardware does
+  (`tests/cpu/delayslot/branch`). The IR frontend now leaves such a pair to the interpreter
+  (`CompileBranchPair()`, the `BranchPair` pseudo-op), so the cores share one implementation.
 
 Timing, which decides when interrupts, thread switches and other events happen, so a difference
 sends a game down a different path on each core:
