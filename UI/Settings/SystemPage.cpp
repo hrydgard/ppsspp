@@ -229,28 +229,26 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	SettingsPageHost *host = page->Host();
 
 	page->Header();
-	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
-
-	page->Header("Cheats");
-	page->Setting(&g_Config.bEnableCheats);
-	page->Setting(&g_Config.bEnablePlugins);
+	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage).Image(ImageID("I_PSP"));
 
 	page->Header("Emulation");
 
+	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip).Hint({I18NCat::SYSTEM, "LowLatencyCPUTiming Tip", "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force real clock sync\"."});
+	page->Setting(&g_Config.iLockedCPUSpeed);
 	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
 		OnJitAffectingSetting();
 	});
 	page->Setting(&g_Config.bIgnoreBadMemAccess);
-
 	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
 			return !PSP_IsInited();
 		});
 	}
-
 	page->Setting(&g_Config.iIOTimingMethod);
-	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip).Hint({ I18NCat::SYSTEM, "LowLatencyCPUTiming Tip", "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force real clock sync\"." });
-	page->Setting(&g_Config.iLockedCPUSpeed);
+
+	page->Header("Cheats");
+	page->Setting(&g_Config.bEnableCheats);
+	page->Setting(&g_Config.bEnablePlugins);
 
 	page->Header({I18NCat::SAVEDATA, "Save states"});  // Borrow this string from the savedata manager
 
