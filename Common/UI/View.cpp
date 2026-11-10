@@ -484,13 +484,11 @@ void ClickableItem::DrawHint(UIContext &dc, const Style &style) const {
 	if (hintText_.empty()) {
 		return;
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFontTiny);
 	dc.SetFontScale(1.0f, 1.0f);
 	const float textHeight = hintHeight_ - HINT_PADDING_BOTTOM + HINT_TITLE_OVERLAP;
 	const float indent = HintIndent();
 	Bounds hintBounds(bounds_.x + indent, bounds_.y2() - HINT_PADDING_BOTTOM - textHeight, bounds_.w - indent - HINT_PADDING_X, textHeight);
-	dc.DrawTextRect(hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.DrawTextRect(dc.GetTheme().uiFontTiny, hintText_, hintBounds, style.fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 }
 
 float ClickableItem::HintIndent() const {
@@ -521,7 +519,7 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		}
 		if (horiz.type != EXACTLY && layoutParams_->width > 0.0f && availWidth > layoutParams_->width)
 			availWidth = layoutParams_->width;
-		float scale = dc.CalculateTextScale(text_, availWidth);
+		float scale = dc.CalculateTextScale(dc.GetTheme().uiFont, text_, availWidth);
 		float textW = 0.0f, textH = 0.0f;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 		textW += 4;  // We need a small fudge factor here, not sure why yet.
@@ -561,8 +559,6 @@ void Choice::Draw(UIContext &dc) {
 			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 		}
 	} else if (!text_.empty() && !hideTitle_) {
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-
 		int paddingLeft = 12;
 		int paddingRight = 12;
 
@@ -587,7 +583,7 @@ void Choice::Draw(UIContext &dc) {
 		float availWidth = bounds.w - (paddingLeft + paddingRight + textPadding_.horiz());
 
 		if (centered_) {
-			dc.DrawTextRectSqueeze(text_, bounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, bounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
@@ -601,7 +597,7 @@ void Choice::Draw(UIContext &dc) {
 				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
 			Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
-			dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
 	}
@@ -670,7 +666,7 @@ void InfoItem::Draw(UIContext &dc) {
 	if (rightText_.empty()) {
 		int paddingX = 12;
 		Bounds padBounds = bounds_.Expand(-paddingX, 0);
-		dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFont, text_, padBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		return;
 	}
 
@@ -680,12 +676,11 @@ void InfoItem::Draw(UIContext &dc) {
 	float leftWidth, leftHeight;
 	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, padBounds.w, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
+	dc.DrawTextRect(dc.GetTheme().uiFont, text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
 	// The info item should not look too clickable even if it has a background. Make the right side dimmed a little.
 	Bounds rightBounds(padBounds.x + leftWidth, padBounds.y, padBounds.w - leftWidth, padBounds.h);
-	dc.DrawTextRect(rightText_, rightBounds, alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
+	dc.DrawTextRect(dc.GetTheme().uiFont, rightText_, rightBounds, alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER | ALIGN_RIGHT | FLAG_WRAP_TEXT);
 }
 
 std::string InfoItem::DescribeText() const {
@@ -700,11 +695,11 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 }
 
 void ItemHeader::Draw(UIContext &dc) {
-	dc.SetFontStyle(large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall);
+	const FontStyle &fontStyle = large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall;
 
 	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().itemStyle;
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
-	dc.DrawText(text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(fontStyle, text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
 }
 
@@ -743,8 +738,7 @@ void PopupHeader::Draw(UIContext &dc) {
 	const float availableWidth = bounds_.w;
 
 	float tw, th;
-	dc.SetFontStyle(dc.GetTheme().uiFontBig);
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text_, &tw, &th, 0);
+	dc.MeasureText(dc.GetTheme().uiFontBig, 1.0f, 1.0f, text_, &tw, &th, 0);
 
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
@@ -761,7 +755,7 @@ void PopupHeader::Draw(UIContext &dc) {
 	// Header background
 	dc.FillRoundRect(dc.GetTheme().popupTitleStyle.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	// Header title text
-	dc.DrawText(text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(dc.GetTheme().uiFontBig, text_, bounds_.x + tx, bounds_.centerY(), dc.GetTheme().popupTitleStyle.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 
 	// Underline. Skipping it with the new style.
 	// dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), dc.GetTheme().popupTitleStyle.fgColor);
@@ -792,8 +786,7 @@ void CollapsibleHeader::Draw(UIContext &dc) {
 
 	float xoff = 37.0f;
 
-	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-	dc.DrawText(text_, bounds_.x + 6 + xoff, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+	dc.DrawText(dc.GetTheme().uiFontSmall, text_, bounds_.x + 6 + xoff, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	if (underline_) {
 		dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2() - 2, bounds_.x2(), bounds_.y2(), style.fgColor);
 	}
@@ -905,7 +898,6 @@ void CheckBox::Draw(UIContext &dc) {
 		}
 	}
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	DrawBG(dc, style, dc.GetTheme().choiceRoundRadius);
 
@@ -919,7 +911,7 @@ void CheckBox::Draw(UIContext &dc) {
 	const Bounds bounds = ContentBounds();
 	if (!text_.empty()) {
 		Bounds textBounds(bounds.x + paddingX, bounds.y, availWidth, bounds.h);
-		dc.DrawTextRectSqueeze(text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 	dc.Draw()->DrawImage(image, bounds.x2() - paddingX, bounds.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 	DrawHint(dc, style);
@@ -962,7 +954,7 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 	}
 
 	if (!text_.empty()) {
-		float scale = dc.CalculateTextScale(text_, availWidth);
+		float scale = dc.CalculateTextScale(dc.GetTheme().uiFont, text_, availWidth);
 
 		float actualWidth, actualHeight;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
@@ -1065,7 +1057,6 @@ void Button::Draw(UIContext &dc) {
 	if (tw > bounds_.w || imageId.isValid()) {
 		dc.PushScissor(bounds_);
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(scale_, scale_);
 	if (imageId.isValid() && (ignoreText_ || text_.empty())) {
 		dc.Draw()->DrawImage(imageId, bounds_.centerX(), bounds_.centerY(), scale_, style.fgColor, ALIGN_CENTER);
@@ -1078,7 +1069,7 @@ void Button::Draw(UIContext &dc) {
 				textX += img->w / 2.0f;
 			}
 		}
-		dc.DrawText(text_, textX, bounds_.centerY(), style.fgColor, ALIGN_CENTER);
+		dc.DrawText(dc.GetTheme().uiFont, text_, textX, bounds_.centerY(), style.fgColor, ALIGN_CENTER);
 	}
 	dc.SetFontScale(1.0f, 1.0f);
 
@@ -1134,12 +1125,11 @@ void RadioButton::Draw(UIContext &dc) {
 	const ImageID image(checked ? "I_RADIO_SELECTED" : "I_RADIO_EMPTY");
 	dc.Draw()->DrawImage(image, bounds.x + paddingW_ + radioRadius_, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	if (!text_.empty()) {
 		const float textX = bounds.x + paddingW_ * 2.0f + radioRadius_ * 2.0f;
 		const Bounds textBounds(textX, bounds.y, bounds.x2() - paddingW_ - textX, bounds.h);
-		dc.DrawTextRect(text_, textBounds, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 	}
 
 	DrawHint(dc, style);
@@ -1177,8 +1167,7 @@ void SimpleTextView::GetContentDimensions(const UIContext &dc, float &w, float &
 
 void SimpleTextView::Draw(UIContext &dc) {
 	uint32_t textColor = dc.GetTheme().itemStyle.fgColor;
-	dc.SetFontStyle(*ComputeStyle(dc));
-	dc.DrawText(text_, bounds_.x, bounds_.y, textColor, 0);
+	dc.DrawText(*ComputeStyle(dc), text_, bounds_.x, bounds_.y, textColor, 0);
 }
 
 const FontStyle *SimpleTextView::ComputeStyle(const UIContext &dc) const {
@@ -1264,7 +1253,6 @@ void TextView::Draw(UIContext &dc) {
 	}
 
 	const FontStyle *style = GetTextStyle(dc, textSize_);
-	dc.SetFontStyle(*style);
 
 	Bounds textBounds = bounds_;
 
@@ -1287,14 +1275,10 @@ void TextView::Draw(UIContext &dc) {
 	} else if (shadow_) {
 		// Old-fashioned double-draw shadow.
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textFlags);
+		dc.DrawTextRect(*style, text_, textBounds.Offset(1.0f, 1.0f), shadowColor, textFlags);
 	}
 
-	dc.DrawTextRect(text_, textBounds, textColor, textFlags);
-	if (textSize_ != TextSize::Normal) {
-		// If we changed font style, reset it.
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-	}
+	dc.DrawTextRect(*style, text_, textBounds, textColor, textFlags);
 	if (clip) {
 		dc.PopScissor();
 	}
@@ -1384,7 +1368,6 @@ void TextEdit::FocusChanged(FocusFlags focusFlags) {
 void TextEdit::Draw(UIContext &dc) {
 	Bounds textBounds = bounds_.Inset(padding_.left, padding_.top, padding_.right, padding_.bottom);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	// TODO: make background themeable?
 	dc.FillRoundRect(HasFocus() ? UI::Drawable(0x80000000) : UI::Drawable(0x30000000), bounds_, dc.GetTheme().choiceRoundRadius * 0.5f);
@@ -1406,10 +1389,10 @@ void TextEdit::Draw(UIContext &dc) {
 	if (text_.empty()) {
 		if (placeholderText_.size()) {
 			uint32_t c = textColor & 0x50FFFFFF;
-			dc.DrawTextRect(placeholderText_, origTextBounds, c, ALIGN_CENTER);
+			dc.DrawTextRect(dc.GetTheme().uiFont, placeholderText_, origTextBounds, c, ALIGN_CENTER);
 		}
 	} else {
-		dc.DrawTextRect(textToDisplay, textBounds, textColor, ALIGN_VCENTER | ALIGN_LEFT | align_);
+		dc.DrawTextRect(dc.GetTheme().uiFont, textToDisplay, textBounds, textColor, ALIGN_VCENTER | ALIGN_LEFT | align_);
 	}
 
 	// Hack to find the caret position. Might want to find a better way...
@@ -1660,8 +1643,7 @@ void ProgressBar::Draw(UIContext &dc) {
 		done.w = std::max(bounds_.w * progress_, std::min(bounds_.w, radius * 2.0f));
 		dc.FillRoundRect(dc.GetTheme().itemFocusedStyle.background, done, radius, roundCorners_);
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawTextRect(dc.GetTheme().uiFont, temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
 }
 
 std::string ProgressBar::DescribeText() const {
@@ -1881,8 +1863,7 @@ void Slider::Draw(UIContext &dc) {
 		snprintf(temp, sizeof(temp), "%d%%", *value_);
 	else
 		snprintf(temp, sizeof(temp), "%d", *value_);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+	dc.DrawText(dc.GetTheme().uiFont, temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 }
 
 std::string Slider::DescribeText() const {
@@ -2038,8 +2019,7 @@ void SliderFloat::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(dc.GetTheme().sliderKnob, knobX, bounds_.centerY(), 1.0f, sliderColor, ALIGN_CENTER);
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%0.2f", *value_);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawText(temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, temp, bounds_.x2() - 22, bounds_.centerY(), sliderColor, ALIGN_CENTER);
 }
 
 std::string SliderFloat::DescribeText() const {
