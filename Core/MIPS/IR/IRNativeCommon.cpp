@@ -1071,12 +1071,13 @@ void IRNativeBackend::SetBlockEntry(int block_num, u32 startPC, int offset) {
 		nativeBlocks_.resize(block_num + 1);
 	nativeBlocks_[block_num].startPC = startPC;
 	nativeBlocks_[block_num].entryOffset = offset;
-	blockByStart_[startPC] = block_num;
+	blockByStart_.Remove(startPC);
+	blockByStart_.Insert(startPC, block_num);
 }
 
 int IRNativeBackend::FindBlockByStart(u32 pc) const {
-	auto it = blockByStart_.find(pc);
-	return it != blockByStart_.end() ? it->second : -1;
+	int block_num;
+	return blockByStart_.Get(pc, &block_num) ? block_num : -1;
 }
 
 void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
@@ -1105,7 +1106,7 @@ void IRNativeBackend::RecordIRAddresses(int block_num, const std::vector<const u
 void IRNativeBackend::EraseAllLinks(int block_num) {
 	if (block_num == -1) {
 		linksTo_.clear();
-		blockByStart_.clear();
+		blockByStart_.Clear();
 		nativeBlocks_.clear();
 	} else if (block_num < (int)nativeBlocks_.size()) {
 		// linksTo_ is keyed by the exits' targets.
@@ -1119,9 +1120,9 @@ void IRNativeBackend::EraseAllLinks(int block_num) {
 			}
 		}
 		nativeBlocks_[block_num].exits.clear();
-		auto start = blockByStart_.find(nativeBlocks_[block_num].startPC);
-		if (start != blockByStart_.end() && start->second == block_num)
-			blockByStart_.erase(start);
+		const u32 startPC = nativeBlocks_[block_num].startPC;
+		if (FindBlockByStart(startPC) == block_num)
+			blockByStart_.Remove(startPC);
 	}
 }
 

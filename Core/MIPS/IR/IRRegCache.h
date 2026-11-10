@@ -258,9 +258,43 @@ protected:
 	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
-	bool IsValidGPR(IRReg r) const;
-	bool IsValidGPRNoZero(IRReg r) const;
-	bool IsValidFPR(IRReg r) const;
+	// Inline, since the register allocator asks all the time.
+	bool IsValidGPR(IRReg r) const {
+		// See MIPSState for these offsets.
+
+		// Don't allow FPU regs, VFPU regs, or VFPU temps here.
+		if (r >= 32 && IsValidFPR(r - 32))
+			return false;
+		// Don't allow nextPC, etc. since it's probably a mistake.
+		if (r > IRREG_FPCOND && r != IRREG_LLBIT)
+			return false;
+		// Don't allow PC either.
+		if (r == 241)
+			return false;
+
+		return true;
+	}
+	bool IsValidGPRNoZero(IRReg r) const {
+		return IsValidGPR(r) && r != MIPS_REG_ZERO;
+	}
+	bool IsValidFPR(IRReg r) const {
+		// FPR parameters are off by 32 within the MIPSState object.
+		if (r >= TOTAL_MAPPABLE_IRREGS - 32)
+			return false;
+
+		// See MIPSState for these offsets.
+		int index = r + 32;
+
+		// Allow FPU or VFPU regs here.
+		if (index >= 32 && index < 32 + 32 + 128)
+			return true;
+		// Also allow VFPU temps.
+		if (index >= 224 && index < 224 + 16)
+			return true;
+
+		// Nothing else is allowed for the FPU side.
+		return false;
+	}
 
 	MIPSComp::JitOptions *jo_;
 	const u8 *membase_ = nullptr;

@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "Common/CodeBlock.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
@@ -213,7 +214,8 @@ protected:
 	MIPSState *mips_ = nullptr;
 	std::vector<IRNativeBlock> nativeBlocks_;
 	std::unordered_multimap<uint32_t, int> linksTo_;
-	std::unordered_map<uint32_t, int> blockByStart_;
+	// Looked up for every exit and link, so open addressing rather than unordered_map's nodes.
+	DenseHashMap<uint32_t, int> blockByStart_{ 4096 };
 	bool profiling_ = false;
 };
 
