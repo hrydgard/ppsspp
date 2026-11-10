@@ -49,6 +49,7 @@ public:
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 		numIRInstructions_ = b.numIRInstructions_;
+		profileStats_ = b.profileStats_;
 		b.entry_ = 0;
 	}
 
