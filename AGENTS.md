@@ -38,6 +38,7 @@ for it:
 | [docs/kernel-hle-review.md](docs/kernel-hle-review.md) | Findings from a review pass over `Core/HLE/sceKernel*.cpp`, and what was verified clean |
 | [docs/shader-compilation.md](docs/shader-compilation.md) | Shader/pipeline compile stutter: where the time goes on MoltenVK (Metal's MSL compile, not glslang), the caches involved, how game-specific shaders are, and how to measure a cold start |
 | [docs/metal-backend.md](docs/metal-backend.md) | The Metal backend: shader translation, the render manager (recording, replay, pass merging), programmable blending, how it was tested against Vulkan, and what isn't done |
+| [docs/lag-sync.md](docs/lag-sync.md) | How lag sync ("Force real clock sync") paces emulation every millisecond and falls back to bursting, and how to benchmark it on a platform (speed near the host's limit, CPU cost, sleep lateness) |
 | [docs/async-savestates.md](docs/async-savestates.md) | How savestate compression and file I/O run on a worker thread: the save/load/rewind pipelines, ordering, memory rules, what stays synchronous, and testing slots with the `game.state.*` debugger commands |
 
 ## General instructions

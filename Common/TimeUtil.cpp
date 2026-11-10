@@ -1,5 +1,6 @@
 #include "ppsspp_config.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdint>
 
@@ -49,8 +50,29 @@ static double frequencyMult;
 static LARGE_INTEGER startTime;
 static LARGE_INTEGER startFileTime;
 
-HANDLE Timer;
 int SchedulerPeriodMs = 10;
+
+// One timer per thread. A waitable timer has one due time and releases one waiter, so with a shared
+// one, a second thread's sleep overrode the first's due time, and one of them waited forever.
+namespace {
+struct SleepTimer {
+	SleepTimer() {
+		handle = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+	}
+	~SleepTimer() {
+		if (handle) {
+			CloseHandle(handle);
+		}
+	}
+	HANDLE handle;
+};
+}  // namespace
+
+// Null where high resolution timers aren't available (before Windows 10 1803).
+static HANDLE GetSleepTimer() {
+	thread_local SleepTimer timer;
+	return timer.handle;
+}
 INT64 QpcPerSecond;
 
 void TimeInit() {
@@ -64,9 +86,6 @@ void TimeInit() {
 	QueryPerformanceCounter(&startTime);
 	QpcPerSecond = frequency.QuadPart;
 	frequencyMult = 1.0 / frequency.QuadPart;
-
-	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
-	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
 
 	// TODO: We probably don't need this anymore if we are using the high res waitable timers?
 #if !PPSSPP_PLATFORM(UWP)
@@ -282,7 +301,8 @@ void sleep_precise(double seconds, const char *reason) {
 	QueryPerformanceCounter(&qpc);
 	INT64 targetQpc = (INT64)(qpc.QuadPart + seconds * QpcPerSecond);
 
-	if (Timer) { // Try using a high resolution timer first.
+	HANDLE timer = GetSleepTimer();
+	if (timer) { // Try using a high resolution timer first.
 		const double TOLERANCE = 0.001'02;
 		INT64 maxTicks = (INT64)SchedulerPeriodMs * 9'500;
 		for (;;) // Break sleep up into parts that are lower than scheduler period.
@@ -294,11 +314,11 @@ void sleep_precise(double seconds, const char *reason) {
 			LARGE_INTEGER due;
 			due.QuadPart = -(sleepTicks > maxTicks ? maxTicks : sleepTicks);
 			// Note: SetWaitableTimerEx is not available on Vista.
-			if (!SetWaitableTimer(Timer, &due, 0, NULL, NULL, FALSE)) {
+			if (!SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE)) {
 				_dbg_assert_(false);
 				break;
 			}
-			WaitForSingleObject(Timer, INFINITE);
+			WaitForSingleObject(timer, INFINITE);
 			QueryPerformanceCounter(&qpc);
 		}
 	} else { // Fallback to Sleep.
@@ -315,6 +335,33 @@ void sleep_precise(double seconds, const char *reason) {
 		QueryPerformanceCounter(&qpc);
 	}
 	// On other platforms, we just do a conversion with more input precision than in sleep_ms which is restricted to whole milliseconds.
+#elif defined(HAVE_LIBNX)
+	svcSleepThread((int64_t)(seconds * 1000000000.0));
+#elif defined(__EMSCRIPTEN__)
+	emscripten_sleep(seconds * 1000.0);
+#else
+	usleep(seconds * 1000000.0);
+#endif
+}
+
+void sleep_approx(double seconds, const char *reason) {
+	if (seconds <= 0.0) {
+		return;
+	}
+#if SLEEP_LOG_ENABLED
+	INFO_LOG(Log::System, "Sleep approx %f s: %s", seconds, reason);
+#endif
+#ifdef _WIN32
+	HANDLE timer = GetSleepTimer();
+	if (timer) {
+		LARGE_INTEGER due;
+		due.QuadPart = -std::max((INT64)1, (INT64)(seconds * 10'000'000));
+		if (SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE)) {
+			WaitForSingleObject(timer, INFINITE);
+			return;
+		}
+	}
+	Sleep(std::max(1, (int)(seconds * 1000.0 + 0.5)));
 #elif defined(HAVE_LIBNX)
 	svcSleepThread((int64_t)(seconds * 1000000000.0));
 #elif defined(__EMSCRIPTEN__)

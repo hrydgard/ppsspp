@@ -44,6 +44,33 @@ void __DisplaySetWasPaused();
 // speeds, and the netplay/achievement restrictions have all had their say. 0 means unlimited.
 int __DisplayGetFrameTimingLimit();
 
+struct LagSyncStats {
+	int sleeps = 0;
+	double slept = 0.0;
+	// Summed over the sleeps: how late they woke up for the time they were waiting for.
+	double late = 0.0;
+	// Times it started over, too far behind or ahead.
+	int resets = 0;
+	// Times it fell back to bursting.
+	int bursts = 0;
+	// The furthest behind the wall clock it was while pacing, in seconds (usually after loading a
+	// state), and how many times it was more than 3 ms behind.
+	double maxBehind = 0.0;
+	int stalls = 0;
+	bool bursting = false;
+};
+void __DisplayGetLagSyncStats(LagSyncStats *stats);
+
+enum class LagSyncMode {
+	OFF,
+	PACING,
+	// Fallen back to bursting, the host being nearly flat out.
+	BURSTING,
+};
+LagSyncMode __DisplayGetLagSyncMode();
+// How far emulation recently fell behind the wall clock while pacing, in seconds (a decaying peak).
+double __DisplayGetLagSyncBehindPeak();
+
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
 
