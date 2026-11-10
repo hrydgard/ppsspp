@@ -90,7 +90,8 @@ bool ArmJitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *instr
 
 	regs_.Start(startPC, instructions, count);
 
-	std::vector<const u8 *> addresses;
+	std::vector<const u8 *> &addresses = irAddresses_;
+	addresses.clear();
 	addresses.reserve(count);
 	for (int i = 0; i < count; ++i) {
 		const IRInst &inst = instructions[i];

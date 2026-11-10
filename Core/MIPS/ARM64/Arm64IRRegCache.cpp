@@ -811,15 +811,31 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	DiscardDeadTempsAtExit();
 
 	auto needsFlush = [&](IRReg i) {
-		if (mr[i].loc != MIPSLoc::MEM || mr[i].isStatic)
+		if (mr[i].loc == MIPSLoc::MEM || mr[i].isStatic)
 			return false;
-		if (mr[i].nReg == -1 || !nr[mr[i].nReg].isDirty)
+		if (IsValidGPR(i) ? !gprs : !fprs)
 			return false;
-		return true;
+		// An IMM is always dirty.
+		if (mr[i].loc == MIPSLoc::IMM)
+			return true;
+		return mr[i].nReg != -1 && nr[mr[i].nReg].isDirty;
+	};
+	auto flushImmPair = [&](IRReg i) {
+		uint64_t fullImm = ((uint64_t)mr[i + 1].imm << 32) | mr[i].imm;
+		emit_->MOVI2R(SCRATCH1_64, fullImm);
+		emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, GetMipsRegOffset(i));
+		DiscardReg(i);
+		DiscardReg(i + 1);
 	};
 
-	// Try to flush in pairs when possible.
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS - 1; ++i) {
+	// Two IMMs next to each other (like HI and LO) can be stored together, if aligned. Only GPRs can be IMMs.
+	for (int i = 192; i < TOTAL_MAPPABLE_IRREGS - 1; i += 2) {
+		if (mr[i].loc == MIPSLoc::IMM && mr[i + 1].loc == MIPSLoc::IMM && needsFlush(i) && needsFlush(i + 1))
+			flushImmPair(i);
+	}
+
+	// Try to flush the rest in pairs when possible. STP only reaches 252 bytes into the context, the GPRs and FPU regs.
+	for (int i = 1; i < 63; ++i) {
 		if (!needsFlush(i) || !needsFlush(i + 1))
 			continue;
 		// Ignore multilane regs.  Could handle with more smartness...
@@ -831,11 +847,7 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 		// If both are imms, let's materialize a single reg and store.
 		if (mr[i].loc == MIPSLoc::IMM && mr[i + 1].loc == MIPSLoc::IMM) {
 			if ((i & 1) == 0) {
-				uint64_t fullImm = ((uint64_t) mr[i + 1].imm << 32) | mr[i].imm;
-				emit_->MOVI2R(SCRATCH1_64, fullImm);
-				emit_->STR(INDEX_UNSIGNED, SCRATCH1_64, CTXREG, offset);
-				DiscardReg(i);
-				DiscardReg(i + 1);
+				flushImmPair(i);
 				++i;
 			}
 			continue;
@@ -852,7 +864,7 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 						emit_->MOVI2R(ar, mr[r].imm);
 					}
 				} else if (mr[r].loc == MIPSLoc::REG_AS_PTR) {
-					AdjustNativeRegAsPtr(r, false);
+					AdjustNativeRegAsPtr(mr[r].nReg, false);
 					ar = FromNativeReg(mr[r].nReg);
 				} else {
 					_dbg_assert_(mr[r].loc == MIPSLoc::REG || mr[r].loc == MIPSLoc::REG_IMM);

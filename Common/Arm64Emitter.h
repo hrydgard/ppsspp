@@ -413,7 +413,7 @@ public:
 	}
 
 	void SetCodePointer(const u8 *ptr, u8 *writePtr);
-	const u8* GetCodePointer() const;
+	const u8* GetCodePointer() const { return m_code; }
 
 	void ReserveCodeSpace(u32 bytes);
 	const u8* AlignCode16();
@@ -421,7 +421,11 @@ public:
 	const u8 *NopAlignCode16();
 	void FlushIcache();
 	void FlushIcacheSection(const u8* start, const u8* end);
-	u8* GetWritableCodePtr();
+	// Instead of FlushIcache(): the range it would flush, now counted as flushed. For flushing with others.
+	void TakeIcacheFlushRange(const u8 **start, const u8 **end);
+	// Like FlushIcacheSection() on each, with one set of barriers.
+	static void FlushIcacheSections(const u8 *const *starts, const u8 *const *ends, int count);
+	u8* GetWritableCodePtr() { return m_writable; }
 
 	// FixupBranch branching
 	void SetJumpTarget(FixupBranch const& branch);

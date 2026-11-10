@@ -43,6 +43,7 @@ public:
 	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
 	void InvalidateBlock(int block_num) override;
+	void FlushPendingIcache() override;
 
 	void UpdateFCR31(MIPSState *mipsState) override;
 
@@ -133,6 +134,14 @@ private:
 	JitOptions &jo;
 	Arm64IRRegCache regs_;
 	Arm64Gen::ARM64FloatEmitter fp_;
+
+	// Code written since the last FlushPendingIcache(): the block, and the exits linked to and from it.
+	// Each flush ends with barriers, which cost more than the cache lines themselves.
+	void AddPendingIcacheFlush(const u8 *start, const u8 *end);
+	static constexpr int MAX_PENDING_ICACHE_FLUSHES = 16;
+	const u8 *pendingFlushStarts_[MAX_PENDING_ICACHE_FLUSHES]{};
+	const u8 *pendingFlushEnds_[MAX_PENDING_ICACHE_FLUSHES]{};
+	int numPendingFlushes_ = 0;
 
 	const u8 *outerLoop_ = nullptr;
 	const u8 *outerLoopPCInSCRATCH1_ = nullptr;

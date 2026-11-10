@@ -134,6 +134,26 @@ namespace MIPSComp {
 		int invalidatedBlocks = 0;
 	};
 
+	// Time spent compiling, totalled since startup. The IR JITs fill it in.
+	struct JitCompileTimes {
+		int64_t frontendNanos = 0;  // MIPS to IR
+		int64_t passNanos = 0;  // The IR passes
+		int64_t backendNanos = 0;  // IR to host code, or into the IR arena
+		int64_t finalizeNanos = 0;  // The block table and linking
+		int64_t clearNanos = 0;  // Clearing the whole cache
+		int64_t invalidateNanos = 0;
+		int64_t maxBlockNanos = 0;
+		int64_t blocks = 0;
+		int64_t mipsInstructions = 0;
+		int64_t irInstructions = 0;  // After the passes
+		int clears = 0;
+
+		int64_t TotalNanos() const {
+			return frontendNanos + passNanos + backendNanos + finalizeNanos + clearNanos + invalidateNanos;
+		}
+	};
+	extern JitCompileTimes g_jitCompileTimes;
+
 	class JitInterface {
 	public:
 		virtual ~JitInterface() {}
@@ -150,6 +170,8 @@ namespace MIPSComp {
 		virtual const u8 *GetCrashHandler() const = 0;
 		virtual JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
+		// Recompiles every block a few times and logs how long it took. Only the IR JITs do it.
+		virtual void BenchmarkCompile() {}
 		// Invalidates every block not entirely inside one of the (address, size) ranges.
 		virtual void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) = 0;
 		virtual void DoState(PointerWrap &p) = 0;

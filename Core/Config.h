@@ -191,6 +191,8 @@ public:
 	bool bBreakOnFrameTimeout;  // not saved
 	// Sample the JIT and write a report of the hottest blocks to this file. Not saved.
 	std::string sJitProfileFile;
+	// After this many flips, time recompiling the whole JIT cache (--jit-bench). Not saved.
+	int iJitBenchFlip = 0;
 
 	// General
 	bool bScreenshotsAsPNG;

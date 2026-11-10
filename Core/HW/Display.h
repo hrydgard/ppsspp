@@ -41,6 +41,8 @@ void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
 void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
 void __DisplayGetVPS(float *out_vps);
 float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep);
+// Seconds spent in the JIT compiler each frame, indexed like __DisplayGetFrameTimes.
+const float *__DisplayGetFrameJitTimes();
 int DisplayGetSleepPos();
 void DisplayNotifySleep(double t, int pos = -1);
 bool DisplayIsRunningSlow();

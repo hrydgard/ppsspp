@@ -21,6 +21,7 @@
 #include <unordered_map>
 
 #include "Common/CodeBlock.h"
+#include "Common/Data/Collections/Hashmaps.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
@@ -101,6 +102,9 @@ public:
 	virtual void InvalidateBlock(int block_num) = 0;
 	// Links the block's exits, and other blocks' exits to it.
 	void FinalizeBlock(int block_num, const JitOptions &jo);
+	// For a backend that holds off the icache flushes of CompileBlock and linking, to do them together
+	// (at the end of FinalizeBlock).
+	virtual void FlushPendingIcache() {}
 
 	virtual void UpdateFCR31(MIPSState *mipsState) {}
 
@@ -210,8 +214,11 @@ protected:
 	MIPSState *mips_ = nullptr;
 	std::vector<IRNativeBlock> nativeBlocks_;
 	std::unordered_multimap<uint32_t, int> linksTo_;
-	std::unordered_map<uint32_t, int> blockByStart_;
+	// Looked up for every exit and link, so open addressing rather than unordered_map's nodes.
+	DenseHashMap<uint32_t, int> blockByStart_{ 4096 };
 	bool profiling_ = false;
+	// Where each IR instruction of the block being compiled starts. A member to keep its capacity.
+	std::vector<const u8 *> irAddresses_;
 };
 
 class IRNativeJit : public IRJit {

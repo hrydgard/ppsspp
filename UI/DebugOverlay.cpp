@@ -86,6 +86,18 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
 		}
 		w.F("Invalidations: %d (%d blocks)\n", stats.invalidations, stats.invalidatedBlocks);
+
+		const MIPSComp::JitCompileTimes &t = MIPSComp::g_jitCompileTimes;
+		if (t.blocks > 0) {
+			const double perBlock = 1e-3 / t.blocks;  // ns -> us per block
+			w.F("Compiled %lld blocks, %lld MIPS -> %lld IR instructions, %0.1f ms\n",
+				(long long)t.blocks, (long long)t.mipsInstructions, (long long)t.irInstructions, t.TotalNanos() * 1e-6);
+			w.F("Per block (us): frontend %0.1f, passes %0.1f, backend %0.1f, finalize %0.1f, slowest %0.1f\n",
+				t.frontendNanos * perBlock, t.passNanos * perBlock, t.backendNanos * perBlock, t.finalizeNanos * perBlock,
+				t.maxBlockNanos * 1e-3);
+			w.F("Per MIPS instruction: %0.2f us\n", t.TotalNanos() * 1e-3 / std::max<int64_t>(1, t.mipsInstructions));
+			w.F("Invalidation: %0.1f ms, full clears: %d, %0.1f ms\n", t.invalidateNanos * 1e-6, t.clears, t.clearNanos * 1e-6);
+		}
 	} else {
 		w.W("No JIT (interpreter)\n");
 	}
@@ -146,6 +158,7 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	float *sleepHistory;
 	int valid, pos;
 	float *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
+	const float *jitHistory = __DisplayGetFrameJitTimes();
 	int scale = 7000;
 	int width = 600;
 
@@ -154,7 +167,10 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	int bottom = bounds.y2();
 	for (int i = 0; i < valid; ++i) {
 		double activeTime = history[i] - sleepHistory[i];
-		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		// JIT compile time at the bottom, in orange.
+		double jitTime = std::min((double)jitHistory[i], activeTime);
+		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - jitTime * scale, 0xFF3F9FFF);
+		ctx->Draw()->vLine(bounds.x + i, bottom - jitTime * scale, bottom - activeTime * scale, 0xFF3FFF3F);
 		ctx->Draw()->vLine(bounds.x + i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
 	}
 	ctx->Draw()->vLine(bounds.x + pos, bottom, bottom - 512, 0xFFff3F3f);

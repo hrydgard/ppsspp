@@ -99,7 +99,8 @@ bool RiscVJitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 
 	regs_.Start(startPC, instructions, count);
 
-	std::vector<const u8 *> addresses;
+	std::vector<const u8 *> &addresses = irAddresses_;
+	addresses.clear();
 	for (int i = 0; i < count; ++i) {
 		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);

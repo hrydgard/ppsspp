@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/CommonTypes.h"
+#include "Common/TimeUtil.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -102,6 +103,11 @@ public:
 	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 
 	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
+	// How long the last DoJit spent making the IR, and running the passes over it, and when it ended.
+	int64_t LastFrontendNanos() const { return lastFrontendNanos_; }
+	int64_t LastPassNanos() const { return lastPassNanos_; }
+	// In time_now_fast_ticks() units.
+	uint64_t LastEnd() const { return lastEnd_; }
 
 	void EatPrefix() override {
 		js.EatPrefix();
@@ -176,10 +182,16 @@ private:
 	// State
 	JitState js;
 	IRWriter ir;
+	// The IR after the passes. A member to keep its capacity.
+	IRWriter simplified_;
 	IROptions opts{};
 
 	int dontLogBlocks = 0;
 	int logBlocks = 0;
+
+	int64_t lastFrontendNanos_ = 0;
+	int64_t lastPassNanos_ = 0;
+	uint64_t lastEnd_ = 0;
 
 private:
 	bool IsMediaEngine() const;

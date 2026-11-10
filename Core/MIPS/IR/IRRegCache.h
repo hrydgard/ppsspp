@@ -48,13 +48,13 @@ public:
 
 	void SetImm(IRReg r, u32 immVal) {
 		// Setting the value it already holds doesn't need writing again.
-		if (!isImm_[r] || immVal_[r] != immVal)
-			isWritten_[r] = false;
-		isImm_[r] = true;
+		if (!IsImm(r) || immVal_[r] != immVal)
+			ClearBit(isWritten_, r);
+		SetBit(isImm_, r);
 		immVal_[r] = immVal;
 	}
 
-	bool IsImm(IRReg r) const { return isImm_[r]; }
+	bool IsImm(IRReg r) const { return TestBit(isImm_, r); }
 	u32 GetImm(IRReg r) const { return immVal_[r]; }
 
 	// Writes out all pending values. With keepKnown, the values stay known afterward (for a
@@ -74,9 +74,15 @@ private:
 	void Flush(IRReg rd);
 	void Discard(IRReg rd);
 
-	bool isImm_[TOTAL_MAPPABLE_IRREGS];
+	// Bit masks, one bit per reg: cheap to clear for each block, and FlushAll finds the set ones quickly.
+	static constexpr int MASK_WORDS = TOTAL_MAPPABLE_IRREGS / 32;
+	static bool TestBit(const u32 *mask, IRReg r) { return (mask[r >> 5] >> (r & 31)) & 1; }
+	static void SetBit(u32 *mask, IRReg r) { mask[r >> 5] |= 1U << (r & 31); }
+	static void ClearBit(u32 *mask, IRReg r) { mask[r >> 5] &= ~(1U << (r & 31)); }
+
+	u32 isImm_[MASK_WORDS];
 	// Whether the known value has been written to the reg.
-	bool isWritten_[TOTAL_MAPPABLE_IRREGS];
+	u32 isWritten_[MASK_WORDS];
 	uint32_t immVal_[TOTAL_MAPPABLE_IRREGS];
 	IRWriter *ir_;
 };
@@ -101,7 +107,7 @@ struct IRInst;
 
 class IRNativeRegCacheBase {
 protected:
-	enum class MIPSLoc {
+	enum class MIPSLoc : uint8_t {
 		// Known immediate value (only in regcache.)
 		IMM,
 		// In a general reg.
@@ -118,25 +124,26 @@ protected:
 		MEM,
 	};
 
+	// Kept small, since Start() copies all 256 for each block.
 	struct RegStatusMIPS {
 		// Where is this IR/MIPS register?  Note: base reg if vector.
 		MIPSLoc loc = MIPSLoc::MEM;
 		// If in a register, what index (into nr array)?
 		IRNativeReg nReg = -1;
+		// If in a multipart reg (vector or HI/LO), which lane?
+		int8_t lane = -1;
+		// Whether this reg is statically allocated.
+		bool isStatic = false;
 		// If a known immediate value, what value?
 		uint32_t imm = 0;
 		// Locked from spilling (i.e. used by current instruction) as of what IR instruction?
 		int spillLockIRIndex = -1;
-		// If in a multipart reg (vector or HI/LO), which lane?
-		int lane = -1;
-		// Whether this reg is statically allocated.
-		bool isStatic = false;
 	};
+	static_assert(sizeof(RegStatusMIPS) == 12, "RegStatusMIPS grew");
+	// Ordered to avoid padding, since Start() copies these for each block too.
 	struct RegStatusNative {
 		// Which IR/MIPS reg is this currently holding?
 		IRReg mipsReg = IRREG_INVALID;
-		// Locked either as temp or direct reg as of what IR instruction?
-		int tempLockIRIndex = -1;
 		// Should the register be written back?
 		bool isDirty = false;
 		// Upper part of the register is used for "pointerification".
@@ -145,7 +152,10 @@ protected:
 		// Upper part of the register has a normalized form (i.e. zero or sign extend.)
 		// Which this means or if it matters depends on the backend.
 		bool normalized32 = false;
+		// Locked either as temp or direct reg as of what IR instruction?
+		int tempLockIRIndex = -1;
 	};
+	static_assert(sizeof(RegStatusNative) == 8, "RegStatusNative grew");
 
 	struct StaticAllocation {
 		IRReg mr;
@@ -258,9 +268,43 @@ protected:
 	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
-	bool IsValidGPR(IRReg r) const;
-	bool IsValidGPRNoZero(IRReg r) const;
-	bool IsValidFPR(IRReg r) const;
+	// Inline, since the register allocator asks all the time.
+	bool IsValidGPR(IRReg r) const {
+		// See MIPSState for these offsets.
+
+		// Don't allow FPU regs, VFPU regs, or VFPU temps here.
+		if (r >= 32 && IsValidFPR(r - 32))
+			return false;
+		// Don't allow nextPC, etc. since it's probably a mistake.
+		if (r > IRREG_FPCOND && r != IRREG_LLBIT)
+			return false;
+		// Don't allow PC either.
+		if (r == 241)
+			return false;
+
+		return true;
+	}
+	bool IsValidGPRNoZero(IRReg r) const {
+		return IsValidGPR(r) && r != MIPS_REG_ZERO;
+	}
+	bool IsValidFPR(IRReg r) const {
+		// FPR parameters are off by 32 within the MIPSState object.
+		if (r >= TOTAL_MAPPABLE_IRREGS - 32)
+			return false;
+
+		// See MIPSState for these offsets.
+		int index = r + 32;
+
+		// Allow FPU or VFPU regs here.
+		if (index >= 32 && index < 32 + 32 + 128)
+			return true;
+		// Also allow VFPU temps.
+		if (index >= 224 && index < 224 + 16)
+			return true;
+
+		// Nothing else is allowed for the FPU side.
+		return false;
+	}
 
 	MIPSComp::JitOptions *jo_;
 	const u8 *membase_ = nullptr;

@@ -20,6 +20,7 @@
 #endif
 
 #include <cstring>
+#include "Common/BitSet.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Core/MemMap.h"
@@ -30,10 +31,10 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 void IRImmRegCache::Flush(IRReg rd) {
-	if (isImm_[rd] && !isWritten_[rd]) {
+	if (TestBit(isImm_, rd) && !TestBit(isWritten_, rd)) {
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
 		ir_->WriteSetConstant(rd, immVal_[rd]);
-		isWritten_[rd] = true;
+		SetBit(isWritten_, rd);
 	}
 }
 
@@ -41,31 +42,29 @@ void IRImmRegCache::Discard(IRReg rd) {
 	if (rd == 0) {
 		return;
 	}
-	isImm_[rd] = false;
+	ClearBit(isImm_, rd);
 }
 
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
 	memset(&isWritten_, 0, sizeof(isWritten_));
 	memset(&immVal_, 0, sizeof(immVal_));
-	isImm_[0] = true;
-	isWritten_[0] = true;
+	SetBit(isImm_, 0);
+	SetBit(isWritten_, 0);
 	ir_ = ir;
 }
 
 void IRImmRegCache::FlushAll(bool keepKnown) {
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; ) {
-		if (isImm_[i]) {
-			Flush(i);
+	for (int w = 0; w < MASK_WORDS; w++) {
+		// The zero reg stays known.
+		u32 bits = w == 0 ? isImm_[0] & ~1U : isImm_[w];
+		while (bits != 0) {
+			const IRReg r = (IRReg)(w * 32 + LeastSignificantSetBit(bits));
+			bits &= bits - 1;
+			Flush(r);
 			if (!keepKnown)
-				isImm_[i] = false;
+				ClearBit(isImm_, r);
 		}
-
-		// Most of the time, lots are not.  This speeds it up a lot.
-		bool *next = (bool *)memchr(&isImm_[i + 1], 1, TOTAL_MAPPABLE_IRREGS - i - 1);
-		if (!next)
-			break;
-		i = (int)(next - &isImm_[0]);
 	}
 }
 
@@ -743,12 +742,12 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
 		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);
 
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
-		IRReg mipsReg = (IRReg)i;
+	auto flushReg = [&](IRReg mipsReg) {
+		const int i = mipsReg;
 		if (!fprs && i >= 32 && IsValidFPR(mipsReg - 32))
-			continue;
+			return;
 		if (!gprs && IsValidGPR(mipsReg))
-			continue;
+			return;
 
 		if (mr[i].isStatic) {
 			IRNativeReg nreg = mr[i].nReg;
@@ -774,6 +773,27 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 			_assert_(mr[i].nReg != -1);
 		} else if (mr[i].loc != MIPSLoc::MEM) {
 			FlushReg(mipsReg);
+		}
+	};
+
+	// This runs at every exit, so it doesn't look at all 256 regs. An FPR (32-191 and 224-239) is only
+	// out of memory when it's in a native reg, so those are found from nr. The rest can be IMMs.
+	auto flushIfNeeded = [&](int first, int end) {
+		for (int i = first; i < end; i++) {
+			// The common case, nothing to do.
+			if (mr[i].loc == MIPSLoc::MEM && !mr[i].isStatic)
+				continue;
+			flushReg((IRReg)i);
+		}
+	};
+	flushIfNeeded(1, 32);
+	flushIfNeeded(192, 224);
+	flushIfNeeded(240, TOTAL_MAPPABLE_IRREGS);
+	if (fprs) {
+		for (int n = 0; n < config_.totalNativeRegs; n++) {
+			const IRReg mipsReg = nr[n].mipsReg;
+			if (mipsReg != IRREG_INVALID && mipsReg >= 32 && IsValidFPR(mipsReg - 32))
+				flushReg(mipsReg);
 		}
 	}
 
@@ -1291,43 +1311,4 @@ void IRNativeRegCacheBase::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 int IRNativeRegCacheBase::GetMipsRegOffset(IRReg r) {
 	_dbg_assert_(IsValidGPR(r) || (r >= 32 && IsValidFPR(r - 32)));
 	return r * 4;
-}
-
-bool IRNativeRegCacheBase::IsValidGPR(IRReg r) const {
-	// See MIPSState for these offsets.
-
-	// Don't allow FPU regs, VFPU regs, or VFPU temps here.
-	if (r >= 32 && IsValidFPR(r - 32))
-		return false;
-	// Don't allow nextPC, etc. since it's probably a mistake.
-	if (r > IRREG_FPCOND && r != IRREG_LLBIT)
-		return false;
-	// Don't allow PC either.
-	if (r == 241)
-		return false;
-
-	return true;
-}
-
-bool IRNativeRegCacheBase::IsValidGPRNoZero(IRReg r) const {
-	return IsValidGPR(r) && r != MIPS_REG_ZERO;
-}
-
-bool IRNativeRegCacheBase::IsValidFPR(IRReg r) const {
-	// FPR parameters are off by 32 within the MIPSState object.
-	if (r >= TOTAL_MAPPABLE_IRREGS - 32)
-		return false;
-
-	// See MIPSState for these offsets.
-	int index = r + 32;
-
-	// Allow FPU or VFPU regs here.
-	if (index >= 32 && index < 32 + 32 + 128)
-		return true;
-	// Also allow VFPU temps.
-	if (index >= 224 && index < 224 + 16)
-		return true;
-
-	// Nothing else is allowed for the FPU side.
-	return false;
 }

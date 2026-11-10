@@ -57,7 +57,7 @@ static bool VerifyPass(const IRVerification &v) {
 		return false;
 	}
 
-	const std::vector<IRInst> actual = out.GetInstructions();
+	const std::vector<IRInst> actual(out.GetInstructions().begin(), out.GetInstructions().end());
 	if (actual.size() != v.expected.size()) {
 		printf("%s FAILED: produced %d instructions, expected %d\n", v.name, (int)actual.size(), (int)v.expected.size());
 		printf("Actual:\n");
