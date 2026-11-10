@@ -49,6 +49,8 @@ public:
 	double ElapsedSeconds() const;
 	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
+	// From an earlier Instant to this one, without reading the clock again.
+	int64_t NanosSince(const Instant &earlier) const;
 private:
 	// Windows: raw QPC ticks. Everything else: nanoseconds, from time_now_raw().
 	uint64_t nativeStart_;

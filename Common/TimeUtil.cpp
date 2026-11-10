@@ -164,6 +164,10 @@ int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
+int64_t Instant::NanosSince(const Instant &earlier) const {
+	return (int64_t)((double)(int64_t)(nativeStart_ - earlier.nativeStart_) * frequencyMult * 1000000000.0);
+}
+
 #else
 
 // Monotonic, in nanoseconds, and the clock VK_GOOGLE_display_timing reports in.
@@ -240,6 +244,10 @@ Instant::Instant() : nativeStart_(time_now_raw()) {}
 
 int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(time_now_raw() - nativeStart_);
+}
+
+int64_t Instant::NanosSince(const Instant &earlier) const {
+	return (int64_t)(nativeStart_ - earlier.nativeStart_);
 }
 
 double Instant::ElapsedSeconds() const {

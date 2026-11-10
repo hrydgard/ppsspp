@@ -208,6 +208,7 @@ protected:
 		CODE_FULL,
 	};
 	CompileResult CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
+	void TimedClearCache();
 	// Makes the allocated block runnable, and sets its entry.
 	virtual CompileResult CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) = 0;
 	// For the debugger: the IR the block was compiled from, the size of what it compiled to (for the

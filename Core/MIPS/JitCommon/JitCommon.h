@@ -134,6 +134,26 @@ namespace MIPSComp {
 		int invalidatedBlocks = 0;
 	};
 
+	// Time spent compiling, totalled since startup. The IR JITs fill it in.
+	struct JitCompileTimes {
+		int64_t frontendNanos = 0;  // MIPS to IR
+		int64_t passNanos = 0;  // The IR passes
+		int64_t backendNanos = 0;  // IR to host code, or into the IR arena
+		int64_t finalizeNanos = 0;  // The block table and linking
+		int64_t clearNanos = 0;  // Clearing the whole cache
+		int64_t invalidateNanos = 0;
+		int64_t maxBlockNanos = 0;
+		int64_t blocks = 0;
+		int64_t mipsInstructions = 0;
+		int64_t irInstructions = 0;  // After the passes
+		int clears = 0;
+
+		int64_t TotalNanos() const {
+			return frontendNanos + passNanos + backendNanos + finalizeNanos + clearNanos + invalidateNanos;
+		}
+	};
+	extern JitCompileTimes g_jitCompileTimes;
+
 	class JitInterface {
 	public:
 		virtual ~JitInterface() {}

@@ -172,8 +172,10 @@ void IRInterpreterJit::WriteProfileReport() {
 }
 
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
+	const Instant start = Instant::Now();
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	if (numbers.empty()) {
+		g_jitCompileTimes.invalidateNanos += start.ElapsedNanos();
 		return;
 	}
 
@@ -185,6 +187,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 		// TODO: We are invalidating a lot of blocks that are already invalid (yu gi oh).
 		InvalidateBlock(block_num);
 	}
+	g_jitCompileTimes.invalidateNanos += start.ElapsedNanos();
 }
 
 void IRJit::InvalidateBlock(int block_num) {
@@ -245,23 +248,37 @@ void IRJit::Compile(u32 em_address) {
 			ERROR_LOG(Log::JIT, "Native code space full (%d blocks), clearing cache", blocks_.GetNumBlocks());
 			codeFullClears_++;
 		}
-		ClearCache();
+		TimedClearCache();
 		CompileBlock(em_address, instructions, mipsBytes);
 	}
 
 	if (frontend_.CheckRounding(em_address)) {
 		// Our assumptions are all wrong so it's clean-slate time.
-		ClearCache();
+		TimedClearCache();
 		CompileBlock(em_address, instructions, mipsBytes);
 	}
+}
+
+void IRJit::TimedClearCache() {
+	const Instant start = Instant::Now();
+	ClearCache();
+	g_jitCompileTimes.clearNanos += start.ElapsedNanos();
+	g_jitCompileTimes.clears++;
 }
 
 // WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
 IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	_dbg_assert_(compilerEnabled_);
 
+	JitCompileTimes &times = g_jitCompileTimes;
 	frontend_.DoJit(em_address, instructions, mipsBytes);
 	_dbg_assert_(!instructions.empty());
+	times.frontendNanos += frontend_.LastFrontendNanos();
+	times.passNanos += frontend_.LastPassNanos();
+	times.mipsInstructions += mipsBytes / 4;
+	times.irInstructions += instructions.size();
+	// Reading the clock isn't free (around 0.3us on a Galaxy S8), so each phase ends where the next starts.
+	const Instant &backendStart = frontend_.LastEnd();
 
 	if (mipsTracer.tracing_enabled && instructions.size() > 1 && instructions[1].op == IROp::LogIRBlock) {
 		// Before the IR interpreter's block cache takes its copy.
@@ -278,12 +295,20 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 
 	// Caller handles a full arena or code space.
 	const CompileResult result = CompileTargetBlock(block_num, instructions);
+	const Instant finalizeStart = Instant::Now();
+	const int64_t backendNanos = finalizeStart.NanosSince(backendStart);
+	times.backendNanos += backendNanos;
 	if (result != CompileResult::OK)
 		return result;
 
 	// Updates stats, also enters the block in the block shadow.
 	blocks_.FinalizeBlock(block_num);
 	FinalizeTargetBlock(block_num);
+	const int64_t finalizeNanos = finalizeStart.ElapsedNanos();
+	times.finalizeNanos += finalizeNanos;
+	times.blocks++;
+	const int64_t blockNanos = frontend_.LastFrontendNanos() + frontend_.LastPassNanos() + backendNanos + finalizeNanos;
+	times.maxBlockNanos = std::max(times.maxBlockNanos, blockNanos);
 	return CompileResult::OK;
 }
 

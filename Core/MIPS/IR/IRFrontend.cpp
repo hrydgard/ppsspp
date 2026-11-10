@@ -318,6 +318,7 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 }
 
 void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
+	const Instant start = Instant::Now();
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -354,6 +355,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 	IRWriter simplified;
 	IRWriter *code = &ir;
+	Instant passStart = Instant::Now();
 	if (!js.hadBreakpoints) {
 		std::vector<IRPassFunc> passes{
 			&ApplyMemoryValidation,
@@ -392,6 +394,9 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		instructions.push_back({ IROp::LogIRBlock, {0}, 0, 0, INVALID_TRACE_INDEX });
 		std::copy(block_instructions.begin() + 1, block_instructions.end(), std::back_inserter(instructions));
 	}
+	lastEnd_ = Instant::Now();
+	lastFrontendNanos_ = passStart.NanosSince(start);
+	lastPassNanos_ = lastEnd_.NanosSince(passStart);
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
