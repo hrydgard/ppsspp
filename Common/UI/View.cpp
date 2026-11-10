@@ -666,6 +666,7 @@ void InfoItem::Draw(UIContext &dc) {
 	}
 
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
+	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	if (rightText_.empty()) {
 		int paddingX = 12;
@@ -680,7 +681,6 @@ void InfoItem::Draw(UIContext &dc) {
 	float leftWidth, leftHeight;
 	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, padBounds.w, &leftWidth, &leftHeight, ALIGN_VCENTER);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.DrawTextRect(text_, padBounds, style.fgColor, ALIGN_VCENTER);
 
 	// The info item should not look too clickable even if it has a background. Make the right side dimmed a little.
