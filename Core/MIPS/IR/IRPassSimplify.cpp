@@ -1994,6 +1994,18 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	if (!opts.preferVec4 || opts.optimizeForInterpreter) {
 		DISABLE;
 	}
+	// Everything below starts from a Vec4 (or matrix) operand, which most blocks don't have.
+	bool anyVec4 = false;
+	for (const IRInst &inst : in.GetInstructions()) {
+		const IRMeta *m = GetIRMeta(inst.op);
+		for (int t = 0; t < 3; ++t) {
+			if (m->types[t] == 'V' || m->types[t] == 'M')
+				anyVec4 = true;
+		}
+	}
+	if (!anyVec4) {
+		DISABLE;
+	}
 
 	bool isVec4[256]{};
 	bool isUsed[256]{};

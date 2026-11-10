@@ -20,6 +20,7 @@
 #endif
 
 #include <cstring>
+#include "Common/BitSet.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "Core/MemMap.h"
@@ -30,10 +31,10 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 void IRImmRegCache::Flush(IRReg rd) {
-	if (isImm_[rd] && !isWritten_[rd]) {
+	if (TestBit(isImm_, rd) && !TestBit(isWritten_, rd)) {
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
 		ir_->WriteSetConstant(rd, immVal_[rd]);
-		isWritten_[rd] = true;
+		SetBit(isWritten_, rd);
 	}
 }
 
@@ -41,31 +42,29 @@ void IRImmRegCache::Discard(IRReg rd) {
 	if (rd == 0) {
 		return;
 	}
-	isImm_[rd] = false;
+	ClearBit(isImm_, rd);
 }
 
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
 	memset(&isWritten_, 0, sizeof(isWritten_));
 	memset(&immVal_, 0, sizeof(immVal_));
-	isImm_[0] = true;
-	isWritten_[0] = true;
+	SetBit(isImm_, 0);
+	SetBit(isWritten_, 0);
 	ir_ = ir;
 }
 
 void IRImmRegCache::FlushAll(bool keepKnown) {
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; ) {
-		if (isImm_[i]) {
-			Flush(i);
+	for (int w = 0; w < MASK_WORDS; w++) {
+		// The zero reg stays known.
+		u32 bits = w == 0 ? isImm_[0] & ~1U : isImm_[w];
+		while (bits != 0) {
+			const IRReg r = (IRReg)(w * 32 + LeastSignificantSetBit(bits));
+			bits &= bits - 1;
+			Flush(r);
 			if (!keepKnown)
-				isImm_[i] = false;
+				ClearBit(isImm_, r);
 		}
-
-		// Most of the time, lots are not.  This speeds it up a lot.
-		bool *next = (bool *)memchr(&isImm_[i + 1], 1, TOTAL_MAPPABLE_IRREGS - i - 1);
-		if (!next)
-			break;
-		i = (int)(next - &isImm_[0]);
 	}
 }
 
