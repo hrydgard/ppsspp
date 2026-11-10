@@ -635,6 +635,7 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (cpuCore.has_value()) {
 		g_Config.iCpuCore = (int)cpuCore.value();
+		g_Config.DoNotSaveSetting(&g_Config.iCpuCore);
 	}
 	if (hardwareTransform.has_value()) {
 		g_Config.bHardwareTransform = hardwareTransform.value();
