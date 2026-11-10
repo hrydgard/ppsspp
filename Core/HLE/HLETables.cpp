@@ -453,6 +453,7 @@ void RegisterAllModules() {
 	Register_SysclibForUser();
 	Register_ArkCtrl();
 	Register_SystemCtrlHardware();
+	Register_sceSuspendForKernel();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
