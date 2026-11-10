@@ -759,6 +759,13 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		// is about to read. Nor is a picture announced until the buffers holding it have been
 		// published: saying "one image decoded" and then failing to allocate would have mpeg.prx
 		// convert from whatever the descriptor pointed at last.
+		if (auSize <= 0) {
+			// An empty access unit is an error, and the stream carries on normally after it
+			// (pspautotests video/mpeg/decoderepeat). sceMpegAvcDecode passes one when called again
+			// on a unit it already decoded, which some movie players do until a picture comes back.
+			// The error is what ends their loop.
+			return hleLogDebug(Log::ME, SCE_MPEG_ERROR_AVC_DECODE_FATAL, "type 0, no access unit");
+		}
 		int pictures = 0;
 		if (au && auBytes > 0) {
 			if (vctx.decoder->DecodePictures(au, auBytes) < 0) {

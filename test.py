@@ -795,6 +795,7 @@ tests_next = [
   "video/mp4/avchold",  # needs Sony's mp4 and mpeg modules: --disable-hle=0x110, see docs/pspautotests.md
   "video/mpeg/basic",
   "video/mpeg/decodeend",  # needs Sony's mpeg module, as avchold
+  "video/mpeg/decoderepeat",  # needs Sony's mpeg module, as avchold
   "video/mpeg/deletetiming",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",

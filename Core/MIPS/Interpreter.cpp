@@ -89,7 +89,7 @@ static inline void DelaySlotJumpTo(MIPSState *mips, u32 where) {
 	if (!InJumpDelaySlot(mips)) {
 		return;
 	}
-	if (!mips->space->IsValidAddress(where) || (where & 3) != 0) {
+	if (!mips->space->IsValid4AlignedAddress(where)) {
 		Core_ExecException(where, PC, ExecExceptionType::JUMP);
 	}
 	mips->nextPC = where;
