@@ -869,7 +869,7 @@ retry:
 	const std::string failedDriver = VulkanTakeFailedCustomDriver();
 	if (!failedDriver.empty()) {
 		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The custom driver failed, so the default driver is used instead"), failedDriver, 10.0f);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The custom Vulkan driver failed to load. Switching back to default."), failedDriver, 10.0f);
 		g_Config.Save("CustomDriverFailed");
 	}
 }

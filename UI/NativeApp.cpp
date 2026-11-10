@@ -507,12 +507,17 @@ static void CheckFailedGPUBackends() {
 	return;
 #endif
 
+	// Only a custom driver is given up on, never the backend.
+	bool customDriverOnly = false;
 #if PPSSPP_PLATFORM(ANDROID)
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
-		// In Android 11 or later, Vulkan is as stable as OpenGL, so let's not even bother.
-		// Have also seen unexplained issues with random fallbacks to OpenGL for no good reason,
-		// especially when debugging.
-		return;
+		// In Android 11 or later, Vulkan is as stable as OpenGL, so the only thing to check for is a custom
+		// driver that crashes. Have also seen unexplained issues with random fallbacks to OpenGL for no good
+		// reason, especially when debugging.
+		if (g_Config.iGPUBackend != (int)GPUBackend::VULKAN || g_Config.sCustomDriver.empty()) {
+			return;
+		}
+		customDriverOnly = true;
 	}
 #endif
 
@@ -556,7 +561,9 @@ static void CheckFailedGPUBackends() {
 #endif
 
 	// Okay, let's not try a backend in the failed list.
-	g_Config.iGPUBackend = g_Config.NextValidBackend();
+	if (!customDriverOnly) {
+		g_Config.iGPUBackend = g_Config.NextValidBackend();
+	}
 	if (lastBackend != g_Config.iGPUBackend) {
 		// This is the expected path.
 		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
