@@ -198,6 +198,7 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	// same however fast the emulator runs. This thread only reports when it's over.
 	press.pressId = __CtrlPressFor(press.button, (int)press.duration);
 	pressTickets_.push_back(press);
+	req.ReplyLater();
 }
 
 void WebSocketInputState::Broadcast(net::WebSocketServer *ws) {
