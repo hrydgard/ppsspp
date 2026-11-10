@@ -444,6 +444,7 @@ void RegisterAllModules() {
 	Register_sceIdStorage_driver();
 	Register_sceNetAdhocctl_lib();
 	Register_sceNetIfhandle_lib();
+	Register_sceSuspendForKernel();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

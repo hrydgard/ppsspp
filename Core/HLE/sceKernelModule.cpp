@@ -221,7 +221,9 @@ PSPModule::~PSPModule() {
 		}
 
 		// If it's either below user memory, or using a high kernel bit, it's in kernel.
-		if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
+		if (BlockAllocator *alloc = BlockAllocatorFromAddr(memoryBlockAddr); alloc == &volatileMemory) {
+			volatileMemory.Free(memoryBlockAddr);
+		} else if (memoryBlockAddr < PSP_GetUserMemoryBase() || memoryBlockAddr > PSP_GetUserMemoryEnd()) {
 			kernelMemory.Free(memoryBlockAddr);
 		} else {
 			userMemory.Free(memoryBlockAddr);
@@ -892,7 +894,31 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 	}
 }
 
+// EXPERIMENT: functions sent to the firmware's utility.prx instead of our HLE.
+bool LLEUtilityEnabled() {
+	static int enabled = -1;
+	if (enabled < 0) {
+		enabled = getenv("PPSSPP_LLE_UTILITY") != nullptr ? 1 : 0;
+	}
+	return enabled != 0;
+}
+
+static bool FuncIsLLEOverride(std::string_view module, u32 nid) {
+	if (!LLEUtilityEnabled() || module != "sceUtility") {
+		return false;
+	}
+	switch (nid) {
+	case 0x67AF3428: case 0x2AD8E239: case 0x95FC253B: case 0x9A1C91D7: case 0x4928BD96:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static bool FuncImportIsHLE(std::string_view module, u32 nid) {
+	if (FuncIsLLEOverride(module, nid)) {
+		return false;
+	}
 	// TODO: Take into account whether HLE is enabled for the module.
 	// Also, this needs to be more efficient.
 	if (!ShouldHLEModuleByImportName(module)) {
@@ -903,7 +929,7 @@ static bool FuncImportIsHLE(std::string_view module, u32 nid) {
 }
 
 void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char *importingModule) {
-	bool shouldHLE = ShouldHLEModuleByImportName(func.moduleName);
+	bool shouldHLE = ShouldHLEModuleByImportName(func.moduleName) && !FuncIsLLEOverride(func.moduleName, func.nid);
 
 	// Prioritize HLE implementations, if we should HLE this.
 	if (shouldHLE && GetHLEFunc(func.moduleName, func.nid)) {
@@ -2590,6 +2616,16 @@ static bool __KernelLoadExecFromPtr(MIPSState * mips, const u8 *data, size_t siz
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
+	if (!g_runningVSH && LLEUtilityEnabled()) {
+		std::string err;
+		SceUID utilId = KernelLoadModule("flash0:/kd/utility.prx", &err);
+		INFO_LOG(Log::sceModule, "LLE utility: load utility.prx = %08x %s", utilId, err.c_str());
+		if (utilId >= 0) {
+			int res = __KernelStartModule(utilId, 0, 0, 0, nullptr, nullptr);
+			INFO_LOG(Log::sceModule, "LLE utility: start = %08x", res);
+		}
+	}
+
 	if (g_runningVSH) {
 		// NOTE: JPCSP's --vsh handler additionally forces the root thread into kernel mode
 		// with the lowest priority (0x7E) after loading, to mirror real hardware. Tried here
@@ -2966,7 +3002,12 @@ static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &file
 	u32 magic;
 	u32 error;
 	std::string error_string;
+	if (lmoption && lmoption->mpidtext == 5) {
+		INFO_LOG(Log::Loader, "LLE utility: loading %s into the volatile partition", name);
+		g_elfAllocatorOverride = &volatileMemory;
+	}
 	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : secureId, fuseId);
+	g_elfAllocatorOverride = nullptr;
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -4107,6 +4148,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x939E4270, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModuleForKernel",            'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x3FF74DF1, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x387E3CA9, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
+	{0xE5D6087B, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },
 };
 
 void Register_ModuleMgrForUser() {

@@ -761,3 +761,7 @@ void Register_sceMePower_driver() {
 void Register_sceSuspendForUser() {
 	RegisterHLEModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }
+
+void Register_sceSuspendForKernel() {
+	RegisterHLEModule("sceSuspendForKernel", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
+}
