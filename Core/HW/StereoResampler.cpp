@@ -74,20 +74,23 @@ StereoResampler::~StereoResampler() {
 	buffer_ = nullptr;
 }
 
-void StereoResampler::UpdateBufferSize() {
+int StereoResampler::TargetBufferSize() {
 	if (g_Config.bExtraAudioBuffering) {
+		return TARGET_BUFSIZE_EXTRA;
+	}
+	int systemBufsize = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
+	if (systemBufsize > 0 && TARGET_BUFSIZE_DEFAULT < systemBufsize + TARGET_BUFSIZE_MARGIN) {
+		return std::min(4096, systemBufsize + TARGET_BUFSIZE_MARGIN);
+	}
+	return TARGET_BUFSIZE_DEFAULT;
+}
+
+void StereoResampler::UpdateBufferSize() {
+	targetBufsize_ = TargetBufferSize();
+	if (g_Config.bExtraAudioBuffering || targetBufsize_ * 2 > MAX_BUFSIZE_DEFAULT) {
 		maxBufsize_ = MAX_BUFSIZE_EXTRA;
-		targetBufsize_ = TARGET_BUFSIZE_EXTRA;
 	} else {
 		maxBufsize_ = MAX_BUFSIZE_DEFAULT;
-		targetBufsize_ = TARGET_BUFSIZE_DEFAULT;
-
-		int systemBufsize = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
-		if (systemBufsize > 0 && targetBufsize_ < systemBufsize + TARGET_BUFSIZE_MARGIN) {
-			targetBufsize_ = std::min(4096, systemBufsize + TARGET_BUFSIZE_MARGIN);
-			if (targetBufsize_ * 2 > MAX_BUFSIZE_DEFAULT)
-				maxBufsize_ = MAX_BUFSIZE_EXTRA;
-		}
 	}
 }
 

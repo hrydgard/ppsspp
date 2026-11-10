@@ -1130,7 +1130,7 @@ static constexpr ConfigSetting soundSettings[] = {
 
 	ConfigSetting("FillAudioGaps", SETTING(g_Config, bFillAudioGaps), true, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "Fill audio gaps"),
-	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioPlaybackMode), (int)AudioSyncMode::CLASSIC_PITCH, CfgFlag::DEFAULT)
+	ConfigSetting("AudioSyncMode", SETTING(g_Config, iAudioPlaybackMode), (int)AudioSyncMode::GRANULAR, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "Playback mode").Choices(audioPlaybackModes),
 
 	// Legacy volume settings, these get auto upgraded through default handlers on the new settings. NOTE: Must be before the new ones in the order here.
