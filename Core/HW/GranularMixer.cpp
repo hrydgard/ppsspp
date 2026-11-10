@@ -238,9 +238,8 @@ void GranularMixer::Enqueue() {
 	// Check if we run out of space in the circular queue. (rare)
 	u32 next_head = head + 1;
 	if ((next_head & GRANULE_QUEUE_MASK) == (m_queue_tail.load(std::memory_order_acquire) & GRANULE_QUEUE_MASK)) {
-		WARN_LOG(Log::Audio,
-			"Granule Queue has completely filled and audio samples are being dropped. "
-			"This should not happen unless the audio backend has stopped requesting audio.");
+		// The queue has filled and samples are being dropped. This is usually the result of
+		// simple things like fast-forward or some timing catch-up though.
 		return;
 	}
 

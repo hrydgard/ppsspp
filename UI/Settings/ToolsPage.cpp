@@ -20,7 +20,6 @@
 #include "Common/UI/ScreenManager.h"
 #include "Common/UI/View.h"
 #include "UI/DeveloperSettingsPages.h"
-#include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/RetroAchievementScreens.h"
 #include "UI/SavedataScreen.h"
@@ -53,8 +52,5 @@ void BuildToolsSettings(SettingsPage *page) {
 	page->Link({ I18NCat::SYSTEM, "Developer Tools" }, I18NCat::DEVELOPER, &BuildDeveloperToolsPage);
 	page->Choice({ I18NCat::REMOTEISO, "Remote disc streaming" }).OpensScreen().OnClick([host](UI::EventParams &) {
 		host->PageScreenManager()->push(new RemoteISOScreen(host->PageGamePath()));
-	});
-	page->Choice({ I18NCat::SYSTEM, "PSP Firmware" }).OpensScreen().OnClick([host](UI::EventParams &) {
-		host->PageScreenManager()->push(new FirmwareScreen(host->PageGamePath()));
 	});
 }

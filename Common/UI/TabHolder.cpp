@@ -244,6 +244,13 @@ void TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
+		if ((int)e.a == currentTab_) {
+			UI::EventParams e2{};
+			e2.v = this;
+			e2.a = currentTab_;
+			OnReselectTab.Trigger(e2);
+			return;
+		}
 		// SetCurrentTab calls EnsureTab if needed.
 		SetCurrentTab((int)e.a);
 	}

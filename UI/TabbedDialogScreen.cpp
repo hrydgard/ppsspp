@@ -111,6 +111,9 @@ void UITabbedBaseDialogScreen::CreateViews() {
 		}
 		TabChanged(e.a);
 	});
+	tabHolder_->OnReselectTab.Add([this](UI::EventParams &e) {
+		TabReselected(e.a);
+	});
 
 	int initialTab = InitialTab();
 	if (initialTab >= 0) {

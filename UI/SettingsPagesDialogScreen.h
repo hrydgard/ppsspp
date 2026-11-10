@@ -58,6 +58,7 @@ protected:
 	// with the page, like lists read from disk, doesn't need to be read again.
 	bool RecreatingForPageChange() const { return pageChange_; }
 	void TabChanged(int tab) override;
+	void TabReselected(int tab) override;
 
 	// Whether there's a way to type a search.
 	static bool CanShowSearch();
@@ -79,6 +80,7 @@ private:
 	// helpTag the page's docs.
 	std::unique_ptr<SettingsPage> BuildPage(const SettingsTab &tab, std::vector<int> *path, std::vector<std::string> *titles, std::string *helpTag);
 	void CreateSettingsTabContents(int settingsTab, UI::LinearLayout *parent);
+	void RecreateTabContents(int settingsTab);
 	void BuildStackRootPage(SettingsPage *page);
 	void CreateNavBar(UI::ViewGroup *parent, int settingsTab, const std::vector<std::string> &titles, const std::string &helpTag);
 	void CreateSearchResults(UI::ViewGroup *parent);
@@ -109,6 +111,7 @@ private:
 	bool stacked_ = false;
 	bool viewsCreated_ = false;  // So we know when rotating.
 	bool pageChange_ = false;
+	bool keepPageOnTabChange_ = false;  // Going to a search result on another tab.
 	int stackRootTab_ = -1;
 
 	// What to show when the views are next created.

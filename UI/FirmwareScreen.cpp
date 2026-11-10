@@ -39,7 +39,7 @@
 
 std::string_view FirmwareScreen::GetTitle() const {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
-	return sy->T("PSP Firmware");
+	return sy->T("PSP firmware (XMB)");
 }
 
 void FirmwareScreen::BeforeCreateViews() {

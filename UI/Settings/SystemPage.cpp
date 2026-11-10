@@ -47,6 +47,7 @@
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
 #include "UI/Background.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/MiscScreens.h"
@@ -201,6 +202,7 @@ static void OnPSPModelChanged(SettingsPageHost *host, int previous) {
 }
 
 // Using SYSTEM translations
+// TODO: Does PSPModel really belong here?
 static void BuildPSPSettingsPage(SettingsPage *page) {
 	SettingsPageHost *host = page->Host();
 
@@ -229,28 +231,30 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	SettingsPageHost *host = page->Host();
 
 	page->Header();
-	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage);
+	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage).Image(ImageID("I_PSP"));
 
-	page->Header("Cheats");
-	page->Setting(&g_Config.bEnableCheats);
-	page->Setting(&g_Config.bEnablePlugins);
+	page->Choice({I18NCat::SYSTEM, "PSP firmware (XMB)"}).OpensScreen().OnClick([host](UI::EventParams &) {
+		host->PageScreenManager()->push(new FirmwareScreen(host->PageGamePath()));
+	}).Image(ImageID("I_XMB"));
 
 	page->Header("Emulation");
 
+	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip).Hint({I18NCat::SYSTEM, "LowLatencyCPUTiming Tip", "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force real clock sync\"."});
+	page->Setting(&g_Config.iLockedCPUSpeed);
 	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
 		OnJitAffectingSetting();
 	});
 	page->Setting(&g_Config.bIgnoreBadMemAccess);
-
 	if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 		page->Setting(&g_Config.bCacheFullIsoInRam).EnabledFunc([] {
 			return !PSP_IsInited();
 		});
 	}
-
 	page->Setting(&g_Config.iIOTimingMethod);
-	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip).Hint({ I18NCat::SYSTEM, "LowLatencyCPUTiming Tip", "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force real clock sync\"." });
-	page->Setting(&g_Config.iLockedCPUSpeed);
+
+	page->Header("Cheats");
+	page->Setting(&g_Config.bEnableCheats);
+	page->Setting(&g_Config.bEnablePlugins);
 
 	page->Header({I18NCat::SAVEDATA, "Save states"});  // Borrow this string from the savedata manager
 
