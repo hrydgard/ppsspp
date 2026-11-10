@@ -183,7 +183,7 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "ppsspp_force_lag_sync",
       "Low-Latency CPU Timing",
       NULL,
-      "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy.",
+      "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force Real Clock Sync\".",
       NULL,
       "system",
       BOOL_OPTIONS,
