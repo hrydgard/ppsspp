@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "Common/CommonTypes.h"
+#include "Common/Data/Collections/FastVec.h"
 #include "Core/MIPS/MIPS.h"
 
 // Basic IR
@@ -424,8 +425,17 @@ u32 IRInterpret(MIPSState *ms, const IRInst *inst, const IRInst *chainArena = nu
 // Each IR block gets a constant pool.
 class IRWriter {
 public:
+	IRWriter() {}
+	IRWriter(const IRWriter &w) {
+		*this = w;
+	}
+	IRWriter(IRWriter &&w) noexcept : insts_(std::move(w.insts_)) {}
 	IRWriter &operator =(const IRWriter &w) {
-		insts_ = w.insts_;
+		if (this != &w) {
+			insts_.clear();
+			if (!w.insts_.empty())
+				insts_.extend(w.insts_.data(), w.insts_.size());
+		}
 		return *this;
 	}
 	IRWriter &operator =(IRWriter &&w) noexcept {
@@ -433,7 +443,16 @@ public:
 		return *this;
 	}
 
-	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0, u32 constant = 0);
+	// Inline (with FastVec rather than std::vector, which the compiler didn't inline), since the
+	// frontend and every pass write each instruction through these.
+	void Write(IROp op, u8 dst = 0, u8 src1 = 0, u8 src2 = 0, u32 constant = 0) {
+		IRInst &inst = insts_.push_uninitialized();
+		inst.op = op;
+		inst.dest = dst;
+		inst.src1 = src1;
+		inst.src2 = src2;
+		inst.constant = constant;
+	}
 	void WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant);
 
 	void WriteSetConstant(u8 dst, u32 value);
@@ -450,10 +469,10 @@ public:
 	}
 	void ReplaceConstant(size_t instNumber, u32 newConstant);
 
-	const std::vector<IRInst> &GetInstructions() const { return insts_; }
+	const FastVec<IRInst> &GetInstructions() const { return insts_; }
 
 private:
-	std::vector<IRInst> insts_;
+	FastVec<IRInst> insts_;
 };
 
 // How far IRFrontend compiles on past conditional branches. The interpreter ends its blocks in the

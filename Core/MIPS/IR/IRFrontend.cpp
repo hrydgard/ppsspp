@@ -387,10 +387,10 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	}
 
 	if (!mipsTracer.tracing_enabled) {
-		instructions = code->GetInstructions();
+		instructions.assign(code->GetInstructions().begin(), code->GetInstructions().end());
 	}
 	else {
-		std::vector<IRInst> block_instructions = code->GetInstructions();
+		std::vector<IRInst> block_instructions(code->GetInstructions().begin(), code->GetInstructions().end());
 		instructions.reserve(block_instructions.size() + 2); // +2 for Downcount and LogIRBlock
 		// The first instruction is "Downcount"
 		instructions.push_back(block_instructions.front());

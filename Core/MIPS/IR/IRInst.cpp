@@ -231,16 +231,6 @@ void InitIR() {
 	}
 }
 
-void IRWriter::Write(IROp op, u8 dst, u8 src1, u8 src2, u32 constant) {
-	IRInst inst;
-	inst.op = op;
-	inst.dest = dst;
-	inst.src1 = src1;
-	inst.src2 = src2;
-	inst.constant = constant;
-	insts_.push_back(inst);
-}
-
 void IRWriter::WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant) {
 	u32 constant;
 	memcpy(&constant, &fconstant, sizeof(u32));
