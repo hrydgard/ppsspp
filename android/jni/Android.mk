@@ -1140,6 +1140,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/CustomButtonMappingScreen.cpp \
   $(SRC)/UI/RetroAchievementScreens.cpp
 
+# Calls between our own functions bind directly, not through the PLT (see CMakeLists.txt).
+LOCAL_LDFLAGS += -Wl,-Bsymbolic-functions
+
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)
 endif
