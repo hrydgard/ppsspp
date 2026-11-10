@@ -426,18 +426,9 @@ u32 IRInterpret(MIPSState *ms, const IRInst *inst, const IRInst *chainArena = nu
 class IRWriter {
 public:
 	IRWriter() {}
-	IRWriter(const IRWriter &w) {
-		*this = w;
-	}
+	IRWriter(const IRWriter &w) = delete;
 	IRWriter(IRWriter &&w) noexcept : insts_(std::move(w.insts_)) {}
-	IRWriter &operator =(const IRWriter &w) {
-		if (this != &w) {
-			insts_.clear();
-			if (!w.insts_.empty())
-				insts_.extend(w.insts_.data(), w.insts_.size());
-		}
-		return *this;
-	}
+	IRWriter &operator =(const IRWriter &w) = delete;
 	IRWriter &operator =(IRWriter &&w) noexcept {
 		insts_ = std::move(w.insts_);
 		return *this;
