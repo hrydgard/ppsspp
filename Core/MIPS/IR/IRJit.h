@@ -65,9 +65,6 @@ public:
 	void UpdateHash() {
 		hash_ = CalculateHash();
 	}
-	bool HashMatches() const {
-		return origAddr_ && hash_ == CalculateHash();
-	}
 	bool OverlapsRange(u32 addr, u32 size) const;
 
 	void GetRange(u32 *start, u32 *size) const {
@@ -144,7 +141,6 @@ public:
 		}
 	}
 
-	int FindPreloadBlock(u32 em_address);
 
 	int GetBlockNumberFromStartAddress(u32 em_address) const;
 

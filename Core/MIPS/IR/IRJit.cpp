@@ -318,7 +318,6 @@ void IRJit::TimedClearCache() {
 	g_jitCompileTimes.clears++;
 }
 
-// WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
 IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	_dbg_assert_(compilerEnabled_);
 
@@ -585,7 +584,6 @@ std::vector<int> JitBlockTable::FindInvalidatedBlockNumbers(u32 address, u32 len
 }
 
 void JitBlockTable::FinalizeBlock(int blockIndex) {
-	// TODO: What's different about preload blocks?
 	JitBlock &block = blocks_[blockIndex];
 	block.Finalize(*space_);
 
@@ -627,24 +625,6 @@ u32 JitBlockTable::AddressToPage(u32 addr) const {
 	return (addr & 0x3FFFFFFF) >> 10;
 }
 
-int JitBlockTable::FindPreloadBlock(u32 em_address) {
-	u32 page = AddressToPage(em_address);
-	auto iter = byPage_.find(page);
-	if (iter == byPage_.end())
-		return -1;
-
-	const std::vector<int> &blocksInPage = iter->second;
-	for (int i : blocksInPage) {
-		if (blocks_[i].GetOriginalStart() == em_address) {
-			if (blocks_[i].HashMatches()) {
-				return i;
-			}
-		}
-	}
-
-	return -1;
-}
-
 int JitBlockTable::GetBlockNumberFromStartAddress(u32 em_address) const {
 	u32 page = AddressToPage(em_address);
 
@@ -666,8 +646,7 @@ int JitBlockTable::GetBlockNumberFromStartAddress(u32 em_address) const {
 }
 
 void JitBlock::Finalize(const Memory::AddressSpace &space) {
-	// Check it wasn't invalidated, in case this is after preload.
-	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
+	// Check it wasn't invalidated.
 	if (origAddr_ && space.IsValid4AlignedAddress(origAddr_)) {
 		origFirstOpcode_ = space.IsMediaEngine() ? MIPSOpcode(space.ReadUnchecked_U32(origAddr_)) : Memory::ReadUnchecked_Instruction(origAddr_);
 		_dbg_assert_(entry_ != 0);
