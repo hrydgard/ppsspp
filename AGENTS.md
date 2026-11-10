@@ -221,6 +221,12 @@ UWP/PPSSPP_UWPMain.cpp
 android/jni/app-android.cpp
 libretro/libretro.cpp
 
+**Never include `Common/GPU/Vulkan/VulkanLoader.h` directly from `UI/`.** On Linux the Vulkan headers
+bring in X11, whose definitions (`Screen` among them) break `Common/UI/Screen.h`. Windows and Android
+builds don't show it, so it only fails on CI. The same goes for including UI headers (`View.h`, `Screen.h`) in a
+file that has the Vulkan ones. Put what UI code needs in a header without Vulkan includes, like
+`Common/GPU/Vulkan/VulkanDriverVars.h`, or pass the value in from the UI side.
+
 ## Reverse-engineering the firmware
 
 When a question about hardware behaviour can't be settled from the docs or from JPCSP - what a field in
