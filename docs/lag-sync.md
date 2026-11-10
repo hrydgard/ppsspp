@@ -18,6 +18,23 @@ The code is `hleLagSync` and `UpdateLagSyncMode` in `Core/HLE/sceDisplay.cpp`.
   lag sync or in the frame throttle. Under 10% idle it stops pacing and lets the frame throttle pace
   per frame, exactly as with lag sync off. It goes back after two windows over 25% idle.
 
+## Audio buffer
+
+`StereoResampler` (`Core/HW/StereoResampler.cpp`) keeps its buffer around a target. Bursting delivers
+a frame of audio at once (33 ms in a 30 fps game), so the default target is 40 ms. While lag sync
+paces (`__DisplayGetLagSyncMode()`), audio arrives every millisecond or two, and the target is the
+output's period (`SYSPROP_AUDIO_FRAMES_PER_BUFFER`) plus 192 samples (4.4 ms), or 20 ms where the
+platform doesn't report a period. On a fallback to bursting it goes back to the default, with some
+underruns while the buffer fills up again.
+
+The resampler's rate adjustment only drains a full buffer slowly, around ten seconds from a startup
+fill down to a small target. So when the lowest level over a quarter second stays more than 10 ms
+above the target, it drops the excess in one go. Bursting's sawtooth never does that: its troughs are
+below the target.
+
+The audio debug overlay (and the ImGui debugger's audio window) shows the target in milliseconds, the
+lag sync mode and how much excess was dropped.
+
 ## Benchmarking
 
 What to find out on a platform:
@@ -95,11 +112,46 @@ is worth reporting.
   first window fall back to bursting. That's expected, and it goes back to pacing two seconds later if
   there's idle time.
 - Laptops on battery throttle unpredictably; plug in. Don't run two builds at once.
+- **Games diverge.** Pacing for the first second shifts the emulated timeline, and a game can take
+  another path from there: from a God of War: Ghost of Sparta state at a quick-time prompt, the paced
+  run was in a fight at 60 seconds while the bursting run still waited at the prompt, and it reached
+  11% fewer emulated seconds near the ceiling. Starting that run already bursting gave the same speed
+  as lag sync off, and a state that doesn't diverge showed no difference. Pick states where nothing
+  is about to happen, and compare screenshots when a result looks odd.
+
+### Audio buffer
+
+`--audio-sink=FRAMES` (headless, with `--realtime`) pulls audio through a `StereoResampler` on a steady
+clock the way an output device does, FRAMES at 48 kHz at a time, and prints at the end:
+
+```
+Audio sink: 1506 pulls of 480 frames, 0 short (0 frames missing), buffer before a pull 11.3/15.9/19.3 ms min/avg/max, target 15.2 ms, 42.3 ms of excess dropped
+```
+
+It reports its period as `SYSPROP_AUDIO_FRAMES_PER_BUFFER`, so the target follows it as in the app,
+and turns sound on, which changes how the frame throttle waits as it does in the app. Counting starts
+two emulated seconds in. Try a 10 ms period (480, a common WASAPI period) and a short one (144),
+with and without `--lag-sync`, for 15-20 emulated seconds. A single short pull with a hundred or more
+frames missing shows up now and then at any target; it's the host stalling, not the buffer.
+
+### Reference, Windows
+
+Windows 11, x64 desktop, Vulkan, Release, against `master` from where the branch starts.
+
+- **Speed.** GTA VCS (ceiling about 16x): lag sync reached the same emulated time as bursting at 60%,
+  80%, 95% and 105% of the ceiling, paced at 60% and 80% and fell back at 95% and 105%. God of War:
+  Ghost of Sparta (a cave state, ceiling about 8.6x): the same at 95% and 105%.
+- **Lateness.** 0-2 us at 1x, up to about 100 us while it falls back.
+- **Cost at 1x**, CPU seconds for 15 emulated seconds: GTA bursting 1.8, lag sync 1.8, `master`'s lag
+  sync 15.6 (spinning a core); God of War bursting 3.7-4.0, lag sync 4.0-4.6, `master`'s 17.
+- **Audio.** Average buffer bursting at the default target against lag sync: with a 10 ms period
+  38 against 16 ms (GTA) and 35 against 17 ms (God of War), with a 3 ms period 37 against 9 ms and
+  34 against 10 ms, all without underruns. Bursting with the small target forced on underran on a
+  pull in twelve.
 
 ## Still to do
 
-- With lag sync pacing, audio arrives about every 1.5 ms rather than once per frame, so the
-  resampler's target buffer (`TARGET_BUFSIZE_DEFAULT`, 40 ms, in `Core/HW/StereoResampler.cpp`) could be
-  much smaller, going back up on a fallback to bursting.
-- Measure on Windows and on Android (where CPU frequency scaling may react to spread-out work), then
-  decide whether lag sync should be on by default.
+- Measure on Android (where CPU frequency scaling may react to spread-out work), then decide whether
+  lag sync should be on by default.
+- On a fallback to bursting the target goes back up at once, and the buffer underruns for a moment
+  while it fills. Raising the target ahead of the switch would avoid that.

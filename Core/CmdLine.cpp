@@ -267,6 +267,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(adhocLossPercent), CmdParamType::Int, "adhoc-loss", '\0', "Drop this percentage of the ad hoc datagrams received"},
 	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
+	{POFF(audioSinkPeriod), CmdParamType::Int, "audio-sink", '\0', "Pull audio like an output device, FRAMES at 48 kHz at a time, and print the buffer's stats at the end (with --realtime)", CmdLineMode::Headless},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
 	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1: when booting an ELF/PBP or --vsh"},
 	{POFF(unpackUpdater), CmdParamType::String, "unpack-updater", '\0', "Unpack the firmware in an updater EBOOT.PBP into DIR and exit", CmdLineMode::Headless},

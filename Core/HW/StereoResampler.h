@@ -31,8 +31,9 @@ public:
 	StereoResampler() noexcept;
 	~StereoResampler();
 
-	// Called from audio threads
-	void Mix(s16 *samples, unsigned int numSamples, bool consider_framelimit, int sampleRate);
+	// Called from audio threads. Returns how many of the samples came from the buffer, the rest is
+	// padding after an underrun.
+	int Mix(s16 *samples, unsigned int numSamples, bool consider_framelimit, int sampleRate);
 
 	// Called from main thread
 	// This clamps the samples to 16-bit before starting to work on them.
@@ -46,6 +47,11 @@ public:
 
 	// The buffer fill to aim for, in 44.1 kHz stereo frames. GranularMixer sizes its queue from this too.
 	static int TargetBufferSize();
+
+	// In stereo samples at the input rate.
+	int BufferedSamples() const;
+	int CurrentTargetBufferSize() const { return targetBufsize_; }
+	int DroppedExcess() const { return droppedExcess_; }
 
 private:
 	void UpdateBufferSize();
@@ -73,6 +79,11 @@ private:
 	int overrunCountTotal_ = 0;
 
 	int droppedSamples_ = 0;
+
+	// Lowest buffer level seen this window, see Mix.
+	int windowMin_ = INT32_MAX;
+	u32 windowSamples_ = 0;
+	int droppedExcess_ = 0;
 
 	int64_t inputSampleCount_ = 0;
 	int64_t outputSampleCount_ = 0;

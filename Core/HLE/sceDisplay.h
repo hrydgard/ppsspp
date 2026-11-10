@@ -57,6 +57,14 @@ struct LagSyncStats {
 };
 void __DisplayGetLagSyncStats(LagSyncStats *stats);
 
+enum class LagSyncMode {
+	OFF,
+	PACING,
+	// Fallen back to bursting, the host being nearly flat out.
+	BURSTING,
+};
+LagSyncMode __DisplayGetLagSyncMode();
+
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);
 

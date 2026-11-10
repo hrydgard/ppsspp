@@ -677,6 +677,13 @@ void __DisplayGetLagSyncStats(LagSyncStats *stats) {
 	stats->bursting = lagSyncBursting;
 }
 
+LagSyncMode __DisplayGetLagSyncMode() {
+	if (lagSyncScheduled) {
+		return LagSyncMode::PACING;
+	}
+	return UseLagSync() ? LagSyncMode::BURSTING : LagSyncMode::OFF;
+}
+
 void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 

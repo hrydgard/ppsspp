@@ -15,9 +15,13 @@
 // NOTE: In MSVC, don't forget to set the working directory to $ProjectDir\.. in debug settings.
 
 #include "ppsspp_config.h"
+#include <atomic>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#include <memory>
+#include <thread>
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
@@ -65,6 +69,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HW/StereoResampler.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
@@ -146,10 +151,93 @@ void NativeResized() { }
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
+// --audio-sink: pulls audio through the resampler on a steady clock, the way an output device's
+// callback does, to see how full the buffer runs and how often it runs dry.
+class AudioSink {
+public:
+	static constexpr int SAMPLE_RATE = 48000;
+
+	void Start(int periodFrames) {
+		periodFrames_ = periodFrames;
+		resampler_ = std::make_unique<StereoResampler>();
+		thread_ = std::thread([this] { Run(); });
+	}
+	void Stop() {
+		if (thread_.joinable()) {
+			stop_ = true;
+			thread_.join();
+		}
+	}
+	bool Active() const { return periodFrames_ > 0; }
+	int PeriodFrames() const { return periodFrames_; }
+	// Counting starts once the game runs in real time, not while a state loads.
+	void StartCounting() { counting_ = true; }
+	void Push(const s32 *audio, int numSamples, float volume) { resampler_->PushSamples(audio, numSamples, volume); }
+	void Clear() { resampler_->Clear(); }
+
+	void Print() const {
+		const double toMs = 1000.0 / 44100.0;
+		fprintf(stderr, "Audio sink: %d pulls of %d frames, %d short (%d frames missing), buffer before a pull %.1f/%.1f/%.1f ms min/avg/max, target %.1f ms, %.1f ms of excess dropped\n",
+			pulls_, periodFrames_, shortPulls_, missingFrames_, minBuffered_ * toMs, pulls_ ? (double)sumBuffered_ / pulls_ * toMs : 0.0,
+			maxBuffered_ * toMs, resampler_->CurrentTargetBufferSize() * toMs, resampler_->DroppedExcess() * toMs);
+	}
+
+private:
+	void Run() {
+		std::vector<s16> out(periodFrames_ * 2);
+		const double period = (double)periodFrames_ / SAMPLE_RATE;
+		double next = time_now_d();
+		while (!stop_) {
+			next += period;
+			const double now = time_now_d();
+			if (next > now) {
+				sleep_precise(next - now, "audio-sink");
+			} else if (now - next > 0.1) {
+				// Stalled (the debugger, say), start over rather than pulling a backlog.
+				next = now;
+			}
+			const int buffered = resampler_->BufferedSamples();
+			const int mixed = resampler_->Mix(out.data(), periodFrames_, false, SAMPLE_RATE);
+			if (!counting_) {
+				continue;
+			}
+			pulls_++;
+			if (mixed < periodFrames_) {
+				shortPulls_++;
+				missingFrames_ += periodFrames_ - mixed;
+			}
+			sumBuffered_ += buffered;
+			minBuffered_ = std::min(minBuffered_, buffered);
+			maxBuffered_ = std::max(maxBuffered_, buffered);
+		}
+	}
+
+	std::unique_ptr<StereoResampler> resampler_;
+	std::thread thread_;
+	std::atomic<bool> stop_{};
+	std::atomic<bool> counting_{};
+	int periodFrames_ = 0;
+	int pulls_ = 0;
+	int shortPulls_ = 0;
+	int missingFrames_ = 0;
+	int64_t sumBuffered_ = 0;
+	int minBuffered_ = INT_MAX;
+	int maxBuffered_ = 0;
+};
+
+static AudioSink g_audioSink;
+
 int64_t System_GetPropertyInt(SystemProperty prop) {
-	if (prop == SYSPROP_SYSTEMVERSION)
+	switch (prop) {
+	case SYSPROP_SYSTEMVERSION:
 		return 31;
-	return -1;
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return g_audioSink.Active() ? AudioSink::SAMPLE_RATE : -1;
+	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
+		return g_audioSink.Active() ? g_audioSink.PeriodFrames() : -1;
+	default:
+		return -1;
+	}
 }
 float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
 bool System_GetPropertyBool(SystemProperty prop) {
@@ -172,8 +260,16 @@ std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\0'; }
-void System_AudioClear() {}
-void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {}
+void System_AudioClear() {
+	if (g_audioSink.Active()) {
+		g_audioSink.Clear();
+	}
+}
+void System_AudioPushSamples(const s32 *audio, int numSamples, float volume) {
+	if (g_audioSink.Active()) {
+		g_audioSink.Push(audio, numSamples, volume);
+	}
+}
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
 
 // TODO: To avoid having to define these here, these should probably be turned into system "requests".
@@ -642,6 +738,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (emulatedStep > 0.0 && emulatedStep < emulatedStepLimit && !g_stateLoadPending) {
 			emulatedElapsed += emulatedStep;
 		}
+		// The first seconds compile JIT blocks and shaders.
+		if (g_audioSink.Active() && emulatedElapsed > 2.0) {
+			g_audioSink.StartCounting();
+		}
 
 		if (!g_stateToSave.empty() && (time_now_d() > wallSaveStateAt || emulatedElapsed > opt.timeoutEmulated * 0.7)) {
 			const std::string filename = g_stateToSave;
@@ -773,6 +873,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			fprintf(stderr, "Lag sync: %d sleeps, %.2fs slept, %.0fus late on average, %d resets, %d fallbacks to bursting%s\n",
 				lagSync.sleeps, lagSync.slept, lagSync.sleeps ? lagSync.late / lagSync.sleeps * 1e6 : 0.0, lagSync.resets, lagSync.bursts, lagSync.bursting ? " (bursting now)" : "");
 		}
+	}
+	if (g_audioSink.Active()) {
+		g_audioSink.Stop();
+		g_audioSink.Print();
 	}
 	// What shader compiles cost the run, which the times include.
 	fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);
@@ -1537,6 +1641,11 @@ int main(int argc, const char* argv[]) {
 #else
 		fprintf(stderr, "--dump-audio is not supported on this platform.\n");
 #endif
+	}
+	if (cmdLineOptions.audioSinkPeriod.has_value() && cmdLineOptions.audioSinkPeriod.value() > 0) {
+		// Sound on also changes how the frame throttle waits (DoFrameIdleTiming), as in the app.
+		g_Config.bEnableSound = true;
+		g_audioSink.Start(cmdLineOptions.audioSinkPeriod.value());
 	}
 	if (cmdLineOptions.replayEnd.has_value()) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
