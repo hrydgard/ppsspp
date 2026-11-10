@@ -140,6 +140,7 @@ private:
 	void BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool likely);
 	void BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely);
 	bool CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands);
+	bool CompileBranchPair(MIPSOpcode op);
 
 	// Utilities to reduce duplicated code
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);

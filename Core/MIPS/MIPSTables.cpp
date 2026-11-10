@@ -820,7 +820,7 @@ static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... x
 
 static const MIPSInstruction tableEMU[4] = {
 	INVALID,
-	INVALID,
+	INSTR("BranchPair", JITFUNC(Comp_Generic), Dis_Generic, Int_BranchPair, 0),
 	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_CallReplacement, Int_CallReplacement, 0),
 	INVALID,
 };
@@ -1239,7 +1239,7 @@ static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcod
 		return false;
 	}
 	if (mips->inDelaySlot) {
-		// Taken, or a jump.
+		// Taken, or a jump (or one a likely branch skipped).
 		b.endAfterNext = true;
 		return false;
 	}
@@ -1247,9 +1247,13 @@ static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcod
 		// A likely branch that wasn't taken skipped its delay slot.
 		return true;
 	}
-	// Not taken: the delay slot runs next, as an ordinary instruction.
+	// Not taken: the delay slot runs next, as an ordinary instruction. If it's a branch or jump, the
+	// IR left the two to the interpreter (CompileBranchPair), and the block ends here.
 	const MIPSInfo delaySlotInfo = MIPSGetInfo(ReadDelaySlot(mips, pc));
-	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op) && (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) == 0) {
+	if ((delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) != 0) {
+		return true;
+	}
+	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op)) {
 		b.continueAfterNext = true;
 	} else {
 		b.endAfterNext = true;

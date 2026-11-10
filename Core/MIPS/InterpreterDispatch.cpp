@@ -352,6 +352,10 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 26:
     {
         switch ((op.encoding >> 24) & 0x3) {
+        // BranchPair
+        case 1:
+            MIPSInt::Int_BranchPair(mips, op);
+            return 1;
         // CallRepl
         case 2:
             MIPSInt::Int_CallReplacement(mips, op);

@@ -176,16 +176,11 @@ namespace MIPSComp {
 		u32 compilerPC;
 		MIPSOpcode op;
 		MIPSOpcode delaySlotOp;
-		u64 delaySlotInfo;
 		bool likely;
 		bool andLink;
 		// Update manually if it's not always nice (rs/rt, rs/zero, etc.)
 		bool delaySlotIsNice = true;
-		bool delaySlotIsBranch;
 	};
-
-	// This seems to be the same for all branch types.
-	u32 ResolveNotTakenTarget(const BranchInfo &branchInfo);
 
 	void DoDummyJitState(PointerWrap &p, const MIPSState *mips);
 

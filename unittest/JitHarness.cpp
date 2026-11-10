@@ -1096,9 +1096,7 @@ bool TestMeDmacplus() {
 //                           runs on the instructions being worked on. "dot" is the dot products
 //                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v"
 //                           ("vr" for "dot": r is a run of vdots the IR batches). b adds forward
-//                           conditional branches, d those and jumps, also in delay slots, which
-//                           only the cores in HandlesBranchesInDelaySlots() run.
-//   PPSSPP_CPUFUZZ_ALLCORES run every core on the d cases anyway.
+//                           conditional branches, d those and jumps, also in delay slots.
 
 namespace {
 
@@ -1347,12 +1345,6 @@ static void AddFuzzBranches(FuzzRng &rng, std::vector<u32> &code, bool delaySlot
 		}
 		i++;
 	}
-}
-
-// The cores that run branches and jumps in delay slots as the hardware does (tests/cpu/delayslot/
-// branch). The others sit out the cases with them (PPSSPP_CPUFUZZ_CLASSES with d).
-static bool HandlesBranchesInDelaySlots(CPUCore core) {
-	return core == CPUCore::INTERPRETER;
 }
 
 // A run of 2-4 vdots of one size against one vector, the others rows or columns of one matrix: the
@@ -1846,11 +1838,10 @@ bool TestCPUEquivalence() {
 	};
 	const int numCores = (int)ARRAY_SIZE(cores);
 
-	const bool delaySlots = strchr(classes, 'd') != nullptr && !getenv("PPSSPP_CPUFUZZ_ALLCORES");
 	bool skipped[ARRAY_SIZE(cores)]{};
 	std::vector<FuzzState> results((size_t)count * numCores);
 	for (int c = 0; c < numCores; ++c) {
-		skipped[c] = c > 0 && ((skipCores && strchr(skipCores, '0' + c)) || (delaySlots && !HandlesBranchesInDelaySlots(cores[c])));
+		skipped[c] = c > 0 && skipCores && strchr(skipCores, '0' + c);
 		if (skipped[c]) {
 			for (int i = 0; i < count; ++i) {
 				results[(size_t)i * numCores + c] = results[(size_t)i * numCores];

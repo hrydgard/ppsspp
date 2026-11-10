@@ -1380,4 +1380,29 @@ namespace MIPSInt {
 			MIPSInterpret(mips, Memory::Read_Instruction(PC));
 		}
 	}
+
+	// Runs the branch at PC until it's out of its delay slot, charging as the run loop does. The IR
+	// frontend leaves a branch with a branch or jump in its delay slot to this.
+	void Int_BranchPair(MIPSState *mips, MIPSOpcode op) {
+		// Not where the IR frontend puts it: the game is executing data.
+		if (mips->inDelaySlot || !(MIPSGetInfo(ReadOpAt(mips, PC)) & DELAYSLOT)) {
+			Core_ExecException(PC, PC, ExecExceptionType::ILLEGAL);
+			return;
+		}
+		do {
+			if (!mips->space->IsValid4AlignedAddress(PC)) {
+				Core_ExecException(PC, PC, ExecExceptionType::JUMP);
+				return;
+			}
+			const MIPSOpcode cur = ReadExecutedOp(*mips->space, PC);
+			const bool wasInDelaySlot = mips->inDelaySlot;
+			MIPSInterpret(mips, cur);
+			mips->downcount -= MIPSGetInstructionCycleEstimate(cur);
+			// A syscall in the delay slot leaves it itself.
+			if (mips->inDelaySlot && wasInDelaySlot) {
+				PC = mips->nextPC;
+				mips->inDelaySlot = false;
+			}
+		} while (mips->inDelaySlot);
+	}
 }
