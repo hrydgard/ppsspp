@@ -821,7 +821,7 @@ void SymbolMap::AddModule(const char *name, u32 address, u32 size, u32 crc) {
 			if (crc != 0)
 				module.crc = crc;
 			activeModuleEnds.emplace(module.start + module.size, module);
-			activeNeedUpdate_ = true;
+			ActivateModuleSymbols(module);
 			return;
 		}
 	}
@@ -835,7 +835,7 @@ void SymbolMap::AddModule(const char *name, u32 address, u32 size, u32 crc) {
 
 	modules.push_back(mod);
 	activeModuleEnds.emplace(mod.start + mod.size, mod);
-	activeNeedUpdate_ = true;
+	// A new index has no symbols yet, so there's nothing to activate.
 }
 
 int SymbolMap::NextModuleIndex() const {
@@ -849,8 +849,45 @@ int SymbolMap::NextModuleIndex() const {
 
 void SymbolMap::UnloadModule(u32 address, u32 size) {
 	Bump();
-	activeModuleEnds.erase(address + size);
-	activeNeedUpdate_ = true;
+	auto it = activeModuleEnds.find(address + size);
+	if (it == activeModuleEnds.end())
+		return;
+	const ModuleEntry module = it->second;
+	activeModuleEnds.erase(it);
+	DeactivateModuleSymbols(module);
+}
+
+void SymbolMap::ActivateModuleSymbols(const ModuleEntry &module) {
+	if (activeNeedUpdate_) {
+		// A full update is due anyway.
+		return;
+	}
+	const SymbolKey first(module.index, 0), last(module.index, 0xFFFFFFFF);
+	for (auto it = functions.lower_bound(first), end = functions.upper_bound(last); it != end; ++it)
+		activeFunctions.emplace(module.start + it->second.start, it->second);
+	for (auto it = labels.lower_bound(first), end = labels.upper_bound(last); it != end; ++it)
+		activeLabels.emplace(module.start + it->second.addr, it->second);
+	for (auto it = data.lower_bound(first), end = data.upper_bound(last); it != end; ++it)
+		activeData.emplace(module.start + it->second.start, it->second);
+}
+
+void SymbolMap::DeactivateModuleSymbols(const ModuleEntry &module) {
+	if (activeNeedUpdate_) {
+		return;
+	}
+	// Only what this module put there: another (absolute) symbol at the same address stays.
+	auto erase = [&](auto &active, u32 address) {
+		auto found = active.find(address);
+		if (found != active.end() && found->second.module == module.index)
+			active.erase(found);
+	};
+	const SymbolKey first(module.index, 0), last(module.index, 0xFFFFFFFF);
+	for (auto it = functions.lower_bound(first), end = functions.upper_bound(last); it != end; ++it)
+		erase(activeFunctions, module.start + it->second.start);
+	for (auto it = labels.lower_bound(first), end = labels.upper_bound(last); it != end; ++it)
+		erase(activeLabels, module.start + it->second.addr);
+	for (auto it = data.lower_bound(first), end = data.upper_bound(last); it != end; ++it)
+		erase(activeData, module.start + it->second.start);
 }
 
 u32 SymbolMap::GetModuleRelativeAddr(u32 address, int moduleIndex) const {
