@@ -25,9 +25,10 @@ Environment variables:
 |---|---|
 | `PPSSPP_CPUFUZZ_COUNT` | number of cases (default 2000) |
 | `PPSSPP_CPUFUZZ_SEED` | seed of the first case; case i uses seed + i |
-| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory), `r` (a run of vdots the IR batches into one `Vec4VfpuMultiDot`); `b` anywhere adds forward conditional branches |
+| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory), `r` (a run of vdots the IR batches into one `Vec4VfpuMultiDot`); `b` anywhere adds forward conditional branches; `d` adds those, `j`/`jal`, the likely links and the FPU and VFPU branches, sometimes in each other's delay slots (only the interpreter runs these cases until the IR frontend handles them, see `HandlesBranchesInDelaySlots()`) |
 | `PPSSPP_CPUFUZZ_CODE` | comma-separated hex instructions to run instead of the generated code |
 | `PPSSPP_CPUFUZZ_CODE_SEED` | apply `PPSSPP_CPUFUZZ_CODE` to this seed only |
+| `PPSSPP_CPUFUZZ_ALLCORES` | run every core on the `d` cases anyway |
 | `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT |
 | `PPSSPP_CPUFUZZ_REPORTS` | how many differences to minimize and print (default 20) |
 | `PPSSPP_CPUFUZZ_VERBOSE` | print every case before running it, to find one that crashes |

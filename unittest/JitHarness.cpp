@@ -1096,7 +1096,9 @@ bool TestMeDmacplus() {
 //                           runs on the instructions being worked on. "dot" is the dot products
 //                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v"
 //                           ("vr" for "dot": r is a run of vdots the IR batches). b adds forward
-//                           conditional branches.
+//                           conditional branches, d those and jumps, also in delay slots, which
+//                           only the cores in HandlesBranchesInDelaySlots() run.
+//   PPSSPP_CPUFUZZ_ALLCORES run every core on the d cases anyway.
 
 namespace {
 
@@ -1302,31 +1304,55 @@ struct FuzzCase {
 	FuzzState init;
 };
 
+// A branch at index from to index target. With jumps, also j/jal, likely links and the FPU and VFPU
+// branches.
+static u32 MakeFuzzBranch(FuzzRng &rng, int from, int target, bool jumps) {
+	const u32 offset = (u32)(target - (from + 1)) & 0xFFFF;
+	const u32 rs = 1 + rng.Below(31), rt = rng.Chance(30) ? 0 : 1 + rng.Below(31);
+	switch (rng.Below(jumps ? 10 : 6)) {
+	case 0: return (0x04 << 26) | (rs << 21) | (rt << 16) | offset;  // beq
+	case 1: return (0x05 << 26) | (rs << 21) | (rt << 16) | offset;  // bne
+	case 2: return ((rng.Chance(50) ? 0x06 : 0x07) << 26) | (rs << 21) | offset;  // blez, bgtz
+	case 3: return (0x01 << 26) | (rs << 21) | (rng.Below(2) << 16) | offset;  // bltz, bgez
+	case 4: return ((rng.Chance(50) ? 0x14 : 0x15) << 26) | (rs << 21) | (rt << 16) | offset;  // beql, bnel
+	case 5: return (0x01 << 26) | (rs << 21) | ((rng.Chance(50) ? 0x10 : 0x11) << 16) | offset;  // bltzal, bgezal
+	case 6: return (0x01 << 26) | (rs << 21) | ((rng.Chance(50) ? 0x12 : 0x13) << 16) | offset;  // bltzall, bgezall
+	case 7: return 0x45000000 | (rng.Below(4) << 16) | offset;  // bc1f, bc1t, bc1fl, bc1tl
+	case 8: return 0x49000000 | (rng.Below(8) << 18) | (rng.Below(4) << 16) | offset;  // bvf, bvt, bvfl, bvtl
+	default: {
+		const u32 addr = PSP_GetUserMemoryBase() + FUZZ_CODE_OFFSET + target * 4;
+		return ((rng.Chance(50) ? 0x02 : 0x03) << 26) | ((addr >> 2) & 0x03FFFFFF);  // j, jal
+	}
+	}
+}
+
 // Turns some instructions into conditional branches forward, to a later instruction or the end, so
-// every case still finishes. Never two in a row, so each delay slot is an ordinary instruction.
-static void AddFuzzBranches(FuzzRng &rng, std::vector<u32> &code) {
+// every case still finishes. Without delaySlots, never two in a row, so each delay slot is an
+// ordinary instruction. With it, the delay slot is sometimes a branch or jump too, and jumps are in.
+static void AddFuzzBranches(FuzzRng &rng, std::vector<u32> &code, bool delaySlots) {
 	const int n = (int)code.size();
 	for (int i = 0; i + 1 < n; i++) {
 		if (!rng.Chance(20))
 			continue;
 		const int target = i + 2 + (int)rng.Below(n - i - 1);  // up to n, the terminator
-		const u32 offset = (u32)(target - (i + 1)) & 0xFFFF;
-		const u32 rs = 1 + rng.Below(31), rt = rng.Chance(30) ? 0 : 1 + rng.Below(31);
-		u32 op;
-		switch (rng.Below(6)) {
-		case 0: op = (0x04 << 26) | (rs << 21) | (rt << 16); break;  // beq
-		case 1: op = (0x05 << 26) | (rs << 21) | (rt << 16); break;  // bne
-		case 2: op = ((rng.Chance(50) ? 0x06 : 0x07) << 26) | (rs << 21); break;  // blez, bgtz
-		case 3: op = (0x01 << 26) | (rs << 21) | (rng.Below(2) << 16); break;  // bltz, bgez
-		case 4: op = ((rng.Chance(50) ? 0x14 : 0x15) << 26) | (rs << 21) | (rt << 16); break;  // beql, bnel
-		default: op = (0x01 << 26) | (rs << 21) | ((rng.Chance(50) ? 0x10 : 0x11) << 16); break;  // bltzal, bgezal
-		}
-		code[i] = op | offset;
-		// The delay slot mustn't be a branch.
-		if (MIPSGetInfo(MIPSOpcode(code[i + 1])) & (IS_CONDBRANCH | IS_JUMP))
+		code[i] = MakeFuzzBranch(rng, i, target, delaySlots);
+		// The inner one's own delay slot (i + 2) has to be before the terminator.
+		if (delaySlots && i + 2 < n && rng.Chance(50)) {
+			const int innerTarget = i + 3 + (int)rng.Below(n - i - 2);
+			code[i + 1] = MakeFuzzBranch(rng, i + 1, innerTarget, true);
+			// Its delay slot stays an ordinary instruction.
+			i++;
+		} else if (MIPSGetInfo(MIPSOpcode(code[i + 1])) & (IS_CONDBRANCH | IS_JUMP)) {
 			code[i + 1] = 0;
+		}
 		i++;
 	}
+}
+
+// The cores that run branches and jumps in delay slots as the hardware does (tests/cpu/delayslot/
+// branch). The others sit out the cases with them (PPSSPP_CPUFUZZ_CLASSES with d).
+static bool HandlesBranchesInDelaySlots(CPUCore core) {
+	return core == CPUCore::INTERPRETER;
 }
 
 // A run of 2-4 vdots of one size against one vector, the others rows or columns of one matrix: the
@@ -1429,8 +1455,9 @@ static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vecto
 		else
 			c.code.push_back(GenerateFuzzOp(rng, classes));
 	}
-	if (strchr(classes, 'b'))
-		AddFuzzBranches(rng, c.code);
+	const bool delaySlots = strchr(classes, 'd') != nullptr;
+	if (strchr(classes, 'b') || delaySlots)
+		AddFuzzBranches(rng, c.code, delaySlots);
 	if (!codeOverride.empty()) {
 		c.code = codeOverride;
 	}
@@ -1819,9 +1846,12 @@ bool TestCPUEquivalence() {
 	};
 	const int numCores = (int)ARRAY_SIZE(cores);
 
+	const bool delaySlots = strchr(classes, 'd') != nullptr && !getenv("PPSSPP_CPUFUZZ_ALLCORES");
+	bool skipped[ARRAY_SIZE(cores)]{};
 	std::vector<FuzzState> results((size_t)count * numCores);
 	for (int c = 0; c < numCores; ++c) {
-		if (c > 0 && skipCores && strchr(skipCores, '0' + c)) {
+		skipped[c] = c > 0 && ((skipCores && strchr(skipCores, '0' + c)) || (delaySlots && !HandlesBranchesInDelaySlots(cores[c])));
+		if (skipped[c]) {
 			for (int i = 0; i < count; ++i) {
 				results[(size_t)i * numCores + c] = results[(size_t)i * numCores];
 			}
@@ -1905,6 +1935,10 @@ bool TestCPUEquivalence() {
 
 	bool success = true;
 	for (int c = 1; c < numCores; ++c) {
+		if (skipped[c]) {
+			printf("%s: skipped\n", CoreName(cores[c]));
+			continue;
+		}
 		printf("%s: %d of %d cases differ from the interpreter\n", CoreName(cores[c]), failures[c], count);
 		if (failures[c]) {
 			success = false;
