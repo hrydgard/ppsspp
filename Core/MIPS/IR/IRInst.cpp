@@ -385,10 +385,6 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 	}
 }
 
-const IRMeta *GetIRMeta(IROp op) {
-	return metaIndex[(int)op];
-}
-
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst) {
 	const IRMeta *meta = GetIRMeta(inst.op);
 	if (!meta) {

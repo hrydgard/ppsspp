@@ -477,6 +477,10 @@ struct IROptions {
 	bool moreVec4Ops;
 };
 
-const IRMeta *GetIRMeta(IROp op);
+// Filled in by InitIR(). Inline, since the passes and backends look it up for every instruction.
+extern const IRMeta *metaIndex[256];
+inline const IRMeta *GetIRMeta(IROp op) {
+	return metaIndex[(int)op];
+}
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst);
 void InitIR();

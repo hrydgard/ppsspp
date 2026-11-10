@@ -282,16 +282,6 @@ void ARM64XEmitter::SetCodePointer(const u8 *ptr, u8 *writePtr)
 	m_lastCacheFlushEnd = ptr;
 }
 
-const u8* ARM64XEmitter::GetCodePointer() const
-{
-	return m_code;
-}
-
-u8* ARM64XEmitter::GetWritableCodePtr()
-{
-	return m_writable;
-}
-
 void ARM64XEmitter::ReserveCodeSpace(u32 bytes)
 {
 	for (u32 i = 0; i < bytes/4; i++)

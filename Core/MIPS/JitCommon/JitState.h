@@ -193,7 +193,9 @@ namespace MIPSComp {
 	struct JitOptions {
 		JitOptions();
 
-		bool Disabled(JitDisable bit);
+		bool Disabled(JitDisable bit) const {
+			return (disableFlags & bit) != 0;
+		}
 
 		JitDisable disableFlags;
 
