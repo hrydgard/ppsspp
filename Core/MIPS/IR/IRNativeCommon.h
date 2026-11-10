@@ -217,6 +217,8 @@ protected:
 	// Looked up for every exit and link, so open addressing rather than unordered_map's nodes.
 	DenseHashMap<uint32_t, int> blockByStart_{ 4096 };
 	bool profiling_ = false;
+	// Where each IR instruction of the block being compiled starts. A member to keep its capacity.
+	std::vector<const u8 *> irAddresses_;
 };
 
 class IRNativeJit : public IRJit {

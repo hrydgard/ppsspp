@@ -97,8 +97,9 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 
 	bool logBlocks = false;
 
-	// The passes take turns writing to the two, which keep their capacity.
-	IRWriter temp[2];
+	// The passes take turns writing to the two, which keep their capacity, also from block to block.
+	// Static: compiling only happens on the emulation thread (the debugger's views run on it too).
+	static IRWriter temp[2];
 	const IRWriter *nextIn = &in;
 	for (size_t i = 0; i < c - 1; ++i) {
 		IRWriter &nextOut = temp[i & 1];
@@ -1031,7 +1032,9 @@ bool IRMutatesDestGPR(const IRInstMeta &inst, int reg) {
 
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	std::vector<IRInstMeta> insts;
+	// Reused, to not allocate for every block (see IRApplyPasses).
+	static std::vector<IRInstMeta> insts;
+	insts.clear();
 	insts.reserve(in.GetInstructions().size());
 
 	// We track writes both to rename regs and to purge dead stores.
@@ -1049,8 +1052,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		bool readByExit;
 		int8_t fplen = 0;
 	};
-	std::vector<Check> checks;
-	checks.reserve(insts.size() / 2);
+	static std::vector<Check> checks;
+	checks.clear();
 
 	// This tracks the last index at which each reg was modified.
 	int lastWrittenTo[256];
@@ -2304,7 +2307,9 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		char kind;
 		IRReg value;
 	};
-	std::vector<Known> known;
+	// Reused, to not allocate for every block (see IRApplyPasses).
+	static std::vector<Known> known;
+	known.clear();
 
 	auto kindOf = [](IROp op) {
 		switch (op) {

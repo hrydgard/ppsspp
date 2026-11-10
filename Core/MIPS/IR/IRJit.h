@@ -226,6 +226,7 @@ protected:
 	JitOptions jo;
 
 	IRFrontend frontend_;
+	std::vector<IRInst> compileInstructions_;
 	JitBlockTable blocks_;
 	IRJitDebugInterface debugInterface_{ *this };
 

@@ -182,6 +182,8 @@ private:
 	// State
 	JitState js;
 	IRWriter ir;
+	// The IR after the passes. A member to keep its capacity.
+	IRWriter simplified_;
 	IROptions opts{};
 
 	int dontLogBlocks = 0;

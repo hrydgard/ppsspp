@@ -353,7 +353,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 
 	mipsBytes = js.compilerPC - em_address;
 
-	IRWriter simplified;
+	IRWriter &simplified = simplified_;
+	simplified.Clear();
 	IRWriter *code = &ir;
 	const uint64_t passStart = time_now_fast_ticks();
 	if (!js.hadBreakpoints) {

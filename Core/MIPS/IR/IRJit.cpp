@@ -237,7 +237,8 @@ void IRJit::Compile(u32 em_address) {
 
 	PROFILE_THIS_SCOPE("jitc");
 
-	std::vector<IRInst> instructions;
+	// A member, to keep its capacity. Compiling isn't reentrant (the frontend has its state in members too).
+	std::vector<IRInst> &instructions = compileInstructions_;
 	u32 mipsBytes;
 	const CompileResult result = CompileBlock(em_address, instructions, mipsBytes);
 	if (result != CompileResult::OK) {
