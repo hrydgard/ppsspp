@@ -279,8 +279,8 @@ void GameButton::Draw(UIContext &dc) {
 				idStr = ga->T("SaveData");
 			}
 			dc.SetFontScale(0.5f * g_Config.fGameGridScale, 0.5f * g_Config.fGameGridScale);
-			dc.DrawText(idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
-			dc.DrawText(idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
+			dc.DrawText(dc.GetTheme().uiFont, idStr, bounds_.x + 5, iconBounds.y + 1, 0xFF000000, ALIGN_TOPLEFT);
+			dc.DrawText(dc.GetTheme().uiFont, idStr, bounds_.x + 4, iconBounds.y, dc.GetTheme().infoStyle.fgColor, ALIGN_TOPLEFT);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 
@@ -288,10 +288,9 @@ void GameButton::Draw(UIContext &dc) {
 			Bounds bounds = bounds_;
 
 			float tw, th;
-			dc.MeasureText(dc.GetFontStyle(), g_Config.fGameGridScale, g_Config.fGameGridScale, text, &tw, &th, 0);
+			dc.MeasureText(dc.GetTheme().uiFont, g_Config.fGameGridScale, g_Config.fGameGridScale, text, &tw, &th, 0);
 			dc.PushScissor(bounds);
 			const FontStyle *fontStyle = GetTextStyle(dc, UI::TextSize::Small);
-			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
 
 			int iconSize = imageIcon == ImageID("I_UP_DIRECTORY") ? (float)dc.Draw()->GetAtlas()->getImage(imageIcon)->h : bounds.h * 0.3f;
 			float textWidth = 0.0f;
@@ -309,15 +308,14 @@ void GameButton::Draw(UIContext &dc) {
 			}
 
 			if (imageIcon != ImageID("I_UP_DIRECTORY") && imageIcon != ImageID("I_PIN") && imageIcon != ImageID("I_UNPIN")) {
-				dc.DrawTextRect(text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
+				dc.DrawTextRect(*fontStyle, text, bounds.Inset(5, y + iconSize + 4, 5, 2), style.fgColor, ALIGN_HCENTER | FLAG_WRAP_TEXT);
 			}
 			dc.PopScissor();
-			dc.SetFontStyle(dc.GetTheme().uiFont);
 		} else if (!texture) {
 			// Just draw the text, centered.
 			dc.Draw()->Flush();
 			dc.PushScissor(bounds_);
-			dc.DrawText(title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.DrawText(dc.GetTheme().uiFont, title_, bounds_.x + 4, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 			dc.Draw()->Flush();
 			dc.PopScissor();
 		}
@@ -327,7 +325,7 @@ void GameButton::Draw(UIContext &dc) {
 		std::string_view rightText = g_Config.bShowIDOnGameIcon ? std::string_view(id_version) : std::string_view();
 
 		float tw, th;
-		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, &tw, &th, 0);
+		dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text, &tw, &th, 0);
 
 		if (imageIcon.isValid()) {
 			// Dirs are fixed height.
@@ -339,10 +337,10 @@ void GameButton::Draw(UIContext &dc) {
 		int availableWidth = bounds.w - textX - LIST_TEXT_RIGHT_MARGIN;
 		if (!rightText.empty()) {
 			float vw, vh;
-			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, rightText, &vw, &vh, 0);
+			dc.MeasureText(dc.GetTheme().uiFont, 0.7f, 0.7f, rightText, &vw, &vh, 0);
 			availableWidth -= vw + 20;
 			dc.SetFontScale(0.7f, 0.7f);
-			dc.DrawText(rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.DrawText(dc.GetTheme().uiFont, rightText, bounds.x + availableWidth + textX + 10, bounds.centerY(), style.fgColor, ALIGN_VCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -353,7 +351,7 @@ void GameButton::Draw(UIContext &dc) {
 			tb.w = availableWidth;
 			dc.PushScissor(tb);
 		}
-		dc.DrawText(text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawText(dc.GetTheme().uiFont, text, bounds.x + tx, bounds.centerY(), style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		if (availableWidth < tw) {
 			dc.PopScissor();
 		}
@@ -421,10 +419,9 @@ void GameButton::Draw(UIContext &dc) {
 		auto ga = GetI18NCategory(I18NCat::GAME);
 		dc.FillRect(Drawable(0xD0505050), iconBounds);
 		const float scale = 0.8f * (viewMode_ == GameBrowserViewMode::GRID ? g_Config.fGameGridScale : g_Config.fGameListScale);
-		dc.SetFontStyle(dc.GetTheme().uiFont);
 		dc.SetFontScale(scale, scale);
 		const std::string text = std::string(ga->T("Compressing...")) + StringFromFormat("\n%d%%", (int)(packStatus.progress * 100.0f));
-		dc.DrawTextRectSqueeze(text, iconBounds, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text, iconBounds, 0xFFFFFFFF, ALIGN_CENTER);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 

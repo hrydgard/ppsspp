@@ -338,7 +338,7 @@ void SearchBar::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(searchIcon, bounds_.x + leftMargin, bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_VCENTER);
 		leftMargin += image->w + 10;
 	}
-	dc.DrawText(searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
+	dc.DrawText(dc.GetTheme().uiFont, searchFilter_, bounds_.x + leftMargin, bounds_.centerY(), 0xFFFFFFFF, ALIGN_VCENTER);
 }
 
 SearchBar::SearchBar(UI::LayoutParams *params) : UI::InertView(params) {

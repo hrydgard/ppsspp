@@ -330,12 +330,10 @@ public:
 		const bool tiny = versionString.size() > 10;
 
 		const FontStyle *style = GetTextStyle(dc, tiny ? TextSize::Tiny : TextSize::Small);
-		dc.SetFontStyle(*style);
-		dc.DrawText(versionString,
+		dc.DrawText(*style, versionString,
 			bounds_.x + iconImg->w + 8,
 			bounds_.y + logoImg->h + (tiny ? 8 : 6),
 			dc.GetTheme().infoStyle.fgColor);
-		dc.SetFontStyle(dc.GetTheme().uiFont);
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {

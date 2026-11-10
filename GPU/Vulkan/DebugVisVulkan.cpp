@@ -23,6 +23,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/View.h"
 #include "Common/System/System.h"
 
 #include "ext/vma/vk_mem_alloc.h"
@@ -88,7 +89,7 @@ void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu) {
 	int y = starty;
 
 	ui->SetFontScale(0.7f, 0.7f);
-	ui->DrawTextShadow(str.str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(ui->GetTheme().uiFont, str.str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }
@@ -111,7 +112,7 @@ void DrawGPUProfilerVis(UIContext *ui, GPUCommon *gpu) {
 	std::string text = ui->GetDrawContext()->GetGpuProfileString();
 
 	ui->SetFontScale(0.4f, 0.4f);
-	ui->DrawTextShadow(text, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(ui->GetTheme().uiFont, text, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }

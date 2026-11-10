@@ -673,9 +673,8 @@ void GameScreen::DrawForeground(UIContext &dc) {
 		std::string eta = seconds >= 3600 ? StringFromFormat("%d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60) : StringFromFormat("%d:%02d", seconds / 60, seconds % 60);
 		text += "  " + ApplySafeSubstitutions(ga->T("PackTimeLeft", "~%1 left"), eta);
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(0.8f, 0.8f);
-	dc.DrawTextRectSqueeze(text, track.Inset(8.0f, 0.0f), 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text, track.Inset(8.0f, 0.0f), 0xFFFFFFFF, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 }
 

@@ -94,19 +94,17 @@ public:
 
 	// High level drawing functions. They generally assume the default texture to be bounds.
 
-	void SetFontStyle(const FontStyle &style);
-	const FontStyle &GetFontStyle() { return *fontStyle_; }
 	void SetFontScale(float scaleX, float scaleY);
 	void MeasureText(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float *x, float *y, int align = 0) const;
 	void MeasureTextRect(const FontStyle &style, float scaleX, float scaleY, std::string_view str, float maxWidth, float *x, float *y, int align = 0) const;
-	void DrawText(std::string_view str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align = 0);
-	void DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
-	void DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawText(const FontStyle &style, std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextShadow(const FontStyle &style, std::string_view str, float x, float y, uint32_t color, int align = 0);
+	void DrawTextRect(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextShadowRect(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 	// Will squeeze the text into the bounds if needed.
-	void DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
+	void DrawTextRectSqueeze(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align = 0);
 
-	float CalculateTextScale(std::string_view str, float availWidth) const;
+	float CalculateTextScale(const FontStyle &style, std::string_view str, float availWidth) const;
 
 	void FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius);
 	void FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius, RoundCorners corners);
@@ -152,7 +150,6 @@ private:
 
 	float fontScaleX_ = 1.0f;
 	float fontScaleY_ = 1.0f;
-	FontStyle *fontStyle_ = nullptr;
 	TextDrawer *textDrawer_ = nullptr;
 
 	Draw::SamplerState *sampler_ = nullptr;

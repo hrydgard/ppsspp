@@ -861,7 +861,7 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 		if (touches_[i].id != -1) {
 			dc.Draw()->Circle(touches_[i].x, touches_[i].y, 100.0, 3.0, 80, 0.0f, 0xFFFFFFFF, 1.0);
 			snprintf(buffer, sizeof(buffer), "%0.1fx%0.1f", touches_[i].x, touches_[i].y);
-			dc.DrawText(buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawText(dc.GetTheme().uiFont, buffer, touches_[i].x, touches_[i].y + (touches_[i].y > g_display.dp_yres - 100.0f ? -135.0f : 95.0f), 0xFFFFFFFF, ALIGN_HCENTER | FLAG_DYNAMIC_ASCII);
 		}
 	}
 
@@ -882,7 +882,7 @@ void TouchTestScreen::DrawForeground(UIContext &dc) {
 		extra_debug);
 
 	// On Android, also add joystick debug data.
-	dc.DrawTextShadow(buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.DrawTextShadow(dc.GetTheme().uiFont, buffer, bounds.centerX(), bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 }
 
@@ -1066,14 +1066,13 @@ void ColorTestView::Draw(UIContext &dc) {
 	dc.Flush();
 
 	dc.Begin();
-	dc.SetFontStyle(*GetTextStyle(dc, TextSize::Tiny));
+	const FontStyle &tinyFont = *GetTextStyle(dc, TextSize::Tiny);
 	for (const Label &label : labels) {
-		dc.DrawText(label.text, label.x, label.y, label.color, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
+		dc.DrawText(tinyFont, label.text, label.x, label.y, label.color, ALIGN_CENTER | FLAG_DYNAMIC_ASCII);
 	}
-	dc.DrawText("Blurred, the lines match 188 if averaged in linear light, 128 if averaged as encoded", gammaX, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.DrawText(tinyFont, "Blurred, the lines match 188 if averaged in linear light, 128 if averaged as encoded", gammaX, y, 0xFFFFFFFF, ALIGN_TOPLEFT);
 	const std::string header = StringFromFormat("%s%s, %dx%d pixels", dc.GetDrawContext()->GetInfoString(Draw::InfoField::APINAME).c_str(), IsVREnabled() ? ", VR" : "", g_display.pixel_xres, g_display.pixel_yres);
-	dc.SetFontStyle(*GetTextStyle(dc, TextSize::Small));
-	dc.DrawText(header, bounds_.x + margin, bounds_.y + 4.0f, 0xFFFFFFFF, ALIGN_TOPLEFT);
+	dc.DrawText(*GetTextStyle(dc, TextSize::Small), header, bounds_.x + margin, bounds_.y + 4.0f, 0xFFFFFFFF, ALIGN_TOPLEFT);
 	dc.Flush();
 	dc.Begin();
 }

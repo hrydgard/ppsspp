@@ -16,14 +16,12 @@
 #include "Common/Render/AtlasGen.h"
 
 UIContext::UIContext() {
-	fontStyle_ = new FontStyle();
 	bounds_ = Bounds(0, 0, g_display.dp_xres, g_display.dp_yres);
 }
 
 UIContext::~UIContext() {
 	if (sampler_)
 		sampler_->Release();
-	delete fontStyle_;
 	delete textDrawer_;
 	if (uitexture_)
 		uitexture_->Release();
@@ -43,10 +41,6 @@ void UIContext::Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pi
 
 void UIContext::BeginFrame() {
 	frameStartTime_ = time_now_d();
-	// Text drawn before anything set a style uses the theme's.
-	if (fontStyle_->sizePts <= 0 && theme) {
-		*fontStyle_ = theme->uiFont;
-	}
 	if (atlasInvalid_ || !uitexture_) {
 		if (uitexture_) {
 			uitexture_->Release();
@@ -281,10 +275,6 @@ void UIContext::SetFontScale(float scaleX, float scaleY) {
 	fontScaleY_ = scaleY;
 }
 
-void UIContext::SetFontStyle(const FontStyle &fontStyle) {
-	*fontStyle_ = fontStyle;
-}
-
 static FontID AtlasFontFromStyle(const FontStyle &style) {
 	// For now, we only have one font in the atlas.
 	return FontID("UBUNTU24");
@@ -312,59 +302,59 @@ void UIContext::MeasureTextRect(const FontStyle &style, float scaleX, float scal
 	}
 }
 
-void UIContext::DrawText(std::string_view str, float x, float y, uint32_t color, int align) {
+void UIContext::DrawText(const FontStyle &style, std::string_view str, float x, float y, uint32_t color, int align) {
 	_dbg_assert_(str.data() != nullptr);
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
-		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(*fontStyle_)) != nullptr;
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(style)) != nullptr;
 		if (useFontTexture) {
 			Flush();
 			BindFontTexture();
 		}
-		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
+		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
-		Draw()->DrawText(AtlasFontFromStyle(*fontStyle_), str, x, y, color, align);
+		Draw()->DrawText(AtlasFontFromStyle(style), str, x, y, color, align);
 		if (useFontTexture)
 			Flush();
 	} else {
-		textDrawer_->DrawString(*Draw(), *fontStyle_, fontScaleX_, fontScaleY_, str, x, y, color, align);
+		textDrawer_->DrawString(*Draw(), style, fontScaleX_, fontScaleY_, str, x, y, color, align);
 	}
 	RebindTexture();
 }
 
-void UIContext::DrawTextShadow(std::string_view str, float x, float y, uint32_t color, int align) {
+void UIContext::DrawTextShadow(const FontStyle &style, std::string_view str, float x, float y, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
-	DrawText(str, x + 2, y + 2, alpha, align);
-	DrawText(str, x, y, color, align);
+	DrawText(style, str, x + 2, y + 2, alpha, align);
+	DrawText(style, str, x, y, color, align);
 }
 
-void UIContext::DrawTextRect(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextRect(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	if (!textDrawer_ || (align & FLAG_DYNAMIC_ASCII)) {
 		// Use the font texture if this font is in that texture instead.
-		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(*fontStyle_)) != nullptr;
+		bool useFontTexture = Draw()->GetFontAtlas()->getFont(AtlasFontFromStyle(style)) != nullptr;
 		if (useFontTexture) {
 			Flush();
 			BindFontTexture();
 		}
-		float sizeFactor = (float)fontStyle_->sizePts / 24.0f;
+		float sizeFactor = (float)style.sizePts / 24.0f;
 		Draw()->SetFontScale(fontScaleX_ * sizeFactor, fontScaleY_ * sizeFactor);
-		Draw()->DrawTextRect(AtlasFontFromStyle(*fontStyle_), str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
+		Draw()->DrawTextRect(AtlasFontFromStyle(style), str, bounds.x, bounds.y, bounds.w, bounds.h, color, align);
 		if (useFontTexture)
 			Flush();
 	} else {
 		Bounds rounded = bounds;
 		rounded.x = floorf(rounded.x);
 		rounded.y = floorf(rounded.y);
-		textDrawer_->DrawStringRect(*Draw(), *fontStyle_, fontScaleX_, fontScaleY_, str, rounded, color, align);
+		textDrawer_->DrawStringRect(*Draw(), style, fontScaleX_, fontScaleY_, str, rounded, color, align);
 	}
 	RebindTexture();
 }
 
 static constexpr float MIN_TEXT_SCALE = 0.7f;
 
-float UIContext::CalculateTextScale(std::string_view str, float availWidth) const {
+float UIContext::CalculateTextScale(const FontStyle &style, std::string_view str, float availWidth) const {
 	float actualWidth, actualHeight;
-	MeasureTextRect(theme->uiFont, 1.0f, 1.0f, str, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER);
+	MeasureTextRect(style, 1.0f, 1.0f, str, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER);
 	if (actualWidth > availWidth) {
 		// TODO: Return feedback that wrapping was needed.
 		// Shave off a little, since float rounding can otherwise leave the scaled text a hair
@@ -374,25 +364,25 @@ float UIContext::CalculateTextScale(std::string_view str, float availWidth) cons
 	return 1.0f;
 }
 
-void UIContext::DrawTextRectSqueeze(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextRectSqueeze(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	if (bounds.w <= 0 || bounds.h <= 0) {
 		// Probably mid-layout.
 		return;
 	}
 	float origScaleX = fontScaleX_;
 	float origScaleY = fontScaleY_;
-	float scale = CalculateTextScale(str, bounds.w / origScaleX);
+	float scale = CalculateTextScale(style, str, bounds.w / origScaleX);
 	SetFontScale(scale * origScaleX, scale * origScaleY);
 	Bounds textBounds(bounds.x, bounds.y, bounds.w, bounds.h);
-	DrawTextRect(str, textBounds, color, align);
+	DrawTextRect(style, str, textBounds, color, align);
 	SetFontScale(origScaleX, origScaleY);
 }
 
-void UIContext::DrawTextShadowRect(std::string_view str, const Bounds &bounds, uint32_t color, int align) {
+void UIContext::DrawTextShadowRect(const FontStyle &style, std::string_view str, const Bounds &bounds, uint32_t color, int align) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	Bounds shadowBounds(bounds.x+2, bounds.y+2, bounds.w, bounds.h);
-	DrawTextRect(str, shadowBounds, alpha, align);
-	DrawTextRect(str, bounds, color, align);
+	DrawTextRect(style, str, shadowBounds, alpha, align);
+	DrawTextRect(style, str, bounds, color, align);
 }
 
 void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds, float radius) {

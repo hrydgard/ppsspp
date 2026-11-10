@@ -374,14 +374,13 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	dc.Draw()->Flush();
 	dc.RebindTexture();
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	float tw, th;
 	dc.Draw()->Flush();
 	dc.PushScissor(bounds_);
 
 	UpdateText(ginfo);
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, title_, &tw, &th, 0);
 
 	int availableWidth = bounds_.w - 150;
 	float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
@@ -395,9 +394,9 @@ void SavedataButton::Draw(UIContext &dc) {
 		tb.w = std::max(1.0f, bounds_.w - 150.0f);
 		dc.PushScissor(tb);
 	}
-	dc.DrawText(title_, bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
+	dc.DrawText(dc.GetTheme().uiFont, title_, bounds_.x + tx, bounds_.y + 4, style.fgColor, ALIGN_TOPLEFT);
 	dc.SetFontScale(0.6f, 0.6f);
-	dc.DrawText(subtitle_, bounds_.x + tx, bounds_.y2() - 7, style.fgColor, ALIGN_BOTTOM);
+	dc.DrawText(dc.GetTheme().uiFont, subtitle_, bounds_.x + tx, bounds_.y2() - 7, style.fgColor, ALIGN_BOTTOM);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	if (availableWidth < tw) {

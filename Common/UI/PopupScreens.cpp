@@ -1073,7 +1073,6 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		style = dc.GetTheme().itemDisabledStyle;
 	}
 	int paddingX = 12;
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	bool shadow;
 	std::string valueText = ValueText(&shadow);
@@ -1105,7 +1104,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		}
 		dc.SetFontScale(scale, scale);
 		Bounds valueBounds(bounds.x2() - textPadding_.right - imagePadding, bounds.y, w, bounds.h);
-		dc.DrawTextRect(valueText, valueBounds, color, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFont, valueText, valueBounds,color, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	} else {
 		Choice::Draw(dc);
@@ -1119,7 +1118,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 		float scale = CalculateValueScale(dc, valueText, bounds.w);
 		dc.SetFontScale(scale, scale);
-		dc.DrawTextRect(valueText, bounds.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFont, valueText, bounds.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 }

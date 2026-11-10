@@ -1619,7 +1619,7 @@ void EmuScreen::drawGameOnOutputMessage() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	const Bounds &bounds = dc.GetBounds();
 	dc.Begin();
-	dc.DrawText(di->T("Playing on TV"), bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, di->T("Playing on TV"), bounds.centerX(), bounds.centerY(), 0xFF505050, ALIGN_CENTER);
 	dc.Flush();
 }
 

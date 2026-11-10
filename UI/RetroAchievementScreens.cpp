@@ -607,7 +607,6 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 	dc.Flush();
 	dc.Begin();
 
-	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 
 	char temp[512];
 
@@ -636,31 +635,28 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 			break;
 		}
 
-		dc.DrawTextRect(title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+		dc.DrawTextRect(*GetTextStyle(dc, UI::TextSize::Normal), title, bounds.Inset(iconSpace + 12.0f, 2.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
-		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Small));
-		dc.DrawTextRectSqueeze(DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
+		dc.DrawTextRectSqueeze(*GetTextStyle(dc, UI::TextSize::Small), DeNull(achievement->description), bounds.Inset(iconSpace + 12.0f, 39.0f, padding, padding), fgColor, ALIGN_TOPLEFT);
 
-		dc.DrawTextRect(badge, bounds, fgColor, ALIGN_TOPRIGHT);
+		dc.DrawTextRect(*GetTextStyle(dc, UI::TextSize::Small), badge, bounds, fgColor, ALIGN_TOPRIGHT);
 
 		if (style == AchievementRenderStyle::LISTED && strlen(achievement->measured_progress) > 0) {
-			dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
-			dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + 12.0f, padding, padding + 100.0f, padding), fgColor, ALIGN_VCENTER | ALIGN_RIGHT);
+			dc.DrawTextRect(*GetTextStyle(dc, UI::TextSize::Normal), achievement->measured_progress, bounds.Inset(iconSpace + 12.0f, padding, padding + 100.0f, padding), fgColor, ALIGN_VCENTER | ALIGN_RIGHT);
 		}
 
 		// TODO: Draw measured_progress / measured_percent in a cute way
 		snprintf(temp, sizeof(temp), "%d", achievement->points);
 
 		// The points number to the right.
-		dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Big));
-		dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | (badge.empty() ? ALIGN_VCENTER : ALIGN_BOTTOMRIGHT));
+		dc.DrawTextRect(*GetTextStyle(dc, UI::TextSize::Big), temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | (badge.empty() ? ALIGN_VCENTER : ALIGN_BOTTOMRIGHT));
 
 		dc.Flush();
 		break;
 	}
 	case AchievementRenderStyle::PROGRESS_INDICATOR:
 		// TODO: Also render a progress bar.
-		dc.DrawTextRect(achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_LEFT | ALIGN_VCENTER);
+		dc.DrawTextRect(*GetTextStyle(dc, UI::TextSize::Normal), achievement->measured_progress, bounds.Inset(iconSpace + padding * 2.0f, padding, padding, padding), fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 		// Show the unlocked icon.
 		iconState = RC_CLIENT_ACHIEVEMENT_STATE_UNLOCKED;
 		break;
@@ -679,7 +675,6 @@ void RenderAchievement(UIContext &dc, const rc_client_achievement_t *achievement
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + padding, bounds.y + padding, iconSpace, iconSpace), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}
 	}
-	dc.SetFontStyle(*GetTextStyle(dc, UI::TextSize::Normal));
 	dc.Flush();
 	dc.RebindTexture();
 	dc.PopScissor();
@@ -712,16 +707,13 @@ static void RenderGameAchievementSummary(UIContext &dc, const Bounds &bounds, fl
 	dc.FillRect(background, bounds);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	dc.DrawTextRect(gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_ELLIPSIZE_TEXT);
+	dc.DrawTextRect(dc.GetTheme().uiFont, gameInfo->title, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_ELLIPSIZE_TEXT);
 
 	std::string description = Achievements::GetGameAchievementSummary(subsetId);
 
-	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-	dc.DrawTextRect(description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
+	dc.DrawTextRect(dc.GetTheme().uiFontSmall, description, bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT | FLAG_WRAP_TEXT);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
 	if (gameInfo->badge_url && strlen(gameInfo->badge_url) > 0) {
@@ -758,23 +750,20 @@ static void RenderLeaderboardSummary(UIContext &dc, const rc_client_leaderboard_
 	dc.FillRect(background, bounds);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
-	dc.DrawTextRect(DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(dc.GetTheme().uiFont, DeNull(leaderboard->title), bounds.Inset(12.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-	dc.DrawTextRectSqueeze(DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRectSqueeze(dc.GetTheme().uiFontSmall, DeNull(leaderboard->description), bounds.Inset(12.0f, 39.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
 	/*
 	char temp[64];
 	snprintf(temp, sizeof(temp), "%d", leaderboard.points);
 
 	dc.SetFontScale(1.5f, 1.5f);
-	dc.DrawTextRect(temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
+	dc.DrawTextRect(dc.GetTheme().uiFontSmall, temp, bounds.Expand(-5.0f, -5.0f), fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 
 	dc.Flush();
 	*/
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 
 	dc.Flush();
 	dc.RebindTexture();
@@ -809,17 +798,13 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	dc.FillRect(background, bounds);
 
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.SetFontStyle(dc.GetTheme().uiFontBig);
 
-	dc.DrawTextRect(StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
+	dc.DrawTextRect(dc.GetTheme().uiFontBig, StringFromFormat("%d", entry->rank), Bounds(bounds.x + 4.0f, bounds.y + 4.0f, numberSpace - 10.0f, bounds.h - 4.0f * 2.0f), fgColor, ALIGN_TOPRIGHT);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-	dc.DrawTextRect(entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(dc.GetTheme().uiFont, entry->user, bounds.Inset(iconSpace + 5.0f, 2.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-	dc.DrawTextRect(DeNull(entry->display), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
+	dc.DrawTextRect(dc.GetTheme().uiFontSmall, DeNull(entry->display), bounds.Inset(iconSpace + 5.0f, 38.0f, 5.0f, 5.0f), fgColor, ALIGN_TOPLEFT);
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.Flush();
 
 	// Come up with a unique name for the icon entry.

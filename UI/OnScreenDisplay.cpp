@@ -89,14 +89,13 @@ static void RenderOSDProgressBar(UIContext &dc, const OnScreenDisplay::Entry &en
 		dc.FillRoundRect(background, bounds, radius);
 	}
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
-	dc.DrawTextShadowRect(entry.text, bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
+	dc.DrawTextShadowRect(dc.GetTheme().uiFont, entry.text, bounds, colorAlpha(0xFFFFFFFF, alpha), (align & FLAG_DYNAMIC_ASCII) | ALIGN_CENTER);
 }
 
 static void MeasureLeaderboardTracker(UIContext &dc, const std::string &text, float *width, float *height) {
-	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text, width, height);
+	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text, width, height);
 	*width += 16.0f;
 	*height += 10.0f;
 }
@@ -107,9 +106,8 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 	UI::Drawable background = UI::Drawable(backgroundColor);
 	dc.DrawRectDropShadow(bounds, 12.0f, 0.7f * alpha);
 	dc.FillRoundRect(background, bounds, dc.GetTheme().choiceRoundRadius * 0.75f);
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
-	dc.DrawTextShadowRect(text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
+	dc.DrawTextShadowRect(dc.GetTheme().uiFont, text, bounds.Inset(5.0f, 5.0f), colorAlpha(0xFFFFFFFF, alpha), ALIGN_VCENTER | ALIGN_HCENTER);
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
@@ -170,7 +168,6 @@ void OnScreenMessagesView::Draw(UIContext &dc) {
 	typeEdges[(size_t)OSDType::STATUS_ICON] = ScreenEdgePosition::TOP_LEFT;
 	typeEdges[(size_t)OSDType::PROGRESS_BAR] = ScreenEdgePosition::TOP_CENTER;  // These only function at the top currently, needs fixing.
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 	dc.SetFontScale(1.0f, 1.0f);
 
 	// Indexed by the enum ScreenEdgePosition.
