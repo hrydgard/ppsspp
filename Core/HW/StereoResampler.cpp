@@ -32,7 +32,7 @@
 #define TARGET_BUFSIZE_LAG_SYNC_MARGIN 192 // 4.4 ms
 #define TARGET_BUFSIZE_LAG_SYNC_UNKNOWN 882 // 20 ms
 
-#define TARGET_EXCESS_DROP 441 // 10 ms
+#define TARGET_EXCESS_DROP 220 // 5 ms
 
 #define MAX_FREQ_SHIFT  600.0f  // how far off can we be from 44100 Hz
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
@@ -91,9 +91,11 @@ int StereoResampler::TargetBufferSize() {
 		target = std::min(4096, systemBufsize + TARGET_BUFSIZE_MARGIN);
 	}
 	// While lag sync paces, audio arrives every millisecond or two rather than a frame's worth at
-	// a time, so the buffer only has to cover the output's period and a little jitter.
+	// a time, so the buffer only has to cover the output's period, a little jitter, and how far
+	// emulation has recently fallen behind (a slow display list, say).
 	if (__DisplayGetLagSyncMode() == LagSyncMode::PACING) {
-		const int lagSyncTarget = systemBufsize > 0 ? systemBufsize + TARGET_BUFSIZE_LAG_SYNC_MARGIN : TARGET_BUFSIZE_LAG_SYNC_UNKNOWN;
+		const int behind = (int)(__DisplayGetLagSyncBehindPeak() * 44100.0);
+		const int lagSyncTarget = (systemBufsize > 0 ? systemBufsize + TARGET_BUFSIZE_LAG_SYNC_MARGIN : TARGET_BUFSIZE_LAG_SYNC_UNKNOWN) + behind;
 		target = std::min(target, lagSyncTarget);
 	}
 	return target;
@@ -343,11 +345,16 @@ void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
 
 	double bufferLatencyMs = 1000.0 * (double)lastBufSize_ / (double)inputSampleRateHz_;
 	double targetMs = 1000.0 * (double)targetBufsize_ / (double)inputSampleRateHz_;
-	const char *lagSync = "off";
+	char lagSync[64] = "off";
 	switch (__DisplayGetLagSyncMode()) {
-	case LagSyncMode::PACING: lagSync = "pacing (small target)"; break;
-	case LagSyncMode::BURSTING: lagSync = "on, but bursting (host too busy)"; break;
-	default: break;
+	case LagSyncMode::PACING:
+		snprintf(lagSync, sizeof(lagSync), "pacing (small target, %0.1fms of it for stalls)", __DisplayGetLagSyncBehindPeak() * 1000.0);
+		break;
+	case LagSyncMode::BURSTING:
+		snprintf(lagSync, sizeof(lagSync), "on, but bursting (host too busy)");
+		break;
+	default:
+		break;
 	}
 	snprintf(buf, bufSize,
 		"Audio buffer: %d/%d (%0.1fms, target: %d = %0.1fms)\n"

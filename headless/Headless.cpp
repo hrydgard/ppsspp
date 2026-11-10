@@ -926,8 +926,8 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (g_Config.bForceLagSync) {
 			LagSyncStats lagSync;
 			__DisplayGetLagSyncStats(&lagSync);
-			fprintf(stderr, "Lag sync: %d sleeps, %.2fs slept, %.0fus late on average, %d resets, %d fallbacks to bursting%s\n",
-				lagSync.sleeps, lagSync.slept, lagSync.sleeps ? lagSync.late / lagSync.sleeps * 1e6 : 0.0, lagSync.resets, lagSync.bursts, lagSync.bursting ? " (bursting now)" : "");
+			fprintf(stderr, "Lag sync: %d sleeps, %.2fs slept, %.0fus late on average, %d syncs over 3ms behind (%.1fms at most), %d resets, %d fallbacks to bursting%s\n",
+				lagSync.sleeps, lagSync.slept, lagSync.sleeps ? lagSync.late / lagSync.sleeps * 1e6 : 0.0, lagSync.stalls, lagSync.maxBehind * 1000.0, lagSync.resets, lagSync.bursts, lagSync.bursting ? " (bursting now)" : "");
 		}
 	}
 	if (g_audioSink.Active()) {

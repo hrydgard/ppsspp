@@ -53,6 +53,10 @@ struct LagSyncStats {
 	int resets = 0;
 	// Times it fell back to bursting.
 	int bursts = 0;
+	// The furthest behind the wall clock it was while pacing, in seconds (usually after loading a
+	// state), and how many times it was more than 3 ms behind.
+	double maxBehind = 0.0;
+	int stalls = 0;
 	bool bursting = false;
 };
 void __DisplayGetLagSyncStats(LagSyncStats *stats);
@@ -64,6 +68,8 @@ enum class LagSyncMode {
 	BURSTING,
 };
 LagSyncMode __DisplayGetLagSyncMode();
+// How far emulation recently fell behind the wall clock while pacing, in seconds (a decaying peak).
+double __DisplayGetLagSyncBehindPeak();
 
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <map>
 #include <mutex>
@@ -129,6 +130,15 @@ static const double LAG_SYNC_BURST_BELOW = 0.10;
 static const double LAG_SYNC_PACE_ABOVE = 0.25;
 static const int LAG_SYNC_PACE_WINDOWS = 2;
 static LagSyncStats lagSyncStats;
+// How far emulation recently fell behind the wall clock while pacing, a stall in a busy frame for
+// example. The audio buffer needs that much room on top. The most over the last few seconds, so
+// stalls that recur keep it up while a single long one (loading a state) is soon forgotten.
+// Read from the audio thread.
+static const int LAG_SYNC_BEHIND_SECONDS = 5;
+static double lagSyncBehind[LAG_SYNC_BEHIND_SECONDS]{};
+static int lagSyncBehindSecond = 0;
+static double lagSyncBehindSecondStart = 0.0;
+static std::atomic<int> lagSyncBehindPeakUs{};
 
 static int numSkippedFrames;
 static bool hasSetMode;
@@ -228,6 +238,28 @@ static void ResetLagSyncBase() {
 	lagSyncEmuBase = CoreTiming::GetGlobalTimeUs();
 }
 
+static void UpdateLagSyncBehind(double behind, double now) {
+	if (now - lagSyncBehindSecondStart >= 1.0) {
+		// A long gap (a pause) skips seconds, which all count as quiet.
+		const int seconds = std::min((int)(now - lagSyncBehindSecondStart), LAG_SYNC_BEHIND_SECONDS);
+		for (int i = 0; i < seconds; i++) {
+			lagSyncBehindSecond = (lagSyncBehindSecond + 1) % LAG_SYNC_BEHIND_SECONDS;
+			lagSyncBehind[lagSyncBehindSecond] = 0.0;
+		}
+		lagSyncBehindSecondStart = now;
+	}
+	lagSyncBehind[lagSyncBehindSecond] = std::max(lagSyncBehind[lagSyncBehindSecond], behind);
+	double peak = 0.0;
+	for (double b : lagSyncBehind) {
+		peak = std::max(peak, b);
+	}
+	lagSyncBehindPeakUs.store((int)(peak * 1000000.0), std::memory_order_relaxed);
+	lagSyncStats.maxBehind = std::max(lagSyncStats.maxBehind, behind);
+	if (behind > 0.003) {
+		lagSyncStats.stalls++;
+	}
+}
+
 static void ResetLagSyncWindow(double now) {
 	lagSyncWindowStart = now;
 	lagSyncWindowIdle = 0.0;
@@ -283,6 +315,8 @@ void __DisplayInit() {
 	lagSyncBursting = false;
 	lagSyncWakeLate = 0.0;
 	lagSyncStats = LagSyncStats();
+	std::fill(std::begin(lagSyncBehind), std::end(lagSyncBehind), 0.0);
+	lagSyncBehindPeakUs = 0;
 	ScheduleLagSync();
 
 	CoreTiming::ScheduleEvent(msToCycles(frameMs - vblankMs), enterVblankEvent, 0);
@@ -677,6 +711,10 @@ void __DisplayGetLagSyncStats(LagSyncStats *stats) {
 	stats->bursting = lagSyncBursting;
 }
 
+double __DisplayGetLagSyncBehindPeak() {
+	return lagSyncBehindPeakUs.load(std::memory_order_relaxed) / 1000000.0;
+}
+
 LagSyncMode __DisplayGetLagSyncMode() {
 	if (lagSyncScheduled) {
 		return LagSyncMode::PACING;
@@ -989,6 +1027,9 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 		lagSyncStats.sleeps++;
 		lagSyncStats.slept += now - before;
 		lagSyncStats.late += now - goal;
+		UpdateLagSyncBehind(0.0, now);
+	} else {
+		UpdateLagSyncBehind(before - goal, before);
 	}
 
 	lagSyncScheduled = WantLagSyncPacing();

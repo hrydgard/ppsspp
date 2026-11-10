@@ -24,16 +24,30 @@ The code is `hleLagSync` and `UpdateLagSyncMode` in `Core/HLE/sceDisplay.cpp`.
 a frame of audio at once (33 ms in a 30 fps game), so the default target is 40 ms. While lag sync
 paces (`__DisplayGetLagSyncMode()`), audio arrives every millisecond or two, and the target is the
 output's period (`SYSPROP_AUDIO_FRAMES_PER_BUFFER`) plus 192 samples (4.4 ms), or 20 ms where the
-platform doesn't report a period. On a fallback to bursting it goes back to the default, with some
-underruns while the buffer fills up again.
+platform doesn't report a period, plus room for stalls (below). It never goes over the default. On a
+fallback to bursting it goes back to the default, with some underruns while the buffer fills up again.
+
+**Stalls.** Pacing doesn't make every millisecond cost the same: a slow display list can hold up
+emulation for several milliseconds on a slow device. Lag sync catches up afterwards (its waits are
+measured from a fixed base), but meanwhile the output keeps pulling, so the buffer needs that much
+room. Each sync that finds emulation behind the wall clock records by how much, and
+`__DisplayGetLagSyncBehindPeak()` is the most over the last five seconds: stalls that recur keep the
+room, and the one from loading a state is gone five seconds later. With a fixed 4.4 ms, 6 ms stalls
+underran a few times in 15 seconds with the classic resampler and 46 times with granular (3 ms
+period); with the room added, neither underran.
 
 The resampler's rate adjustment only drains a full buffer slowly, around ten seconds from a startup
-fill down to a small target. So when the lowest level over a quarter second stays more than 10 ms
+fill down to a small target. So when the lowest level over a quarter second stays more than 5 ms
 above the target, it drops the excess in one go. Bursting's sawtooth never does that: its troughs are
 below the target.
 
+The granular mixer has no target as such: its queue is capped, and cut back to half the cap when it
+overflows, so the level settles somewhere under the cap. The cap makes room for a frame's burst of
+audio, which pacing leaves out; it keeps the room for two output reads and adds the room for stalls
+there, up to a frame.
+
 The audio debug overlay (and the ImGui debugger's audio window) shows the target in milliseconds, the
-lag sync mode and how much excess was dropped.
+lag sync mode with the room for stalls, and how much excess was dropped.
 
 ## Benchmarking
 
@@ -51,7 +65,7 @@ branch against a build of `master` from the same commit the branch starts from, 
 
 ```
 Frame stats: 422 flips in 14 emulated seconds, wall 15.1s, per second: 32 30 30 ...
-Lag sync: 5092 sleeps, 12.63s slept, 1us late on average, 0 resets, 1 fallbacks to bursting (bursting now)
+Lag sync: 5092 sleeps, 12.63s slept, 1us late on average, 4 syncs over 3ms behind (54.0ms at most), 0 resets, 1 fallbacks to bursting (bursting now)
 ```
 
 The second line only appears with lag sync on, and only from the branch build.
@@ -133,6 +147,12 @@ and turns sound on, which changes how the frame throttle waits as it does in the
 two emulated seconds in. Try a 10 ms period (480, a common WASAPI period) and a short one (144),
 with and without `--lag-sync`, for 15-20 emulated seconds. A single short pull with a hundred or more
 frames missing shows up now and then at any target; it's the host stalling, not the buffer.
+`--audio-granular` mixes with the granular mixer instead, and the line then gives the queue's level
+and cap, and counts underruns.
+
+The averages include the first five seconds after loading the state, when the room for stalls is
+still that of the load, which raises them by a few milliseconds. To simulate a slow device's stalls,
+put a temporary `sleep_precise` of a few milliseconds every few hundred calls of `hleLagSync`.
 
 ### Reference, Windows
 
@@ -147,7 +167,9 @@ Windows 11, x64 desktop, Vulkan, Release, against `master` from where the branch
 - **Audio.** Average buffer bursting at the default target against lag sync: with a 10 ms period
   38 against 16 ms (GTA) and 35 against 17 ms (God of War), with a 3 ms period 37 against 9 ms and
   34 against 10 ms, all without underruns. Bursting with the small target forced on underran on a
-  pull in twelve.
+  pull in twelve. These were measured before the room for stalls, which adds a few milliseconds to
+  the averages (see above). Granular, GTA: about 40 ms bursting; with lag sync 25.5 and 21.7 ms
+  (10 and 3 ms period) while the cap still held a frame, 21.8 and 8.6 ms without it.
 
 ## Still to do
 
@@ -155,3 +177,6 @@ Windows 11, x64 desktop, Vulkan, Release, against `master` from where the branch
   lag sync should be on by default.
 - On a fallback to bursting the target goes back up at once, and the buffer underruns for a moment
   while it fills. Raising the target ahead of the switch would avoid that.
+- Check the room for stalls on a slow device: how often it gets behind (`--frame-stats` counts the
+  syncs more than 3 ms behind; its maximum is usually from loading the state), and whether five
+  seconds is long enough to remember stalls between.

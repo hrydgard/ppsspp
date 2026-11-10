@@ -14,6 +14,7 @@
 #include "Common/Math/math_util.h"
 #include "Common/Swap.h"
 #include "Core/Config.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/Core.h"
@@ -110,12 +111,18 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	// We aim for the same latency as StereoResampler, but must also have room for slow (like 20fps)
 	// games, which generate all their audio in a burst each frame (since we can't force real
 	// clock sync), and keep half the queue above what one output callback reads, or each callback
-	// runs dry. Bluetooth and other non-fast outputs read in large chunks.
+	// runs dry. Bluetooth and other non-fast outputs read in large chunks. While lag sync paces,
+	// audio arrives every millisecond or two instead, so there's no frame burst to make room for,
+	// only for how far emulation has recently fallen behind (the target includes that too), up to
+	// a frame, which is what bursting makes room for. Nothing drains an overfull queue but an overrun.
 	// One more granule on top, for the two half-overlapping granules being played.
 	const int targetSamples = StereoResampler::TargetBufferSize();
-	const int frameSamples = (int)std::llround(frameTimeEstimate_ * inSampleRate);
+	const bool pacing = __DisplayGetLagSyncMode() == LagSyncMode::PACING;
+	const int burstSamples = (int)std::llround(frameTimeEstimate_ * inSampleRate);
+	const int frameSamples = pacing ? 0 : burstSamples;
+	const int behindSamples = pacing ? std::min((int)(__DisplayGetLagSyncBehindPeak() * inSampleRate), burstSamples) : 0;
 	const int readSamples = (int)(smoothedReadSize_ * inSampleRate / out_sample_rate);
-	const u32 buffer_size_samples = std::max({ targetSamples, frameSamples + targetSamples / 2, readSamples * 2 }) + GRANULE_SIZE;
+	const u32 buffer_size_samples = std::max({ targetSamples, frameSamples + targetSamples / 2, readSamples * 2 + behindSamples }) + GRANULE_SIZE;
 	queuedSamplesTarget_ = buffer_size_samples;
 
 	// Limit the possible queue sizes to any number between 4 and 64.
