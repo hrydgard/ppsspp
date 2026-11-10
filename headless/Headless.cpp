@@ -69,6 +69,8 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HW/Display.h"
+#include "Core/HW/GranularMixer.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
@@ -157,9 +159,13 @@ class AudioSink {
 public:
 	static constexpr int SAMPLE_RATE = 48000;
 
-	void Start(int periodFrames) {
+	void Start(int periodFrames, bool granular) {
 		periodFrames_ = periodFrames;
-		resampler_ = std::make_unique<StereoResampler>();
+		if (granular) {
+			granular_ = std::make_unique<GranularMixer>();
+		} else {
+			resampler_ = std::make_unique<StereoResampler>();
+		}
 		thread_ = std::thread([this] { Run(); });
 	}
 	void Stop() {
@@ -172,13 +178,31 @@ public:
 	int PeriodFrames() const { return periodFrames_; }
 	// Counting starts once the game runs in real time, not while a state loads.
 	void StartCounting() { counting_ = true; }
-	void Push(const s32 *audio, int numSamples, float volume) { resampler_->PushSamples(audio, numSamples, volume); }
-	void Clear() { resampler_->Clear(); }
+	void Push(const s32 *audio, int numSamples, float volume) {
+		if (granular_) {
+			granular_->PushSamples(audio, numSamples, volume);
+		} else {
+			resampler_->PushSamples(audio, numSamples, volume);
+		}
+	}
+	// Like the app, which has nothing to clear in the granular mixer.
+	void Clear() {
+		if (resampler_) {
+			resampler_->Clear();
+		}
+	}
 
 	void Print() const {
 		const double toMs = 1000.0 / 44100.0;
+		const double avg = pulls_ ? (double)sumBuffered_ / pulls_ * toMs : 0.0;
+		if (granular_) {
+			fprintf(stderr, "Audio sink (granular): %d pulls of %d frames, %d with an underrun (%d underruns), queue before a pull %.1f/%.1f/%.1f ms min/avg/max, cap %.1f/%.1f/%.1f ms min/avg/max, %d overruns\n",
+				pulls_, periodFrames_, shortPulls_, underruns_, minBuffered_ * toMs, avg, maxBuffered_ * toMs,
+				minCap_ * toMs, pulls_ ? (double)sumCap_ / pulls_ * toMs : 0.0, maxCap_ * toMs, overruns_);
+			return;
+		}
 		fprintf(stderr, "Audio sink: %d pulls of %d frames, %d short (%d frames missing), buffer before a pull %.1f/%.1f/%.1f ms min/avg/max, target %.1f ms, %.1f ms of excess dropped\n",
-			pulls_, periodFrames_, shortPulls_, missingFrames_, minBuffered_ * toMs, pulls_ ? (double)sumBuffered_ / pulls_ * toMs : 0.0,
+			pulls_, periodFrames_, shortPulls_, missingFrames_, minBuffered_ * toMs, avg,
 			maxBuffered_ * toMs, resampler_->CurrentTargetBufferSize() * toMs, resampler_->DroppedExcess() * toMs);
 	}
 
@@ -196,15 +220,40 @@ private:
 				// Stalled (the debugger, say), start over rather than pulling a backlog.
 				next = now;
 			}
-			const int buffered = resampler_->BufferedSamples();
-			const int mixed = resampler_->Mix(out.data(), periodFrames_, false, SAMPLE_RATE);
+			int buffered;
+			bool isShort;
+			if (granular_) {
+				buffered = granular_->QueuedSamples();
+				const int underrunsBefore = granular_->Underruns();
+				const int overrunsBefore = granular_->Overruns();
+				// As the app does, see NativeMix.
+				float vps, fpsEstimate, actualFps;
+				__DisplayGetFPS(&vps, &fpsEstimate, &actualFps);
+				granular_->Mix(out.data(), periodFrames_, SAMPLE_RATE, fpsEstimate);
+				const int newUnderruns = granular_->Underruns() - underrunsBefore;
+				isShort = newUnderruns > 0;
+				if (counting_) {
+					underruns_ += newUnderruns;
+					overruns_ += granular_->Overruns() - overrunsBefore;
+					const int cap = granular_->QueueCapSamples();
+					sumCap_ += cap;
+					minCap_ = std::min(minCap_, cap);
+					maxCap_ = std::max(maxCap_, cap);
+				}
+			} else {
+				buffered = resampler_->BufferedSamples();
+				const int mixed = resampler_->Mix(out.data(), periodFrames_, false, SAMPLE_RATE);
+				isShort = mixed < periodFrames_;
+				if (counting_ && isShort) {
+					missingFrames_ += periodFrames_ - mixed;
+				}
+			}
 			if (!counting_) {
 				continue;
 			}
 			pulls_++;
-			if (mixed < periodFrames_) {
+			if (isShort) {
 				shortPulls_++;
-				missingFrames_ += periodFrames_ - mixed;
 			}
 			sumBuffered_ += buffered;
 			minBuffered_ = std::min(minBuffered_, buffered);
@@ -213,6 +262,7 @@ private:
 	}
 
 	std::unique_ptr<StereoResampler> resampler_;
+	std::unique_ptr<GranularMixer> granular_;
 	std::thread thread_;
 	std::atomic<bool> stop_{};
 	std::atomic<bool> counting_{};
@@ -223,6 +273,12 @@ private:
 	int64_t sumBuffered_ = 0;
 	int minBuffered_ = INT_MAX;
 	int maxBuffered_ = 0;
+	// Granular only.
+	int underruns_ = 0;
+	int overruns_ = 0;
+	int64_t sumCap_ = 0;
+	int minCap_ = INT_MAX;
+	int maxCap_ = 0;
 };
 
 static AudioSink g_audioSink;
@@ -1645,7 +1701,7 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.audioSinkPeriod.has_value() && cmdLineOptions.audioSinkPeriod.value() > 0) {
 		// Sound on also changes how the frame throttle waits (DoFrameIdleTiming), as in the app.
 		g_Config.bEnableSound = true;
-		g_audioSink.Start(cmdLineOptions.audioSinkPeriod.value());
+		g_audioSink.Start(cmdLineOptions.audioSinkPeriod.value(), g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR);
 	}
 	if (cmdLineOptions.replayEnd.has_value()) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());

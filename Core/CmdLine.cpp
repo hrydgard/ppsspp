@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CmdLine.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
@@ -268,6 +269,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(audioSinkPeriod), CmdParamType::Int, "audio-sink", '\0', "Pull audio like an output device, FRAMES at 48 kHz at a time, and print the buffer's stats at the end (with --realtime)", CmdLineMode::Headless},
+	{POFF(audioGranular), CmdParamType::Bool, "audio-granular", '\0', "Mix audio with the granular mixer instead of the classic resampler (the Audio sync mode setting)"},
 	{POFF(maxScreenshotError), CmdParamType::Double, "max-mse", '\0', "Maximum allowed MSE error for screenshot comparison", CmdLineMode::Headless},
 	{POFF(mountIso), CmdParamType::String, "mount", 'm', "Mount ISO/CSO on umd1: when booting an ELF/PBP or --vsh"},
 	{POFF(unpackUpdater), CmdParamType::String, "unpack-updater", '\0', "Unpack the firmware in an updater EBOOT.PBP into DIR and exit", CmdLineMode::Headless},
@@ -613,6 +615,10 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (lagSync.has_value()) {
 		g_Config.bForceLagSync = lagSync.value();
 		g_Config.DoNotSaveSetting(&g_Config.bForceLagSync);
+	}
+	if (audioGranular.has_value()) {
+		g_Config.iAudioPlaybackMode = (int)(audioGranular.value() ? AudioSyncMode::GRANULAR : AudioSyncMode::CLASSIC_PITCH);
+		g_Config.DoNotSaveSetting(&g_Config.iAudioPlaybackMode);
 	}
 	if (fuseId.has_value()) {
 		g_Config.sFuseID = fuseId.value();

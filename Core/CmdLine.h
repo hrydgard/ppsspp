@@ -197,6 +197,7 @@ struct CommandLineOptions {
 	// Headless: pull audio through the resampler like an output device with this period, in frames
 	// at 48 kHz, and print how full the buffer was and how often it ran dry.
 	std::optional<int> audioSinkPeriod;
+	std::optional<bool> audioGranular;
 	// Headless: which of several instances running at once this is (sets PPSSPP_ID, and with it the
 	// instance's 127.0.0.N address and MAC), and whether to run at PSP speed rather than flat out.
 	// Both are for ad hoc tests where instances talk to each other.

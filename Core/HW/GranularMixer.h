@@ -50,6 +50,12 @@ public:
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();
 
+	// In stereo samples at the input rate (each queued granule adds GRANULE_OVERLAP).
+	int QueuedSamples() const { return (int)(m_queue_head.load() - m_queue_tail.load()) * (int)GRANULE_OVERLAP; }
+	int QueueCapSamples() const { return (int)m_granule_queue_size.load() * (int)GRANULE_OVERLAP; }
+	int Underruns() const { return underruns_; }
+	int Overruns() const { return overruns_; }
+
 	static constexpr u32 GRANULE_SIZE = 256;
 
 private:
