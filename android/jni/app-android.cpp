@@ -61,6 +61,7 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 
@@ -839,10 +840,15 @@ retry:
 		GraphicsContext *ctx = new VulkanGraphicsContext();
 		std::string errorMessage;
 		if (!ctx->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
+			delete ctx;
+			// Only fall back to OpenGL when the system's driver doesn't work either.
+			if (VulkanDisableCustomDriver()) {
+				ERROR_LOG(Log::System, "Failed to initialize Vulkan with a custom driver, retrying with the system's: %s", errorMessage.c_str());
+				goto retry;
+			}
 			ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend(GPUBackend::OPENGL);
-			delete ctx;
 			goto retry;
 		}
 		((VulkanContext *)ctx->GetAPIContext())->SetCbGetDrawSize([]() {
@@ -857,6 +863,14 @@ retry:
 		ERROR_LOG(Log::System, "NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 		goto retry;
+	}
+
+	// Here rather than where the driver failed, which can be before the translations are loaded.
+	const std::string failedDriver = VulkanTakeFailedCustomDriver();
+	if (!failedDriver.empty()) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("The custom driver failed, so the default driver is used instead"), failedDriver, 10.0f);
+		g_Config.Save("CustomDriverFailed");
 	}
 }
 

@@ -286,6 +286,11 @@ void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars);
 void VulkanSetNativeLibDir(std::string_view nativeLibDir);
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
+// When Vulkan didn't work with a custom driver: clears the setting and unloads the library, so the next
+// try gets the system's driver. Returns false if no custom driver was in use.
+bool VulkanDisableCustomDriver();
+// The custom driver that failed (and was cleared) since the last call, if any.
+std::string VulkanTakeFailedCustomDriver();
 
 bool VulkanLoad(std::string *errorStr);
 // Alternative to VulkanLoad() for adopting a Vulkan loader that a host application (e.g. a libretro

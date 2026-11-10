@@ -65,6 +65,7 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/FixedSPIRVCache.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/ScreenManager.h"
@@ -537,6 +538,22 @@ static void CheckFailedGPUBackends() {
 	else if (!g_Config.sFailedGPUBackends.empty()) {
 		ERROR_LOG(Log::Loader, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
 	}
+
+#if PPSSPP_PLATFORM(ANDROID)
+	// A crash in Vulkan with a custom driver gets another try with the system's driver before leaving Vulkan.
+	std::vector<std::string> failed;
+	SplitString(g_Config.sFailedGPUBackends, ',', failed);
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && ContainsNoCase(failed, "VULKAN") && VulkanDisableCustomDriver()) {
+		RemoveNoCase(failed, "VULKAN");
+		g_Config.sFailedGPUBackends.clear();
+		for (const std::string &backend : failed) {
+			if (!g_Config.sFailedGPUBackends.empty()) {
+				g_Config.sFailedGPUBackends += ",";
+			}
+			g_Config.sFailedGPUBackends += backend;
+		}
+	}
+#endif
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();

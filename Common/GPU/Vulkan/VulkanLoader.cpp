@@ -362,6 +362,24 @@ static const char * const so_names[] = {
 };
 #endif
 
+// The custom driver that didn't work, for VulkanTakeFailedCustomDriver.
+static std::string g_failedCustomDriver;
+
+static bool CustomDriverInUse() {
+#if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
+	return !g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default" && VulkanCustomDriverAllowedByOS();
+#else
+	return false;
+#endif
+}
+
+// Forgets the custom driver, so that the next try (and the next run) uses the system's.
+static void ForgetCustomDriver() {
+	ERROR_LOG(Log::G3D, "Custom driver '%s' failed, switching to the system driver", g_Config.sCustomDriver.c_str());
+	g_failedCustomDriver = g_Config.sCustomDriver;
+	g_Config.sCustomDriver.clear();
+}
+
 static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Always unavailable, for now.
@@ -376,7 +394,7 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	if (!g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default" && !VulkanCustomDriverAllowedByOS()) {
 		WARN_LOG(Log::G3D, "Custom driver '%s' ignored, not supported on this Android version", g_Config.sCustomDriver.c_str());
-	} else if (!g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default") {
+	} else if (CustomDriverInUse()) {
 		const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.sCustomDriver;
 
 		json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
@@ -402,6 +420,12 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 			} else {
 				INFO_LOG(Log::G3D, "Vulkan library loaded with AdrenoTools ('%s')", g_Config.sCustomDriver.c_str());
 			}
+		} else {
+			ERROR_LOG(Log::G3D, "Custom driver '%s' has no readable meta.json", g_Config.sCustomDriver.c_str());
+		}
+		if (!lib) {
+			// The system's driver is loaded below instead.
+			ForgetCustomDriver();
 		}
 	}
 #endif
@@ -433,6 +457,22 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 #endif
 		h = nullptr;
 	}
+}
+
+bool VulkanDisableCustomDriver() {
+	if (!CustomDriverInUse()) {
+		return false;
+	}
+	ForgetCustomDriver();
+	VulkanFreeLibrary(vulkanLibrary);
+	g_vulkanAvailabilityChecked = false;
+	return true;
+}
+
+std::string VulkanTakeFailedCustomDriver() {
+	std::string driver = std::move(g_failedCustomDriver);
+	g_failedCustomDriver.clear();
+	return driver;
 }
 
 void VulkanSetAvailable(bool available) {
@@ -480,6 +520,8 @@ bool VulkanMayBeAvailable() {
 
 	std::string errorStr;
 	VulkanLibraryHandle lib = VulkanLoadLibrary(&errorStr);
+	// After the load, which forgets a custom driver that didn't load at all.
+	const bool usedCustomDriver = CustomDriverInUse();
 	if (!lib) {
 		INFO_LOG(Log::G3D, "Vulkan loader: Library not available: %s", errorStr.c_str());
 		g_vulkanAvailabilityChecked = true;
@@ -678,6 +720,10 @@ bail:
 	}
 	if (!g_vulkanMayBeAvailable) {
 		WARN_LOG(Log::G3D, "Vulkan with working device not detected.");
+		// Try the system's driver before giving up on Vulkan.
+		if (usedCustomDriver && VulkanDisableCustomDriver()) {
+			return VulkanMayBeAvailable();
+		}
 	}
 	return g_vulkanMayBeAvailable;
 #endif
