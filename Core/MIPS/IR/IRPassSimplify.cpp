@@ -1033,7 +1033,7 @@ bool IRMutatesDestGPR(const IRInstMeta &inst, int reg) {
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
 	// Reused, to not allocate for every block (see IRApplyPasses).
-	static std::vector<IRInstMeta> insts;
+	static std::vector<IRInst> insts;
 	insts.clear();
 	insts.reserve(in.GetInstructions().size());
 
@@ -1060,6 +1060,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	int lastReadFrom[256];
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 	memset(lastReadFrom, -1, sizeof(lastReadFrom));
+	// Exits and barriers read every reg. Kept apart, rather than filling lastReadFrom at each one.
+	int lastReadAll = -1;
 
 	auto writesToFPRCheck = [](const IRInstMeta &inst, const Check &check) {
 		for (int i = 0; i < check.fplen; ++i) {
@@ -1130,12 +1132,12 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 						insts[check.index].dest = 0;
 						insts[check.index].src1 = 0;
 					}
-				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
+				} else if (!IRMutatesDestGPR(GetIRMeta(insts[check.index]), check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
 					// As long as the previous inst wasn't modifying its dest reg, and this is a Mov, we can swap.
 					// We're changing "Add A, B, C; Mov B, A" to "Add B, B, C; Mov A, B" here.
 
 					// This happens with lwl/lwr temps.  Replace the original dest.
-					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
+					insts[check.index] = IRReplaceDestGPR(GetIRMeta(insts[check.index]), check.reg, inst.dest).i;
 					lastWrittenTo[inst.dest] = check.index;
 					// If it's being read from (by inst now), we can't optimize out.
 					check.reg = 0;
@@ -1220,7 +1222,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 
 					bool destNotRead = true;
 					for (int j = 0; j < check.fplen; ++j)
-						destNotRead = destNotRead && lastReadFrom[inst.dest + 32 + j] <= check.index;
+						destNotRead = destNotRead && std::max(lastReadFrom[inst.dest + 32 + j], lastReadAll) <= check.index;
 
 					if (!check.readByExit && destNotChanged && destNotRead) {
 						_dbg_assert_(insts[check.index].dest == inst.src1);
@@ -1318,26 +1320,28 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 
+		// Most instructions have no FPR operands, so skip listing them.
+		auto isFPRType = [](char type) {
+			return type == 'F' || type == 'V' || type == '2' || type == 'M';
+		};
+		const bool anyFPR = isFPRType(inst.m.types[0]) || isFPRType(inst.m.types[1]) || isFPRType(inst.m.types[2]);
+
 		IRReg regs[IR_MAX_FPR_READS];
 		int readGPRs = IRReadsFromGPRs(inst, regs);
 		if (readGPRs == -1) {
-			for (int j = 0; j < 256; ++j)
-				lastReadFrom[j] = i;
+			// An exit or barrier. IRReadsFromFPRs() would say -1 too.
+			lastReadAll = i;
 		} else {
 			for (int j = 0; j < readGPRs; ++j)
 				lastReadFrom[regs[j]] = i;
+			if (anyFPR) {
+				int readFPRs = IRReadsFromFPRs(inst, regs);
+				for (int j = 0; j < readFPRs; ++j)
+					lastReadFrom[regs[j] + 32] = i;
+			}
 		}
 
-		int readFPRs = IRReadsFromFPRs(inst, regs);
-		if (readFPRs == -1) {
-			for (int j = 0; j < 256; ++j)
-				lastReadFrom[j] = i;
-		} else {
-			for (int j = 0; j < readFPRs; ++j)
-				lastReadFrom[regs[j] + 32] = i;
-		}
-
-		int destFPRs = IRDestFPRs(inst, regs);
+		int destFPRs = anyFPR ? IRDestFPRs(inst, regs) : 0;
 		for (int j = 0; j < destFPRs; ++j)
 			lastWrittenTo[regs[j] + 32] = i;
 
@@ -1359,7 +1363,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			_assert_msg_(false, "Unexpected FPR output %d", dest);
 		}
 
-		insts.push_back(inst);
+		insts.push_back(inst.i);
 	}
 
 	// Since we're done with the instructions, all remaining can be nuked.
@@ -1371,10 +1375,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 	}
 
-	for (const IRInstMeta &inst : insts) {
+	for (const IRInst &inst : insts) {
 		// Simply skip any Mov 0, 0 instructions, since that's how we nuke one.
 		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
-			out.Write(inst.i);
+			out.Write(inst);
 		}
 	}
 
