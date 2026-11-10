@@ -47,6 +47,7 @@
 #include "Core/Util/PathUtil.h"
 #include "Core/Util/PSARUnpack.h"
 #include "UI/Background.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/MiscScreens.h"
@@ -201,6 +202,7 @@ static void OnPSPModelChanged(SettingsPageHost *host, int previous) {
 }
 
 // Using SYSTEM translations
+// TODO: Does PSPModel really belong here?
 static void BuildPSPSettingsPage(SettingsPage *page) {
 	SettingsPageHost *host = page->Host();
 
@@ -230,6 +232,10 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 
 	page->Header();
 	page->Link({I18NCat::SYSTEM, "PSP system settings"}, I18NCat::SYSTEM, &BuildPSPSettingsPage).Image(ImageID("I_PSP"));
+
+	page->Choice({I18NCat::SYSTEM, "PSP firmware (XMB)"}).OpensScreen().OnClick([host](UI::EventParams &) {
+		host->PageScreenManager()->push(new FirmwareScreen(host->PageGamePath()));
+	}).Image(ImageID("I_XMB"));
 
 	page->Header("Emulation");
 
