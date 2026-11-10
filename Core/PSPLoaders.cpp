@@ -337,8 +337,21 @@ static std::string FindGameUpdatePBOOT(const std::string &discId, const std::str
 			path.c_str(), updateDiscVersion.c_str(), discVersion.c_str());
 	}
 
+	// An update that isn't newer than the disc has nothing to add. A modified disc can have the
+	// update built in, and booting the stock update would replace its executable.
+	const std::string updateAppVer = sfo.GetValueString("APP_VER");
+	const std::string discAppVer = g_paramSFO.GetValueString("APP_VER");
+	int updateMajor, updateMinor, discMajor, discMinor;
+	if (sscanf(updateAppVer.c_str(), "%d.%d", &updateMajor, &updateMinor) == 2 &&
+		sscanf(discAppVer.c_str(), "%d.%d", &discMajor, &discMinor) == 2 &&
+		(updateMajor < discMajor || (updateMajor == discMajor && updateMinor <= discMinor))) {
+		NOTICE_LOG(Log::Loader, "Ignoring '%s': its app version %s isn't newer than the disc's %s",
+			path.c_str(), updateAppVer.c_str(), discAppVer.c_str());
+		return std::string();
+	}
+
 	NOTICE_LOG(Log::Loader, "Booting game update '%s' (app version %s) instead of the disc's executable",
-		path.c_str(), sfo.GetValueString("APP_VER").c_str());
+		path.c_str(), updateAppVer.c_str());
 	return path;
 }
 
