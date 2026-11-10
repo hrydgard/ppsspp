@@ -1093,21 +1093,11 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	};
 
 	bool logBlocks = false;
-	size_t firstCheck = 0;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInstMeta inst = GetIRMeta(in.GetInstructions()[i]);
 
-		// It helps to skip through rechecking ones we already discarded.
-		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
-			Check &check = checks[ch];
-			if (check.reg != 0) {
-				firstCheck = ch;
-				break;
-			}
-		}
-
 		// Check if we can optimize by running through all the writes we've previously found.
-		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
+		for (size_t ch = 0; ch < checks.size(); ++ch) {
 			Check &check = checks[ch];
 			if (check.reg == 0) {
 				// This means we already optimized this or a later inst depends on it.
@@ -1271,6 +1261,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				}
 			}
 		}
+		// Most checks end soon after they start. Dropping them keeps this from going quadratic.
+		checks.erase(std::remove_if(checks.begin(), checks.end(), [](const Check &check) {
+			return check.reg == 0;
+		}), checks.end());
 
 		int dest = IRDestGPR(inst);
 		switch (dest) {
@@ -2373,13 +2367,16 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		}
 
 		// Anything this writes can't be the address or value of a known access anymore.
-		int destGPR = IRDestGPR(GetIRMeta(inst));
-		if (destGPR >= 0)
-			forgetReg(destGPR, false);
-		IRReg destFPRs[4];
-		int numFPRs = IRDestFPRs(GetIRMeta(inst), destFPRs);
-		for (int i = 0; i < numFPRs; ++i)
-			forgetReg(destFPRs[i], true);
+		if (!known.empty()) {
+			const IRInstMeta meta = GetIRMeta(inst);
+			int destGPR = IRDestGPR(meta);
+			if (destGPR >= 0)
+				forgetReg(destGPR, false);
+			IRReg destFPRs[4];
+			int numFPRs = IRDestFPRs(meta, destFPRs);
+			for (int i = 0; i < numFPRs; ++i)
+				forgetReg(destFPRs[i], true);
+		}
 
 		if (!isRAM(inst.src1, inst.constant))
 			continue;
