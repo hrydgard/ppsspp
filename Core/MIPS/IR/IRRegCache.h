@@ -140,11 +140,10 @@ protected:
 		int spillLockIRIndex = -1;
 	};
 	static_assert(sizeof(RegStatusMIPS) == 12, "RegStatusMIPS grew");
+	// Ordered to avoid padding, since Start() copies these for each block too.
 	struct RegStatusNative {
 		// Which IR/MIPS reg is this currently holding?
 		IRReg mipsReg = IRREG_INVALID;
-		// Locked either as temp or direct reg as of what IR instruction?
-		int tempLockIRIndex = -1;
 		// Should the register be written back?
 		bool isDirty = false;
 		// Upper part of the register is used for "pointerification".
@@ -153,7 +152,10 @@ protected:
 		// Upper part of the register has a normalized form (i.e. zero or sign extend.)
 		// Which this means or if it matters depends on the backend.
 		bool normalized32 = false;
+		// Locked either as temp or direct reg as of what IR instruction?
+		int tempLockIRIndex = -1;
 	};
+	static_assert(sizeof(RegStatusNative) == 8, "RegStatusNative grew");
 
 	struct StaticAllocation {
 		IRReg mr;
