@@ -106,6 +106,9 @@ static double CheckJitStall(double now) {
 static void CalculateFPS() {
 	double now = time_now_d();
 	const double jitSeconds = CheckJitStall(now);
+	if (g_Config.iJitBenchFlip > 0 && actualFlips == g_Config.iJitBenchFlip) {
+		mipsr4k.BenchmarkJitDeferred();
+	}
 
 	if (now >= lastFpsTime + 1.0) {
 		double frames = (numVBlanks - lastFpsFrame);

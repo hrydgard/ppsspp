@@ -175,6 +175,7 @@ struct CommandLineOptions {
 
 	std::optional<bool> oldAtrac;
 	std::optional<std::string> jitProfile;
+	std::optional<int> jitBench;
 
 	// Headless options that may also be mildly useful in application mode
 	std::optional<int> resolutionScale;

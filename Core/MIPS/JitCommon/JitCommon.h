@@ -170,6 +170,8 @@ namespace MIPSComp {
 		virtual const u8 *GetCrashHandler() const = 0;
 		virtual JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
+		// Recompiles every block a few times and logs how long it took. Only the IR JITs do it.
+		virtual void BenchmarkCompile() {}
 		// Invalidates every block not entirely inside one of the (address, size) ranges.
 		virtual void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) = 0;
 		virtual void DoState(PointerWrap &p) = 0;

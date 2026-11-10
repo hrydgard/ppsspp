@@ -106,7 +106,8 @@ public:
 	// How long the last DoJit spent making the IR, and running the passes over it, and when it ended.
 	int64_t LastFrontendNanos() const { return lastFrontendNanos_; }
 	int64_t LastPassNanos() const { return lastPassNanos_; }
-	const Instant &LastEnd() const { return lastEnd_; }
+	// In time_now_fast_ticks() units.
+	uint64_t LastEnd() const { return lastEnd_; }
 
 	void EatPrefix() override {
 		js.EatPrefix();
@@ -188,7 +189,7 @@ private:
 
 	int64_t lastFrontendNanos_ = 0;
 	int64_t lastPassNanos_ = 0;
-	Instant lastEnd_;
+	uint64_t lastEnd_ = 0;
 
 private:
 	bool IsMediaEngine() const;

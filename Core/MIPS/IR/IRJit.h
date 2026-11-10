@@ -194,6 +194,7 @@ public:
 	void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) override;
 	void UpdateFCR31() override;
 	void GetStats(JitStats *stats) const override;
+	void BenchmarkCompile() override;
 
 	void FlushProfile() override;
 

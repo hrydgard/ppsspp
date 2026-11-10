@@ -582,6 +582,18 @@ void MIPSState::ProcessPendingInvalidates() {
 			jit->ClearCache();
 		}
 	}
+	if (benchmarkJit_) {
+		benchmarkJit_ = false;
+		if (jit)
+			jit->BenchmarkCompile();
+	}
+}
+
+void MIPSState::BenchmarkJitDeferred() {
+	benchmarkJit_ = true;
+	if (jit && !IsMediaEngine()) {
+		Core_ReenterDispatcher();
+	}
 }
 
 void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {

@@ -172,10 +172,10 @@ void IRInterpreterJit::WriteProfileReport() {
 }
 
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
-	const Instant start = Instant::Now();
+	const uint64_t start = time_now_fast_ticks();
 	std::vector<int> numbers = blocks_.FindInvalidatedBlockNumbers(em_address, length);
 	if (numbers.empty()) {
-		g_jitCompileTimes.invalidateNanos += start.ElapsedNanos();
+		g_jitCompileTimes.invalidateNanos += (int64_t)((time_now_fast_ticks() - start) * fast_ticks_to_nanos());
 		return;
 	}
 
@@ -187,7 +187,7 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 		// TODO: We are invalidating a lot of blocks that are already invalid (yu gi oh).
 		InvalidateBlock(block_num);
 	}
-	g_jitCompileTimes.invalidateNanos += start.ElapsedNanos();
+	g_jitCompileTimes.invalidateNanos += (int64_t)((time_now_fast_ticks() - start) * fast_ticks_to_nanos());
 }
 
 void IRJit::InvalidateBlock(int block_num) {
@@ -259,6 +259,57 @@ void IRJit::Compile(u32 em_address) {
 	}
 }
 
+void IRJit::BenchmarkCompile() {
+	std::vector<u32> starts;
+	for (int i = 0; i < blocks_.GetNumBlocks(); i++) {
+		const JitBlock *block = blocks_.GetBlock(i);
+		if (block->IsValid())
+			starts.push_back(block->GetOriginalStart());
+	}
+	std::sort(starts.begin(), starts.end());
+	starts.erase(std::unique(starts.begin(), starts.end()), starts.end());
+	if (starts.empty()) {
+		NOTICE_LOG(Log::JIT, "JIT bench: no blocks to compile");
+		return;
+	}
+
+	// The best of a few runs, since a phone's clocks and core assignment vary a lot.
+	constexpr int RUNS = 5;
+	JitCompileTimes best{};
+	int64_t bestTotal = INT64_MAX;
+	std::vector<IRInst> instructions;
+	for (int run = 0; run < RUNS; run++) {
+		ClearCache();
+		const JitCompileTimes before = g_jitCompileTimes;
+		for (u32 start : starts) {
+			u32 mipsBytes;
+			if (CompileBlock(start, instructions, mipsBytes) != CompileResult::OK) {
+				ERROR_LOG(Log::JIT, "JIT bench: the cache filled up, stopping");
+				ClearCache();
+				return;
+			}
+		}
+		const JitCompileTimes &after = g_jitCompileTimes;
+		JitCompileTimes t{};
+		t.frontendNanos = after.frontendNanos - before.frontendNanos;
+		t.passNanos = after.passNanos - before.passNanos;
+		t.backendNanos = after.backendNanos - before.backendNanos;
+		t.finalizeNanos = after.finalizeNanos - before.finalizeNanos;
+		t.mipsInstructions = after.mipsInstructions - before.mipsInstructions;
+		t.irInstructions = after.irInstructions - before.irInstructions;
+		NOTICE_LOG(Log::JIT, "JIT bench run %d: %d blocks in %0.2f ms (frontend %0.2f, passes %0.2f, backend %0.2f, finalize %0.2f)",
+			run, (int)starts.size(), t.TotalNanos() * 1e-6, t.frontendNanos * 1e-6, t.passNanos * 1e-6, t.backendNanos * 1e-6, t.finalizeNanos * 1e-6);
+		if (t.TotalNanos() < bestTotal) {
+			bestTotal = t.TotalNanos();
+			best = t;
+		}
+	}
+	NOTICE_LOG(Log::JIT, "JIT bench: %0.3f ns per timer tick", fast_ticks_to_nanos());
+	NOTICE_LOG(Log::JIT, "JIT bench best: %d blocks, %d MIPS -> %d IR instructions, %0.2f ms, %0.2f us/block (frontend %0.2f, passes %0.2f, backend %0.2f, finalize %0.2f)",
+		(int)starts.size(), (int)best.mipsInstructions, (int)best.irInstructions, bestTotal * 1e-6, bestTotal * 1e-3 / starts.size(),
+		best.frontendNanos * 1e-3 / starts.size(), best.passNanos * 1e-3 / starts.size(), best.backendNanos * 1e-3 / starts.size(), best.finalizeNanos * 1e-3 / starts.size());
+}
+
 void IRJit::TimedClearCache() {
 	const Instant start = Instant::Now();
 	ClearCache();
@@ -277,8 +328,9 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 	times.passNanos += frontend_.LastPassNanos();
 	times.mipsInstructions += mipsBytes / 4;
 	times.irInstructions += instructions.size();
-	// Reading the clock isn't free (around 0.3us on a Galaxy S8), so each phase ends where the next starts.
-	const Instant &backendStart = frontend_.LastEnd();
+	// Each phase ends where the next starts, to read the clock as little as possible.
+	const uint64_t backendStart = frontend_.LastEnd();
+	const double nanosPerTick = fast_ticks_to_nanos();
 
 	if (mipsTracer.tracing_enabled && instructions.size() > 1 && instructions[1].op == IROp::LogIRBlock) {
 		// Before the IR interpreter's block cache takes its copy.
@@ -295,8 +347,8 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 
 	// Caller handles a full arena or code space.
 	const CompileResult result = CompileTargetBlock(block_num, instructions);
-	const Instant finalizeStart = Instant::Now();
-	const int64_t backendNanos = finalizeStart.NanosSince(backendStart);
+	const uint64_t finalizeStart = time_now_fast_ticks();
+	const int64_t backendNanos = (int64_t)((finalizeStart - backendStart) * nanosPerTick);
 	times.backendNanos += backendNanos;
 	if (result != CompileResult::OK)
 		return result;
@@ -304,7 +356,7 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 	// Updates stats, also enters the block in the block shadow.
 	blocks_.FinalizeBlock(block_num);
 	FinalizeTargetBlock(block_num);
-	const int64_t finalizeNanos = finalizeStart.ElapsedNanos();
+	const int64_t finalizeNanos = (int64_t)((time_now_fast_ticks() - finalizeStart) * nanosPerTick);
 	times.finalizeNanos += finalizeNanos;
 	times.blocks++;
 	const int64_t blockNanos = frontend_.LastFrontendNanos() + frontend_.LastPassNanos() + backendNanos + finalizeNanos;

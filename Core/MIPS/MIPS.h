@@ -317,6 +317,8 @@ public:
 	// Actual clearing is deferred until execution begins again.
 	void InvalidateICacheRangeDeferred(u32 address, u32	length);
 	void ClearJitCacheDeferred();
+	// Times recompiling the whole JIT cache, when execution begins again (--jit-bench).
+	void BenchmarkJitDeferred();
 
 	void ProcessPendingInvalidates();
 
@@ -324,6 +326,7 @@ public:
 	// Doesn't need save stating.
 	std::vector<PendingCacheOperation> pendingInvalidates_;
 	bool invalidateAll_ = false;
+	bool benchmarkJit_ = false;
 	std::vector<std::pair<u32, u32>> keepJitBlocks_;
 
 	// Owned. Null on the interpreter.

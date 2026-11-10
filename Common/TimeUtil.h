@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 
+#include "ppsspp_config.h"
+
 void TimeInit();
 void TimeShutdown();  // Not really necessary to call, just for completeness.
 
@@ -10,6 +12,20 @@ double time_now_d();
 // Raw time in nanoseconds.
 // The only intended use is to match the timings from VK_GOOGLE_display_timing.
 uint64_t time_now_raw();
+
+// A timestamp for timing short spans, in units of fast_ticks_to_nanos(). Where the CPU has a counter
+// user code can read (ARM64 Linux and Android), it's read directly: clock_gettime() costs around
+// 0.3us on a Galaxy S8. Elsewhere it's time_now_raw().
+inline uint64_t time_now_fast_ticks() {
+#if PPSSPP_ARCH(ARM64) && (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_MSC_VER)
+	uint64_t ticks;
+	__asm__ volatile("mrs %0, cntvct_el0" : "=r"(ticks));
+	return ticks;
+#else
+	return time_now_raw();
+#endif
+}
+double fast_ticks_to_nanos();
 
 // This is only interesting for Linux, in relation to VK_GOOGLE_display_timing.
 double from_time_raw(uint64_t raw_time);
@@ -49,8 +65,6 @@ public:
 	double ElapsedSeconds() const;
 	double ElapsedMs() const { return ElapsedSeconds() * 1000.0; }
 	int64_t ElapsedNanos() const;
-	// From an earlier Instant to this one, without reading the clock again.
-	int64_t NanosSince(const Instant &earlier) const;
 private:
 	// Windows: raw QPC ticks. Everything else: nanoseconds, from time_now_raw().
 	uint64_t nativeStart_;
