@@ -360,7 +360,7 @@ static constexpr ConfigSetting generalSettings[] = {
 #endif
 	ConfigSetting("Language", SETTING(g_Config, sLanguageIni), &DefaultLangRegion, CfgFlag::DEFAULT),
 	ConfigSetting("ForceLagSync2", SETTING(g_Config, bForceLagSync), false, CfgFlag::PER_GAME)
-		.Label(I18NCat::SYSTEM, "Force real clock sync (slower, less lag)"),
+		.Label(I18NCat::SYSTEM, "Low-latency CPU timing"),
 	ConfigSetting("DiscordRichPresence", SETTING(g_Config, bDiscordRichPresence), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::NETWORKING, "Send Discord Presence information"),
 	ConfigSetting("UISound", SETTING(g_Config, bUISound), false, CfgFlag::DEFAULT)

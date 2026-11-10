@@ -1285,10 +1285,14 @@ Scope: keys under the `[System]` section only. Every behavior claim below was ve
   - Where: **no lookup found in current C++ code** (only lang files). The live CPU-clock row uses `.Units("MHz")` and `.ZeroLabel("Auto")` instead.
   - Meaning: legacy hint for the CPU clock slider ("0 = default clock"). See Needs Clarification.
 
-- **`Force real clock sync (slower, less lag)`** — "Force real clock sync (slower, less lag)"
-  - Where: System page, "Emulation"; disabled while auto frameskip is on (`UI/Settings/SystemPage.cpp:249` `.Disabled(&g_Config.bAutoFrameSkip)`); config `ForceLagSync2` / `bForceLagSync`.
-  - Meaning: `Core/HLE/sceDisplay.cpp` `hleLagSync()` — an event run every 1 ms that keeps **emulated time in step with the wall clock**, sleeping until real time catches up. Code comment: normal timing is "very stop and go. This is efficient, but causes real world lag" for network, audio and input; spreading the waits out reduces that latency ("less lag"), at some speed cost ("slower"). Only active when throttling is on and auto-frameskip is off (`UseLagSync()`).
-  - Note: "clock sync" = emulated time vs. real (wall) clock, not hardware clocks.
+- **`Low-latency CPU timing`** — "Low-latency CPU timing" (formerly `Force real clock sync (slower, less lag)`)
+  - Where: System page, "Emulation"; disabled while auto frameskip is on (`UI/Settings/SystemPage.cpp` `.Disabled(&g_Config.bAutoFrameSkip)`); config `ForceLagSync2` / `bForceLagSync`. Hint: `LowLatencyCPUTiming Tip`.
+  - Meaning: `Core/HLE/sceDisplay.cpp` `hleLagSync()` — an event run every 1 ms that keeps **emulated time in step with the wall clock**, sleeping until real time catches up, instead of emulating each frame as fast as possible and then waiting. That spreads the emulator's output (audio, network packets) evenly over the frame and reads input closer to when it's used, so delay goes down. It costs a little more CPU, and when the device has little time to spare it falls back to normal per-frame timing by itself. See `docs/lag-sync.md`.
+  - Note: "CPU timing" means the timing of the emulated PSP's CPU against real time, not the host CPU's speed. "Low-latency" = less delay, not "lower quality".
+
+- **`LowLatencyCPUTiming Tip`** — "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy."
+  - Where: hint under the setting above.
+  - Note: "a frame at a time" = emulating a whole video frame in one go, then waiting.
 
 - **`I/O timing method`** — "I/O timing method"
   - Where: System page, "Emulation" (`UI/Settings/SystemPage.cpp:248`); config `IOTimingMethod`, choices `iOTimingMethodNames[]` (`Core/Config.cpp:563`), enum `IOTIMING_FAST/HOST/REALISTIC/UMDSLOWREALISTIC` (`Core/ConfigValues.h:204-207`), default FAST. Per-game.

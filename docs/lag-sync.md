@@ -1,8 +1,8 @@
 # Lag sync: how it works, and benchmarking it
 
-Lag sync ("Force real clock sync", `bForceLagSync`, `--lag-sync` on the command line) keeps emulated
-time in step with the wall clock every emulated millisecond, instead of running a frame flat out and
-then waiting at the end of it. Spread-out emulation means lower input, network and audio latency: with
+Lag sync ("Low-latency CPU timing" in the settings, formerly "Force real clock sync"; `bForceLagSync`,
+`--lag-sync` on the command line) keeps emulated time in step with the wall clock every emulated
+millisecond, instead of running a frame flat out and then waiting at the end of it. Spread-out emulation means lower input, network and audio latency: with
 bursts, a whole frame of audio arrives at once, so the audio buffer has to hold a frame plus slack.
 
 The code is `hleLagSync` and `UpdateLagSyncMode` in `Core/HLE/sceDisplay.cpp`.
