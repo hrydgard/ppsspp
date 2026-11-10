@@ -50,6 +50,8 @@ protected:
 	// The tab to show first, after CreateTabs, if not the saved one (-1).
 	virtual int InitialTab() { return -1; }
 	virtual void TabChanged(int tab) {}
+	// The tab already shown was clicked.
+	virtual void TabReselected(int tab) {}
 
 	int GetCurrentTab() const;
 	void SetCurrentTab(int tab);

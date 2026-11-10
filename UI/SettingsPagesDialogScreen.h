@@ -58,6 +58,7 @@ protected:
 	// with the page, like lists read from disk, doesn't need to be read again.
 	bool RecreatingForPageChange() const { return pageChange_; }
 	void TabChanged(int tab) override;
+	void TabReselected(int tab) override;
 
 	// Whether there's a way to type a search.
 	static bool CanShowSearch();

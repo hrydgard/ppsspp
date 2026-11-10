@@ -594,3 +594,17 @@ int SettingsPagesDialogScreen::InitialTab() {
 void SettingsPagesDialogScreen::TabChanged(int tab) {
 	SetSearchText("");
 }
+
+// Picking the tab that's shown leaves the search, and goes back up to the tab's root page.
+void SettingsPagesDialogScreen::TabReselected(int tab) {
+	SetSearchText("");
+	int settingsTab = CurrentSettingsTab();
+	if (settingsTab < 0) {
+		return;
+	}
+	const std::vector<int> &path = pagePaths_[settingsTabs_[settingsTab].tag];
+	if (path.empty()) {
+		return;
+	}
+	ShowPage(settingsTab, {}, path[0]);  // Focuses the link to the page we're leaving.
+}

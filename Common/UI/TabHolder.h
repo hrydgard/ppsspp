@@ -53,6 +53,8 @@ public:
 	bool EnsureTab(int index);  // return true if it actually created a tab.
 
 	Event OnChangeTab;
+	// A click on the tab that's already shown.
+	Event OnReselectTab;
 
 private:
 	void AddTabContents(std::string_view title, ImageID imageId, ViewGroup *tabContents);
