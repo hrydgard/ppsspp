@@ -329,13 +329,25 @@ void ARM64XEmitter::FlushIcache()
 	m_lastCacheFlushEnd = m_code;
 }
 
-void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end)
+void ARM64XEmitter::TakeIcacheFlushRange(const u8 **start, const u8 **end) {
+	*start = m_lastCacheFlushEnd;
+	*end = m_code;
+	m_lastCacheFlushEnd = m_code;
+}
+
+void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end) {
+	FlushIcacheSections(&start, &end, 1);
+}
+
+void ARM64XEmitter::FlushIcacheSections(const u8 *const *starts, const u8 *const *ends, int count)
 {
 #if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
-	sys_cache_control(kCacheFunctionPrepareForExecution, (void *)start, end - start);
+	for (int i = 0; i < count; i++)
+		sys_cache_control(kCacheFunctionPrepareForExecution, (void *)starts[i], ends[i] - starts[i]);
 #elif PPSSPP_PLATFORM(WINDOWS)
-	FlushInstructionCache(GetCurrentProcess(), start, end - start);
+	for (int i = 0; i < count; i++)
+		FlushInstructionCache(GetCurrentProcess(), starts[i], ends[i] - starts[i]);
 #elif PPSSPP_ARCH(ARM64)
 	// Code from Dolphin, contributed by the Mono project.
 
@@ -359,16 +371,20 @@ void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end)
 		dcache_line_size = dsize = dcache_line_size < dsize ? dcache_line_size : dsize;
 	}
 
-	u64 addr = (u64)start & ~(u64)(dsize - 1);
-	for (; addr < (u64)end; addr += dsize)
-		// use "civac" instead of "cvau", as this is the suggested workaround for
-		// Cortex-A53 errata 819472, 826319, 827319 and 824069.
-		__asm__ volatile("dc civac, %0" : : "r"(addr) : "memory");
+	for (int i = 0; i < count; i++) {
+		u64 addr = (u64)starts[i] & ~(u64)(dsize - 1);
+		for (; addr < (u64)ends[i]; addr += dsize)
+			// use "civac" instead of "cvau", as this is the suggested workaround for
+			// Cortex-A53 errata 819472, 826319, 827319 and 824069.
+			__asm__ volatile("dc civac, %0" : : "r"(addr) : "memory");
+	}
 	__asm__ volatile("dsb ish" : : : "memory");
 
-	addr = (u64)start & ~(u64)(isize - 1);
-	for (; addr < (u64)end; addr += isize)
-		__asm__ volatile("ic ivau, %0" : : "r"(addr) : "memory");
+	for (int i = 0; i < count; i++) {
+		u64 addr = (u64)starts[i] & ~(u64)(isize - 1);
+		for (; addr < (u64)ends[i]; addr += isize)
+			__asm__ volatile("ic ivau, %0" : : "r"(addr) : "memory");
+	}
 
 	__asm__ volatile("dsb ish" : : : "memory");
 	__asm__ volatile("isb" : : : "memory");

@@ -1045,6 +1045,7 @@ void IRNativeBackend::FinalizeBlock(int block_num, const JitOptions &jo) {
 				OverwriteExit(blockExit.offset, blockExit.len, dstBlockNum);
 		}
 	}
+	FlushPendingIcache();
 }
 
 int IRNativeBackend::GetBlockCodeStart(int block_num) const {

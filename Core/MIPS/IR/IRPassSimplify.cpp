@@ -97,20 +97,17 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 
 	bool logBlocks = false;
 
+	// The passes take turns writing to the two, which keep their capacity.
 	IRWriter temp[2];
 	const IRWriter *nextIn = &in;
-	IRWriter *nextOut = &temp[1];
-	temp[1].Reserve(nextIn->GetInstructions().size());
 	for (size_t i = 0; i < c - 1; ++i) {
-		if (passes[i](*nextIn, *nextOut, opts)) {
+		IRWriter &nextOut = temp[i & 1];
+		nextOut.Clear();
+		nextOut.Reserve(nextIn->GetInstructions().size());
+		if (passes[i](*nextIn, nextOut, opts)) {
 			logBlocks = true;
 		}
-
-		temp[0] = std::move(temp[1]);
-		nextIn = &temp[0];
-
-		temp[1].Clear();
-		temp[1].Reserve(nextIn->GetInstructions().size());
+		nextIn = &nextOut;
 	}
 
 	out.Reserve(nextIn->GetInstructions().size());

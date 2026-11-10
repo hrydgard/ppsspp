@@ -743,12 +743,12 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
 		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);
 
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; i++) {
-		IRReg mipsReg = (IRReg)i;
+	auto flushReg = [&](IRReg mipsReg) {
+		const int i = mipsReg;
 		if (!fprs && i >= 32 && IsValidFPR(mipsReg - 32))
-			continue;
+			return;
 		if (!gprs && IsValidGPR(mipsReg))
-			continue;
+			return;
 
 		if (mr[i].isStatic) {
 			IRNativeReg nreg = mr[i].nReg;
@@ -774,6 +774,27 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 			_assert_(mr[i].nReg != -1);
 		} else if (mr[i].loc != MIPSLoc::MEM) {
 			FlushReg(mipsReg);
+		}
+	};
+
+	// This runs at every exit, so it doesn't look at all 256 regs. An FPR (32-191 and 224-239) is only
+	// out of memory when it's in a native reg, so those are found from nr. The rest can be IMMs.
+	auto flushIfNeeded = [&](int first, int end) {
+		for (int i = first; i < end; i++) {
+			// The common case, nothing to do.
+			if (mr[i].loc == MIPSLoc::MEM && !mr[i].isStatic)
+				continue;
+			flushReg((IRReg)i);
+		}
+	};
+	flushIfNeeded(1, 32);
+	flushIfNeeded(192, 224);
+	flushIfNeeded(240, TOTAL_MAPPABLE_IRREGS);
+	if (fprs) {
+		for (int n = 0; n < config_.totalNativeRegs; n++) {
+			const IRReg mipsReg = nr[n].mipsReg;
+			if (mipsReg != IRREG_INVALID && mipsReg >= 32 && IsValidFPR(mipsReg - 32))
+				flushReg(mipsReg);
 		}
 	}
 

@@ -101,6 +101,9 @@ public:
 	virtual void InvalidateBlock(int block_num) = 0;
 	// Links the block's exits, and other blocks' exits to it.
 	void FinalizeBlock(int block_num, const JitOptions &jo);
+	// For a backend that holds off the icache flushes of CompileBlock and linking, to do them together
+	// (at the end of FinalizeBlock).
+	virtual void FlushPendingIcache() {}
 
 	virtual void UpdateFCR31(MIPSState *mipsState) {}
 

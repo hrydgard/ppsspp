@@ -421,6 +421,10 @@ public:
 	const u8 *NopAlignCode16();
 	void FlushIcache();
 	void FlushIcacheSection(const u8* start, const u8* end);
+	// Instead of FlushIcache(): the range it would flush, now counted as flushed. For flushing with others.
+	void TakeIcacheFlushRange(const u8 **start, const u8 **end);
+	// Like FlushIcacheSection() on each, with one set of barriers.
+	static void FlushIcacheSections(const u8 *const *starts, const u8 *const *ends, int count);
 	u8* GetWritableCodePtr();
 
 	// FixupBranch branching
