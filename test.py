@@ -697,6 +697,7 @@ tests_next = [
   "cpu/fpu/fpu_branch_hazard",  # a bc1x right after c.xx.s sees the old condition; the compiler pads for it, not emulated
   "cpu/fpu/fpu_nan",  # 0/0 and inf-inf give 0x7fc00000; x86 hosts make 0xffc00000, and a check per op isn't worth it
   "cpu/lsu/cacheop",  # the data cache is write-back and the uncached mirror shows it; not emulated
+  "cpu/delayslot/branch",  # branches and jumps in a delay slot: neither the interpreter nor IR matches yet
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
