@@ -340,6 +340,15 @@ static const char *CPUCoreAsString(int core) {
 	}
 }
 
+// Draws a block of lines, and returns where the next block goes.
+static int DrawCrashTextBlock(UIContext *ctx, FontID font, std::string_view text, int x, int y) {
+	text = StripSpaces(text);
+	ctx->Draw()->DrawTextShadow(font, text, x, y, 0xFFFFFFFF);
+	float w, h;
+	ctx->Draw()->MeasureText(font, text, &w, &h);
+	return y + (int)h + 15;
+}
+
 void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	const MIPSExceptionInfo &info = Core_GetExceptionInfo();
 
@@ -439,8 +448,7 @@ crcStr
 );
 
 	ctx->Draw()->SetFontScale(.7f, .7f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 185;
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	if (info.type == MIPSExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -452,8 +460,6 @@ info.address,
 info.accessSize,
 info.pc,
 info.info.c_str());
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x
@@ -463,36 +469,27 @@ ExecExceptionTypeAsString(info.exec_type),
 info.address,
 info.pc,
 info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::FPU) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 FPU: %s
 PC: %08x
 )", FPUExceptionTypeAsString(info.fpu_type), info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 PC: %08x
 )", info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::HLE) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 %s
 PC: %08x
 RA: %08x)", info.info.c_str(), info.pc, info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
 )", (int)info.type);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	}
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	std::string kernelState = __KernelStateSummary();
 
