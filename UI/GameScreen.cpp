@@ -726,7 +726,7 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	if (info_->saveDataSize && CanShareFiles()) {
 		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 		parent->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
-			ExportGameSaves(info_.get());
+			ExportAllGameSavesForGame(info_.get());
 		});
 	}
 	if (info_->saveDataSize) {

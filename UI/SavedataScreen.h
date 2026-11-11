@@ -187,4 +187,4 @@ private:
 };
 
 // Zips a game's saves (without installed data) and shares the zip.
-void ExportGameSaves(GameInfo *info);
+void ExportAllGameSavesForGame(GameInfo *info);

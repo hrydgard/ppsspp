@@ -74,7 +74,7 @@ static void ExportAsZip(std::string_view zipName, const std::vector<ShareZipEntr
 	}
 }
 
-void ExportGameSaves(GameInfo *info) {
+void ExportAllGameSavesForGame(GameInfo *info) {
 	std::vector<ShareZipEntry> entries;
 	for (const Path &dir : info->GetSaveDataDirectories()) {
 		// Installed data is large and not a save, so it's left out.
@@ -218,31 +218,12 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}
 	}
 
-	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-	buttonRow->SetSpacing(12);
+	LinearLayout *buttonRow1 = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	LinearLayout *buttonRow2 = parent->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	buttonRow1->SetSpacing(12);
 
-	buttonRow->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	buttonRow->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
-		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
-
-		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
-
-		std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
-		screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
-			if (result) {
-				ginfo->Delete();
-				TriggerFinish(DR_NO);
-			}
-		}));
-	});
-	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
-			System_ShowFileInFolder(savePath_);
-		});
-	}
 	if (canExport) {
-		buttonRow->Add(new Choice(sa->T("Export"), ImageID("I_SHARE"), new LinearLayoutParams(1.0f)))->OnClick.Add([this, isState](UI::EventParams &e) {
+		buttonRow1->Add(new Choice(sa->T("Export"), ImageID("I_SHARE"), new LinearLayoutParams(1.0f)))->OnClick.Add([this, isState](UI::EventParams &e) {
 			std::vector<ShareZipEntry> entries;
 			if (isState) {
 				// The state and its screenshot, in the root of the zip, which the import takes as savestates.
@@ -260,8 +241,30 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 			}
 		});
 	}
-	buttonRow->SetRoundCorners();
-	parent->Add(buttonRow);
+
+	buttonRow1->Add(new Choice(di->T("Delete"), ImageID("I_TRASHCAN"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, savePath_, GameInfoFlags::PARAM_SFO);
+
+		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+
+		std::string_view confirmMessage = di->T("Are you sure you want to delete the file?");
+		screenManager()->push(new MessagePopupScreen(di->T("Delete"), confirmMessage, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"), [=](bool result) {
+			if (result) {
+				ginfo->Delete();
+				TriggerFinish(DR_NO);
+			}
+		}));
+	});
+
+	buttonRow2->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		buttonRow2->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
+			System_ShowFileInFolder(savePath_);
+		});
+	}
+	buttonRow1->SetRoundCorners();
+	buttonRow2->SetRoundCorners();
 }
 
 class SortedLinearLayout : public UI::LinearLayoutList {
