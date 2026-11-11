@@ -5,6 +5,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -20,6 +21,7 @@
 #include "Core/Reporting.h"
 #include "Core/CwCheat.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
@@ -421,6 +423,8 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	// On most APIs the vendor string is the GPU model.
 	std::string gpuName = draw->GetInfoString(Draw::InfoField::VENDORSTRING);
 	std::string apiName = draw->GetInfoString(Draw::InfoField::APINAME);
+	// Off the CPU thread, so peek.
+	std::string emulatedTime = NiceTimeFormat((int)(CoreTiming::PeekGlobalTimeUs() / 1000000));
 
 	// First column
 	y += 65;
@@ -437,6 +441,7 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s (%s)
 %s v%d (%s)
 %s (%s)
+Emulated time: %s
 %s
 )",
 ExceptionTypeAsString(info.type),
@@ -444,6 +449,7 @@ discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
 gpuName.c_str(), apiName.c_str(),
+emulatedTime.c_str(),
 crcStr
 );
 
