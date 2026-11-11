@@ -491,7 +491,8 @@ void SavedataButton::Draw(UIContext &dc) {
 
 	dc.RebindTexture();
 	if (highlighted_) {
-		dc.Draw()->DrawRoundRect(bounds_, 0.0f, 0xFFFFFFFF, RoundRectStyle::OutlineThin);
+		// Square corners. (A zero radius draws no outline at all.) Medium, since a thin line looks like the gaps between the rows.
+		dc.Draw()->DrawRoundRect(bounds_, ROUND_RECT_RADII[0], 0xFFFFFFFF, RoundRectStyle::OutlineMedium, RoundCorners::None);
 		dc.Draw()->Flush();
 	}
 }
