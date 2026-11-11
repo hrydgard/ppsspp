@@ -35,9 +35,11 @@ int Profiler_GetCategory(const char *name);
 void Profiler_Enter(int category);
 void Profiler_Leave(int category);
 
+// The macros below check that the profiler is on before anything else, so that's all a scope costs
+// while it's off. category is -1 then.
 class ProfileThis {
 public:
-	explicit ProfileThis(int category) : category_(Profiler_IsEnabled() ? category : -1) {
+	explicit ProfileThis(int category) : category_(category) {
 		if (category_ >= 0) {
 			Profiler_Enter(category_);
 		}
@@ -56,12 +58,15 @@ private:
 // Named by line, so a scope can hold more than one.
 #define PROFILE_CONCAT_INNER(a, b) a##b
 #define PROFILE_CONCAT(a, b) PROFILE_CONCAT_INNER(a, b)
-// cat must be the same string every time this line runs (normally a literal): it's looked up once.
+// cat must be a literal (or another constant): it's looked up once, the first time the line runs with the
+// profiler on. Checking that first skips the static's thread-safe init guard while off.
 #define PROFILE_THIS_SCOPE(cat) \
-	static const int PROFILE_CONCAT(_profile_cat, __LINE__) = Profiler_GetCategory(cat); \
-	ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(PROFILE_CONCAT(_profile_cat, __LINE__));
+	ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(Profiler_IsEnabled() ? [] { \
+		static const int category = Profiler_GetCategory(cat); \
+		return category; \
+	}() : -1);
 // For a name that varies between calls.
-#define PROFILE_THIS_SCOPE_DYNAMIC(cat) ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(Profiler_GetCategory(cat));
+#define PROFILE_THIS_SCOPE_DYNAMIC(cat) ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(Profiler_IsEnabled() ? Profiler_GetCategory(cat) : -1);
 #define PROFILE_END_FRAME() internal_profiler_end_frame();
 
 // Names this thread's innermost open scope (which syscall, which file) in the log and the timeline.
