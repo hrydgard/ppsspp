@@ -1075,6 +1075,19 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 
 	// Let's see if it's already mapped or we need a new reg.
 	IRNativeReg nreg = mr[first].nReg;
+
+	// Most often, a GPR that's already in a reg, all by itself. Then all there is to do (of what the
+	// other MapNativeReg does) is mark it dirty for a write.
+	if (type == MIPSLoc::REG && lanes == 1 && mr[first].loc == MIPSLoc::REG && mr[first].lane == -1 &&
+		first != MIPS_REG_ZERO && nr[nreg].mipsReg == first && mr[first + 1].nReg != nreg &&
+		(mr[first].isStatic || IsNativeRegCompatible(nreg, type, flags, lanes))) {
+		if ((flags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
+			nr[nreg].isDirty = true;
+			nr[nreg].pointerified = false;
+			nr[nreg].normalized32 = false;
+		}
+		return nreg;
+	}
 	if (mr[first].isStatic) {
 		_assert_msg_(nreg != -1, "MapIRReg on static without an nReg?");
 	} else {
