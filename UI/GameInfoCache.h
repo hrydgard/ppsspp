@@ -253,3 +253,7 @@ private:
 
 // This one can be global, no good reason not to.
 extern GameInfoCache *g_gameInfoCache;
+
+// Whether a folder in PSP/SAVEDATA holds data a game installed (or downloaded) there, rather than a save.
+// Games write those files with sceIo rather than the savedata utility, so PARAM.SFO's file list leaves them out.
+bool IsInstalledGameData(const Path &saveDir);

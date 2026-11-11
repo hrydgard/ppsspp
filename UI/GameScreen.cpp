@@ -296,6 +296,10 @@ void GameScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	if (lookupsStarted_) {
 		StartLookups();
 	}
+	if (!strcmp(dialog->tag(), "Savedata")) {
+		// Saves may have been deleted or imported there. update() recreates the views when the size is in.
+		info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, GameInfoFlags::SAVEDATA_SIZE);
+	}
 	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
 }
 
@@ -712,6 +716,12 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
+	if (info_->saveDataSize || info_->installDataSize) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		parent->Add(new Choice(sa->T("Savedata Manager"), ImageID("I_FILE_SAVE")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new SavedataScreen(gamePath_));
+		});
+	}
 	if (info_->saveDataSize) {
 		Choice *btnDeleteSaveData = new Choice(ga->T("Delete Save Data"), ImageID("I_TRASHCAN"));
 		parent->Add(btnDeleteSaveData)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);

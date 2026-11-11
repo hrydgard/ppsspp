@@ -25,10 +25,13 @@
 #include "Common/Math/curves.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/System/NativeApp.h"
+#include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/View.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/Root.h"
+#include "Common/UI/ScrollView.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/AsyncImageFileView.h"
 #include "Common/UI/ScreenManager.h"
@@ -37,6 +40,7 @@
 #include "UI/GameInfoCache.h"
 #include "UI/PauseScreen.h"
 #include "UI/MiscScreens.h"
+#include "UI/ShareFiles.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/TimeUtil.h"
@@ -48,6 +52,27 @@
 #include "UI/MiscViews.h"
 
 class SavedataButton;
+
+// Adds a folder's files to a zip under nameInZip, the layout the savedata import expects (DIR/PARAM.SFO).
+static void AddFolderToZip(const Path &folder, const std::string &nameInZip, std::vector<ShareZipEntry> *entries) {
+	std::vector<File::FileInfo> files;
+	File::GetFilesInDir(folder, &files);
+	for (const File::FileInfo &file : files) {
+		const std::string name = nameInZip + "/" + file.name;
+		if (file.isDirectory) {
+			AddFolderToZip(file.fullName, name, entries);
+		} else {
+			entries->push_back({ file.fullName, name });
+		}
+	}
+}
+
+static void ExportAsZip(std::string_view zipName, const std::vector<ShareZipEntry> &entries) {
+	if (!ShareFilesAsZip(zipName, entries)) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, sa->T("Export failed"));
+	}
+}
 
 SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileType type, std::string_view title, std::string_view savedataTitle, std::string_view savedataDetail, std::string_view fileSize, std::string_view mtime, bool showIcon, UI::LayoutParams *layoutParams)
 	: LinearLayout(ORIENT_VERTICAL, layoutParams)
@@ -169,6 +194,18 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	savedataView_ = content->Add(new SavedataView(dc, ginfo.get(), ginfo->fileType, true));
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+
+	const bool isState = savePath_.GetFileExtension() == ".ppst";
+	// Installed data is large and not a save, so it's left out of exports.
+	bool canExport = false;
+	if (CanShareFiles()) {
+		canExport = isState || !IsInstalledGameData(savePath_);
+		if (!canExport) {
+			TextView *installedNote = content->Add(new TextView(sa->T("InstalledDataNotExported", "This is data the game installed, not a save, so it can't be exported."), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0, 10, 5))));
+			installedNote->SetTextColor(dc.GetTheme().popupStyle.fgColor);
+		}
+	}
 
 	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	buttonRow->SetSpacing(12);
@@ -191,6 +228,25 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 		buttonRow->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(savePath_);
+		});
+	}
+	if (canExport) {
+		buttonRow->Add(new Choice(sa->T("Export"), ImageID("I_SHARE"), new LinearLayoutParams(1.0f)))->OnClick.Add([this, isState](UI::EventParams &e) {
+			std::vector<ShareZipEntry> entries;
+			if (isState) {
+				// The state and its screenshot, in the root of the zip, which the import takes as savestates.
+				entries.push_back({ savePath_, "" });
+				Path screenshot;
+				if (savePath_.WithReplacedExtension(".ppst", ".jpg", &screenshot) && File::Exists(screenshot)) {
+					entries.push_back({ screenshot, "" });
+				}
+				std::string name = savePath_.GetFilename();
+				name.resize(name.size() - strlen(".ppst"));
+				ExportAsZip(name, entries);
+			} else {
+				AddFolderToZip(savePath_, savePath_.GetFilename(), &entries);
+				ExportAsZip(savePath_.GetFilename(), entries);
+			}
 		});
 	}
 	buttonRow->SetRoundCorners();
@@ -406,6 +462,10 @@ void SavedataButton::Draw(UIContext &dc) {
 	dc.PopScissor();
 
 	dc.RebindTexture();
+	if (highlighted_) {
+		dc.Draw()->DrawRoundRect(bounds_, 0.0f, 0xFFFFFFFF, RoundRectStyle::OutlineThin);
+		dc.Draw()->Flush();
+	}
 }
 
 std::string SavedataButton::DescribeText() const {
@@ -413,13 +473,48 @@ std::string SavedataButton::DescribeText() const {
 	return ApplySafeSubstitutions(u->T("%1 button"), title_) + "\n" + subtitle_;
 }
 
-SavedataBrowser::SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams)
-	: LinearLayout(ORIENT_VERTICAL, layoutParams), path_(path) {
+SavedataBrowser::SavedataBrowser(const Path &path, std::string_view highlightPrefix, UI::LayoutParams *layoutParams)
+	: LinearLayout(ORIENT_VERTICAL, layoutParams), path_(path), highlightPrefix_(highlightPrefix) {
 	Refresh();
+}
+
+void SavedataBrowser::ScrollToHighlighted() {
+	if (!gameList_) {
+		scrollPending_ = false;
+		return;
+	}
+	SavedataButton *first = nullptr;
+	for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+		SavedataButton *button = static_cast<SavedataButton *>(gameList_->GetViewByIndex(i));
+		if (!button->IsHighlighted() || button->GetVisibility() != UI::V_VISIBLE) {
+			continue;
+		}
+		// Scrolling needs the position, so wait until the tab has been shown and laid out (after sorting).
+		if (button->GetBounds().h <= 0.0f) {
+			return;
+		}
+		if (!first || button->GetBounds().y < first->GetBounds().y) {
+			first = button;
+		}
+	}
+	scrollPending_ = false;
+	if (!first) {
+		return;
+	}
+	UI::ScrollView *scrollView = UI::GetEnclosingScrollView(first);
+	if (scrollView) {
+		scrollView->ScrollToCenter(first);
+	}
+	if (UI::IsFocusMovementEnabled()) {
+		UI::SetFocusedView(first, UI::FocusFlags::CAUSE_RESTORE);
+	}
 }
 
 void SavedataBrowser::Update() {
 	LinearLayout::Update();
+	if (scrollPending_) {
+		ScrollToHighlighted();
+	}
 	if (searchPending_) {
 		searchPending_ = false;
 
@@ -556,7 +651,13 @@ void SavedataBrowser::Refresh() {
 			isSaveData = true;
 
 		if (isSaveData || isState) {
-			savedataButtons.push_back(new SavedataButton(fileInfo[i].fullName, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
+			SavedataButton *button = new SavedataButton(fileInfo[i].fullName, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT));
+			// Save folders and savestates both start with the game ID.
+			if (!highlightPrefix_.empty() && startsWith(fileInfo[i].name, highlightPrefix_)) {
+				button->SetHighlighted(true);
+				scrollPending_ = true;
+			}
+			savedataButtons.push_back(button);
 		}
 	}
 
@@ -626,7 +727,7 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	sortStrip->SetRoundCorners();
 	savedata->Add(sortStrip);
 
-	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, gameID_, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	dataBrowser_->SetSortOption(sortOption_);
 	if (!searchFilter_.empty())
 		dataBrowser_->SetSearchFilter(searchFilter_);
@@ -652,11 +753,50 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	sortStrip->SetRoundCorners();
 	savestate->Add(sortStrip);
 
-	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir));
+	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir, gameID_));
 	stateBrowser_->SetSortOption(sortOption_);
 	if (!searchFilter_.empty())
 		stateBrowser_->SetSearchFilter(searchFilter_);
 	stateBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
+}
+
+bool SavedataScreen::LookUpGame() {
+	gameID_.clear();
+	gameTitle_.clear();
+	gameSaveDirs_.clear();
+	if (gamePath_.empty()) {
+		return true;
+	}
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO)) {
+		gameLookupPending_ = true;
+		return false;
+	}
+	gameLookupPending_ = false;
+	// Same rule as GetSaveDataDirectories(), or every folder would match.
+	if (ginfo->id.size() < 5) {
+		return true;
+	}
+	gameID_ = ginfo->id;
+	gameTitle_ = ginfo->GetTitle();
+	for (const Path &dir : ginfo->GetSaveDataDirectories()) {
+		// The folders the browser lists, without installed data.
+		if (File::Exists(dir / "PARAM.SFO") && !IsInstalledGameData(dir)) {
+			gameSaveDirs_.push_back(dir);
+		}
+	}
+	return true;
+}
+
+void SavedataScreen::PreCreateViews() {
+	LookUpGame();
+}
+
+void SavedataScreen::update() {
+	UITabbedBaseDialogScreen::update();
+	if (gameLookupPending_ && LookUpGame()) {
+		RecreateViews();
+	}
 }
 
 void SavedataScreen::CreateTabs() {
@@ -674,6 +814,12 @@ void SavedataScreen::CreateTabs() {
 
 void SavedataScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {
 	using namespace UI;
+	if (!gameSaveDirs_.empty() && CanShareFiles()) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		Choice *exportButton = verticalLayout->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))));
+		exportButton->OnClick.Handle(this, &SavedataScreen::OnExportGameSaves);
+		exportButton->SetRoundCorners();
+	}
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *searchButton = verticalLayout->Add(new Choice(di->T("Search"), ImageID("I_SEARCH"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))));
@@ -689,6 +835,14 @@ void SavedataScreen::OnSearch(UI::EventParams &e) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}
+}
+
+void SavedataScreen::OnExportGameSaves(UI::EventParams &e) {
+	std::vector<ShareZipEntry> entries;
+	for (const Path &dir : gameSaveDirs_) {
+		AddFolderToZip(dir, dir.GetFilename(), &entries);
+	}
+	ExportAsZip(gameTitle_ + " (" + gameID_ + ")", entries);
 }
 
 void SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {
