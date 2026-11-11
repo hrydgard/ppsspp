@@ -251,6 +251,12 @@ private:
 	// Module ID, index
 	typedef std::pair<int, u32> SymbolKey;
 
+	// Add or remove one module's symbols in the active copies, as UpdateActiveSymbols would. Rebuilding
+	// them all costs a std::map insert per symbol of every module ever loaded, which was half the time
+	// of loading a firmware module.
+	void ActivateModuleSymbols(const ModuleEntry &module);
+	void DeactivateModuleSymbols(const ModuleEntry &module);
+
 	// These are indexed by the module id and relative address in the module.
 	std::map<SymbolKey, FunctionEntry> functions;
 	std::map<SymbolKey, LabelEntry> labels;

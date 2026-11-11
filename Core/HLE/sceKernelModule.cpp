@@ -2084,9 +2084,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		}
 
 		if (scan) {
-			// TODO: Limit this to the newly loaded range! This is expensive, well, at least in debug builds
-			// and the cause of stutter during Wipeout Pure initialization.
-			MIPSAnalyst::FinalizeScan(insertSymbols);
+			MIPSAnalyst::FinalizeScan(insertSymbols, module->textStart, module->textEnd);
 		}
 	}
 
