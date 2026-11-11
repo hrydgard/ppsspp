@@ -24,7 +24,9 @@
 // The functions that work on loaded modules (start-module handler, finding exports, hooking
 // imports and syscalls) are in sceKernelModule.cpp, next to the modules.
 
+#include <algorithm>
 #include <cstring>
+#include <string>
 #include <vector>
 
 #include "zlib.h"
@@ -41,9 +43,11 @@
 #include "Core/MemMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
+#include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
@@ -670,10 +674,17 @@ static int sysclib_bcmp(u32 a, u32 b, u32 n) {
 }
 
 // SysMemForKernel's game info block (SceKernelGameInfo). vshctrl sets the "opnssmp" type in it
-// when it boots an ISO, which nothing here reads.
+// when it boots an ISO, which nothing here reads. utility.prx reads the disc ID at +0x44
+// ("ULUS10021", no dash), which picks its per-game compat entries. The flags at +0x70 stay 0:
+// msgdialog_plugin takes bit 0x10 as "the game runs from the PSP Go's internal storage" and words
+// its errors accordingly.
 u32 sceKernelGetGameInfo() {
 	if (!g_gameInfoAddr) {
 		g_gameInfoAddr = AllocZeroed(0x220, "SceKernelGameInfo");
+		if (g_gameInfoAddr) {
+			const std::string discID = g_paramSFO.GetDiscID();
+			Memory::MemcpyUnchecked(g_gameInfoAddr + 0x44, discID.c_str(), (u32)std::min<size_t>(discID.size(), 13));
+		}
 	}
 	return hleLogDebug(Log::sceKernel, g_gameInfoAddr);
 }
