@@ -88,21 +88,41 @@ IROp ShiftToShiftImm(IROp op) {
 	}
 }
 
+// Whether the pass would only copy the block: most act on just a few kinds of instruction (IROpKind),
+// which most blocks don't have, and some don't run at all with some settings.
+static bool PassOnlyCopies(IRPassFunc pass, const IRWriter &in, const IROptions &opts) {
+	auto lacks = [&](u8 kinds) {
+		return (in.Kinds() & kinds) == 0;
+	};
+	if (pass == &ApplyMemoryValidation)
+		return g_Config.bFastMemory;
+	if (pass == &RemoveLoadStoreLeftRight)
+		return lacks(IRKIND_LEFT_RIGHT);
+	if (pass == &ResolveKernelMemory)
+		return lacks(IRKIND_KERNEL_MEMORY);
+	if (pass == &ReduceVec4Flush)
+		return lacks(IRKIND_VEC4) || !opts.preferVec4 || opts.optimizeForInterpreter;
+	if (pass == &OptimizeFPMoves)
+		return lacks(IRKIND_FMOV_TO_GPR);
+	if (pass == &OptimizeLoadsAfterStores)
+		return lacks(IRKIND_PLAIN_LOAD);
+	return false;
+}
+
 bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out, const IROptions &opts) {
-	out.Reserve(in.GetInstructions().size());
-
-	if (c == 1) {
-		return passes[0](in, out, opts);
-	}
-
 	bool logBlocks = false;
 
 	// The passes take turns writing to the two, which keep their capacity, also from block to block.
 	// Static: compiling only happens on the emulation thread (the debugger's views run on it too).
 	static IRWriter temp[2];
 	const IRWriter *nextIn = &in;
-	for (size_t i = 0; i < c - 1; ++i) {
-		IRWriter &nextOut = temp[i & 1];
+	int last = -1;
+	for (size_t i = 0; i < c; ++i) {
+		// Most blocks have nothing for most of these passes to do, so skip them (and their copy).
+		if (PassOnlyCopies(passes[i], *nextIn, opts))
+			continue;
+		last = (last + 1) & 1;
+		IRWriter &nextOut = temp[last];
 		nextOut.Clear();
 		nextOut.Reserve(nextIn->GetInstructions().size());
 		if (passes[i](*nextIn, nextOut, opts)) {
@@ -111,11 +131,15 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 		nextIn = &nextOut;
 	}
 
-	out.Reserve(nextIn->GetInstructions().size());
-	if (passes[c - 1](*nextIn, out, opts)) {
-		logBlocks = true;
+	if (last >= 0) {
+		// Hand over the buffer: out's goes to the temp, which keeps the capacity too.
+		std::swap(out, temp[last]);
+	} else {
+		out.Clear();
+		out.Reserve(in.GetInstructions().size());
+		for (const IRInst &inst : in.GetInstructions())
+			out.Write(inst);
 	}
-
 	return logBlocks;
 }
 
@@ -2002,15 +2026,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		DISABLE;
 	}
 	// Everything below starts from a Vec4 (or matrix) operand, which most blocks don't have.
-	bool anyVec4 = false;
-	for (const IRInst &inst : in.GetInstructions()) {
-		const IRMeta *m = GetIRMeta(inst.op);
-		for (int t = 0; t < 3; ++t) {
-			if (m->types[t] == 'V' || m->types[t] == 'M')
-				anyVec4 = true;
-		}
-	}
-	if (!anyVec4) {
+	if ((in.Kinds() & IRKIND_VEC4) == 0) {
 		DISABLE;
 	}
 

@@ -221,6 +221,48 @@ static const IRMeta irMeta[] = {
 };
 
 const IRMeta *metaIndex[256];
+u8 irOpKinds[256];
+
+static u8 KindsOf(const IRMeta &m) {
+	u8 kinds = 0;
+	switch (m.op) {
+	case IROp::Load32Left:
+	case IROp::Load32Right:
+	case IROp::Store32Left:
+	case IROp::Store32Right:
+		kinds |= IRKIND_LEFT_RIGHT;
+		break;
+	case IROp::LoadKernel8:
+	case IROp::LoadKernel8Ext:
+	case IROp::LoadKernel16:
+	case IROp::LoadKernel16Ext:
+	case IROp::LoadKernel32:
+	case IROp::StoreKernel8:
+	case IROp::StoreKernel16:
+	case IROp::StoreKernel32:
+		kinds |= IRKIND_KERNEL_MEMORY;
+		break;
+	case IROp::FMovToGPR:
+		kinds |= IRKIND_FMOV_TO_GPR;
+		break;
+	case IROp::Load8:
+	case IROp::Load8Ext:
+	case IROp::Load16:
+	case IROp::Load16Ext:
+	case IROp::Load32:
+	case IROp::LoadFloat:
+	case IROp::LoadVec4:
+		kinds |= IRKIND_PLAIN_LOAD;
+		break;
+	default:
+		break;
+	}
+	for (int t = 0; t < 3; ++t) {
+		if (m.types[t] == 'V' || m.types[t] == 'M')
+			kinds |= IRKIND_VEC4;
+	}
+	return kinds;
+}
 
 // Is there a way to constexpr this?
 void InitIR() {
@@ -228,6 +270,7 @@ void InitIR() {
 		return;
 	for (size_t i = 0; i < ARRAY_SIZE(irMeta); i++) {
 		metaIndex[(int)irMeta[i].op] = &irMeta[i];
+		irOpKinds[(int)irMeta[i].op] = KindsOf(irMeta[i]);
 	}
 }
 
@@ -241,7 +284,7 @@ void IRWriter::WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant) {
 	inst.src1 = src1;
 	inst.src2 = src2;
 	inst.constant = constant;
-	insts_.push_back(inst);
+	Write(inst);
 }
 
 void IRWriter::WriteSetConstant(u8 dst, u32 value) {
