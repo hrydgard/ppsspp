@@ -185,3 +185,6 @@ private:
 	UI::TextView *mTime_ = nullptr;
 	UI::TextView *fileSize_ = nullptr;
 };
+
+// Zips a game's saves (without installed data) and shares the zip.
+void ExportGameSaves(GameInfo *info);

@@ -67,24 +67,22 @@ static void AddFolderToZip(const Path &folder, const std::string &nameInZip, std
 	}
 }
 
-// The save folders of a game next to a save of it, without installed data.
-static std::vector<Path> FindGameSaves(const Path &saveDir, std::string_view gameID) {
-	std::vector<Path> saves;
-	std::vector<File::FileInfo> dirs;
-	File::GetFilesInDir(saveDir, &dirs);
-	for (const File::FileInfo &dir : dirs) {
-		if (dir.isDirectory && startsWith(dir.name, gameID) && File::Exists(dir.fullName / "PARAM.SFO") && !IsInstalledGameData(dir.fullName)) {
-			saves.push_back(dir.fullName);
-		}
-	}
-	return saves;
-}
-
 static void ExportAsZip(std::string_view zipName, const std::vector<ShareZipEntry> &entries) {
 	if (!ShareFilesAsZip(zipName, entries)) {
 		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 		g_OSD.Show(OSDType::MESSAGE_ERROR, sa->T("Export failed"));
 	}
+}
+
+void ExportGameSaves(GameInfo *info) {
+	std::vector<ShareZipEntry> entries;
+	for (const Path &dir : info->GetSaveDataDirectories()) {
+		// Installed data is large and not a save, so it's left out.
+		if (File::Exists(dir / "PARAM.SFO") && !IsInstalledGameData(dir)) {
+			AddFolderToZip(dir, dir.GetFilename(), &entries);
+		}
+	}
+	ExportAsZip(info->GetTitle() + " (" + info->id + ")", entries);
 }
 
 SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileType type, std::string_view title, std::string_view savedataTitle, std::string_view savedataDetail, std::string_view fileSize, std::string_view mtime, bool showIcon, UI::LayoutParams *layoutParams)
@@ -217,21 +215,6 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		if (!canExport) {
 			TextView *installedNote = content->Add(new TextView(sa->T("InstalledDataNotExported", "This is data the game installed, not a save, so it can't be exported."), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0, 10, 5))));
 			installedNote->SetTextColor(dc.GetTheme().popupStyle.fgColor);
-		}
-	}
-
-	if (canExport && !isState && ginfo->Ready(GameInfoFlags::PARAM_SFO) && ginfo->id.size() >= 5) {
-		// The game ID starts the folder names (the same rule as GetSaveDataDirectories()).
-		std::vector<Path> gameSaves = FindGameSaves(savePath_.NavigateUp(), ginfo->id);
-		if (gameSaves.size() > 1) {
-			std::string zipName = ginfo->GetTitle() + " (" + ginfo->id + ")";
-			content->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Add([gameSaves, zipName](UI::EventParams &e) {
-				std::vector<ShareZipEntry> entries;
-				for (const Path &dir : gameSaves) {
-					AddFolderToZip(dir, dir.GetFilename(), &entries);
-				}
-				ExportAsZip(zipName, entries);
-			});
 		}
 	}
 

@@ -61,6 +61,7 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/SavedataScreen.h"
+#include "UI/ShareFiles.h"
 #include "UI/MiscViews.h"
 
 // This is in an objective-C file.
@@ -720,6 +721,12 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 		parent->Add(new Choice(sa->T("Savedata Manager"), ImageID("I_FILE_SAVE")))->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->push(new SavedataScreen(gamePath_));
+		});
+	}
+	if (info_->saveDataSize && CanShareFiles()) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		parent->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
+			ExportGameSaves(info_.get());
 		});
 	}
 	if (info_->saveDataSize) {
