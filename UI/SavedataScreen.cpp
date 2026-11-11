@@ -67,6 +67,19 @@ static void AddFolderToZip(const Path &folder, const std::string &nameInZip, std
 	}
 }
 
+// The save folders of a game next to a save of it, without installed data.
+static std::vector<Path> FindGameSaves(const Path &saveDir, std::string_view gameID) {
+	std::vector<Path> saves;
+	std::vector<File::FileInfo> dirs;
+	File::GetFilesInDir(saveDir, &dirs);
+	for (const File::FileInfo &dir : dirs) {
+		if (dir.isDirectory && startsWith(dir.name, gameID) && File::Exists(dir.fullName / "PARAM.SFO") && !IsInstalledGameData(dir.fullName)) {
+			saves.push_back(dir.fullName);
+		}
+	}
+	return saves;
+}
+
 static void ExportAsZip(std::string_view zipName, const std::vector<ShareZipEntry> &entries) {
 	if (!ShareFilesAsZip(zipName, entries)) {
 		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
@@ -204,6 +217,21 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		if (!canExport) {
 			TextView *installedNote = content->Add(new TextView(sa->T("InstalledDataNotExported", "This is data the game installed, not a save, so it can't be exported."), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0, 10, 5))));
 			installedNote->SetTextColor(dc.GetTheme().popupStyle.fgColor);
+		}
+	}
+
+	if (canExport && !isState && ginfo->Ready(GameInfoFlags::PARAM_SFO) && ginfo->id.size() >= 5) {
+		// The game ID starts the folder names (the same rule as GetSaveDataDirectories()).
+		std::vector<Path> gameSaves = FindGameSaves(savePath_.NavigateUp(), ginfo->id);
+		if (gameSaves.size() > 1) {
+			std::string zipName = ginfo->GetTitle() + " (" + ginfo->id + ")";
+			content->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Add([gameSaves, zipName](UI::EventParams &e) {
+				std::vector<ShareZipEntry> entries;
+				for (const Path &dir : gameSaves) {
+					AddFolderToZip(dir, dir.GetFilename(), &entries);
+				}
+				ExportAsZip(zipName, entries);
+			});
 		}
 	}
 
@@ -762,8 +790,6 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 
 bool SavedataScreen::LookUpGame() {
 	gameID_.clear();
-	gameTitle_.clear();
-	gameSaveDirs_.clear();
 	if (gamePath_.empty()) {
 		return true;
 	}
@@ -778,13 +804,6 @@ bool SavedataScreen::LookUpGame() {
 		return true;
 	}
 	gameID_ = ginfo->id;
-	gameTitle_ = ginfo->GetTitle();
-	for (const Path &dir : ginfo->GetSaveDataDirectories()) {
-		// The folders the browser lists, without installed data.
-		if (File::Exists(dir / "PARAM.SFO") && !IsInstalledGameData(dir)) {
-			gameSaveDirs_.push_back(dir);
-		}
-	}
 	return true;
 }
 
@@ -814,12 +833,6 @@ void SavedataScreen::CreateTabs() {
 
 void SavedataScreen::CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) {
 	using namespace UI;
-	if (!gameSaveDirs_.empty() && CanShareFiles()) {
-		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
-		Choice *exportButton = verticalLayout->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))));
-		exportButton->OnClick.Handle(this, &SavedataScreen::OnExportGameSaves);
-		exportButton->SetRoundCorners();
-	}
 	if (System_GetPropertyBool(SYSPROP_HAS_TEXT_INPUT_DIALOG)) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *searchButton = verticalLayout->Add(new Choice(di->T("Search"), ImageID("I_SEARCH"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, margins, margins))));
@@ -835,14 +848,6 @@ void SavedataScreen::OnSearch(UI::EventParams &e) {
 			System_PostUIMessage(UIMessage::SAVEDATA_SEARCH, value);
 		});
 	}
-}
-
-void SavedataScreen::OnExportGameSaves(UI::EventParams &e) {
-	std::vector<ShareZipEntry> entries;
-	for (const Path &dir : gameSaveDirs_) {
-		AddFolderToZip(dir, dir.GetFilename(), &entries);
-	}
-	ExportAsZip(gameTitle_ + " (" + gameID_ + ")", entries);
 }
 
 void SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {

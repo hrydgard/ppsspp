@@ -118,16 +118,13 @@ protected:
 private:
 	void OnSavedataButtonClick(UI::EventParams &e);
 	void OnSearch(UI::EventParams &e);
-	void OnExportGameSaves(UI::EventParams &e);
 
 	void CreateSavedataTab(UI::ViewGroup *savedata);
 	void CreateSavestateTab(UI::ViewGroup *savestate);
-	// The ID and title of the game the screen was opened for, once its PARAM.SFO is loaded.
+	// The ID of the game the screen was opened for (its saves are highlighted), once its PARAM.SFO is loaded.
 	bool LookUpGame();
 
 	std::string gameID_;
-	std::string gameTitle_;
-	std::vector<Path> gameSaveDirs_;  // The game's saves, without installed data.
 	bool gameLookupPending_ = false;
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	SavedataBrowser *dataBrowser_ = nullptr;
