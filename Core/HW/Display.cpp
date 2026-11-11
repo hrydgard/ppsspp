@@ -90,11 +90,16 @@ static double CheckJitStall(double now) {
 	const MIPSComp::JitCompileTimes &last = lastFlipJitTimes;
 	const double jitSeconds = (cur.TotalNanos() - last.TotalNanos()) * 1e-9;
 	if (jitSeconds >= JIT_STALL_LOG_SECONDS && lastFlipTime != 0.0) {
-		INFO_LOG(Log::JIT, "JIT stall: %0.2f ms compiling in a %0.2f ms frame (%d blocks, %d MIPS instructions; frontend %0.2f, passes %0.2f, backend %0.2f, finalize %0.2f, invalidate %0.2f, %d clears %0.2f ms)",
+		char phases[160] = "";
+		if (cur.phaseBlocks != last.phaseBlocks) {
+			snprintf(phases, sizeof(phases), "; frontend %0.2f, passes %0.2f, backend %0.2f, finalize %0.2f",
+				(cur.frontendNanos - last.frontendNanos) * 1e-6, (cur.passNanos - last.passNanos) * 1e-6,
+				(cur.backendNanos - last.backendNanos) * 1e-6, (cur.finalizeNanos - last.finalizeNanos) * 1e-6);
+		}
+		INFO_LOG(Log::JIT, "JIT stall: %0.2f ms in a %0.2f ms frame (%d blocks, %d MIPS instructions, compiling %0.2f ms%s; invalidate %0.2f, %d clears %0.2f ms)",
 			jitSeconds * 1000.0, (now - lastFlipTime) * 1000.0,
 			(int)(cur.blocks - last.blocks), (int)(cur.mipsInstructions - last.mipsInstructions),
-			(cur.frontendNanos - last.frontendNanos) * 1e-6, (cur.passNanos - last.passNanos) * 1e-6,
-			(cur.backendNanos - last.backendNanos) * 1e-6, (cur.finalizeNanos - last.finalizeNanos) * 1e-6,
+			(cur.CompileNanos() - last.CompileNanos()) * 1e-6, phases,
 			(cur.invalidateNanos - last.invalidateNanos) * 1e-6,
 			cur.clears - last.clears, (cur.clearNanos - last.clearNanos) * 1e-6);
 	}

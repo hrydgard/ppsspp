@@ -223,6 +223,8 @@ protected:
 	virtual bool HasBlockProfile() const { return false; }
 	virtual void FinalizeTargetBlock(int block_num) {}
 	virtual void InvalidateTargetBlock(int block_num) {}
+	// Bytes of host code compiled since the cache was cleared, for the bench. 0 without any.
+	virtual size_t TargetCodeBytes() const { return 0; }
 	void InvalidateBlock(int block_num);
 
 	JitOptions jo;
@@ -244,6 +246,8 @@ protected:
 	int invalidatedBlocks_ = 0;
 	int changedCodeChecks_ = 0;
 	int changedCodeBlocks_ = 0;
+	// Time the compile phases (see JitCompileTimes).
+	bool benchmarking_ = false;
 
 	friend class IRJitDebugInterface;
 };

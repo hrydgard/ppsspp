@@ -581,6 +581,11 @@ void IRNativeJit::FinalizeTargetBlock(int block_num) {
 	backend_->FinalizeBlock(block_num, jo);
 }
 
+size_t IRNativeJit::TargetCodeBytes() const {
+	const CodeBlockCommon &codeBlock = backend_->CodeBlock();
+	return codeBlock.GetOffset(codeBlock.GetCodePtr());
+}
+
 void IRNativeJit::InvalidateTargetBlock(int block_num) {
 	// Already invalidated, or never compiled (the code space filled first).
 	if (blocks_.GetBlock(block_num)->GetOriginalStart() == 0 || !backend_->GetNativeBlock(block_num))

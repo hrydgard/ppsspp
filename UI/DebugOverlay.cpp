@@ -92,11 +92,12 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 
 		const MIPSComp::JitCompileTimes &t = MIPSComp::g_jitCompileTimes;
 		if (t.blocks > 0) {
-			const double perBlock = 1e-3 / t.blocks;  // ns -> us per block
 			w.F("Compiled %lld blocks, %lld MIPS -> %lld IR instructions, %0.1f ms\n",
-				(long long)t.blocks, (long long)t.mipsInstructions, (long long)t.irInstructions, t.TotalNanos() * 1e-6);
-			w.F("Per block (us): frontend %0.1f, passes %0.1f, backend %0.1f, finalize %0.1f, slowest %0.1f\n",
-				t.frontendNanos * perBlock, t.passNanos * perBlock, t.backendNanos * perBlock, t.finalizeNanos * perBlock,
+				(long long)t.blocks, (long long)t.mipsInstructions, (long long)t.irInstructions, t.CompileNanos() * 1e-6);
+			// Phases are only timed while this shows.
+			const double perBlock = 1e-3 / std::max<int64_t>(1, t.phaseBlocks);  // ns -> us per block
+			w.F("Per block (us), of the %lld compiled while this shows: frontend %0.1f, passes %0.1f, backend %0.1f, finalize %0.1f. Slowest %0.1f\n",
+				(long long)t.phaseBlocks, t.frontendNanos * perBlock, t.passNanos * perBlock, t.backendNanos * perBlock, t.finalizeNanos * perBlock,
 				t.maxBlockNanos * 1e-3);
 			w.F("Per MIPS instruction: %0.2f us\n", t.TotalNanos() * 1e-3 / std::max<int64_t>(1, t.mipsInstructions));
 			w.F("Invalidation: %0.1f ms, full clears: %d, %0.1f ms\n", t.invalidateNanos * 1e-6, t.clears, t.clearNanos * 1e-6);

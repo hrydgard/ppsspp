@@ -102,8 +102,10 @@ public:
 	bool UpdateFCR31(u32 fcr31);  // returns true if the block cache needs clearing
 	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 
-	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
-	// How long the last DoJit spent making the IR, and running the passes over it, and when it ended.
+	// timePhases: time making the IR and the passes (below). Reading the clock isn't free everywhere:
+	// about 0.3 us on a Galaxy S8, whose kernel traps the counter reads.
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool timePhases = false);
+	// With timePhases, how long the last DoJit spent making the IR, and running the passes over it, and when it ended.
 	int64_t LastFrontendNanos() const { return lastFrontendNanos_; }
 	int64_t LastPassNanos() const { return lastPassNanos_; }
 	// In time_now_fast_ticks() units.

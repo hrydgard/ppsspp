@@ -317,8 +317,8 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return ReadOp(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
-	const uint64_t start = time_now_fast_ticks();
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool timePhases) {
+	const uint64_t start = timePhases ? time_now_fast_ticks() : 0;
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -356,7 +356,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	IRWriter &simplified = simplified_;
 	simplified.Clear();
 	IRWriter *code = &ir;
-	const uint64_t passStart = time_now_fast_ticks();
+	const uint64_t passStart = timePhases ? time_now_fast_ticks() : 0;
 	if (!js.hadBreakpoints) {
 		IRPassFunc passes[16]{
 			&ApplyMemoryValidation,
@@ -398,10 +398,16 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		instructions.push_back({ IROp::LogIRBlock, {0}, 0, 0, INVALID_TRACE_INDEX });
 		std::copy(block_instructions.begin() + 1, block_instructions.end(), std::back_inserter(instructions));
 	}
-	lastEnd_ = time_now_fast_ticks();
-	const double nanosPerTick = fast_ticks_to_nanos();
-	lastFrontendNanos_ = (int64_t)((passStart - start) * nanosPerTick);
-	lastPassNanos_ = (int64_t)((lastEnd_ - passStart) * nanosPerTick);
+	if (timePhases) {
+		lastEnd_ = time_now_fast_ticks();
+		const double nanosPerTick = fast_ticks_to_nanos();
+		lastFrontendNanos_ = (int64_t)((passStart - start) * nanosPerTick);
+		lastPassNanos_ = (int64_t)((lastEnd_ - passStart) * nanosPerTick);
+	} else {
+		lastEnd_ = 0;
+		lastFrontendNanos_ = 0;
+		lastPassNanos_ = 0;
+	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];

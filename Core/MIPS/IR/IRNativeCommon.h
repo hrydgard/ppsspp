@@ -253,6 +253,7 @@ protected:
 	void GetBlockCodeRange(int block_num, int *startOffset, int *size) const;
 	void FinalizeTargetBlock(int block_num) override;
 	void InvalidateTargetBlock(int block_num) override;
+	size_t TargetCodeBytes() const override;
 
 	void CollectProfileSamples();
 	int FindBlockByCodeOffset(int offset) const;
