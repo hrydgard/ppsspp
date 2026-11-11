@@ -238,6 +238,11 @@ int HistoryIndex(int i, int count) {
 	return (g_historyPos - count + i + HISTORY_SIZE) & (HISTORY_SIZE - 1);
 }
 
+// libretro's stdio replacements have no fputs.
+void WriteString(const char *s, FILE *f) {
+	fwrite(s, 1, strlen(s), f);
+}
+
 // Writes s as a JSON string.
 void WriteJsonString(FILE *f, const char *s) {
 	fputc('"', f);
@@ -310,12 +315,12 @@ void LogFrame(const FrameTotals &frame, int numLanes, uint64_t frameStart, uint6
 					continue;
 				}
 				if (firstCat) {
-					fputs(firstLane ? "" : ",", f);
+					WriteString(firstLane ? "" : ",", f);
 					WriteJsonString(f, names[l]);
-					fputs(":{", f);
+					WriteString(":{", f);
 					firstLane = false;
 				}
-				fputs(firstCat ? "" : ",", f);
+				WriteString(firstCat ? "" : ",", f);
 				WriteJsonString(f, g_categories[c]);
 				fprintf(f, ":[%0.3f,%d]", frame.seconds[l][c] * 1000.0f, frame.counts[l][c]);
 				firstCat = false;
@@ -324,15 +329,15 @@ void LogFrame(const FrameTotals &frame, int numLanes, uint64_t frameStart, uint6
 				fputc('}', f);
 			}
 		}
-		fputs("}}\n", f);
+		WriteString("}}\n", f);
 		if (hitch) {
 			for (const Span &s : g_frameSpans) {
 				fprintf(f, "{\"span\":%llu,\"th\":", (unsigned long long)g_frameNumber);
 				WriteJsonString(f, names[s.lane]);
-				fputs(",\"c\":", f);
+				WriteString(",\"c\":", f);
 				WriteJsonString(f, g_categories[s.category]);
 				if (s.label) {
-					fputs(",\"n\":", f);
+					WriteString(",\"n\":", f);
 					WriteJsonString(f, s.label);
 				}
 				fprintf(f, ",\"l\":%d,\"t\":%0.4f,\"ms\":%0.3f,\"self\":%0.3f}\n", s.level, TicksToMs(s.begin - g_startTicks) * 0.001, TicksToMs(s.end - s.begin), TicksToMs(s.self));
