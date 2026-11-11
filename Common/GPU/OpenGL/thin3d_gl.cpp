@@ -746,7 +746,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	}
 
 	// NOTE: We only support framebuffer fetch on ES3 due to past issues..
-	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
+	// Adreno 5xx (seen on a 506, driver V@145) can fetch black instead of what an earlier draw in the same pass
+	// wrote there, so it gets framebuffer copies instead.
+	bool brokenFramebufferFetch = caps_.vendor == GPUVendor::VENDOR_QUALCOMM && gl_extensions.modelNumber < 600;
+	if (gl_extensions.IsGLES && gl_extensions.GLES3 && !brokenFramebufferFetch) {
 		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);
 
 		if (gl_extensions.EXT_shader_framebuffer_fetch) {
