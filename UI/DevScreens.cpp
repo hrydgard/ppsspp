@@ -82,6 +82,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/JitCompareScreen.h"
+#include "UI/ShareFiles.h"
 #include "android/jni/app-android.h"
 
 
@@ -121,17 +122,44 @@ void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 	}
 }
 
+// Zipped, so apps that only take known file types accept it. The zip import recognizes it too.
+static void ShareFrameDump(const Path &dumpPath) {
+	std::string name = dumpPath.GetFilename();
+	if (endsWithNoCase(name, ".ppdmp")) {
+		name.resize(name.size() - strlen(".ppdmp"));
+	}
+	if (!ShareFilesAsZip(name, { { dumpPath, "" } })) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Failed"));
+	}
+}
+
+void OnFrameDumpCreated(const Path &dumpPath, bool openNow) {
+	NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
+	std::function<void()> open;
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		open = [dumpPath]() { System_ShowFileInFolder(dumpPath); };
+	} else if (CanShareFiles()) {
+		open = [dumpPath]() { ShareFrameDump(dumpPath); };
+	}
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f, "framedump");
+	if (!open) {
+		return;
+	}
+	if (openNow) {
+		// The recorder calls back on the emulation thread.
+		System_RunOnMainThread(open);
+	} else {
+		g_OSD.SetClickCallback("framedump", open);
+	}
+}
+
 void SaveFrameDump() {
 	if (!gpu) {
 		return;
 	}
 	gpu->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
-		NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			System_ShowFileInFolder(dumpPath);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f);
-		}
+		OnFrameDumpCreated(dumpPath, true);
 	});
 }
 
