@@ -1054,6 +1054,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];
+	e.stackTrace = stackTrace;
 	Core_Break(BreakReason::CpuException, address);
 }
 
@@ -1078,6 +1079,7 @@ void Core_BreakException(u32 pc) {
 
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
+	e.stackTrace = stackTrace;
 	if (action == ExceptionAction::Break) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
