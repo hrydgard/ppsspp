@@ -68,6 +68,8 @@ namespace SaveState {
 
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(std::string_view gamePrefix, int slot);
+	// A save to the slot was asked for and isn't written yet. UIMessage::SAVESTATE_SLOT_SAVED says when it ends.
+	bool IsSlotSavePending(std::string_view gamePrefix, int slot);
 	bool HasUndoSaveInSlot(std::string_view gamePrefix, int slot);
 	bool HasUndoLastSave(std::string_view gamePrefix);
 	bool HasUndoLoad(std::string_view gamePrefix);
