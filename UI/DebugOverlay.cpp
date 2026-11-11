@@ -408,6 +408,10 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+	Draw::DrawContext *draw = ctx->GetDrawContext();
+	// On most APIs the vendor string is the GPU model.
+	std::string gpuName = draw->GetInfoString(Draw::InfoField::VENDORSTRING);
+	std::string apiName = draw->GetInfoString(Draw::InfoField::APINAME);
 
 	// First column
 	y += 65;
@@ -423,18 +427,20 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s (%s)
 %s (%s)
 %s v%d (%s)
+%s (%s)
 %s
 )",
 ExceptionTypeAsString(info.type),
 discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
+gpuName.c_str(), apiName.c_str(),
 crcStr
 );
 
 	ctx->Draw()->SetFontScale(.7f, .7f);
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 160;
+	y += 185;
 
 	if (info.type == MIPSExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
