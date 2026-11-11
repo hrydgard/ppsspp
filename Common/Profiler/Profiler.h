@@ -4,12 +4,10 @@
 #include <cstdint>
 #include <vector>
 
-#include "ppsspp_config.h"
-
-// Compiled in everywhere but iOS, UWP, libretro and builds that define NO_PROFILER (Android release
-// builds), and off until something turns it on (Profiler_SetEnabled), which costs a scope one load and
-// a branch. Check USE_PROFILER only after including this file.
-#if !defined(USE_PROFILER) && !defined(NO_PROFILER) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+// Compiled into every build (unless it defines NO_PROFILER), and off until something turns it on
+// (Profiler_SetEnabled), which costs a scope one load and a branch. Check USE_PROFILER only after
+// including this file.
+#if !defined(USE_PROFILER) && !defined(NO_PROFILER)
 #define USE_PROFILER
 #endif
 
@@ -59,14 +57,13 @@ private:
 #define PROFILE_CONCAT_INNER(a, b) a##b
 #define PROFILE_CONCAT(a, b) PROFILE_CONCAT_INNER(a, b)
 // cat must be a literal (or another constant): it's looked up once, the first time the line runs with the
-// profiler on. Checking that first skips the static's thread-safe init guard while off.
+// profiler on. Checking that first skips the static's thread-safe init guard while off. For what varies
+// between calls (which file, which syscall), add a PROFILE_LABEL.
 #define PROFILE_THIS_SCOPE(cat) \
 	ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(Profiler_IsEnabled() ? [] { \
 		static const int category = Profiler_GetCategory(cat); \
 		return category; \
 	}() : -1);
-// For a name that varies between calls.
-#define PROFILE_THIS_SCOPE_DYNAMIC(cat) ProfileThis PROFILE_CONCAT(_profile_scoped, __LINE__)(Profiler_IsEnabled() ? Profiler_GetCategory(cat) : -1);
 #define PROFILE_END_FRAME() internal_profiler_end_frame();
 
 // Names this thread's innermost open scope (which syscall, which file) in the log and the timeline.
@@ -130,7 +127,6 @@ void Profiler_GetFrameEnds(std::vector<uint64_t> *ends);
 
 #define PROFILE_INIT()
 #define PROFILE_THIS_SCOPE(cat)
-#define PROFILE_THIS_SCOPE_DYNAMIC(cat)
 #define PROFILE_END_FRAME()
 #define PROFILE_LABEL(text)
 #define PROFILE_LABEL_COPY(text)

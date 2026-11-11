@@ -297,9 +297,8 @@ other's GPU work, which moves the shares.
 
 ### Finding stalls with the frame profiler
 
-The frame profiler (`Common/Profiler/Profiler.h`) is compiled into everything but Android release
-builds, iOS, UWP and libretro, and off until something turns it on. `--profile-log=FILE` (app and
-headless) does, and writes a JSON line per frame with each thread's time per scope category, plus, for
+The frame profiler (`Common/Profiler/Profiler.h`) is compiled into every build, and off until
+something turns it on. `--profile-log=FILE` (app and headless) does, and writes a JSON line per frame with each thread's time per scope category, plus, for
 each slow frame, every scope of at least `--profile-span-ms` (default 1) that ended in it, with its
 label: which syscall, CoreTiming event, module file or pipeline. A frame is slow when it takes at least
 `--profile-hitch-ms` (default 25) and 1.5 times the median of the frames before it; each one also gets a

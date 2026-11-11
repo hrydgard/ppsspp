@@ -1186,8 +1186,6 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("gpu_call");
-
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(Log::G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);

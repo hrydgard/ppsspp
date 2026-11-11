@@ -877,8 +877,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
 
-	PROFILE_THIS_SCOPE("execprim");
-
 	FlushImm();
 	UpdateMatrixProducts();
 

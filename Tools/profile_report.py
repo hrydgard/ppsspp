@@ -152,6 +152,8 @@ def main():
     duration = chosen[-1]["t"] - chosen[0]["t"]
     out.write("%d frames over %.1f s. Frame time median %.1f ms, 95%% %.1f, 99%% %.1f, max %.1f.\n" % (
         len(chosen), duration, percentile(ms, 50), percentile(ms, 95), percentile(ms, 99), max(ms)))
+    scopes = [sum(v[1] for cats in f.get("th", {}).values() for v in cats.values()) for f in chosen]
+    out.write("Scopes per frame (all threads): median %d, max %d.\n" % (percentile(scopes, 50), max(scopes)))
     stalled = sum(behind_ms(f) for f in slow)
     out.write("%d stalls (frames %s that fell %.0f ms or more behind emulated time), %.2f s behind in all.\n" % (len(slow), rule, STALL_MS, stalled / 1000.0))
     out.write("%d more slow frames took as long as the vblanks they covered (the game not flipping, as on a PSP).\n" % len(paced))

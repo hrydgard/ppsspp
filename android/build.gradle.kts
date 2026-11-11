@@ -157,13 +157,6 @@ android {
 			} else {
 				println("WARNING: RELEASE_STORE_FILE is missing. Release builds will be unusable.")
 			}
-			// Debug and optimized builds have the frame profiler compiled in (off until turned on).
-			externalNativeBuild {
-				cmake {
-					cFlags.add("-DNO_PROFILER")
-					cppFlags.add("-DNO_PROFILER")
-				}
-			}
 		}
 	}
 	externalNativeBuild {

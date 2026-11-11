@@ -81,6 +81,28 @@ void TurnOnOnce() {
 		done = true;
 	}
 }
+
+// How many scopes all threads left in the last frame, and on average over the history: what the profiler
+// costs to run, and while off, about how many loads and branches it adds.
+void DrawScopeCount() {
+	const int historyLength = Profiler_GetHistoryLength();
+	std::vector<int> counts(historyLength);
+	std::vector<int> total(historyLength);
+	for (int t = 0; t < Profiler_GetNumThreads(); t++) {
+		for (int c = 0; c < Profiler_GetNumCategories(); c++) {
+			Profiler_GetHistoryCounts(c, t, counts.data(), historyLength);
+			for (int i = 0; i < historyLength; i++) {
+				total[i] += counts[i];
+			}
+		}
+	}
+	long long sum = 0;
+	for (int n : total) {
+		sum += n;
+	}
+	ImGui::Text("Scopes per frame: %d in the last one, %0.0f on average.", total[historyLength - 1], (double)sum / historyLength);
+}
+
 std::vector<ProfilerEvent> g_events;
 
 void DrawTimeline() {
@@ -327,6 +349,7 @@ void DrawFrameProfile(ImConfig &cfg) {
 	}
 
 	ImGui::Text("Time per frame in each category, per thread. Scale: %0.1f ms.", maxTotal * 1000.0f);
+	DrawScopeCount();
 	const float legendW = 140.0f;
 	const ImVec2 avail = ImGui::GetContentRegionAvail();
 	const float graphW = std::max(avail.x - legendW, 100.0f);
@@ -413,6 +436,7 @@ void DrawCpuProfiler(ImConfig &cfg) {
 	ImGui::Checkbox("Follow", &g_view.follow);
 	ImGui::SameLine();
 	ImGui::Text("%0.1f ms shown. Wheel zooms, dragging pans.", g_view.spanSeconds * 1000.0);
+	DrawScopeCount();
 	if (ImGui::BeginTabBar("profiler")) {
 		if (ImGui::BeginTabItem("Timeline")) {
 			DrawTimeline();

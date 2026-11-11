@@ -1924,6 +1924,26 @@ bool TestProfiler() {
 		}
 	};
 	PROFILE_INIT();
+
+	// What a scope costs while the profiler is off, against the same loop without one. For information:
+	// it's compiled into every build.
+	{
+		Profiler_SetEnabled(false);
+		volatile int sink = 0;
+		const int n = 20000000;
+		const double t0 = time_now_d();
+		for (int i = 0; i < n; i++) {
+			sink = sink + 1;
+		}
+		const double t1 = time_now_d();
+		for (int i = 0; i < n; i++) {
+			PROFILE_THIS_SCOPE("test_off");
+			sink = sink + 1;
+		}
+		const double t2 = time_now_d();
+		printf("Profiler off: %0.2f ns per scope (the loop alone takes %0.2f ns)\n", ((t2 - t1) - (t1 - t0)) / n * 1e9, (t1 - t0) / n * 1e9);
+	}
+
 	Profiler_SetEnabled(true);
 	PROFILE_END_FRAME();
 
@@ -1998,7 +2018,8 @@ bool TestProfiler() {
 					PROFILE_THIS_SCOPE("test_a");
 					PROFILE_THIS_SCOPE("test_b");
 					for (int k = 0; k < 40; k++) {
-						PROFILE_THIS_SCOPE_DYNAMIC((k & 1) ? "test_c" : "test_d");
+						PROFILE_THIS_SCOPE("test_c");
+						PROFILE_LABEL((k & 1) ? "odd" : "even");
 					}
 				}
 			});
