@@ -48,7 +48,8 @@ void IRImmRegCache::Discard(IRReg rd) {
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
 	memset(&isWritten_, 0, sizeof(isWritten_));
-	memset(&immVal_, 0, sizeof(immVal_));
+	// Only read for regs marked IMM, so the rest can stay uninitialized (this runs for each block).
+	immVal_[0] = 0;
 	SetBit(isImm_, 0);
 	SetBit(isWritten_, 0);
 	ir_ = ir;
