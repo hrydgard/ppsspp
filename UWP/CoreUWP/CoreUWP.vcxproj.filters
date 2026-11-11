@@ -677,6 +677,7 @@
     <ClInclude Include="..\..\Core\Util\DisArm64.h" />
     <ClInclude Include="..\..\Core\Util\GameManager.h" />
     <ClInclude Include="..\..\Core\Util\PPGeDraw.h" />
+    <ClInclude Include="..\..\Core\Util\KL4E.h" />
     <ClInclude Include="..\..\Core\Util\PSARUnpack.h" />
     <ClInclude Include="..\..\Core\Util\PkgUnpack.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
