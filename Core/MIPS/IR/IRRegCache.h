@@ -206,6 +206,9 @@ public:
 	void SetIRIndex(int index) {
 		irIndex_ = index;
 	}
+	// For a path that leaves the block (like reporting a bad address): flushes everything there, then
+	// puts the cache back as it was, for the code after that path.
+	void FlushAllOnSidePath();
 
 	bool IsGPRInRAM(IRReg gpr);
 	bool IsFPRInRAM(IRReg fpr);
@@ -365,6 +368,9 @@ protected:
 	RegStatusMIPS mr[TOTAL_MAPPABLE_IRREGS];
 	RegStatusNative nrInitial_[TOTAL_POSSIBLE_NATIVEREGS];
 	RegStatusMIPS mrInitial_[TOTAL_MAPPABLE_IRREGS];
+	// For FlushAllOnSidePath().
+	RegStatusNative nrSaved_[TOTAL_POSSIBLE_NATIVEREGS];
+	RegStatusMIPS mrSaved_[TOTAL_MAPPABLE_IRREGS];
 
 	bool initialReady_ = false;
 };

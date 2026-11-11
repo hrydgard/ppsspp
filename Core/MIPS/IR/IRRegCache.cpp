@@ -134,6 +134,19 @@ void IRNativeRegCacheBase::Start(u32 startPC, const IRInst *instructions, int co
 	}
 }
 
+void IRNativeRegCacheBase::FlushAllOnSidePath() {
+	// What FlushAll changes.
+	memcpy(nrSaved_, nr, sizeof(nr[0]) * config_.totalNativeRegs);
+	memcpy(mrSaved_, mr, sizeof(mr));
+	const int savedDeadTempsIndex = deadTempsDiscardedIndex_;
+
+	FlushAll();
+
+	memcpy(nr, nrSaved_, sizeof(nr[0]) * config_.totalNativeRegs);
+	memcpy(mr, mrSaved_, sizeof(mr));
+	deadTempsDiscardedIndex_ = savedDeadTempsIndex;
+}
+
 void IRNativeRegCacheBase::SetupInitialRegs() {
 	_assert_msg_(config_.totalNativeRegs > 0, "totalNativeRegs was never set by backend");
 

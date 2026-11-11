@@ -438,8 +438,7 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	// Because of that, we can avoid flushing outside this case. The flush may use SCRATCH1 for an
 	// imm, so the address waits in SCRATCH2.
 	MOV(SCRATCH2, SCRATCH1);
-	auto regsCopy = regs_;
-	regsCopy.FlushAll();
+	regs_.FlushAllOnSidePath();
 
 	// Ignores the return value, always returns to the dispatcher.
 	// Otherwise would need a thunk to restore regs.
