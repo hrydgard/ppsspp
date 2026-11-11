@@ -93,6 +93,8 @@ struct ImConfig {
 	bool audioOutOpen;
 	bool paramSFOOpen;
 	bool jitViewerOpen;
+	bool cpuProfilerOpen;
+	bool frameProfileOpen;
 
 	// HLE explorer settings
 	// bool filterByUsed = true;

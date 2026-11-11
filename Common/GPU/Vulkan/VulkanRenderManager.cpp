@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "Common/Log.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
@@ -1893,6 +1894,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FrameData &frameData = frameData_[task.frame];
 
 	if (task.runType == VKRRunType::PRESENT) {
+		PROFILE_THIS_SCOPE("vk_present");
 		if (!frameData.skipSwap) {
 			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
@@ -1932,6 +1934,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	_dbg_assert_(!frameData.hasPresentCommands);
 
+	PROFILE_THIS_SCOPE("vk_render");
 	if (!frameTimeHistory_[frameData.frameId].firstSubmit) {
 		frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
 	}
@@ -1955,10 +1958,14 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FlushDescriptors(task.frame);
 	frameData.profile.descWriteTime = time_now_d() - descStart;
 
-	queueRunner_.PreprocessSteps(task.steps);
-	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
+	{
+		PROFILE_THIS_SCOPE("vk_steps");
+		queueRunner_.PreprocessSteps(task.steps);
+		//queueRunner_.LogSteps(stepsOnThread, false);
+		queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
+	}
 
+	PROFILE_THIS_SCOPE("vk_submit");
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
 		// A frame that never drew to the backbuffer never acquired an image, so there's nothing to

@@ -1,263 +1,394 @@
-// Ultra-lightweight category profiler with history.
+// Frame profiler: per-thread event rings, with per-frame totals worked out from them.
 
-#include <mutex>
-#include <vector>
+#include <algorithm>
+#include <atomic>
 #include <cstring>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
-#include "Common/Render/DrawBuffer.h"
-
-#include "Common/TimeUtil.h"
 #include "Common/Profiler/Profiler.h"
+
+#ifdef USE_PROFILER
+
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
 
-#define MAX_CATEGORIES 64 // Can be any number, represents max profiled names.
-#define MAX_DEPTH 16      // Can be any number, represents max nesting depth of profiled names.
-#if PPSSPP_PLATFORM(IOS) && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_9_0
-// iOS did not support C++ thread_local before iOS 9
-#define MAX_THREADS 1     // Can be any number, represents concurrent threads calling the profiler.
-#else
-#define MAX_THREADS 4     // Can be any number, represents concurrent threads calling the profiler.
-#endif
-#define HISTORY_SIZE 128 // Must be power of 2
+#define MAX_CATEGORIES 64  // Names past this aren't recorded.
+#define MAX_LANES 32       // Threads recording at once. Past this, a thread isn't recorded.
+#define MAX_DEPTH 32       // Deeper scopes are recorded at this level.
+#define LANE_EVENTS 16384  // Must be a power of 2. 256 KB a thread.
+#define HISTORY_SIZE 128   // Must be a power of 2.
 
-#ifndef _DEBUG
-// If the compiler can collapse identical strings, we don't even need the strcmp.
-#define UNIFIED_CONST_STR
-#endif
+namespace {
 
-struct Category {
-	const char *name;
+struct Lane {
+	ProfilerEvent events[LANE_EVENTS];
+	// Count of events ever written. Only the owning thread writes it.
+	std::atomic<uint64_t> written{};
+	std::atomic<bool> inUse{};
+	// Guarded by g_lanesMutex.
+	char name[32]{};
+
+	// Owning thread only.
+	int depth = 0;
+
+	// End of frame only (one thread). Replays the events to attribute the time between them to the
+	// innermost open scope.
+	uint64_t aggRead = 0;
+	uint64_t aggLastTicks = 0;
+	int aggDepth = 0;
+	uint16_t aggStack[MAX_DEPTH]{};
 };
 
-struct CategoryFrame {
-	CategoryFrame() {
-		memset(time_taken, 0, sizeof(time_taken));
-		memset(count, 0, sizeof(count));
-	}
-	float time_taken[MAX_CATEGORIES];
-	int count[MAX_CATEGORIES];
+struct FrameTotals {
+	float seconds[MAX_LANES][MAX_CATEGORIES];
+	int counts[MAX_LANES][MAX_CATEGORIES];
 };
 
-struct Profiler {
-	int historyPos;
-	int depth[MAX_THREADS];
-	int parentCategory[MAX_THREADS][MAX_DEPTH];
-	double eventStart[MAX_THREADS][MAX_CATEGORIES];
-	double curFrameStart;
-};
+// Lanes are allocated as threads first record and never freed, so readers can walk them unlocked.
+// A thread that exits gives its lane back for the next new thread.
+Lane *g_lanes[MAX_LANES];
+std::atomic<int> g_numLanes;
+std::mutex g_lanesMutex;
 
-static Profiler profiler;
-static Category categories[MAX_CATEGORIES];
-static std::mutex categoriesLock;
-static int threadIdAfterLast = 0;
-static std::mutex threadsLock;
-static CategoryFrame *history;
-#if MAX_THREADS > 1
-thread_local int profilerThreadId = -1;
-#else
-static int profilerThreadId = 0;
-#endif
+const char *g_categories[MAX_CATEGORIES];
+std::atomic<int> g_numCategories;
+std::mutex g_categoriesMutex;
 
-void internal_profiler_init() {
-	memset(&profiler, 0, sizeof(profiler));
-#if MAX_THREADS == 1
-	threadIdAfterLast = 1;
-#endif
-	for (int i = 0; i < MAX_THREADS; i++) {
-		for (int j = 0; j < MAX_DEPTH; j++) {
-			profiler.parentCategory[i][j] = -1;
+std::atomic<bool> g_paused;
+bool g_initialized;
+
+// End of frame only, apart from reads of the finished frames.
+FrameTotals *g_history;
+uint64_t g_frameEnds[HISTORY_SIZE];
+int g_historyPos;
+double g_secondsPerTick;
+uint64_t g_startTicks;
+
+struct LaneOwner {
+	Lane *lane = nullptr;
+	bool failed = false;
+	~LaneOwner() {
+		if (lane) {
+			lane->inUse.store(false, std::memory_order_release);
 		}
 	}
-	history = new CategoryFrame[HISTORY_SIZE * MAX_THREADS];
-}
+};
 
-static int internal_profiler_find_thread() {
-	int thread_id = profilerThreadId;
-	if (thread_id != -1) {
-		return thread_id;
-	}
+thread_local LaneOwner t_laneOwner;
 
-	std::lock_guard<std::mutex> guard(threadsLock);
-	if (threadIdAfterLast < MAX_THREADS) {
-		thread_id = threadIdAfterLast++;
-		profilerThreadId = thread_id;
-		return thread_id;
-	}
-
-	// Just keep reusing the last one.
-	return threadIdAfterLast - 1;
-}
-
-int internal_profiler_find_cat(const char *category_name, bool create_missing) {
-	int i;
-	for (i = 0; i < MAX_CATEGORIES; i++) {
-		const char *catname = categories[i].name;
-		if (!catname)
+Lane *ClaimLane() {
+	std::lock_guard<std::mutex> guard(g_lanesMutex);
+	const int count = g_numLanes.load(std::memory_order_relaxed);
+	Lane *lane = nullptr;
+	for (int i = 0; i < count; i++) {
+		if (!g_lanes[i]->inUse.load(std::memory_order_acquire)) {
+			lane = g_lanes[i];
 			break;
-#ifdef UNIFIED_CONST_STR
-		if (catname == category_name) {
-#else
-		if (!strcmp(catname, category_name)) {
-#endif
+		}
+	}
+	if (!lane) {
+		if (count >= MAX_LANES) {
+			return nullptr;
+		}
+		lane = new Lane();
+		g_lanes[count] = lane;
+		g_numLanes.store(count + 1, std::memory_order_release);
+	}
+	lane->inUse.store(true, std::memory_order_relaxed);
+	lane->depth = 0;
+	const char *name = GetCurrentThreadName();
+	truncate_cpy(lane->name, (name && name[0]) ? name : "(unnamed)");
+	return lane;
+}
+
+inline Lane *CurrentLane() {
+	LaneOwner &owner = t_laneOwner;
+	if (!owner.lane && !owner.failed) {
+		owner.lane = ClaimLane();
+		owner.failed = owner.lane == nullptr;
+	}
+	return owner.lane;
+}
+
+inline void Record(Lane *lane, ProfilerEventType type, int category, int level) {
+	const uint64_t w = lane->written.load(std::memory_order_relaxed);
+	ProfilerEvent &e = lane->events[w & (LANE_EVENTS - 1)];
+	e.ticks = time_now_fast_ticks();
+	e.category = (uint16_t)category;
+	e.type = type;
+	e.level = (int8_t)std::min(level, MAX_DEPTH - 1);
+	lane->written.store(w + 1, std::memory_order_release);
+}
+
+// Copies event index i of the lane. False if the writer has overwritten (or may be overwriting) it.
+inline bool ReadEvent(const Lane *lane, uint64_t i, ProfilerEvent *out) {
+	*out = lane->events[i & (LANE_EVENTS - 1)];
+	std::atomic_thread_fence(std::memory_order_acquire);
+	const uint64_t w = lane->written.load(std::memory_order_relaxed);
+	return i + LANE_EVENTS > w && out->category < MAX_CATEGORIES && out->level >= 0 && out->level < MAX_DEPTH;
+}
+
+inline uint64_t OldestReadable(uint64_t written) {
+	return written > LANE_EVENTS - 1 ? written - (LANE_EVENTS - 1) : 0;
+}
+
+void Attribute(Lane *lane, int laneIndex, FrameTotals &frame, uint64_t until) {
+	if (lane->aggDepth > 0 && until > lane->aggLastTicks) {
+		frame.seconds[laneIndex][lane->aggStack[lane->aggDepth - 1]] += (float)((until - lane->aggLastTicks) * g_secondsPerTick);
+	}
+	if (until > lane->aggLastTicks) {
+		lane->aggLastTicks = until;
+	}
+}
+
+void AggregateLane(Lane *lane, int laneIndex, FrameTotals &frame, uint64_t frameEnd) {
+	const uint64_t written = lane->written.load(std::memory_order_acquire);
+	uint64_t i = lane->aggRead;
+	if (i < OldestReadable(written)) {
+		// Lost some, so the open scopes are unknown. The next event's level resyncs them.
+		i = OldestReadable(written);
+		lane->aggDepth = 0;
+	}
+	for (; i < written; i++) {
+		ProfilerEvent e;
+		if (!ReadEvent(lane, i, &e)) {
+			lane->aggDepth = 0;
+			continue;
+		}
+		if (e.ticks > frameEnd) {
+			break;
+		}
+		if (lane->aggDepth == 0) {
+			// Nothing open (or resyncing): nothing to attribute up to here.
+			lane->aggLastTicks = e.ticks;
+		}
+		Attribute(lane, laneIndex, frame, e.ticks);
+		if (e.type == ProfilerEventType::Begin) {
+			lane->aggStack[e.level] = e.category;
+			lane->aggDepth = e.level + 1;
+		} else {
+			lane->aggDepth = e.level;
+			frame.counts[laneIndex][e.category]++;
+		}
+	}
+	lane->aggRead = i;
+	Attribute(lane, laneIndex, frame, frameEnd);
+}
+
+int HistoryIndex(int i, int count) {
+	// i in [0, count), where count - 1 is the last finished frame.
+	return (g_historyPos - count + i + HISTORY_SIZE) & (HISTORY_SIZE - 1);
+}
+
+}  // namespace
+
+void internal_profiler_init() {
+	if (g_initialized) {
+		return;
+	}
+	g_secondsPerTick = fast_ticks_to_nanos() * 1e-9;
+	g_history = new FrameTotals[HISTORY_SIZE]();
+	g_startTicks = time_now_fast_ticks();
+	g_initialized = true;
+}
+
+int Profiler_GetCategory(const char *name) {
+	const int count = g_numCategories.load(std::memory_order_acquire);
+	for (int i = 0; i < count; i++) {
+		if (g_categories[i] == name) {
 			return i;
 		}
 	}
-
-	if (i < MAX_CATEGORIES && category_name && create_missing) {
-		std::lock_guard<std::mutex> guard(categoriesLock);
-		int race_check = internal_profiler_find_cat(category_name, false);
-		if (race_check == -1)
-			categories[i].name = category_name;
-		return i;
-	}
-
-	return -1;
-}
-
-// Suspend, also used to prepare for leaving.
-static void internal_profiler_suspend(int thread_id, int category, double now) {
-	double diff = now - profiler.eventStart[thread_id][category];
-	history[MAX_THREADS * profiler.historyPos + thread_id].time_taken[category] += (float)diff;
-	profiler.eventStart[thread_id][category] = 0.0;
-}
-
-// Resume, also used as part of entering.
-static void internal_profiler_resume(int thread_id, int category, double now) {
-	profiler.eventStart[thread_id][category] = now;
-}
-
-int internal_profiler_enter(const char *category_name, int *out_thread_id) {
-	int category = internal_profiler_find_cat(category_name, true);
-	int thread_id = internal_profiler_find_thread();
-	if (category == -1 || !history) {
-		return category;
-	}
-
-	int &depth = profiler.depth[thread_id];
-	if (profiler.eventStart[thread_id][category] == 0.0f) {
-		double now = time_now_d();
-		int parent = profiler.parentCategory[thread_id][depth];
-		// Temporarily suspend the parent on entering a child.
-		if (parent != -1) {
-			internal_profiler_suspend(thread_id, parent, now);
+	std::lock_guard<std::mutex> guard(g_categoriesMutex);
+	const int locked = g_numCategories.load(std::memory_order_relaxed);
+	for (int i = 0; i < locked; i++) {
+		if (!strcmp(g_categories[i], name)) {
+			return i;
 		}
-		internal_profiler_resume(thread_id, category, now);
-	} else {
-		DEBUG_LOG(Log::System, "profiler: recursive enter (%i - %s)", category, category_name);
 	}
-
-	depth++;
-	profiler.parentCategory[thread_id][depth] = category;
-
-	*out_thread_id = thread_id;
-	return category;
+	if (locked >= MAX_CATEGORIES) {
+		return -1;
+	}
+	g_categories[locked] = name;
+	g_numCategories.store(locked + 1, std::memory_order_release);
+	return locked;
 }
 
-void internal_profiler_leave(int thread_id, int category) {
-	if (category == -1 || !history) {
+void Profiler_Enter(int category) {
+	if (category < 0 || !g_initialized) {
 		return;
 	}
-
-	int &depth = profiler.depth[thread_id];
-	if (category < 0 || category >= MAX_CATEGORIES) {
-		ERROR_LOG(Log::System, "Bad category index %d", category);
-		depth--;
+	Lane *lane = CurrentLane();
+	if (!lane) {
 		return;
 	}
+	const int level = lane->depth++;
+	if (!g_paused.load(std::memory_order_relaxed)) {
+		Record(lane, ProfilerEventType::Begin, category, level);
+	}
+}
 
-	double now = time_now_d();
-
-	depth--;
-	_assert_msg_(depth >= 0, "Profiler enter/leave mismatch!");
-
-	int parent = profiler.parentCategory[thread_id][depth];
-	// When there's recursion, we don't suspend or resume.
-	if (parent != category) {
-		internal_profiler_suspend(thread_id, category, now);
-		history[MAX_THREADS * profiler.historyPos + thread_id].count[category]++;
-
-		if (parent != -1) {
-			// Resume tracking the parent.
-			internal_profiler_resume(thread_id, parent, now);
-		}
+void Profiler_Leave(int category) {
+	if (category < 0 || !g_initialized) {
+		return;
+	}
+	Lane *lane = CurrentLane();
+	// A scope entered before init has nothing to close.
+	if (!lane || lane->depth == 0) {
+		return;
+	}
+	const int level = --lane->depth;
+	if (!g_paused.load(std::memory_order_relaxed)) {
+		Record(lane, ProfilerEventType::End, category, level);
 	}
 }
 
 void internal_profiler_end_frame() {
-	int thread_id = internal_profiler_find_thread();
-	_assert_msg_(profiler.depth[thread_id] == 0, "Can't be inside a profiler scope at end of frame!");
-	profiler.curFrameStart = time_now_d();
-	profiler.historyPos++;
-	profiler.historyPos &= (HISTORY_SIZE - 1);
-	memset(&history[MAX_THREADS * profiler.historyPos], 0, sizeof(CategoryFrame) * MAX_THREADS);
+	if (!g_initialized || g_paused.load(std::memory_order_relaxed)) {
+		return;
+	}
+	const uint64_t now = time_now_fast_ticks();
+	const int pos = g_historyPos;
+	FrameTotals &frame = g_history[pos];
+	memset(&frame, 0, sizeof(frame));
+	const int numLanes = g_numLanes.load(std::memory_order_acquire);
+	for (int i = 0; i < numLanes; i++) {
+		AggregateLane(g_lanes[i], i, frame, now);
+	}
+	g_frameEnds[pos] = now;
+	g_historyPos = (pos + 1) & (HISTORY_SIZE - 1);
 }
 
 const char *Profiler_GetCategoryName(int i) {
-	return i >= 0 ? categories[i].name : "N/A";
+	return i >= 0 && i < g_numCategories.load(std::memory_order_acquire) ? g_categories[i] : "N/A";
 }
 
 int Profiler_GetHistoryLength() {
-	return HISTORY_SIZE;
+	// Leaves out the slot the next frame end will write.
+	return HISTORY_SIZE - 1;
 }
 
 int Profiler_GetNumCategories() {
-	for (int i = 0; i < MAX_CATEGORIES; i++) {
-		if (!categories[i].name)
-			return i;
-	}
-	return 0;
+	return g_numCategories.load(std::memory_order_acquire);
 }
 
 int Profiler_GetNumThreads() {
-	return threadIdAfterLast;
+	return g_numLanes.load(std::memory_order_acquire);
+}
+
+const char *Profiler_GetThreadName(int thread, char *buf, size_t bufSize) {
+	std::lock_guard<std::mutex> guard(g_lanesMutex);
+	if (thread < 0 || thread >= g_numLanes.load(std::memory_order_relaxed) || bufSize == 0) {
+		return "";
+	}
+	truncate_cpy(buf, bufSize, g_lanes[thread]->name);
+	return buf;
 }
 
 void Profiler_GetSlowestThreads(int *data, int count) {
-	int numCategories = Profiler_GetNumCategories();
-	for (int i = 0; i < HISTORY_SIZE; i++) {
-		int x = i - count + profiler.historyPos + 1;
-		while (x < 0)
-			x += HISTORY_SIZE;
-		while (x >= HISTORY_SIZE)
-			x -= HISTORY_SIZE;
-
+	const int numCategories = Profiler_GetNumCategories();
+	const int numLanes = Profiler_GetNumThreads();
+	for (int i = 0; i < count; i++) {
+		const FrameTotals &frame = g_history[HistoryIndex(i, count)];
 		float slowestTime = 0.0f;
 		data[i] = 0;
-		for (int thread = 0; thread < threadIdAfterLast; ++thread) {
+		for (int lane = 0; lane < numLanes; ++lane) {
 			float sum = 0.0f;
 			for (int c = 0; c < numCategories; ++c) {
-				sum += history[MAX_THREADS * x + thread].time_taken[c];
+				sum += frame.seconds[lane][c];
 			}
 			if (sum > slowestTime) {
 				slowestTime = sum;
-				data[i] = thread;
+				data[i] = lane;
 			}
 		}
 	}
 }
 
 void Profiler_GetSlowestHistory(int category, int *slowestThreads, float *data, int count) {
-	for (int i = 0; i < HISTORY_SIZE; i++) {
-		int x = i - count + profiler.historyPos + 1;
-		while (x < 0)
-			x += HISTORY_SIZE;
-		while (x >= HISTORY_SIZE)
-			x -= HISTORY_SIZE;
-
-		int thread = slowestThreads[i];
-		data[i] = history[MAX_THREADS * x + thread].time_taken[category];
+	for (int i = 0; i < count; i++) {
+		data[i] = category >= 0 && category < MAX_CATEGORIES ? g_history[HistoryIndex(i, count)].seconds[slowestThreads[i]][category] : 0.0f;
 	}
 }
 
 void Profiler_GetHistory(int category, int thread, float *data, int count) {
-	for (int i = 0; i < HISTORY_SIZE; i++) {
-		int x = i - count + profiler.historyPos + 1;
-		while (x < 0)
-			x += HISTORY_SIZE;
-		while (x >= HISTORY_SIZE)
-			x -= HISTORY_SIZE;
-		data[i] = history[MAX_THREADS * x + thread].time_taken[category];
+	const bool valid = category >= 0 && category < MAX_CATEGORIES && thread >= 0 && thread < MAX_LANES;
+	for (int i = 0; i < count; i++) {
+		data[i] = valid ? g_history[HistoryIndex(i, count)].seconds[thread][category] : 0.0f;
 	}
 }
+
+void Profiler_GetHistoryCounts(int category, int thread, int *data, int count) {
+	const bool valid = category >= 0 && category < MAX_CATEGORIES && thread >= 0 && thread < MAX_LANES;
+	for (int i = 0; i < count; i++) {
+		data[i] = valid ? g_history[HistoryIndex(i, count)].counts[thread][category] : 0;
+	}
+}
+
+void Profiler_SetPaused(bool paused) {
+	g_paused.store(paused, std::memory_order_relaxed);
+}
+
+bool Profiler_IsPaused() {
+	return g_paused.load(std::memory_order_relaxed);
+}
+
+uint64_t Profiler_Now() {
+	return time_now_fast_ticks();
+}
+
+uint64_t Profiler_GetStartTicks() {
+	return g_startTicks;
+}
+
+double Profiler_TicksToSeconds(int64_t ticks) {
+	return ticks * g_secondsPerTick;
+}
+
+int64_t Profiler_SecondsToTicks(double seconds) {
+	return g_secondsPerTick > 0.0 ? (int64_t)(seconds / g_secondsPerTick) : 0;
+}
+
+void Profiler_GetEvents(int thread, uint64_t from, uint64_t to, std::vector<ProfilerEvent> *events) {
+	if (thread < 0 || thread >= g_numLanes.load(std::memory_order_acquire)) {
+		return;
+	}
+	const Lane *lane = g_lanes[thread];
+	const uint64_t written = lane->written.load(std::memory_order_acquire);
+	// Ticks only grow along a lane, so binary search for the first event at or after from.
+	uint64_t lo = OldestReadable(written), hi = written;
+	while (lo < hi) {
+		const uint64_t mid = lo + (hi - lo) / 2;
+		ProfilerEvent e;
+		if (!ReadEvent(lane, mid, &e) || e.ticks < from) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	for (uint64_t i = lo; i < written; i++) {
+		ProfilerEvent e;
+		if (!ReadEvent(lane, i, &e)) {
+			continue;
+		}
+		if (e.ticks > to) {
+			break;
+		}
+		events->push_back(e);
+	}
+}
+
+void Profiler_GetFrameEnds(std::vector<uint64_t> *ends) {
+	for (int i = 0; i < HISTORY_SIZE - 1; i++) {
+		const uint64_t t = g_frameEnds[HistoryIndex(i, HISTORY_SIZE - 1)];
+		if (t != 0) {
+			ends->push_back(t);
+		}
+	}
+}
+
+#endif

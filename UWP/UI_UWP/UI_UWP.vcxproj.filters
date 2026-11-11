@@ -35,6 +35,9 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImJitViewer.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\ImDebugger\ImProfiler.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\ChatScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -226,6 +229,9 @@
     </ClInclude>
     <ClInclude Include="..\..\UI\UIAtlas.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImJitViewer.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\ImDebugger\ImProfiler.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\ChatScreen.h">
