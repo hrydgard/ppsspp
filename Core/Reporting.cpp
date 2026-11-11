@@ -95,7 +95,12 @@ namespace Reporting
 		int int1;
 		int int2;
 		int int3;
+		// Where to send it, if not the configured server.
+		std::string host;
 	};
+
+	// The server the settings enable.
+	static const char *const DEFAULT_HOST = "report.ppsspp.org";
 
 	static std::mutex crcLock;
 	static std::condition_variable crcCond;
@@ -248,13 +253,12 @@ namespace Reporting
 	}
 
 	// Returns the length of the hostname part (e.g. before the :80.)
-	static size_t ServerHostnameLength()
+	static size_t ServerHostnameLength(const std::string &hostString)
 	{
-		if (!IsEnabled())
-			return g_Config.sReportHost.npos;
+		if (hostString.empty())
+			return hostString.npos;
 
 		// IPv6 literal?
-		std::string hostString = ServerHost();
 		if (hostString[0] == '[')
 		{
 			size_t length = hostString.find("]:");
@@ -267,12 +271,8 @@ namespace Reporting
 	}
 
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)
-	static std::string ServerHostname() {
-		if (!IsEnabled())
-			return "";
-
-		std::string host = ServerHost();
-		size_t length = ServerHostnameLength();
+	static std::string ServerHostname(const std::string &host) {
+		size_t length = ServerHostnameLength(host);
 
 		// This means there's no port number - it's already the hostname.
 		if (length == host.npos)
@@ -282,13 +282,9 @@ namespace Reporting
 	}
 
 	// Returns only the port part (e.g. 80) as an int.
-	static int ServerPort()
+	static int ServerPort(const std::string &host)
 	{
-		if (!IsEnabled())
-			return 0;
-
-		std::string host = ServerHost();
-		size_t offset = ServerHostnameLength();
+		size_t offset = ServerHostnameLength(host);
 		// If there's no port, use the default one.
 		if (offset == host.npos)
 			return DEFAULT_PORT;
@@ -304,10 +300,14 @@ namespace Reporting
 		return ++spamProtectionCount >= SPAM_LIMIT;
 	}
 
-	static void SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
+	// host is "hostname" or "hostname:port".
+	static void SendReportRequest(const std::string &host, const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
+		if (host.empty()) {
+			return;
+		}
 		char url[1024];
-		std::string hostname = ServerHostname();
-		int port = ServerPort();
+		std::string hostname = ServerHostname(host);
+		int port = ServerPort(host);
 		snprintf(url, sizeof(url), "http://%s:%d%s", hostname.c_str(), port, uri);
 		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::RequestFlags::Default, callback);
 	}
@@ -485,6 +485,11 @@ namespace Reporting
 	int Process(const Payload &payload) {
 		Buffer output;
 
+		std::string host = payload.host;
+		if (host.empty() && IsEnabled()) {
+			host = ServerHost();
+		}
+
 		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
 		AddGameInfo(postdata);
@@ -500,7 +505,7 @@ namespace Reporting
 			postdata.Add("verify", payload.string1 + payload.string2);
 
 			postdata.Finish();
-			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+			SendReportRequest(host, "/report/message", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
 				serverWorking = !req.Failed();
 			});
 			break;
@@ -518,7 +523,7 @@ namespace Reporting
 
 			postdata.Finish();
 			serverWorking = true;
-			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+			SendReportRequest(host, "/report/compat", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
 				if (req.Failed()) {
 					serverWorking = false;
 					return;
@@ -627,5 +632,58 @@ namespace Reporting
 
 	std::vector<std::string> CompatibilitySuggestions() {
 		return lastCompatResult;
+	}
+
+	bool CanReportCrashManually() {
+		return !IsEnabled() && IsSupported();
+	}
+
+	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
+		if (userRequested ? !CanReportCrashManually() : !MessageAllowed()) {
+			return;
+		}
+
+		// The message is what the server groups reports by, so the details only go in the value.
+		const char *message = nullptr;
+		char formatted[1024];
+		switch (info.type) {
+		case MIPSExceptionType::MEMORY:
+			message = "Crash: %s at %08x (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, MemoryExceptionTypeAsString(info.memory_type), info.address, info.pc);
+			break;
+		case MIPSExceptionType::BAD_EXEC_ADDR:
+			message = "Crash: %s to %08x (PC %08x, RA %08x)";
+			snprintf(formatted, sizeof(formatted), message, ExecExceptionTypeAsString(info.exec_type), info.address, info.pc, info.ra);
+			break;
+		case MIPSExceptionType::FPU:
+			message = "Crash: FPU %s (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, FPUExceptionTypeAsString(info.fpu_type), info.pc);
+			break;
+		case MIPSExceptionType::BREAK:
+			message = "Crash: break instruction (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, info.pc);
+			break;
+		case MIPSExceptionType::HLE:
+			message = "Crash: HLE error: %s (PC %08x, RA %08x)";
+			snprintf(formatted, sizeof(formatted), message, info.info.c_str(), info.pc, info.ra);
+			break;
+		default:
+			return;
+		}
+
+		std::string value = formatted;
+		if (!info.stackTrace.empty()) {
+			value += "\n";
+			value += info.stackTrace.substr(0, 2000);
+		}
+
+		Payload payload{};
+		payload.type = RequestType::MESSAGE;
+		payload.string1 = message;
+		payload.string2 = value;
+		if (userRequested) {
+			payload.host = DEFAULT_HOST;
+		}
+		Process(payload);
 	}
 }

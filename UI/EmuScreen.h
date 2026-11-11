@@ -148,6 +148,11 @@ private:
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;
+	// On the crash screen while reporting is off.
+	UI::Button *reportCrashButton_ = nullptr;
+	// The current crash has been seen (and reported, if reporting is on).
+	bool crashSeen_ = false;
+	bool crashReported_ = false;
 	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
 	// Set when the chat opens. Stick movements don't reach the control mapper while it's open (key

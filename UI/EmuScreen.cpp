@@ -1291,6 +1291,18 @@ void EmuScreen::CreateViews() {
 	});
 	backButton_->SetVisibility(V_GONE);
 
+	auto rp = GetI18NCategory(I18NCat::REPORTING);
+	reportCrashButton_ = buttons->Add(new Button(rp->T("Report crash")));
+	reportCrashButton_->OnClick.Add([this](UI::EventParams &) {
+		if (crashSeen_ && !crashReported_) {
+			Reporting::ReportCrash(Core_GetExceptionInfo(), true);
+			crashReported_ = true;
+			auto rp = GetI18NCategory(I18NCat::REPORTING);
+			g_OSD.Show(OSDType::MESSAGE_SUCCESS, rp->T("Crash report sent"));
+		}
+	});
+	reportCrashButton_->SetVisibility(V_GONE);
+
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, Centering::Both)));
 	DeviceOrientation orientation = GetDeviceOrientation();
 	cardboardDisableButton_->OnClick.Add([deviceOrientation](UI::EventParams &) {
@@ -1467,6 +1479,20 @@ void EmuScreen::update() {
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
 	backButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
+
+	// The same condition as drawing the crash screen.
+	const bool crashed = (coreState == CoreState::CORE_RUNTIME_ERROR || coreState == CoreState::CORE_STEPPING_CPU) && Core_GetExceptionInfo().type != MIPSExceptionType::NONE;
+	if (crashed && !crashSeen_) {
+		crashSeen_ = true;
+		crashReported_ = false;
+		if (Reporting::IsEnabled()) {
+			Reporting::ReportCrash(Core_GetExceptionInfo(), false);
+			crashReported_ = true;
+		}
+	} else if (!crashed) {
+		crashSeen_ = false;
+	}
+	reportCrashButton_->SetVisibility(crashed && !crashReported_ && Reporting::CanReportCrashManually() ? V_VISIBLE : V_GONE);
 
 	if (chatButton_ && chatMenu_) {
 		if (chatMenu_->GetVisibility() != V_GONE) {

@@ -26,6 +26,7 @@
 #include "Common/LogReporting.h"
 
 class PointerWrap;
+struct MIPSExceptionInfo;
 
 namespace Reporting
 {
@@ -63,6 +64,13 @@ namespace Reporting
 
 	// Get the latest compatibility result.  Only valid when GetStatus() is not BUSY.
 	std::vector<std::string> CompatibilitySuggestions();
+
+	// Reporting is off, but a crash from this session would make a useful report.
+	bool CanReportCrashManually();
+
+	// Reports a game crash. Automatically when reporting is enabled, or when the user asks for it
+	// (to the default server, since reporting is off then).
+	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested);
 
 	// Queues game for CRC hash if needed.
 	void QueueCRC(const Path &gamePath);
