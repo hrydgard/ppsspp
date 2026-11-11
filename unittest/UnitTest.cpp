@@ -1917,15 +1917,22 @@ bool TestSymbolMap() {
 // than there are lanes) while frames are being totalled. Only does anything with USE_PROFILER.
 bool TestProfiler() {
 #ifdef USE_PROFILER
+	// Busy, not sleeping: sleeps have a scope of their own.
+	auto spin = [](int ms) {
+		const double end = time_now_d() + ms * 0.001;
+		while (time_now_d() < end) {
+		}
+	};
 	PROFILE_INIT();
+	Profiler_SetEnabled(true);
 	PROFILE_END_FRAME();
 
 	{
 		PROFILE_THIS_SCOPE("test_outer");
-		sleep_ms(20, "test");
+		spin(20);
 		{
 			PROFILE_THIS_SCOPE("test_inner");
-			sleep_ms(30, "test");
+			spin(30);
 		}
 	}
 	PROFILE_END_FRAME();
@@ -1952,7 +1959,7 @@ bool TestProfiler() {
 	Profiler_GetHistory(outerCat, lane, outer.data(), len);
 	Profiler_GetHistory(innerCat, lane, inner.data(), len);
 	Profiler_GetHistoryCounts(innerCat, lane, counts.data(), len);
-	// Outer gets only its own time, not the inner scope's. Sleeps run long, never short.
+	// Outer gets only its own time, not the inner scope's.
 	EXPECT_TRUE(outer[len - 1] >= 0.019f && outer[len - 1] < 0.035f);
 	EXPECT_TRUE(inner[len - 1] >= 0.029f && inner[len - 1] < 0.045f);
 	EXPECT_EQ_INT(counts[len - 1], 1);
@@ -1960,9 +1967,9 @@ bool TestProfiler() {
 	// A scope open across a frame end is split between the frames.
 	{
 		PROFILE_THIS_SCOPE("test_outer");
-		sleep_ms(10, "test");
+		spin(10);
 		PROFILE_END_FRAME();
-		sleep_ms(10, "test");
+		spin(10);
 	}
 	PROFILE_END_FRAME();
 	Profiler_GetHistory(outerCat, lane, outer.data(), len);
@@ -2003,6 +2010,7 @@ bool TestProfiler() {
 	stop = true;
 	reader.join();
 	EXPECT_TRUE(Profiler_GetNumThreads() <= 32);
+	Profiler_SetEnabled(false);
 #endif
 	return true;
 }

@@ -20,6 +20,7 @@
 #include <cmath>
 
 #include "Common/GPU/thin3d.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
@@ -3508,6 +3509,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 // dithering behavior and games that expect exact colors like Danganronpa, so we
 // can't entirely be rid of the CPU path.) -- unknown
 void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode, u8 *shadow) {
+	PROFILE_THIS_SCOPE("fb_readback");
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(Log::FrameBuf, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
@@ -3738,6 +3740,7 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 
 // TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
 void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+	PROFILE_THIS_SCOPE("fb_clut_download");
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	// Without an fbo there's nothing to read back (ReadbackFramebuffer would read the backbuffer instead).
 	if (vfb && vfb->fb_stride != 0 && vfb->fbo) {

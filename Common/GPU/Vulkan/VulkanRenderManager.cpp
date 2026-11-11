@@ -30,6 +30,8 @@ using namespace PPSSPP_VK;
 
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
+	PROFILE_THIS_SCOPE("pipeline_create");
+	PROFILE_LABEL_COPY(tag_.c_str());
 	// Good torture test to test the shutdown-while-precompiling-shaders issue on PC where it's normally
 	// hard to catch because shaders compile so fast.
 	// sleep_ms(200);
@@ -52,8 +54,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	}
 
 	// Fill in the last part of the desc since now it's time to block.
-	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
-	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
+	VkShaderModule vs, fs;
+	{
+		PROFILE_THIS_SCOPE("wait_shaders");
+		vs = desc->vertexShader->BlockUntilReady();
+		fs = desc->fragmentShader->BlockUntilReady();
+	}
 
 	if (!vs || !fs) {
 		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing shader modules");
@@ -968,6 +974,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Makes sure the submission from the previous time around has happened. Otherwise
 	// we are not allowed to wait from another thread here..
 	if (useRenderThread_) {
+		PROFILE_THIS_SCOPE("wait_submit");
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
 		while (!frameData.readyForFence) {
 			frameData.fenceCondVar.wait(lock);
@@ -984,8 +991,11 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
-	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Device lost in vkWaitForFences");
+	{
+		PROFILE_THIS_SCOPE("wait_gpu");
+		if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
+			_assert_msg_(false, "Device lost in vkWaitForFences");
+		}
 	}
 
 	if (!RecreatePresentationIfNeeded()) {
@@ -2028,6 +2038,8 @@ void VulkanRenderManager::FlushSync() {
 		}
 
 		{
+			// Waits for the render thread to run everything queued so far, and the GPU to finish it.
+			PROFILE_THIS_SCOPE("wait_sync");
 			std::unique_lock<std::mutex> lock(syncMutex_);
 			// Wait for the flush to be hit, since we're syncing.
 			while (!frameData.syncDone) {

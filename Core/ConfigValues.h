@@ -290,9 +290,7 @@ enum class DebugOverlay : int {
 	DEBUG_STATS,
 	FRAME_GRAPH,
 	FRAME_TIMING,
-#ifdef USE_PROFILER
-	FRAME_PROFILE,
-#endif
+	FRAME_PROFILE,  // Draws nothing in builds without USE_PROFILER.
 	CONTROL,
 	Audio,
 	GPU_PROFILE,

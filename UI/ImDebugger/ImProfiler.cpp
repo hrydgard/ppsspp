@@ -72,12 +72,21 @@ struct TimelineView {
 };
 
 TimelineView g_view;
+
+// The first time a profiler window shows. After that, its Record checkbox decides.
+void TurnOnOnce() {
+	static bool done = false;
+	if (!done) {
+		Profiler_SetEnabled(true);
+		done = true;
+	}
+}
 std::vector<ProfilerEvent> g_events;
 
 void DrawTimeline() {
 	TimelineView &view = g_view;
 	const uint64_t now = Profiler_Now();
-	if (view.follow && !Profiler_IsPaused()) {
+	if (view.follow && Profiler_IsEnabled()) {
 		view.end = now;
 	}
 	const int64_t span = std::max<int64_t>(Profiler_SecondsToTicks(view.spanSeconds), 1);
@@ -118,7 +127,7 @@ void DrawTimeline() {
 		const double newSpan = std::clamp(view.spanSeconds * pow(0.85, io.MouseWheel), 0.0001, 2.0);
 		const int64_t newSpanTicks = Profiler_SecondsToTicks(newSpan);
 		view.spanSeconds = newSpan;
-		if (!view.follow || Profiler_IsPaused()) {
+		if (!view.follow || !Profiler_IsEnabled()) {
 			view.end = anchor + (uint64_t)((1.0 - frac) * newSpanTicks);
 		}
 	}
@@ -142,9 +151,11 @@ void DrawTimeline() {
 
 	struct Open {
 		uint64_t start;
+		const char *label;
 		bool valid;
 	};
 	const char *hoveredName = nullptr;
+	const char *hoveredLabel = nullptr;
 	double hoveredMs = 0.0;
 	float y = origin.y + rowH;
 	for (int t = 0; t < numThreads; t++) {
@@ -157,7 +168,7 @@ void DrawTimeline() {
 
 		Open open[32]{};
 		int maxLevel = 0;
-		auto drawBar = [&](int level, int category, uint64_t from, uint64_t to) {
+		auto drawBar = [&](int level, int category, uint64_t from, uint64_t to, const char *label) {
 			maxLevel = std::max(maxLevel, level);
 			if (level >= view.laneDepth[t]) {
 				return;
@@ -175,15 +186,16 @@ void DrawTimeline() {
 			}
 			if (hovered && io.MousePos.x >= a.x && io.MousePos.x < b.x && io.MousePos.y >= a.y && io.MousePos.y < b.y) {
 				hoveredName = name;
+				hoveredLabel = label;
 				hoveredMs = Profiler_TicksToSeconds((int64_t)(to - from)) * 1000.0;
 			}
 		};
 		for (const ProfilerEvent &e : g_events) {
 			if (e.type == ProfilerEventType::Begin) {
-				open[e.level] = Open{ e.ticks, true };
+				open[e.level] = Open{ e.ticks, e.label, true };
 			} else {
 				// Without its Begin, the scope started before the view.
-				drawBar(e.level, e.category, open[e.level].valid ? open[e.level].start : viewStart, e.ticks);
+				drawBar(e.level, e.category, open[e.level].valid ? open[e.level].start : viewStart, e.ticks, open[e.level].valid ? open[e.level].label : nullptr);
 				open[e.level].valid = false;
 			}
 		}
@@ -197,7 +209,7 @@ void DrawTimeline() {
 						break;
 					}
 				}
-				drawBar(level, category, open[level].start, std::min(viewEnd, now));
+				drawBar(level, category, open[level].start, std::min(viewEnd, now), open[level].label);
 			}
 		}
 		if (maxLevel + 1 > view.laneDepth[t]) {
@@ -218,7 +230,7 @@ void DrawTimeline() {
 	dl->PopClipRect();
 
 	if (hoveredName) {
-		ImGui::SetTooltip("%s\n%0.3f ms", hoveredName, hoveredMs);
+		ImGui::SetTooltip("%s%s%s\n%0.3f ms", hoveredName, hoveredLabel ? ": " : "", hoveredLabel ? hoveredLabel : "", hoveredMs);
 	}
 }
 
@@ -283,6 +295,7 @@ void DrawFrameProfile(ImConfig &cfg) {
 		return;
 	}
 #ifdef USE_PROFILER
+	TurnOnOnce();
 	const int numCategories = Profiler_GetNumCategories();
 	const int numThreads = Profiler_GetNumThreads();
 	const int historyLength = Profiler_GetHistoryLength();
@@ -391,9 +404,10 @@ void DrawCpuProfiler(ImConfig &cfg) {
 		return;
 	}
 #ifdef USE_PROFILER
-	bool paused = Profiler_IsPaused();
-	if (ImGui::Checkbox("Pause", &paused)) {
-		Profiler_SetPaused(paused);
+	TurnOnOnce();
+	bool record = Profiler_IsEnabled();
+	if (ImGui::Checkbox("Record", &record)) {
+		Profiler_SetEnabled(record);
 	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Follow", &g_view.follow);

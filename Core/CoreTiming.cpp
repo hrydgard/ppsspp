@@ -409,6 +409,8 @@ void ProcessEvents() {
 			Event *evt = first;
 			first = first->next;
 			if (evt->type >= 0 && evt->type < (int)event_types.size()) {
+				PROFILE_THIS_SCOPE("event");
+				PROFILE_LABEL(event_types[evt->type].name);
 				event_types[evt->type].callback(evt->userdata, (int)(GetTicks(currentMIPS) - evt->time));
 			} else {
 				_dbg_assert_msg_(false, "Bad event type %d", evt->type);

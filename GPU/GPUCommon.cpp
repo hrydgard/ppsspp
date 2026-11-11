@@ -2611,6 +2611,7 @@ void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
+	PROFILE_THIS_SCOPE("gpu_memcpy");
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
 		return false;
@@ -2657,6 +2658,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 }
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
+	PROFILE_THIS_SCOPE("gpu_memset");
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemorySet: %08x, value %02x, size %d", dest, v, size);
 		return false;
@@ -2698,6 +2700,7 @@ bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 }
 
 bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
+	PROFILE_THIS_SCOPE("gpu_upload");
 	if (Memory::IsVRAMAddress(dest)) {
 		recorder_.NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::DEBUG_NOTIFIED);

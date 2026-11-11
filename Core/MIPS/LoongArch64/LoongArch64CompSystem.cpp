@@ -177,13 +177,7 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 		SaveStaticRegisters();
 
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-#ifdef USE_PROFILER
-		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		LI(R4, (uintptr_t)mips_);
-		LI(R5, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscall, SCRATCH2);
-#else
-		// Skip the CallSyscall where possible.
+		// Skip the CallSyscall where possible (GetQuickSyscallFunc says when not).
 		{
 			MIPSOpcode op(inst.constant);
 			const HLEFunction *func = GetSyscallFunctionData(op, 0);
@@ -205,7 +199,6 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 				QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
 			}
 		}
-#endif
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.

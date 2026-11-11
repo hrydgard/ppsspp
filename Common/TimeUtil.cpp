@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "Common/TimeUtil.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Data/Random/Rng.h"
 #include "Common/Log.h"
 
@@ -290,6 +291,8 @@ void sleep_ms(int ms, const char *reason) {
 	if (ms <= 0) {
 		return;
 	}
+	PROFILE_THIS_SCOPE("sleep");
+	PROFILE_LABEL(reason);
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep %d ms: %s", ms, reason);
 #endif
@@ -308,6 +311,8 @@ void sleep_us(int us, const char *reason) {
 	if (us <= 0) {
 		return;
 	}
+	PROFILE_THIS_SCOPE("sleep");
+	PROFILE_LABEL(reason);
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep %d us: %s", us, reason);
 #endif
@@ -327,6 +332,8 @@ void sleep_precise(double seconds, const char *reason) {
 	if (seconds <= 0.0) {
 		return;
 	}
+	PROFILE_THIS_SCOPE("sleep");
+	PROFILE_LABEL(reason);
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep precise %f s: %s", seconds, reason);
 #endif
@@ -384,6 +391,8 @@ void sleep_approx(double seconds, const char *reason) {
 	if (seconds <= 0.0) {
 		return;
 	}
+	PROFILE_THIS_SCOPE("sleep");
+	PROFILE_LABEL(reason);
 #if SLEEP_LOG_ENABLED
 	INFO_LOG(Log::System, "Sleep approx %f s: %s", seconds, reason);
 #endif

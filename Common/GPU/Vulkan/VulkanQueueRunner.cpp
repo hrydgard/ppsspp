@@ -5,6 +5,7 @@
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Log.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/TimeUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
@@ -1303,6 +1304,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				if (compileHere) {
 					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
 				}
+				PROFILE_THIS_SCOPE("wait_pipeline");
 				VkPipeline pipeline = promise->BlockUntilReady();
 
 				if (pipeline != VK_NULL_HANDLE) {

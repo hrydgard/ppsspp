@@ -2049,11 +2049,9 @@ void EmuScreen::renderUI() {
 		}
 	}
 
-#ifdef USE_PROFILER
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_PROFILE && PSP_IsInited()) {
 		DrawProfile(*ctx);
 	}
-#endif
 
 	if (g_Config.bShowGPOLEDs) {
 		// Draw a vertical strip of LEDs at the right side of the screen.

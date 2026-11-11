@@ -188,13 +188,7 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 		SaveStaticRegisters();
 
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-#ifdef USE_PROFILER
-		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		MOVP2R(R0, mips_);
-		MOVI2R(R1, inst.constant);
-		QuickCallFunction(R12, &CallSyscall);
-#else
-		// Skip the CallSyscall where possible.
+		// Skip the CallSyscall where possible (GetQuickSyscallFunc says when not).
 		{
 			MIPSOpcode op(inst.constant);
 			const HLEFunction *func = GetSyscallFunctionData(op, 0);
@@ -216,7 +210,6 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 				QuickCallFunction(R12, &CallSyscallUnresolvedAtPC);
 			}
 		}
-#endif
 
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
