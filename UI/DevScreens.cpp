@@ -33,6 +33,7 @@
 #include "Common/Audio/AudioBackend.h"
 
 #include "Common/File/AndroidStorage.h"
+#include "Common/File/DirListing.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -82,6 +83,7 @@
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/JitCompareScreen.h"
+#include "UI/ShareFiles.h"
 #include "android/jni/app-android.h"
 
 
@@ -121,17 +123,132 @@ void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 	}
 }
 
+// Zipped, so apps that only take known file types accept it. The zip import recognizes it too.
+static void ShareFrameDump(const Path &dumpPath) {
+	std::string name = dumpPath.GetFilename();
+	if (endsWithNoCase(name, ".ppdmp")) {
+		name.resize(name.size() - strlen(".ppdmp"));
+	}
+	if (!ShareFilesAsZip(name, { { dumpPath, "" } })) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Failed"));
+	}
+}
+
+static bool CopyFileContents(const Path &src, const Path &dest) {
+	FILE *in = File::OpenCFile(src, "rb");
+	if (!in) {
+		return false;
+	}
+	// Content URIs can be written but not created this way, so this works on a document the picker made.
+	FILE *out = File::OpenCFile(dest, "wb");
+	if (!out) {
+		fclose(in);
+		return false;
+	}
+	bool success = true;
+	char buffer[65536];
+	size_t count;
+	while ((count = fread(buffer, 1, sizeof(buffer), in)) > 0) {
+		if (fwrite(buffer, 1, count, out) != count) {
+			success = false;
+			break;
+		}
+	}
+	if (ferror(in)) {
+		success = false;
+	}
+	fclose(in);
+	if (fclose(out) != 0) {
+		success = false;
+	}
+	return success;
+}
+
+static bool CanSaveFileAs() {
+#if PPSSPP_PLATFORM(ANDROID)
+	return System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER);
+#else
+	return false;
+#endif
+}
+
+// Where a dump can't be shown in its folder: share it, save it somewhere the user picks, or neither.
+class FrameDumpPopupScreen : public UI::PopupScreen {
+public:
+	FrameDumpPopupScreen(const Path &dumpPath) : PopupScreen(dumpPath.GetFilename()), dumpPath_(dumpPath) {}
+	const char *tag() const override { return "FrameDumpPopup"; }
+
+protected:
+	bool ShowButtons() const override { return false; }
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		using namespace UI;
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		if (CanShareFiles()) {
+			parent->Add(new Choice(di->T("Share"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
+				ShareFrameDump(dumpPath_);
+				TriggerFinish(DR_OK);
+			});
+		}
+		if (CanSaveFileAs()) {
+			parent->Add(new Choice(di->T("Save"), ImageID("I_FILE_SAVE")))->OnClick.Add([this, di](UI::EventParams &e) {
+				// Stays open until the picker answers, since the answer is dropped once the screen is gone.
+				System_BrowseForFileSave(GetRequesterToken(), di->T("Save"), dumpPath_.GetFilename(), BrowseFileType::ANY, [this](std::string_view value, int) {
+					auto sy = GetI18NCategory(I18NCat::SYSTEM);
+					const Path dest(value);
+					if (CopyFileContents(dumpPath_, dest)) {
+						// A picked document's URI ends in an ID, so ask for its name.
+						File::FileInfo info;
+						std::string name = dumpPath_.GetFilename();
+						if (File::GetFileInfo(dest, &info) && !info.name.empty()) {
+							name = info.name;
+						}
+						g_OSD.Show(OSDType::MESSAGE_SUCCESS, name);
+					} else {
+						g_OSD.Show(OSDType::MESSAGE_ERROR, sy->T("Failed"));
+					}
+					TriggerFinish(DR_OK);
+				});
+			});
+		}
+		parent->Add(new Choice(pa->T("Continue")))->OnClick.Add([this](UI::EventParams &e) {
+			TriggerFinish(DR_CANCEL);
+		});
+	}
+
+private:
+	Path dumpPath_;
+};
+
+extern ScreenManager *g_screenManager;
+
+void OnFrameDumpCreated(const Path &dumpPath, bool openNow) {
+	NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
+	std::function<void()> open;
+	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
+		open = [dumpPath]() { System_ShowFileInFolder(dumpPath); };
+	} else if (CanShareFiles() || CanSaveFileAs()) {
+		open = [dumpPath]() { g_screenManager->push(new FrameDumpPopupScreen(dumpPath)); };
+	}
+	g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f, "framedump");
+	if (!open) {
+		return;
+	}
+	if (openNow) {
+		// The recorder calls back on the emulation thread.
+		System_RunOnMainThread(open);
+	} else {
+		g_OSD.SetClickCallback("framedump", open);
+	}
+}
+
 void SaveFrameDump() {
 	if (!gpu) {
 		return;
 	}
 	gpu->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
-		NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
-		if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-			System_ShowFileInFolder(dumpPath);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f);
-		}
+		OnFrameDumpCreated(dumpPath, true);
 	});
 }
 
@@ -155,12 +272,18 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		screenManager()->push(new LogConfigScreen());
 	});
 
-	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
+	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
+		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
+			SaveFrameDump();
+		});
+	}
+
+	items->Add(new Choice(dev->T("Debugger"), ImageID("I_DEBUGGER")))->OnClick.Add([](UI::EventParams &e) {
 		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 	});
 
 	if (WebServerRunning(WebServerFlags::DEBUGGER)) {
-		items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
+		items->Add(new Choice(dev->T("Remote debugger"), ImageID("I_NETWORK")))->OnClick.Add([](UI::EventParams &e) {
 			int port = g_Config.iRemoteISOPort;  // Also used for serving a local remote debugger.
 			if (g_Config.bRemoteDebuggerLocal) {
 				// TODO: Need to modify this URL to add /cpu when we upgrade to the latest version of the web debugger.
@@ -212,12 +335,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([this, dev](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
-
-	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
-			SaveFrameDump();
-		});
-	}
 
 	// This one is not very useful these days, and only really on desktop. Hide it on other platforms.
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {

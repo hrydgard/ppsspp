@@ -771,14 +771,9 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 			if (!gpu) {
 				return;
 			}
+			// Not opened right away, which would interrupt the game.
 			gpu->GetRecorder()->RecordNextFrame([](const Path &dumpPath) {
-				NOTICE_LOG(Log::System, "Frame dump created at '%s'", dumpPath.c_str());
-				g_OSD.Show(OSDType::MESSAGE_SUCCESS, GetFriendlyPath(dumpPath), 7.0f, "framedump");
-				if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
-					g_OSD.SetClickCallback("framedump", [dumpPath]() {
-						System_ShowFileInFolder(dumpPath);
-					});
-				}
+				OnFrameDumpCreated(dumpPath, false);
 			});
 		}
 		break;

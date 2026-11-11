@@ -1818,6 +1818,30 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.e(TAG, e.toString());
 				return false;
 			}
+		} else if (command.equals("browse_file_save")) {
+			try {
+				// requestId:@:suggested filename
+				String[] param = params.split(":@:", 2);
+				int requestId = Integer.parseInt(param[0]);
+				Log.i(TAG, "browse_file_save request ID: " + requestId);
+				Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+				intent.addCategory(Intent.CATEGORY_OPENABLE);
+				// The generic type keeps the extension of the suggested name.
+				intent.setType("application/octet-stream");
+				if (param.length > 1) {
+					intent.putExtra(Intent.EXTRA_TITLE, param[1]);
+				}
+
+				Intent proxy = new Intent(this, DocumentResultProxyActivity.class);
+				proxy.putExtra("picker_intent", intent);
+				proxy.putExtra("request_id", requestId);
+				startActivity(proxy);
+				return true;
+			} catch (Exception e) {
+				NativeApp.reportException(e, params);
+				Log.e(TAG, e.toString());
+				return false;
+			}
 		} else if (command.equals("browse_folder")) {
 			try {
 				int requestId = Integer.parseInt(params);

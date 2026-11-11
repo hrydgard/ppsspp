@@ -213,3 +213,7 @@ public:
 void DrawProfile(UIContext &ui);
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager);
+
+// Tells the user where the dump went. With openNow, shows it in its folder (or shares it, where
+// folders can't be shown) right away, otherwise when the message is clicked. Callable from any thread.
+void OnFrameDumpCreated(const Path &dumpPath, bool openNow);

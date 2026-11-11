@@ -61,6 +61,7 @@
 #include "UI/MainScreen.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/SavedataScreen.h"
+#include "UI/ShareFiles.h"
 #include "UI/MiscViews.h"
 
 // This is in an objective-C file.
@@ -295,6 +296,10 @@ void GameScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// Could have been the firmware installer, or a deleted game update.
 	if (lookupsStarted_) {
 		StartLookups();
+	}
+	if (!strcmp(dialog->tag(), "Savedata")) {
+		// Saves may have been deleted or imported there. update() recreates the views when the size is in.
+		info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, GameInfoFlags::SAVEDATA_SIZE);
 	}
 	UITwoPaneBaseDialogScreen::dialogFinished(dialog, result);
 }
@@ -712,6 +717,18 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
+	if (info_->saveDataSize || info_->installDataSize) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		parent->Add(new Choice(sa->T("Savedata Manager"), ImageID("I_FILE_SAVE")))->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new SavedataScreen(gamePath_));
+		});
+	}
+	if (info_->saveDataSize && CanShareFiles()) {
+		auto sa = GetI18NCategory(I18NCat::SAVEDATA);
+		parent->Add(new Choice(sa->T("Export all saves for this game"), ImageID("I_SHARE")))->OnClick.Add([this](UI::EventParams &e) {
+			ExportAllGameSavesForGame(info_.get());
+		});
+	}
 	if (info_->saveDataSize) {
 		Choice *btnDeleteSaveData = new Choice(ga->T("Delete Save Data"), ImageID("I_TRASHCAN"));
 		parent->Add(btnDeleteSaveData)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);

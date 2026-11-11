@@ -1197,6 +1197,10 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::BROWSE_FOR_FILE_SAVE:
+		// The type isn't passed on, the picker keeps the suggested name's extension.
+		PushCommand("browse_file_save", StringFromFormat("%d:@:%s", requestId, param2.c_str()), requestId);
+		return true;
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 		PushCommand("browse_folder", StringFromFormat("%d", requestId), requestId);
 		return true;

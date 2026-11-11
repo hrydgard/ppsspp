@@ -576,6 +576,7 @@ public:
 
 	// Outlines it, to point it out without the keyboard focus (which would turn on keyboard navigation).
 	void SetHighlighted(bool highlighted) { highlighted_ = highlighted; }
+	bool IsHighlighted() const { return highlighted_; }
 
 	Event OnClick;
 
