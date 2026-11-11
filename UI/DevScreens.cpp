@@ -272,12 +272,18 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		screenManager()->push(new LogConfigScreen());
 	});
 
-	items->Add(new Choice(dev->T("Debugger")))->OnClick.Add([](UI::EventParams &e) {
+	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
+		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
+			SaveFrameDump();
+		});
+	}
+
+	items->Add(new Choice(dev->T("Debugger"), ImageID("I_DEBUGGER")))->OnClick.Add([](UI::EventParams &e) {
 		g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 	});
 
 	if (WebServerRunning(WebServerFlags::DEBUGGER)) {
-		items->Add(new Choice(dev->T("Remote debugger")))->OnClick.Add([](UI::EventParams &e) {
+		items->Add(new Choice(dev->T("Remote debugger"), ImageID("I_NETWORK")))->OnClick.Add([](UI::EventParams &e) {
 			int port = g_Config.iRemoteISOPort;  // Also used for serving a local remote debugger.
 			if (g_Config.bRemoteDebuggerLocal) {
 				// TODO: Need to modify this URL to add /cpu when we upgrade to the latest version of the web debugger.
@@ -329,12 +335,6 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([this, dev](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
-
-	if (PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP) {
-		items->Add(new Choice(dev->T("Create frame dump")))->OnClick.Add([](UI::EventParams &e) {
-			SaveFrameDump();
-		});
-	}
 
 	// This one is not very useful these days, and only really on desktop. Hide it on other platforms.
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
