@@ -29,6 +29,9 @@
 #include "Common/System/OSD.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/VR/PPSSPPVR.h"
+#ifdef __LIBRETRO__
+#include "libretro/LibretroVR.h"
+#endif
 #include "Common/Math/geom2d.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -725,6 +728,11 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 }
 
 bool PresentationCommon::UseVRStereoSource() const {
+#ifdef __LIBRETRO__
+	if (lang_ == GLSL_VULKAN && Libretro::VRActive()) {
+		return true;
+	}
+#endif
 	return texColorStereo_ && !srcTexture_ && srcFramebuffer_ && srcFramebuffer_->Layers() > 1;
 }
 
@@ -867,6 +875,12 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		}
 	}
 
+#ifdef __LIBRETRO__
+	for (int i = 0; i < 4; ++i) {
+		vrUV_[i][0] = verts[i].u;
+		vrUV_[i][1] = verts[i].v;
+	}
+#endif
 	if (isFinalAtOutputResolution || useStereo) {
 		// In this mode, we ignore the output's rotation matrix. Apply manually.
 		if (output.rotation != DisplayRotation::ROTATE_0) {
@@ -1061,7 +1075,98 @@ void PresentationCommon::DrawOverlay(const OverlayLayout &layout, const OutputPa
 	draw_->Draw(4, 0);
 }
 
+#ifdef __LIBRETRO__
+void PresentationCommon::CopyToLibretroVR() {
+	if (!srcFramebuffer_ && !srcTexture_) {
+		presentedThisFrame_ = true;
+		return;
+	}
+
+	const int width = PSP_CoreParameter().pixelWidth;
+	const int height = PSP_CoreParameter().pixelHeight;
+	const bool cylinder = Libretro::VRCanvasActive();
+	const int mode = (cylinder ? 2 : 0) + (srcFramebuffer_ && srcFramebuffer_->Layers() > 1 ? 1 : 0);
+
+	if (vrPresentationMode_ != mode) {
+		INFO_LOG(Log::G3D, "Libretro Vulkan VR: %s, %d source layer(s), %dx%d per eye",
+			cylinder ? "tracked cylinder" : "stereo screen", srcFramebuffer_ ? srcFramebuffer_->Layers() : 1, width, height);
+		vrPresentationMode_ = mode;
+	}
+
+	std::vector<Vertex> vertices;
+	if (cylinder) {
+		constexpr int segments = 64;
+		constexpr float pi = 3.14159265358979323846f;
+		const float canvasHeight = pi / Libretro::VRCanvasAspect();
+		const float distance = g_Config.fCanvas3DDistance / 4.0f - 1.0f;
+
+		for (int i = 0; i <= segments; ++i) {
+			const float u = (float)i / segments;
+			const float angle = (u - 0.5f) * pi;
+
+			for (int row = 0; row < 2; ++row) {
+				const float *left = vrUV_[row * 2];
+				const float *right = vrUV_[row * 2 + 1];
+				vertices.push_back({2.0f * sinf(angle), (1 - row * 2) * canvasHeight,
+					-2.0f * cosf(angle) - distance,
+					left[0] + u * (right[0] - left[0]), left[1] + u * (right[1] - left[1]), 0xFFFFFFFF});
+			}
+		}
+	}
+
+	draw_->BindPipeline((outputFlags_ & OutputFlags::RB_SWIZZLE) ? texColorRBSwizzle_ : texColor_);
+	Draw::SamplerState *sampler = (outputFlags_ & OutputFlags::NEAREST) ? samplerNearest_ : samplerLinear_;
+	draw_->BindSamplerStates(0, 1, &sampler);
+
+	for (int eye = 0; eye < 2; ++eye) {
+		if (srcFramebuffer_) {
+			draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::Aspect::COLOR_BIT,
+				srcFramebuffer_->Layers() > 1 ? eye : 0);
+		} else {
+			draw_->BindTexture(0, srcTexture_);
+		}
+
+		Draw::VsTexColUB ub{};
+		if (cylinder) {
+			Libretro::GetVRCanvasMatrix(eye, ub.WorldViewProj);
+			// OpenGL clip coordinates to Vulkan (Y down, depth 0..1).
+			for (int col = 0; col < 4; ++col) {
+				ub.WorldViewProj[col * 4 + 1] *= -1.0f;
+				ub.WorldViewProj[col * 4 + 2] = (ub.WorldViewProj[col * 4 + 2] + ub.WorldViewProj[col * 4 + 3]) * 0.5f;
+			}
+		} else {
+			const OutputParams output = GetOutput();
+			memcpy(ub.WorldViewProj, output.rotMatrix.m, sizeof(ub.WorldViewProj));
+		}
+
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+		draw_->SetViewport({(float)(eye * width), 0.0f, (float)width, (float)height, 0.0f, 1.0f});
+		draw_->SetScissorRect(eye * width, 0, width, height);
+
+		if (cylinder) {
+			draw_->DrawUP(vertices.data(), (int)vertices.size());
+		} else {
+			draw_->BindVertexBuffer(vdata_, 0);
+			draw_->Draw(4, 0);
+		}
+	}
+
+	DoRelease(srcFramebuffer_);
+	DoRelease(srcTexture_);
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+
+	presentedThisFrame_ = true;
+}
+#endif
+
 void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
+#ifdef __LIBRETRO__
+	if (lang_ == GLSL_VULKAN && Libretro::VRActive()) {
+		CopyToLibretroVR();
+		return;
+	}
+	vrPresentationMode_ = -1;
+#endif
 	bool useNearest = outputFlags_ & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
 	const bool vrStereo = UseVRStereoSource();

@@ -9,7 +9,7 @@ struct XrView;
 namespace Libretro {
 enum class VRMode { Off, Stereoscopic, Immersive };
 
-// Frontend/GL-thread entry points.
+// Frontend-thread entry points.
 void SetVRMode(VRMode mode);
 void UpdateVR();
 void DestroyVR();
@@ -22,4 +22,7 @@ void BeginVREye(int eye);
 void EndVREyes();
 bool RetainVRCommands();
 void PresentVR(unsigned framebuffer);
+bool VRCanvasActive();
+float VRCanvasAspect();
+void GetVRCanvasMatrix(int eye, float *mvp);
 }

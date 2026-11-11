@@ -9,6 +9,9 @@ public:
 	bool InitAPI(void *wnd, std::string *deviceName, std::string *error_message) override;
 	void ShutdownAPI() override;
 	void SwapBuffers() override;
+	void SetRenderTarget() override;
+	void GotBackbuffer() override;
+	void DestroyDrawContext() override;
 
 	void *GetAPIContext() override;
 	void CreateDrawContext() override;

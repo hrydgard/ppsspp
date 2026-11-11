@@ -110,6 +110,38 @@ so they don't depend on the backend.
   It used to `System.exit` in `onDestroy` instead, which killed the restart. Controller input is
   created per session, since its spaces and attached action set belong to one.
 
+## Libretro
+
+RetroArch owns OpenXR and supplies poses through `RETRO_ENVIRONMENT_GET_VR_FRAME_STATE`.
+The core publishes two side-by-side eye rectangles through `RETRO_ENVIRONMENT_SET_VIDEO_VIEWS`,
+using the same Off, Stereoscopic and Immersive options for OpenGL/GLES and Vulkan.
+Vulkan needs device multiview support; an unsupported device or frontend keeps flat output.
+
+The Vulkan game framebuffers use the shared VR shaders and two-layer multiview rendering.
+`PresentationCommon::CopyToLibretroVR` samples each layer separately into the two halves of the
+ordinary libretro presentation image. Mono sources (including uploaded video frames) feed both eyes.
+Stereoscopic draws a screen; Immersive draws the shared tracked cylinder when the scene is 3D.
+The cylinder uses the same camera matrix as GL, converted to Vulkan's clip coordinates.
+Post shaders are bypassed during VR because their intermediate images are mono.
+
+The core does not create an OpenXR instance, session or swapchain. It continues to submit through
+`LibretroVulkanPresentation`, with RetroArch's queue locking and image lifetime rules.
+`SetRenderTarget` requests the current output extent before the frame begins, so switching VR
+on or off recreates the presentation images before drawing. This does not change savestate data
+or shader cache keys. IdentityViewHack games retain the existing stereo-screen fallback.
+
+Cached frontend context resets also recreate the backbuffers. The Vulkan context releases the old
+backbuffers in `GotBackbuffer`, after `GPU_Vulkan::DeviceLost` (which restarts its workers), to avoid
+starting a second submission/compiler thread during a frontend reset or resolution change.
+
+Validated on Quest 3 with RetroArch 1.22.2 (`0a463db578`): GTA Liberty City Stories and Sega Rally
+Revo, Off/Stereoscopic/Immersive transitions, two-layer tracked-cylinder output, and live 2x/3x
+resolution changes. Android arm64 and Linux libretro builds pass, as do the C++ unit tests and
+`python3 test.py -g --graphics=software` (including relay and peer-to-peer tests).
+The frontend's mirror screenshots verify screen output; they do not establish headset comfort
+or eye alignment. Vulkan pipeline-cache saving still reports the existing unsupported `ab` mode
+in libretro's file access path.
+
 ## Phase 2: PC VR
 
 The desktop window (Windows, then Linux) stays the primary swapchain and shows a mirror. The

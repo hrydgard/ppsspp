@@ -12,6 +12,7 @@
 #include "Common/Data/Text/Parsers.h"
 
 #include "libretro/LibretroVulkanContext.h"
+#include "libretro/LibretroVR.h"
 #include "libretro/LibretroVulkanPresentation.h"
 #include <libretro_vulkan.h>
 #include <GPU/Vulkan/VulkanRenderManager.h>
@@ -30,13 +31,37 @@ static retro_hw_render_interface_vulkan *hwRenderInterface;
 LibretroVulkanContext::LibretroVulkanContext()
 	: LibretroHWRenderContext(RETRO_HW_CONTEXT_VULKAN, VK_MAKE_VERSION(1, 0, 18)) {}
 
+void LibretroVulkanContext::DestroyDrawContext() {
+	LibretroHWRenderContext::DestroyDrawContext();
+	Libretro::DestroyVR();
+}
+
+void LibretroVulkanContext::GotBackbuffer() {
+	// Cached resets need no context_destroy, and GPU_Vulkan::DeviceLost restarts
+	// its workers. Stop them before GOT_BACKBUFFER creates the backbuffers again.
+	LostBackbuffer();
+	LibretroHWRenderContext::GotBackbuffer();
+}
+
+void LibretroVulkanContext::SetRenderTarget() {
+	unsigned w = PSP_CoreParameter().pixelWidth;
+	unsigned h = PSP_CoreParameter().pixelHeight;
+	Libretro::GetFrameSize(&w, &h);
+
+	if (presentation) {
+		presentation->RequestExtent({ w, h });
+	}
+}
+
 void LibretroVulkanContext::SwapBuffers() {
 	if (presentation) {
 		presentation->WaitForPresentation();
 	}
+
 	unsigned w = PSP_CoreParameter().pixelWidth;
 	unsigned h = PSP_CoreParameter().pixelHeight;
 	Libretro::GetFrameSize(&w, &h);
+
 	if (presentation) {
 		presentation->RequestExtent({ w, h });
 	}

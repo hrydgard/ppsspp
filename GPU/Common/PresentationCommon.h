@@ -194,6 +194,11 @@ protected:
 	Draw::ShaderModule *CompileShaderModule(ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) const;
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const UniformBufferDesc *uniformDesc, bool alphaBlend = false) const;
 	bool UseVRStereoSource() const;
+#ifdef __LIBRETRO__
+	void CopyToLibretroVR();
+	float vrUV_[4][2]{};
+	int vrPresentationMode_ = -1;
+#endif
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
 	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
