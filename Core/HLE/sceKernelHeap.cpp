@@ -247,6 +247,23 @@ static int sceKernelGetUIDcontrolBlock(SceUID uid, u32 controlBlockPtr) {
 	return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_UID, "no control blocks");
 }
 
+// Fills size bytes at buf with a 32-bit word (sysmem.prx stores it 64 bytes at a time). An unaligned
+// buf does nothing and returns 0. utility.prx clears volatile memory with it after some dialogs.
+static u32 sceKernelMemset32(u32 buf, u32 word, u32 size) {
+	if (buf & 3) {
+		return hleLogWarning(Log::sceKernel, 0, "unaligned");
+	}
+	size &= ~3;
+	if (!Memory::IsValidRange(buf, size)) {
+		return hleLogError(Log::sceKernel, 0, "bad range");
+	}
+	for (u32 i = 0; i < size; i += 4) {
+		Memory::WriteUnchecked_U32(word, buf + i);
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, buf, size, "KernelMemset32");
+	return hleLogDebug(Log::sceKernel, buf);
+}
+
 // The POPS manager's module_start registers its version key function here.
 static int SysMemForKernel_310802A9(u32 func) {
 	__PopsBootSetVersionKeyFunc(func);
@@ -286,6 +303,9 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
 	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
 	{ 0x310802A9, &WrapI_U<SysMemForKernel_310802A9>,              "SysMemForKernel_310802A9",           'i', "x",     HLE_KERNEL_SYSCALL },
+	// 6.60's NID.
+	{ 0xEF29061C, &WrapU_V<sceKernelGetGameInfo>,                  "sceKernelGetGameInfo",               'x', "",      HLE_KERNEL_SYSCALL },
+	{ 0x22A114DC, &WrapU_UUU<sceKernelMemset32>,                   "sceKernelMemset32",                  'x', "xxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

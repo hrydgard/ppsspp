@@ -908,7 +908,8 @@ static bool FuncIsLLEOverride(std::string_view module, u32 nid) {
 		return false;
 	}
 	switch (nid) {
-	case 0x67AF3428: case 0x2AD8E239: case 0x95FC253B: case 0x9A1C91D7: case 0x4928BD96:
+	case 0x67AF3428: case 0x2AD8E239: case 0x95FC253B: case 0x9A1C91D7: case 0x4928BD96:  // MsgDialog
+	case 0x3DFAEBA9: case 0xF6269B82: case 0x4B85C861: case 0xF3F76017:  // Osk
 		return true;
 	default:
 		return false;
