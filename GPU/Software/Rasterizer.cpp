@@ -23,7 +23,6 @@
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -726,7 +725,6 @@ static inline void ApplyTexturing(const RasterizerState &state, int *colors, int
 		perPixel = false;
 	}
 
-	PROFILE_THIS_SCOPE("sampler");
 	if (state.linearQuad) {
 		// All four at once, when they're all bilinear.
 		int levels[4], fracs[4], active = 0;
@@ -1928,7 +1926,6 @@ void DrawTriangleSlice(
 						fog[i] = std::clamp((int)fogWalk.At(i), 0, 255);
 				}
 
-				PROFILE_THIS_SCOPE("draw_tri_px");
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 				if (state.drawSpan) {
 					alignas(16) int lanes[16];
@@ -1976,8 +1973,6 @@ void DrawTriangleSlice(
 
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state) {
-	PROFILE_THIS_SCOPE("draw_tri");
-
 	auto drawSlice = cpu_info.bSSE4_1 ?
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, true> : &DrawTriangleSlice<false, true>) :
 		(state.pixelID.clearMode ? &DrawTriangleSlice<true, false> : &DrawTriangleSlice<false, false>);
@@ -2187,7 +2182,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 					(Vec4S32::Load(prim_color + c * 4) + Vec4S32::Splat(sec_color[c])).Store(prim_color + c * 4);
 			}
 
-			PROFILE_THIS_SCOPE("draw_rect_px");
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 			if (state.drawSpan) {
 				Vec4<int> fogs = fog, zs = z;
@@ -2277,7 +2271,6 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		int texLevelFrac;
 		bool bilinear;
 		CalculateSamplingParams(0.0f, 0.0f, 1.0f / v0.clipw, state, texLevel, texLevelFrac, bilinear);
-		PROFILE_THIS_SCOPE("sampler");
 		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
@@ -2291,7 +2284,6 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		fog = ClampFogDepth(v0.fogdepth);
 	}
 
-	PROFILE_THIS_SCOPE("draw_px");
 	state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
@@ -2823,14 +2815,12 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 					texBilinear = true;
 				}
 
-				PROFILE_THIS_SCOPE("sampler");
 				prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, texBilinear, state);
 			}
 
 			if (!pixelID.clearMode)
 				prim_color += Vec4<int>(sec_color, 0);
 
-			PROFILE_THIS_SCOPE("draw_px");
 			state.drawPixel(p.x, p.y, z, fog, ToVec4IntArg(prim_color), pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)

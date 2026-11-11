@@ -537,6 +537,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
+	$(COMMONDIR)/Profiler/Profiler.cpp \
 	$(COMMONDIR)/RiscVCPUDetect.cpp \
 	$(COMMONDIR)/LogReporting.cpp \
 	$(COMMONDIR)/SysError.cpp \

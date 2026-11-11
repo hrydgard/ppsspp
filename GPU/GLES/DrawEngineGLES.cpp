@@ -385,7 +385,7 @@ void DrawEngineGLES::Flush() {
 			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
-		PROFILE_THIS_SCOPE("soft");
+		PROFILE_LABEL("soft");
 		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 

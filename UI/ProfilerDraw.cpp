@@ -55,6 +55,7 @@ enum ProfileCatStatus {
 
 void DrawProfile(UIContext &ui) {
 #ifdef USE_PROFILER
+	Profiler_SetEnabled(true);
 	PROFILE_THIS_SCOPE("timing");
 	int numCategories = Profiler_GetNumCategories();
 	int numThreads = Profiler_GetNumThreads();

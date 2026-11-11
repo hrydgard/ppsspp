@@ -219,6 +219,10 @@ struct CommandLineOptions {
 	std::optional<int> adhocDelayMs;
 	std::optional<int> adhocJitterMs;
 	std::optional<int> adhocLossPercent;
+	// Frame profiler logging (builds with USE_PROFILER). See Profiler_SetLogging.
+	std::optional<std::string> profileLog;
+	std::optional<double> profileHitchMs;
+	std::optional<double> profileSpanMs;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;

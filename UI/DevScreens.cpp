@@ -101,9 +101,7 @@ static const char *g_debugOverlayList[] = {
 	"Debug stats",
 	"Draw Frametimes Graph",
 	"Frame timing",
-#ifdef USE_PROFILER
 	"Frame profile",
-#endif
 	"Control Debug",
 	"Audio Debug",
 	"GPU Profile",

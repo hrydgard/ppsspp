@@ -295,6 +295,31 @@ shows as emitter and IR pass functions; profile 20 emulated seconds or more to s
 To compare two builds by where the time goes, profile one game at a time: several at once wait on each
 other's GPU work, which moves the shares.
 
+### Finding stalls with the frame profiler
+
+The frame profiler (`Common/Profiler/Profiler.h`) is compiled into every build, and off until
+something turns it on. `--profile-log=FILE` (app and headless) does, and writes a JSON line per frame with each thread's time per scope category, plus, for
+each slow frame, every scope of at least `--profile-span-ms` (default 1) that ended in it, with its
+label: which syscall, CoreTiming event, module file or pipeline. A frame is slow when it takes at least
+`--profile-hitch-ms` (default 25) and 1.5 times the median of the frames before it; each one also gets a
+`Profiler: Frame` line in the log naming its longest scopes.
+
+```bash
+python Tools/profile_report.py profile.jsonl              # summary, causes, the worst frames' scopes
+python Tools/profile_report.py profile.jsonl --frame 1234 # one frame
+```
+
+The report only counts a slow frame as a stall if it fell behind the emulated time it covered (each
+vblank in it is 16.7 ms on a PSP): a game that doesn't flip for ten vblanks while loading shows a 167 ms
+frame on hardware too. It sums the stalls' time by thread and category from the exact per-frame totals,
+for the emulator thread and the render thread (a worker's time matters where something waits for it,
+which shows as `wait_*`), and lists the labelled scopes.
+
+To find the stalls a player sees, measure a cold first run: `--shader-cache=false`, and 1x rendering
+resolution so the GPU matters less. Getting into the game from boot takes a script (see "Driving the
+app, or a phone" in [adhoc-multiplayer-testing.md](adhoc-multiplayer-testing.md)): pressing buttons at
+random gets stuck in profile and save menus.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

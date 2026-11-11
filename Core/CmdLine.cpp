@@ -10,6 +10,7 @@
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
 #include "Common/File/FileUtil.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/Log/LogManager.h"
 
@@ -267,6 +268,9 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(adhocDelayMs), CmdParamType::Int, "adhoc-delay", '\0', "Delay ad hoc datagrams received by MS milliseconds of emulated time, to simulate a distant player"},
 	{POFF(adhocJitterMs), CmdParamType::Int, "adhoc-jitter", '\0', "With --adhoc-delay, up to MS more at random"},
 	{POFF(adhocLossPercent), CmdParamType::Int, "adhoc-loss", '\0', "Drop this percentage of the ad hoc datagrams received"},
+	{POFF(profileLog), CmdParamType::String, "profile-log", '\0', "Profiler builds: write each frame's profile, and the long scopes of slow frames, to FILE as JSON lines (see Tools/profile_report.py)"},
+	{POFF(profileHitchMs), CmdParamType::Double, "profile-hitch-ms", '\0', "Profiler builds: log frames taking at least MS milliseconds (default 25)"},
+	{POFF(profileSpanMs), CmdParamType::Double, "profile-span-ms", '\0', "Profiler builds: in slow frames, log the scopes of at least MS milliseconds (default 1)"},
 	{POFF(lagSync), CmdParamType::Bool, "lag-sync", '\0', "Keep emulated time in step with the wall clock every millisecond, not every frame (the Force real clock sync setting)"},
 	{POFF(frameStats), CmdParamType::Bool, "frame-stats", '\0', "Print flips per emulated second at the end of the run, counted from --state's load", CmdLineMode::Headless},
 	{POFF(audioSinkPeriod), CmdParamType::Int, "audio-sink", '\0', "Pull audio like an output device, FRAMES at 48 kHz at a time, and print the buffer's stats at the end (with --realtime)", CmdLineMode::Headless},
@@ -593,6 +597,13 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 }
 
 void CommandLineOptions::ApplyToConfig() const {
+	if (profileLog.has_value() || profileHitchMs.has_value()) {
+#ifdef USE_PROFILER
+		Profiler_SetLogging(profileLog.value_or("").c_str(), profileHitchMs.value_or(25.0), profileSpanMs.value_or(1.0));
+#else
+		WARN_LOG(Log::System, "--profile-log and --profile-hitch-ms need a build with USE_PROFILER");
+#endif
+	}
 	if (adhocServer.has_value()) {
 		g_Config.bEnableAdhocServer = adhocServer.value();
 		g_Config.DoNotSaveSetting(&g_Config.bEnableAdhocServer);

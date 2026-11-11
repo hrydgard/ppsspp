@@ -660,7 +660,7 @@ static void DoFrameIdleTiming() {
 #else
 			const double left = goal - cur_time;
 			if (left > 0.0f && left < 1.0f) {  // Sanity check
-				usleep((long)(left * 1000000));
+				sleep_us((int)(left * 1000000), "frame-idle");
 			}
 #endif
 		}
@@ -723,6 +723,8 @@ LagSyncMode __DisplayGetLagSyncMode() {
 }
 
 void hleEnterVblank(u64 userdata, int cyclesLate) {
+	// Counted per frame: Tools/profile_report.py compares a frame's length with the vblanks in it.
+	PROFILE_THIS_SCOPE("vblank");
 	int vbCount = userdata;
 
 	UpdateLagSyncMode();
@@ -808,6 +810,8 @@ void __DisplaySetDisplayLayoutConfig(const DisplayLayoutConfig &config) {
 }
 
 void __DisplayFlip(int cyclesLate) {
+	// Runs on each vblank that hasn't flipped yet, and holds the frame-idle sleep.
+	PROFILE_THIS_SCOPE("flip");
 	if (!gpu) {
 		_dbg_assert_(gpu);
 		// Something has gone wrong.

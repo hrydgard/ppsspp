@@ -181,6 +181,9 @@
     <ClCompile Include="ImDebugger\ImJitViewer.cpp">
       <Filter>ImDebugger</Filter>
     </ClCompile>
+    <ClCompile Include="ImDebugger\ImProfiler.cpp">
+      <Filter>ImDebugger</Filter>
+    </ClCompile>
     <ClCompile Include="UploadScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -358,6 +361,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ImDebugger\ImJitViewer.h">
+      <Filter>ImDebugger</Filter>
+    </ClInclude>
+    <ClInclude Include="ImDebugger\ImProfiler.h">
       <Filter>ImDebugger</Filter>
     </ClInclude>
     <ClInclude Include="UploadScreen.h">

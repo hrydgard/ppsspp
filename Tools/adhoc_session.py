@@ -321,11 +321,34 @@ def cmd_stop(args):
 	except FileNotFoundError:
 		return
 	for inst in session["instances"]:
+		if inst.get("pid") is None:
+			continue  # Attached: not ours to stop.
 		try:
 			os.kill(inst["pid"], 15)
 		except ProcessLookupError:
 			pass
 	os.remove(session_file(args))
+
+
+def cmd_attach(args):
+	# A session of one already running PPSSPP (the app, say) with the debugger on --port. With --adb, the
+	# app on an Android device, its debugger port forwarded to this machine, and screenshots taken with
+	# screencap from --rect, the game's image on the device's screen.
+	if os.path.exists(session_file(args)):
+		cmd_stop(args)
+	os.makedirs(args.dir, exist_ok=True)
+	inst = {"n": 1, "pid": None, "log": None, "port": args.port}
+	if args.adb is not None:
+		if not args.rect:
+			sys.exit("--adb needs --rect X,Y,W,H: where the game's image is on the device's screen")
+		inst["adb"] = args.adb
+		inst["rect"] = parse_ints(args.rect, 4)
+		subprocess.run(["adb"] + (["-s", args.adb] if args.adb else []) + ["forward", "tcp:%d" % args.port, "tcp:%d" % args.port], check=True, capture_output=True)
+	connect(inst).request("cpu.status")
+	session = {"game": None, "instances": [inst], "speed": 100, "attached": True}
+	with open(session_file(args), "w") as f:
+		json.dump(session, f, indent=1)
+	print("Attached to port %d%s, session in %s" % (args.port, " over adb" if args.adb is not None else "", args.dir))
 	print("Stopped")
 
 
@@ -404,7 +427,23 @@ def cmd_wait(args):
 	emulated_sleep(load_session(args), args.seconds)
 
 
+def grab_adb_png(inst):
+	# The device's screen, cut down to the game's image and scaled to the PSP's 480x272, so references
+	# and pixel positions mean the same as with headless. Doesn't pause emulation, unlike the debugger's
+	# screenshot, so it can watch a run that's being profiled.
+	import io
+	from PIL import Image
+	cmd = ["adb"] + (["-s", inst["adb"]] if inst["adb"] else []) + ["exec-out", "screencap", "-p"]
+	screen = Image.open(io.BytesIO(subprocess.run(cmd, capture_output=True, check=True).stdout))
+	x, y, w, h = inst["rect"]
+	out = io.BytesIO()
+	screen.convert("RGB").crop((x, y, x + w, y + h)).resize((480, 272), Image.BILINEAR).save(out, "PNG")
+	return out.getvalue()
+
+
 def grab_png(inst, attempts=3):
+	if inst.get("adb") is not None:
+		return grab_adb_png(inst)
 	# An instance busy loading can be slow to answer; try again rather than end a long script.
 	for attempt in range(attempts):
 		try:
@@ -515,9 +554,41 @@ def cmd_until(args):
 				dbg.send("input.buttons.press", button=args.press, duration=6)
 				dbg.close()
 			last_press = now
-		waiting = [inst for inst in waiting if not screen_matches(args, Image.open(io.BytesIO(grab_png(inst))))]
+		waiting = [inst for inst in waiting if not matches_any(args, Image.open(io.BytesIO(grab_png(inst))))]
 		if waiting:
 			time.sleep(wall_seconds(session, args.poll))
+
+
+def matches_any(args, image):
+	# The reference, or any of the --or ones (REF@X,Y), for screens that differ between runs: a menu
+	# that only shows when there's a save, say. Follow with "if" to tell which it was.
+	if screen_matches(args, image):
+		return True
+	for alt in getattr(args, "alt", None) or []:
+		ref, _, box = alt.partition("@")
+		if screen_matches(argparse.Namespace(ref=ref, box=box or None, pixel=None, tolerance=args.tolerance,
+				slack=args.slack, base=getattr(args, "base", ".")), image):
+			return True
+	return False
+
+
+def run_if(args, line):
+	# "if REF --box X,Y : COMMAND ; COMMAND ..." runs the commands when each selected instance shows the
+	# reference now (one screenshot each, no waiting). The condition takes until's matching options.
+	import io
+	from PIL import Image
+	cond, _, then = line[3:].partition(":")
+	if not then.strip():
+		sys.exit("if needs ': COMMAND' after the condition: %r" % line)
+	sub = build_parser().parse_args(["--dir", args.dir, "until"] + cond.split())
+	sub.base = os.path.dirname(os.path.abspath(args.script))
+	session = load_session(sub)
+	if all(matches_any(sub, Image.open(io.BytesIO(grab_png(inst)))) for inst in selected(session, sub.i)):
+		for command in then.split(";"):
+			command = command.strip()
+			if command:
+				print(">   " + command)
+				run_line(args, command)
 
 
 def cmd_crop(args):
@@ -566,6 +637,15 @@ def cmd_watch(args):
 COMMANDS = {}
 
 
+def run_line(args, line):
+	if line.startswith("if "):
+		run_if(args, line)
+		return
+	sub = build_parser().parse_args(["--dir", args.dir] + line.split())
+	sub.base = os.path.dirname(os.path.abspath(args.script))
+	COMMANDS[sub.command](sub)
+
+
 def cmd_run(args):
 	with open(args.script) as f:
 		for line in f:
@@ -573,9 +653,7 @@ def cmd_run(args):
 			if not line:
 				continue
 			print("> " + line)
-			sub = build_parser().parse_args(["--dir", args.dir] + line.split())
-			sub.base = os.path.dirname(os.path.abspath(args.script))
-			COMMANDS[sub.command](sub)
+			run_line(args, line)
 
 
 def build_parser():
@@ -633,6 +711,7 @@ def build_parser():
 	p = sub.add_parser("until", help="Wait until the screen shows something: a region like a reference image, or a pixel's color")
 	p.add_argument("ref", nargs="?", help="Reference image (a crop of a screenshot, see crop); relative to the script in a script")
 	p.add_argument("--box", help="X,Y where the reference image goes on the screen (default 0,0)")
+	p.add_argument("--or", dest="alt", action="append", help="REF@X,Y: or this reference there (repeatable); a script follows with 'if REF --box X,Y : COMMANDS' to tell which")
 	p.add_argument("--pixel", help="X,Y of a pixel to check instead")
 	p.add_argument("--color", help="With --pixel: RRGGBB")
 	p.add_argument("--tolerance", type=float, default=12, help="Mean difference per channel allowed (0-255; default 12)")
@@ -662,10 +741,15 @@ def build_parser():
 	p.add_argument("script")
 
 	sub.add_parser("stop", help="Stop the instances")
+
+	p = sub.add_parser("attach", help="Drive one PPSSPP that's already running with --debugger=PORT, like the app on a phone")
+	p.add_argument("--port", type=int, default=45678)
+	p.add_argument("--adb", nargs="?", const="", help="It runs on an Android device (this serial, or the only one): forward the port and screenshot with screencap")
+	p.add_argument("--rect", help="With --adb: X,Y,W,H of the game's image on the device's screen, in its pixels")
 	return parser
 
 
-COMMANDS.update(start=cmd_start, stop=cmd_stop, press=cmd_press, stick=cmd_stick, type=cmd_type, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
+COMMANDS.update(start=cmd_start, stop=cmd_stop, attach=cmd_attach, press=cmd_press, stick=cmd_stick, type=cmd_type, wait=cmd_wait, shot=cmd_shot, stats=cmd_stats, until=cmd_until, crop=cmd_crop, log=cmd_log,
 	watch=cmd_watch, run=cmd_run)
 
 

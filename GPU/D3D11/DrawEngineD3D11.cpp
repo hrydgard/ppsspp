@@ -298,6 +298,7 @@ void DrawEngineD3D11::Flush() {
 	if (!numDrawVerts_) {
 		return;
 	}
+	PROFILE_THIS_SCOPE("flush");
 
 	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
@@ -443,7 +444,7 @@ void DrawEngineD3D11::Flush() {
 			DepthRasterSubmitHW(prim, vertexCount, cpuClip);
 		}
 	} else {
-		PROFILE_THIS_SCOPE("soft");
+		PROFILE_LABEL("soft");
 		DecodeVerts(dec_, decoded_);
 		int vertexCount = DecodeInds();
 

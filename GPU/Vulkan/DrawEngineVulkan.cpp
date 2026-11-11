@@ -234,7 +234,7 @@ void DrawEngineVulkan::Flush() {
 
 	renderManager->AssertInRenderPass();
 
-	PROFILE_THIS_SCOPE("Flush");
+	PROFILE_THIS_SCOPE("flush");
 	GEPrimitiveType prim = prevPrim_;
 
 	// Always use software for flat shading to fix the provoking index
@@ -421,7 +421,7 @@ void DrawEngineVulkan::Flush() {
 	} else {
 		gpuStats.perFrame.numSoftTransformedDraws++;
 
-		PROFILE_THIS_SCOPE("soft");
+		PROFILE_LABEL("soft");
 		int prevDecodedVerts = numDecodedVerts_;
 
 		DecodeVerts(dec_, decoded_);
@@ -561,8 +561,6 @@ void DrawEngineVulkan::Flush() {
 			const uint32_t dynamicUBOOffsets[2] = {
 				baseUBOOffset, lightUBOOffset,
 			};
-
-			PROFILE_THIS_SCOPE("renderman_q");
 
 			VkBuffer vbuf, ibuf;
 			u32 vbOffset = (uint32_t)pushVertex_->Push(result.drawBuffer, result.drawVertexCount * sizeof(TransformedVertex), 4, &vbuf);

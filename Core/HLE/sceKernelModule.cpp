@@ -22,6 +22,7 @@
 #include "zlib.h"
 
 #include "Common/Data/Convert/SmallDataConvert.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -2392,6 +2393,8 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string, 
 
 // filename is only used for dumping etc.
 static PSPModule *__KernelLoadModule(u8 *fileptr, size_t fileSize, SceKernelLMOption *options, std::string_view filename, std::string *error_string) {
+	PROFILE_THIS_SCOPE("module_load");
+	PROFILE_LABEL_COPY(std::string(filename).c_str());
 	PSPModule *module = nullptr;
 	// Check for PBP
 	if (fileSize >= sizeof(PSP_Header) && memcmp(fileptr, "\0PBP", 4) == 0) {

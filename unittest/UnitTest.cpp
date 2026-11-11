@@ -47,6 +47,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <thread>
 
 #include <map>
 #include <unordered_map>
@@ -85,6 +86,7 @@
 #include "Common/System/System.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Data/Format/IniFile.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/TimeUtil.h"
 
 #include "Common/ArmEmitter.h"
@@ -1911,6 +1913,129 @@ bool TestSymbolMap() {
 
 // Saving a symbol map and loading it back, as the debugger does while a game is running: its modules
 // are loaded then, possibly at other addresses than when the map was saved.
+// The frame profiler: per-frame totals from nested scopes, and threads coming and going (more of them
+// than there are lanes) while frames are being totalled. Only does anything with USE_PROFILER.
+bool TestProfiler() {
+#ifdef USE_PROFILER
+	// Busy, not sleeping: sleeps have a scope of their own.
+	auto spin = [](int ms) {
+		const double end = time_now_d() + ms * 0.001;
+		while (time_now_d() < end) {
+		}
+	};
+	PROFILE_INIT();
+
+	// What a scope costs while the profiler is off, against the same loop without one. For information:
+	// it's compiled into every build.
+	{
+		Profiler_SetEnabled(false);
+		volatile int sink = 0;
+		const int n = 20000000;
+		const double t0 = time_now_d();
+		for (int i = 0; i < n; i++) {
+			sink = sink + 1;
+		}
+		const double t1 = time_now_d();
+		for (int i = 0; i < n; i++) {
+			PROFILE_THIS_SCOPE("test_off");
+			sink = sink + 1;
+		}
+		const double t2 = time_now_d();
+		printf("Profiler off: %0.2f ns per scope (the loop alone takes %0.2f ns)\n", ((t2 - t1) - (t1 - t0)) / n * 1e9, (t1 - t0) / n * 1e9);
+	}
+
+	Profiler_SetEnabled(true);
+	PROFILE_END_FRAME();
+
+	{
+		PROFILE_THIS_SCOPE("test_outer");
+		spin(20);
+		{
+			PROFILE_THIS_SCOPE("test_inner");
+			spin(30);
+		}
+	}
+	PROFILE_END_FRAME();
+
+	int outerCat = -1, innerCat = -1;
+	for (int i = 0; i < Profiler_GetNumCategories(); i++) {
+		if (!strcmp(Profiler_GetCategoryName(i), "test_outer"))
+			outerCat = i;
+		if (!strcmp(Profiler_GetCategoryName(i), "test_inner"))
+			innerCat = i;
+	}
+	EXPECT_TRUE(outerCat >= 0 && innerCat >= 0);
+	const int len = Profiler_GetHistoryLength();
+	std::vector<float> outer(len), inner(len);
+	std::vector<int> counts(len);
+	// This thread's lane is the one with test_inner time in it.
+	int lane = -1;
+	for (int t = 0; t < Profiler_GetNumThreads(); t++) {
+		Profiler_GetHistory(innerCat, t, inner.data(), len);
+		if (inner[len - 1] > 0.0f)
+			lane = t;
+	}
+	EXPECT_TRUE(lane >= 0);
+	Profiler_GetHistory(outerCat, lane, outer.data(), len);
+	Profiler_GetHistory(innerCat, lane, inner.data(), len);
+	Profiler_GetHistoryCounts(innerCat, lane, counts.data(), len);
+	// Outer gets only its own time, not the inner scope's.
+	EXPECT_TRUE(outer[len - 1] >= 0.019f && outer[len - 1] < 0.035f);
+	EXPECT_TRUE(inner[len - 1] >= 0.029f && inner[len - 1] < 0.045f);
+	EXPECT_EQ_INT(counts[len - 1], 1);
+
+	// A scope open across a frame end is split between the frames.
+	{
+		PROFILE_THIS_SCOPE("test_outer");
+		spin(10);
+		PROFILE_END_FRAME();
+		spin(10);
+	}
+	PROFILE_END_FRAME();
+	Profiler_GetHistory(outerCat, lane, outer.data(), len);
+	EXPECT_TRUE(outer[len - 2] >= 0.009f && outer[len - 2] < 0.025f);
+	EXPECT_TRUE(outer[len - 1] >= 0.009f && outer[len - 1] < 0.025f);
+
+	// Short-lived threads, more at once than there are lanes, while another thread ends frames and
+	// reads the events.
+	std::atomic<bool> stop{};
+	std::thread reader([&] {
+		std::vector<ProfilerEvent> events;
+		while (!stop) {
+			PROFILE_END_FRAME();
+			for (int t = 0; t < Profiler_GetNumThreads(); t++) {
+				events.clear();
+				Profiler_GetEvents(t, 0, Profiler_Now(), &events);
+			}
+			std::this_thread::yield();
+		}
+	});
+	for (int round = 0; round < 4; round++) {
+		std::vector<std::thread> threads;
+		for (int i = 0; i < 40; i++) {
+			threads.emplace_back([] {
+				for (int j = 0; j < 2000; j++) {
+					PROFILE_THIS_SCOPE("test_a");
+					PROFILE_THIS_SCOPE("test_b");
+					for (int k = 0; k < 40; k++) {
+						PROFILE_THIS_SCOPE("test_c");
+						PROFILE_LABEL((k & 1) ? "odd" : "even");
+					}
+				}
+			});
+		}
+		for (auto &t : threads) {
+			t.join();
+		}
+	}
+	stop = true;
+	reader.join();
+	EXPECT_TRUE(Profiler_GetNumThreads() <= 32);
+	Profiler_SetEnabled(false);
+#endif
+	return true;
+}
+
 bool TestSymbolMapFiles() {
 	const u32 kModStart = 0x08804000;
 	const u32 kModSize = 0x00010000;
@@ -4789,6 +4914,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
 	TEST_ITEM(SymbolMapFiles),
+	TEST_ITEM(Profiler),
 	TEST_ITEM(Hashmaps),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),

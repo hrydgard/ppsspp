@@ -879,6 +879,8 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			if (gpu) {
 				gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 			}
+			// As the app does in NativeFrame: the profiler's frames are host frames (--profile-log).
+			PROFILE_END_FRAME();
 		}
 		// Without a debugger nothing can resume a stop, so it ends the run.
 		if (coreState == CORE_STEPPING_CPU && !opt.debugger) {

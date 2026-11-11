@@ -23,7 +23,6 @@
 #include "GPU/Software/RasterizerRectangle.h"
 #include "GPU/Software/TransformUnit.h"
 
-#include "Common/Profiler/Profiler.h"
 
 namespace Clipper {
 

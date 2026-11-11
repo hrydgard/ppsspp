@@ -29,7 +29,6 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
-#include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/TimeUtil.h"
 #include "GPU/GPUState.h"
@@ -681,8 +680,6 @@ static bool PreparePositions4(const Vec4F32 pos[4], const TransformState &state,
 // Writes straight into the destination: building the vertex in a temporary and copying it reloads its
 // fields with wider loads than they were stored with, which stalls.
 void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared) {
-	PROFILE_THIS_SCOPE("read_vert");
-
 	// (x, y, z, 1), the left operands of the transform's rows.
 	Vec4F32 pos = vreader.ReadPosOne();
 
@@ -821,7 +818,6 @@ void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState
 			Lighting::GenerateLightST(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
 
-		PROFILE_THIS_SCOPE("light");
 		if (state.enableLighting)
 			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {

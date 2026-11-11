@@ -26,6 +26,7 @@
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/Breakpoints.h"
+#include "Common/Profiler/Profiler.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -73,6 +74,7 @@
 
 #include "UI/ImDebugger/ImDebugger.h"
 #include "UI/ImDebugger/ImGe.h"
+#include "UI/ImDebugger/ImProfiler.h"
 #include "UI/AudioCommon.h"
 #include "UI/GameInfoCache.h"
 #include "UI/PauseScreen.h"
@@ -3031,6 +3033,10 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	auto menuMisc = [&]() {
 		if (beginMenu("Misc")) {
 			ImGui::MenuItem("PPSSPP Internals", nullptr, &cfg_.internalsOpen);
+#ifdef USE_PROFILER
+			ImGui::MenuItem("CPU profiler", nullptr, &cfg_.cpuProfilerOpen);
+			ImGui::MenuItem("Frame profile", nullptr, &cfg_.frameProfileOpen);
+#endif
 			ImGui::MenuItem("Dear ImGui Demo", nullptr, &cfg_.demoOpen);
 			ImGui::MenuItem("Dear ImGui Style editor", nullptr, &cfg_.styleEditorOpen);
 			ImGui::Separator();
@@ -3299,6 +3305,14 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 
 	if (cfg_.internalsOpen) {
 		DrawInternals(cfg_);
+	}
+
+	if (cfg_.cpuProfilerOpen) {
+		DrawCpuProfiler(cfg_);
+	}
+
+	if (cfg_.frameProfileOpen) {
+		DrawFrameProfile(cfg_);
 	}
 
 	if (externalCommand_.cmd != ImCmd::NONE) {
@@ -3631,6 +3645,8 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("paramSFOOpen", &paramSFOOpen, false);
 	sync.Sync("atracToolOpen", &atracToolOpen, false);
 	sync.Sync("jitViewerOpen", &jitViewerOpen, false);
+	sync.Sync("cpuProfilerOpen", &cpuProfilerOpen, false);
+	sync.Sync("frameProfileOpen", &frameProfileOpen, false);
 	for (int i = 0; i < 4; i++) {
 		char name[64];
 		snprintf(name, sizeof(name), "memory%dOpen", i + 1);

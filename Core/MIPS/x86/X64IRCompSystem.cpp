@@ -204,11 +204,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		SaveStaticRegisters();
 
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-#ifdef USE_PROFILER
-		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		ABI_CallFunctionPA((const u8 *)&CallSyscall, mips_, Imm32(inst.constant));
-#else
-		// Skip the CallSyscall where possible.
+		// Skip the CallSyscall where possible (GetQuickSyscallFunc says when not).
 		{
 			MIPSOpcode op(inst.constant);
 			const HLEFunction *func = GetSyscallFunctionData(op, 0);
@@ -225,7 +221,6 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 				ABI_CallFunctionPA((const u8 *)&CallSyscallUnresolvedAtPC, mips_, Imm32(0));
 			}
 		}
-#endif
 
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
