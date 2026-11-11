@@ -190,6 +190,25 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	g_jitCompileTimes.invalidateNanos += (int64_t)((time_now_fast_ticks() - start) * fast_ticks_to_nanos());
 }
 
+void IRJit::InvalidateChangedBlocks() {
+	const uint64_t start = time_now_fast_ticks();
+	int changed = 0;
+	for (int block_num = 0; block_num < blocks_.GetNumBlocks(); ++block_num) {
+		const JitBlock *block = blocks_.GetBlock(block_num);
+		if (block->IsValid() && block->CodeChanged()) {
+			InvalidateBlock(block_num);
+			changed++;
+		}
+	}
+	const int64_t nanos = (int64_t)((time_now_fast_ticks() - start) * fast_ticks_to_nanos());
+	DEBUG_LOG(Log::JIT, "Checked %d blocks in %.2f ms, %d had changed code", blocks_.GetNumBlocks(), nanos / 1000000.0, changed);
+	if (changed) {
+		invalidations_++;
+		invalidatedBlocks_ += changed;
+	}
+	g_jitCompileTimes.invalidateNanos += nanos;
+}
+
 void IRJit::InvalidateBlock(int block_num) {
 	JitBlock *block = blocks_.GetBlock(block_num);
 	// Before Destroy, which forgets the block's address. Blocks linked to it jump straight in.
@@ -339,11 +358,8 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, (u32)instructions.size());
 	JitBlock *b = blocks_.GetBlock(block_num);
-	if (mipsTracer.tracing_enabled) {
-		// Hash, then only update page stats, don't link yet.
-		// TODO: Should we always hash?  Then we can reuse blocks.
-		b->UpdateHash();
-	}
+	// For the tracer, and so InvalidateChangedBlocks() can tell the code was overwritten.
+	b->UpdateHash();
 
 	// Caller handles a full arena or code space.
 	const CompileResult result = CompileTargetBlock(block_num, instructions);

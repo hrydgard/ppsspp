@@ -174,6 +174,8 @@ namespace MIPSComp {
 		virtual void BenchmarkCompile() {}
 		// Invalidates every block not entirely inside one of the (address, size) ranges.
 		virtual void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) = 0;
+		// Drops every block whose guest code no longer matches what it was compiled from.
+		virtual void InvalidateChangedBlocks() {}
 		virtual void DoState(PointerWrap &p) = 0;
 		virtual void RunLoopUntil(u64 globalticks) = 0;
 		// Runs until the downcount runs out, without CoreTiming. For the Media Engine, which the IR
