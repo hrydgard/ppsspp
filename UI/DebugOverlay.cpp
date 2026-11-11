@@ -5,6 +5,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -20,6 +21,7 @@
 #include "Core/Reporting.h"
 #include "Core/CwCheat.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
@@ -340,6 +342,15 @@ static const char *CPUCoreAsString(int core) {
 	}
 }
 
+// Draws a block of lines, and returns where the next block goes.
+static int DrawCrashTextBlock(UIContext *ctx, FontID font, std::string_view text, int x, int y) {
+	text = StripSpaces(text);
+	ctx->Draw()->DrawTextShadow(font, text, x, y, 0xFFFFFFFF);
+	float w, h;
+	ctx->Draw()->MeasureText(font, text, &w, &h);
+	return y + (int)h + 15;
+}
+
 void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	const MIPSExceptionInfo &info = Core_GetExceptionInfo();
 
@@ -408,6 +419,12 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+	Draw::DrawContext *draw = ctx->GetDrawContext();
+	// On most APIs the vendor string is the GPU model.
+	std::string gpuName = draw->GetInfoString(Draw::InfoField::VENDORSTRING);
+	std::string apiName = draw->GetInfoString(Draw::InfoField::APINAME);
+	// Off the CPU thread, so peek.
+	std::string emulatedTime = NiceTimeFormat((int)(CoreTiming::PeekGlobalTimeUs() / 1000000));
 
 	// First column
 	y += 65;
@@ -423,18 +440,21 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s (%s)
 %s (%s)
 %s v%d (%s)
+%s (%s)
+Emulated time: %s
 %s
 )",
 ExceptionTypeAsString(info.type),
 discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
+gpuName.c_str(), apiName.c_str(),
+emulatedTime.c_str(),
 crcStr
 );
 
 	ctx->Draw()->SetFontScale(.7f, .7f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 160;
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	if (info.type == MIPSExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -446,8 +466,6 @@ info.address,
 info.accessSize,
 info.pc,
 info.info.c_str());
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x
@@ -457,36 +475,27 @@ ExecExceptionTypeAsString(info.exec_type),
 info.address,
 info.pc,
 info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::FPU) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 FPU: %s
 PC: %08x
 )", FPUExceptionTypeAsString(info.fpu_type), info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 PC: %08x
 )", info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::HLE) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 %s
 PC: %08x
 RA: %08x)", info.info.c_str(), info.pc, info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
 )", (int)info.type);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	}
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	std::string kernelState = __KernelStateSummary();
 
