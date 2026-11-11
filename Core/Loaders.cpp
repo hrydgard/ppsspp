@@ -676,6 +676,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	bool hasIcon0PNG = false;
 	bool hasPRX = false;
 	bool hasPluginIni = false;
+	bool isPS3SaveData = false;  // Same PARAM.SFO + ICON0.PNG layout as a PSP save, but useless to us.
 	s64 totalFileSize = 0;
 	std::vector<ArchiveEntry> archiveEntries;  // In the root or one level down, where a disc image can be.
 
@@ -757,6 +758,10 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
 				ParamSFOData sfo;
 				if (sfo.ReadSFO((const u8 *)paramSFOContents.data(), paramSFOContents.size())) {
+					// PSP saves have category MS, PS3 saves SD.
+					if (sfo.GetValueString("CATEGORY") == "SD") {
+						isPS3SaveData = true;
+					}
 					if (sfo.HasKey("TITLE")) {
 						info->gameTitle = sfo.GetValueString("TITLE");
 						info->savedataTitle = sfo.GetValueString("SAVEDATA_TITLE");
@@ -772,6 +777,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 					}
 				}
 			}
+		} else if (lowerCaseName == "param.pfd" || endsWith(lowerCaseName, "/param.pfd")) {
+			// The PS3's save data protection file. PSP saves don't have one.
+			isPS3SaveData = true;
 		} else if (endsWith(lowerCaseName, "/icon0.png")) {
 			hasIcon0PNG = true;
 		} else if (endsWith(lowerCaseName, "/plugin.ini") && slashCount >= 1) {
@@ -827,6 +835,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		info->stripChars = stripCharsTexturePack;
 		info->ignoreMetaFiles = true;
 		info->contents = ZipFileContents::TEXTURE_PACK;
+	} else if (isPS3SaveData) {
+		WARN_LOG(Log::Loader, "Zip contains PS3 save data, not PSP");
+		info->contents = ZipFileContents::UNKNOWN;
 	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG && !isExtractedISO) {
 		// As downloaded from GameFAQs, for example.
 		info->contents = ZipFileContents::SAVE_DATA;

@@ -451,7 +451,11 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	if (badFileNameCount > 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
+		// Let's not bother with this warning on mobile. It's meant for texture pack authors, who are likely working on desktop.
+		// Though nowadays, you never know...
+#if !defined(MOBILE_DEVICE)
 		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("textures.ini filenames may not be cross-platform (banned characters)"), badFilenames, 6.0f);
+#endif
 		WARN_LOG(Log::TexReplacement, "Potentially bad filenames: %s", badFilenames.c_str());
 	}
 

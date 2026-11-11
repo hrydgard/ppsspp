@@ -330,7 +330,7 @@ enum class UIMessage {
 	RECENT_FILES_CHANGED,
 	SAVE_FRAME_DUMP,
 	ADHOC_SERVER_LIST_CHANGED,
-	SAVESTATE_SLOT_SAVED,  // A slot's save state file was written.
+	SAVESTATE_SLOT_SAVED,  // A save state save finished: written, failed or refused.
 	SOFT_KEYBOARD_HIDDEN,  // The platform closed a soft keyboard forced by System_SetSoftKeyboardForced.
 };
 

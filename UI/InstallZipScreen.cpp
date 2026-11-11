@@ -74,6 +74,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto er = GetI18NCategory(I18NCat::ERRORS);
 	auto ga = GetI18NCategory(I18NCat::GAME);
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
 	std::string shortFilename = zipPath_.GetFilename();
 
@@ -98,10 +99,14 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		showDeleteCheckbox = true;
 		break;
 	case ZipFileContents::TEXTURE_PACK:
-	case ZipFileContents::SAVE_DATA:
-	case ZipFileContents::SAVE_STATES:
 	case ZipFileContents::PRX_PLUGIN:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
+		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+		showDeleteCheckbox = true;
+		break;
+	case ZipFileContents::SAVE_DATA:
+	case ZipFileContents::SAVE_STATES:
+		installChoice_ = parent->Add(new Choice(sa->T("Import"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 		showDeleteCheckbox = true;
 		break;
