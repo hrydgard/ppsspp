@@ -184,6 +184,53 @@ static bool TestRootSaveDataZip() {
 	return true;
 }
 
+// A PS3 save folder has the same PARAM.SFO + ICON0.PNG layout as a PSP one. Each signal alone must reject it.
+static bool TestPS3SaveDataZip() {
+	Path tempRoot = File::GetCurDirectory() / "unittest_zip_ps3save_test";
+	File::DeleteDirRecursively(tempRoot);
+	EXPECT_TRUE(File::CreateDir(tempRoot));
+
+	for (int variant = 0; variant < 2; variant++) {
+		const bool sdCategory = variant == 0;
+		ParamSFOData sfo;
+		sfo.SetValue("CATEGORY", sdCategory ? "SD" : "MS", 4);
+		sfo.SetValue("TITLE", "Some PS3 game", 128);
+		sfo.SetValue("SAVEDATA_DIRECTORY", "BCES00141", 64);
+		u8 *sfoData = nullptr;
+		size_t sfoSize = 0;
+		sfo.WriteSFO(&sfoData, &sfoSize);
+		std::string sfoContents((const char *)sfoData, sfoSize);
+		delete[] sfoData;
+
+		Path zipPath = tempRoot / "ps3save.zip";
+		int errorp = 0;
+		zip_t *z = zip_open(zipPath.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		static const char *const contents = "data";
+		zip_source_t *source = zip_source_buffer(z, sfoContents.data(), sfoContents.size(), 0);
+		EXPECT_TRUE(zip_file_add(z, "BCES00141/PARAM.SFO", source, ZIP_FL_ENC_UTF_8) >= 0);
+		std::vector<const char *> names = { "BCES00141/ICON0.PNG", "BCES00141/0" };
+		if (!sdCategory) {
+			names.push_back("BCES00141/PARAM.PFD");
+		}
+		for (const char *name : names) {
+			source = zip_source_buffer(z, contents, strlen(contents), 0);
+			EXPECT_TRUE(zip_file_add(z, name, source, ZIP_FL_ENC_UTF_8) >= 0);
+		}
+		EXPECT_TRUE(zip_close(z) == 0);
+
+		z = zip_open(zipPath.c_str(), 0, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		ZipFileInfo info;
+		DetectZipFileContents(z, &info);
+		zip_close(z);
+		EXPECT_EQ_INT((int)info.contents, (int)ZipFileContents::UNKNOWN);
+	}
+
+	File::DeleteDirRecursively(tempRoot);
+	return true;
+}
+
 static bool TestIsSafePathComponent() {
 	EXPECT_TRUE(IsSafePathComponent("ULUS10041"));
 	EXPECT_TRUE(IsSafePathComponent("NPJH-50465"));
@@ -213,6 +260,8 @@ bool TestZipSlip() {
 	if (!TestSaveStateZipExtraction())
 		return false;
 	if (!TestRootSaveDataZip())
+		return false;
+	if (!TestPS3SaveDataZip())
 		return false;
 	return true;
 }
