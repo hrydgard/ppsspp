@@ -170,9 +170,8 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	s->ns.maxCount = maxVal;
 	s->ns.numWaitThreads = 0;
 
-	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
-	}
+	// The low 8 bits of attr are the UID's user-mode permissions, which kernel modules set (see
+	// sceKernelCreateEventFlag in sceKernelEventFlag.cpp). Not enforced here.
 
 	// Many games pass garbage into optionPtr, it doesn't have any options.
 	// TODO: Presumably that means that this function simply doesn't have an option parameter?

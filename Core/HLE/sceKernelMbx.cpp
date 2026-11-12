@@ -284,8 +284,8 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
 		}
 	}
-	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
+	// The low 8 bits of attr are the UID's user-mode permissions, which kernel modules set (see
+	// sceKernelCreateEventFlag in sceKernelEventFlag.cpp). Not enforced here.
 
 	return id;
 }
