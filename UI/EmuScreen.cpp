@@ -1260,7 +1260,7 @@ void EmuScreen::CreateViews() {
 
 	root_ = CreatePadLayout(touch, bounds.w, bounds.h, &pauseTrigger_, &g_controlMapper);
 	if (g_Config.bShowDeveloperMenu) {
-		root_->Add(new Button(dev->T("DevMenu")))->OnClick.Handle(this, &EmuScreen::OnDevTools);
+		root_->Add(new Button(dev->T("DevMenu"), new AnchorLayoutParams(12, 12, NONE, NONE)))->OnClick.Handle(this, &EmuScreen::OnDevTools);
 	}
 
 	LinearLayout *buttons = new LinearLayout(Orientation::ORIENT_HORIZONTAL, new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 60, Centering::Both));
