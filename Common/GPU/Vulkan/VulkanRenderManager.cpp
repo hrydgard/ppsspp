@@ -28,6 +28,9 @@
 
 using namespace PPSSPP_VK;
 
+// See BindFramebufferAsRenderTarget.
+static const size_t MAX_STEPS_PER_SUBMIT = 1000;
+
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
 	PROFILE_THIS_SCOPE("pipeline_create");
@@ -1367,6 +1370,12 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			stencilLoad = depthLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
+	}
+
+	// Adreno's kernel driver allocates a physically contiguous block per submit, sized by the render passes in it.
+	// With thousands of passes (Brave Story) that fails with ENOMEM and the fence never signals, so split the frame.
+	if (steps_.size() >= MAX_STEPS_PER_SUBMIT) {
+		FlushSync();
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
