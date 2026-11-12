@@ -258,13 +258,28 @@ def cmd_start(args):
 	if not args.no_sync:
 		# The instances keep within an emulated millisecond of each other through this file (InitInstanceSync).
 		sync_file = os.path.join(args.dir, "sync")
-		with open(sync_file, "wb") as f:
-			f.write(bytes(4096))
+		# On Windows, instances of the last session that are still exiting keep it mapped for a moment.
+		for attempt in range(50):
+			try:
+				with open(sync_file, "wb") as f:
+					f.write(bytes(4096))
+				break
+			except OSError:
+				if attempt == 49:
+					raise
+				time.sleep(0.1)
 	instances = []
 	for n in range(1, args.n + 1):
 		memstick = os.path.join(args.dir, "memstick%d" % n)
 		shutil.rmtree(memstick, ignore_errors=True)
-		shutil.copytree(os.path.join(args.memstick, "PSP", "SAVEDATA"), os.path.join(memstick, "PSP", "SAVEDATA"))
+		savedata = os.path.join(args.memstick, "PSP", "SAVEDATA")
+		if args.savedata is None:
+			shutil.copytree(savedata, os.path.join(memstick, "PSP", "SAVEDATA"))
+		else:
+			os.makedirs(os.path.join(memstick, "PSP", "SAVEDATA"))
+			for pattern in filter(None, args.savedata.split(",")):
+				for path in glob.glob(os.path.join(savedata, pattern)):
+					shutil.copytree(path, os.path.join(memstick, "PSP", "SAVEDATA", os.path.basename(path)))
 		log = os.path.join(args.dir, "instance%d.log" % n)
 		cmd = [headless, "--graphics=" + args.graphics, "--memstick=" + memstick,
 			"--nand=" + os.path.join(args.memstick, "PSP", "NAND"), "--realtime", "--instance=%d" % n,
@@ -691,6 +706,7 @@ def build_parser():
 	p.add_argument("--speed", type=int, default=100, help="Run at this percentage of PSP speed (scripts count emulated time)")
 	p.add_argument("--state", help="Savestate to load at boot in every instance")
 	p.add_argument("--memstick", default=DEFAULT_MEMSTICK, help="Memory stick to take the firmware and savedata from")
+	p.add_argument("--savedata", help="Copy only the savedata folders matching these comma-separated globs (like ULUS10041*); empty for none")
 	p.add_argument("--graphics", default="vulkan")
 	p.add_argument("--headless", help="PPSSPPHeadless to run (default: the newest build*/ one)")
 	p.add_argument("--timeout", type=int, default=3600, help="Wall-clock seconds before the instances quit")
