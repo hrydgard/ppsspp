@@ -197,6 +197,14 @@ static u32 Kprintf(MIPSState *mips, u32 fmtAddr) {
 	return hleLogInfo(Log::Printf, 0, "\"%s\"", formatted.c_str());
 }
 
+static u32 KDebugRetailZero() {
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
+static u32 sceKernelDipsw(u32 bit) {
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
 static const HLEFunction KDebugForKernel[] = {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
@@ -218,6 +226,11 @@ static const HLEFunction KDebugForKernel[] = {
 	{0XE892D9A1, &WrapU_V<sceKernelSm1ReferOperations>,              "sceKernelSm1ReferOperations",             'x', ""   },
 	{0XA126F497, nullptr,                                            "KDebugForKernel_A126F497",                '?', ""   },
 	{0XB7251823, nullptr,                                            "sceKernelAcceptMbogoSig",                 '?', ""   },
+	// 6.60 NIDs. utility.prx only asks for the DIP switches (bits 0x18, 0x19) once the first says
+	// it runs on a development tool, and a retail PSP says 0 to all three.
+	{0X47570AC5, &WrapU_V<KDebugRetailZero>,                         "KDebugForKernel_47570AC5",                'x', "",       HLE_KERNEL_SYSCALL },
+	{0XACF427DC, &WrapU_V<KDebugRetailZero>,                         "KDebugForKernel_ACF427DC",                'x', "",       HLE_KERNEL_SYSCALL },
+	{0X86010FCB, &WrapU_U<sceKernelDipsw>,                           "sceKernelDipsw",                          'x', "x",      HLE_KERNEL_SYSCALL },
 };
 
 static const HLEFunction pspeDebug[] = {
@@ -444,6 +457,7 @@ void RegisterAllModules() {
 	Register_sceIdStorage_driver();
 	Register_sceNetAdhocctl_lib();
 	Register_sceNetIfhandle_lib();
+	Register_sceSuspendForKernel();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

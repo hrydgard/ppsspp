@@ -28,6 +28,7 @@ void Register_scePower();
 void Register_scePower_driver();
 void Register_sceMePower_driver();
 void Register_sceSuspendForUser();
+void Register_sceSuspendForKernel();
 
 int KernelVolatileMemLock(int type, u32 paddr, u32 psize);
 int KernelVolatileMemUnlock(int type);

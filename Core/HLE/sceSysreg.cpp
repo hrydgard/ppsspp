@@ -180,9 +180,22 @@ static int sceKernelUnregisterSysEventHandler(u32 handler) {
 	return hleLogWarning(Log::ME, -1, "not registered");
 }
 
+// Puts a handler at the head of that list. We never send sysevents (suspend, resume), so nothing
+// calls it; utility.prx registers one at start.
+static int sceKernelRegisterSysEventHandler(u32 handler) {
+	if (!Memory::IsValid4AlignedRange(handler, 0x40))
+		return hleLogError(Log::ME, -1, "bad handler");
+	if (!MeCore::g_meState)
+		return hleLogWarning(Log::ME, 0, "no handler list");
+	Memory::WriteUnchecked_U32(MeCore::g_meState->sysEventHandlers, handler + 0x18);
+	MeCore::g_meState->sysEventHandlers = handler;
+	return hleLogDebug(Log::ME, 0);
+}
+
 const HLEFunction sceSysEventForKernel[] = {
 	{0x68D55505, &WrapU_V<sceKernelReferSysEventHandler>,      "sceKernelReferSysEventHandler",      'x', "",  HLE_KERNEL_SYSCALL },
 	{0xD7D3FDCD, &WrapI_U<sceKernelUnregisterSysEventHandler>, "sceKernelUnregisterSysEventHandler", 'i', "x", HLE_KERNEL_SYSCALL },
+	{0xCD9E4BB5, &WrapI_U<sceKernelRegisterSysEventHandler>,   "sceKernelRegisterSysEventHandler",   'i', "x", HLE_KERNEL_SYSCALL },
 };
 
 void Register_sceSysEventForKernel() {
