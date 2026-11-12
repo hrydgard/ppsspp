@@ -106,6 +106,15 @@ static bool g_opDone = true;
 static bool g_cancelled = false;
 static int g_drawLimit = 0;
 
+// Command data in a dump is only 2-byte aligned at times. Reading it through a struct pointer can then compile
+// to LDRD/LDM on 32-bit ARM, which fault on that (SIGBUS in 11583 Weird shader bug Z-fighting_4).
+template <typename T>
+static T ReadPushbuf(const std::vector<u8> &pushbuf, u32 ptr) {
+	T value;
+	memcpy(&value, pushbuf.data() + ptr, sizeof(T));
+	return value;
+}
+
 void SetReplayDrawLimit(int lastPrim) {
 	g_drawLimit = lastPrim;
 }
@@ -632,7 +641,9 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	// Dumps from before savedContextVersion 1 hold PPSSPP's old context layout, with the matrices as raw
 	// floats; the new one ends its commands with an END. Restoring an old one as new turned its matrices
 	// into garbage and the scene disappeared (4140). The PSP replayer tells them apart the same way.
-	const u32_le *context = (const u32_le *)(pushbuf_.data() + ptr);
+	std::vector<u32_le> contextBuf(512);
+	memcpy(contextBuf.data(), pushbuf_.data() + ptr, std::min(sz, (u32)(contextBuf.size() * sizeof(u32_le))));
+	const u32_le *context = contextBuf.data();
 	bool oldLayout = true;
 	for (int i = 17; i < 512; ++i) {
 		if (context[i] == GE_CMD_END << 24) {
@@ -849,9 +860,9 @@ void DumpExecute::ClutAddr(u32 ptr, u32 sz) {
 		u32 addr;
 		u32 flags;
 	};
-	const ClutAddrData *data = (const ClutAddrData *)(pushbuf_.data() + ptr);
-	execClutAddr = data->addr;
-	execClutFlags = data->flags;
+	const ClutAddrData data = ReadPushbuf<ClutAddrData>(pushbuf_, ptr);
+	execClutAddr = data.addr;
+	execClutFlags = data.flags;
 }
 
 void DumpExecute::Clut(u32 ptr, u32 sz) {
@@ -941,7 +952,8 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 		u32 sz;
 	};
 
-	const MemsetCommand *data = (const MemsetCommand *)(pushbuf_.data() + ptr);
+	const MemsetCommand cmd = ReadPushbuf<MemsetCommand>(pushbuf_, ptr);
+	const MemsetCommand *data = &cmd;
 
 	const u32 size = Memory::ClampValidSizeAt(data->dest, data->sz);
 	if (Memory::IsVRAMAddress(data->dest) && size != 0) {
@@ -956,7 +968,7 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::MemcpyDest(u32 ptr, u32 sz) {
-	execMemcpyDest = *(const u32 *)(pushbuf_.data() + ptr);
+	execMemcpyDest = ReadPushbuf<u32>(pushbuf_, ptr);
 }
 
 void DumpExecute::Memcpy(u32 ptr, u32 sz) {
@@ -996,7 +1008,8 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz, bool needed) {
 		u32 pad;
 	};
 
-	FramebufData *framebuf = (FramebufData *)(pushbuf_.data() + ptr);
+	const FramebufData header = ReadPushbuf<FramebufData>(pushbuf_, ptr);
+	const FramebufData *framebuf = &header;
 
 	if (lastTex_[level] != framebuf->addr || lastBufw_[level] != framebuf->bufw) {
 		u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
@@ -1042,7 +1055,8 @@ void DumpExecute::MarkNeededTargets() {
 		if (cmd.type < CommandType::FRAMEBUF0 || cmd.type > CommandType::FRAMEBUF7 || cmd.sz < 16) {
 			continue;
 		}
-		const u32 *header = (const u32 *)(pushbuf_.data() + cmd.ptr);
+		u32 header[3];
+		memcpy(header, pushbuf_.data() + cmd.ptr, sizeof(header));
 		if (!Memory::IsVRAMAddress(header[0])) {
 			continue;
 		}
@@ -1122,7 +1136,8 @@ void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 		int linesize, pixelFormat;
 	};
 
-	DisplayBufData *disp = (DisplayBufData *)(pushbuf_.data() + ptr);
+	const DisplayBufData data = ReadPushbuf<DisplayBufData>(pushbuf_, ptr);
+	const DisplayBufData *disp = &data;
 
 	// Sync up drawing.
 	SyncStall();
