@@ -700,13 +700,13 @@ namespace Reporting
 		return CheatsInEffect() || HLEPlugins::HasEnabled();
 	}
 
-	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
-		// Checked directly too: currentSupported, which MessageAllowed() relies on, can be stale.
-		if (CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
-			return;
-		}
+	// Crashes reported this run, by game ID and formatted crash. Resuming, resetting or loading a
+	// state often runs straight back into the same crash, which the server doesn't need twice.
+	static std::mutex reportedCrashesLock;
+	static std::set<std::string> reportedCrashes;
 
-		// The message is what the server groups reports by, so the details only go in the value.
+	// The message is what the server groups reports by, so the details only go in formatted.
+	static bool FormatCrash(const MIPSExceptionInfo &info, const char **outMessage, std::string *outFormatted) {
 		const char *message = nullptr;
 		char formatted[1024];
 		switch (info.type) {
@@ -731,7 +731,43 @@ namespace Reporting
 			snprintf(formatted, sizeof(formatted), message, info.info.c_str(), info.pc, info.ra);
 			break;
 		default:
+			return false;
+		}
+		*outMessage = message;
+		*outFormatted = formatted;
+		return true;
+	}
+
+	static std::string CrashKey(const std::string &formatted) {
+		return CurrentGameID() + " " + formatted;
+	}
+
+	bool CrashAlreadyReported(const MIPSExceptionInfo &info) {
+		const char *message;
+		std::string formatted;
+		if (!FormatCrash(info, &message, &formatted)) {
+			return false;
+		}
+		std::lock_guard<std::mutex> guard(reportedCrashesLock);
+		return reportedCrashes.count(CrashKey(formatted)) != 0;
+	}
+
+	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
+		// Checked directly too: currentSupported, which MessageAllowed() relies on, can be stale.
+		if (CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
 			return;
+		}
+
+		const char *message;
+		std::string formatted;
+		if (!FormatCrash(info, &message, &formatted)) {
+			return;
+		}
+		{
+			std::lock_guard<std::mutex> guard(reportedCrashesLock);
+			if (!reportedCrashes.insert(CrashKey(formatted)).second) {
+				return;
+			}
 		}
 
 		std::string value = formatted;

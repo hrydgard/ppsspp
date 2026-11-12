@@ -1272,6 +1272,7 @@ void EmuScreen::CreateViews() {
 		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
 			// Force it!
 			Memory::MemFault_IgnoreLastCrash();
+			Core_ResetException();
 			coreState = CoreState::CORE_RUNNING_CPU;
 		}
 	});
@@ -1489,7 +1490,7 @@ void EmuScreen::update() {
 	const bool crashed = (coreState == CoreState::CORE_RUNTIME_ERROR || coreState == CoreState::CORE_STEPPING_CPU) && Core_GetExceptionInfo().type != MIPSExceptionType::NONE;
 	if (crashed && !crashSeen_) {
 		crashSeen_ = true;
-		crashReported_ = false;
+		crashReported_ = Reporting::CrashAlreadyReported(Core_GetExceptionInfo());
 		if (Reporting::IsEnabled()) {
 			Reporting::ReportCrash(Core_GetExceptionInfo(), false);
 			crashReported_ = true;

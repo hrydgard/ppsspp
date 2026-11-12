@@ -75,6 +75,9 @@ namespace Reporting
 	// (to the default server, since reporting is off then).
 	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested);
 
+	// The same crash in the same game was already reported this run, so ReportCrash() would skip it.
+	bool CrashAlreadyReported(const MIPSExceptionInfo &info);
+
 	// Queues game for CRC hash if needed.
 	void QueueCRC(const Path &gamePath);
 
