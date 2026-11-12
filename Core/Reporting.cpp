@@ -616,6 +616,10 @@ namespace Reporting
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
 		if (PSP_GetBootState() == BootState::Complete && g_paramSFO.GetValueString("DISC_VERSION").empty())
 			return false;
+		// Firmware updaters only run far enough to crash: their VSH libraries want memory partitions a
+		// game boot doesn't set up. They're for installing the firmware (InstallUpdateScreen), not running.
+		if (PSP_GetBootState() != BootState::Off && g_paramSFO.GetValueString("DISC_ID") == "MSTKUPDATE")
+			return false;
 
 		return !everUnsupported;
 	}
