@@ -1272,6 +1272,7 @@ void EmuScreen::CreateViews() {
 		if (coreState == CoreState::CORE_RUNTIME_ERROR) {
 			// Force it!
 			Memory::MemFault_IgnoreLastCrash();
+			Core_ResetException();
 			coreState = CoreState::CORE_RUNNING_CPU;
 		}
 	});
@@ -1302,6 +1303,13 @@ void EmuScreen::CreateViews() {
 		}
 	});
 	reportCrashButton_->SetVisibility(V_GONE);
+
+	reportCrashBlocked_ = root_->Add(new TextView(rp->T("CrashReportCheatsPlugins", "Cheats and plugins can change the game's code in unpredictable ways, so crashes with them enabled can't be reported."),
+		ALIGN_HCENTER | FLAG_WRAP_TEXT, true, new AnchorLayoutParams(bounds.w - 40.0f, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 10.0f, Centering::Horizontal)));
+	reportCrashBlocked_->SetShadow(true);
+	reportCrashBlocked_->SetVisibility(V_GONE);
+
+	buttons->SetRoundCorners();
 
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, Centering::Both)));
 	DeviceOrientation orientation = GetDeviceOrientation();
@@ -1484,7 +1492,7 @@ void EmuScreen::update() {
 	const bool crashed = (coreState == CoreState::CORE_RUNTIME_ERROR || coreState == CoreState::CORE_STEPPING_CPU) && Core_GetExceptionInfo().type != MIPSExceptionType::NONE;
 	if (crashed && !crashSeen_) {
 		crashSeen_ = true;
-		crashReported_ = false;
+		crashReported_ = Reporting::CrashAlreadyReported(Core_GetExceptionInfo());
 		if (Reporting::IsEnabled()) {
 			Reporting::ReportCrash(Core_GetExceptionInfo(), false);
 			crashReported_ = true;
@@ -1492,7 +1500,12 @@ void EmuScreen::update() {
 	} else if (!crashed) {
 		crashSeen_ = false;
 	}
-	reportCrashButton_->SetVisibility(crashed && !crashReported_ && Reporting::CanReportCrashManually() ? V_VISIBLE : V_GONE);
+	// With cheats or plugins, the button stays up but disabled, to say why there's no report.
+	const bool reportBlocked = Reporting::CheatsOrPluginsInEffect();
+	const bool showReportButton = crashed && !crashReported_ && !Reporting::CrashReportsOff() && (reportBlocked || Reporting::CanReportCrashManually());
+	reportCrashButton_->SetVisibility(showReportButton ? V_VISIBLE : V_GONE);
+	reportCrashButton_->SetEnabled(!reportBlocked);
+	reportCrashBlocked_->SetVisibility(showReportButton && reportBlocked ? V_VISIBLE : V_GONE);
 
 	if (chatButton_ && chatMenu_) {
 		if (chatMenu_->GetVisibility() != V_GONE) {

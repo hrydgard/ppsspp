@@ -174,15 +174,13 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	e->nef.currentPattern = e->nef.initPattern;
 	e->nef.numWaitThreads = 0;
 
-	if (optPtr != 0) {
-		if (Memory::IsValid4AlignedAddress(optPtr)) {
-			u32 size = Memory::ReadUnchecked_U32(optPtr);
-			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
-		}
-	}
-	if ((flag_attr & ~PSP_EVENT_WAITMULTIPLE) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported attr parameter: %08x", name, flag_attr);
+	// threadman.prx never reads through optPtr.
+	// The low 8 bits of attr are user-mode permissions for the object's UID, the same for every
+	// threadman object (threadman.prx 6.61 passes them to sysmem's UID creation, and forces 0xFF when
+	// the caller is in user mode). Each user-mode call checks one bit and otherwise returns
+	// 0x800200D1 (illegal permission): 0x01 refer, 0x02 signal/set/clear/send, 0x04 wait/poll,
+	// 0x08 cancel, 0x10 delete. Kernel modules set them, the XMB's often to 0x01. Not enforced here:
+	// on hardware it depends on k1 through the call chain, which the thread's mode doesn't capture.
 
 	return hleLogDebug(Log::sceKernel, id);
 }

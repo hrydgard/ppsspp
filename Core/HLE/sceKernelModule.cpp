@@ -1182,7 +1182,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		if (entry->numVars > 0 && entry->varData != 0 && !reimporting) {
 			// Note: the whole array has to be valid, not just the first word - numVars comes from the module.
 			if (!Memory::IsValidRange(entry->varData, entry->numVars * 8)) {
-				ERROR_LOG_REPORT(Log::Loader, "Crazy varData address %08x (%d vars), skipping rest of module", entry->varData, entry->numVars);
+				ERROR_LOG(Log::Loader, "Crazy varData address %08x (%d vars), skipping rest of module", entry->varData, entry->numVars);
 				needReport = true;
 				continue;
 			}
