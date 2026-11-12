@@ -574,22 +574,23 @@ void MIPSState::ProcessPendingInvalidates() {
 		invalidateAll_ = false;
 		std::vector<PendingCacheOperation> pending;
 		pending.swap(pendingInvalidates_);
-		bool large = false;
+		bool checkChanged = false;
 		for (const auto &p : pending) {
 			if (!IsMediaEngine())
 				RemoveModifiedReplacementsInRange(p.addr, p.size);
 			if (jit && !all) {
 				jit->InvalidateCacheAt(p.addr, p.size);
 			}
-			large = large || p.size >= ICACHE_SIZE;
+			checkChanged = checkChanged || (p.fromGame && p.size >= ICACHE_SIZE);
 		}
 		if (jit && all) {
 			jit->ClearCache();
-		} else if (jit && large) {
+		} else if (jit && checkChanged) {
 			// A game that loads code can invalidate less than it wrote: Frontier Gate Boost+ writes 218KB
 			// and invalidates the first 16KB. The firmware only drops lines inside the range (sysmem.prx's
 			// sceKernelIcacheInvalidateRange), so on the PSP the rest must have left the icache by the
-			// time it runs again. Our blocks don't leave on their own.
+			// time it runs again. Our blocks don't leave on their own. Our own invalidations after a read
+			// or a DMA copy cover exactly what was written, so they don't need this.
 			jit->InvalidateChangedBlocks();
 		}
 	}
@@ -607,11 +608,11 @@ void MIPSState::BenchmarkJitDeferred() {
 	}
 }
 
-void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
+void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length, bool fromGame) {
 	// TODO: We can try to merge the invalidate with the previous one.
-	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
+	pendingInvalidates_.push_back(PendingCacheOperation{address, length, fromGame});
 	if (MIPSState *me = MediaEngineToNotify(this)) {
-		me->InvalidateICacheRangeDeferred(address, length);
+		me->InvalidateICacheRangeDeferred(address, length, fromGame);
 	}
 	if (jit && !IsMediaEngine()) {
 		Core_ReenterDispatcher();
