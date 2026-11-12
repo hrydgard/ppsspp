@@ -489,7 +489,7 @@ private:
 // same places (see GetIRBlockEnd in MIPSTables.cpp), so events happen at the same instruction.
 constexpr bool IR_CONTINUE_BRANCHES = true;
 constexpr int IR_MAX_CONTINUED_INSTRUCTIONS = 96;
-constexpr int IR_MAX_CONTINUED_BRANCHES = 8;
+constexpr int IR_MAX_CONTINUED_BRANCHES = 6;
 
 struct IROptions {
 	uint32_t disableFlags;
