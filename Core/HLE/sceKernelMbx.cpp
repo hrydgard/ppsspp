@@ -277,13 +277,7 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 
 	DEBUG_LOG(Log::sceKernel, "%i=sceKernelCreateMbx(%s, %08x, %08x)", id, name, attr, optAddr);
 
-	if (optAddr != 0) {
-		if (Memory::IsValidRange(optAddr, 4)) {
-			u32 size = Memory::ReadUnchecked_U32(optAddr);
-			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
-		}
-	}
+	// threadman.prx never reads through optAddr.
 	// The low 8 bits of attr are the UID's user-mode permissions, which kernel modules set (see
 	// sceKernelCreateEventFlag in sceKernelEventFlag.cpp). Not enforced here.
 

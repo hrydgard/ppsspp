@@ -1075,7 +1075,7 @@ void MIPSCompileOp(MIPSOpcode op, MIPSComp::MIPSFrontendInterface *jit) {
 		if (instr->compile) {
 			(jit->*(instr->compile))(op);
 		} else {
-			ERROR_LOG_REPORT(Log::CPU,"MIPSCompileOp %08x failed",op.encoding);
+			ERROR_LOG(Log::CPU, "MIPSCompileOp %08x failed", op.encoding);
 		}
 		if (info & OUT_EAT_PREFIX)
 			jit->EatPrefix();

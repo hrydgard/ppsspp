@@ -1309,6 +1309,8 @@ void EmuScreen::CreateViews() {
 	reportCrashBlocked_->SetShadow(true);
 	reportCrashBlocked_->SetVisibility(V_GONE);
 
+	buttons->SetRoundCorners();
+
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, Centering::Both)));
 	DeviceOrientation orientation = GetDeviceOrientation();
 	cardboardDisableButton_->OnClick.Add([deviceOrientation](UI::EventParams &) {

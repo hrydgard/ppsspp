@@ -174,13 +174,7 @@ int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPatte
 	e->nef.currentPattern = e->nef.initPattern;
 	e->nef.numWaitThreads = 0;
 
-	if (optPtr != 0) {
-		if (Memory::IsValid4AlignedAddress(optPtr)) {
-			u32 size = Memory::ReadUnchecked_U32(optPtr);
-			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateEventFlag(%s) unsupported options parameter, size = %d", name, size);
-		}
-	}
+	// threadman.prx never reads through optPtr.
 	// The low 8 bits of attr are user-mode permissions for the object's UID, the same for every
 	// threadman object (threadman.prx 6.61 passes them to sysmem's UID creation, and forces 0xFF when
 	// the caller is in user mode). Each user-mode call checks one bit and otherwise returns
