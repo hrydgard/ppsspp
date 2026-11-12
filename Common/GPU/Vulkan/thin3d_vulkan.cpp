@@ -1087,6 +1087,11 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		if (!turnip && (deviceProps.driverVersion < 0x801EA000 || deviceProps.deviceID < 0x06000000))
 			bugs_.Infest(Bugs::COLORWRITEMASK_BROKEN_WITH_DEPTHTEST);
 
+		// The light ubershader's loop over the lights gives wrong lighting (LittleBigPlanet's Sackboy and scenery came
+		// out pale). Seen on Adreno 506 with a Vulkan 1.0.20 driver; the per-light shaders are fine.
+		if (!turnip && deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000)
+			bugs_.Infest(Bugs::UNIFORM_INDEXING_BROKEN);
+
 		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
 		// quite work - artifacts on triangle boundaries on Adreno.

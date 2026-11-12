@@ -1200,18 +1200,26 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 	}
 
+	// With EXT_shader_framebuffer_fetch, fragColor0 is inout. Adreno 506 (driver V@145) reads it back wrong once
+	// the shader has written it (packing it for the write mask came out black), so build the color in a local.
+	const char *fragColor0 = compat.fragColor0;
+	if (fetchFramebuffer && compat.lastFragData && !strcmp(compat.lastFragData, fragColor0)) {
+		WRITE(p, "  vec4 outColor0;\n");
+		fragColor0 = "outColor0";
+	}
+
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha);
 		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, v.a);\n", compat.fragColor1);
 		break;
 
 	case REPLACE_ALPHA_YES:
-		WRITE(p, "  %s = vec4(v.rgb, %s);\n", compat.fragColor0, replacedAlpha);
+		WRITE(p, "  %s = vec4(v.rgb, %s);\n", fragColor0, replacedAlpha);
 		break;
 
 	case REPLACE_ALPHA_NO:
-		WRITE(p, "  %s = v;\n", compat.fragColor0);
+		WRITE(p, "  %s = v;\n", fragColor0);
 		break;
 
 	default:
@@ -1221,10 +1229,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	switch (simulateLogicOpType) {
 	case LOGICOPTYPE_ONE:
-		WRITE(p, "  %s.rgb = splat3(1.0);\n", compat.fragColor0);
+		WRITE(p, "  %s.rgb = splat3(1.0);\n", fragColor0);
 		break;
 	case LOGICOPTYPE_INVERT:
-		WRITE(p, "  %s.rgb = splat3(1.0) - %s.rgb;\n", compat.fragColor0, compat.fragColor0);
+		WRITE(p, "  %s.rgb = splat3(1.0) - %s.rgb;\n", fragColor0, fragColor0);
 		break;
 	case LOGICOPTYPE_NORMAL:
 		break;
@@ -1236,7 +1244,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Final color computed - apply logic ops and bitwise color write mask, through shader blending, if specified.
 	if (colorWriteMask || replaceLogicOp) {
-		WRITE(p, "  highp uint v32 = packUnorm4x8%s(%s);\n", packSuffix, compat.fragColor0);
+		WRITE(p, "  highp uint v32 = packUnorm4x8%s(%s);\n", packSuffix, fragColor0);
 		WRITE(p, "  highp uint d32 = packUnorm4x8%s(destColor);\n", packSuffix);
 
 		// v32 is both the "s" to the logical operation, and the value that we'll merge to the destination with masking later.
@@ -1268,11 +1276,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			else
 				WRITE(p, "  v32 = (v32 & u_colorWriteMask & 0x00FFFFFFu) | (d32 & (~u_colorWriteMask | 0xFF000000u));\n");
 		}
-		WRITE(p, "  %s = unpackUnorm4x8%s(v32);\n", compat.fragColor0, packSuffix);
+		WRITE(p, "  %s = unpackUnorm4x8%s(v32);\n", fragColor0, packSuffix);
 	}
 
 	if (blueToAlpha) {
-		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", compat.fragColor0, compat.fragColor0);
+		WRITE(p, "  %s = vec4(0.0, 0.0, 0.0, %s.z);  // blue to alpha\n", fragColor0, fragColor0);
+	}
+	if (fragColor0 != compat.fragColor0) {
+		WRITE(p, "  %s = %s;\n", compat.fragColor0, fragColor0);
 	}
 
 	if (fsDepthClamp || fsMinmaxDiscard) {
