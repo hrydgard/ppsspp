@@ -931,6 +931,16 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 					dst->fb_address, GeBufferFormatToString(dst->fb_format));
 
 				pipeline = GetReinterpretPipeline(src->fb_format, dst->fb_format, &scaleFactorX);
+				// A 16-bit view of a 32-bit buffer, at twice its stride, is twice as wide. Make the destination's buffer
+				// hold all of the source, or the blit clips it (MX vs ATV Reflex, Cars Race-O-Rama: the right half of
+				// the scene went black). Only for a view of the whole buffer: Phantasy Star Portable 2 reinterprets a
+				// 256x128 effect buffer into its display, and widening that stretched the picture.
+				if (dst->fb_stride == src->fb_stride * 2 && src->height >= dst->height) {
+					const int neededWidth = std::min(src->width * 2, (int)dst->fb_stride);
+					if (neededWidth > dst->bufferWidth) {
+						ResizeFramebufFBO(dst, neededWidth, dst->height);
+					}
+				}
 				dstX1 *= scaleFactorX;
 				dstX2 *= scaleFactorX;
 
