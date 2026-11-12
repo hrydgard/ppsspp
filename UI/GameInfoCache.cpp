@@ -767,14 +767,22 @@ public:
 handleELF:
 		{
 			// An elf on its own has no usable information, no icons, no nothing. Except the XMB, which we name.
-			const std::string vshTitle = GetVSHTitle(gamePath_);
+			std::string vshVersion;
+			const std::string vshTitle = GetVSHTitle(gamePath_, &vshVersion);
 			info_->SetTitle(vshTitle.empty() ? info_->GetFilePath().GetFilename() : vshTitle);
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
-				const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = fakeID;
-				info_->id_version = fakeID + "_1.00";
-				info_->region = vshTitle.empty() ? GameRegion::HOMEBREW : GameRegion::VSH;
+				if (vshTitle.empty()) {
+					const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
+					info_->id = fakeID;
+					info_->id_version = fakeID + "_1.00";
+					info_->region = GameRegion::HOMEBREW;
+				} else {
+					// The same as the boot gives it (see CPU_Init).
+					info_->id = VSH_DISC_ID;
+					info_->id_version = std::string(VSH_DISC_ID) + "_" + (vshVersion.empty() ? "1.00" : vshVersion);
+					info_->region = GameRegion::VSH;
+				}
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {

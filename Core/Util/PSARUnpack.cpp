@@ -1479,7 +1479,9 @@ Path GetUmdVideoVSHPath() {
 	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 }
 
-std::string GetVSHTitle(const Path &path) {
+const char *const VSH_DISC_ID = "VSHM00000";
+
+std::string GetVSHTitle(const Path &path, std::string *version) {
 	if (!equalsNoCase(path.GetFilename(), "vshmain.prx")) {
 		return std::string();
 	}
@@ -1488,6 +1490,9 @@ std::string GetVSHTitle(const Path &path) {
 	std::string versionTxt;
 	if (File::ReadTextFileToString(path.NavigateUp().NavigateUp() / "etc/version.txt", &versionTxt)) {
 		ParseVersionTxt(versionTxt, &info);
+	}
+	if (version) {
+		*version = info.version;
 	}
 	return info.version.empty() ? std::string("XMB") : "XMB " + info.version;
 }
