@@ -58,6 +58,7 @@ extern "C" {
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
+#include "Core/Util/PSARUnpack.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
@@ -444,6 +445,11 @@ namespace Reporting
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
+
+		// Empty when there's no full firmware install (nothing, or just fonts pulled off a disc).
+		InstalledFirmwareInfo firmware;
+		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmware, false);
+		postdata.Add("firmware", firmware.version);
 	}
 
 	void AddConfigInfo(UrlEncoder &postdata)
@@ -457,8 +463,11 @@ namespace Reporting
 	void AddGameplayInfo(UrlEncoder &postdata)
 	{
 		// Just to get an idea of how long they played.
-		if (PSP_GetBootState() == BootState::Complete)
+		if (PSP_GetBootState() == BootState::Complete) {
 			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks(currentMIPS));
+			// Emulated seconds. Ticks alone don't say this, since games change the CPU clock.
+			postdata.Add("played_seconds", (double)CoreTiming::PeekGlobalTimeUs() / 1000000.0);
+		}
 
 		float vps, fps;
 		__DisplayGetAveragedFPS(&vps, &fps);
