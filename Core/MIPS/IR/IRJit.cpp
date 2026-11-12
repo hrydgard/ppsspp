@@ -202,6 +202,8 @@ void IRJit::InvalidateChangedBlocks() {
 	}
 	const int64_t nanos = (int64_t)((time_now_fast_ticks() - start) * fast_ticks_to_nanos());
 	DEBUG_LOG(Log::JIT, "Checked %d blocks in %.2f ms, %d had changed code", blocks_.GetNumBlocks(), nanos / 1000000.0, changed);
+	changedCodeChecks_++;
+	changedCodeBlocks_ += changed;
 	if (changed) {
 		invalidations_++;
 		invalidatedBlocks_ += changed;
@@ -412,6 +414,8 @@ void IRJit::GetStats(JitStats *stats) const {
 	stats->codeFullClears = codeFullClears_;
 	stats->invalidations = invalidations_;
 	stats->invalidatedBlocks = invalidatedBlocks_;
+	stats->changedCodeChecks = changedCodeChecks_;
+	stats->changedCodeBlocks = changedCodeBlocks_;
 }
 
 int IRInterpreterJit::GetBlockCodeSize(int block_num) const {

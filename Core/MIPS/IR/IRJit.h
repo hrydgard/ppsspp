@@ -242,6 +242,8 @@ protected:
 	int codeFullClears_ = 0;
 	int invalidations_ = 0;
 	int invalidatedBlocks_ = 0;
+	int changedCodeChecks_ = 0;
+	int changedCodeBlocks_ = 0;
 
 	friend class IRJitDebugInterface;
 };

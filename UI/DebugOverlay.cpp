@@ -88,6 +88,7 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
 		}
 		w.F("Invalidations: %d (%d blocks)\n", stats.invalidations, stats.invalidatedBlocks);
+		w.F("Large invalidations checking all blocks: %d (%d blocks changed)\n", stats.changedCodeChecks, stats.changedCodeBlocks);
 
 		const MIPSComp::JitCompileTimes &t = MIPSComp::g_jitCompileTimes;
 		if (t.blocks > 0) {

@@ -132,6 +132,9 @@ namespace MIPSComp {
 		// Calls to InvalidateCacheAt that hit at least one block, and the blocks they hit.
 		int invalidations = 0;
 		int invalidatedBlocks = 0;
+		// Large icache invalidations, which hash every block to find overwritten code, and the blocks dropped.
+		int changedCodeChecks = 0;
+		int changedCodeBlocks = 0;
 	};
 
 	// Time spent compiling, totalled since startup. The IR JITs fill it in.
