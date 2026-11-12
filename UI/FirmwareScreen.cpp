@@ -34,6 +34,7 @@
 #include "Core/Util/PathUtil.h"
 
 #include "UI/FirmwareScreen.h"
+#include "UI/GameInfoCache.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/MiscViews.h"
 
@@ -235,7 +236,10 @@ void FirmwareScreen::BrowseForUpdater() {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	System_BrowseForFile(GetRequesterToken(), iz->T("Install PSP firmware update"), BrowseFileType::BOOTABLE,
 		[this](std::string_view value, int) {
-		screenManager()->push(new InstallUpdateScreen(Path(value), "", false));
+		const Path path(value);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
+		info->WaitUntilReady(GameInfoFlags::PARAM_SFO);
+		screenManager()->push(new InstallUpdateScreen(path, info->GetTitle(), false));
 	});
 }
 
