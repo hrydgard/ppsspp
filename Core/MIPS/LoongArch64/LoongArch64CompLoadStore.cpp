@@ -128,6 +128,66 @@ void LoongArch64JitBackend::CompIR_Load(IRInst inst) {
 	}
 }
 
+// Memory directly, or through the fixed code for a hardware register (0xA0000000-0xBFFFFFFF, kernel
+// segment 1), where the address may also be one the CPU has no memory at (see Memory::IsMMIOAccess).
+// Only the main CPU gets here: the IR interpreter runs the Media Engine on LoongArch.
+void LoongArch64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	const bool isStore = inst.op == IROp::StoreKernel8 || inst.op == IROp::StoreKernel16 || inst.op == IROp::StoreKernel32;
+	// Everything is mapped before the branch, so both ways leave the register cache the same.
+	regs_.SpillLockGPR(isStore ? inst.src3 : inst.dest, inst.src1);
+	const LoongArch64Reg src1 = regs_.MapGPR(inst.src1);
+	if (inst.constant >= -2048 && inst.constant <= 2047) {
+		ADDI_W(SCRATCH1, src1, inst.constant);
+	} else {
+		LI(SCRATCH2, (int32_t)inst.constant);
+		ADD_W(SCRATCH1, src1, SCRATCH2);
+	}
+	// A load into $zero only matters for what reading a hardware register does.
+	LoongArch64Reg reg = INVALID_REG;
+	if (isStore) {
+		reg = regs_.MapGPR(inst.src3);
+	} else if (inst.dest != MIPS_REG_ZERO) {
+		reg = regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+		regs_.MarkGPRDirty(inst.dest, true);
+	}
+
+	SRLI_W(SCRATCH2, SCRATCH1, 29);
+	ADDI_W(SCRATCH2, SCRATCH2, -(int)(0xA0000000 >> 29));
+	FixupBranch memory = BNEZ(SCRATCH2);
+	if (isStore)
+		MOVE(SCRATCH2, reg);
+	QuickCallFunction(kernelLoadStore_[(int)inst.op - (int)IROp::LoadKernel8]);
+	// Sign extended, as the loads below leave it (see MarkGPRDirty above).
+	if (reg != INVALID_REG && !isStore)
+		ADDI_W(reg, SCRATCH1, 0);
+	FixupBranch done = B();
+
+	SetJumpTarget(memory);
+	// As SetScratch1ToSrc1Address.
+#ifdef MASKED_PSP_MEMORY
+	SLLI_W(SCRATCH1, SCRATCH1, 2);
+	SRLI_W(SCRATCH1, SCRATCH1, 2);
+#else
+	SLLI_D(SCRATCH1, SCRATCH1, 32);
+	SRLI_D(SCRATCH1, SCRATCH1, 32);
+#endif
+	ADD_D(SCRATCH1, SCRATCH1, MEMBASEREG);
+	switch (inst.op) {
+	case IROp::LoadKernel8: if (reg != INVALID_REG) LD_BU(reg, SCRATCH1, 0); break;
+	case IROp::LoadKernel8Ext: if (reg != INVALID_REG) LD_B(reg, SCRATCH1, 0); break;
+	case IROp::LoadKernel16: if (reg != INVALID_REG) LD_HU(reg, SCRATCH1, 0); break;
+	case IROp::LoadKernel16Ext: if (reg != INVALID_REG) LD_H(reg, SCRATCH1, 0); break;
+	case IROp::LoadKernel32: if (reg != INVALID_REG) LD_W(reg, SCRATCH1, 0); break;
+	case IROp::StoreKernel8: ST_B(reg, SCRATCH1, 0); break;
+	case IROp::StoreKernel16: ST_H(reg, SCRATCH1, 0); break;
+	case IROp::StoreKernel32: ST_W(reg, SCRATCH1, 0); break;
+	default: INVALIDOP; break;
+	}
+	SetJumpTarget(done);
+}
+
 void LoongArch64JitBackend::CompIR_LoadShift(IRInst inst) {
 	CONDITIONAL_DISABLE;
 

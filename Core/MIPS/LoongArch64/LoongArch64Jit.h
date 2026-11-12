@@ -88,6 +88,7 @@ private:
 	void CompIR_Generic(IRInst inst) override;
 	void CompIR_HiLo(IRInst inst) override;
 	void CompIR_Interpret(IRInst inst) override;
+	void CompIR_KernelLoadStore(IRInst inst) override;
 	void CompIR_Load(IRInst inst) override;
 	void CompIR_LoadShift(IRInst inst) override;
 	void CompIR_Logic(IRInst inst) override;
@@ -129,6 +130,8 @@ private:
 	const u8 *vfpuDotSpecial_ = nullptr;
 	// See GenerateLoongArch64VfpuDot().
 	const u8 *vfpuDot_ = nullptr;
+	// For a kernel load or store at a hardware register, by op from LoadKernel8 (see CompIR_KernelLoadStore).
+	const u8 *kernelLoadStore_[8]{};
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
