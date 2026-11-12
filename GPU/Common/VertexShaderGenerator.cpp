@@ -1050,8 +1050,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform) {
 			WRITE(p, "  %sgl_Position.z = nearPlaneZ;\n", compat.vsOutPrefix);
 		} else {
-			// Software transform has clipped against the near plane already.
-			WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+			// Software transform has clipped against the near plane already, so put it in the middle of the depth
+			// range. The middle of minz-maxz is on the near plane when both are 0 (Need for Speed Shift's sky), and
+			// Mali-T830 then clips parts of it away.
+			WRITE(p, "  %sgl_Position.z = 0.5 * outPos.w;\n", compat.vsOutPrefix);
 		}
 	}
 
