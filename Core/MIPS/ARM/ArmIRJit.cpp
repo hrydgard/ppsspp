@@ -62,10 +62,18 @@ bool ArmJitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *instr
 	if (GetSpaceLeft() < 0x800)
 		return false;
 
-	// An accurate dot product gathers its lanes and can flush a few registers around its call.
+	// An accurate dot product gathers its lanes and can flush a few registers around its call, and a
+	// kernel load or store has a range check and a call-out for hardware registers.
 	size_t sizeEstimate = 0;
-	for (int i = 0; i < count; ++i)
-		sizeEstimate += instructions[i].op == IROp::Vec4VfpuDot ? 96 : 32;
+	for (int i = 0; i < count; ++i) {
+		const IROp op = instructions[i].op;
+		if (op == IROp::Vec4VfpuDot)
+			sizeEstimate += 96;
+		else if (op >= IROp::LoadKernel8 && op <= IROp::StoreKernel32)
+			sizeEstimate += 64;
+		else
+			sizeEstimate += 32;
+	}
 	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
 	bool wroteCheckedOffset = false;
