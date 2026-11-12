@@ -13,6 +13,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include <vector>
+#include "Common/VR/VRBase.h"
 #include "Common/VR/VRMath.h"
 
 extern GLuint g_defaultFBO;
@@ -49,6 +50,8 @@ void DestroyVR() {
 		DeleteVRTargets();
 	}
 	vrActive = vrImmersive = vrReferenceValid = vrReplaying = false;
+	vrWidth = vrHeight = 0;
+	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, false);
 	vrCylinder = false;
 	if (vrCanvasProgram) {
 		glDeleteProgram(vrCanvasProgram);
@@ -169,11 +172,21 @@ void UpdateVR() {
 	vrCylinder = false;
 	unsigned status = 0;
 	const bool gl = ctx && ctx->GetGPUCore() == GPUCORE_GLES && !g_Config.bSoftwareRendering;
-	if (gl && vrMode != VRMode::Off &&
-		(gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.ARB_framebuffer_object)) &&
+	const bool vulkan = ctx && ctx->GetGPUCore() == GPUCORE_VULKAN && !g_Config.bSoftwareRendering &&
+		ctx->GetDrawContext() && ctx->GetDrawContext()->GetDeviceCaps().multiViewSupported;
+	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, vulkan);
+	const bool supported = vulkan || (gl && (gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.ARB_framebuffer_object)));
+	if (supported && vrMode != VRMode::Off &&
 		environ_cb(RETRO_ENVIRONMENT_GET_VIDEO_VIEWS_STATUS, &status) &&
 		(status & RETRO_VIDEO_VIEWS_STATUS_STEREO) && (status & RETRO_VIDEO_VIEWS_STATUS_PRESENTS)) {
-		vrActive = CreateVRTargets(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		if (vulkan) {
+			vrWidth = PSP_CoreParameter().pixelWidth;
+			vrHeight = PSP_CoreParameter().pixelHeight;
+			const unsigned maxSize = ctx->GetDrawContext()->GetDeviceCaps().maxTextureSize;
+			vrActive = vrWidth && vrHeight && vrWidth <= maxSize / 2 && vrHeight <= maxSize;
+		} else {
+			vrActive = CreateVRTargets(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		}
 		vrFrame = {};
 		bool tracked = (status & RETRO_VIDEO_VIEWS_STATUS_HMD) &&
 			environ_cb(RETRO_ENVIRONMENT_GET_VR_FRAME_STATE, &vrFrame) &&
@@ -210,6 +223,7 @@ void UpdateVR() {
 	}
 	if (!vrActive) {
 		vrCylinder = false;
+		g_Config.bEnableVR = g_Config.bEnableImmersiveVR = false;
 	}
 	if (wasActive != vrActive) {
 		if (gpu) {
@@ -317,6 +331,54 @@ static bool CreateVRCanvas() {
 	return true;
 }
 
+bool VRCanvasActive() {
+	return vrCylinder; }
+float VRCanvasAspect() { return vrCanvasAspect; }
+
+void GetVRCanvasMatrix(int eye, float *mvp) {
+	const auto &pose = vrFrame.eyes[eye];
+	XrQuaternionf referenceInverse = XrQuaternionf_Inverse(vrReference.orientation);
+	XrPosef camera = XrPosef_Identity();
+
+	camera.orientation = XrQuaternionf_Multiply(referenceInverse,
+		{pose.orientation[0], pose.orientation[1], pose.orientation[2], pose.orientation[3]});
+
+	XrVector3f origin = vrReference.position;
+	if (!g_Config.bEnable6DoF) {
+		origin = {(vrFrame.eyes[0].position[0] + vrFrame.eyes[1].position[0]) * 0.5f,
+			(vrFrame.eyes[0].position[1] + vrFrame.eyes[1].position[1]) * 0.5f,
+			(vrFrame.eyes[0].position[2] + vrFrame.eyes[1].position[2]) * 0.5f};
+	}
+
+	camera.position = XrQuaternionf_Rotate(referenceInverse, {
+		pose.position[0] - origin.x, pose.position[1] - origin.y, pose.position[2] - origin.z});
+	XrPosef view = XrPosef_Inverse(camera);
+	float rowMajor[16], matrix[16];
+	XrQuaternionf_ToMatrix4f(&view.orientation, rowMajor);
+
+	for (int col = 0; col < 4; ++col) {
+		for (int row = 0; row < 4; ++row) {
+			matrix[col * 4 + row] = rowMajor[row * 4 + col];
+		}
+	}
+
+	matrix[12] = view.position.x;
+	matrix[13] = view.position.y;
+	matrix[14] = view.position.z;
+	const float *fov = pose.fov_tan;
+	float lens[16]{};
+
+	lens[0] = 2.0f / (fov[0] + fov[1]);
+	lens[5] = 2.0f / (fov[2] + fov[3]);
+	lens[8] = (fov[1] - fov[0]) / (fov[0] + fov[1]);
+	lens[9] = (fov[2] - fov[3]) / (fov[2] + fov[3]);
+	lens[10] = -1.0f;
+	lens[11] = -1.0f;
+	lens[14] = -0.02f;
+
+	fast_matrix_mul_4x4(mvp, lens, matrix);
+}
+
 static void DrawVRCanvas() {
 	std::vector<float> vertices;
 	constexpr int segments = 64;
@@ -342,43 +404,8 @@ static void DrawVRCanvas() {
 	glVertexAttribPointer(1, 2, GL_FLOAT, false, 5 * sizeof(float), (void *)(3 * sizeof(float)));
 	glUniform1i(glGetUniformLocation(vrCanvasProgram, "source"), 0);
 	for (int eye = 0; eye < 2; ++eye) {
-		const auto &pose = vrFrame.eyes[eye];
-		XrQuaternionf referenceInverse = XrQuaternionf_Inverse(vrReference.orientation);
-		XrPosef camera = XrPosef_Identity();
-		camera.orientation = XrQuaternionf_Multiply(referenceInverse,
-			{pose.orientation[0], pose.orientation[1], pose.orientation[2], pose.orientation[3]});
-		// Match standalone's default: the cylinder follows translation, never rotation.
-		// Keep the eye separation so HUD elements lie on the cylinder, not at infinity.
-		XrVector3f origin = vrReference.position;
-		if (!g_Config.bEnable6DoF) {
-			origin = {(vrFrame.eyes[0].position[0] + vrFrame.eyes[1].position[0]) * 0.5f,
-				(vrFrame.eyes[0].position[1] + vrFrame.eyes[1].position[1]) * 0.5f,
-				(vrFrame.eyes[0].position[2] + vrFrame.eyes[1].position[2]) * 0.5f};
-		}
-		camera.position = XrQuaternionf_Rotate(referenceInverse, {
-			pose.position[0] - origin.x, pose.position[1] - origin.y, pose.position[2] - origin.z});
-		XrPosef view = XrPosef_Inverse(camera);
-		float rowMajor[16], matrix[16];
-		XrQuaternionf_ToMatrix4f(&view.orientation, rowMajor);
-		for (int col = 0; col < 4; ++col) {
-			for (int row = 0; row < 4; ++row) {
-				matrix[col * 4 + row] = rowMajor[row * 4 + col];
-			}
-		}
-		matrix[12] = view.position.x;
-		matrix[13] = view.position.y;
-		matrix[14] = view.position.z;
-		const float *fov = pose.fov_tan;
-		float lens[16]{};
-		lens[0] = 2.0f / (fov[0] + fov[1]);
-		lens[5] = 2.0f / (fov[2] + fov[3]);
-		lens[8] = (fov[1] - fov[0]) / (fov[0] + fov[1]);
-		lens[9] = (fov[2] - fov[3]) / (fov[2] + fov[3]);
-		lens[10] = -1.0f;
-		lens[11] = -1.0f;
-		lens[14] = -0.02f;
 		float mvp[16];
-		fast_matrix_mul_4x4(mvp, lens, matrix);
+		GetVRCanvasMatrix(eye, mvp);
 		glUniformMatrix4fv(glGetUniformLocation(vrCanvasProgram, "mvp"), 1, false, mvp);
 		glViewport(eye * vrWidth, 0, vrWidth, vrHeight);
 		glBindTexture(GL_TEXTURE_2D, vrColor[eye]);
