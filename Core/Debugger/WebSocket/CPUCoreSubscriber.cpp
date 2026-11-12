@@ -24,6 +24,7 @@
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Reporting.h"
 
@@ -36,6 +37,7 @@ DebuggerSubscriber *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	map["cpu.getReg"] = &WebSocketCPUGetReg;
 	map["cpu.setReg"] = &WebSocketCPUSetReg;
 	map["cpu.evaluate"] = &WebSocketCPUEvaluate;
+	map["cpu.jitStats"] = &WebSocketCPUJitStats;
 
 	return nullptr;
 }
@@ -454,5 +456,43 @@ void WebSocketCPUEvaluate(DebuggerRequest &req) {
 		JsonWriter &json = req.Respond();
 		json.writeUint("uintValue", val);
 		json.writeString("floatValue", RegValueAsFloat(val));
+	});
+}
+
+// Retrieve JIT block cache stats (cpu.jitStats)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - jit: boolean, false with the interpreter, which has none of the rest.
+//  - blocks, validBlocks: blocks in the cache, and how many haven't been invalidated.
+//  - fullClears: times the cache was cleared because the IR arena or code space filled up.
+//  - invalidations, invalidatedBlocks: invalidations that hit at least one block, and the blocks hit.
+//  - changedCodeChecks, changedCodeBlocks: large icache invalidations (16KB or more), which hash every
+//    block to find code overwritten outside the range, and the blocks they dropped.
+//  - compiledBlocks, compileMs, invalidateMs: totals since startup.
+//
+// The counters run from when the JIT was created and aren't reset by savestate loads, so compare two readings.
+void WebSocketCPUJitStats(DebuggerRequest &req) {
+	Core_RunOnCPUThread([&] {
+		JsonWriter &json = req.Respond();
+		if (!currentMIPS || !currentMIPS->jit) {
+			json.writeBool("jit", false);
+			return;
+		}
+		MIPSComp::JitStats stats;
+		currentMIPS->jit->GetStats(&stats);
+		const MIPSComp::JitCompileTimes &t = MIPSComp::g_jitCompileTimes;
+		json.writeBool("jit", true);
+		json.writeInt("blocks", stats.numBlocks);
+		json.writeInt("validBlocks", stats.numValidBlocks);
+		json.writeInt("fullClears", stats.irArenaFullClears + stats.codeFullClears);
+		json.writeInt("invalidations", stats.invalidations);
+		json.writeInt("invalidatedBlocks", stats.invalidatedBlocks);
+		json.writeInt("changedCodeChecks", stats.changedCodeChecks);
+		json.writeInt("changedCodeBlocks", stats.changedCodeBlocks);
+		json.writeFloat("compiledBlocks", (double)t.blocks);
+		json.writeFloat("compileMs", t.TotalNanos() * 1e-6);
+		json.writeFloat("invalidateMs", t.invalidateNanos * 1e-6);
 	});
 }

@@ -541,6 +541,9 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	return 1;
 }
 
+// The PSP's instruction cache. An invalidation at least this big makes us check every block's code.
+static constexpr u32 ICACHE_SIZE = 0x4000;
+
 // The Media Engine runs code from the same RAM, so it hears about the main CPU's code changes.
 // It isn't running while the main CPU is, so it can always wait.
 static MIPSState *MediaEngineToNotify(const MIPSState *mips) {
@@ -571,15 +574,24 @@ void MIPSState::ProcessPendingInvalidates() {
 		invalidateAll_ = false;
 		std::vector<PendingCacheOperation> pending;
 		pending.swap(pendingInvalidates_);
+		bool checkChanged = false;
 		for (const auto &p : pending) {
 			if (!IsMediaEngine())
 				RemoveModifiedReplacementsInRange(p.addr, p.size);
 			if (jit && !all) {
 				jit->InvalidateCacheAt(p.addr, p.size);
 			}
+			checkChanged = checkChanged || (p.fromGame && p.size >= ICACHE_SIZE);
 		}
 		if (jit && all) {
 			jit->ClearCache();
+		} else if (jit && checkChanged) {
+			// A game that loads code can invalidate less than it wrote: Frontier Gate Boost+ writes 218KB
+			// and invalidates the first 16KB. The firmware only drops lines inside the range (sysmem.prx's
+			// sceKernelIcacheInvalidateRange), so on the PSP the rest must have left the icache by the
+			// time it runs again. Our blocks don't leave on their own. Our own invalidations after a read
+			// or a DMA copy cover exactly what was written, so they don't need this.
+			jit->InvalidateChangedBlocks();
 		}
 	}
 	if (benchmarkJit_) {
@@ -596,11 +608,11 @@ void MIPSState::BenchmarkJitDeferred() {
 	}
 }
 
-void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
+void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length, bool fromGame) {
 	// TODO: We can try to merge the invalidate with the previous one.
-	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
+	pendingInvalidates_.push_back(PendingCacheOperation{address, length, fromGame});
 	if (MIPSState *me = MediaEngineToNotify(this)) {
-		me->InvalidateICacheRangeDeferred(address, length);
+		me->InvalidateICacheRangeDeferred(address, length, fromGame);
 	}
 	if (jit && !IsMediaEngine()) {
 		Core_ReenterDispatcher();

@@ -28,3 +28,4 @@ void WebSocketCPUGetAllRegs(DebuggerRequest &req);
 void WebSocketCPUGetReg(DebuggerRequest &req);
 void WebSocketCPUSetReg(DebuggerRequest &req);
 void WebSocketCPUEvaluate(DebuggerRequest &req);
+void WebSocketCPUJitStats(DebuggerRequest &req);

@@ -181,6 +181,7 @@ enum class CPUCore;
 struct PendingCacheOperation {
 	u32 addr;
 	u32 size;
+	bool fromGame;
 };
 
 class MIPSState {
@@ -314,8 +315,9 @@ public:
 	// might not behave correctly in all cases. Use Deferred when possible.
 	void InvalidateICacheRangeImmediate(u32 address, u32 length);
 
-	// Actual clearing is deferred until execution begins again.
-	void InvalidateICacheRangeDeferred(u32 address, u32	length);
+	// Actual clearing is deferred until execution begins again. fromGame is for the game's own icache
+	// invalidations, which can cover less than it wrote, unlike ours after a read or copy.
+	void InvalidateICacheRangeDeferred(u32 address, u32 length, bool fromGame = false);
 	void ClearJitCacheDeferred();
 	// Times recompiling the whole JIT cache, when execution begins again (--jit-bench).
 	void BenchmarkJitDeferred();
