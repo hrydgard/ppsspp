@@ -150,6 +150,8 @@ private:
 	UI::Button *backButton_ = nullptr;
 	// On the crash screen while reporting is off.
 	UI::Button *reportCrashButton_ = nullptr;
+	// Under it, when cheats or plugins keep it disabled.
+	UI::TextView *reportCrashBlocked_ = nullptr;
 	// The current crash has been seen (and reported, if reporting is on).
 	bool crashSeen_ = false;
 	bool crashReported_ = false;

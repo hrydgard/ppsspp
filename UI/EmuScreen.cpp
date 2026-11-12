@@ -1303,6 +1303,11 @@ void EmuScreen::CreateViews() {
 	});
 	reportCrashButton_->SetVisibility(V_GONE);
 
+	reportCrashBlocked_ = root_->Add(new TextView(rp->T("CrashReportCheatsPlugins", "Cheats and plugins can change the game's code in unpredictable ways, so crashes with them enabled can't be reported."),
+		ALIGN_HCENTER | FLAG_WRAP_TEXT, true, new AnchorLayoutParams(bounds.w - 40.0f, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 10.0f, Centering::Horizontal)));
+	reportCrashBlocked_->SetShadow(true);
+	reportCrashBlocked_->SetVisibility(V_GONE);
+
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, Centering::Both)));
 	DeviceOrientation orientation = GetDeviceOrientation();
 	cardboardDisableButton_->OnClick.Add([deviceOrientation](UI::EventParams &) {
@@ -1492,7 +1497,12 @@ void EmuScreen::update() {
 	} else if (!crashed) {
 		crashSeen_ = false;
 	}
-	reportCrashButton_->SetVisibility(crashed && !crashReported_ && Reporting::CanReportCrashManually() ? V_VISIBLE : V_GONE);
+	// With cheats or plugins, the button stays up but disabled, to say why there's no report.
+	const bool reportBlocked = Reporting::CheatsOrPluginsInEffect();
+	const bool showReportButton = crashed && !crashReported_ && (reportBlocked || Reporting::CanReportCrashManually());
+	reportCrashButton_->SetVisibility(showReportButton ? V_VISIBLE : V_GONE);
+	reportCrashButton_->SetEnabled(!reportBlocked);
+	reportCrashBlocked_->SetVisibility(showReportButton && reportBlocked ? V_VISIBLE : V_GONE);
 
 	if (chatButton_ && chatMenu_) {
 		if (chatMenu_->GetVisibility() != V_GONE) {

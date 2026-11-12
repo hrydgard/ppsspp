@@ -68,6 +68,9 @@ namespace Reporting
 	// Reporting is off, but a crash from this session would make a useful report.
 	bool CanReportCrashManually();
 
+	// Cheats or plugins are on. They can change the game's code, so its crashes aren't ours to report.
+	bool CheatsOrPluginsInEffect();
+
 	// Reports a game crash. Automatically when reporting is enabled, or when the user asks for it
 	// (to the default server, since reporting is off then).
 	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested);

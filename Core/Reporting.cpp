@@ -602,7 +602,7 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		if (CheatsInEffect() || HLEPlugins::HasEnabled())
+		if (CheatsOrPluginsInEffect())
 			return false;
 		if (GetLockedCPUSpeedMhz() != 0)
 			return false;
@@ -696,8 +696,13 @@ namespace Reporting
 		return !IsEnabled() && IsSupported();
 	}
 
+	bool CheatsOrPluginsInEffect() {
+		return CheatsInEffect() || HLEPlugins::HasEnabled();
+	}
+
 	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
-		if (userRequested ? !CanReportCrashManually() : !MessageAllowed()) {
+		// Checked directly too: currentSupported, which MessageAllowed() relies on, can be stale.
+		if (CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
 			return;
 		}
 
