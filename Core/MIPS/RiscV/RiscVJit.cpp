@@ -72,6 +72,17 @@ bool RiscVJitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 		case IROp::ExitToReg:
 			sizeEstimate += 128;
 			break;
+		// The range check and the call-out for hardware registers.
+		case IROp::LoadKernel8:
+		case IROp::LoadKernel8Ext:
+		case IROp::LoadKernel16:
+		case IROp::LoadKernel16Ext:
+		case IROp::LoadKernel32:
+		case IROp::StoreKernel8:
+		case IROp::StoreKernel16:
+		case IROp::StoreKernel32:
+			sizeEstimate += 96;
+			break;
 		default:
 			sizeEstimate += 32;
 			break;
