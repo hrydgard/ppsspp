@@ -73,7 +73,11 @@ struct IRNativeBlock {
 	u32 startPC = 0;
 	int entryOffset = 0;
 	int checkedOffset = 0;
-	std::vector<IRNativeBlockExit> exits;
+	// The exits that can link to another block: one per conditional branch the frontend compiles on
+	// past, and two at the end. Any more (a debugging feature might make them) go to the dispatcher.
+	static constexpr int MAX_EXITS = IR_MAX_CONTINUED_BRANCHES + 2;
+	IRNativeBlockExit exits[MAX_EXITS];
+	int numExits = 0;
 	// Code offset of each IR instruction, only kept when profiling.
 	std::vector<int> irOffsets;
 };
