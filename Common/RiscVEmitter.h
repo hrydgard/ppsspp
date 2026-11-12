@@ -1130,7 +1130,7 @@ protected:
 
 class RiscVCodeBlock : public CodeBlock<RiscVEmitter> {
 private:
-	void PoisonMemory(int offset) override;
+	void PoisonMemory(int offset, int end) override;
 };
 
 };

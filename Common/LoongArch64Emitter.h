@@ -1401,7 +1401,7 @@ protected:
 
 class LoongArch64CodeBlock : public CodeBlock<LoongArch64Emitter> {
 private:
-    void PoisonMemory(int offset) override;
+    void PoisonMemory(int offset, int end) override;
 };
 
 };

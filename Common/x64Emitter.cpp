@@ -2522,9 +2522,9 @@ void XEmitter::FNSTSW_AX() { Write8(0xDF); Write8(0xE0); }
 
 void XEmitter::RDTSC() { Write8(0x0F); Write8(0x31); }
 
-void XCodeBlock::PoisonMemory(int offset) {
+void XCodeBlock::PoisonMemory(int offset, int end) {
 	// x86/64: 0xCC = breakpoint
-	memset(region + offset, 0xCC, region_size - offset);
+	memset(region + offset, 0xCC, end - offset);
 }
 
 }
