@@ -1500,7 +1500,7 @@ void EmuScreen::update() {
 	}
 	// With cheats or plugins, the button stays up but disabled, to say why there's no report.
 	const bool reportBlocked = Reporting::CheatsOrPluginsInEffect();
-	const bool showReportButton = crashed && !crashReported_ && (reportBlocked || Reporting::CanReportCrashManually());
+	const bool showReportButton = crashed && !crashReported_ && !Reporting::CrashReportsOff() && (reportBlocked || Reporting::CanReportCrashManually());
 	reportCrashButton_->SetVisibility(showReportButton ? V_VISIBLE : V_GONE);
 	reportCrashButton_->SetEnabled(!reportBlocked);
 	reportCrashBlocked_->SetVisibility(showReportButton && reportBlocked ? V_VISIBLE : V_GONE);

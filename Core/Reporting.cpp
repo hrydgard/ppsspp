@@ -59,6 +59,7 @@ extern "C" {
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
 #include "Core/Util/PSARUnpack.h"
@@ -700,6 +701,11 @@ namespace Reporting
 		return CheatsInEffect() || HLEPlugins::HasEnabled();
 	}
 
+	bool CrashReportsOff() {
+		// The VSH crashes too often for its reports to be worth having.
+		return __KernelIsRunningVSH();
+	}
+
 	// Crashes reported this run, by game ID and formatted crash. Resuming, resetting or loading a
 	// state often runs straight back into the same crash, which the server doesn't need twice.
 	static std::mutex reportedCrashesLock;
@@ -754,7 +760,7 @@ namespace Reporting
 
 	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
 		// Checked directly too: currentSupported, which MessageAllowed() relies on, can be stale.
-		if (CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
+		if (CrashReportsOff() || CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
 			return;
 		}
 
