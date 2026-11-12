@@ -63,6 +63,7 @@ private:
 	ZipFileInfo zipFileInfo_{};
 	bool returnToHomebrew_ = true;
 	bool installStarted_ = false;
+	bool installRefreshed_ = false;  // Cached info about what the install replaced has been dropped.
 	bool deleteZipFile_ = false;
 };
 

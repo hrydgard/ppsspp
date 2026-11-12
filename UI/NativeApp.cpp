@@ -147,6 +147,8 @@
 #include "UI/GameInfoCache.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GPUDriverTestScreen.h"
+#include "UI/InstallPkgScreen.h"
+#include "UI/InstallZipScreen.h"
 #include "UI/MiscScreens.h"
 #include "UI/MemStickScreen.h"
 #include "UI/StorageTestScreen.h"
@@ -479,6 +481,12 @@ std::thread *graphicsLoadThread;
 
 // globals
 Path boot_filename;
+
+// Archives that LaunchFile() in MainScreen.cpp opens an install screen for, rather than booting.
+static bool IsInstallableArchive(const Path &path) {
+	const std::string extension = path.GetFileExtension();
+	return extension == ".zip" || extension == ".7z" || extension == ".pkg";
+}
 Path boot_mountIso;
 
 // This is called before NativeInit so we do a little bit of initialization here.
@@ -957,6 +965,17 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
+		}
+	} else if (skipLogo && IsInstallableArchive(boot_filename)) {
+		// Not something to boot. Open its install screen over the main screen, like the game browser does.
+		INFO_LOG(Log::System, "Opening install screen for '%s'", boot_filename.c_str());
+		const Path archive = boot_filename;
+		boot_filename.clear();
+		g_screenManager->switchScreen(new MainScreen());
+		if (archive.GetFileExtension() == ".pkg") {
+			g_screenManager->push(new InstallPkgScreen(archive));
+		} else {
+			g_screenManager->push(new InstallZipScreen(archive));
 		}
 	} else if (skipLogo && !boot_filename.empty()) {
 		INFO_LOG(Log::System, "Launching EmuScreen with boot filename '%s'", boot_filename.c_str());
