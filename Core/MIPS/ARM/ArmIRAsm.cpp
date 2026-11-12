@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM/ArmIRJit.h"
 #include "Core/MIPS/ARM/ArmIRRegCache.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -102,6 +103,32 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	}
 
 	vfpuDot_ = GenerateArmVfpuDotCall(this, CTXREG, GenerateArmVfpuDotSpecial(this, CTXREG));
+
+	// The address in SCRATCH1, a store's value in SCRATCH2, and a load's result back in SCRATCH1.
+	// Guest values live in caller-saved registers too, so these save the ones the register cache
+	// allocates (R2, R3, R12 and S4-S15) around the call. The caller keeps LR.
+	static_assert((int)IROp::StoreKernel32 - (int)IROp::LoadKernel8 == ARRAY_SIZE(kernelLoadStore_) - 1, "kernel ops in a row");
+	for (int i = 0; i < ARRAY_SIZE(kernelLoadStore_); ++i) {
+		const IROp op = (IROp)((int)IROp::LoadKernel8 + i);
+		const bool isStore = op >= IROp::StoreKernel8;
+		kernelLoadStore_[i] = AlignCode16();
+		PUSH(4, R2, R3, R12, R_LR);
+		VPUSH(D2, 6);
+		if (isStore) {
+			MOV(R2, SCRATCH2);
+			MOVI2R(R3, (u32)op);
+		} else {
+			MOVI2R(R2, (u32)op);
+		}
+		MOV(R1, SCRATCH1);
+		MOVP2R(R0, mipsState);
+		if (isStore)
+			QuickCallFunction(R12, &IRRunKernelStore);
+		else
+			QuickCallFunction(R12, &IRRunKernelLoad);
+		VPOP(D2, 6);
+		POP(4, R2, R3, R12, R_PC);
+	}
 
 	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
 
