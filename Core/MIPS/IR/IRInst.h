@@ -422,15 +422,28 @@ struct IRInst {
 // downcount lasts, instead of returning.
 u32 IRInterpret(MIPSState *ms, const IRInst *inst, const IRInst *chainArena = nullptr);
 
+// Kinds of instructions that only some passes act on. An IRWriter collects the kinds written to it,
+// so a pass with nothing to act on can be skipped (see IRApplyPasses).
+enum IROpKind : u8 {
+	IRKIND_LEFT_RIGHT = 0x01,  // Load32Left, Load32Right, Store32Left, Store32Right
+	IRKIND_KERNEL_MEMORY = 0x02,  // LoadKernel*, StoreKernel*
+	IRKIND_VEC4 = 0x04,  // Has a Vec4 or matrix operand
+	IRKIND_FMOV_TO_GPR = 0x08,
+	IRKIND_PLAIN_LOAD = 0x10,  // A load of 1, 2, 4 or 16 bytes, not Left, Right or Linked
+};
+// Filled in by InitIR().
+extern u8 irOpKinds[256];
+
 // Each IR block gets a constant pool.
 class IRWriter {
 public:
 	IRWriter() {}
 	IRWriter(const IRWriter &w) = delete;
-	IRWriter(IRWriter &&w) noexcept : insts_(std::move(w.insts_)) {}
+	IRWriter(IRWriter &&w) noexcept : insts_(std::move(w.insts_)), kinds_(w.kinds_) {}
 	IRWriter &operator =(const IRWriter &w) = delete;
 	IRWriter &operator =(IRWriter &&w) noexcept {
 		insts_ = std::move(w.insts_);
+		kinds_ = w.kinds_;
 		return *this;
 	}
 
@@ -443,6 +456,7 @@ public:
 		inst.src1 = src1;
 		inst.src2 = src2;
 		inst.constant = constant;
+		kinds_ |= irOpKinds[(int)op];
 	}
 	void WriteFC(IROp op, u8 dst, u8 src1, u8 src2, float fconstant);
 
@@ -450,6 +464,7 @@ public:
 	void WriteSetConstantFloat(u8 dst, float value);
 	void Write(IRInst inst) {
 		insts_.push_back(inst);
+		kinds_ |= irOpKinds[(int)inst.op];
 	}
 
 	void Reserve(size_t s) {
@@ -457,20 +472,24 @@ public:
 	}
 	void Clear() {
 		insts_.clear();
+		kinds_ = 0;
 	}
 	void ReplaceConstant(size_t instNumber, u32 newConstant);
 
 	const FastVec<IRInst> &GetInstructions() const { return insts_; }
+	// IROpKind flags of what's been written.
+	u8 Kinds() const { return kinds_; }
 
 private:
 	FastVec<IRInst> insts_;
+	u8 kinds_ = 0;
 };
 
 // How far IRFrontend compiles on past conditional branches. The interpreter ends its blocks in the
 // same places (see GetIRBlockEnd in MIPSTables.cpp), so events happen at the same instruction.
 constexpr bool IR_CONTINUE_BRANCHES = true;
 constexpr int IR_MAX_CONTINUED_INSTRUCTIONS = 96;
-constexpr int IR_MAX_CONTINUED_BRANCHES = 8;
+constexpr int IR_MAX_CONTINUED_BRANCHES = 6;
 
 struct IROptions {
 	uint32_t disableFlags;

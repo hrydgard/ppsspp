@@ -20,6 +20,7 @@
 // IRImmRegCache is only to perform pre-constant folding. This is worth it to get cleaner
 // IR.
 
+#include "Common/BitSet.h"
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
@@ -33,6 +34,31 @@ constexpr int TOTAL_POSSIBLE_NATIVEREGS = 128;
 typedef int8_t IRNativeReg;  // invalid value is -1
 
 constexpr IRReg IRREG_INVALID = 255;
+
+// A set of IRRegs, to visit just the ones in it, in order.
+struct IRRegSet {
+	uint32_t bits[TOTAL_MAPPABLE_IRREGS / 32]{};
+
+	void Set(int r) {
+		bits[r >> 5] |= 1U << (r & 31);
+	}
+	// Calls f(reg) for each one in [first, end), lowest first.
+	template <typename F>
+	void ForEach(int first, int end, F f) const {
+		for (int w = first >> 5; w < TOTAL_MAPPABLE_IRREGS / 32 && w * 32 < end; ++w) {
+			uint32_t word = bits[w];
+			if (w * 32 < first)
+				word &= ~0U << (first - w * 32);
+			if (end - w * 32 < 32)
+				word &= (1U << (end - w * 32)) - 1;
+			while (word != 0) {
+				const int b = LeastSignificantSetBit(word);
+				word &= word - 1;
+				f((IRReg)(w * 32 + b));
+			}
+		}
+	}
+};
 
 class IRWriter;
 class MIPSState;
@@ -180,6 +206,9 @@ public:
 	void SetIRIndex(int index) {
 		irIndex_ = index;
 	}
+	// For a path that leaves the block (like reporting a bad address): flushes everything there, then
+	// puts the cache back as it was, for the code after that path.
+	void FlushAllOnSidePath();
 
 	bool IsGPRInRAM(IRReg gpr);
 	bool IsFPRInRAM(IRReg fpr);
@@ -263,8 +292,19 @@ protected:
 	int GetMipsRegOffset(IRReg r);
 
 	bool IsRegClobbered(MIPSLoc type, IRReg r) const;
+	// Every reg that may be out of memory: in a native reg, or an IMM. Flushing and discarding only
+	// put regs back in memory, so it stays a superset through a FlushAll.
+	struct NotInMemoryRegs {
+		IRRegSet regs;
+		// The native regs that held an FPR (as the first lane), as bits by index into nr.
+		uint32_t fprNativeRegs[TOTAL_POSSIBLE_NATIVEREGS / 32]{};
+	};
+	NotInMemoryRegs NotInMemory() const;
 	// At an exit, drops the temps nothing later in the block reads, so FlushAll doesn't store them.
-	void DiscardDeadTempsAtExit();
+	// regs: NotInMemory(), if already known.
+	void DiscardDeadTempsAtExit(const NotInMemoryRegs *regs = nullptr);
+	// FlushAll, after the dead temps are discarded, with regs from NotInMemory() from before.
+	void FlushAllFrom(const NotInMemoryRegs &regs, bool gprs, bool fprs);
 	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
@@ -313,6 +353,10 @@ protected:
 	const IRInst *irInsts_ = nullptr;
 	int irCount_ = 0;
 	int irIndex_ = 0;
+	// The exit DiscardDeadTempsAtExit last ran at.
+	int deadTempsDiscardedIndex_ = -1;
+	// Every reg made an IMM since Start(), for NotInMemory(). Only IMMs aren't in a native reg.
+	IRRegSet immRegs_;
 
 	struct {
 		int totalNativeRegs = 0;
@@ -324,6 +368,9 @@ protected:
 	RegStatusMIPS mr[TOTAL_MAPPABLE_IRREGS];
 	RegStatusNative nrInitial_[TOTAL_POSSIBLE_NATIVEREGS];
 	RegStatusMIPS mrInitial_[TOTAL_MAPPABLE_IRREGS];
+	// For FlushAllOnSidePath().
+	RegStatusNative nrSaved_[TOTAL_POSSIBLE_NATIVEREGS];
+	RegStatusMIPS mrSaved_[TOTAL_MAPPABLE_IRREGS];
 
 	bool initialReady_ = false;
 };

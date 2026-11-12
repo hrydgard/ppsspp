@@ -48,7 +48,8 @@ void IRImmRegCache::Discard(IRReg rd) {
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
 	memset(&isWritten_, 0, sizeof(isWritten_));
-	memset(&immVal_, 0, sizeof(immVal_));
+	// Only read for regs marked IMM, so the rest can stay uninitialized (this runs for each block).
+	immVal_[0] = 0;
 	SetBit(isImm_, 0);
 	SetBit(isWritten_, 0);
 	ir_ = ir;
@@ -106,6 +107,7 @@ void IRNativeRegCacheBase::Start(u32 startPC, const IRInst *instructions, int co
 	irInsts_ = instructions;
 	irCount_ = count;
 	irIndex_ = 0;
+	deadTempsDiscardedIndex_ = -1;
 
 	if (!initialReady_) {
 		SetupInitialRegs();
@@ -114,6 +116,9 @@ void IRNativeRegCacheBase::Start(u32 startPC, const IRInst *instructions, int co
 
 	memcpy(nr, nrInitial_, sizeof(nr[0]) * config_.totalNativeRegs);
 	memcpy(mr, mrInitial_, sizeof(mr));
+	immRegs_ = IRRegSet();
+	// It starts as an IMM (see SetupInitialRegs).
+	immRegs_.Set(MIPS_REG_ZERO);
 
 	int numStatics;
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
@@ -127,6 +132,19 @@ void IRNativeRegCacheBase::Start(u32 startPC, const IRInst *instructions, int co
 		// Lock it until the very end.
 		mr[statics[i].mr].spillLockIRIndex = irCount_;
 	}
+}
+
+void IRNativeRegCacheBase::FlushAllOnSidePath() {
+	// What FlushAll changes.
+	memcpy(nrSaved_, nr, sizeof(nr[0]) * config_.totalNativeRegs);
+	memcpy(mrSaved_, mr, sizeof(mr));
+	const int savedDeadTempsIndex = deadTempsDiscardedIndex_;
+
+	FlushAll();
+
+	memcpy(nr, nrSaved_, sizeof(nr[0]) * config_.totalNativeRegs);
+	memcpy(mr, mrSaved_, sizeof(mr));
+	deadTempsDiscardedIndex_ = savedDeadTempsIndex;
 }
 
 void IRNativeRegCacheBase::SetupInitialRegs() {
@@ -250,6 +268,7 @@ void IRNativeRegCacheBase::SetGPRImm(IRReg gpr, uint32_t immVal) {
 
 	mr[gpr].loc = MIPSLoc::IMM;
 	mr[gpr].imm = immVal;
+	immRegs_.Set(gpr);
 }
 
 void IRNativeRegCacheBase::SetGPR2Imm(IRReg base, uint64_t immVal) {
@@ -273,6 +292,8 @@ void IRNativeRegCacheBase::SetGPR2Imm(IRReg base, uint64_t immVal) {
 	mr[base].imm = imm0;
 	mr[base + 1].loc = MIPSLoc::IMM;
 	mr[base + 1].imm = imm1;
+	immRegs_.Set(base);
+	immRegs_.Set(base + 1);
 }
 
 void IRNativeRegCacheBase::SpillLockGPR(IRReg r1, IRReg r2, IRReg r3, IRReg r4) {
@@ -682,12 +703,34 @@ void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
 	}
 }
 
-void IRNativeRegCacheBase::DiscardDeadTempsAtExit() {
+IRNativeRegCacheBase::NotInMemoryRegs IRNativeRegCacheBase::NotInMemory() const {
+	NotInMemoryRegs result;
+	result.regs = immRegs_;
+	for (int n = 0; n < config_.totalNativeRegs; n++) {
+		const IRReg first = nr[n].mipsReg;
+		if (first == IRREG_INVALID)
+			continue;
+		result.regs.Set(first);
+		// The other lanes of a multi-lane reg.
+		for (int m = first + 1; m < IRREG_INVALID && mr[m].nReg == n; ++m)
+			result.regs.Set(m);
+		if (first >= 32 && IsValidFPR(first - 32))
+			result.fprNativeRegs[n >> 5] |= 1U << (n & 31);
+	}
+	return result;
+}
+
+void IRNativeRegCacheBase::DiscardDeadTempsAtExit(const NotInMemoryRegs *regs) {
 	if (!irInsts_ || irIndex_ < 0 || irIndex_ >= irCount_)
 		return;
 	const IRInst *insts = irInsts_;
 	if ((GetIRMeta(insts[irIndex_].op)->flags & IRFLAG_EXIT) == 0)
 		return;
+	// A backend's FlushAll does this before the base's, which does it again. Mapped since, the
+	// worst is a store of a dead temp.
+	if (deadTempsDiscardedIndex_ == irIndex_)
+		return;
+	deadTempsDiscardedIndex_ = irIndex_;
 
 	// The temps don't live on past the block, so only reads later in this block matter.
 	auto isTemp = [](IRReg r) {
@@ -714,13 +757,13 @@ void IRNativeRegCacheBase::DiscardDeadTempsAtExit() {
 		return false;
 	};
 
-	for (IRReg r = IRTEMP_0; r < 32 + IRVTEMP_0 + 4; ++r) {
-		if (!isTemp(r) || mr[r].isStatic || mr[r].loc == MIPSLoc::MEM || readLater(r))
-			continue;
+	auto discardIfDead = [&](IRReg r) {
+		if (mr[r].loc == MIPSLoc::MEM || mr[r].isStatic || readLater(r))
+			return;
 		IRNativeReg nreg = mr[r].nReg;
 		if (nreg == -1) {
 			DiscardReg(r);
-			continue;
+			return;
 		}
 		// A vector reg may hold other lanes, which all have to be dead temps too.
 		bool allDead = true;
@@ -730,14 +773,26 @@ void IRNativeRegCacheBase::DiscardDeadTempsAtExit() {
 		}
 		if (allDead)
 			DiscardNativeReg(nreg);
+	};
+	NotInMemoryRegs computed;
+	if (!regs) {
+		computed = NotInMemory();
+		regs = &computed;
 	}
+	// The rest are in memory, which discardIfDead skips.
+	regs->regs.ForEach(IRTEMP_0, IRTEMP_LR_SHIFT + 1, discardIfDead);
+	regs->regs.ForEach(32 + IRVTEMP_PFX_S, 32 + IRVTEMP_0 + 4, discardIfDead);
 }
 
 void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
+	const NotInMemoryRegs regs = NotInMemory();
+	DiscardDeadTempsAtExit(&regs);
+	FlushAllFrom(regs, gprs, fprs);
+}
+
+void IRNativeRegCacheBase::FlushAllFrom(const NotInMemoryRegs &notInMemory, bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing.
 	// Branching code may expect the native reg to retain its value.
-
-	DiscardDeadTempsAtExit();
 
 	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
 		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);
@@ -776,24 +831,30 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 		}
 	};
 
-	// This runs at every exit, so it doesn't look at all 256 regs. An FPR (32-191 and 224-239) is only
-	// out of memory when it's in a native reg, so those are found from nr. The rest can be IMMs.
+	// This runs at every exit, so it only looks at the regs that may be out of memory (statics are
+	// in native regs). An FPR (32-191 and 224-239) is only out of memory when it's in a native reg,
+	// so those are found from nr below. The rest can be IMMs.
 	auto flushIfNeeded = [&](int first, int end) {
-		for (int i = first; i < end; i++) {
-			// The common case, nothing to do.
+		notInMemory.regs.ForEach(first, end, [&](IRReg i) {
 			if (mr[i].loc == MIPSLoc::MEM && !mr[i].isStatic)
-				continue;
-			flushReg((IRReg)i);
-		}
+				return;
+			flushReg(i);
+		});
 	};
 	flushIfNeeded(1, 32);
 	flushIfNeeded(192, 224);
 	flushIfNeeded(240, TOTAL_MAPPABLE_IRREGS);
 	if (fprs) {
-		for (int n = 0; n < config_.totalNativeRegs; n++) {
-			const IRReg mipsReg = nr[n].mipsReg;
-			if (mipsReg != IRREG_INVALID && mipsReg >= 32 && IsValidFPR(mipsReg - 32))
-				flushReg(mipsReg);
+		// In nr order, of the ones that held FPRs. Anything that went in one since is in memory again.
+		for (int w = 0; w < TOTAL_POSSIBLE_NATIVEREGS / 32; w++) {
+			uint32_t word = notInMemory.fprNativeRegs[w];
+			while (word != 0) {
+				const int n = w * 32 + LeastSignificantSetBit(word);
+				word &= word - 1;
+				const IRReg mipsReg = nr[n].mipsReg;
+				if (mipsReg != IRREG_INVALID && mipsReg >= 32 && IsValidFPR(mipsReg - 32))
+					flushReg(mipsReg);
+			}
 		}
 	}
 
@@ -818,12 +879,14 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 			nr[allocs[i].nr].pointerified = false;
 		}
 	}
-	// Sanity check
+#ifdef _DEBUG
+	// Sanity check. Only in debug builds, since this runs at every exit.
 	for (int i = 0; i < config_.totalNativeRegs; i++) {
 		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
 			ERROR_LOG_REPORT(Log::JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
 		}
 	}
+#endif
 }
 
 void IRNativeRegCacheBase::Map(const IRInst &inst) {
@@ -1026,6 +1089,19 @@ IRNativeReg IRNativeRegCacheBase::MapNativeReg(MIPSLoc type, IRReg first, int la
 
 	// Let's see if it's already mapped or we need a new reg.
 	IRNativeReg nreg = mr[first].nReg;
+
+	// Most often, a GPR that's already in a reg, all by itself. Then all there is to do (of what the
+	// other MapNativeReg does) is mark it dirty for a write.
+	if (type == MIPSLoc::REG && lanes == 1 && mr[first].loc == MIPSLoc::REG && mr[first].lane == -1 &&
+		first != MIPS_REG_ZERO && nr[nreg].mipsReg == first && mr[first + 1].nReg != nreg &&
+		(mr[first].isStatic || IsNativeRegCompatible(nreg, type, flags, lanes))) {
+		if ((flags & MIPSMap::DIRTY) == MIPSMap::DIRTY) {
+			nr[nreg].isDirty = true;
+			nr[nreg].pointerified = false;
+			nr[nreg].normalized32 = false;
+		}
+		return nreg;
+	}
 	if (mr[first].isStatic) {
 		_assert_msg_(nreg != -1, "MapIRReg on static without an nReg?");
 	} else {

@@ -1942,6 +1942,22 @@ bool TestProfiler() {
 		}
 		const double t2 = time_now_d();
 		printf("Profiler off: %0.2f ns per scope (the loop alone takes %0.2f ns)\n", ((t2 - t1) - (t1 - t0)) / n * 1e9, (t1 - t0) / n * 1e9);
+		// And while on, for information: two clock reads, which some kernels trap (0.28 us each on a Galaxy S8).
+		Profiler_SetEnabled(true);
+		const int m = 2000000;
+		const double t3 = time_now_d();
+		for (int i = 0; i < m; i++) {
+			PROFILE_THIS_SCOPE("test_on");
+			sink = sink + 1;
+		}
+		const double t4 = time_now_d();
+		uint64_t ticks = 0;
+		for (int i = 0; i < m; i++) {
+			ticks += time_now_fast_ticks();
+		}
+		const double t5 = time_now_d();
+		printf("Profiler on: %0.2f ns per scope. Reading the clock: %0.2f ns (%d)\n", (t4 - t3) / m * 1e9, (t5 - t4) / m * 1e9, (int)(ticks & 1));
+		Profiler_SetEnabled(false);
 	}
 
 	Profiler_SetEnabled(true);

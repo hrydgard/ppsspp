@@ -436,8 +436,7 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 
 	// If we got here, something unusual and bad happened, so we'll always go back to the dispatcher.
 	// Because of that, we can avoid flushing outside this case.
-	auto regsCopy = regs_;
-	regsCopy.FlushAll();
+	regs_.FlushAllOnSidePath();
 
 	// Ignores the return value, always returns to the dispatcher.
 	// Otherwise would need a thunk to restore regs.

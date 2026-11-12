@@ -808,7 +808,10 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing:
 	// Branching code may expect the armreg to retain its value.
 
-	DiscardDeadTempsAtExit();
+	// Only these can need flushing, so the loops below skip the rest.
+	const NotInMemoryRegs notInMemory = NotInMemory();
+	DiscardDeadTempsAtExit(&notInMemory);
+	const IRRegSet &regs = notInMemory.regs;
 
 	auto needsFlush = [&](IRReg i) {
 		if (mr[i].loc == MIPSLoc::MEM || mr[i].isStatic)
@@ -829,18 +832,30 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	};
 
 	// Two IMMs next to each other (like HI and LO) can be stored together, if aligned. Only GPRs can be IMMs.
-	for (int i = 192; i < TOTAL_MAPPABLE_IRREGS - 1; i += 2) {
+	// For the even regs from 192, in order, where either of the pair is in regs.
+	int lastPair = -1;
+	regs.ForEach(192, TOTAL_MAPPABLE_IRREGS, [&](IRReg r) {
+		const int i = r & ~1;
+		if (i == lastPair || i + 1 >= TOTAL_MAPPABLE_IRREGS)
+			return;
+		lastPair = i;
 		if (mr[i].loc == MIPSLoc::IMM && mr[i + 1].loc == MIPSLoc::IMM && needsFlush(i) && needsFlush(i + 1))
 			flushImmPair(i);
-	}
+	});
 
 	// Try to flush the rest in pairs when possible. STP only reaches 252 bytes into the context, the GPRs and FPU regs.
-	for (int i = 1; i < 63; ++i) {
+	// A pair starts at a reg in regs (one that isn't can't need flushing), from 1 to 62, in order.
+	int next = 1;
+	regs.ForEach(1, 63, [&](IRReg pairFirst) {
+		const int i = pairFirst;
+		// Past it already, as the second of a pair.
+		if (i < next)
+			return;
 		if (!needsFlush(i) || !needsFlush(i + 1))
-			continue;
+			return;
 		// Ignore multilane regs.  Could handle with more smartness...
 		if (mr[i].lane != -1 || mr[i + 1].lane != -1)
-			continue;
+			return;
 
 		int offset = GetMipsRegOffset(i);
 
@@ -848,9 +863,9 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 		if (mr[i].loc == MIPSLoc::IMM && mr[i + 1].loc == MIPSLoc::IMM) {
 			if ((i & 1) == 0) {
 				flushImmPair(i);
-				++i;
+				next = i + 2;
 			}
-			continue;
+			return;
 		}
 
 		// Okay, two dirty regs in a row, in need of flushing.  Both GPRs?
@@ -879,8 +894,8 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 			emit_->STP(INDEX_SIGNED, armRegs[0], armRegs[1], CTXREG, offset);
 			DiscardReg(i);
 			DiscardReg(i + 1);
-			++i;
-			continue;
+			next = i + 2;
+			return;
 		}
 
 		// Perhaps as FPRs?  Note: these must be single lane at this point.
@@ -892,13 +907,13 @@ void Arm64IRRegCache::FlushAll(bool gprs, bool fprs) {
 			DiscardNativeReg(mr[i].nReg);
 			DiscardNativeReg(mr[i + 1].nReg);
 
-			++i;
-			continue;
+			next = i + 2;
+			return;
 		}
-	}
+	});
 
 	// Flush all the rest that weren't done via STP.
-	IRNativeRegCacheBase::FlushAll(gprs, fprs);
+	FlushAllFrom(notInMemory, gprs, fprs);
 }
 
 ARM64Reg Arm64IRRegCache::R(IRReg mipsReg) {

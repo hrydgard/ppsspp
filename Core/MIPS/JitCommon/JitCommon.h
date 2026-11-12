@@ -139,10 +139,15 @@ namespace MIPSComp {
 
 	// Time spent compiling, totalled since startup. The IR JITs fill it in.
 	struct JitCompileTimes {
+		// Blocks are timed by phase only while that's shown (the JIT overlay) or benchmarked: reading
+		// the clock can cost 0.3 us. These are the phases of those blocks.
 		int64_t frontendNanos = 0;  // MIPS to IR
 		int64_t passNanos = 0;  // The IR passes
 		int64_t backendNanos = 0;  // IR to host code, or into the IR arena
 		int64_t finalizeNanos = 0;  // The block table and linking
+		int64_t phaseBlocks = 0;
+		// The other blocks, whole.
+		int64_t unphasedNanos = 0;
 		int64_t clearNanos = 0;  // Clearing the whole cache
 		int64_t invalidateNanos = 0;
 		int64_t maxBlockNanos = 0;
@@ -151,8 +156,11 @@ namespace MIPSComp {
 		int64_t irInstructions = 0;  // After the passes
 		int clears = 0;
 
+		int64_t CompileNanos() const {
+			return frontendNanos + passNanos + backendNanos + finalizeNanos + unphasedNanos;
+		}
 		int64_t TotalNanos() const {
-			return frontendNanos + passNanos + backendNanos + finalizeNanos + clearNanos + invalidateNanos;
+			return CompileNanos() + clearNanos + invalidateNanos;
 		}
 	};
 	extern JitCompileTimes g_jitCompileTimes;
