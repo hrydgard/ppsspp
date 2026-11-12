@@ -579,7 +579,7 @@ static constexpr ConfigSetting cpuSettings[] = {
 	ConfigSetting("HideStateWarnings", SETTING(g_Config, bHideStateWarnings), false, CfgFlag::DEFAULT),
 	ConfigSetting("JitDisableFlags", SETTING(g_Config, uJitDisableFlags), (uint32_t)0, CfgFlag::PER_GAME),
 	ConfigSetting("CPUSpeed", SETTING(g_Config, iLockedCPUSpeed), 0, CfgFlag::PER_GAME | CfgFlag::REPORT)
-		.Label(I18NCat::SYSTEM, "Change CPU Clock", "Change CPU Clock (unstable)").Range(0, 1000).Units("MHz").ZeroLabel("Auto"),
+		.Label(I18NCat::SYSTEM, "PSP system clock speed").Range(0, 1000).Units("MHz").ZeroLabel("Auto"),
 };
 
 static int DefaultInternalResolution() {
