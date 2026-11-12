@@ -443,7 +443,7 @@ void MainScreen::CreateViews() {
 	// Thie is the true root, leaves room for persistent notifications.
 	root_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
-	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f, Margins(12, vertical ? 0 : 12, 0, 0)));
 	ViewGroup *leftColumn = tabHolder_;
 	tabHolder_->SetTag("MainScreenGames");
 	gameBrowsers_.clear();
@@ -530,7 +530,7 @@ void MainScreen::CreateViews() {
 	}
 
 	if (vertical) {
-		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 12, 0, 16)));
+		LinearLayout *header = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(0, 24, 0, 24)));
 		header->SetSpacing(4.0f);
 		header->Add(new LogoView(true, new LinearLayoutParams(1.0f)));
 
@@ -551,7 +551,7 @@ void MainScreen::CreateViews() {
 
 		// no space for a fullscreen button!
 	} else {
-		const Margins actionMenuMargins(0, 10, 10, 0);
+		const Margins actionMenuMargins(0, 12, 12, 0);
 		ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(320, FILL_PARENT, actionMenuMargins));
 		LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		rightColumnItems->SetSpacing(0.0f);
@@ -559,7 +559,7 @@ void MainScreen::CreateViews() {
 
 		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(48, 48, NONE, 0, 0, NONE, Centering::None)));
+			Button *fullscreenButton = logo->Add(new Button("", ImageID(), new AnchorLayoutParams(52, 52, NONE, 0, 0, NONE, Centering::None)));
 			fullscreenButton->SetIgnoreText(true);
 			fullscreenButton->OnClick.Add([](UI::EventParams &e) {
 				g_Config.bFullScreen = !g_Config.bFullScreen;
@@ -568,6 +568,7 @@ void MainScreen::CreateViews() {
 			fullscreenButton->SetImageIDFunc([]() {
 				return g_Config.bFullScreen ? ImageID("I_RESTORE") : ImageID("I_FULLSCREEN");
 			});
+			fullscreenButton->SetRoundCorners();
 		}
 		rightColumnItems->Add(logo);
 
