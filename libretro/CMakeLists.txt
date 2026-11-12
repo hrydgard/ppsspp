@@ -4,6 +4,7 @@ set(LIBRETRO_SRCS
 	LibretroGraphicsContext.cpp
 	LibretroGLContext.cpp
 	LibretroGLCoreContext.cpp
+	LibretroVR.cpp
 	LibretroVulkanContext.cpp
 	LibretroVulkanPresentation.cpp)
 

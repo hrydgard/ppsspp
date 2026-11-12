@@ -162,7 +162,7 @@ public:
 		engine_ = VR_GetEngine();
 		VR_InitRenderer(engine_);
 		VR_SetConfig(VR_CONFIG_VIEWPORT_VALID, true);
-		fb_ = &engine_->appState.Renderer.FrameBuffer[0];
+		fb_ = &engine_->appState.Renderer.FrameBuffer;
 		return fb_->ColorSwapChain.Handle != XR_NULL_HANDLE && fb_->TextureSwapChainLength > 0;
 	}
 
@@ -248,7 +248,6 @@ void VR_DestroyVulkanSession() {
 	engine_t *engine = VR_GetEngine();
 	VR_LeaveVR(engine);
 	engine->appState.VulkanBinding = {};
-	VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, false);
 }
 
 #else

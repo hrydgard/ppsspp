@@ -11,18 +11,14 @@
 #include <condition_variable>
 #include <mutex>
 
-// On Vulkan, VR_InitFrame (emu thread) begins the frame and VR_FinishFrame (render thread, after the
-// submit) ends it. The next frame can't begin before that.
+// VR_InitFrame (emu thread) begins the frame and VR_FinishFrame (render thread, after the submit)
+// ends it. The next frame can't begin before that.
 static std::mutex g_frameMutex;
 static std::condition_variable g_frameCond;
 static bool g_frameOpen = false;
 static bool g_presentQueued = false;
 // The runtime may use the VkQueue in xrBeginFrame, xrEndFrame and the swapchain calls.
 static std::recursive_mutex g_queueMutex;
-
-static bool IsVulkan() {
-	return VR_GetPlatformFlag(VR_PLATFORM_RENDERER_VULKAN);
-}
 
 XrFovf fov;
 XrView* projections;
@@ -306,7 +302,7 @@ void VR_DestroyRenderer( engine_t* engine ) {
 }
 
 bool VR_InitFrame( engine_t* engine ) {
-	if (IsVulkan()) {
+	{
 		// Before the events: they can end the session or recreate the space the last frame ends in.
 		std::unique_lock<std::mutex> lock(g_frameMutex);
 		if (g_frameOpen && !g_presentQueued) {
@@ -384,14 +380,12 @@ bool VR_InitFrame( engine_t* engine ) {
 	XrFrameBeginInfo beginFrameDesc = {};
 	beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
 	beginFrameDesc.next = NULL;
-	if (IsVulkan()) {
+	{
 		std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
 		OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
 		std::lock_guard<std::mutex> lock(g_frameMutex);
 		g_frameOpen = true;
 		g_presentQueued = false;
-	} else {
-		OXR(xrBeginFrame(engine->appState.Session, &beginFrameDesc));
 	}
 
 	fov = {};
@@ -407,12 +401,10 @@ bool VR_InitFrame( engine_t* engine ) {
 	hmdorientation = XrQuaternionf_ToEulerAngles(invViewTransform[0].orientation);
 	IN_VRInputFrame(engine);
 
-	for (int i = 0; i < ovrMaxNumEyes; i++) {
-		ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer[i];
-		if (frameBuffer->TextureSwapChainLength) {
-			frameBuffer->TextureSwapChainIndex++;
-			frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
-		}
+	ovrFramebuffer* frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	if (frameBuffer->TextureSwapChainLength) {
+		frameBuffer->TextureSwapChainIndex++;
+		frameBuffer->TextureSwapChainIndex %= frameBuffer->TextureSwapChainLength;
 	}
 
 	engine->appState.LayerCount = 0;
@@ -434,7 +426,7 @@ void VR_UnlockQueue() {
 }
 
 bool VR_AcquireVulkanImage(engine_t *engine, uint32_t *index) {
-	ovrFramebuffer *frameBuffer = &engine->appState.Renderer.FrameBuffer[0];
+	ovrFramebuffer *frameBuffer = &engine->appState.Renderer.FrameBuffer;
 	if (frameBuffer->ColorSwapChain.Handle == XR_NULL_HANDLE) {
 		return false;
 	}
@@ -455,55 +447,24 @@ bool VR_AcquireVulkanImage(engine_t *engine, uint32_t *index) {
 
 void VR_ReleaseVulkanImage(engine_t *engine) {
 	std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
-	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer[0]);
-}
-
-void VR_BeginFrame( engine_t* engine, int fboIndex ) {
-	vrConfig[VR_CONFIG_CURRENT_FBO] = fboIndex;
-	ovrFramebuffer_Acquire(&engine->appState.Renderer.FrameBuffer[fboIndex]);
-}
-
-void VR_EndFrame( engine_t* engine ) {
-	int fboIndex = vrConfig[VR_CONFIG_CURRENT_FBO];
-	VR_BindFramebuffer(engine);
-
-	// Show mouse cursor
-	int vrMode = vrConfig[VR_CONFIG_MODE];
-	bool screenMode = (vrMode == VR_MODE_MONO_SCREEN) || (vrMode == VR_MODE_STEREO_SCREEN);
-	if (screenMode && (vrConfig[VR_CONFIG_MOUSE_SIZE] > 0)) {
-		int x = vrConfig[VR_CONFIG_MOUSE_X];
-		int y = vrConfig[VR_CONFIG_MOUSE_Y];
-		int sx = vrConfig[VR_CONFIG_MOUSE_SIZE];
-		int sy = (int)((float)sx * VR_GetConfigFloat(VR_CONFIG_CANVAS_ASPECT));
-		ovrRenderer_MouseCursor(&engine->appState.Renderer, x, y, sx, sy);
-	}
-
-	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer[fboIndex]);
+	ovrFramebuffer_Release(&engine->appState.Renderer.FrameBuffer);
 }
 
 void VR_FinishFrame( engine_t* engine ) {
-	const bool vulkan = IsVulkan();
-	if (vulkan) {
+	{
 		std::lock_guard<std::mutex> lock(g_frameMutex);
 		if (!g_frameOpen) {
 			return;
 		}
 	}
-	if (vulkan && engine->appState.Renderer.FrameBuffer[0].Acquired) {
+	ovrFramebuffer *frameBuffer = &engine->appState.Renderer.FrameBuffer;
+	if (frameBuffer->Acquired) {
 		// A frame that never got to present.
 		VR_ReleaseVulkanImage(engine);
 	}
-	// On Vulkan both eyes are layers of FrameBuffer[0]. Its alpha isn't cleared to 1 like the GL path's,
-	// so the layers are opaque instead.
-	ovrFramebuffer *eyeBuffers[ovrMaxNumEyes];
-	uint32_t eyeLayers[ovrMaxNumEyes];
-	for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-		eyeBuffers[eye] = &engine->appState.Renderer.FrameBuffer[vulkan ? 0 : eye];
-		eyeLayers[eye] = vulkan ? eye : 0;
-	}
-	const XrCompositionLayerFlags alphaFlag = vulkan ? 0 : XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
+	// Both eyes are layers of the one swapchain. Its alpha isn't cleared to 1, so the layers are opaque.
 	// A swapchain that has never had an image released can't be shown.
-	const bool canShow = !vulkan || engine->appState.Renderer.FrameBuffer[0].EverReleased;
+	const bool canShow = frameBuffer->EverReleased;
 
 	if (VR_GetPlatformFlag(VRPlatformFlag::VR_PLATFORM_EXTENSION_PASSTHROUGH) && VR_GetConfig(VR_CONFIG_PASSTHROUGH)) {
 		if (passthroughLayer != XR_NULL_HANDLE) {
@@ -522,16 +483,14 @@ void VR_FinishFrame( engine_t* engine ) {
 	if (headTracking && reprojection) {
 		VR_SetConfigFloat(VR_CONFIG_MENU_YAW, hmdorientation.y);
 
-		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {;
-			ovrFramebuffer* frameBuffer = eyeBuffers[0];
-			uint32_t arrayIndex = eyeLayers[0];
+		for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
+			uint32_t arrayIndex = 0;
 			XrPosef pose = invViewTransform[0];
 			if (vrMode != VR_MODE_MONO_6DOF) {
 				pose = invViewTransform[eye];
 			}
 			if (vrMode == VR_MODE_STEREO_6DOF) {
-				frameBuffer = eyeBuffers[eye];
-				arrayIndex = eyeLayers[eye];
+				arrayIndex = eye;
 			}
 
 			memset(&projection_layer_elements[eye], 0, sizeof(XrCompositionLayerProjectionView));
@@ -557,8 +516,7 @@ void VR_FinishFrame( engine_t* engine ) {
 
 		XrCompositionLayerProjection projection_layer = {};
 		projection_layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
-		projection_layer.layerFlags = alphaFlag;
-		projection_layer.layerFlags |= XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
+		projection_layer.layerFlags = XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
 		projection_layer.space = engine->appState.CurrentSpace;
 		projection_layer.viewCount = ovrMaxNumEyes;
 		projection_layer.views = projection_layer_elements;
@@ -582,14 +540,13 @@ void VR_FinishFrame( engine_t* engine ) {
 		// Setup the cylinder layer
 		XrCompositionLayerCylinderKHR cylinder_layer = {};
 		cylinder_layer.type = XR_TYPE_COMPOSITION_LAYER_CYLINDER_KHR;
-		cylinder_layer.layerFlags = alphaFlag;
 		cylinder_layer.space = engine->appState.CurrentSpace;
 		memset(&cylinder_layer.subImage, 0, sizeof(XrSwapchainSubImage));
 		cylinder_layer.subImage.imageRect.offset.x = 0;
 		cylinder_layer.subImage.imageRect.offset.y = 0;
-		cylinder_layer.subImage.imageRect.extent.width = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Width;
-		cylinder_layer.subImage.imageRect.extent.height = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Height;
-		cylinder_layer.subImage.swapchain = engine->appState.Renderer.FrameBuffer[0].ColorSwapChain.Handle;
+		cylinder_layer.subImage.imageRect.extent.width = frameBuffer->ColorSwapChain.Width;
+		cylinder_layer.subImage.imageRect.extent.height = frameBuffer->ColorSwapChain.Height;
+		cylinder_layer.subImage.swapchain = frameBuffer->ColorSwapChain.Handle;
 		cylinder_layer.subImage.imageArrayIndex = 0;
 		cylinder_layer.pose.orientation = XrQuaternionf_Multiply(pitch, yaw);
 		cylinder_layer.pose.position = pos;
@@ -618,8 +575,7 @@ void VR_FinishFrame( engine_t* engine ) {
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_LEFT;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 			cylinder_layer.eyeVisibility = XR_EYE_VISIBILITY_RIGHT;
-			cylinder_layer.subImage.swapchain = eyeBuffers[1]->ColorSwapChain.Handle;
-			cylinder_layer.subImage.imageArrayIndex = eyeLayers[1];
+			cylinder_layer.subImage.imageArrayIndex = 1;
 			engine->appState.Layers[engine->appState.LayerCount++].Cylinder = cylinder_layer;
 		}
 	}
@@ -640,10 +596,6 @@ void VR_FinishFrame( engine_t* engine ) {
 	endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
 	endFrameInfo.layerCount = engine->appState.LayerCount;
 	endFrameInfo.layers = layers;
-	if (!vulkan) {
-		OXR(xrEndFrame(engine->appState.Session, &endFrameInfo));
-		return;
-	}
 
 	{
 		std::lock_guard<std::recursive_mutex> queueLock(g_queueMutex);
@@ -668,12 +620,6 @@ float VR_GetConfigFloat(VRConfigFloat config) {
 
 void VR_SetConfigFloat(VRConfigFloat config, float value) {
 	vrConfigFloat[config] = value;
-}
-
-void* VR_BindFramebuffer(engine_t *engine) {
-	if (!initialized) return nullptr;
-	int fboIndex = VR_GetConfig(VR_CONFIG_CURRENT_FBO);
-	return ovrFramebuffer_SetCurrent(&engine->appState.Renderer.FrameBuffer[fboIndex]);
 }
 
 XrView VR_GetView(int eye) {

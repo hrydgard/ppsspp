@@ -3,7 +3,6 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "libretro/LibretroGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLRenderManager.h"
-#include "libretro/LibretroVR.h"
 
 class LibretroGLCoreContext : public LibretroHWRenderContext {
 public:
@@ -21,10 +20,6 @@ public:
 		extern GLuint g_defaultFBO;
 		g_defaultFBO = hw_render_.get_current_framebuffer();
 		return renderManager_->ThreadFrame();
-	}
-	void SwapBuffers() override {
-		Libretro::PresentVR(hw_render_.get_current_framebuffer());
-		LibretroHWRenderContext::SwapBuffers();
 	}
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }

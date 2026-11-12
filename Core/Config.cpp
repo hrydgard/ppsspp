@@ -614,7 +614,7 @@ const char * const vulkanDefaultBlacklist[] = {
 
 static int DefaultGPUBackend() {
 	if (IsVREnabled()) {
-		// Falls back to OpenGL if the runtime can't take a Vulkan session (VulkanMayBeAvailable).
+		// The only backend with VR.
 		return (int)GPUBackend::VULKAN;
 	}
 
@@ -702,7 +702,7 @@ int Config::NextValidBackend() {
 		}
 #endif
 #if PPSSPP_API(ANY_GL)
-		if (!failed.count(GPUBackend::OPENGL)) {
+		if (!failed.count(GPUBackend::OPENGL) && IsBackendEnabled(GPUBackend::OPENGL)) {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
@@ -756,6 +756,9 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
+	// VR is Vulkan only.
+	if (backend == GPUBackend::OPENGL && IsVREnabled())
+		return false;
 	// On normal boots, this is where the Vulkan driver gets loaded the first time, in this check.
 	// That's a bit weird actually. But at least the config is loaded.
 	if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())

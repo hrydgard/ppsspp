@@ -357,9 +357,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform) {
 			WRITE(p, "uniform vec3 u_vpScale;\n");
 			WRITE(p, "uniform vec3 u_vpOffset;\n");
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "uniform mat4 u_proj_lens;\n");
-			}
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_VIEWPORT_UNIFORMS | DIRTY_PROJMATRIX;
 			// TODO: Use 4x3 matrices where possible (world and view and maybe tex, not proj).
@@ -414,11 +411,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 			}
-		}
-
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-			WRITE(p, "uniform lowp float u_scaleX;\n");
-			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
 
 		if (useHWTransform) {

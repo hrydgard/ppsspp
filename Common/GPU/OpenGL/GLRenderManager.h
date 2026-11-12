@@ -78,10 +78,6 @@ public:
 	int height;
 	GLuint colorDepth = 0;
 	bool z_stencil_;
-#ifdef __LIBRETRO__
-	GLRFramebuffer *vrRight = nullptr;
-	unsigned vrGeneration = 0;
-#endif
 
 private:
 	std::string tag_;
@@ -658,20 +654,6 @@ public:
 		data.uniformMatrix4.name = nullptr;
 		data.uniformMatrix4.loc = loc;
 		memcpy(data.uniformMatrix4.m, udata, sizeof(float) * 16);
-	}
-
-	void SetUniformM4x4Stereo(const char *name, const GLint *loc, const float *left, const float *right) {
-		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
-#ifdef _DEBUG
-		_dbg_assert_(curProgram_);
-#endif
-		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
-		data.cmd = GLRRenderCommand::UNIFORMSTEREOMATRIX;
-		data.uniformStereoMatrix4.name = name;
-		data.uniformStereoMatrix4.loc = loc;
-		data.uniformStereoMatrix4.mData = new float[32];
-		memcpy(&data.uniformStereoMatrix4.mData[0], left, sizeof(float) * 16);
-		memcpy(&data.uniformStereoMatrix4.mData[16], right, sizeof(float) * 16);
 	}
 
 	void SetUniformM4x4(const char *name, const float *udata) {
