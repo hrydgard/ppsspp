@@ -937,7 +937,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		g_audioSink.Print();
 	}
 	// What shader compiles cost the run, which the times include.
-	fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);
+	if (gpuStats.totals.numPipelinesCreated > 0) {
+		fprintf(stderr, "Pipelines created: %d\n", gpuStats.totals.numPipelinesCreated);
+	}
 	if (coreParameter.bootFromState) {
 		// Counted from the state's load. More than a few, and the game has gone off its usual path.
 		fprintf(stderr, "Failed disc reads: %d\n", pspFileSystem.FailedDiscReads());
