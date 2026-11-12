@@ -537,7 +537,9 @@ int AuCtx::AuCheckStreamDataNeeded() {
 }
 
 int AuCtx::AuStreamBytesNeeded() {
-	if (decoder->GetAudioType() == PSP_CODEC_MP3) {
+	// libaac.prx double buffers the same way (sceAacGetInfoToAddStreamData hands out up to the end
+	// of the current half, and the write pointer flips to the other half once the decoder is past it).
+	if (decoder->GetAudioType() == PSP_CODEC_MP3 || decoder->GetAudioType() == PSP_CODEC_AAC) {
 		// The endPos and readPos are not considered, except when you've read to the end.
 		// Compare signed: readPos is an int and can legitimately go negative (a game can notify
 		// a negative size), and promoting that to u64 would make it look like the end of the
@@ -569,7 +571,7 @@ int AuCtx::AuStreamBytesNeeded() {
 		return (int)std::max((int64_t)0, (halvesDone + 2) * half - written);
 	}
 
-	// TODO: Untested.  Maybe similar to MP3.
+	// TODO: Untested for other codecs, if any.
 	return std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 }
 
@@ -577,6 +579,9 @@ int AuCtx::AuStreamWorkareaSize() {
 	// Note that this is 31 bytes more than the max layer 3 frame size.
 	if (decoder->GetAudioType() == PSP_CODEC_MP3)
 		return 0x05c0;
+	// libaac.prx, sceAacInit: the halves start 0x640 into the buffer.
+	if (decoder->GetAudioType() == PSP_CODEC_AAC)
+		return 0x0640;
 	return 0;
 }
 
@@ -603,6 +608,13 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 	// Where AuGetInfoToAddStreamData pointed the game, i.e. where the bytes it just added start.
 	// Has to be sampled before readPos moves on below.
 	const int writeOffset = AuStreamWriteOffset();
+
+	// libaac.prx (sceAacNotifyAddStreamData) only takes the bytes up to endPos, so the tail of a
+	// half past the end of the file never reaches the decoder. Keeping it put garbage in front of
+	// the looped stream in Fortix.
+	if (decoder->GetAudioType() == PSP_CODEC_AAC && askedReadSize == 0 && size > 0 && (int64_t)readPos + size > (int64_t)endPos) {
+		size = (int)std::max((int64_t)0, (int64_t)endPos - (int64_t)readPos);
+	}
 
 	if (askedReadSize != 0) {
 		// Old save state, numbers already adjusted.
@@ -637,6 +649,12 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	int readsize = AuStreamBytesNeeded();
 	int offset = AuStreamWorkareaSize();
+	// The game writes readsize bytes at the write offset, so never let that run off the end of the
+	// buffer, whatever state a failed decode left behind. Not for MP3, where the hardware does hand
+	// out more than fits after a negative notify (audio/mp3/notifyadd).
+	if (decoder->GetAudioType() == PSP_CODEC_AAC && AuStreamHalfSize() > 0) {
+		readsize = std::min(readsize, AuStreamHalfSize() * 2 - AuStreamWriteOffset());
+	}
 
 	// The write position walks forward through the two halves as data is added and wraps around,
 	// so point the game at that rather than at the start of the work area.

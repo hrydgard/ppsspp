@@ -131,6 +131,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"SceHttp_Library", "sceHttp"},
 	{"sceMpeg_library", "sceMpeg", DisableHLEFlags::sceMpeg},
 	{"sceMp3_Library", "sceMp3", DisableHLEFlags::sceMp3},
+	{"sceAac_Library", "sceAac", DisableHLEFlags::sceAac},
 	{"sceNetAdhocctl_Library"},
 	{"sceNetAdhocDownload_Library"},
 	{"sceNetAdhocDiscover_Library", "sceNetAdhocDiscover", DisableHLEFlags::sceNetAdhocDiscover},
