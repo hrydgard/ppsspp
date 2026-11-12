@@ -2,6 +2,9 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <pwd.h>
+#if defined(__linux__) || defined(__APPLE__)
+#include <sys/utsname.h>
+#endif
 
 #include "ppsspp_config.h"
 #include <SDL3/SDL.h>
@@ -1121,6 +1124,15 @@ std::string System_GetProperty(SystemProperty prop) {
 #if PPSSPP_PLATFORM(MAC)
 	case SYSPROP_DEVICE_MODEL:
 		return "Mac";
+#endif
+#if defined(__linux__) || defined(__APPLE__)
+	case SYSPROP_SYSTEMBUILD: {
+		struct utsname name;
+		if (uname(&name) != 0) {
+			return "";
+		}
+		return std::string(name.sysname) + " " + name.release;
+	}
 #endif
 	case SYSPROP_NAME:
 #ifdef _WIN32
