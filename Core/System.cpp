@@ -334,6 +334,13 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 	} else {
 		g_OSD.CancelById("defaultclock");
 	}
+
+	if (!compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(sy->T("SystemClockSpeedChanged", "PSP system clock speed is set to %1 MHz"), g_Config.iLockedCPUSpeed), 5.0f, "clockspeed");
+	} else {
+		g_OSD.CancelById("clockspeed");
+	}
 }
 
 extern const std::string INDEX_FILENAME;

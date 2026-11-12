@@ -858,7 +858,7 @@ void InitPadLayout(TouchControlConfig *config, DeviceOrientation orientation, fl
 
 	// Pause button. Has some special handling, it MUST be visible on some platforms.
 	float Pause_button_center_X = halfW;
-	float Pause_button_center_Y = 28.0f;
+	float Pause_button_center_Y = 36.0f;
 
 	if (!System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON)) {
 		// Make really sure the pause button will be visible. Setting to -1 ensures reinit.

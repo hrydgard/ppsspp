@@ -240,7 +240,7 @@ void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {
 	page->Header("Emulation");
 
 	page->Setting(&g_Config.bForceLagSync).Disabled(&g_Config.bAutoFrameSkip).Hint({I18NCat::SYSTEM, "LowLatencyCPUTiming Tip", "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force real clock sync\"."});
-	page->Setting(&g_Config.iLockedCPUSpeed);
+	page->Setting(&g_Config.iLockedCPUSpeed).Hint({I18NCat::SYSTEM, "SystemClockSpeed Tip", "Changing the clock speed can affect performance and stability"});
 	page->Setting(&g_Config.bFastMemory).OnChange([](UI::EventParams &e) {
 		OnJitAffectingSetting();
 	});

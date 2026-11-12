@@ -572,14 +572,14 @@ static constexpr ConfigSetting cpuSettings[] = {
 		.Label(I18NCat::SYSTEM, "I/O timing method").Choices(iOTimingMethodNames),
 	ConfigSetting("FastMemoryAccess", SETTING(g_Config, bFastMemory), true, CfgFlag::PER_GAME)
 		.Label(I18NCat::SYSTEM, "Fast Memory"),
-	ConfigSetting("EmulateMediaEngine", SETTING(g_Config, bEmulateMediaEngine), false, CfgFlag::REPORT)
+	ConfigSetting("EmulateMediaEngine", SETTING(g_Config, bEmulateMediaEngine), true, CfgFlag::REPORT)
 		.Label(I18NCat::DEVELOPER, "Enable ME emulation for homebrew"),
 	ConfigSetting("FunctionReplacements", SETTING(g_Config, bFuncReplacements), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("HideSlowWarnings", SETTING(g_Config, bHideSlowWarnings), false, CfgFlag::DEFAULT),
 	ConfigSetting("HideStateWarnings", SETTING(g_Config, bHideStateWarnings), false, CfgFlag::DEFAULT),
 	ConfigSetting("JitDisableFlags", SETTING(g_Config, uJitDisableFlags), (uint32_t)0, CfgFlag::PER_GAME),
 	ConfigSetting("CPUSpeed", SETTING(g_Config, iLockedCPUSpeed), 0, CfgFlag::PER_GAME | CfgFlag::REPORT)
-		.Label(I18NCat::SYSTEM, "Change CPU Clock", "Change CPU Clock (unstable)").Range(0, 1000).Units("MHz").ZeroLabel("Auto"),
+		.Label(I18NCat::SYSTEM, "PSP system clock speed").Range(0, 1000).Units("MHz").ZeroLabel("Auto"),
 };
 
 static int DefaultInternalResolution() {
