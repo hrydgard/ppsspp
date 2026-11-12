@@ -472,10 +472,16 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
-		// The XMB is an ELF too, with no title of its own.
-		const std::string vshTitle = GetVSHTitle(fileLoader->GetPath());
+		// The XMB is an ELF too, with no PARAM.SFO. It gets an ID like a game's, with the firmware's version.
+		std::string vshVersion;
+		const std::string vshTitle = GetVSHTitle(fileLoader->GetPath(), &vshVersion);
 		if (!vshTitle.empty()) {
 			gameTitle = vshTitle;
+			g_paramSFO.SetValue("TITLE", vshTitle, 128);
+			g_paramSFO.SetValue("DISC_ID", VSH_DISC_ID, 16);
+			if (!vshVersion.empty()) {
+				g_paramSFO.SetValue("DISC_VERSION", vshVersion, 8);
+			}
 		}
 		break;
 	}
