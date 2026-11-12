@@ -25,6 +25,8 @@
 #include <set>
 #include <cstdlib>
 #include <cstdarg>
+#include <cstring>
+#include <memory>
 
 // for crc32
 extern "C" {
@@ -38,6 +40,7 @@ extern "C" {
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
@@ -424,9 +427,42 @@ namespace Reporting
 		return disc_id + "_" + disc_version;
 	}
 
+	// The container the game image is in, from its header: "cso", "chd", "pbp" or "iso". Empty for
+	// a directory. Cached, since it only changes with the game.
+	static std::string DiscContainer(const Path &path) {
+		static std::mutex cacheLock;
+		static Path cachedPath;
+		static std::string cachedContainer;
+
+		std::lock_guard<std::mutex> guard(cacheLock);
+		if (path == cachedPath) {
+			return cachedContainer;
+		}
+		cachedPath = path;
+		cachedContainer.clear();
+
+		std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+		char header[8]{};
+		if (!loader || !loader->Exists() || loader->IsDirectory() || loader->ReadAt(0, 1, 8, header) != 8) {
+			return cachedContainer;
+		}
+		if (!memcmp(header, "CISO", 4)) {
+			cachedContainer = "cso";
+		} else if (!memcmp(header, "MComprHD", 8)) {
+			cachedContainer = "chd";
+		} else if (!memcmp(header, "\0PBP", 4)) {
+			cachedContainer = "pbp";
+		} else {
+			cachedContainer = "iso";
+		}
+		return cachedContainer;
+	}
+
 	void AddGameInfo(UrlEncoder &postdata)
 	{
 		postdata.Add("game", CurrentGameID());
+		postdata.Add("file_type", IdentifiedFileTypeToString(PSP_CoreParameter().fileType));
+		postdata.Add("disc_container", DiscContainer(PSP_CoreParameter().fileToStart));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
 		postdata.Add("module_name", lastModuleName);
@@ -445,6 +481,15 @@ namespace Reporting
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
+#if PPSSPP_PLATFORM(ANDROID)
+		// On Android, SYSPROP_NAME is the device: "MANUFACTURER:MODEL".
+		postdata.Add("os", StringFromFormat("Android API %d", (int)System_GetPropertyInt(SYSPROP_SYSTEMVERSION)));
+		postdata.Add("device_model", System_GetProperty(SYSPROP_NAME));
+#else
+		postdata.Add("os", System_GetProperty(SYSPROP_NAME));
+		postdata.Add("device_model", System_GetProperty(SYSPROP_DEVICE_MODEL));
+#endif
+		postdata.Add("os_build", System_GetProperty(SYSPROP_SYSTEMBUILD));
 
 		// Empty when there's no full firmware install (nothing, or just fonts pulled off a disc).
 		InstalledFirmwareInfo firmware;
@@ -466,7 +511,7 @@ namespace Reporting
 		if (PSP_GetBootState() == BootState::Complete) {
 			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks(currentMIPS));
 			// Emulated seconds. Ticks alone don't say this, since games change the CPU clock.
-			postdata.Add("played_seconds", (double)CoreTiming::PeekGlobalTimeUs() / 1000000.0);
+			postdata.Add("seconds_played", (double)CoreTiming::PeekGlobalTimeUs() / 1000000.0);
 		}
 
 		float vps, fps;
