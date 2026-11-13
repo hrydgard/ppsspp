@@ -75,6 +75,26 @@ void MemFault_Init() {
 	g_ignoredAddresses.clear();
 }
 
+// An ignored access costs microseconds of host time and no emulated cycles, so a guest looping over a bad
+// pointer can stretch one emulated frame out for seconds, past Android's ANR timeout as the app waits for
+// the emulator to reach a frame end. Past a limit per frame, we stop ignoring them.
+bool IgnoredBadAccessLimitReached() {
+	const int vCount = __DisplayGetVCount();
+	if (vCount != g_ignoredAccessesVCount) {
+		g_ignoredAccessesVCount = vCount;
+		g_numIgnoredAccessesThisFrame = 0;
+	}
+	return g_numIgnoredAccessesThisFrame >= MAX_IGNORED_ACCESSES_PER_FRAME;
+}
+
+void CountIgnoredBadAccess() {
+	g_numIgnoredAccessesThisFrame++;
+}
+
+int MaxIgnoredBadAccessesPerFrame() {
+	return MAX_IGNORED_ACCESSES_PER_FRAME;
+}
+
 bool MemFault_MayBeResumable() {
 	return g_lastCrashAddress != nullptr;
 }
@@ -261,19 +281,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	g_lastMemoryExceptionType = type;
 
-	// An ignored access costs microseconds of host time and no emulated cycles, so a guest looping over a bad
-	// pointer can stretch one emulated frame out for seconds, past Android's ANR timeout as the app waits for
-	// the emulator to reach a frame end. Past a limit per frame, we stop ignoring them.
-	const int vCount = __DisplayGetVCount();
-	if (vCount != g_ignoredAccessesVCount) {
-		g_ignoredAccessesVCount = vCount;
-		g_numIgnoredAccessesThisFrame = 0;
-	}
-	const bool tooManyThisFrame = g_numIgnoredAccessesThisFrame >= MAX_IGNORED_ACCESSES_PER_FRAME;
+	const bool tooManyThisFrame = IgnoredBadAccessLimitReached();
 
 	bool handled = true;
 	if (success && !tooManyThisFrame && (g_Config.bIgnoreBadMemAccess || g_ignoredAddresses.find(codePtr) != g_ignoredAddresses.end())) {
-		g_numIgnoredAccessesThisFrame++;
+		CountIgnoredBadAccess();
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
