@@ -583,7 +583,7 @@ def cmd_until(args):
 		if args.press and (last_press is None or now - last_press >= args.every):
 			for inst in waiting:
 				dbg = connect(inst)
-				dbg.send("input.buttons.press", button=args.press, duration=6)
+				dbg.send("input.buttons.press", button=args.press, duration=args.frames)
 				dbg.close()
 			last_press = now
 		waiting = [inst for inst in waiting if not matches_any(args, Image.open(io.BytesIO(grab_png(inst))))]
@@ -753,6 +753,7 @@ def build_parser():
 	p.add_argument("--tolerance", type=float, default=12, help="Mean difference per channel allowed (0-255; default 12)")
 	p.add_argument("--slack", type=int, default=0, help="Also try the reference up to this many pixels off in each direction")
 	p.add_argument("--press", help="Keep pressing this button while waiting")
+	p.add_argument("--frames", type=int, default=6, help="With --press: how many vblanks to hold it (some games miss short presses)")
 	p.add_argument("--every", type=float, default=2, help="With --press: seconds between presses (default 2)")
 	p.add_argument("--timeout", type=float, default=60)
 	p.add_argument("--poll", type=float, default=0.5, help="Seconds between screenshots")
