@@ -577,6 +577,7 @@ tests_good = [
   "utility/savedata/initstatus",
   "utility/savedata/filelist",
   "utility/savedata/getsize",
+  "utility/savedata/listtimes",
   "utility/savedata/makedata",
   "utility/savedata/nomemstick",
   "utility/systemparam/systemparam",

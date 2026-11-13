@@ -42,6 +42,8 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
 int __IoOpenDelayUs(const char *filename);
 int __IoReadDelayUs(int size);
 void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int microSeconds);
+// The precision of the memory stick's FAT timestamps.
+void RoundToFATDateTimes(ScePspDateTime &ctime, ScePspDateTime &atime, ScePspDateTime &mtime);
 
 KernelObject *__KernelFileNodeObject();
 KernelObject *__KernelDirListingObject();
