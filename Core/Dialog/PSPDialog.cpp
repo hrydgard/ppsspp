@@ -322,10 +322,28 @@ void PSPDialog::DoState(PointerWrap &p) {
 	}
 }
 
+static void (*g_utilityDialogSoundCallback)(UtilityDialogSound sound);
+
+void SetUtilityDialogSoundCallback(void (*callback)(UtilityDialogSound sound)) {
+	g_utilityDialogSoundCallback = callback;
+}
+
 void PSPDialog::UpdateButtons()
 {
 	lastButtons = __CtrlPeekButtons();
 	buttons = __CtrlReadLatch();
+
+	// As on a PSP, the dialogs tick when moving around and click when choosing. Once a frame, for
+	// what was just pressed.
+	if (g_utilityDialogSoundCallback && buttons && !IsFadingOut()) {
+		if (buttons & okButtonFlag) {
+			g_utilityDialogSoundCallback(UtilityDialogSound::CONFIRM);
+		} else if (buttons & cancelButtonFlag) {
+			g_utilityDialogSoundCallback(UtilityDialogSound::CANCEL);
+		} else if (buttons & (CTRL_UP | CTRL_DOWN | CTRL_LEFT | CTRL_RIGHT)) {
+			g_utilityDialogSoundCallback(UtilityDialogSound::CURSOR);
+		}
+	}
 }
 
 // Input is fine while fading in, but not while fading out: the choice has already been made.
