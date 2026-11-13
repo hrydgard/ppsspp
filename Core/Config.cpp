@@ -733,7 +733,10 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 			return false;
 	}
 
-#if PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(SWITCH)
+	if (backend != GPUBackend::OPENGL)
+		return false;
+#elif PPSSPP_PLATFORM(UWP)
 	if (backend != GPUBackend::DIRECT3D11)
 		return false;
 #elif PPSSPP_PLATFORM(SWITCH)
@@ -759,10 +762,12 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 	// VR is Vulkan only.
 	if (backend == GPUBackend::OPENGL && IsVREnabled())
 		return false;
+#if !PPSSPP_PLATFORM(SWITCH)
 	// On normal boots, this is where the Vulkan driver gets loaded the first time, in this check.
 	// That's a bit weird actually. But at least the config is loaded.
 	if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
 		return false;
+#endif
 	return true;
 }
 
@@ -2128,9 +2133,11 @@ void Config::PostLoadCleanup() {
 
 	// IsBackendEnabled below triggers a Vulkan driver load. So we must first apply the environment vars for custom drivers,
 	// so the environment variables are set on load. Not super pretty.
+#if !PPSSPP_PLATFORM(SWITCH)
 	if (!g_Config.sCustomDriver.empty()) {
 		VulkanApplyCustomDriverEnvVars((AdrenoEnvVar)g_Config.iAdrenoEnvVars);
 	}
+#endif
 
 	if (!IsBackendEnabled((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(Log::G3D, "Backend %d not enabled - switching to platform default", iGPUBackend);
