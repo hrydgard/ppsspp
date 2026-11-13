@@ -56,6 +56,12 @@
     <Filter Include="Content\debugger\static\media">
       <UniqueIdentifier>{83476056-57b8-409f-b729-754d6401e3d5}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Content\ui_images">
+      <UniqueIdentifier>{3f0c5a8e-6b2d-4c1e-9a7f-2d8e4b6c1a35}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Content\upload">
+      <UniqueIdentifier>{8b4e2d91-5c7a-4f3e-b6d0-9e1a7c3f5b28}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="UWPHelpers\StorageAccess.h">
@@ -195,10 +201,10 @@
       <Filter>Content</Filter>
     </Image>
     <Image Include="..\Assets\ui_images\*.png">
-      <Filter>Content/ui_images</Filter>
+      <Filter>Content\ui_images</Filter>
     </Image>
     <Image Include="..\Assets\ui_images\*.svg">
-      <Filter>Content/ui_images</Filter>
+      <Filter>Content\ui_images</Filter>
     </Image>
     <None Include="..\Assets\compat.ini">
       <Filter>Content</Filter>
@@ -218,12 +224,10 @@
     <None Include="..\Assets\redump.csv">
       <Filter>Content</Filter>
     </None>
-    <None Include="..\Assets\font_atlas.zim">
-      <Filter>Content</Filter>
+    <None Include="..\Assets\upload\*.*">
+      <Filter>Content\upload</Filter>
     </None>
-    <None Include="..\Assets\ppge_atlas.zim">
-      <Filter>Content</Filter>
-    </None>
+    <None Include="packages.config" />
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="..\Assets\lang\*.ini">
       <Filter>Content\lang</Filter>

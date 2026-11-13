@@ -442,7 +442,7 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 
 int sceKernelIcacheInvalidateRange(MIPSState *mips, u32 addr, int size) {
 	if (size != 0) {
-		mips->InvalidateICacheRangeDeferred(addr, size);
+		mips->InvalidateICacheRangeDeferred(addr, size, true);
 		Core_ReenterDispatcher();
 	}
 	return hleLogDebug(Log::CPU, 0);

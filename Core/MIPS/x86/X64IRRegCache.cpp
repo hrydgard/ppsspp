@@ -161,10 +161,14 @@ void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing:
 	// Branching code may expect the x64reg to retain its value.
 
-	DiscardDeadTempsAtExit();
+	// Only these can need flushing, so the loop below skips the rest.
+	const NotInMemoryRegs notInMemory = NotInMemory();
+	DiscardDeadTempsAtExit(&notInMemory);
 
 	auto needsFlush = [&](IRReg i) {
-		if (mr[i].loc != MIPSLoc::MEM || mr[i].isStatic)
+		if (mr[i].loc == MIPSLoc::MEM || mr[i].isStatic)
+			return false;
+		if (IsValidGPR(i) ? !gprs : !fprs)
 			return false;
 		if (mr[i].nReg == -1 || !nr[mr[i].nReg].isDirty)
 			return false;
@@ -179,12 +183,17 @@ void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
 
 	// Sometimes, float/vector regs may be in separate regs in a sequence.
 	// It's worth combining and flushing together.
-	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS - 1; ++i) {
+	int next = 1;
+	notInMemory.regs.ForEach(1, TOTAL_MAPPABLE_IRREGS - 1, [&](IRReg first) {
+		const int i = first;
+		// Past it already, as part of the last.
+		if (i < next)
+			return;
 		if (!needsFlush(i) || !needsFlush(i + 1))
-			continue;
+			return;
 		// GPRs are probably not worth it.  Merging Vec2s might be, but pretty uncommon.
 		if (!isSingleFloat(i) || !isSingleFloat(i + 1))
-			continue;
+			return;
 
 		X64Reg regs[4]{ INVALID_REG, INVALID_REG, INVALID_REG, INVALID_REG };
 		regs[0] = FromNativeReg(mr[i + 0].nReg);
@@ -203,8 +212,8 @@ void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
 
 			for (int j = 0; j < 4; ++j)
 				DiscardReg(i + j);
-			i += 3;
-			continue;
+			next = i + 4;
+			return;
 		}
 
 		// TODO: Maybe this isn't always worth doing.
@@ -213,11 +222,10 @@ void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
 
 		DiscardReg(i);
 		DiscardReg(i + 1);
-		++i;
-		continue;
-	}
+		next = i + 2;
+	});
 
-	IRNativeRegCacheBase::FlushAll(gprs, fprs);
+	FlushAllFrom(notInMemory, gprs, fprs);
 }
 
 X64Reg X64IRRegCache::TryMapTempImm(IRReg r, X64Map flags) {

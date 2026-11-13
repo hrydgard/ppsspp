@@ -51,6 +51,8 @@
 #endif
 
 namespace MIPSComp {
+	JitCompileTimes g_jitCompileTimes;
+
 	void JitAt(MIPSState *mips) {
 		// TODO: We could probably check for a bad pc here, and fire an exception. Could spare us from some crashes.
 		// Although, we just tried to load from this address to check for a JIT block, and if we're here, that succeeded..
@@ -75,29 +77,7 @@ namespace MIPSComp {
 
 	BranchInfo::BranchInfo(u32 pc, MIPSOpcode o, MIPSOpcode delayO, bool al, bool l)
 		: compilerPC(pc), op(o), delaySlotOp(delayO), likely(l), andLink(al) {
-		delaySlotInfo = MIPSGetInfo(delaySlotOp).value;
-		delaySlotIsBranch = (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) != 0;
 	}
-
-	u32 ResolveNotTakenTarget(const BranchInfo &branchInfo) {
-		u32 notTakenTarget = branchInfo.compilerPC + 8;
-		if ((branchInfo.delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) != 0) {
-			// If a branch has a j/jr/jal/jalr as a delay slot, that is run if the branch is not taken.
-			// TODO: Technically, in the likely case, we should somehow suppress andLink on this exit.
-			bool isJump = (branchInfo.delaySlotInfo & IS_JUMP) != 0;
-			// If the delay slot is a branch, likely skips it.
-			if (isJump || !branchInfo.likely)
-				notTakenTarget -= 4;
-
-			// For a branch (not a jump), it actually should try the delay slot and take its target potentially.
-			// This is similar to the VFPU case and has not been seen, so just report it.
-			if (!isJump && SignExtend16ToU32(branchInfo.delaySlotOp) != SignExtend16ToU32(branchInfo.op) - 1)
-				ERROR_LOG_REPORT(Log::JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
-			if (isJump && branchInfo.likely && (branchInfo.delaySlotInfo & (OUT_RA | OUT_RD)) != 0)
-				ERROR_LOG_REPORT(Log::JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
-	}
-		return notTakenTarget;
-}
 
 	bool NativeJitRunsMediaEngine() {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64)

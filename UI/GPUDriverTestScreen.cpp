@@ -463,9 +463,9 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float testW = 170.f;
@@ -476,14 +476,14 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 	for (int j = 0; j < numWriteModes; j++, y += 120.f + padding) {
 		float x = layoutBounds.x + (layoutBounds.w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
 		dc.Begin();
-		dc.DrawText(writeModeNames[j], layoutBounds.x + padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		dc.DrawText(dc.GetTheme().uiFont, writeModeNames[j], layoutBounds.x + padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 		dc.Flush();
 		for (int i = 0; i < numTests; i++, x += testW + padding) {
 			if (!validCombinations[j][i])
 				continue;
 			dc.Begin();
 			Bounds bounds = { x, y + 40, testW, 70 };
-			dc.DrawText(testNames[i], bounds.x, y, style.fgColor, FLAG_DYNAMIC_ASCII);
+			dc.DrawText(dc.GetTheme().uiFont, testNames[i], bounds.x, y, style.fgColor, FLAG_DYNAMIC_ASCII);
 			dc.Flush();
 
 			dc.BeginPipeline(writePipelines[j], samplerNearest_);
@@ -497,7 +497,7 @@ void GPUDriverTestScreen::DiscardTest(UIContext &dc) {
 
 			draw->SetStencilParams(0xff, 0xFF, 0xFF);
 			dc.SetCurZ(0.9f);
-			dc.DrawTextRect("TEST OK", bounds, textColorBAD, ALIGN_HCENTER | ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
+			dc.DrawTextRect(dc.GetTheme().uiFont, "TEST OK", bounds, textColorBAD, ALIGN_HCENTER | ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
 			dc.Flush();
 
 			// Draw rectangle that should result in the text
@@ -569,15 +569,15 @@ void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, apiName, layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, vendor, layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(dc.GetTheme().uiFont, driver, layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float y = layoutBounds.y + 150;
 	float x = layoutBounds.x + 10;
 	dc.Begin();
-	dc.DrawText("Adreno logic", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.DrawText(dc.GetTheme().uiFont, "Adreno logic", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 
 	float testW = 170.f;
@@ -591,14 +591,14 @@ void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 
 	// Draw text on it using the shader.
 	dc.BeginPipeline(adrenoLogicDiscardPipeline_, samplerNearest_);
-	dc.DrawTextRect("TEST OK", bounds, textColorOK, ALIGN_HCENTER | ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
+	dc.DrawTextRect(dc.GetTheme().uiFont, "TEST OK", bounds, textColorOK, ALIGN_HCENTER | ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 
 	y += 100;
 
 	dc.Begin();
-	dc.DrawText("Flat shaded tex", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
-	dc.DrawText("(TEST OK if logo but no gradient!)", x + 400, y, 0xFFFFFFFF, ALIGN_LEFT);
+	dc.DrawText(dc.GetTheme().uiFont, "Flat shaded tex", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.DrawText(dc.GetTheme().uiFont, "(TEST OK if logo but no gradient!)", x + 400, y, 0xFFFFFFFF, ALIGN_LEFT);
 	dc.Flush();
 
 	bounds = { x + 200, y, 100, 100 };
@@ -613,7 +613,7 @@ void GPUDriverTestScreen::ShaderTest(UIContext &dc) {
 	y += 120;
 
 	dc.Begin();
-	dc.DrawText("Test done", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	dc.DrawText(dc.GetTheme().uiFont, "Test done", x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	dc.Flush();
 }
 

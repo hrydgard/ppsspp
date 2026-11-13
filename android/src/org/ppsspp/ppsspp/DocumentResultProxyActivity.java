@@ -53,8 +53,10 @@ public class DocumentResultProxyActivity extends AppCompatActivity {
 					if (uri != null) {
 						Log.i(TAG, "DocumentResultProxy: Selected URI: " + uri);
 						final boolean isTree = pickerIntent != null && Intent.ACTION_OPEN_DOCUMENT_TREE.equals(pickerIntent.getAction());
+						// A created document gets written to after the picker is gone.
+						final boolean isCreate = pickerIntent != null && Intent.ACTION_CREATE_DOCUMENT.equals(pickerIntent.getAction());
 						try {
-							if (isTree) {
+							if (isTree || isCreate) {
 								getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
 							} else {
 								getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);

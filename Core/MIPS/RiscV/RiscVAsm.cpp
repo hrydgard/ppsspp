@@ -21,6 +21,7 @@
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
 #include "Core/MIPS/RiscV/RiscVVfpuDot.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -240,6 +241,54 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	vfpuDotSpecial_ = GenerateRiscVVfpuDotSpecial(this, CTXREG);
 	vfpuDot_ = GenerateRiscVVfpuDot(this, CTXREG, vfpuDotSpecial_);
+
+	// The address in SCRATCH1, a store's value in SCRATCH2, and a load's result back in SCRATCH1.
+	// Guest values live in caller-saved registers too, so these save the ones the register cache
+	// allocates around the call, and RA.
+	static constexpr RiscVReg kernelSaveGPRs[]{ X5, X6, X7, X12, X13, X14, X15, X16, X17, X28, X29, X30, X31, R_RA };
+	static constexpr RiscVReg kernelSaveFPRs[]{ F0, F1, F2, F3, F4, F5, F6, F7, F10, F11, F12, F13, F14, F15, F16, F17, F28, F29, F30, F31 };
+	static constexpr int kernelSaveSize = 8 * (ARRAY_SIZE(kernelSaveGPRs) + ARRAY_SIZE(kernelSaveFPRs));
+	static_assert((kernelSaveSize & 0xF) == 0, "Stack must be kept aligned");
+	static_assert((int)IROp::StoreKernel32 - (int)IROp::LoadKernel8 == ARRAY_SIZE(kernelLoadStore_) - 1, "kernel ops in a row");
+	for (int i = 0; i < ARRAY_SIZE(kernelLoadStore_); ++i) {
+		const IROp op = (IROp)((int)IROp::LoadKernel8 + i);
+		const bool isStore = op >= IROp::StoreKernel8;
+		kernelLoadStore_[i] = AlignCode16();
+		ADDI(R_SP, R_SP, -kernelSaveSize);
+		int offset = 0;
+		for (RiscVReg r : kernelSaveGPRs) {
+			SD(r, R_SP, offset);
+			offset += 8;
+		}
+		for (RiscVReg r : kernelSaveFPRs) {
+			FS(64, r, R_SP, offset);
+			offset += 8;
+		}
+		// SCRATCH1 and SCRATCH2 are the first two argument registers, so the value moves out first.
+		if (isStore) {
+			MV(X12, SCRATCH2);
+			LI(X13, (u32)op);
+		} else {
+			LI(X12, (u32)op);
+		}
+		MV(X11, SCRATCH1);
+		LI(X10, (uintptr_t)mipsState);
+		if (isStore)
+			QuickCallFunction(&IRRunKernelStore);
+		else
+			QuickCallFunction(&IRRunKernelLoad);
+		offset = 0;
+		for (RiscVReg r : kernelSaveGPRs) {
+			LD(r, R_SP, offset);
+			offset += 8;
+		}
+		for (RiscVReg r : kernelSaveFPRs) {
+			FL(64, r, R_SP, offset);
+			offset += 8;
+		}
+		ADDI(R_SP, R_SP, kernelSaveSize);
+		RET();
+	}
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

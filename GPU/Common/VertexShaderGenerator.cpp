@@ -357,9 +357,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform) {
 			WRITE(p, "uniform vec3 u_vpScale;\n");
 			WRITE(p, "uniform vec3 u_vpOffset;\n");
-			if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-				WRITE(p, "uniform mat4 u_proj_lens;\n");
-			}
 			WRITE(p, "uniform mat4 u_proj;\n");
 			*uniformMask |= DIRTY_VIEWPORT_UNIFORMS | DIRTY_PROJMATRIX;
 			// TODO: Use 4x3 matrices where possible (world and view and maybe tex, not proj).
@@ -414,11 +411,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "uniform lowp vec3 u_matemissive;\n");
 				*uniformMask |= DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE;
 			}
-		}
-
-		if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
-			WRITE(p, "uniform lowp float u_scaleX;\n");
-			WRITE(p, "uniform lowp float u_scaleY;\n");
 		}
 
 		if (useHWTransform) {
@@ -1058,8 +1050,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (useHWTransform) {
 			WRITE(p, "  %sgl_Position.z = nearPlaneZ;\n", compat.vsOutPrefix);
 		} else {
-			// Software transform has clipped against the near plane already.
-			WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+			// Software transform has clipped against the near plane already, so put it in the middle of the depth
+			// range. The middle of minz-maxz is on the near plane when both are 0 (Need for Speed Shift's sky), and
+			// Mali-T830 then clips parts of it away.
+			WRITE(p, "  %sgl_Position.z = 0.5 * outPos.w;\n", compat.vsOutPrefix);
 		}
 	}
 

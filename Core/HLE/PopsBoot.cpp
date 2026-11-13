@@ -578,7 +578,7 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout(IsConvertedPBP(pbp))) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 3.95 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 3.95 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > System > PSP firmware (XMB).");
 		return false;
 	}
 	const u32 base = PopsManBase();

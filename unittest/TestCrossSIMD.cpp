@@ -92,6 +92,14 @@ static bool TestVec4S32() {
 		EXPECT_EQ_INT(result[i], a_values[i] * b_values[i]);
 	}
 
+	const int sat_values[4] = { 40000, -40000, -32768, 1234 };
+	const int16_t sat_expected[4] = { 32767, -32768, -32768, 1234 };
+	int16_t sat_result[4];
+	Vec4S32::Load(sat_values).StoreS16Sat(sat_result);
+	for (int i = 0; i < 4; i++) {
+		EXPECT_EQ_INT(sat_result[i], sat_expected[i]);
+	}
+
 	// Mul16 only promises correct results when both sides fit in 16 bits.
 	const int small_a[4] = { 3, -7, 300, -1 };
 	const int small_b[4] = { 5, 11, -2, 1000 };

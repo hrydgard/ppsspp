@@ -88,36 +88,58 @@ IROp ShiftToShiftImm(IROp op) {
 	}
 }
 
+// Whether the pass would only copy the block: most act on just a few kinds of instruction (IROpKind),
+// which most blocks don't have, and some don't run at all with some settings.
+static bool PassOnlyCopies(IRPassFunc pass, const IRWriter &in, const IROptions &opts) {
+	auto lacks = [&](u8 kinds) {
+		return (in.Kinds() & kinds) == 0;
+	};
+	if (pass == &ApplyMemoryValidation)
+		return g_Config.bFastMemory;
+	if (pass == &RemoveLoadStoreLeftRight)
+		return lacks(IRKIND_LEFT_RIGHT);
+	if (pass == &ResolveKernelMemory)
+		return lacks(IRKIND_KERNEL_MEMORY);
+	if (pass == &ReduceVec4Flush)
+		return lacks(IRKIND_VEC4) || !opts.preferVec4 || opts.optimizeForInterpreter;
+	if (pass == &OptimizeFPMoves)
+		return lacks(IRKIND_FMOV_TO_GPR);
+	if (pass == &OptimizeLoadsAfterStores)
+		return lacks(IRKIND_PLAIN_LOAD);
+	return false;
+}
+
 bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out, const IROptions &opts) {
-	out.Reserve(in.GetInstructions().size());
-
-	if (c == 1) {
-		return passes[0](in, out, opts);
-	}
-
 	bool logBlocks = false;
 
-	IRWriter temp[2];
+	// The passes take turns writing to the two, which keep their capacity, also from block to block.
+	// Static: compiling only happens on the emulation thread (the debugger's views run on it too).
+	static IRWriter temp[2];
 	const IRWriter *nextIn = &in;
-	IRWriter *nextOut = &temp[1];
-	temp[1].Reserve(nextIn->GetInstructions().size());
-	for (size_t i = 0; i < c - 1; ++i) {
-		if (passes[i](*nextIn, *nextOut, opts)) {
+	int last = -1;
+	for (size_t i = 0; i < c; ++i) {
+		// Most blocks have nothing for most of these passes to do, so skip them (and their copy).
+		if (PassOnlyCopies(passes[i], *nextIn, opts))
+			continue;
+		last = (last + 1) & 1;
+		IRWriter &nextOut = temp[last];
+		nextOut.Clear();
+		nextOut.Reserve(nextIn->GetInstructions().size());
+		if (passes[i](*nextIn, nextOut, opts)) {
 			logBlocks = true;
 		}
-
-		temp[0] = std::move(temp[1]);
-		nextIn = &temp[0];
-
-		temp[1].Clear();
-		temp[1].Reserve(nextIn->GetInstructions().size());
+		nextIn = &nextOut;
 	}
 
-	out.Reserve(nextIn->GetInstructions().size());
-	if (passes[c - 1](*nextIn, out, opts)) {
-		logBlocks = true;
+	if (last >= 0) {
+		// Hand over the buffer: out's goes to the temp, which keeps the capacity too.
+		std::swap(out, temp[last]);
+	} else {
+		out.Clear();
+		out.Reserve(in.GetInstructions().size());
+		for (const IRInst &inst : in.GetInstructions())
+			out.Write(inst);
 	}
-
 	return logBlocks;
 }
 
@@ -1034,7 +1056,9 @@ bool IRMutatesDestGPR(const IRInstMeta &inst, int reg) {
 
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	std::vector<IRInstMeta> insts;
+	// Reused, to not allocate for every block (see IRApplyPasses).
+	static std::vector<IRInst> insts;
+	insts.clear();
 	insts.reserve(in.GetInstructions().size());
 
 	// We track writes both to rename regs and to purge dead stores.
@@ -1052,14 +1076,16 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		bool readByExit;
 		int8_t fplen = 0;
 	};
-	std::vector<Check> checks;
-	checks.reserve(insts.size() / 2);
+	static std::vector<Check> checks;
+	checks.clear();
 
 	// This tracks the last index at which each reg was modified.
 	int lastWrittenTo[256];
 	int lastReadFrom[256];
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 	memset(lastReadFrom, -1, sizeof(lastReadFrom));
+	// Exits and barriers read every reg. Kept apart, rather than filling lastReadFrom at each one.
+	int lastReadAll = -1;
 
 	auto writesToFPRCheck = [](const IRInstMeta &inst, const Check &check) {
 		for (int i = 0; i < check.fplen; ++i) {
@@ -1096,21 +1122,11 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	};
 
 	bool logBlocks = false;
-	size_t firstCheck = 0;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInstMeta inst = GetIRMeta(in.GetInstructions()[i]);
 
-		// It helps to skip through rechecking ones we already discarded.
-		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
-			Check &check = checks[ch];
-			if (check.reg != 0) {
-				firstCheck = ch;
-				break;
-			}
-		}
-
 		// Check if we can optimize by running through all the writes we've previously found.
-		for (size_t ch = firstCheck; ch < checks.size(); ++ch) {
+		for (size_t ch = 0; ch < checks.size(); ++ch) {
 			Check &check = checks[ch];
 			if (check.reg == 0) {
 				// This means we already optimized this or a later inst depends on it.
@@ -1140,12 +1156,12 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 						insts[check.index].dest = 0;
 						insts[check.index].src1 = 0;
 					}
-				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
+				} else if (!IRMutatesDestGPR(GetIRMeta(insts[check.index]), check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
 					// As long as the previous inst wasn't modifying its dest reg, and this is a Mov, we can swap.
 					// We're changing "Add A, B, C; Mov B, A" to "Add B, B, C; Mov A, B" here.
 
 					// This happens with lwl/lwr temps.  Replace the original dest.
-					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
+					insts[check.index] = IRReplaceDestGPR(GetIRMeta(insts[check.index]), check.reg, inst.dest).i;
 					lastWrittenTo[inst.dest] = check.index;
 					// If it's being read from (by inst now), we can't optimize out.
 					check.reg = 0;
@@ -1230,7 +1246,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 
 					bool destNotRead = true;
 					for (int j = 0; j < check.fplen; ++j)
-						destNotRead = destNotRead && lastReadFrom[inst.dest + 32 + j] <= check.index;
+						destNotRead = destNotRead && std::max(lastReadFrom[inst.dest + 32 + j], lastReadAll) <= check.index;
 
 					if (!check.readByExit && destNotChanged && destNotRead) {
 						_dbg_assert_(insts[check.index].dest == inst.src1);
@@ -1274,6 +1290,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				}
 			}
 		}
+		// Most checks end soon after they start. Dropping them keeps this from going quadratic.
+		checks.erase(std::remove_if(checks.begin(), checks.end(), [](const Check &check) {
+			return check.reg == 0;
+		}), checks.end());
 
 		int dest = IRDestGPR(inst);
 		switch (dest) {
@@ -1324,26 +1344,28 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 
+		// Most instructions have no FPR operands, so skip listing them.
+		auto isFPRType = [](char type) {
+			return type == 'F' || type == 'V' || type == '2' || type == 'M';
+		};
+		const bool anyFPR = isFPRType(inst.m.types[0]) || isFPRType(inst.m.types[1]) || isFPRType(inst.m.types[2]);
+
 		IRReg regs[IR_MAX_FPR_READS];
 		int readGPRs = IRReadsFromGPRs(inst, regs);
 		if (readGPRs == -1) {
-			for (int j = 0; j < 256; ++j)
-				lastReadFrom[j] = i;
+			// An exit or barrier. IRReadsFromFPRs() would say -1 too.
+			lastReadAll = i;
 		} else {
 			for (int j = 0; j < readGPRs; ++j)
 				lastReadFrom[regs[j]] = i;
+			if (anyFPR) {
+				int readFPRs = IRReadsFromFPRs(inst, regs);
+				for (int j = 0; j < readFPRs; ++j)
+					lastReadFrom[regs[j] + 32] = i;
+			}
 		}
 
-		int readFPRs = IRReadsFromFPRs(inst, regs);
-		if (readFPRs == -1) {
-			for (int j = 0; j < 256; ++j)
-				lastReadFrom[j] = i;
-		} else {
-			for (int j = 0; j < readFPRs; ++j)
-				lastReadFrom[regs[j] + 32] = i;
-		}
-
-		int destFPRs = IRDestFPRs(inst, regs);
+		int destFPRs = anyFPR ? IRDestFPRs(inst, regs) : 0;
 		for (int j = 0; j < destFPRs; ++j)
 			lastWrittenTo[regs[j] + 32] = i;
 
@@ -1365,7 +1387,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			_assert_msg_(false, "Unexpected FPR output %d", dest);
 		}
 
-		insts.push_back(inst);
+		insts.push_back(inst.i);
 	}
 
 	// Since we're done with the instructions, all remaining can be nuked.
@@ -1377,10 +1399,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 	}
 
-	for (const IRInstMeta &inst : insts) {
+	for (const IRInst &inst : insts) {
 		// Simply skip any Mov 0, 0 instructions, since that's how we nuke one.
 		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
-			out.Write(inst.i);
+			out.Write(inst);
 		}
 	}
 
@@ -2003,6 +2025,10 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	if (!opts.preferVec4 || opts.optimizeForInterpreter) {
 		DISABLE;
 	}
+	// Everything below starts from a Vec4 (or matrix) operand, which most blocks don't have.
+	if ((in.Kinds() & IRKIND_VEC4) == 0) {
+		DISABLE;
+	}
 
 	bool isVec4[256]{};
 	bool isUsed[256]{};
@@ -2301,7 +2327,9 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		char kind;
 		IRReg value;
 	};
-	std::vector<Known> known;
+	// Reused, to not allocate for every block (see IRApplyPasses).
+	static std::vector<Known> known;
+	known.clear();
 
 	auto kindOf = [](IROp op) {
 		switch (op) {
@@ -2376,13 +2404,16 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		}
 
 		// Anything this writes can't be the address or value of a known access anymore.
-		int destGPR = IRDestGPR(GetIRMeta(inst));
-		if (destGPR >= 0)
-			forgetReg(destGPR, false);
-		IRReg destFPRs[4];
-		int numFPRs = IRDestFPRs(GetIRMeta(inst), destFPRs);
-		for (int i = 0; i < numFPRs; ++i)
-			forgetReg(destFPRs[i], true);
+		if (!known.empty()) {
+			const IRInstMeta meta = GetIRMeta(inst);
+			int destGPR = IRDestGPR(meta);
+			if (destGPR >= 0)
+				forgetReg(destGPR, false);
+			IRReg destFPRs[4];
+			int numFPRs = IRDestFPRs(meta, destFPRs);
+			for (int i = 0; i < numFPRs; ++i)
+				forgetReg(destFPRs[i], true);
+		}
 
 		if (!isRAM(inst.src1, inst.constant))
 			continue;

@@ -5,6 +5,7 @@
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 #include "Common/Log.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/TimeUtil.h"
 #include "Common/VR/PPSSPPVR.h"
 
@@ -1281,21 +1282,30 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 						"expected %d sample count, got %d", fbSampleCount, graphicsPipeline->SampleCount());
 				}
 
-				VkPipeline pipeline;
-
+				Promise<VkPipeline> *promise;
+				bool compileHere = false;
 				{
 					std::lock_guard<std::mutex> lock(graphicsPipeline->mutex_);
-					if (!graphicsPipeline->pipeline[(size_t)rpType]) {
+					promise = graphicsPipeline->pipeline[(size_t)rpType];
+					if (!promise) {
 						// NOTE: If render steps got merged, it can happen that, as they ended during recording,
 						// they didn't know their final render pass type so they created the wrong pipelines in EndCurRenderStep().
 						// Unfortunately I don't know if we can fix it in any more sensible place than here.
 						// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 						// happen all that much.
-						graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
-						graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
+						promise = Promise<VkPipeline>::CreateEmpty();
+						graphicsPipeline->pipeline[(size_t)rpType] = promise;
+						compileHere = true;
 					}
-					pipeline = graphicsPipeline->pipeline[(size_t)rpType]->BlockUntilReady();
 				}
+				// Not under the lock: the main thread takes it for every pipeline a render step used
+				// (EndCurRenderStep), and waiting for the shaders and the compile can take hundreds of ms.
+				// DestroyVariants deletes Promises later, so this one stays valid.
+				if (compileHere) {
+					graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
+				}
+				PROFILE_THIS_SCOPE("wait_pipeline");
+				VkPipeline pipeline = promise->BlockUntilReady();
 
 				if (pipeline != VK_NULL_HANDLE) {
 					vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);

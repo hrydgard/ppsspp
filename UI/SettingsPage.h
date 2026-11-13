@@ -184,6 +184,7 @@ struct SettingItem {
 	SettingItem &Format(std::string_view fmt) { format = fmt; return *this; }
 	SettingItem &LiveUpdate() { liveUpdate = true; return *this; }
 	SettingItem &RestrictTo(const int *values, size_t count) { restrictTo = values; restrictCount = count; return *this; }
+	SettingItem &Image(ImageID image) { this->image = image; return *this; }
 };
 
 // A list of settings items. Texts without a category get the page's.

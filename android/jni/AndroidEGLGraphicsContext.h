@@ -49,7 +49,7 @@ protected:
 
 private:
 	// Picks a config, from the most to the least desirable. Fills in config_.
-	bool ChooseConfig(bool wantGLES3, std::string *errorMessage);
+	bool ChooseConfig(std::string *errorMessage);
 	void DestroyEGL();
 
 	EGLDisplay display_ = EGL_NO_DISPLAY;

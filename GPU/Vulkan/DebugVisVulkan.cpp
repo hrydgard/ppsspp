@@ -42,7 +42,7 @@ bool comparePushBufferNames(const GPUMemoryManager *a, const GPUMemoryManager *b
 	return strcmp(a->Name(), b->Name()) < 0;
 }
 
-void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu) {
+void DrawGPUMemoryVis(UIContext *ui, const FontStyle &font, GPUCommon *gpu) {
 	// This one will simply display stats.
 	Draw::DrawContext *draw = ui->GetDrawContext();
 
@@ -88,12 +88,12 @@ void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu) {
 	int y = starty;
 
 	ui->SetFontScale(0.7f, 0.7f);
-	ui->DrawTextShadow(str.str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(font, str.str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }
 
-void DrawGPUProfilerVis(UIContext *ui, GPUCommon *gpu) {
+void DrawGPUProfilerVis(UIContext *ui, const FontStyle &font, GPUCommon *gpu) {
 	using namespace Draw;
 	const int padding = 10 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
 	const int starty = 50 + System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
@@ -111,7 +111,7 @@ void DrawGPUProfilerVis(UIContext *ui, GPUCommon *gpu) {
 	std::string text = ui->GetDrawContext()->GetGpuProfileString();
 
 	ui->SetFontScale(0.4f, 0.4f);
-	ui->DrawTextShadow(text, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->DrawTextShadow(font, text, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }

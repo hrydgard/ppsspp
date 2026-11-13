@@ -581,6 +581,11 @@ void IRNativeJit::FinalizeTargetBlock(int block_num) {
 	backend_->FinalizeBlock(block_num, jo);
 }
 
+size_t IRNativeJit::TargetCodeBytes() const {
+	const CodeBlockCommon &codeBlock = backend_->CodeBlock();
+	return codeBlock.GetOffset(codeBlock.GetCodePtr());
+}
+
 void IRNativeJit::InvalidateTargetBlock(int block_num) {
 	// Already invalidated, or never compiled (the code space filled first).
 	if (blocks_.GetBlock(block_num)->GetOriginalStart() == 0 || !backend_->GetNativeBlock(block_num))
@@ -1029,22 +1034,25 @@ void IRNativeBackend::FinalizeBlock(int block_num, const JitOptions &jo) {
 		// First, link other blocks to this one now that it's finalized.
 		auto incoming = linksTo_.equal_range(pc);
 		for (auto it = incoming.first; it != incoming.second; ++it) {
-			auto &exits = nativeBlocks_[it->second].exits;
-			for (auto &blockExit : exits) {
+			const IRNativeBlock &from = nativeBlocks_[it->second];
+			for (int i = 0; i < from.numExits; i++) {
+				const IRNativeBlockExit &blockExit = from.exits[i];
 				if (blockExit.dest == pc)
 					OverwriteExit(blockExit.offset, blockExit.len, block_num);
 			}
 		}
 
 		// And also any blocks from this one, in case we're finalizing it later.
-		auto &outgoing = nativeBlocks_[block_num].exits;
-		for (auto &blockExit : outgoing) {
+		const IRNativeBlock &block = nativeBlocks_[block_num];
+		for (int i = 0; i < block.numExits; i++) {
+			const IRNativeBlockExit &blockExit = block.exits[i];
 			int dstBlockNum = FindBlockByStart(blockExit.dest);
 			const IRNativeBlock *nativeBlock = GetNativeBlock(dstBlockNum);
 			if (nativeBlock)
 				OverwriteExit(blockExit.offset, blockExit.len, dstBlockNum);
 		}
 	}
+	FlushPendingIcache();
 }
 
 int IRNativeBackend::GetBlockCodeStart(int block_num) const {
@@ -1070,24 +1078,27 @@ void IRNativeBackend::SetBlockEntry(int block_num, u32 startPC, int offset) {
 		nativeBlocks_.resize(block_num + 1);
 	nativeBlocks_[block_num].startPC = startPC;
 	nativeBlocks_[block_num].entryOffset = offset;
-	blockByStart_[startPC] = block_num;
+	blockByStart_.Remove(startPC);
+	blockByStart_.Insert(startPC, block_num);
 }
 
 int IRNativeBackend::FindBlockByStart(u32 pc) const {
-	auto it = blockByStart_.find(pc);
-	return it != blockByStart_.end() ? it->second : -1;
+	int block_num;
+	return blockByStart_.Get(pc, &block_num) ? block_num : -1;
 }
 
 void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
-	linksTo_.emplace(pc, block_num);
-
 	if (block_num >= (int)nativeBlocks_.size())
 		nativeBlocks_.resize(block_num + 1);
-	IRNativeBlockExit blockExit;
+	IRNativeBlock &block = nativeBlocks_[block_num];
+	// Past the limit, the exit just keeps going to the dispatcher.
+	if (block.numExits == IRNativeBlock::MAX_EXITS)
+		return;
+	IRNativeBlockExit &blockExit = block.exits[block.numExits++];
 	blockExit.offset = exitStartOffset;
 	blockExit.len = exitLen;
 	blockExit.dest = pc;
-	nativeBlocks_[block_num].exits.push_back(blockExit);
+	linksTo_.emplace(pc, block_num);
 }
 
 void IRNativeBackend::RecordIRAddresses(int block_num, const std::vector<const u8 *> &addresses) {
@@ -1104,12 +1115,13 @@ void IRNativeBackend::RecordIRAddresses(int block_num, const std::vector<const u
 void IRNativeBackend::EraseAllLinks(int block_num) {
 	if (block_num == -1) {
 		linksTo_.clear();
-		blockByStart_.clear();
+		blockByStart_.Clear();
 		nativeBlocks_.clear();
 	} else if (block_num < (int)nativeBlocks_.size()) {
 		// linksTo_ is keyed by the exits' targets.
-		for (const IRNativeBlockExit &blockExit : nativeBlocks_[block_num].exits) {
-			auto range = linksTo_.equal_range(blockExit.dest);
+		IRNativeBlock &block = nativeBlocks_[block_num];
+		for (int i = 0; i < block.numExits; i++) {
+			auto range = linksTo_.equal_range(block.exits[i].dest);
 			for (auto it = range.first; it != range.second;) {
 				if (it->second == block_num)
 					it = linksTo_.erase(it);
@@ -1117,10 +1129,10 @@ void IRNativeBackend::EraseAllLinks(int block_num) {
 					++it;
 			}
 		}
-		nativeBlocks_[block_num].exits.clear();
-		auto start = blockByStart_.find(nativeBlocks_[block_num].startPC);
-		if (start != blockByStart_.end() && start->second == block_num)
-			blockByStart_.erase(start);
+		block.numExits = 0;
+		const u32 startPC = nativeBlocks_[block_num].startPC;
+		if (FindBlockByStart(startPC) == block_num)
+			blockByStart_.Remove(startPC);
 	}
 }
 

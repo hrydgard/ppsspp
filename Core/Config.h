@@ -191,6 +191,8 @@ public:
 	bool bBreakOnFrameTimeout;  // not saved
 	// Sample the JIT and write a report of the hottest blocks to this file. Not saved.
 	std::string sJitProfileFile;
+	// After this many flips, time recompiling the whole JIT cache (--jit-bench). Not saved.
+	int iJitBenchFlip = 0;
 
 	// General
 	bool bScreenshotsAsPNG;
@@ -425,6 +427,7 @@ public:
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;
+	int iLimitFrameRateTo30;  // FrameRateLimit30
 	bool bRenderMultiThreading;
 
 	// HW debug
@@ -449,6 +452,10 @@ public:
 	int iGamePreviewVolume;  // Volume for the game preview sound in the game grid.
 	int iAchievementVolume;
 	int iAltSpeedVolume;
+
+	// Filter the SAS reverb's rate conversions to and from 22khz. Off gives the hardware's
+	// unfiltered decimation and zero-stuffing. No UI.
+	bool bReverbFilter;
 
 	bool bExtraAudioBuffering;  // For bluetooth
 	// Android only.
@@ -628,6 +635,21 @@ public:
 	int iXmbThemeWallpaperMode;
 	int iXmbThemeSystemColor;
 	int iXmbThemeCustomThemeMode;
+	// /CONFIG/VIDEO (UMD Video). The languages are two-letter codes, "00" meaning the disc's own.
+	std::string sXmbVideoMenuLanguage;
+	std::string sXmbVideoAudioLanguage;
+	std::string sXmbVideoSubtitleLanguage;
+	int iXmbVideoAppendedVolume;
+	bool bXmbVideoLRButtonEnable;
+	bool bXmbVideoListPlayMode;
+	int iXmbVideoTitleDisplayMode;
+	// /CONFIG/PHOTO/slideshow_speed
+	int iXmbPhotoSlideshowSpeed;
+	// /CONFIG/SYSTEM/CHARACTER_SET: code page indices, for file names and for text in files.
+	int iXmbCharsetOem;
+	int iXmbCharsetAnsi;
+	// /CONFIG/SYSTEM/LOCK/password: four digits.
+	std::string sXmbLockPassword;
 
 	// Networking
 	bool bEnableAdhocServer;

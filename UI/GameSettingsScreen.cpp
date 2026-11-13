@@ -129,12 +129,12 @@ struct PageDef {
 
 static const PageDef pageDefs[] = {
 	{ "GameSettingsGeneral", "General", "I_SLIDERS", nullptr, I18NCat::SYSTEM, nullptr, &BuildGeneralSettings },
+	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings},
 	{ "GameSettingsControls", "Controls", "I_CONTROLLER", "controls", I18NCat::CONTROLS, &BuildControlsSettings },
 	{ "GameSettingsGraphics", "Graphics", "I_DISPLAY", "graphics", I18NCat::GRAPHICS, &BuildGraphicsSettings },
 	{ "GameSettingsAudio", "Audio", "I_SPEAKER_MAX", "audio", I18NCat::AUDIO, &BuildAudioSettings },
 	{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
 	{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
-	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings },
 	{ "GameSettingsVR", "VR", "I_VR", nullptr, I18NCat::VR, &BuildVRSettings},
 };
 

@@ -42,9 +42,8 @@ TabHolder::TabHolder(Orientation orientation, float stripSize, TabHolderFlags fl
 			Add(tabScroll_);
 		}
 	} else {
-		SetPadding(Margins(12, 0, 0, 0));
 		tabContainer_ = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(stripSize, FILL_PARENT));
-		tabContainer_->Add(new Spacer(8.0f));
+		tabContainer_->Add(new Spacer(12.0f));
 		tabContainer_->SetSpacing(0.0f);
 		tabStrip_ = new ChoiceStrip(orientation, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		tabStrip_->SetTopTabs(true);
@@ -244,6 +243,13 @@ void TabHolder::OnTabClick(EventParams &e) {
 	// We have e.b set when it was an explicit click action.
 	// In that case, we make the view gone and then visible - this scrolls scrollviews to the top.
 	if (e.b != 0) {
+		if ((int)e.a == currentTab_) {
+			UI::EventParams e2{};
+			e2.v = this;
+			e2.a = currentTab_;
+			OnReselectTab.Trigger(e2);
+			return;
+		}
 		// SetCurrentTab calls EnsureTab if needed.
 		SetCurrentTab((int)e.a);
 	}

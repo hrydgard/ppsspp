@@ -51,6 +51,7 @@ protected:
 	ViewLayoutMode LayoutMode() const override {
 		return ViewLayoutMode::ApplyInsets;
 	}
+	bool ReserveHiddenNavBar() const override { return true; }
 	void OnVKey(VirtKey virtualKeyCode, bool down) override;
 
 private:

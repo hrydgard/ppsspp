@@ -141,6 +141,7 @@ enum ElfMachine
 
 // Custom section types
 #define SHT_PSPREL 0x700000a0
+#define SHT_MIPS_ABIFLAGS 0x7000002a
 
 
 // Section flags

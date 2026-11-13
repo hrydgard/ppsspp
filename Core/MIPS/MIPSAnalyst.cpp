@@ -47,10 +47,6 @@ typedef std::vector<MIPSAnalyst::AnalyzedFunction> FunctionsVector;
 static FunctionsVector functions;
 std::recursive_mutex functions_lock;
 
-// One function can appear in multiple copies in memory, and they will all have 
-// the same hash and should all be replaced if possible.
-static std::unordered_multimap<u64, MIPSAnalyst::AnalyzedFunction *> hashToFunction;
-
 struct HashMapFunc {
 	char name[64];
 	u64 hash;
@@ -777,22 +773,6 @@ namespace MIPSAnalyst {
 	void Reset() {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		functions.clear();
-		hashToFunction.clear();
-	}
-
-	void UpdateHashToFunctionMap() {
-		std::lock_guard<std::recursive_mutex> guard(functions_lock);
-		hashToFunction.clear();
-		// Really need to detect C++11 features with better defines.
-#if !PPSSPP_PLATFORM(IOS)
-		hashToFunction.reserve(functions.size());
-#endif
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
-			AnalyzedFunction &f = *iter;
-			if (f.hasHash && f.size > 16) {
-				hashToFunction.emplace(f.hash, &f);
-			}
-		}
 	}
 
 	enum RegisterUsage {
@@ -933,36 +913,54 @@ namespace MIPSAnalyst {
 		return start >= rangeStart && end <= rangeStart + iter->second;
 	}
 
+	static void HashFunction(AnalyzedFunction &f, std::vector<u32> &buffer) {
+		if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
+			return;
+		}
+
+		// Immediates are masked out, so relocations don't change the hash.
+		buffer.resize((f.end - f.start + 4) / 4);
+		size_t pos = 0;
+		for (u32 addr = f.start; addr <= f.end; addr += 4) {
+			u32 validbits = 0xFFFFFFFF;
+			MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr);
+			MIPSInfo flags = MIPSGetInfo(instr);
+			if (flags & IN_IMM16)
+				validbits &= ~0xFFFF;
+			if (flags & IN_IMM26)
+				validbits &= ~0x03FFFFFF;
+			buffer[pos++] = instr & validbits;
+		}
+
+		f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
+		f.hasHash = true;
+	}
+
 	static void HashFunctions(const std::vector<std::pair<u32, u32>> &unchanged = {}) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			AnalyzedFunction &f = *iter;
-			if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
-				continue;
-			}
 			// end is the last instruction.
 			if (f.hasHash && InsideRanges(unchanged, f.start, f.end + 4)) {
 				continue;
 			}
+			HashFunction(f, buffer);
+		}
+	}
 
-			// Immediates are masked out, so relocations don't change the hash.
-			buffer.resize((f.end - f.start + 4) / 4);
-			size_t pos = 0;
-			for (u32 addr = f.start; addr <= f.end; addr += 4) {
-				u32 validbits = 0xFFFFFFFF;
-				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr);
-				MIPSInfo flags = MIPSGetInfo(instr);
-				if (flags & IN_IMM16)
-					validbits &= ~0xFFFF;
-				if (flags & IN_IMM26)
-					validbits &= ~0x03FFFFFF;
-				buffer[pos++] = instr & validbits;
+	// Hashes the functions overlapping start to end (inclusive), code just loaded or scanned, and any
+	// that never had one. Hashing all of them for each module loaded was much of the time it took.
+	static void HashFunctionsInRange(u32 start, u32 end) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		std::vector<u32> buffer;
+
+		for (AnalyzedFunction &f : functions) {
+			if (f.hasHash && (f.end < start || f.start > end)) {
+				continue;
 			}
-
-			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
-			f.hasHash = true;
+			HashFunction(f, buffer);
 		}
 	}
 
@@ -1215,21 +1213,32 @@ namespace MIPSAnalyst {
 		return insertSymbols;
 	}
 
-	void FinalizeScan(bool insertSymbols) {
-		HashFunctions();
+	static void ApplyHashMapInRange(u32 start, u32 end);
+	static void ReplaceFunctionsInRange(u32 start, u32 end);
+
+	void FinalizeScan(bool insertSymbols, u32 start, u32 end) {
+		// Code elsewhere was handled when it was scanned.
+		HashFunctionsInRange(start, end);
 
 		if (g_Config.bFuncHashMap || g_Config.bFuncReplacements) {
-			LoadBuiltinHashMap();
+			static bool builtinHashMapLoaded = false;
+			if (!builtinHashMapLoaded) {
+				LoadBuiltinHashMap();
+				builtinHashMapLoaded = true;
+			}
 			if (g_Config.bFuncHashMap) {
 				Path hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) / "knownfuncs.ini";
 				LoadHashMap(hashMapFilename);
 				StoreHashMap(hashMapFilename);
+				// The file can name functions anywhere.
+				start = 0;
+				end = 0xFFFFFFFF;
 			}
 			if (insertSymbols) {
-				ApplyHashMap();
+				ApplyHashMapInRange(start, end);
 			}
 			if (g_Config.bFuncReplacements) {
-				ReplaceFunctions();
+				ReplaceFunctionsInRange(start, end);
 			}
 		}
 	}
@@ -1274,7 +1283,7 @@ namespace MIPSAnalyst {
 		fun.name[63] = 0;
 		functions.push_back(fun);
 
-		HashFunctions();
+		HashFunctionsInRange(fun.start, fun.end);
 	}
 
 	// endAddr is exclusive.
@@ -1290,7 +1299,6 @@ namespace MIPSAnalyst {
 
 		// Most of the time, functions from the same module will be contiguous in the vector, in address order.
 		FunctionsVector::iterator prevMatch = functions.end();
-		size_t originalSize = functions.size();
 		for (auto iter = functions.begin(); iter != functions.end(); ++iter) {
 			const bool hadPrevMatch = prevMatch != functions.end();
 			const bool match = iter->start >= startAddr && iter->start < endAddr;
@@ -1310,19 +1318,13 @@ namespace MIPSAnalyst {
 		}
 
 		RemoveReplacements(startAddr, endAddr);
-
-		if (functions.empty()) {
-			hashToFunction.clear();
-		} else if (originalSize != functions.size()) {
-			UpdateHashToFunctionMap();
-		}
 	}
 
 	void ScanFunctionsInRange(u32 addr, u32 size) {
 		addr = RoundDownToMultipleOf(addr, 4);
 		size = RoundUpToMultipleOf(size, 4);
 		bool insertSymbols = ScanForFunctions(addr, addr + size, true);
-		FinalizeScan(insertSymbols);
+		FinalizeScan(insertSymbols, addr, addr + size - 4);
 	}
 
 	u32 RemoveFunctionsInRange(u32 addr, u32 size) {
@@ -1379,15 +1381,21 @@ namespace MIPSAnalyst {
 		std::sort(sorted.begin(), sorted.end());
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		HashFunctions(sorted);
-		UpdateHashToFunctionMap();
+	}
+
+	// For the functions starting from start to end (inclusive).
+	static void ReplaceFunctionsInRange(u32 start, u32 end) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+
+		for (const AnalyzedFunction &f : functions) {
+			if (f.start >= start && f.start <= end) {
+				InstallReplacements(f.start, f.hash, f.size);
+			}
+		}
 	}
 
 	void ReplaceFunctions() {
-		std::lock_guard<std::recursive_mutex> guard(functions_lock);
-
-		for (size_t i = 0; i < functions.size(); i++) {
-			InstallReplacements(functions[i].start, functions[i].hash, functions[i].size);
-		}
+		ReplaceFunctionsInRange(0, 0xFFFFFFFF);
 	}
 
 	void UpdateHashMap() {
@@ -1447,30 +1455,36 @@ namespace MIPSAnalyst {
 		fclose(file);
 	}
 
-	void ApplyHashMap() {
-		UpdateHashToFunctionMap();
+	// Names the functions starting from start to end (inclusive) that the hash map knows. A function
+	// can appear in several copies in memory, with the same hash, and they all get the name.
+	static void ApplyHashMapInRange(u32 start, u32 end) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
-		for (auto mf = hashMap.begin(), end = hashMap.end(); mf != end; ++mf) {
-			auto range = hashToFunction.equal_range(mf->hash);
-			if (range.first == range.second) {
+		HashMapFunc key;
+		for (AnalyzedFunction &f : functions) {
+			if (!f.hasHash || f.size <= 16 || f.start < start || f.start > end) {
+				continue;
+			}
+			key.hash = f.hash;
+			key.size = f.size;
+			auto mf = hashMap.find(key);
+			if (mf == hashMap.end()) {
 				continue;
 			}
 
-			// Yay, found a function.
-			for (auto iter = range.first; iter != range.second; ++iter) {
-				AnalyzedFunction &f = *iter->second;
-				if (f.hash == mf->hash && f.size == mf->size) {
-					truncate_cpy(f.name, mf->name);
+			truncate_cpy(f.name, mf->name);
 
-					std::string existingLabel = g_symbolMap->GetLabelString(f.start);
-					char defaultLabel[256];
-					// If it was renamed, keep it.  Only change the name if it's still the default.
-					if (existingLabel.empty() || existingLabel == DefaultFunctionName(defaultLabel, f.start)) {
-						g_symbolMap->SetLabelName(mf->name, f.start);
-					}
-				}
+			std::string existingLabel = g_symbolMap->GetLabelString(f.start);
+			char defaultLabel[256];
+			// If it was renamed, keep it.  Only change the name if it's still the default.
+			if (existingLabel.empty() || existingLabel == DefaultFunctionName(defaultLabel, f.start)) {
+				g_symbolMap->SetLabelName(mf->name, f.start);
 			}
 		}
+	}
+
+	void ApplyHashMap() {
+		ApplyHashMapInRange(0, 0xFFFFFFFF);
 	}
 
 	void LoadBuiltinHashMap() {

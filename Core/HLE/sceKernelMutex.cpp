@@ -494,11 +494,15 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
 
 	if (!__KernelLockMutexCheck(mutex, count, error))
 	{
-		if (error)
+		if (error == SCE_MUTEX_ERROR_ALREADY_LOCKED) {
+			return hleLogWarning(Log::sceKernel, error);
+		} else if (error) {
 			return hleLogError(Log::sceKernel, error);
+		}
 
-		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr)) {
 			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
+		}
 		SceUID threadID = __KernelGetCurThread();
 		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())

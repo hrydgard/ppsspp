@@ -975,7 +975,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		int right = insets.right;
 		int top = insets.top;
 		int bottom = insets.bottom;
-		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0));
+		// Where the navigation bar is when shown, which it is for a while after a swipe from the edge even when hidden.
+		Insets navBar = insetCompat.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars());
+		NativeApp.sendMessageFromJava("safe_insets", left + ":" + right + ":" + top + ":" + bottom + ":" + (hasCameraCutout ? 1 : 0)
+			+ ":" + navBar.left + ":" + navBar.right + ":" + navBar.top + ":" + navBar.bottom);
 	}
 
 	public void notifySurface(Surface surface) {
@@ -1804,6 +1807,30 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					intent.setType("*/*");
 				}
 				intent.addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+
+				Intent proxy = new Intent(this, DocumentResultProxyActivity.class);
+				proxy.putExtra("picker_intent", intent);
+				proxy.putExtra("request_id", requestId);
+				startActivity(proxy);
+				return true;
+			} catch (Exception e) {
+				NativeApp.reportException(e, params);
+				Log.e(TAG, e.toString());
+				return false;
+			}
+		} else if (command.equals("browse_file_save")) {
+			try {
+				// requestId:@:suggested filename
+				String[] param = params.split(":@:", 2);
+				int requestId = Integer.parseInt(param[0]);
+				Log.i(TAG, "browse_file_save request ID: " + requestId);
+				Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+				intent.addCategory(Intent.CATEGORY_OPENABLE);
+				// The generic type keeps the extension of the suggested name.
+				intent.setType("application/octet-stream");
+				if (param.length > 1) {
+					intent.putExtra(Intent.EXTRA_TITLE, param[1]);
+				}
 
 				Intent proxy = new Intent(this, DocumentResultProxyActivity.class);
 				proxy.putExtra("picker_intent", intent);

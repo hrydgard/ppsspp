@@ -73,6 +73,32 @@ with `crop SHOT.png X,Y,W,H OUT.png` from a screenshot of the screen you want, a
 script: paths in a script are relative to it. A title screen left alone too long may start an attract
 demo, so don't wait for one without pressing.
 
+A screen that only shows on some runs (a profile menu that needs a save, say) takes a branch: `until`
+also stops on any `--or REF@X,Y`, and a line `if REF --box X,Y : COMMAND ; COMMAND` runs the commands
+only when the screen shows the reference right then:
+
+```
+until select_profile.png --box 100,14 --or create_profile.png@100,14 --press start --every 4
+if select_profile.png --box 100,14 : press cross
+if create_profile.png --box 100,14 : press cross ; wait 2 ; press cross
+```
+
+### Driving the app, or a phone
+
+`attach` makes a session of one PPSSPP that's already running with `--debugger=PORT` (default 45678),
+and the other commands then drive it. With `--adb`, that's the app on an Android device: the port is
+forwarded, and screenshots come from `screencap`, cut to the game's image (`--rect X,Y,W,H` in the
+device's pixels; `0,249,1080,612` on a Galaxy S8 in portrait) and scaled to 480x272, so a script and its
+references work the same on a phone as headless. `screencap` doesn't pause emulation, unlike the
+debugger's screenshot, which matters when the run is being profiled
+([debugging.md](debugging.md#finding-stalls-with-the-frame-profiler)).
+
+```bash
+python Tools/android_run.py -- --debugger=45678 /sdcard/PSP/GAME.iso
+python3 Tools/adhoc_session.py attach --adb --rect 0,249,1080,612
+python3 Tools/adhoc_session.py run game_ingame.txt
+```
+
 To see what a game does, `log sceNet debug` turns a log channel up, and `watch SECONDS NAME` collects
 each instance's log messages meanwhile into `NAME_N.log` (the debugger only sends log messages to
 clients that are connected). That works without `--log`, which slows the instances down enough to

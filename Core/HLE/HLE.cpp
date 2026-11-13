@@ -137,6 +137,7 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"SceHttp_Library", "sceHttp"},
 	{"sceMpeg_library", "sceMpeg", DisableHLEFlags::sceMpeg},
 	{"sceMp3_Library", "sceMp3", DisableHLEFlags::sceMp3},
+	{"sceAac_Library", "sceAac", DisableHLEFlags::sceAac},
 	{"sceNetAdhocctl_Library"},
 	{"sceNetAdhocDownload_Library"},
 	{"sceNetAdhocDiscover_Library", "sceNetAdhocDiscover", DisableHLEFlags::sceNetAdhocDiscover},
@@ -1203,6 +1204,11 @@ const HLEFunction *GetSyscallFunctionData(MIPSOpcode op, u32 pcForDiagnostics) {
 void *GetQuickSyscallFunc(const HLEFunction *info, MIPSOpcode op) {
 	if (g_coreCollectDebugStats)
 		return nullptr;
+#ifdef USE_PROFILER
+	// CallSyscall has the profiler scope. Blocks compiled before the profiler was turned on skip it.
+	if (Profiler_IsEnabled())
+		return nullptr;
+#endif
 	if (!info || !info->func)
 		return nullptr;
 
@@ -1236,6 +1242,7 @@ void CallSyscallWithPC(MIPSState *mips, MIPSOpcode op, u32 pc) {
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
 		return;
 	}
+	PROFILE_LABEL(info->name);
 
 	if (info->func) {
 		if (op == g_idleOp)

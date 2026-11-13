@@ -47,7 +47,15 @@ jobs:
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
     steps:
-      # The pkgforge mirror often drops a download partway, so retry the whole transaction.
+      # The image is built from the distribution's own packages, but its mirrorlist starts with
+      # pkgforge's mirror of them, which can be hours behind. pacman then reads that mirror's database
+      # and installs packages built against older libraries than the image has, which fails (on
+      # aarch64, openssl 3.6.5 packages against the image's 4.1). Use the distribution's servers.
+      - name: Skip the pkgforge mirror
+        shell: bash
+        run: sed -i '/ghcr\.mirror\.archlinux\.pkgforge\.dev/s/^Server/#Server/' /etc/pacman.d/mirrorlist
+
+      # Mirrors sometimes drop a download partway, so retry the whole transaction.
       - name: Install git
         shell: bash
         run: |

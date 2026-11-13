@@ -35,7 +35,6 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Util/PPGeDraw.h"
-#include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 
 #include "GPU/GPUCommon.h"
@@ -823,7 +822,6 @@ void SoftGPU::CheckConfigChanged(const DisplayLayoutConfig &config) {
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {
-	PROFILE_THIS_SCOPE("soft_runloop");
 	const auto *cmdInfo = softgpuCmdInfo;
 	int dc = downcount;
 	SoftDirty dirty = dirtyFlags_;
@@ -1428,8 +1426,6 @@ void SoftGPU::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 }
 
 void SoftGPU::Execute_Call(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("gpu_call");
-
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(Log::G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);

@@ -500,7 +500,10 @@ void SettingsPagesDialogScreen::GoToPage(int settingsTab, const std::vector<int>
 	if (!stacked_) {
 		// The tab strip keeps showing its tab when the views are recreated. This creates the tab if it wasn't
 		// already, so it has to come before ShowPage, or that would take the item to focus.
-		SetCurrentTab(settingsTabs_[settingsTab].tabIndex);
+		int tabIndex = settingsTabs_[settingsTab].tabIndex;
+		// TabChanged comes later, and mustn't go back to the root page.
+		keepPageOnTabChange_ = GetCurrentTab() != tabIndex;
+		SetCurrentTab(tabIndex);
 	}
 	ShowPage(settingsTab, path, itemIndex);
 	pendingHighlight_ = true;
@@ -535,6 +538,8 @@ void SettingsPagesDialogScreen::update() {
 
 void SettingsPagesDialogScreen::CreateViews() {
 	settingsTabs_.clear();
+	// The old tab strip's TabChanged won't come.
+	keepPageOnTabChange_ = false;
 	pendingFocusView_ = nullptr;
 	highlightedView_ = nullptr;
 
@@ -590,7 +595,51 @@ int SettingsPagesDialogScreen::InitialTab() {
 	return pendingTab_ >= 0 ? settingsTabs_[pendingTab_].tabIndex : -1;
 }
 
-// Picking a tab means leaving the search for it.
+// Picking a tab means leaving the search for it. The tab opens on its root page, unless a search result
+// on it is being shown.
 void SettingsPagesDialogScreen::TabChanged(int tab) {
+	int settingsTab = CurrentSettingsTab();
+	if (keepPageOnTabChange_) {
+		keepPageOnTabChange_ = false;
+	} else if (settingsTab >= 0 && !pagePaths_[settingsTabs_[settingsTab].tag].empty()) {
+		pagePaths_[settingsTabs_[settingsTab].tag].clear();
+		// Leaving the search recreates all the views anyway.
+		if (searchText_.empty()) {
+			RecreateTabContents(settingsTab);
+		}
+	}
 	SetSearchText("");
+}
+
+// Without recreating the other views, so the tab can be switched to while sliding in.
+void SettingsPagesDialogScreen::RecreateTabContents(int settingsTab) {
+	UI::ViewGroup *contents = tabHolder_->GetTabContentViews()[settingsTabs_[settingsTab].tabIndex];
+	if (!contents) {
+		// Not created yet. It will be with the page.
+		return;
+	}
+	ClearHighlight();
+	pendingFocusView_ = nullptr;
+	contents->Clear();
+	bool wasCreatingViews = IsCreatingViews();
+	SetCreatingViews(true);
+	CreateSettingsTabContents(settingsTab, static_cast<UI::LinearLayout *>(contents));
+	SetCreatingViews(wasCreatingViews);
+}
+
+// Picking the tab that's shown goes back up to its root page. Not while showing search results, which aren't
+// on a page.
+void SettingsPagesDialogScreen::TabReselected(int tab) {
+	if (!searchText_.empty()) {
+		return;
+	}
+	int settingsTab = CurrentSettingsTab();
+	if (settingsTab < 0) {
+		return;
+	}
+	const std::vector<int> &path = pagePaths_[settingsTabs_[settingsTab].tag];
+	if (path.empty()) {
+		return;
+	}
+	ShowPage(settingsTab, {}, path[0]);  // Focuses the link to the page we're leaving.
 }

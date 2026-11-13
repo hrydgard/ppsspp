@@ -96,6 +96,7 @@ tests_good = [
   "cpu/cpu_alu/shift_encodings",
   "cpu/cpu_alu/allegrex_encodings",
   "cpu/jump/unaligned",
+  "cpu/delayslot/branch",
   "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",
@@ -362,6 +363,7 @@ tests_good = [
   "modules/loadrace/loadrace",
   "modules/nostart/nostart",
   "modules/queryinfo/queryinfo",
+  "modules/selfunload/selfunload",
   "modules/startoptions/startoptions",
   "modules/startresult/startresult",
   "modules/unresolved/unresolved",
@@ -793,6 +795,7 @@ tests_next = [
   "video/mp4/avchold",  # needs Sony's mp4 and mpeg modules: --disable-hle=0x110, see docs/pspautotests.md
   "video/mpeg/basic",
   "video/mpeg/decodeend",  # needs Sony's mpeg module, as avchold
+  "video/mpeg/decoderepeat",  # needs Sony's mpeg module, as avchold
   "video/mpeg/deletetiming",
   "video/pmf/pmf",
   "video/pmf_simple/pmf_simple",

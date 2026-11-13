@@ -43,6 +43,10 @@ jobs:
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
 
+    - name: Check .vcxproj.filters files
+      if: matrix.platform == 'x64'
+      run: python Tools/check_vcxproj_filters.py
+
     - name: Check Valid Version Tags
       id: valid-tags
       shell: bash
@@ -462,11 +466,13 @@ jobs:
       run: |
         # test.py takes the newest build*/PPSSPPHeadless, so hand it one that runs the cross build
         # under emulation. The wall clock is raised because everything is slower under qemu.
+        # The Media Engine is off: none of these tests use it, and under qemu emulating it makes
+        # them about 28 times slower (it costs next to nothing natively).
         mkdir -p build-qemu
         printf '#!/bin/bash\nexec %s -L /usr/%s "$(dirname "$0")/../build-%s/PPSSPPHeadless" "$@"\n' \
           '${{ matrix.qemu }}' '${{ matrix.triple }}' '${{ matrix.extra }}' > build-qemu/PPSSPPHeadless
         chmod +x build-qemu/PPSSPPHeadless
-        python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 \
+        python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 --me-core=false \
           --known-failures=${{ matrix.extra }}
 
     - name: Package build

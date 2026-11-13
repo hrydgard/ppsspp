@@ -335,6 +335,13 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 	} else {
 		g_OSD.CancelById("defaultclock");
 	}
+
+	if (!compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
+		auto sy = GetI18NCategory(I18NCat::SYSTEM);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(sy->T("SystemClockSpeedChanged", "PSP system clock speed is set to %1 MHz"), g_Config.iLockedCPUSpeed), 5.0f, "clockspeed");
+	} else {
+		g_OSD.CancelById("clockspeed");
+	}
 }
 
 extern const std::string INDEX_FILENAME;
@@ -466,10 +473,16 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");
 			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 		}
-		// The XMB is an ELF too, with no title of its own.
-		const std::string vshTitle = GetVSHTitle(fileLoader->GetPath());
+		// The XMB is an ELF too, with no PARAM.SFO. It gets an ID like a game's, with the firmware's version.
+		std::string vshVersion;
+		const std::string vshTitle = GetVSHTitle(fileLoader->GetPath(), &vshVersion);
 		if (!vshTitle.empty()) {
 			gameTitle = vshTitle;
+			g_paramSFO.SetValue("TITLE", vshTitle, 128);
+			g_paramSFO.SetValue("DISC_ID", VSH_DISC_ID, 16);
+			if (!vshVersion.empty()) {
+				g_paramSFO.SetValue("DISC_VERSION", vshVersion, 8);
+			}
 		}
 		break;
 	}

@@ -67,17 +67,54 @@ static inline void DelayBranchTo(MIPSState *mips, u32 where) {
 	mips->inDelaySlot = true;
 }
 
+static inline MIPSOpcode ReadOpAt(const MIPSState *mips, u32 addr) {
+	return MIPSOpcode(mips->space->IsValid4AlignedAddress(addr) ? mips->space->ReadUnchecked_U32(addr) : 0);
+}
+
+// Branches and jumps in a delay slot follow tests/cpu/delayslot/branch. In a jump's (j, jal, jr,
+// jalr) delay slot, a jump or taken branch replaces the jump's target, and a link saves that target.
+// In a conditional branch's, a jump is ignored (but links as usual), and a taken branch replaces
+// the target too.
+static inline bool InJumpDelaySlot(const MIPSState *mips) {
+	return mips->inDelaySlot && (MIPSGetInfo(ReadOpAt(mips, PC - 4)) & IS_JUMP) != 0;
+}
+
+// What a link in the instruction at PC saves.
+static inline u32 LinkAddress(const MIPSState *mips) {
+	return InJumpDelaySlot(mips) ? mips->nextPC : PC + 8;
+}
+
+// A jump in a delay slot. The run loop goes to nextPC next, without another delay slot.
+static inline void DelaySlotJumpTo(MIPSState *mips, u32 where) {
+	if (!InJumpDelaySlot(mips)) {
+		return;
+	}
+	if (!mips->space->IsValid4AlignedAddress(where)) {
+		Core_ExecException(where, PC, ExecExceptionType::JUMP);
+	}
+	mips->nextPC = where;
+}
+
 static inline void SkipLikely(MIPSState *mips) {
 	const u32 delaySlotPC = PC + 4;
-	const MIPSOpcode delaySlotOp(mips->space->IsValid4AlignedAddress(delaySlotPC) ? mips->space->ReadUnchecked_U32(delaySlotPC) : 0);
-	// Don't actually skip if it is a jump (seen in Brooktown High.)
-	if (MIPSGetInfo(delaySlotOp) & IS_JUMP) {
-		PC += 4;
-	} else {
-		PC += 8;
-		// The skipped slot costs what it would have run for, as in the IR cores.
-		mips->downcount -= MIPSGetInstructionCycleEstimate(delaySlotOp);
+	const MIPSOpcode delaySlotOp = ReadOpAt(mips, delaySlotPC);
+	// The skipped slot costs what it would have run for, as in the IR cores.
+	mips->downcount -= MIPSGetInstructionCycleEstimate(delaySlotOp);
+	// A skipped jump still jumps, with the instruction after it as its delay slot, but doesn't
+	// link (tests/cpu/delayslot/branch, seen in Brooktown High). Not when this is itself in a delay
+	// slot, which is over after it.
+	if ((MIPSGetInfo(delaySlotOp) & IS_JUMP) && !mips->inDelaySlot) {
+		u32 target;
+		if ((delaySlotOp >> 26) == 0) {
+			target = R((delaySlotOp >> 21) & 0x1F) & ~3;  // jr, jalr
+		} else {
+			target = (delaySlotPC & 0xF0000000) | ((delaySlotOp & 0x03FFFFFF) << 2);  // j, jal
+		}
+		PC = delaySlotPC;
+		DelayBranchTo(mips, target);
+		return;
 	}
+	PC += 8;
 }
 
 int MIPS_InterpretSingleStep(MIPSState *mips) {
@@ -155,7 +192,7 @@ namespace MIPSInt {
 				}
 				if (alignedAddr <= PC + 4 && alignedAddr + size >= PC - 4) {
 					// This is probably rare so we don't use a static bool.
-					WARN_LOG_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					WARN_LOG(Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 				}
 			}
 			break;
@@ -259,10 +296,10 @@ namespace MIPSInt {
 		case 1: if (value >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgez
 		case 2: if (value <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzl
 		case 3: if (value >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezl
-		case 16: R(MIPS_REG_RA) = PC + 8; if (value <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltzal
-		case 17: R(MIPS_REG_RA) = PC + 8; if (value >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgezal
-		case 18: R(MIPS_REG_RA) = PC + 8; if (value <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzall
-		case 19: R(MIPS_REG_RA) = PC + 8; if (value >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezall
+		case 16: R(MIPS_REG_RA) = LinkAddress(mips); if (value <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltzal
+		case 17: R(MIPS_REG_RA) = LinkAddress(mips); if (value >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgezal
+		case 18: R(MIPS_REG_RA) = LinkAddress(mips); if (value <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzall
+		case 19: R(MIPS_REG_RA) = LinkAddress(mips); if (value >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezall
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
@@ -301,36 +338,27 @@ namespace MIPSInt {
 	}
 
 	void Int_JumpType(MIPSState *mips, MIPSOpcode op) {
-		if (mips->inDelaySlot) {
-			// There's one of these in Star Soldier at 0881808c, which seems benign.
-			ERROR_LOG(Log::CPU, "Jump in delay slot at %08x", mips->pc);
-		}
-
 		const u32 off = ((op & 0x03FFFFFF) << 2);
 		const u32 addr = (mips->pc & 0xF0000000) | off;
 
 		switch (op >> 26) {
 		case 2: //j
-			if (!mips->inDelaySlot)
-				DelayBranchTo(mips, addr);
 			break;
 		case 3: //jal
-			R(MIPS_REG_RA) = PC + 8;
-			if (!mips->inDelaySlot)
-				DelayBranchTo(mips, addr);
+			R(MIPS_REG_RA) = LinkAddress(mips);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
-			break;
+			return;
+		}
+		if (mips->inDelaySlot) {
+			DelaySlotJumpTo(mips, addr);
+		} else {
+			DelayBranchTo(mips, addr);
 		}
 	}
 
 	void Int_JumpRegType(MIPSState *mips, MIPSOpcode op) {
-		if (mips->inDelaySlot) {
-			// There's one of these in Star Soldier at 0881808c, which seems benign.
-			ERROR_LOG(Log::CPU, "Jump in delay slot at %08x", mips->pc);
-		}
-
 		int rs = _RS;
 		int rd = _RD;
 		// The CPUs ignore the target's low two bits (tests/cpu/jump/unaligned). Sony's ME firmware keeps
@@ -338,16 +366,18 @@ namespace MIPSInt {
 		u32 addr = R(rs) & ~3;
 		switch (op & 0x3f) {
 		case 8: //jr
-			if (!mips->inDelaySlot)
-				DelayBranchTo(mips, addr);
 			break;
 		case 9: //jalr
 			if (rd != 0)
-				R(rd) = PC + 8;
-			// Update rd, but otherwise do not take the branch if we're branching.
-			if (!mips->inDelaySlot)
-				DelayBranchTo(mips, addr);
+				R(rd) = LinkAddress(mips);
 			break;
+		default:
+			return;
+		}
+		if (mips->inDelaySlot) {
+			DelaySlotJumpTo(mips, addr);
+		} else {
+			DelayBranchTo(mips, addr);
 		}
 	}
 
@@ -1349,5 +1379,30 @@ namespace MIPSInt {
 			// Interpret the original instruction under it.
 			MIPSInterpret(mips, Memory::Read_Instruction(PC));
 		}
+	}
+
+	// Runs the branch at PC until it's out of its delay slot, charging as the run loop does. The IR
+	// frontend leaves a branch with a branch or jump in its delay slot to this.
+	void Int_BranchPair(MIPSState *mips, MIPSOpcode op) {
+		// Not where the IR frontend puts it: the game is executing data.
+		if (mips->inDelaySlot || !(MIPSGetInfo(ReadOpAt(mips, PC)) & DELAYSLOT)) {
+			Core_ExecException(PC, PC, ExecExceptionType::ILLEGAL);
+			return;
+		}
+		do {
+			if (!mips->space->IsValid4AlignedAddress(PC)) {
+				Core_ExecException(PC, PC, ExecExceptionType::JUMP);
+				return;
+			}
+			const MIPSOpcode cur = ReadExecutedOp(*mips->space, PC);
+			const bool wasInDelaySlot = mips->inDelaySlot;
+			MIPSInterpret(mips, cur);
+			mips->downcount -= MIPSGetInstructionCycleEstimate(cur);
+			// A syscall in the delay slot leaves it itself.
+			if (mips->inDelaySlot && wasInDelaySlot) {
+				PC = mips->nextPC;
+				mips->inDelaySlot = false;
+			}
+		} while (mips->inDelaySlot);
 	}
 }

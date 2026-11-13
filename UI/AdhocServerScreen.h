@@ -33,7 +33,6 @@ struct AdhocGame {
 class AdhocServerCompactInfo : public UI::LinearLayout {
 public:
 	AdhocServerCompactInfo(const AdhocServerListEntry &entry, UI::LayoutParams *layoutParams = nullptr);
-	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		w = 500; h = 100;
 	}

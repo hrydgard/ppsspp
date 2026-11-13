@@ -14,6 +14,17 @@ template<class K>
 inline uint32_t HashKey(const K &k) {
 	return XXH3_64bits(&k, sizeof(k)) & 0xFFFFFFFF;
 }
+// 32-bit keys (PCs, IDs) are mixed inline, with MurmurHash3's finalizer: much cheaper than a call.
+template<>
+inline uint32_t HashKey<uint32_t>(const uint32_t &k) {
+	uint32_t h = k;
+	h ^= h >> 16;
+	h *= 0x85EBCA6B;
+	h ^= h >> 13;
+	h *= 0xC2B2AE35;
+	h ^= h >> 16;
+	return h;
+}
 template<class K>
 inline bool KeyEquals(const K &a, const K &b) {
 	return !memcmp(&a, &b, sizeof(K));

@@ -1138,6 +1138,9 @@ if(ANDROID AND NOT LIBRETRO)
 		# what openxr_loader was previously only being linked into.
 		target_link_libraries(ppsspp_jni openxr_loader)
 	endif()
+	# Calls between our own functions bind directly, rather than through the PLT (which cost a few
+	# percent of the emulator thread on a Galaxy S8). Nothing outside needs to interpose them.
+	target_link_options(ppsspp_jni PRIVATE "-Wl,-Bsymbolic-functions")
 	if(ARM64)
 		# Support 16kb page size on Android
 		target_link_options(ppsspp_jni PRIVATE "-Wl,-z,max-page-size=16384")

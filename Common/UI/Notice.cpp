@@ -95,8 +95,6 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level, std::string_view text, std::string_view details, std::string_view iconName, int align, float alpha, OSDMessageFlags flags, float timeVal, float padding, float radius, RoundCorners corners) {
 	UI::Drawable background = UI::Drawable(colorAlpha(GetNoticeBackgroundColor(level), alpha));
 
-	dc.SetFontStyle(dc.GetTheme().uiFont);
-
 	uint32_t foreGround = whiteAlpha(alpha);
 
 	if (!(flags & OSDMessageFlags::Transparent)) {
@@ -152,7 +150,7 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 		titleAlign |= FLAG_ELLIPSIZE_TEXT;
 	}
 
-	dc.DrawTextShadowRect(text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, titleAlign);
+	dc.DrawTextShadowRect(dc.GetTheme().uiFont, text, primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f), foreGround, titleAlign);
 
 	if (!details.empty()) {
 		Bounds bottomTextBounds = bounds.Inset(3.0f, height1 + 5.0f, 3.0f, 3.0f);
@@ -160,8 +158,6 @@ void RenderNotice(UIContext &dc, Bounds bounds, float height1, NoticeLevel level
 			UI::Drawable backgroundDark = UI::Drawable(colorAlpha(darkenColor(GetNoticeBackgroundColor(level)), alpha));
 			dc.FillRect(backgroundDark, bottomTextBounds);
 		}
-		dc.SetFontStyle(dc.GetTheme().uiFontSmall);
-		dc.DrawTextRect(details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFontSmall, details, bottomTextBounds.Inset(1.0f, 1.0f), foreGround, (align & FLAG_DYNAMIC_ASCII) | ALIGN_LEFT | FLAG_WRAP_TEXT);
 	}
-	dc.SetFontStyle(dc.GetTheme().uiFont);
 }

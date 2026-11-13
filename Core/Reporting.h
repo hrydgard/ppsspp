@@ -26,6 +26,7 @@
 #include "Common/LogReporting.h"
 
 class PointerWrap;
+struct MIPSExceptionInfo;
 
 namespace Reporting
 {
@@ -63,6 +64,22 @@ namespace Reporting
 
 	// Get the latest compatibility result.  Only valid when GetStatus() is not BUSY.
 	std::vector<std::string> CompatibilitySuggestions();
+
+	// Reporting is off, but a crash from this session would make a useful report.
+	bool CanReportCrashManually();
+
+	// Cheats or plugins are on. They can change the game's code, so its crashes aren't ours to report.
+	bool CheatsOrPluginsInEffect();
+
+	// No crash reports at all, automatic or requested, and no button to ask for one (in the VSH).
+	bool CrashReportsOff();
+
+	// Reports a game crash. Automatically when reporting is enabled, or when the user asks for it
+	// (to the default server, since reporting is off then).
+	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested);
+
+	// The same crash in the same game was already reported this run, so ReportCrash() would skip it.
+	bool CrashAlreadyReported(const MIPSExceptionInfo &info);
 
 	// Queues game for CRC hash if needed.
 	void QueueCRC(const Path &gamePath);

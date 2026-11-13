@@ -360,7 +360,7 @@ const ShaderLanguage languages[] = {
 };
 const int numLanguages = ARRAY_SIZE(languages);
 
-// vr: GPU_USE_VIRTUAL_REALITY is set, which only the GLSL backends (OpenGL, Vulkan) use.
+// vr: GPU_USE_VIRTUAL_REALITY is set, which only Vulkan uses.
 bool TestVertexShaders(bool vr) {
 	char *buffer[numLanguages];
 
@@ -394,7 +394,7 @@ bool TestVertexShaders(bool vr) {
 		std::string genErrorString[numLanguages];
 
 		for (int j = 0; j < numLanguages; j++) {
-			if (vr && languages[j] == ShaderLanguage::HLSL_D3D11) {
+			if (vr && languages[j] != ShaderLanguage::GLSL_VULKAN) {
 				buffer[j][0] = '\0';
 				continue;
 			}

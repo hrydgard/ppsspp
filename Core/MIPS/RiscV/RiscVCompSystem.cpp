@@ -185,13 +185,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		SaveStaticRegisters();
 
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-#ifdef USE_PROFILER
-		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		LI(X10, (uintptr_t)mips_);
-		LI(X11, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscall);
-#else
-		// Skip the CallSyscall where possible.
+		// Skip the CallSyscall where possible (GetQuickSyscallFunc says when not).
 		{
 			MIPSOpcode op(inst.constant);
 			const HLEFunction *func = GetSyscallFunctionData(op, 0);
@@ -213,7 +207,6 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 				QuickCallFunction(&CallSyscallUnresolvedAtPC);
 			}
 		}
-#endif
 
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();

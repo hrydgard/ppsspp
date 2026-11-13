@@ -1782,6 +1782,16 @@ static u32 IoOpenFatSearch(u32 argAddr, int argLen);
 static u32 IoGetstatFatComponentPath(u32 argAddr, int argLen);
 static u32 IoOpenFatComponentPath(u32 argAddr, int argLen);
 
+// Devctl 0x02425856: sets the code page for 8.3 names. From fatms.prx (6.61), which passes the
+// word to sceCodepage_driver_b0ae63aa. The XMB sets it at boot and from System Settings >
+// Character Set. We keep host file names, so there's nothing to do.
+static u32 IoSetFatCodepage(u32 argAddr, int argLen) {
+	if (!Memory::IsValid4AlignedAddress(argAddr) || argLen != 4) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+	}
+	return hleLogDebug(Log::sceIo, 0, "set code page %d", Memory::ReadUnchecked_U32(argAddr));
+}
+
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
 		DEBUG_LOG(Log::sceIo,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
@@ -2036,8 +2046,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			}
 			break;
 		case 0x02425856:
-			// Used by VSH, no clue what it should do. Let's just return 0.
-			return hleLogError(Log::sceIo, 0, "Unknown memstick devctl: %08x", cmd);
+			return IoSetFatCodepage(argAddr, argLen);
 		case 0x02415864:
 			// Directory search, used by the VSH media browsers before 3.80.
 			return IoOpenFatSearch(argAddr, argLen);
@@ -2073,6 +2082,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	if (!strcmp(name, "fatms0:"))
 	{
 		switch (cmd) {
+		case 0x02425856:
+			return IoSetFatCodepage(argAddr, argLen);
 		case 0x0240d81e:
 			// TODO: Invalidate MS driver file table cache (nop)
 			break;

@@ -21,6 +21,7 @@
 #include "Core/MIPS/LoongArch64/LoongArch64Jit.h"
 #include "Core/MIPS/LoongArch64/LoongArch64RegCache.h"
 #include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
+#include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -227,6 +228,61 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	vfpuDotSpecial_ = GenerateLoongArch64VfpuDotSpecial(this, CTXREG);
 	vfpuDot_ = GenerateLoongArch64VfpuDot(this, CTXREG, vfpuDotSpecial_);
+
+	// The address in SCRATCH1, a store's value in SCRATCH2, and a load's result back in SCRATCH1.
+	// Guest values live in caller-saved registers too, so these save the ones the register cache
+	// allocates around the call, and RA. With LSX, the FPRs can hold a Vec4, so all 128 bits.
+	static constexpr LoongArch64Reg kernelSaveGPRs[]{ R4, R5, R6, R7, R8, R9, R10, R11, R14, R15, R16, R17, R18, R19, R20, R_RA };
+	static constexpr LoongArch64Reg kernelSaveFPRs[]{ F0, F1, F2, F3, F4, F5, F6, F7, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, F22, F23 };
+	static constexpr int kernelSaveSize = 8 * ARRAY_SIZE(kernelSaveGPRs) + 16 * ARRAY_SIZE(kernelSaveFPRs);
+	static_assert((kernelSaveSize & 0xF) == 0, "Stack must be kept aligned");
+	static_assert((int)IROp::StoreKernel32 - (int)IROp::LoadKernel8 == ARRAY_SIZE(kernelLoadStore_) - 1, "kernel ops in a row");
+	for (int i = 0; i < ARRAY_SIZE(kernelLoadStore_); ++i) {
+		const IROp op = (IROp)((int)IROp::LoadKernel8 + i);
+		const bool isStore = op >= IROp::StoreKernel8;
+		kernelLoadStore_[i] = AlignCode16();
+		ADDI_D(R_SP, R_SP, -kernelSaveSize);
+		int offset = 0;
+		for (LoongArch64Reg r : kernelSaveGPRs) {
+			ST_D(r, R_SP, offset);
+			offset += 8;
+		}
+		for (LoongArch64Reg r : kernelSaveFPRs) {
+			if (cpu_info.LOONGARCH_LSX)
+				VST(EncodeRegToV(r), R_SP, offset);
+			else
+				FST_D(r, R_SP, offset);
+			offset += 16;
+		}
+		// SCRATCH1 and SCRATCH2 aren't argument registers, so the arguments can go straight in.
+		MOVE(R5, SCRATCH1);
+		if (isStore) {
+			MOVE(R6, SCRATCH2);
+			LI(R7, (u32)op);
+		} else {
+			LI(R6, (u32)op);
+		}
+		LI(R4, (uintptr_t)mipsState);
+		if (isStore)
+			QuickCallFunction(&IRRunKernelStore);
+		else
+			QuickCallFunction(&IRRunKernelLoad);
+		MOVE(SCRATCH1, R4);
+		offset = 0;
+		for (LoongArch64Reg r : kernelSaveGPRs) {
+			LD_D(r, R_SP, offset);
+			offset += 8;
+		}
+		for (LoongArch64Reg r : kernelSaveFPRs) {
+			if (cpu_info.LOONGARCH_LSX)
+				VLD(EncodeRegToV(r), R_SP, offset);
+			else
+				FLD_D(r, R_SP, offset);
+			offset += 16;
+		}
+		ADDI_D(R_SP, R_SP, kernelSaveSize);
+		RET();
+	}
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

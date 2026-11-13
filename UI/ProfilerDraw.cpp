@@ -55,12 +55,12 @@ enum ProfileCatStatus {
 
 void DrawProfile(UIContext &ui) {
 #ifdef USE_PROFILER
+	Profiler_SetEnabled(true);
 	PROFILE_THIS_SCOPE("timing");
 	int numCategories = Profiler_GetNumCategories();
 	int numThreads = Profiler_GetNumThreads();
 	int historyLength = Profiler_GetHistoryLength();
 
-	ui.SetFontStyle(ui.theme->uiFont);
 
 	static float lastMaxVal = 1.0f / 60.0f;
 	float legendMinVal = lastMaxVal * (1.0f / 120.0f);
@@ -92,7 +92,7 @@ void DrawProfile(UIContext &ui) {
 
 		// So they don't move horizontally, we always measure.
 		float w = 0.0f, h = 0.0f;
-		ui.MeasureText(ui.GetFontStyle(), 1.0f, 1.0f, name, &w, &h);
+		ui.MeasureText(ui.GetTheme().uiFont, 1.0f, 1.0f, name, &w, &h);
 		if (w > legendWidth) {
 			legendWidth = w;
 		}
@@ -117,7 +117,7 @@ void DrawProfile(UIContext &ui) {
 		if (catStatus[i] == PROFILE_CAT_VISIBLE) {
 			float y = legendStartY + legendNum++ * rowH;
 			ui.FillRect(UI::Drawable(opacity | color), Bounds(legendStartX, y, rowH - 2, rowH - 2));
-			ui.DrawTextShadow(name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
+			ui.DrawTextShadow(ui.GetTheme().uiFont, name, legendStartX + rowH + 2, y, 0xFFFFFFFF, ALIGN_VBASELINE);
 		}
 	}
 
@@ -147,8 +147,8 @@ void DrawProfile(UIContext &ui) {
 
 	ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_60th, graphWidth, 2));
 	ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_1ms, graphWidth, 2));
-	ui.DrawTextShadow("1/60s", 5, y_60th, 0x80FFFF00);
-	ui.DrawTextShadow("1ms", 5, y_1ms, 0x80FFFF00);
+	ui.DrawTextShadow(ui.GetTheme().uiFont, "1/60s", 5, y_60th, 0x80FFFF00);
+	ui.DrawTextShadow(ui.GetTheme().uiFont, "1ms", 5, y_1ms, 0x80FFFF00);
 
 	std::vector<float> total;
 	total.resize(historyLength);

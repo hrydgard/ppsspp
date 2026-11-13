@@ -57,6 +57,11 @@ InstallZipScreen::InstallZipScreen(const Path &zipPath) : UITwoPaneBaseDialogScr
 			ZipClose(zipFile);
 		}
 	}
+
+	if (zipFileInfo_.contents == ZipFileContents::SAVE_DATA) {
+		// The existing save may have changed since the cache last looked at it (the game wrote it, say).
+		g_gameInfoCache->PurgeType(IdentifiedFileType::PSP_SAVEDATA_DIRECTORY);
+	}
 }
 
 std::string_view InstallZipScreen::GetTitle() const {
@@ -74,6 +79,7 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto er = GetI18NCategory(I18NCat::ERRORS);
 	auto ga = GetI18NCategory(I18NCat::GAME);
+	auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 
 	std::string shortFilename = zipPath_.GetFilename();
 
@@ -98,10 +104,14 @@ void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		showDeleteCheckbox = true;
 		break;
 	case ZipFileContents::TEXTURE_PACK:
-	case ZipFileContents::SAVE_DATA:
-	case ZipFileContents::SAVE_STATES:
 	case ZipFileContents::PRX_PLUGIN:
 		installChoice_ = parent->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
+		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+		showDeleteCheckbox = true;
+		break;
+	case ZipFileContents::SAVE_DATA:
+	case ZipFileContents::SAVE_STATES:
+		installChoice_ = parent->Add(new Choice(sa->T("Import"), ImageID("I_FOLDER_UPLOAD")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 		showDeleteCheckbox = true;
 		break;
@@ -374,6 +384,13 @@ void InstallZipScreen::update() {
 				doneView_->SetVisibility(Visibility::V_VISIBLE);
 			}
 		} else if (installStarted_) {
+			if (!installRefreshed_) {
+				installRefreshed_ = true;
+				if (zipFileInfo_.contents == ZipFileContents::SAVE_DATA) {
+					// So the existing data shows what was just imported, and so does the savedata manager.
+					g_gameInfoCache->PurgeType(IdentifiedFileType::PSP_SAVEDATA_DIRECTORY);
+				}
+			}
 			if (doneView_) {
 				doneView_->SetLevelAndText(NoticeLevel::SUCCESS, iz->T("Installed!"));
 				doneView_->SetVisibility(Visibility::V_VISIBLE);

@@ -565,6 +565,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/Log.cpp \
 	$(COMMONDIR)/Log/LogManager.cpp \
 	$(COMMONDIR)/OSVersion.cpp \
+	$(COMMONDIR)/Profiler/Profiler.cpp \
 	$(COMMONDIR)/RiscVCPUDetect.cpp \
 	$(COMMONDIR)/LogReporting.cpp \
 	$(COMMONDIR)/SysError.cpp \
@@ -1122,7 +1123,8 @@ SOURCES_CXX += \
 		$(LIBRETRODIR)/libretro.cpp \
 		$(LIBRETRODIR)/LibretroGraphicsContext.cpp \
 		$(LIBRETRODIR)/LibretroGLContext.cpp \
-		$(LIBRETRODIR)/LibretroGLCoreContext.cpp
+		$(LIBRETRODIR)/LibretroGLCoreContext.cpp \
+		$(LIBRETRODIR)/LibretroVR.cpp
 
 SOURCES_C +=   $(ZSTDDIR)/common/debug.c \
                $(ZSTDDIR)/common/entropy_common.c \

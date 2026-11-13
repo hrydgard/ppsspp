@@ -49,6 +49,7 @@ public:
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 		numIRInstructions_ = b.numIRInstructions_;
+		profileStats_ = b.profileStats_;
 		b.entry_ = 0;
 	}
 
@@ -64,8 +65,9 @@ public:
 	void UpdateHash() {
 		hash_ = CalculateHash();
 	}
-	bool HashMatches() const {
-		return origAddr_ && hash_ == CalculateHash();
+	// The guest code differs from what the block was compiled from.
+	bool CodeChanged() const {
+		return CalculateHash() != hash_;
 	}
 	bool OverlapsRange(u32 addr, u32 size) const;
 
@@ -143,7 +145,6 @@ public:
 		}
 	}
 
-	int FindPreloadBlock(u32 em_address);
 
 	int GetBlockNumberFromStartAddress(u32 em_address) const;
 
@@ -192,8 +193,10 @@ public:
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 	void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) override;
+	void InvalidateChangedBlocks() override;
 	void UpdateFCR31() override;
 	void GetStats(JitStats *stats) const override;
+	void BenchmarkCompile() override;
 
 	void FlushProfile() override;
 
@@ -208,6 +211,7 @@ protected:
 		CODE_FULL,
 	};
 	CompileResult CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
+	void TimedClearCache();
 	// Makes the allocated block runnable, and sets its entry.
 	virtual CompileResult CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) = 0;
 	// For the debugger: the IR the block was compiled from, the size of what it compiled to (for the
@@ -219,11 +223,14 @@ protected:
 	virtual bool HasBlockProfile() const { return false; }
 	virtual void FinalizeTargetBlock(int block_num) {}
 	virtual void InvalidateTargetBlock(int block_num) {}
+	// Bytes of host code compiled since the cache was cleared, for the bench. 0 without any.
+	virtual size_t TargetCodeBytes() const { return 0; }
 	void InvalidateBlock(int block_num);
 
 	JitOptions jo;
 
 	IRFrontend frontend_;
+	std::vector<IRInst> compileInstructions_;
 	JitBlockTable blocks_;
 	IRJitDebugInterface debugInterface_{ *this };
 
@@ -237,6 +244,10 @@ protected:
 	int codeFullClears_ = 0;
 	int invalidations_ = 0;
 	int invalidatedBlocks_ = 0;
+	int changedCodeChecks_ = 0;
+	int changedCodeBlocks_ = 0;
+	// Time the compile phases (see JitCompileTimes).
+	bool benchmarking_ = false;
 
 	friend class IRJitDebugInterface;
 };

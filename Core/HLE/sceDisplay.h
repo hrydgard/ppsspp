@@ -31,12 +31,45 @@ void Register_sceDisplay();
 bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat *pixelFormat, int mode);
 void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync);
 
+// Whether to limit the frame rate to 30fps, from the setting and the compat flag.
+bool __DisplayLimitTo30FPS();
+// For that: when the GE should be done with a list that started at listStartTicks and would be done
+// at doneTicks, so its frame goes up every other vblank. Returns doneTicks or later.
+u64 __DisplayPaceFrameEnd(u64 listStartTicks, u64 doneTicks);
+
 // Call this when resuming to avoid a small speedup burst
 void __DisplaySetWasPaused();
 
 // The frame rate throttling is actually aiming for right now, after fast-forward, the alternative
 // speeds, and the netplay/achievement restrictions have all had their say. 0 means unlimited.
 int __DisplayGetFrameTimingLimit();
+
+struct LagSyncStats {
+	int sleeps = 0;
+	double slept = 0.0;
+	// Summed over the sleeps: how late they woke up for the time they were waiting for.
+	double late = 0.0;
+	// Times it started over, too far behind or ahead.
+	int resets = 0;
+	// Times it fell back to bursting.
+	int bursts = 0;
+	// The furthest behind the wall clock it was while pacing, in seconds (usually after loading a
+	// state), and how many times it was more than 3 ms behind.
+	double maxBehind = 0.0;
+	int stalls = 0;
+	bool bursting = false;
+};
+void __DisplayGetLagSyncStats(LagSyncStats *stats);
+
+enum class LagSyncMode {
+	OFF,
+	PACING,
+	// Fallen back to bursting, the host being nearly flat out.
+	BURSTING,
+};
+LagSyncMode __DisplayGetLagSyncMode();
+// How far emulation recently fell behind the wall clock while pacing, in seconds (a decaying peak).
+double __DisplayGetLagSyncBehindPeak();
 
 void Register_sceDisplay_driver();
 void __DisplayWaitForVblanks(const char* reason, int vblanks, bool callbacks = false);

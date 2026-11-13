@@ -5,6 +5,7 @@
 #include <sstream>
 
 #include "Common/Log.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 
@@ -27,8 +28,13 @@
 
 using namespace PPSSPP_VK;
 
+// See BindFramebufferAsRenderTarget.
+static const size_t MAX_STEPS_PER_SUBMIT = 1000;
+
 // renderPass is an example of the "compatibility class" or RenderPassType type.
 bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleRenderPass, RenderPassType rpType, VkSampleCountFlagBits sampleCount, double scheduleTime, int countToCompile) {
+	PROFILE_THIS_SCOPE("pipeline_create");
+	PROFILE_LABEL_COPY(tag_.c_str());
 	// Good torture test to test the shutdown-while-precompiling-shaders issue on PC where it's normally
 	// hard to catch because shaders compile so fast.
 	// sleep_ms(200);
@@ -51,8 +57,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 	}
 
 	// Fill in the last part of the desc since now it's time to block.
-	VkShaderModule vs = desc->vertexShader->BlockUntilReady();
-	VkShaderModule fs = desc->fragmentShader->BlockUntilReady();
+	VkShaderModule vs, fs;
+	{
+		PROFILE_THIS_SCOPE("wait_shaders");
+		vs = desc->vertexShader->BlockUntilReady();
+		fs = desc->fragmentShader->BlockUntilReady();
+	}
 
 	if (!vs || !fs) {
 		ERROR_LOG(Log::G3D, "Failed creating graphics pipeline - missing shader modules");
@@ -171,8 +181,8 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) {
 	// Called from InvalidateMSAAPipelines on the main thread, mid-frame, while the render thread may be
 	// reading and replacing these same slots in PerformRenderPass - so take the lock that's documented
-	// as protecting the array. It also has to be held across the delete below, or the render thread can
-	// be left holding a freed Promise.
+	// as protecting the array. The render thread waits for a Promise without the lock, so the Promise
+	// is deleted later, like the VkPipeline.
 	std::lock_guard<std::mutex> lock(mutex_);
 
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
@@ -188,7 +198,9 @@ void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) 
 		}
 		// The array owns the Promise - DestroyVariantsInstant deletes it too. Forgetting it here leaked
 		// one per destroyed variant on every MSAA or resolution change.
-		delete this->pipeline[i];
+		vulkan->Delete().QueueCallback([promise = this->pipeline[i]](VulkanContext *vulkan) {
+			delete promise;
+		});
 		this->pipeline[i] = nullptr;
 	}
 	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
@@ -965,6 +977,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 	// Makes sure the submission from the previous time around has happened. Otherwise
 	// we are not allowed to wait from another thread here..
 	if (useRenderThread_) {
+		PROFILE_THIS_SCOPE("wait_submit");
 		std::unique_lock<std::mutex> lock(frameData.fenceMutex);
 		while (!frameData.readyForFence) {
 			frameData.fenceCondVar.wait(lock);
@@ -981,8 +994,11 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
-	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(false, "Device lost in vkWaitForFences");
+	{
+		PROFILE_THIS_SCOPE("wait_gpu");
+		if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
+			_assert_msg_(false, "Device lost in vkWaitForFences");
+		}
 	}
 
 	if (!RecreatePresentationIfNeeded()) {
@@ -1354,6 +1370,12 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			stencilLoad = depthLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
+	}
+
+	// Adreno's kernel driver allocates a physically contiguous block per submit, sized by the render passes in it.
+	// With thousands of passes (Brave Story) that fails with ENOMEM and the fence never signals, so split the frame.
+	if (steps_.size() >= MAX_STEPS_PER_SUBMIT) {
+		FlushSync();
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
@@ -1891,6 +1913,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FrameData &frameData = frameData_[task.frame];
 
 	if (task.runType == VKRRunType::PRESENT) {
+		PROFILE_THIS_SCOPE("vk_present");
 		if (!frameData.skipSwap) {
 			VkResult res = frameData.QueuePresent(vulkan_, frameDataShared_);
 			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
@@ -1930,6 +1953,7 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 
 	_dbg_assert_(!frameData.hasPresentCommands);
 
+	PROFILE_THIS_SCOPE("vk_render");
 	if (!frameTimeHistory_[frameData.frameId].firstSubmit) {
 		frameTimeHistory_[frameData.frameId].firstSubmit = time_now_d();
 	}
@@ -1953,10 +1977,14 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	FlushDescriptors(task.frame);
 	frameData.profile.descWriteTime = time_now_d() - descStart;
 
-	queueRunner_.PreprocessSteps(task.steps);
-	//queueRunner_.LogSteps(stepsOnThread, false);
-	queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
+	{
+		PROFILE_THIS_SCOPE("vk_steps");
+		queueRunner_.PreprocessSteps(task.steps);
+		//queueRunner_.LogSteps(stepsOnThread, false);
+		queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
+	}
 
+	PROFILE_THIS_SCOPE("vk_submit");
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
 		// A frame that never drew to the backbuffer never acquired an image, so there's nothing to
@@ -2019,6 +2047,8 @@ void VulkanRenderManager::FlushSync() {
 		}
 
 		{
+			// Waits for the render thread to run everything queued so far, and the GPU to finish it.
+			PROFILE_THIS_SCOPE("wait_sync");
 			std::unique_lock<std::mutex> lock(syncMutex_);
 			// Wait for the flush to be hit, since we're syncing.
 			while (!frameData.syncDone) {

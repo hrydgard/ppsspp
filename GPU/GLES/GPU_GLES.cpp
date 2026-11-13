@@ -24,7 +24,6 @@
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/System/OSD.h"
-#include "Common/VR/PPSSPPVR.h"
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
@@ -143,11 +142,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	// Can't use switch-case in older glsl.
 	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
-
-	if (IsVREnabled() || g_Config.bForceVR) {
-		features |= GPU_USE_VIRTUAL_REALITY;
-		features &= ~GPU_USE_VS_RANGE_CULLING;
-	}
 
 	features = CheckGPUFeaturesLate(features);
 

@@ -69,6 +69,8 @@ protected:
 	bool IsOnTop() const;
 	virtual ViewLayoutMode LayoutMode() const { return ViewLayoutMode::ApplyInsets; }
 	virtual bool UseImmersiveMode() const { return false; }
+	// For screens with buttons near the edges: a swipe can bring back a hidden navigation bar over them.
+	virtual bool ReserveHiddenNavBar() const { return false; }
 
 	UI::ViewGroup *root_ = nullptr;
 	Vec3 translation_ = Vec3(0.0f);

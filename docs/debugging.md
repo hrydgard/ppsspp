@@ -295,6 +295,55 @@ shows as emitter and IR pass functions; profile 20 emulated seconds or more to s
 To compare two builds by where the time goes, profile one game at a time: several at once wait on each
 other's GPU work, which moves the shares.
 
+### Timing the JIT compiler
+
+`--jit-bench=N` (app and headless, IR JITs) recompiles every block in the cache after N flips: five times
+timing each block's frontend, IR passes, backend and finalize, then five times timing only whole blocks,
+as games compile. It logs the best of each, per block, and two things to check a change by: a hash of the
+IR the passes made, which a change to the passes or the frontend shouldn't change, and how much host code
+the blocks came to, which a change to a backend shouldn't change. (A hash of the code would change from
+launch to launch with ASLR, which moves the addresses in it. Even the size can move by a few bytes when a
+change moves static data.)
+
+```bash
+PPSSPPHeadless --cpu=jit-ir --log --graphics=software --jit-bench=300 --timeout-wall=60 --state=GAME.ppst GAME.iso 2>&1 | grep "JIT bench"
+python Tools/android_run.py -- --jit-bench=300 --state=/sdcard/PSP/PPSSPP_STATE/GAME.ppst /sdcard/PSP/GAME.iso   # then adb logcat
+```
+
+Only compare runs that compiled the same number of blocks: a savestate load keeps the blocks from before
+it where memory didn't change, so the set depends on when the load happened. A desktop gives the same time
+to about 1%, a phone only to a few percent from launch to launch, so take the best of a few launches there.
+For where the time goes inside the compiler, use a sampling profiler (simpleperf on Android) rather than
+frame profiler scopes: on some phones reading the clock costs far more than a pass takes. A Galaxy S8's
+kernel traps the counter reads, at about 0.28 µs each, which makes a scope cost about 0.7 µs while the
+profiler is on (the `Profiler` unit test prints both). For the same reason, games' blocks are timed only
+whole; the JIT debug overlay times the phases while it shows.
+
+### Finding stalls with the frame profiler
+
+The frame profiler (`Common/Profiler/Profiler.h`) is compiled into every build, and off until
+something turns it on. `--profile-log=FILE` (app and headless) does, and writes a JSON line per frame with each thread's time per scope category, plus, for
+each slow frame, every scope of at least `--profile-span-ms` (default 1) that ended in it, with its
+label: which syscall, CoreTiming event, module file or pipeline. A frame is slow when it takes at least
+`--profile-hitch-ms` (default 25) and 1.5 times the median of the frames before it; each one also gets a
+`Profiler: Frame` line in the log naming its longest scopes.
+
+```bash
+python Tools/profile_report.py profile.jsonl              # summary, causes, the worst frames' scopes
+python Tools/profile_report.py profile.jsonl --frame 1234 # one frame
+```
+
+The report only counts a slow frame as a stall if it fell behind the emulated time it covered (each
+vblank in it is 16.7 ms on a PSP): a game that doesn't flip for ten vblanks while loading shows a 167 ms
+frame on hardware too. It sums the stalls' time by thread and category from the exact per-frame totals,
+for the emulator thread and the render thread (a worker's time matters where something waits for it,
+which shows as `wait_*`), and lists the labelled scopes.
+
+To find the stalls a player sees, measure a cold first run: `--shader-cache=false`, and 1x rendering
+resolution so the GPU matters less. Getting into the game from boot takes a script (see "Driving the
+app, or a phone" in [adhoc-multiplayer-testing.md](adhoc-multiplayer-testing.md)): pressing buttons at
+random gets stuck in profile and save menus.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

@@ -922,6 +922,10 @@ SectionID ElfReader::GetSectionByName(const char *name, int firstSection) const
 u32 ElfReader::GetTotalTextSize() const {
 	u32 total = 0;
 	for (int i = 0; i < GetNumSections(); ++i) {
+		// The firmware doesn't count newer toolchains' .MIPS.abiflags (modules/selfunload).
+		if (sections[i].sh_type == SHT_MIPS_ABIFLAGS) {
+			continue;
+		}
 		if (!(sections[i].sh_flags & SHF_WRITE) && (sections[i].sh_flags & SHF_ALLOC) && !(sections[i].sh_flags & SHF_STRINGS)) {
 			total += sections[i].sh_size;
 		}

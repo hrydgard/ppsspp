@@ -21,7 +21,9 @@
 
 class GPUCommon;
 class UIContext;
+struct FontStyle;
 
 // gpu MUST be an instance of GPU_Vulkan. If not, will definitely crash.
-void DrawGPUMemoryVis(UIContext *ui, GPUCommon *gpu);
-void DrawGPUProfilerVis(UIContext *ui, GPUCommon *gpu);
+// Takes the font, since the UI headers that define the theme can't be included with the Vulkan ones (X11).
+void DrawGPUMemoryVis(UIContext *ui, const FontStyle &font, GPUCommon *gpu);
+void DrawGPUProfilerVis(UIContext *ui, const FontStyle &font, GPUCommon *gpu);

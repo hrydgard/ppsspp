@@ -193,7 +193,9 @@ enum class DisableHLEFlags : int {
 	sceParseUri = (1 << 16),
 	// Runs flash0:/kd/pspnet_adhoc_discover.prx on top of our adhocctl. For checking our HLE against.
 	sceNetAdhocDiscover = (1 << 17),
-	Count = 18,
+	// libaac.prx, which decodes through our sceAudiocodec like libmp3.prx.
+	sceAac = (1 << 18),
+	Count = 19,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);
@@ -290,15 +292,19 @@ enum class DebugOverlay : int {
 	DEBUG_STATS,
 	FRAME_GRAPH,
 	FRAME_TIMING,
-#ifdef USE_PROFILER
-	FRAME_PROFILE,
-#endif
+	FRAME_PROFILE,  // Draws nothing in builds without USE_PROFILER.
 	CONTROL,
 	Audio,
 	GPU_PROFILE,
 	GPU_ALLOCATOR,
 	FRAMEBUFFER_LIST,
 	JIT_STATS,
+};
+
+enum class FrameRateLimit30 : int {
+	AUTO = 0,  // Games with the LimitFrameRateTo30 compat flag.
+	ALWAYS = 1,
+	OFF = 2,
 };
 
 // Android-only for now

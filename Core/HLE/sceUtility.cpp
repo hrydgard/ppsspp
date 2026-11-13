@@ -208,6 +208,21 @@ static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
 	LoadFirmwareModules(0x304, "sceMp3", DisableHLEFlags::sceMp3, modules, ARRAY_SIZE(modules));
 }
 
+// libaac.prx imports the same as libmp3.prx: the kernel and sceAudiocodec.
+static void NotifyLoadStatusAac(int state, u32 loadAddr, u32 totalSize) {
+	if (state == -1) {
+		UnloadFirmwareModules(0x306);
+		return;
+	}
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceAac)) {
+		return;
+	}
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/libaac.prx", "sceAac_Library" },
+	};
+	LoadFirmwareModules(0x306, "sceAac", DisableHLEFlags::sceAac, modules, ARRAY_SIZE(modules));
+}
+
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 	JpegNotifyLoadStatus(state);
 }
@@ -286,6 +301,7 @@ static DisableHLEFlags UtilityModuleLibraryFlag(u32 module) {
 	case 0x302: return DisableHLEFlags::sceAtrac;    // av_atrac3plus
 	case 0x303: return DisableHLEFlags::sceMpeg;     // av_mpegbase
 	case 0x304: return DisableHLEFlags::sceMp3;      // av_mp3
+	case 0x306: return DisableHLEFlags::sceAac;      // av_aac
 	case 0x308: return DisableHLEFlags::sceMp4;      // av_mp4
 	default: return (DisableHLEFlags)0;
 	}
@@ -320,7 +336,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps, &NotifyLoadStatusMpegBase),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3", &NotifyLoadStatusMp3),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
-	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
+	ModuleLoadInfo(0x306, 0x00004000, "av_aac", &NotifyLoadStatusAac),
 	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
 	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps, &NotifyLoadStatusMp4),
 	ModuleLoadInfo(0x3fe, 0x00000000, "me_stuff"),

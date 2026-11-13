@@ -56,9 +56,6 @@ void VR_Init( void* system, const char* name, int version ) {
 	};
 
 	std::vector<const char *> extensions;
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-	extensions.push_back(XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME);
-#endif
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 	if (isAvailable(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME)) {
 		extensions.push_back(XR_KHR_VULKAN_ENABLE_EXTENSION_NAME);
@@ -142,19 +139,6 @@ void VR_Init( void* system, const char* name, int version ) {
 		exit(1);
 	}
 
-	// Get the graphics requirements.
-#ifdef XR_USE_GRAPHICS_API_OPENGL_ES
-	PFN_xrGetOpenGLESGraphicsRequirementsKHR pfnGetOpenGLESGraphicsRequirementsKHR = NULL;
-	OXR(xrGetInstanceProcAddr(
-			vr_engine.appState.Instance,
-			"xrGetOpenGLESGraphicsRequirementsKHR",
-			(PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
-
-	XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-	graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
-	OXR(pfnGetOpenGLESGraphicsRequirementsKHR(vr_engine.appState.Instance, systemId, &graphicsRequirements));
-#endif
-
 #ifdef ANDROID
 	vr_engine.appState.MainThreadTid = gettid();
 #endif
@@ -177,32 +161,11 @@ void VR_EnterVR( engine_t* engine ) {
 		return;
 	}
 
-	// Create the OpenXR Session.
-	XrSessionCreateInfo sessionCreateInfo = {};
-#ifdef ANDROID
-	XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingGL = {};
-#elif XR_USE_GRAPHICS_API_OPENGL
-	XrGraphicsBindingOpenGLWin32KHR graphicsBindingGL = {};
-#endif
-	memset(&sessionCreateInfo, 0, sizeof(sessionCreateInfo));
-#ifdef ANDROID
-	graphicsBindingGL.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-	graphicsBindingGL.next = NULL;
-	graphicsBindingGL.display = eglGetCurrentDisplay();
-	graphicsBindingGL.config = NULL;
-	graphicsBindingGL.context = eglGetCurrentContext();
-	sessionCreateInfo.next = &graphicsBindingGL;
-#else
-	//TODO:PCVR definition
-#endif
+	// Create the OpenXR Session, with the Vulkan binding the presentation filled in.
+	XrSessionCreateInfo sessionCreateInfo = { XR_TYPE_SESSION_CREATE_INFO };
 #ifdef XR_USE_GRAPHICS_API_VULKAN
-	if (engine->appState.VulkanBinding.type == XR_TYPE_GRAPHICS_BINDING_VULKAN_KHR) {
-		sessionCreateInfo.next = &engine->appState.VulkanBinding;
-		VR_SetPlatformFLag(VR_PLATFORM_RENDERER_VULKAN, true);
-	}
+	sessionCreateInfo.next = &engine->appState.VulkanBinding;
 #endif
-	sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
-	sessionCreateInfo.createFlags = 0;
 	sessionCreateInfo.systemId = engine->appState.SystemId;
 
 	XrResult initResult;

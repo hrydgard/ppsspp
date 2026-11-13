@@ -6,6 +6,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 
 #include "Common/CommonTypes.h"
@@ -13,7 +14,9 @@
 #include "Common/Math/math_util.h"
 #include "Common/Swap.h"
 #include "Core/Config.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HW/Display.h"
+#include "Core/HW/StereoResampler.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u16
@@ -79,6 +82,7 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	memset(samples, 0, num_samples * 2 * sizeof(s16));
 	// The estimate is 0 until a second has gone by.
 	frameTimeEstimate_ = 1.0f / std::max(fpsEstimate, 1.0f);
+	outSampleRate_ = outSampleRate;
 
 	smoothedReadSize_ = smoothedReadSize_ == 0 ? num_samples : (smoothedReadSize_ * 0.95f + num_samples * 0.05f);
 
@@ -102,13 +106,23 @@ void GranularMixer::Mix(s16 *samples, u32 num_samples, int outSampleRate, float 
 	const float fade_in_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_IN_RC));
 	const float fade_out_mul = -std::expm1(-1.0 / (out_sample_rate * FADE_OUT_RC));
 
-	// Calculate the ideal length of the granule queue.
-	// NOTE: We must have enough room here for 20fps games, generating all their audio
-	// in a burst each frame (since we can't force real clock sync). That means 16*3 = 48 or rather 50ms.
-	// However, in case of faster framerates, we should apply some pressure to reduce this. And if real clock sync
-	// is on, we should also be able to get away with a shorter buffer here.
-	// const u32 buffer_size_ms = frameTimeEstimate_ * 44100.0f;
-	const u32 buffer_size_samples = smoothedReadSize_ * 4 + std::llround(frameTimeEstimate_ * inSampleRate);
+	// Calculate the length of the granule queue. Dequeue() cuts the queue back to half when it
+	// goes over, so this is a cap rather than a fill level.
+	// We aim for the same latency as StereoResampler, but must also have room for slow (like 20fps)
+	// games, which generate all their audio in a burst each frame (since we can't force real
+	// clock sync), and keep half the queue above what one output callback reads, or each callback
+	// runs dry. Bluetooth and other non-fast outputs read in large chunks. While lag sync paces,
+	// audio arrives every millisecond or two instead, so there's no frame burst to make room for,
+	// only for how far emulation has recently fallen behind (the target includes that too), up to
+	// a frame, which is what bursting makes room for. Nothing drains an overfull queue but an overrun.
+	// One more granule on top, for the two half-overlapping granules being played.
+	const int targetSamples = StereoResampler::TargetBufferSize();
+	const bool pacing = __DisplayGetLagSyncMode() == LagSyncMode::PACING;
+	const int burstSamples = (int)std::llround(frameTimeEstimate_ * inSampleRate);
+	const int frameSamples = pacing ? 0 : burstSamples;
+	const int behindSamples = pacing ? std::min((int)(__DisplayGetLagSyncBehindPeak() * inSampleRate), burstSamples) : 0;
+	const int readSamples = (int)(smoothedReadSize_ * inSampleRate / out_sample_rate);
+	const u32 buffer_size_samples = std::max({ targetSamples, frameSamples + targetSamples / 2, readSamples * 2 + behindSamples }) + GRANULE_SIZE;
 	queuedSamplesTarget_ = buffer_size_samples;
 
 	// Limit the possible queue sizes to any number between 4 and 64.
@@ -224,9 +238,8 @@ void GranularMixer::Enqueue() {
 	// Check if we run out of space in the circular queue. (rare)
 	u32 next_head = head + 1;
 	if ((next_head & GRANULE_QUEUE_MASK) == (m_queue_tail.load(std::memory_order_acquire) & GRANULE_QUEUE_MASK)) {
-		WARN_LOG(Log::Audio,
-			"Granule Queue has completely filled and audio samples are being dropped. "
-			"This should not happen unless the audio backend has stopped requesting audio.");
+		// The queue has filled and samples are being dropped. This is usually the result of
+		// simple things like fast-forward or some timing catch-up though.
 		return;
 	}
 
@@ -303,4 +316,36 @@ void GranularMixer::GetStats(GranularStats *stats) {
 	stats->queuedSamplesTarget = queuedSamplesTarget_;
 	queuedGranulesMin_ = 10000;
 	queuedGranulesMax_ = 0;
+}
+
+void GranularMixer::GetAudioDebugStats(char *buf, size_t bufSize) {
+	GranularStats stats;
+	GetStats(&stats);
+	// Each queued granule holds GRANULE_OVERLAP new samples.
+	const double msPerGranule = GRANULE_OVERLAP * 1000.0 / 44100.0;
+	snprintf(buf, bufSize,
+		"Granular mixer\n"
+		"Queued: %0.1f granules (%0.1fms)\n"
+		"Queued min/max: %d / %d\n"
+		"Cap: %d granules (%0.1fms, %d samples)\n"
+		"Underruns: %d\n"
+		"Overruns: %d\n"
+		"Output sample rate: %d\n"
+		"Read size: %0.1f\n"
+		"Frame time estimate: %0.1fms\n"
+		"Fade volume: %0.2f%s\n",
+		stats.smoothedQueuedGranules, stats.smoothedQueuedGranules * msPerGranule,
+		stats.queuedGranulesMin, stats.queuedGranulesMax,
+		stats.targetQueueSize, stats.targetQueueSize * msPerGranule, stats.queuedSamplesTarget,
+		stats.underruns,
+		stats.overruns,
+		outSampleRate_,
+		stats.smoothedReadSize,
+		stats.frameTimeEstimate * 1000.0f,
+		stats.fadeVolume, stats.looping ? " (looping)" : "");
+}
+
+void GranularMixer::ResetStatCounters() {
+	underruns_ = 0;
+	overruns_ = 0;
 }

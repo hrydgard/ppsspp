@@ -47,12 +47,13 @@ void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userda
 void System_AudioGetDebugStats(char *buf, size_t bufSize) {
 	if (buf) {
 		if (g_Config.iAudioPlaybackMode == (int)AudioSyncMode::GRANULAR) {
-			snprintf(buf, bufSize, "(No stats available for granular yet)");
+			g_granular.GetAudioDebugStats(buf, bufSize);
 		} else {
 			g_resampler.GetAudioDebugStats(buf, bufSize);
 		}
 	} else {
 		g_resampler.ResetStatCounters();
+		g_granular.ResetStatCounters();
 	}
 }
 

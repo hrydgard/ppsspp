@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 #include "Common/File/Path.h"
 
@@ -38,7 +39,8 @@ enum class SavedataSortOption {
 
 class SavedataBrowser : public UI::LinearLayout {
 public:
-	SavedataBrowser(const Path &path, UI::LayoutParams *layoutParams = 0);
+	// Entries whose names start with highlightPrefix (a game ID) are outlined, and the first one scrolled to.
+	SavedataBrowser(const Path &path, std::string_view highlightPrefix, UI::LayoutParams *layoutParams = 0);
 
 	void Update() override;
 
@@ -58,13 +60,17 @@ private:
 	void Refresh();
 	void SavedataButtonClick(UI::EventParams &e);
 
+	void ScrollToHighlighted();
+
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	UI::ViewGroup *gameList_ = nullptr;
 	UI::TextView *noMatchView_ = nullptr;
 	UI::TextView *searchingView_ = nullptr;
 	Path path_;
+	std::string highlightPrefix_;
 	std::string searchFilter_;
 	bool searchPending_ = false;
+	bool scrollPending_ = false;
 };
 
 class SavedataView;
@@ -95,6 +101,7 @@ public:
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 	void sendMessage(UIMessage message, const char *value) override;
+	void update() override;
 
 	ViewLayoutMode LayoutMode() const override {
 		return ViewLayoutMode::ApplyInsets;
@@ -103,6 +110,7 @@ public:
 	const char *tag() const override { return "Savedata"; }
 
 protected:
+	void PreCreateViews() override;
 	void CreateTabs() override;
 	void CreateExtraButtons(UI::ViewGroup *verticalLayout, int margins) override;
 
@@ -113,7 +121,11 @@ private:
 
 	void CreateSavedataTab(UI::ViewGroup *savedata);
 	void CreateSavestateTab(UI::ViewGroup *savestate);
+	// The ID of the game the screen was opened for (its saves are highlighted), once its PARAM.SFO is loaded.
+	bool LookUpGame();
 
+	std::string gameID_;
+	bool gameLookupPending_ = false;
 	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
 	SavedataBrowser *dataBrowser_ = nullptr;
 	SavedataBrowser *stateBrowser_ = nullptr;
@@ -173,3 +185,6 @@ private:
 	UI::TextView *mTime_ = nullptr;
 	UI::TextView *fileSize_ = nullptr;
 };
+
+// Zips a game's saves (without installed data) and shares the zip.
+void ExportAllGameSavesForGame(GameInfo *info);

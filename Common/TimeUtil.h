@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 
+#include "ppsspp_config.h"
+
 void TimeInit();
 void TimeShutdown();  // Not really necessary to call, just for completeness.
 
@@ -10,6 +12,20 @@ double time_now_d();
 // Raw time in nanoseconds.
 // The only intended use is to match the timings from VK_GOOGLE_display_timing.
 uint64_t time_now_raw();
+
+// A timestamp for timing short spans, in units of fast_ticks_to_nanos(). Where the CPU has a counter
+// user code can read (ARM64 Linux and Android), it's read directly: clock_gettime() costs around
+// 0.3us on a Galaxy S8. Elsewhere it's time_now_raw().
+inline uint64_t time_now_fast_ticks() {
+#if PPSSPP_ARCH(ARM64) && (PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)) && !defined(_MSC_VER)
+	uint64_t ticks;
+	__asm__ volatile("mrs %0, cntvct_el0" : "=r"(ticks));
+	return ticks;
+#else
+	return time_now_raw();
+#endif
+}
+double fast_ticks_to_nanos();
 
 // This is only interesting for Linux, in relation to VK_GOOGLE_display_timing.
 double from_time_raw(uint64_t raw_time);
@@ -27,6 +43,9 @@ void sleep_ms(int ms, const char *reason);
 void sleep_us(int us, const char *reason);
 // Precise sleep. Can consume a little bit of CPU on Windows at least.
 void sleep_precise(double seconds, const char *reason);
+// Sleeps about this long without spinning, so it can wake up late (by the OS's timer slack). For
+// waits that are made up for afterwards, where spinning to the exact time would only burn a core.
+void sleep_approx(double seconds, const char *reason);
 
 // Random sleep, used for debugging.
 void sleep_random(double minSeconds, double maxSeconds, const char *reason);

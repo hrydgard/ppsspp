@@ -181,9 +181,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_force_lag_sync",
-      "Force Real Clock Sync",
+      "Low-Latency CPU Timing",
       NULL,
-      "Slower, less lag.",
+      "Runs emulation in step with real time instead of a frame at a time, for less audio, input and network delay. Uses a little more CPU, and goes back to normal timing when the device is too busy. Previously called \"Force Real Clock Sync\".",
       NULL,
       "system",
       BOOL_OPTIONS,
@@ -683,9 +683,9 @@ struct retro_core_option_v2_definition option_defs_us[] = {
    },
    {
       "ppsspp_vr_mode",
-      "VR Mode (OpenGL/GLES)",
+      "VR Mode (Vulkan)",
       NULL,
-      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views and OpenGL 3 or OpenGL ES 3. Game compatibility varies.",
+      "Stereoscopic presents a 3D screen. Immersive uses headset tracking and per-eye fields of view. Requires a frontend supporting stereo views, and Vulkan with multiview. Game compatibility varies.",
       NULL,
       "video",
       {

@@ -40,7 +40,6 @@ void LibretroGLCoreContext::CreateDrawContext() {
 }
 
 void LibretroGLCoreContext::DestroyDrawContext() {
-	Libretro::DestroyVR();
 	LibretroHWRenderContext::DestroyDrawContext();
 	renderManager_ = nullptr;
 }

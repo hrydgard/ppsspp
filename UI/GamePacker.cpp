@@ -400,10 +400,9 @@ public:
 
 		const float textX = bounds_.x + 60.0f;
 		const float textW = bounds_.w - 70.0f;
-		dc.SetFontStyle(dc.GetTheme().uiFont);
-		dc.DrawTextRectSqueeze(title_, Bounds(textX, bounds_.y + 6.0f, textW, 32.0f), style.fgColor, ALIGN_VCENTER);
+		dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, title_, Bounds(textX, bounds_.y + 6.0f, textW, 32.0f), style.fgColor, ALIGN_VCENTER);
 		dc.SetFontScale(0.7f, 0.7f);
-		dc.DrawTextRectSqueeze(description_, Bounds(textX, bounds_.y + 36.0f, textW, 28.0f), alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER);
+		dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, description_, Bounds(textX, bounds_.y + 36.0f, textW, 28.0f), alphaMul(style.fgColor, 0.75f), ALIGN_VCENTER);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 

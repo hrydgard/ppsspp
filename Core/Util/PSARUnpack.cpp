@@ -1479,7 +1479,9 @@ Path GetUmdVideoVSHPath() {
 	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 }
 
-std::string GetVSHTitle(const Path &path) {
+const char *const VSH_DISC_ID = "VSHM00000";
+
+std::string GetVSHTitle(const Path &path, std::string *version) {
 	if (!equalsNoCase(path.GetFilename(), "vshmain.prx")) {
 		return std::string();
 	}
@@ -1488,6 +1490,9 @@ std::string GetVSHTitle(const Path &path) {
 	std::string versionTxt;
 	if (File::ReadTextFileToString(path.NavigateUp().NavigateUp() / "etc/version.txt", &versionTxt)) {
 		ParseVersionTxt(versionTxt, &info);
+	}
+	if (version) {
+		*version = info.version;
 	}
 	return info.version.empty() ? std::string("XMB") : "XMB " + info.version;
 }
@@ -1621,6 +1626,16 @@ std::string ReadMountedDiscUpdaterVersion() {
 	return ReadUpdaterVersionFromArchiveHeader();
 }
 
+// Keeps Android's media scanner out of the firmware.
+static void CreateNoMediaFile(const Path &dir) {
+#if PPSSPP_PLATFORM(ANDROID)
+	const Path noMedia = dir / ".nomedia";
+	if (!File::Exists(noMedia) && !File::CreateEmptyFile(noMedia)) {
+		WARN_LOG(Log::Loader, "Couldn't create %s", noMedia.c_str());
+	}
+#endif
+}
+
 bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
 	std::string localError;
 	if (!error) {
@@ -1633,10 +1648,7 @@ bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions
 		return false;
 	}
 
-	// Write a nomedia file to avoid Android indexing the files.
-#if PPSSPP_PLATFORM(ANDROID)
-	File::CreateEmptyFile(outputDir / ".nomedia");
-#endif
+	CreateNoMediaFile(outputDir);
 
 	INFO_LOG(Log::Loader, "Found a %d byte updater on the mounted disc", (int)psar.size());
 	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
@@ -1750,6 +1762,9 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 		ok = SwapStagingIntoPlace(nandRoot, staging, error);
 	}
 	if (ok) {
+		// Whichever way the firmware came, and also into a NAND that was set up without one.
+		CreateNoMediaFile(nandRoot);
+
 		// The shell refuses to install a theme without this directory, and the updater's archive
 		// doesn't have it (6.61's has nothing under flash1), so the real updater must create it.
 		const Path themeDir = nandRoot / "flash1/vsh/theme";
@@ -1786,11 +1801,7 @@ bool AutoInstallFirmwareFromDisc() {
 	}
 
 	const Path nandRoot = GetSysDirectory(DIRECTORY_NAND);
-
-	// Write a nomedia file to avoid Android indexing the files.
-#if PPSSPP_PLATFORM(ANDROID)
-	File::CreateEmptyFile(nandRoot / ".nomedia");
-#endif
+	CreateNoMediaFile(nandRoot);
 
 	InstalledFirmwareInfo installed;
 	ReadInstalledFirmwareInfo(nandRoot, &installed, false);

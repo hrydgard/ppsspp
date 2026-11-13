@@ -25,6 +25,8 @@
 #include <set>
 #include <cstdlib>
 #include <cstdarg>
+#include <cstring>
+#include <memory>
 
 // for crc32
 extern "C" {
@@ -38,6 +40,7 @@ extern "C" {
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/System/System.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/Net/Resolve.h"
@@ -56,8 +59,10 @@ extern "C" {
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HW/Display.h"
+#include "Core/Util/PSARUnpack.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
@@ -95,7 +100,12 @@ namespace Reporting
 		int int1;
 		int int2;
 		int int3;
+		// Where to send it, if not the configured server.
+		std::string host;
 	};
+
+	// The server the settings enable.
+	static const char *const DEFAULT_HOST = "report.ppsspp.org";
 
 	static std::mutex crcLock;
 	static std::condition_variable crcCond;
@@ -248,13 +258,12 @@ namespace Reporting
 	}
 
 	// Returns the length of the hostname part (e.g. before the :80.)
-	static size_t ServerHostnameLength()
+	static size_t ServerHostnameLength(const std::string &hostString)
 	{
-		if (!IsEnabled())
-			return g_Config.sReportHost.npos;
+		if (hostString.empty())
+			return hostString.npos;
 
 		// IPv6 literal?
-		std::string hostString = ServerHost();
 		if (hostString[0] == '[')
 		{
 			size_t length = hostString.find("]:");
@@ -267,12 +276,8 @@ namespace Reporting
 	}
 
 	// Returns only the hostname part (e.g. "report.ppsspp.org".)
-	static std::string ServerHostname() {
-		if (!IsEnabled())
-			return "";
-
-		std::string host = ServerHost();
-		size_t length = ServerHostnameLength();
+	static std::string ServerHostname(const std::string &host) {
+		size_t length = ServerHostnameLength(host);
 
 		// This means there's no port number - it's already the hostname.
 		if (length == host.npos)
@@ -282,13 +287,9 @@ namespace Reporting
 	}
 
 	// Returns only the port part (e.g. 80) as an int.
-	static int ServerPort()
+	static int ServerPort(const std::string &host)
 	{
-		if (!IsEnabled())
-			return 0;
-
-		std::string host = ServerHost();
-		size_t offset = ServerHostnameLength();
+		size_t offset = ServerHostnameLength(host);
 		// If there's no port, use the default one.
 		if (offset == host.npos)
 			return DEFAULT_PORT;
@@ -304,10 +305,14 @@ namespace Reporting
 		return ++spamProtectionCount >= SPAM_LIMIT;
 	}
 
-	static void SendReportRequest(const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
+	// host is "hostname" or "hostname:port".
+	static void SendReportRequest(const std::string &host, const char *uri, const std::string &data, const std::string &mimeType, std::function<void(http::Request &)> callback) {
+		if (host.empty()) {
+			return;
+		}
 		char url[1024];
-		std::string hostname = ServerHostname();
-		int port = ServerPort();
+		std::string hostname = ServerHostname(host);
+		int port = ServerPort(host);
 		snprintf(url, sizeof(url), "http://%s:%d%s", hostname.c_str(), port, uri);
 		g_DownloadManager.AsyncPostWithCallback(url, data, mimeType, http::RequestFlags::Default, callback);
 	}
@@ -423,9 +428,42 @@ namespace Reporting
 		return disc_id + "_" + disc_version;
 	}
 
+	// The container the game image is in, from its header: "cso", "chd", "pbp" or "iso". Empty for
+	// a directory. Cached, since it only changes with the game.
+	static std::string DiscContainer(const Path &path) {
+		static std::mutex cacheLock;
+		static Path cachedPath;
+		static std::string cachedContainer;
+
+		std::lock_guard<std::mutex> guard(cacheLock);
+		if (path == cachedPath) {
+			return cachedContainer;
+		}
+		cachedPath = path;
+		cachedContainer.clear();
+
+		std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+		char header[8]{};
+		if (!loader || !loader->Exists() || loader->IsDirectory() || loader->ReadAt(0, 1, 8, header) != 8) {
+			return cachedContainer;
+		}
+		if (!memcmp(header, "CISO", 4)) {
+			cachedContainer = "cso";
+		} else if (!memcmp(header, "MComprHD", 8)) {
+			cachedContainer = "chd";
+		} else if (!memcmp(header, "\0PBP", 4)) {
+			cachedContainer = "pbp";
+		} else {
+			cachedContainer = "iso";
+		}
+		return cachedContainer;
+	}
+
 	void AddGameInfo(UrlEncoder &postdata)
 	{
 		postdata.Add("game", CurrentGameID());
+		postdata.Add("file_type", IdentifiedFileTypeToString(PSP_CoreParameter().fileType));
+		postdata.Add("disc_container", DiscContainer(PSP_CoreParameter().fileToStart));
 		postdata.Add("game_title", StripTrailingNull(g_paramSFO.GetValueString("TITLE")));
 		postdata.Add("sdkver", sceKernelGetCompiledSdkVersion());
 		postdata.Add("module_name", lastModuleName);
@@ -444,6 +482,20 @@ namespace Reporting
 		postdata.Add("gpu_full", gpuFull);
 		postdata.Add("cpu", cpu_info.Summarize());
 		postdata.Add("platform", GetPlatformIdentifer());
+#if PPSSPP_PLATFORM(ANDROID)
+		// On Android, SYSPROP_NAME is the device: "MANUFACTURER:MODEL".
+		postdata.Add("os", StringFromFormat("Android API %d", (int)System_GetPropertyInt(SYSPROP_SYSTEMVERSION)));
+		postdata.Add("device_model", System_GetProperty(SYSPROP_NAME));
+#else
+		postdata.Add("os", System_GetProperty(SYSPROP_NAME));
+		postdata.Add("device_model", System_GetProperty(SYSPROP_DEVICE_MODEL));
+#endif
+		postdata.Add("os_build", System_GetProperty(SYSPROP_SYSTEMBUILD));
+
+		// Empty when there's no full firmware install (nothing, or just fonts pulled off a disc).
+		InstalledFirmwareInfo firmware;
+		ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &firmware, false);
+		postdata.Add("firmware", firmware.version);
 	}
 
 	void AddConfigInfo(UrlEncoder &postdata)
@@ -457,8 +509,11 @@ namespace Reporting
 	void AddGameplayInfo(UrlEncoder &postdata)
 	{
 		// Just to get an idea of how long they played.
-		if (PSP_GetBootState() == BootState::Complete)
+		if (PSP_GetBootState() == BootState::Complete) {
 			postdata.Add("ticks", (const uint64_t)CoreTiming::GetTicks(currentMIPS));
+			// Emulated seconds. Ticks alone don't say this, since games change the CPU clock.
+			postdata.Add("seconds_played", (double)CoreTiming::PeekGlobalTimeUs() / 1000000.0);
+		}
 
 		float vps, fps;
 		__DisplayGetAveragedFPS(&vps, &fps);
@@ -485,6 +540,11 @@ namespace Reporting
 	int Process(const Payload &payload) {
 		Buffer output;
 
+		std::string host = payload.host;
+		if (host.empty() && IsEnabled()) {
+			host = ServerHost();
+		}
+
 		MultipartFormDataEncoder postdata;
 		AddSystemInfo(postdata);
 		AddGameInfo(postdata);
@@ -500,7 +560,7 @@ namespace Reporting
 			postdata.Add("verify", payload.string1 + payload.string2);
 
 			postdata.Finish();
-			SendReportRequest("/report/message", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+			SendReportRequest(host, "/report/message", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
 				serverWorking = !req.Failed();
 			});
 			break;
@@ -518,7 +578,7 @@ namespace Reporting
 
 			postdata.Finish();
 			serverWorking = true;
-			SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
+			SendReportRequest(host, "/report/compat", postdata.ToString(), postdata.GetMimeType(), [=](http::Request &req) {
 				if (req.Failed()) {
 					serverWorking = false;
 					return;
@@ -543,7 +603,7 @@ namespace Reporting
 	bool IsSupported()
 	{
 		// Disabled when using certain hacks, because they make for poor reports.
-		if (CheatsInEffect() || HLEPlugins::HasEnabled())
+		if (CheatsOrPluginsInEffect())
 			return false;
 		if (GetLockedCPUSpeedMhz() != 0)
 			return false;
@@ -556,6 +616,10 @@ namespace Reporting
 		// The problem is, these aren't useful because the hashes end up different for different people.
 		// TODO: Should really hash the ELF instead of the path, but then that affects savestates/cheats.
 		if (PSP_GetBootState() == BootState::Complete && g_paramSFO.GetValueString("DISC_VERSION").empty())
+			return false;
+		// Firmware updaters only run far enough to crash: their VSH libraries want memory partitions a
+		// game boot doesn't set up. They're for installing the firmware (InstallUpdateScreen), not running.
+		if (PSP_GetBootState() != BootState::Off && g_paramSFO.GetValueString("DISC_ID") == "MSTKUPDATE")
 			return false;
 
 		return !everUnsupported;
@@ -627,5 +691,104 @@ namespace Reporting
 
 	std::vector<std::string> CompatibilitySuggestions() {
 		return lastCompatResult;
+	}
+
+	bool CanReportCrashManually() {
+		return !IsEnabled() && IsSupported();
+	}
+
+	bool CheatsOrPluginsInEffect() {
+		return CheatsInEffect() || HLEPlugins::HasEnabled();
+	}
+
+	bool CrashReportsOff() {
+		// The VSH crashes too often for its reports to be worth having.
+		return __KernelIsRunningVSH();
+	}
+
+	// Crashes reported this run, by game ID and formatted crash. Resuming, resetting or loading a
+	// state often runs straight back into the same crash, which the server doesn't need twice.
+	static std::mutex reportedCrashesLock;
+	static std::set<std::string> reportedCrashes;
+
+	// The message is what the server groups reports by, so the details only go in formatted.
+	static bool FormatCrash(const MIPSExceptionInfo &info, const char **outMessage, std::string *outFormatted) {
+		const char *message = nullptr;
+		char formatted[1024];
+		switch (info.type) {
+		case MIPSExceptionType::MEMORY:
+			message = "Crash: %s at %08x (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, MemoryExceptionTypeAsString(info.memory_type), info.address, info.pc);
+			break;
+		case MIPSExceptionType::BAD_EXEC_ADDR:
+			message = "Crash: %s to %08x (PC %08x, RA %08x)";
+			snprintf(formatted, sizeof(formatted), message, ExecExceptionTypeAsString(info.exec_type), info.address, info.pc, info.ra);
+			break;
+		case MIPSExceptionType::FPU:
+			message = "Crash: FPU %s (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, FPUExceptionTypeAsString(info.fpu_type), info.pc);
+			break;
+		case MIPSExceptionType::BREAK:
+			message = "Crash: break instruction (PC %08x)";
+			snprintf(formatted, sizeof(formatted), message, info.pc);
+			break;
+		case MIPSExceptionType::HLE:
+			message = "Crash: HLE error: %s (PC %08x, RA %08x)";
+			snprintf(formatted, sizeof(formatted), message, info.info.c_str(), info.pc, info.ra);
+			break;
+		default:
+			return false;
+		}
+		*outMessage = message;
+		*outFormatted = formatted;
+		return true;
+	}
+
+	static std::string CrashKey(const std::string &formatted) {
+		return CurrentGameID() + " " + formatted;
+	}
+
+	bool CrashAlreadyReported(const MIPSExceptionInfo &info) {
+		const char *message;
+		std::string formatted;
+		if (!FormatCrash(info, &message, &formatted)) {
+			return false;
+		}
+		std::lock_guard<std::mutex> guard(reportedCrashesLock);
+		return reportedCrashes.count(CrashKey(formatted)) != 0;
+	}
+
+	void ReportCrash(const MIPSExceptionInfo &info, bool userRequested) {
+		// Checked directly too: currentSupported, which MessageAllowed() relies on, can be stale.
+		if (CrashReportsOff() || CheatsOrPluginsInEffect() || (userRequested ? !CanReportCrashManually() : !MessageAllowed())) {
+			return;
+		}
+
+		const char *message;
+		std::string formatted;
+		if (!FormatCrash(info, &message, &formatted)) {
+			return;
+		}
+		{
+			std::lock_guard<std::mutex> guard(reportedCrashesLock);
+			if (!reportedCrashes.insert(CrashKey(formatted)).second) {
+				return;
+			}
+		}
+
+		std::string value = formatted;
+		if (!info.stackTrace.empty()) {
+			value += "\n";
+			value += info.stackTrace.substr(0, 2000);
+		}
+
+		Payload payload{};
+		payload.type = RequestType::MESSAGE;
+		payload.string1 = message;
+		payload.string2 = value;
+		if (userRequested) {
+			payload.host = DEFAULT_HOST;
+		}
+		Process(payload);
 	}
 }

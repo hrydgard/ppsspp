@@ -1218,8 +1218,10 @@ void ImMemWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImControl &
 
 	StatusBar(memView_.StatusMessage());
 
+	// These are single letters, so only take them when this window has focus, or they'd be stolen from the game.
+	const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 	ImGui::End();
-	if (!ImGui::GetIO().WantTextInput) {
+	if (focused && !ImGui::GetIO().WantTextInput) {
 		ProcessKeyboardShortcuts();
 	}
 }

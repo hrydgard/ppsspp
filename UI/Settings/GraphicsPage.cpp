@@ -317,6 +317,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	if (KeyMap::InputMappingsFromPspButton(VIRTKEY_SPEED_ANALOG, nullptr, true)) {
 		page->Setting(&g_Config.iAnalogAltSpeedPercent);
 	}
+	page->Setting(&g_Config.iLimitFrameRateTo30).Hint({I18NCat::GRAPHICS, "LimitFrameRateTo30 Tip", "Some games run better if limited to 30 fps. Auto is recommended, Always can cause problems in some games."});
 
 	page->Header();
 	page->Link({I18NCat::GRAPHICS, "Speed Hacks"}, I18NCat::GRAPHICS, &BuildSpeedHacksPage).Hint({I18NCat::GRAPHICS, "SpeedHacksHint", "These settings can cause rendering errors"});

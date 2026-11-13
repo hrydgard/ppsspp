@@ -119,7 +119,8 @@ bool Arm64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 
 	regs_.Start(startPC, instructions, count);
 
-	std::vector<const u8 *> addresses;
+	std::vector<const u8 *> &addresses = irAddresses_;
+	addresses.clear();
 	addresses.reserve(count);
 	compilingInsts_ = instructions;
 	compilingCount_ = count;
@@ -213,10 +214,28 @@ bool Arm64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 	}
 
 	EndWrite();
-	FlushIcache();
+	// Flushed with the links, after FinalizeBlock.
+	const u8 *flushStart, *flushEnd;
+	TakeIcacheFlushRange(&flushStart, &flushEnd);
+	AddPendingIcacheFlush(flushStart, flushEnd);
 	compilingBlockNum_ = -1;
 
 	return true;
+}
+
+void Arm64JitBackend::AddPendingIcacheFlush(const u8 *start, const u8 *end) {
+	if (numPendingFlushes_ == MAX_PENDING_ICACHE_FLUSHES)
+		FlushPendingIcache();
+	pendingFlushStarts_[numPendingFlushes_] = start;
+	pendingFlushEnds_[numPendingFlushes_] = end;
+	numPendingFlushes_++;
+}
+
+void Arm64JitBackend::FlushPendingIcache() {
+	if (numPendingFlushes_ == 0)
+		return;
+	FlushIcacheSections(pendingFlushStarts_, pendingFlushEnds_, numPendingFlushes_);
+	numPendingFlushes_ = 0;
 }
 
 void Arm64JitBackend::WriteConstExit(uint32_t pc) {
@@ -259,7 +278,8 @@ void Arm64JitBackend::OverwriteExit(int srcOffset, int len, int block_num) {
 		_dbg_assert_(bytesWritten <= MIN_BLOCK_EXIT_LEN);
 		if (bytesWritten < len)
 			emitter.ReserveCodeSpace(len - bytesWritten);
-		emitter.FlushIcache();
+		// Only called from FinalizeBlock, which flushes.
+		AddPendingIcacheFlush(GetBasePtr() + srcOffset, GetBasePtr() + srcOffset + len);
 
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(writable, 16, MEM_PROT_READ | MEM_PROT_EXEC);
@@ -353,6 +373,8 @@ bool Arm64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 
 void Arm64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
+	// Whatever was pending is in there.
+	numPendingFlushes_ = 0;
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
 	EraseAllLinks(-1);
 }

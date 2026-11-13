@@ -5,10 +5,6 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/OpenGL/DataFormatGL.h"
 #include "Common/Math/math_util.h"
-#include "Common/VR/PPSSPPVR.h"
-#ifdef __LIBRETRO__
-#include "libretro/LibretroVR.h"
-#endif
 
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -669,11 +665,8 @@ retry_depth:
 	currentReadHandle_ = fbo->handle;
 }
 
-void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool dryRun, bool keepSteps, bool useVR) {
+void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &frameData, bool dryRun) {
 	if (dryRun) {
-		if (keepSteps) {
-			return;
-		}
 		// Dry run
 		for (size_t i = 0; i < steps.size(); i++) {
 			const GLRStep &step = *steps[i];
@@ -690,9 +683,6 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 							}
 						}
 						break;
-					case GLRRenderCommand::UNIFORMSTEREOMATRIX:
-						delete[] c.uniformStereoMatrix4.mData;
-						break;
 					default:
 						break;
 					}
@@ -705,66 +695,6 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		}
 		return;
 	}
-
-#ifdef __LIBRETRO__
-	if (Libretro::VRActive()) {
-		// Keep framebuffer history per eye, including display buffers from earlier frames.
-		// Resolve before rendering: creating a target changes GL bindings.
-		auto resolve = [&](GLRFramebuffer *&fb) {
-			if (!fb) {
-				return;
-			}
-			if (!fb->vrRight) {
-				fb->vrRight = new GLRFramebuffer(caps_, fb->width, fb->height, fb->z_stencil_, fb->Tag());
-				GLRInitStep init{GLRInitStepType::CREATE_FRAMEBUFFER};
-				init.create_framebuffer.framebuffer = fb->vrRight;
-				InitCreateFramebuffer(init);
-			}
-			if (fb->vrGeneration != Libretro::VRGeneration()) {
-				fbo_bind_fb_target(true, fb->handle);
-				fbo_bind_fb_target(false, fb->vrRight->handle);
-				glDisable(GL_SCISSOR_TEST);
-				GLbitfield mask = GL_COLOR_BUFFER_BIT;
-				if (fb->z_stencil_) {
-					mask |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-				}
-				glBlitFramebuffer(0, 0, fb->width, fb->height, 0, 0, fb->width, fb->height, mask, GL_NEAREST);
-				if (scissorTestOn_) {
-					glEnable(GL_SCISSOR_TEST);
-				}
-				fb->vrGeneration = Libretro::VRGeneration();
-			}
-			if (!keepSteps) {
-				fb = fb->vrRight;
-			}
-		};
-		for (auto step : steps) {
-			switch (step->stepType) {
-			case GLRStepType::RENDER:
-				resolve(step->render.framebuffer);
-				for (auto &command : step->commands) {
-					if (command.cmd == GLRRenderCommand::BIND_FB_TEXTURE) {
-						resolve(command.bind_fb_texture.framebuffer);
-					}
-				}
-				break;
-			case GLRStepType::COPY:
-				resolve(step->copy.src);
-				resolve(step->copy.dst);
-				break;
-			case GLRStepType::BLIT:
-				resolve(step->blit.src);
-				resolve(step->blit.dst);
-				break;
-			case GLRStepType::READBACK:
-				resolve(step->readback.src);
-				break;
-			default:
-				break;
-			}
-		}
-	}
-#endif
 
 	size_t totalRenderCount = 0;
 	for (auto &step : steps) {
@@ -798,12 +728,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		case GLRStepType::RENDER:
 			renderCount++;
 			profiler_.Begin("RenderPass %s", step.tag);
-			if (IsVREnabled()) {
-				PreprocessStepVR(&step);
-				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
-			} else {
-				PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
-			}
+			PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount, frameData.profile);
 			profiler_.End();
 			break;
 		case GLRStepType::COPY:
@@ -840,9 +765,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		if (frameData.profile.enabled) {
 			frameData.profile.passesString += StepToString(step);
 		}
-		if (!keepSteps) {
-			delete steps[i];
-		}
+		delete steps[i];
 	}
 
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1222,28 +1145,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
-		case GLRRenderCommand::UNIFORMSTEREOMATRIX:
-		{
-			_dbg_assert_(curProgram);
-			int loc = c.uniformStereoMatrix4.loc ? *c.uniformStereoMatrix4.loc : -1;
-			if (c.uniformStereoMatrix4.name) {
-				loc = curProgram->GetUniformLoc(c.uniformStereoMatrix4.name);
-			}
-			if (loc >= 0) {
-				if (GetVRFBOIndex() == 0) {
-					glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData);
-				} else {
-					glUniformMatrix4fv(loc, 1, false, c.uniformStereoMatrix4.mData + 16);
-				}
-			}
-			if (GetVRFBOIndex() == 1 || GetVRPassesCount() == 1) {
-				// Only delete the data if we're rendering the only or the second eye.
-				// If we delete during the first eye, we get a use-after-free or double delete.
-				delete[] c.uniformStereoMatrix4.mData;
-			}
-			CHECK_GL_ERROR_IF_DEBUG();
-			break;
-		}
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
 			_dbg_assert_(curProgram);
@@ -1478,11 +1379,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 			int alignment;
 			Thin3DFormatToGLFormatAndType(c.texture_subimage.format, internalFormat, format, type, alignment);
 			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, format, type, c.texture_subimage.data);
-#ifdef __LIBRETRO__
-			if (Libretro::RetainVRCommands()) {
-				break;
-			}
-#endif
 			if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(c.texture_subimage.data);
 			} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
@@ -1790,11 +1686,6 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 		fbo_bind_fb_target(false, curFB_->handle);
 	} else {
 		fbo_unbind();
-#ifndef __LIBRETRO__
-		if (IsVREnabled()) {
-			BindVRFramebuffer();
-		}
-#endif
 		// Backbuffer is now bound.
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1968,9 +1859,6 @@ std::string GLQueueRunner::GetGLString(int name) const {
 }
 
 GLRFramebuffer::~GLRFramebuffer() {
-#ifdef __LIBRETRO__
-	delete vrRight;
-#endif
 	if (handle == 0 && z_stencil_buffer == 0 && z_buffer == 0 && stencil_buffer == 0)
 		return;
 
@@ -2055,7 +1943,6 @@ const char *RenderCommandToString(GLRRenderCommand cmd) {
 	case GLRRenderCommand::UNIFORM4UI: return "UNIFORM4UI";
 	case GLRRenderCommand::UNIFORM4F: return "UNIFORM4F";
 	case GLRRenderCommand::UNIFORMMATRIX: return "UNIFORMMATRIX";
-	case GLRRenderCommand::UNIFORMSTEREOMATRIX: return "UNIFORMSTEREOMATRIX";
 	case GLRRenderCommand::TEXTURESAMPLER: return "TEXTURESAMPLER";
 	case GLRRenderCommand::TEXTURELOD: return "TEXTURELOD";
 	case GLRRenderCommand::VIEWPORT: return "VIEWPORT";

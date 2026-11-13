@@ -61,8 +61,4 @@ namespace MIPSComp {
 		useBackJump = true;
 #endif
 	}
-
-	bool JitOptions::Disabled(JitDisable bit) {
-		return (disableFlags & bit) != 0;
-	}
 }

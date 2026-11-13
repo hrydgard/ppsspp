@@ -1071,6 +1071,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ImDebugger/ImDisasmView.cpp \
   $(SRC)/UI/ImDebugger/ImMemView.cpp \
   $(SRC)/UI/ImDebugger/ImJitViewer.cpp \
+  $(SRC)/UI/ImDebugger/ImProfiler.cpp \
   $(SRC)/UI/ImDebugger/ImStructViewer.cpp \
   $(SRC)/UI/AudioCommon.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
@@ -1139,6 +1140,9 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/UIAtlas.cpp \
   $(SRC)/UI/CustomButtonMappingScreen.cpp \
   $(SRC)/UI/RetroAchievementScreens.cpp
+
+# Calls between our own functions bind directly, not through the PLT (see CMakeLists.txt).
+LOCAL_LDFLAGS += -Wl,-Bsymbolic-functions
 
 ifneq ($(SKIPAPP),1)
   include $(BUILD_SHARED_LIBRARY)

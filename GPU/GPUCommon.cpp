@@ -26,6 +26,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceGe.h"
 #include "Core/HLE/scePower.h"
 #include "Core/Util/PPGeDraw.h"
@@ -996,6 +997,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 			if (!list.started && list.context.IsValid()) {
 				gstate.Save(list.context);
 			}
+			if (!list.started) {
+				paceListStartTicks_ = startingTicks + cyclesExecuted;
+			}
 			list.started = true;
 
 			gstate_c.offsetAddr = list.offsetAddr;
@@ -1182,8 +1186,6 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
-	PROFILE_THIS_SCOPE("gpu_call");
-
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG(Log::G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
@@ -1426,6 +1428,14 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
 
+			if (__DisplayLimitTo30FPS()) {
+				// Make the GE look slow enough that the frame misses the next vblank. Games that drop
+				// to 30fps when they can't make 60 then do. Everything that follows (interrupt, list
+				// and draw sync, busy time) is timed from here.
+				const u64 doneTicks = startingTicks + cyclesExecuted;
+				cyclesExecuted += (int)(__DisplayPaceFrameEnd(paceListStartTicks_, doneTicks) - doneTicks);
+			}
+
 			if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
 				// The context is restored once the finish callback has run, which gets to see the state
 				// the list left behind.  Nothing else runs before then, see InterruptEnd().
@@ -1484,7 +1494,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
-		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Bad bounding box data: %06x", count);
+		ERROR_LOG(Log::G3D, "Bad bounding box data: %06x", count);
 		// Data seems invalid. Let's assume the box test passed.
 		currentList->bboxResult = true;
 		return;
@@ -1494,7 +1504,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	const void *inds = nullptr;
 	if (useInds) {
 		if (!IsValidDrawRange(gstate_c.vertexAddr, gstate_c.indexAddr, count, vertType, dec->VertexSize())) {
-			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
+			ERROR_LOG(Log::G3D, "Invalid inds in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
@@ -1528,7 +1538,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
 		// Only print once for each overrun.
 		if (immCount_ == MAX_IMMBUFFER_SIZE) {
-			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, Log::G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
+			ERROR_LOG(Log::G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
 		}
 		if (immCount_ < 0x7fffffff)  // Paranoia :)
 			immCount_++;
@@ -1575,7 +1585,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		if (immCount_ == flushPrimCount[immPrim_ & 7])
 			FlushImm();
 	} else {
-		ERROR_LOG_REPORT_ONCE(imm_draw_prim, Log::G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
+		ERROR_LOG(Log::G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 
@@ -2083,6 +2093,9 @@ void GPUCommon::DoState(PointerWrap &p) {
 	Do(p, isbreak);
 	Do(p, drawCompleteTicks);
 	Do(p, busyTicks);
+	if (p.mode == PointerWrap::MODE_READ) {
+		paceListStartTicks_ = 0;
+	}
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
@@ -2570,7 +2583,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		} else {
 			// This seems to cause the GE to require a break/reset on a PSP.
 			// TODO: Handle that and figure out which bytes are still copied?
-			ERROR_LOG_REPORT_ONCE(invalidtransfer, Log::G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+			// Looking at reports, this is entirely noise from garbage executed as display lists.
+			ERROR_LOG(Log::G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 		}
 
 		if (framebufferManager_) {
@@ -2596,6 +2610,7 @@ void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
 }
 
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
+	PROFILE_THIS_SCOPE("gpu_memcpy");
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
 		return false;
@@ -2642,6 +2657,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 }
 
 bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
+	PROFILE_THIS_SCOPE("gpu_memset");
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemorySet: %08x, value %02x, size %d", dest, v, size);
 		return false;
@@ -2683,6 +2699,7 @@ bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 }
 
 bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
+	PROFILE_THIS_SCOPE("gpu_upload");
 	if (Memory::IsVRAMAddress(dest)) {
 		recorder_.NotifyUpload(dest, size);
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_SRC_MATCH_MEM | GPUCopyFlag::DEBUG_NOTIFIED);

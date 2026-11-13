@@ -343,8 +343,21 @@ static std::string FindGameUpdatePBOOT(const std::string &discId, const std::str
 			path.c_str(), updateDiscVersion.c_str(), discVersion.c_str());
 	}
 
+	// An update that isn't newer than the disc has nothing to add. A modified disc can have the
+	// update built in, and booting the stock update would replace its executable.
+	const std::string updateAppVer = sfo.GetValueString("APP_VER");
+	const std::string discAppVer = g_paramSFO.GetValueString("APP_VER");
+	int updateMajor, updateMinor, discMajor, discMinor;
+	if (sscanf(updateAppVer.c_str(), "%d.%d", &updateMajor, &updateMinor) == 2 &&
+		sscanf(discAppVer.c_str(), "%d.%d", &discMajor, &discMinor) == 2 &&
+		(updateMajor < discMajor || (updateMajor == discMajor && updateMinor <= discMinor))) {
+		NOTICE_LOG(Log::Loader, "Ignoring '%s': its app version %s isn't newer than the disc's %s",
+			path.c_str(), updateAppVer.c_str(), discAppVer.c_str());
+		return std::string();
+	}
+
 	NOTICE_LOG(Log::Loader, "Booting game update '%s' (app version %s) instead of the disc's executable",
-		path.c_str(), sfo.GetValueString("APP_VER").c_str());
+		path.c_str(), updateAppVer.c_str());
 	return path;
 }
 
@@ -677,7 +690,7 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 	static const char *const popsmanPath = "flash0:/kd/popsman.prx";
 	if (!pspFileSystem.GetFileInfo(popsmanPath).exists) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error_string = er->T("PS1NoFirmware", "PS1 games need the PS1 emulator in the PSP's firmware, and no firmware is installed. Install firmware 6.00 to 6.61 from an official PSP update file in Settings > Tools > PSP Firmware. Starting a PSP game whose disc has an updater on it also installs its firmware.");
+		*error_string = er->T("PS1NoFirmware", "PS1 games need the PS1 emulator in the PSP's firmware, and no firmware is installed. Install firmware 6.00 to 6.61 from an official PSP update file in Settings > System > PSP firmware (XMB). Starting a PSP game whose disc has an updater on it also installs its firmware.");
 		return false;
 	}
 

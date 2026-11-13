@@ -176,6 +176,56 @@ void ArmJitBackend::CompIR_LoadShift(IRInst inst) {
 	}
 }
 
+// Memory directly, or through the fixed code for a hardware register (0xA0000000-0xBFFFFFFF, kernel
+// segment 1), where the address may also be one the CPU has no memory at (see Memory::IsMMIOAccess).
+// Only the main CPU gets here: the IR interpreter runs the Media Engine on ARM32.
+void ArmJitBackend::CompIR_KernelLoadStore(IRInst inst) {
+	CONDITIONAL_DISABLE;
+
+	const bool isStore = inst.op == IROp::StoreKernel8 || inst.op == IROp::StoreKernel16 || inst.op == IROp::StoreKernel32;
+	// Everything is mapped before the branch, so both ways leave the register cache the same.
+	regs_.SpillLockGPR(isStore ? inst.src3 : inst.dest, inst.src1);
+	if (inst.src1 == MIPS_REG_ZERO)
+		MOVI2R(SCRATCH1, inst.constant);
+	else
+		ADDI2R(SCRATCH1, regs_.MapGPR(inst.src1), inst.constant, SCRATCH2);
+	// A load into $zero only matters for what reading a hardware register does.
+	ARMReg reg = INVALID_REG;
+	if (isStore)
+		reg = regs_.MapGPR(inst.src3);
+	else if (inst.dest != MIPS_REG_ZERO)
+		reg = regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+
+	MOV(SCRATCH2, Operand2(SCRATCH1, ST_LSR, 29));
+	CMP(SCRATCH2, Operand2(0xA0000000 >> 29));
+	FixupBranch memory = B_CC(CC_NEQ);
+	if (isStore)
+		MOV(SCRATCH2, reg);
+	// LR may hold a guest value, and R4 keeps the stack aligned for the call.
+	PUSH(2, R4, R_LR);
+	BL(kernelLoadStore_[(int)inst.op - (int)IROp::LoadKernel8]);
+	POP(2, R4, R_LR);
+	if (reg != INVALID_REG && !isStore)
+		MOV(reg, SCRATCH1);
+	FixupBranch done = B();
+
+	SetJumpTarget(memory);
+	// Clears bits 28-31 (see MEMVIEW32_MASK).
+	BIC(SCRATCH1, SCRATCH1, Operand2(0xF0, 4));
+	switch (inst.op) {
+	case IROp::LoadKernel8: if (reg != INVALID_REG) LDRB(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::LoadKernel8Ext: if (reg != INVALID_REG) LDRSB(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::LoadKernel16: if (reg != INVALID_REG) LDRH(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::LoadKernel16Ext: if (reg != INVALID_REG) LDRSH(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::LoadKernel32: if (reg != INVALID_REG) LDR(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::StoreKernel8: STRB(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::StoreKernel16: STRH(reg, MEMBASEREG, SCRATCH1); break;
+	case IROp::StoreKernel32: STR(reg, MEMBASEREG, SCRATCH1); break;
+	default: INVALIDOP; break;
+	}
+	SetJumpTarget(done);
+}
+
 void ArmJitBackend::CompIR_Store(IRInst inst) {
 	CONDITIONAL_DISABLE;
 

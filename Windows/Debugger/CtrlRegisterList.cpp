@@ -100,7 +100,12 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 	case WM_MOUSEMOVE:   ccp->onMouseMove(wParam,lParam,(lmbDown?1:0) | (rmbDown?2:0)); break;
 	case WM_LBUTTONUP:   lmbDown=false; ccp->onMouseUp(wParam,lParam,1); break;
 	case WM_RBUTTONUP:   rmbDown=false; ccp->onMouseUp(wParam,lParam,2); break;
-	case WM_LBUTTONDBLCLK:	ccp->editRegisterValue(); break;
+	case WM_LBUTTONDBLCLK:
+		// Not on the category tabs, which aren't a register.
+		if ((s16)HIWORD(lParam) > ccp->rowHeight) {
+			ccp->editRegisterValue();
+		}
+		break;
 	case WM_SETFOCUS:
 		SetFocus(hwnd);
 		ccp->hasFocus=true;
@@ -559,8 +564,9 @@ void CtrlRegisterList::editRegisterValue()
 void CtrlRegisterList::onMouseDown(WPARAM wParam, LPARAM lParam, int button)
 {
 	int x = (s16)LOWORD(lParam); 
-	int y = (s16)HIWORD(lParam); 
-	if (x>16)
+	int y = (s16)HIWORD(lParam);
+	// The left margin only belongs to the register rows, the category tabs span the whole width.
+	if (x > 16 || y <= rowHeight)
 	{
 		oldSelection=selection;
 
@@ -650,10 +656,17 @@ void CtrlRegisterList::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 	}
 	if (x>16)
 	{
-		selection=yToIndex(y);
+		if (y > rowHeight) {
+			selection=yToIndex(y);
+		}
 		selecting=false;
 		ReleaseCapture();
 		redraw();
+	}
+	else
+	{
+		// A click on the category tabs captures the mouse too, at any x.
+		ReleaseCapture();
 	}
 }
 

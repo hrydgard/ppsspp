@@ -20,6 +20,7 @@
 #include <cmath>
 
 #include "Common/GPU/thin3d.h"
+#include "Common/Profiler/Profiler.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
@@ -439,7 +440,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
-					WARN_LOG_REPORT_ONCE(renderoffset, Log::FrameBuf, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
+					WARN_LOG_N_TIMES(fbxoffset, 5, Log::FrameBuf, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
 					normal_vfb = v;
 					gstate_c.SetCurRTOffset(x_offset, 0);
 					normal_vfb->width = std::max((int)normal_vfb->width, x_offset + drawing_width);
@@ -467,7 +468,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		// These are prioritized over normal VFBs matches, to ensure things work even if the higher-address one
 		// is created first. Only enabled under compat flag.
 		vfb = large_offset_vfb;
-		WARN_LOG_REPORT_ONCE(tokimeki, Log::FrameBuf, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
+		WARN_LOG_N_TIMES(fbyoffset, 5, Log::FrameBuf, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
 		gstate_c.SetCurRTOffset(0, y_offset);
 		vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
 		drawing_height += y_offset;
@@ -3508,6 +3509,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 // dithering behavior and games that expect exact colors like Danganronpa, so we
 // can't entirely be rid of the CPU path.) -- unknown
 void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode, u8 *shadow) {
+	PROFILE_THIS_SCOPE("fb_readback");
 	if (w <= 0 || h <= 0) {
 		ERROR_LOG(Log::FrameBuf, "Bad inputs to ReadbackFramebufferSync: %d %d %d %d", x, y, w, h);
 		return;
@@ -3738,6 +3740,7 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 
 // TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
 void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
+	PROFILE_THIS_SCOPE("fb_clut_download");
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
 	// Without an fbo there's nothing to read back (ReadbackFramebuffer would read the backbuffer instead).
 	if (vfb && vfb->fb_stride != 0 && vfb->fbo) {

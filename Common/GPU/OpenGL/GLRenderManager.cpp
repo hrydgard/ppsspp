@@ -3,10 +3,6 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Thread/ThreadUtil.h"
-#include "Common/VR/PPSSPPVR.h"
-#ifdef __LIBRETRO__
-#include "libretro/LibretroVR.h"
-#endif
 
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -114,7 +110,7 @@ void GLRenderManager::ThreadEnd() {
 	// Steps that never got submitted. A dry run frees the data they own (texture uploads etc), and the steps.
 	queueRunner_.RunInitSteps(initSteps_, true);
 	initSteps_.clear();
-	queueRunner_.RunSteps(steps_, frameData_[0], true, false, false);
+	queueRunner_.RunSteps(steps_, frameData_[0], true);
 	steps_.clear();
 	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd end");
 }
@@ -476,25 +472,7 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		frameData.profile.cpuStartTime = time_now_d();
 	}
 
-#ifdef __LIBRETRO__
-	if (Libretro::VRActive()) {
-		for (int eye = 0; eye < 2; ++eye) {
-			Libretro::BeginVREye(eye);
-			queueRunner_.RunSteps(task.steps, frameData, false, eye == 0, false);
-		}
-		Libretro::EndVREyes();
-	} else
-#endif
-	if (IsVREnabled()) {
-		int passes = GetVRPassesCount();
-		for (int i = 0; i < passes; i++) {
-			PreVRFrameRender(i);
-			queueRunner_.RunSteps(task.steps, frameData, false, i < passes - 1, true);
-			PostVRFrameRender();
-		}
-	} else {
-		queueRunner_.RunSteps(task.steps, frameData, false, false, false);
-	}
+	queueRunner_.RunSteps(task.steps, frameData, false);
 
 	if (frameData.profile.enabled) {
 		frameData.profile.cpuEndTime = time_now_d();

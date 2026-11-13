@@ -306,22 +306,11 @@ u64 GameInfo::GetGameSavedataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
-	std::vector<Path> saveDataDir = GetSaveDataDirectories();
-
 	u64 totalSize = 0;
-	u64 filesSizeInDir = 0;
-	for (const auto& dir : saveDataDir) {
-		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(dir, &fileInfo);
-		for (auto const &file : fileInfo) {
-			if (!file.isDirectory)
-				filesSizeInDir += file.size;
+	for (const Path &dir : GetSaveDataDirectories()) {
+		if (!IsInstalledGameData(dir)) {
+			totalSize += File::ComputeRecursiveDirectorySize(dir);
 		}
-		if (filesSizeInDir < 0xA00000) {
-			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
-			totalSize += filesSizeInDir;
-		}
-		filesSizeInDir = 0;
 	}
 	return totalSize;
 }
@@ -330,27 +319,55 @@ u64 GameInfo::GetInstallDataSizeInBytes() const {
 	if (fileType == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY || fileType == IdentifiedFileType::PPSSPP_SAVESTATE) {
 		return 0;
 	}
-	std::vector<Path> saveDataDir = GetSaveDataDirectories();
-
 	u64 totalSize = 0;
-	u64 filesSizeInDir = 0;
-	for (const auto& dir : saveDataDir) {
-		std::vector<File::FileInfo> fileInfo;
-		File::GetFilesInDir(dir, &fileInfo);
-		for (auto const &file : fileInfo) {
-			// TODO: Might want to recurse here? Don't know games that use directories
-			// for install-data though.
-			if (!file.isDirectory)
-				filesSizeInDir += file.size;
+	for (const Path &dir : GetSaveDataDirectories()) {
+		if (IsInstalledGameData(dir)) {
+			totalSize += File::ComputeRecursiveDirectorySize(dir);
 		}
-		if (filesSizeInDir >= 0xA00000) { 
-			// HACK: Generally the savedata size in a dir shouldn't be more than 10MB.
-			// This is probably GameInstall data.
-			totalSize += filesSizeInDir;
-		}
-		filesSizeInDir = 0;
 	}
 	return totalSize;
+}
+
+bool IsInstalledGameData(const Path &saveDir) {
+	// Saves can have files outside the list too (PS1 memory cards, homebrew settings), but only a few MB.
+	// Installs are hundreds.
+	constexpr u64 MIN_INSTALLED_SIZE = 10 * 1024 * 1024;
+	// Written by the savedata utility, but never in the list.
+	static const char *const metaFiles[] = { "PARAM.SFO", "ICON0.PNG", "ICON1.PMF", "ICON1.PNG", "PIC1.PNG", "SND0.AT3" };
+
+	std::vector<std::string> listed;
+	std::string sfoData;
+	ParamSFOData sfo;
+	if (File::ReadBinaryFileToString(saveDir / "PARAM.SFO", &sfoData) && sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size())) {
+		unsigned int size = 0;
+		const u8 *list = sfo.GetValueData("SAVEDATA_FILE_LIST", &size);
+		// Entries of 32 bytes (SaveSFOFileListEntry), starting with a 13-byte name.
+		constexpr unsigned int ENTRY_SIZE = 32;
+		constexpr unsigned int NAME_SIZE = 13;
+		for (unsigned int offset = 0; list && offset + ENTRY_SIZE <= size; offset += ENTRY_SIZE) {
+			const char *name = (const char *)list + offset;
+			const std::string_view entryName(name, strnlen(name, NAME_SIZE));
+			if (!entryName.empty()) {
+				listed.emplace_back(entryName);
+			}
+		}
+	}
+
+	std::vector<File::FileInfo> files;
+	File::GetFilesInDir(saveDir, &files);
+	u64 unlistedSize = 0;
+	for (const File::FileInfo &file : files) {
+		if (file.isDirectory) {
+			unlistedSize += File::ComputeRecursiveDirectorySize(file.fullName);
+			continue;
+		}
+		const auto matches = [&file](std::string_view name) { return equalsNoCase(file.name, name); };
+		if (std::any_of(std::begin(metaFiles), std::end(metaFiles), matches) || std::any_of(listed.begin(), listed.end(), matches)) {
+			continue;
+		}
+		unlistedSize += file.size;
+	}
+	return unlistedSize >= MIN_INSTALLED_SIZE;
 }
 
 bool GameInfo::CreateLoader() {
@@ -750,14 +767,22 @@ public:
 handleELF:
 		{
 			// An elf on its own has no usable information, no icons, no nothing. Except the XMB, which we name.
-			const std::string vshTitle = GetVSHTitle(gamePath_);
+			std::string vshVersion;
+			const std::string vshTitle = GetVSHTitle(gamePath_, &vshVersion);
 			info_->SetTitle(vshTitle.empty() ? info_->GetFilePath().GetFilename() : vshTitle);
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
-				const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->id = fakeID;
-				info_->id_version = fakeID + "_1.00";
-				info_->region = vshTitle.empty() ? GameRegion::HOMEBREW : GameRegion::VSH;
+				if (vshTitle.empty()) {
+					const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
+					info_->id = fakeID;
+					info_->id_version = fakeID + "_1.00";
+					info_->region = GameRegion::HOMEBREW;
+				} else {
+					// The same as the boot gives it (see CPU_Init).
+					info_->id = VSH_DISC_ID;
+					info_->id_version = std::string(VSH_DISC_ID) + "_" + (vshVersion.empty() ? "1.00" : vshVersion);
+					info_->region = GameRegion::VSH;
+				}
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {

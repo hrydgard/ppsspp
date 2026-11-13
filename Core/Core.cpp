@@ -858,6 +858,15 @@ static std::string ModuleAddressSuffix(u32 address) {
 	}
 }
 
+// Only the first exception since the last resume is kept, as it's the one to show and report. A JIT
+// block runs to its end after Core_Break(), and later exceptions in it are consequences. Overwriting
+// would also race with the UI thread, which reads the info once the core has stopped.
+static void RecordException(const MIPSExceptionInfo &e) {
+	if (g_exceptionInfo.type == MIPSExceptionType::NONE) {
+		g_exceptionInfo = e;
+	}
+}
+
 void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool halting) {
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	char pcDetails[128];
@@ -907,8 +916,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	// Do the most detailed logging we can.
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%sMIPS call stack:\n%s", msg, stackTrace.c_str()));
 	if (action == ExceptionAction::Break || halting) {
-		MIPSExceptionInfo &e = g_exceptionInfo;
-		e = {};
+		MIPSExceptionInfo e{};
 		e.type = MIPSExceptionType::MEMORY;
 		e.info.clear();
 		e.memory_type = type;
@@ -916,6 +924,7 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
+		RecordException(e);
 		Core_Break(BreakReason::MemoryException, address);
 	}
 }
@@ -974,8 +983,7 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
 	if (action == ExceptionAction::Break) {
-		MIPSExceptionInfo &e = g_exceptionInfo;
-		e = {};
+		MIPSExceptionInfo e{};
 		e.type = MIPSExceptionType::MEMORY;
 		e.info.clear();
 		e.memory_type = type;
@@ -983,6 +991,7 @@ void Core_MemoryExceptionHLE(MIPSState *mips, u32 address, u32 accessSize, Memor
 		e.accessSize = accessSize;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
+		RecordException(e);
 		Core_Break(BreakReason::MemoryException, address);
 	}
 }
@@ -1044,8 +1053,7 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 		Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\nMIPS call stack:\n%s", msg, stackTrace.c_str()));
 	}
 
-	MIPSExceptionInfo &e = g_exceptionInfo;
-	e = {};
+	MIPSExceptionInfo e{};
 	e.type = MIPSExceptionType::BAD_EXEC_ADDR;
 	e.info.clear();
 	e.exec_type = type;
@@ -1054,12 +1062,13 @@ void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
 	e.pc = pc;
 	// This just records the closest value that could be useful as reference.
 	e.ra = currentMIPS->r[MIPS_REG_RA];
+	e.stackTrace = stackTrace;
+	RecordException(e);
 	Core_Break(BreakReason::CpuException, address);
 }
 
 void Core_BreakException(u32 pc) {
-	MIPSExceptionInfo &e = g_exceptionInfo;
-	e = {};
+	MIPSExceptionInfo e{};
 	e.type = MIPSExceptionType::BREAK;
 	e.info.clear();
 	e.pc = pc;
@@ -1078,7 +1087,9 @@ void Core_BreakException(u32 pc) {
 
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\n%s", msg, stackTrace.c_str()));
+	e.stackTrace = stackTrace;
 	if (action == ExceptionAction::Break) {
+		RecordException(e);
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
 }
@@ -1087,13 +1098,13 @@ void Core_HLEError(std::string_view message) {
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("HLE error: %.*s\n%s", STR_VIEW(message), stackTrace.c_str()));
 
-	MIPSExceptionInfo &e = g_exceptionInfo;
-	e = {};
+	MIPSExceptionInfo e{};
 	e.type = MIPSExceptionType::HLE;
 	e.info = message;
 	e.stackTrace = stackTrace;
 	e.pc = currentMIPS->pc;
 	e.ra = currentMIPS->r[MIPS_REG_RA];
+	RecordException(e);
 	Core_UpdateState(CORE_RUNTIME_ERROR);
 }
 
@@ -1118,13 +1129,13 @@ void Core_FPUException(u32 pc, FPUExceptionType type) {
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%s\nMIPS call stack:\n%s", msg, stackTrace.c_str()));
 	if (action == ExceptionAction::Break) {
-		MIPSExceptionInfo &e = g_exceptionInfo;
-		e = {};
+		MIPSExceptionInfo e{};
 		e.type = MIPSExceptionType::FPU;
 		e.info.clear();
 		e.fpu_type = type;
 		e.stackTrace = stackTrace;
 		e.pc = pc;
+		RecordException(e);
 		Core_Break(BreakReason::CpuException, pc);
 	}
 }

@@ -175,6 +175,7 @@ struct CommandLineOptions {
 
 	std::optional<bool> oldAtrac;
 	std::optional<std::string> jitProfile;
+	std::optional<int> jitBench;
 
 	// Headless options that may also be mildly useful in application mode
 	std::optional<int> resolutionScale;
@@ -194,6 +195,10 @@ struct CommandLineOptions {
 	std::optional<bool> printEqualLines;
 	// Headless: print flips per emulated second at the end, counted from the loaded state (if any).
 	std::optional<bool> frameStats;
+	// Headless: pull audio through the resampler like an output device with this period, in frames
+	// at 48 kHz, and print how full the buffer was and how often it ran dry.
+	std::optional<int> audioSinkPeriod;
+	std::optional<bool> audioGranular;
 	// Headless: which of several instances running at once this is (sets PPSSPP_ID, and with it the
 	// instance's 127.0.0.N address and MAC), and whether to run at PSP speed rather than flat out.
 	// Both are for ad hoc tests where instances talk to each other.
@@ -214,6 +219,10 @@ struct CommandLineOptions {
 	std::optional<int> adhocDelayMs;
 	std::optional<int> adhocJitterMs;
 	std::optional<int> adhocLossPercent;
+	// Frame profiler logging (builds with USE_PROFILER). See Profiler_SetLogging.
+	std::optional<std::string> profileLog;
+	std::optional<double> profileHitchMs;
+	std::optional<double> profileSpanMs;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;

@@ -128,6 +128,8 @@ private:
 	std::string host_;
 	int port_ = 0;
 
+	static constexpr size_t maxResponseSize = 256 * 1024 * 1024;
+
 	bool FetchAllDo(const std::string &host, int port);
 
 	bool FetchSymbols();

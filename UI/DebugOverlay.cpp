@@ -5,6 +5,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
+#include "Common/Data/Text/Parsers.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -20,6 +21,7 @@
 #include "Core/Reporting.h"
 #include "Core/CwCheat.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
@@ -86,6 +88,20 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
 		}
 		w.F("Invalidations: %d (%d blocks)\n", stats.invalidations, stats.invalidatedBlocks);
+		w.F("Large invalidations checking all blocks: %d (%d blocks changed)\n", stats.changedCodeChecks, stats.changedCodeBlocks);
+
+		const MIPSComp::JitCompileTimes &t = MIPSComp::g_jitCompileTimes;
+		if (t.blocks > 0) {
+			w.F("Compiled %lld blocks, %lld MIPS -> %lld IR instructions, %0.1f ms\n",
+				(long long)t.blocks, (long long)t.mipsInstructions, (long long)t.irInstructions, t.CompileNanos() * 1e-6);
+			// Phases are only timed while this shows.
+			const double perBlock = 1e-3 / std::max<int64_t>(1, t.phaseBlocks);  // ns -> us per block
+			w.F("Per block (us), of the %lld compiled while this shows: frontend %0.1f, passes %0.1f, backend %0.1f, finalize %0.1f. Slowest %0.1f\n",
+				(long long)t.phaseBlocks, t.frontendNanos * perBlock, t.passNanos * perBlock, t.backendNanos * perBlock, t.finalizeNanos * perBlock,
+				t.maxBlockNanos * 1e-3);
+			w.F("Per MIPS instruction: %0.2f us\n", t.TotalNanos() * 1e-3 / std::max<int64_t>(1, t.mipsInstructions));
+			w.F("Invalidation: %0.1f ms, full clears: %d, %0.1f ms\n", t.invalidateNanos * 1e-6, t.clears, t.clearNanos * 1e-6);
+		}
 	} else {
 		w.W("No JIT (interpreter)\n");
 	}
@@ -146,6 +162,7 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	float *sleepHistory;
 	int valid, pos;
 	float *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
+	const float *jitHistory = __DisplayGetFrameJitTimes();
 	int scale = 7000;
 	int width = 600;
 
@@ -154,7 +171,10 @@ static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	int bottom = bounds.y2();
 	for (int i = 0; i < valid; ++i) {
 		double activeTime = history[i] - sleepHistory[i];
-		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		// JIT compile time at the bottom, in orange.
+		double jitTime = std::min((double)jitHistory[i], activeTime);
+		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - jitTime * scale, 0xFF3F9FFF);
+		ctx->Draw()->vLine(bounds.x + i, bottom - jitTime * scale, bottom - activeTime * scale, 0xFF3FFF3F);
 		ctx->Draw()->vLine(bounds.x + i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
 	}
 	ctx->Draw()->vLine(bounds.x + pos, bottom, bottom - 512, 0xFFff3F3f);
@@ -292,12 +312,12 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 #if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
 	case DebugOverlay::GPU_PROFILE:
 		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
-			DrawGPUProfilerVis(ctx, gpu);
+			DrawGPUProfilerVis(ctx, ctx->GetTheme().uiFont, gpu);
 		}
 		break;
 	case DebugOverlay::GPU_ALLOCATOR:
 		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
-			DrawGPUMemoryVis(ctx, gpu);
+			DrawGPUMemoryVis(ctx, ctx->GetTheme().uiFont, gpu);
 		}
 		break;
 #endif
@@ -322,6 +342,15 @@ static const char *CPUCoreAsString(int core) {
 	case 3: return "JIT using IR";
 	default: return "N/A";
 	}
+}
+
+// Draws a block of lines, and returns where the next block goes.
+static int DrawCrashTextBlock(UIContext *ctx, FontID font, std::string_view text, int x, int y) {
+	text = StripSpaces(text);
+	ctx->Draw()->DrawTextShadow(font, text, x, y, 0xFFFFFFFF);
+	float w, h;
+	ctx->Draw()->MeasureText(font, text, &w, &h);
+	return y + (int)h + 15;
 }
 
 void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
@@ -392,6 +421,12 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	int sysVersion = System_GetPropertyInt(SYSPROP_SYSTEMVERSION);
+	Draw::DrawContext *draw = ctx->GetDrawContext();
+	// On most APIs the vendor string is the GPU model.
+	std::string gpuName = draw->GetInfoString(Draw::InfoField::VENDORSTRING);
+	std::string apiName = draw->GetInfoString(Draw::InfoField::APINAME);
+	// Off the CPU thread, so peek.
+	std::string emulatedTime = NiceTimeFormat((int)(CoreTiming::PeekGlobalTimeUs() / 1000000));
 
 	// First column
 	y += 65;
@@ -407,18 +442,21 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s (%s)
 %s (%s)
 %s v%d (%s)
+%s (%s)
+Emulated time: %s
 %s
 )",
 ExceptionTypeAsString(info.type),
 discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
+gpuName.c_str(), apiName.c_str(),
+emulatedTime.c_str(),
 crcStr
 );
 
 	ctx->Draw()->SetFontScale(.7f, .7f);
-	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-	y += 160;
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	if (info.type == MIPSExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -430,8 +468,6 @@ info.address,
 info.accessSize,
 info.pc,
 info.info.c_str());
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x
@@ -441,36 +477,27 @@ ExecExceptionTypeAsString(info.exec_type),
 info.address,
 info.pc,
 info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::FPU) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 FPU: %s
 PC: %08x
 )", FPUExceptionTypeAsString(info.fpu_type), info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK
 PC: %08x
 )", info.pc);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else if (info.type == MIPSExceptionType::HLE) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 %s
 PC: %08x
 RA: %08x)", info.info.c_str(), info.pc, info.ra);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
 )", (int)info.type);
-		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 180;
 	}
+	y = DrawCrashTextBlock(ctx, ubuntu24, statbuf, x, y);
 
 	std::string kernelState = __KernelStateSummary();
 
