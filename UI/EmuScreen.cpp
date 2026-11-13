@@ -68,6 +68,7 @@ using namespace std::placeholders;
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceDisplay.h"
@@ -1779,7 +1780,23 @@ DeviceOrientation EmuScreen::GameLayoutOrientation() const {
 }
 
 const DisplayLayoutConfig &EmuScreen::GameLayoutConfig() const {
-	return g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
+	const auto &config = g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
+	if (Replacement_GetVSHWidescreenScale() >= 1.0f) {
+		return config;
+	}
+	if (!vshDisplayLayout_) {
+		vshDisplayLayout_ = std::make_unique<DisplayLayoutConfig>();
+	}
+	*vshDisplayLayout_ = config;
+	vshDisplayLayout_->bDisplayStretch = true;
+	vshDisplayLayout_->bDisplayIntegerScale = false;
+	vshDisplayLayout_->fDisplayAspectRatio = 1.0f;
+	vshDisplayLayout_->fDisplayScale = 1.0f;
+	vshDisplayLayout_->fDisplayOffsetX = 0.5f;
+	vshDisplayLayout_->fDisplayOffsetY = 0.5f;
+	vshDisplayLayout_->iInternalScreenRotation = ROTATION_LOCKED_HORIZONTAL;
+	vshDisplayLayout_->sOverlay.clear();
+	return *vshDisplayLayout_;
 }
 
 bool EmuScreen::renderOutput(const OutputDisplay &output) {

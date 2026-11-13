@@ -71,6 +71,9 @@ struct ReplacementTableEntry {
 void Replacement_Init();
 void Replacement_Shutdown();
 
+// Horizontal projection scale for the running XMB, or 1 when widescreen is inactive.
+float Replacement_GetVSHWidescreenScale();
+
 int GetNumReplacementFuncs();
 std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(size_t index);
