@@ -899,6 +899,20 @@ void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int mic
 	date_out.microsecond = microSeconds;
 }
 
+void RoundToFATDateTimes(ScePspDateTime &ctime, ScePspDateTime &atime, ScePspDateTime &mtime) {
+	// pspautotests utility/savedata/listtimes: a real memory stick reports no microseconds, the
+	// modification time to two seconds, and the last access as a date only, which reading the
+	// file doesn't move within the day. Passing on the host's atime let any read on the host change
+	// it, and Crush compares a whole LIST entry with the one it took after saving (issue #18664).
+	ctime.microsecond = 0;
+	atime.hour = 0;
+	atime.minute = 0;
+	atime.second = 0;
+	atime.microsecond = 0;
+	mtime.second &= ~1;
+	mtime.microsecond = 0;
+}
+
 // isFAT is whether the file lives on a FAT volume (the memory stick), which changes both the
 // permissions reported and whether st_private means anything.
 static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info, bool isFAT) {
@@ -929,6 +943,9 @@ static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info, bool isFAT) {
 	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
 	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
 	ConvertTmToPspDateTime(stat->st_m_time, info.mtime, info.mtimeUs);
+	if (isFAT) {
+		RoundToFATDateTimes(stat->st_c_time, stat->st_a_time, stat->st_m_time);
+	}
 	// st_private[0] carries the LBN on a UMD, which games read to build disc0:/sce_lbn paths -
 	// see umd/raw_access. On the memory stick a real PSP leaves it alone entirely.
 	if (!isFAT) {
