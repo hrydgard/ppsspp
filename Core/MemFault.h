@@ -16,6 +16,11 @@ void MemFault_Init();
 bool MemFault_MayBeResumable();
 void MemFault_IgnoreLastCrash();
 
+// Caps how many bad accesses get ignored per emulated frame, whichever path reports them.
+bool IgnoredBadAccessLimitReached();
+void CountIgnoredBadAccess();
+int MaxIgnoredBadAccessesPerFrame();
+
 // Called by exception handlers. We simply filter out accesses to PSP RAM and otherwise
 // just leave it as-is.
 bool HandleFault(uintptr_t hostAddress, void *context);
