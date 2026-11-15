@@ -409,7 +409,7 @@ void UIContext::DrawRoundRectMask(const UI::Drawable &drawable, const Bounds &bo
 		return;
 	if (drawable.type == UI::DRAW_SOLID_COLOR) {
 		uidrawbuffer_->DrawRoundRect(bounds, radius, drawable.color, RoundRectStyle::Mask, corners);
-		// Only draw masks on none transparent themes.
+		//Only draw if alpha is non-zero.
 	}
 }
 
