@@ -578,6 +578,7 @@ def cmd_until(args):
 	last_press = None
 	# The screens it saw, to show how it got where it gave up: often a press that landed too early.
 	history = {inst["n"]: [] for inst in waiting}
+	wall_start = time.time()
 	while waiting:
 		now = emulated_seconds(session)
 		if now - start > args.timeout:
@@ -597,12 +598,20 @@ def cmd_until(args):
 			last_press = now
 			pressed = True
 		still = []
+		poll_start = time.time()
 		for inst in waiting:
 			image = Image.open(io.BytesIO(grab_png(inst)))
-			remember(history[inst["n"]], now - start, image, pressed)
+			remember(history[inst["n"]], now - start, time.time() - wall_start, image, pressed)
 			if not matches_any(args, image):
 				still.append(inst)
 		waiting = still
+		stalled = time.time() - poll_start
+		if stalled > 5:
+			# A screenshot that took this long (the debugger answering slowly) let the game run on unwatched,
+			# with no presses, for what can be most of the timeout. Don't count that against it.
+			after = emulated_seconds(session)
+			print("until: a screenshot took %.0f s; not counting the %.0f emulated s that passed meanwhile" % (stalled, after - now), file=sys.stderr)
+			start += after - now
 		if waiting:
 			time.sleep(wall_seconds(session, args.poll))
 
@@ -610,13 +619,13 @@ def cmd_until(args):
 HISTORY_LENGTH = 12
 
 
-def remember(history, seconds, image, pressed):
+def remember(history, seconds, wall, image, pressed):
 	# Keeps the last HISTORY_LENGTH screens that differ from the one before.
 	from PIL import ImageChops
 	small = image.convert("RGB").resize((160, 91))
-	if history and not pressed and not ImageChops.difference(small, history[-1][1]).getbbox():
+	if history and not pressed and not ImageChops.difference(small, history[-1][2]).getbbox():
 		return
-	history.append((seconds, small, pressed))
+	history.append((seconds, wall, small, pressed))
 	del history[:-HISTORY_LENGTH]
 
 
@@ -628,10 +637,10 @@ def save_history(history, path):
 	rows = (len(history) + cols - 1) // cols
 	sheet = Image.new("RGB", (cols * 164, rows * 107), "black")
 	draw = ImageDraw.Draw(sheet)
-	for i, (seconds, small, pressed) in enumerate(history):
+	for i, (seconds, wall, small, pressed) in enumerate(history):
 		x, y = (i % cols) * 164 + 2, (i // cols) * 107 + 2
 		sheet.paste(small, (x, y))
-		draw.text((x, y + 92), "%+.1f s%s" % (seconds, ", pressed" if pressed else ""), fill="yellow")
+		draw.text((x, y + 92), "%+.1f s (wall %.0f)%s" % (seconds, wall, ", pressed" if pressed else ""), fill="yellow")
 	sheet.save(path)
 
 
