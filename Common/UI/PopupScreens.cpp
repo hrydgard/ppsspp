@@ -272,7 +272,7 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	const bool canUseCornerMask = dc.GetTheme().choiceRoundRadius > 0.0f &&
 		popupBg.type == DRAW_SOLID_COLOR &&
 		(popupBg.color & 0xFF000000) == 0xFF000000;
-	// Only draw masks on none transparent themes.
+	// Corner mask only blends cleanly on opaque solid-color popup backgrounds.
 	listView_->SetCornerMask(canUseCornerMask);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }

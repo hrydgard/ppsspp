@@ -57,6 +57,7 @@ public:
 	virtual void SetCornerMask(bool cornerMask) {
 		cornerMask_ = cornerMask;
 	}
+	bool HasCornerMask() const { return cornerMask_; }
 
 	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) override;
 
@@ -179,7 +180,6 @@ private:
 	ListAdaptor *adaptor_;
 	LinearLayout *linLayout_;
 	float maxHeight_;
-	bool cornerMask_ = false;
 	std::set<int> hidden_;
 	std::map<int, ImageID> icons_;
 };

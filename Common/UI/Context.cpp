@@ -406,10 +406,10 @@ void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds
 
 void UIContext::DrawRoundRectMask(const UI::Drawable &drawable, const Bounds &bounds, float radius, RoundCorners corners) {
 	if ((drawable.color & 0xFF000000) == 0)
+		// Only draw if alpha is non-zero.
 		return;
 	if (drawable.type == UI::DRAW_SOLID_COLOR) {
 		uidrawbuffer_->DrawRoundRect(bounds, radius, drawable.color, RoundRectStyle::Mask, corners);
-		//Only draw if alpha is non-zero.
 	}
 }
 
