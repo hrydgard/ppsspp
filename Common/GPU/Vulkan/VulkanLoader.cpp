@@ -42,12 +42,6 @@
 #include <adrenotools/driver.h>
 #endif
 
-#if PPSSPP_PLATFORM(ANDROID)
-#include <cstring>
-#include <android/api-level.h>
-#include <sys/system_properties.h>
-#endif
-
 namespace PPSSPP_VK {
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
@@ -367,7 +361,7 @@ static std::string g_failedCustomDriver;
 
 static bool CustomDriverInUse() {
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-	return !g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default" && VulkanCustomDriverAllowedByOS();
+	return !g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default";
 #else
 	return false;
 #endif
@@ -392,9 +386,7 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 	void *lib = nullptr;
 
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
-	if (!g_Config.sCustomDriver.empty() && g_Config.sCustomDriver != "Default" && !VulkanCustomDriverAllowedByOS()) {
-		WARN_LOG(Log::G3D, "Custom driver '%s' ignored, not supported on this Android version", g_Config.sCustomDriver.c_str());
-	} else if (CustomDriverInUse()) {
+	if (CustomDriverInUse()) {
 		const Path driverPath = g_Config.internalDataDirectory / "drivers" / g_Config.sCustomDriver;
 
 		json::JsonReader meta = json::JsonReader((driverPath / "meta.json").c_str());
@@ -1053,23 +1045,6 @@ static const AdrenoEnvVarDef adrenoEnvVarDefs[] = {
 const AdrenoEnvVarDef *GetAdrenoEnvVarDefs(int *count) {
 	*count = ARRAY_SIZE(adrenoEnvVarDefs);
 	return adrenoEnvVarDefs;
-}
-
-bool VulkanCustomDriverAllowedByOS() {
-#if PPSSPP_PLATFORM(ANDROID)
-	// Android 17 internal builds crash in linkernsbypass (used by AdrenoTools), so stay away from 17 until
-	// that's been tested. Preview builds report the previous release's API level, with a codename other than "REL".
-	const int apiLevel = android_get_device_api_level();
-	if (apiLevel >= 37) {
-		return false;
-	}
-	char codename[PROP_VALUE_MAX]{};
-	__system_property_get("ro.build.version.codename", codename);
-	if (apiLevel >= 36 && strcmp(codename, "REL") != 0) {
-		return false;
-	}
-#endif
-	return true;
 }
 
 void VulkanApplyCustomDriverEnvVars(AdrenoEnvVar envVars) {
