@@ -731,6 +731,9 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
 		reset->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
+			changing_ = true;
+			UpdateTextBox();
+			changing_ = false;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
 			}
