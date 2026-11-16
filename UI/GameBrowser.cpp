@@ -681,7 +681,9 @@ void GameBrowser::Refresh() {
 
 	if (!lastText_.empty()) {
 		Add(new Spacer());
-		Add(new Choice(lastText_, ImageID("I_LINK_OUT"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT, Margins(10, 0, 0, 10))))->OnClick.Handle(this, &GameBrowser::LastClick);
+		Choice *lastChoice = Add(new Choice(lastText_, ImageID("I_LINK_OUT"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT, Margins(10, 0, 0, 10))));
+		lastChoice->SetRoundCorners(RoundCorners::All);
+		lastChoice->OnClick.Handle(this, &GameBrowser::LastClick);
 	}
 
 	// The new buttons are all visible, so filter them again if a search is active.
