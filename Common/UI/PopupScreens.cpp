@@ -724,7 +724,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
+		lin->Add(new TextView(units_, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
