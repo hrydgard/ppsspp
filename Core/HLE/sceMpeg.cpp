@@ -2014,8 +2014,15 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
-	gpu->PerformWriteFormattedFromMemory(destAddr, destSize, frameWidth, (GEBufferFormat)ctx->videoPixelMode);
+	const int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
+	if (destSize > 0) {
+		const auto format = (GEBufferFormat)ctx->videoPixelMode;
+		const bool swizzled = Memory::IsVRAMAddress(destAddr) && (destAddr & 0x00200000) != 0;
+		const int rectWidth = swizzled ? 0 : std::min({width, frameWidth, ctx->mediaengine->VideoWidth() - x});
+		const int rectHeight = std::min(height, ctx->mediaengine->VideoHeight() - y);
+		const int size = swizzled ? destSize : rectHeight * frameWidth * BufferFormatBytesPerPixel(format);
+		gpu->PerformWriteFormattedFromMemory(destAddr, size, frameWidth, format, rectWidth);
+	}
 
 	// Do not use avcDecodeDelayMs 's value
 	// Will cause video 's screen dislocation in Bleach heat of soul 6
