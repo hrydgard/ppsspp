@@ -143,6 +143,7 @@ public:
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
+	int  MoveFileToPath(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 	bool SetFileWritable(const std::string &filename, bool writable) override;
 	int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;

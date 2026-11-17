@@ -1798,6 +1798,8 @@ struct DeviceSize {
 static u32 IoOpenFatSearch(u32 argAddr, int argLen);
 static u32 IoGetstatFatComponentPath(u32 argAddr, int argLen);
 static u32 IoOpenFatComponentPath(u32 argAddr, int argLen);
+static u32 IoMkdirFatComponentPath(u32 argAddr, int argLen);
+static u32 IoRenameFullPaths(u32 argAddr, int argLen);
 
 // Devctl 0x02425856: sets the code page for 8.3 names. From fatms.prx (6.61), which passes the
 // word to sceCodepage_driver_b0ae63aa. The XMB sets it at boot and from System Settings >
@@ -1939,6 +1941,13 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		return hleReportError(Log::sceIo, 0, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 	}
 
+	// loadexec asks the boot device whether LoadExec may run from it: 0x00208811 for a UMD boot,
+	// 0x00208813 from the memory stick. umd9660.prx (2.81, 08000cb0) returns 0 for 0x00208810 and
+	// 0x00208811 without looking at the arguments.
+	if (!strcmp(name, "disc0:") && (cmd == 0x00208810 || cmd == 0x00208811)) {
+		return hleLogDebug(Log::sceIo, 0);
+	}
+
 	// This should really send it on to a FileSystem implementation instead.
 
 	if (!strcmp(name, "mscmhc0:") || !strcmp(name, "ms0:") || !strcmp(name, "memstick:"))
@@ -2073,6 +2082,23 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02435860:
 			// Open, with the path given the same way as 0x02415864.
 			return IoOpenFatComponentPath(argAddr, argLen);
+		case 0x02415862:
+			// Mkdir, with the path given the same way as 0x02415864.
+			return IoMkdirFatComponentPath(argAddr, argLen);
+		case 0x02415830:
+			return IoRenameFullPaths(argAddr, argLen);
+		case 0x0201580B:
+			// mscmhc0: only. From msstor.prx (6.61, case at 0800dc38): { u32 values[4], u32 mask }, where
+			// mask bit i stores values[i] in the driver (a negative mask stores all four). They're read
+			// on the stick's I/O paths, so probably retry or timeout settings; not traced. The Saved
+			// Data Utility sets them. Nothing for us to do.
+			if (strcmp(name, "mscmhc0:")) {
+				break;
+			}
+			if (!Memory::IsValidRange(argAddr, 20) || argLen < 20) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			return hleLogDebug(Log::sceIo, 0, "mask %08x", Memory::ReadUnchecked_U32(argAddr + 16));
 		}
 	}
 
@@ -2102,8 +2128,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02425856:
 			return IoSetFatCodepage(argAddr, argLen);
 		case 0x0240d81e:
-			// TODO: Invalidate MS driver file table cache (nop)
-			break;
+			// Invalidate the driver's file table cache. We have none.
+			return hleLogDebug(Log::sceIo, 0);
 		case 0x02415821:
 			// MScmRegisterMSInsertEjectCallback
 			if (Memory::IsValidRange(argAddr, argLen) && argLen >= 4) {
@@ -2331,7 +2357,9 @@ static bool IoPathHasWildcard(const char *path) {
 	return path && strpbrk(path, "*?") != nullptr;
 }
 
-static u32 sceIoRename(const char *from, const char *to) {
+// move: 'to' is a full path, which may be in another directory. Otherwise, only its last component
+// counts, and the file stays in its directory.
+static u32 IoRename(const char *from, const char *to, bool move) {
 	// TODO: Timing isn't terribly accurate.
 
 	// sceIoRename doesn't expand wildcards, it refuses them - in either path, and before it
@@ -2348,7 +2376,7 @@ static u32 sceIoRename(const char *from, const char *to) {
 	if (pspFileSystem.GetFileInfo(to).exists)
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "destination exists"), "file renamed", 1000);
 
-	int result = pspFileSystem.RenameFile(from, to);
+	int result = move ? pspFileSystem.MoveFileToPath(from, to) : pspFileSystem.RenameFile(from, to);
 	if (result == (int)SCE_KERNEL_ERROR_XDEV) {
 		// Renaming across devices is refused up front, without the wait the other errors take.
 		return hleLogError(Log::sceIo, result, "cannot rename across devices");
@@ -2356,6 +2384,29 @@ static u32 sceIoRename(const char *from, const char *to) {
 	if (result < 0)
 		WARN_LOG(Log::sceIo, "Could not move %s to %s", from, to);
 	return hleDelayResult(hleLogDebug(Log::sceIo, result), "file renamed", 1000);
+}
+
+static u32 sceIoRename(const char *from, const char *to) {
+	return IoRename(from, to, false);
+}
+
+// sceIoDevctl("ms0:", 0x02415830): a rename that takes the new name as a full path, so it can move
+// the file to another directory. The argument is { const char *oldPath, const char *newPath }, both
+// on the device. From fatms.prx (6.61, 08007108) and fatmsmod.prx (2.81, case at 08002dd4), which
+// resolve both paths, where sceIoRename resolves only the old one and keeps the new name in its
+// directory. The 6.61 XMB uses it, from dd_helper and the file browsers.
+static u32 IoRenameFullPaths(u32 argAddr, int argLen) {
+	if (argLen < 8 || !Memory::IsValid4AlignedRange(argAddr, 8)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 oldAddr = Memory::ReadUnchecked_U32(argAddr);
+	const u32 newAddr = Memory::ReadUnchecked_U32(argAddr + 4);
+	if (!oldAddr || !newAddr || !Memory::IsValidNullTerminatedString(oldAddr) || !Memory::IsValidNullTerminatedString(newAddr)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path");
+	}
+	const std::string from = std::string("ms0:") + Memory::GetCharPointerUnchecked(oldAddr);
+	const std::string to = std::string("ms0:") + Memory::GetCharPointerUnchecked(newAddr);
+	return IoRename(from.c_str(), to.c_str(), true);
 }
 
 static u32 sceIoChdir(const char *dirname) {
@@ -2926,6 +2977,25 @@ static u32 IoOpenFatComponentPath(u32 argAddr, int argLen) {
 	}
 	asyncParams[id].priority = asyncDefaultPriority;
 	return hleLogDebug(Log::sceIo, id, "%s", path.c_str());
+}
+
+// sceIoDevctl("ms0:", 0x02415862): sceIoMkdir with the path given as UTF-16 components (see
+// IoOpenFatSearch). The argument is { path list, mode, options }. music_common.prx (2.81) uses it
+// for a path it has no 8-bit name for. From fatmsmod.prx (2.81, 08004018): FAT request 0x62, which
+// runs sceIoMkdir's handler.
+static u32 IoMkdirFatComponentPath(u32 argAddr, int argLen) {
+	if (argLen < 12 || !Memory::IsValid4AlignedRange(argAddr, 12)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 pathListAddr = Memory::ReadUnchecked_U32(argAddr);
+	std::string path;
+	if (!pathListAddr || !ReadFatComponentPath(pathListAddr, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path");
+	}
+	if (!pspFileSystem.MkDir(path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "%s", path.c_str()), "mkdir", 1000);
+	}
+	return hleDelayResult(hleLogDebug(Log::sceIo, 0, "%s", path.c_str()), "mkdir", 1000);
 }
 
 // Case-insensitive, like FAT. Only * and ?.

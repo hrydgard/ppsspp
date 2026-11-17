@@ -514,6 +514,21 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	}
 }
 
+int MetaFileSystem::MoveFileToPath(const std::string &from, const std::string &to) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	std::string rf;
+	IFileSystem *osystem;
+	IFileSystem *rsystem;
+	if (MapFilePath(from, &of, &osystem) < 0 || MapFilePath(to, &rf, &rsystem) < 0) {
+		return -1;
+	}
+	if (osystem != rsystem) {
+		return SCE_KERNEL_ERROR_XDEV;
+	}
+	return osystem->MoveFileToPath(of, rf);
+}
+
 bool MetaFileSystem::SetFileWritable(const std::string &filename, bool writable)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
