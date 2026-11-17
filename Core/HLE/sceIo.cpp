@@ -3463,6 +3463,34 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		Memory::WriteUnchecked_U32(cmd == 0x02125008 ? 1 : 0, outdataPtr);
 		return 0;
 
+	// The 0x60-byte system information block the driver read from the stick (its own copy, for an
+	// MS Pro, which 0x02125802 says we are). The camera plugin takes the 16 bytes at 0xC (assembly
+	// date, serial number, maker and model) as the stick's identity and refuses a stick without one,
+	// so these must be stable. Laid out like an MS Pro's system information, values made up.
+	case 0x02125803:
+	{
+		usec = 0;
+		if (!startsWithNoCase(f->fullpath, "msstor")) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED, "msstor ioctl on %s", f->fullpath.c_str());
+		}
+		if (!Memory::IsValidRange(outdataPtr, 0x60) || outlen < 0x60) {
+			return SCE_ERROR_MSSTOR_BAD_PARAMS;
+		}
+		u8 info[0x60]{};
+		info[0x00] = 0x02;  // Class: MS Pro.
+		info[0x09] = 0x02;  // Page size, big endian: 0x200.
+		// Assembly date: time zone, then 2012-01-01 00:00:00 (year big endian).
+		static const u8 assemblyDate[8] = { 0x00, 0x07, 0xDC, 0x01, 0x01, 0x00, 0x00, 0x00 };
+		memcpy(info + 0x0C, assemblyDate, sizeof(assemblyDate));
+		// Serial number, big endian.
+		info[0x14] = 0x50;
+		info[0x15] = 0x50;
+		info[0x16] = 0x53;
+		info[0x17] = 0x50;
+		Memory::Memcpy(outdataPtr, info, sizeof(info), "MsstorSystemInfo");
+		return 0;
+	}
+
 	default:
 		{
 			int result = pspFileSystem.Ioctl(f->handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);

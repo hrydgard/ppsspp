@@ -20,7 +20,7 @@
 
 #include "ext/jpge/jpge.h"
 
-void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen) {
+void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen, bool red) {
 #ifdef USE_FFMPEG
 	unsigned char *rgbData = (unsigned char *)malloc(3 * width * height);
 	if (!rgbData) {
@@ -28,13 +28,12 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 		return;
 	}
 
-	// Generate a solid RED surface for camera detection (e.g., Invizimals)
-	// RGB: (255, 0, 0) = Red
+	// Without a camera the frame is solid red, which is what lets games detect one (e.g. Invizimals).
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			rgbData[3 * (y * width + x) + 0] = 255;  // Red channel: full intensity
-			rgbData[3 * (y * width + x) + 1] = 0;    // Green channel: off
-			rgbData[3 * (y * width + x) + 2] = 0;    // Blue channel: off
+			rgbData[3 * (y * width + x) + 0] = red ? 255 : 0;
+			rgbData[3 * (y * width + x) + 1] = 0;
+			rgbData[3 * (y * width + x) + 2] = 0;
 		}
 	}
 

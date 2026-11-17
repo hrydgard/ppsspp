@@ -496,7 +496,7 @@ static bool MicInputPending() {
 	return Microphone::isHaveDevice() && readMicDataLength < numNeedSamples * 2;
 }
 
-bool __MicWaitInputEnd() {
+bool __MicWaitInputEnd(u32 result) {
 	if (!MicInputPending()) {
 		return false;
 	}
@@ -506,7 +506,7 @@ bool __MicWaitInputEnd() {
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), curTargetAddr, (int)size, curSampleRate };
 	waitingThreads.push_back(waitInfo);
 	DEBUG_LOG(Log::HLE, "MicWaitInputEnd: blocking thread(%d)", (int)__KernelGetCurThread());
-	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, 0, 0, false, "microphone input end");
+	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, result, 0, false, "microphone input end");
 	return true;
 }
 

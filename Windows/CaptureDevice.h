@@ -28,12 +28,14 @@
 #include <wrl/client.h>
 
 #include "Common/CommonTypes.h"
+#include "Common/Log.h"
 
 #ifdef __cplusplus
 extern "C" {
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/pixdesc.h"
 }
 #endif // __cplusplus
 
@@ -165,7 +167,11 @@ public:
 	// Get a list contained friendly device name.
 	std::vector<std::string> getDeviceList(bool forceEnum = false, int *pActuallCount = nullptr);
 
-	void setError(const CAPTUREDEVICE_ERROR &newError, const std::string &newErrorMessage) { error = newError; errorMessage = newErrorMessage; }
+	void setError(const CAPTUREDEVICE_ERROR &newError, const std::string &newErrorMessage) {
+		error = newError;
+		errorMessage = newErrorMessage;
+		WARN_LOG(Log::HLE, "Capture device: %s", newErrorMessage.c_str());
+	}
 	void setSelection(const UINT32 &selection) { param.selection = selection; }
 	HRESULT setDeviceParam(IMFMediaType *pType);
 
