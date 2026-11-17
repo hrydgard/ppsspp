@@ -581,6 +581,24 @@ void TextureScalerCommon::ScaleAlways(u32 *out, u32 *src, int width, int height,
 	}
 }
 
+void TextureScalerCommon::ScaleWithType(int type, u32 *out, u32 *src, int width, int height, int factor) {
+	switch (type) {
+	case HYBRID:
+		ScaleHybrid(factor, src, out, width, height);
+		break;
+	case BICUBIC:
+		ScaleBicubicMitchell(factor, src, out, width, height);
+		break;
+	case HYBRID_BICUBIC:
+		ScaleHybrid(factor, src, out, width, height, true);
+		break;
+	case XBRZ:
+	default:
+		ScaleXBRZ(factor, src, out, width, height);
+		break;
+	}
+}
+
 bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, int width, int height, int *scaledWidth, int *scaledHeight, int factor) {
 #ifdef SCALING_MEASURE_TIME
 	double t_start = time_now_d();

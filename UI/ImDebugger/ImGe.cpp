@@ -199,6 +199,9 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 				ImGui::Text("Stride: %d", entry->bufw);
 				ImGui::Text("Status: %08x: %s", (u32)entry->status, TexStatusToString(entry->status).c_str());
 				ImGui::Text("Hash: %08x", entry->fullhash);
+				if (entry->replaceHash != entry->fullhash || entry->shadowRegionW != 0) {
+					ImGui::Text("Replacement hash: %08x (region %dx%d)", entry->replaceHash, entry->shadowRegionW, entry->shadowRegionH);
+				}
 				ImGui::Text("CLUT Hash: %08x", entry->cluthash);
 				ImGui::Text("MaxSeenV: %08x", entry->maxSeenV);
 				if (entry->replacedTexture) {
