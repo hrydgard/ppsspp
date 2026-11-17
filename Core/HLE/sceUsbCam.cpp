@@ -82,6 +82,18 @@ static bool stillPending = false;
 static u32 stillSize = 0;
 static u32 stillLength = 0;
 
+// What videoBuffer holds until the camera's first frame.
+enum class Placeholder {
+	None,
+	Black,
+	Red,
+};
+static Placeholder placeholder = Placeholder::None;
+// Set by the platform's capture code when the camera won't start.
+static std::atomic<bool> captureFailed{ false };
+// Where a failed start can't be reported, a camera that hasn't sent a frame by then failed.
+static constexpr u64 CAMERA_START_TIMEOUT_US = 3000000;
+
 void __UsbCamInit() {
 	config       = new Camera::Config();
 	config->mode = Camera::Mode::Unused;
@@ -95,6 +107,8 @@ void __UsbCamInit() {
 	stillPending = false;
 	stillSize = 0;
 	stillLength = 0;
+	placeholder = Placeholder::None;
+	captureFailed = false;
 }
 
 void __UsbCamDoState(PointerWrap &p) {
@@ -297,24 +311,58 @@ static int sceUsbCamSetupVideoEx(u32 paramAddr, u32 workareaAddr, int wasize) {
 	return 0;
 }
 
-static int sceUsbCamStartVideo() {
-	std::lock_guard<std::mutex> lock(videoBufferMutex);
+// Whether startCapture() has a camera to start.
+static bool hasCaptureDevice() {
+#ifdef HAVE_WIN32_CAMERA
+	return winCamera && !winCamera->getDeviceList().empty();
+#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	return !System_GetCameraDeviceList().empty();
+#else
+	return false;
+#endif
+}
 
+// Fills videoBuffer with a placeholder frame. Call with videoBufferMutex held.
+static void setPlaceholderFrame(bool red) {
 	int width, height;
 	getCameraResolution(config->type, &width, &height);
 
-	unsigned char* jpegData = nullptr;
+	unsigned char *jpegData = nullptr;
 	int jpegLen = 0;
-	__cameraDummyImage(width, height, &jpegData, &jpegLen);
-	videoBufferLength = jpegLen;
+	__cameraDummyImage(width, height, &jpegData, &jpegLen, red);
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	videoBufferLength = 0;
 	if (jpegData) {
-		memcpy(videoBuffer, jpegData, jpegLen);
+		if (jpegLen <= VIDEO_BUFFER_SIZE) {
+			memcpy(videoBuffer, jpegData, jpegLen);
+			videoBufferLength = jpegLen;
+		}
 		free(jpegData);
-		jpegData = nullptr;
 	}
+	placeholder = red ? Placeholder::Red : Placeholder::Black;
+}
 
+// Before a read, with videoBufferMutex held: a camera that failed to start shows red.
+static void updatePlaceholderFrame() {
+	if (placeholder != Placeholder::Black) {
+		return;
+	}
+	if (captureFailed || CoreTiming::GetGlobalTimeUs() - videoStartUs > CAMERA_START_TIMEOUT_US) {
+		setPlaceholderFrame(true);
+	}
+}
+
+void Camera::onCaptureFailed() {
+	captureFailed = true;
+}
+
+static int sceUsbCamStartVideo() {
+	std::lock_guard<std::mutex> lock(videoBufferMutex);
+
+	// Black until the camera's first frame, or red if there's no camera.
 	videoStartUs = CoreTiming::GetGlobalTimeUs();
+	captureFailed = false;
+	setPlaceholderFrame(!hasCaptureDevice());
 	Camera::startCapture();
 	return 0;
 }
@@ -348,6 +396,7 @@ static int getNextFrameWaitUs() {
 
 static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
+	updatePlaceholderFrame();
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
@@ -370,6 +419,7 @@ static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
 		return hleLogError(Log::HLE, SCE_ERROR_USBCAM_BUSY, "read already pending");
 	}
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
+	updatePlaceholderFrame();
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
@@ -474,7 +524,7 @@ static u32 captureStill(u32 bufAddr, u32 size) {
 	}
 	unsigned char *jpegData = nullptr;
 	int jpegLen = 0;
-	__cameraDummyImage(width, height, &jpegData, &jpegLen);
+	__cameraDummyImage(width, height, &jpegData, &jpegLen, true);
 	if (!jpegData) {
 		return 0;
 	}
@@ -939,6 +989,7 @@ void Camera::pushCameraImage(long long length, unsigned char* image) {
 		return;
 	}
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	placeholder = Placeholder::None;
 	if (length > VIDEO_BUFFER_SIZE) {
 		videoBufferLength = 0;
 		ERROR_LOG(Log::HLE, "pushCameraImage: length error: %lld > %d", length, VIDEO_BUFFER_SIZE);

@@ -490,6 +490,9 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 	if (deviceList.size() < 1) {
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Has no device");
+		if (type == CAPTUREDEVICE_TYPE::VIDEO) {
+			Camera::onCaptureFailed();
+		}
 		return false;
 	}
 
@@ -592,6 +595,9 @@ bool WindowsCaptureDevice::start(void *startParam) {
 
 		if (FAILED(hr)) {
 			setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Cannot start");
+			if (type == CAPTUREDEVICE_TYPE::VIDEO) {
+				Camera::onCaptureFailed();
+			}
 			if(m_pSource)
 				m_pSource->Shutdown();
 			m_pSource = nullptr;
@@ -603,12 +609,18 @@ bool WindowsCaptureDevice::start(void *startParam) {
 		break;
 	case CAPTUREDEVICE_STATE::LOST:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device has lost");
+		if (type == CAPTUREDEVICE_TYPE::VIDEO) {
+			Camera::onCaptureFailed();
+		}
 		return false;
 	case CAPTUREDEVICE_STATE::STARTED:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device has started");
 		return false;
 	case CAPTUREDEVICE_STATE::UNINITIALIZED:
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Device doesn't initialize");
+		if (type == CAPTUREDEVICE_TYPE::VIDEO) {
+			Camera::onCaptureFailed();
+		}
 		return false;
 	default:
 		break;

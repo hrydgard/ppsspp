@@ -122,6 +122,8 @@ namespace Camera {
 	int startCapture();
 	int stopCapture();
 	void pushCameraImage(long long length, unsigned char *image);
+	// From the capture code: the camera won't start, so games get the "no camera" frame.
+	void onCaptureFailed();
 	// The largest JPEG frame the game accepts (framesize in the video setup). The PSP camera compresses
 	// to fit it, so capture code should too.
 	int getMaxFrameSize();
