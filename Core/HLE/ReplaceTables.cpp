@@ -18,6 +18,8 @@
 #include "ppsspp_config.h"
 
 #include <algorithm>
+#include <cmath>
+#include <string_view>
 #include <map>
 #include <mutex>
 #include <unordered_map>
@@ -25,6 +27,9 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/Swap.h"
+#include "Common/System/Display.h"
+#include "Common/VR/PPSSPPVR.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -39,6 +44,8 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernelModule.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "Core/HW/Display.h"
 #include "Core/HW/MMIO.h"
 
@@ -731,6 +738,177 @@ static bool GetMIPSGPAddress(const MIPSState *mips, u32 &addr, s32 offset) {
 	}
 
 	return false;
+}
+
+struct VSHProjectionState {
+	float originalX;
+	float originalOffset;
+	float appliedX;
+	float appliedOffset;
+};
+
+static std::unordered_map<u32, VSHProjectionState> vshProjections;
+static bool vshProjectionSupported = false;
+
+float Replacement_GetVSHWidescreenScale() {
+	if (!g_Config.bVshWidescreen || !g_Config.bFuncReplacements || !vshProjectionSupported ||
+		!__KernelIsRunningVSH() || IsVREnabled() || (gpu && gpu->PresentsToOtherOutput())) {
+		return 1.0f;
+	}
+	const auto &config = g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation());
+	const FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, (float)g_display.pixel_xres, (float)g_display.pixel_yres);
+	if (frame.w <= 0.0f || frame.h <= 0.0f) {
+		return 1.0f;
+	}
+	return std::min(1.0f, (480.0f / 272.0f) / (frame.w / frame.h));
+}
+
+static bool GetVSHWidgetName(u32 widget, std::string_view &name) {
+	name = {};
+	if (!Memory::IsValidRange(widget, 8)) {
+		return false;
+	}
+	const u32 nameAddress = Memory::ReadUnchecked_U32(widget + 4);
+	if (!Memory::IsValidRange(nameAddress, 64)) {
+		return false;
+	}
+	const char *text = (const char *)Memory::GetPointerUnchecked(nameAddress);
+	const size_t length = strnlen(text, 64);
+	if (length == 64) {
+		return false;
+	}
+	name = std::string_view(text, length);
+	return true;
+}
+
+static u32 FindVSHChild(u32 widget, std::string_view name) {
+	if (!Memory::IsValidRange(widget, 0x1DC)) {
+		return 0;
+	}
+	const u32 children = Memory::ReadUnchecked_U32(widget + 0x1B4);
+	const u32 count = Memory::ReadUnchecked_U32(widget + 0x1B8);
+	if (count > 32 || !Memory::IsValidRange(children, count * 4)) {
+		return 0;
+	}
+	for (u32 i = 0; i < count; ++i) {
+		const u32 child = Memory::ReadUnchecked_U32(children + i * 4);
+		std::string_view childName;
+		if (Memory::IsValidRange(child, 0x1D8) &&
+			Memory::ReadUnchecked_U32(child + 0x1D4) == widget &&
+			GetVSHWidgetName(child, childName) && childName == name) {
+			return child;
+		}
+	}
+	return 0;
+}
+
+static bool UpdateVSHMessageBackdrop(u32 page, float scale) {
+	const u32 seat = FindVSHChild(page, "mbox_seat");
+	const u32 backdrop = FindVSHChild(seat, "");
+	if (!Memory::IsValidRange(backdrop, 0x328)) {
+		return false;
+	}
+	const float width = Memory::ReadUnchecked_Float(backdrop + 0x320);
+	const float height = Memory::ReadUnchecked_Float(backdrop + 0x324);
+	if (!std::isfinite(width) || !std::isfinite(height) || width < 480.0f ||
+		height < 272.0f || width > 960.0f || height > 544.0f ||
+		std::abs(width / height - 480.0f / 272.0f) > 0.001f) {
+		return false;
+	}
+	const u32 renderer = Memory::ReadUnchecked_U32(backdrop + 0x1E8);
+	if (!Memory::IsValidRange(renderer, 0x60) ||
+		Memory::ReadUnchecked_Float(renderer + 0x54) != height) {
+		return false;
+	}
+	// 6.61 PhWidget size property 0x12: renderer +0x50, dirty bit 0x40000 at +0x24.
+	// Keep the widget's layout width intact; only its background geometry grows.
+	const float renderWidth = width / scale;
+	if (Memory::ReadUnchecked_Float(renderer + 0x50) != renderWidth) {
+		Memory::WriteUnchecked_Float(renderWidth, renderer + 0x50);
+		const u32 flags = Memory::ReadUnchecked_U32(renderer + 0x24);
+		Memory::WriteUnchecked_U32(flags | 0x40000, renderer + 0x24);
+	}
+	return true;
+}
+
+static void UpdateVSHInfobar(u32 page, float scale) {
+	const u32 backdrop = FindVSHChild(page, "infobar");
+	if (!Memory::IsValidRange(backdrop, 0x328)) {
+		return;
+	}
+	const float width = Memory::ReadUnchecked_Float(backdrop + 0x320);
+	const float height = Memory::ReadUnchecked_Float(backdrop + 0x324);
+	if (!std::isfinite(width) || !std::isfinite(height) || width < 480.0f ||
+		width > 960.0f || height < 16.0f || height > 64.0f) {
+		return;
+	}
+	const u32 renderer = Memory::ReadUnchecked_U32(backdrop + 0x1E8);
+	if (!Memory::IsValidRange(renderer, 0x60) ||
+		Memory::ReadUnchecked_Float(renderer + 0x54) != height) {
+		return;
+	}
+	// The header stays left-anchored, so extend its backdrop past the right edge.
+	const float renderWidth = width * (2.0f / scale - 1.0f);
+	if (Memory::ReadUnchecked_Float(renderer + 0x50) != renderWidth) {
+		Memory::WriteUnchecked_Float(renderWidth, renderer + 0x50);
+		const u32 flags = Memory::ReadUnchecked_U32(renderer + 0x24);
+		Memory::WriteUnchecked_U32(flags | 0x40000, renderer + 0x24);
+	}
+}
+
+static int Hook_paf_scene_begin(MIPSState *mips) {
+	if (!__KernelIsRunningVSH()) {
+		return 0;
+	}
+	const u32 scene = mips->r[MIPS_REG_A0];
+	if (!Memory::IsValidRange(scene, 0x450) ||
+		Memory::ReadUnchecked_Float(scene + 0x340) != 480.0f ||
+		Memory::ReadUnchecked_Float(scene + 0x344) != 272.0f ||
+		Memory::ReadUnchecked_Float(scene + 0x41C) != -1.0f) {
+		return 0;
+	}
+
+	// Firmware 6.61, scePaf_Module crc 70c3dbcf: PhScene's projection is at +3f0.
+	// Change its horizontal projection, keeping the viewport and widget sizes intact.
+	const float x = Memory::ReadUnchecked_Float(scene + 0x3F0);
+	const float offset = Memory::ReadUnchecked_Float(scene + 0x410);
+	if (!std::isfinite(x) || x <= 0.0f || !std::isfinite(offset)) {
+		return 0;
+	}
+	vshProjectionSupported = true;
+	auto result = vshProjections.emplace(scene, VSHProjectionState{x, offset, x, offset});
+	auto &state = result.first->second;
+	if (x != state.appliedX || offset != state.appliedOffset) {
+		// The firmware rebuilt the projection, or allocated a new scene at this address.
+		state = {x, offset, x, offset};
+	}
+
+	const u32 page = Memory::ReadUnchecked_U32(scene + 0x1D4);
+	std::string_view pageName;
+	GetVSHWidgetName(page, pageName);
+
+	float scale = Replacement_GetVSHWidescreenScale();
+	// Network dialogs also create message boxes with generated page names.
+	const bool messageBox = UpdateVSHMessageBackdrop(page, scale);
+	if (pageName == "page_infobar") {
+		UpdateVSHInfobar(page, scale);
+	}
+	if (pageName == "page_bg" || pageName.find("page_default_theme") == 0 || pageName.find("page_custom_theme") == 0) {
+		// Backgrounds fill the output instead of shrinking with the menus.
+		scale = 1.0f;
+	}
+	float anchor = 1.0f;
+	if (pageName == "page_indicator" || pageName == "page_btnnavi") {
+		anchor = -1.0f;
+	} else if (messageBox || pageName == "page_logo" || pageName == "page_ms_app" ||
+		pageName == "page_busy" || pageName.find("dialog") != std::string_view::npos) {
+		anchor = 0.0f;
+	}
+	state.appliedX = state.originalX * scale;
+	state.appliedOffset = state.originalOffset + (1.0f - scale) * anchor;
+	Memory::WriteUnchecked_Float(state.appliedX, scene + 0x3F0);
+	Memory::WriteUnchecked_Float(state.appliedOffset, scene + 0x410);
+	return 0;
 }
 
 static int Hook_godseaterburst_blit_texture(MIPSState *mips) {
@@ -2222,6 +2400,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOK, 0x1610 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x78 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x18C },
+	{ "paf_scene_begin", &Hook_paf_scene_begin, 0, REPFLAG_HOOK },
 	{}
 };
 
@@ -2307,6 +2486,8 @@ void Replacement_Shutdown() {
 	replacementNameLookup.clear();
 	syphonFilterArrivals.clear();
 	syphonFilterFadeHolds.clear();
+	vshProjections.clear();
+	vshProjectionSupported = false;
 }
 
 void Replacement_SetBlockShadowHook(u32 value) {
