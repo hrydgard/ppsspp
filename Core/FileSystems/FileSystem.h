@@ -156,6 +156,8 @@ public:
 	virtual bool     MkDir(const std::string &dirname) = 0;
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
+	// Like RenameFile, but 'to' is a full path, so the file can go to another directory.
+	virtual int      MoveFileToPath(const std::string &from, const std::string &to) { return -1; }
 	virtual bool     RemoveFile(const std::string &filename) = 0;
 	// Sets or clears the FAT read-only attribute, as sceIoChstat does. Defaults to "can't", which
 	// is right for read-only filesystems and for hosts that can't express it.
