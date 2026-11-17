@@ -7,7 +7,16 @@
 #include "Common/Log.h"
 #include "Common/Math/math_util.h"
 
+// Constant-initialized, so still readable during static destruction. Downloads that are still
+// around when the process exits (g_DownloadManager's destructor) end their progress bars after
+// g_OSD, and its mutex, may already be gone.
+static bool g_osdDestroyed = false;
+
 OnScreenDisplay g_OSD;
+
+OnScreenDisplay::~OnScreenDisplay() {
+	g_osdDestroyed = true;
+}
 
 // Effectively forever.
 constexpr double forever_s = 10000000000.0;
@@ -260,6 +269,10 @@ void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view messa
 	_dbg_assert_(!my_isnanorinf(minValue));
 	_dbg_assert_(!my_isnanorinf(maxValue));
 
+	if (g_osdDestroyed) {
+		return;
+	}
+
 	double now = time_now_d();
 	bool found = false;
 
@@ -288,6 +301,9 @@ void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view messa
 }
 
 void OnScreenDisplay::RemoveProgressBar(std::string_view id, bool success, float delay_s) {
+	if (g_osdDestroyed) {
+		return;
+	}
 	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &ent : entries_) {
 		if (ent.type == OSDType::PROGRESS_BAR && ent.id == id) {

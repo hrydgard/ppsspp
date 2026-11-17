@@ -50,6 +50,8 @@ ENUM_CLASS_BITOPS(OSDMessageFlags);
 // Data holder for on-screen messages.
 class OnScreenDisplay {
 public:
+	~OnScreenDisplay();
+
 	// If you specify 0.0f as duration, a duration will be chosen automatically depending on type.
 	void Show(OSDType type, std::string_view text, float duration_s = 0.0f, const char *id = nullptr) {
 		Show(type, text, "", duration_s, id);
