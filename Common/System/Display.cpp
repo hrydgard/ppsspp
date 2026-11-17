@@ -96,6 +96,15 @@ bool DisplayProperties::Recalculate(int new_pixel_xres, int new_pixel_yres, floa
 
 	int new_dp_xres = (int)(pixel_xres * dpi_scale_x);
 	int new_dp_yres = (int)(pixel_yres * dpi_scale_y);
+	// The UI projection stretches the whole dp resolution across the screen, so the truncation
+	// above changes the actual scale slightly. Match it, or snapping to pixels (and the scissor)
+	// ends up as much as a pixel off towards the right and bottom.
+	if (new_dp_xres > 0 && new_dp_yres > 0) {
+		dpi_scale_x = (float)new_dp_xres / (float)pixel_xres;
+		dpi_scale_y = (float)new_dp_yres / (float)pixel_yres;
+		pixel_in_dps_x = 1.0f / dpi_scale_x;
+		pixel_in_dps_y = 1.0f / dpi_scale_y;
+	}
 	if (new_dp_xres != dp_xres || new_dp_yres != dp_yres || px_changed) {
 		dp_xres = new_dp_xres;
 		dp_yres = new_dp_yres;
