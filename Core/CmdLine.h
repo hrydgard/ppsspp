@@ -57,6 +57,8 @@ struct CommandLineOptions {
 	std::optional<int> debuggerPort;
 	// Same, but without breaking at the entry point first.
 	std::optional<int> debuggerRunPort;
+	// Headless serves the debugger on 127.0.0.1 only, unless this asks for every interface.
+	std::optional<bool> debuggerPublic;
 
 	// The port either of the two debugger options asked for, if any.
 	std::optional<int> DebuggerPort() const {

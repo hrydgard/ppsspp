@@ -328,6 +328,12 @@ file - this is just an index.
   - On the **headless** build (`headless/Headless.cpp`) it additionally
     forces `coreParameter.startBreak = true`, so the CPU halts before
     running anything - useful for setting breakpoints before launch.
+  - Headless also listens on **127.0.0.1 only** (IPv4), so only clients on the
+    same machine can connect, and Windows doesn't ask for firewall permission
+    for each new build directory. `--debugger-public` listens on every interface
+    instead, for driving headless from another machine. The application build
+    always listens on every interface (an Android device driven from a PC, for
+    one).
 
 ## Discovery
 
