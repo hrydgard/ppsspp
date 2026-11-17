@@ -108,6 +108,9 @@ public:
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
 	bool Listen(int port, const char *reason, net::DNSType type = net::DNSType::ANY);
+	// Accepts connections from this machine only (127.0.0.1, IPv4). Unlike listening on every
+	// interface, that doesn't make Windows ask for firewall permission.
+	bool ListenLoopback(int port, const char *reason);
 	void Stop();
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
@@ -130,7 +133,7 @@ public:
 
 private:
 	bool Listen6(int port, bool ipv6_only, const char *reason);
-	bool Listen4(int port, const char *reason);
+	bool Listen4(int port, const char *reason, bool loopback = false);
 
 	void HandleConnection(int conn_fd);
 

@@ -62,6 +62,8 @@ static WebServerFlags serverFlags;
 // See WebServerSetRequireExactPort(). Atomic because it's set from whichever thread parsed the
 // command line, and read from the server thread.
 static std::atomic<bool> serverRequireExactPort;
+// See WebServerSetLoopbackOnly().
+static std::atomic<bool> serverLoopbackOnly;
 // Set when the server is asked to stop, so a registration in progress gives up instead of making
 // shutdown wait for its timeouts. A plain bool, since that's what the HTTP client polls.
 static bool registerCancelled;
@@ -879,7 +881,10 @@ static void WebServerThread() {
 	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 	http->RegisterHandler("/upload_file", &HandleUploadPost);
 
-	if (!http->Listen(g_Config.iRemoteISOPort, "debugger-webserver")) {
+	auto listen = [http](int port) {
+		return serverLoopbackOnly ? http->ListenLoopback(port, "debugger-webserver") : http->Listen(port, "debugger-webserver");
+	};
+	if (!listen(g_Config.iRemoteISOPort)) {
 		if (serverRequireExactPort) {
 			// Someone asked for this specific port (--debugger=PORT) - see
 			// WebServerSetRequireExactPort(). Coming up on a different one would just look like
@@ -893,7 +898,7 @@ static void WebServerThread() {
 			UpdateStatus(ServerStatus::FINISHED);
 			return;
 		}
-		if (!http->Listen(0, "debugger-webserver")) {
+		if (!listen(0)) {
 			ERROR_LOG(Log::FileSystem, "Unable to listen on any port (debugger - webserver)");
 			UpdateStatus(ServerStatus::FINISHED);
 			return;
@@ -1042,6 +1047,10 @@ int WebServerPort() {
 
 void WebServerSetRequireExactPort(bool require) {
 	serverRequireExactPort = require;
+}
+
+void WebServerSetLoopbackOnly(bool loopbackOnly) {
+	serverLoopbackOnly = loopbackOnly;
 }
 
 bool WebServerWaitForStartup() {

@@ -1750,6 +1750,7 @@ int main(int argc, const char* argv[]) {
 			fprintf(stderr, "--debugger: breaking at the entry point, waiting for a client to "
 				"resume the CPU (cpu.resume). Use --debugger-run to start running instead.\n");
 		}
+		WebServerSetLoopbackOnly(!cmdLineOptions.debuggerPublic.value_or(false));
 		StartWebServer(WebServerFlags::DEBUGGER);
 		// We break at start and wait for a debugger to drive us, so coming up without one just
 		// hangs until the timeout. Better to say why and bail - see WebServerSetRequireExactPort().

@@ -46,6 +46,11 @@ void ShutdownWebServer();
 // instance that got there first). Set this to make the bind failure fatal instead.
 void WebServerSetRequireExactPort(bool require);
 
+// Listen on 127.0.0.1 only, so nothing on the network can connect. Headless does by default (not
+// with --debugger-public): its debugger is usually for scripts on the same machine, and a server open
+// to the network makes Windows ask for firewall permission for every new build directory.
+void WebServerSetLoopbackOnly(bool loopbackOnly);
+
 // Blocks until the server thread has either started listening or given up, and returns whether
 // it's actually listening. Only meaningful right after StartWebServer().
 bool WebServerWaitForStartup();
