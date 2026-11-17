@@ -150,6 +150,10 @@ static time_t rtc_timegm(struct tm *tm)
 
 #endif
 
+time_t RtcTimeGm(struct tm *t) {
+	return rtc_timegm(t);
+}
+
 static void RtcUpdateBaseTicks() {
 	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 }

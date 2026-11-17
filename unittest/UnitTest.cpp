@@ -131,6 +131,7 @@
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/HLE/sceKernelTime.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Util/MemStick.h"
@@ -1158,6 +1159,36 @@ bool TestRtcFrontendCalendar() {
 	EXPECT_EQ_INT(load(v1), (int)PointerWrap::ERROR_NONE);
 	EXPECT_EQ_INT(RtcTimeZoneParam(), 60);
 	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+	return true;
+}
+
+bool TestKernelTimeFrontendCalendar() {
+	struct Restore {
+		~Restore() { PSP_CoreParameter().calendar.reset(); }
+	} restore;
+	// The start time as __KernelTimeDoState writes it (section version 2: a u64).
+	auto savedStart = [](u64 *start) {
+		std::vector<u8> buf;
+		if (!SerializerWrite(&buf, [](PointerWrap &p) { __KernelTimeDoState(p); })) {
+			return false;
+		}
+		return SerializerRead(buf, [&](PointerWrap &p) {
+			auto s = p.Section("sceKernelTime", 1, 2);
+			Do(p, *start);
+		}) == PointerWrap::ERROR_NONE;
+	};
+
+	u64 start = 0;
+	PSP_CoreParameter().calendar = FrontendCalendar{ 1700000000, 39600, 36000 };
+	__KernelTimeInit();
+	EXPECT_TRUE(savedStart(&start));
+	EXPECT_TRUE(start == 1700000000ULL);
+
+	PSP_CoreParameter().calendar.reset();
+	__KernelTimeInit();
+	EXPECT_TRUE(savedStart(&start));
+	const u64 now = (u64)time(nullptr);
+	EXPECT_TRUE(start + 5 >= now && start <= now + 5);
 	return true;
 }
 
@@ -5336,6 +5367,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SaveStatePeek),
 	TEST_ITEM(StereoResamplerExcessDrop),
 	TEST_ITEM(RtcFrontendCalendar),
+	TEST_ITEM(KernelTimeFrontendCalendar),
 };
 
 int main(int argc, const char *argv[]) {
