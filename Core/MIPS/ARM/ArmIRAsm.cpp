@@ -205,8 +205,8 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 			ApplyRoundingMode(true);
 
-			// Let's just dispatch again, we'll enter the block since we know it's there.
-			B(dispatcherNoCheck_);
+			// Dispatch again, through the coreState check: JitAt stops the core on a bad pc.
+			B(dispatcherCheckCoreState_);
 
 		SetJumpTarget(bail);
 

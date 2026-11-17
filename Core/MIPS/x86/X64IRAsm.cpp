@@ -316,8 +316,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			ABI_CallFunctionR(reinterpret_cast<void *>(&MIPSComp::JitAt), ECX);
 			WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 			ApplyRoundingMode(true);
-			// Let's just dispatch again, we'll enter the block since we know it's there.
-			JMP(dispatcherNoCheck_, true);
+			// Dispatch again, through the coreState check: JitAt stops the core on a bad pc.
+			JMP(dispatcherCheckCoreState_, true);
 
 		SetJumpTarget(bail);
 
