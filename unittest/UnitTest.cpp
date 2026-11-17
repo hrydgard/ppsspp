@@ -131,6 +131,8 @@
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/HLE/sceRtc.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/Util/MemStick.h"
 #include "Core/Util/StorageTest.h"
 #include "Core/Util/PathUtil.h"
@@ -1010,6 +1012,152 @@ bool TestSerializer() {
 		}));
 	}
 
+	return true;
+}
+
+bool TestRtcFrontendCalendar() {
+	// Puts back what the test changes, also when an EXPECT returns early.
+	struct Restore {
+		int tz = g_Config.iTimeZoneOffset;
+		bool dst = g_Config.bDayLightSavings;
+		~Restore() {
+			g_Config.iTimeZoneOffset = tz;
+			g_Config.bDayLightSavings = dst;
+			PSP_CoreParameter().calendar.reset();
+			__RtcInit();
+		}
+	} restore;
+	auto boot = [](std::optional<FrontendCalendar> calendar) {
+		PSP_CoreParameter().calendar = calendar;
+		__RtcInit();
+	};
+	auto save = [](std::vector<u8> *buf) {
+		return SerializerWrite(buf, [](PointerWrap &p) { __RtcDoState(p); });
+	};
+	auto load = [](const std::vector<u8> &buf) {
+		return (int)SerializerRead(buf, [](PointerWrap &p) { __RtcDoState(p); });
+	};
+
+	// Sydney in summer.
+	boot(FrontendCalendar{ 1700000000, 39600, 36000 });
+	EXPECT_EQ_INT(RtcBaseTime(), 1700000000);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 39600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 600);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+	// Local fields are UTC plus the offset.
+	PSPTimeval utc;
+	__RtcTimeOfDay(&utc);
+	ScePspDateTime local;
+	EXPECT_TRUE(__RtcGetCurrentLocalTime(&local));
+	const time_t localSec = (time_t)utc.tv_sec + 39600;
+	const tm expected = *gmtime(&localSec);
+	EXPECT_EQ_INT(local.year, expected.tm_year + 1900);
+	EXPECT_EQ_INT(local.month, expected.tm_mon + 1);
+	EXPECT_EQ_INT(local.day, expected.tm_mday);
+	EXPECT_EQ_INT(local.hour, expected.tm_hour);
+	EXPECT_EQ_INT(local.minute, expected.tm_min);
+
+	// Lord Howe: half-hour zone, half-hour DST.
+	boot(FrontendCalendar{ 1700000000, 39600, 37800 });
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 630);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+
+	// Newfoundland in standard time.
+	boot(FrontendCalendar{ 1700000000, -12600, -12600 });
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), -12600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), -210);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
+
+	// Zone unknown.
+	boot(FrontendCalendar{ 1700000000, 32400, std::nullopt });
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 32400);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 540);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
+
+	// A state keeps the clock and zone it was made with.
+	boot(FrontendCalendar{ 1700000000, 39600, 36000 });
+	std::vector<u8> sydney;
+	EXPECT_TRUE(save(&sydney));
+	boot(FrontendCalendar{ 1800000000, 32400, 32400 });
+	EXPECT_EQ_INT(load(sydney), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcBaseTime(), 1700000000);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 39600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 600);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+
+	// A version 1 state has only the base time; the boot's zone stays.
+	std::vector<u8> v1;
+	EXPECT_TRUE(SerializerWrite(&v1, [](PointerWrap &p) {
+		auto s = p.Section("sceRtc", 1, 1);
+		PSPTimeval tv;
+		tv.tv_sec = 1600000000;
+		tv.tv_usec = 0;
+		Do(p, tv);
+	}));
+	boot(FrontendCalendar{ 1800000000, 32400, 32400 });
+	EXPECT_EQ_INT(load(v1), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcBaseTime(), 1600000000);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 32400);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 540);
+
+	// A reboot continues the running clock and zone, also a loaded state's.
+	boot(FrontendCalendar{ 1800000000, 32400, 32400 });
+	EXPECT_EQ_INT(load(sydney), (int)PointerWrap::ERROR_NONE);
+	PSPTimeval now;
+	__RtcTimeOfDay(&now);
+	const int nowSec = now.tv_sec;
+	FrontendCalendar carried{ 1900000000, 0, std::nullopt };
+	RtcRunningCalendar(&carried);
+	EXPECT_EQ_INT(carried.utcSeconds, nowSec);
+	boot(carried);
+	EXPECT_EQ_INT(RtcBaseTime(), nowSec);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 39600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 600);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+	boot(FrontendCalendar{ 1700000000, 32400, std::nullopt });
+	RtcRunningCalendar(&carried);
+	boot(carried);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 540);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
+	// Zone unknown and an offset that is not whole minutes: still standard time after a reboot.
+	boot(FrontendCalendar{ 1700000000, -2670, std::nullopt });
+	RtcRunningCalendar(&carried);
+	boot(carried);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), -2670);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD);
+
+	// Without a frontend calendar the config decides.
+	g_Config.iTimeZoneOffset = 60;
+	g_Config.bDayLightSavings = true;
+	boot(std::nullopt);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 60);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+	std::vector<u8> host;
+	EXPECT_TRUE(save(&host));
+	// Under a frontend calendar such a state brings only its time; the boot's zone stays.
+	boot(FrontendCalendar{ 1700000000, 39600, 36000 });
+	EXPECT_EQ_INT(load(host), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 39600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 600);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
+	// A reboot from there carries the time and the boot's offset and zone.
+	__RtcTimeOfDay(&now);
+	FrontendCalendar kept{ 1700000000, 0, std::nullopt };
+	RtcRunningCalendar(&kept);
+	EXPECT_EQ_INT(kept.utcSeconds, (int)now.tv_sec);
+	EXPECT_EQ_INT(kept.utcOffset, 39600);
+	EXPECT_TRUE(kept.standardOffset == 36000);
+	// Without a frontend calendar a state's calendar wins; a later state without one goes back to the host zone.
+	boot(std::nullopt);
+	EXPECT_EQ_INT(load(sydney), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcLocalOffsetSeconds(), 39600);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 600);
+	EXPECT_EQ_INT(load(host), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 60);
+	EXPECT_EQ_INT(load(sydney), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(load(v1), (int)PointerWrap::ERROR_NONE);
+	EXPECT_EQ_INT(RtcTimeZoneParam(), 60);
+	EXPECT_EQ_INT(RtcDaylightSavingsParam(), PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING);
 	return true;
 }
 
@@ -5187,6 +5335,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SaveStateMounts),
 	TEST_ITEM(SaveStatePeek),
 	TEST_ITEM(StereoResamplerExcessDrop),
+	TEST_ITEM(RtcFrontendCalendar),
 };
 
 int main(int argc, const char *argv[]) {

@@ -37,9 +37,12 @@
 #include "Core/Reporting.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Config.h"
+#include "Core/System.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceRtc.h"
+#include "Core/HLE/sceUtility.h"
 
 #if PPSSPP_PLATFORM(SWITCH)
 // I guess that works...
@@ -52,6 +55,12 @@
 // This way, time doesn't move strangely with savestates, turbo speed, etc.
 static PSPTimeval rtcBaseTime;
 static u64 rtcBaseTicks;
+// While set, the RTC follows a frontend calendar (this boot's CoreParameter::calendar or a loaded
+// state's) in place of the host's time zone and g_Config's.
+static bool rtcFrontendCalendar;
+static s32 rtcUtcOffset;
+static s32 rtcTimeZoneMinutes;
+static bool rtcDaylightSavings;
 
 // Grabbed from JPSCP
 // This is the # of microseconds between January 1, 0001 and January 1, 1970.
@@ -145,8 +154,48 @@ static void RtcUpdateBaseTicks() {
 	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
 }
 
+// The zone of this boot's frontend calendar, or none (host time zone and g_Config).
+static void RtcSetBootZone() {
+	const std::optional<FrontendCalendar> &calendar = PSP_CoreParameter().calendar;
+	rtcFrontendCalendar = calendar.has_value();
+	if (!calendar) {
+		rtcUtcOffset = 0;
+		rtcTimeZoneMinutes = 0;
+		rtcDaylightSavings = false;
+		return;
+	}
+	rtcUtcOffset = calendar->utcOffset;
+	rtcTimeZoneMinutes = calendar->standardOffset.value_or(calendar->utcOffset) / 60;
+	rtcDaylightSavings = calendar->standardOffset && *calendar->standardOffset != calendar->utcOffset;
+}
+
+static const tm *__RtcLocalTime(time_t sec) {
+	if (rtcFrontendCalendar) {
+		sec += rtcUtcOffset;
+		return gmtime(&sec);
+	}
+	return localtime(&sec);
+}
+
 void __RtcInit()
 {
+	RtcSetBootZone();
+	const std::optional<FrontendCalendar> &calendar = PSP_CoreParameter().calendar;
+	if (calendar) {
+		rtcBaseTime.tv_sec = (s32)calendar->utcSeconds;
+		rtcBaseTime.tv_usec = 0;
+		RtcUpdateBaseTicks();
+		const tm *local = __RtcLocalTime((time_t)rtcBaseTime.tv_sec);
+		if (local) {
+			INFO_LOG(Log::sceRtc, "Frontend calendar: %04d-%02d-%02d %02d:%02d:%02d local, UTC offset %d, time zone %d min, DST %d",
+				local->tm_year + 1900, local->tm_mon + 1, local->tm_mday, local->tm_hour, local->tm_min, local->tm_sec,
+				rtcUtcOffset, rtcTimeZoneMinutes, rtcDaylightSavings ? 1 : 0);
+		} else {
+			INFO_LOG(Log::sceRtc, "Frontend calendar: UTC offset %d, time zone %d min, DST %d", rtcUtcOffset, rtcTimeZoneMinutes, rtcDaylightSavings ? 1 : 0);
+		}
+		return;
+	}
+
 	// This is the base time, the only case we use gettimeofday() for.
 	// Everything else is relative to that, "virtual time."
 	timeval tv;
@@ -159,13 +208,24 @@ void __RtcInit()
 
 void __RtcDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceRtc", 1);
+	auto s = p.Section("sceRtc", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, rtcBaseTime);
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
 	RtcUpdateBaseTicks();
+
+	if (s >= 2) {
+		Do(p, rtcFrontendCalendar);
+		Do(p, rtcUtcOffset);
+		Do(p, rtcTimeZoneMinutes);
+		Do(p, rtcDaylightSavings);
+	}
+	// Only a state made under a frontend calendar brings its zone; otherwise this boot's stays.
+	if (p.mode == PointerWrap::MODE_READ && (s < 2 || !rtcFrontendCalendar)) {
+		RtcSetBootZone();
+	}
 }
 
 void __RtcTimeOfDay(PSPTimeval *tv)
@@ -189,6 +249,45 @@ void RtcSetBaseTime(int32_t seconds, int32_t micro) {
 	rtcBaseTime.tv_sec = seconds;
 	rtcBaseTime.tv_usec = micro;
 	RtcUpdateBaseTicks();
+}
+
+int RtcLocalOffsetSeconds() {
+	if (rtcFrontendCalendar) {
+		return rtcUtcOffset;
+	}
+	// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
+#ifdef _WIN32
+	long timezone_val;
+	_get_timezone(&timezone_val);
+	return (int)-timezone_val;
+#elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !PPSSPP_PLATFORM(SWITCH)
+	time_t timezone = 0;
+	tm *time = localtime(&timezone);
+	return (int)time->tm_gmtoff;
+#else
+	return 0;
+#endif
+}
+
+int RtcTimeZoneParam() {
+	return rtcFrontendCalendar ? rtcTimeZoneMinutes : g_Config.iTimeZoneOffset;
+}
+
+int RtcDaylightSavingsParam() {
+	const bool dst = rtcFrontendCalendar ? rtcDaylightSavings : g_Config.bDayLightSavings;
+	return dst ? PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING : PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
+}
+
+void RtcRunningCalendar(FrontendCalendar *calendar) {
+	PSPTimeval tv;
+	__RtcTimeOfDay(&tv);
+	calendar->utcSeconds = tv.tv_sec;
+	if (!rtcFrontendCalendar) {
+		return;
+	}
+	calendar->utcOffset = rtcUtcOffset;
+	// __RtcInit turns this back into the same zone minutes and DST flag.
+	calendar->standardOffset = rtcDaylightSavings ? rtcTimeZoneMinutes * 60 : rtcUtcOffset;
 }
 
 static void __RtcTmToPspTime(ScePspDateTime &t, const tm *val)
@@ -328,7 +427,7 @@ bool __RtcGetCurrentLocalTime(ScePspDateTime *t) {
 	PSPTimeval tv;
 	__RtcTimeOfDay(&tv);
 	time_t sec = (time_t)tv.tv_sec;
-	const tm *local = localtime(&sec);
+	const tm *local = __RtcLocalTime(sec);
 	if (!local) {
 		return false;
 	}
@@ -344,7 +443,7 @@ static u32 sceRtcGetCurrentClockLocalTime(u32 pspTimePtr) {
 	__RtcTimeOfDay(&tv);
 
 	time_t sec = (time_t)tv.tv_sec;
-	const tm *local = localtime(&sec);
+	const tm *local = __RtcLocalTime(sec);
 	if (!local) {
 		return hleLogError(Log::sceRtc, 0, "Date is too high/low to handle, pretending to work");
 	}
@@ -454,16 +553,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidRange(tickUTCPtr, 8))
 	{
 		u64 srcTick = Memory::ReadUnchecked_U64(tickLocalPtr);
-		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		srcTick -= -timezone_val * 1000000ULL;
-#elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !PPSSPP_PLATFORM(SWITCH)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		srcTick -= time->tm_gmtoff*1000000ULL;
-#endif
+		srcTick -= (s64)RtcLocalOffsetSeconds() * 1000000;
 		Memory::WriteUnchecked_U64(srcTick, tickUTCPtr);
 	}
 	else
@@ -478,16 +568,7 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr, u32 tickLocalPtr)
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
 	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidRange(tickUTCPtr, 8)) {
 		u64 srcTick = Memory::ReadUnchecked_U64(tickUTCPtr);
-		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		srcTick += -timezone_val * 1000000ULL;
-#elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !PPSSPP_PLATFORM(SWITCH)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		srcTick += time->tm_gmtoff*1000000ULL;
-#endif
+		srcTick += (s64)RtcLocalOffsetSeconds() * 1000000;
 		Memory::WriteUnchecked_U64(srcTick, tickLocalPtr);
 	} else {
 		return 1;
@@ -1072,16 +1153,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 		return -1;
 	}
 
-	int tz_seconds;
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		tz_seconds = -timezone_val;
-#elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !PPSSPP_PLATFORM(SWITCH)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		tz_seconds = time->tm_gmtoff;
-#endif
+	int tz_seconds = RtcLocalOffsetSeconds();
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcFormatRFC2822LocalTime(%08x, %08x)", outPtr, srcTickPtr);
 	return __RtcFormatRFC2822(outPtr, srcTickPtr, tz_seconds / 60);
@@ -1109,16 +1181,7 @@ static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 		return -1;
 	}
 
-	int tz_seconds;
-#ifdef _WIN32
-		long timezone_val;
-		_get_timezone(&timezone_val);
-		tz_seconds = -timezone_val;
-#elif !defined(_AIX) && !defined(__sgi) && !defined(__hpux) && !PPSSPP_PLATFORM(SWITCH)
-		time_t timezone = 0;
-		tm *time = localtime(&timezone);
-		tz_seconds = time->tm_gmtoff;
-#endif
+	int tz_seconds = RtcLocalOffsetSeconds();
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcFormatRFC3339LocalTime(%08x, %08x)", outPtr, srcTickPtr);
 	return __RtcFormatRFC3339(outPtr, srcTickPtr, tz_seconds / 60);

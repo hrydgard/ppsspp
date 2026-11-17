@@ -48,6 +48,7 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceAtrac.h"
+#include "Core/HLE/sceRtc.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetAdhoc.h"
@@ -1611,10 +1612,10 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 			param = PSP_SYSTEMPARAM_TIME_FORMAT_24HR;
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_TIMEZONE:
-		param = g_Config.iTimeZoneOffset;
+		param = RtcTimeZoneParam();
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_DAYLIGHTSAVINGS:
-		param = g_Config.bDayLightSavings?PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING:PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_STD;
+		param = RtcDaylightSavingsParam();
 		break;
 	case PSP_SYSTEMPARAM_ID_INT_LANGUAGE:
 		param = GetPSPLanguage();
