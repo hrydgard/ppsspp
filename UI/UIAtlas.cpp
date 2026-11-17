@@ -43,7 +43,7 @@ struct ImageMeta {
 	bool addShadow = false;
 	// If set, the image is a generated round rect corner (see DrawBuffer::DrawRoundRect). In UI units.
 	float cornerRadius = 0.0f;
-	float cornerThickness = 0.0f;  // 0 = filled
+	float cornerThickness = 0.0f;  // 0 = filled, < 0 = inverse corner mask
 };
 
 // We add shadows to all line-art images that are used for buttons, to improve visibility.
@@ -399,7 +399,9 @@ static void GenerateRoundRectCorner(Image &img, float radius, float thickness, f
 			const float dx = std::max((float)center - (x + 0.5f), 0.0f);
 			const float d = sqrtf(dx * dx + dy * dy);
 			float coverage = std::clamp(r - d + 0.5f, 0.0f, 1.0f);
-			if (t > 0.0f) {
+			if (thickness < 0.0f) {
+				coverage = 1.0f - coverage;
+			} else if (t > 0.0f) {
 				coverage -= std::clamp(r - t - d + 0.5f, 0.0f, 1.0f);
 			}
 			const u32 a = (u32)(coverage * 255.0f + 0.5f);

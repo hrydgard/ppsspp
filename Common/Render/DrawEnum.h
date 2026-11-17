@@ -35,6 +35,7 @@ enum class RoundRectStyle : uint8_t {
 	OutlineThin,
 	OutlineMedium,
 	OutlineThick,
+	Mask,
 	COUNT,
 };
 
@@ -42,8 +43,8 @@ enum class RoundRectStyle : uint8_t {
 // Keep them larger than the thickest outline.
 constexpr float ROUND_RECT_RADII[] = {8.0f, 16.0f, 24.0f, 32.0f};
 constexpr int ROUND_RECT_RADIUS_COUNT = ARRAY_SIZE(ROUND_RECT_RADII);
-// Outline thickness in UI units, per RoundRectStyle.
-constexpr float ROUND_RECT_THICKNESS[(int)RoundRectStyle::COUNT] = {0.0f, 1.0f, 2.0f, 3.0f};
+// Outline thickness in UI units, per RoundRectStyle (negative = inverse corner mask).
+constexpr float ROUND_RECT_THICKNESS[(int)RoundRectStyle::COUNT] = {0.0f, 1.0f, 2.0f, 3.0f, -1.0f};
 
 // Which corners of a round rect to round. The others are drawn square.
 enum class RoundCorners : uint8_t {
