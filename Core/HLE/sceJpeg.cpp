@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <vector>
 #include "ext/jpge/jpgd.h"
 
 #include "Common/CommonTypes.h"
@@ -73,6 +74,63 @@ void __JpegDoState(PointerWrap &p) {
 
 static int getWidthHeight(int width, int height) {
 	return (width << 16) | height;
+}
+
+// The standard Huffman tables (JPEG Annex K.3) as a DHT segment: luma DC, luma AC, chroma DC,
+// chroma AC, each a class/id byte, 16 code counts and the values.
+static const u8 standardDHT[] = {
+	0xFF, 0xC4, 0x01, 0xA2,
+	0x00, 0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0,
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+	0x10, 0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 0x7d,
+	0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12, 0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1, 0xc1, 0x15, 0x52, 0xd1, 0xf0,
+	0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0a, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49,
+	0x4a, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89,
+	0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3, 0xc4, 0xc5,
+	0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+	0xf9, 0xfa,
+	0x01, 0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
+	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+	0x11, 0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 0x77,
+	0x00, 0x01, 0x02, 0x03, 0x11, 0x04, 0x05, 0x21, 0x31, 0x06, 0x12, 0x41, 0x51, 0x07, 0x61, 0x71, 0x13, 0x22, 0x32, 0x81, 0x08, 0x14, 0x42, 0x91, 0xa1, 0xb1, 0xc1, 0x09, 0x23, 0x33, 0x52, 0xf0,
+	0x15, 0x62, 0x72, 0xd1, 0x0a, 0x16, 0x24, 0x34, 0xe1, 0x25, 0xf1, 0x17, 0x18, 0x19, 0x1a, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+	0x49, 0x4a, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+	0x88, 0x89, 0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xc2, 0xc3,
+	0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+	0xf9, 0xfa,
+};
+static_assert(sizeof(standardDHT) == 2 + 0x1A2, "DHT segment length");
+
+// Motion JPEG frames usually leave out the Huffman tables and expect the standard ones (the AVI1
+// convention: the XMB's camera writes its movies like that). jpgd needs them in the stream, so
+// put them in front of the scan when there are none.
+static unsigned char *DecompressJpeg(const u8 *buf, int size, int *width, int *height, int *actualComponents, int reqComponents) {
+	int pos = 2;
+	while (pos + 4 <= size && buf[pos] == 0xFF) {
+		const u8 marker = buf[pos + 1];
+		if (marker == 0xFF) {
+			// Fill byte.
+			pos++;
+			continue;
+		}
+		if (marker == 0xC4) {
+			break;
+		}
+		if (marker == 0xDA) {
+			std::vector<u8> withTables;
+			withTables.reserve(size + sizeof(standardDHT));
+			withTables.insert(withTables.end(), buf, buf + pos);
+			withTables.insert(withTables.end(), standardDHT, standardDHT + sizeof(standardDHT));
+			withTables.insert(withTables.end(), buf + pos, buf + size);
+			return jpgd::decompress_jpeg_image_from_memory(withTables.data(), (int)withTables.size(), width, height, actualComponents, reqComponents);
+		}
+		if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+			pos += 2;
+			continue;
+		}
+		pos += 2 + ((buf[pos + 2] << 8) | buf[pos + 3]);
+	}
+	return jpgd::decompress_jpeg_image_from_memory(buf, size, width, height, actualComponents, reqComponents);
 }
 
 // TODO: sceJpegCsc and sceJpegMJpegCsc use different factors.
@@ -272,13 +330,13 @@ static int DecodeJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int &usec) {
 		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
-	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
+	unsigned char *jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, 3);
 
 	if (actual_components != 3 && actual_components != 1) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
-		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
+		jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
 	if (jpegBuf == nullptr) {
@@ -371,13 +429,13 @@ static int JpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr) {
 		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
-	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
+	unsigned char *jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, 3);
 
 	if (actual_components != 3 && actual_components != 1) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
-		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
+		jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
 	if (jpegBuf == nullptr) {
@@ -509,13 +567,13 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 		return hleLogError(Log::ME, SCE_JPEG_ERROR_NO_SOI, "no SOI found, invalid data");
 
 	int width, height, actual_components;
-	unsigned char *jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, 3);
+	unsigned char *jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, 3);
 
 	if (actual_components != 3 && actual_components != 1) {
 		// The assumption that the image was RGB was wrong...
 		// Try again.
 		int components = actual_components;
-		jpegBuf = jpgd::decompress_jpeg_image_from_memory(buf, jpegSize, &width, &height, &actual_components, components);
+		jpegBuf = DecompressJpeg(buf, jpegSize, &width, &height, &actual_components, components);
 	}
 
 	if (jpegBuf == nullptr) {
