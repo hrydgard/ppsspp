@@ -1811,6 +1811,13 @@ static u32 IoSetFatCodepage(u32 argAddr, int argLen) {
 	return hleLogDebug(Log::sceIo, 0, "set code page %d", Memory::ReadUnchecked_U32(argAddr));
 }
 
+// iofilemgr.prx's sceIoDevctl (6.61, 08001a18) refuses a command with bit 15 set from user mode,
+// with ILLEGAL_PERM (pspautotests io/fatmsdevctl, fatms0: 0x0240D81E). Only checked for the
+// commands that call this, in case we misjudge a VSH caller's mode.
+static bool IoDevctlNeedsKernel(int cmd) {
+	return (cmd & 0x8000) != 0 && !hleIsKernelMode() && !__KernelCurThreadIsKernelMode();
+}
+
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
 		DEBUG_LOG(Log::sceIo,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
@@ -1945,6 +1952,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	// 0x00208813 from the memory stick. umd9660.prx (2.81, 08000cb0) returns 0 for 0x00208810 and
 	// 0x00208811 without looking at the arguments.
 	if (!strcmp(name, "disc0:") && (cmd == 0x00208810 || cmd == 0x00208811)) {
+		if (IoDevctlNeedsKernel(cmd)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_PERM);
+		}
 		return hleLogDebug(Log::sceIo, 0);
 	}
 
@@ -2129,7 +2139,12 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return IoSetFatCodepage(argAddr, argLen);
 		case 0x0240d81e:
 			// Invalidate the driver's file table cache. We have none.
+			if (IoDevctlNeedsKernel(cmd)) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_PERM);
+			}
 			return hleLogDebug(Log::sceIo, 0);
+		case 0x02415830:
+			return IoRenameFullPaths(argAddr, argLen);
 		case 0x02415821:
 			// MScmRegisterMSInsertEjectCallback
 			if (Memory::IsValidRange(argAddr, argLen) && argLen >= 4) {
@@ -2372,8 +2387,21 @@ static u32 IoRename(const char *from, const char *to, bool move) {
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file renamed", 1000);
 
 	// The PSP won't rename onto something that already exists, and renaming a file onto itself
-	// counts. Host rename() would happily replace the destination.
-	if (pspFileSystem.GetFileInfo(to).exists)
+	// counts. Host rename() would happily replace the destination. For a plain rename that's the
+	// new name in the old file's directory, wherever 'to' points (pspautotests io/fatmsdevctl).
+	// Another device is refused further down, as XDEV.
+	std::string dest = to;
+	const char *fromColon = strchr(from, ':');
+	const char *toColon = strchr(to, ':');
+	const bool sameDevice = !toColon || (fromColon && toColon - to == fromColon - from && !strncmp(from, to, toColon - to));
+	if (!move && sameDevice) {
+		const char *fromSlash = strrchr(from, '/');
+		const char *toSlash = strrchr(to, '/');
+		if (fromSlash) {
+			dest = std::string(from, fromSlash + 1 - from) + (toSlash ? toSlash + 1 : to);
+		}
+	}
+	if (pspFileSystem.GetFileInfo(dest).exists)
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "destination exists"), "file renamed", 1000);
 
 	int result = move ? pspFileSystem.MoveFileToPath(from, to) : pspFileSystem.RenameFile(from, to);
@@ -2394,7 +2422,8 @@ static u32 sceIoRename(const char *from, const char *to) {
 // the file to another directory. The argument is { const char *oldPath, const char *newPath }, both
 // on the device. From fatms.prx (6.61, 08007108) and fatmsmod.prx (2.81, case at 08002dd4), which
 // resolve both paths, where sceIoRename resolves only the old one and keeps the new name in its
-// directory. The 6.61 XMB uses it, from dd_helper and the file browsers.
+// directory. The 6.61 XMB uses it, from dd_helper and the file browsers. It moves directories too,
+// and refuses an existing destination (pspautotests io/fatmsdevctl).
 static u32 IoRenameFullPaths(u32 argAddr, int argLen) {
 	if (argLen < 8 || !Memory::IsValid4AlignedRange(argAddr, 8)) {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
@@ -2404,8 +2433,14 @@ static u32 IoRenameFullPaths(u32 argAddr, int argLen) {
 	if (!oldAddr || !newAddr || !Memory::IsValidNullTerminatedString(oldAddr) || !Memory::IsValidNullTerminatedString(newAddr)) {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path");
 	}
-	const std::string from = std::string("ms0:") + Memory::GetCharPointerUnchecked(oldAddr);
-	const std::string to = std::string("ms0:") + Memory::GetCharPointerUnchecked(newAddr);
+	const char *oldPath = Memory::GetCharPointerUnchecked(oldAddr);
+	const char *newPath = Memory::GetCharPointerUnchecked(newAddr);
+	// The paths are on the device: "ms0:/PSP/..." is refused (pspautotests io/fatmsdevctl).
+	if (strchr(oldPath, ':') || strchr(newPath, ':')) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "device in path");
+	}
+	const std::string from = std::string("ms0:") + oldPath;
+	const std::string to = std::string("ms0:") + newPath;
 	return IoRename(from.c_str(), to.c_str(), true);
 }
 

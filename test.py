@@ -342,6 +342,7 @@ tests_good = [
   "intr/delays/delays",
   "io/cwd/cwd",
   "io/file/rename",
+  "io/fatmsdevctl/fatmsdevctl",
   "io/directory/directory",
   "io/stat/stat",
   "io/stat/readonly",
