@@ -470,6 +470,13 @@ bool WindowsCaptureDevice::start(void *startParam) {
 	UINT32 selection = 0;
 	UINT32 count = 0;
 
+	// Starting while running restarts, with the new parameters. Games start video again without
+	// stopping it (Invizimals does right after a savestate load restarted it), and the release below
+	// would leave a started device with no reader, which never delivers another frame.
+	if (state == CAPTUREDEVICE_STATE::STARTED) {
+		stop();
+	}
+
 	// Release old sources first (if any). Take them out under the lock, so a callback from the old
 	// reader sees they're gone, but release them outside it: the reader may wait for that callback.
 	{

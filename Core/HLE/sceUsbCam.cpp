@@ -348,6 +348,7 @@ static void updatePlaceholderFrame() {
 		return;
 	}
 	if (captureFailed || CoreTiming::GetGlobalTimeUs() - videoStartUs > CAMERA_START_TIMEOUT_US) {
+		INFO_LOG(Log::HLE, "Camera: no frame, showing red (%s)", captureFailed ? "start failed" : "timed out");
 		setPlaceholderFrame(true);
 	}
 }
@@ -989,6 +990,9 @@ void Camera::pushCameraImage(long long length, unsigned char* image) {
 		return;
 	}
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	if (placeholder != Placeholder::None) {
+		INFO_LOG(Log::HLE, "Camera: first frame");
+	}
 	placeholder = Placeholder::None;
 	if (length > VIDEO_BUFFER_SIZE) {
 		videoBufferLength = 0;
