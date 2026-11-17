@@ -159,7 +159,9 @@ HRESULT ReaderCallback::OnReadSample(
 	HRESULT hr = S_OK;
 	ComPtr<IMFMediaBuffer> pBuffer;
 	std::lock_guard<std::mutex> lock(device->sdMutex);
-	if (device->isShutDown())
+	// A stop, or a restart that replaced this callback's reader, ends the read loop. A sample can
+	// still arrive after either.
+	if (!device->isStarted() || device->m_pCallback.Get() != this || !device->m_pReader)
 		return hr;
 
 	if (FAILED(hrStatus))
@@ -303,10 +305,40 @@ void ReaderCallback::imgConvert(
 	av_image_fill_pointers(pSrc, srcAVFormat, srcH, src, srcLineSizes);
 	av_image_fill_pointers(pDst, AV_PIX_FMT_RGB24, dstH, dst, dstLineSizes);
 
+	// Crop the middle of the image to the target's aspect ratio rather than stretching it. Even
+	// offsets and sizes keep the crop on whole chroma samples.
+	unsigned int cropW = srcW;
+	unsigned int cropH = srcH;
+	if ((u64)srcW * dstH > (u64)dstW * srcH) {
+		cropW = (unsigned int)((u64)srcH * dstW / dstH) & ~1U;
+	} else {
+		cropH = (unsigned int)((u64)srcW * dstH / dstW) & ~1U;
+	}
+	const unsigned int cropX = ((srcW - cropW) / 2) & ~1U;
+	const unsigned int cropY = ((srcH - cropH) / 2) & ~1U;
+	const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(srcAVFormat);
+	for (int plane = 0; plane < 4 && desc; plane++) {
+		if (!pSrc[plane]) {
+			continue;
+		}
+		// The first component in the plane gives the bytes per pixel step (2 for YUYV's Y, 2 for
+		// NV12's interleaved UV).
+		for (int c = 0; c < desc->nb_components; c++) {
+			if (desc->comp[c].plane != plane) {
+				continue;
+			}
+			const bool chroma = (c == 1 || c == 2) && !(desc->flags & AV_PIX_FMT_FLAG_RGB);
+			const unsigned int x = chroma ? cropX >> desc->log2_chroma_w : cropX;
+			const unsigned int y = chroma ? cropY >> desc->log2_chroma_h : cropY;
+			pSrc[plane] += y * srcLineSizes[plane] + x * desc->comp[c].step;
+			break;
+		}
+	}
+
 	if (img_convert_ctx == nullptr) {
 		img_convert_ctx = sws_getContext(
-			srcW,
-			srcH,
+			cropW,
+			cropH,
 			srcAVFormat,
 			dstW,
 			dstH,
@@ -323,7 +355,7 @@ void ReaderCallback::imgConvert(
 			(const uint8_t *const *)pSrc,
 			srcLineSizes,
 			0,
-			srcH,
+			cropH,
 			(uint8_t *const *)pDst,
 			dstLineSizes
 		);
@@ -438,10 +470,21 @@ bool WindowsCaptureDevice::start(void *startParam) {
 	UINT32 selection = 0;
 	UINT32 count = 0;
 
-	// Release old sources first(if any).
-	m_pSource = nullptr;
-	m_pReader = nullptr;
-	m_pCallback = nullptr;
+	// Release old sources first (if any). Take them out under the lock, so a callback from the old
+	// reader sees they're gone, but release them outside it: the reader may wait for that callback.
+	{
+		ComPtr<IMFMediaSource> oldSource;
+		ComPtr<IMFSourceReader> oldReader;
+		ComPtr<ReaderCallback> oldCallback;
+		{
+			std::lock_guard<std::mutex> lock(sdMutex);
+			oldSource.Swap(m_pSource);
+			oldReader.Swap(m_pReader);
+			oldCallback.Swap(m_pCallback);
+		}
+	}
+	// Callbacks wait while the new reader and the image buffers are set up.
+	std::lock_guard<std::mutex> lock(sdMutex);
 	// Need to re-enumerate the list,because old sources were released.
 	std::vector<std::string> deviceList = getDeviceList(true);
 
@@ -579,6 +622,7 @@ bool WindowsCaptureDevice::stop() {
 	if (m_pSource)
 		m_pSource->Stop();
 
+	std::lock_guard<std::mutex> lock(sdMutex);
 	updateState(CAPTUREDEVICE_STATE::STOPPED);
 
 	return true;
