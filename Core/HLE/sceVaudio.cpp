@@ -146,7 +146,8 @@ static u32 sceVaudioSetEffectType(int effectType, int vol) {
 // each buffer through the ME for processing, as a non-zero effect type does, if the sample count is a
 // multiple of 8. Not emulated, so the audio goes out unchanged. Works with or without a reservation.
 // It's also used in DMB Tuner. It's used in a few games too, strangely: Mega Man X4, INFECTED,
-// Snoopy vs The Red Baron, Heracles Chariot Racing, Cover Girl. Unless these are some kind of false positives.
+// Snoopy vs The Red Baron, Heracles Chariot Racing, Cover Girl, K-1 World GP 2005.
+// Unless these are some kind of false positives.
 static u32 sceVaudioSetAlcMode(int alcMode) {
 	if ((u32)alcMode >= 2) {
 		return hleLogError(Log::sceAudio, SCE_KERNEL_ERROR_INVALID_INDEX, "bad mode");

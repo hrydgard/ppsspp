@@ -151,11 +151,12 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 	// TODO: Handle fog and secondary color somehow?
 
+	// These are usually just bad display list noise in reports, so removed that.
 	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmfog, Log::G3D, "Imm vertex used fog");
+		// WARN_LOG(Log::G3D, "Imm vertex used fog");
 	}
 	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, Log::G3D, "Imm vertex used secondary color");
+		// WARN_LOG(Log::G3D, "Imm vertex used secondary color");
 	}
 
 	bool prevThrough = gstate.isModeThrough();

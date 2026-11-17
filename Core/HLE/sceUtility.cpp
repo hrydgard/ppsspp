@@ -1209,8 +1209,8 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 	}
 
 	if (!g_netApctlInited) {
-		// Is this allowed?
-		WARN_LOG_REPORT_ONCE(getnetparam_early, Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
+		// Is this allowed? It does seem so, it's done by the XMB, and X-Men and Marvel games.
+		WARN_LOG(Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
 	}
 
 	// TODO: Replace the temporary netApctlInfo with netConfInfo, since some of netApctlInfo contents supposed to be taken from netConfInfo during ApctlInit, while sceUtilityGetNetParam can be used before Apctl Initialized

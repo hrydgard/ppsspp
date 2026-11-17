@@ -223,13 +223,13 @@ bool MainScreen::WantsTextInput() const {
 
 
 #if PPSSPP_PLATFORM(IOS)
-constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
-constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios/";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios/";
 #else
-constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
-constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames/";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew/";
 #endif
-constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming";
+constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming/";
 
 void MainScreen::CreateRecentTab() {
 	using namespace UI;
@@ -969,8 +969,7 @@ void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
 	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD | BrowseFlags::UMDS_ONLY, portrait, &g_Config.iGameBrowserView2, screenManager(),
-		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		"", "", new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollAllGames->Add(tabAllGames);
 

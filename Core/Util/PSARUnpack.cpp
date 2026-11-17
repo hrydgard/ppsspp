@@ -511,7 +511,8 @@ public:
 
 private:
 	// Decrypts one record into 'out'. Returns the decrypted size, or <= 0 on failure.
-	int DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out);
+	// quiet: a failure is expected (we're guessing the size), so don't log it.
+	int DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out, bool quiet = false);
 	// Decodes the current entry's contents, if that hasn't happened yet.
 	void EnsureContents();
 
@@ -543,7 +544,7 @@ private:
 	std::vector<u8> block2_;
 };
 
-int PSARReader::DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out) {
+int PSARReader::DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out, bool quiet) {
 	if (cbIn == 0 || cbIn > PSAR_MAX_ENTRY_BYTES || offset >= size_) {
 		return -1;
 	}
@@ -579,7 +580,7 @@ int PSARReader::DecodeBlock(u32 offset, u32 cbIn, std::vector<u8> &out) {
 	}
 
 	const int decrypted = pspDecryptPRX(out.data(), out.data(), cbIn);
-	if (decrypted <= 0) {
+	if (decrypted <= 0 && !quiet) {
 		WARN_LOG(Log::Loader, "PSAR: block at %u (%u bytes) failed to decrypt: %d, tag %08x", offset, cbIn, decrypted, ReadU32(out.data() + 0xD0));
 	}
 	return decrypted;
@@ -650,7 +651,7 @@ bool PSARReader::Init(std::string *error) {
 			if (candidate == 0) {
 				continue;
 			}
-			decoded = DecodeBlock(pos_, overhead_ + candidate, block2_);
+			decoded = DecodeBlock(pos_, overhead_ + candidate, block2_, true);
 			if (decoded > 0) {
 				break;
 			}
@@ -1648,10 +1649,13 @@ bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions
 		return false;
 	}
 
-	CreateNoMediaFile(outputDir);
-
 	INFO_LOG(Log::Loader, "Found a %d byte updater on the mounted disc", (int)psar.size());
-	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
+	if (!UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error)) {
+		return false;
+	}
+	// After the unpack, which creates outputDir.
+	CreateNoMediaFile(outputDir);
+	return true;
 }
 
 bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
@@ -1801,7 +1805,6 @@ bool AutoInstallFirmwareFromDisc() {
 	}
 
 	const Path nandRoot = GetSysDirectory(DIRECTORY_NAND);
-	CreateNoMediaFile(nandRoot);
 
 	InstalledFirmwareInfo installed;
 	ReadInstalledFirmwareInfo(nandRoot, &installed, false);

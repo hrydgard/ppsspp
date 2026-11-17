@@ -2457,9 +2457,11 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 	m->nm.status = MODULE_STATUS_STARTED;
 	if (m->nm.module_start_func != 0 && m->nm.module_start_func != (u32)-1)
 	{
-		if (m->nm.module_start_func != m->nm.entry_addr)
-			WARN_LOG_REPORT(Log::Loader, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
-		// TODO: Should we try to run both?
+		if (m->nm.module_start_func != m->nm.entry_addr) {
+			// This is mostly seen in game modifications.
+			// Only module_start_func runs.
+			INFO_LOG(Log::Loader, "Main module has start func (%08x) different from entry (%08x)?", m->nm.module_start_func, m->nm.entry_addr);
+		}
 		currentMIPS->pc = m->nm.module_start_func;
 	}
 
