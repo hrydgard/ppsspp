@@ -435,6 +435,7 @@ tests_good = [
   "threads/callbacks/otherthread",
   "threads/callbacks/recursion",
   "threads/callbacks/refer",
+  "threads/callbacks/releasewait",
   "threads/callbacks/waittypes",
   "threads/events/events",
   "threads/events/cancel/cancel",

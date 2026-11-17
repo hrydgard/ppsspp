@@ -2990,10 +2990,9 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr) {
 	}
 }
 
+// The same from inside a callback, and releasing a thread whose callback is waiting ends only the
+// callback's wait (pspautotests threads/callbacks/releasewait).
 int sceKernelReleaseWaitThread(SceUID threadID) {
-	if (__KernelInCallback())
-		WARN_LOG_REPORT(Log::sceKernel, "UNTESTED sceKernelReleaseWaitThread() might not do the right thing in a callback");
-
 	if (threadID == 0 || threadID == currentThread)
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_THID);
 
