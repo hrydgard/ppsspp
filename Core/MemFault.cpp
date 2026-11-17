@@ -140,6 +140,41 @@ static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std
 	return false;
 }
 
+#if PPSSPP_ARCH(ARM)
+static constexpr uint32_t ARM_CPSR_THUMB = 1 << 5;
+
+// Android builds the interpreter as Thumb. A first halfword starting with 0b11101, 0b11110 or 0b11111
+// begins a 32-bit instruction.
+static int ThumbInstructionSize(const uint8_t *codePtr) {
+	uint16_t hw;
+	memcpy(&hw, codePtr, 2);
+	return (hw >> 11) >= 0x1D ? 4 : 2;
+}
+
+// ITAdvance() from the ARM ARM, on the IT bits kept in CPSR[15:10] and CPSR[26:25].
+static uint32_t ThumbAdvanceITState(uint32_t cpsr) {
+	uint32_t it = ((cpsr >> 8) & 0xFC) | ((cpsr >> 25) & 3);
+	if ((it & 7) == 0) {
+		it = 0;
+	} else {
+		it = (it & 0xE0) | ((it << 1) & 0x1F);
+	}
+	cpsr &= ~((0x3Fu << 10) | (3u << 25));
+	return cpsr | ((it & 0xFC) << 8) | ((it & 3) << 25);
+}
+#endif
+
+static void StepOverInterpreterAccess(SContext *context, int size) {
+	context->CTX_PC += size;
+#if PPSSPP_ARCH(ARM)
+	// Skipping an instruction in an IT block has to advance the IT state too, or the ones after it run
+	// under the wrong conditions.
+	if (context->arm_cpsr & ARM_CPSR_THUMB) {
+		context->arm_cpsr = ThumbAdvanceITState(context->arm_cpsr);
+	}
+#endif
+}
+
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	if (inCrashHandler)
 		return false;
@@ -172,14 +207,15 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	// The dispatcher looks a jump target up in the block shadow, which faults where there's no PSP memory.
 	// The JITs also do that lookup inline at a jump to a register.
 	const uintptr_t shadowAddress = (uintptr_t)blockShadow;
-	const bool shadowFault = shadowAddress && hostAddress >= shadowAddress && hostAddress <= shadowAddress + BLOCK_SHADOW_MASK;
+	// Offsets rather than end addresses: on a 32-bit host, base + size wraps when base is high.
+	const bool shadowFault = shadowAddress && hostAddress >= shadowAddress && hostAddress - shadowAddress <= BLOCK_SHADOW_MASK;
 	if (shadowFault) {
 		baseAddress = shadowAddress;
 	}
 
 	// Check whether hostAddress is within the PSP memory space, which (likely) means it was a guest executable that did the bad access.
 	bool invalidHostAddress = hostAddress == (uintptr_t)0xFFFFFFFFFFFFFFFFULL;
-	if (hostAddress < baseAddress || hostAddress >= baseAddress + addressSpaceSize) {
+	if (hostAddress < baseAddress || hostAddress - baseAddress >= addressSpaceSize) {
 		// Host address outside - this was a different kind of crash.
 		if (!invalidHostAddress) {
 			inCrashHandler = false;
@@ -238,6 +274,15 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	success = false;
 #endif
 
+	// How far the IR interpreter steps over a faulting access to halt cleanly, 0 if unknown.
+	int interpreterStepSize = success ? info.instructionSize : 0;
+#if PPSSPP_ARCH(ARM)
+	// The analyzer doesn't decode anything yet, but stepping over only needs the length.
+	if (inIRInterpreter && !success) {
+		interpreterStepSize = (context->arm_cpsr & ARM_CPSR_THUMB) ? ThumbInstructionSize(codePtr) : 4;
+	}
+#endif
+
 	if (mipsr4k.jit && (shadowFault || mipsr4k.jit->IsAtDispatchFetch(codePtr))) {
 		// The shadow entry's offset is the target, masked.
 		u32 targetAddr = shadowFault ? guestAddress : currentMIPS->pc;
@@ -267,14 +312,14 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		type = MemoryExceptionType::UNKNOWN;
 	}
 
-	if (inIRInterpreter && !success) {
+	if (inIRInterpreter && interpreterStepSize == 0) {
 		// Without the instruction's size we can't step over it.
 		inCrashHandler = false;
 		return false;
 	}
 	if (inIRInterpreter && coreState == CORE_RUNTIME_ERROR) {
 		// Already reported, the interpreter just hasn't reached the end of the block yet.
-		context->CTX_PC += info.instructionSize;
+		StepOverInterpreterAccess(context, interpreterStepSize);
 		inCrashHandler = false;
 		return true;
 	}
@@ -326,7 +371,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			// Step over the access and stop the core, like the JITs' crash handlers do. The interpreter
 			// leaves at the next block exit, which checks the downcount. Resuming isn't possible, the guest
 			// has already run on past the access.
-			context->CTX_PC += info.instructionSize;
+			StepOverInterpreterAccess(context, interpreterStepSize);
 			coreState = CORE_RUNTIME_ERROR;
 			currentMIPS->downcount = -1;
 			inCrashHandler = false;
