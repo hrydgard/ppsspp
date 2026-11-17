@@ -1648,10 +1648,13 @@ bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions
 		return false;
 	}
 
-	CreateNoMediaFile(outputDir);
-
 	INFO_LOG(Log::Loader, "Found a %d byte updater on the mounted disc", (int)psar.size());
-	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
+	if (!UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error)) {
+		return false;
+	}
+	// After the unpack, which creates outputDir.
+	CreateNoMediaFile(outputDir);
+	return true;
 }
 
 bool UnpackUpdater(const Path &filename, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
@@ -1801,7 +1804,6 @@ bool AutoInstallFirmwareFromDisc() {
 	}
 
 	const Path nandRoot = GetSysDirectory(DIRECTORY_NAND);
-	CreateNoMediaFile(nandRoot);
 
 	InstalledFirmwareInfo installed;
 	ReadInstalledFirmwareInfo(nandRoot, &installed, false);
