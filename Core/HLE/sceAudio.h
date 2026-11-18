@@ -39,6 +39,25 @@ struct AudioPendingBuffer {
 	u32 samples;
 };
 
+// The start of the buffer a channel is playing, read out of memory when it became the current
+// buffer. The hardware reads ahead of what is heard, so a game can write over the first samples
+// of a playing buffer without that being heard. Stereo pairs, mono duplicated. Not saved: after
+// a load the buffer plays from memory, which only differs if the game wrote over its start.
+struct AudioPrefetch {
+	// The mixer thread outranks the caller and mixes the first 64-sample block of a buffer right
+	// away. The SRC DMA is ahead by about 100us, a few samples.
+	static constexpr u32 MIXER_SAMPLES = 64;
+	static constexpr u32 SRC_SAMPLES = 8;
+
+	s16 samples[MIXER_SAMPLES * 2]{};
+	u32 count = 0;
+
+	void Latch(u32 address, u32 numSamples, u32 maxSamples, bool mono);
+	void Clear() {
+		count = 0;
+	}
+};
+
 // A channel the software mixer walks. It holds exactly one buffer, played straight out of the
 // game's memory 64 samples at a time, and has room for exactly one parked thread. See
 // docs/sceAudio.md.
@@ -59,6 +78,9 @@ struct AudioChannel {
 	// sampleAddress at zero, which is the one case where the two rest-length calls disagree.
 	u32 sampleAddress = 0;
 	u32 remainingSamples = 0;
+	// Where the current buffer started, to index the prefetch with. Not saved.
+	u32 bufferAddress = 0;
+	AudioPrefetch prefetch;
 
 	// A second thread arriving while one is parked here is told the channel is busy rather than
 	// queueing up behind it. These remember what the parked one wanted to hand over, so the
@@ -92,6 +114,7 @@ struct AudioSRCChannel {
 	int bufferCount = 0;
 	u32 playedSamples = 0;  // Consumed from buffers[0].
 	u32 frac = 0;           // 16.16 position between two input samples, for resampling.
+	AudioPrefetch prefetch;  // Of buffers[0].
 	// The driver signals a finished buffer with an event flag bit, so one completion can sit
 	// there unclaimed - which is why the first output after an idle period doesn't block.
 	bool completion = false;
