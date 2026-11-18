@@ -8,7 +8,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,7 +16,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
-import androidx.core.content.ContextCompat;
 import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
@@ -241,14 +239,11 @@ public class ShortcutActivity extends Activity {
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
 		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, getString(R.string.shortcut_xmb_name));
 
-		// Rendered here, since launchers can't all draw a vector icon resource.
-		Drawable icon = ContextCompat.getDrawable(this, R.drawable.ic_shortcut_xmb);
-		if (icon != null) {
-			Bitmap bmp = Bitmap.createBitmap(MAX_ICON_SIZE, MAX_ICON_SIZE, Bitmap.Config.ARGB_8888);
-			Canvas canvas = new Canvas(bmp);
-			icon.setBounds(0, 0, MAX_ICON_SIZE, MAX_ICON_SIZE);
-			icon.draw(canvas);
-			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON, bmp);
+		try {
+			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.drawable.ic_shortcut_xmb);
+			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
+		} catch (Exception e) {
+			Log.e(TAG, "Error assigning the XMB icon: " + e);
 		}
 		finishWithShortcut(responseIntent);
 	}
