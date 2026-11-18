@@ -247,6 +247,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(shaderCache), CmdParamType::Bool, "shader-cache", '\0', "Load and save the per-game shader cache (default true); =false to time shader compiles like a first boot"},
 	{POFF(disableGPUFeatures), CmdParamType::String, "disable-gpu-features", '\0', "Act as if the GPU lacked these, to test the fallbacks: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend", CmdLineMode::Headless},
 	{POFF(depthFilenameSave), CmdParamType::String, "depth-save", '\0', "Save the depth buffer to FILE along with the screenshot (u32 width, u32 height, u16 depths; float depths if FILE ends in .f32)", CmdLineMode::Headless},
+	{POFF(stencilFilenameSave), CmdParamType::String, "stencil-save", '\0', "Save the stencil buffer to FILE along with the screenshot (u32 width, u32 height, u8 per pixel)", CmdLineMode::Headless},
 	{POFF(screenshotRenderTarget), CmdParamType::Bool, "screenshot-render-target", '\0', "Take screenshots of the current render target instead of the displayed framebuffer", CmdLineMode::Headless},
 	{POFF(screenshotFilenameDiff), CmdParamType::String, "screenshot-diff", '\0', "Save a visual comparison image to FILE when comparing screenshots", CmdLineMode::Headless},
 	{POFF(screenshotSaveKeepAlpha), CmdParamType::Bool, "screenshot-keep-alpha", '\0', "Preserve the alpha channel when saving PNG screenshots (default: alpha is forced to 255)", CmdLineMode::Headless},

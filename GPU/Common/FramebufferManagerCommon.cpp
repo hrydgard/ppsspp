@@ -3315,8 +3315,11 @@ void FramebufferManagerCommon::ClearAllDepthBuffers() {
 // * Save state screenshots(could probably be async but need to manage the stall.)
 bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb || vfb->fb_address != fb_address) {
-		vfb = ResolveVFB(fb_address, fb_stride, format);
+	if (!vfb || vfb->fb_address != fb_address || vfb->fb_stride != fb_stride || vfb->fb_format != format) {
+		vfb = GetExactVFB(fb_address, fb_stride, format);
+		if (!vfb) {
+			vfb = ResolveVFB(fb_address, fb_stride, format);
+		}
 	}
 
 	if (!vfb) {
@@ -3402,11 +3405,26 @@ bool FramebufferManagerCommon::ReadFramebufferForDebug(VirtualFramebuffer *vfb, 
 	return retval;
 }
 
-bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
+// The bound framebuffer, or else the newest at this address and stride. Buffers in different formats can share an
+// address (Silent Hill: Origins has a 565 one with stride 1024 and an 8888 one with stride 512 at 04170000).
+VirtualFramebuffer *FramebufferManagerCommon::FindDebugVFB(u32 fb_address, int fb_stride) const {
+	fb_address &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(fb_address))
+		fb_address &= 0x041FFFFF;
+	if (currentRenderVfb_ && currentRenderVfb_->fb_address == fb_address && currentRenderVfb_->fb_stride == fb_stride) {
+		return currentRenderVfb_;
 	}
+	VirtualFramebuffer *newest = nullptr;
+	for (VirtualFramebuffer *vfb : vfbs_) {
+		if (vfb->fb_address == fb_address && vfb->fb_stride == fb_stride && (!newest || vfb->colorBindSeq > newest->colorBindSeq)) {
+			newest = vfb;
+		}
+	}
+	return newest ? newest : GetVFBAt(fb_address);
+}
+
+bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
+	VirtualFramebuffer *vfb = FindDebugVFB(fb_address, fb_stride);
 
 	if (!vfb) {
 		if (!Memory::IsValidAddress(z_address))
@@ -3445,10 +3463,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 }
 
 bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
+	VirtualFramebuffer *vfb = FindDebugVFB(fb_address, fb_stride);
 
 	if (!vfb) {
 		if (!Memory::IsValidAddress(fb_address))

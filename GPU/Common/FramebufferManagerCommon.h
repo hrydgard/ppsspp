@@ -455,6 +455,7 @@ public:
 
 	// This will only return exact matches of addr+stride+format.
 	VirtualFramebuffer *GetExactVFB(u32 addr, int stride, GEBufferFormat format) const;
+	VirtualFramebuffer *FindDebugVFB(u32 fb_address, int fb_stride) const;
 
 	// If this doesn't find the exact VFB, but one with a different color format with matching stride,
 	// it'll resolve the newest one at address to the format requested, and return that.

@@ -146,6 +146,11 @@ keep depth at higher precision without the GE's rounding, so their u16 is
 `.f32` version keeps the fraction, which shows whether two draws of the same
 surface meet a depth test like `>=`.
 
+`--stencil-save=<file>` does the same for the stencil buffer: a u32 width and height, then a u8 per pixel.
+With `--replay-end=N` and `--screenshot-render-target`, these show the render target partway through a
+dump, which is how to find the draw where a hardware backend's stencil or color first parts from the
+software renderer's.
+
 ## Command line options
 
 ```
