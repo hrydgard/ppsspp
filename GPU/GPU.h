@@ -18,10 +18,42 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstring>
 #include <cstdint>
 
 enum GPUCore : int;
+
+// A rectangle in pixels, x2/y2 exclusive. Empty when x1 >= x2 or y1 >= y2.
+struct DrawnBounds {
+	int x1;
+	int y1;
+	int x2;
+	int y2;
+
+	bool IsEmpty() const {
+		return x1 >= x2 || y1 >= y2;
+	}
+	void Clear() {
+		x1 = y1 = x2 = y2 = 0;
+	}
+	void Add(const DrawnBounds &other) {
+		if (other.IsEmpty()) {
+			return;
+		}
+		if (IsEmpty()) {
+			*this = other;
+			return;
+		}
+		x1 = std::min(x1, other.x1);
+		y1 = std::min(y1, other.y1);
+		x2 = std::max(x2, other.x2);
+		y2 = std::max(y2, other.y2);
+	}
+	bool Intersects(const DrawnBounds &other) const {
+		return !IsEmpty() && !other.IsEmpty() && x1 < other.x2 && other.x1 < x2 && y1 < other.y2 && other.y1 < y2;
+	}
+};
 
 class GPUCommon;
 class GPUCommon;

@@ -110,6 +110,8 @@ public:
 	// depth clamp or clip distances, assuming the worst, or nothing (not Valid) if none are needed.
 	static ClipInfoFlags UncheckedClipInfoFlags();
 	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
+	// Where a draw can write, in the framebuffer's pixels: the scissor, narrowed to the vertices in through mode.
+	DrawnBounds DrawBounds(const void *verts, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) const;
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);
@@ -292,6 +294,7 @@ protected:
 		gstate_c.vertBounds.minV = 512;
 		gstate_c.vertBounds.maxU = 0;
 		gstate_c.vertBounds.maxV = 0;
+		gstate_c.queuedSelfTextureDraws.Clear();
 	}
 
 	inline bool CollectedPureDraw() const {

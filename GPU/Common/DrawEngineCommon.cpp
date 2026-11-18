@@ -902,6 +902,50 @@ bool DrawEngineCommon::EstimateThroughPrimSafeSize(const void *verts, const void
 	return *safeWidth > 0 && *safeHeight > 0;
 }
 
+DrawnBounds DrawEngineCommon::DrawBounds(const void *verts, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) const {
+	DrawnBounds bounds{ gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2() + 1, gstate.getScissorY2() + 1 };
+	const u32 posType = vertType & GE_VTYPE_POS_MASK;
+	if (!verts || (vertType & GE_VTYPE_THROUGH_MASK) == 0 || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) != 0 ||
+		(posType != GE_VTYPE_POS_16BIT && posType != GE_VTYPE_POS_FLOAT)) {
+		return bounds;
+	}
+
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+	IndexConverter conv(vertType, inds);
+	float minX = FLT_MAX;
+	float minY = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float maxY = -FLT_MAX;
+	for (int i = 0; i < vertexCount; ++i) {
+		const u8 *posPtr = (const u8 *)verts + conv(i) * stride + posOffset;
+		float x;
+		float y;
+		if (posType == GE_VTYPE_POS_16BIT) {
+			const s16_le *pos = (const s16_le *)posPtr;
+			x = (float)pos[0];
+			y = (float)pos[1];
+		} else {
+			const float_le *pos = (const float_le *)posPtr;
+			x = pos[0];
+			y = pos[1];
+		}
+		minX = std::min(minX, x);
+		minY = std::min(minY, y);
+		maxX = std::max(maxX, x);
+		maxY = std::max(maxY, y);
+	}
+	if (!(minX <= maxX && minY <= maxY)) {
+		return bounds;
+	}
+	// A pixel more on each side, for edge rules and filtering.
+	bounds.x1 = std::max(bounds.x1, (int)std::clamp(floorf(minX) - 1.0f, -4096.0f, 4096.0f));
+	bounds.y1 = std::max(bounds.y1, (int)std::clamp(floorf(minY) - 1.0f, -4096.0f, 4096.0f));
+	bounds.x2 = std::min(bounds.x2, (int)std::clamp(ceilf(maxX) + 1.0f, -4096.0f, 4096.0f));
+	bounds.y2 = std::min(bounds.y2, (int)std::clamp(ceilf(maxY) + 1.0f, -4096.0f, 4096.0f));
+	return bounds;
+}
+
 void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
 	if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
 		*fboTexState = FBO_TEX_READ_FRAMEBUFFER;

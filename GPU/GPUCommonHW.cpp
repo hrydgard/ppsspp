@@ -989,6 +989,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
+	NoteSelfTextureDraw(vfb, verts, inds, count, decoder, vertexType);
+
 	// This is the check from #21678 for Evangelion JO, whose menu text is rendered into small framebuffers
 	// that are then used as textures, so they need to reach memory on the first frame.
 	// Only for buffers smaller than the screen. A partial readback of a screen-sized one leaves a strip of
@@ -1387,6 +1389,8 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::BEZIER;
 
+	NoteSelfTextureDraw(vfb, nullptr, nullptr, 0, nullptr, vertType);
+
 	int bytesRead = 0;
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
@@ -1463,6 +1467,8 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::SPLINE;
 
+	NoteSelfTextureDraw(vfb, nullptr, nullptr, 0, nullptr, vertType);
+
 	int bytesRead = 0;
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
@@ -1522,6 +1528,35 @@ void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	drawEngineCommon_->WaitForDepthWrites(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes(), &recorder_);
+}
+
+// A cached self-texturing copy goes stale where later draws write (see BindFramebufferAsColorTexture). Tracks those
+// draws, and the ones about to be flushed with a draw that takes a copy.
+void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) {
+	if (!vfb) {
+		return;
+	}
+	const bool hasCopy = framebufferManager_->HasSelfTextureCopy();
+	bool selfTexture = false;
+	if (!hasCopy && gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
+		u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
+		if (Memory::IsVRAMAddress(texAddr)) {
+			texAddr &= 0x041FFFFF;
+		}
+		selfTexture = texAddr >= vfb->fb_address && texAddr < vfb->fb_address + vfb->FbStrideInBytes() * vfb->bufferHeight;
+	}
+	if (!hasCopy && !selfTexture) {
+		return;
+	}
+	DrawnBounds bounds = drawEngineCommon_->DrawBounds(verts, inds, count, dec, vertType);
+	bounds.x1 += gstate_c.curRTOffsetX;
+	bounds.x2 += gstate_c.curRTOffsetX;
+	bounds.y1 += gstate_c.curRTOffsetY;
+	bounds.y2 += gstate_c.curRTOffsetY;
+	gstate_c.queuedSelfTextureDraws.Add(bounds);
+	if (hasCopy) {
+		framebufferManager_->NoteDrawAfterSelfTextureCopy(bounds);
+	}
 }
 
 void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {
