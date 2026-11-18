@@ -19,15 +19,13 @@
 
 #include "Common/UI/View.h"
 #include "Core/KeyMap.h"
-#include "UI/BaseScreens.h"
+#include "UI/SimpleDialogScreen.h"
 
 class MockPSP;
 
-class VisualMappingScreen : public UIBaseDialogScreen {
+class VisualMappingScreen : public UITwoPaneBaseDialogScreen {
 public:
-	// Places the controller picture from the screen bounds.
-	bool LimitContentArea() const override { return false; }
-	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
+	VisualMappingScreen(const Path &gamePath);
 
 	const char *tag() const override { return "VisualMapping"; }
 
@@ -35,10 +33,11 @@ public:
 	void axis(const AxisInput &axis) override;
 
 protected:
-	void CreateViews() override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
+	std::string_view GetTitle() const override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void resized() override;
 
 private:
 	void OnMapButton(UI::EventParams &e);

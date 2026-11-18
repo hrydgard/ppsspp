@@ -138,6 +138,7 @@
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/VisualMappingScreen.h"
 #include "UI/GamePacker.h"
 #include "UI/DevScreens.h"
 #include "UI/DiscordIntegration.h"
@@ -962,6 +963,9 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "driver")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new DriverManagerScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "visualmapping")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new VisualMappingScreen(Path()));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -38,7 +39,11 @@ using KeyMap::MultiInputMapping;
 
 class Backplate : public UI::InertView {
 public:
-	explicit Backplate(float scale, UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams), scale_(scale) {}
+	explicit Backplate(UI::LayoutParams *layoutParams = nullptr) : InertView(layoutParams) {}
+
+	void SetScale(float scale) {
+		scale_ = scale;
+	}
 
 	void Draw(UIContext &dc) override {
 		for (float dy = 0.0f; dy <= 4.0f; dy += 1.0f) {
@@ -144,7 +149,7 @@ public:
 					c = colorBlend(c, dc.GetTheme().itemDownStyle.background.color, (float)sincePress);
 				}
 			}
-			dc.Draw()->DrawImageRotatedStretch(img_, bounds_.Offset(offsetX_, offsetY_), scales, angle_, c);
+			dc.Draw()->DrawImageRotatedStretch(img_, bounds_.Offset(offsetX_ * drawScale_, offsetY_ * drawScale_), scales, angle_, c);
 		}
 	}
 
@@ -165,10 +170,15 @@ public:
 		return this;
 	}
 
+	// In unscaled PSP units, like the layout.
 	MockButton *SetOffset(float x, float y) {
 		offsetX_ = x;
 		offsetY_ = y;
 		return this;
+	}
+
+	void SetDrawScale(float s) {
+		drawScale_ = s;
 	}
 
 	MockButton *SetSelectedButton(int *s) {
@@ -197,6 +207,7 @@ private:
 	float scaleY_ = 1.0f;
 	float offsetX_ = 0.0f;
 	float offsetY_ = 0.0f;
+	float drawScale_ = 1.0f;
 	bool flipHBG_ = false;
 	int *selectedButton_ = nullptr;
 	double timeLastPressed_ = -1.0;
@@ -204,8 +215,6 @@ private:
 
 class MockPSP : public UI::AnchorLayout {
 public:
-	static constexpr float SCALE = 1.4f;
-
 	explicit MockPSP(UI::LayoutParams *layoutParams = nullptr);
 	void SelectButton(int btn);
 	void FocusButton(int btn);
@@ -213,46 +222,56 @@ public:
 	float GetPopupOffset();
 
 	bool SubviewFocused(View *view) override;
+	void Layout() override;
 
 	UI::Event ButtonClick;
 
 private:
-	UI::AnchorLayoutParams *LayoutAt(float l, float t, float r, float b);
-	UI::AnchorLayoutParams *LayoutSize(float w, float h, float l, float t);
-	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp);
+	// A rectangle in unscaled PSP units: the picture is 478x204, and is scaled to fit the view.
+	struct Placement {
+		UI::View *view;
+		float w, h, l, t;
+	};
+
+	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, float w, float h, float l, float t);
 
 	void OnSelectButton(UI::EventParams &e);
 
 	std::unordered_map<int, MockButton *> buttons_;
+	std::vector<Placement> placements_;
+	Backplate *backplate_ = nullptr;
 	UI::TextView *labelView_ = nullptr;
 	int selectedButton_ = 0;
 };
 
+static constexpr float MOCK_PSP_WIDTH = 478.0f;
+static constexpr float MOCK_PSP_HEIGHT = 204.0f;
+
 MockPSP::MockPSP(UI::LayoutParams *layoutParams) : AnchorLayout(layoutParams) {
-	Add(new Backplate(SCALE));
-	Add(new MockScreen(LayoutAt(99.0f, 13.0f, 97.0f, 33.0f)));
+	backplate_ = Add(new Backplate());
+	placements_.push_back({ Add(new MockScreen()), 282.0f, 158.0f, 99.0f, 13.0f });
 
 	// Left side.
-	AddButton(VIRTKEY_AXIS_Y_MAX, ImageID("I_STICK_LINE"), ImageID("I_STICK_BG_LINE"), 0.0f, LayoutSize(34.0f, 34.0f, 35.0f, 133.0f));
-	AddButton(CTRL_LEFT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.0f, LayoutSize(28.0f, 20.0f, 14.0f, 75.0f))->SetOffset(-4.0f * SCALE, 0.0f);
-	AddButton(CTRL_UP, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.5f, LayoutSize(20.0f, 28.0f, 40.0f, 50.0f))->SetOffset(0.0f, -4.0f * SCALE);
-	AddButton(CTRL_RIGHT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.0f, LayoutSize(28.0f, 20.0f, 58.0f, 75.0f))->SetOffset(4.0f * SCALE, 0.0f);
-	AddButton(CTRL_DOWN, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.5f, LayoutSize(20.0f, 28.0f, 40.0f, 92.0f))->SetOffset(0.0f, 4.0f * SCALE);
+	AddButton(VIRTKEY_AXIS_Y_MAX, ImageID("I_STICK_LINE"), ImageID("I_STICK_BG_LINE"), 0.0f, 34.0f, 34.0f, 35.0f, 133.0f);
+	AddButton(CTRL_LEFT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.0f, 28.0f, 20.0f, 14.0f, 75.0f)->SetOffset(-4.0f, 0.0f);
+	AddButton(CTRL_UP, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 0.5f, 20.0f, 28.0f, 40.0f, 50.0f)->SetOffset(0.0f, -4.0f);
+	AddButton(CTRL_RIGHT, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.0f, 28.0f, 20.0f, 58.0f, 75.0f)->SetOffset(4.0f, 0.0f);
+	AddButton(CTRL_DOWN, ImageID("I_ARROW"), ImageID("I_DIR_LINE"), M_PI * 1.5f, 20.0f, 28.0f, 40.0f, 92.0f)->SetOffset(0.0f, 4.0f);
 
 	// Top.
-	AddButton(CTRL_LTRIGGER, ImageID("I_L"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 29.0f, 0.0f));
-	AddButton(CTRL_RTRIGGER, ImageID("I_R"), ImageID("I_SHOULDER_LINE"), 0.0f, LayoutSize(50.0f, 16.0f, 397.0f, 0.0f))->SetFlipHBG(true);
+	AddButton(CTRL_LTRIGGER, ImageID("I_L"), ImageID("I_SHOULDER_LINE"), 0.0f, 50.0f, 16.0f, 29.0f, 0.0f);
+	AddButton(CTRL_RTRIGGER, ImageID("I_R"), ImageID("I_SHOULDER_LINE"), 0.0f, 50.0f, 16.0f, 397.0f, 0.0f)->SetFlipHBG(true);
 
 	// Bottom.
-	AddButton(CTRL_HOME, ImageID("I_HOME"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 88.0f, 181.0f))->SetScale(1.0f, 0.65f);
-	AddButton(CTRL_SELECT, ImageID("I_SELECT"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 330.0f, 181.0f));
-	AddButton(CTRL_START, ImageID("I_START"), ImageID("I_RECT_LINE"), 0.0f, LayoutSize(28.0f, 14.0f, 361.0f, 181.0f));
+	AddButton(CTRL_HOME, ImageID("I_HOME"), ImageID("I_RECT_LINE"), 0.0f, 28.0f, 14.0f, 88.0f, 181.0f)->SetScale(1.0f, 0.65f);
+	AddButton(CTRL_SELECT, ImageID("I_SELECT"), ImageID("I_RECT_LINE"), 0.0f, 28.0f, 14.0f, 330.0f, 181.0f);
+	AddButton(CTRL_START, ImageID("I_START"), ImageID("I_RECT_LINE"), 0.0f, 28.0f, 14.0f, 361.0f, 181.0f);
 
 	// Right side.
-	AddButton(CTRL_TRIANGLE, ImageID("I_TRIANGLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 46.0f))->SetScale(0.7f)->SetOffset(0.0f, -1.0f * SCALE);
-	AddButton(CTRL_CIRCLE, ImageID("I_CIRCLE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 446.0f, 74.0f))->SetScale(0.7f);
-	AddButton(CTRL_CROSS, ImageID("I_CROSS"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 419.0f, 102.0f))->SetScale(0.7f);
-	AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, LayoutSize(23.0f, 23.0f, 392.0f, 74.0f))->SetScale(0.7f);
+	AddButton(CTRL_TRIANGLE, ImageID("I_TRIANGLE"), ImageID("I_ROUND_LINE"), 0.0f, 23.0f, 23.0f, 419.0f, 46.0f)->SetScale(0.7f)->SetOffset(0.0f, -1.0f);
+	AddButton(CTRL_CIRCLE, ImageID("I_CIRCLE"), ImageID("I_ROUND_LINE"), 0.0f, 23.0f, 23.0f, 446.0f, 74.0f)->SetScale(0.7f);
+	AddButton(CTRL_CROSS, ImageID("I_CROSS"), ImageID("I_ROUND_LINE"), 0.0f, 23.0f, 23.0f, 419.0f, 102.0f)->SetScale(0.7f);
+	AddButton(CTRL_SQUARE, ImageID("I_SQUARE"), ImageID("I_ROUND_LINE"), 0.0f, 23.0f, 23.0f, 392.0f, 74.0f)->SetScale(0.7f);
 
 	labelView_ = Add(new UI::TextView(""));
 	labelView_->SetShadow(true);
@@ -303,18 +322,36 @@ float MockPSP::GetPopupOffset() {
 	return 0.25f;
 }
 
-UI::AnchorLayoutParams *MockPSP::LayoutAt(float l, float t, float r, float b) {
-	return new UI::AnchorLayoutParams(l * SCALE, t * SCALE, r * SCALE, b * SCALE);
-}
-UI::AnchorLayoutParams *MockPSP::LayoutSize(float w, float h, float l, float t) {
-	return new UI::AnchorLayoutParams(w * SCALE, h * SCALE, l * SCALE, t * SCALE, UI::NONE, UI::NONE);
+void MockPSP::Layout() {
+	// Fit the picture in whatever space the screen gives it, centered.
+	const float scale = std::min(bounds_.w / MOCK_PSP_WIDTH, bounds_.h / MOCK_PSP_HEIGHT);
+	const float left = (bounds_.w - MOCK_PSP_WIDTH * scale) * 0.5f;
+	const float top = (bounds_.h - MOCK_PSP_HEIGHT * scale) * 0.5f;
+
+	// This places the label, then the picture's parts are put where they go. They draw to their
+	// bounds, so their measured sizes don't matter.
+	AnchorLayout::Layout();
+
+	auto place = [&](UI::View *view, float w, float h, float l, float t) {
+		view->SetBounds(Bounds(bounds_.x + left + l * scale, bounds_.y + top + t * scale, w * scale, h * scale));
+		view->Layout();
+	};
+	backplate_->SetScale(scale);
+	place(backplate_, MOCK_PSP_WIDTH, MOCK_PSP_HEIGHT, 0.0f, 0.0f);
+	for (const Placement &p : placements_) {
+		place(p.view, p.w, p.h, p.l, p.t);
+	}
+	for (auto &it : buttons_) {
+		it.second->SetDrawScale(scale);
+	}
 }
 
-MockButton *MockPSP::AddButton(int button, ImageID img, ImageID bg, float angle, UI::LayoutParams *lp) {
-	MockButton *view = Add(new MockButton(button, img, bg, angle, lp));
+MockButton *MockPSP::AddButton(int button, ImageID img, ImageID bg, float angle, float w, float h, float l, float t) {
+	MockButton *view = Add(new MockButton(button, img, bg, angle));
 	view->OnClick.Handle(this, &MockPSP::OnSelectButton);
 	view->SetSelectedButton(&selectedButton_);
 	buttons_[button] = view;
+	placements_.push_back({ view, w, h, l, t });
 	return view;
 }
 
@@ -344,33 +381,27 @@ static std::vector<int> bindAllOrder{
 	CTRL_SQUARE,
 };
 
-void VisualMappingScreen::CreateViews() {
-	using namespace UI;
+VisualMappingScreen::VisualMappingScreen(const Path &gamePath) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::Default) {}
 
+std::string_view VisualMappingScreen::GetTitle() const {
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
-	auto di = GetI18NCategory(I18NCat::DIALOG);
+	return km->T("Show PSP");
+}
 
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
+void VisualMappingScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
+	using namespace UI;
+	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
-	constexpr float leftColumnWidth = 200.0f;
-	LinearLayout *leftColumn = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(leftColumnWidth, FILL_PARENT, Margins(10, 10, 0, 10))));
-
-	ChoiceGroup *actions = leftColumn->Add(new ChoiceGroup());
-
+	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+	ChoiceGroup *actions = groups->Add(new ChoiceGroup());
 	actions->Add(new Choice(km->T("Bind All")))->OnClick.Handle(this, &VisualMappingScreen::OnBindAll);
 	actions->Add(new CheckBox(&replace_, km->T("Replace"), ""));
+}
 
-	Choice *backButton = leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
-	backButton->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	backButton->SetRoundCorners();
+void VisualMappingScreen::CreateContentViews(UI::ViewGroup *parent) {
+	using namespace UI;
 
-	// TODO: Properly use layout instead of querying bounds.
-	Bounds bounds = GetLayoutBounds(*screenManager()->getUIContext());
-	// Account for left side.
-	bounds.w -= leftColumnWidth + 10.0f;
-
-	AnchorLayout *rightColumn = root_->Add(new AnchorLayout(new LinearLayoutParams(bounds.w, FILL_PARENT, 1.0f)));
-	psp_ = rightColumn->Add(new MockPSP(new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, Centering::Both)));
+	psp_ = parent->Add(new MockPSP(new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f, Margins(12))));
 	psp_->ButtonClick.Handle(this, &VisualMappingScreen::OnMapButton);
 }
 
@@ -392,7 +423,7 @@ bool VisualMappingScreen::key(const KeyInput &key) {
 			}
 		}
 	}
-	return UIBaseDialogScreen::key(key);
+	return UITwoPaneBaseDialogScreen::key(key);
 }
 
 void VisualMappingScreen::axis(const AxisInput &axis) {
@@ -415,12 +446,7 @@ void VisualMappingScreen::axis(const AxisInput &axis) {
 			break;
 		}
 	}
-	UIBaseDialogScreen::axis(axis);
-}
-
-void VisualMappingScreen::resized() {
-	UIBaseDialogScreen::resized();
-	RecreateViews();
+	UITwoPaneBaseDialogScreen::axis(axis);
 }
 
 void VisualMappingScreen::OnMapButton(UI::EventParams &e) {
