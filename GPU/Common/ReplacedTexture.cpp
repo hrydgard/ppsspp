@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <new>
 
 #include "ppsspp_config.h"
 
@@ -312,7 +313,20 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 			fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 		}
 
-		result = LoadLevelData(fileRef, desc_.filenames[i], i, &pixelFormat);
+		const size_t levelsBefore = levels_.size();
+		try {
+			result = LoadLevelData(fileRef, desc_.filenames[i], i, &pixelFormat);
+		} catch (const std::bad_alloc &) {
+			// A level can need hundreds of MB, which a 32-bit process often can't get. Drop what
+			// this file added (a DDS or KTX2 adds several levels) and keep the levels from before,
+			// or fall back to the original texture.
+			ERROR_LOG(Log::TexReplacement, "Out of memory loading texture replacement %s", desc_.filenames[i].c_str());
+			levels_.resize(levelsBefore);
+			if (data_.size() > (size_t)i) {
+				data_.resize(i);
+			}
+			result = LoadLevelResult::LOAD_ERROR;
+		}
 		// A level that got loaded owns the reference. Otherwise (error, or nothing to load) it's ours to free.
 		bool kept = false;
 		for (const ReplacedTextureLevel &level : levels_) {
@@ -385,6 +399,21 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	ReplacedTextureLevel level;
 	size_t fileSize;
 	VFSOpenFile *openFile = vfs_->OpenFileForRead(fileRef, &fileSize);
+	// Prepare catches std::bad_alloc from the big allocations below. Close the file if that
+	// unwinds through here.
+	struct FileCloser {
+		VFSBackend *vfs;
+		VFSOpenFile *file;
+		~FileCloser() {
+			if (file) {
+				vfs->CloseFile(file);
+			}
+		}
+	} fileCloser{ vfs_, openFile };
+	auto closeFile = [&]() {
+		vfs_->CloseFile(openFile);
+		fileCloser.file = nullptr;
+	};
 	if (!openFile) {
 		// File missing, no more levels. This is alright.
 		return LoadLevelResult::DONE;
@@ -395,7 +424,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	if (desc_.indexed && imageType != ReplacedImageType::PNG && imageType != ReplacedImageType::KTX2) {
 		ERROR_LOG(Log::TexReplacement, "Indexed replacement %s must be a palette or grayscale PNG, or an R8 KTX2", filename.c_str());
-		vfs_->CloseFile(openFile);
+		closeFile();
 		return LoadLevelResult::LOAD_ERROR;
 	}
 
@@ -406,7 +435,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		firstImageType_ = imageType;
 	} else if (imageType != firstImageType_) {
 		WARN_LOG(Log::TexReplacement, "Replacement mipmap %d uses image format %d, but mip 0 uses %d. Stopping.", mipLevel, (int)imageType, (int)firstImageType_);
-		vfs_->CloseFile(openFile);
+		closeFile();
 		return LoadLevelResult::DONE;
 	}
 
@@ -572,7 +601,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	}
 
 	if (!good) {
-		vfs_->CloseFile(openFile);
+		closeFile();
 		return LoadLevelResult::LOAD_ERROR;
 	}
 
@@ -584,7 +613,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		std::vector<uint8_t> buffer;
 		buffer.resize(fileSize);
 		buffer.resize(vfs_->Read(openFile, &buffer[0], buffer.size()));
-		vfs_->CloseFile(openFile);
+		closeFile();
 
 		KTXHeader header{};
 		std::string reason;
@@ -655,7 +684,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		std::vector<uint8_t> buffer;
 		buffer.resize(fileSize);
 		buffer.resize(vfs_->Read(openFile, &buffer[0], buffer.size()));
-		vfs_->CloseFile(openFile);
+		closeFile();
 
 		basist::ktx2_transcoder transcoder;
 		if (!transcoder.init(buffer.data(), (int)buffer.size())) {
@@ -801,7 +830,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			level.w = std::max(level.w / 2, 1);
 			level.h = std::max(level.h / 2, 1);
 		}
-		vfs_->CloseFile(openFile);
+		closeFile();
 
 		return LoadLevelResult::DONE;  // don't read more levels
 
@@ -810,16 +839,16 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		auto zim = std::make_unique<uint8_t[]>(fileSize);
 		if (!zim) {
 			ERROR_LOG(Log::TexReplacement, "Failed to allocate memory for texture replacement");
-			vfs_->CloseFile(openFile);
+			closeFile();
 			return LoadLevelResult::LOAD_ERROR;
 		}
 
 		if (vfs_->Read(openFile, &zim[0], fileSize) != fileSize) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - failed to read ZIM", filename.c_str());
-			vfs_->CloseFile(openFile);
+			closeFile();
 			return LoadLevelResult::LOAD_ERROR;
 		}
-		vfs_->CloseFile(openFile);
+		closeFile();
 
 		// LoadZIMPtr writes to these as arrays (one entry per mip level, up to
 		// ZIM_MAX_MIP_LEVELS) whenever the file has ZIM_HAS_MIPS set - passing plain
@@ -862,7 +891,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		std::string pngdata;
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
-		vfs_->CloseFile(openFile);
+		closeFile();
 
 		int w = 0, h = 0;
 		unsigned char *indices = nullptr;
@@ -889,7 +918,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		std::string pngdata;
 		pngdata.resize(fileSize);
 		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
-		vfs_->CloseFile(openFile);
+		closeFile();
 		if (!png_image_begin_read_from_memory(&png, &pngdata[0], pngdata.size())) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement info: %s - %s (zip)", filename.c_str(), png.message);
 			return LoadLevelResult::LOAD_ERROR;
@@ -931,7 +960,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		return LoadLevelResult::CONTINUE;
 	} else {
 		WARN_LOG(Log::TexReplacement, "Don't know how to load this image type! %d", (int)imageType);
-		vfs_->CloseFile(openFile);
+		closeFile();
 	}
 	return LoadLevelResult::LOAD_ERROR;
 }
