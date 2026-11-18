@@ -508,7 +508,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 
 	LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(Margins(0, 0, 0, 0)));
 	if (g_Config.bEnableStateUndo && !Achievements::HardcoreModeActive() && NetworkAllowSaveState()) {
-		UI::Button *saveUndoButton = buttonRow->Add(new Button(pa->T("Undo last save"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
+		UI::Button *saveUndoButton = buttonRow->Add(new Button(pa->T("Undo last save"), ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 		saveUndoButton->SetEnabled(SaveState::HasUndoLastSave(saveStatePrefix_));
 		saveUndoButton->OnClick.Add([this](UI::EventParams &e) {
 			SaveState::UndoLastSave(saveStatePrefix_);

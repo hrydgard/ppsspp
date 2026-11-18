@@ -704,7 +704,7 @@ void ShaderViewScreen::CreateViews() {
 	root_ = layout;
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
 		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 	});

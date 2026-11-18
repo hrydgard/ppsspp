@@ -29,7 +29,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 	} else if (buttonText == di->T("OK")) {
 		*image = ImageID("I_CHECKMARK");
 	} else if (buttonText == di->T("Cancel")) {
-		*image = ImageID("I_NAVIGATE_BACK");
+		*image = ImageID("I_CANCEL");
 	} else if (buttonText == di->T("Exit")) {
 		*image = ImageID("I_EXIT");
 	} else if (buttonText == di->T("More info")) {
@@ -958,7 +958,7 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 		switch (i) {
 		case 0:
 			// Add backspace button at the end of the first row.
-			row->Add(new Button("", ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+			row->Add(new Button("", ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
 				edit->Backspace();
 			});
 			break;

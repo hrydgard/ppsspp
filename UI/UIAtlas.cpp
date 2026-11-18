@@ -178,6 +178,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_CHAT", false},
 	{"I_UMD", false},
 	{"I_EXIT", false},
+	{"I_CANCEL", false},
 	{"I_CHEAT", false},
 	{"I_HAMBURGER", true},
 	{"I_DEVICE_ROTATION_LANDSCAPE_REV", false},
