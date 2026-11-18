@@ -521,7 +521,7 @@ void AnalogCalibrationScreen::update() {
 	if (stickView_[1]) {
 		stickView_[1]->SetXY(rawX_[0], rawY_[0]);
 	}
-	UIScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 }
 
 void AnalogCalibrationScreen::axis(const AxisInput &axis) {
