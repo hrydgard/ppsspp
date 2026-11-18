@@ -95,8 +95,7 @@ public class SimpleFileChooser {
 			String selectedFileName = mFileList[which];
 			File selectedFile = getSelectedFile(selectedFileName);
 
-			// always remove previous dlg first
-			dialog.cancel();
+			// Always remove the previous dialog first. Not with cancel(), which would finish the activity.
 			dialog.dismiss();
 
 			if (selectedFile.isDirectory()) {

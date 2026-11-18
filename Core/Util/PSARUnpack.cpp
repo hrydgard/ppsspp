@@ -1480,6 +1480,15 @@ Path GetUmdVideoVSHPath() {
 	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
 }
 
+Path GetVSHBootPath() {
+	InstalledFirmwareInfo info;
+	ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
+	if (!info.hasVsh || !FirmwareVersionSupportsVSH(info.version)) {
+		return Path();
+	}
+	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+}
+
 const char *const VSH_DISC_ID = "VSHM00000";
 
 std::string GetVSHTitle(const Path &path, std::string *version) {

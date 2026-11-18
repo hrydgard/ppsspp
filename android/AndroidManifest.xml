@@ -107,6 +107,7 @@
         <activity
             android:name=".ShortcutActivity"
             android:label="@string/shortcut_name"
+            android:theme="@style/Theme.ShortcutChooser"
             android:exported="true">
             <intent-filter>
                 <category android:name="android.intent.category.DEFAULT" />

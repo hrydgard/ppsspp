@@ -55,6 +55,7 @@
 #include "UI/Background.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/EmuScreen.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/MiscScreens.h"
@@ -80,6 +81,9 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	} else if (message == UIMessage::SHOW_SETTINGS && isActiveScreen && std::string(activeScreen->tag()) != "GameSettings") {
 		UpdateUIState(UISTATE_MENU);
 		manager->push(new GameSettingsScreen(Path()));
+	} else if (message == UIMessage::SHOW_FIRMWARE_SCREEN && isActiveScreen && std::string(activeScreen->tag()) != "Firmware") {
+		UpdateUIState(UISTATE_MENU);
+		manager->push(new FirmwareScreen(Path()));
 	} else if (message == UIMessage::SHOW_LANGUAGE_SCREEN && isActiveScreen) {
 		auto sy = GetI18NCategory(I18NCat::SYSTEM);
 		auto langScreen = new NewLanguageScreen(sy->T("Language"));

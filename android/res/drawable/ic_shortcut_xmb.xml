@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The XMB home screen shortcut (ShortcutActivity). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+	android:width="108dp"
+	android:height="108dp"
+	android:viewportWidth="108"
+	android:viewportHeight="108">
+	<path android:fillColor="#FF2D4553" android:pathData="M24,0 H84 A24,24 0 0 1 108,24 V84 A24,24 0 0 1 84,108 H24 A24,24 0 0 1 0,84 V24 A24,24 0 0 1 24,0 Z"/>
+	<path android:fillColor="#59B9DDF0" android:pathData="M11.5,35 H17.5 A3.5,3.5 0 0 1 21,38.5 V44.5 A3.5,3.5 0 0 1 17.5,48 H11.5 A3.5,3.5 0 0 1 8,44.5 V38.5 A3.5,3.5 0 0 1 11.5,35 Z"/>
+	<path android:fillColor="#99B9DDF0" android:pathData="M30,33 H37 A4,4 0 0 1 41,37 V44 A4,4 0 0 1 37,48 H30 A4,4 0 0 1 26,44 V37 A4,4 0 0 1 30,33 Z"/>
+	<path android:fillColor="#FFFFFFFF" android:pathData="M49.5,27 H60.5 A5.5,5.5 0 0 1 66,32.5 V43.5 A5.5,5.5 0 0 1 60.5,49 H49.5 A5.5,5.5 0 0 1 44,43.5 V32.5 A5.5,5.5 0 0 1 49.5,27 Z"/>
+	<path android:fillColor="#99B9DDF0" android:pathData="M73,33 H80 A4,4 0 0 1 84,37 V44 A4,4 0 0 1 80,48 H73 A4,4 0 0 1 69,44 V37 A4,4 0 0 1 73,33 Z"/>
+	<path android:fillColor="#59B9DDF0" android:pathData="M90.5,35 H96.5 A3.5,3.5 0 0 1 100,38.5 V44.5 A3.5,3.5 0 0 1 96.5,48 H90.5 A3.5,3.5 0 0 1 87,44.5 V38.5 A3.5,3.5 0 0 1 90.5,35 Z"/>
+	<path android:fillColor="#D9B9DDF0" android:pathData="M47,58 H75 A3,3 0 0 1 78,61 V61 A3,3 0 0 1 75,64 H47 A3,3 0 0 1 44,61 V61 A3,3 0 0 1 47,58 Z"/>
+	<path android:fillColor="#8CB9DDF0" android:pathData="M47,70 H69 A3,3 0 0 1 72,73 V73 A3,3 0 0 1 69,76 H47 A3,3 0 0 1 44,73 V73 A3,3 0 0 1 47,70 Z"/>
+	<path android:fillColor="#4CB9DDF0" android:pathData="M47,82 H72 A3,3 0 0 1 75,85 V85 A3,3 0 0 1 72,88 H47 A3,3 0 0 1 44,85 V85 A3,3 0 0 1 47,82 Z"/>
+</vector>

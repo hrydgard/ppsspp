@@ -206,6 +206,8 @@ bool FirmwareVersionPlaysUmdVideo(std::string_view version);
 extern const char *const UMD_VIDEO_MIN_FIRMWARE;
 // vshmain.prx, if the installed firmware's XMB can play UMD Video discs. Empty otherwise.
 Path GetUmdVideoVSHPath();
+// vshmain.prx, if a firmware with an XMB we can boot is installed. Empty otherwise.
+Path GetVSHBootPath();
 // What the XMB is called in the game list and the window title, like "XMB 6.61" (untranslated), if path is a
 // firmware's vshmain.prx. Empty otherwise. version gets the firmware's version ("6.61"), empty if unknown.
 std::string GetVSHTitle(const Path &path, std::string *version = nullptr);
