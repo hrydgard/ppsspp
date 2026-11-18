@@ -924,7 +924,11 @@ u32 Atrac2::DecodeInternal(u32 outbufAddr, int *SamplesNum, int *finish) {
 		}
 		u8 *outBuf = outbufAddr ? Memory::GetPointerWriteOrException(outbufAddr) : nullptr;
 		if (outPtr == decodeTemp_ && samplesToDecode != 0 && outBuf) {
-			memcpy(outBuf, decodeTemp_, std::min(samplesToDecode, (int)ATRAC3PLUS_MAX_SAMPLES) * outputChannels_ * sizeof(int16_t));
+			// The decoded frame starts at the frame boundary, so after a seek or loop to the middle of a frame,
+			// skip ahead to decodePos.
+			const int frameOffset = info.decodePos & info.SamplesFrameMask();
+			const int count = std::min(samplesToDecode, (int)ATRAC3PLUS_MAX_SAMPLES - frameOffset);
+			memcpy(outBuf, decodeTemp_ + frameOffset * outputChannels_, count * outputChannels_ * sizeof(int16_t));
 		}
 
 		// Handle increments and looping.
