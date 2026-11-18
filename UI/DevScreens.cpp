@@ -778,7 +778,7 @@ void FrameDumpTestScreen::CreateTabs() {
 }
 
 void FrameDumpTestScreen::update() {
-	UIScreen::update();
+	UITabbedBaseDialogScreen::update();
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
