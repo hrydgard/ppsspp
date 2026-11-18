@@ -1103,7 +1103,8 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 		return false;
 	}
 	if (!Memory::IsValidRange(module->libstub, module->libstubend - module->libstub)) {
-		ERROR_LOG_REPORT(Log::Loader, "Garbage libstub address %08x or end %08x", module->libstub, module->libstubend);
+		// If we end up here, something has gone very badly.
+		ERROR_LOG_REPORT(Log::Loader, "%s: Garbage libstub address %08x or end %08x", module->nm.name, module->libstub, module->libstubend);
 		return false;
 	}
 

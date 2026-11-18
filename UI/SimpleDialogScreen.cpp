@@ -102,7 +102,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::NoBackButton) {
 			topBarFlags |= TopBarFlags::NoBackButton;
 		}
-		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
+		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle(), new LinearLayoutParams(0.0f, Margins(12, 12, 12, 0))));
 		root->SetSpacing(0);
 		createContentViews(root);
 

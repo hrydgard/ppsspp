@@ -215,7 +215,7 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->SetSpacing(8);
+		buttonRow->SetSpacing(12);
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));

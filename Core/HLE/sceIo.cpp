@@ -843,7 +843,8 @@ static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, i
 			perm = "unhandled";
 			break;
 	}
-	INFO_LOG(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
+	// We don't actually assign. This seems to assign device names to other devices.
+	INFO_LOG(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i): Ignored", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
 	return 0;
 }
 

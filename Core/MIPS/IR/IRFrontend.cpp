@@ -132,10 +132,10 @@ void IRFrontend::FlushPrefixV() {
 void IRFrontend::EatInstruction(MIPSOpcode op) {
 	MIPSInfo info = MIPSGetInfo(op);
 	if (info & DELAYSLOT) {
-		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op.");
+		ERROR_LOG_REPORT_ONCE(ateDelaySlot, Log::JIT, "Ate a branch op at %08x", js.compilerPC);
 	}
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot.");
+		ERROR_LOG_REPORT_ONCE(ateInDelaySlot, Log::JIT, "Ate an instruction inside a delay slot at %08x", js.compilerPC);
 	}
 
 	CheckBreakpoint(GetCompilerPC() + 4);

@@ -1148,7 +1148,7 @@ int sceDisplaySetFramebuf(MIPSState *mips, u32 topaddr, int linesize, int pixelf
 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		if ((GEBufferFormat)pixelformat != latchedFramebuf.fmt || linesize != latchedFramebuf.stride) {
-			return hleReportWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
+			return hleLogWarning(Log::sceDisplay, SCE_KERNEL_ERROR_INVALID_MODE, "must change latched framebuf first");
 		}
 	}
 
