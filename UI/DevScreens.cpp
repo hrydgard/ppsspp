@@ -430,7 +430,7 @@ std::string_view LogConfigScreen::GetTitle() const {
 	return dev->T("Logging Channels");
 }
 
-void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);

@@ -117,10 +117,10 @@ void SingleControlMapper::Refresh() {
 	}
 	root->Add(replaceAllButton_)->OnClick.Handle(this, &SingleControlMapper::OnReplaceAll);
 
-	addButton_ = root->Add(new Choice(" + ", new LayoutParams(WRAP_CONTENT, itemH)));
+	addButton_ = root->Add(new Choice(ImageID("I_PLUS"), new LayoutParams(WRAP_CONTENT, itemH)));
 	addButton_->OnClick.Handle(this, &SingleControlMapper::OnAdd);
 	if (g_Config.bMouseControl) {
-		Choice *p = root->Add(new Choice("M", new LayoutParams(WRAP_CONTENT, itemH)));
+		Choice *p = root->Add(new Choice(ImageID("I_MOUSE"), new LayoutParams(WRAP_CONTENT, itemH)));
 		p->OnClick.Handle(this, &SingleControlMapper::OnAddMouse);
 	}
 
@@ -228,12 +228,17 @@ static const BindingCategory cats[] = {
 	{},  // sentinel
 };
 
-void ControlMappingScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void ControlMappingScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	auto km = GetI18NCategory(I18NCat::KEYMAPPING);
 
 	// Use the whole width of the narrow settings column.
-	ChoiceGroupList *groups = parent->Add(new ChoiceGroupList());
+	LinearLayoutList *groups;
+	if (inPopup) {
+		groups = parent->Add(new PopupChoiceGroupList());
+	} else {
+		groups = parent->Add(new ChoiceGroupList());
+	}
 
 	ChoiceGroup *resetChoices = groups->Add(new ChoiceGroup());
 	resetChoices->Add(new Choice(km->T("Clear All")))->OnClick.Add([](UI::EventParams &) {
@@ -533,7 +538,7 @@ std::string_view AnalogCalibrationScreen::GetTitle() const {
 	return co->T("Calibrate analog stick");
 }
 
-void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents) {
+void AnalogCalibrationScreen::CreateSettingsViews(UI::ViewGroup *scrollContents, bool inPopup) {
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 

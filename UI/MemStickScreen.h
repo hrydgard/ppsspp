@@ -58,7 +58,7 @@ public:
 
 protected:
 	void CreateContentViews(UI::ViewGroup *parent) override;
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	std::string_view GetTitle() const override;
 
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
@@ -105,7 +105,7 @@ public:
 protected:
 	void update() override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	std::string_view GetTitle() const override;
 
 private:

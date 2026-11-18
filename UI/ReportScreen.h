@@ -44,7 +44,7 @@ protected:
 	ScreenRenderFlags PreRender(ScreenRenderMode mode) override;
 	void update() override;
 	void resized() override;
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void UpdateSubmit();
 	void UpdateCRCInfo();

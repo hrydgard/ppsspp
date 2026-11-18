@@ -988,7 +988,7 @@ void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 

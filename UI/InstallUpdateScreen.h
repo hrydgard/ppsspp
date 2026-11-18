@@ -47,7 +47,7 @@ public:
 	// "the file is the updater", which is the PBP case.
 	InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun, u64 archiveSize = 0);
 
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 	bool key(const KeyInput &key) override;

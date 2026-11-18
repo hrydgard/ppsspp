@@ -59,7 +59,7 @@ private:
 class LogConfigScreen : public UITwoPaneBaseDialogScreen {
 public:
 	LogConfigScreen() : UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::ContentsCanScroll | TwoPaneFlags::SettingsInContextMenu) {}
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	const char *tag() const override { return "LogConfig"; }

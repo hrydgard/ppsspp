@@ -115,7 +115,7 @@ void InstallUpdateScreen::CreateContentViews(UI::ViewGroup *parent) {
 	container->Add(new Spacer(12.0f));
 }
 
-void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);

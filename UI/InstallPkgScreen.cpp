@@ -69,7 +69,7 @@ std::string_view InstallPkgScreen::GetTitle() const {
 	return iz->T("Game update");
 }
 
-void InstallPkgScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void InstallPkgScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);

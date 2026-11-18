@@ -48,7 +48,7 @@ public:
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 
@@ -143,7 +143,7 @@ public:
 	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;

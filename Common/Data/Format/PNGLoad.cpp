@@ -10,6 +10,7 @@
 
 // *image_data_ptr should be deleted with free()
 // return value of 1 == success.
+// The only caller of this is ZIMTool which isn't used much.
 int pngLoad(const char *file, int *pwidth, int *pheight, unsigned char **image_data_ptr) {
 	png_image png;
 	memset(&png, 0, sizeof(png));

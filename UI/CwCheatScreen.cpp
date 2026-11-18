@@ -216,7 +216,7 @@ void CwCheatScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
+void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn, bool inPopup) {
 	using namespace UI;
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);

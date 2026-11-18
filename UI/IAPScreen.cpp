@@ -41,7 +41,7 @@ void IAPScreen::CreateContentViews(UI::ViewGroup *parent) {
 	leftColumnItems->Add(new TextView("(hrydgard)"));
 }
 
-void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
+void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
