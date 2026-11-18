@@ -41,6 +41,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
+#include "Core/ELF/ParamSFO.h"
 
 const int TLSPL_NUM_INDEXES = 16;
 // Wait value of a thread waiting in sceKernelGetTlsAddr. In _sceKernelAllocateTlspl it's the address pointer instead.
@@ -57,6 +58,8 @@ static bool tlsplUsedIndexes[TLSPL_NUM_INDEXES];
 // Thread -> TLSPL uids for thread end.
 typedef std::multimap<SceUID, SceUID> TlsplMap;
 static TlsplMap tlsplThreadEndChecks;
+// The kernel's SceKernelGameInfo, allocated on first use.
+static u32 gameInfoAddr;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -340,6 +343,7 @@ void __KernelMemoryInit()
 
 	flags_ = 0;
 	sdkVersion_ = 0;
+	gameInfoAddr = 0;
 	compilerVersion_ = 0;
 	memset(tlsplUsedIndexes, 0, sizeof(tlsplUsedIndexes));
 
@@ -357,7 +361,7 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1, 5);
+	auto s = p.Section("sceKernelMemory", 1, 6);
 	if (!s)
 		return;
 
@@ -379,6 +383,11 @@ void __KernelMemoryDoState(PointerWrap &p)
 	DoArray(p, tlsplUsedIndexes, ARRAY_SIZE(tlsplUsedIndexes));
 	if (s >= 2) {
 		Do(p, tlsplThreadEndChecks);
+	}
+	if (s >= 6) {
+		Do(p, gameInfoAddr);
+	} else {
+		gameInfoAddr = 0;
 	}
 	if (s == 4) {
 		int oldTimeoutEvent = -1;
@@ -1196,6 +1205,26 @@ int sceKernelGetCompiledSdkVersion() {
 	if (!(flags_ & SCE_KERNEL_HASCOMPILEDSDKVERSION))
 		return 0;
 	return sdkVersion_;
+}
+
+// Returns a pointer to the kernel's SceKernelGameInfo. Only the fields utility.prx reads are filled:
+// the disc ID at +0x44 ("ULUS10021", no dash), which picks its per-game compat entries. The flags at
+// +0x70 stay 0: msgdialog_plugin takes bit 0x10 as "the game runs from the PSP Go's internal storage"
+// and words its errors accordingly.
+u32 sceKernelGetGameInfo() {
+	const u32 size = 0xDC;
+	if (gameInfoAddr == 0) {
+		u32 allocSize = size;
+		gameInfoAddr = kernelMemory.Alloc(allocSize, true, "GameInfo");
+		if (gameInfoAddr == (u32)-1) {
+			gameInfoAddr = 0;
+			return hleLogError(Log::sceKernel, 0, "no memory");
+		}
+	}
+	Memory::Memset(gameInfoAddr, 0, size, "GameInfo");
+	const std::string discID = g_paramSFO.GetDiscID();
+	Memory::MemcpyUnchecked(gameInfoAddr + 0x44, discID.c_str(), (u32)std::min<size_t>(discID.size(), 13));
+	return hleLogInfo(Log::sceKernel, gameInfoAddr, "%s", discID.c_str());
 }
 
 static int sceKernelSetCompilerVersion(int version) {

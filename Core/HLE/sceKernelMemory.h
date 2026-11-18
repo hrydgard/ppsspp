@@ -218,6 +218,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr);
 int sceKernelReferFplStatus(SceUID uid, u32 statusPtr);
 
 int sceKernelGetCompiledSdkVersion();
+u32 sceKernelGetGameInfo();
 
 SceUID sceKernelCreateTlspl(const char *name, u32 partitionid, u32 attr, u32 size, u32 count, u32 optionsPtr);
 int sceKernelDeleteTlspl(SceUID uid);

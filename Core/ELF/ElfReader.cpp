@@ -34,6 +34,8 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
 
+BlockAllocator *g_elfAllocatorOverride = nullptr;
+
 const char *ElfReader::GetSectionName(int section) const {
 	if (sections[section].sh_type == SHT_NULL)
 		return nullptr;
@@ -681,7 +683,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 
 	// If a load address is specified that's in regular RAM, override kernel module status
 	bool inUser = totalStart >= PSP_GetUserMemoryBase();
-	BlockAllocator &memblock = (kernelModule && !inUser) ? kernelMemory : userMemory;
+	BlockAllocator &memblock = g_elfAllocatorOverride ? *g_elfAllocatorOverride : ((kernelModule && !inUser) ? kernelMemory : userMemory);
 
 	if (!bRelocate)
 	{
