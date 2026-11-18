@@ -160,34 +160,3 @@ private:
 
 	JoystickHistoryView *stickView_[2]{};
 };
-
-class MockPSP;
-
-class VisualMappingScreen : public UIBaseDialogScreen {
-public:
-	// Places the controller picture from the screen bounds.
-	bool LimitContentArea() const override { return false; }
-	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
-
-	const char *tag() const override { return "VisualMapping"; }
-
-	bool key(const KeyInput &key) override;
-	void axis(const AxisInput &axis) override;
-
-protected:
-	void CreateViews() override;
-
-	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void resized() override;
-
-private:
-	void OnMapButton(UI::EventParams &e);
-	void OnBindAll(UI::EventParams &e);
-	void HandleKeyMapping(const KeyMap::MultiInputMapping &key);
-	void MapNext(bool successive);
-
-	MockPSP *psp_ = nullptr;
-	int nextKey_ = 0;
-	int bindAll_ = -1;
-	bool replace_ = false;
-};

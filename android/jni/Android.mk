@@ -1119,6 +1119,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/GamePacker.cpp \
   $(SRC)/UI/UploadScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
+  $(SRC)/UI/VisualMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \
   $(SRC)/UI/DeveloperSettingsPages.cpp \
   $(SRC)/UI/GPUDriverTestScreen.cpp \
