@@ -697,7 +697,7 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 void ItemHeader::Draw(UIContext &dc) {
 	const FontStyle &fontStyle = large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall;
 
-	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().itemStyle;
+	const UI::Style &style = dc.GetTheme().itemStyle;
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	dc.DrawText(fontStyle, text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);

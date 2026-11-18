@@ -530,7 +530,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 void EmuScreen::focusChanged(ScreenFocusChange focusChange) {
-	Screen::focusChanged(focusChange);
+	UIScreen::focusChanged(focusChange);
 
 	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
 	if (gameID.empty()) {

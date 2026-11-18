@@ -51,6 +51,8 @@ struct CommandLineOptions {
 	std::optional<bool> memStickInserted;
 	// Quit the app instead of going to the main menu when the game ends, for external launchers.
 	std::optional<bool> pauseMenuExit;
+	// Point the Homebrew Store at dev-store.ppsspp.org.
+	std::optional<bool> devStore;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.

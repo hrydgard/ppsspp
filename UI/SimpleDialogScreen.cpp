@@ -102,7 +102,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 		if (flags_ & TwoPaneFlags::NoBackButton) {
 			topBarFlags |= TopBarFlags::NoBackButton;
 		}
-		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle()));
+		TopBar *topBar = root->Add(new TopBar(*screenManager()->getUIContext(), topBarFlags, GetTitle(), new LinearLayoutParams(0.0f, Margins(12, 12, 12, 0))));
 		root->SetSpacing(0);
 		createContentViews(root);
 
@@ -113,7 +113,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 					if (flags_ & TwoPaneFlags::CustomContextMenu) {
 						CreateContextMenu(parent);
 					} else {
-						CreateSettingsViews(parent);
+						CreateSettingsViews(parent, true);
 					}
 				}, menuButton));
 			});
@@ -131,7 +131,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 				settingsPane->SetSpacing(0.0f);
 				root->Add(settingsPane);
 			}
-			CreateSettingsViews(settingsPane);
+			CreateSettingsViews(settingsPane, false);
 		}
 		root_ = root;
 	} else {
@@ -176,7 +176,7 @@ void UITwoPaneBaseDialogScreen::CreateViews() {
 			backButton->SetRoundCorners();
 			settingsPane->Add(new Spacer(8.0f));
 		}
-		CreateSettingsViews(settingsPane);
+		CreateSettingsViews(settingsPane, false);
 		// settingsPane->Add(new BorderView(BORDER_BOTTOM, BorderStyle::HEADER_FG, 2.0f, new LayoutParams(FILL_PARENT, 40.0f)));
 		settingsScroll->Add(settingsPane);
 

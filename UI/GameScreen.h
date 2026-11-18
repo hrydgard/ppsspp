@@ -54,7 +54,7 @@ public:
 protected:
 	void BeforeCreateViews() override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContextMenu(UI::ViewGroup *parent) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;
 

@@ -589,7 +589,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
+void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);

@@ -594,13 +594,13 @@ void MainScreen::CreateViews() {
 	const UI::Drawable dismissableBackground = screenManager()->getUIContext()->GetTheme().itemDownStyle.background;
 
 	auto CreateDismissableBar = [this, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
-		Margins margins(0, 0);
+		Margins margins(12, 12);
 		UI::LinearLayout *bar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
+		bar->SetPadding(Margins(12, 8, 8, 8));
 
-		UI::Margins textMargins(10, 5);
-		UI::Margins buttonMargins(5, 0);
+		UI::Margins textMargins(0, 0);
+		UI::Margins buttonMargins(0, 0);
 		UI::Drawable solid(dismissableBackground);
-		bar->SetSpacing(5.0f);
 		bar->SetBG(solid);
 
 		bar->Add(new TextView(message, FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
@@ -613,6 +613,8 @@ void MainScreen::CreateViews() {
 			onDismiss();
 			RecreateViews();
 		});
+
+		bar->SetRoundCorners();
 		return bar;
 	};
 
@@ -986,7 +988,7 @@ void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 

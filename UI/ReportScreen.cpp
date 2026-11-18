@@ -250,15 +250,15 @@ void ReportScreen::HandleReportingChange(UI::EventParams &e) {
 	UpdateSubmit();
 }
 
-void ReportScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
+void ReportScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto rp = GetI18NCategory(I18NCat::REPORTING);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
-	rightColumnItems->Add(new Choice(rp->T("Open Browser"), ImageID("I_LINK_OUT")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
+	parent->Add(new Choice(rp->T("Open Browser"), ImageID("I_LINK_OUT")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
 	submit_ = new Choice(rp->T("Submit Feedback"), ImageID("I_CHECKMARK"));
-	rightColumnItems->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
+	parent->Add(submit_)->OnClick.Handle(this, &ReportScreen::HandleSubmit);
 	submit_->SetEnabled(false); // Waiting for CRC
 
 	UpdateSubmit();

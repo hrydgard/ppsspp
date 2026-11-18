@@ -77,7 +77,7 @@ void StorageTestScreen::RestoreLogLevel() {
 	logRaised_ = false;
 }
 
-void StorageTestScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void StorageTestScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	if (running_) {
 		parent->Add(new TextView("Running...", ALIGN_LEFT, false));

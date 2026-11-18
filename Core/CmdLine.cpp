@@ -218,7 +218,7 @@ const char *g_ExceptionActionValues[] = {
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
 	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},
-	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest', 'colortest', 'firmware', 'memstick', 'storagetest')", CmdLineMode::Application},
+	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest', 'colortest', 'firmware', 'memstick', 'storagetest', 'visualmapping')", CmdLineMode::Application},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(gameWindow), CmdParamType::Bool, "game-window", '\0', "Show the game in a second window, for testing multiple outputs (Vulkan, or Metal on Mac)", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Exit the application when the game ends, instead of returning to the menu", CmdLineMode::Application},
@@ -316,6 +316,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(dpi), CmdParamType::Double, "dpi", '\0', "Set DPI", CmdLineMode::Application},
 	{POFF(scale), CmdParamType::Double, "scale", '\0', "Set scale", CmdLineMode::Application},
 	{POFF(skipLogo), CmdParamType::Bool, "skip-logo", '\0', "Skip the logo screen", CmdLineMode::Application},
+	{POFF(devStore), CmdParamType::Bool, "dev-store", '\0', "Use dev-store.ppsspp.org for the Homebrew Store", CmdLineMode::Application},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -741,6 +742,9 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (jitBench.has_value()) {
 		g_Config.iJitBenchFlip = jitBench.value();
+	}
+	if (devStore.has_value()) {
+		g_Config.bDevStore = devStore.value();
 	}
 
 	if (root.has_value()) {

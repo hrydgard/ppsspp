@@ -72,7 +72,7 @@ std::string_view InstallZipScreen::GetTitle() const {
 	return iz->T("ZIP file");
 }
 
-void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void InstallZipScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);

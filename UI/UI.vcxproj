@@ -33,6 +33,7 @@
     <ClCompile Include="BaseScreens.cpp" />
     <ClCompile Include="ChatScreen.cpp" />
     <ClCompile Include="ControlMappingScreen.cpp" />
+    <ClCompile Include="VisualMappingScreen.cpp" />
     <ClCompile Include="CustomButtonMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DebugOverlay.cpp" />
@@ -111,6 +112,7 @@
     <ClInclude Include="BaseScreens.h" />
     <ClInclude Include="ChatScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />
+    <ClInclude Include="VisualMappingScreen.h" />
     <ClInclude Include="CustomButtonMappingScreen.h" />
     <ClInclude Include="DebugOverlay.h" />
     <ClInclude Include="DeveloperSettingsPages.h" />

@@ -115,7 +115,7 @@ void InstallUpdateScreen::CreateContentViews(UI::ViewGroup *parent) {
 	container->Add(new Spacer(12.0f));
 }
 
-void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
@@ -128,7 +128,8 @@ void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 	});
 
 	if (allowRun_) {
-		Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_PLAY")));
+		// Not actually likely to work in any meaningful way, so we show a warning icon.
+		Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_WARNING")));
 		runChoice->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->switchScreen(new EmuScreen(path_));
 		});

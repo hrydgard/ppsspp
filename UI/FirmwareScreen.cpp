@@ -159,7 +159,7 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	content->Add(new InfoItem(st->T("Size"), NiceSizeFormat(info_.totalSize)));
 }
 
-void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);

@@ -21,6 +21,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/Notice.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/ScreenManager.h"
 #include "Common/Render/DrawBuffer.h"
@@ -37,11 +38,10 @@
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
-const char *storeBaseUrlHttp = "http://store.ppsspp.org/";
-const char *storeBaseUrlHttps = "https://store.ppsspp.org/";
-
 static std::string StoreBaseUrl() {
-	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? storeBaseUrlHttps : storeBaseUrlHttp;
+	const char *scheme = System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? "https://" : "http://";
+	const char *host = g_Config.bDevStore ? "dev-store.ppsspp.org/" : "store.ppsspp.org/";
+	return std::string(scheme) + host;
 }
 
 // baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
@@ -230,24 +230,24 @@ void ProductView::CreateViews() {
 	if (!wasInstalled_) {
 		launchButton_ = nullptr;
 		LinearLayout *progressDisplay = new LinearLayout(ORIENT_HORIZONTAL);
-		installButton_ = progressDisplay->Add(new Button(st->T("Install")));
+		installButton_ = progressDisplay->Add(new Button(st->T("Install"), ImageID("I_DOWNLOAD")));
 		installButton_->OnClick.Handle(this, &ProductView::OnInstall);
 		uninstallButton_ = nullptr;
 
 		Add(progressDisplay);
 	} else {
 		installButton_ = nullptr;
-		launchButton_ = new Button(st->T("Launch Game"));
+		launchButton_ = new Button(st->T("Launch Game"), ImageID("I_PLAY"));
 		launchButton_->OnClick.Handle(this, &ProductView::OnLaunchClick);
 		Add(launchButton_);
-		uninstallButton_ = new Button(st->T("Uninstall"));
+		uninstallButton_ = new Button(st->T("Uninstall"), ImageID("I_TRASHCAN"));
 		Add(uninstallButton_)->OnClick.Add([=](UI::EventParams &e) {
 			g_GameManager.UninstallGameOnThread(entry_.file);
 		});
 		// Add(new TextView(st->T("Installed")));  // Not really needed
 	}
 
-	cancelButton_ = Add(new Button(di->T("Cancel")));
+	cancelButton_ = Add(new Button(di->T("Cancel"), ImageID("I_CANCEL")));
 	cancelButton_->OnClick.Handle(this, &ProductView::OnCancel);
 	cancelButton_->SetVisibility(isDownloading ? V_VISIBLE : V_GONE);
 
@@ -264,13 +264,14 @@ void ProductView::CreateViews() {
 	Add(new TextView(StringFromFormat("%s: %.2f %s", st->T_cstr("Size"), size, st->T_cstr("MB"))));
 
 	if (!entry_.license.empty()) {
-		LinearLayout *horiz = Add(new LinearLayout(ORIENT_HORIZONTAL));
-		horiz->Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str()), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
-		horiz->Add(new Button(di->T("More info"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)))->OnClick.Add([this](UI::EventParams) {
+		Add(new TextView(StringFromFormat("%s: %s", st->T_cstr("License"), entry_.license.c_str()), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
+		Button *infoButton = Add(new Button(di->T("More info"), ImageID("I_INFO"), new LinearLayoutParams(0.0, Gravity::G_VCENTER)));
+		infoButton->OnClick.Add([this](UI::EventParams) {
 			std::string url = StringFromFormat("https://www.ppsspp.org/docs/reference/homebrew-store-distribution/#%s", entry_.file.c_str());
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, url.c_str());
 		});
 	}
+
 	if (!entry_.websiteURL.empty()) {
 		// Display in a few different ways depending on the URL
 		size_t slashes = std::count(entry_.websiteURL.begin(), entry_.websiteURL.end(), '/');
@@ -287,10 +288,12 @@ void ProductView::CreateViews() {
 			// Fall back
 			buttonText = st->T("Website");
 		}
-		Add(new Button(buttonText))->OnClick.Add([this](UI::EventParams) {
+		Button *linkButton = Add(new Button(buttonText));
+		linkButton->OnClick.Add([this](UI::EventParams) {
 			System_LaunchUrl(LaunchUrlType::BROWSER_URL, entry_.websiteURL.c_str());
 		});
 	}
+	SetRoundCorners();
 }
 
 void ProductView::Update() {
@@ -472,6 +475,7 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	if (connectionError_ || loading_) {
 		auto st = GetI18NCategory(I18NCat::STORE);
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T_cstr("Connection Error"), resultCode_)));
 		if (!loading_) {
 			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
@@ -481,14 +485,14 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		productPanel_ = nullptr;
 	} else {
 		content = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
-		ScrollView *leftScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f));
+		ScrollView *leftScroll = content->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f)));
 		leftScroll->SetTag("StoreMainList");
-		content->Add(leftScroll);
-		scrollItemView_ = new LinearLayoutList(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-		leftScroll->Add(scrollItemView_);
+
+		ChoiceGroup *scrollItemList = leftScroll->Add(new ChoiceGroup());
+		scrollItemView_ = scrollItemList;
 
 		for (size_t i = 0; i < entries_.size(); i++) {
-			scrollItemView_->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
+			scrollItemList->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
 		}
 
 		// TODO: Similar apps, etc etc
@@ -507,13 +511,17 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 			lastSelectedName_.clear();
 		}
 	}
+	if (g_Config.bDevStore) {
+		parent->Add(new NoticeView(NoticeLevel::WARN, "Developer store", ""));
+	}
 	parent->Add(content);
 }
 
 ProductItemView *StoreScreen::GetSelectedItem() {
 	for (int i = 0; i < scrollItemView_->GetNumSubviews(); ++i) {
-		ProductItemView *item = static_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
+		ProductItemView *item = dynamic_cast<ProductItemView *>(scrollItemView_->GetViewByIndex(i));
 		if (!item) {
+			ERROR_LOG(Log::UI, "StoreScreen: Scroll item is not a ProductItemView");
 			continue;
 		}
 		if (item->GetEntry().name == lastSelectedName_)

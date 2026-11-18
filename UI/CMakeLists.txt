@@ -108,6 +108,8 @@ list(APPEND UISource
 	OnScreenDisplay.cpp
 	ControlMappingScreen.h
 	ControlMappingScreen.cpp
+	VisualMappingScreen.h
+	VisualMappingScreen.cpp
 	RemoteISOScreen.h
 	RemoteISOScreen.cpp
 	ReportScreen.h

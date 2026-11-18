@@ -31,6 +31,9 @@
     <ClCompile Include="ControlMappingScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="VisualMappingScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="DevScreens.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -235,6 +238,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="ControlMappingScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="VisualMappingScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="DevScreens.h">

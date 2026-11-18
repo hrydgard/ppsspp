@@ -710,6 +710,10 @@ tests_next = [
   "cpu/vfpu/nan_gen",
   "cpu/vfpu/undefined",
   "audio/sceaudio/output",
+  "display/multiphase",  # Multi(n) counts from where the thread's last vblank wait ended
+  "display/waitcontext",  # sceDisplayGetVblankRest, and WaitVblank from interrupts or with dispatch off
+  "display/foreground",  # IsForeground only changes at the vblank
+  "display/pointers",  # kernel and NULL out pointers, and the address mirrors SetFrameBuf accepts
   "audio/sascore/setadsr",
   "audio/mp3/init",
   "audio/output2/frequency",

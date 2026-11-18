@@ -2207,7 +2207,7 @@ bool Config::SupportsUpgradeCheck() const {
 #endif
 }
 
-#if 0
+#if 0  // DO NOT COMMIT WITH THIS SET TO 1.
 // Use for debugging the version check without messing with the server
 #define NEW_VERSION_OVERRIDE "v1.100.3-gaaaaaaaaa"
 constexpr int UPDATE_CHECK_FREQ = 1;

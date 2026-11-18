@@ -1612,7 +1612,7 @@ static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE);
 	}
 	if (size == 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
+		WARN_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
 		return hleNoLog(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
 	if (!pname) {

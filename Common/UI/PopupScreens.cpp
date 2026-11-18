@@ -29,7 +29,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 	} else if (buttonText == di->T("OK")) {
 		*image = ImageID("I_CHECKMARK");
 	} else if (buttonText == di->T("Cancel")) {
-		*image = ImageID("I_NAVIGATE_BACK");
+		*image = ImageID("I_CANCEL");
 	} else if (buttonText == di->T("Exit")) {
 		*image = ImageID("I_EXIT");
 	} else if (buttonText == di->T("More info")) {
@@ -215,7 +215,7 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->SetSpacing(8);
+		buttonRow->SetSpacing(12);
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
@@ -958,7 +958,7 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 		switch (i) {
 		case 0:
 			// Add backspace button at the end of the first row.
-			row->Add(new Button("", ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+			row->Add(new Button("", ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
 				edit->Backspace();
 			});
 			break;

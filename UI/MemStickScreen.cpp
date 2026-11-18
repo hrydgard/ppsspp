@@ -270,7 +270,7 @@ void MemStickScreen::CreateContentViews(UI::ViewGroup *parent) {
 	INFO_LOG(Log::System, "MemStickScreen: initialSetup=%d", (int)initialSetup_);
 }
 
-void MemStickScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void MemStickScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -654,7 +654,7 @@ void ConfirmMemstickMoveScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void ConfirmMemstickMoveScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void ConfirmMemstickMoveScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
