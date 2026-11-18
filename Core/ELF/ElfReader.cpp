@@ -229,8 +229,9 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					int t_type = rels[t].r_info & 0xF;
 					int t_readwrite = (rels[t].r_info >> 8) & 0xff;
 					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[t_readwrite];
-					if (t_type == R_MIPS_16) {
-						WARN_LOG_REPORT(Log::Loader, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+					if (t_type == R_MIPS_16 && log) {
+						// Common in commercial games, and handled by isLoCandidate.
+						DEBUG_LOG(Log::Loader, "ELF relocation HI16/R_MIPS_16 pair (instead of LO16) at %08x / %08x", addr, corrLoAddr);
 					}
 					// Should have matching index and segment info, according to llvm, which makes sense.
 					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {

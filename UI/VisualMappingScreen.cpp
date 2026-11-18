@@ -508,7 +508,11 @@ void VisualMappingScreen::MapNext(bool successive) {
 		psp_->SelectButton(nextKey_);
 	}
 
-	auto dialog = new KeyMappingNewKeyDialog(nextKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+	std::vector<KeyMap::MultiInputMapping> replacing;
+	if (replace_) {
+		KeyMap::InputMappingsFromPspButton(nextKey_, &replacing, false);
+	}
+	auto dialog = new KeyMappingNewKeyDialog(nextKey_, replacing, [this](KeyMap::MultiInputMapping mapping) {
 		HandleKeyMapping(mapping);
 	}, I18NCat::KEYMAPPING);
 

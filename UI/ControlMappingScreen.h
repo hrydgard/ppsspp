@@ -65,8 +65,9 @@ private:
 
 class KeyMappingNewKeyDialog : public UI::PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
-		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), callback_(callback) {}
+	// replacing lists the existing mappings the new one will replace, to show them in the popup.
+	KeyMappingNewKeyDialog(int btn, std::vector<KeyMap::MultiInputMapping> replacing, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), replacing_(std::move(replacing)), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
@@ -88,6 +89,7 @@ protected:
 
 private:
 	int pspBtn_;
+	std::vector<KeyMap::MultiInputMapping> replacing_;
 	std::function<void(KeyMap::MultiInputMapping)> callback_;
 
 	KeyMap::MultiInputMapping mapping_;
