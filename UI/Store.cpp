@@ -490,6 +490,7 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 
 		ChoiceGroup *scrollItemList = leftScroll->Add(new ChoiceGroup());
 		scrollItemView_ = scrollItemList;
+		scrollItemList->SetPadding(Margins(12, 0, 0, 0));
 
 		for (size_t i = 0; i < entries_.size(); i++) {
 			scrollItemList->Add(new ProductItemView(entries_[i]))->OnClick.Handle(this, &StoreScreen::OnGameSelected);
