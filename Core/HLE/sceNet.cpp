@@ -51,6 +51,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/AdhocTransport.h"
 #include "Core/HLE/sceNetAdhocMatching.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetApctl.h"
@@ -1125,6 +1126,9 @@ static int sceNetThreadAbort(SceUID thid) {
 
 // The console's MAC address: the configured one, or one made from the instance ID when several run.
 static void GetEtherAddr(u8 addr[6]) {
+	if (AdhocControl().GetLocalMac(addr)) {
+		return;
+	}
 	if (PPSSPP_ID > 1) {
 		memset(addr, PPSSPP_ID, 6);
 		// Making sure the 1st 2-bits on the 1st byte of OUI are zero to prevent issue with some games (ie. Gran Turismo)
