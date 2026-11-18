@@ -504,8 +504,9 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 
 			// Then see if any of the children contain any better candidates.
 			for (View *v : views_) {
-				if (v->IsViewGroup()) {
-					result = static_cast<ViewGroup *>(v)->FindNeighbor(view, direction, result);
+				ViewGroup *vg = dynamic_cast<ViewGroup *>(v);
+				if (vg) {
+					result = vg->FindNeighbor(view, direction, result);
 				}
 			}
 			return result;
@@ -527,10 +528,9 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 
 			// Then go right ahead and see if any of the children contain any better candidates.
 			for (auto *v : views_) {
-				if (v->IsViewGroup()) {
-					ViewGroup *vg = static_cast<ViewGroup *>(v);
-					if (vg)
-						result = vg->FindNeighbor(view, direction, result);
+				ViewGroup *vg = dynamic_cast<ViewGroup *>(v);
+				if (vg) {
+					result = vg->FindNeighbor(view, direction, result);
 				}
 			}
 			return result;
@@ -565,11 +565,13 @@ void ViewGroup::CollectTabOrder(std::vector<View *> *outViews) const {
 		if (view->IsViewGroup()) {
 			// A group can be focusable itself (rare), in which case it's a stop and we still
 			// descend into it - same as arrow navigation, which considers both.
-			ViewGroup *vg = static_cast<ViewGroup *>(view);
-			if (vg->CanBeFocused()) {
-				outViews->push_back(vg);
+			ViewGroup *vg = dynamic_cast<ViewGroup *>(view);
+			if (vg) {
+				if (vg->CanBeFocused()) {
+					outViews->push_back(vg);
+				}
+				vg->CollectTabOrder(outViews);
 			}
-			vg->CollectTabOrder(outViews);
 		} else if (view->CanBeFocused()) {
 			outViews->push_back(view);
 		}
@@ -593,11 +595,9 @@ NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, 
 		}
 	}
 	for (auto v : views_) {
-		if (v->IsViewGroup()) {
-			ViewGroup *vg = static_cast<ViewGroup *>(v);
-			if (vg)
-				best = vg->FindScrollNeighbor(view, target, direction, best);
-		}
+		ViewGroup *vg = dynamic_cast<ViewGroup *>(v);
+		if (vg)
+			best = vg->FindScrollNeighbor(view, target, direction, best);
 	}
 	return best;
 }
