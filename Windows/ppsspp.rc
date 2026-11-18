@@ -566,6 +566,8 @@ BEGIN
         MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
         MENUITEM "Restart Graphics",                        ID_DEBUG_RESTARTGRAPHICS
         MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "ImDebugger",                              ID_DEBUG_IMDEBUGGER
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE

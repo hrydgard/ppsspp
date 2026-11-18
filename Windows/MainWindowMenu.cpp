@@ -245,6 +245,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
+		TranslateMenuItem(menu, ID_DEBUG_IMDEBUGGER);
 		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, g_Config.bSystemControls ? L"\tCtrl+D" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, g_Config.bSystemControls ? L"\tCtrl+G" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_EXTRACTFILE);
@@ -800,6 +801,10 @@ namespace MainWindow {
 			NotifyDebuggerMapLoaded();
 			break;
 
+		case ID_DEBUG_IMDEBUGGER:
+			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
+			break;
+
 		case ID_DEBUG_DISASSEMBLY:
 			CreateDisasmWindow();
 			if (disasmWindow)
@@ -1033,6 +1038,7 @@ namespace MainWindow {
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
+		CHECKITEM(ID_DEBUG_IMDEBUGGER, g_Config.bShowImDebugger);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
