@@ -154,7 +154,13 @@ void SingleControlMapper::Refresh() {
 
 void SingleControlMapper::OnReplace(UI::EventParams &params) {
 	const int index = atoi(params.v->Tag().c_str());
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this, index](KeyMap::MultiInputMapping mapping) {
+	std::vector<MultiInputMapping> mappings;
+	KeyMap::InputMappingsFromPspButton(pspKey_, &mappings, false);
+	std::vector<MultiInputMapping> replacing;
+	if (index >= 0 && index < (int)mappings.size()) {
+		replacing.push_back(mappings[index]);
+	}
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, replacing, [this, index](KeyMap::MultiInputMapping mapping) {
 		using namespace UI;
 		if (mapping.empty())
 			return;
@@ -172,7 +178,9 @@ void SingleControlMapper::OnReplace(UI::EventParams &params) {
 }
 
 void SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+	std::vector<MultiInputMapping> replacing;
+	KeyMap::InputMappingsFromPspButton(pspKey_, &replacing, false);
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, replacing, [this](KeyMap::MultiInputMapping mapping) {
 		if (mapping.empty())
 			return;
 		KeyMap::SetInputMapping(pspKey_, mapping, true);
@@ -183,7 +191,7 @@ void SingleControlMapper::OnReplaceAll(UI::EventParams &params) {
 }
 
 void SingleControlMapper::OnAdd(UI::EventParams &params) {
-	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, true, [this](KeyMap::MultiInputMapping mapping) {
+	scrm_->push(new KeyMappingNewKeyDialog(pspKey_, {}, [this](KeyMap::MultiInputMapping mapping) {
 		if (mapping.empty())
 			return;
 		KeyMap::SetInputMapping(pspKey_, mapping, false);
@@ -341,6 +349,16 @@ void KeyMappingNewKeyDialog::CreatePopupContents(UI::ViewGroup *parent) {
 	std::string pspButtonName = KeyMap::GetPspButtonName(this->pspBtn_);
 
 	parent->Add(new TextView(std::string(km->T("Map a new key for")) + " " + std::string(mc->T(pspButtonName)), new LinearLayoutParams(Margins(10, 0))));
+	if (!replacing_.empty()) {
+		std::string replacingText = std::string(km->T("Replaces")) + ": ";
+		for (size_t i = 0; i < replacing_.size(); i++) {
+			if (i != 0) {
+				replacingText += ", ";
+			}
+			replacingText += replacing_[i].ToVisualString();
+		}
+		parent->Add(new TextView(replacingText, ALIGN_LEFT, true, new LinearLayoutParams(Margins(10, 0))));
+	}
 	parent->Add(new TextView(mapping_.ToVisualString(), new LinearLayoutParams(Margins(10, 0))));
 
 	comboMappingsNotEnabled_ = parent->Add(new NoticeView(NoticeLevel::WARN, km->T("Combo mappings are not enabled"), "", new LinearLayoutParams(Margins(10, 0))));
