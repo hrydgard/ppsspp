@@ -65,8 +65,22 @@ isn't running or the USB driver didn't bind.
 **Under WSL** the PSP first has to be passed through from Windows with usbipd-win (steps 10-12 of
 <https://pspdev.github.io/psplink/windows.html>). `Tools/psplink_wsl.sh` does that and then starts
 `usbhostfs_pc` in the current directory, so run it from `pspautotests` in place of the
-`usbhostfs_pc` line above. It asks for a UAC prompt the first time the PSP is shared, and re-attaches
-after a PSPLink reset or a move to another USB port.
+`usbhostfs_pc` line above. It asks for a UAC prompt the first time a PSP is shared, and re-attaches
+after a PSPLink reset or a move to another USB port. Running it again is safe, and fixes whatever
+has dropped.
+
+**Two PSPs** (one on 6.60, one on 6.61) can be connected at once. The script then starts a second
+bridge on port 4000 serving `tests/`, and ends by printing which firmware is on which port:
+
+```
+Port 3000: firmware 6.6.0, host0: is /mnt/c/dev/ppsspp/pspautotests
+Port 4000: firmware 6.6.1, host0: is /mnt/c/dev/ppsspp/pspautotests/tests
+```
+
+`gentest.py -p 4000` records on the second PSP. Which PSP gets which port can change after a
+reconnect, so check that output (or `pspsh -p PORT -e pspver`) before recording. Record on 6.61 (see
+below), and when a result might depend on the firmware, run it on both. The one-test-at-a-time rule
+holds across the two PSPs too, except for the paired tests below, whose `record.py` runs both sides.
 
 ## How a test reports its results
 
@@ -306,7 +320,8 @@ console ran which side.
 
 Both PSPs are connected over USB, each with its own bridge, and the second bridge needs its own base
 port (a bridge takes 8 ports from its base, so 3001 is taken) and its own root, so the two consoles'
-`__testoutput.txt` don't collide:
+`__testoutput.txt` don't collide. Under WSL, `Tools/psplink_wsl.sh` sets that up (see above).
+Elsewhere:
 
 ```bash
 cd pspautotests && usbhostfs_pc -b 3000 &
