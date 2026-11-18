@@ -184,6 +184,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_CAN_JIT:
 		return true;
+	case SYSPROP_IS_HEADLESS:
+		// Log failed asserts instead of popping up a dialog box.
+		return true;
 	default:
 		return false;
 	}
