@@ -128,6 +128,7 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -804,8 +805,11 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	}
 
 	boot_filename.clear();
+	// No XMB to boot (like from an Android XMB shortcut before installing a firmware), so show where to get one.
+	bool noVSHToBoot = false;
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
-		boot_filename = g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+		boot_filename = GetVSHBootPath();
+		noVSHToBoot = boot_filename.empty();
 		skipLogo = true;
 	}
 	boot_mountIso = cmdLineOptions.mountIso.has_value() ? Path(cmdLineOptions.mountIso.value()) : Path();
@@ -970,6 +974,10 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 		}
+	} else if (noVSHToBoot && boot_filename.empty()) {
+		INFO_LOG(Log::System, "--vsh: No bootable XMB installed, opening the firmware screen");
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new FirmwareScreen(Path()));
 	} else if (skipLogo && IsInstallableArchive(boot_filename)) {
 		// Not something to boot. Open its install screen over the main screen, like the game browser does.
 		INFO_LOG(Log::System, "Opening install screen for '%s'", boot_filename.c_str());
