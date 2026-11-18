@@ -1533,7 +1533,7 @@ void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 // A cached self-texturing copy goes stale where later draws write (see BindFramebufferAsColorTexture). Tracks those
 // draws, and the ones about to be flushed with a draw that takes a copy.
 void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) {
-	if (!vfb) {
+	if (!vfb || !PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
 		return;
 	}
 	const bool hasCopy = framebufferManager_->HasSelfTextureCopy();

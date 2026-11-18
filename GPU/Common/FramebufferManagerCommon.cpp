@@ -1436,15 +1436,19 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		WARN_LOG_ONCE(selfTextureCopy, Log::G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		if (currentFramebufferCopy_ && (flags & BINDFBCOLOR_UNCACHED) == 0) {
-			// The copy stays good until a TEXFLUSH, except where it's been drawn over since. The PSP's texture cache
-			// only holds a few KB, so a draw reads what was drawn there. Silent Hill: Origins halves its light into one
-			// part of the buffer and right away scales that back up over another, without a TEXFLUSH in between.
-			// Only when the draw's UVs say where it reads: without them (Dante's Inferno's bloom, #17030) it would
-			// copy for every draw again.
-			int x, y, w, h;
-			const bool knownRead = SelfTextureReadRect(framebuffer, flags, &x, &y, &w, &h);
-			const DrawnBounds readRect{ x, y, x + w, y + h };
-			if (!knownRead || !readRect.Intersects(drawnSinceSelfTextureCopy_)) {
+			// The copy stays good until a TEXFLUSH. With SelfTextureCopyTracksDraws, not where it's been drawn over
+			// since: the PSP's texture cache only holds a few KB, so a draw reads what was drawn there. Silent Hill:
+			// Origins halves its light into one part of the buffer and right away scales that back up over another,
+			// without a TEXFLUSH in between. Only when the draw's UVs say where it reads: without them (Dante's
+			// Inferno's bloom, #17030) it would copy for every draw again.
+			bool reuse = true;
+			if (PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
+				int x, y, w, h;
+				const bool knownRead = SelfTextureReadRect(framebuffer, flags, &x, &y, &w, &h);
+				const DrawnBounds readRect{ x, y, x + w, y + h };
+				reuse = !knownRead || !readRect.Intersects(drawnSinceSelfTextureCopy_);
+			}
+			if (reuse) {
 				draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::Aspect::COLOR_BIT, layer);
 				return true;
 			}

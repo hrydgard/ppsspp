@@ -133,6 +133,7 @@ struct CompatFlags {
 	bool TextureCLUTInShader;
 	bool DisableRangeCulling;
 	bool BlockTransferReadbackSmall;
+	bool SelfTextureCopyTracksDraws;
 	bool DepthCLUTIntoHalves;
 	bool AccurateSplines;
 	bool ReadbackShadow;
