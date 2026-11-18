@@ -734,7 +734,8 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	desc.cacheKey = replacementKey;
 	desc.forceFiltering = (TextureFiltering)0;  // invalid value
 
-	// Hash ranges are per address even with ignoreAddress, since ComputeHash applies them.
+	// Hash ranges use the real address, since ComputeHash applies them. With ignoreAddress,
+	// a range with address 0 also matches.
 	LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
 
 	// cache_ stays keyed by the full key. ignoreAddress only affects finding the files.
@@ -1220,8 +1221,12 @@ std::string TextureReplacer::HashName(ReplacementCacheKey key, int level) {
 }
 
 bool TextureReplacer::LookupHashRange(u32 addr, int w, int h, int *newW, int *newH) {
-	const u64 rangeKey = ((u64)addr << 32) | ((u64)w << 16) | h;
-	auto range = hashranges_.find(rangeKey);
+	const u64 sizeKey = ((u64)w << 16) | h;
+	auto range = hashranges_.find(((u64)addr << 32) | sizeKey);
+	if (range == hashranges_.end() && ignoreAddress_) {
+		// With ignoreAddress, a range with address 0 applies to every texture of that size.
+		range = hashranges_.find(sizeKey);
+	}
 	if (range != hashranges_.end()) {
 		const WidthHeightPair &wh = range->second;
 		*newW = wh.first;
@@ -1299,6 +1304,8 @@ saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) c
 # This is useful for images that very clearly have smaller dimensions, like 480x272 image. They'll need to be redumped, since the hash will change. See the documentation.
 # Example: 08b31020,512,512 = 480,272
 # Example: 0x08b31020,512,512 = 480,272
+# With ignoreAddress = true, address 0 applies to all textures of that size that have no range of their own.
+# Example: 0,512,512 = 512,512 (always hash all 512 rows, so the hash doesn't depend on how much was drawn first)
 
 [filtering]
 # You can enforce specific filtering modes with this. Available modes are linear, nearest, auto. See the docs.
