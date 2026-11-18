@@ -4000,6 +4000,27 @@ bool TestConfigSettings() {
 	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.displayLayoutPortrait.fDisplayOffsetY));
 	EXPECT_EQ_FLOAT(g_Config.displayLayoutPortrait.fDisplayOffsetY, 0.25f);
 	g_Config.displayLayoutPortrait.fDisplayOffsetY = oldOffsetY;
+
+	// AnalogGesture used to be a bool, enabling the left stick.
+	GestureControlConfig &zone = g_Config.gestureControls[1];
+	const int oldAnalogGesture = zone.iAnalogGesture;
+	const ConfigSettingRef *gestureRef = Config::FindSetting(&zone.iAnalogGesture);
+	EXPECT_TRUE(gestureRef != nullptr);
+	Section section("GestureControls.Right");
+	section.Set("AnalogGesture", "True");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::LEFT);
+	section.Set("AnalogGesture", "False");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::OFF);
+	section.Set("AnalogGesture", "2");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::RIGHT);
+	gestureRef->setting->WriteToIniSection(&zone, &section);
+	std::string written;
+	EXPECT_TRUE(section.Get("AnalogGesture", &written));
+	EXPECT_EQ_STR(written, std::string("2"));
+	zone.iAnalogGesture = oldAnalogGesture;
 	return true;
 }
 

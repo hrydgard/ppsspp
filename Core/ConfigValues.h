@@ -330,3 +330,10 @@ enum class GameBrowserViewMode : int {
 	GRID = 0,
 	LIST = 1,  // XMB-style, with full size icons and the ICON1.PMF video. Old configs may have 2 (the large list) here.
 };
+
+// Which stick a gesture zone's analog stick gesture drives.
+enum class AnalogGestureStick : int {
+	OFF = 0,
+	LEFT = 1,
+	RIGHT = 2,
+};

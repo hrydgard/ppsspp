@@ -863,6 +863,19 @@ std::unique_ptr<ConfigBlock> GestureControlConfig::NewDefault(std::string_view b
 	return block;
 }
 
+// AnalogGesture used to be a bool, and true meant the left stick.
+static int AnalogGestureFromString(const std::string &value) {
+	if (equalsNoCase(value, "True")) {
+		return (int)AnalogGestureStick::LEFT;
+	}
+	const int stick = atoi(value.c_str());
+	return (stick >= (int)AnalogGestureStick::OFF && stick <= (int)AnalogGestureStick::RIGHT) ? stick : (int)AnalogGestureStick::OFF;
+}
+
+static std::string AnalogGestureToString(int value) {
+	return StringFromInt(value);
+}
+
 // These were previously mostly part of General (which was wrong).
 static constexpr ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControls[0], iSwipeUp), 0, CfgFlag::PER_GAME),
@@ -873,7 +886,7 @@ static constexpr ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControls[0], fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
 	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControls[0], iDoubleTapGesture), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControls[0], bGestureControlEnabled), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], bAnalogGesture), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], iAnalogGesture), (int)AnalogGestureStick::OFF, &AnalogGestureToString, &AnalogGestureFromString, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensitivity), 1.0f, CfgFlag::PER_GAME),
 };
 
