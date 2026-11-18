@@ -3646,6 +3646,19 @@ bool FramebufferManagerCommon::ReadbackStencilToMemory(u32 addr, int size) {
 	return true;
 }
 
+bool FramebufferManagerCommon::ReadbackFramebufferRows(u32 addr, int size, Draw::ReadbackMode mode) {
+	VirtualFramebuffer *vfb = GetVFBAt(addr);
+	if (!vfb || vfb->fb_stride == 0 || vfb->memoryUpdated || GetSkipGPUReadbackMode() != SkipGPUReadbackMode::NO_SKIP) {
+		return false;
+	}
+	const int byteStride = vfb->fb_stride * BufferFormatBytesPerPixel(vfb->fb_format);
+	const int rows = std::min((size + byteStride - 1) / byteStride, (int)vfb->height);
+	ReadFramebufferToMemory(vfb, 0, 0, vfb->width, rows, RASTER_COLOR, mode);
+	vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
+	gstate_c.textureSyncTimeDomain++;
+	return true;
+}
+
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
 	if (!vfb || !vfb->fbo) {
 		return;

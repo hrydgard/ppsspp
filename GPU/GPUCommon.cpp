@@ -2691,6 +2691,14 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 	return false;
 }
 
+bool GPUCommon::PerformDelayedReadbackToMemory(u32 dest, int size) {
+	if (!framebufferManager_) {
+		// The software renderer draws to memory.
+		return PerformReadbackToMemory(dest, size);
+	}
+	return framebufferManager_->ReadbackFramebufferRows(dest, size, Draw::ReadbackMode::OLD_DATA_OK);
+}
+
 bool GPUCommon::PerformReadbackToMemory(u32 dest, int size) {
 	if (Memory::IsVRAMAddress(dest)) {
 		return PerformMemoryCopy(dest, dest, size, GPUCopyFlag::FORCE_DST_MATCH_MEM);
