@@ -270,8 +270,11 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 	doubleTapGroup->Add(new PopupMultiChoice(&zone.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()));
 
 	ChoiceGroup *analogGroup = list->Add(new ChoiceGroup(co->T("Analog Stick")));
-	analogGroup->Add(new CheckBox(&zone.bAnalogGesture, co->T("Enable analog stick gesture")));
-	analogGroup->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensitivity, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bAnalogGesture);
+	static const char *analogGestureSticks[] = { "Off", "Left stick", "Right stick" };
+	analogGroup->Add(new PopupMultiChoice(&zone.iAnalogGesture, co->T("Analog stick gesture"), analogGestureSticks, 0, ARRAY_SIZE(analogGestureSticks), I18NCat::CONTROLS, screenManager()));
+	analogGroup->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensitivity, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledFunc([&zone]() {
+		return zone.iAnalogGesture != (int)AnalogGestureStick::OFF;
+	});
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)

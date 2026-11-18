@@ -236,6 +236,7 @@ private:
 	float lastTapRelease_ = 0.0f;
 	float lastTouchDown_ = 0.0f;
 	int dragPointerId_ = -1;
+	int analogStick_ = -1;  // The stick the current drag's analog stick gesture drives, or -1.
 	bool swipeLeftReleased_ = true;
 	bool swipeRightReleased_ = true;
 	bool swipeUpReleased_ = true;
