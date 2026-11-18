@@ -316,6 +316,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(dpi), CmdParamType::Double, "dpi", '\0', "Set DPI", CmdLineMode::Application},
 	{POFF(scale), CmdParamType::Double, "scale", '\0', "Set scale", CmdLineMode::Application},
 	{POFF(skipLogo), CmdParamType::Bool, "skip-logo", '\0', "Skip the logo screen", CmdLineMode::Application},
+	{POFF(devStore), CmdParamType::Bool, "dev-store", '\0', "Use dev-store.ppsspp.org for the Homebrew Store", CmdLineMode::Application},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -741,6 +742,9 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (jitBench.has_value()) {
 		g_Config.iJitBenchFlip = jitBench.value();
+	}
+	if (devStore.has_value()) {
+		g_Config.bDevStore = devStore.value();
 	}
 
 	if (root.has_value()) {

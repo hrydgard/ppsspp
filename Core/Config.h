@@ -186,6 +186,9 @@ public:
 
 	int iRunCount; // To be used to for example check for updates every 10 runs and things like that.
 
+	// Use dev-store.ppsspp.org for the Homebrew Store (--dev-store). Not saved.
+	bool bDevStore = false;
+
 	// Debugger
 	bool bAutoRun;  // start immediately
 	bool bBreakOnFrameTimeout;  // not saved

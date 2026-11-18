@@ -21,6 +21,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/Notice.h"
 #include "Common/UI/ScrollView.h"
 #include "Common/UI/ScreenManager.h"
 #include "Common/Render/DrawBuffer.h"
@@ -37,11 +38,10 @@
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
-const char *storeBaseUrlHttp = "http://store.ppsspp.org/";
-const char *storeBaseUrlHttps = "https://store.ppsspp.org/";
-
 static std::string StoreBaseUrl() {
-	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? storeBaseUrlHttps : storeBaseUrlHttp;
+	const char *scheme = System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? "https://" : "http://";
+	const char *host = g_Config.bDevStore ? "dev-store.ppsspp.org/" : "store.ppsspp.org/";
+	return std::string(scheme) + host;
 }
 
 // baseUrl is assumed to have a trailing slash, and not contain any subdirectories.
@@ -472,6 +472,7 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	if (connectionError_ || loading_) {
 		auto st = GetI18NCategory(I18NCat::STORE);
 		content = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
+
 		content->Add(new TextView(loading_ ? std::string(st->T("Loading...")) : StringFromFormat("%s: %d", st->T_cstr("Connection Error"), resultCode_)));
 		if (!loading_) {
 			content->Add(new Button(di->T("Retry")))->OnClick.Handle(this, &StoreScreen::OnRetry);
@@ -506,6 +507,9 @@ void StoreScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		} else {
 			lastSelectedName_.clear();
 		}
+	}
+	if (g_Config.bDevStore) {
+		parent->Add(new NoticeView(NoticeLevel::WARN, "Developer store", ""));
 	}
 	parent->Add(content);
 }
