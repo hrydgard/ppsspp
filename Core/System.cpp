@@ -497,7 +497,11 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		if (!Memory::CanCreateMESpace()) {
 			// The firmware's PS1 emulator plays its sound on the ME, which 32-bit's masked memory has no room for.
 			auto er = GetI18NCategory(I18NCat::ERRORS);
-			*errorString = er->T("PS1NotSupported", "PS1 games can't run in this version of PPSSPP. They need a 64-bit build, and don't run on Xbox yet.");
+#if PPSSPP_PLATFORM(UWP)
+			*errorString = er->T("PS1NotSupportedXbox", "PS1 games can't run on Xbox yet.");
+#else
+			*errorString = er->T("PS1NotSupported32Bit", "PS1 games need a 64-bit version of PPSSPP, and this one is 32-bit.");
+#endif
 			return false;
 		}
 		// Title and disc ID; the PS1 image itself is read by the firmware's POPS manager.
