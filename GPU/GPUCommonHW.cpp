@@ -1034,6 +1034,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		}
 		NoteSelfTextureDraw(vfb, drawnBounds);
 	}
+	if (PSP_CoreParameter().compat.flags().TolerantDepthEqual) {
+		UpdateTolerantDepthEqual();
+	}
 
 	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 	// True means the bounding box test is skipped (through mode, morphing, skinning), not that the draw passed it.
@@ -1403,6 +1406,9 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	if (vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
 		NoteSelfTextureDraw(vfb, ScissorBounds());
 	}
+	if (PSP_CoreParameter().compat.flags().TolerantDepthEqual) {
+		UpdateTolerantDepthEqual();
+	}
 
 	int bytesRead = 0;
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
@@ -1482,6 +1488,9 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 
 	if (vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
 		NoteSelfTextureDraw(vfb, ScissorBounds());
+	}
+	if (PSP_CoreParameter().compat.flags().TolerantDepthEqual) {
+		UpdateTolerantDepthEqual();
 	}
 
 	int bytesRead = 0;
@@ -1567,6 +1576,16 @@ void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, DrawnBounds
 	gstate_c.queuedSelfTextureDraws.Add(bounds);
 	if (hasCopy) {
 		framebufferManager_->NoteDrawAfterSelfTextureCopy(bounds);
+	}
+}
+
+// See TolerantDepthEqual in compat.ini. Changes to the depth state flush first, so this is the first draw with it.
+void GPUCommonHW::UpdateTolerantDepthEqual() {
+	const bool tolerant = gstate.isDepthTestEnabled() && gstate.getDepthTestFunction() == GE_COMP_EQUAL &&
+		!gstate.isDepthWriteEnabled() && !gstate.isModeThrough();
+	if (tolerant != gstate_c.tolerantDepthEqual) {
+		gstate_c.tolerantDepthEqual = tolerant;
+		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORT_UNIFORMS);
 	}
 }
 
