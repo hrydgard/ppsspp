@@ -20,6 +20,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Swap.h"
 #include "Core/HW/SasAudio.h"
 #include "UI/FirmwareSounds.h"
 
@@ -33,10 +34,6 @@ constexpr size_t VAG_DATA_SIZE_OFFSET = 0x0C;
 constexpr size_t VAG_RATE_OFFSET = 0x10;
 constexpr size_t VAG_NAME_OFFSET = 0x20;
 constexpr size_t VAG_NAME_SIZE = 16;
-
-uint32_t ReadBE32(const uint8_t *p) {
-	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
-}
 
 }  // namespace
 

@@ -23,6 +23,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Log.h"
 #include "Common/Render/DrawBuffer.h"
+#include "Common/Swap.h"
 #include "Common/TimeUtil.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
@@ -40,10 +41,6 @@ static constexpr double MAX_DURATION_SECONDS = 10.0;
 
 static Path GameBootPath() {
 	return g_Config.nandRootDirectory / "flash0/vsh/resource/gameboot.pmf";
-}
-
-static uint32_t ReadBE32(const uint8_t *p) {
-	return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
 }
 
 // The movie's ATRAC3+ audio, decoded, as interleaved stereo. Same as MediaEngine does for games'
