@@ -249,6 +249,11 @@ static int scePowerIsSuspendRequired() {
 	return hleLogDebug(Log::HLE, 0);
 }
 
+// Whether a suspend, standby or reboot request is pending. We never have one.
+static int scePowerIsRequest() {
+	return hleLogDebug(Log::HLE, 0);
+}
+
 static int scePowerCancelRequest(u32 something) {
 	return hleLogError(Log::sceMisc, 0, "UNIMPL");
 }
@@ -666,7 +671,7 @@ static const HLEFunction scePower[] = {
 	{0XD6D016EF, &WrapI_I<scePowerLock>,                      "scePowerLock",                      'i', "i"  },
 	{0XCA3D34C1, &WrapI_I<scePowerUnlock>,                    "scePowerUnlock",                    'i', "i"  },
 	{0XDB62C9CF, &WrapI_U<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
-	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
+	{0X7FA406DD, &WrapI_V<scePowerIsRequest>,                 "scePowerIsRequest",                 'i', ""   },
 	{0X2B7C7CF4, &WrapI_V<scePowerRequestStandby>,            "scePowerRequestStandby",            'I', ""   },
 	{0XAC32C9CC, &WrapI_V<scePowerRequestSuspend>,            "scePowerRequestSuspend",            'I', ""   },
 	{0X2875994B, nullptr,                                     "scePower_2875994B",                 '?', ""   },

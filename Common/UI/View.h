@@ -427,6 +427,7 @@ public:
 	// Called when the layout is done.
 	void SetBounds(Bounds bounds) { bounds_ = bounds; }
 	virtual const LayoutParams *GetLayoutParams() const { return layoutParams_.get(); }
+	virtual LayoutParams *GetLayoutParams() { return layoutParams_.get(); }
 	virtual void ReplaceLayoutParams(LayoutParams *newLayoutParams) { layoutParams_.reset(newLayoutParams); }
 	const Bounds &GetBounds() const { return bounds_; }
 
@@ -1212,6 +1213,7 @@ public:
 	bool Touch(const TouchInput &touch) override;
 
 	bool Backspace();
+	bool BackspaceWord();
 	void MoveLeft();
 	void MoveRight();
 	void InsertAtCaret(const char *text);

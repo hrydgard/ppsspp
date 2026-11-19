@@ -283,3 +283,11 @@ inline bool SpongebobDepthInverseConditions(const GenericStencilFuncState &stenc
 	// Okay, color is most likely being used if we didn't hit the above.
 	return false;
 }
+
+// TolerantDepthEqual (see compat.ini) does EQUAL as GEQUAL, with the draw's Z raised by this much.
+constexpr float tolerantDepthEqualOffset = 0.25f;
+
+// The depth test to set up for the draw.
+inline GEComparison DepthTestFunctionForDraw() {
+	return gstate_c.tolerantDepthEqual ? GE_COMP_GEQUAL : gstate.getDepthTestFunction();
+}

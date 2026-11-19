@@ -234,6 +234,14 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 #endif
 	osInformation->Add(new InfoItem(si->T("PPSSPP build"), build));
 	osInformation->Add(new InfoItem(si->T("HTTPS supported"), System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? di->T("Yes") : di->T("No")));
+	const bool hasFileDialogs = System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER);
+	osInformation->Add(new InfoItem(si->T("File dialogs"), hasFileDialogs ? di->T("Yes") : di->T("No")));
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID) && defined(SDL)
+	// portable-file-dialogs runs an external program. Without one, the buttons that need it are hidden.
+	if (!hasFileDialogs) {
+		osInformation->Add(new SettingHint(si->T("FileDialogsNeedZenity", "Install zenity or kdialog to enable file dialogs, like Load... on the main screen"), nullptr));
+	}
+#endif
 
 	ChoiceGroup *displayInfo = groups->Add(new ChoiceGroup(si->T("Display Information")));
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(UWP)

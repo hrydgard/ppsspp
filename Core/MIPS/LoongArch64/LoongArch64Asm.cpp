@@ -191,8 +191,8 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	ApplyRoundingMode(true);
 
-	// Try again, the block index should be set now.
-	B(dispatcherNoCheck_);
+	// Dispatch again, through the coreState check: JitAt stops the core on a bad pc.
+	B(dispatcherCheckCoreState_);
 
 	SetJumpTarget(bail);
 

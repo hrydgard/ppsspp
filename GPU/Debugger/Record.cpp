@@ -42,6 +42,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Debugger/Record.h"
@@ -433,8 +434,21 @@ u32 Recorder::GetTargetFlags(u32 addr, u32 sizeInRAM) {
 // samples from a buffer it drew before the recording started (Silent Hill: Origins shows the previous
 // frame by copying it into its display buffer). Read such buffers back once before copying them out.
 // Anything drawn during the recording is drawn again on replay, so that doesn't need it.
+// The same goes for a framebuffer the hardware renderer made in main RAM for a block transfer there
+// (BlockTransferAllowCreateFB). Silent Hill: Origins copies its shadow data that way every frame, and RAM
+// only has what was there before.
 void Recorder::ReadbackUndrawnVRAM(u32 addr, u32 bytes) {
-	if (!gpu || bytes == 0 || !Memory::IsVRAMAddress(addr)) {
+	if (!gpu || bytes == 0) {
+		return;
+	}
+	if (!Memory::IsVRAMAddress(addr)) {
+		FramebufferManagerCommon *fbManager = gpu->GetFramebufferManagerCommon();
+		if (!fbManager || !fbManager->GetVFBAt(addr)) {
+			return;
+		}
+		if (readbackAddrs.insert(addr & 0x3FFFFFFF).second) {
+			gpu->PerformMemoryCopy(addr, addr, bytes, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DISALLOW_CREATE_VFB);
+		}
 		return;
 	}
 	if (!readbackAddrs.insert(addr & 0x041FFFFF).second) {
@@ -466,9 +480,8 @@ void Recorder::EmitTextureData(int level, u32 texaddr) {
 	u32 bytes = Memory::ClampValidSizeAt(texaddr, sizeInRAM);
 	std::vector<u8> framebufData;
 
+	ReadbackUndrawnVRAM(texaddr, bytes);
 	if (Memory::IsVRAMAddress(texaddr)) {
-		ReadbackUndrawnVRAM(texaddr, bytes);
-
 		struct FramebufData {
 			u32 addr;
 			int bufw;
@@ -539,7 +552,7 @@ void Recorder::FlushPrimState(int vcount) {
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = nullptr;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		if (Memory::IsValidAddress(gstate_c.indexAddr)) {
+		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG(Log::G3D, "Recorder: Invalid index address: 0x%08X", gstate_c.indexAddr);
 			return;
 		}
@@ -564,7 +577,9 @@ void Recorder::EmitTransfer(u32 op) {
 	// This may not make a lot of sense right now, unless it's to a framebuf...
 	u32 dstBasePtr = gstate.getTransferDstAddress();
 	if (!Memory::IsVRAMAddress(dstBasePtr)) {
-		// Skip, not VRAM, so can't affect drawing (we flush textures each prim.)
+		// Skip, not VRAM, so can't affect drawing (we flush textures each prim.) But a hardware renderer may
+		// keep what it copies on the GPU, so read it back again when it's next used.
+		readbackAddrs.erase(dstBasePtr & 0x3FFFFFFF);
 		return;
 	}
 

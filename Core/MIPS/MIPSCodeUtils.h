@@ -31,10 +31,12 @@
 #define MIPS_MAKE_NOP()     (0)
 #define MIPS_MAKE_BNEZ(pc, addr, rs) (0x14000000 | (rs << 21) | (u32)(((int)(addr - (pc + 4)) >> 2) & 0xFFFF))
 
-#define MIPS_MAKE_ADDIU(dreg, sreg, immval) ((9 << 26) | ((dreg) << 16) | ((sreg) << 21) | (immval))
-#define MIPS_MAKE_LUI(reg, immval) (0x3c000000 | ((reg) << 16) | (immval))
-#define MIPS_MAKE_ORI(rt, rs, immval) (0x34000000 | ((rs) << 21) | ((rt) << 16) | (immval))
-#define MIPS_MAKE_LW(rt, rs, immval) (0x8c000000 | ((rs) << 21) | ((rt) << 16) | (immval))
+// The immediates are 16 bits; a negative one (addiu sp, sp, -16) must not spill into the other fields.
+#define MIPS_MAKE_ADDIU(dreg, sreg, immval) ((9 << 26) | ((dreg) << 16) | ((sreg) << 21) | ((immval) & 0xFFFF))
+#define MIPS_MAKE_LUI(reg, immval) (0x3c000000 | ((reg) << 16) | ((immval) & 0xFFFF))
+#define MIPS_MAKE_ORI(rt, rs, immval) (0x34000000 | ((rs) << 21) | ((rt) << 16) | ((immval) & 0xFFFF))
+#define MIPS_MAKE_LW(rt, rs, immval) (0x8c000000 | ((rs) << 21) | ((rt) << 16) | ((immval) & 0xFFFF))
+#define MIPS_MAKE_SW(rt, rs, immval) (0xac000000 | ((rs) << 21) | ((rt) << 16) | ((immval) & 0xFFFF))
 #define MIPS_MAKE_SYSCALL(module, function) GetSyscallOp(module, GetNibByName(module, function))
 #define MIPS_MAKE_BREAK(n) (((n) << 6) | 13)  // ! :)
 

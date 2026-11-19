@@ -71,6 +71,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "UI/AudioCommon.h"
 #include "SDLGLGraphicsContext.h"
 #include "SDLUtil.h"
 
@@ -104,6 +105,9 @@ static bool g_RestartRequested = false;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
+// Set when starting in fullscreen: the size to give the window for when it leaves fullscreen.
+static int g_pendingWindowedWidth = 0;
+static int g_pendingWindowedHeight = 0;
 static float g_DesktopDPI = 1.0f;
 static float g_ForcedDPI = 0.0f; // if this is 0.0f, use g_DesktopDPI
 static float g_RefreshRate = 60.f;
@@ -1608,6 +1612,14 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			});
 			break;
 		}
+	case SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+		if (g_pendingWindowedWidth > 0) {
+			// SDL ignores a size set while fullscreen, so this waits until now.
+			SDL_SetWindowSize(window, g_pendingWindowedWidth, g_pendingWindowedHeight);
+			g_pendingWindowedWidth = 0;
+			g_pendingWindowedHeight = 0;
+		}
+		break;
 	case SDL_EVENT_WINDOW_MOVED:
 		{
 			Uint64 window_flags = SDL_GetWindowFlags(window);
@@ -1621,6 +1633,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 	case SDL_EVENT_WINDOW_FOCUS_LOST:
 		{
+			Audio_SetWindowFocused(false);
 			if (g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 				Core_Break(BreakReason::UIFocus, 0);
 			}
@@ -1629,6 +1642,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		{
+			Audio_SetWindowFocused(true);
 			if (Core_BreakReason() == BreakReason::UIFocus) {
 				Core_Resume();
 			}
@@ -1675,16 +1689,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// Convenience subset of what "Enable standard shortcut keys" does on Windows.
 			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.mod & SDL_KMOD_CTRL);
-				if (ctrl && (k == SDLK_W))
-				{
-					if (Core_IsStepping())
-						Core_Resume();
-					Core_Stop();
-					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
-					// NOTE: Unlike Windows version, this
-					// does not need Core_WaitInactive();
-					// since SDL does not have a separate
-					// UI thread.
+				if (ctrl && (k == SDLK_W)) {
+					// Like on Windows: the UI asks first, with the same popup as the pause screen's Exit.
+					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
 				}
 
 				/*
@@ -2395,6 +2402,32 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 	}
+
+#if !defined(MOBILE_DEVICE) && !defined(USING_FBDEV)
+	// Starting in fullscreen, the window was created at the desktop's size, which is also what it goes
+	// back to when leaving fullscreen (#11991), so it gets a window's size when it does. (Creating it at that
+	// size instead briefly shows a window that some desktops leave a stale frame of.)
+	if (g_Config.bFullScreen && (g_DesktopWidth >= 480 * 2 || g_DesktopHeight >= 272 * 2)) {
+		int windowedW = 480 * 2 * set_scale;
+		int windowedH = 272 * 2 * set_scale;
+		if (!landscape) {
+			std::swap(windowedW, windowedH);
+		}
+		// A saved size covering the whole desktop most likely came from leaving fullscreen before this fix.
+		if (g_Config.iWindowWidth > 0 && g_Config.iWindowHeight > 0 && (g_Config.iWindowWidth < g_DesktopWidth || g_Config.iWindowHeight < g_DesktopHeight)) {
+			windowedW = g_Config.iWindowWidth;
+			windowedH = g_Config.iWindowHeight;
+		}
+		if (set_xres > 0) {
+			windowedW = set_xres;
+		}
+		if (set_yres > 0) {
+			windowedH = set_yres;
+		}
+		g_pendingWindowedWidth = windowedW;
+		g_pendingWindowedHeight = windowedH;
+	}
+#endif
 
 	// At this point, we have a window that we can show finally.
 	SDL_ShowWindow(window);

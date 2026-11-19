@@ -97,4 +97,9 @@ private:
 };
 
 std::string GetConfirmExitMessage();
+// Resets the game, first asking in a popup if there's something to lose (see GetConfirmExitMessage).
+// onReset, if any, runs when it goes ahead.
+void ConfirmAndResetGame(ScreenManager *screenManager, std::function<void()> onReset = nullptr);
+// The same for stopping the game (back to the game list).
+void ConfirmAndStopGame(ScreenManager *screenManager);
 void ShowMessageAfterSaveStateAction(SaveState::Status status, std::string_view message, std::string_view metadata);

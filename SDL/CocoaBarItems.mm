@@ -268,6 +268,18 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addItem:DesktopUI("Open Memory Stick") to:menu action:^{
         [NSWorkspace.sharedWorkspace openURL:[NSURL fileURLWithPath:@(g_Config.memStickDirectory.c_str())]];
     }];
+    [self addItem:DesktopUI("Open New Instance") to:menu action:^{
+        // Another copy of the app, for local multiplayer. Launch Services would just activate this one,
+        // so ask for a new instance (or, outside a bundle, start the executable directly).
+        NSBundle *bundle = NSBundle.mainBundle;
+        if ([bundle.bundlePath hasSuffix:@".app"]) {
+            NSWorkspaceOpenConfiguration *config = [NSWorkspaceOpenConfiguration configuration];
+            config.createsNewApplicationInstance = YES;
+            [NSWorkspace.sharedWorkspace openApplicationAtURL:bundle.bundleURL configuration:config completionHandler:nil];
+        } else {
+            [NSTask launchedTaskWithExecutableURL:bundle.executableURL arguments:@[] error:nil terminationHandler:nil];
+        }
+    }];
 
     [self addSeparatorTo:menu];
     [self addItem:DesktopUI("Load XMB (VSH)") to:menu action:^{
@@ -353,10 +365,12 @@ static bool CanUseSaveStates(bool isSaveAction) {
         System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Stop") to:menu action:^{
-        System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+        // The UI asks first, with the same popup as the pause screen's Exit.
+        System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Reset") to:menu action:^{
-        System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+        // The UI asks first, with the same popup as the pause screen's Reset.
+        System_PostUIMessage(UIMessage::REQUEST_GAME_RESET, "confirm");
         Core_Resume();
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Switch UMD") to:menu action:^{

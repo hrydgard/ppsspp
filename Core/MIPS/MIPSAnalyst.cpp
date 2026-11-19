@@ -353,6 +353,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9a06b9d5c16c4c20, 76, "dl_write_clut_ptrload", },
 	{ 0x9b88b739267d189e, 88, "strrchr", },
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
+	{ 0x9d457f07ffbc2f59, 204, "socomftb3_read_luminance", }, // SOCOM: Fireteam Bravo 3
 	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
 	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
 	{ 0x9e6adef67e76ed5c, 188, "everybodystennis_copy_portrait", }, // Everybody's Tennis (EUR)

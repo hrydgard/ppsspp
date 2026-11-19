@@ -271,7 +271,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			// Depth Test
 			if (!IsDepthTestEffectivelyDisabled()) {
 				keys_.depthStencil.depthTestEnable = true;
-				keys_.depthStencil.depthCompareOp = compareOps[gstate.getDepthTestFunction()];
+				keys_.depthStencil.depthCompareOp = compareOps[DepthTestFunctionForDraw()];
 				keys_.depthStencil.depthWriteEnable = gstate.isDepthWriteEnabled();
 				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			} else {

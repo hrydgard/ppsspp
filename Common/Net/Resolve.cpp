@@ -13,6 +13,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/StringUtils.h"
+#include "Common/Swap.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Net/SocketCompat.h"
 #include "Common/Net/Resolve.h"
@@ -532,19 +533,7 @@ int inet_pton(int af, const char* src, void* dst) {
 #define DNS_FLAG_TRUNCATED 0x0200
 #define DNS_RCODE_MASK 0x000F
 
-// The packet has no alignment, so read and write fields with memcpy.
-static uint16_t ReadBE16(const unsigned char *p) {
-	uint16_t value;
-	memcpy(&value, p, sizeof(value));
-	return ntohs(value);
-}
-
-static uint32_t ReadBE32(const unsigned char *p) {
-	uint32_t value;
-	memcpy(&value, p, sizeof(value));
-	return ntohl(value);
-}
-
+// The packet has no alignment, so write fields with memcpy (ReadBE16/32 from Swap.h read them).
 static void WriteBE16(unsigned char *p, uint16_t value) {
 	value = htons(value);
 	memcpy(p, &value, sizeof(value));

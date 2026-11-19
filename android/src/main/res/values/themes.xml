@@ -8,4 +8,11 @@
 		<item name="android:windowIsFloating">true</item>
 		<item name="android:backgroundDimEnabled">false</item>
 	</style>
+	<!-- ShortcutActivity: just its dialogs, over the launcher. -->
+	<style name="Theme.ShortcutChooser" parent="Theme.AppCompat.DayNight.NoActionBar">
+		<item name="android:windowBackground">@android:color/transparent</item>
+		<item name="android:windowIsTranslucent">true</item>
+		<item name="android:windowContentOverlay">@null</item>
+		<item name="android:windowNoTitle">true</item>
+	</style>
 </resources>

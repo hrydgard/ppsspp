@@ -87,6 +87,7 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "SystemCtrl.h"
 #include "PopsBoot.h"
 #include "sceAmctrl.h"
 #include "sceNetInet.h"
@@ -166,7 +167,7 @@ static const HLEFunction LoadCoreForKernel[] = {
 	{0XCCE4A157, &WrapU_U<sceKernelFindModuleByUID>,                 "sceKernelFindModuleByUID",                'x', "x" ,     HLE_KERNEL_SYSCALL },
 	{0X82CE54ED, nullptr,                                            "sceKernelModuleCount",                    '?', ""   },
 	{0XC0584F0C, nullptr,                                            "sceKernelGetModuleList",                  '?', ""   },
-	{0XCF8A41B1, &WrapU_C<sceKernelFindModuleByName>,                "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
+	{0xF6B1BF0F, &WrapU_C<sceKernelFindModuleByName>,               "sceKernelFindModuleByName",               'x', "s",      HLE_KERNEL_SYSCALL },
 	{0XB95FA50D, nullptr,                                            "LoadCoreForKernel_B95FA50D",              '?', ""   },
 	{0x696594C8, &WrapU_V<sceKernelQueryLoadCoreCB>,                 "sceKernelQueryLoadCoreCB660",             'x', "",       HLE_KERNEL_SYSCALL },
 };
@@ -250,8 +251,11 @@ static const int numModules = ARRAY_SIZE(moduleList);
 // function touches (where popsman.prx was rewritten, 5.55 and 4.05, the call sites alone get some wrong).
 static const struct {
 	const char *module;
-	u32 nids[8];  // 6.60-6.61, 6.30-6.39, 6.00-6.20, 5.01-5.55, 3.95-4.05, 3.80-3.90, 3.71-3.73, 2.80-3.52
+	u32 nids[9];  // 6.60-6.61, 6.30-6.39, 6.00-6.20, 5.01-5.55, 3.95-4.05, 3.80-3.90, 3.71-3.73, 2.80-3.52, 1.50
 } hleKernelNids[] = {
+	{ "LoadCoreForKernel",  { 0xF6B1BF0F, 0,          0,          0,          0,          0,          0,          0,          0xCF8A41B1 } },  // sceKernelFindModuleByName
+	{ "ModuleMgrForKernel", { 0xE5D6087B, 0,          0,          0,          0,          0,          0,          0,          0xD1FF982A } },  // sceKernelStopModule
+	{ "SysMemForKernel",    { 0x7158CE7E, 0,          0,          0,          0,          0,          0,          0,          0x237DBD4F } },  // sceKernelAllocPartitionMemory
 	{ "InitForKernel",      { 0x9D33A110, 0xEE67E450, 0x977A0F90, 0,          0          } },  // InitForKernel_9D33A110
 	{ "LoadExecForKernel",  { 0xC3474C2A, 0xFCD765C9, 0x29413885, 0x9C9BB2D8, 0x63D88393 } },  // sceKernelExitVSHKernel
 	{ "ModuleMgrForKernel", { 0x939E4270, 0xFFB9B760, 0xE3CCC6EA, 0xC5A281C5, 0x24C5ABC2 } },  // sceKernelLoadModuleForKernel
@@ -300,8 +304,9 @@ static const struct {
 	{ "SysMemForKernel",    { 0xC90B0992, 0x3DE3C6DF, 0xF5780DAA, 0xD7E24299, 0x523E300A } },  // sceKernelGetUIDcontrolBlock
 	{ "SysMemForKernel",    { 0x8AE776AF, 0x2CFE3B22, 0,          0,          0          } },  // sceKernelMemset
 	{ "SysMemForKernel",    { 0x310802A9, 0x25A760F0, 0x02AEA33F, 0,          0          } },  // SysMemForKernel_310802A9
-	{ "SysMemForKernel",    { 0xF12A62F7, 0x52B54B93, 0xFEB5C72B, 0x950BCB31, 0x5136926D } },
+	{ "SysMemForKernel",    { 0xF12A62F7, 0x52B54B93, 0xFEB5C72B, 0x950BCB31, 0x5136926D, 0,          0,          0,          0x9D9A5BA1 } },  // sceKernelGetBlockHeadAddr
 	{ "SysMemForKernel",    { 0xFDC97D28, 0xF2FEAFD5, 0xA4AC3934, 0,          0          } },
+	{ "SysMemForKernel",    { 0xEF29061C, 0,          0,          0,          0,          0,          0,          0xCD617A94 } },  // sceKernelGetGameInfo
 };
 
 u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {
@@ -444,6 +449,10 @@ void RegisterAllModules() {
 	Register_sceIdStorage_driver();
 	Register_sceNetAdhocctl_lib();
 	Register_sceNetIfhandle_lib();
+	Register_SystemCtrlGuestCalls();
+	Register_SysclibForUser();
+	Register_ArkCtrl();
+	Register_SystemCtrlHardware();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

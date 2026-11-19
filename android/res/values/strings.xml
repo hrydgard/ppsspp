@@ -2,6 +2,9 @@
 <resources>
 
     <string name="app_name">PPSSPP</string>
-    <string name="shortcut_name">PPSSPP game</string>
+    <string name="shortcut_name">PPSSPP shortcut</string>
+    <string name="shortcut_choose_game">Game</string>
+    <string name="shortcut_choose_xmb">XMB (PSP system menu)</string>
+    <string name="shortcut_xmb_name">XMB</string>
 
 </resources>

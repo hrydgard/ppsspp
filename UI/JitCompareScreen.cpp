@@ -495,10 +495,10 @@ bool AddressPromptScreen::key(const KeyInput &key) {
 		} else if (key.keyCode == NKCODE_ENTER) {
 			TriggerFinish(DR_OK);
 		} else {
-			return UIDialogScreen::key(key);
+			return PopupScreen::key(key);
 		}
 	} else {
-		return UIDialogScreen::key(key);
+		return PopupScreen::key(key);
 	}
 	return true;
 }

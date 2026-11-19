@@ -1290,6 +1290,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 				ConvertTmToPspDateTime(entries[i].st_atime, validDir[i].atime, validDir[i].atimeUs);
 				ConvertTmToPspDateTime(entries[i].st_mtime, validDir[i].mtime, validDir[i].mtimeUs);
 			}
+			RoundToFATDateTimes(entries[i].st_ctime, entries[i].st_atime, entries[i].st_mtime);
 
 			// folder name without gamename (max 20 u8)
 			std::string outName = validDir[i].name.substr(GetGameName(param).size());
@@ -1420,6 +1421,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr,
 		ConvertTmToPspDateTime(entry->st_ctime, ctime, file.ctimeUs);
 		ConvertTmToPspDateTime(entry->st_atime, file.atime, file.atimeUs);
 		ConvertTmToPspDateTime(entry->st_mtime, file.mtime, file.mtimeUs);
+		RoundToFATDateTimes(entry->st_ctime, entry->st_atime, entry->st_mtime);
 
 		// TODO: Probably actually 13 + 3 pad...
 		strncpy(entry->name, file.name.c_str(), 16);

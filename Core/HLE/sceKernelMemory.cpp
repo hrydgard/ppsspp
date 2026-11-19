@@ -1047,6 +1047,8 @@ static int sceKernelPrintf(MIPSState *mips, const char *formatString) {
 		return hleLogError(Log::Printf, 0, "UNIMPL fmt (%s, %08x, %08x, %08x)", format.c_str(), PARAM(1), PARAM(2), PARAM(3));
 }
 
+// The version lists match sysmem.prx 6.61. On a version outside its list, each setter hangs the PSP
+// instead of returning, so a game that does that has been modified. We log it and carry on.
 static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	bool validSDK = false;
@@ -1072,7 +1074,7 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	}
 
 	if (!validSDK) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1083,7 +1085,7 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03070000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1093,10 +1095,9 @@ static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 
 static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
-	if (sdkMainVersion != 0x03080000 && sdkMainVersion != 0x03090000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
-		sdkVersion_ = sdkVersion;
-		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
+	// 3.09 only without a minor version; 3.09.05 and 3.09.06 belong to 395.
+	if (sdkMainVersion != 0x03080000 && (sdkVersion & 0xFFFFFF00) != 0x03090000) {
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1111,7 +1112,7 @@ static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 			&& sdkMainVersion != 0x04000500
 			&& sdkMainVersion != 0x03090500
 			&& sdkMainVersion != 0x03090600) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1124,7 +1125,7 @@ static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 	if (sdkMainVersion != 0x06010000
 			&& sdkMainVersion != 0x06000000
 			&& sdkMainVersion != 0x06020000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1137,7 +1138,7 @@ static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05000000
 			&& sdkMainVersion != 0x05050000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1149,7 +1150,7 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x04010000
 			&& sdkMainVersion != 0x04020000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1160,7 +1161,7 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05070000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1173,7 +1174,7 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 	if (sdkMainVersion != 0x06040000
 			&& sdkMainVersion != 0x06030000
 			&& sdkMainVersion != 0x06050000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1184,7 +1185,7 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06060000) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1612,7 +1613,7 @@ static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE);
 	}
 	if (size == 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
+		WARN_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
 		return hleNoLog(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
 	if (!pname) {

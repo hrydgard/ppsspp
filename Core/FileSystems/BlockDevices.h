@@ -25,6 +25,7 @@
 
 #include <mutex>
 #include <memory>
+#include <string_view>
 
 #include "Common/CommonTypes.h"
 
@@ -53,7 +54,8 @@ public:
 	}
 	virtual bool IsDisc() const = 0;
 
-	void NotifyReadError();
+	// reason: a brief description of what went wrong, shown with the path. Not translated.
+	void NotifyReadError(std::string_view reason);
 
 	bool IsOK() const { return errorString_.empty(); }
 	const std::string &ErrorString() { return errorString_; }

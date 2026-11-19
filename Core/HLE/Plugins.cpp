@@ -41,6 +41,8 @@ std::map<int, uint8_t> PluginDataKeys;
 static bool anyEnabled = false;
 
 static std::vector<PluginInfo> prxPlugins;
+// Every plugin that set anyEnabled, including ones that only raise the memory size.
+static std::vector<std::string> enabledNames;
 
 static PluginInfo ReadPluginIni(const std::string &subdir, IniFile &ini) {
 	PluginInfo info;
@@ -168,15 +170,21 @@ void Init() {
 
 	std::vector<PluginInfo> plugins = FindPlugins(g_paramSFO.GetDiscID(), g_Config.sLanguageIni);
 	prxPlugins.clear();
+	enabledNames.clear();
 	for (auto &plugin : plugins) {
+		bool used = false;
 		if (plugin.memory << 20 > Memory::g_MemorySize) {
 			Memory::g_MemorySize = plugin.memory << 20;
-			anyEnabled = true;
+			used = true;
 		}
 
 		if (plugin.type == PluginType::PRX) {
 			prxPlugins.push_back(plugin);
+			used = true;
+		}
+		if (used) {
 			anyEnabled = true;
+			enabledNames.push_back(plugin.name);
 		}
 	}
 }
@@ -225,6 +233,7 @@ void Unload() {
 
 void Shutdown() {
 	prxPlugins.clear();
+	enabledNames.clear();
 	anyEnabled = false;
 	std::lock_guard<std::mutex> guard(g_inputMutex);
 	PluginDataKeys.clear();
@@ -241,6 +250,17 @@ void DoState(PointerWrap &p) {
 
 bool HasEnabled() {
 	return anyEnabled;
+}
+
+std::string EnabledNames() {
+	std::string names;
+	for (const std::string &name : enabledNames) {
+		if (!names.empty()) {
+			names += ", ";
+		}
+		names += name;
+	}
+	return names;
 }
 
 void SetKey(int key, uint8_t value) {

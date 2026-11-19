@@ -246,6 +246,41 @@ static bool TestCheatInvisibleCharacters() {
 	return true;
 }
 
+// Cheat databases use cheats whose only line is 0x00000000 0x00000000 as notes (#15442).
+static bool TestCheatNotes() {
+	const Path filename = UnitTestTempPath("unittest_cheats_notes.ini");
+	const char *content =
+		"_S OTHER0000\n_C0 Other game\n_L 0x20002000 0x00000001\n"
+		"_S TEST00000\n"
+		"_C0 _____[>>>Heading<<<]_____\n_L 0x00000000 0x00000000\n"
+		"_C0 ...Empty...\n_L 0x00000000 0x00000000\n"
+		"_C0 Disabled cheat\n_L 0x00000000 0x00000000\n_L 0x20002000 0x00000001\n"
+		"_C1 Enabled cheat\n_L 0x20002000 0x00000001\n"
+		"_C0 Credits line\n"
+		"_S OTHER0001\n_C1 Another game\n_L 0x20002000 0x00000001\n";
+	if (!File::WriteStringToFile(true, content, filename)) {
+		return false;
+	}
+	std::vector<CheatFileInfo> info;
+	{
+		CheatFileParser parser(filename, "TEST00000");
+		EXPECT_TRUE(parser.Parse());
+		info = parser.GetFileInfo();
+	}
+	File::Delete(filename);
+	EXPECT_EQ_INT((int)info.size(), 5);
+	EXPECT_FALSE(info[0].hasCode);
+	EXPECT_FALSE(info[1].hasCode);
+	EXPECT_EQ_STR(info[1].name, std::string("...Empty..."));
+	EXPECT_TRUE(info[2].hasCode);
+	EXPECT_TRUE(info[3].hasCode);
+	EXPECT_TRUE(info[3].enabled);
+	EXPECT_EQ_STR(info[4].name, std::string("Credits line"));
+	EXPECT_FALSE(info[4].hasCode);
+	EXPECT_EQ_INT(info[4].lineNum, 14);
+	return true;
+}
+
 bool TestCwCheat() {
 	// Other tests may leave currentMIPS pointing elsewhere; the cheat engine needs the real one.
 	currentMIPS = &mipsr4k;
@@ -254,7 +289,7 @@ bool TestCwCheat() {
 		printf("Memory::Init failed\n");
 		return false;
 	}
-	const bool success = RunCheatTests() && TestCheatParseErrors() && TestCheatInvisibleCharacters();
+	const bool success = RunCheatTests() && TestCheatParseErrors() && TestCheatInvisibleCharacters() && TestCheatNotes();
 	Memory::Shutdown();
 	return success;
 }

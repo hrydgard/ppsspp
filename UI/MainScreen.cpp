@@ -223,13 +223,13 @@ bool MainScreen::WantsTextInput() const {
 
 
 #if PPSSPP_PLATFORM(IOS)
-constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios";
-constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios";
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames_ios/";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew_ios/";
 #else
-constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames";
-constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew";
+constexpr std::string_view getGamesUri = "https://www.ppsspp.org/getgames/";
+constexpr std::string_view getHomebrewUri = "https://www.ppsspp.org/gethomebrew/";
 #endif
-constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming";
+constexpr std::string_view remoteGamesUri = "https://www.ppsspp.org/docs/reference/disc-streaming/";
 
 void MainScreen::CreateRecentTab() {
 	using namespace UI;
@@ -594,13 +594,13 @@ void MainScreen::CreateViews() {
 	const UI::Drawable dismissableBackground = screenManager()->getUIContext()->GetTheme().itemDownStyle.background;
 
 	auto CreateDismissableBar = [this, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
-		Margins margins(0, 0);
+		Margins margins(12, 12);
 		UI::LinearLayout *bar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
+		bar->SetPadding(Margins(12, 8, 8, 8));
 
-		UI::Margins textMargins(10, 5);
-		UI::Margins buttonMargins(5, 0);
+		UI::Margins textMargins(0, 0);
+		UI::Margins buttonMargins(0, 0);
 		UI::Drawable solid(dismissableBackground);
-		bar->SetSpacing(5.0f);
 		bar->SetBG(solid);
 
 		bar->Add(new TextView(message, FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
@@ -613,6 +613,8 @@ void MainScreen::CreateViews() {
 			onDismiss();
 			RecreateViews();
 		});
+
+		bar->SetRoundCorners();
 		return bar;
 	};
 
@@ -825,8 +827,10 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
-		if ((focusFlags & FocusFlags::CAUSE_FOCUS_MOVE) || (focusFlags & FocusFlags::CAUSE_KB_FOCUS_DISABLED)) {
-			// Focus moved to another game, so we want to fade out so we can fade in the new one.
+		// Focus moved to another game or view, or the mouse or a touch took it (which focuses what was
+		// clicked before it turns keyboard focus off, so that's CAUSE_OTHER): fade the music out with
+		// the background. Not on a screen change, so it keeps playing on the game's details screen.
+		if (focusFlags & (FocusFlags::CAUSE_FOCUS_MOVE | FocusFlags::CAUSE_KB_FOCUS_DISABLED | FocusFlags::CAUSE_OTHER)) {
 			g_BackgroundAudio.SetGame(Path());
 		}
 		return;
@@ -969,8 +973,7 @@ void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
 	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD | BrowseFlags::UMDS_ONLY, portrait, &g_Config.iGameBrowserView2, screenManager(),
-		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
-		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+		"", "", new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollAllGames->Add(tabAllGames);
 
@@ -987,7 +990,7 @@ void UmdReplaceScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void UmdReplaceScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 

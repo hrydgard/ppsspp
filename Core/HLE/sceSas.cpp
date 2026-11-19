@@ -738,7 +738,7 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 
 	__SasDrain();
 
-	DEBUG_LOG_REPORT_ONCE(concatAtrac3, Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
+	DEBUG_LOG(Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 
 	SasVoice &v = sas->voices[voiceNum];
 	v.atrac3.Concatenate(atrac3DataAddr, atrac3DataLength);

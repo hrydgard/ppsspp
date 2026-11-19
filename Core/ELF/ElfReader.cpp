@@ -229,8 +229,9 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					int t_type = rels[t].r_info & 0xF;
 					int t_readwrite = (rels[t].r_info >> 8) & 0xff;
 					u32 corrLoAddr = rels[t].r_offset + segmentVAddr[t_readwrite];
-					if (t_type == R_MIPS_16) {
-						WARN_LOG_REPORT(Log::Loader, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+					if (t_type == R_MIPS_16 && log) {
+						// Common in commercial games, and handled by isLoCandidate.
+						DEBUG_LOG(Log::Loader, "ELF relocation HI16/R_MIPS_16 pair (instead of LO16) at %08x / %08x", addr, corrLoAddr);
 					}
 					// Should have matching index and segment info, according to llvm, which makes sense.
 					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
@@ -831,7 +832,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			{
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
-					ERROR_LOG_REPORT(Log::Loader, "Trying to relocate non-loaded section %s", GetSectionName(sectionToModify));
+					INFO_LOG(Log::Loader, "Trying to relocate non-loaded section '%s', skipping. Typically caused by embedded debug info.", GetSectionName(sectionToModify));
 					continue;
 				}
 
@@ -851,31 +852,22 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 				WARN_LOG_REPORT(Log::Loader, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
 			}
 		}
-		else if (s->sh_type == SHT_REL)
-		{
-			DEBUG_LOG(Log::Loader, "Traditional relocation section found.");
-			if (!bRelocate)
-			{
-				DEBUG_LOG(Log::Loader, "Binary is prerelocated. Skipping relocations.");
-			}
-			else
-			{
-				//We have a relocation table!
+		else if (s->sh_type == SHT_REL) {
+			if (!bRelocate) {
+				DEBUG_LOG(Log::Loader, "Binary is prerelocated. Skipping traditional relocations (unsupported anyway).");
+			} else {
+				// We have a relocation table! This is unexpected, or the binary is corrupt. Let's just log and report if it looks
+				// like it should actually be used for real.
 				int sectionToModify = s->sh_info;
-				if (sectionToModify >= 0 && sectionToModify < GetNumSections())
-				{
-					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
-					{
+				if (sectionToModify >= 0 && sectionToModify < GetNumSections()) {
+					if (!(sections[sectionToModify].sh_flags & SHF_ALLOC)) {
 						// Generally stuff like debug info. We don't need it.
 						INFO_LOG(Log::Loader, "Skipping relocation of non-loaded section %s", GetSectionName(sectionToModify));
 						continue;
 					}
-				}
-				else
-				{
+				} else if (sectionToModify != -1) {
 					WARN_LOG_REPORT(Log::Loader, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
 				}
-				ERROR_LOG_REPORT(Log::Loader, "Traditional relocations unsupported.");
 			}
 		}
 	}

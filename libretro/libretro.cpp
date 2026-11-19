@@ -1195,6 +1195,9 @@ static const struct retro_controller_info ports[] =
    { NULL, 0 }
 };
 
+// RetroLogCallback's handle, so retro_deinit() can remove it
+static int log_callback_handle = -1;
+
 void retro_init(void)
 {
    TimeInit();
@@ -1212,9 +1215,8 @@ void retro_init(void)
       // log always shows up in the debugger's Output window when debugging the core in-process with
       // RetroArch, regardless of where RetroArch itself routes the ExternalCallback log messages.
       g_logManager.EnableOutput(LogOutput::DebugString);
-      // AddExternalLogCallback() enables LogOutput::ExternalCallback itself. Never removed - this
-      // callback lives as long as the core does.
-      g_logManager.AddExternalLogCallback(&RetroLogCallback, (void *)log_cb);
+      // AddExternalLogCallback() enables LogOutput::ExternalCallback itself. Removed in retro_deinit().
+      log_callback_handle = g_logManager.AddExternalLogCallback(&RetroLogCallback, (void *)log_cb);
    }
 
    VsyncSwapIntervalReset();
@@ -1321,6 +1323,8 @@ void retro_init(void)
 void retro_deinit(void)
 {
    g_threadManager.Teardown();
+   g_logManager.RemoveExternalLogCallback(log_callback_handle);
+   log_callback_handle = -1;
    g_logManager.Shutdown();
    log_cb = NULL;
 

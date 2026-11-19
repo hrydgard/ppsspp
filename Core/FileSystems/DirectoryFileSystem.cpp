@@ -605,6 +605,24 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 	if (dirname_end != from.npos)
 		fullTo = from.substr(0, dirname_end + 1) + fullTo;
 
+	return MoveFileToPath(from, fullTo);
+}
+
+// Content URIs can move a file to another directory or rename it, but not both in one go.
+static bool MoveLocalFile(const Path &from, const Path &to) {
+	if (from.Type() == PathType::CONTENT_URI && from.NavigateUp() != to.NavigateUp()) {
+		const Path moved = to.NavigateUp() / from.GetFilename();
+		if (!File::MoveIfFast(from, moved)) {
+			return false;
+		}
+		return moved == to || File::Rename(moved, to);
+	}
+	return File::Rename(from, to);
+}
+
+int DirectoryFileSystem::MoveFileToPath(const std::string &from, const std::string &to) {
+	std::string fullTo = to;
+
 	// At this point, we should check if the paths match and give an already exists error.
 	if (from == fullTo)
 		return ReplayApplyDisk(ReplayAction::FILE_RENAME, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, CoreTiming::GetGlobalTimeUs());
@@ -619,7 +637,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 	Path fullToPath = GetLocalPath(fullTo);
 
-	bool retValue = File::Rename(fullFrom, fullToPath);
+	bool retValue = MoveLocalFile(fullFrom, fullToPath);
 
 	if (flags & FileSystemFlags::CASE_SENSITIVE) {
 		if (!retValue) {
@@ -629,7 +647,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 				return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 			fullFrom = GetLocalPath(fullFromPath);
 
-			retValue = File::Rename(fullFrom, fullToPath);
+			retValue = MoveLocalFile(fullFrom, fullToPath);
 		}
 	}
 

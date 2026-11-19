@@ -54,6 +54,11 @@ public:
 		shadows_ = shadows;
 	}
 
+	virtual void SetCornerMask(bool cornerMask) {
+		cornerMask_ = cornerMask;
+	}
+	bool HasCornerMask() const { return cornerMask_; }
+
 	NeighborResult FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) override;
 
 private:
@@ -95,6 +100,7 @@ private:
 	bool mouseHover_ = false;
 	bool bobHover_ = false;  // Mouse is over the strip the bob moves in.
 	bool shadows_ = true;
+	bool cornerMask_ = false;
 
 	// The bob fades out when the scroll view is left alone.
 	float bobAlpha_ = 1.0f;
@@ -162,6 +168,7 @@ public:
 
 	int GetSelected() { return adaptor_->GetSelected(); }
 	void Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert) override;
+	void SetCornerMask(bool cornerMask) override;
 	virtual void SetMaxHeight(float mh) { maxHeight_ = mh; }
 	Event OnChoice;
 	std::string DescribeLog() const override { return "ListView: " + View::DescribeLog(); }

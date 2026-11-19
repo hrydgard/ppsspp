@@ -381,7 +381,8 @@ static void CleanupDialogThreads(bool force = false) {
 			accessThread = nullptr;
 			accessThreadState = "cleaned up";
 		} else if (force) {
-			ERROR_LOG_REPORT(Log::sceUtility, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
+			// Expected with MsgDialogAutoStatus (Ghost Recon: Predator), where the next dialog can start during a shutdown.
+			WARN_LOG(Log::sceUtility, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
 
 			// Try to force shutdown anyway.
 			accessThread->Terminate();
@@ -1209,8 +1210,8 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 	}
 
 	if (!g_netApctlInited) {
-		// Is this allowed?
-		WARN_LOG_REPORT_ONCE(getnetparam_early, Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
+		// Is this allowed? It does seem so, it's done by the XMB, and X-Men and Marvel games.
+		WARN_LOG(Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
 	}
 
 	// TODO: Replace the temporary netApctlInfo with netConfInfo, since some of netApctlInfo contents supposed to be taken from netConfInfo during ApctlInit, while sceUtilityGetNetParam can be used before Apctl Initialized

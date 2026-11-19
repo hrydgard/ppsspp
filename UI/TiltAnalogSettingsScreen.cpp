@@ -90,7 +90,7 @@ void TiltAnalogSettingsScreen::CreateContentViews(UI::ViewGroup *parent) {
 	CreateCalibrationView(parent, new LinearLayoutParams(300.0f, 300.0f, 1.0f, Gravity::G_CENTER));
 }
 
-void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings) {
+void TiltAnalogSettingsScreen::CreateSettingsViews(UI::ViewGroup *settings, bool inPopup) {
 	using namespace UI;
 	auto co = GetI18NCategory(I18NCat::CONTROLS);
 

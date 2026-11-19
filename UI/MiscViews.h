@@ -152,11 +152,18 @@ public:
 	~PMFVideoTexture();
 
 	bool IsValid() const { return player_ != nullptr; }
+	// Whether the PMF has sound muxed in. Then the game list plays it, and the video follows it
+	// (see BackgroundAudio::PreviewVideoTime).
+	bool HasAudio() const { return hasAudio_; }
+	// Played through once (Update then loops).
+	bool ReachedEnd() const;
 	int Width() const { return width_; }
 	int Height() const { return height_; }
 
 	// Returns the frame to show at the given time, or nullptr if none is decoded yet.
 	Draw::Texture *Update(Draw::DrawContext *draw, double timeSeconds);
+	// Draws the frame the last Update returned, stretched over bounds. Nothing if there's none.
+	void DrawFrame(UIContext &dc, const Bounds &bounds);
 	void DeviceLost();
 
 private:
@@ -164,6 +171,7 @@ private:
 	std::vector<u8> frame_;
 	Draw::Texture *curFrame_ = nullptr;
 	PMFPlayer *player_ = nullptr;
+	bool hasAudio_ = false;
 	int width_ = 0;
 	int height_ = 0;
 };

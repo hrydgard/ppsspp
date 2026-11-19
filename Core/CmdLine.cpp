@@ -218,7 +218,7 @@ const char *g_ExceptionActionValues[] = {
 static const CommandLineParam g_autoParams[] = {
 	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
 	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},
-	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest', 'colortest', 'firmware', 'memstick', 'storagetest')", CmdLineMode::Application},
+	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest', 'colortest', 'firmware', 'memstick', 'storagetest', 'visualmapping')", CmdLineMode::Application},
 	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
 	{POFF(gameWindow), CmdParamType::Bool, "game-window", '\0', "Show the game in a second window, for testing multiple outputs (Vulkan, or Metal on Mac)", CmdLineMode::Application},
 	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Exit the application when the game ends, instead of returning to the menu", CmdLineMode::Application},
@@ -247,12 +247,14 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(shaderCache), CmdParamType::Bool, "shader-cache", '\0', "Load and save the per-game shader cache (default true); =false to time shader compiles like a first boot"},
 	{POFF(disableGPUFeatures), CmdParamType::String, "disable-gpu-features", '\0', "Act as if the GPU lacked these, to test the fallbacks: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend", CmdLineMode::Headless},
 	{POFF(depthFilenameSave), CmdParamType::String, "depth-save", '\0', "Save the depth buffer to FILE along with the screenshot (u32 width, u32 height, u16 depths; float depths if FILE ends in .f32)", CmdLineMode::Headless},
+	{POFF(stencilFilenameSave), CmdParamType::String, "stencil-save", '\0', "Save the stencil buffer to FILE along with the screenshot (u32 width, u32 height, u8 per pixel)", CmdLineMode::Headless},
 	{POFF(screenshotRenderTarget), CmdParamType::Bool, "screenshot-render-target", '\0', "Take screenshots of the current render target instead of the displayed framebuffer", CmdLineMode::Headless},
 	{POFF(screenshotFilenameDiff), CmdParamType::String, "screenshot-diff", '\0', "Save a visual comparison image to FILE when comparing screenshots", CmdLineMode::Headless},
 	{POFF(screenshotSaveKeepAlpha), CmdParamType::Bool, "screenshot-keep-alpha", '\0', "Preserve the alpha channel when saving PNG screenshots (default: alpha is forced to 255)", CmdLineMode::Headless},
 	{POFF(dumpAudioFilename), CmdParamType::String, "dump-audio", '\0', "Record the mixed audio output to a WAV file", CmdLineMode::Headless},
 	{POFF(pressScript), CmdParamType::String, "press", '\0', "Hold buttons at emulated times: SECONDS:MASK[:DURATION],...", CmdLineMode::Headless},
 	{POFF(screenshotAt), CmdParamType::String, "screenshot-at", '\0', "Save screenshots at emulated times: SECONDS:FILE,...", CmdLineMode::Headless},
+	{POFF(recordDumpAt), CmdParamType::String, "record-dump-at", '\0', "Record a GE frame dump of the next frame after emulated times: SECONDS:FILE,...", CmdLineMode::Headless},
 	{POFF(timeoutWall), CmdParamType::Double, "timeout-wall", '\0', "Stop the run after this many real seconds", CmdLineMode::Headless},
 	{POFF(timeoutEmulated), CmdParamType::Double, "timeout-emulated", '\0', "Stop the run after this many emulated seconds", CmdLineMode::Headless},
 	// The old name for --timeout-wall, kept working because it's in a lot of scripts.
@@ -300,6 +302,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(msaa), CmdParamType::Int, "msaa", '\0', "Set the MSAA level (0 = off, 1 = 2x, 2 = 4x, 3 = 8x)"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	{POFF(debuggerRunPort), CmdParamType::Int, "debugger-run", '\0', "Like --debugger, but starts running instead of waiting at the entry point", CmdLineMode::Headless},
+	{POFF(debuggerPublic), CmdParamType::Bool, "debugger-public", '\0', "Accept debugger connections from other machines, not just this one (127.0.0.1)", CmdLineMode::Headless},
 	{POFF(autoSaveLoadSymbols), CmdParamType::Bool, "auto-save-load-symbols", '\0', "Auto save/load per-module and per-game symbol files (see bAutoSaveLoadSymbols)", CmdLineMode::Both},
 	{POFF(bootVSH), CmdParamType::Bool, "vsh", '\0', "Boot the VSH (requires files dumped from a PSP in the flash0 directory)"},
 	{POFF(disableHLE), CmdParamType::Int, "disable-hle", '\0', "Bitmask of libraries to run the real firmware module for instead of our HLE", CmdLineMode::Both},
@@ -315,6 +318,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(dpi), CmdParamType::Double, "dpi", '\0', "Set DPI", CmdLineMode::Application},
 	{POFF(scale), CmdParamType::Double, "scale", '\0', "Set scale", CmdLineMode::Application},
 	{POFF(skipLogo), CmdParamType::Bool, "skip-logo", '\0', "Skip the logo screen", CmdLineMode::Application},
+	{POFF(devStore), CmdParamType::Bool, "dev-store", '\0', "Use dev-store.ppsspp.org for the Homebrew Store", CmdLineMode::Application},
 	// TODO: At some point we should maybe simply expose all config settings to be set directly from the command line automatically?
 };
 
@@ -740,6 +744,9 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (jitBench.has_value()) {
 		g_Config.iJitBenchFlip = jitBench.value();
+	}
+	if (devStore.has_value()) {
+		g_Config.bDevStore = devStore.value();
 	}
 
 	if (root.has_value()) {

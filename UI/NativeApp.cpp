@@ -128,6 +128,7 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
 
@@ -138,6 +139,7 @@
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/VisualMappingScreen.h"
 #include "UI/GamePacker.h"
 #include "UI/DevScreens.h"
 #include "UI/DiscordIntegration.h"
@@ -293,12 +295,36 @@ class GlobalListener : public ControlListener {
 				g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 			}
 			break;
+		case VIRTKEY_TOGGLE_FULLSCREEN:
+			if (down) {
+				// TODO: Limit to platforms that can support fullscreen.
+				g_Config.bFullScreen = !g_Config.bFullScreen;
+				System_ApplyFullscreenState();
+			}
+			break;
 		default:
 			break;
 		}
 	}
 };
 GlobalListener g_globalListener;
+
+// Whether the key is part of a mapping of the fullscreen toggle, which works in the menus too.
+static bool IsFullscreenToggleKey(const KeyInput &key) {
+	std::vector<KeyMap::MultiInputMapping> mappings;
+	if (!KeyMap::InputMappingsFromPspButton(VIRTKEY_TOGGLE_FULLSCREEN, &mappings, false)) {
+		return false;
+	}
+	const InputMapping input(key.deviceId, key.keyCode);
+	for (const KeyMap::MultiInputMapping &mapping : mappings) {
+		for (const InputMapping &part : mapping.mappings) {
+			if (part == input) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 static void AssertCancelCallback(const char *message, void *userdata) {
 	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
@@ -803,8 +829,11 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	}
 
 	boot_filename.clear();
+	// No XMB to boot (like from an Android XMB shortcut before installing a firmware), so show where to get one.
+	bool noVSHToBoot = false;
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
-		boot_filename = g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+		boot_filename = GetVSHBootPath();
+		noVSHToBoot = boot_filename.empty();
 		skipLogo = true;
 	}
 	boot_mountIso = cmdLineOptions.mountIso.has_value() ? Path(cmdLineOptions.mountIso.value()) : Path();
@@ -962,10 +991,17 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		} else if (equals(cmdLineOptions.startScreen.value(), "driver")) {
 			g_screenManager->switchScreen(new MainScreen());
 			g_screenManager->push(new DriverManagerScreen(Path()));
+		} else if (equals(cmdLineOptions.startScreen.value(), "visualmapping")) {
+			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new VisualMappingScreen(Path()));
 		} else {
 			WARN_LOG(Log::System, "Unknown start screen '%s'", cmdLineOptions.startScreen.value().c_str());
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::DEFAULT));
 		}
+	} else if (noVSHToBoot && boot_filename.empty()) {
+		INFO_LOG(Log::System, "--vsh: No bootable XMB installed, opening the firmware screen");
+		g_screenManager->switchScreen(new MainScreen());
+		g_screenManager->push(new FirmwareScreen(Path()));
 	} else if (skipLogo && IsInstallableArchive(boot_filename)) {
 		// Not something to boot. Open its install screen over the main screen, like the game browser does.
 		INFO_LOG(Log::System, "Opening install screen for '%s'", boot_filename.c_str());
@@ -1769,6 +1805,11 @@ bool NativeKey(const KeyInput &key) {
 				}
 			}
 		}
+	}
+
+	// Outside the game, the mapper otherwise only gets key releases. Not while a key is being mapped.
+	if (!(inputMode & InputMode::AllKeys) && !imguiHasKeyboard && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) && IsFullscreenToggleKey(key)) {
+		passKeyThrough = true;
 	}
 
 	if (inputMode != InputMode::None) {

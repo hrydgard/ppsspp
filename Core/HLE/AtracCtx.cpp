@@ -762,12 +762,28 @@ u32 Atrac::DecodeData(u8 *outbuf, u32 outbufPtr, int *SamplesNum, int *finish, i
 		// If we're at the end, clamp to samples we want.  It always returns a full chunk.
 		numSamples = std::min(maxSamples, numSamples);
 
-		outSamples = numSamples;
-		if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamples)) {
-			// Decode failed.
-			*SamplesNum = 0;
-			*finish = 1;
-			return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+		if (skipped == 0) {
+			outSamples = numSamples;
+			if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, (int16_t *)outbuf, &outSamples)) {
+				// Decode failed.
+				*SamplesNum = 0;
+				*finish = 1;
+				return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+			}
+		} else {
+			// The decoder outputs from the start of the frame, so decode all of it and copy out the part we want.
+			int16_t frameBuf[ATRAC3PLUS_MAX_SAMPLES * 2];
+			outSamples = 0;
+			if (!decoder_->Decode(indata, track_.bytesPerFrame, &bytesConsumed, outputChannels_, frameBuf, &outSamples)) {
+				// Decode failed.
+				*SamplesNum = 0;
+				*finish = 1;
+				return SCE_ERROR_ATRAC_ALL_DATA_DECODED;
+			}
+			numSamples = std::max(0, std::min(numSamples, outSamples - skipped));
+			if (outbuf && numSamples > 0) {
+				memcpy(outbuf, frameBuf + skipped * outputChannels_, numSamples * outputChannels_ * sizeof(int16_t));
+			}
 		}
 
 		if (packetAddr != 0 && MemBlockInfoDetailed()) {

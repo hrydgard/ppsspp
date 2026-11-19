@@ -905,9 +905,21 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 		break;
 	}
 
+	// Ignore and Log both let the guest run on, so they share the fault handler's per-frame limit.
+	bool tooManyThisFrame = false;
+	if (!halting && action != ExceptionAction::Break) {
+		if (Memory::IgnoredBadAccessLimitReached()) {
+			tooManyThisFrame = true;
+			halting = true;
+		} else {
+			Memory::CountIgnoredBadAccess();
+		}
+	}
+
 	const char *desc = MemoryExceptionTypeAsString(type);
 	char msg[512];
-	snprintf(msg, sizeof(msg), "%s: SIGSEGV at %08x%s (size: %d bytes) %s\nHost:%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, STR_VIEW(additionalInfo));
+	snprintf(msg, sizeof(msg), "%s: SIGSEGV at %08x%s (size: %d bytes) %s\nHost:%.*s%s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, STR_VIEW(additionalInfo),
+		tooManyThisFrame ? StringFromFormat(" (over %d ignored bad accesses in one frame)", Memory::MaxIgnoredBadAccessesPerFrame()).c_str() : "");
 	if (action == ExceptionAction::Ignore && !halting) {
 		Core_SendDebugOutput(LogLevel::LWARNING, msg);
 		return;

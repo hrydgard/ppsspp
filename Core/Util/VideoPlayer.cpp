@@ -1,7 +1,63 @@
+#include <algorithm>
 #include <cstring>
 #include <cstdint>
+#include <memory>
 
+#include "Common/Swap.h"
+#include "Core/HW/MpegDemux.h"
+#include "Core/HW/SimpleAudioDec.h"
 #include "VideoPlayer.h"
+
+bool pmf_has_audio(const uint8_t *data, size_t size) {
+	if (size < 0x10 || memcmp(data, "PSMF", 4) != 0) {
+		return false;
+	}
+	// The audio is in MPEG private stream 1 packets (start code 00 00 01 BD).
+	static const uint8_t privateStream1[4] = { 0x00, 0x00, 0x01, 0xBD };
+	const uint8_t *end = data + size;
+	return std::search(data + std::min<size_t>(ReadBE32(data + 8), size), end, privateStream1, privateStream1 + 4) != end;
+}
+
+std::vector<int16_t> pmf_decode_audio(const uint8_t *data, size_t size) {
+	std::vector<int16_t> pcm;
+	if (size < 0x10 || memcmp(data, "PSMF", 4) != 0) {
+		return pcm;
+	}
+	// Where the stream starts, after the PSMF header.
+	const uint32_t offset = ReadBE32(data + 8);
+	if (offset >= size) {
+		return pcm;
+	}
+
+	MpegDemux demux((int)size + 2048, (int)offset);
+	demux.addStreamData(data, (int)size);
+	std::unique_ptr<AudioDecoder> decoder(CreateAudioDecoder(PSP_CODEC_AT3PLUS));
+	if (!decoder) {
+		return pcm;
+	}
+
+	int16_t buffer[2048 * 2];
+	for (int frames = 0; frames < 10000; frames++) {
+		demux.demux(0);
+		uint8_t *frame = nullptr;
+		int headerCode1 = 0, headerCode2 = 0;
+		const int frameSize = demux.getNextAudioFrame(&frame, &headerCode1, &headerCode2);
+		if (frameSize <= 0 || !frame) {
+			break;
+		}
+		if (headerCode1 == 0x24) {
+			decoder->SetChannels(1);  // Mono. Still decodes to stereo.
+		}
+		int consumed = 0;
+		int samples = 0;
+		if (!decoder->Decode(frame, frameSize, &consumed, 2, buffer, &samples) || samples <= 0) {
+			continue;
+		}
+		samples = std::min(samples, 2048);
+		pcm.insert(pcm.end(), buffer, buffer + samples * 2);
+	}
+	return pcm;
+}
 
 #ifdef USE_FFMPEG
 
@@ -51,6 +107,8 @@ struct PMFPlayer {
 	int audio_stream_idx;
 	double last_pts;
 	int64_t frame_count; // Fallback for missing PTS
+	bool reached_end;
+	double last_time;  // What pmf_update was last asked for.
 };
 
 // --- Custom IO Callbacks ---
@@ -172,6 +230,15 @@ bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgba_b
 	double frame_rate = av_q2d(st->avg_frame_rate);
 	double frame_duration = (frame_rate > 0) ? (1.0 / frame_rate) : 0.033;
 
+	// The clock went back (it follows a sound that looped): start over from the beginning.
+	if (current_time_seconds + frame_duration < ps->last_time) {
+		av_seek_frame(ps->fmt_ctx, ps->video_stream_idx, 0, AVSEEK_FLAG_BACKWARD);
+		avcodec_flush_buffers(ps->video_ctx);
+		ps->frame_count = 0;
+		ps->last_pts = -1.0;
+	}
+	ps->last_time = current_time_seconds;
+
 	// Don't decode if the UI clock hasn't caught up to our last frame yet
 	if (ps->last_pts >= current_time_seconds && ps->last_pts >= 0) return false;
 
@@ -206,10 +273,15 @@ bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgba_b
 	}
 
 	// EOF Reached: Seek to start and reset local counters
+	ps->reached_end = true;
 	av_seek_frame(ps->fmt_ctx, ps->video_stream_idx, 0, AVSEEK_FLAG_BACKWARD);
 	avcodec_flush_buffers(ps->video_ctx);
 	ps->last_pts = -1.0;
 	return false;
+}
+
+bool pmf_reached_end(PMFPlayer* ps) {
+	return ps && ps->reached_end;
 }
 
 void pmf_deinit(PMFPlayer* ps) {
@@ -257,5 +329,6 @@ void pmf_destroy(PMFPlayer* ps) {}
 int pmf_init(PMFPlayer* ps, const uint8_t* data, size_t size, int* out_w, int* out_h) { return -1; }
 bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgb_buffer) { return false; }
 void pmf_deinit(PMFPlayer* ps) {}
+bool pmf_reached_end(PMFPlayer* ps) { return true; }
 
 #endif

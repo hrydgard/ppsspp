@@ -51,12 +51,16 @@ struct CommandLineOptions {
 	std::optional<bool> memStickInserted;
 	// Quit the app instead of going to the main menu when the game ends, for external launchers.
 	std::optional<bool> pauseMenuExit;
+	// Point the Homebrew Store at dev-store.ppsspp.org.
+	std::optional<bool> devStore;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
 	// Same, but without breaking at the entry point first.
 	std::optional<int> debuggerRunPort;
+	// Headless serves the debugger on 127.0.0.1 only, unless this asks for every interface.
+	std::optional<bool> debuggerPublic;
 
 	// The port either of the two debugger options asked for, if any.
 	std::optional<int> DebuggerPort() const {
@@ -229,9 +233,11 @@ struct CommandLineOptions {
 	// Headless: save each test's screenshot as DIR/<test path>.png, for many dumps in one run.
 	std::optional<std::string> screenshotDir;
 	std::optional<std::string> depthFilenameSave;
+	std::optional<std::string> stencilFilenameSave;
 	std::optional<std::string> dumpAudioFilename;
 	std::optional<std::string> pressScript;
 	std::optional<std::string> screenshotAt;
+	std::optional<std::string> recordDumpAt;
 	std::optional<int> replayEnd;
 	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
 	std::optional<bool> dumpCompat;

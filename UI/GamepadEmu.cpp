@@ -1136,7 +1136,7 @@ GamepadEmuView::GamepadEmuView(const TouchControlConfig &config, float xres, flo
 
 	// Add the two gesture zones.
 	for (int i = 0; i < 2; i++) {
-		if (g_Config.gestureControls[i].bGestureControlEnabled || g_Config.gestureControls[i].bAnalogGesture) {
+		if (g_Config.gestureControls[i].bGestureControlEnabled || g_Config.gestureControls[i].iAnalogGesture != (int)AnalogGestureStick::OFF) {
 			// We have them both cover the whole surface, then limit in the touch handler.
 			// This is because there's no easy way to do "half the screen" in AnchorLayout.
 			// We can do more complex layout combinations, but meh.
@@ -1186,6 +1186,15 @@ static bool ValidGestureKeyConfig(int config) {
 	return config > 0 && (size_t)config <= ARRAY_SIZE(GestureKey::keyList);
 }
 
+// The stick the zone's analog stick gesture drives, or -1 if it's off.
+static int AnalogGestureStickIndex(const GestureControlConfig &zone) {
+	switch ((AnalogGestureStick)zone.iAnalogGesture) {
+	case AnalogGestureStick::LEFT: return CTRL_STICK_LEFT;
+	case AnalogGestureStick::RIGHT: return CTRL_STICK_RIGHT;
+	default: return -1;
+	}
+}
+
 bool GestureGamepad::Touch(const TouchInput &input) {
 	// See the comment in MultiTouchButton::Touch().
 	if (input.id < 0 || input.id >= TOUCH_MAX_POINTERS) {
@@ -1202,6 +1211,10 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 
 	if (input.flags & TouchInputFlags::RELEASE_ALL) {
 		dragPointerId_ = -1;
+		if (analogStick_ != -1) {
+			__CtrlSetAnalogXY(analogStick_, 0, 0);
+			analogStick_ = -1;
+		}
 		g_activeGesturePointers.clear();
 		return false;
 	}
@@ -1217,6 +1230,7 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 			lastY_ = input.y;
 			downX_ = input.x;
 			downY_ = input.y;
+			analogStick_ = AnalogGestureStickIndex(zone);
 
 			const float now = time_now_d();
 			if (now - lastTapRelease_ < 0.3f && !haveDoubleTapped_) {
@@ -1244,13 +1258,13 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 				g_activeGesturePointers.erase(input.id);
 			}
 
-			if (zone.bAnalogGesture) {
+			if (analogStick_ != -1) {
 				const float k = zone.fAnalogGestureSensitivity * 0.02;
 				float dx = (input.x - downX_) * g_display.dpi_scale_x * k;
 				float dy = (input.y - downY_) * g_display.dpi_scale_y * k;
 				dx = std::clamp(dx, -1.0f, 1.0f);
 				dy = std::clamp(dy, -1.0f, 1.0f);
-				__CtrlSetAnalogXY(0, dx, -dy);
+				__CtrlSetAnalogXY(analogStick_, dx, -dy);
 			}
 		}
 	}
@@ -1267,8 +1281,10 @@ bool GestureGamepad::Touch(const TouchInput &input) {
 				haveDoubleTapped_ = false;
 			}
 
-			if (zone.bAnalogGesture)
-				__CtrlSetAnalogXY(0, 0, 0);
+			if (analogStick_ != -1) {
+				__CtrlSetAnalogXY(analogStick_, 0, 0);
+				analogStick_ = -1;
+			}
 		}
 	}
 	return true;
@@ -1281,7 +1297,7 @@ void GestureGamepad::Draw(UIContext &dc) {
 
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 
-	if (GetZone().bAnalogGesture && dragPointerId_ != -1) {
+	if (analogStick_ != -1 && dragPointerId_ != -1) {
 		dc.Draw()->DrawImage(ImageID("I_CIRCLE"), downX_, downY_, 0.7f, colorBg, ALIGN_CENTER);
 	}
 }

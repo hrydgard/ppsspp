@@ -324,6 +324,8 @@ u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol)
 	// worth of remaining samples - which is the one case where the two rest-length calls
 	// disagree with each other.
 	chan.sampleAddress = samplePtr;
+	chan.bufferAddress = samplePtr;
+	chan.prefetch.Latch(samplePtr, chan.sampleCount, AudioPrefetch::MIXER_SAMPLES, chan.format == PSP_AUDIO_FORMAT_MONO);
 	if (startsDMA) {
 		__AudioStartMixerDMA();
 	}
@@ -341,6 +343,8 @@ void __AudioEnqueueOneshot(AudioChannel &chan, u32 samplePtr, u32 sampleCount, u
 
 	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying() && !mixerDMABusy;
 	chan.sampleAddress = samplePtr;
+	chan.bufferAddress = samplePtr;
+	chan.prefetch.Latch(samplePtr, sampleCount, AudioPrefetch::MIXER_SAMPLES, format == PSP_AUDIO_FORMAT_MONO);
 	if (startsDMA) {
 		__AudioStartMixerDMA();
 	}
@@ -406,6 +410,53 @@ int __AudioSRCCallCycles(const AudioSRCChannel &chan) {
 	return chan.Full() ? 10000 : 25000;
 }
 
+// The SRC DMA transfers ahead of the audio being heard (a descriptor retires about 100us before
+// its last sample plays), so by the time a game is woken for the next buffer, the start of the one
+// now playing is already out of memory. The mixer channels are read ahead too, by the mixer thread,
+// which outranks the game's. Games that mix in software can rely on that, writing a few samples
+// past the end of the buffer they refill, onto the start of the other one, which is playing.
+void AudioPrefetch::Latch(u32 address, u32 numSamples, u32 maxSamples, bool mono) {
+	count = 0;
+	const u32 stride = mono ? 2 : 4;
+	const u32 n = std::min(std::min(numSamples, maxSamples), MIXER_SAMPLES);
+	if (address == 0 || !Memory::IsValidRange(address, n * stride)) {
+		return;
+	}
+	const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(address);
+	for (u32 s = 0; s < n; s++) {
+		samples[s * 2] = mono ? src[s] : src[s * 2];
+		samples[s * 2 + 1] = mono ? src[s] : src[s * 2 + 1];
+	}
+	count = n;
+}
+
+static void __AudioSRCPrefetch(AudioSRCChannel &chan) {
+	if (chan.bufferCount == 0) {
+		chan.prefetch.Clear();
+		return;
+	}
+	chan.prefetch.Latch(chan.buffers[0].address, chan.buffers[0].samples, AudioPrefetch::SRC_SAMPLES, chan.format == PSP_AUDIO_FORMAT_MONO);
+}
+
+// Reads one sample of a pending buffer, from the prefetch if the DMA has already taken it.
+static bool __AudioSRCReadSample(const AudioSRCChannel &chan, int bufIndex, u32 index, int &l, int &r) {
+	if (bufIndex == 0 && index < chan.prefetch.count) {
+		l = chan.prefetch.samples[index * 2];
+		r = chan.prefetch.samples[index * 2 + 1];
+		return true;
+	}
+	const bool mono = chan.format == PSP_AUDIO_FORMAT_MONO;
+	const u32 stride = mono ? 2 : 4;
+	const u32 addr = chan.buffers[bufIndex].address + index * stride;
+	if (chan.buffers[bufIndex].address == 0 || !Memory::IsValidRange(addr, stride)) {
+		return false;
+	}
+	const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(addr);
+	l = src[0];
+	r = mono ? l : src[1];
+	return true;
+}
+
 u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol) {
 	if (!chan.reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
@@ -437,6 +488,7 @@ u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol) {
 		chan.bufferCount++;
 		result = chan.sampleCount;
 		if (wasIdle) {
+			__AudioSRCPrefetch(chan);
 			__AudioStartSRCDMA();
 		}
 	} else if (chan.bufferCount == 0) {
@@ -538,16 +590,23 @@ static bool __AudioMixChannel(AudioChannel &chan) {
 		const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(chan.sampleAddress);
 		const int leftVol = chan.leftVolume;
 		const int rightVol = chan.rightVolume;
+		// The start of the buffer was read when it became current.
+		u32 s = 0;
+		const u32 played = (chan.sampleAddress - chan.bufferAddress) / stride;
+		for (; s < count && played + s < chan.prefetch.count; s++) {
+			mixBuffer[s * 2] += ApplyChannelVolume(chan.prefetch.samples[(played + s) * 2], leftVol);
+			mixBuffer[s * 2 + 1] += ApplyChannelVolume(chan.prefetch.samples[(played + s) * 2 + 1], rightVol);
+		}
 		if (mono) {
 			// A mono channel reads the same sample into both sides, which is how the
 			// hardware expands it - there is no separate mono path in the mixer.
-			for (u32 s = 0; s < count; s++) {
+			for (; s < count; s++) {
 				const s16 sample = src[s];
 				mixBuffer[s * 2] += ApplyChannelVolume(sample, leftVol);
 				mixBuffer[s * 2 + 1] += ApplyChannelVolume(sample, rightVol);
 			}
 		} else {
-			for (u32 s = 0; s < count; s++) {
+			for (; s < count; s++) {
 				mixBuffer[s * 2] += ApplyChannelVolume(src[s * 2], leftVol);
 				mixBuffer[s * 2 + 1] += ApplyChannelVolume(src[s * 2 + 1], rightVol);
 			}
@@ -575,8 +634,6 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 	const u32 ratio = (u32)(((u64)(u32)inRate << 16) / (u32)mixFrequency);
 	// At the output rate the fraction never moves off zero, so there is nothing to interpolate.
 	const bool resampling = ratio != 0x10000;
-	const bool mono = chan.format == PSP_AUDIO_FORMAT_MONO;
-	const u32 stride = mono ? 2 : 4;
 	const int leftVol = chan.leftVolume;
 	const int rightVol = chan.rightVolume;
 
@@ -588,26 +645,18 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 			break;
 		}
 
-		const AudioPendingBuffer &buf = chan.buffers[0];
-		const u32 addr = buf.address + chan.playedSamples * stride;
-		if (!chan.mute && Memory::IsValidRange(addr, stride)) {
-			const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(addr);
-			const int l0 = src[0];
-			const int r0 = mono ? l0 : src[1];
+		int l0, r0;
+		if (!chan.mute && __AudioSRCReadSample(chan, 0, chan.playedSamples, l0, r0)) {
 			int l1 = l0;
 			int r1 = r0;
 			if (resampling) {
 				// Interpolate against the sample after this one. At the end of a buffer that
 				// is the start of the next, since the codec reads the two descriptors as one
 				// unbroken stream - holding the last sample instead would tick at every join.
-				u32 nextAddr = addr + stride;
-				if (chan.playedSamples + 1 >= buf.samples) {
-					nextAddr = chan.bufferCount > 1 ? chan.buffers[1].address : 0;
-				}
-				if (nextAddr != 0 && Memory::IsValidRange(nextAddr, stride)) {
-					const s16_le *next = (const s16_le *)Memory::GetPointerUnchecked(nextAddr);
-					l1 = next[0];
-					r1 = mono ? l1 : next[1];
+				if (chan.playedSamples + 1 < chan.buffers[0].samples) {
+					__AudioSRCReadSample(chan, 0, chan.playedSamples + 1, l1, r1);
+				} else if (chan.bufferCount > 1) {
+					__AudioSRCReadSample(chan, 1, 0, l1, r1);
 				}
 			}
 			// 15 bits of fraction, not 16 - a full 16 would overflow the product against a
@@ -628,6 +677,7 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 				chan.buffers[0] = chan.buffers[1];
 				chan.bufferCount--;
 				chan.playedSamples = 0;
+				__AudioSRCPrefetch(chan);
 				woke |= __AudioSRCCompleted(chan);
 			}
 		}

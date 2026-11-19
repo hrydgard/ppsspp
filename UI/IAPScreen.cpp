@@ -41,11 +41,13 @@ void IAPScreen::CreateContentViews(UI::ViewGroup *parent) {
 	leftColumnItems->Add(new TextView("(hrydgard)"));
 }
 
-void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
+void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
+
+	ChoiceGroupList *groupList = rightColumnItems->Add(new ChoiceGroupList(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	const bool bought = System_GetPropertyBool(SYSPROP_APP_GOLD);
 	if (!bought) {
@@ -55,7 +57,7 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 #elif PPSSPP_PLATFORM(IOS)
 		image = ImageID("I_LOGO_APP_STORE");
 #endif
-		Choice *buyButton = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold"), image));
+		Choice *buyButton = groupList->Add(new ChoiceGroup())->Add(new Choice(mm->T("Buy PPSSPP Gold"), image));
 		buyButton->SetIconRight(ImageID("I_ICON_GOLD"), 0.5f);
 		buyButton->SetShine(true);
 		const int requesterToken = GetRequesterToken();
@@ -74,16 +76,16 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 				LaunchPlayStoreOrWebsiteGold();
 			}
 		});
-		rightColumnItems->Add(new Spacer(12.0f));
 	}
 
-	Choice *moreInfo = rightColumnItems->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT")));
+	ChoiceGroup *moreInfoGroup = groupList->Add(new ChoiceGroup());
+
+	Choice *moreInfo = moreInfoGroup->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT")));
 	moreInfo->OnClick.Add([](UI::EventParams &) {
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/buygold_ios");
 	});
 
 	if (useIAP_) {
-		rightColumnItems->Add(new Spacer(12.0f));
 		// Put the restore purchases button in the bottom right corner in landscape. It's rarely useful, but needed.
 		Choice *restorePurchases = new Choice(di->T("Restore purchase"));
 		const int requesterToken = GetRequesterToken();
@@ -97,7 +99,7 @@ void IAPScreen::CreateSettingsViews(UI::ViewGroup *rightColumnItems) {
 				WARN_LOG(Log::System, "Failed restoring purchases: %d", responseValue);
 			});
 		});
-		rightColumnItems->Add(restorePurchases);
+		moreInfoGroup->Add(restorePurchases);
 	}
 }
 

@@ -48,7 +48,7 @@ public:
 	const char *tag() const override { return "ControlMapping"; }
 
 protected:
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 
@@ -65,8 +65,9 @@ private:
 
 class KeyMappingNewKeyDialog : public UI::PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
-		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), callback_(callback) {}
+	// replacing lists the existing mappings the new one will replace, to show them in the popup.
+	KeyMappingNewKeyDialog(int btn, std::vector<KeyMap::MultiInputMapping> replacing, std::function<void(KeyMap::MultiInputMapping)> callback, I18NCat i18n)
+		: PopupScreen(T(i18n, "Map Key"), T(I18NCat::DIALOG, "Cancel")), pspBtn_(btn), replacing_(std::move(replacing)), callback_(callback) {}
 
 	const char *tag() const override { return "KeyMappingNewKey"; }
 
@@ -88,6 +89,7 @@ protected:
 
 private:
 	int pspBtn_;
+	std::vector<KeyMap::MultiInputMapping> replacing_;
 	std::function<void(KeyMap::MultiInputMapping)> callback_;
 
 	KeyMap::MultiInputMapping mapping_;
@@ -143,7 +145,7 @@ public:
 	const char *tag() const override { return "AnalogSetup"; }
 
 protected:
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 
 	void SetPSPAnalog(int rotation, int stick, float x, float y) override;
@@ -159,35 +161,4 @@ private:
 	float rawY_[2]{};
 
 	JoystickHistoryView *stickView_[2]{};
-};
-
-class MockPSP;
-
-class VisualMappingScreen : public UIBaseDialogScreen {
-public:
-	// Places the controller picture from the screen bounds.
-	bool LimitContentArea() const override { return false; }
-	VisualMappingScreen(const Path &gamePath) : UIBaseDialogScreen(gamePath) {}
-
-	const char *tag() const override { return "VisualMapping"; }
-
-	bool key(const KeyInput &key) override;
-	void axis(const AxisInput &axis) override;
-
-protected:
-	void CreateViews() override;
-
-	void dialogFinished(const Screen *dialog, DialogResult result) override;
-	void resized() override;
-
-private:
-	void OnMapButton(UI::EventParams &e);
-	void OnBindAll(UI::EventParams &e);
-	void HandleKeyMapping(const KeyMap::MultiInputMapping &key);
-	void MapNext(bool successive);
-
-	MockPSP *psp_ = nullptr;
-	int nextKey_ = 0;
-	int bindAll_ = -1;
-	bool replace_ = false;
 };

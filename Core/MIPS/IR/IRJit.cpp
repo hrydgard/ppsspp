@@ -513,6 +513,11 @@ inline void IRInterpreterJit::RunBlocksUntilDowncount() {
 				return;
 			}
 		} else {
+			// The shadow lookup folds mirror bits, so a bad pc can land here.
+			if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
+				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
+				return;
+			}
 			RestoreHostRoundingMode();
 #ifdef _DEBUG
 			compilerEnabled_ = true;

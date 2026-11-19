@@ -15,6 +15,7 @@ import android.os.Environment;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
@@ -29,6 +30,11 @@ public class ShortcutActivity extends Activity {
 	private static final int RESULT_OPEN_DOCUMENT = 2;
 	// xxxhdpi launcher icon size.
 	private static final int MAX_ICON_SIZE = 192;
+	private static final String STATE_PICKING = "picking";
+
+	// The file picker is open, so its result is what finishes us.
+	private boolean picking = false;
+	private AlertDialog chooser = null;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -38,10 +44,51 @@ public class ShortcutActivity extends Activity {
 		PpssppActivity.CheckABIAndLoadLibrary();
 
 		// Recreated while the picker was open: its result is still on the way.
-		if (savedInstanceState != null) {
+		if (savedInstanceState != null && savedInstanceState.getBoolean(STATE_PICKING)) {
+			picking = true;
 			return;
 		}
 
+		showChooser();
+	}
+
+	@Override
+	protected void onSaveInstanceState(@NonNull Bundle outState) {
+		super.onSaveInstanceState(outState);
+		outState.putBoolean(STATE_PICKING, picking);
+	}
+
+	@Override
+	protected void onDestroy() {
+		if (chooser != null) {
+			chooser.dismiss();
+			chooser = null;
+		}
+		super.onDestroy();
+	}
+
+	// A shortcut to a game, or to the XMB.
+	private void showChooser() {
+		String[] items = { getString(R.string.shortcut_choose_game), getString(R.string.shortcut_choose_xmb) };
+		chooser = new AlertDialog.Builder(this)
+			.setTitle(R.string.shortcut_name)
+			.setItems(items, (dialog, which) -> {
+				chooser = null;
+				if (which == 0) {
+					browseForGame();
+				} else {
+					respondWithXMBShortcut();
+				}
+			})
+			.setOnCancelListener(dialog -> {
+				chooser = null;
+				setResult(RESULT_CANCELED);
+				finish();
+			})
+			.show();
+	}
+
+	private void browseForGame() {
 		// Show file selector dialog here. If Android version is more than or equal to 11,
 		// use the native document file browser instead of our SimpleFileChooser.
 		boolean scoped = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R);
@@ -55,10 +102,12 @@ public class ShortcutActivity extends Activity {
 				// String[] mimeTypes = {"application/octet-stream", "/x-iso9660-image"};
 				// intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
 				startActivityForResult(intent, RESULT_OPEN_DOCUMENT);
+				picking = true;
 				// intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri);
 				Log.i(TAG, "Starting open document activity");
 			} catch (Exception e) {
 				Log.e(TAG, e.toString());
+				finish();
 			}
 		} else {
 			SimpleFileChooser fileDialog = new SimpleFileChooser(this, Environment.getExternalStorageDirectory(), onFileSelectedListener);
@@ -70,6 +119,7 @@ public class ShortcutActivity extends Activity {
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
+		picking = false;
 		if (requestCode == RESULT_OPEN_DOCUMENT && data != null) {
 			Uri selectedFile = data.getData();
 			if (selectedFile != null) {
@@ -175,6 +225,30 @@ public class ShortcutActivity extends Activity {
 			}
 		}
 
+		finishWithShortcut(responseIntent);
+		Log.i(TAG, "End of respondToShortcutRequest");
+	}
+
+	// The XMB of the installed firmware. Without one, launching it opens the firmware screen.
+	private void respondWithXMBShortcut() {
+		Intent shortcutIntent = new Intent(getApplicationContext(), PpssppActivity.class);
+		shortcutIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+		shortcutIntent.putExtra(PpssppActivity.ARGS_EXTRA_KEY, "--vsh");
+
+		Intent responseIntent = new Intent();
+		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_INTENT, shortcutIntent);
+		responseIntent.putExtra(Intent.EXTRA_SHORTCUT_NAME, getString(R.string.shortcut_xmb_name));
+
+		try {
+			ShortcutIconResource iconResource = ShortcutIconResource.fromContext(this, R.drawable.ic_shortcut_xmb);
+			responseIntent.putExtra(Intent.EXTRA_SHORTCUT_ICON_RESOURCE, iconResource);
+		} catch (Exception e) {
+			Log.e(TAG, "Error assigning the XMB icon: " + e);
+		}
+		finishWithShortcut(responseIntent);
+	}
+
+	private void finishWithShortcut(Intent responseIntent) {
 		setResult(RESULT_OK, responseIntent);
 
 		// Must call finish for result to be returned immediately
@@ -193,7 +267,6 @@ public class ShortcutActivity extends Activity {
 				setResult(RESULT_CANCELED);
 			}
 		}
-		Log.i(TAG, "End of respondToShortcutRequest");
 	}
 
 	// Event when a file is selected on file dialog.

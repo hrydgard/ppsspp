@@ -344,6 +344,7 @@
 #define IDC_DISASM_FMT_FLOAT             40234
 #define IDC_DISASM_FMT_STR               40235
 #define ID_DISASM_EDITSYMBOLS            40236
+#define ID_DEBUG_IMDEBUGGER              40237
 
 // Dynamic menus
 #define ID_FILE_SAVESTATE_SLOT_BASE      45000
@@ -359,7 +360,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        258
-#define _APS_NEXT_COMMAND_VALUE         40236
+#define _APS_NEXT_COMMAND_VALUE         40238
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

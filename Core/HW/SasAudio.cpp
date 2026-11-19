@@ -115,6 +115,20 @@ void VagDecoder::DecodeBlock(const u8 *&read_pointer) {
 	read_pointer = readp;
 }
 
+void VagDecoder::DecodeAll(const u8 *data, size_t size, std::vector<s16> *out) {
+	VagDecoder dec;
+	dec.Start(0, (u32)size, false);
+	out->reserve(out->size() + size / 16 * 28);
+	const u8 *readp = data;
+	while (true) {
+		dec.DecodeBlock(readp);
+		if (dec.End()) {
+			break;
+		}
+		out->insert(out->end(), dec.samples, dec.samples + 28);
+	}
+}
+
 void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 	if (end_) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
@@ -692,7 +706,6 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool m
 		s16 *outpR = outp + grainSize * 1;
 		s16 *outpSendL = outp + grainSize * 2;
 		s16 *outpSendR = outp + grainSize * 3;
-		WARN_LOG_REPORT_ONCE(sasraw, Log::SasMix, "sceSasCore: raw outputMode");
 		for (int i = 0; i < grainSize * 2; i += 2) {
 			*outpL++ = clamp_s16(mixBuffer[i + 0]);
 			*outpR++ = clamp_s16(mixBuffer[i + 1]);

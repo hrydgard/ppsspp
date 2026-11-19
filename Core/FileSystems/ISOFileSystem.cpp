@@ -191,7 +191,7 @@ ISOFileSystem::ISOFileSystem(IHandleAllocator *_hAlloc, std::shared_ptr<BlockDev
 	VolDescriptor desc;
 	if (!blockDevice->ReadBlock(16, (u8*)&desc)) {
 		// TODO: This is kinda wacky.
-		blockDevice->NotifyReadError();
+		blockDevice->NotifyReadError("Volume descriptor read failed");
 		errorString_ = "ISO: error reading volume descriptor";
 		return;
 	}
@@ -238,7 +238,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 	const u32 MAX_DIRECTORY_SIZE = 4 * 1024 * 1024;
 	u32 dirsize = root->dirsize;
 	if (dirsize > MAX_DIRECTORY_SIZE) {
-		blockDevice->NotifyReadError();
+		blockDevice->NotifyReadError("Directory too large");
 		ERROR_LOG(Log::FileSystem, "Directory '%s' claims an implausible size (%u), truncating", root->name.c_str(), dirsize);
 		dirsize = MAX_DIRECTORY_SIZE;
 	}
@@ -246,7 +246,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 	for (u32 secnum = root->startsector; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
-			blockDevice->NotifyReadError();
+			blockDevice->NotifyReadError("Directory read failed");
 			ERROR_LOG(Log::FileSystem, "Error reading block for directory '%s' in sector %d - skipping", root->name.c_str(), secnum);
 			root->valid = true;  // Prevents re-reading
 			return;
@@ -263,7 +263,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 
 			const int IDENTIFIER_OFFSET = 33;
 			if (offset + IDENTIFIER_OFFSET > 2048 || offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
-				blockDevice->NotifyReadError();
+				blockDevice->NotifyReadError("Directory entry out of bounds");
 				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
 				root->valid = true;  // Prevents re-reading (and duplicating the children so far)
 				return;
@@ -274,7 +274,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			// entries, allocating far more TreeEntry objects than the sector's real
 			// size warrants.
 			if (dir.size < IDENTIFIER_OFFSET + dir.identifierLength) {
-				blockDevice->NotifyReadError();
+				blockDevice->NotifyReadError("Bad directory entry size");
 				ERROR_LOG(Log::FileSystem, "Directory entry size too small, corrupt iso?");
 				root->valid = true;
 				return;
@@ -310,7 +310,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
-				blockDevice->NotifyReadError();
+				blockDevice->NotifyReadError("File out of bounds");
 				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
 			}
 
@@ -335,7 +335,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
-					blockDevice->NotifyReadError();
+					blockDevice->NotifyReadError("Recursive directory");
 					ERROR_LOG(Log::FileSystem, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
 				}
 			}
@@ -522,7 +522,7 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 
 		VolDescriptor desc;
 		if (!blockDevice->ReadBlock(16, (u8 *)&desc)) {
-			blockDevice->NotifyReadError();
+			blockDevice->NotifyReadError("Volume descriptor read failed");
 			ERROR_LOG(Log::FileSystem, "Failed to read volume descriptor for the path table");
 			return SCE_KERNEL_ERROR_ERRNO_IO_ERROR;
 		}

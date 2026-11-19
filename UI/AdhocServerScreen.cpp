@@ -312,6 +312,7 @@ void CreateAdhocServerGameList(UI::ViewGroup *content, const std::vector<AdhocGa
 		std::string title = game.name + " - " + ApplySafeSubstitutions(ni->T("players: %1"), game.usercount) + " " + ApplySafeSubstitutions(ni->T("groups: %1"), (int)game.groups.size());
 		CollapsibleSection *gameSection = content->Add(new CollapsibleSection(title));
 		gameSection->Header()->SetUnderline(false);
+		gameSection->SetSpacing(8.0f);
 		for (const AdhocGroup &group : game.groups) {
 			std::string groupName(StripSpaces(group.name));
 			if (groupName.empty()) {

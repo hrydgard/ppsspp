@@ -106,6 +106,7 @@ struct JNIEnv {};
 #include "Core/Loaders.h"
 #include "Core/KeyMap.h"
 #include "Core/Util/RecentFiles.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/System.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/sceUsbCam.h"
@@ -1546,6 +1547,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		CommandLineOptions options;
 		if (options.Parse((int)args.size(), args.data()) == CommandLineParseResult::Error) {
 			WARN_LOG(Log::System, "shortcutParam: Failed to parse '%s'", prm.c_str());
+		}
+		if (options.bootFilenames.empty() && options.bootVSH.value_or(false)) {
+			// An XMB shortcut.
+			const Path vshmain = GetVSHBootPath();
+			if (vshmain.empty()) {
+				System_PostUIMessage(UIMessage::SHOW_FIRMWARE_SCREEN);
+			} else {
+				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, vshmain.ToString());
+			}
+			return;
 		}
 		if (options.bootFilenames.empty()) {
 			INFO_LOG(Log::System, "shortcutParam: Nothing to boot in there, ignoring (options only apply at startup)");

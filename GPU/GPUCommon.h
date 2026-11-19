@@ -169,6 +169,9 @@ public:
 	virtual bool PerformMemorySet(u32 dest, u8 v, int size);
 
 	virtual bool PerformReadbackToMemory(u32 dest, int size);
+	// Reads back the rows covering size bytes from the start of the framebuffer at dest, without waiting for the GPU:
+	// the data can be a frame or so old.
+	bool PerformDelayedReadbackToMemory(u32 dest, int size);
 	virtual bool PerformWriteColorFromMemory(u32 dest, int size);
 
 	// width is the stride. rectWidth, if set, is how many pixels of each row were written, which lets

@@ -489,8 +489,10 @@ static int sceHttpDeleteConnection(int connectionID) {
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_INVALID_ID, "invalid id");
 
 	for (const auto &it : httpObjects[HTTP_ID_REQUEST]) {
-		if (it && static_cast<HTTPRequest *>(it.get())->getConnectionID() == connectionID)
+		HTTPRequest *req = dynamic_cast<HTTPRequest *>(it.get());
+		if (req && req->getConnectionID() == connectionID) {
 			return hleLogError(Log::sceNet, SCE_HTTP_ERROR_CONNECTION_HAS_REQUESTS, "connection has requests");
+		}
 	}
 
 	RemoveHttpObject(connectionID);

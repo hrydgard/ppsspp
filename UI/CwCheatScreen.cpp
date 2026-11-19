@@ -216,7 +216,7 @@ void CwCheatScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	}
 }
 
-void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn) {
+void CwCheatScreen::CreateSettingsViews(UI::ViewGroup *leftColumn, bool inPopup) {
 	using namespace UI;
 	auto cw = GetI18NCategory(I18NCat::CWCHEATS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -329,6 +329,11 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 			} else {
 				rightColumn->Add(new SettingHint(text, nullptr));
 			}
+			prevIsTitle = false;
+		} else if (!fileInfo_[i].hasCode) {
+			// A note, like "...Empty..." under a heading. Toggling it would do nothing.
+			rightColumn->Add(new SettingHint(fileInfo_[i].name, nullptr));
+			prev = nullptr;
 			prevIsTitle = false;
 		} else {
 			// Regular cheat code.

@@ -584,3 +584,12 @@ typedef s64 s64_be;
 typedef float float_be;
 typedef double double_be;
 #endif
+
+// Big-endian values in a byte buffer (a file header, a network packet), at any alignment.
+inline u16 ReadBE16(const u8 *p) {
+	return (u16)((p[0] << 8) | p[1]);
+}
+
+inline u32 ReadBE32(const u8 *p) {
+	return ((u32)p[0] << 24) | ((u32)p[1] << 16) | ((u32)p[2] << 8) | p[3];
+}

@@ -1082,6 +1082,10 @@ static u32 sysclib_toupper(u32 c) {
 	return hleLogVerbose(Log::sceKernel, toupper(c));
 }
 
+static u32 sysclib_tolower(u32 c) {
+	return hleLogVerbose(Log::sceKernel, tolower(c));
+}
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx",    HLE_KERNEL_SYSCALL },
@@ -1102,6 +1106,7 @@ const HLEFunction SysclibForKernel[] =
 	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 	{0XC2145E80, &WrapI_UIU<sysclib_snprintf>,                 "snprintf",                            'i', "xx",     HLE_KERNEL_SYSCALL },
 	{0x90C5573D, &WrapU_UU<sysclib_strnlen>,                   "strnlen",                             'x', "xx",     HLE_KERNEL_SYSCALL },
+	{0x3EC5BBF6, &WrapU_U<sysclib_tolower>,                    "tolower",                             'x', "x",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()

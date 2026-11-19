@@ -130,9 +130,9 @@ struct PageDef {
 static const PageDef pageDefs[] = {
 	{ "GameSettingsGeneral", "General", "I_SLIDERS", nullptr, I18NCat::SYSTEM, nullptr, &BuildGeneralSettings },
 	{ "GameSettingsSystem", "System", "I_PSP", "system", I18NCat::SYSTEM, nullptr, &BuildSystemSettings},
-	{ "GameSettingsControls", "Controls", "I_CONTROLLER", "controls", I18NCat::CONTROLS, &BuildControlsSettings },
 	{ "GameSettingsGraphics", "Graphics", "I_DISPLAY", "graphics", I18NCat::GRAPHICS, &BuildGraphicsSettings },
 	{ "GameSettingsAudio", "Audio", "I_SPEAKER_MAX", "audio", I18NCat::AUDIO, &BuildAudioSettings },
+	{ "GameSettingsControls", "Controls", "I_CONTROLLER", "controls", I18NCat::CONTROLS, &BuildControlsSettings },
 	{ "GameSettingsNetworking", "Networking", "I_WIFI", "network", I18NCat::NETWORKING, &BuildNetworkingSettings },
 	{ "GameSettingsTools", "Tools", "I_TOOLS", "tools", I18NCat::MAINSETTINGS, &BuildToolsSettings },
 	{ "GameSettingsVR", "VR", "I_VR", nullptr, I18NCat::VR, &BuildVRSettings},
@@ -270,8 +270,11 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 	doubleTapGroup->Add(new PopupMultiChoice(&zone.iDoubleTapGesture, mc->T("Double tap button"), gestureButton, 0, ARRAY_SIZE(gestureButton), I18NCat::MAPPABLECONTROLS, screenManager()));
 
 	ChoiceGroup *analogGroup = list->Add(new ChoiceGroup(co->T("Analog Stick")));
-	analogGroup->Add(new CheckBox(&zone.bAnalogGesture, co->T("Enable analog stick gesture")));
-	analogGroup->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensitivity, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledPtr(&zone.bAnalogGesture);
+	static const char *analogGestureSticks[] = { "Off", "Left stick", "Right stick" };
+	analogGroup->Add(new PopupMultiChoice(&zone.iAnalogGesture, co->T("Analog stick gesture"), analogGestureSticks, 0, ARRAY_SIZE(analogGestureSticks), I18NCat::CONTROLS, screenManager()));
+	analogGroup->Add(new PopupSliderChoiceFloat(&zone.fAnalogGestureSensitivity, 0.01f, 5.0f, 1.0f, co->T("Sensitivity"), 0.01f, screenManager(), "x"))->SetEnabledFunc([&zone]() {
+		return zone.iAnalogGesture != (int)AnalogGestureStick::OFF;
+	});
 }
 
 RestoreSettingsScreen::RestoreSettingsScreen(std::string_view title)

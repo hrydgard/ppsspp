@@ -475,7 +475,7 @@ void RetroAchievementsSettingsScreen::CreateAccountTab(UI::ViewGroup *viewGroup)
 	webSite->SetIconRight(ImageID("I_LINK_OUT"));
 	Choice *howToUse = linksGroup->Add(new Choice(ac->T("How to use RetroAchievements")));
 	howToUse->OnClick.Add([](UI::EventParams &) -> void {
-		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements");
+		System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/reference/retro-achievements/");
 	});
 	howToUse->SetIconRight(ImageID("I_LINK_OUT"));
 }

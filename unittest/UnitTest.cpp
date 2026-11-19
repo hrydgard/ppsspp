@@ -97,6 +97,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
+#include "Core/HW/StereoResampler.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Math/fast/fast_matrix.h"
@@ -183,6 +184,9 @@ float System_GetPropertyFloat(SystemProperty prop) {
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_CAN_JIT:
+		return true;
+	case SYSPROP_IS_HEADLESS:
+		// Log failed asserts instead of popping up a dialog box.
 		return true;
 	default:
 		return false;
@@ -3997,6 +4001,27 @@ bool TestConfigSettings() {
 	EXPECT_TRUE(Config::RestoreSettingToDefault(&g_Config.displayLayoutPortrait.fDisplayOffsetY));
 	EXPECT_EQ_FLOAT(g_Config.displayLayoutPortrait.fDisplayOffsetY, 0.25f);
 	g_Config.displayLayoutPortrait.fDisplayOffsetY = oldOffsetY;
+
+	// AnalogGesture used to be a bool, enabling the left stick.
+	GestureControlConfig &zone = g_Config.gestureControls[1];
+	const int oldAnalogGesture = zone.iAnalogGesture;
+	const ConfigSettingRef *gestureRef = Config::FindSetting(&zone.iAnalogGesture);
+	EXPECT_TRUE(gestureRef != nullptr);
+	Section section("GestureControls.Right");
+	section.Set("AnalogGesture", "True");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::LEFT);
+	section.Set("AnalogGesture", "False");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::OFF);
+	section.Set("AnalogGesture", "2");
+	EXPECT_TRUE(gestureRef->setting->ReadFromIniSection(&zone, &section, true));
+	EXPECT_EQ_INT(zone.iAnalogGesture, (int)AnalogGestureStick::RIGHT);
+	gestureRef->setting->WriteToIniSection(&zone, &section);
+	std::string written;
+	EXPECT_TRUE(section.Get("AnalogGesture", &written));
+	EXPECT_EQ_STR(written, std::string("2"));
+	zone.iAnalogGesture = oldAnalogGesture;
 	return true;
 }
 
@@ -4828,6 +4853,52 @@ bool TestUIFlowLayout() {
 	return true;
 }
 
+bool TestUITextEdit() {
+	using namespace UI;
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	const KeyInputFlags wordMod = KeyInputFlags::ModAlt;
+#else
+	const KeyInputFlags wordMod = KeyInputFlags::ModCtrl;
+#endif
+
+	TextEdit edit("", "", "");
+	SetFocusedView(&edit, FocusFlags::GOT_FOCUS, true);
+	auto backspace = [&](KeyInputFlags mods) {
+		edit.Key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DEL, KeyInputFlags::DOWN | mods));
+	};
+	auto type = [&](int c) {
+		edit.Key(KeyInput(DEVICE_ID_KEYBOARD, c));
+	};
+
+	// Backspacing over a multi-byte character must leave the caret at a character boundary.
+	edit.SetText("a\xC3\xA5\xE6\x97\xA5");  // "aå日"
+	backspace((KeyInputFlags)0);
+	EXPECT_EQ_STR(edit.GetText(), std::string("a\xC3\xA5"));
+	backspace((KeyInputFlags)0);
+	EXPECT_EQ_STR(edit.GetText(), std::string("a"));
+	type('x');
+	EXPECT_EQ_STR(edit.GetText(), std::string("ax"));
+
+	// Same in the middle of the text, where the caret can't be clamped back into place.
+	edit.SetText("\xC3\xA5\xE6\x97\xA5x");  // "å日x"
+	edit.Key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KeyInputFlags::DOWN));
+	backspace((KeyInputFlags)0);
+	type('y');
+	EXPECT_EQ_STR(edit.GetText(), std::string("\xC3\xA5yx"));
+
+	edit.SetText("foo b\xC3\xA5r  ");
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string("foo "));
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string(""));
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string(""));
+
+	SetFocusedView(nullptr, FocusFlags::LOST_FOCUS, true);
+	return true;
+}
+
 bool TestTextureReplacer();
 
 static bool TestQueueBuf() {
@@ -4893,6 +4964,63 @@ static bool TestRequestManager() {
 	rm.ProcessRequests();
 	EXPECT_EQ_INT((int)results.size(), 1);
 	EXPECT_TRUE(results[0] == "b2");
+	return true;
+}
+
+// When the resampler drops a lasting excess of buffered audio, the waveform has to carry on
+// smoothly across the skip: jumping straight ahead was a click.
+static bool TestStereoResamplerExcessDrop() {
+	// Fast-forward caps the buffer at the target, and extra buffering raises the target. Other
+	// tests (the JIT harness) leave fast-forward on.
+	struct Restore {
+		bool fastForward = PSP_CoreParameter().fastForward;
+		bool extraBuffering = g_Config.bExtraAudioBuffering;
+		~Restore() {
+			PSP_CoreParameter().fastForward = fastForward;
+			g_Config.bExtraAudioBuffering = extraBuffering;
+		}
+	} restore;
+	PSP_CoreParameter().fastForward = false;
+	g_Config.bExtraAudioBuffering = false;
+
+	StereoResampler resampler;
+	const int rate = 44100;
+	const double step = 2.0 * 3.14159265358979 * 440.0 / rate;
+	int64_t phase = 0;
+	auto push = [&](int frames) {
+		std::vector<s32> block(frames * 2);
+		for (int i = 0; i < frames; i++) {
+			const s32 v = (s32)(10000.0 * sin(step * (double)phase++));
+			block[i * 2] = v;
+			block[i * 2 + 1] = v;
+		}
+		resampler.PushSamples(block.data(), frames, 1.0f);
+	};
+
+	// Well over the 40 ms target, and kept there for longer than the quarter second the resampler
+	// watches the level over, so it drops the excess.
+	push(3500);
+	std::vector<s16> out;
+	const int pull = 441;
+	for (int i = 0; i < 40; i++) {
+		std::vector<s16> chunk(pull * 2);
+		EXPECT_EQ_INT(resampler.Mix(chunk.data(), pull, false, rate), pull);
+		out.insert(out.end(), chunk.begin(), chunk.end());
+		push(pull);
+	}
+	EXPECT_TRUE(resampler.DroppedExcess() > 0);
+
+	// A 440 Hz sine at this level changes its slope by about 40 per sample. A skip is a step of
+	// up to twice the amplitude.
+	int worst = 0;
+	for (size_t i = 4; i + 2 < out.size(); i += 2) {
+		const int d2 = abs(out[i + 2] - 2 * out[i] + out[i - 2]);
+		worst = std::max(worst, d2);
+	}
+	if (worst > 200) {
+		printf("Worst second difference %d, a discontinuity\n", worst);
+		return false;
+	}
 	return true;
 }
 
@@ -5004,6 +5132,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(UIFlowLayout),
+	TEST_ITEM(UITextEdit),
 	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
@@ -5014,6 +5143,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(InetPton),
 	TEST_ITEM(SaveStateMounts),
 	TEST_ITEM(SaveStatePeek),
+	TEST_ITEM(StereoResamplerExcessDrop),
 };
 
 int main(int argc, const char *argv[]) {

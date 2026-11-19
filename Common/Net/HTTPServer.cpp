@@ -216,7 +216,11 @@ bool Server::Listen(int port, const char *reason, net::DNSType type) {
 	return success;
 }
 
-bool Server::Listen4(int port, const char *reason) {
+bool Server::ListenLoopback(int port, const char *reason) {
+	return Listen4(port, reason, true);
+}
+
+bool Server::Listen4(int port, const char *reason, bool loopback) {
 	listenerSock_ = socket(AF_INET, SOCK_STREAM, 0);
 	if (listenerSock_ < 0)
 		return false;
@@ -224,7 +228,7 @@ bool Server::Listen4(int port, const char *reason) {
 	struct sockaddr_in server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	server_addr.sin_addr.s_addr = htonl(loopback ? INADDR_LOOPBACK : INADDR_ANY);
 	server_addr.sin_port = htons(port);
 
 	SetPortReusePolicy(listenerSock_);

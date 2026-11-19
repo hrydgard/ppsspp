@@ -39,7 +39,7 @@ public:
 	const char *tag() const override { return "InstallPkg"; }
 
 protected:
-	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	std::string_view GetTitle() const override;
 	ViewLayoutMode LayoutMode() const override {

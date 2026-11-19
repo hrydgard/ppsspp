@@ -469,6 +469,19 @@ void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float rad
 		return;
 	}
 
+	// Snap the edges to physical pixels, the way the rasterizer places a plain rect's edges (pixels
+	// whose centers are inside). Otherwise the antialiased edge only partly covers the pixel it
+	// lands in, and a plain rect butting up against it doesn't cover it at all, leaving a seam.
+	const float pxX = g_display.pixel_in_dps_x;
+	const float pxY = g_display.pixel_in_dps_y;
+	x1 = ceilf(x1 * pxX - 0.5f) / pxX;
+	x2 = ceilf(x2 * pxX - 0.5f) / pxX;
+	y1 = ceilf(y1 * pxY - 0.5f) / pxY;
+	y2 = ceilf(y2 * pxY - 0.5f) / pxY;
+	if (x2 <= x1 || y2 <= y1) {
+		return;
+	}
+
 	const bool filled = style == RoundRectStyle::Filled;
 	const float dpiScale = atlas->dpiScale;
 	const float r = ROUND_RECT_RADII[radiusIndex] * dpiScale;
@@ -493,6 +506,11 @@ void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float rad
 	const float ys[4] = { y1 - outside, y1 + inside, y2 - inside, y2 + outside };
 	const float us[4] = { image->u1, image->u2, image->u2, image->u1 };
 	const float vs[4] = { image->v1, image->v2, image->v2, image->v1 };
+	// When filled, the straight edges are drawn solid out to the snapped edges. The edge profile's
+	// antialiasing ramp, stretched by `scale` and by bilinear filtering, would otherwise leave the
+	// first pixel row inside the edge partly transparent.
+	const float solidXs[4] = { x1, xs[1], xs[2], x2 };
+	const float solidYs[4] = { y1, ys[1], ys[2], y2 };
 
 	for (int y = 0; y < 3; y++) {
 		if (ys[y + 1] <= ys[y]) {
@@ -502,8 +520,13 @@ void DrawBuffer::DrawRoundRect(float x1, float y1, float x2, float y2, float rad
 			if (xs[x + 1] <= xs[x] || (x == 1 && y == 1 && !filled)) {
 				continue;
 			}
-			if (x != 1 && y != 1) {
-				const RoundCorners corner = y == 0 ? (x == 0 ? RoundCorners::TopLeft : RoundCorners::TopRight) : (x == 0 ? RoundCorners::BottomLeft : RoundCorners::BottomRight);
+			const bool isCorner = x != 1 && y != 1;
+			const RoundCorners corner = y == 0 ? (x == 0 ? RoundCorners::TopLeft : RoundCorners::TopRight) : (x == 0 ? RoundCorners::BottomLeft : RoundCorners::BottomRight);
+			if (filled && (!isCorner || !(corners & corner))) {
+				DrawTexRect(solidXs[x], solidYs[y], solidXs[x + 1], solidYs[y + 1], image->u2, image->v2, image->u2, image->v2, color);
+				continue;
+			}
+			if (isCorner) {
 				if (!(corners & corner)) {
 					DrawSquareCorner(xs + x, ys + y, us + x, vs + y, x == 0 ? 0 : 1, y == 0 ? 0 : 1, image->u2, image->v2, color);
 					continue;

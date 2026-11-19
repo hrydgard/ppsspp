@@ -430,7 +430,7 @@ std::string_view LogConfigScreen::GetTitle() const {
 	return dev->T("Logging Channels");
 }
 
-void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+void LogConfigScreen::CreateSettingsViews(UI::ViewGroup *parent, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
@@ -704,7 +704,7 @@ void ShaderViewScreen::CreateViews() {
 	root_ = layout;
 
 	LinearLayout *topbar = new LinearLayout(ORIENT_HORIZONTAL);
-	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	topbar->Add(new Choice(ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
 		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
 	});
@@ -778,7 +778,7 @@ void FrameDumpTestScreen::CreateTabs() {
 }
 
 void FrameDumpTestScreen::update() {
-	UIScreen::update();
+	UITabbedBaseDialogScreen::update();
 
 	if (!listing_) {
 		const char *acceptMime = "text/html, */*; q=0.8";
@@ -919,7 +919,7 @@ void TouchTestScreen::UpdateLogView() {
 }
 
 bool TouchTestScreen::key(const KeyInput &key) {
-	UIScreen::key(key);
+	UIBaseDialogScreen::key(key);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "%s (%d) Device ID: %d [%s%s%s%s%s%s%s%s]", KeyMap::GetKeyName(key.keyCode).c_str(), key.keyCode, key.deviceId,
 		(key.flags & KeyInputFlags::IS_REPEAT) ? "REP " : "",

@@ -258,7 +258,7 @@ void DisplayLayoutScreen::CreateViews() {
 	rightScrollView->SetRoundCorners();
 	root_->Add(rightScrollView);
 
-	Choice *back = rightColumn->Add(new ChoiceGroup())->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")));
+	Choice *back = rightColumn->Add(new ChoiceGroup())->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT")));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	LinearLayout *bottomControls;

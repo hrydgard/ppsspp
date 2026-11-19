@@ -48,6 +48,8 @@
 #include "Core/Util/PSARUnpack.h"
 #include "UI/Background.h"
 #include "UI/FirmwareScreen.h"
+#include "UI/GameBootAnimation.h"
+#include "UI/ImposeHome.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/MiscScreens.h"
@@ -223,6 +225,16 @@ static void BuildPSPSettingsPage(SettingsPage *page) {
 	page->Setting(&g_Config.iTimeFormat);
 	page->Setting(&g_Config.bDayLightSavings);
 	page->Setting(&g_Config.iButtonPreference);
+
+	// How much of PPSSPP looks like the PSP's own system software. The firmware styles take the art
+	// from an installed firmware dump, so they're greyed out without one. (The UI sound theme is on
+	// the audio page.)
+	page->Setting(&g_Config.iHomeScreenStyle).EnabledFunc([] {
+		return ImposeHomeScreen::FirmwareArtAvailable();
+	});
+	page->Setting(&g_Config.bGameBootAnimation).EnabledFunc([] {
+		return GameBootAnimation::Available();
+	});
 }
 
 void BuildSystemSettings(SettingsPage *page, SystemPageState *state) {

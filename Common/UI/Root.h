@@ -58,6 +58,7 @@ enum class UISound {
 	TOGGLE_OFF,
 	ACHIEVEMENT_UNLOCKED,
 	LEADERBOARD_SUBMITTED,
+	GAME_BOOT,  // The PSP's game start intro's audio, set while it plays (GameBootAnimation).
 	COUNT,
 };
 

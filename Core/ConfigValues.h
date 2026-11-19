@@ -41,6 +41,20 @@ struct ConfigBlock {
 constexpr int PSP_MODEL_FAT = 0;
 constexpr int PSP_MODEL_SLIM = 1;
 constexpr int PSP_DEFAULT_FIRMWARE = 660;
+// Where the UI's sounds come from. The firmware ones need an installed firmware dump; without one,
+// PPSSPP's are used.
+// (Not "PPSSPP": libretro builds define that as a macro.)
+enum class UISoundStyle {
+	BUILTIN = 0,   // PPSSPP's own.
+	FIRMWARE = 1,  // The XMB's, in our menus and in the system dialogs in games, as on a PSP.
+};
+
+// How the HOME button's quit screen looks. The firmware look needs an installed firmware dump.
+enum class HomeScreenStyle {
+	BUILTIN = 0,  // PPSSPP's own.
+	FIRMWARE = 1,
+};
+
 constexpr int VOLUME_OFF = 0;
 constexpr int VOLUME_FULL = 10;
 constexpr int VOLUMEHI_FULL = 100;  // for newer volume params. will convert them all later
@@ -329,4 +343,11 @@ enum class RemoteISOShareType : int {
 enum class GameBrowserViewMode : int {
 	GRID = 0,
 	LIST = 1,  // XMB-style, with full size icons and the ICON1.PMF video. Old configs may have 2 (the large list) here.
+};
+
+// Which stick a gesture zone's analog stick gesture drives.
+enum class AnalogGestureStick : int {
+	OFF = 0,
+	LEFT = 1,
+	RIGHT = 2,
 };

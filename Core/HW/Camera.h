@@ -18,4 +18,5 @@
 
 #include "ppsspp_config.h"
 
-void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen);
+// A solid frame standing in for the camera's: red when there's no camera, black while one starts.
+void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen, bool red);

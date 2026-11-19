@@ -84,7 +84,7 @@ constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlag
 
 class PMFView : public UI::InertView {
 public:
-	PMFView(std::string data, UI::LayoutParams *params) : UI::InertView(params), video_(std::move(data)) {
+	PMFView(const Path &gamePath, std::string data, UI::LayoutParams *params) : UI::InertView(params), gamePath_(gamePath), video_(std::move(data)) {
 		startTime_ = Instant::Now();
 	}
 
@@ -99,25 +99,29 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		Draw::Texture *frame = video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds());
-		if (frame) {
-			dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
-			dc.Flush();
-			dc.GetDrawContext()->BindTexture(0, frame);
-			dc.Draw()->DrawTexRect(bounds_, 0, 0, 1.0f, 1.0f, 0xFFFFFFFF);
-			dc.Flush();
+		const double videoTime = g_BackgroundAudio.PreviewVideoTime(gamePath_, video_.HasAudio(), startTime_.ElapsedSeconds());
+		if (videoTime < 0.0) {
+			// Waiting for the PMF's sound (see GameButton::Draw).
+			startTime_ = Instant::Now();
+			return;
 		}
-
-		dc.RebindTexture();
+		if (video_.Update(dc.GetDrawContext(), videoTime)) {
+			dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
+			video_.DrawFrame(dc, bounds_);
+		}
 	}
 
 private:
+	Path gamePath_;
 	PMFVideoTexture video_;
 	Instant startTime_;
 };
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu | TwoPaneFlags::DropShadowTitle), inGame_(inGame) {
-	g_BackgroundAudio.SetGame(gamePath);
+	// In-game, the game's own audio is playing - don't start the preview music on top of it.
+	if (!inGame_) {
+		g_BackgroundAudio.SetGame(gamePath);
+	}
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
 	// We want to re-fetch savedata size when opening this screen. We re-fetch PARAM_SFO because it's connected to updating the hasConfig bool.
@@ -367,7 +371,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 
 		if (!pmfData.empty()) {
-			leftColumn->Add(new PMFView(pmfData, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0, 10))));
+			leftColumn->Add(new PMFView(gamePath_, pmfData, new LinearLayoutParams(144 * 2, 80 * 2, UI::Margins(0, 10))));
 		}
 	}
 
@@ -589,7 +593,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 }
 
-void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
+void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn, bool inPopup) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);

@@ -151,11 +151,12 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	int vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 	// TODO: Handle fog and secondary color somehow?
 
+	// These are usually just bad display list noise in reports, so removed that.
 	if (gstate.isFogEnabled() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmfog, Log::G3D, "Imm vertex used fog");
+		// WARN_LOG(Log::G3D, "Imm vertex used fog");
 	}
 	if (color1Used != 0 && gstate.isUsingSecondaryColor() && !gstate.isModeThrough()) {
-		WARN_LOG_REPORT_ONCE(geimmcolor1, Log::G3D, "Imm vertex used secondary color");
+		// WARN_LOG(Log::G3D, "Imm vertex used secondary color");
 	}
 
 	bool prevThrough = gstate.isModeThrough();
@@ -740,7 +741,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions. TODO: Add more float formats.
-bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags) {
+bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags, DrawnBounds *bounds) {
 	// For through mode, we only check FlatZ.
 	*flags |= ClipInfoFlags::Valid;
 
@@ -749,15 +750,15 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 
 	*bytesRead = stride * vertexCount;
 
-	bool allOutsideLeft = true;
-	bool allOutsideTop = true;
-	bool allOutsideRight = true;
-	bool allOutsideBottom = true;
-	const float left = gstate.getScissorX1();
-	const float top = gstate.getScissorY1();
-	const float right = gstate.getScissorX2() + 1;
-	const float bottom = gstate.getScissorY2() + 1;
+	const int left = gstate.getScissorX1();
+	const int top = gstate.getScissorY1();
+	const int right = gstate.getScissorX2() + 1;
+	const int bottom = gstate.getScissorY2() + 1;
 
+	float minX = FLT_MAX;
+	float minY = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float maxY = -FLT_MAX;
 	float minZ = FLT_MAX;
 	float maxZ = -FLT_MAX;
 
@@ -796,18 +797,10 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 		default:
 			return false;
 		}
-		if (x >= left) {
-			allOutsideLeft = false;
-		}
-		if (x <= right) {
-			allOutsideRight = false;
-		}
-		if (y >= top) {
-			allOutsideTop = false;
-		}
-		if (y <= bottom) {
-			allOutsideBottom = false;
-		}
+		minX = std::min(minX, x);
+		minY = std::min(minY, y);
+		maxX = std::max(maxX, x);
+		maxY = std::max(maxY, y);
 
 		// If prim is rectangles, we only update minZ and maxZ for every second vertex,
 		// since the Z for the whole rect is taken from the 2nd.
@@ -821,13 +814,25 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 		}
 	}
 
+	// The scissor, narrowed to the vertices with a pixel more on each side (for edge rules and filtering).
+	if (bounds) {
+		if (minX <= maxX && minY <= maxY) {
+			bounds->x1 = std::max(left, (int)std::clamp(floorf(minX) - 1.0f, -4096.0f, 4096.0f));
+			bounds->y1 = std::max(top, (int)std::clamp(floorf(minY) - 1.0f, -4096.0f, 4096.0f));
+			bounds->x2 = std::min(right, (int)std::clamp(ceilf(maxX) + 1.0f, -4096.0f, 4096.0f));
+			bounds->y2 = std::min(bottom, (int)std::clamp(ceilf(maxY) + 1.0f, -4096.0f, 4096.0f));
+		} else {
+			bounds->Clear();
+		}
+	}
+
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
 
-	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+	if (maxX < left || maxY < top || minX > right || minY > bottom) {
 		return false;
 	}
 

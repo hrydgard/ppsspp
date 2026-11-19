@@ -29,7 +29,7 @@ static void TextToImage(std::string_view buttonText, ImageID *image) {
 	} else if (buttonText == di->T("OK")) {
 		*image = ImageID("I_CHECKMARK");
 	} else if (buttonText == di->T("Cancel")) {
-		*image = ImageID("I_NAVIGATE_BACK");
+		*image = ImageID("I_CANCEL");
 	} else if (buttonText == di->T("Exit")) {
 		*image = ImageID("I_EXIT");
 	} else if (buttonText == di->T("More info")) {
@@ -215,7 +215,7 @@ void PopupScreen::CreateViews() {
 	if (ShowButtons() && !button1_.empty()) {
 		// And the two buttons at the bottom.
 		LinearLayout *buttonRow = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(200, WRAP_CONTENT));
-		buttonRow->SetSpacing(8);
+		buttonRow->SetSpacing(12);
 		// Adjust button order to the platform default.
 		if (System_GetPropertyBool(SYSPROP_OK_BUTTON_LEFT)) {
 			defaultButton_ = buttonRow->Add(new Choice(button1_, button1Image_, new LinearLayoutParams(1.0f)));
@@ -266,6 +266,14 @@ void ListPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	listView_ = parent->Add(new ListView(&adaptor_, hidden_, icons_)); //, new LinearLayoutParams(1.0)));
 	listView_->SetMaxHeight(screenManager()->getUIContext()->GetBounds().h - 140);
+	listView_->SetShadows(false);
+	const UIContext &dc = *screenManager()->getUIContext();
+	const Drawable &popupBg = dc.GetTheme().popupStyle.background;
+	const bool canUseCornerMask = dc.GetTheme().choiceRoundRadius > 0.0f &&
+		popupBg.type == DRAW_SOLID_COLOR &&
+		(popupBg.color & 0xFF000000) == 0xFF000000;
+	// Corner mask only blends cleanly on opaque solid-color popup backgrounds.
+	listView_->SetCornerMask(canUseCornerMask);
 	listView_->OnChoice.Handle(this, &ListPopupScreen::OnListChoice);
 }
 
@@ -724,13 +732,16 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	lin->Add(edit_);
 
 	if (!units_.empty())
-		lin->Add(new TextView(units_))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
+		lin->Add(new TextView(units_, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)))->SetTextColor(dc.GetTheme().itemStyle.fgColor);
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Button *reset = lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)));
 		reset->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
+			changing_ = true;
+			UpdateTextBox();
+			changing_ = false;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;
 			}
@@ -947,7 +958,7 @@ ViewGroup *CreateSoftKeyboard(TextEdit *edit, SoftKeyboardState *state) {
 		switch (i) {
 		case 0:
 			// Add backspace button at the end of the first row.
-			row->Add(new Button("", ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
+			row->Add(new Button("", ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(60.0f, 50.0f)))->OnClick.Add([edit](EventParams &) {
 				edit->Backspace();
 			});
 			break;

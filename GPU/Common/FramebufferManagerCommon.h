@@ -395,6 +395,8 @@ public:
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
+	// Reads the rows covering size bytes from the start of the framebuffer at addr. Returns false if there is none.
+	bool ReadbackFramebufferRows(u32 addr, int size, Draw::ReadbackMode mode);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
 	bool DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat);
@@ -453,6 +455,7 @@ public:
 
 	// This will only return exact matches of addr+stride+format.
 	VirtualFramebuffer *GetExactVFB(u32 addr, int stride, GEBufferFormat format) const;
+	VirtualFramebuffer *FindDebugVFB(u32 fb_address, int fb_stride) const;
 
 	// If this doesn't find the exact VFB, but one with a different color format with matching stride,
 	// it'll resolve the newest one at address to the format requested, and return that.
@@ -541,6 +544,13 @@ public:
 	// The target hasn't changed, but texturing from it should see the latest drawing.
 	void DiscardSelfTextureCopy() {
 		currentFramebufferCopy_ = nullptr;
+	}
+	bool HasSelfTextureCopy() const {
+		return currentFramebufferCopy_ != nullptr;
+	}
+	// A draw into the current render target after the self-texturing copy was taken.
+	void NoteDrawAfterSelfTextureCopy(const DrawnBounds &bounds) {
+		drawnSinceSelfTextureCopy_.Add(bounds);
 	}
 	// Call before a draw to the current render target.
 	void CheckMaskCopy(const VirtualFramebuffer *vfb) {
@@ -666,6 +676,8 @@ protected:
 	VirtualFramebuffer *currentRenderVfb_ = nullptr;
 
 	Draw::Framebuffer *currentFramebufferCopy_ = nullptr;
+	// What's been drawn over the render target since currentFramebufferCopy_ was taken, in its pixels.
+	DrawnBounds drawnSinceSelfTextureCopy_{};
 	// A draw with a write mask only reads the bits the mask keeps, and doesn't change them. So while the same
 	// mask draws on, without blending or a logic op, one copy serves every draw: DBZ Tenkaichi Tag Team draws
 	// its shadows one bit at a time, which took a copy per flush.

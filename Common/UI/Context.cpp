@@ -243,27 +243,23 @@ void UIContext::ActivateTopScissor() {
 		float scale_x = g_display.pixel_in_dps_x;
 		float scale_y = g_display.pixel_in_dps_y;
 		bounds = scissorStack_.back();
-		int x = floorf(scale_x * bounds.x);
-		int y = floorf(scale_y * bounds.y);
-		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
-		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
-		if (x < 0 || y < 0 || x + w > g_display.pixel_xres || y + h > g_display.pixel_yres) {
-			DEBUG_LOG(Log::G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x, y, w, h, g_display.pixel_xres, g_display.pixel_yres);
-			if (x < 0) { w += x; x = 0; }
-			if (y < 0) { h += y; y = 0; }
-			if (x >= g_display.pixel_xres) { x = g_display.pixel_xres - 1; }
-			if (y >= g_display.pixel_yres) { y = g_display.pixel_yres - 1; }
-			if (x + w > g_display.pixel_xres) { w = std::min(w, g_display.pixel_xres - x); }
-			if (y + w > g_display.pixel_yres) { h = std::min(h, g_display.pixel_yres - y); }
-			if (w == 0) w = 1;
-			if (h == 0) h = 1;
-			draw_->SetScissorRect(x, y, w, h);
-		} else {
-			// Avoid invalid rects
-			if (w == 0) w = 1;
-			if (h == 0) h = 1;
-			draw_->SetScissorRect(x, y, w, h);
+		// Round each edge outwards, keeping any pixel the bounds touch (antialiased edges included).
+		// Rounding the size separately from the position can lose the last row or column.
+		int x1 = (int)floorf(scale_x * bounds.x);
+		int y1 = (int)floorf(scale_y * bounds.y);
+		int x2 = (int)ceilf(scale_x * bounds.x2());
+		int y2 = (int)ceilf(scale_y * bounds.y2());
+		if (x1 < 0 || y1 < 0 || x2 > g_display.pixel_xres || y2 > g_display.pixel_yres) {
+			DEBUG_LOG(Log::G3D, "UI scissor out of bounds: %d,%d-%d,%d / %d,%d", x1, y1, x2, y2, g_display.pixel_xres, g_display.pixel_yres);
 		}
+		x1 = std::clamp(x1, 0, g_display.pixel_xres - 1);
+		y1 = std::clamp(y1, 0, g_display.pixel_yres - 1);
+		x2 = std::clamp(x2, x1, g_display.pixel_xres);
+		y2 = std::clamp(y2, y1, g_display.pixel_yres);
+		// Avoid invalid rects
+		int w = std::max(1, x2 - x1);
+		int h = std::max(1, y2 - y1);
+		draw_->SetScissorRect(x1, y1, w, h);
 	} else {
 		// Avoid rounding errors
 		draw_->SetScissorRect(0, 0, g_display.pixel_xres, g_display.pixel_yres);
@@ -401,6 +397,15 @@ void UIContext::FillRoundRect(const UI::Drawable &drawable, const Bounds &bounds
 		// Not supported, draw it square.
 		FillRect(drawable, bounds);
 		break;
+	}
+}
+
+void UIContext::DrawRoundRectMask(const UI::Drawable &drawable, const Bounds &bounds, float radius, RoundCorners corners) {
+	// Only draw if alpha is non-zero.
+	if ((drawable.color & 0xFF000000) == 0)
+		return;
+	if (drawable.type == UI::DRAW_SOLID_COLOR) {
+		uidrawbuffer_->DrawRoundRect(bounds, radius, drawable.color, RoundRectStyle::Mask, corners);
 	}
 }
 

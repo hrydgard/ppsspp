@@ -130,6 +130,10 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		Vec4F32 vpOffset = Vec4F32::LoadF24x4(&gstate.viewportxcenter);
 		vpScale.Store(ub->vpScale);
 		vpOffset.Store(ub->vpOffset);
+		if (gstate_c.tolerantDepthEqual) {
+			// A multiple of the 1/8 the vertex shader snaps Z to, so it moves every vertex the same.
+			ub->vpOffset[2] += tolerantDepthEqualOffset;
+		}
 		ub->NaN = std::numeric_limits<float>::quiet_NaN();  // Used in the shader for range culling.
 	}
 

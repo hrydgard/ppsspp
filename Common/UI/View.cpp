@@ -697,7 +697,7 @@ ItemHeader::ItemHeader(std::string_view text, LayoutParams *layoutParams)
 void ItemHeader::Draw(UIContext &dc) {
 	const FontStyle &fontStyle = large_ ? dc.GetTheme().uiFont : dc.GetTheme().uiFontSmall;
 
-	const UI::Style &style = popupStyle_ ? dc.GetTheme().popupStyle : dc.GetTheme().itemStyle;
+	const UI::Style &style = dc.GetTheme().itemStyle;
 	dc.FillRoundRect(style.background, bounds_, dc.GetTheme().choiceRoundRadius, roundCorners_);
 	dc.DrawText(fontStyle, text_, bounds_.x + 12, bounds_.centerY(), style.fgColor, ALIGN_LEFT | ALIGN_VCENTER);
 	dc.Draw()->DrawImageCenterTexel(dc.GetTheme().whiteImage, bounds_.x, bounds_.y2()-2, bounds_.x2(), bounds_.y2(), style.fgColor);
@@ -1491,10 +1491,29 @@ bool TextEdit::Backspace() {
 		u8_dec(text_.c_str(), &begCaret);
 		undo_ = text_;
 		text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
-		caret_--;
+		caret_ = begCaret;
 		return true;
 	}
 	return false;
+}
+
+// Deletes back to the start of the previous word, skipping any spaces in front of the caret first.
+bool TextEdit::BackspaceWord() {
+	if (caret_ <= 0) {
+		return false;
+	}
+	int begCaret = caret_;
+	// UTF-8 continuation bytes are never spaces, so checking single bytes is safe.
+	while (begCaret > 0 && text_[begCaret - 1] == ' ') {
+		begCaret--;
+	}
+	while (begCaret > 0 && text_[begCaret - 1] != ' ') {
+		begCaret--;
+	}
+	undo_ = text_;
+	text_.erase(text_.begin() + begCaret, text_.begin() + caret_);
+	caret_ = begCaret;
+	return true;
 }
 
 bool TextEdit::Key(const KeyInput &input) {
@@ -1528,10 +1547,18 @@ bool TextEdit::Key(const KeyInput &input) {
 			}
 			break;
 		case NKCODE_DEL:
-			if (Backspace()) {
+		{
+			// Ctrl+Backspace deletes a word, or Option+Backspace on Apple platforms.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+			const KeyInputFlags wordMod = KeyInputFlags::ModAlt;
+#else
+			const KeyInputFlags wordMod = KeyInputFlags::ModCtrl;
+#endif
+			if ((input.flags & wordMod) ? BackspaceWord() : Backspace()) {
 				textChanged = true;
 			}
 			break;
+		}
 		case NKCODE_ENTER:
 		case NKCODE_NUMPAD_ENTER:
 			{

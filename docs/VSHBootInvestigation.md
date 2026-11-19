@@ -92,7 +92,12 @@ Two separate things:
   back to the XMB, as on a PSP. The Saved Data Utility lists saves: it needed the raw stick device
   `msstor0p1:/` (pspautotests `io/msstor/msstor`) and `sceSdGetLastIndex` without a key.
 - **Photo**: folders under `PICTURE/` list with thumbnails, and JPEG and PNG open full screen (R
-  for the next one).
+  for the next one). **Camera** (top of the column, `camera_plugin.prx` on `sceUsbCam`) takes
+  photos and records movies (R) into `ms0:/DCIM/101MSDCF` (`DSCnnnnn.JPG`, and Motion JPEG
+  `MOVnnnnn.AVI` with PCM sound and a `.THM` thumbnail), with Review (L) and Movie mode (SELECT). It
+  refuses the stick ("The Memory Stick cannot be read") unless `msstor0:` ioctl 0x02125803 returns
+  the stick's 0x60-byte system information, whose bytes 0xC-0x1B it keeps as the stick's identity.
+  Under headless the picture is PPSSPP's red placeholder, since there's no webcam.
 - **Music**: MP3 plays. SensMe stops at 8002013A.
 - **Video**: the memory stick list is read from `ms0:/VIDEO` and `ms0:/MP_ROOT`, not `PSP/VIDEO`.
   H.264/AAC MP4 and Motion JPEG AVI (PCM or u-law audio) play. The player boots the ME in mode 3

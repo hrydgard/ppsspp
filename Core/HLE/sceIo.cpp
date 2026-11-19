@@ -843,7 +843,8 @@ static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, i
 			perm = "unhandled";
 			break;
 	}
-	INFO_LOG(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
+	// We don't actually assign. This seems to assign device names to other devices.
+	INFO_LOG(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i): Ignored", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
 	return 0;
 }
 
@@ -899,6 +900,20 @@ void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int mic
 	date_out.microsecond = microSeconds;
 }
 
+void RoundToFATDateTimes(ScePspDateTime &ctime, ScePspDateTime &atime, ScePspDateTime &mtime) {
+	// pspautotests utility/savedata/listtimes: a real memory stick reports no microseconds, the
+	// modification time to two seconds, and the last access as a date only, which reading the
+	// file doesn't move within the day. Passing on the host's atime let any read on the host change
+	// it, and Crush compares a whole LIST entry with the one it took after saving (issue #18664).
+	ctime.microsecond = 0;
+	atime.hour = 0;
+	atime.minute = 0;
+	atime.second = 0;
+	atime.microsecond = 0;
+	mtime.second &= ~1;
+	mtime.microsecond = 0;
+}
+
 // isFAT is whether the file lives on a FAT volume (the memory stick), which changes both the
 // permissions reported and whether st_private means anything.
 static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info, bool isFAT) {
@@ -929,6 +944,9 @@ static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info, bool isFAT) {
 	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
 	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
 	ConvertTmToPspDateTime(stat->st_m_time, info.mtime, info.mtimeUs);
+	if (isFAT) {
+		RoundToFATDateTimes(stat->st_c_time, stat->st_a_time, stat->st_m_time);
+	}
 	// st_private[0] carries the LBN on a UMD, which games read to build disc0:/sce_lbn paths -
 	// see umd/raw_access. On the memory stick a real PSP leaves it alone entirely.
 	if (!isFAT) {
@@ -1781,6 +1799,8 @@ struct DeviceSize {
 static u32 IoOpenFatSearch(u32 argAddr, int argLen);
 static u32 IoGetstatFatComponentPath(u32 argAddr, int argLen);
 static u32 IoOpenFatComponentPath(u32 argAddr, int argLen);
+static u32 IoMkdirFatComponentPath(u32 argAddr, int argLen);
+static u32 IoRenameFullPaths(u32 argAddr, int argLen);
 
 // Devctl 0x02425856: sets the code page for 8.3 names. From fatms.prx (6.61), which passes the
 // word to sceCodepage_driver_b0ae63aa. The XMB sets it at boot and from System Settings >
@@ -1790,6 +1810,13 @@ static u32 IoSetFatCodepage(u32 argAddr, int argLen) {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
 	}
 	return hleLogDebug(Log::sceIo, 0, "set code page %d", Memory::ReadUnchecked_U32(argAddr));
+}
+
+// iofilemgr.prx's sceIoDevctl (6.61, 08001a18) refuses a command with bit 15 set from user mode,
+// with ILLEGAL_PERM (pspautotests io/fatmsdevctl, fatms0: 0x0240D81E). Only checked for the
+// commands that call this, in case we misjudge a VSH caller's mode.
+static bool IoDevctlNeedsKernel(int cmd) {
+	return (cmd & 0x8000) != 0 && !hleIsKernelMode() && !__KernelCurThreadIsKernelMode();
 }
 
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
@@ -1920,6 +1947,16 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	case 0x01F100A8:
 	case 0x01F100A9:
 		return hleReportError(Log::sceIo, 0, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+	}
+
+	// loadexec asks the boot device whether LoadExec may run from it: 0x00208811 for a UMD boot,
+	// 0x00208813 from the memory stick. umd9660.prx (2.81, 08000cb0) returns 0 for 0x00208810 and
+	// 0x00208811 without looking at the arguments.
+	if (!strcmp(name, "disc0:") && (cmd == 0x00208810 || cmd == 0x00208811)) {
+		if (IoDevctlNeedsKernel(cmd)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_PERM);
+		}
+		return hleLogDebug(Log::sceIo, 0);
 	}
 
 	// This should really send it on to a FileSystem implementation instead.
@@ -2056,6 +2093,23 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02435860:
 			// Open, with the path given the same way as 0x02415864.
 			return IoOpenFatComponentPath(argAddr, argLen);
+		case 0x02415862:
+			// Mkdir, with the path given the same way as 0x02415864.
+			return IoMkdirFatComponentPath(argAddr, argLen);
+		case 0x02415830:
+			return IoRenameFullPaths(argAddr, argLen);
+		case 0x0201580B:
+			// mscmhc0: only. From msstor.prx (6.61, case at 0800dc38): { u32 values[4], u32 mask }, where
+			// mask bit i stores values[i] in the driver (a negative mask stores all four). They're read
+			// on the stick's I/O paths, so probably retry or timeout settings; not traced. The Saved
+			// Data Utility sets them. Nothing for us to do.
+			if (strcmp(name, "mscmhc0:")) {
+				break;
+			}
+			if (!Memory::IsValidRange(argAddr, 20) || argLen < 20) {
+				return hleLogError(Log::sceIo, SCE_ERROR_MEMSTICK_DEVCTL_BAD_PARAMS);
+			}
+			return hleLogDebug(Log::sceIo, 0, "mask %08x", Memory::ReadUnchecked_U32(argAddr + 16));
 		}
 	}
 
@@ -2085,8 +2139,13 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case 0x02425856:
 			return IoSetFatCodepage(argAddr, argLen);
 		case 0x0240d81e:
-			// TODO: Invalidate MS driver file table cache (nop)
-			break;
+			// Invalidate the driver's file table cache. We have none.
+			if (IoDevctlNeedsKernel(cmd)) {
+				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_PERM);
+			}
+			return hleLogDebug(Log::sceIo, 0);
+		case 0x02415830:
+			return IoRenameFullPaths(argAddr, argLen);
 		case 0x02415821:
 			// MScmRegisterMSInsertEjectCallback
 			if (Memory::IsValidRange(argAddr, argLen) && argLen >= 4) {
@@ -2314,7 +2373,9 @@ static bool IoPathHasWildcard(const char *path) {
 	return path && strpbrk(path, "*?") != nullptr;
 }
 
-static u32 sceIoRename(const char *from, const char *to) {
+// move: 'to' is a full path, which may be in another directory. Otherwise, only its last component
+// counts, and the file stays in its directory.
+static u32 IoRename(const char *from, const char *to, bool move) {
 	// TODO: Timing isn't terribly accurate.
 
 	// sceIoRename doesn't expand wildcards, it refuses them - in either path, and before it
@@ -2327,11 +2388,24 @@ static u32 sceIoRename(const char *from, const char *to) {
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file renamed", 1000);
 
 	// The PSP won't rename onto something that already exists, and renaming a file onto itself
-	// counts. Host rename() would happily replace the destination.
-	if (pspFileSystem.GetFileInfo(to).exists)
+	// counts. Host rename() would happily replace the destination. For a plain rename that's the
+	// new name in the old file's directory, wherever 'to' points (pspautotests io/fatmsdevctl).
+	// Another device is refused further down, as XDEV.
+	std::string dest = to;
+	const char *fromColon = strchr(from, ':');
+	const char *toColon = strchr(to, ':');
+	const bool sameDevice = !toColon || (fromColon && toColon - to == fromColon - from && !strncmp(from, to, toColon - to));
+	if (!move && sameDevice) {
+		const char *fromSlash = strrchr(from, '/');
+		const char *toSlash = strrchr(to, '/');
+		if (fromSlash) {
+			dest = std::string(from, fromSlash + 1 - from) + (toSlash ? toSlash + 1 : to);
+		}
+	}
+	if (pspFileSystem.GetFileInfo(dest).exists)
 		return hleDelayResult(hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "destination exists"), "file renamed", 1000);
 
-	int result = pspFileSystem.RenameFile(from, to);
+	int result = move ? pspFileSystem.MoveFileToPath(from, to) : pspFileSystem.RenameFile(from, to);
 	if (result == (int)SCE_KERNEL_ERROR_XDEV) {
 		// Renaming across devices is refused up front, without the wait the other errors take.
 		return hleLogError(Log::sceIo, result, "cannot rename across devices");
@@ -2339,6 +2413,36 @@ static u32 sceIoRename(const char *from, const char *to) {
 	if (result < 0)
 		WARN_LOG(Log::sceIo, "Could not move %s to %s", from, to);
 	return hleDelayResult(hleLogDebug(Log::sceIo, result), "file renamed", 1000);
+}
+
+static u32 sceIoRename(const char *from, const char *to) {
+	return IoRename(from, to, false);
+}
+
+// sceIoDevctl("ms0:", 0x02415830): a rename that takes the new name as a full path, so it can move
+// the file to another directory. The argument is { const char *oldPath, const char *newPath }, both
+// on the device. From fatms.prx (6.61, 08007108) and fatmsmod.prx (2.81, case at 08002dd4), which
+// resolve both paths, where sceIoRename resolves only the old one and keeps the new name in its
+// directory. The 6.61 XMB uses it, from dd_helper and the file browsers. It moves directories too,
+// and refuses an existing destination (pspautotests io/fatmsdevctl).
+static u32 IoRenameFullPaths(u32 argAddr, int argLen) {
+	if (argLen < 8 || !Memory::IsValid4AlignedRange(argAddr, 8)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 oldAddr = Memory::ReadUnchecked_U32(argAddr);
+	const u32 newAddr = Memory::ReadUnchecked_U32(argAddr + 4);
+	if (!oldAddr || !newAddr || !Memory::IsValidNullTerminatedString(oldAddr) || !Memory::IsValidNullTerminatedString(newAddr)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path");
+	}
+	const char *oldPath = Memory::GetCharPointerUnchecked(oldAddr);
+	const char *newPath = Memory::GetCharPointerUnchecked(newAddr);
+	// The paths are on the device: "ms0:/PSP/..." is refused (pspautotests io/fatmsdevctl).
+	if (strchr(oldPath, ':') || strchr(newPath, ':')) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "device in path");
+	}
+	const std::string from = std::string("ms0:") + oldPath;
+	const std::string to = std::string("ms0:") + newPath;
+	return IoRename(from.c_str(), to.c_str(), true);
 }
 
 static u32 sceIoChdir(const char *dirname) {
@@ -2911,6 +3015,25 @@ static u32 IoOpenFatComponentPath(u32 argAddr, int argLen) {
 	return hleLogDebug(Log::sceIo, id, "%s", path.c_str());
 }
 
+// sceIoDevctl("ms0:", 0x02415862): sceIoMkdir with the path given as UTF-16 components (see
+// IoOpenFatSearch). The argument is { path list, mode, options }. music_common.prx (2.81) uses it
+// for a path it has no 8-bit name for. From fatmsmod.prx (2.81, 08004018): FAT request 0x62, which
+// runs sceIoMkdir's handler.
+static u32 IoMkdirFatComponentPath(u32 argAddr, int argLen) {
+	if (argLen < 12 || !Memory::IsValid4AlignedRange(argAddr, 12)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad args");
+	}
+	const u32 pathListAddr = Memory::ReadUnchecked_U32(argAddr);
+	std::string path;
+	if (!pathListAddr || !ReadFatComponentPath(pathListAddr, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad path");
+	}
+	if (!pspFileSystem.MkDir(path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS, "%s", path.c_str()), "mkdir", 1000);
+	}
+	return hleDelayResult(hleLogDebug(Log::sceIo, 0, "%s", path.c_str()), "mkdir", 1000);
+}
+
 // Case-insensitive, like FAT. Only * and ?.
 static bool FatPatternMatch(const char *pattern, const char *name) {
 	if (*pattern == '\0') {
@@ -3340,6 +3463,34 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		}
 		Memory::WriteUnchecked_U32(cmd == 0x02125008 ? 1 : 0, outdataPtr);
 		return 0;
+
+	// The 0x60-byte system information block the driver read from the stick (its own copy, for an
+	// MS Pro, which 0x02125802 says we are). The camera plugin takes the 16 bytes at 0xC (assembly
+	// date, serial number, maker and model) as the stick's identity and refuses a stick without one,
+	// so these must be stable. Laid out like an MS Pro's system information, values made up.
+	case 0x02125803:
+	{
+		usec = 0;
+		if (!startsWithNoCase(f->fullpath, "msstor")) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED, "msstor ioctl on %s", f->fullpath.c_str());
+		}
+		if (!Memory::IsValidRange(outdataPtr, 0x60) || outlen < 0x60) {
+			return SCE_ERROR_MSSTOR_BAD_PARAMS;
+		}
+		u8 info[0x60]{};
+		info[0x00] = 0x02;  // Class: MS Pro.
+		info[0x09] = 0x02;  // Page size, big endian: 0x200.
+		// Assembly date: time zone, then 2012-01-01 00:00:00 (year big endian).
+		static const u8 assemblyDate[8] = { 0x00, 0x07, 0xDC, 0x01, 0x01, 0x00, 0x00, 0x00 };
+		memcpy(info + 0x0C, assemblyDate, sizeof(assemblyDate));
+		// Serial number, big endian.
+		info[0x14] = 0x50;
+		info[0x15] = 0x50;
+		info[0x16] = 0x53;
+		info[0x17] = 0x50;
+		Memory::Memcpy(outdataPtr, info, sizeof(info), "MsstorSystemInfo");
+		return 0;
+	}
 
 	default:
 		{

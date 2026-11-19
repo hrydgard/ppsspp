@@ -60,6 +60,7 @@ void AudioChannel::DoState(PointerWrap &p) {
 	Do(p, leftVolume);
 	Do(p, rightVolume);
 	Do(p, format);
+	prefetch.Clear();
 
 	if (s >= 4) {
 		Do(p, remainingSamples);
@@ -124,6 +125,8 @@ void AudioChannel::clear() {
 	sampleCount = 0;
 	sampleAddress = 0;
 	remainingSamples = 0;
+	bufferAddress = 0;
+	prefetch.Clear();
 	waitingThread = 0;
 	waitingAddress = 0;
 	waitingLeftVolume = 0;
@@ -156,6 +159,7 @@ void AudioSRCChannel::DoState(PointerWrap &p) {
 	Do(p, frac);
 	Do(p, completion);
 	Do(p, waitingThreads);
+	prefetch.Clear();
 }
 
 void __AudioRoutingInit() {
@@ -186,6 +190,7 @@ void AudioSRCChannel::clear() {
 	bufferCount = 0;
 	playedSamples = 0;
 	frac = 0;
+	prefetch.Clear();
 	completion = false;
 	waitingThreads.clear();
 	for (AudioPendingBuffer &buf : buffers) {

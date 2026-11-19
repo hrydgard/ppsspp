@@ -263,6 +263,9 @@ static int DefaultUIScaleFactor() {
 // All relative to g_Config.
 static constexpr const char *autoLoadSaveStateNames[] = { "Off", "Oldest Save", "Newest Save", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5" };
 
+static constexpr const char *uiSoundStyleNames[] = { "PPSSPP", "PSP sounds" };
+static constexpr const char *homeScreenStyleNames[] = { "PPSSPP", "PSP firmware" };
+
 static constexpr const char *backgroundAnimationNames[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background", "Bouncing icon", "Colored floating symbols" };
 
 static constexpr const char *notificationPosNames[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
@@ -365,6 +368,12 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::NETWORKING, "Send Discord Presence information"),
 	ConfigSetting("UISound", SETTING(g_Config, bUISound), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "UI sound"),
+	ConfigSetting("UISoundTheme", SETTING(g_Config, iUISoundStyle), (int)UISoundStyle::BUILTIN, CfgFlag::DEFAULT)
+		.Label(I18NCat::AUDIO, "UI sound theme").Choices(uiSoundStyleNames),
+	ConfigSetting("HomeScreenStyle", SETTING(g_Config, iHomeScreenStyle), (int)HomeScreenStyle::FIRMWARE, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "HOME button screen").Choices(homeScreenStyleNames),
+	ConfigSetting("GameBootAnimation", SETTING(g_Config, bGameBootAnimation), false, CfgFlag::DEFAULT)
+		.Label(I18NCat::SYSTEM, "Play game launch animation like the PSP"),
 
 	ConfigSetting("DisableHTTPS", SETTING(g_Config, bDisableHTTPS), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AutoLoadSaveState", SETTING(g_Config, iAutoLoadSaveState), 0, CfgFlag::PER_GAME)
@@ -868,6 +877,19 @@ std::unique_ptr<ConfigBlock> GestureControlConfig::NewDefault(std::string_view b
 	return block;
 }
 
+// AnalogGesture used to be a bool, and true meant the left stick.
+static int AnalogGestureFromString(const std::string &value) {
+	if (equalsNoCase(value, "True")) {
+		return (int)AnalogGestureStick::LEFT;
+	}
+	const int stick = atoi(value.c_str());
+	return (stick >= (int)AnalogGestureStick::OFF && stick <= (int)AnalogGestureStick::RIGHT) ? stick : (int)AnalogGestureStick::OFF;
+}
+
+static std::string AnalogGestureToString(int value) {
+	return StringFromInt(value);
+}
+
 // These were previously mostly part of General (which was wrong).
 static constexpr ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("SwipeUp", SETTING(g_Config.gestureControls[0], iSwipeUp), 0, CfgFlag::PER_GAME),
@@ -878,7 +900,7 @@ static constexpr ConfigSetting gestureControlSettings[] = {
 	ConfigSetting("SwipeSmoothing", SETTING(g_Config.gestureControls[0], fSwipeSmoothing), 0.3f, CfgFlag::PER_GAME),
 	ConfigSetting("DoubleTapGesture", SETTING(g_Config.gestureControls[0], iDoubleTapGesture), 0, CfgFlag::PER_GAME),
 	ConfigSetting("GestureControlEnabled", SETTING(g_Config.gestureControls[0], bGestureControlEnabled), false, CfgFlag::PER_GAME),
-	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], bAnalogGesture), false, CfgFlag::PER_GAME),
+	ConfigSetting("AnalogGesture", SETTING(g_Config.gestureControls[0], iAnalogGesture), (int)AnalogGestureStick::OFF, &AnalogGestureToString, &AnalogGestureFromString, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogGestureSensibility", SETTING(g_Config.gestureControls[0], fAnalogGestureSensitivity), 1.0f, CfgFlag::PER_GAME),
 };
 
@@ -1175,6 +1197,10 @@ static constexpr ConfigSetting soundSettings[] = {
 		.Label(I18NCat::AUDIO, "Respect silent mode").OnChanged(&OnAudioModeChanged),
 	ConfigSetting("UseOldAtrac", SETTING(g_Config, bUseOldAtrac), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::DEVELOPER, "Use the old sceAtrac implementation"),
+#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || (defined(SDL) && !defined(MOBILE_DEVICE))
+	ConfigSetting("MuteOnLostFocus", SETTING(g_Config, bMuteOnLostFocus), false, CfgFlag::DEFAULT)
+		.Label(I18NCat::AUDIO, "Mute when window not focused"),
+#endif
 };
 
 static bool DefaultShowTouchControls() {
@@ -2214,7 +2240,7 @@ bool Config::SupportsUpgradeCheck() const {
 #endif
 }
 
-#if 0
+#if 0  // DO NOT COMMIT WITH THIS SET TO 1.
 // Use for debugging the version check without messing with the server
 #define NEW_VERSION_OVERRIDE "v1.100.3-gaaaaaaaaa"
 constexpr int UPDATE_CHECK_FREQ = 1;

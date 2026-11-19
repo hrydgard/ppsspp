@@ -245,6 +245,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_DEBUG_SAVEFRAMEDUMP);
 		TranslateMenuItem(menu, ID_DEBUG_SHOWDEBUGSTATISTICS);
 		TranslateMenuItem(menu, ID_DEBUG_RESTARTGRAPHICS);
+		TranslateMenuItem(menu, ID_DEBUG_IMDEBUGGER);
 		TranslateMenuItem(menu, ID_DEBUG_DISASSEMBLY, g_Config.bSystemControls ? L"\tCtrl+D" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_GEDEBUGGER, g_Config.bSystemControls ? L"\tCtrl+G" : L"");
 		TranslateMenuItem(menu, ID_DEBUG_EXTRACTFILE);
@@ -507,13 +508,13 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_STOP:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+			// The UI asks first, with the same popup as the pause screen's Exit.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
 			break;
 
 		case ID_EMULATION_RESET:
-			if (MainWindow::ConfirmAction(hWnd, true)) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			}
+			// The UI asks first, with the same popup as the pause screen's Reset.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET, "confirm");
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
@@ -747,7 +748,7 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIP_8:    setFrameSkipping(FRAMESKIP_MAX); break;
 
 		case ID_FILE_EXIT:
-			if (MainWindow::ConfirmAction(hWnd, false)) {
+			if (MainWindow::ConfirmExit(hWnd)) {
 				DestroyWindow(hWnd);
 			}
 			break;
@@ -798,6 +799,10 @@ namespace MainWindow {
 		case ID_DEBUG_RESETSYMBOLTABLE:
 			Core_RunOnCPUThread([&] { g_symbolMap->Clear(); });
 			NotifyDebuggerMapLoaded();
+			break;
+
+		case ID_DEBUG_IMDEBUGGER:
+			g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 			break;
 
 		case ID_DEBUG_DISASSEMBLY:
@@ -1033,6 +1038,7 @@ namespace MainWindow {
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
+		CHECKITEM(ID_DEBUG_IMDEBUGGER, g_Config.bShowImDebugger);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);

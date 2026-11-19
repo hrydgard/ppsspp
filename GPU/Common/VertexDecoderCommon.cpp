@@ -189,6 +189,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		*indexLowerBound = (u16)lowerBound;
 		*indexUpperBound = (u16)upperBound;
 		if (oob) {
+			// Report kind 859. Collecting a lot of these but I think they're mostly noise from bad display lists.
 			ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
 		}
 	} else {

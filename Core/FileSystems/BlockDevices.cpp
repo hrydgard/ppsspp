@@ -290,10 +290,10 @@ BlockDevice *ConstructBlockDevice(FileLoader *fileLoader, std::string *errorStri
 	return device;
 }
 
-void BlockDevice::NotifyReadError() {
+void BlockDevice::NotifyReadError(std::string_view reason) {
 	if (!reportedError_) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), GetFriendlyPath(fileLoader_->GetPath()), 6.0f);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Game disc read error - ISO corrupt"), StringFromFormat("%.*s: %s", STR_VIEW(reason), GetFriendlyPath(fileLoader_->GetPath()).c_str()), 6.0f);
 		reportedError_ = true;
 	}
 }
@@ -623,7 +623,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
 	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, index) != indexSize) {
-		NotifyReadError();
+		NotifyReadError("CSO index read failed");
 		memset(index, 0, indexSize * sizeof(u32));
 	}
 #else
@@ -631,7 +631,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u32_le *indexTemp = new u32_le[indexSize];
 
 	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, indexTemp) != indexSize) {
-		NotifyReadError();
+		NotifyReadError("CSO index read failed");
 		memset(indexTemp, 0, indexSize * sizeof(u32_le));
 	}
 
@@ -713,7 +713,7 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		z.opaque = Z_NULL;
 		if (inflateInit2(&z, -15) != Z_OK) {
 			ERROR_LOG(Log::Loader, "GetBlockSize() ERROR: %s\n", (z.msg) ? z.msg : "?");
-			NotifyReadError();
+			NotifyReadError("CSO decompression failed");
 			return false;
 		}
 		z.avail_in = readSize;
@@ -724,14 +724,14 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		int status = inflate(&z, Z_FINISH);
 		if (status != Z_STREAM_END) {
 			ERROR_LOG(Log::Loader, "block %d: inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
-			NotifyReadError();
+			NotifyReadError("CSO decompression failed");
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
 		}
 		if (z.total_out != frameSize) {
 			ERROR_LOG(Log::Loader, "block %d: block size error %d != %d\n", blockNumber, (u32)z.total_out, frameSize);
-			NotifyReadError();
+			NotifyReadError("CSO block size mismatch");
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
@@ -833,11 +833,11 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 			int status = inflate(&z, Z_FINISH);
 			if (status != Z_STREAM_END) {
 				ERROR_LOG(Log::Loader, "Inflate frame %d: failed - %s[%d]\n", frame, (z.msg) ? z.msg : "error", status);
-				NotifyReadError();
+				NotifyReadError("CSO decompression failed");
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (z.total_out != frameSize) {
 				ERROR_LOG(Log::Loader, "Inflate frame %d: block size error %d != %d\n", frame, (u32)z.total_out, frameSize);
-				NotifyReadError();
+				NotifyReadError("CSO block size mismatch");
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (frameBlocks != blocksPerFrame) {
 				memcpy(outPtr, zlibBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
@@ -1067,7 +1067,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		int lzsize = lzrc_decompress(blockBuf_, blockSize_, readBuf, table_[block].size);
 		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
-			NotifyReadError();
+			NotifyReadError("PBP decompression failed");
 			return false;
 		}
 	}
@@ -1154,7 +1154,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 	chd_error err = chd_read_header(paths[0].c_str(), &childHeader);
 	if (err != CHDERR_NONE) {
 		ERROR_LOG(Log::Loader, "Error loading CHD header for '%s': %s", paths[0].c_str(), chd_error_string(err));
-		NotifyReadError();
+		NotifyReadError("Bad CHD header");
 		return;
 	}
 
@@ -1186,7 +1186,7 @@ CHDFileBlockDevice::CHDFileBlockDevice(FileLoader *fileLoader)
 			// Check if parentHeader was opened
 			if (parentHeader.length == 0) {
 				ERROR_LOG(Log::Loader, "Error loading CHD '%s': parents not found", fileLoader->GetPath().c_str());
-				NotifyReadError();
+				NotifyReadError("CHD parent not found");
 				return;
 			}
 			memcpy(childHeader.parentsha1, parentHeader.parentsha1, sizeof(childHeader.parentsha1));
@@ -1242,7 +1242,7 @@ bool CHDFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 		chd_error err = chd_read(impl_->chd, hunk, readBuffer);
 		if (err != CHDERR_NONE) {
 			ERROR_LOG(Log::Loader, "CHD read failed: %d %d %s", blockNumber, hunk, chd_error_string(err));
-			NotifyReadError();
+			NotifyReadError("CHD read failed");
 			currentHunk = -1;
 			memset(outPtr, 0, GetBlockSize());
 			return false;
