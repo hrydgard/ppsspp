@@ -568,6 +568,15 @@ void HTTPRequest::Join() {
 	thread_.join();
 }
 
+bool HTTPRequest::Detach() {
+	if (completed_ || !thread_.joinable()) {
+		return false;
+	}
+	// Once the cancelled flag is seen, only this object is touched (Perform and SetFailed).
+	thread_.detach();
+	return true;
+}
+
 void HTTPRequest::SetFailed(int code) {
 	// TODO: Why are we not using code here?
 
