@@ -827,8 +827,10 @@ void MainScreen::OnGameHighlight(UI::EventParams &e) {
 			}
 		}
 		highlightedGamePath_.clear();
-		if ((focusFlags & FocusFlags::CAUSE_FOCUS_MOVE) || (focusFlags & FocusFlags::CAUSE_KB_FOCUS_DISABLED)) {
-			// Focus moved to another game, so we want to fade out so we can fade in the new one.
+		// Focus moved to another game or view, or the mouse or a touch took it (which focuses what was
+		// clicked before it turns keyboard focus off, so that's CAUSE_OTHER): fade the music out with
+		// the background. Not on a screen change, so it keeps playing on the game's details screen.
+		if (focusFlags & (FocusFlags::CAUSE_FOCUS_MOVE | FocusFlags::CAUSE_KB_FOCUS_DISABLED | FocusFlags::CAUSE_OTHER)) {
 			g_BackgroundAudio.SetGame(Path());
 		}
 		return;

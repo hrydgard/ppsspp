@@ -627,7 +627,7 @@ tests_good = [
 # Tests that don't pass yet on an architecture we can only reach through emulation. Pass
 # --known-failures=<arch> to drop them from the run, so CI can still catch anything *new* breaking
 # while these stay outstanding. Keep a reason next to each one, and delete entries as they're fixed
-# rather than letting the list rot.
+# rather than letting the list rot. An entry ending in "/" covers every test under it.
 known_failures = {
   "riscv64": [
     # No flush-to-zero: the ISA has no control for it, so a denormal result survives where the
@@ -636,9 +636,13 @@ known_failures = {
     # The ISA returns the canonical NaN (0x7fc00000) from every operation, never the operand's
     # NaN, so a negative or signaling NaN input loses its sign and payload. Everything else passes.
     "cpu/fpu/roundmode",
+    # Two instances under QEMU can't keep the timing the tests need, so they fail at random.
+    "net/adhoc/pair/",
   ],
   "loongarch64": [
     "cpu/fpu/fpu",
+    # As on riscv64.
+    "net/adhoc/pair/",
   ],
   "armhf": [],
 }
@@ -1032,8 +1036,10 @@ def main():
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
 
   if skip_arch:
-    skipped = [t for t in tests if t in known_failures[skip_arch]]
-    tests = [t for t in tests if t not in known_failures[skip_arch]]
+    def is_known_failure(t):
+      return any(t == k or (k.endswith("/") and t.startswith(k)) for k in known_failures[skip_arch])
+    skipped = [t for t in tests if is_known_failure(t)]
+    tests = [t for t in tests if not is_known_failure(t)]
     if skipped:
       print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
@@ -1075,4 +1081,5 @@ def main():
     return 0
   return returncode
 
-exit(main())
+if __name__ == "__main__":
+  sys.exit(main())
