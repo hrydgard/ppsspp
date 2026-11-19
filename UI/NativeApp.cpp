@@ -295,12 +295,36 @@ class GlobalListener : public ControlListener {
 				g_Config.bShowImDebugger = !g_Config.bShowImDebugger;
 			}
 			break;
+		case VIRTKEY_TOGGLE_FULLSCREEN:
+			if (down) {
+				// TODO: Limit to platforms that can support fullscreen.
+				g_Config.bFullScreen = !g_Config.bFullScreen;
+				System_ApplyFullscreenState();
+			}
+			break;
 		default:
 			break;
 		}
 	}
 };
 GlobalListener g_globalListener;
+
+// Whether the key is part of a mapping of the fullscreen toggle, which works in the menus too.
+static bool IsFullscreenToggleKey(const KeyInput &key) {
+	std::vector<KeyMap::MultiInputMapping> mappings;
+	if (!KeyMap::InputMappingsFromPspButton(VIRTKEY_TOGGLE_FULLSCREEN, &mappings, false)) {
+		return false;
+	}
+	const InputMapping input(key.deviceId, key.keyCode);
+	for (const KeyMap::MultiInputMapping &mapping : mappings) {
+		for (const InputMapping &part : mapping.mappings) {
+			if (part == input) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 static void AssertCancelCallback(const char *message, void *userdata) {
 	NOTICE_LOG(Log::CPU, "Broke after assert: %s", message);
@@ -1781,6 +1805,11 @@ bool NativeKey(const KeyInput &key) {
 				}
 			}
 		}
+	}
+
+	// Outside the game, the mapper otherwise only gets key releases. Not while a key is being mapped.
+	if (!(inputMode & InputMode::AllKeys) && !imguiHasKeyboard && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN)) && IsFullscreenToggleKey(key)) {
+		passKeyThrough = true;
 	}
 
 	if (inputMode != InputMode::None) {
