@@ -105,13 +105,12 @@ public:
 	// This is a less accurate version of TestBoundingBox, but faster. Can have more false positives.
 	// cpuCullSupported: the backend can take ClipInfoFlags::CpuCull for the draw (see CpuCullSupported()).
 	static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *clipInfoFlags, bool cpuCullSupported = false);
-	bool TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags);
+	// If bounds isn't null, it gets where the draw can write, in the framebuffer's pixels.
+	bool TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags, DrawnBounds *bounds);
 	// For a draw too big or complex for TestBoundingBoxFast: the fallbacks it would need on a GPU that lacks
 	// depth clamp or clip distances, assuming the worst, or nothing (not Valid) if none are needed.
 	static ClipInfoFlags UncheckedClipInfoFlags();
 	bool EstimateThroughPrimSafeSize(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertType, int *safeWidth, int *safeHeight);
-	// Where a draw can write, in the framebuffer's pixels: the scissor, narrowed to the vertices in through mode.
-	DrawnBounds DrawBounds(const void *verts, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) const;
 
 	void FlushPartialDecode() {
 		DecodeVerts(dec_, decoded_);

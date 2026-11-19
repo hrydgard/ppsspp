@@ -873,6 +873,10 @@ void GPUCommonHW::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
+static DrawnBounds ScissorBounds() {
+	return DrawnBounds{ gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2() + 1, gstate.getScissorY2() + 1 };
+}
+
 void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// This drives all drawing. All other state we just buffer up, then we apply it only
 	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
@@ -989,8 +993,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		return;
 	}
 
-	NoteSelfTextureDraw(vfb, verts, inds, count, decoder, vertexType);
-
 	// This is the check from #21678 for Evangelion JO, whose menu text is rendered into small framebuffers
 	// that are then used as textures, so they need to reach memory on the first frame.
 	// Only for buffers smaller than the screen. A partial readback of a screen-sized one leaves a strip of
@@ -1010,9 +1012,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Through mode early-out. Very beneficial for Fate Extra CCC (very beneficial there due to avoiding texture loads)
 	// Also we take the opportunity to check for flat draws, where we can detect sprites (to fix filter artifacts).
 	ClipInfoFlags flags{};
+	const bool tracksSelfTexture = vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws;
+	DrawnBounds drawnBounds{};
 	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
-		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags, tracksSelfTexture ? &drawnBounds : nullptr)) {
 			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
@@ -1022,6 +1026,13 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
+	}
+	if (tracksSelfTexture) {
+		// The bounding box test reads the first morph frame's positions, unskinned.
+		if (!gstate.isModeThrough() || (vertexType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) != 0) {
+			drawnBounds = ScissorBounds();
+		}
+		NoteSelfTextureDraw(vfb, drawnBounds);
 	}
 
 	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
@@ -1107,8 +1118,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	if (readsFramebufferPerDraw) {
 		drawEngineCommon_->Flush();
 	}
-	if (!useFastRunLoop_ || readsFramebufferPerDraw)
-		goto bail;  // we're either recording or stepping, or each draw has to go alone.
+	if (!useFastRunLoop_ || readsFramebufferPerDraw || tracksSelfTexture)
+		goto bail;  // we're either recording or stepping, or each draw has to go alone (or be tracked).
 
 	while (src < stall) {
 		uint32_t data = *src;
@@ -1389,7 +1400,9 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::BEZIER;
 
-	NoteSelfTextureDraw(vfb, nullptr, nullptr, 0, nullptr, vertType);
+	if (vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
+		NoteSelfTextureDraw(vfb, ScissorBounds());
+	}
 
 	int bytesRead = 0;
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
@@ -1467,7 +1480,9 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_UVSCALEOFFSET);
 	gstate_c.submitType = SubmitType::SPLINE;
 
-	NoteSelfTextureDraw(vfb, nullptr, nullptr, 0, nullptr, vertType);
+	if (vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
+		NoteSelfTextureDraw(vfb, ScissorBounds());
+	}
 
 	int bytesRead = 0;
 	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
@@ -1531,11 +1546,8 @@ void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 }
 
 // A cached self-texturing copy goes stale where later draws write (see BindFramebufferAsColorTexture). Tracks those
-// draws, and the ones about to be flushed with a draw that takes a copy.
-void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) {
-	if (!vfb || !PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
-		return;
-	}
+// draws, and the ones about to be flushed with a draw that takes a copy. Only with SelfTextureCopyTracksDraws.
+void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, DrawnBounds bounds) {
 	const bool hasCopy = framebufferManager_->HasSelfTextureCopy();
 	bool selfTexture = false;
 	if (!hasCopy && gstate.isTextureMapEnabled() && !gstate.isModeClear()) {
@@ -1548,7 +1560,6 @@ void GPUCommonHW::NoteSelfTextureDraw(const VirtualFramebuffer *vfb, const void 
 	if (!hasCopy && !selfTexture) {
 		return;
 	}
-	DrawnBounds bounds = drawEngineCommon_->DrawBounds(verts, inds, count, dec, vertType);
 	bounds.x1 += gstate_c.curRTOffsetX;
 	bounds.x2 += gstate_c.curRTOffsetX;
 	bounds.y1 += gstate_c.curRTOffsetY;

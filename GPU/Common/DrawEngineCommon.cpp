@@ -741,7 +741,7 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 
 // 2D bounding box test against scissor. No indexing yet.
 // Only supports non-indexed draws with float positions. TODO: Add more float formats.
-bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags) {
+bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, int *bytesRead, ClipInfoFlags *flags, DrawnBounds *bounds) {
 	// For through mode, we only check FlatZ.
 	*flags |= ClipInfoFlags::Valid;
 
@@ -750,15 +750,15 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 
 	*bytesRead = stride * vertexCount;
 
-	bool allOutsideLeft = true;
-	bool allOutsideTop = true;
-	bool allOutsideRight = true;
-	bool allOutsideBottom = true;
-	const float left = gstate.getScissorX1();
-	const float top = gstate.getScissorY1();
-	const float right = gstate.getScissorX2() + 1;
-	const float bottom = gstate.getScissorY2() + 1;
+	const int left = gstate.getScissorX1();
+	const int top = gstate.getScissorY1();
+	const int right = gstate.getScissorX2() + 1;
+	const int bottom = gstate.getScissorY2() + 1;
 
+	float minX = FLT_MAX;
+	float minY = FLT_MAX;
+	float maxX = -FLT_MAX;
+	float maxY = -FLT_MAX;
 	float minZ = FLT_MAX;
 	float maxZ = -FLT_MAX;
 
@@ -797,18 +797,10 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 		default:
 			return false;
 		}
-		if (x >= left) {
-			allOutsideLeft = false;
-		}
-		if (x <= right) {
-			allOutsideRight = false;
-		}
-		if (y >= top) {
-			allOutsideTop = false;
-		}
-		if (y <= bottom) {
-			allOutsideBottom = false;
-		}
+		minX = std::min(minX, x);
+		minY = std::min(minY, y);
+		maxX = std::max(maxX, x);
+		maxY = std::max(maxY, y);
 
 		// If prim is rectangles, we only update minZ and maxZ for every second vertex,
 		// since the Z for the whole rect is taken from the 2nd.
@@ -822,13 +814,25 @@ bool DrawEngineCommon::TestBoundingBoxThrough(GEPrimitiveType prim, const void *
 		}
 	}
 
+	// The scissor, narrowed to the vertices with a pixel more on each side (for edge rules and filtering).
+	if (bounds) {
+		if (minX <= maxX && minY <= maxY) {
+			bounds->x1 = std::max(left, (int)std::clamp(floorf(minX) - 1.0f, -4096.0f, 4096.0f));
+			bounds->y1 = std::max(top, (int)std::clamp(floorf(minY) - 1.0f, -4096.0f, 4096.0f));
+			bounds->x2 = std::min(right, (int)std::clamp(ceilf(maxX) + 1.0f, -4096.0f, 4096.0f));
+			bounds->y2 = std::min(bottom, (int)std::clamp(ceilf(maxY) + 1.0f, -4096.0f, 4096.0f));
+		} else {
+			bounds->Clear();
+		}
+	}
+
 	// Although this may lead to drawing that shouldn't happen, the viewport is more complex on VR.
 	// Let's always say objects are within bounds.
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		return true;
 	}
 
-	if (allOutsideLeft || allOutsideTop || allOutsideRight || allOutsideBottom) {
+	if (maxX < left || maxY < top || minX > right || minY > bottom) {
 		return false;
 	}
 
@@ -900,50 +904,6 @@ bool DrawEngineCommon::EstimateThroughPrimSafeSize(const void *verts, const void
 	*safeWidth = std::clamp((int)ceilf(maxX), 0, scissorX2);
 	*safeHeight = std::clamp((int)ceilf(maxY), 0, scissorY2);
 	return *safeWidth > 0 && *safeHeight > 0;
-}
-
-DrawnBounds DrawEngineCommon::DrawBounds(const void *verts, const void *inds, int vertexCount, const VertexDecoder *dec, u32 vertType) const {
-	DrawnBounds bounds{ gstate.getScissorX1(), gstate.getScissorY1(), gstate.getScissorX2() + 1, gstate.getScissorY2() + 1 };
-	const u32 posType = vertType & GE_VTYPE_POS_MASK;
-	if (!verts || (vertType & GE_VTYPE_THROUGH_MASK) == 0 || (vertType & (GE_VTYPE_WEIGHT_MASK | GE_VTYPE_MORPHCOUNT_MASK)) != 0 ||
-		(posType != GE_VTYPE_POS_16BIT && posType != GE_VTYPE_POS_FLOAT)) {
-		return bounds;
-	}
-
-	const int stride = dec->VertexSize();
-	const int posOffset = dec->posoff;
-	IndexConverter conv(vertType, inds);
-	float minX = FLT_MAX;
-	float minY = FLT_MAX;
-	float maxX = -FLT_MAX;
-	float maxY = -FLT_MAX;
-	for (int i = 0; i < vertexCount; ++i) {
-		const u8 *posPtr = (const u8 *)verts + conv(i) * stride + posOffset;
-		float x;
-		float y;
-		if (posType == GE_VTYPE_POS_16BIT) {
-			const s16_le *pos = (const s16_le *)posPtr;
-			x = (float)pos[0];
-			y = (float)pos[1];
-		} else {
-			const float_le *pos = (const float_le *)posPtr;
-			x = pos[0];
-			y = pos[1];
-		}
-		minX = std::min(minX, x);
-		minY = std::min(minY, y);
-		maxX = std::max(maxX, x);
-		maxY = std::max(maxY, y);
-	}
-	if (!(minX <= maxX && minY <= maxY)) {
-		return bounds;
-	}
-	// A pixel more on each side, for edge rules and filtering.
-	bounds.x1 = std::max(bounds.x1, (int)std::clamp(floorf(minX) - 1.0f, -4096.0f, 4096.0f));
-	bounds.y1 = std::max(bounds.y1, (int)std::clamp(floorf(minY) - 1.0f, -4096.0f, 4096.0f));
-	bounds.x2 = std::min(bounds.x2, (int)std::clamp(ceilf(maxX) + 1.0f, -4096.0f, 4096.0f));
-	bounds.y2 = std::min(bounds.y2, (int)std::clamp(ceilf(maxY) + 1.0f, -4096.0f, 4096.0f));
-	return bounds;
 }
 
 void DrawEngineCommon::ApplyFramebufferRead(FBOTexState *fboTexState) {
