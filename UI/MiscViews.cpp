@@ -590,3 +590,14 @@ Draw::Texture *PMFVideoTexture::Update(Draw::DrawContext *draw, double timeSecon
 	}
 	return curFrame_;
 }
+
+void PMFVideoTexture::DrawFrame(UIContext &dc, const Bounds &bounds) {
+	if (!curFrame_) {
+		return;
+	}
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, curFrame_);
+	dc.Draw()->DrawTexRect(bounds, 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+	dc.Flush();
+	dc.RebindTexture();
+}

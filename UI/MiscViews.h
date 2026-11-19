@@ -159,6 +159,8 @@ public:
 
 	// Returns the frame to show at the given time, or nullptr if none is decoded yet.
 	Draw::Texture *Update(Draw::DrawContext *draw, double timeSeconds);
+	// Draws the frame the last Update returned, stretched over bounds. Nothing if there's none.
+	void DrawFrame(UIContext &dc, const Bounds &bounds);
 	void DeviceLost();
 
 private:

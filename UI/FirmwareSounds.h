@@ -51,11 +51,11 @@ struct Sound {
 	std::vector<int16_t> samples;  // Interleaved when stereo.
 };
 
-// Whether there's a system_plugin.rco under nandRoot to take them from.
-bool Available(const Path &nandRoot);
+// Whether the installed firmware has a system_plugin.rco to take them from.
+bool Available();
 
-// All the sounds in system_plugin.rco under nandRoot. Empty if there's no firmware dump.
-std::vector<Sound> LoadXMBSounds(const Path &nandRoot);
+// All the sounds in the installed firmware's system_plugin.rco. Empty if there's no firmware.
+std::vector<Sound> LoadXMBSounds();
 
 // The first sound whose name starts with prefix, or nullptr.
 const Sound *Find(const std::vector<Sound> &sounds, std::string_view prefix);

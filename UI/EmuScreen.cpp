@@ -1820,6 +1820,14 @@ const DisplayLayoutConfig &EmuScreen::GameLayoutConfig() const {
 	return g_Config.GetDisplayLayoutConfig(GameLayoutOrientation());
 }
 
+Bounds EmuScreen::PSPScreenBounds() const {
+	const DisplayLayoutConfig &config = GameLayoutConfig();
+	FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
+	FRect rc;
+	CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation);
+	return Bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y);
+}
+
 bool EmuScreen::renderOutput(const OutputDisplay &output) {
 	if (output.role != OutputRole::Game || !gameOnOutput_ || !PSP_IsInited()) {
 		return false;
@@ -2101,20 +2109,12 @@ void EmuScreen::renderUI() {
 
 	if (imposeHome_->IsVisible() && PSP_IsInited()) {
 		// Over the PSP screen, wherever the layout puts it.
-		const DisplayLayoutConfig &config = GameLayoutConfig();
-		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
-		FRect rc;
-		CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation);
-		imposeHome_->Draw(*ctx, Bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y));
+		imposeHome_->Draw(*ctx, PSPScreenBounds());
 	}
 
 	if (gameBoot_ && gameBoot_->IsPlaying()) {
 		// With the movie where the PSP's screen goes.
-		const DisplayLayoutConfig &config = GameLayoutConfig();
-		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, g_display.pixel_xres, g_display.pixel_yres);
-		FRect rc;
-		CalculateDisplayOutputRect(config, &rc, 480.0f, 272.0f, frame, config.iInternalScreenRotation);
-		gameBoot_->Draw(*ctx, Bounds(rc.x * g_display.dpi_scale_x, rc.y * g_display.dpi_scale_y, rc.w * g_display.dpi_scale_x, rc.h * g_display.dpi_scale_y));
+		gameBoot_->Draw(*ctx, PSPScreenBounds());
 	}
 
 	if (root_) {

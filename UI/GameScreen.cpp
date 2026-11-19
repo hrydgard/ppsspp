@@ -99,16 +99,10 @@ public:
 	}
 
 	void Draw(UIContext &dc) override {
-		Draw::Texture *frame = video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds());
-		if (frame) {
+		if (video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds())) {
 			dc.DrawRectDropShadow(bounds_, 10.0f, 0.7f);
-			dc.Flush();
-			dc.GetDrawContext()->BindTexture(0, frame);
-			dc.Draw()->DrawTexRect(bounds_, 0, 0, 1.0f, 1.0f, 0xFFFFFFFF);
-			dc.Flush();
+			video_.DrawFrame(dc, bounds_);
 		}
-
-		dc.RebindTexture();
 	}
 
 private:

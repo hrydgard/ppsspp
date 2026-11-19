@@ -560,9 +560,7 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 	if (samples.empty()) {
 		return nullptr;
 	}
-	int16_t *sampleData = new int16_t[samples.size()];
-	memcpy(sampleData, samples.data(), samples.size() * sizeof(int16_t));
-	return new Sample(sampleData, 2, (int)samples.size() / 2, sampleRate);
+	return new Sample(samples, 2, sampleRate);
 }
 
 Sample *Sample::Load(const std::string &path) {
@@ -834,13 +832,11 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 		if (!found || found->samples.size() < (size_t)found->channels * 2) {
 			return false;
 		}
-		int16_t *data = new int16_t[found->samples.size()];
-		memcpy(data, found->samples.data(), found->samples.size() * sizeof(int16_t));
-		UpdateSample(sound, new Sample(data, found->channels, (int)(found->samples.size() / found->channels), found->rateInHz));
+		UpdateSample(sound, new Sample(found->samples, found->channels, found->rateInHz));
 		return true;
 	};
 
-	const std::vector<FirmwareSounds::Sound> xmbSounds = FirmwareSounds::LoadXMBSounds(g_Config.nandRootDirectory);
+	const std::vector<FirmwareSounds::Sound> xmbSounds = FirmwareSounds::LoadXMBSounds();
 	if (!useSound(UI::UISound::SELECT, xmbSounds, "SE2_Cursor")) {
 		return;  // No firmware: our sounds.
 	}

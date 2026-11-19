@@ -91,6 +91,8 @@ private:
 	void UpdateGameOutput();
 	DeviceOrientation GameLayoutOrientation() const;
 	const DisplayLayoutConfig &GameLayoutConfig() const;
+	// Where the PSP's 480x272 screen is drawn, in UI coordinates.
+	Bounds PSPScreenBounds() const;
 	void OnDevTools(UI::EventParams &params);
 	void OpenChat(bool focus);
 

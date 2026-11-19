@@ -40,10 +40,13 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceRtc.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Util/PSARUnpack.h"
 #include "UI/ImposeHome.h"
 
+static const char *const IMPOSE_RSC_FILE = "kd/resource/impose.rsc";
+
 static Path ImposeRSCPath() {
-	return g_Config.nandRootDirectory / "flash0/kd/resource/impose.rsc";
+	return InstalledFirmwareFile(IMPOSE_RSC_FILE);
 }
 
 // The artwork of the PSP's own HOME screen ("Do you want to quit the game?"), from the installed
@@ -240,10 +243,10 @@ bool ImposeArt::Load(int pspLanguage) {
 	loaded_ = false;
 	DeviceLost();
 
-	if (g_Config.nandRootDirectory.empty()) {
+	const Path path = ImposeRSCPath();
+	if (path.empty()) {
 		return false;
 	}
-	const Path path = ImposeRSCPath();
 	std::string contents;
 	if (!File::ReadBinaryFileToString(path, &contents)) {
 		INFO_LOG(Log::System, "No %s, drawing the HOME screen ourselves", path.c_str());
@@ -924,7 +927,7 @@ ImposeHomeScreen::~ImposeHomeScreen() {
 }
 
 bool ImposeHomeScreen::FirmwareArtAvailable() {
-	return !g_Config.nandRootDirectory.empty() && File::Exists(ImposeRSCPath());
+	return InstalledFirmwareHasFile(IMPOSE_RSC_FILE);
 }
 
 void ImposeHomeScreen::DeviceLost() {

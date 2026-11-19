@@ -1,7 +1,53 @@
+#include <algorithm>
 #include <cstring>
 #include <cstdint>
+#include <memory>
 
+#include "Common/Swap.h"
+#include "Core/HW/MpegDemux.h"
+#include "Core/HW/SimpleAudioDec.h"
 #include "VideoPlayer.h"
+
+std::vector<int16_t> pmf_decode_audio(const uint8_t *data, size_t size) {
+	std::vector<int16_t> pcm;
+	if (size < 0x10 || memcmp(data, "PSMF", 4) != 0) {
+		return pcm;
+	}
+	// Where the stream starts, after the PSMF header.
+	const uint32_t offset = ReadBE32(data + 8);
+	if (offset >= size) {
+		return pcm;
+	}
+
+	MpegDemux demux((int)size + 2048, (int)offset);
+	demux.addStreamData(data, (int)size);
+	std::unique_ptr<AudioDecoder> decoder(CreateAudioDecoder(PSP_CODEC_AT3PLUS));
+	if (!decoder) {
+		return pcm;
+	}
+
+	int16_t buffer[2048 * 2];
+	for (int frames = 0; frames < 10000; frames++) {
+		demux.demux(0);
+		uint8_t *frame = nullptr;
+		int headerCode1 = 0, headerCode2 = 0;
+		const int frameSize = demux.getNextAudioFrame(&frame, &headerCode1, &headerCode2);
+		if (frameSize <= 0 || !frame) {
+			break;
+		}
+		if (headerCode1 == 0x24) {
+			decoder->SetChannels(1);  // Mono. Still decodes to stereo.
+		}
+		int consumed = 0;
+		int samples = 0;
+		if (!decoder->Decode(frame, frameSize, &consumed, 2, buffer, &samples) || samples <= 0) {
+			continue;
+		}
+		samples = std::min(samples, 2048);
+		pcm.insert(pcm.end(), buffer, buffer + samples * 2);
+	}
+	return pcm;
+}
 
 #ifdef USE_FFMPEG
 

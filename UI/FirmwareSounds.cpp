@@ -22,6 +22,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Swap.h"
 #include "Core/HW/SasAudio.h"
+#include "Core/Util/PSARUnpack.h"
 #include "UI/FirmwareSounds.h"
 
 namespace FirmwareSounds {
@@ -37,12 +38,10 @@ constexpr size_t VAG_NAME_SIZE = 16;
 
 }  // namespace
 
-static Path ResourcePath(const Path &nandRoot, std::string_view file) {
-	return nandRoot / "flash0/vsh/resource" / file;
-}
+static const char *const SYSTEM_PLUGIN_RCO = "vsh/resource/system_plugin.rco";
 
-bool Available(const Path &nandRoot) {
-	return !nandRoot.empty() && File::Exists(ResourcePath(nandRoot, "system_plugin.rco"));
+bool Available() {
+	return InstalledFirmwareHasFile(SYSTEM_PLUGIN_RCO);
 }
 
 // Every VAG in an RCO, with stereo ones (two VAGs in a row with the same name and length) joined.
@@ -99,11 +98,12 @@ static std::vector<Sound> LoadSoundsFromRCO(const Path &path) {
 	return sounds;
 }
 
-std::vector<Sound> LoadXMBSounds(const Path &nandRoot) {
-	if (nandRoot.empty()) {
+std::vector<Sound> LoadXMBSounds() {
+	const Path path = InstalledFirmwareFile(SYSTEM_PLUGIN_RCO);
+	if (path.empty()) {
 		return {};
 	}
-	return LoadSoundsFromRCO(ResourcePath(nandRoot, "system_plugin.rco"));
+	return LoadSoundsFromRCO(path);
 }
 
 const Sound *Find(const std::vector<Sound> &sounds, std::string_view prefix) {

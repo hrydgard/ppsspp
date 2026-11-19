@@ -87,7 +87,7 @@ void BuildAudioSettings(SettingsPage *page) {
 	});
 	// The PSP firmware's sounds, from an installed firmware dump, so greyed out without one.
 	page->Setting(&g_Config.iUISoundStyle).EnabledFunc([] {
-		return g_Config.bUISound && FirmwareSounds::Available(g_Config.nandRootDirectory);
+		return g_Config.bUISound && FirmwareSounds::Available();
 	}).OnChange([](EventParams &e) {
 		g_BackgroundAudio.SFX().ReloadSamples();
 	});

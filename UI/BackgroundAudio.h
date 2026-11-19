@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <string>
@@ -13,6 +14,11 @@ class AT3PlusReader;
 struct Sample {
 	// data must be new[]-ed.
 	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
+	// A copy of pcm (interleaved when stereo).
+	Sample(const std::vector<int16_t> &pcm, int channels, int rateInHz)
+		: channels_(channels), data_(new int16_t[pcm.size()]), length_((int)(pcm.size() / channels)), rateInHz_(rateInHz) {
+		std::copy(pcm.begin(), pcm.end(), data_);
+	}
 	~Sample() {
 		delete[] data_;
 	}
