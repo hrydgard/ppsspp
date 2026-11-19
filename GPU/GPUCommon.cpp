@@ -600,7 +600,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		}
 	}
 	if (id < 0) {
-		ERROR_LOG_REPORT(Log::G3D, "No DL ID available to enqueue");
+		ERROR_LOG_REPORT_ONCE(dlidnotavailable, Log::G3D, "No DL ID available to enqueue");
 		for (int i : dlQueue) {
 			DisplayList &dl = dls[i];
 			DEBUG_LOG(Log::G3D, "DisplayList %d status %d pc %08x stall %08x", i, dl.state, dl.pc, dl.stall);
@@ -783,30 +783,23 @@ u32 GPUCommon::Break(int mode) {
 		return -1;
 	}
 
-	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
-	{
-		if (sceKernelGetCompiledSdkVersion() > 0x02000010)
-		{
-			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
-			{
-				ERROR_LOG_REPORT(Log::G3D, "sceGeBreak: can't break signal-pausing list");
-			}
-			else
+	if (currentList->state == PSP_GE_DL_STATE_PAUSED) {
+		if (sceKernelGetCompiledSdkVersion() > 0x02000010) {
+			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE) {
+				ERROR_LOG_REPORT_ONCE(signalpause, Log::G3D, "sceGeBreak: can't break signal-pausing list");
+			} else {
 				return SCE_KERNEL_ERROR_ALREADY;
+			}
 		}
 		return SCE_KERNEL_ERROR_BUSY;
 	}
 
-	if (currentList->state == PSP_GE_DL_STATE_QUEUED)
+	if (currentList->state == PSP_GE_DL_STATE_QUEUED) 
 	{
 		currentList->state = PSP_GE_DL_STATE_PAUSED;
 		return currentList->id;
 	}
 
-	// TODO Save BASE
-	// TODO Adjust pc to be just before SIGNAL/END
-
-	// TODO: Is this right?
 	if (currentList->signal == PSP_GE_SIGNAL_SYNC)
 		currentList->pc += 8;
 

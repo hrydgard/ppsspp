@@ -740,7 +740,8 @@ namespace MIPSInt {
 				} else if (fs == 0) {
 					R(rt) = MIPSState::FCR0_VALUE;
 				} else {
-					WARN_LOG_REPORT(Log::CPU, "ReadFCR: Unexpected reg %d", fs);
+					// Not interesting - almost certainly executing garbage as code. Previously we reported.
+					WARN_LOG(Log::CPU, "ReadFCR: Unexpected reg %d", fs);
 					R(rt) = 0;
 				}
 				break;
@@ -767,7 +768,8 @@ namespace MIPSInt {
 						ApplyHostRoundingMode(mips);
 					}
 				} else {
-					WARN_LOG_REPORT(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
+					// Not interesting - almost certainly executing garbage as code. Previously we reported.
+					WARN_LOG(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
 				}
 				DEBUG_LOG(Log::CPU, "FCR%i written to, value %08x", fs, value);
 				break;
