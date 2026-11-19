@@ -31,6 +31,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "UI/AudioCommon.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/FirmwareSounds.h"
 #include "UI/SettingsPage.h"
@@ -93,6 +94,9 @@ void BuildAudioSettings(SettingsPage *page) {
 	});
 
 	page->Setting(&g_Config.iGamePreviewVolume);
+#ifdef PPSSPP_HAS_MUTE_ON_LOST_FOCUS
+	page->Setting(&g_Config.bMuteOnLostFocus);
+#endif
 
 	bool sdlAudio = false;
 

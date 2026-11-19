@@ -78,6 +78,7 @@
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
 #include "GPU/GPUCommon.h"
+#include "UI/AudioCommon.h"
 #include "UI/PauseScreen.h"
 
 #define MOUSEEVENTF_FROMTOUCH_NOPEN 0xFF515780 //http://msdn.microsoft.com/en-us/library/windows/desktop/ms703320(v=vs.85).aspx
@@ -827,11 +828,13 @@ namespace MainWindow {
 				}
 
 				if (wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE) {
+					Audio_SetWindowFocused(true);
 					System_PostUIMessage(UIMessage::GOT_FOCUS);
 					hasFocus = true;
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
+					Audio_SetWindowFocused(false);
 					lastMouseDownTime = 0.0;
 					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();

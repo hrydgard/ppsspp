@@ -474,6 +474,7 @@ public:
 	// iOS only for now
 	bool bAudioMixWithOthers;
 	bool bAudioRespectSilentMode;
+	bool bMuteOnLostFocus;  // Desktop only, see AudioCommon.h.
 
 	// UI
 	bool bShowDebuggerOnLoad;

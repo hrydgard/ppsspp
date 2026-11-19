@@ -71,6 +71,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "UI/AudioCommon.h"
 #include "SDLGLGraphicsContext.h"
 #include "SDLUtil.h"
 
@@ -1632,6 +1633,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 	case SDL_EVENT_WINDOW_FOCUS_LOST:
 		{
+			Audio_SetWindowFocused(false);
 			if (g_Config.bPauseOnLostFocus && GetUIState() == UISTATE_INGAME) {
 				Core_Break(BreakReason::UIFocus, 0);
 			}
@@ -1640,6 +1642,7 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 
 	case SDL_EVENT_WINDOW_FOCUS_GAINED:
 		{
+			Audio_SetWindowFocused(true);
 			if (Core_BreakReason() == BreakReason::UIFocus) {
 				Core_Resume();
 			}

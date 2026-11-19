@@ -15,6 +15,9 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <atomic>
+#include <cstring>
+
 #include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/HW/StereoResampler.h"  // TODO: doesn't belong in Core/HW...
@@ -25,6 +28,12 @@
 
 StereoResampler g_resampler;
 GranularMixer g_granular;
+
+static std::atomic<bool> g_windowFocused{true};
+
+void Audio_SetWindowFocused(bool focused) {
+	g_windowFocused = focused;
+}
 
 // numFrames is number of stereo frames.
 // This is called from *outside* the emulator thread.
@@ -42,6 +51,11 @@ void NativeMix(int16_t *outStereo, int numFrames, int sampleRateHz, void *userda
 		g_resampler.Mix(outStereo, numFrames, false, sampleRateHz);
 	}
 	g_BackgroundAudio.SFX().Mix(outStereo, numFrames, sampleRateHz);
+
+	// After mixing, so everything keeps playing (and draining its buffers) as usual, just silently.
+	if (g_Config.bMuteOnLostFocus && !g_windowFocused) {
+		memset(outStereo, 0, numFrames * 2 * sizeof(int16_t));
+	}
 }
 
 void System_AudioGetDebugStats(char *buf, size_t bufSize) {
