@@ -222,6 +222,11 @@ void UIScreen::TriggerFinish(DialogResult result) {
 bool UIDialogScreen::key(const KeyInput &key) {
 	bool retval = UIScreen::key(key);
 	if (!retval && (key.flags & KeyInputFlags::DOWN) && UI::IsEscapeKey(key)) {
+		if (key.flags & KeyInputFlags::IS_REPEAT) {
+			// A held back key closes one dialog, not every one it repeats into (like the pause
+			// screen it just opened).
+			return true;
+		}
 		if (finished_) {
 			ERROR_LOG(Log::System, "Screen already finished");
 		} else if (!firstFrame_) {

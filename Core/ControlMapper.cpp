@@ -680,6 +680,12 @@ bool ControlMapper::UpdatePSPState(const InputMapping &changedMapping, double no
 }
 
 bool ControlMapper::Key(const KeyInput &key) {
+	if ((key.flags & KeyInputFlags::DOWN) && (key.flags & KeyInputFlags::IS_REPEAT)) {
+		// The key is already down. Taking the repeat as a press would trigger its action again
+		// (pause, reset, ...) after something released all keys, like the pause screen.
+		return false;
+	}
+
 	double now = time_now_d();
 	InputMapping mapping(key.deviceId, key.keyCode);
 
