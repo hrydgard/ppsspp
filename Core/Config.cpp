@@ -1194,7 +1194,7 @@ static constexpr ConfigSetting soundSettings[] = {
 		.Label(I18NCat::DEVELOPER, "Use the old sceAtrac implementation"),
 #if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || (defined(SDL) && !defined(MOBILE_DEVICE))
 	ConfigSetting("MuteOnLostFocus", SETTING(g_Config, bMuteOnLostFocus), false, CfgFlag::DEFAULT)
-		.Label(I18NCat::AUDIO, "Mute when not focused"),
+		.Label(I18NCat::AUDIO, "Mute when window not focused"),
 #endif
 };
 
