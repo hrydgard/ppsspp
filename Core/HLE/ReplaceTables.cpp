@@ -2085,6 +2085,24 @@ static int Hook_socomftb3_read_luminance(MIPSState *mips) {
 	return 0;
 }
 
+// Split/Second draws the area around the sun from the scene into an 8x8 565 framebuffer, through a CLUT that
+// leaves dark pixels black, and the next frame this function (which also queues that pass) counts the non-zero
+// pixels to set the lens flare's visibility (#15785). The hook is just before the count, where a0 points to the
+// buffer's description: its address at 0x10, its stride in pixels at 0x18. Without a readback, the count never
+// changes and the flare shows through buildings. A frame or two old is fine for a fading flare.
+static int Hook_splitsecond_sun_visibility(MIPSState *mips) {
+	const u32 desc = mips->r[MIPS_REG_A0];
+	if (!Memory::IsValidRange(desc, 0x1C)) {
+		return 0;
+	}
+	const u32 fb_address = Memory::ReadUnchecked_U32(desc + 0x10);
+	const u32 size = 7 * Memory::ReadUnchecked_U32(desc + 0x18) * 2 + 8 * 2;
+	if (Memory::IsVRAMAddress(fb_address) && Memory::IsValidRange(fb_address, size)) {
+		gpu->PerformDelayedReadbackToMemory(fb_address, size);
+		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, size, "splitsecond_sun_visibility");	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -2238,6 +2256,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x78 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x18C },
 	{ "socomftb3_read_luminance", &Hook_socomftb3_read_luminance, 0, REPFLAG_HOOK, 0x4C },
+	{ "splitsecond_sun_visibility", &Hook_splitsecond_sun_visibility, 0, REPFLAG_HOOK, 0x744 },
 	{}
 };
 
