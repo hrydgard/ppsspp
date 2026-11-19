@@ -637,6 +637,7 @@ struct AutoTestOptions {
 	};
 	std::vector<Press> presses;
 	std::vector<std::pair<double, Path>> screenshotsAt;
+	std::vector<std::pair<double, Path>> dumpsAt;
 };
 
 // Ends a frame of the draw context the way the app does, presenting it. Unpresented frames never
@@ -752,6 +753,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double statsStart = -1.0;
 	int statsLastFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
+	std::vector<std::pair<double, Path>> dumpsAt = opt.dumpsAt;
 	// Hold the game until a --state has been applied. Otherwise it keeps booting while the state is
 	// read, which on a slow host can reach a different point (even a crash) before the state lands.
 	while (g_stateLoadPending && time_now_d() < wallDeadline) {
@@ -857,6 +859,20 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			if (!shot.second.empty() && emulatedElapsed >= shot.first) {
 				SaveScreenshotNow(shot.second);
 				shot.second.clear();
+			}
+		}
+		// The recorder takes one dump at a time, so a later one waits until the previous is written.
+		for (auto &dump : dumpsAt) {
+			if (!dump.second.empty() && emulatedElapsed >= dump.first && gpu) {
+				const Path dest = dump.second;
+				if (gpu->GetRecorder()->RecordNextFrame([dest](const Path &dumpPath) {
+					if (!File::Copy(dumpPath, dest)) {
+						fprintf(stderr, "Failed to copy the frame dump to %s\n", dest.c_str());
+					}
+				})) {
+					dump.second.clear();
+				}
+				break;
 			}
 		}
 
@@ -1228,6 +1244,16 @@ int main(int argc, const char* argv[]) {
 			const size_t colon = item.find(':');
 			if (colon != std::string::npos) {
 				testOptions.screenshotsAt.emplace_back(atof(item.substr(0, colon).c_str()), Path(item.substr(colon + 1)));
+			}
+		}
+	}
+	if (cmdLineOptions.recordDumpAt.has_value()) {
+		std::vector<std::string> items;
+		SplitString(cmdLineOptions.recordDumpAt.value(), ',', items);
+		for (const std::string &item : items) {
+			const size_t colon = item.find(':');
+			if (colon != std::string::npos) {
+				testOptions.dumpsAt.emplace_back(atof(item.substr(0, colon).c_str()), Path(item.substr(colon + 1)));
 			}
 		}
 	}

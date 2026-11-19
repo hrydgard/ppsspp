@@ -237,6 +237,7 @@ struct CommandLineOptions {
 	std::optional<std::string> dumpAudioFilename;
 	std::optional<std::string> pressScript;
 	std::optional<std::string> screenshotAt;
+	std::optional<std::string> recordDumpAt;
 	std::optional<int> replayEnd;
 	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
 	std::optional<bool> dumpCompat;
