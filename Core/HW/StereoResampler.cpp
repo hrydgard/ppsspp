@@ -33,6 +33,8 @@
 #define TARGET_BUFSIZE_LAG_SYNC_UNKNOWN 882 // 20 ms
 
 #define TARGET_EXCESS_DROP 220 // 5 ms
+// How long a dropped excess is crossfaded over, so the skip doesn't click. Shorter than any drop.
+static const int EXCESS_DROP_FADE = 128;  // 2.9 ms
 
 #define MAX_FREQ_SHIFT  600.0f  // how far off can we be from 44100 Hz
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
@@ -223,7 +225,22 @@ int StereoResampler::Mix(s16 *samples, unsigned int numSamples, bool consider_fr
 	if (windowSamples_ >= (u32)sample_rate / 4) {
 		const int excess = windowMin_ - targetBufsize_;
 		if (excess > TARGET_EXCESS_DROP) {
-			indexR += excess * 2;
+			// Jumping straight ahead puts a step in the waveform, which is a click. So the start of
+			// what follows the skip is crossfaded in place, from what would have played next into
+			// itself: the join continues the waveform, and the skip is only heard as a few
+			// milliseconds of the sound missing. The producer only writes past indexW, so this part
+			// of the buffer is ours.
+			const u32 skipTo = indexR + excess * 2;
+			const int fade = std::min(EXCESS_DROP_FADE, (int)(((indexW - skipTo) & INDEX_MASK) / 2));
+			for (int i = 0; i < fade; i++) {
+				const int64_t newWeight = (int64_t)i * 65536 / fade;
+				for (int c = 0; c < 2; c++) {
+					const int64_t from = buffer_[(indexR + i * 2 + c) & INDEX_MASK];
+					int16_t &to = buffer_[(skipTo + i * 2 + c) & INDEX_MASK];
+					to = (int16_t)((from * (65536 - newWeight) + to * newWeight) >> 16);
+				}
+			}
+			indexR = skipTo;
 			numLeft -= excess;
 			numLeftI_ -= excess;
 			droppedExcess_ += excess;
