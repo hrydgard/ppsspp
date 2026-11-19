@@ -39,7 +39,6 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/FileLoaders/PS1EbootFileLoader.h"
 #include "Core/Loaders.h"
-#include "Core/MemMap.h"
 
 #include "UI/GameBrowser.h"
 #include "UI/GameButton.h"
@@ -414,10 +413,6 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 	ParamSFOData sfo;
 	sfo.ReadSFO(sfoData);
 	if (!allowHomebrew && sfo.GetValueString("DISC_ID").empty())
-		return false;
-
-	// PS1 games, which need the Media Engine.
-	if (sfo.GetValueString("CATEGORY") == "ME" && !Memory::CanCreateMESpace())
 		return false;
 
 	return true;
