@@ -121,7 +121,7 @@ void __SystemCtrlInit() {
 }
 
 void __SystemCtrlDoState(PointerWrap &p) {
-	auto s = p.Section("SystemCtrl", 0, 3);
+	auto s = p.Section("SystemCtrl", 0, 1);
 	if (!s) {
 		if (p.mode == p.MODE_READ) {
 			__SystemCtrlInit();
@@ -137,20 +137,9 @@ void __SystemCtrlDoState(PointerWrap &p) {
 	DoArray(p, g_guestCallSlots, GUEST_CALL_SLOTS);
 	Do(p, actionGuestCallDone);
 	__KernelRestoreActionType(actionGuestCallDone, GuestCallDone::Create);
-	if (s >= 2) {
-		Do(p, g_startModuleExtra);
-		Do(p, g_gameInfoAddr);
-	} else {
-		g_startModuleExtra = 0;
-		g_gameInfoAddr = 0;
-	}
-	if (s >= 3) {
-		DoArray(p, g_arkVersion, 3);
-	} else {
-		g_arkVersion[0] = ARK_DEFAULT_MAJOR;
-		g_arkVersion[1] = 0;
-		g_arkVersion[2] = 0;
-	}
+	Do(p, g_startModuleExtra);
+	Do(p, g_gameInfoAddr);
+	DoArray(p, g_arkVersion, 3);
 }
 
 static u32 AllocZeroed(u32 size, const char *tag) {
@@ -546,7 +535,7 @@ static int LZ4_decompress_fast(u32 src, u32 dst, int originalSize) {
 	return hleLogDebug(Log::sceKernel, (int)(ip - src));
 }
 
-// Used for some CSO v2 blocks. Not implemented: fail like corrupt data (LZO_E_ERROR).
+// vshctrl uses it only for JSO ("JISO") images. Not implemented: fail like corrupt data (LZO_E_ERROR).
 static int lzo1x_decompress(u32 src, u32 srcLen, u32 dst, u32 dstLenPtr, u32 wrk) {
 	return hleLogWarning(Log::sceKernel, -1, "not implemented");
 }

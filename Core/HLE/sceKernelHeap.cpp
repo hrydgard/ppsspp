@@ -260,9 +260,9 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,             "sceKernelAllocHeapMemory",           'x', "ii",    HLE_KERNEL_SYSCALL },
 	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                   "sceKernelDeleteHeap",                'i', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                "sceKernelCreateHeap",                'i', "iixs",  HLE_KERNEL_SYSCALL },
-	{ 0X237DBD4F, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
+	{ 0x7158CE7E, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
 	{ 0XB6D61D02, &WrapI_I<sceKernelFreePartitionMemory>,          "sceKernelFreePartitionMemory",       'i', "i",     HLE_KERNEL_SYSCALL },
-	{ 0X9D9A5BA1, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
+	{ 0xF12A62F7, &WrapU_I<sceKernelGetBlockHeadAddr>,            "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
 	{ 0x9697CD32, &WrapU_I<sceKernelPartitionTotalFreeMemSize>,    "sceKernelPartitionTotalFreeMemSize", 'x', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0xE6581468, &WrapU_I<sceKernelPartitionMaxFreeMemSize>,      "sceKernelPartitionMaxFreeMemSize",   'x', "i" ,    HLE_KERNEL_SYSCALL },
 	{ 0X3FC9AE6A, &WrapU_V<sceKernelDevkitVersion>,                "sceKernelDevkitVersion",             'x', "" ,     HLE_KERNEL_SYSCALL },
@@ -287,9 +287,6 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
 	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
 	{ 0x310802A9, &WrapI_U<SysMemForKernel_310802A9>,              "SysMemForKernel_310802A9",           'i', "x",     HLE_KERNEL_SYSCALL },
-	// The 6.60 NIDs of these two, which CFW modules (ARK-4's vshctrl) import.
-	{ 0x7158CE7E, &WrapI_ICIUU<sceKernelAllocPartitionMemory>,     "sceKernelAllocPartitionMemory",      'i', "isixx", HLE_KERNEL_SYSCALL },
-	{ 0xF12A62F7, &WrapU_I<sceKernelGetBlockHeadAddr>,             "sceKernelGetBlockHeadAddr",          'x', "i",     HLE_KERNEL_SYSCALL },
 	{ 0xEF29061C, &WrapU_V<sceKernelGetGameInfo>,                  "sceKernelGetGameInfo",               'x', "",      HLE_KERNEL_SYSCALL },
 };
 

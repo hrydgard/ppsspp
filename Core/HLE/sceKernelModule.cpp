@@ -177,6 +177,9 @@ static SceUID g_mainModuleThread;
 static SceUID g_mainModuleThreadModule;
 // Where it starts, before a trampoline for a start-module handler went in front.
 static u32 g_mainModuleEntry;
+// ARK's FLASH0.ARK (see FindArkFlash0Entry), read once per boot rather than reopened for every module load.
+static std::vector<u8> g_arkFlash0;
+static bool g_arkFlash0Read = false;
 
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting = false);
 
@@ -514,6 +517,7 @@ struct SceKernelLMOption {
 };
 
 static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
+static void InstallHLEFunctionBody(const char *userLibrary, const char *kernelLibrary, u32 nid);
 
 struct SceKernelSMOption {
 	SceSize_le size;
@@ -669,7 +673,7 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 10);
+	auto s = p.Section("sceKernelModule", 1, 8);
 	if (!s)
 		return;
 
@@ -738,19 +742,11 @@ void __KernelModuleDoState(PointerWrap &p) {
 		}
 		Do(p, g_mainModuleThread);
 		Do(p, g_mainModuleThreadModule);
-		if (s >= 9) {
-			Do(p, g_hijackRedirects, fsi);
-			for (auto &sym : g_hijackRedirects) {
-				TerminateLoadedCString(p, sym.moduleName);
-			}
-		} else if (p.mode == p.MODE_READ) {
-			g_hijackRedirects.clear();
+		Do(p, g_hijackRedirects, fsi);
+		for (auto &sym : g_hijackRedirects) {
+			TerminateLoadedCString(p, sym.moduleName);
 		}
-		if (s >= 10) {
-			Do(p, g_mainModuleEntry);
-		} else if (p.mode == p.MODE_READ) {
-			g_mainModuleEntry = 0;
-		}
+		Do(p, g_mainModuleEntry);
 	} else if (p.mode == p.MODE_READ) {
 		g_hijackRedirects.clear();
 		g_hookedImportStubs.clear();
@@ -804,6 +800,8 @@ void __KernelModuleShutdown() {
 	g_loadCoreCB = 0;
 	g_startModuleHandler = 0;
 	g_vshDevkitVersion = 0;
+	g_arkFlash0.clear();
+	g_arkFlash0Read = false;
 	g_hookedImportStubs.clear();
 	g_syscallRedirects.clear();
 	g_hleFunctionStubs.clear();
@@ -1629,34 +1627,56 @@ static std::string ResolveVshModelModule(const char *path) {
 // ARK-4 keeps its modules in FLASH0.ARK, a list of (u32 size, u8 name length, name, data) after
 // a u32 count, which its boot code mounts over flash0 - so they win over a copy in flash0 itself,
 // which a NAND that ARK was once flashed to fully may still have. name is the path in flash0.
-static bool ReadArkFlash0Archive(std::string_view name, std::vector<u8> &data) {
-	std::vector<u8> ark;
-	if (pspFileSystem.ReadEntireFile("ms0:/PSP/SAVEDATA/ARK_01234/FLASH0.ARK", ark, true) < 0 || ark.size() < 4) {
-		return false;
+// Where name's data is in g_arkFlash0, or false if it isn't there.
+static bool FindArkFlash0Entry(std::string_view name, size_t *offset, u32 *size) {
+	if (!g_arkFlash0Read) {
+		g_arkFlash0Read = true;
+		if (pspFileSystem.ReadEntireFile("ms0:/PSP/SAVEDATA/ARK_01234/FLASH0.ARK", g_arkFlash0, true) < 0) {
+			g_arkFlash0.clear();
+		}
 	}
+	const std::vector<u8> &ark = g_arkFlash0;
 	size_t pos = 4;
 	while (pos + 5 <= ark.size()) {
-		const u32 size = ark[pos] | (ark[pos + 1] << 8) | (ark[pos + 2] << 16) | ((u32)ark[pos + 3] << 24);
+		const u32 entrySize = ark[pos] | (ark[pos + 1] << 8) | (ark[pos + 2] << 16) | ((u32)ark[pos + 3] << 24);
 		const u8 nameLen = ark[pos + 4];
 		pos += 5;
-		if (pos + nameLen + (size_t)size > ark.size()) {
+		if (pos + nameLen + (size_t)entrySize > ark.size()) {
 			break;
 		}
 		const std::string_view entry((const char *)&ark[pos], nameLen);
 		pos += nameLen;
 		if (equalsNoCase(entry, name)) {
-			data.assign(ark.begin() + pos, ark.begin() + pos + size);
-			INFO_LOG(Log::sceModule, "Using %.*s from FLASH0.ARK", STR_VIEW(name));
+			*offset = pos;
+			*size = entrySize;
 			return true;
 		}
-		pos += size;
+		pos += entrySize;
 	}
 	return false;
 }
 
+static bool ReadArkFlash0Archive(std::string_view name, std::vector<u8> &data) {
+	size_t offset;
+	u32 size;
+	if (!FindArkFlash0Entry(name, &offset, &size)) {
+		return false;
+	}
+	data.assign(g_arkFlash0.begin() + offset, g_arkFlash0.begin() + offset + size);
+	INFO_LOG(Log::sceModule, "Using %.*s from FLASH0.ARK", STR_VIEW(name));
+	return true;
+}
+
 // A module load from flash0 that ARK's FLASH0.ARK has a file for (vshctrl loads XMB Control so).
+// Only in the XMB: games run on our HLE, not on ARK's modules.
+static bool IsArkFlash0Override(std::string_view path, u32 *size) {
+	size_t offset;
+	return g_runningVSH && startsWith(path, "flash0:") && FindArkFlash0Entry(path.substr(strlen("flash0:")), &offset, size);
+}
+
 static bool ReadArkFlash0Override(std::string_view path, std::vector<u8> &data) {
-	return startsWith(path, "flash0:") && ReadArkFlash0Archive(path.substr(strlen("flash0:")), data);
+	u32 size;
+	return IsArkFlash0Override(path, &size) && ReadArkFlash0Archive(path.substr(strlen("flash0:")), data);
 }
 
 static bool ReadArkFlash0File(const char *name, std::vector<u8> &data) {
@@ -1679,6 +1699,8 @@ static void LoadArkVshCtrl() {
 	if (!ReadArkFlash0File("/kd/ark_vshctrl.prx", data)) {
 		return;
 	}
+	// sceIoOpen
+	InstallHLEFunctionBody("IoFileMgrForUser", "IoFileMgrForKernel", 0x109F50BC);
 	bool tryLoadExec = false;
 	const u32 moduleId = KernelLoadModuleFromData("flash0:/kd/ark_vshctrl.prx", data, 0, nullptr, &tryLoadExec);
 	if ((int)moduleId <= 0) {
@@ -3300,10 +3322,10 @@ u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 option
 	}
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(name);
-	std::vector<u8> arkModule;
-	if (ReadArkFlash0Override(name, arkModule)) {
+	u32 arkModuleSize;
+	if (IsArkFlash0Override(name, &arkModuleSize)) {
 		info.exists = true;
-		info.size = arkModule.size();
+		info.size = arkModuleSize;
 	}
 	if (!info.exists) {
 		const u32 error = hleLogError(Log::Loader, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
@@ -3557,9 +3579,11 @@ u32 sctrlHENSetStartModuleHandler(u32 handlerAddr) {
 	// VSH that's vsh_module, which ARK's vshctrl (and ARK-5's XMB Control) patch, and which hasn't
 	// started yet when they register: the shell's kernel modules start first. Each registration
 	// redoes its trampoline, so it calls the newest handler, which calls the ones before it.
+	// A thread's saved context is stale while it runs, so the main thread registering one itself
+	// (a game's loader EBOOT) has started, whatever its context says.
 	u32 error;
 	PSPModule *mainModule = kernelObjects.Get<PSPModule>(g_mainModuleThreadModule, error);
-	PSPThread *mainThread = g_mainModuleThread ? kernelObjects.Get<PSPThread>(g_mainModuleThread, error) : nullptr;
+	PSPThread *mainThread = g_mainModuleThread && g_mainModuleThread != __KernelGetCurThread() ? kernelObjects.Get<PSPThread>(g_mainModuleThread, error) : nullptr;
 	if (handlerAddr && mainModule && mainThread && mainThread->context.pc == mainThread->nt.entrypoint &&
 		mainThread->nt.status != THREADSTATUS_DORMANT && mainModule->nm.status == MODULE_STATUS_STARTED) {
 		if (g_mainModuleEntry == 0) {
@@ -3664,6 +3688,34 @@ static int RedirectImports(const char *moduleName, u32 nid, u32 newAddr, bool al
 		}
 	}
 	return count;
+}
+
+// ARK's vshctrl doesn't only hook sceIoOpen's imports: it follows its own import stub into
+// IoFileMgr, takes the function's first jal as the open proper, and points it at a hook of its own
+// (which notes paths opened with flag 0x40000000, then calls on). An HLE function has no code to
+// follow, so it gets a body in kernel memory with the same shape, which every import of it goes
+// through as all callers go through the real one:
+//   addiu sp, sp, -16 / sw ra, 0(sp) / jal <syscall stub> / nop / lw ra, 0(sp) / jr ra / addiu sp, sp, 16
+// The jal leaves every argument register alone, as the hook does.
+static void InstallHLEFunctionBody(const char *userLibrary, const char *kernelLibrary, u32 nid) {
+	const u32 inner = HLEFunctionStub(userLibrary, nid);
+	u32 size = 7 * 4;
+	const u32 body = inner ? kernelMemory.Alloc(size, false, "CFW HLE body") : (u32)-1;
+	if (body == (u32)-1) {
+		WARN_LOG(Log::sceModule, "Couldn't make a body for %s/%08x", userLibrary, nid);
+		return;
+	}
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, -16), body + 0x00);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_SW(MIPS_REG_RA, MIPS_REG_SP, 0), body + 0x04);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(inner), body + 0x08);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), body + 0x0C);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 0), body + 0x10);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), body + 0x14);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), body + 0x18);
+	currentMIPS->InvalidateICacheRangeDeferred(body, size);
+	NotifyMemInfo(MemBlockFlags::WRITE, body, size, "CFW HLE body");
+	const int count = RedirectImports(userLibrary, nid, body, true) + RedirectImports(kernelLibrary, nid, body, true);
+	INFO_LOG(Log::sceModule, "%s/%08x has a body at %08x (%d imports so far)", userLibrary, nid, body, count);
 }
 
 // Imports that firmware code makes from inside an export we HLE. Callers of the export get our
@@ -4231,7 +4283,11 @@ u32 sceKernelFindModuleByName(const char *name)
 			}
 		}
 	}
-	return hleLogDebug(Log::sceModule, 0, "Module Not Found");
+	if (g_runningVSH) {
+		// ARK's vshctrl asks for its VSH menu on every pad read.
+		return hleLogDebug(Log::sceModule, 0, "Module Not Found");
+	}
+	return hleLogWarning(Log::sceModule, 0, "Module Not Found");
 }
 
 // The id in question here is a file handle.
@@ -4578,7 +4634,7 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x977DE386, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModule",                     'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xA1A78C58, &WrapU_CUU<sceKernelLoadModuleForLoadExecVSHDisc>,     "sceKernelLoadModuleForLoadExecVSHDisc",   'x', "sxx",   HLE_KERNEL_SYSCALL }, //fix for tiger x dragon
 	{0xCC1D3699, &WrapU_UUUU<sceKernelStopUnloadSelfModule>,            "sceKernelStopUnloadSelfModule",           'x', "xxxx",  HLE_KERNEL_SYSCALL }, // used in Dissidia final fantasy chinese patch
-	{0XD1FF982A, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used in Dissidia final fantasy chinese patch
+	{0xE5D6087B, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED }, // used in Dissidia final fantasy chinese patch
 	{0x748CBED9, &WrapU_UU<sceKernelQueryModuleInfo>,                   "sceKernelQueryModuleInfo",                'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0x644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0X2E0911AA, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
@@ -4599,7 +4655,6 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0x939E4270, &WrapU_CUU<sceKernelLoadModule>,                       "sceKernelLoadModuleForKernel",            'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x3FF74DF1, &WrapU_UUUUU<sceKernelStartModule>,                    "sceKernelStartModule",                    'v', "xxxxx", HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x387E3CA9, &WrapU_U<sceKernelUnloadModule>,                       "sceKernelUnloadModule",                   'x', "x" ,    HLE_KERNEL_SYSCALL },
-	{0xE5D6087B, &WrapU_UUUUU<sceKernelStopModule>,                     "sceKernelStopModule",                     'x', "xxxxx", HLE_KERNEL_SYSCALL | HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED },  // 6.60's NID
 };
 
 void Register_ModuleMgrForUser() {
