@@ -1033,7 +1033,8 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 
 	case VIRTKEY_RESET_EMULATION:
 		if (down) {
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			// Asks first, like the menus' Reset.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET, "confirm");
 		}
 		break;
 
