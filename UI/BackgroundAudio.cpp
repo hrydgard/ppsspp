@@ -823,11 +823,10 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
 
-	// With a firmware dump installed, the sounds can be the PSP's own (see FirmwareSounds.h): just
-	// in our menus, or also in the system dialogs in games.
+	// With a firmware dump installed, the sounds can be the PSP's own (see FirmwareSounds.h), in our
+	// menus and in the system dialogs in games.
 	firmwareExtras_ = false;
-	const UISoundStyle style = (UISoundStyle)g_Config.iUISoundStyle;
-	if (style != UISoundStyle::FIRMWARE_TICK && style != UISoundStyle::FIRMWARE_ALL) {
+	if ((UISoundStyle)g_Config.iUISoundStyle != UISoundStyle::FIRMWARE) {
 		return;
 	}
 	auto useSound = [&](UI::UISound sound, const std::vector<FirmwareSounds::Sound> &sounds, std::string_view name) {
@@ -849,5 +848,5 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 	useSound(UI::UISound::BACK, xmbSounds, "SE4_Cansel");
 	useSound(UI::UISound::TOGGLE_ON, xmbSounds, "SE8_Option");
 	useSound(UI::UISound::TOGGLE_OFF, xmbSounds, "SE8_Option");
-	firmwareExtras_ = style == UISoundStyle::FIRMWARE_ALL;
+	firmwareExtras_ = true;
 }

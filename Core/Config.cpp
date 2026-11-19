@@ -263,7 +263,7 @@ static int DefaultUIScaleFactor() {
 // All relative to g_Config.
 static constexpr const char *autoLoadSaveStateNames[] = { "Off", "Oldest Save", "Newest Save", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5" };
 
-static constexpr const char *uiSoundStyleNames[] = { "PPSSPP", "PSP firmware, ticks only", "PSP firmware, all sounds" };
+static constexpr const char *uiSoundStyleNames[] = { "PPSSPP", "PSP sounds" };
 static constexpr const char *homeScreenStyleNames[] = { "PPSSPP", "PSP firmware" };
 
 static constexpr const char *backgroundAnimationNames[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background", "Bouncing icon", "Colored floating symbols" };
@@ -368,7 +368,7 @@ static constexpr ConfigSetting generalSettings[] = {
 		.Label(I18NCat::NETWORKING, "Send Discord Presence information"),
 	ConfigSetting("UISound", SETTING(g_Config, bUISound), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "UI sound"),
-	ConfigSetting("UISoundStyle", SETTING(g_Config, iUISoundStyle), (int)UISoundStyle::FIRMWARE_TICK, CfgFlag::DEFAULT)
+	ConfigSetting("UISoundTheme", SETTING(g_Config, iUISoundStyle), (int)UISoundStyle::BUILTIN, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "UI sound theme").Choices(uiSoundStyleNames),
 	ConfigSetting("HomeScreenStyle", SETTING(g_Config, iHomeScreenStyle), (int)HomeScreenStyle::FIRMWARE, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "HOME button screen").Choices(homeScreenStyleNames),

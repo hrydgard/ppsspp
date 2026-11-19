@@ -55,7 +55,7 @@ public:
 	// The load task's body: loads until no reload is asked for (see ReloadSamples).
 	void RunSampleLoads();
 
-	// Whether the system dialogs in games get the PSP firmware's sounds too (UISoundStyle::FIRMWARE_ALL,
+	// Whether the system dialogs in games get the PSP firmware's sounds too (UISoundStyle::FIRMWARE,
 	// with a firmware).
 	bool FirmwareExtras() const { return firmwareExtras_; }
 private:
