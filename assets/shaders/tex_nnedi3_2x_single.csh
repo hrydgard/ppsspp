@@ -118,6 +118,9 @@ for (int i = 0; i < 8; i++) {
 float mstd0 = sum / 32.0;
 float mstd1 = sumsq / 32.0 - mstd0 * mstd0;
 float mstd2 = mix(0.0, inversesqrt(mstd1), mstd1 >= 1.192092896e-7);
+if (mstd2 == 0.0) {
+	return clamp(mstd0, 0.0, 1.0);
+}
 mstd1 *= mstd2;
 float vsum = 0.0, wsum = 0.0, sum1, sum2;
 #define T(x) intBitsToFloat(x)
@@ -203,6 +206,9 @@ for (int i = 0; i < 8; i++) {
 float mstd0 = sum / 32.0;
 float mstd1 = sumsq / 32.0 - mstd0 * mstd0;
 float mstd2 = mix(0.0, inversesqrt(mstd1), mstd1 >= 1.192092896e-7);
+if (mstd2 == 0.0) {
+	return clamp(mstd0, 0.0, 1.0);
+}
 mstd1 *= mstd2;
 float vsum = 0.0, wsum = 0.0, sum1, sum2;
 #define T(x) intBitsToFloat(x)
@@ -379,21 +385,33 @@ void LoadSourceTile() {
 }
 
 void LoadVerticalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(V_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % V_TILE_W;
-		int y = int(i) / V_TILE_W;
-		ivec2 globalPos = GroupVerticalBase() + ivec2(V_MIN_X, V_MIN_Y) + ivec2(x, y);
-		tile[OFF_V + int(i)] = packColor(ComputeVerticalPixel(globalPos));
-	}
+    for (int i = int(gl_LocalInvocationIndex); i < V_TILE_W * (V_TILE_H / 2); i += WG_W * WG_H) {
+        int x = i % V_TILE_W;
+        int y = 2 * (i / V_TILE_W) + 0;
+        ivec2 p = GroupVerticalBase() + ivec2(V_MIN_X + x, V_MIN_Y + y);
+        tile[OFF_V + y * V_TILE_W + x] = packColor(ComputeVerticalPixel(p));
+    }
+    for (int i = int(gl_LocalInvocationIndex); i < V_TILE_W * (V_TILE_H / 2); i += WG_W * WG_H) {
+        int x = i % V_TILE_W;
+        int y = 2 * (i / V_TILE_W) + 1;
+        ivec2 p = GroupVerticalBase() + ivec2(V_MIN_X + x, V_MIN_Y + y);
+        tile[OFF_V + y * V_TILE_W + x] = packColor(ComputeVerticalPixel(p));
+    }
 }
 
 void LoadHorizontalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(H_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % H_TILE_W;
-		int y = int(i) / H_TILE_W;
-		ivec2 globalPos = GroupHorizontalBase() + ivec2(H_MIN_X, H_MIN_Y) + ivec2(x, y);
-		tile[OFF_H + int(i)] = packColor(ComputeHorizontalPixel(globalPos));
-	}
+    for (int i = int(gl_LocalInvocationIndex); i < ((H_TILE_W + 1) / 2) * H_TILE_H; i += WG_W * WG_H) {
+        int x = 2 * (i % ((H_TILE_W + 1) / 2)) + 0;
+        int y = i / ((H_TILE_W + 1) / 2);
+        ivec2 p = GroupHorizontalBase() + ivec2(H_MIN_X + x, H_MIN_Y + y);
+        tile[OFF_H + y * H_TILE_W + x] = packColor(ComputeHorizontalPixel(p));
+    }
+    for (int i = int(gl_LocalInvocationIndex); i < (H_TILE_W / 2) * H_TILE_H; i += WG_W * WG_H) {
+        int x = 2 * (i % (H_TILE_W / 2)) + 1;
+        int y = i / (H_TILE_W / 2);
+        ivec2 p = GroupHorizontalBase() + ivec2(H_MIN_X + x, H_MIN_Y + y);
+        tile[OFF_H + y * H_TILE_W + x] = packColor(ComputeHorizontalPixel(p));
+    }
 }
 
 void WriteFinalPixel(ivec2 dst) {
