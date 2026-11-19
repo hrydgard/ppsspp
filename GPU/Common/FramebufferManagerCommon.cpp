@@ -1387,6 +1387,38 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
 }
 
+// The part of src a self-texturing draw reads. Returns false for the whole drawn area, when the UVs aren't known.
+static bool SelfTextureReadRect(const VirtualFramebuffer *src, int flags, int *x, int *y, int *w, int *h) {
+	*x = 0;
+	*y = 0;
+	*w = src->drawnWidth;
+	*h = src->drawnHeight;
+
+	// If max is not > min, we probably could not detect it.  Skip.
+	// See the vertex decoder, where this is updated.
+	// TODO: We're currently not hitting this path in Dante. See #17032
+	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) != BINDFBCOLOR_MAY_COPY_WITH_UV || gstate_c.vertBounds.maxU <= gstate_c.vertBounds.minU) {
+		return false;
+	}
+	// One texel more on each side, which bilinear filtering at the edges reads. The rest of the copy holds
+	// whatever the temp FBO had before (magenta streaks in Need for Speed Shift's sun glow).
+	// CLUT8 counts U and the X offset in bytes, several to a pixel.
+	const int texelsPerPixel = gstate.getTextureFormat() == GE_TFMT_CLUT8 ? BufferFormatBytesPerPixel(src->fb_format) : 1;
+	const int minU = gstate_c.vertBounds.minU / texelsPerPixel;
+	const int maxU = (gstate_c.vertBounds.maxU + texelsPerPixel - 1) / texelsPerPixel;
+	*x = std::max(minU - 1, 0);
+	*y = std::max(gstate_c.vertBounds.minV - 1, 0);
+	*w = std::min(maxU + 1, (int)src->drawnWidth) - *x;
+	*h = std::min(gstate_c.vertBounds.maxV + 1, (int)src->drawnHeight) - *y;
+
+	// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
+	if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
+		*x += gstate_c.curTextureXOffset / texelsPerPixel;
+		*y += gstate_c.curTextureYOffset;
+	}
+	return true;
+}
+
 bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer) {
 	if (!framebuffer->fbo || !useBufferedRendering_) {
 		draw_->BindTexture(stage, nullptr);
@@ -1404,9 +1436,22 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		WARN_LOG_ONCE(selfTextureCopy, Log::G3D, "Attempting to texture from current render target (src=%08x / target=%08x / flags=%d), making a copy", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 		if (currentFramebufferCopy_ && (flags & BINDFBCOLOR_UNCACHED) == 0) {
-			// We have a copy already that hasn't been invalidated, let's keep using it.
-			draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::Aspect::COLOR_BIT, layer);
-			return true;
+			// The copy stays good until a TEXFLUSH. With SelfTextureCopyTracksDraws, not where it's been drawn over
+			// since: the PSP's texture cache only holds a few KB, so a draw reads what was drawn there. Silent Hill:
+			// Origins halves its light into one part of the buffer and right away scales that back up over another,
+			// without a TEXFLUSH in between. Only when the draw's UVs say where it reads: without them (Dante's
+			// Inferno's bloom, #17030) it would copy for every draw again.
+			bool reuse = true;
+			if (PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws) {
+				int x, y, w, h;
+				const bool knownRead = SelfTextureReadRect(framebuffer, flags, &x, &y, &w, &h);
+				const DrawnBounds readRect{ x, y, x + w, y + h };
+				reuse = !knownRead || !readRect.Intersects(drawnSinceSelfTextureCopy_);
+			}
+			if (reuse) {
+				draw_->BindFramebufferAsTexture(currentFramebufferCopy_, stage, Draw::Aspect::COLOR_BIT, layer);
+				return true;
+			}
 		}
 		const bool maskRead = (flags & BINDFBCOLOR_MASK_READ) != 0;
 		if (maskRead && maskCopy_ && maskCopyVfb_ == framebuffer && maskCopyMask_ == gstate.getColorMask()) {
@@ -1443,6 +1488,8 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 			// TODO: Improve on this.
 			if (!partial && (flags & BINDFBCOLOR_UNCACHED) == 0) {
 				currentFramebufferCopy_ = renderCopy;
+				// The draws being flushed go on after the copy.
+				drawnSinceSelfTextureCopy_ = gstate_c.queuedSelfTextureDraws;
 			}
 			if (!partial && maskRead) {
 				maskCopy_ = renderCopy;
@@ -1472,34 +1519,9 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 }
 
 void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags, int layer, bool *partial) {
-	int x = 0;
-	int y = 0;
-	int w = src->drawnWidth;
-	int h = src->drawnHeight;
-
+	int x, y, w, h;
 	*partial = false;
-
-	// If max is not > min, we probably could not detect it.  Skip.
-	// See the vertex decoder, where this is updated.
-	// TODO: We're currently not hitting this path in Dante. See #17032
-	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
-		// One texel more on each side, which bilinear filtering at the edges reads. The rest of the copy holds
-		// whatever the temp FBO had before (magenta streaks in Need for Speed Shift's sun glow).
-		// CLUT8 counts U and the X offset in bytes, several to a pixel.
-		const int texelsPerPixel = gstate.getTextureFormat() == GE_TFMT_CLUT8 ? BufferFormatBytesPerPixel(src->fb_format) : 1;
-		const int minU = gstate_c.vertBounds.minU / texelsPerPixel;
-		const int maxU = (gstate_c.vertBounds.maxU + texelsPerPixel - 1) / texelsPerPixel;
-		x = std::max(minU - 1, 0);
-		y = std::max(gstate_c.vertBounds.minV - 1, 0);
-		w = std::min(maxU + 1, (int)src->drawnWidth) - x;
-		h = std::min(gstate_c.vertBounds.maxV + 1, (int)src->drawnHeight) - y;
-
-		// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
-		if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
-			x += gstate_c.curTextureXOffset / texelsPerPixel;
-			y += gstate_c.curTextureYOffset;
-		}
-
+	if (SelfTextureReadRect(src, flags, &x, &y, &w, &h)) {
 		// We'll have to reapply these next time since we cropped to UV.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	}
@@ -3315,8 +3337,11 @@ void FramebufferManagerCommon::ClearAllDepthBuffers() {
 // * Save state screenshots(could probably be async but need to manage the stall.)
 bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb || vfb->fb_address != fb_address) {
-		vfb = ResolveVFB(fb_address, fb_stride, format);
+	if (!vfb || vfb->fb_address != fb_address || vfb->fb_stride != fb_stride || vfb->fb_format != format) {
+		vfb = GetExactVFB(fb_address, fb_stride, format);
+		if (!vfb) {
+			vfb = ResolveVFB(fb_address, fb_stride, format);
+		}
 	}
 
 	if (!vfb) {
@@ -3402,11 +3427,26 @@ bool FramebufferManagerCommon::ReadFramebufferForDebug(VirtualFramebuffer *vfb, 
 	return retval;
 }
 
-bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
+// The bound framebuffer, or else the newest at this address and stride. Buffers in different formats can share an
+// address (Silent Hill: Origins has a 565 one with stride 1024 and an 8888 one with stride 512 at 04170000).
+VirtualFramebuffer *FramebufferManagerCommon::FindDebugVFB(u32 fb_address, int fb_stride) const {
+	fb_address &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(fb_address))
+		fb_address &= 0x041FFFFF;
+	if (currentRenderVfb_ && currentRenderVfb_->fb_address == fb_address && currentRenderVfb_->fb_stride == fb_stride) {
+		return currentRenderVfb_;
 	}
+	VirtualFramebuffer *newest = nullptr;
+	for (VirtualFramebuffer *vfb : vfbs_) {
+		if (vfb->fb_address == fb_address && vfb->fb_stride == fb_stride && (!newest || vfb->colorBindSeq > newest->colorBindSeq)) {
+			newest = vfb;
+		}
+	}
+	return newest ? newest : GetVFBAt(fb_address);
+}
+
+bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer) {
+	VirtualFramebuffer *vfb = FindDebugVFB(fb_address, fb_stride);
 
 	if (!vfb) {
 		if (!Memory::IsValidAddress(z_address))
@@ -3445,10 +3485,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 }
 
 bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer) {
-	VirtualFramebuffer *vfb = currentRenderVfb_;
-	if (!vfb) {
-		vfb = GetVFBAt(fb_address);
-	}
+	VirtualFramebuffer *vfb = FindDebugVFB(fb_address, fb_stride);
 
 	if (!vfb) {
 		if (!Memory::IsValidAddress(fb_address))

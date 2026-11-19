@@ -63,6 +63,8 @@ public:
 	void Execute_LoadClut(u32 op, u32 diff);
 
 	void Execute_TexFlush(u32 op, u32 diff);
+	void NoteSelfTextureDraw(const VirtualFramebuffer *vfb, DrawnBounds bounds);
+	void UpdateTolerantDepthEqual();
 
 	// TODO: Have these return an error code if they jump to a bad address. If bad, stop the FastRunLoop.
 	typedef void (GPUCommonHW::*CmdFunc)(u32 op, u32 diff);

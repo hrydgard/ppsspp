@@ -167,6 +167,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "TextureCLUTInShader", &flags_.TextureCLUTInShader);
 	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
 	CheckSetting(iniFile, gameID, "BlockTransferReadbackSmall", &flags_.BlockTransferReadbackSmall);
+	CheckSetting(iniFile, gameID, "SelfTextureCopyTracksDraws", &flags_.SelfTextureCopyTracksDraws);
+	CheckSetting(iniFile, gameID, "TolerantDepthEqual", &flags_.TolerantDepthEqual);
 	CheckSetting(iniFile, gameID, "DepthCLUTIntoHalves", &flags_.DepthCLUTIntoHalves);
 	CheckSetting(iniFile, gameID, "AccurateSplines", &flags_.AccurateSplines);
 	CheckSetting(iniFile, gameID, "ReadbackShadow", &flags_.ReadbackShadow);

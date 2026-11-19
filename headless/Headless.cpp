@@ -99,6 +99,7 @@ static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
 static Path g_screenshotDir;
 static Path g_depthSavePath;
+static Path g_stencilSavePath;
 static bool g_screenshotRenderTarget = false;
 static Path g_screenshotDiffPath;
 static bool g_screenshotSaveKeepAlpha = false;
@@ -437,6 +438,30 @@ static void SaveDepthBuffer(const GPUDebugBuffer &depth, const Path &path) {
 	fclose(f);
 }
 
+// Writes u32 width, u32 height, then a u8 per PSP pixel.
+static void SaveStencilBuffer(const GPUDebugBuffer &stencil, const Path &path) {
+	const int scale = std::max(1, stencil.GetScaleFactor());
+	const u32 w = stencil.GetStride() / scale;
+	const u32 h = stencil.GetHeight() / scale;
+
+	std::vector<u8> values(w * h);
+	for (u32 y = 0; y < h; y++) {
+		const u32 srcY = stencil.GetFlipped() ? stencil.GetHeight() - 1 - y * scale : y * scale;
+		for (u32 x = 0; x < w; x++) {
+			values[y * w + x] = stencil.GetData()[srcY * stencil.GetStride() + x * scale];
+		}
+	}
+
+	FILE *f = File::OpenCFile(path, "wb");
+	if (!f) {
+		return;
+	}
+	const u32 header[2] = { w, h };
+	fwrite(header, sizeof(header), 1, f);
+	fwrite(values.data(), 1, values.size(), f);
+	fclose(f);
+}
+
 // At the render scale. pixels is the 1x readback, used when there's no scaling.
 static bool SaveDisplayScreenshot(const Path &path, const std::vector<u32> &pixels) {
 	const static u32 FRAME_STRIDE = 512;
@@ -487,6 +512,15 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	if (!g_screenshotSavePath.empty()) {
 		bool saved = SaveDisplayScreenshot(g_screenshotSavePath, pixels);
 		g_screenshotSaved = g_screenshotSaved || saved;
+	}
+
+	if (!g_stencilSavePath.empty()) {
+		GPUDebugBuffer stencil;
+		if (gpu->GetCurrentStencilbuffer(stencil) && stencil.GetFormat() == GPU_DBG_FORMAT_8BIT) {
+			SaveStencilBuffer(stencil, g_stencilSavePath);
+		} else {
+			SendAndCollectOutput("Stencil buffer not saved: couldn't read it back\n");
+		}
 	}
 
 	if (!g_depthSavePath.empty()) {
@@ -603,6 +637,7 @@ struct AutoTestOptions {
 	};
 	std::vector<Press> presses;
 	std::vector<std::pair<double, Path>> screenshotsAt;
+	std::vector<std::pair<double, Path>> dumpsAt;
 };
 
 // Ends a frame of the draw context the way the app does, presenting it. Unpresented frames never
@@ -718,6 +753,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double statsStart = -1.0;
 	int statsLastFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
+	std::vector<std::pair<double, Path>> dumpsAt = opt.dumpsAt;
 	// Hold the game until a --state has been applied. Otherwise it keeps booting while the state is
 	// read, which on a slow host can reach a different point (even a crash) before the state lands.
 	while (g_stateLoadPending && time_now_d() < wallDeadline) {
@@ -823,6 +859,20 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			if (!shot.second.empty() && emulatedElapsed >= shot.first) {
 				SaveScreenshotNow(shot.second);
 				shot.second.clear();
+			}
+		}
+		// The recorder takes one dump at a time, so a later one waits until the previous is written.
+		for (auto &dump : dumpsAt) {
+			if (!dump.second.empty() && emulatedElapsed >= dump.first && gpu) {
+				const Path dest = dump.second;
+				if (gpu->GetRecorder()->RecordNextFrame([dest](const Path &dumpPath) {
+					if (!File::Copy(dumpPath, dest)) {
+						fprintf(stderr, "Failed to copy the frame dump to %s\n", dest.c_str());
+					}
+				})) {
+					dump.second.clear();
+				}
+				break;
 			}
 		}
 
@@ -1194,6 +1244,16 @@ int main(int argc, const char* argv[]) {
 			const size_t colon = item.find(':');
 			if (colon != std::string::npos) {
 				testOptions.screenshotsAt.emplace_back(atof(item.substr(0, colon).c_str()), Path(item.substr(colon + 1)));
+			}
+		}
+	}
+	if (cmdLineOptions.recordDumpAt.has_value()) {
+		std::vector<std::string> items;
+		SplitString(cmdLineOptions.recordDumpAt.value(), ',', items);
+		for (const std::string &item : items) {
+			const size_t colon = item.find(':');
+			if (colon != std::string::npos) {
+				testOptions.dumpsAt.emplace_back(atof(item.substr(0, colon).c_str()), Path(item.substr(colon + 1)));
 			}
 		}
 	}
@@ -1711,6 +1771,9 @@ int main(int argc, const char* argv[]) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
 	}
 	g_screenshotRenderTarget = cmdLineOptions.screenshotRenderTarget.value_or(false);
+	if (cmdLineOptions.stencilFilenameSave.has_value()) {
+		g_stencilSavePath = Path(std::string(cmdLineOptions.stencilFilenameSave.value()));
+	}
 	if (cmdLineOptions.depthFilenameSave.has_value()) {
 		g_depthSavePath = Path(std::string(cmdLineOptions.depthFilenameSave.value()));
 	}

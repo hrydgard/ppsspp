@@ -238,7 +238,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		} else {
 			// Depth Test
 			bool depthTestUsed = !IsDepthTestEffectivelyDisabled();
-			renderManager->SetDepth(depthTestUsed, gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
+			renderManager->SetDepth(depthTestUsed, gstate.isDepthWriteEnabled(), compareOps[DepthTestFunctionForDraw()]);
 			if (depthTestUsed)
 				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 

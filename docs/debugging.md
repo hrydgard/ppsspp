@@ -239,7 +239,8 @@ in a directory), and reports the failed disc reads with the timings.
 
 To get past menus, `--press=SECONDS:MASK[:DURATION],...` holds buttons at emulated times (`MASK` is a sceCtrl
 mask, `0x8` START and `0x4000` CROSS, held 0.15 seconds by default), and `--screenshot-at=SECONDS:FILE,...` saves
-screenshots along the way.
+screenshots along the way. `--record-dump-at=SECONDS:FILE,...` records a GE frame dump of the frame after each
+time, so a glitch found in a screenshot series can be dumped from the same run (the times are deterministic).
 
 For audio, `--dump-audio=FILE.wav` records the mixed output (before the game volume setting) for the whole run.
 An audio glitch you can hear usually shows in the waveform: a click is a jump between neighbouring samples, and

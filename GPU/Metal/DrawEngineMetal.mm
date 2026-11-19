@@ -509,7 +509,7 @@ void DrawEngineMetal::ConvertStateToKeys(int prim) {
 		} else {
 			if (!IsDepthTestEffectivelyDisabled()) {
 				key.depthTestEnable = true;
-				key.depthCompare = gstate.getDepthTestFunction();
+				key.depthCompare = DepthTestFunctionForDraw();
 				key.depthWriteEnable = gstate.isDepthWriteEnabled();
 				UpdateEverUsedEqualDepth(gstate.getDepthTestFunction());
 			}

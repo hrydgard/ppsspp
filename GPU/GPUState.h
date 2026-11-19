@@ -649,6 +649,12 @@ public:
 	bool viewportZPlanesOnClipPlanes;
 
 	KnownVertexBounds vertBounds;
+	// Where the self-texturing draws since the last flush write, in the render target's pixels, x2/y2 exclusive.
+	// Empty when x1 >= x2.
+	DrawnBounds queuedSelfTextureDraws;
+	// TolerantDepthEqual: the current draw's EQUAL depth test is done as GEQUAL, with its Z raised by
+	// tolerantDepthEqualOffset (in the viewport Z offset uniform). See DepthTestFunctionForDraw.
+	bool tolerantDepthEqual;
 
 	GEBufferFormat framebufFormat;
 	// Some games use a very specific masking setup to draw into the alpha channel of a 4444 target using the blue channel of a 565 target.
