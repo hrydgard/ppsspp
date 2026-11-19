@@ -33,8 +33,8 @@ void __UsbGpsShutdown();
 enum GpsState {
 	GPS_STATE_NOT_AVAILABLE = 0,
 	GPS_STATE_NOT_ACCESSORY = 1,
-	GPS_STATE_BUSY = 2,
-	GPS_STATE_WORKING = 3,
+	GPS_STATE_BUSY          = 2,
+	GPS_STATE_WORKING       = 3,
 };
 
 enum GpsPositionQuality {
@@ -45,8 +45,8 @@ enum GpsPositionQuality {
 
 enum GpsPositionMode {
 	GPS_POSITION_MODE_NOT_AVAILABLE = 0,
-	GPS_POSITION_MODE_2D = 1,
-	GPS_POSITION_MODE_3D = 2,
+	GPS_POSITION_MODE_2D            = 1,
+	GPS_POSITION_MODE_3D            = 2,
 };
 
 typedef struct {
