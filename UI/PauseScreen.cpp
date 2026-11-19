@@ -876,19 +876,9 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 	PopupCallbackScreen *contextMenu = new UI::PopupCallbackScreen([this, portrait](UI::ViewGroup *parent) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		parent->Add(new Choice(di->T("Reset"), ImageID("I_WARNING")))->OnClick.Add([this](UI::EventParams &e) {
-			std::string confirmMessage = GetConfirmExitMessage();
-			if (!confirmMessage.empty()) {
-				auto di = GetI18NCategory(I18NCat::DIALOG);
-				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
-					if (result) {
-						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-						FinishNextFrame(DR_BACK);  // resume
-					}
-				}));
-			} else {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			ConfirmAndResetGame(screenManager(), [this]() {
 				FinishNextFrame(DR_BACK);  // resume
-			}
+			});
 		});
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 		parent->Add(new Choice(dev->T("DevMenu"), ImageID("I_DEBUGGER")))->OnClick.Add([this](UI::EventParams &e) {
@@ -1000,6 +990,26 @@ std::string GetConfirmExitMessage() {
 	}
 
 	return confirmMessage;
+}
+
+void ConfirmAndResetGame(ScreenManager *screenManager, std::function<void()> onReset) {
+	const std::string confirmMessage = GetConfirmExitMessage();
+	if (confirmMessage.empty()) {
+		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+		if (onReset) {
+			onReset();
+		}
+		return;
+	}
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	screenManager->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [onReset](bool result) {
+		if (result) {
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			if (onReset) {
+				onReset();
+			}
+		}
+	}));
 }
 
 void GamePauseScreen::OnExit(UI::EventParams &e) {

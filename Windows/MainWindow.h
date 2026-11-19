@@ -82,7 +82,8 @@ namespace MainWindow
 	void SetKeepScreenBright(bool keepBright);
 	void CreateGameWindow();
 
-	bool ConfirmAction(HWND hWnd, bool actionIsReset);
+	// Asks, in a message box, before closing the window loses something (see GetConfirmExitMessage).
+	bool ConfirmExit(HWND hWnd);
 }
 
 #endif

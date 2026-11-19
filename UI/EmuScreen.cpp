@@ -585,6 +585,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			// No callback (or already in flight, or core not running) - the destructor will take care of shutting down.
 			leaveGame();
 		}
+	} else if (message == UIMessage::REQUEST_GAME_RESET && value && !strcmp(value, "confirm")) {
+		// From a menu or shortcut (like Ctrl+B on Windows): ask the way the pause screen does.
+		if (!bootPending_) {
+			ConfirmAndResetGame(screenManager());
+		}
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
 			WARN_LOG(Log::Loader, "Can't reset during a pending boot");
