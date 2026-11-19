@@ -63,8 +63,8 @@ private:
 	int inputSampleRateHz_ = 44100;
 
 	int16_t *buffer_ = nullptr;
-	std::atomic<u32> indexW_;
-	std::atomic<u32> indexR_;
+	std::atomic<u32> indexW_{};
+	std::atomic<u32> indexR_{};
 	float numLeftI_ = 0.0f;
 
 	u32 frac_ = 0;

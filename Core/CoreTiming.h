@@ -56,16 +56,20 @@ inline s64 usToCycles(float us) {
 	return (s64)(CPU_HZ * us * (0.000001f));
 }
 
-inline s64 usToCycles(int us) {
-	return (CPU_HZ / 1000000 * (s64)us);
+// The whole MHz and the rest separately, so nothing overflows: CPU_HZ / 1000000 on its own drops
+// the fraction, and at a clock like 190 MHz (189.913 MHz) every interval came out 0.48% short of
+// what cyclesToUs and the emulated clock say it is. The audio mixer ran that much fast, piling up
+// samples the output then had to drop.
+inline s64 usToCycles(s64 us) {
+	return (s64)(CPU_HZ / 1000000) * us + (s64)(CPU_HZ % 1000000) * us / 1000000;
 }
 
-inline s64 usToCycles(s64 us) {
-	return (CPU_HZ / 1000000 * us);
+inline s64 usToCycles(int us) {
+	return usToCycles((s64)us);
 }
 
 inline s64 usToCycles(u64 us) {
-	return (s64)(CPU_HZ / 1000000 * us);
+	return usToCycles((s64)us);
 }
 
 inline s64 cyclesToUs(s64 cycles) {

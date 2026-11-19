@@ -9,6 +9,7 @@ import random
 import threading
 import glob
 import platform
+import re
 import socket
 
 
@@ -64,10 +65,17 @@ class Command(object):
 
   def run(self, timeout):
     def target():
-      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=sys.stdout, stderr=subprocess.STDOUT)
-      self.process.stdin.write(self.data.encode('utf-8'))
+      self.process = subprocess.Popen(self.cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+      if self.data is not None:
+        self.process.stdin.write(self.data.encode('utf-8'))
       self.process.stdin.close()
-      self.process.communicate()
+      # Passed on as it comes, and kept, so the failures can be listed again at the end.
+      self.output = []
+      for line in iter(self.process.stdout.readline, b''):
+        sys.stdout.buffer.write(line)
+        sys.stdout.flush()
+        self.output.append(line.decode('utf-8', errors='replace').rstrip('\r\n'))
+      self.process.wait()
 
     thread = threading.Thread(target=target)
     thread.start()
@@ -898,7 +906,37 @@ def cpu_backend(args):
       backend = arg[len('--cpu='):]
   return backend
 
-def run_tests(test_list, args):
+# Every failure of the whole run, from every headless and adhoc_multi.py run in it, listed again at the
+# end so a long log needn't be searched (or the run repeated) to find out what failed.
+all_failures = []
+
+def collect_failures(command, label, pair=False):
+  suffix = " [%s]" % label if label else ""
+  if pair:
+    # adhoc_multi.py: "FAIL net/adhoc/pair/basic_client [relay]". It also passes on each instance's
+    # own headless output, whose "Failed tests:" would count every failure twice.
+    for line in command.output or []:
+      m = re.match(r"^FAIL (\S+ \[\w+\])", line)
+      if m:
+        all_failures.append(m.group(1))
+    return
+  if command.timeout:
+    # Killed before it could report, so name what it was running.
+    tests = (command.data or " ".join(command.cmd)).splitlines()
+    shown = ", ".join(os.path.splitext(os.path.relpath(t, TEST_ROOT))[0] if os.path.isabs(t) or t.startswith(TEST_ROOT) else t for t in tests[:5])
+    all_failures.append("timed out: %s%s%s" % (shown, " and %d more" % (len(tests) - 5) if len(tests) > 5 else "", suffix))
+  in_list = False
+  for line in command.output or []:
+    if line.startswith("Failed tests:"):
+      in_list = True
+      continue
+    if in_list:
+      if line.startswith("  ") and line.strip():
+        all_failures.append(line.strip() + suffix)
+        continue
+      in_list = False
+
+def run_tests(test_list, args, label=None):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
   timeout = CPU_TIMEOUTS.get(cpu_backend(args), TIMEOUT)
@@ -930,6 +968,9 @@ def run_tests(test_list, args):
 
     c = Command(cmdline, '\n'.join(test_filenames))
     returncode = c.run(timeout * len(test_filenames))
+    collect_failures(c, label)
+    if c.timeout:
+      returncode = returncode or 1
 
     print("Ran " + ' '.join(cmdline))
 
@@ -983,7 +1024,9 @@ def run_pair_tests(test_list, args, modes):
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b', '--teamcity']])
     cmdline.append("--speed=" + ADHOC_SPEEDS[mode])
     cmdline.extend(tests)
-    returncode = subprocess.call(cmdline) or returncode
+    c = Command(cmdline)
+    returncode = c.run(None) or returncode
+    collect_failures(c, None, pair=True)
     print("Ran " + ' '.join(cmdline))
   return returncode
 
@@ -1069,14 +1112,24 @@ def main():
         continue
       print("%s mode:" % mode, flush=True)
       mode_flags = ["--speed=" + ADHOC_SINGLE_SPEED] + (["--appendconfig=" + relay_ini_path()] if mode == "relay" else [])
-      returncode = run_tests([test], args + flags_for(test) + mode_flags) or returncode
+      returncode = run_tests([test], args + flags_for(test) + mode_flags, mode) or returncode
   if pair:
     returncode = run_pair_tests(pair, args, adhoc_modes) or returncode
   if pair_tests_without_loopback:
     missing = missing_loopback_addresses(max(pair_instances(t) for t in pair_tests_without_loopback))
     print("FAILED: %d P2P tests didn't run, for want of %s: %s" % (len(pair_tests_without_loopback), ", ".join(missing), ", ".join(pair_tests_without_loopback)))
     print("Add the addresses with: " + "; ".join("sudo ifconfig lo0 alias %s up" % a for a in missing))
+    all_failures.extend("%s [p2p, not run]" % t for t in pair_tests_without_loopback)
     returncode = 1
+  print()
+  if all_failures:
+    print("FAILED: %d test(s) in this run:" % len(all_failures))
+    for failure in all_failures:
+      print("  " + failure)
+  elif returncode:
+    print("FAILED, but no test reported failing (a run exited with %d)." % returncode)
+  else:
+    print("All tests passed.")
   if teamcity:
     return 0
   return returncode

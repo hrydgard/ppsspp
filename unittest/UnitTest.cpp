@@ -97,6 +97,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigSettings.h"
+#include "Core/HW/StereoResampler.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/Math/fast/fast_matrix.h"
@@ -4966,6 +4967,63 @@ static bool TestRequestManager() {
 	return true;
 }
 
+// When the resampler drops a lasting excess of buffered audio, the waveform has to carry on
+// smoothly across the skip: jumping straight ahead was a click.
+static bool TestStereoResamplerExcessDrop() {
+	// Fast-forward caps the buffer at the target, and extra buffering raises the target. Other
+	// tests (the JIT harness) leave fast-forward on.
+	struct Restore {
+		bool fastForward = PSP_CoreParameter().fastForward;
+		bool extraBuffering = g_Config.bExtraAudioBuffering;
+		~Restore() {
+			PSP_CoreParameter().fastForward = fastForward;
+			g_Config.bExtraAudioBuffering = extraBuffering;
+		}
+	} restore;
+	PSP_CoreParameter().fastForward = false;
+	g_Config.bExtraAudioBuffering = false;
+
+	StereoResampler resampler;
+	const int rate = 44100;
+	const double step = 2.0 * 3.14159265358979 * 440.0 / rate;
+	int64_t phase = 0;
+	auto push = [&](int frames) {
+		std::vector<s32> block(frames * 2);
+		for (int i = 0; i < frames; i++) {
+			const s32 v = (s32)(10000.0 * sin(step * (double)phase++));
+			block[i * 2] = v;
+			block[i * 2 + 1] = v;
+		}
+		resampler.PushSamples(block.data(), frames, 1.0f);
+	};
+
+	// Well over the 40 ms target, and kept there for longer than the quarter second the resampler
+	// watches the level over, so it drops the excess.
+	push(3500);
+	std::vector<s16> out;
+	const int pull = 441;
+	for (int i = 0; i < 40; i++) {
+		std::vector<s16> chunk(pull * 2);
+		EXPECT_EQ_INT(resampler.Mix(chunk.data(), pull, false, rate), pull);
+		out.insert(out.end(), chunk.begin(), chunk.end());
+		push(pull);
+	}
+	EXPECT_TRUE(resampler.DroppedExcess() > 0);
+
+	// A 440 Hz sine at this level changes its slope by about 40 per sample. A skip is a step of
+	// up to twice the amplitude.
+	int worst = 0;
+	for (size_t i = 4; i + 2 < out.size(); i += 2) {
+		const int d2 = abs(out[i + 2] - 2 * out[i] + out[i - 2]);
+		worst = std::max(worst, d2);
+	}
+	if (worst > 200) {
+		printf("Worst second difference %d, a discontinuity\n", worst);
+		return false;
+	}
+	return true;
+}
+
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
@@ -5085,6 +5143,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(InetPton),
 	TEST_ITEM(SaveStateMounts),
 	TEST_ITEM(SaveStatePeek),
+	TEST_ITEM(StereoResamplerExcessDrop),
 };
 
 int main(int argc, const char *argv[]) {

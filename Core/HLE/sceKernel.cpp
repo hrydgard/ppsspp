@@ -308,6 +308,7 @@ void __KernelDoState(PointerWrap &p)
 		__MpegBaseDoState(p);
 		__VideocodecDoState(p);
 		__KUBridgeDoState(p);
+		// Wrongly added mid-list, but savestates now depend on it being here. Don't move.
 		__SystemCtrlDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
