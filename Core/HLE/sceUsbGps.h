@@ -17,7 +17,10 @@
 
 #pragma once
 
+#include <ctime>
+
 #include "Core/HLE/FunctionWrappers.h"
+#include "Common/Swap.h"
 
 void Register_sceUsbGps();
 
@@ -27,22 +30,47 @@ void __UsbGpsShutdown();
 
 #pragma pack(push, 1)
 
+enum GpsState {
+	GPS_STATE_NOT_AVAILABLE = 0,
+	GPS_STATE_NOT_ACCESSORY = 1,
+	GPS_STATE_BUSY = 2,
+	GPS_STATE_WORKING = 3,
+};
+
+enum GpsPositionQuality {
+	GPS_POSITION_QUALITY_NOT_AVAILABLE = 0,
+	GPS_POSITION_QUALITY_GPS           = 1,
+	GPS_POSITION_QUALITY_DGPS          = 2,
+};
+
+enum GpsPositionMode {
+	GPS_POSITION_MODE_NOT_AVAILABLE = 0,
+	GPS_POSITION_MODE_2D = 1,
+	GPS_POSITION_MODE_3D = 2,
+};
+
 typedef struct {
-	short year;
-	short month;
-	short date;
-	short hour;
-	short minute;
-	short second;
-	float garbage1;
-	float hdop;
-	u32 garbage2;    // 0 > 257 > 513
-	float latitude;
-	float longitude;
-	float altitude;  // m
-	float garbage3;
-	float speed;     // km/h
-	float bearing;
+	s16_le year;
+	s16_le month;
+	s16_le day;
+	s16_le hour;
+	s16_le minute;
+	s16_le second;
+	u32_le microsecond;
+} UsbGpsDateTime;
+
+typedef struct {
+	UsbGpsDateTime datetime;
+	float          hdop;
+	u8             quality;
+	u8             mode;
+	u16_le         reserve0;  //quality+mode  NA->0 2D->257(0x0000 0101) 3D->513(0x0000 0201)
+	float          latitude;
+	float          longitude;
+	float          altitude;  // m
+	u32_le         reserve1;  // geoid separation (m)?
+	float          speed;     // km/h
+	float          course;    // deg (0-360), called "bearing" on Android
 } GpsData;
 
 typedef struct {
@@ -55,9 +83,9 @@ typedef struct {
 } SatInfo;
 
 typedef struct {
-	short satellites_in_view;
-	short garbage;
-	SatInfo satInfo[24];
+	short   satellites_in_view;
+	short   garbage;
+	SatInfo satInfo[32];
 } SatData;
 
 #pragma pack(pop)
@@ -65,7 +93,7 @@ typedef struct {
 namespace GPS {
 	void init();
 	void setGpsTime(time_t *time);
-	void setGpsData(long long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
+	void setGpsData(long long time, float hdop, float latitude, float longitude, float altitude, float speed, float course);
 	void setSatInfo(short index, unsigned char id, unsigned char elevation, short azimuth, unsigned char snr, unsigned char good);
 	GpsData *getGpsData();
 	SatData *getSatData();
