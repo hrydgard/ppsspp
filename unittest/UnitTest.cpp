@@ -4852,6 +4852,52 @@ bool TestUIFlowLayout() {
 	return true;
 }
 
+bool TestUITextEdit() {
+	using namespace UI;
+
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	const KeyInputFlags wordMod = KeyInputFlags::ModAlt;
+#else
+	const KeyInputFlags wordMod = KeyInputFlags::ModCtrl;
+#endif
+
+	TextEdit edit("", "", "");
+	SetFocusedView(&edit, FocusFlags::GOT_FOCUS, true);
+	auto backspace = [&](KeyInputFlags mods) {
+		edit.Key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DEL, KeyInputFlags::DOWN | mods));
+	};
+	auto type = [&](int c) {
+		edit.Key(KeyInput(DEVICE_ID_KEYBOARD, c));
+	};
+
+	// Backspacing over a multi-byte character must leave the caret at a character boundary.
+	edit.SetText("a\xC3\xA5\xE6\x97\xA5");  // "aå日"
+	backspace((KeyInputFlags)0);
+	EXPECT_EQ_STR(edit.GetText(), std::string("a\xC3\xA5"));
+	backspace((KeyInputFlags)0);
+	EXPECT_EQ_STR(edit.GetText(), std::string("a"));
+	type('x');
+	EXPECT_EQ_STR(edit.GetText(), std::string("ax"));
+
+	// Same in the middle of the text, where the caret can't be clamped back into place.
+	edit.SetText("\xC3\xA5\xE6\x97\xA5x");  // "å日x"
+	edit.Key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KeyInputFlags::DOWN));
+	backspace((KeyInputFlags)0);
+	type('y');
+	EXPECT_EQ_STR(edit.GetText(), std::string("\xC3\xA5yx"));
+
+	edit.SetText("foo b\xC3\xA5r  ");
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string("foo "));
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string(""));
+	backspace(wordMod);
+	EXPECT_EQ_STR(edit.GetText(), std::string(""));
+
+	SetFocusedView(nullptr, FocusFlags::LOST_FOCUS, true);
+	return true;
+}
+
 bool TestTextureReplacer();
 
 static bool TestQueueBuf() {
@@ -5028,6 +5074,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(UIFlowLayout),
+	TEST_ITEM(UITextEdit),
 	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),

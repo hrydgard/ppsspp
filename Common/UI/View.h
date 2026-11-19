@@ -1213,6 +1213,7 @@ public:
 	bool Touch(const TouchInput &touch) override;
 
 	bool Backspace();
+	bool BackspaceWord();
 	void MoveLeft();
 	void MoveRight();
 	void InsertAtCaret(const char *text);
