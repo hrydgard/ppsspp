@@ -2630,7 +2630,6 @@ int PollAdhocSocket(SceNetAdhocPollSd* sds, int count, int timeout, int nonblock
 }
 
 int sceNetAdhocPollSocket(MIPSState *mips, u32 socketStructAddr, int count, int timeout, int nonblock) { // timeout in microseconds
-	DEBUG_LOG_REPORT_ONCE(sceNetAdhocPollSocket, Log::sceNet, "UNTESTED sceNetAdhocPollSocket(%08x, %i, %i, %i) at %08x", socketStructAddr, count, timeout, nonblock, mips->pc);
 	// pspautotests net/adhoc/poll
 	if ((nonblock & ~ADHOC_F_NONBLOCK) != 0) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_ERROR_INVALID_ARG, "invalid flag");
