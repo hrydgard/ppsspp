@@ -109,13 +109,6 @@ std::vector<Sound> LoadXMBSounds(const Path &nandRoot) {
 	return LoadSoundsFromRCO(ResourcePath(nandRoot, "system_plugin.rco"));
 }
 
-std::vector<Sound> LoadCameraSounds(const Path &nandRoot) {
-	if (nandRoot.empty()) {
-		return {};
-	}
-	return LoadSoundsFromRCO(ResourcePath(nandRoot, "camera_plugin.rco"));
-}
-
 const Sound *Find(const std::vector<Sound> &sounds, std::string_view prefix) {
 	for (const Sound &sound : sounds) {
 		if (startsWith(sound.name, prefix)) {

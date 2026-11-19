@@ -96,7 +96,7 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 	}
 
 	double now = time_now_d();
-	std::unique_lock<std::mutex> guard(mutex_);
+	std::lock_guard<std::mutex> guard(mutex_);
 	if (id) {
 		for (auto iter = entries_.begin(); iter != entries_.end(); ++iter) {
 			if (iter->id == id) {
@@ -109,8 +109,6 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 				// Move to top (should we? maybe not?)
 				entries_.erase(iter);
 				entries_.insert(entries_.begin(), msg);
-				// No callback: an update of a message already up (a "disk full" repeated on every
-				// write, say) doesn't get its sound again.
 				return;
 			}
 		}
@@ -127,11 +125,6 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 		msg.id = id;
 	}
 	entries_.insert(entries_.begin(), msg);
-	guard.unlock();
-
-	if (showCallback_) {
-		showCallback_(type, id);
-	}
 }
 
 void OnScreenDisplay::CancelById(std::string_view id) {

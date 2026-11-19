@@ -40,10 +40,8 @@
 //   SE13_System_NG.aif    an error chime, 0.8 s
 // The names are cut to the header's 16 bytes, so match them by prefix.
 //
-// The camera's sounds are in flash0:/vsh/resource/camera_plugin.rco, the same way but stereo: each
-// is two VAGs with the same name, left then right. Camera01.aif is the shutter (two short bursts of
-// noise, 0.16 s), the one the camera accessory's radioshack_plugin.rco also has; Camera02/03 are
-// longer shutters, Digi01/02 beeps.
+// Other RCOs keep their sounds the same way, some stereo: two VAGs with the same name, left then
+// right (camera_plugin.rco's shutters, for one).
 namespace FirmwareSounds {
 
 struct Sound {
@@ -58,8 +56,6 @@ bool Available(const Path &nandRoot);
 
 // All the sounds in system_plugin.rco under nandRoot. Empty if there's no firmware dump.
 std::vector<Sound> LoadXMBSounds(const Path &nandRoot);
-// The same for camera_plugin.rco.
-std::vector<Sound> LoadCameraSounds(const Path &nandRoot);
 
 // The first sound whose name starts with prefix, or nullptr.
 const Sound *Find(const std::vector<Sound> &sounds, std::string_view prefix);

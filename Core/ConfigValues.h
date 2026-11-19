@@ -47,8 +47,7 @@ constexpr int PSP_DEFAULT_FIRMWARE = 660;
 enum class UISoundStyle {
 	BUILTIN = 0,  // PPSSPP's own.
 	FIRMWARE_TICK = 1,  // Only the navigation sounds are the XMB's.
-	FIRMWARE_ALL = 2,   // Also the XMB's chimes for notifications, the camera's shutter for screenshots, and
-	                    // the system dialogs' sounds in games, as on a PSP.
+	FIRMWARE_ALL = 2,   // Also in the system dialogs in games, as on a PSP.
 };
 
 // How the HOME button's quit screen looks. The firmware look needs an installed firmware dump.
