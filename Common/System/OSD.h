@@ -62,8 +62,8 @@ public:
 	void Show(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s = 0.0f, const char *id = nullptr);
 
 	void ShowOnOff(std::string_view message, bool on, float duration_s = 0.0f);
-	// Called for every message shown, with its type and id (can be null), before it's added. For a
-	// sound to go with it.
+	// Called for each new message, with its type and id (can be null), but not when one with the
+	// same id is updated. For a sound to go with it.
 	void SetShowCallback(void (*callback)(OSDType type, const char *id)) { showCallback_ = callback; }
 	void CancelById(std::string_view id);  // Deletes the message immediately with no animation.
 

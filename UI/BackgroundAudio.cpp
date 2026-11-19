@@ -698,6 +698,11 @@ void SoundEffectMixer::Stop(UI::UISound sfx) {
 	plays_.erase(std::remove_if(plays_.begin(), plays_.end(), matches), plays_.end());
 }
 
+void SoundEffectMixer::UnloadSample(UI::UISound sound) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	samples_[(size_t)sound].reset();
+}
+
 void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
 	if (sample) {
 		std::lock_guard<std::mutex> guard(mutex_);
@@ -743,11 +748,27 @@ public:
 		return TaskPriority::NORMAL;
 	}
 	void Run() override {
-		mixer_->LoadSamplesOnThread();
+		mixer_->RunSampleLoads();
 	}
 private:
 	SoundEffectMixer *mixer_;
 };
+
+// One load at a time, so two can't interleave and leave a mix of both settings. A reload asked for
+// while one runs makes it load once more when it's done.
+void SoundEffectMixer::RunSampleLoads() {
+	while (true) {
+		{
+			std::lock_guard<std::mutex> guard(loadMutex_);
+			if (!loadRequested_) {
+				loadRunning_ = false;
+				return;
+			}
+			loadRequested_ = false;
+		}
+		LoadSamplesOnThread();
+	}
+}
 
 void SoundEffectMixer::Init() {
 	samples_.resize((size_t)UI::UISound::COUNT);
@@ -793,10 +814,16 @@ void SoundEffectMixer::Init() {
 	});
 
 	// Load samples in the background.
-	g_threadManager.EnqueueTask(new SampleLoadTask(this));
+	ReloadSamples();
 }
 
 void SoundEffectMixer::ReloadSamples() {
+	std::lock_guard<std::mutex> guard(loadMutex_);
+	loadRequested_ = true;
+	if (loadRunning_) {
+		return;
+	}
+	loadRunning_ = true;
 	g_threadManager.EnqueueTask(new SampleLoadTask(this));
 }
 

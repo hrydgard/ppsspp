@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -147,7 +147,9 @@ void GameBootAnimation::Update() {
 
 void GameBootAnimation::Stop() {
 	if (playing_) {
+		// A few seconds of 44.1 kHz stereo, not worth keeping until the next boot.
 		g_BackgroundAudio.SFX().Stop(UI::UISound::GAME_BOOT);
+		g_BackgroundAudio.SFX().UnloadSample(UI::UISound::GAME_BOOT);
 	}
 	playing_ = false;
 	video_.reset();
