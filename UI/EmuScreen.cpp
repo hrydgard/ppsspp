@@ -932,13 +932,7 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 		}
 		break;
 
-	case VIRTKEY_TOGGLE_FULLSCREEN:
-		if (down) {
-			// TODO: Limit to platforms that can support fullscreen.
-			g_Config.bFullScreen = !g_Config.bFullScreen;
-			System_ApplyFullscreenState();
-		}
-		break;
+	// VIRTKEY_TOGGLE_FULLSCREEN is handled by GlobalListener in NativeApp.cpp, so it also works in the menus.
 
 	case VIRTKEY_TOGGLE_TOUCH_CONTROLS:
 		if (down) {

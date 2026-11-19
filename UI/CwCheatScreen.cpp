@@ -330,6 +330,11 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 				rightColumn->Add(new SettingHint(text, nullptr));
 			}
 			prevIsTitle = false;
+		} else if (!fileInfo_[i].hasCode) {
+			// A note, like "...Empty..." under a heading. Toggling it would do nothing.
+			rightColumn->Add(new SettingHint(fileInfo_[i].name, nullptr));
+			prev = nullptr;
+			prevIsTitle = false;
 		} else {
 			// Regular cheat code.
 			if (!prevIsTitle) {

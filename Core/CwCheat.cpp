@@ -94,16 +94,16 @@ bool CheatFileParser::Parse() {
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
 		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_, pendingFormat_});
-		FlushCheatInfo();
 		pendingLines_.clear();
 	}
+	FlushCheatInfo();
 }
 
 void CheatFileParser::FlushCheatInfo() {
-	if (lastCheatInfo_.lineNum != 0) {
+	if (lastCheatInfo_.lineNum != 0 && gameEnabled_) {
 		cheatInfo_.push_back(lastCheatInfo_);
-		lastCheatInfo_ = { 0 };
 	}
+	lastCheatInfo_ = { 0 };
 }
 
 void CheatFileParser::AddError(const std::string &err, int lineNumber) {
@@ -174,6 +174,7 @@ void CheatFileParser::ParseLine(const std::string &line, int lineNumber) {
 
 	case 'N':
 		// TempAR's own extensions to the PSPAR code types.
+		lastCheatInfo_.hasCode = true;
 		AddError("TempAR extended (_N) codes not supported", lineNumber);
 		return;
 
@@ -188,8 +189,15 @@ void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber, Che
 		return;
 	}
 
+	CheatLine cheatLine;
+	int len = 0;
+	const bool scanned = sscanf(line.c_str(), "%x %x %n", &cheatLine.part1, &cheatLine.part2, &len) == 2;
+	if (!scanned || cheatLine.part1 != 0 || cheatLine.part2 != 0) {
+		lastCheatInfo_.hasCode = true;
+	}
+
 	if (!cheatEnabled_) {
-		FlushCheatInfo();
+		// Errors in a disabled cheat are reported once it's enabled.
 		return;
 	}
 
@@ -200,9 +208,7 @@ void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber, Che
 		return;
 	}
 
-	CheatLine cheatLine;
-	int len = 0;
-	if (sscanf(line.c_str(), "%x %x %n", &cheatLine.part1, &cheatLine.part2, &len) == 2) {
+	if (scanned) {
 		// A trailing comment is fine (TempAR's databases use them).
 		if ((size_t)len < line.length() && line[len] != '#' && line.compare(len, 2, "//") != 0) {
 			AddError("junk after line data", lineNumber);

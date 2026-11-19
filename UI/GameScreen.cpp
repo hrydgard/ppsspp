@@ -118,7 +118,10 @@ private:
 };
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu | TwoPaneFlags::DropShadowTitle), inGame_(inGame) {
-	g_BackgroundAudio.SetGame(gamePath);
+	// In-game, the game's own audio is playing - don't start the preview music on top of it.
+	if (!inGame_) {
+		g_BackgroundAudio.SetGame(gamePath);
+	}
 	System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath.ToString());
 
 	// We want to re-fetch savedata size when opening this screen. We re-fetch PARAM_SFO because it's connected to updating the hasConfig bool.

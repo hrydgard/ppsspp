@@ -25,6 +25,8 @@
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <cerrno>
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include <semaphore.h>
 #endif
@@ -87,11 +89,43 @@ static void UnlockCounter() {
 #endif
 #endif
 
+static constexpr int MAX_INSTANCE_IDS = 255;
+
 struct InstanceInfo {
 	uint8_t pad[2];
 	uint8_t next;
 	uint8_t total;
+	// Not on Windows: the process holding each ID (ID = index + 1), 0 if free. Older versions don't
+	// write these, so an instance of one of them doesn't show up here.
+	int32_t pids[MAX_INSTANCE_IDS];
 };
+
+#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__) && !PPSSPP_PLATFORM(SWITCH)
+#define HAS_INSTANCE_PIDS 1
+#else
+#define HAS_INSTANCE_PIDS 0
+#endif
+
+#if HAS_INSTANCE_PIDS
+// The shared segment outlives the processes that use it, and one that crashed never gave its ID back
+// (#18204), so drop the IDs of processes that are gone. Returns how many are still held.
+static int ReleaseDeadInstances(volatile InstanceInfo *buf) {
+	int held = 0;
+	for (int i = 0; i < MAX_INSTANCE_IDS; i++) {
+		const pid_t pid = buf->pids[i];
+		if (pid == 0) {
+			continue;
+		}
+		// EPERM means it's there but someone else's.
+		if (kill(pid, 0) != 0 && errno == ESRCH) {
+			buf->pids[i] = 0;
+		} else {
+			held++;
+		}
+	}
+	return held;
+}
+#endif
 
 #define ID_SHM_NAME "/PPSSPP_ID"
 
@@ -207,6 +241,30 @@ void InitInstanceCounter() {
 #endif
 
 	bool success = UpdateInstanceCounter([](volatile InstanceInfo *buf) {
+#if HAS_INSTANCE_PIDS
+		const int held = ReleaseDeadInstances(buf);
+		int highest = 0;
+		int freeIndex = -1;
+		for (int i = 0; i < MAX_INSTANCE_IDS; i++) {
+			if (buf->pids[i] != 0) {
+				highest = i + 1;
+			} else if (freeIndex < 0) {
+				freeIndex = i;
+			}
+		}
+		if (freeIndex < 0) {
+			// All taken. Still a valid ID, just not the first.
+			PPSSPP_ID = MAX_INSTANCE_IDS;
+			buf->total = MAX_INSTANCE_IDS;
+			return;
+		}
+		buf->pids[freeIndex] = (int32_t)getpid();
+		PPSSPP_ID = freeIndex + 1;
+		buf->total = held + 1;
+		// For an older version starting meanwhile, which takes the ID after next.
+		buf->next = std::max(highest, (int)PPSSPP_ID);
+		return;
+#endif
 		// The shared segment outlives the processes that used it (see the shm_unlink comment),
 		// so next keeps climbing across runs and eventually wraps this uint8_t. ID 0 is not a
 		// valid instance - it fails the IsFirstInstance() check, which quietly disables config
@@ -225,7 +283,14 @@ void InitInstanceCounter() {
 void ShutdownInstanceCounter() {
 	static bool lastInstance = false;
 	UpdateInstanceCounter([](volatile InstanceInfo *buf) {
+#if HAS_INSTANCE_PIDS
+		if (PPSSPP_ID >= 1 && buf->pids[PPSSPP_ID - 1] == (int32_t)getpid()) {
+			buf->pids[PPSSPP_ID - 1] = 0;
+		}
+		buf->total = ReleaseDeadInstances(buf);
+#else
 		buf->total--;
+#endif
 		lastInstance = buf->total == 0;
 	});
 

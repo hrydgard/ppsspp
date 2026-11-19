@@ -22,6 +22,8 @@
 #include "Core/CwCheat.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/SaveState.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
@@ -344,6 +346,23 @@ static const char *CPUCoreAsString(int core) {
 	}
 }
 
+// The GPU driver version, where the backend has one.
+static std::string CrashDriverString(Draw::DrawContext *draw) {
+	switch (GetGPUBackend()) {
+	case GPUBackend::VULKAN:
+		return draw->GetInfoString(Draw::InfoField::DRIVER);
+	case GPUBackend::OPENGL:
+		// GL_RENDERER (the GPU model, where VENDORSTRING is GL_VENDOR), then GL_VERSION, which carries the driver version.
+		return draw->GetInfoString(Draw::InfoField::DRIVER) + ", " + draw->GetInfoString(Draw::InfoField::APIVERSION);
+	default:
+#ifdef _WIN32
+		return System_GetProperty(SYSPROP_GPUDRIVER_VERSION);
+#else
+		return "";
+#endif
+	}
+}
+
 // Draws a block of lines, and returns where the next block goes.
 static int DrawCrashTextBlock(UIContext *ctx, FontID font, std::string_view text, int x, int y) {
 	text = StripSpaces(text);
@@ -359,6 +378,10 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 	FontID ubuntu24("UBUNTU24");
 	std::string discID = g_paramSFO.GetDiscID();
+	const std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
+	if (!discVersion.empty()) {
+		discID += " v" + discVersion;
+	}
 
 	std::string activeFlags = PSP_CoreParameter().compat.GetActiveFlagsString();
 	if (activeFlags.empty()) {
@@ -427,6 +450,12 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 	std::string apiName = draw->GetInfoString(Draw::InfoField::APINAME);
 	// Off the CPU thread, so peek.
 	std::string emulatedTime = NiceTimeFormat((int)(CoreTiming::PeekGlobalTimeUs() / 1000000));
+	std::string driver = CrashDriverString(draw);
+	if (!driver.empty()) {
+		driver = "Driver: " + driver + "\n";
+	}
+	const char *model = g_Config.iPSPModel == PSP_MODEL_FAT ? "PSP-1000" : "PSP-2000/3000";
+	const bool loadedState = SaveState::HasLoadedState();
 
 	// First column
 	y += 65;
@@ -443,7 +472,9 @@ void DrawCrashDump(UIContext *ctx, const Path &gamePath) {
 %s (%s)
 %s v%d (%s)
 %s (%s)
+%s%s, %d MB RAM
 Emulated time: %s
+Savestate loaded: %s
 %s
 )",
 ExceptionTypeAsString(info.type),
@@ -451,7 +482,9 @@ discID.c_str(), g_paramSFO.GetValueString("TITLE").c_str(),
 versionString, build,
 sysName.c_str(), sysVersion, GetCompilerABI(),
 gpuName.c_str(), apiName.c_str(),
+driver.c_str(), model, (int)(Memory::g_MemorySize >> 20),
 emulatedTime.c_str(),
+loadedState ? "Yes" : "No",
 crcStr
 );
 
@@ -529,6 +562,9 @@ Invalid / Unknown (%d)
 	if (GetLockedCPUSpeedMhz()) {
 		tips += "* Set CPU clock to default (0)\n";
 	}
+	if (loadedState) {
+		tips += "* Try from a fresh boot, without\n  loading a savestate\n";
+	}
 	if (checkingISO) {
 		tips += "* (waiting for CRC...)\n";
 	} else if (!isoOK) {
@@ -541,15 +577,22 @@ Invalid / Unknown (%d)
 		tips = "Things to try:\n" + tips;
 	}
 
+	std::string plugins = HLEPlugins::HasEnabled() ? HLEPlugins::EnabledNames() : "N";
+	if (plugins.empty()) {
+		plugins = "Y";
+	}
+
 	x += columnWidth + 10;
 	y = 85;
 	snprintf(statbuf, sizeof(statbuf),
 		"CPU Core: %s (flags: %08x)\n"
 		"Locked CPU freq: %d MHz\n"
+		"Fast memory: %s, Ignore bad memory accesses: %s\n"
 		"Cheats: %s, Plugins: %s\n%s\n\n%s",
 		CPUCoreAsString(g_Config.iCpuCore), g_Config.uJitDisableFlags,
 		GetLockedCPUSpeedMhz(),
-		CheatsInEffect() ? "Y" : "N", HLEPlugins::HasEnabled() ? "Y" : "N", activeFlags.c_str(), tips.c_str());
+		g_Config.bFastMemory ? "Y" : "N", g_Config.bIgnoreBadMemAccess ? "Y" : "N",
+		CheatsInEffect() ? "Y" : "N", plugins.c_str(), activeFlags.c_str(), tips.c_str());
 
 	ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	ctx->Flush();
