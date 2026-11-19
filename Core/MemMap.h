@@ -96,6 +96,13 @@ extern u32 g_UserPartitionSize;
 #define MASKED_PSP_MEMORY
 #endif
 
+// Masked, but with room for the Media Engine's space: on 64-bit, the 0x3FFFFFFF mask folds the ME's
+// addresses without collisions. Where the views go in reserved space (Apple's ReserveViewSpace), that
+// space can reach the boot page at 0x3FC00000 too.
+#if defined(MASKED_PSP_MEMORY) && PPSSPP_ARCH(64BIT) && defined(__APPLE__) && !defined(NO_MMAP)
+#define MASKED_ME_SPACE
+#endif
+
 enum {
 	// This may be adjusted by remaster games.
 	RAM_NORMAL_SIZE = 0x02000000,
@@ -377,9 +384,9 @@ extern AddressSpace g_mainSpace;
 // as in g_mainSpace. Returns null if this platform can't map memory twice. Only for a boot that runs
 // the ME; Shutdown() (and so Reinit()) destroys it.
 AddressSpace *CreateMESpace();
-// Whether this platform can have one (not with masked memory, or without mmap).
+// Whether this platform can have one (not with 32-bit or most other masked memory, or without mmap).
 constexpr bool CanCreateMESpace() {
-#if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
+#if (defined(MASKED_PSP_MEMORY) && !defined(MASKED_ME_SPACE)) || defined(NO_MMAP)
 	return false;
 #else
 	return true;

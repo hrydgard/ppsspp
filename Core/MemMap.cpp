@@ -202,7 +202,7 @@ static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
 #endif
 	if ((viewFlags & MV_NULL_PAGE) && !(flags & MemMapSetupFlags::AllocNullPage))
 		return true;
-#ifdef MASKED_PSP_MEMORY
+#if defined(MASKED_PSP_MEMORY) && !defined(MASKED_ME_SPACE)
 	// Far above everything else, where a masked map has nothing reserved. And no Media Engine.
 	if (viewFlags & (MV_BOOT_PAGE | MV_ME_ONLY))
 		return true;
@@ -264,7 +264,9 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 			}
 		}
 #else
-		if (CanIgnoreView(view)) {
+		if (view.flags & MV_ME_ONLY) {
+			// As above, only a place in the arena.
+		} else if (CanIgnoreView(view)) {
 			// This is handled by address masking in 32-bit, no view needs to be created.
 			*view.out_ptr = *views[i - 1].out_ptr;
 		} else {
@@ -685,10 +687,19 @@ u8 *GetBootPage() {
 static AddressSpace g_meSpace;
 static std::vector<std::pair<u8 *, size_t>> g_meViews;
 
+// Where a view goes in the Media Engine's space, from its base.
+inline static u32 MEViewAddress(u32 address) {
+#ifdef MASKED_PSP_MEMORY
+	return address & MEMVIEW32_MASK;
+#else
+	return address;
+#endif
+}
+
 AddressSpace *CreateMESpace() {
 	_dbg_assert_(base != nullptr && g_meSpace.base == nullptr);
-#if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
-	// TODO: Masking would fold the eDRAM mirrors onto the scratchpad and boot page addresses.
+#if (defined(MASKED_PSP_MEMORY) && !defined(MASKED_ME_SPACE)) || defined(NO_MMAP)
+	// 32-bit's mask would fold the eDRAM mirrors onto the scratchpad and boot page addresses.
 	static_assert(!CanCreateMESpace());
 	return nullptr;
 #else
@@ -696,7 +707,7 @@ AddressSpace *CreateMESpace() {
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].size == 0 || SkipView(g_setupFlags, views[i].flags) || (views[i].flags & MV_MAIN_CPU_ONLY))
 			continue;
-		span = std::max(span, (size_t)views[i].virtual_address + views[i].size);
+		span = std::max(span, (size_t)MEViewAddress(views[i].virtual_address) + views[i].size);
 		if (views[i].flags & MV_EDRAM)
 			g_meSpace.edramSize = views[i].size;
 		if (views[i].flags & MV_ME_LOCAL)
@@ -717,11 +728,17 @@ AddressSpace *CreateMESpace() {
 		return nullptr;
 	}
 
+	std::vector<u32> mapped;
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		const MemoryView &view = views[i];
 		if (view.size == 0 || SkipView(g_setupFlags, view.flags) || (view.flags & MV_MAIN_CPU_ONLY))
 			continue;
-		u8 *ptr = (u8 *)g_arena.CreateView(viewPositions[i], view.size, g_meSpace.base + view.virtual_address);
+		// Under the mask, some mirrors land where the view they mirror already is.
+		const u32 address = MEViewAddress(view.virtual_address);
+		if (std::find(mapped.begin(), mapped.end(), address) != mapped.end())
+			continue;
+		mapped.push_back(address);
+		u8 *ptr = (u8 *)g_arena.CreateView(viewPositions[i], view.size, g_meSpace.base + address);
 		if (!ptr) {
 			ERROR_LOG(Log::MemMap, "Couldn't map the Media Engine's view at %08x", view.virtual_address);
 			DestroyMESpace();

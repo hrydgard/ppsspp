@@ -117,6 +117,10 @@ void X64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 		SetJumpTarget(done);
 		return;
 	}
+#ifdef MASKED_PSP_MEMORY
+	// Kernel code mostly uses the 0x80000000 mirrors, which masked memory has no views at.
+	AND(32, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
+#endif
 	const OpArg addr = MComplex(MEMBASEREG, SCRATCH1, SCALE_1, 0);
 	switch (inst.op) {
 	case IROp::LoadKernel8: MOVZX(32, 8, reg, addr); break;
