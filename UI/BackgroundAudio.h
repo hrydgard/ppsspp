@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
 #include <mutex>
 #include <string>
@@ -13,6 +14,11 @@ class AT3PlusReader;
 struct Sample {
 	// data must be new[]-ed.
 	Sample(int16_t *data, int channels, int length, int rateInHz) : channels_(channels), data_(data), length_(length), rateInHz_(rateInHz) {}
+	// A copy of pcm (interleaved when stereo).
+	Sample(const std::vector<int16_t> &pcm, int channels, int rateInHz)
+		: channels_(channels), data_(new int16_t[pcm.size()]), length_((int)(pcm.size() / channels)), rateInHz_(rateInHz) {
+		std::copy(pcm.begin(), pcm.end(), data_);
+	}
 	~Sample() {
 		delete[] data_;
 	}
@@ -30,9 +36,16 @@ public:
 	void Init();
 	void Mix(int16_t *buffer, int sz, int sampleRateHz);
 	void Play(UI::UISound sfx, float volume);
+	// Stops it if it's playing.
+	void Stop(UI::UISound sfx);
 
 	void UpdateSample(UI::UISound sound, Sample *sample);
+	// Frees its sample, after which it's silent.
+	void UnloadSample(UI::UISound sound);
 	void LoadDefaultSample(UI::UISound sound);
+	// Loads the samples again, in the background: after a firmware is installed or removed, since
+	// its sounds replace the navigation ones.
+	void ReloadSamples();
 
 	std::vector<std::unique_ptr<Sample>> samples_;
 
@@ -45,7 +58,18 @@ public:
 
 	// This can be called on a thread.
 	void LoadSamplesOnThread();
+	// The load task's body: loads until no reload is asked for (see ReloadSamples).
+	void RunSampleLoads();
+
+	// Whether the system dialogs in games get the PSP firmware's sounds too (UISoundStyle::FIRMWARE,
+	// with a firmware).
+	bool FirmwareExtras() const { return firmwareExtras_; }
 private:
+	std::atomic<bool> firmwareExtras_{ false };
+	// Guards the two below, which keep sample loads to one at a time.
+	std::mutex loadMutex_;
+	bool loadRequested_ = false;
+	bool loadRunning_ = false;
 	std::mutex mutex_;
 	std::vector<PlayInstance> queue_;
 	std::vector<PlayInstance> plays_;

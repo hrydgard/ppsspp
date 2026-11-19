@@ -32,6 +32,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/FirmwareSounds.h"
 #include "UI/SettingsPage.h"
 #include "UI/Settings/MainSettingsPages.h"
 
@@ -83,6 +84,12 @@ void BuildAudioSettings(SettingsPage *page) {
 		lastTimePlayed = now;
 		// Audio preview
 		PlayUISound(UI::UISound::CONFIRM);
+	});
+	// The PSP firmware's sounds, from an installed firmware dump, so greyed out without one.
+	page->Setting(&g_Config.iUISoundStyle).EnabledFunc([] {
+		return g_Config.bUISound && FirmwareSounds::Available();
+	}).OnChange([](EventParams &e) {
+		g_BackgroundAudio.SFX().ReloadSamples();
 	});
 
 	page->Setting(&g_Config.iGamePreviewVolume);

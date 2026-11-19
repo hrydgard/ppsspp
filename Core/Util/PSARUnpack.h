@@ -175,6 +175,12 @@ struct InstalledFirmwareInfo {
 // and a full firmware is a few hundred files, which isn't free on a phone's storage.
 void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info, bool countFiles = true);
 
+// A file of the installed firmware (in g_Config.nandRootDirectory), by its path in flash0 like
+// "vsh/resource/gameboot.pmf". Empty if there's no NAND directory set.
+Path InstalledFirmwareFile(std::string_view flash0Path);
+// Whether that file is there.
+bool InstalledFirmwareHasFile(std::string_view flash0Path);
+
 // False if a full firmware is installed and has no files for pspModel (PSP_MODEL_*). Its XMB then
 // looks for the other model's files, which aren't there.
 bool InstalledFirmwareFitsModel(const InstalledFirmwareInfo &info, int pspModel);

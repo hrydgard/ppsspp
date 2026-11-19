@@ -1,3 +1,4 @@
+#include <cstring>
 #include <memory>
 #include <string>
 #include <mutex>
@@ -21,7 +22,10 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
+#include "Core/Dialog/PSPDialog.h"
+#include "Core/ConfigValues.h"
 #include "UI/BackgroundAudio.h"
+#include "UI/FirmwareSounds.h"
 
 struct WavData {
 	int num_channels = -1;
@@ -556,9 +560,7 @@ static Sample *LoadMp3(const uint8_t *data, size_t size) {
 	if (samples.empty()) {
 		return nullptr;
 	}
-	int16_t *sampleData = new int16_t[samples.size()];
-	memcpy(sampleData, samples.data(), samples.size() * sizeof(int16_t));
-	return new Sample(sampleData, 2, (int)samples.size() / 2, sampleRate);
+	return new Sample(samples, 2, sampleRate);
 }
 
 Sample *Sample::Load(const std::string &path) {
@@ -687,6 +689,18 @@ void SoundEffectMixer::Play(UI::UISound sfx, float multiplier) {
 	queue_.push_back(PlayInstance{ sfx, 0, (int)(255.0f * multiplier), false });
 }
 
+void SoundEffectMixer::Stop(UI::UISound sfx) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	auto matches = [sfx](const PlayInstance &play) { return play.sound == sfx; };
+	queue_.erase(std::remove_if(queue_.begin(), queue_.end(), matches), queue_.end());
+	plays_.erase(std::remove_if(plays_.begin(), plays_.end(), matches), plays_.end());
+}
+
+void SoundEffectMixer::UnloadSample(UI::UISound sound) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	samples_[(size_t)sound].reset();
+}
+
 void SoundEffectMixer::UpdateSample(UI::UISound sound, Sample *sample) {
 	if (sample) {
 		std::lock_guard<std::mutex> guard(mutex_);
@@ -727,11 +741,27 @@ public:
 		return TaskPriority::NORMAL;
 	}
 	void Run() override {
-		mixer_->LoadSamplesOnThread();
+		mixer_->RunSampleLoads();
 	}
 private:
 	SoundEffectMixer *mixer_;
 };
+
+// One load at a time, so two can't interleave and leave a mix of both settings. A reload asked for
+// while one runs makes it load once more when it's done.
+void SoundEffectMixer::RunSampleLoads() {
+	while (true) {
+		{
+			std::lock_guard<std::mutex> guard(loadMutex_);
+			if (!loadRequested_) {
+				loadRunning_ = false;
+				return;
+			}
+			loadRequested_ = false;
+		}
+		LoadSamplesOnThread();
+	}
+}
 
 void SoundEffectMixer::Init() {
 	samples_.resize((size_t)UI::UISound::COUNT);
@@ -744,7 +774,32 @@ void SoundEffectMixer::Init() {
 		}
 	});
 
+	// The system dialogs in games tick and click like on a PSP, with the PSP firmware's sounds.
+	// They're part of the game, so they go with the game's volume.
+	SetUtilityDialogSoundCallback([](UtilityDialogSound sound) {
+		SoundEffectMixer &sfx = g_BackgroundAudio.SFX();
+		if (!sfx.FirmwareExtras() || !g_Config.bEnableSound) {
+			return;
+		}
+		const float volume = Volume100ToMultiplier(g_Config.iGameVolume);
+		switch (sound) {
+		case UtilityDialogSound::CURSOR: sfx.Play(UI::UISound::SELECT, volume); break;
+		case UtilityDialogSound::CONFIRM: sfx.Play(UI::UISound::CONFIRM, volume); break;
+		case UtilityDialogSound::CANCEL: sfx.Play(UI::UISound::BACK, volume); break;
+		}
+	});
+
 	// Load samples in the background.
+	ReloadSamples();
+}
+
+void SoundEffectMixer::ReloadSamples() {
+	std::lock_guard<std::mutex> guard(loadMutex_);
+	loadRequested_ = true;
+	if (loadRunning_) {
+		return;
+	}
+	loadRunning_ = true;
 	g_threadManager.EnqueueTask(new SampleLoadTask(this));
 }
 
@@ -765,4 +820,29 @@ void SoundEffectMixer::LoadSamplesOnThread() {
 	} else {
 		LoadDefaultSample(UI::UISound::LEADERBOARD_SUBMITTED);
 	}
+
+	// With a firmware dump installed, the sounds can be the PSP's own (see FirmwareSounds.h), in our
+	// menus and in the system dialogs in games.
+	firmwareExtras_ = false;
+	if ((UISoundStyle)g_Config.iUISoundStyle != UISoundStyle::FIRMWARE) {
+		return;
+	}
+	auto useSound = [&](UI::UISound sound, const std::vector<FirmwareSounds::Sound> &sounds, std::string_view name) {
+		const FirmwareSounds::Sound *found = FirmwareSounds::Find(sounds, name);
+		if (!found || found->samples.size() < (size_t)found->channels * 2) {
+			return false;
+		}
+		UpdateSample(sound, new Sample(found->samples, found->channels, found->rateInHz));
+		return true;
+	};
+
+	const std::vector<FirmwareSounds::Sound> xmbSounds = FirmwareSounds::LoadXMBSounds();
+	if (!useSound(UI::UISound::SELECT, xmbSounds, "SE2_Cursor")) {
+		return;  // No firmware: our sounds.
+	}
+	useSound(UI::UISound::CONFIRM, xmbSounds, "SE3_Normal_OK");
+	useSound(UI::UISound::BACK, xmbSounds, "SE4_Cansel");
+	useSound(UI::UISound::TOGGLE_ON, xmbSounds, "SE8_Option");
+	useSound(UI::UISound::TOGGLE_OFF, xmbSounds, "SE8_Option");
+	firmwareExtras_ = true;
 }

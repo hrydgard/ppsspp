@@ -1462,13 +1462,25 @@ bool FirmwareVersionPlaysUmdVideo(std::string_view version) {
 	return FirmwareVersionSupportsVSH(version) && FirmwareVersionToInt(version) >= FirmwareVersionToInt(UMD_VIDEO_MIN_FIRMWARE);
 }
 
+Path InstalledFirmwareFile(std::string_view flash0Path) {
+	if (g_Config.nandRootDirectory.empty()) {
+		return Path();
+	}
+	return g_Config.nandRootDirectory / "flash0" / flash0Path;
+}
+
+bool InstalledFirmwareHasFile(std::string_view flash0Path) {
+	const Path path = InstalledFirmwareFile(flash0Path);
+	return !path.empty() && File::Exists(path);
+}
+
 bool InstalledFirmwareRunsPS1Discs() {
 	// The POPS managers PopsBoot knows for converted EBOOTs: 3.95 to 6.61. A version in between that it
 	// doesn't know fails the boot with a message saying so.
 	InstalledFirmwareInfo info;
 	ReadInstalledFirmwareInfo(g_Config.nandRootDirectory, &info, false);
 	const int version = FirmwareVersionToInt(info.version);
-	return version >= 395 && version <= 661 && File::Exists(g_Config.nandRootDirectory / "flash0/kd/popsman.prx");
+	return version >= 395 && version <= 661 && InstalledFirmwareHasFile("kd/popsman.prx");
 }
 
 Path GetUmdVideoVSHPath() {
@@ -1477,7 +1489,7 @@ Path GetUmdVideoVSHPath() {
 	if (!info.hasVsh || !FirmwareVersionPlaysUmdVideo(info.version)) {
 		return Path();
 	}
-	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+	return InstalledFirmwareFile("vsh/module/vshmain.prx");
 }
 
 Path GetVSHBootPath() {
@@ -1486,7 +1498,7 @@ Path GetVSHBootPath() {
 	if (!info.hasVsh || !FirmwareVersionSupportsVSH(info.version)) {
 		return Path();
 	}
-	return g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx";
+	return InstalledFirmwareFile("vsh/module/vshmain.prx");
 }
 
 const char *const VSH_DISC_ID = "VSHM00000";

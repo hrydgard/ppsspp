@@ -553,6 +553,10 @@ PMFVideoTexture::~PMFVideoTexture() {
 	}
 }
 
+bool PMFVideoTexture::ReachedEnd() const {
+	return pmf_reached_end(player_);
+}
+
 void PMFVideoTexture::DeviceLost() {
 	if (curFrame_) {
 		curFrame_->Release();
@@ -585,4 +589,15 @@ Draw::Texture *PMFVideoTexture::Update(Draw::DrawContext *draw, double timeSecon
 		curFrame_ = draw->CreateTexture(desc);
 	}
 	return curFrame_;
+}
+
+void PMFVideoTexture::DrawFrame(UIContext &dc, const Bounds &bounds) {
+	if (!curFrame_) {
+		return;
+	}
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, curFrame_);
+	dc.Draw()->DrawTexRect(bounds, 0.0f, 0.0f, 1.0f, 1.0f, 0xFFFFFFFF);
+	dc.Flush();
+	dc.RebindTexture();
 }

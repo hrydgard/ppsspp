@@ -67,6 +67,7 @@
 
 // Callstack window
 #include "Core/MIPS/MIPSStackWalk.h"
+#include "Core/Util/PSARUnpack.h"
 
 // GPU things
 #include "GPU/GPUCommon.h"
@@ -2776,7 +2777,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				});
 			}
 			if (ImGui::MenuItem("Load XMB (VSH)")) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, (g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx").ToString());
+				System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, InstalledFirmwareFile("vsh/module/vshmain.prx").ToString());
 			}
 			if (ImGui::MenuItem("Open directory...")) {
 				System_BrowseForFolder(reqToken_, "Load", Path(), [](std::string_view value, int) {
