@@ -2,6 +2,8 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/CommonTypes.h"
+
 #if PPSSPP_PLATFORM(WINDOWS)
 #ifndef _CRT_NO_POSIX_ERROR_CODES
 #define _CRT_NO_POSIX_ERROR_CODES
@@ -16,7 +18,9 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/select.h>
+#if !PPSSPP_PLATFORM(SWITCH)
 #include <sys/mman.h>
+#endif
 #include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -34,9 +38,7 @@
 #undef __BSD_VISIBLE
 #define __BSD_VISIBLE 1
 #define TCP_MAXSEG 2
-#include <netdb.h>
-#include <switch.h>
-// Missing include, *shrugs*
+#include <netdb.h>// Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 
