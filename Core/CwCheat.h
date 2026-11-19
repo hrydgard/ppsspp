@@ -43,6 +43,9 @@ struct CheatFileInfo {
 	int lineNum;
 	std::string name;
 	bool enabled;
+	// False if every line is 0x00000000 0x00000000 (or there are none), which cheat databases use for
+	// notes and headings that aren't meant to be toggled.
+	bool hasCode = false;
 
 	bool IsTitle(std::string_view *title) const {
 		return DetectCheatTitle(name, title);
