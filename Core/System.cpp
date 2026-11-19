@@ -494,6 +494,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		}
 		break;
 	case IdentifiedFileType::PSP_PS1_PBP:
+		if (!Memory::CanCreateMESpace()) {
+			// The firmware's PS1 emulator plays its sound on the ME, which masked memory has no room for.
+			auto er = GetI18NCategory(I18NCat::ERRORS);
+			*errorString = er->T("PS1NotSupported", "PS1 games can't run in this version of PPSSPP. They need a 64-bit build, and don't run on iOS or Xbox yet.");
+			return false;
+		}
 		// Title and disc ID; the PS1 image itself is read by the firmware's POPS manager.
 		LoadParamSFOFromPBP(fileLoader);
 		break;
