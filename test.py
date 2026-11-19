@@ -1082,4 +1082,4 @@ def main():
   return returncode
 
 if __name__ == "__main__":
-  exit(main())
+  sys.exit(main())
