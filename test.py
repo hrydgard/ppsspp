@@ -1081,4 +1081,5 @@ def main():
     return 0
   return returncode
 
-exit(main())
+if __name__ == "__main__":
+  exit(main())
