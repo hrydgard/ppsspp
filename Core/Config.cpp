@@ -369,11 +369,11 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("UISound", SETTING(g_Config, bUISound), false, CfgFlag::DEFAULT)
 		.Label(I18NCat::AUDIO, "UI sound"),
 	ConfigSetting("UISoundStyle", SETTING(g_Config, iUISoundStyle), (int)UISoundStyle::FIRMWARE_TICK, CfgFlag::DEFAULT)
-		.Label(I18NCat::SYSTEM, "UI sounds").Choices(uiSoundStyleNames),
+		.Label(I18NCat::AUDIO, "UI sound theme").Choices(uiSoundStyleNames),
 	ConfigSetting("HomeScreenStyle", SETTING(g_Config, iHomeScreenStyle), (int)HomeScreenStyle::FIRMWARE, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "HOME button screen").Choices(homeScreenStyleNames),
 	ConfigSetting("GameBootAnimation", SETTING(g_Config, bGameBootAnimation), false, CfgFlag::DEFAULT)
-		.Label(I18NCat::SYSTEM, "PSP intro outside the XMB"),
+		.Label(I18NCat::SYSTEM, "Play game launch animation like the PSP"),
 
 	ConfigSetting("DisableHTTPS", SETTING(g_Config, bDisableHTTPS), false, CfgFlag::DONT_SAVE),
 	ConfigSetting("AutoLoadSaveState", SETTING(g_Config, iAutoLoadSaveState), 0, CfgFlag::PER_GAME)
