@@ -537,6 +537,7 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 }
 
 PMFVideoTexture::PMFVideoTexture(std::string data) : data_(std::move(data)) {
+	hasAudio_ = pmf_has_audio((const uint8_t *)data_.data(), data_.size());
 	player_ = pmf_create();
 	if (pmf_init(player_, (const uint8_t *)data_.data(), data_.size(), &width_, &height_) != 0) {
 		ERROR_LOG(Log::G3D, "Couldn't load pmf");

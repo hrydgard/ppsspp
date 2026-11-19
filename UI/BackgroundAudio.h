@@ -9,7 +9,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/Root.h"
 
-class AT3PlusReader;
+class BackgroundSoundReader;
 
 struct Sample {
 	// data must be new[]-ed.
@@ -88,6 +88,15 @@ public:
 		return sfxMixer_;
 	}
 
+	// The sound of an ICON1.PMF, decoded on a task (see Update). Dropped if another game has been
+	// selected since generation was handed out.
+	void OnPMFAudioDecoded(int generation, std::vector<int16_t> &&pcm);
+
+	// The time a game's ICON1.PMF video should be at. When its sound is playing, its position, so
+	// the two stay in sync as on a PSP. -1 while that sound is still loading: show the icon until
+	// then. Otherwise (no sound in the PMF, the game's SND0.AT3 playing instead, sound off) ownTime.
+	double PreviewVideoTime(const Path &game, bool pmfHasAudio, double ownTime);
+
 private:
 	void Clear(bool hard);
 
@@ -100,7 +109,12 @@ private:
 	Path bgGamePath_;
 	std::atomic<bool> sndLoadPending_;
 	int playbackOffset_ = 0;
-	AT3PlusReader *at3Reader_ = nullptr;
+	// The game's SND0.AT3, or the sound muxed into its ICON1.PMF.
+	BackgroundSoundReader *sndReader_ = nullptr;
+	// Bumped by SetGame, so a decode finishing for a game no longer selected is dropped.
+	int loadGeneration_ = 0;
+	// A PMFAudioDecodeTask is running for the current game.
+	bool pmfDecodePending_ = false;
 	double gameLastChanged_ = 0.0;
 	double lastPlaybackTime_ = 0.0;
 	int *buffer_ = nullptr;
