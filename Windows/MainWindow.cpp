@@ -277,7 +277,9 @@ namespace MainWindow {
 			while (cursorCounter >= 0) {
 				cursorCounter = ShowCursor(FALSE);
 			}
-			if (g_Config.bMouseConfine) {
+			// Not while the window is being dragged or resized: the cursor is on the title bar or
+			// the border then, outside the client area, and confining it fights the move.
+			if (g_Config.bMouseConfine && !inResizeMove) {
 				RECT rc;
 				GetClientRect(hwndMain, &rc);
 				ClientToScreen(hwndMain, reinterpret_cast<POINT*>(&rc.left));
@@ -632,7 +634,7 @@ namespace MainWindow {
 		vfpudlg = nullptr;
 	}
 
-	bool ConfirmAction(HWND hWnd, bool actionIsReset) {
+	bool ConfirmExit(HWND hWnd) {
 		const GlobalUIState state = GetUIState();
 		if (state == UISTATE_MENU || state == UISTATE_EXIT) {
 			return true;
@@ -643,12 +645,8 @@ namespace MainWindow {
 			return true;
 		}
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		if (!actionIsReset) {
-			confirmExitMessage += '\n';
-			confirmExitMessage += di->T("Are you sure you want to exit?");
-		} else {
-			// Reset is bit rarer, let's just omit the extra message for now.
-		}
+		confirmExitMessage += '\n';
+		confirmExitMessage += di->T("Are you sure you want to exit?");
 		return IDYES == MessageBox(hWnd, ConvertUTF8ToWString(confirmExitMessage).c_str(), ConvertUTF8ToWString(di->T("Exit")).c_str(), MB_YESNO | MB_ICONQUESTION);
 	}
 
@@ -948,11 +946,15 @@ namespace MainWindow {
 
 		case WM_ENTERSIZEMOVE:
 			inResizeMove = true;
+			// Let the cursor go while the window moves (see CorrectCursor).
+			ClipCursor(NULL);
 			break;
 
 		case WM_EXITSIZEMOVE:
 			inResizeMove = false;
 			HandleSizeChange();
+			// Confine it again, to where the window is now.
+			CorrectCursor();
 			break;
 
 		// Wheel events have to stay in WndProc for compatibility with older Windows(7). See #12156
@@ -1069,7 +1071,7 @@ namespace MainWindow {
 
 		case WM_CLOSE:
 		{
-			if (ConfirmAction(hWnd, false)) {
+			if (ConfirmExit(hWnd)) {
 				DestroyWindow(hWnd);
 			}
 			return 0;

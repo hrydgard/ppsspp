@@ -1153,6 +1153,26 @@ void HandleGraphicsFailure(const std::string &errorMessage) {
 	return;
 }
 
+// Whether a key down is one of the accelerator table's shortcuts, with the same modifiers held.
+static bool IsAcceleratorKey(const std::vector<ACCEL> &table, const MSG &msg) {
+	BYTE modifiers = FVIRTKEY;
+	if (GetKeyState(VK_CONTROL) & 0x8000) {
+		modifiers |= FCONTROL;
+	}
+	if (GetKeyState(VK_SHIFT) & 0x8000) {
+		modifiers |= FSHIFT;
+	}
+	if (GetKeyState(VK_MENU) & 0x8000) {
+		modifiers |= FALT;
+	}
+	for (const ACCEL &accel : table) {
+		if (accel.key == msg.wParam && (accel.fVirt & (FVIRTKEY | FCONTROL | FSHIFT | FALT)) == modifiers) {
+			return true;
+		}
+	}
+	return false;
+}
+
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
 	const std::vector<std::wstring> wideArgs = GetWideCmdLine();
 	// Check for the Vulkan workaround before any serious init.
@@ -1331,6 +1351,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
 	HACCEL hDebugAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_DEBUGACCELS);
+	std::vector<ACCEL> mainAccels(CopyAcceleratorTable(hAccelTable, nullptr, 0));
+	CopyAcceleratorTable(hAccelTable, mainAccels.data(), (int)mainAccels.size());
 
 	//so.. we're at the message pump of the GUI thread
 	for (MSG msg; GetMessage(&msg, NULL, 0, 0); ) { // for no quit
@@ -1342,6 +1364,14 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			if (msg.hwnd != hwndMain && msg.wParam == VK_ESCAPE) {
 				BringWindowToTop(hwndMain);
 			}
+		}
+
+		// A held shortcut key auto-repeats (bit 30 of lParam: the key was already down). None of the
+		// main window's shortcuts (reset, stop, the savestate keys, fullscreen, ...) should run again
+		// for that, so drop the repeat. The debugger's stepping keys do repeat.
+		if (g_activeWindow == WINDOW_MAINWINDOW && (msg.message == WM_KEYDOWN || msg.message == WM_SYSKEYDOWN) &&
+			(msg.lParam & (1 << 30)) && g_Config.bSystemControls && IsAcceleratorKey(mainAccels, msg)) {
+			continue;
 		}
 
 		// Translate accelerators and dialog messages...

@@ -508,13 +508,13 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_STOP:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+			// The UI asks first, with the same popup as the pause screen's Exit.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
 			break;
 
 		case ID_EMULATION_RESET:
-			if (MainWindow::ConfirmAction(hWnd, true)) {
-				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			}
+			// The UI asks first, with the same popup as the pause screen's Reset.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET, "confirm");
 			break;
 
 		case ID_EMULATION_SWITCH_UMD:
@@ -748,7 +748,7 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIP_8:    setFrameSkipping(FRAMESKIP_MAX); break;
 
 		case ID_FILE_EXIT:
-			if (MainWindow::ConfirmAction(hWnd, false)) {
+			if (MainWindow::ConfirmExit(hWnd)) {
 				DestroyWindow(hWnd);
 			}
 			break;

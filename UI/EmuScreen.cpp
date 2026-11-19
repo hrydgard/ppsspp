@@ -568,6 +568,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// This happens on the main thread.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
 		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
+	} else if (message == UIMessage::REQUEST_GAME_STOP && value && !strcmp(value, "confirm")) {
+		// From a menu or shortcut (like Ctrl+W): ask the way the pause screen's Exit does.
+		if (!bootPending_) {
+			ConfirmAndStopGame(screenManager());
+		}
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {
@@ -584,6 +589,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 		} else {
 			// No callback (or already in flight, or core not running) - the destructor will take care of shutting down.
 			leaveGame();
+		}
+	} else if (message == UIMessage::REQUEST_GAME_RESET && value && !strcmp(value, "confirm")) {
+		// From a menu or shortcut (like Ctrl+B on Windows): ask the way the pause screen does.
+		if (!bootPending_) {
+			ConfirmAndResetGame(screenManager());
 		}
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
@@ -1028,7 +1038,8 @@ void EmuScreen::ProcessVKey(VirtKey virtKey, bool down) {
 
 	case VIRTKEY_RESET_EMULATION:
 		if (down) {
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
+			// Asks first, like the menus' Reset.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET, "confirm");
 		}
 		break;
 
