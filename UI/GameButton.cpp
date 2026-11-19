@@ -27,6 +27,7 @@
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/Util/VideoPlayer.h"
+#include "UI/BackgroundAudio.h"
 #include "UI/GameButton.h"
 #include "UI/GameInfoCache.h"
 #include "UI/GamePacker.h"
@@ -184,9 +185,16 @@ void GameButton::Draw(UIContext &dc) {
 	}
 
 	if (video_) {
-		Draw::Texture *frame = video_->Update(dc.GetDrawContext(), videoStart_.ElapsedSeconds());
-		if (frame) {
-			texture = frame;
+		const double videoTime = g_BackgroundAudio.PreviewVideoTime(gamePath_, video_->HasAudio(), videoStart_.ElapsedSeconds());
+		if (videoTime < 0.0) {
+			// Waiting for the PMF's sound, with the icon. If the video ends up on its own clock, it
+			// starts when the wait ends.
+			videoStart_ = Instant::Now();
+		} else {
+			Draw::Texture *frame = video_->Update(dc.GetDrawContext(), videoTime);
+			if (frame) {
+				texture = frame;
+			}
 		}
 	}
 

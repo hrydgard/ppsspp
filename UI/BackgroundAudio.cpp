@@ -230,6 +230,8 @@ public:
 	virtual ~BackgroundSoundReader() {}
 	// Fills buffer with len stereo samples. False if there's nothing to play.
 	virtual bool Read(int *buffer, int len) = 0;
+	// Where in its loop it is, for a sound that a video follows. -1 if none does.
+	virtual double PositionSeconds() const { return -1.0; }
 };
 
 // Really simple looping in-memory AT3 player that also takes care of reading the file format.
@@ -352,6 +354,10 @@ public:
 		return true;
 	}
 
+	double PositionSeconds() const override {
+		return (double)(pos_ / 2) / 44100.0;
+	}
+
 private:
 	std::vector<int16_t> pcm_;
 	size_t pos_ = 0;
@@ -398,6 +404,7 @@ void BackgroundAudio::Clear(bool hard) {
 	}
 	playbackOffset_ = 0;
 	sndLoadPending_ = false;
+	pmfDecodePending_ = false;
 }
 
 void BackgroundAudio::SetGame(const Path &path) {
@@ -408,6 +415,7 @@ void BackgroundAudio::SetGame(const Path &path) {
 
 	std::lock_guard<std::mutex> lock(mutex_);
 	loadGeneration_++;
+	pmfDecodePending_ = false;
 	if (path.empty()) {
 		Clear(false);
 		sndLoadPending_ = false;
@@ -509,15 +517,39 @@ void BackgroundAudio::Update() {
 			pmf = gameInfo->icon1pmf;
 		}
 		sndLoadPending_ = false;
-		if (!pmf.empty()) {
+		if (!pmf.empty() && pmf_has_audio((const uint8_t *)pmf.data(), pmf.size())) {
+			pmfDecodePending_ = true;
 			g_threadManager.EnqueueTask(new PMFAudioDecodeTask(std::move(pmf), loadGeneration_));
 		}
 	}
 }
 
+double BackgroundAudio::PreviewVideoTime(const Path &game, bool pmfHasAudio, double ownTime) {
+	if (!pmfHasAudio || g_Config.iUIVolume <= 0) {
+		return ownTime;
+	}
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (game != bgGamePath_) {
+		return ownTime;
+	}
+	if (sndReader_) {
+		// The PMF's own sound: the video follows it. Not the SND0.AT3 of a game that has both.
+		const double position = sndReader_->PositionSeconds();
+		return position >= 0.0 ? position : ownTime;
+	}
+	if (sndLoadPending_ || pmfDecodePending_) {
+		return -1.0;
+	}
+	return ownTime;
+}
+
 void BackgroundAudio::OnPMFAudioDecoded(int generation, std::vector<int16_t> &&pcm) {
 	std::lock_guard<std::mutex> lock(mutex_);
-	if (generation != loadGeneration_ || sndReader_ || pcm.size() < 4) {
+	if (generation != loadGeneration_) {
+		return;
+	}
+	pmfDecodePending_ = false;
+	if (sndReader_ || pcm.size() < 4) {
 		return;
 	}
 	INFO_LOG(Log::Audio, "Playing the sound in %s's ICON1.PMF (%.1f s)", bgGamePath_.c_str(), pcm.size() / 2 / 44100.0);

@@ -8,6 +8,16 @@
 #include "Core/HW/SimpleAudioDec.h"
 #include "VideoPlayer.h"
 
+bool pmf_has_audio(const uint8_t *data, size_t size) {
+	if (size < 0x10 || memcmp(data, "PSMF", 4) != 0) {
+		return false;
+	}
+	// The audio is in MPEG private stream 1 packets (start code 00 00 01 BD).
+	static const uint8_t privateStream1[4] = { 0x00, 0x00, 0x01, 0xBD };
+	const uint8_t *end = data + size;
+	return std::search(data + std::min<size_t>(ReadBE32(data + 8), size), end, privateStream1, privateStream1 + 4) != end;
+}
+
 std::vector<int16_t> pmf_decode_audio(const uint8_t *data, size_t size) {
 	std::vector<int16_t> pcm;
 	if (size < 0x10 || memcmp(data, "PSMF", 4) != 0) {
@@ -98,6 +108,7 @@ struct PMFPlayer {
 	double last_pts;
 	int64_t frame_count; // Fallback for missing PTS
 	bool reached_end;
+	double last_time;  // What pmf_update was last asked for.
 };
 
 // --- Custom IO Callbacks ---
@@ -218,6 +229,15 @@ bool pmf_update(PMFPlayer* ps, double current_time_seconds, uint8_t* user_rgba_b
 	// Calculate duration for broken PTS files
 	double frame_rate = av_q2d(st->avg_frame_rate);
 	double frame_duration = (frame_rate > 0) ? (1.0 / frame_rate) : 0.033;
+
+	// The clock went back (it follows a sound that looped): start over from the beginning.
+	if (current_time_seconds + frame_duration < ps->last_time) {
+		av_seek_frame(ps->fmt_ctx, ps->video_stream_idx, 0, AVSEEK_FLAG_BACKWARD);
+		avcodec_flush_buffers(ps->video_ctx);
+		ps->frame_count = 0;
+		ps->last_pts = -1.0;
+	}
+	ps->last_time = current_time_seconds;
 
 	// Don't decode if the UI clock hasn't caught up to our last frame yet
 	if (ps->last_pts >= current_time_seconds && ps->last_pts >= 0) return false;
