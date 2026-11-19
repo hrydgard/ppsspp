@@ -76,9 +76,18 @@ public:
 		const bool retval = UI::Clickable::Touch(input);
 		if (hovering_ && (input.flags & TouchInputFlags::DOWN)) {
 			holdStart_ = time_now_d();
+			holdFromTouch_ = true;
+			holdOutsideSince_ = 0.0;
 		}
 		if (input.flags & TouchInputFlags::UP) {
 			holdStart_ = 0;
+		}
+		if (holdStart_ != 0.0 && holdFromTouch_) {
+			if (hovering_) {
+				holdOutsideSince_ = 0.0;
+			} else if (holdOutsideSince_ == 0.0) {
+				holdOutsideSince_ = time_now_d();
+			}
 		}
 		return retval;
 	}
@@ -126,6 +135,7 @@ public:
 		if (IsHoldEnabled() && HasFocus() && UI::IsAcceptKey(key) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 			if (key.flags & KeyInputFlags::DOWN) {
 				holdStart_ = time_now_d();
+				holdFromTouch_ = false;
 			}
 			if (key.flags & KeyInputFlags::UP) {
 				holdStart_ = 0.0;
@@ -136,6 +146,13 @@ public:
 	}
 
 	void Update() override {
+		if (holdStart_ != 0.0 && holdFromTouch_ && !hovering_) {
+			// A pointer that has left the button for a moment cancels the hold, and it never fires outside.
+			if (holdOutsideSince_ != 0.0 && time_now_d() - holdOutsideSince_ > 0.25) {
+				holdStart_ = 0.0;
+			}
+			return;
+		}
 		// Hold button for 1.5 seconds to launch the game options
 		if (IsHoldEnabled() && holdStart_ != 0.0 && holdStart_ < time_now_d() - 1.5) {
 			TriggerOnHoldClick();
@@ -249,6 +266,9 @@ private:
 	Instant videoStart_;
 
 	double holdStart_ = 0.0;
+	// When the pointer that started the hold left the button, or 0 while it's inside.
+	double holdOutsideSince_ = 0.0;
+	bool holdFromTouch_ = false;
 	bool holdEnabled_ = true;
 	bool showInfoPressed_ = false;
 	bool infoKeyPressed_ = false;

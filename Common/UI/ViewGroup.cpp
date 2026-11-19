@@ -1256,6 +1256,13 @@ void GridLayout::Layout() {
 	}
 }
 
+void GridLayout::SetRoundCorners(RoundCorners outerCorners) {
+	ViewGroup::SetRoundCorners(outerCorners);
+	for (auto v : views_) {
+		v->SetRoundCorners(outerCorners);
+	}
+}
+
 std::string GridLayoutList::DescribeText() const {
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
 	return DescribeListOrdered(u->T("List:"));
