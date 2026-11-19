@@ -1675,16 +1675,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			// Convenience subset of what "Enable standard shortcut keys" does on Windows.
 			if (g_Config.bSystemControls) {
 				bool ctrl = bool(event.key.mod & SDL_KMOD_CTRL);
-				if (ctrl && (k == SDLK_W))
-				{
-					if (Core_IsStepping())
-						Core_Resume();
-					Core_Stop();
-					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
-					// NOTE: Unlike Windows version, this
-					// does not need Core_WaitInactive();
-					// since SDL does not have a separate
-					// UI thread.
+				if (ctrl && (k == SDLK_W)) {
+					// Like on Windows: the UI asks first, with the same popup as the pause screen's Exit.
+					System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
 				}
 
 				/*

@@ -568,6 +568,11 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 	// This happens on the main thread.
 	if (message == UIMessage::REQUEST_GAME_PAUSE && screenManager()->topScreen() == this) {
 		screenManager()->push(new GamePauseScreen(gamePath_, bootPending_));
+	} else if (message == UIMessage::REQUEST_GAME_STOP && value && !strcmp(value, "confirm")) {
+		// From a menu or shortcut (like Ctrl+W): ask the way the pause screen's Exit does.
+		if (!bootPending_) {
+			ConfirmAndStopGame(screenManager());
+		}
 	} else if (message == UIMessage::REQUEST_GAME_STOP) {
 		// We will push MainScreen in update().
 		if (bootPending_) {

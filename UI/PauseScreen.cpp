@@ -992,24 +992,36 @@ std::string GetConfirmExitMessage() {
 	return confirmMessage;
 }
 
-void ConfirmAndResetGame(ScreenManager *screenManager, std::function<void()> onReset) {
+// Posts message (a reset or stop request), first asking in a popup if there's something to lose.
+static void ConfirmGameAction(ScreenManager *screenManager, std::string_view title, std::string_view button, UIMessage message, std::function<void()> onDone) {
 	const std::string confirmMessage = GetConfirmExitMessage();
 	if (confirmMessage.empty()) {
-		System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-		if (onReset) {
-			onReset();
+		System_PostUIMessage(message);
+		if (onDone) {
+			onDone();
 		}
 		return;
 	}
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	screenManager->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [onReset](bool result) {
+	screenManager->push(new UI::MessagePopupScreen(title, confirmMessage, button, di->T("Cancel"), [message, onDone](bool result) {
 		if (result) {
-			System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-			if (onReset) {
-				onReset();
+			System_PostUIMessage(message);
+			if (onDone) {
+				onDone();
 			}
 		}
 	}));
+}
+
+void ConfirmAndResetGame(ScreenManager *screenManager, std::function<void()> onReset) {
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	ConfirmGameAction(screenManager, di->T("Reset"), di->T("Reset"), UIMessage::REQUEST_GAME_RESET, onReset);
+}
+
+void ConfirmAndStopGame(ScreenManager *screenManager) {
+	// Back to the game list, like the pause screen's Exit, so it asks the same way.
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	ConfirmGameAction(screenManager, di->T("Are you sure you want to exit?"), di->T("Exit"), UIMessage::REQUEST_GAME_STOP, nullptr);
 }
 
 void GamePauseScreen::OnExit(UI::EventParams &e) {

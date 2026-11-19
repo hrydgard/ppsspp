@@ -353,7 +353,8 @@ static bool CanUseSaveStates(bool isSaveAction) {
         System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Stop") to:menu action:^{
-        System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+        // The UI asks first, with the same popup as the pause screen's Exit.
+        System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Reset") to:menu action:^{
         // The UI asks first, with the same popup as the pause screen's Reset.

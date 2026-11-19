@@ -508,7 +508,8 @@ namespace MainWindow {
 			break;
 
 		case ID_EMULATION_STOP:
-			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP);
+			// The UI asks first, with the same popup as the pause screen's Exit.
+			System_PostUIMessage(UIMessage::REQUEST_GAME_STOP, "confirm");
 			break;
 
 		case ID_EMULATION_RESET:
