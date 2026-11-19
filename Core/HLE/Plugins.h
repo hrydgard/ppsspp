@@ -35,6 +35,8 @@ void Unload();
 void DoState(PointerWrap &p);
 
 bool HasEnabled();
+// Comma-separated. Can be empty while HasEnabled() is true, after loading a savestate made with plugins.
+std::string EnabledNames();
 
 enum class PluginType {
 	INVALID = 0,
