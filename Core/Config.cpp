@@ -742,10 +742,7 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 			return false;
 	}
 
-#if PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(SWITCH)
-	if (backend != GPUBackend::OPENGL)
-		return false;
-#elif PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
 	if (backend != GPUBackend::DIRECT3D11)
 		return false;
 #elif PPSSPP_PLATFORM(SWITCH)

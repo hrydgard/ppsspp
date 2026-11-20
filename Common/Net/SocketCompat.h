@@ -38,7 +38,8 @@
 #undef __BSD_VISIBLE
 #define __BSD_VISIBLE 1
 #define TCP_MAXSEG 2
-#include <netdb.h>// Missing include, *shrugs*
+#include <netdb.h>
+// Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
 #endif // defined(HAVE_LIBNX) || PPSSPP_PLATFORM(SWITCH)
 

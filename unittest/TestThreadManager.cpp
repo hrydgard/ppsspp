@@ -144,6 +144,12 @@ bool TestThreadManager() {
 
 	delete object;
 
+	Promise<ResultObject *> *dedicated(Promise<ResultObject *>::Spawn(&manager, &ResultProducer, TaskType::DEDICATED_THREAD));
+	result = dedicated->BlockUntilReady();
+	EXPECT_TRUE(result && result->ok);
+	delete result;
+	delete dedicated;
+
 	if (!TestMailbox()) {
 		return false;
 	}
