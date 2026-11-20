@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "Core/HLE/sceNetAdhoc.h"
+#include "ext/aemu_postoffice/adhocctl/client/adhocctl.h"
 
 // Roughly what the calls cost on a PSP when they return without waiting, by the bytes they move
 // (pspautotests net/adhoc/sizes). PdpSend costs about the same to a peer, to everyone and to itself.
@@ -301,3 +302,27 @@ private:
 };
 
 AdhocTransport &Transport();
+
+// Group discovery and identity can be supplied by a frontend along with its socket transport.
+// The default uses the configured PRO server. Install before boot, and restore after PSP_Shutdown,
+// once the login and keepalive threads have joined. The provider outlives all its sessions.
+class AdhocControlTransport {
+public:
+	virtual ~AdhocControlTransport() = default;
+	virtual bool IsExternal() const { return false; }
+	virtual std::unique_ptr<AdhocTransport> CreateDataTransport() { return {}; }
+	virtual bool GetLocalMac(u8 mac[6]) { return false; }
+	virtual void *Login(const adhocctl_addr_v4 *server, const adhocctl_addr_v4 *bind, const char *game, const char *nick, const char *mac, bool udp, bool (*abort)(void *), void *arg) {
+		return create_adhocctl_v1_session_v4(server, bind, game, nick, mac, udp, abort, arg);
+	}
+	virtual void Logout(void *handle) { destroy_adhocctl_session(handle); }
+	virtual void GetEvent(void *handle, adhocctl_event *event) { adhocctl_get_event(handle, event); }
+	virtual adhocctl_call_status Ping(void *handle) { return adhocctl_ping(handle); }
+	virtual adhocctl_call_status Connect(void *handle, const char *group) { return adhocctl_connect(handle, group); }
+	virtual adhocctl_call_status Disconnect(void *handle) { return adhocctl_disconnect(handle); }
+	virtual adhocctl_call_status Scan(void *handle) { return adhocctl_scan(handle); }
+	virtual adhocctl_call_status Chat(void *handle, const char *message) { return adhocctl_chat(handle, message); }
+};
+
+AdhocControlTransport &AdhocControl();
+void SetAdhocControlTransport(AdhocControlTransport *provider);
