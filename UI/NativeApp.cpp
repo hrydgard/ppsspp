@@ -1744,29 +1744,6 @@ bool NativeKey(const KeyInput &key) {
 	}
 #endif
 
-#ifdef _DEBUG
-	// Debug hack: Randomize the language with F9!
-	if ((key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
-		// We're on the input thread, and this recreates the views.
-		System_RunOnMainThread([]() {
-			std::vector<File::FileInfo> tempLangs;
-			g_VFS.GetFileListing("lang", &tempLangs, "ini");
-			int x = rand() % tempLangs.size();
-
-			g_Config.DoNotSaveSetting(&g_Config.sLanguageIni);
-			std::string_view code, part2;
-			if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
-				g_Config.sLanguageIni = code;
-				INFO_LOG(Log::System, "Switching to random language: %s", g_Config.sLanguageIni.c_str());
-				if (g_i18nrepo.LoadIni(g_Config.sLanguageIni)) {
-					g_screenManager->RecreateAllViews();
-					System_Notify(SystemNotification::UI);
-				}
-			}
-		});
-	}
-#endif
-
 	HLEPlugins::SetKey(key.keyCode, (key.flags & KeyInputFlags::DOWN) ? 1 : 0);
 
 	// Handle releases of mousewheel keys.

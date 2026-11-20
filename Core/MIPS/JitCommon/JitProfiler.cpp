@@ -26,9 +26,14 @@
 #include <chrono>
 #include <thread>
 
+// The signal-based sampler (Linux and Apple); elsewhere but Windows, the stub
+#if !PPSSPP_PLATFORM(WINDOWS) && (((PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM)) && (defined(__APPLE__) || defined(__linux__))) || ((PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)) && defined(__linux__)))
+#define JIT_PROFILER_SIGNALS 1
+#endif
+
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "Common/CommonWindows.h"
-#else
+#elif defined(JIT_PROFILER_SIGNALS)
 #include <csignal>
 #include <cstdlib>
 #include <cxxabi.h>
@@ -117,7 +122,7 @@ std::string DescribeHostAddress(uintptr_t pc, uintptr_t *symbolStart) {
 	return "";
 }
 
-#elif !PPSSPP_PLATFORM(WINDOWS) && (((PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM)) && (defined(__APPLE__) || defined(__linux__))) || ((PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)) && defined(__linux__)))
+#elif defined(JIT_PROFILER_SIGNALS)
 
 static pthread_t g_target;
 static struct sigaction g_oldAction;

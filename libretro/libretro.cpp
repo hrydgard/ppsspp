@@ -1624,6 +1624,11 @@ bool retro_load_game(const struct retro_game_info *game) {
    // set cpuCore from libretro setting variable
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
    coreParam.bUseVertexDecoderJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
+#if PPSSPP_PLATFORM(SWITCH)
+   // Only use the vertex decoder JIT together with the CPU JIT.
+   if (coreParam.cpuCore != CPUCore::JIT)
+      coreParam.bUseVertexDecoderJit = false;
+#endif
 
    g_pendingBoot = true;
 

@@ -16,9 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 // The Media Engine, the PSP's second Allegrex. The firmware runs its codecs on it, and homebrew
-// whatever it likes. It runs in its own address space (Memory::CreateMESpace()), on the
-// interpreter, a slice behind the main CPU: CoreTiming runs it for the cycles the main CPU has just
-// used. Only emulated for homebrew, when enabled; commercial games get the HLE codecs.
+// whatever it likes. It runs in its own address space (Memory::CreateMESpace()), on the same CPU
+// core as the main CPU, a slice behind it: CoreTiming runs it for the cycles the main CPU has just
+// used. Emulated for PS1 games, whose emulator plays its sound on it, and for homebrew when enabled.
+// Other commercial games get the HLE codecs.
 
 #pragma once
 

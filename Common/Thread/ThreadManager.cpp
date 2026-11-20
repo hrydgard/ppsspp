@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include <cstdio>
 #include <algorithm>
 #include <thread>
@@ -225,6 +227,8 @@ void ThreadManager::Init(int numRealCores, int numLogicalCoresPerCpu) {
 }
 
 void ThreadManager::EnqueueTask(Task *task) {
+#if !PPSSPP_PLATFORM(SWITCH)
+	// libnx can't detach threads, so there dedicated tasks go to the IO blocking threads below.
 	if (task->Type() == TaskType::DEDICATED_THREAD) {
 		std::thread th([=](Task *task) {
 			SetCurrentThreadName("DedicatedThreadTask");
@@ -234,6 +238,7 @@ void ThreadManager::EnqueueTask(Task *task) {
 		th.detach();
 		return;
 	}
+#endif
 
 	_assert_msg_(IsInitialized(), "ThreadManager not initialized");
 

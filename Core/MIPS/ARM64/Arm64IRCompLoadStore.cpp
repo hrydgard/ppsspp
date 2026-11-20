@@ -443,6 +443,10 @@ void Arm64JitBackend::CompIR_KernelLoadStore(IRInst inst) {
 		SetJumpTarget(done);
 		return;
 	}
+#ifdef MASKED_PSP_MEMORY
+	// Kernel code mostly uses the 0x80000000 mirrors, which masked memory has no views at.
+	ANDI2R(SCRATCH1, SCRATCH1, Memory::MEMVIEW32_MASK, SCRATCH2);
+#endif
 	switch (inst.op) {
 	case IROp::LoadKernel8: LDRB(reg, MEMBASEREG, offset); break;
 	case IROp::LoadKernel8Ext: LDRSB(reg, MEMBASEREG, offset); break;

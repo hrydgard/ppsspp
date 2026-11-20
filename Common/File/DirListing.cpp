@@ -25,6 +25,7 @@
 #else
 #include <strings.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <unistd.h>
 #endif
 
@@ -49,12 +50,12 @@
 #define stat64 stat
 #endif
 
-#ifdef HAVE_LIBNX
+#if PPSSPP_PLATFORM(SWITCH)
 // Far from optimal, but I guess it works...
 #define fseeko fseek
 #define ftello ftell
 #define fileno
-#endif // HAVE_LIBNX
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 // NOTE: There's another one in FileUtil.cpp.
 #ifdef _WIN32
@@ -310,7 +311,19 @@ bool GetFileInfo(const Path &path, FileInfo * fileInfo) {
 	fileInfo->exists = true;
 	fileInfo->atime = file_info.st_atime;
 	fileInfo->mtime = file_info.st_mtime;
+	// st_ctime is the inode change time, which moves on every write. ctime means creation time to
+	// the PSP (and on Windows), so use the birth time where the host has one.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+	fileInfo->ctime = file_info.st_birthtime;
+#else
 	fileInfo->ctime = file_info.st_ctime;
+#if defined(__linux__) && !defined(__ANDROID__) && defined(STATX_BTIME)
+	struct statx stx;
+	if (statx(AT_FDCWD, path.c_str(), 0, STATX_BTIME, &stx) == 0 && (stx.stx_mask & STATX_BTIME)) {
+		fileInfo->ctime = stx.stx_btime.tv_sec;
+	}
+#endif
+#endif
 
 	// TODO: Use statx to provide higher precision timestamps on Linux.
 	fileInfo->atimeUs = 0;

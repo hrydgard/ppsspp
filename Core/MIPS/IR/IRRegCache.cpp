@@ -822,7 +822,12 @@ void IRNativeRegCacheBase::FlushAllFrom(const NotInMemoryRegs &notInMemory, bool
 				}
 				mr[i].loc = MIPSLoc::REG;
 			} else if (mr[i].loc == MIPSLoc::REG_AS_PTR) {
+#ifdef MASKED_PSP_MEMORY
+				// Stored before it was masked (MapNativeRegAsPointer).
+				LoadNativeReg(mr[i].nReg, mipsReg, 1);
+#else
 				AdjustNativeRegAsPtr(mr[i].nReg, false);
+#endif
 				mr[i].loc = MIPSLoc::REG;
 			}
 			_assert_(mr[i].nReg != -1);
@@ -1360,7 +1365,9 @@ IRNativeReg IRNativeRegCacheBase::MapNativeRegAsPointer(IRReg gpr) {
 		mr[gpr].imm = 0;
 
 #ifdef MASKED_PSP_MEMORY
-		if (nr[mr[gpr].nReg].isDirty) {
+		// Masking loses bits, so the value is reloaded from memory afterwards. A static reg's memory
+		// copy is never up to date, dirty or not.
+		if (nr[mr[gpr].nReg].isDirty || mr[gpr].isStatic) {
 			StoreNativeReg(mr[gpr].nReg, gpr, 1);
 			nr[mr[gpr].nReg].isDirty = false;
 		}

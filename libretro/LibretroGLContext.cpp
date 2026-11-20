@@ -5,6 +5,12 @@
 #include "Core/System.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
+#if PPSSPP_PLATFORM(SWITCH)
+#include "Common/GPU/OpenGL/GLCommon.h"
+#include <glsym/rglgen.h>
+// not in libretro-common's glsym map (GLSwitch.h)
+PPSSPP_PFNGLCLIPCONTROLPROC ppsspp_glClipControl;
+#endif
 #include "libretro/LibretroGLContext.h"
 
 bool LibretroGLContext::InitAPI(void *wnd, std::string *deviceName, std::string *error_message) {
@@ -16,8 +22,14 @@ bool LibretroGLContext::InitAPI(void *wnd, std::string *deviceName, std::string 
 }
 
 void LibretroGLContext::CreateDrawContext() {
-
-#ifndef USING_GLES2
+#if PPSSPP_PLATFORM(SWITCH)
+    // No glew here - entry points come from eglGetProcAddress through glsym.
+    if (!glewInitDone) {
+        rglgen_resolve_symbols(&eglGetProcAddress);
+        ppsspp_glClipControl = (PPSSPP_PFNGLCLIPCONTROLPROC)eglGetProcAddress("glClipControl");
+        glewInitDone = true;
+    }
+#elif !defined(USING_GLES2)
     // Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
     // glewExperimental allows us to force GLEW to search for the pointers anyway.
     if (gl_extensions.IsCoreContext)

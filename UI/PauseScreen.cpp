@@ -112,15 +112,13 @@ protected:
 		auto pa = GetI18NCategory(I18NCat::PAUSE);
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 
-		ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
-		LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-		Margins contentMargins(10, 0);
-		content->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
+		ScrollView *scroll = parent->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
+		LinearLayout *content = scroll->Add(new LinearLayout(ORIENT_VERTICAL));
+		content->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272)))->SetCanBeFocused(false);
 
-		GridLayoutSettings gridsettings(235, 64, 10);
+		GridLayoutSettings gridsettings(230, 64, 12);
 		gridsettings.fillCells = true;
-		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0))));
-
+		GridLayout *grid = content->Add(new GridLayoutList(gridsettings, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		const bool hasUndo = SaveState::HasUndoSaveInSlot(saveStatePrefix_, slot_);
 		const bool undoEnabled = g_Config.bEnableStateUndo;
 
@@ -141,11 +139,9 @@ protected:
 		if (undoButton) {
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);
 		}
-		grid->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+		grid->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 		grid->Add(new Choice(di->T("Rename state"), ImageID("I_EDIT_TEXT")))->OnClick.Handle(this, &ScreenshotViewScreen::OnChangeState);
-
-		scroll->Add(content);
-		parent->Add(scroll);
+		grid->SetRoundCorners();
 	}
 
 private:
