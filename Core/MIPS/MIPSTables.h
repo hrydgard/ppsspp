@@ -110,7 +110,12 @@ struct MIPSInfo {
 	explicit MIPSInfo(u64 v, u16 c = 0) : value(v), cycles(c) {
 		if (c == 0) {
 			cycles = 1;
-			if (v & IS_VFPU)
+			// FPU and VFPU results take 5-7 cycles, and compiled code usually uses them soon.
+			if (v & (IS_VFPU | IS_FPU))
+				cycles++;
+			// Loads and stores: load-use stalls and store occupancy (2-3 cycles each on hardware,
+			// pspautotests cpu/cachebench), plus some of the cache misses.
+			if ((v & (IN_MEM | OUT_MEM)) && (v & MEMTYPE_MASK))
 				cycles++;
 		}
 	}
