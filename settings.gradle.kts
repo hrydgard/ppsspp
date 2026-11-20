@@ -19,3 +19,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "PPSSPP"
 include(":android")
+
+// Moonlight (GameStream) host, for streaming the game to a TV or PC. See MoonlightStream.java.
+include(":moonlighthost")
+project(":moonlighthost").projectDir = file("ext/moonlight-host-android/moonlighthost")

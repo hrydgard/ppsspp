@@ -305,6 +305,7 @@ public:
 	// GFX
 	int iGPUBackend;
 	int iExternalDisplay;  // ExternalDisplayMode
+	bool bMoonlightHost;  // Android: stream the game to Moonlight clients.
 	std::string sCustomDriver;
 	int iAdrenoEnvVars;  // AdrenoEnvVars
 	std::string sFailedGPUBackends;  // NOT stored in ppsspp.ini anymore!

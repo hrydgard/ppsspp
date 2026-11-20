@@ -950,6 +950,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Backend").Choices(gpuBackendNames),
 	ConfigSetting("ExternalDisplay", SETTING(g_Config, iExternalDisplay), (int)ExternalDisplayMode::SHOW_GAME, CfgFlag::DEFAULT)
 		.Label(I18NCat::GRAPHICS, "External display").Choices(externalDisplayNames),
+	ConfigSetting("MoonlightHost", SETTING(g_Config, bMoonlightHost), false, CfgFlag::DEFAULT)
+		.Label(I18NCat::GRAPHICS, "Stream to Moonlight"),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	ConfigSetting("CustomDriver", SETTING(g_Config, sCustomDriver), "", CfgFlag::DEFAULT),
 	ConfigSetting("AdrenoDriverVars", SETTING(g_Config, iAdrenoEnvVars), 0, CfgFlag::DEFAULT),
