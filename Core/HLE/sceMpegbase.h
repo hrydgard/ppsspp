@@ -37,8 +37,9 @@ void __MpegBaseDoState(PointerWrap &p);
 // out at half width and half height, as YUV420 does.
 //
 // The planes point into scratch that is reused by the next call, so read them before calling again.
+// With evenRowsOnly, the odd rows (buffers 2, 3, 6 and 7) are neither read nor written.
 bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
-	const u8 **luma, const u8 **cb, const u8 **cr);
+	const u8 **luma, const u8 **cb, const u8 **cr, bool evenRowsOnly = false);
 
 // The de-tiling on its own, taking the eight buffers already resolved to host pointers, so it can
 // be measured and checked without a game - see TestMpegCsc. A null entry in src leaves that

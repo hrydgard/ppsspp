@@ -211,7 +211,12 @@ void UntileYCbCr(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int siz
 				if (run <= 0 || j + run > ySize[b]) {
 					continue;
 				}
-				memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
+				// A constant size gets inlined instead of a library call per 16 bytes.
+				if (run == 16) {
+					memcpy(luma + (size_t)row * width + bandX, src[b] + j, 16);
+				} else {
+					memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
+				}
 			}
 		}
 	}
@@ -248,12 +253,16 @@ void UntileYCbCr(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int siz
 }
 
 bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
-	const u8 **luma, const u8 **cb, const u8 **cr) {
+	const u8 **luma, const u8 **cb, const u8 **cr, bool evenRowsOnly) {
 	int sizes[8];
 	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
 
 	const u8 *src[8]{};
 	for (int i = 0; i < 8; i++) {
+		// Buffers 2/3 and 6/7 are the odd rows.
+		if (evenRowsOnly && (i & 2)) {
+			continue;
+		}
 		if (sizes[i] > 0) {
 			src[i] = MpegBaseFramePointer(buffers[i], sizes[i]);
 			if (!src[i]) {
@@ -634,13 +643,15 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int buff
 		return hleLogError(Log::Mpeg, -1, "range outside the frame");
 	}
 
+	const bool topFieldOnly = csc->unk08 != 0;
 	const u8 *luma, *cb, *cr;
-	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr)) {
+	// Only the even rows are converted with +0x08 set, and the UMD Video player doesn't keep the
+	// other field's buffers up to date in the copy it converts from anyway.
+	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr, topFieldOnly)) {
 		return hleLogError(Log::Mpeg, -1, "YCbCr buffers not readable");
 	}
 
 	const int bpp = g_mpegBasePixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-	const bool topFieldOnly = csc->unk08 != 0;
 	if (bufferRGB2 != 0 || topFieldOnly) {
 		return MpegBaseCscFields(bufferRGB, bufferRGB2, topFieldOnly, bufferWidth, bpp, luma, cb, cr, width, height,
 			rangeX, rangeY, rangeWidth, rangeHeight);
