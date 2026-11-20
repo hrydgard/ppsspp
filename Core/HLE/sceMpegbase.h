@@ -55,16 +55,8 @@ void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
 
-// The two implementations behind it, exposed so TestMpegCsc can measure and compare them.
-// The scalar one handles anything; the swscale one refuses what it cannot express and is then
-// not used. They do not agree to the bit - swscale rounds its own way - so the scalar one is
-// what the reference in the test is checked against.
+// The scalar implementation, exposed so TestMpegCsc can check MpegCscRange's SIMD path against it
+// (they agree to the bit) and measure the difference.
 void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
-bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
-	const u8 *luma, const u8 *cb, const u8 *cr, int width,
-	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
-
-// Frees the cached swscale context.
-void MpegCscShutdown();

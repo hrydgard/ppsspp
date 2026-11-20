@@ -41,13 +41,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
-
-#ifdef USE_FFMPEG
-extern "C" {
-#include "libswscale/swscale.h"
-#include "libavutil/pixfmt.h"
-}
-#endif
+#include "Common/Math/CrossSIMD.h"
 
 // Set by sceMpegBaseCscInit / sceMpegBaseCscSetPixelMode, and used when the caller passes 0.
 static int g_mpegBaseBufferWidth = 512;
@@ -62,17 +56,15 @@ void __MpegBaseInit() {
 	// None of this survives a boot on hardware.
 	g_untileScratch.clear();
 	g_untileScratch.shrink_to_fit();
-	MpegCscShutdown();
 	g_mpegBaseBufferWidth = 512;
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 }
 
 void __MpegBaseShutdown() {
-	// The scratch and the swscale context are worth a few hundred kilobytes between them, and a
-	// game that played one video early on has no use for either afterwards.
+	// The scratch is a few hundred kilobytes, and a game that played one video early on has no
+	// use for it afterwards.
 	g_untileScratch.clear();
 	g_untileScratch.shrink_to_fit();
-	MpegCscShutdown();
 }
 
 void __MpegBaseDoState(PointerWrap &p) {
@@ -374,124 +366,152 @@ void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
 	}
 }
 
-#ifdef USE_FFMPEG
+#if PPSSPP_ARCH(SSE2) || PPSSPP_ARCH(ARM_NEON)
 
-// swscale is what our sceMpeg HLE converts with, and the planes the de-tiling produces are
-// already the YUV420P it wants, so the same thing works here - and it is a great deal quicker
-// than doing it a pixel at a time.
-//
-// The four output formats are the ones MediaEngine::getSwsFormat picks, for the same reasons.
-// Alpha is not among them: swscale writes RGBA opaque and leaves the spare bits of the 16-bit
-// formats clear, so the masking below is what makes the result match the hardware, exactly as
-// the HLE does after its own sws_scale.
-static AVPixelFormat SwsFormatForPixelMode(int pixelMode) {
-	switch (pixelMode) {
-	case GE_CMODE_16BIT_BGR5650: return AV_PIX_FMT_BGR565LE;
-	case GE_CMODE_16BIT_ABGR5551: return AV_PIX_FMT_BGR555LE;
-	case GE_CMODE_16BIT_ABGR4444: return AV_PIX_FMT_BGR444LE;
-	default: return AV_PIX_FMT_RGBA;
-	}
-}
-
-// Nothing is being scaled here, so this only picks how chroma reaches full resolution: SWS_POINT
-// repeats each 2x2 block's sample, as the scalar path and presumably the hardware do, while
-// SWS_BILINEAR smooths between samples, as our sceMpeg HLE does. Swap the line to taste - it
-// deserves a real option eventually.
-static const int MPEG_CSC_SWS_FLAGS = SWS_POINT;
-
-static SwsContext *g_cscSws;
-static int g_cscSwsWidth, g_cscSwsHeight, g_cscSwsFormat = -1;
-
-void MpegCscShutdown() {
-	if (g_cscSws) {
-		sws_freeContext(g_cscSws);
-		g_cscSws = nullptr;
-	}
-	g_cscSwsWidth = 0;
-	g_cscSwsHeight = 0;
-	g_cscSwsFormat = -1;
-}
-
-bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
-	const u8 *luma, const u8 *cb, const u8 *cr, int width,
-	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
-	// Chroma is half resolution, so an odd origin would start half a sample in and there is no way
-	// to say that to swscale. Nothing can actually ask for one - the ranges arrive in macroblocks -
-	// but the scalar path is still there for it.
-	if ((rangeX & 1) || (rangeY & 1)) {
-		return false;
-	}
-
-	const AVPixelFormat format = SwsFormatForPixelMode(pixelMode);
-	if (rangeWidth != g_cscSwsWidth || rangeHeight != g_cscSwsHeight || (int)format != g_cscSwsFormat) {
-		g_cscSws = sws_getCachedContext(g_cscSws, rangeWidth, rangeHeight, AV_PIX_FMT_YUV420P,
-			rangeWidth, rangeHeight, format, MPEG_CSC_SWS_FLAGS, nullptr, nullptr, nullptr);
-		if (!g_cscSws) {
-			return false;
-		}
-		// Studio swing both ways, which is the range the coefficients in the scalar path assume.
-		int *invCoeff, *coeff, srcRange, dstRange, brightness, contrast, saturation;
-		if (sws_getColorspaceDetails(g_cscSws, &invCoeff, &srcRange, &coeff, &dstRange, &brightness,
-			&contrast, &saturation) != -1) {
-			sws_setColorspaceDetails(g_cscSws, invCoeff, 0, coeff, 0, brightness, contrast, saturation);
-		}
-		g_cscSwsWidth = rangeWidth;
-		g_cscSwsHeight = rangeHeight;
-		g_cscSwsFormat = (int)format;
-	}
-
-	const int width2 = width >> 1;
-	const u8 *srcSlice[4] = {
-		luma + (size_t)rangeY * width + rangeX,
-		cb + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
-		cr + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
-		nullptr,
+// Eight pixels of YCbCrToPixel at a time, computing the same integers, so the result is identical
+// to the scalar path's. y points at eight luma samples and cb/cr at the four chroma samples under
+// them.
+static inline void CscEight(u8 *dest, int pixelMode, const u8 *y, const u8 *cb, const u8 *cr) {
+#if PPSSPP_ARCH(SSE2)
+	const __m128i zero = _mm_setzero_si128();
+	// Two 16-bit coefficients for _mm_madd_epi16, which multiplies lane pairs and adds them.
+	auto pair = [](int lo, int hi) {
+		return _mm_set1_epi32((int)(((u32)(u16)hi << 16) | (u16)lo));
 	};
-	const int srcStride[4] = { width, width2, width2, 0 };
-	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-	u8 *dstSlice[4] = { dest, nullptr, nullptr, nullptr };
-	const int dstStride[4] = { destStride * bpp, 0, 0, 0 };
-	if (sws_scale(g_cscSws, srcSlice, srcStride, 0, rangeHeight, dstSlice, dstStride) <= 0) {
-		return false;
-	}
+	const __m128i c = _mm_sub_epi16(_mm_unpacklo_epi8(_mm_loadl_epi64((const __m128i *)y), zero), _mm_set1_epi16(16));
+	__m128i cb8 = _mm_cvtsi32_si128((int)LoadU32Unaligned(cb));
+	__m128i cr8 = _mm_cvtsi32_si128((int)LoadU32Unaligned(cr));
+	// Each chroma sample covers two pixels.
+	cb8 = _mm_unpacklo_epi8(cb8, cb8);
+	cr8 = _mm_unpacklo_epi8(cr8, cr8);
+	const __m128i d = _mm_sub_epi16(_mm_unpacklo_epi8(cb8, zero), _mm_set1_epi16(128));
+	const __m128i e = _mm_sub_epi16(_mm_unpacklo_epi8(cr8, zero), _mm_set1_epi16(128));
+	// The rounding constant rides along as e * -208 + 1 * 128.
+	const __m128i one = _mm_set1_epi16(1);
+	const __m128i round = _mm_set1_epi32(128);
 
-	// Clear the alpha swscale filled in, which the hardware leaves at zero.
-	for (int y = 0; y < rangeHeight; y++) {
-		u8 *row = dest + (size_t)y * destStride * bpp;
-		if (bpp == 4) {
-			u32_le *p32 = (u32_le *)row;
-			for (int x = 0; x < rangeWidth; x++) {
-				p32[x] = p32[x] & 0x00FFFFFF;
-			}
-		} else if (pixelMode != GE_CMODE_16BIT_BGR5650) {
-			const u16 mask = pixelMode == GE_CMODE_16BIT_ABGR5551 ? 0x7FFF : 0x0FFF;
-			u16_le *p16 = (u16_le *)row;
-			for (int x = 0; x < rangeWidth; x++) {
-				p16[x] = p16[x] & mask;
-			}
+	auto channel = [&](__m128i a, __m128i b, int ka, int kb, __m128i extra, int kExtraA, int kExtraB, bool useExtra) {
+		__m128i lo = _mm_madd_epi16(_mm_unpacklo_epi16(a, b), pair(ka, kb));
+		__m128i hi = _mm_madd_epi16(_mm_unpackhi_epi16(a, b), pair(ka, kb));
+		if (useExtra) {
+			lo = _mm_add_epi32(lo, _mm_madd_epi16(_mm_unpacklo_epi16(extra, one), pair(kExtraA, kExtraB)));
+			hi = _mm_add_epi32(hi, _mm_madd_epi16(_mm_unpackhi_epi16(extra, one), pair(kExtraA, kExtraB)));
+		} else {
+			lo = _mm_add_epi32(lo, round);
+			hi = _mm_add_epi32(hi, round);
 		}
+		const __m128i v = _mm_packs_epi32(_mm_srai_epi32(lo, 8), _mm_srai_epi32(hi, 8));
+		return _mm_min_epi16(_mm_max_epi16(v, zero), _mm_set1_epi16(255));
+	};
+	const __m128i r = channel(c, e, 298, 409, zero, 0, 0, false);
+	const __m128i g = channel(c, d, 298, -100, e, -208, 128, true);
+	const __m128i b = channel(c, d, 298, 516, zero, 0, 0, false);
+
+	switch (pixelMode) {
+	case GE_CMODE_16BIT_BGR5650:
+		_mm_storeu_si128((__m128i *)dest, _mm_or_si128(_mm_or_si128(
+			_mm_slli_epi16(_mm_srli_epi16(b, 3), 11), _mm_slli_epi16(_mm_srli_epi16(g, 2), 5)), _mm_srli_epi16(r, 3)));
+		break;
+	case GE_CMODE_16BIT_ABGR5551:
+		_mm_storeu_si128((__m128i *)dest, _mm_or_si128(_mm_or_si128(
+			_mm_slli_epi16(_mm_srli_epi16(b, 3), 10), _mm_slli_epi16(_mm_srli_epi16(g, 3), 5)), _mm_srli_epi16(r, 3)));
+		break;
+	case GE_CMODE_16BIT_ABGR4444:
+		_mm_storeu_si128((__m128i *)dest, _mm_or_si128(_mm_or_si128(
+			_mm_slli_epi16(_mm_srli_epi16(b, 4), 8), _mm_slli_epi16(_mm_srli_epi16(g, 4), 4)), _mm_srli_epi16(r, 4)));
+		break;
+	default:
+	{
+		const __m128i rg = _mm_or_si128(r, _mm_slli_epi16(g, 8));
+		_mm_storeu_si128((__m128i *)dest, _mm_unpacklo_epi16(rg, b));
+		_mm_storeu_si128((__m128i *)(dest + 16), _mm_unpackhi_epi16(rg, b));
+		break;
 	}
-	return true;
+	}
+#else
+	const int16x8_t c = vreinterpretq_s16_u16(vsubl_u8(vld1_u8(y), vdup_n_u8(16)));
+	// Each chroma sample covers two pixels.
+	const uint8x8_t cb4 = vreinterpret_u8_u32(vdup_n_u32(LoadU32Unaligned(cb)));
+	const uint8x8_t cr4 = vreinterpret_u8_u32(vdup_n_u32(LoadU32Unaligned(cr)));
+	const int16x8_t d = vreinterpretq_s16_u16(vsubl_u8(vzip_u8(cb4, cb4).val[0], vdup_n_u8(128)));
+	const int16x8_t e = vreinterpretq_s16_u16(vsubl_u8(vzip_u8(cr4, cr4).val[0], vdup_n_u8(128)));
+	const int16x4_t cl = vget_low_s16(c), ch = vget_high_s16(c);
+	const int16x4_t dl = vget_low_s16(d), dh = vget_high_s16(d);
+	const int16x4_t el = vget_low_s16(e), eh = vget_high_s16(e);
+	const int32x4_t cl298 = vmull_n_s16(cl, 298), ch298 = vmull_n_s16(ch, 298);
+	// vrshrn by 8 is exactly (x + 128) >> 8, and vqmovun the clamp to 0..255.
+	const uint8x8_t r = vqmovun_s16(vcombine_s16(
+		vrshrn_n_s32(vmlal_n_s16(cl298, el, 409), 8), vrshrn_n_s32(vmlal_n_s16(ch298, eh, 409), 8)));
+	const uint8x8_t g = vqmovun_s16(vcombine_s16(
+		vrshrn_n_s32(vmlal_n_s16(vmlal_n_s16(cl298, dl, -100), el, -208), 8),
+		vrshrn_n_s32(vmlal_n_s16(vmlal_n_s16(ch298, dh, -100), eh, -208), 8)));
+	const uint8x8_t b = vqmovun_s16(vcombine_s16(
+		vrshrn_n_s32(vmlal_n_s16(cl298, dl, 516), 8), vrshrn_n_s32(vmlal_n_s16(ch298, dh, 516), 8)));
+
+	switch (pixelMode) {
+	case GE_CMODE_16BIT_BGR5650:
+	{
+		uint16x8_t p = vshll_n_u8(b, 8);
+		p = vsriq_n_u16(p, vshll_n_u8(g, 8), 5);
+		p = vsriq_n_u16(p, vshll_n_u8(r, 8), 11);
+		vst1q_u16((u16 *)dest, p);
+		break;
+	}
+	case GE_CMODE_16BIT_ABGR5551:
+	{
+		uint16x8_t p = vshrq_n_u16(vshll_n_u8(b, 8), 1);
+		p = vsriq_n_u16(p, vshll_n_u8(g, 8), 6);
+		p = vsriq_n_u16(p, vshll_n_u8(r, 8), 11);
+		vst1q_u16((u16 *)dest, p);
+		break;
+	}
+	case GE_CMODE_16BIT_ABGR4444:
+	{
+		uint16x8_t p = vshrq_n_u16(vshll_n_u8(b, 8), 4);
+		p = vsriq_n_u16(p, vshll_n_u8(g, 8), 8);
+		p = vsriq_n_u16(p, vshll_n_u8(r, 8), 12);
+		vst1q_u16((u16 *)dest, p);
+		break;
+	}
+	default:
+	{
+		uint8x8x4_t p;
+		p.val[0] = r;
+		p.val[1] = g;
+		p.val[2] = b;
+		p.val[3] = vdup_n_u8(0);
+		vst4_u8(dest, p);
+		break;
+	}
+	}
+#endif
 }
 
-#else  // !USE_FFMPEG
-
-bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
-	const u8 *luma, const u8 *cb, const u8 *cr, int width,
-	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
-	return false;
-}
-
-void MpegCscShutdown() {}
-
-#endif  // USE_FFMPEG
+#endif
 
 void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
-#ifdef USE_FFMPEG
-	if (MpegCscRangeSws(dest, destStride, pixelMode, luma, cb, cr, width,
-			rangeX, rangeY, rangeWidth, rangeHeight)) {
+#if PPSSPP_ARCH(SSE2) || PPSSPP_ARCH(ARM_NEON)
+	// An odd left edge starts half a chroma sample in. Nothing asks for one (ranges arrive in
+	// macroblocks), so it's left to the scalar path.
+	if (!(rangeX & 1)) {
+		const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+		const int width2 = width >> 1;
+		const int simdWidth = rangeWidth & ~7;
+		for (int y = 0; y < rangeHeight; y++) {
+			const int sy = rangeY + y;
+			const u8 *lumaRow = luma + (size_t)sy * width + rangeX;
+			const size_t chromaOffset = (size_t)(sy >> 1) * width2 + (rangeX >> 1);
+			u8 *destRow = dest + (size_t)y * destStride * bpp;
+			for (int x = 0; x < simdWidth; x += 8) {
+				CscEight(destRow + x * bpp, pixelMode, lumaRow + x, cb + chromaOffset + (x >> 1), cr + chromaOffset + (x >> 1));
+			}
+			if (simdWidth < rangeWidth) {
+				MpegCscRangeScalar(destRow + simdWidth * bpp, destStride, pixelMode, luma, cb, cr, width,
+					rangeX + simdWidth, sy, rangeWidth - simdWidth, 1);
+			}
+		}
 		return;
 	}
 #endif
@@ -509,13 +529,6 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 	const u32 rowBytes = (u32)(bufferWidth * bpp);
 	const int width2 = width >> 1;
 	const int fieldHeight = height >> 1;
-	const int fieldChromaHeight = fieldHeight >> 1;
-	static std::vector<u8> field;
-	static std::vector<u8> scratch;
-	field.resize((size_t)width * fieldHeight + (size_t)width2 * fieldChromaHeight * 2);
-	u8 *fieldLuma = field.data();
-	u8 *fieldCb = fieldLuma + (size_t)width * fieldHeight;
-	u8 *fieldCr = fieldCb + (size_t)width2 * fieldChromaHeight;
 
 	u32 rowsWritten = 0;
 	// The odd field first, so that the even one is what's left if both go to the same buffer.
@@ -530,32 +543,27 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 		if (rows <= 0) {
 			continue;
 		}
-		for (int y = 0; y < fieldHeight; y++) {
-			memcpy(fieldLuma + (size_t)y * width, luma + (size_t)(y * 2 + parity) * width, width);
+		u32 addr;
+		int destStride;
+		if (bufferRGB2 != 0) {
+			// Packed: the field's rows one after another in their own buffer.
+			addr = parity ? bufferRGB2 : bufferRGB;
+			destStride = bufferWidth;
+		} else {
+			// In place, at the frame rows it came from.
+			addr = bufferRGB + (u32)(first * 2 + parity - rangeY) * rowBytes;
+			destStride = bufferWidth * 2;
 		}
-		for (int y = 0; y < fieldChromaHeight; y++) {
-			memcpy(fieldCb + (size_t)y * width2, cb + (size_t)(y * 2 + parity) * width2, width2);
-			memcpy(fieldCr + (size_t)y * width2, cr + (size_t)(y * 2 + parity) * width2, width2);
+		const u32 span = (u32)(rows - 1) * destStride * bpp + rangeWidth * bpp;
+		if (!Memory::IsValidRange(addr, span)) {
+			return hleLogError(Log::Mpeg, -1, "output at %08x not writable", addr);
 		}
-		scratch.resize((size_t)rows * rowBytes);
+		// A field is every other row of the frame, so it's the frame read at twice the stride: that
+		// doubles the chroma stride too, which picks every other chroma row, the field's own.
 		auto convert = scalar ? &MpegCscRangeScalar : &MpegCscRange;
-		convert(scratch.data(), bufferWidth, g_mpegBasePixelMode, fieldLuma, fieldCb, fieldCr, width,
+		convert(Memory::GetPointerWriteUnchecked(addr), destStride, g_mpegBasePixelMode,
+			luma + (size_t)parity * width, cb + (size_t)parity * width2, cr + (size_t)parity * width2, width * 2,
 			rangeX, first, rangeWidth, rows);
-
-		for (int k = 0; k < rows; k++) {
-			u32 addr;
-			if (bufferRGB2 != 0) {
-				// Packed: the field's rows one after another in their own buffer.
-				addr = (parity ? bufferRGB2 : bufferRGB) + (u32)k * rowBytes;
-			} else {
-				// In place, at the frame row it came from.
-				addr = bufferRGB + (u32)((first + k) * 2 + parity - rangeY) * rowBytes;
-			}
-			if (!Memory::IsValidRange(addr, rangeWidth * bpp)) {
-				return hleLogError(Log::Mpeg, -1, "output row at %08x not writable", addr);
-			}
-			Memory::MemcpyUnchecked(addr, scratch.data() + (size_t)k * rowBytes, rangeWidth * bpp);
-		}
 		rowsWritten += rows;
 	}
 
