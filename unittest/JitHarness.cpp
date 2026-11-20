@@ -589,10 +589,10 @@ bool TestMMIO() {
 				else if (line.find("Load32 ") != std::string::npos || line.find("Store32 ") != std::string::npos)
 					plainOps++;
 			}
-			// sw/sw/lw/lw to registers, sb/lb through a1. lwc1 is left to the interpreter. The RAM store
-			// is plain, and the load after it plain too, or gone (the value forwarded).
-			if (kernelOps != 6 || plainOps < 1) {
-				printf("MMIO on core %d: %d kernel and %d plain loads/stores, expected 6 and at least 1\n", (int)core, kernelOps, plainOps);
+			// sw/sw/lw/lw/lwc1 to registers (lwc1 through a GPR), sb/lb through a1. The RAM store is
+			// plain, and the load after it plain too, or gone (the value forwarded).
+			if (kernelOps != 7 || plainOps < 1) {
+				printf("MMIO on core %d: %d kernel and %d plain loads/stores, expected 7 and at least 1\n", (int)core, kernelOps, plainOps);
 				for (const std::string &line : info.irDisasm)
 					printf("  %s\n", line.c_str());
 				success = false;
