@@ -380,13 +380,20 @@ void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
 // Eight pixels of YCbCrToPixel at a time, computing the same integers, so the result is identical
 // to the scalar path's. y points at eight luma samples and cb/cr at the four chroma samples under
 // them.
+//
+// 298 * c doesn't fit in 16 bits, but each coefficient splits into a multiple of 256 and a small
+// remainder, and the multiple of 256 comes through the shift whole: (298c + 409e + 128) >> 8 is
+// c + e + ((42c + 153e + 128) >> 8). The sums in parentheses stay within +-30000 for any input, so
+// all of it is 16-bit lanes, eight pixels per instruction.
+//   r = c + e  + ((42c + 153e + 128) >> 8)          (298c + 409e = 256(c + e) + 42c + 153e)
+//   g = c - e  + ((42c - 100d + 48e + 128) >> 8)    (298c - 100d - 208e = 256(c - e) + 42c - 100d + 48e)
+//   b = c + 2d + ((42c + 4d + 128) >> 8)            (298c + 516d = 256(c + 2d) + 42c + 4d)
+#if !PPSSPP_ARCH(SSE2)
+static inline void CscEightNeon(u8 *dest, int pixelMode, uint8x8_t y8, uint8x8_t cb8, uint8x8_t cr8);
+#endif
 static inline void CscEight(u8 *dest, int pixelMode, const u8 *y, const u8 *cb, const u8 *cr) {
 #if PPSSPP_ARCH(SSE2)
 	const __m128i zero = _mm_setzero_si128();
-	// Two 16-bit coefficients for _mm_madd_epi16, which multiplies lane pairs and adds them.
-	auto pair = [](int lo, int hi) {
-		return _mm_set1_epi32((int)(((u32)(u16)hi << 16) | (u16)lo));
-	};
 	const __m128i c = _mm_sub_epi16(_mm_unpacklo_epi8(_mm_loadl_epi64((const __m128i *)y), zero), _mm_set1_epi16(16));
 	__m128i cb8 = _mm_cvtsi32_si128((int)LoadU32Unaligned(cb));
 	__m128i cr8 = _mm_cvtsi32_si128((int)LoadU32Unaligned(cr));
@@ -395,26 +402,16 @@ static inline void CscEight(u8 *dest, int pixelMode, const u8 *y, const u8 *cb, 
 	cr8 = _mm_unpacklo_epi8(cr8, cr8);
 	const __m128i d = _mm_sub_epi16(_mm_unpacklo_epi8(cb8, zero), _mm_set1_epi16(128));
 	const __m128i e = _mm_sub_epi16(_mm_unpacklo_epi8(cr8, zero), _mm_set1_epi16(128));
-	// The rounding constant rides along as e * -208 + 1 * 128.
-	const __m128i one = _mm_set1_epi16(1);
-	const __m128i round = _mm_set1_epi32(128);
 
-	auto channel = [&](__m128i a, __m128i b, int ka, int kb, __m128i extra, int kExtraA, int kExtraB, bool useExtra) {
-		__m128i lo = _mm_madd_epi16(_mm_unpacklo_epi16(a, b), pair(ka, kb));
-		__m128i hi = _mm_madd_epi16(_mm_unpackhi_epi16(a, b), pair(ka, kb));
-		if (useExtra) {
-			lo = _mm_add_epi32(lo, _mm_madd_epi16(_mm_unpacklo_epi16(extra, one), pair(kExtraA, kExtraB)));
-			hi = _mm_add_epi32(hi, _mm_madd_epi16(_mm_unpackhi_epi16(extra, one), pair(kExtraA, kExtraB)));
-		} else {
-			lo = _mm_add_epi32(lo, round);
-			hi = _mm_add_epi32(hi, round);
-		}
-		const __m128i v = _mm_packs_epi32(_mm_srai_epi32(lo, 8), _mm_srai_epi32(hi, 8));
-		return _mm_min_epi16(_mm_max_epi16(v, zero), _mm_set1_epi16(255));
-	};
-	const __m128i r = channel(c, e, 298, 409, zero, 0, 0, false);
-	const __m128i g = channel(c, d, 298, -100, e, -208, 128, true);
-	const __m128i b = channel(c, d, 298, 516, zero, 0, 0, false);
+	auto mul = [](__m128i v, int k) { return _mm_mullo_epi16(v, _mm_set1_epi16((short)k)); };
+	const __m128i c42 = _mm_add_epi16(mul(c, 42), _mm_set1_epi16(128));
+	__m128i r = _mm_add_epi16(_mm_add_epi16(c, e), _mm_srai_epi16(_mm_add_epi16(c42, mul(e, 153)), 8));
+	__m128i g = _mm_add_epi16(_mm_sub_epi16(c, e), _mm_srai_epi16(_mm_add_epi16(_mm_add_epi16(c42, mul(d, -100)), mul(e, 48)), 8));
+	__m128i b = _mm_add_epi16(_mm_add_epi16(c, _mm_add_epi16(d, d)), _mm_srai_epi16(_mm_add_epi16(c42, _mm_slli_epi16(d, 2)), 8));
+	const __m128i max = _mm_set1_epi16(255);
+	r = _mm_min_epi16(_mm_max_epi16(r, zero), max);
+	g = _mm_min_epi16(_mm_max_epi16(g, zero), max);
+	b = _mm_min_epi16(_mm_max_epi16(b, zero), max);
 
 	switch (pixelMode) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -438,24 +435,24 @@ static inline void CscEight(u8 *dest, int pixelMode, const u8 *y, const u8 *cb, 
 	}
 	}
 #else
-	const int16x8_t c = vreinterpretq_s16_u16(vsubl_u8(vld1_u8(y), vdup_n_u8(16)));
 	// Each chroma sample covers two pixels.
 	const uint8x8_t cb4 = vreinterpret_u8_u32(vdup_n_u32(LoadU32Unaligned(cb)));
 	const uint8x8_t cr4 = vreinterpret_u8_u32(vdup_n_u32(LoadU32Unaligned(cr)));
-	const int16x8_t d = vreinterpretq_s16_u16(vsubl_u8(vzip_u8(cb4, cb4).val[0], vdup_n_u8(128)));
-	const int16x8_t e = vreinterpretq_s16_u16(vsubl_u8(vzip_u8(cr4, cr4).val[0], vdup_n_u8(128)));
-	const int16x4_t cl = vget_low_s16(c), ch = vget_high_s16(c);
-	const int16x4_t dl = vget_low_s16(d), dh = vget_high_s16(d);
-	const int16x4_t el = vget_low_s16(e), eh = vget_high_s16(e);
-	const int32x4_t cl298 = vmull_n_s16(cl, 298), ch298 = vmull_n_s16(ch, 298);
-	// vrshrn by 8 is exactly (x + 128) >> 8, and vqmovun the clamp to 0..255.
-	const uint8x8_t r = vqmovun_s16(vcombine_s16(
-		vrshrn_n_s32(vmlal_n_s16(cl298, el, 409), 8), vrshrn_n_s32(vmlal_n_s16(ch298, eh, 409), 8)));
-	const uint8x8_t g = vqmovun_s16(vcombine_s16(
-		vrshrn_n_s32(vmlal_n_s16(vmlal_n_s16(cl298, dl, -100), el, -208), 8),
-		vrshrn_n_s32(vmlal_n_s16(vmlal_n_s16(ch298, dh, -100), eh, -208), 8)));
-	const uint8x8_t b = vqmovun_s16(vcombine_s16(
-		vrshrn_n_s32(vmlal_n_s16(cl298, dl, 516), 8), vrshrn_n_s32(vmlal_n_s16(ch298, dh, 516), 8)));
+	CscEightNeon(dest, pixelMode, vld1_u8(y), vzip_u8(cb4, cb4).val[0], vzip_u8(cr4, cr4).val[0]);
+#endif
+}
+
+#if !PPSSPP_ARCH(SSE2)
+// CscEight's arithmetic, with the chroma already spread over the eight pixels.
+static inline void CscEightNeon(u8 *dest, int pixelMode, uint8x8_t y8, uint8x8_t cb8, uint8x8_t cr8) {
+	const int16x8_t c = vreinterpretq_s16_u16(vsubl_u8(y8, vdup_n_u8(16)));
+	const int16x8_t d = vreinterpretq_s16_u16(vsubl_u8(cb8, vdup_n_u8(128)));
+	const int16x8_t e = vreinterpretq_s16_u16(vsubl_u8(cr8, vdup_n_u8(128)));
+	const int16x8_t c42 = vmlaq_n_s16(vdupq_n_s16(128), c, 42);
+	// vqmovun is the clamp to 0..255.
+	const uint8x8_t r = vqmovun_s16(vaddq_s16(vaddq_s16(c, e), vshrq_n_s16(vmlaq_n_s16(c42, e, 153), 8)));
+	const uint8x8_t g = vqmovun_s16(vaddq_s16(vsubq_s16(c, e), vshrq_n_s16(vmlaq_n_s16(vmlaq_n_s16(c42, d, -100), e, 48), 8)));
+	const uint8x8_t b = vqmovun_s16(vaddq_s16(vaddq_s16(c, vshlq_n_s16(d, 1)), vshrq_n_s16(vmlaq_n_s16(c42, d, 4), 8)));
 
 	switch (pixelMode) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -493,8 +490,8 @@ static inline void CscEight(u8 *dest, int pixelMode, const u8 *y, const u8 *cb, 
 		break;
 	}
 	}
-#endif
 }
+#endif
 
 #endif
 

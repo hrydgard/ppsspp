@@ -319,6 +319,31 @@ bool TestMpegCsc() {
 		}
 	}
 
+	// Every combination of Y, Cb and Cr, for SIMD against scalar: Cb and Cr from the chroma sample's
+	// position, and each frame's 2x2 blocks covering four more luma values.
+	{
+		TestFrame all(512, 512);
+		for (int y = 0; y < 256; y++) {
+			for (int x = 0; x < 256; x++) {
+				all.cb[y * 256 + x] = (u8)y;
+				all.cr[y * 256 + x] = (u8)x;
+			}
+		}
+		std::vector<u8> got((size_t)512 * 512 * 4), want((size_t)512 * 512 * 4);
+		bool same = true;
+		for (int k = 0; k < 64 && same; k++) {
+			for (int y = 0; y < 512; y++) {
+				for (int x = 0; x < 512; x++) {
+					all.luma[y * 512 + x] = (u8)((x & 1) + 2 * (y & 1) + 4 * k);
+				}
+			}
+			MpegCscRange(got.data(), 512, GE_CMODE_32BIT_ABGR8888, all.luma.data(), all.cb.data(), all.cr.data(), 512, 0, 0, 512, 512);
+			MpegCscRangeScalar(want.data(), 512, GE_CMODE_32BIT_ABGR8888, all.luma.data(), all.cb.data(), all.cr.data(), 512, 0, 0, 512, 512);
+			same = got == want;
+		}
+		EXPECT_TRUE(same);
+	}
+
 	std::vector<u8> dest((size_t)512 * 272 * 4, 0);
 	printf("MpegCscRange, 480x272:\n");
 	for (int pixelMode : pixelModes) {
