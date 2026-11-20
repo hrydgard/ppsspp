@@ -2884,8 +2884,20 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	return process ? NotifyResult::Execute : NotifyResult::Skip;
 }
 
+static std::function<void()> g_flushHook;
+static bool g_inFlushHook = false;
+
+void GPUCommon::SetFlushHook(std::function<void()> hook) {
+	g_flushHook = std::move(hook);
+}
+
 void GPUCommon::NotifyFlush() {
 	using namespace GPUDebug;
+	if (g_flushHook && !g_inFlushHook) {
+		g_inFlushHook = true;
+		g_flushHook();
+		g_inFlushHook = false;
+	}
 	if (breakNext_ == BreakNext::DRAW && !GPUStepping::IsStepping()) {
 		// Break on the first PRIM after a flush.
 		if (primAfterDraw_) {

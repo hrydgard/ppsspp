@@ -240,6 +240,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(screenshotFilenameSave), CmdParamType::String, "screenshot-save", '\0', "Save rendered screenshot to specified path (PNG if the path ends in .png, BMP otherwise)", CmdLineMode::Headless},
 	{POFF(screenshotDir), CmdParamType::String, "screenshot-dir", '\0', "Save each test's screenshot as DIR/<test path>.png (relative test paths keep their folders)", CmdLineMode::Headless},
 	{POFF(replayEnd), CmdParamType::Int, "replay-end", '\0', "When replaying a GE frame dump, only draw primitives up to this one (1-based)", CmdLineMode::Headless},
+	{POFF(replaySequenceDir), CmdParamType::String, "replay-sequence", '\0', "When replaying a GE frame dump, save the render target after every draw that changes it, as DIR/NNNNN.png at the render scale, with DIR/frames.tsv", CmdLineMode::Headless},
 	{POFF(dumpCompat), CmdParamType::Bool, "dump-compat", '\0', "Apply the game's compat.ini settings when replaying a GE frame dump (off by default)", CmdLineMode::Headless},
 	{POFF(hardwareTransform), CmdParamType::Bool, "hardware-transform", '\0', "Transform vertices on the GPU (default true); false transforms them on the CPU", CmdLineMode::Headless},
 	{POFF(vertexJit), CmdParamType::Bool, "vertex-jit", '\0', "Decode vertices with the JIT where the host can (default; =false for the C++ decoder)", CmdLineMode::Headless},

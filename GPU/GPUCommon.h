@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <list>
+#include <functional>
 
 #include "ppsspp_config.h"
 #include "Common/Common.h"
@@ -345,6 +346,8 @@ public:
 	}
 
 	void NotifyFlush();
+	// Called after every draw a backend flushes (not from inside itself). For headless --replay-sequence.
+	static void SetFlushHook(std::function<void()> hook);
 
 protected:
 	// While debugging is active, these may block.

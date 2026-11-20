@@ -22,6 +22,10 @@
 #include <limits>
 #include <memory>
 #include <thread>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <unordered_set>
 #if PPSSPP_PLATFORM(ANDROID)
 #include <jni.h>
 #endif
@@ -47,6 +51,8 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "GPU/Debugger/Playback.h"
+#include "GPU/GPUState.h"
+#include "ext/xxhash.h"
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/Net/Resolve.h"
 #include "Common/TimeUtil.h"
@@ -480,6 +486,101 @@ static bool SaveDisplayScreenshot(const Path &path, const std::vector<u32> &pixe
 	}
 	return saved;
 }
+
+
+// --replay-sequence: the render target after every draw that changes it.
+namespace {
+struct SequenceFrame {
+	std::vector<u32> pixels;
+	u32 w, h;
+	Path path;
+};
+
+class DrawSequenceSaver {
+public:
+	void Start(const Path &dir) {
+		dir_ = dir;
+		File::CreateFullPath(dir_);
+		tsv_ = File::OpenCFile(dir_ / "frames.tsv", "w");
+		if (tsv_)
+			fprintf(tsv_, "frame\tdraw\tfb\twidth\theight\n");
+		int n = std::max(2, (int)std::thread::hardware_concurrency() / 2);
+		for (int i = 0; i < n; ++i)
+			workers_.emplace_back([this] { Work(); });
+		GPUCommon::SetFlushHook([this] { OnFlush(); });
+	}
+
+	void Finish() {
+		if (workers_.empty())
+			return;
+		GPUCommon::SetFlushHook(nullptr);
+		{
+			std::lock_guard<std::mutex> guard(lock_);
+			done_ = true;
+		}
+		cond_.notify_all();
+		for (auto &t : workers_)
+			t.join();
+		workers_.clear();
+		if (tsv_)
+			fclose(tsv_);
+		tsv_ = nullptr;
+		fprintf(stderr, "Draw sequence: %d draws, %d frames saved\n", draws_, frames_);
+	}
+
+private:
+	void OnFlush() {
+		draws_++;
+		GPUDebugBuffer buf;
+		if (!gpu || !gpu->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_RENDER, -1))
+			return;
+		const u32 w = buf.GetStride();
+		const u32 h = buf.GetHeight();
+		std::vector<u32> pixels = TranslateDebugBufferToCompare(&buf, w, h);
+		u64 hash = XXH3_64bits(pixels.data(), pixels.size() * sizeof(u32)) ^ ((u64)w << 32) ^ h;
+		if (!seen_.insert(hash).second)
+			return;
+		const int frame = frames_++;
+		if (tsv_)
+			fprintf(tsv_, "%d\t%d\t%08x\t%u\t%u\n", frame, draws_, gstate.getFrameBufAddress() & 0x00FFFFFF, w, h);
+		std::unique_lock<std::mutex> guard(lock_);
+		// Full-size frames are big; don't let the queue run away from the PNG writers.
+		cond_.wait(guard, [this] { return queue_.size() < 16; });
+		queue_.push_back(SequenceFrame{ std::move(pixels), w, h, dir_ / StringFromFormat("%05d.png", frame) });
+		cond_.notify_all();
+	}
+
+	void Work() {
+		while (true) {
+			SequenceFrame f;
+			{
+				std::unique_lock<std::mutex> guard(lock_);
+				cond_.wait(guard, [this] { return done_ || !queue_.empty(); });
+				if (queue_.empty())
+					return;
+				f = std::move(queue_.front());
+				queue_.pop_front();
+			}
+			cond_.notify_all();
+			ScreenshotComparer saver(f.pixels, f.w, f.w, f.h);
+			saver.SaveActualPNG(f.path);
+		}
+	}
+
+	Path dir_;
+	FILE *tsv_ = nullptr;
+	std::vector<std::thread> workers_;
+	std::deque<SequenceFrame> queue_;
+	std::mutex lock_;
+	std::condition_variable cond_;
+	bool done_ = false;
+	std::unordered_set<u64> seen_;
+	int draws_ = 0;
+	int frames_ = 0;
+};
+
+DrawSequenceSaver g_drawSequence;
+}  // namespace
 
 static void SaveScreenshotNow(const Path &path) {
 	if (!gpu) {
@@ -994,6 +1095,8 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		// Counted from the state's load. More than a few, and the game has gone off its usual path.
 		fprintf(stderr, "Failed disc reads: %d\n", pspFileSystem.FailedDiscReads());
 	}
+
+	g_drawSequence.Finish();
 
 	// Before EndDrawFrame: Vulkan can only read back a framebuffer inside a frame.
 	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
@@ -1769,6 +1872,9 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.replayEnd.has_value()) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
+	}
+	if (cmdLineOptions.replaySequenceDir.has_value()) {
+		g_drawSequence.Start(Path(cmdLineOptions.replaySequenceDir.value()));
 	}
 	g_screenshotRenderTarget = cmdLineOptions.screenshotRenderTarget.value_or(false);
 	if (cmdLineOptions.stencilFilenameSave.has_value()) {
