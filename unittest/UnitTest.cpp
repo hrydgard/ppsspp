@@ -3777,6 +3777,48 @@ bool TestComboSuppression() {
 	return true;
 }
 
+// Saved mappings to axes a platform used to send by mistake load as the right ones. See #21871.
+bool TestLegacyAxisRemap() {
+	using KeyMap::MultiInputMapping;
+
+	const InputMapping oldRightX(DEVICE_ID_PAD_0, JOYSTICK_AXIS_PRESSURE, -1);
+	const InputMapping oldTrigger(DEVICE_ID_PAD_0, JOYSTICK_AXIS_TOUCH_MINOR, +1);
+	const InputMapping otherDevice(DEVICE_ID_PAD_1, JOYSTICK_AXIS_PRESSURE, -1);
+	const InputMapping button(DEVICE_ID_PAD_0, NKCODE_BUTTON_1);
+
+	IniFile ini;
+	std::istringstream stream("[ControlMapping]\n"
+		"RightAn.Left = " + oldRightX.ToConfigString() + "," + otherDevice.ToConfigString() + "\n"
+		"Pause = " + button.ToConfigString() + ":" + oldTrigger.ToConfigString() + "\n");
+	EXPECT_TRUE(ini.Load(stream));
+
+	static const KeyMap::AxisRemap remaps[] = {
+		{ JOYSTICK_AXIS_PRESSURE, JOYSTICK_AXIS_Z },
+		{ JOYSTICK_AXIS_TOUCH_MINOR, JOYSTICK_AXIS_RTRIGGER },
+	};
+	KeyMap::SetLegacyAxisRemap(DEVICE_ID_PAD_0, remaps, ARRAY_SIZE(remaps));
+	KeyMap::LoadFromIni(ini);
+	KeyMap::SetLegacyAxisRemap(DEVICE_ID_DEFAULT, nullptr, 0);
+
+	std::vector<MultiInputMapping> mappings;
+	KeyMap::InputMappingsFromPspButton(VIRTKEY_AXIS_RIGHT_X_MIN, &mappings, false);
+	EXPECT_EQ_INT((int)mappings.size(), 2);
+	EXPECT_TRUE(mappings[0] == MultiInputMapping(InputMapping(DEVICE_ID_PAD_0, JOYSTICK_AXIS_Z, -1)));
+	// Only the given device is remapped.
+	EXPECT_TRUE(mappings[1] == MultiInputMapping(otherDevice));
+
+	// Each part of a combo is remapped, and buttons are left alone.
+	MultiInputMapping combo(button);
+	combo.mappings.push_back(InputMapping(DEVICE_ID_PAD_0, JOYSTICK_AXIS_RTRIGGER, +1));
+	mappings.clear();
+	KeyMap::InputMappingsFromPspButton(VIRTKEY_PAUSE, &mappings, false);
+	EXPECT_EQ_INT((int)mappings.size(), 1);
+	EXPECT_TRUE(mappings[0] == combo);
+
+	KeyMap::ClearAllMappings();
+	return true;
+}
+
 bool TestEscapeMenuString() {
 	char c;
 	std::string temp = UnescapeMenuString("&File", &c);
@@ -5101,6 +5143,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SmallDataConvert),
 	TEST_ITEM(InputMapping),
 	TEST_ITEM(ComboSuppression),
+	TEST_ITEM(LegacyAxisRemap),
 	TEST_ITEM(EscapeMenuString),
 	TEST_ITEM(VFS),
 	TEST_ITEM(Substitutions),

@@ -166,6 +166,31 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GamepadButton button) {
 	}
 }
 
+// The same axes the other platforms' default pad mappings use.
+InputAxis SDLJoystick::getAxisForGamepadAxis(SDL_GamepadAxis axis) {
+	switch (axis) {
+	case SDL_GAMEPAD_AXIS_LEFTX: return JOYSTICK_AXIS_X;
+	case SDL_GAMEPAD_AXIS_LEFTY: return JOYSTICK_AXIS_Y;
+	case SDL_GAMEPAD_AXIS_RIGHTX: return JOYSTICK_AXIS_Z;
+	case SDL_GAMEPAD_AXIS_RIGHTY: return JOYSTICK_AXIS_RZ;
+	case SDL_GAMEPAD_AXIS_LEFT_TRIGGER: return JOYSTICK_AXIS_LTRIGGER;
+	case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: return JOYSTICK_AXIS_RTRIGGER;
+	default: return JOYSTICK_AXIS_MAX;
+	}
+}
+
+void SDLJoystick::RemapLegacyAxisMappings() {
+	// We used to cast the SDL_GamepadAxis value straight to InputAxis, so saved mappings name
+	// the axes whose numbers happen to match. Nothing on pad 0 sends those axes any more.
+	static const KeyMap::AxisRemap remaps[] = {
+		{ (InputAxis)SDL_GAMEPAD_AXIS_RIGHTX, JOYSTICK_AXIS_Z },
+		{ (InputAxis)SDL_GAMEPAD_AXIS_RIGHTY, JOYSTICK_AXIS_RZ },
+		{ (InputAxis)SDL_GAMEPAD_AXIS_LEFT_TRIGGER, JOYSTICK_AXIS_LTRIGGER },
+		{ (InputAxis)SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, JOYSTICK_AXIS_RTRIGGER },
+	};
+	KeyMap::SetLegacyAxisRemap(DEVICE_ID_PAD_0, remaps, ARRAY_SIZE(remaps));
+}
+
 // Called when a pad is disconnected - we won't be getting any more up events from it.
 void SDLJoystick::releaseAllKeys() {
 	for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
@@ -211,7 +236,10 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 	{
 		const int padId = 0;  // previously getDeviceIndex(event.gaxis.which), but for now we force all pads to pad0 for config compatibility.
 		InputDeviceID deviceId = DEVICE_ID_PAD_0 + padId;
-		InputAxis axisId = (InputAxis)event.gaxis.axis;
+		const InputAxis axisId = getAxisForGamepadAxis((SDL_GamepadAxis)event.gaxis.axis);
+		if (axisId == JOYSTICK_AXIS_MAX) {
+			break;
+		}
 		float value = event.gaxis.value * (1.f / 32767.f);
 		if (value > 1.0f) value = 1.0f;
 		if (value < -1.0f) value = -1.0f;
