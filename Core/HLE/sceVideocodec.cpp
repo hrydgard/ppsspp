@@ -503,7 +503,12 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcPicture &pic) {
 				if (run <= 0 || j + run > ySize[b]) {
 					continue;
 				}
-				memcpy(dst + j, srcY + (size_t)row * strideY + bandX, run);
+				// A constant size gets inlined instead of a library call per 16 bytes.
+				if (run == 16) {
+					memcpy(dst + j, srcY + (size_t)row * strideY + bandX, 16);
+				} else {
+					memcpy(dst + j, srcY + (size_t)row * strideY + bandX, run);
+				}
 			}
 		}
 	}
@@ -520,14 +525,24 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcPicture &pic) {
 		const int yStart = (b >> 1) ? 1 : 0;
 		int j = 0;
 		for (int bandX = xOffset; bandX < width2; bandX += 16) {
-			for (int row = yStart; row < height2; row += 2) {
-				for (int k = 0; k < 8; k++, j += 2) {
-					const int x = bandX + k;
-					if (x >= width2 || j + 1 >= cSize[b]) {
-						continue;
+			for (int row = yStart; row < height2; row += 2, j += 16) {
+				// How many of the 8 (Cb,Cr) pairs fit both in the row and in the buffer, as in
+				// UntileYCbCr.
+				const int fits = std::min(8, (cSize[b] - j) >> 1);
+				const int run = std::min(width2 - bandX, fits);
+				const u8 *fromCb = srcCb + (size_t)row * strideCb + bandX;
+				const u8 *fromCr = srcCr + (size_t)row * strideCr + bandX;
+				u8 *to = dst + j;
+				if (run == 8) {
+					for (int k = 0; k < 8; k++) {
+						to[k * 2] = fromCb[k];
+						to[k * 2 + 1] = fromCr[k];
 					}
-					dst[j] = srcCb[(size_t)row * strideCb + x];
-					dst[j + 1] = srcCr[(size_t)row * strideCr + x];
+				} else {
+					for (int k = 0; k < run; k++) {
+						to[k * 2] = fromCb[k];
+						to[k * 2 + 1] = fromCr[k];
+					}
 				}
 			}
 		}

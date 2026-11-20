@@ -158,7 +158,7 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 struct SceMp4AvcCscStruct {
 	s32_le height;        // 0x00  in macroblocks
 	s32_le width;         // 0x04
-	s32_le unk08;         // 0x08  1: the top field only (see MpegBaseCscRange)
+	s32_le unk08;         // 0x08  1: the field in buffers 0/1 and 4/5 only (see MpegBaseCscRange)
 	s32_le unk0c;         // 0x0c
 	u32_le buffer[8];     // 0x10  four luma, then four chroma
 };
@@ -219,7 +219,12 @@ void UntileYCbCr(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int siz
 				if (run <= 0 || j + run > ySize[b]) {
 					continue;
 				}
-				memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
+				// A constant size gets inlined instead of a library call per 16 bytes.
+				if (run == 16) {
+					memcpy(luma + (size_t)row * width + bandX, src[b] + j, 16);
+				} else {
+					memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
+				}
 			}
 		}
 	}
@@ -256,12 +261,16 @@ void UntileYCbCr(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int siz
 }
 
 bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
-	const u8 **luma, const u8 **cb, const u8 **cr) {
+	const u8 **luma, const u8 **cb, const u8 **cr, bool evenRowsOnly) {
 	int sizes[8];
 	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
 
 	const u8 *src[8]{};
 	for (int i = 0; i < 8; i++) {
+		// Buffers 2/3 and 6/7 are the odd rows.
+		if (evenRowsOnly && (i & 2)) {
+			continue;
+		}
 		if (sizes[i] > 0) {
 			src[i] = MpegBaseFramePointer(buffers[i], sizes[i]);
 			if (!src[i]) {
@@ -583,9 +592,13 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 // Where the converted rows go (pspautotests video/mpeg/cscavc). With no second buffer, every row
 // lands where it is in the frame, and +0x08 in the descriptor leaves out the odd ones. With one, the
 // fields are split: the even rows packed together into bufferRGB and the odd ones into the second,
-// and +0x08 leaves the odd field out. The VSH's UMD Video player passes the same buffer twice with
-// +0x08 set, for the top field of a 720x480 picture in 240 rows. When both fields go to the same
-// buffer, the even one is what's left.
+// and +0x08 leaves the odd field out. When both fields go to the same buffer, the even one is what's
+// left.
+//
+// The VSH's UMD Video player converts one field of a 720x480 picture per vsync, alternating, into
+// 240 rows: the same buffer twice with +0x08 set, in vertical strips. It gets the bottom field by
+// passing the descriptor with the field buffers swapped (2/3 and 6/7 in the places of 0/1 and 4/5),
+// so the "even" field converted here is whichever one it put first.
 static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int bufferWidth,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
 	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
@@ -622,13 +635,15 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int buff
 		return hleLogError(Log::Mpeg, -1, "range outside the frame");
 	}
 
+	const bool topFieldOnly = csc->unk08 != 0;
 	const u8 *luma, *cb, *cr;
-	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr)) {
+	// Only the even rows are converted with +0x08 set, and the UMD Video player doesn't keep the
+	// other field's buffers up to date in the copy it converts from anyway.
+	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr, topFieldOnly)) {
 		return hleLogError(Log::Mpeg, -1, "YCbCr buffers not readable");
 	}
 
 	const int bpp = g_mpegBasePixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
-	const bool topFieldOnly = csc->unk08 != 0;
 	if (bufferRGB2 != 0 || topFieldOnly) {
 		return MpegBaseCscFields(bufferRGB, bufferRGB2, topFieldOnly, bufferWidth, bpp, luma, cb, cr, width, height,
 			rangeX, rangeY, rangeWidth, rangeHeight);
