@@ -64,6 +64,8 @@ ELF     .eabi_attribute 10, 0           @ suppress Tag_FP_arch
 
         .syntax unified
 T       .thumb
+/* PPSSPP: the compiler may default to Thumb (Android does), and these are written for ARM. */
+A       .arm
 ELF     .eabi_attribute 25, 1           @ Tag_ABI_align_preserved
 ELF     .section .note.GNU-stack,"",%progbits @ Mark stack as non-executable
 
@@ -85,6 +87,10 @@ FUNC    .endfunc
         .align          \align
     .if \export
         .global EXTERN_ASM\name
+        /* PPSSPP: FFmpeg is linked statically, so nothing outside the binary calls these. Hidden,
+         * PC-relative references to them don't need a text relocation in a shared library, which
+         * Android refuses to load. */
+ELF     .hidden EXTERN_ASM\name
 ELF     .type   EXTERN_ASM\name, %function
 FUNC    .func   EXTERN_ASM\name
 EXTERN_ASM\name:

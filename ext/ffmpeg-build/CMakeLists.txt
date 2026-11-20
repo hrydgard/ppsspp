@@ -24,8 +24,36 @@ list(TRANSFORM FFMPEG_SOURCES PREPEND ${FFMPEG_SRC_DIR}/)
 # Reconfigure when the list changes.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS sources.mk)
 
+# The NEON assembly (sources_aarch64.mk, and sources_arm.mk for ARMv7 and up), for GCC and Clang on
+# Linux and Android. config.h uses it when FF_PPSSPP_ASM is defined.
+set(FFMPEG_ASM_MK "")
+if(NOT MSVC AND (ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
+	include(CheckCSourceCompiles)
+	check_c_source_compiles("#ifndef __aarch64__\n#error\n#endif\nint main(void) { return 0; }" FFMPEG_TARGET_AARCH64)
+	check_c_source_compiles("#if !defined(__arm__) || !defined(__ARM_ARCH) || __ARM_ARCH < 7\n#error\n#endif\nint main(void) { return 0; }" FFMPEG_TARGET_ARMV7)
+	if(FFMPEG_TARGET_AARCH64)
+		set(FFMPEG_ASM_MK sources_aarch64.mk)
+	elseif(FFMPEG_TARGET_ARMV7)
+		set(FFMPEG_ASM_MK sources_arm.mk)
+	endif()
+endif()
+if(FFMPEG_ASM_MK)
+	enable_language(ASM)
+	file(READ ${FFMPEG_ASM_MK} FFMPEG_ASM_MK_TEXT)
+	string(REGEX MATCHALL "lib[a-z]+/[A-Za-z0-9_/]+\\.[cS]" FFMPEG_ASM_SOURCES "${FFMPEG_ASM_MK_TEXT}")
+	list(TRANSFORM FFMPEG_ASM_SOURCES PREPEND ${FFMPEG_SRC_DIR}/)
+	list(APPEND FFMPEG_SOURCES ${FFMPEG_ASM_SOURCES})
+	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FFMPEG_ASM_MK})
+endif()
+
 add_library(ffmpeg STATIC ${FFMPEG_SOURCES})
 set_target_properties(ffmpeg PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+# Hidden, so the assembly can reach FFmpeg's tables PC-relative inside a shared library. Nothing
+# outside the binary links against these anyway.
+set_target_properties(ffmpeg PROPERTIES C_VISIBILITY_PRESET hidden)
+if(FFMPEG_ASM_MK)
+	target_compile_definitions(ffmpeg PRIVATE FF_PPSSPP_ASM)
+endif()
 
 # config.h is only for FFmpeg itself.
 target_include_directories(ffmpeg PUBLIC ${FFMPEG_SRC_DIR})

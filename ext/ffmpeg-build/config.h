@@ -1,8 +1,8 @@
 /* Hand-maintained config.h for building FFmpeg (ext/ffmpeg) as part of PPSSPP, in place
- * of the one FFmpeg's configure would write. All assembly and arch-specific code is off, as in the
- * --disable-asm builds of the old prebuilt libraries, and only the platform has to be told apart,
- * which the FF_PPSSPP_ switches below do. Components are enabled with the CONFIG_*_DECODER etc.
- * lines, and each needs its sources in sources.mk. See ext/ffmpeg/README.md. */
+ * of the one FFmpeg's configure would write. Arch-specific code is off except the ARM and AArch64
+ * assembly, when the build asks for it with FF_PPSSPP_ASM, and otherwise only the platform has to be
+ * told apart, which the FF_PPSSPP_ switches below do. Components are enabled with the
+ * CONFIG_*_DECODER etc. lines, and each needs its sources in sources.mk. See ext/ffmpeg/README.md. */
 #ifndef FFMPEG_CONFIG_H
 #define FFMPEG_CONFIG_H
 
@@ -61,6 +61,36 @@
 #else
 #define FF_PPSSPP_EXTERN_PREFIX ""
 #endif
+/* The ARM and AArch64 assembly (FFmpeg's NEON DSP functions and inline asm). A build system that
+ * compiles sources_arm.mk or sources_aarch64.mk defines FF_PPSSPP_ASM, and only then is it used:
+ * the C code calls into those files. So far that's CMake and ndk-build, for GCC and Clang on Linux
+ * and Android, and for 32-bit ARM only ARMv7 and up, the oldest the NEON files assemble for. */
+#if defined(FF_PPSSPP_ASM) && defined(__aarch64__) && FF_PPSSPP_GNUC && !FF_PPSSPP_MSVC
+#define FF_PPSSPP_AARCH64 1
+#else
+#define FF_PPSSPP_AARCH64 0
+#endif
+#if defined(FF_PPSSPP_ASM) && defined(__arm__) && FF_PPSSPP_GNUC && !FF_PPSSPP_MSVC
+#if !defined(__ARM_ARCH) || __ARM_ARCH < 7
+#error "sources_arm.mk needs ARMv7: don't define FF_PPSSPP_ASM for older targets"
+#endif
+#define FF_PPSSPP_ARM 1
+#else
+#define FF_PPSSPP_ARM 0
+#endif
+#define FF_PPSSPP_ARM_ANY (FF_PPSSPP_ARM || FF_PPSSPP_AARCH64)
+/* NEON in inline asm needs the compiler to be targeting it, unlike the .S files. */
+#if FF_PPSSPP_ARM_ANY && defined(__ARM_NEON)
+#define FF_PPSSPP_NEON_INLINE 1
+#else
+#define FF_PPSSPP_NEON_INLINE 0
+#endif
+/* Floats in VFP registers (armhf), rather than core ones (Android's softfp). */
+#if FF_PPSSPP_ARM && defined(__ARM_PCS_VFP)
+#define FF_PPSSPP_VFP_ARGS 1
+#else
+#define FF_PPSSPP_VFP_ARGS 0
+#endif
 #define FFMPEG_CONFIGURATION "ppsspp ext/ffmpeg-build"
 #define FFMPEG_LICENSE "LGPL version 2.1 or later"
 #define CONFIG_THIS_YEAR 2016
@@ -74,9 +104,9 @@
 #define SLIBSUF ""
 #define HAVE_MMX2 HAVE_MMXEXT
 #define SWS_MAX_FILTER_SIZE 256
-#define ARCH_AARCH64 0
+#define ARCH_AARCH64 FF_PPSSPP_AARCH64
 #define ARCH_ALPHA 0
-#define ARCH_ARM 0
+#define ARCH_ARM FF_PPSSPP_ARM
 #define ARCH_AVR32 0
 #define ARCH_AVR32_AP 0
 #define ARCH_AVR32_UC 0
@@ -98,13 +128,13 @@
 #define ARCH_X86 0
 #define ARCH_X86_32 0
 #define ARCH_X86_64 0
-#define HAVE_ARMV5TE 0
-#define HAVE_ARMV6 0
-#define HAVE_ARMV6T2 0
-#define HAVE_ARMV8 0
-#define HAVE_NEON 0
-#define HAVE_VFP 0
-#define HAVE_VFPV3 0
+#define HAVE_ARMV5TE FF_PPSSPP_ARM
+#define HAVE_ARMV6 FF_PPSSPP_ARM
+#define HAVE_ARMV6T2 FF_PPSSPP_ARM
+#define HAVE_ARMV8 FF_PPSSPP_AARCH64
+#define HAVE_NEON FF_PPSSPP_ARM_ANY
+#define HAVE_VFP FF_PPSSPP_ARM_ANY
+#define HAVE_VFPV3 FF_PPSSPP_ARM
 #define HAVE_SETEND 0
 #define HAVE_ALTIVEC 0
 #define HAVE_DCBZL 0
@@ -142,13 +172,13 @@
 #define HAVE_LOONGSON2 0
 #define HAVE_LOONGSON3 0
 #define HAVE_MMI 0
-#define HAVE_ARMV5TE_EXTERNAL 0
-#define HAVE_ARMV6_EXTERNAL 0
-#define HAVE_ARMV6T2_EXTERNAL 0
-#define HAVE_ARMV8_EXTERNAL 0
-#define HAVE_NEON_EXTERNAL 0
-#define HAVE_VFP_EXTERNAL 0
-#define HAVE_VFPV3_EXTERNAL 0
+#define HAVE_ARMV5TE_EXTERNAL FF_PPSSPP_ARM
+#define HAVE_ARMV6_EXTERNAL FF_PPSSPP_ARM
+#define HAVE_ARMV6T2_EXTERNAL FF_PPSSPP_ARM
+#define HAVE_ARMV8_EXTERNAL FF_PPSSPP_AARCH64
+#define HAVE_NEON_EXTERNAL FF_PPSSPP_ARM_ANY
+#define HAVE_VFP_EXTERNAL FF_PPSSPP_ARM_ANY
+#define HAVE_VFPV3_EXTERNAL FF_PPSSPP_ARM
 #define HAVE_SETEND_EXTERNAL 0
 #define HAVE_ALTIVEC_EXTERNAL 0
 #define HAVE_DCBZL_EXTERNAL 0
@@ -186,13 +216,13 @@
 #define HAVE_LOONGSON2_EXTERNAL 0
 #define HAVE_LOONGSON3_EXTERNAL 0
 #define HAVE_MMI_EXTERNAL 0
-#define HAVE_ARMV5TE_INLINE 0
-#define HAVE_ARMV6_INLINE 0
-#define HAVE_ARMV6T2_INLINE 0
-#define HAVE_ARMV8_INLINE 0
-#define HAVE_NEON_INLINE 0
-#define HAVE_VFP_INLINE 0
-#define HAVE_VFPV3_INLINE 0
+#define HAVE_ARMV5TE_INLINE FF_PPSSPP_ARM
+#define HAVE_ARMV6_INLINE FF_PPSSPP_ARM
+#define HAVE_ARMV6T2_INLINE FF_PPSSPP_ARM
+#define HAVE_ARMV8_INLINE FF_PPSSPP_AARCH64
+#define HAVE_NEON_INLINE FF_PPSSPP_NEON_INLINE
+#define HAVE_VFP_INLINE FF_PPSSPP_ARM_ANY
+#define HAVE_VFPV3_INLINE FF_PPSSPP_ARM
 #define HAVE_SETEND_INLINE 0
 #define HAVE_ALTIVEC_INLINE 0
 #define HAVE_DCBZL_INLINE 0
@@ -230,14 +260,14 @@
 #define HAVE_LOONGSON2_INLINE 0
 #define HAVE_LOONGSON3_INLINE 0
 #define HAVE_MMI_INLINE 0
-#define HAVE_ALIGNED_STACK 0
-#define HAVE_FAST_64BIT 0
-#define HAVE_FAST_CLZ 0
+#define HAVE_ALIGNED_STACK FF_PPSSPP_ARM_ANY
+#define HAVE_FAST_64BIT FF_PPSSPP_AARCH64
+#define HAVE_FAST_CLZ FF_PPSSPP_ARM_ANY
 #define HAVE_FAST_CMOV 0
 #define HAVE_LOCAL_ALIGNED_8 FF_PPSSPP_GNUC
 #define HAVE_LOCAL_ALIGNED_16 FF_PPSSPP_GNUC
 #define HAVE_LOCAL_ALIGNED_32 FF_PPSSPP_GNUC
-#define HAVE_SIMD_ALIGN_16 0
+#define HAVE_SIMD_ALIGN_16 FF_PPSSPP_ARM_ANY
 #define HAVE_ATOMICS_GCC FF_PPSSPP_GNUC
 #define HAVE_ATOMICS_SUNCC 0
 #define HAVE_ATOMICS_WIN32 FF_PPSSPP_WIN32_NOT_GNUC
@@ -251,11 +281,11 @@
 #define HAVE_SYNC_VAL_COMPARE_AND_SWAP FF_PPSSPP_GNUC
 #define HAVE_CABS 0
 #define HAVE_CEXP 0
-#define HAVE_INLINE_ASM 0
+#define HAVE_INLINE_ASM FF_PPSSPP_ARM_ANY
 #define HAVE_SYMVER 0
 #define HAVE_YASM 0
 #define HAVE_BIGENDIAN 0
-#define HAVE_FAST_UNALIGNED 0
+#define HAVE_FAST_UNALIGNED FF_PPSSPP_ARM_ANY
 #define HAVE_INCOMPATIBLE_LIBAV_ABI 0
 #define HAVE_ALSA_ASOUNDLIB_H 0
 #define HAVE_ALTIVEC_H 0
@@ -392,7 +422,7 @@
 #define HAVE_AS_DN_DIRECTIVE 0
 #define HAVE_AS_FUNC 0
 #define HAVE_AS_OBJECT_ARCH 0
-#define HAVE_ASM_MOD_Q 0
+#define HAVE_ASM_MOD_Q FF_PPSSPP_ARM
 #define HAVE_ATTRIBUTE_MAY_ALIAS FF_PPSSPP_GNUC
 #define HAVE_ATTRIBUTE_PACKED FF_PPSSPP_GNUC
 #define HAVE_EBP_AVAILABLE 0
@@ -407,7 +437,7 @@
 #define HAVE_RSYNC_CONTIMEOUT 0
 #define HAVE_SYMVER_ASM_LABEL 0
 #define HAVE_SYMVER_GNU_ASM 0
-#define HAVE_VFP_ARGS 0
+#define HAVE_VFP_ARGS FF_PPSSPP_VFP_ARGS
 #define HAVE_XFORM_ASM 0
 #define HAVE_XMM_CLOBBERS 0
 #define HAVE_CONDITION_VARIABLE_PTR FF_PPSSPP_WIN32
@@ -436,7 +466,7 @@
 #define HAVE_PERL 0
 #define HAVE_POD2MAN 0
 #define HAVE_SDL 0
-#define HAVE_SECTION_DATA_REL_RO 0
+#define HAVE_SECTION_DATA_REL_RO FF_PPSSPP_ARM_ANY
 #define HAVE_TEXI2HTML 0
 #define HAVE_THREADS 1
 #define HAVE_VAAPI_X11 0

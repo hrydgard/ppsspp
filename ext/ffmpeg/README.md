@@ -22,6 +22,12 @@ longer build their 9, 10, 12, 14 and 16-bit variants of every function. Those we
 of code, which the linker kept because the DSP init functions pick a variant by bit depth at run
 time.
 
+The ARM and AArch64 assembly has been added back since (see "Assembly on ARM" below): the `arm/` and
+`aarch64/` files of the enabled components, from upstream 3.0.2, plus `libavcodec/synth_filter.h` and
+`dcadct.h`, which `arm/fft_init_arm.c` includes. Two patches to the macro files (marked `PPSSPP:`):
+`libavutil/arm/asm.S` and `libavutil/aarch64/asm.S` give exported functions hidden visibility, and
+the ARM one switches to ARM mode, since Android compiles in Thumb by default.
+
 Two files are PPSSPP's own: `libavutil/avconfig.h` and `libavutil/ffversion.h`, which FFmpeg's
 configure and `version.sh` would otherwise generate.
 
@@ -30,15 +36,19 @@ configure and `version.sh` would otherwise generate.
 There's no configure step. Everything needed to build this lives in `ext/ffmpeg-build`:
 
 - `config.h` is kept by hand, in place of the one configure would write. It's private to the
-  FFmpeg build; PPSSPP's own code only sees the headers here. All assembly and architecture-specific
-  code is off (every `ARCH_` and SIMD `HAVE_` is 0), so the only differences between platforms are
-  OS and compiler ones (Windows/UWP/POSIX, MSVC/GCC-compatible, Linux, the BSDs and Apple), sorted out
-  by a few preprocessor checks at the top. Components are enabled by their `CONFIG_..._DECODER` (and
-  so on) lines.
+  FFmpeg build; PPSSPP's own code only sees the headers here. Architecture-specific code is off
+  except the ARM and AArch64 assembly, which is on only when the build defines `FF_PPSSPP_ASM`
+  (below). Otherwise the only differences between platforms are OS and compiler ones (Windows/UWP/
+  POSIX, MSVC/GCC-compatible, Linux, the BSDs and Apple), sorted out by a few preprocessor checks at
+  the top. Components are enabled by their `CONFIG_..._DECODER` (and so on) lines.
 - `sources.mk` lists the `.c` files to compile, relative to this directory. Every build system uses
   it: CMake (`ext/ffmpeg-build/CMakeLists.txt`) reads it, `android/jni/Android.mk`,
   `libretro/Makefile` and `libretro/jni/Android.mk` include it, and `update_vcxproj.py` copies it
   into `ext/ffmpeg-build/ffmpeg.vcxproj` and `UWP/ffmpeg_UWP/ffmpeg_UWP.vcxproj`.
+- `sources_aarch64.mk` and `sources_arm.mk` list the assembly and its C glue. CMake (on Linux and
+  Android, with GCC or Clang, for AArch64 and for ARMv7 and up) and `android/jni/Android.mk` add
+  them and define `FF_PPSSPP_ASM`, which is what turns them on in `config.h`. A build that doesn't
+  (MSVC on ARM64, Apple, libretro's Makefiles) gets the C code.
 - Every build compiles the files with `HAVE_AV_CONFIG_H`, `_ISOC99_SOURCE`, `_FILE_OFFSET_BITS=64`
   and `_LARGEFILE_SOURCE` defined, and with `ext/ffmpeg-build` ahead of this directory on the include
   path, as FFmpeg's own build does.
@@ -127,13 +137,21 @@ compile, 594 vendored. Then, in steps:
 The demuxers were measured too: all of them together, beyond what PSMF needs, are 20 files and
 under 0.1 MB, so they stay.
 
-**No assembly.** The Android and Linux prebuilt libraries were already built with `--disable-asm`,
-so they lose nothing, but the Windows ones had x86 SIMD code. On x64, H.264 decoding takes about 45%
-longer than with the old Windows library (about 1.15 ms against 0.78 ms per 480x272 frame on one
-thread), which is still far faster than any PSP video needs. Decoded output was compared against the
-old Windows x64 library: H.264 (four game videos, about a thousand frames), MP3 and ATRAC3 come out
-bit-identical; ATRAC3+ (float code that had SIMD versions) differs by at most 2.4e-7, about a
-hundredth of a 16-bit step.
+**No x86 assembly.** The Windows prebuilt libraries had x86 SIMD code. On x64, H.264 decoding takes
+about 45% longer than with the old Windows library (about 1.15 ms against 0.78 ms per 480x272 frame
+on one thread), which is still far faster than any PSP video needs. Decoded output was compared
+against the old Windows x64 library: H.264 (four game videos, about a thousand frames), MP3 and
+ATRAC3 come out bit-identical; ATRAC3+ (float code that had SIMD versions) differs by at most
+2.4e-7, about a hundredth of a 16-bit step.
+
+**Assembly on ARM.** The Android and Linux prebuilt libraries were built with `--disable-asm`,
+because the 3.0.2 assembly makes PC-relative references to its exported functions and FFmpeg's
+tables, which in a shared library are preemptible symbols: lld refuses those on AArch64, and on
+ARM they become text relocations, which Android won't load. Linked statically, nothing outside the
+binary needs those symbols, so the assembly's exported functions are hidden (the `asm.S` patches)
+and the C files are compiled with `-fvisibility=hidden`. UMD Video (720x480) needs it on phones: on
+a Galaxy S8, decoding a 4 Mbit/s 720x480 stream went from 9.4 to 6.3 ms per frame on arm64 and from
+11.1 to 7.2 ms on armv7, with output identical to the C code's (hashed over 298 frames).
 
 **No configure.** A hand-kept `config.h` means no Perl, shell or toolchain probing at build time,
 and the same file works for CMake, MSBuild, ndk-build and the libretro Makefiles. It has to be

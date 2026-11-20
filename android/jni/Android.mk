@@ -1046,9 +1046,21 @@ include $(BUILD_STATIC_LIBRARY)
 # FFmpeg, from the sources in ext/ffmpeg. See its README.md.
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build/sources.mk
+# The NEON assembly, which config.h turns on when FF_PPSSPP_ASM is defined.
+FFMPEG_ASM_FLAGS :=
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+  include $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build/sources_aarch64.mk
+  FFMPEG_SOURCES += $(FFMPEG_SOURCES_AARCH64)
+  FFMPEG_ASM_FLAGS := -DFF_PPSSPP_ASM
+else ifeq ($(TARGET_ARCH_ABI),armeabi-v7a)
+  include $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build/sources_arm.mk
+  FFMPEG_SOURCES += $(FFMPEG_SOURCES_ARM)
+  FFMPEG_ASM_FLAGS := -DFF_PPSSPP_ASM
+endif
 LOCAL_MODULE := libffmpeg
 LOCAL_SRC_FILES := $(addprefix $(SRC)/ext/ffmpeg/,$(FFMPEG_SOURCES))
-LOCAL_CFLAGS := -O3 -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
+# Hidden, so the assembly can reach FFmpeg's tables PC-relative inside a shared library.
+LOCAL_CFLAGS := -O3 -fvisibility=hidden $(FFMPEG_ASM_FLAGS) -DHAVE_AV_CONFIG_H -D_ISOC99_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -w -Werror=implicit-function-declaration
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg-build $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/$(SRC)/ext/ffmpeg
 include $(BUILD_STATIC_LIBRARY)

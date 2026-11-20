@@ -42,6 +42,9 @@ FUNC    .endfunc
         .align          \align
     .if \export
         .global EXTERN_ASM\name
+        /* PPSSPP: FFmpeg is linked statically, so nothing outside the binary calls these. Hidden,
+         * they can be reached PC-relative from a shared library, which lld insists on. */
+ELF     .hidden EXTERN_ASM\name
 ELF     .type   EXTERN_ASM\name, %function
 FUNC    .func   EXTERN_ASM\name
 EXTERN_ASM\name:
