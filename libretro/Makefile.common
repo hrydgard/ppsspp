@@ -1016,7 +1016,7 @@ ifeq ($(WITH_DYNAREC),1)
 			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
 		endif
 	else ifeq ($(TARGET_ARCH),arm64)
-      DYNAFLAGS += -D_ARCH_64 -DARM64
+      DYNAFLAGS += -D_ARCH_64
       SOURCES_CXX += $(COMMONDIR)/Arm64Emitter.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64IRAsm.cpp \
 		     $(COREDIR)/MIPS/ARM64/Arm64IRCompALU.cpp \

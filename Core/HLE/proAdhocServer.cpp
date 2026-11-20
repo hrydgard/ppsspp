@@ -29,11 +29,11 @@
 #include <random>
 #include <signal.h>
 
-#if PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
+#if PPSSPP_PLATFORM(SWITCH)
 #include <netdb.h>
 // Missing include, *shrugs*
 extern "C" struct hostent *gethostbyname(const char *name);
-#endif // PPSSPP_PLATFORM(SWITCH) || PPSSPP_PLATFORM(SWITCH)
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 #include <sys/types.h>
 #include "Common/Net/SocketCompat.h"
