@@ -158,7 +158,7 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 struct SceMp4AvcCscStruct {
 	s32_le height;        // 0x00  in macroblocks
 	s32_le width;         // 0x04
-	s32_le unk08;         // 0x08  1: the top field only (see MpegBaseCscRange)
+	s32_le unk08;         // 0x08  1: the field in buffers 0/1 and 4/5 only (see MpegBaseCscRange)
 	s32_le unk0c;         // 0x0c
 	u32_le buffer[8];     // 0x10  four luma, then four chroma
 };
@@ -583,9 +583,13 @@ static int MpegBaseCscFields(u32 bufferRGB, u32 bufferRGB2, bool topFieldOnly, i
 // Where the converted rows go (pspautotests video/mpeg/cscavc). With no second buffer, every row
 // lands where it is in the frame, and +0x08 in the descriptor leaves out the odd ones. With one, the
 // fields are split: the even rows packed together into bufferRGB and the odd ones into the second,
-// and +0x08 leaves the odd field out. The VSH's UMD Video player passes the same buffer twice with
-// +0x08 set, for the top field of a 720x480 picture in 240 rows. When both fields go to the same
-// buffer, the even one is what's left.
+// and +0x08 leaves the odd field out. When both fields go to the same buffer, the even one is what's
+// left.
+//
+// The VSH's UMD Video player converts one field of a 720x480 picture per vsync, alternating, into
+// 240 rows: the same buffer twice with +0x08 set, in vertical strips. It gets the bottom field by
+// passing the descriptor with the field buffers swapped (2/3 and 6/7 in the places of 0/1 and 4/5),
+// so the "even" field converted here is whichever one it put first.
 static int MpegBaseCscRange(u32 bufferRGB, u32 bufferRGB2, u32 cscAddr, int bufferWidth,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
 	auto csc = PSPPointer<SceMp4AvcCscStruct>::Create(cscAddr);
