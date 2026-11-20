@@ -53,6 +53,11 @@ public class NativeApp {
 	public static native void removeOutput(int id);
 	public static native void setDeviceName(String name);
 
+	// While on, the game's sound goes to readStreamAudio (stereo, 48 kHz) instead of the speaker. See MoonlightStream.
+	public static native void setStreamAudio(boolean enabled);
+	// Returns the number of samples. samples must hold at least 8192.
+	public static native int readStreamAudio(short[] samples);
+
 	public static native boolean isAtTopLevel();
 
 	// These have Android semantics: Resume is always called on bootup, after init

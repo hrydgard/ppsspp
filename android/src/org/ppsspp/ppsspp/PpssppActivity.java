@@ -126,6 +126,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// The game on a second display, while there's one (and the backend can draw to it) and we're started.
 	private ExternalDisplayPresentation externalDisplayPresentation;
+	// The Moonlight host, while the setting is on and we're started.
+	private MoonlightStream moonlightStream;
 	private boolean externalDisplayWatched = false;
 	private final DisplayManager.DisplayListener displayListener = new DisplayManager.DisplayListener() {
 		@Override
@@ -1072,6 +1074,18 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		return tvShaped;
 	}
 
+	// Runs the Moonlight host while we're started and the setting is on (Vulkan only, since the stream is a
+	// Game output). Stopping it ends the stream, so it has to happen before the render thread stops.
+	private void updateMoonlightStream() {
+		boolean wanted = externalDisplayWatched && "1".equals(NativeApp.queryConfig("moonlightHost"));
+		if (wanted && moonlightStream == null) {
+			moonlightStream = MoonlightStream.start(this);
+		} else if (!wanted && moonlightStream != null) {
+			moonlightStream.stop();
+			moonlightStream = null;
+		}
+	}
+
 	private void dismissExternalDisplay() {
 		// Cleared first, so its dismiss listener knows it was us.
 		ExternalDisplayPresentation presentation = externalDisplayPresentation;
@@ -1228,6 +1242,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			displayManager.registerDisplayListener(displayListener, null);
 			externalDisplayWatched = true;
 			updateExternalDisplay();
+			updateMoonlightStream();
 		}
 
 		// In case the surface outlived the stop. Otherwise this waits for surfaceCreated.
@@ -1251,6 +1266,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		displayManager.unregisterDisplayListener(displayListener);
 		externalDisplayWatched = false;
 		dismissExternalDisplay();
+		updateMoonlightStream();
 
 		// Normally surfaceDestroyed has done this already, but not every device destroys the surface of a
 		// stopped activity, and an invisible game shouldn't keep running.
@@ -1999,6 +2015,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return true;
 		} else if (command.equals("externalDisplay")) {
 			updateExternalDisplay();
+			return true;
+		} else if (command.equals("moonlightHost")) {
+			updateMoonlightStream();
 			return true;
 		} else if (command.equals("immersive")) {
 			updateSystemUiVisibility();

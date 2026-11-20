@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdint>
+#include <cstring>
 
 #include <map>
 #include <sstream>
@@ -50,6 +51,7 @@ typedef _jobject *jobject;
 typedef _jclass *jclass;
 typedef jobject jstring;
 typedef jobject jbyteArray;
+typedef jobject jshortArray;
 typedef jobject jintArray;
 typedef jobject jfloatArray;
 
@@ -61,6 +63,7 @@ struct JNIEnv {};
 #define JNI_VERSION_1_6 16
 #endif
 
+#include "Common/Audio/SampleRing.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
@@ -620,6 +623,9 @@ static std::string QueryConfig(std::string_view query) {
 		// Whether the game goes to a second display, see ExternalDisplayPresentation.java. The running backend: the
 		// setting is already the new one while the restart prompt for a change is up.
 		return GetGPUBackend() == GPUBackend::VULKAN && g_Config.iExternalDisplay == (int)ExternalDisplayMode::SHOW_GAME ? "1" : "0";
+	} else if (query == "moonlightHost") {
+		// Whether to stream to Moonlight clients, see MoonlightStream.java. It needs a Game output, so Vulkan.
+		return GetGPUBackend() == GPUBackend::VULKAN && g_Config.bMoonlightHost ? "1" : "0";
 	} else {
 		return "";
 	}
@@ -894,6 +900,53 @@ AudioBackend *System_CreateAudioBackend() {
 	return nullptr;
 }
 
+// While a Moonlight client is watching (MoonlightStream.java), the game's sound goes to the stream
+// instead of the speaker. The output stream's callback still paces the mixing: it mixes the same
+// length of audio at the stream's rate into a ring that Java drains, and plays silence.
+static constexpr int STREAM_AUDIO_RATE = 48000;
+static constexpr uint32_t STREAM_AUDIO_RING_SIZE = 8192;  // Samples, about 85 ms.
+static std::atomic<bool> g_streamAudio{false};
+static SampleRing<STREAM_AUDIO_RING_SIZE> g_streamAudioRing;
+
+static void AndroidMix(short *buffer, int numFrames, int sampleRateHz, void *userdata) {
+	if (!g_streamAudio || sampleRateHz <= 0) {
+		NativeMix(buffer, numFrames, sampleRateHz, userdata);
+		return;
+	}
+	// Only touched by the audio callback. The remainder carries frame fractions between callbacks,
+	// so the stream gets exactly STREAM_AUDIO_RATE frames a second.
+	static int16_t mix[4096 * 2];
+	static int64_t remainder = 0;
+	const int64_t total = (int64_t)numFrames * STREAM_AUDIO_RATE + remainder;
+	remainder = total % sampleRateHz;
+	const int frames = std::min((int)(total / sampleRateHz), 4096);
+	NativeMix(mix, frames, STREAM_AUDIO_RATE, userdata);
+	g_streamAudioRing.Push(mix, frames * 2);
+	memset(buffer, 0, numFrames * 2 * sizeof(short));
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setStreamAudio(JNIEnv *, jclass, jboolean enabled) {
+	if (enabled) {
+		// Nothing drains the ring while the stream is off, so this is the only consumer.
+		g_streamAudioRing.Clear();
+	}
+	g_streamAudio = enabled;
+}
+
+// Moves the stream's sound (interleaved stereo at STREAM_AUDIO_RATE) into samples, which must have room
+// for the whole ring. Returns the number of samples. Only one thread may call this.
+extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_readStreamAudio(JNIEnv *env, jclass, jshortArray samples) {
+	if (env->GetArrayLength(samples) < (jsize)STREAM_AUDIO_RING_SIZE) {
+		return 0;
+	}
+	jint count = 0;
+	g_streamAudioRing.Drain([&](const int16_t *data, uint32_t n) {
+		env->SetShortArrayRegion(samples, count, (jsize)n, data);
+		count += (jint)n;
+	});
+	return count;
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	sampleRate = optimalSampleRate;
 	if (optimalSampleRate == 0) {
@@ -914,7 +967,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 
 	INFO_LOG(Log::Audio, "NativeApp.audioInit() -- Using Oboe audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	if (!g_audioState) {
-		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
+		g_audioState = AndroidAudio_Init(&AndroidMix, framesPerBuffer, sampleRate);
 	} else {
 		// A new activity while the native side kept running. The state is only shut down with it.
 		INFO_LOG(Log::Audio, "Audio state already initialized, keeping it");
@@ -1160,6 +1213,9 @@ void System_Notify(SystemNotification notification) {
 		break;
 	case SystemNotification::EXTERNAL_DISPLAY_CHANGED:
 		PushCommand("externalDisplay", "");
+		break;
+	case SystemNotification::MOONLIGHT_HOST_CHANGED:
+		PushCommand("moonlightHost", "");
 		break;
 	case SystemNotification::TEST_JAVA_EXCEPTION:
 		PushCommand("testException", "This is a test exception");

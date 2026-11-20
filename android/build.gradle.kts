@@ -63,6 +63,7 @@ dependencies {
 	implementation("androidx.documentfile:documentfile:1.1.0")
 	// Keep the runtime and protoc versions in step.
 	implementation("com.google.protobuf:protobuf-javalite:4.36.2")
+	implementation(project(":moonlighthost"))
 	// Leak detection for debug builds, opt-in since its heap dumps freeze the app: ./gradlew -PleakCanary ...
 	if (project.hasProperty("leakCanary")) {
 		debugImplementation("com.squareup.leakcanary:leakcanary-android:2.14")
@@ -148,6 +149,8 @@ android {
 			isMinifyEnabled = false
 			isJniDebuggable = true
 			signingConfig = signingConfigs.getByName("debug")
+			// For library modules, which only have debug and release.
+			matchingFallbacks += listOf("release")
 		}
 		getByName("release") {
 			isMinifyEnabled = false
