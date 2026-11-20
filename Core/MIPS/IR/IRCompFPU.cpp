@@ -81,9 +81,21 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 	CheckMemoryBreakpoint(rs, offset);
 
 	if (js.kernelMode) {
-		// Kernel code may reach hardware registers (MMIO), which only the interpreter handles.
-		DISABLE;
-		return;
+		// Kernel code may reach hardware registers (MMIO). The kernel loads and stores handle those
+		// (and become ordinary ones where they can tell it's memory), so go through a GPR.
+		switch (op >> 26) {
+		case 49: // lwc1
+			ir.Write(IROp::LoadKernel32, IRTEMP_0, rs, 0, offset);
+			ir.Write(IROp::FMovFromGPR, ft, IRTEMP_0);
+			return;
+		case 57: // swc1
+			ir.Write(IROp::FMovToGPR, IRTEMP_0, ft);
+			ir.Write(IROp::StoreKernel32, IRTEMP_0, rs, 0, offset);
+			return;
+		default:
+			DISABLE;
+			return;
+		}
 	}
 
 	switch (op >> 26) {

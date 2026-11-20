@@ -668,10 +668,21 @@ namespace MIPSComp {
 		CheckMemoryBreakpoint(rs, offset);
 
 		if (js.kernelMode) {
-			// Send all memory accesses to the interpreter in kernel mode.
-			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
-			DISABLE;
-			return;
+			// Through a GPR and the kernel loads and stores, which handle hardware registers, as
+			// Comp_FPULS does.
+			switch (op >> 26) {
+			case 50: //lv.s
+				ir.Write(IROp::LoadKernel32, IRTEMP_0, rs, 0, offset);
+				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vt], IRTEMP_0);
+				return;
+			case 58: //sv.s
+				ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[vt]);
+				ir.Write(IROp::StoreKernel32, IRTEMP_0, rs, 0, offset);
+				return;
+			default:
+				DISABLE;
+				return;
+			}
 		}
 
 		switch (op >> 26) {
