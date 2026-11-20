@@ -1094,6 +1094,6 @@ private:
 class ARM64CodeBlock : public CodeBlock<ARM64XEmitter>
 {
 private:
-	void PoisonMemory(int offset) override;
+	void PoisonMemory(int offset, int end) override;
 };
 }

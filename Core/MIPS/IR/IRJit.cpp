@@ -304,8 +304,12 @@ void IRJit::BenchmarkCompile() {
 	uint64_t irHash = 0;
 	size_t codeBytes = 0;
 	benchmarking_ = true;
+	// Clearing a full cache is a stall of its own (a game hits it when the code space fills up).
+	int64_t bestClear = INT64_MAX;
 	for (int run = 0; run < RUNS; run++) {
+		const Instant clearStart = Instant::Now();
 		ClearCache();
+		bestClear = std::min(bestClear, clearStart.ElapsedNanos());
 		const JitCompileTimes before = g_jitCompileTimes;
 		for (u32 start : starts) {
 			u32 mipsBytes;
@@ -355,7 +359,7 @@ void IRJit::BenchmarkCompile() {
 		}
 		bestWhole = std::min(bestWhole, start.ElapsedNanos());
 	}
-	NOTICE_LOG(Log::JIT, "JIT bench: %0.3f ns per timer tick, IR hash %016llx, %d bytes of code", fast_ticks_to_nanos(), (unsigned long long)irHash, (int)codeBytes);
+	NOTICE_LOG(Log::JIT, "JIT bench: %0.3f ns per timer tick, IR hash %016llx, %d bytes of code, clearing the cache %0.2f ms", fast_ticks_to_nanos(), (unsigned long long)irHash, (int)codeBytes, bestClear * 1e-6);
 	NOTICE_LOG(Log::JIT, "JIT bench best without the phases: %0.2f ms, %0.2f us/block", bestWhole * 1e-6, bestWhole * 1e-3 / starts.size());
 	NOTICE_LOG(Log::JIT, "JIT bench best: %d blocks, %d MIPS -> %d IR instructions, %0.2f ms, %0.2f us/block (frontend %0.2f, passes %0.2f, backend %0.2f, finalize %0.2f)",
 		(int)starts.size(), (int)best.mipsInstructions, (int)best.irInstructions, bestTotal * 1e-6, bestTotal * 1e-3 / starts.size(),

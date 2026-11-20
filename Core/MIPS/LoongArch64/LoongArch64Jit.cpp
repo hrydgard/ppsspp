@@ -321,8 +321,8 @@ bool LoongArch64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) co
 }
 
 void LoongArch64JitBackend::ClearAllBlocks() {
-	ClearCodeSpace(jitStartOffset_);
-	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
+	const size_t end = ClearCodeSpace(jitStartOffset_);
+	FlushIcacheSection(region + jitStartOffset_, region + end);
 	EraseAllLinks(-1);
 }
 

@@ -4870,12 +4870,12 @@ void RiscVEmitter::C_MUL(RiscVReg rd, RiscVReg rs2) {
 	Write16(EncodeCA(Opcode16::C1, CompressReg(rs2), Funct2::C_MUL, CompressReg(rd), Funct6::C_OP_32));
 }
 
-void RiscVCodeBlock::PoisonMemory(int offset) {
+void RiscVCodeBlock::PoisonMemory(int offset, int end) {
 	// So we can adjust region to writable space.  Might be zero.
 	ptrdiff_t writable = writable_ - code_;
 
 	u32 *ptr = (u32 *)(region + offset + writable);
-	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
+	u32 *maxptr = (u32 *)(region + end + writable);
 	// This will only write an even multiple of u32, but not much else to do.
 	// RiscV: 0x00100073 = EBREAK, 0x9002 = C.EBREAK
 	while (ptr + 1 <= maxptr)

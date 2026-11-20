@@ -4464,12 +4464,12 @@ void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 	}
 }
 
-void ARM64CodeBlock::PoisonMemory(int offset) {
+void ARM64CodeBlock::PoisonMemory(int offset, int end) {
 	// So we can adjust region to writable space.  Might be zero.
 	ptrdiff_t writable = m_writable - m_code;
 
 	u32 *ptr = (u32 *)(region + offset + writable);
-	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
+	u32 *maxptr = (u32 *)(region + end + writable);
 	// If our memory isn't a multiple of u32 then this won't write the last remaining bytes with anything
 	// Less than optimal, but there would be nothing we could do but throw a runtime warning anyway.
 	// AArch64: 0xD4200000 = BRK 0
