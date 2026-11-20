@@ -15,10 +15,14 @@ public:
 	void registerEventHandler();
 	void ProcessInput(const SDL_Event &event);
 
+	// Call before the config loads.
+	static void RemapLegacyAxisMappings();
+
 private:
 	void setUpController(SDL_JoystickID deviceID);
 	void setUpControllers();
 	InputKeyCode getKeycodeForButton(SDL_GamepadButton button);
+	static InputAxis getAxisForGamepadAxis(SDL_GamepadAxis axis);
 	int getDeviceIndex(int instanceId);
 	void releaseAllKeys();
 

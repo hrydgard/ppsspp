@@ -203,6 +203,14 @@ namespace KeyMap {
 
 	MappedAnalogAxes MappedAxesForDevice(InputDeviceID deviceId);
 
+	struct AxisRemap {
+		InputAxis from;
+		InputAxis to;
+	};
+	// Axis IDs a platform used to send by mistake for deviceId, translated to the right ones as
+	// mappings load (and so saved that way next time). Must be set before the config loads.
+	void SetLegacyAxisRemap(InputDeviceID deviceId, const AxisRemap *remaps, size_t count);
+
 	void LoadFromIni(IniFile &iniFile);
 	void SaveToIni(IniFile &iniFile);
 	void ClearAllMappings();

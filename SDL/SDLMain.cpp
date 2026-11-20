@@ -2249,6 +2249,8 @@ int main(int argc, char *argv[]) {
 	const char *external_dir = "/tmp";
 #endif
 
+	SDLJoystick::RemapLegacyAxisMappings();
+
 	// After NativeInit, code should no longer look at cmdLineOptions, they should have been translated
 	// into g_Config settings. This is because NativeInit may modify g_Config settings based on the command line options.
 	NativeInit(argc, (const char **)argv, cmdLineOptions, path, external_dir, nullptr);
