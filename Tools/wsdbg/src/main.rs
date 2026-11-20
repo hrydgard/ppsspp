@@ -127,14 +127,41 @@ fn compact() -> bool {
 // Tickets of requests sent without waiting, whose reply hasn't arrived yet, so :quit can wait for
 // them. Global for the same reason as COMPACT: a reply can turn up inside any of the loops that
 // read the socket (a --sync wait, :sleep, ...), and they all go through print_incoming.
-static PENDING: Mutex<BTreeSet<u64>> = Mutex::new(BTreeSet::new());
+// `failed` records an error reply to one of them, or one that never came.
+struct Pending {
+    tickets: BTreeSet<u64>,
+    failed: bool,
+}
+
+static PENDING: Mutex<Pending> = Mutex::new(Pending { tickets: BTreeSet::new(), failed: false });
 
 fn add_pending(ticket: u64) {
-    PENDING.lock().unwrap().insert(ticket);
+    PENDING.lock().unwrap().tickets.insert(ticket);
+}
+
+fn is_pending(ticket: u64) -> bool {
+    PENDING.lock().unwrap().tickets.contains(&ticket)
 }
 
 fn pending_count() -> usize {
-    PENDING.lock().unwrap().len()
+    PENDING.lock().unwrap().tickets.len()
+}
+
+fn pending_failed() -> bool {
+    PENDING.lock().unwrap().failed
+}
+
+// Whether `v` is the answer to the request with this ticket. A deferred event is one, unless it
+// says replyFollows: then the real reply, carrying the same ticket, is still to come (a waited
+// savestate operation, input.buttons.press, ...).
+fn is_final_reply(v: &serde_json::Value, ticket: u64) -> bool {
+    v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket)
+        && !(v.get("event").and_then(|e| e.as_str()) == Some("deferred")
+            && v.get("replyFollows").and_then(|r| r.as_bool()) == Some(true))
+}
+
+fn is_error(v: &serde_json::Value) -> bool {
+    v.get("event").and_then(|e| e.as_str()) == Some("error")
 }
 
 // The "> " prompt is noise in a piped script, and interleaves with incoming messages.
@@ -162,6 +189,12 @@ static TICKET: AtomicU64 = AtomicU64::new(1);
 
 fn next_ticket() -> u64 {
     TICKET.fetch_add(1, Ordering::Relaxed)
+}
+
+// Keeps auto-assigned tickets clear of one a raw line picked itself, so a late reply to it
+// can't be mistaken for the answer to a later command.
+fn reserve_ticket(ticket: u64) {
+    TICKET.fetch_max(ticket.saturating_add(1), Ordering::Relaxed);
 }
 
 // A minimal shell-like tokenizer: splits on unquoted whitespace, and lets 'single' or "double"
@@ -396,8 +429,14 @@ fn request_deferred_acks(socket: &mut WebSocket<TcpStream>) -> Result<()> {
 
 fn print_incoming(text: &str) {
     let parsed = serde_json::from_str::<serde_json::Value>(text);
-    if let Some(t) = parsed.as_ref().ok().and_then(|v| v.get("ticket")).and_then(|t| t.as_u64()) {
-        PENDING.lock().unwrap().remove(&t);
+    if let Ok(v) = &parsed
+        && let Some(t) = v.get("ticket").and_then(|t| t.as_u64())
+        && is_final_reply(v, t)
+    {
+        let mut pending = PENDING.lock().unwrap();
+        if pending.tickets.remove(&t) && is_error(v) {
+            pending.failed = true;
+        }
     }
     if compact() {
         // One line per message, event name first so a script can grep for it without having to
@@ -510,7 +549,7 @@ fn is_would_block(e: &tungstenite::Error) -> bool {
 // With deferred acks turned on (see request_deferred_acks) every request is answered, including
 // the ones whose result arrives later, so waiting for this request's ticket beats sleeping for a
 // fixed --wait: a quick question returns immediately instead of padding every invocation, and a
-// slow one isn't cut off early.
+// slow one isn't cut off early. A deferred event that says replyFollows isn't the answer yet.
 fn run_one_shot(
     mut socket: WebSocket<TcpStream>,
     json_text: String,
@@ -530,9 +569,11 @@ fn run_one_shot(
     let mut answered = false;
     let mut failed = false;
     pump_until(&mut socket, deadline, |v| {
-        if ticket.is_some() && v.get("ticket").and_then(|t| t.as_u64()) == ticket {
+        if let Some(t) = ticket
+            && is_final_reply(v, t)
+        {
             answered = true;
-            failed |= v.get("event").and_then(|e| e.as_str()) == Some("error");
+            failed |= is_error(v);
         }
         answered && wait_for_ticket
     });
@@ -620,6 +661,12 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
             ),
             None => None,
         };
+        if let Some(t) = ticket {
+            if is_pending(t) {
+                return Err(anyhow!("ticket {t} is still waiting for its reply - pick another"));
+            }
+            reserve_ticket(t);
+        }
         warn_if_stepping_muted(&event, obj);
         match ticket {
             Some(t) => println!("-> (ticket {t}) {line}"),
@@ -647,7 +694,8 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
 // Every request is answered - either a response or an error, both carrying the request's ticket
 // (PPSSPP acknowledges even the ones whose real result arrives later). So the ticket is always
 // the thing to wait on, and matching on it is exact: no guessing from message order, and no list
-// of events that don't answer.
+// of events that don't answer. When the acknowledgement says replyFollows, the reply it promises
+// is the answer instead.
 //
 // RESUME_FAMILY events additionally mean "let the CPU run", so after the acknowledgement we also
 // wait for the following cpu.stepping broadcast - the actual "it stopped again" signal a script
@@ -663,18 +711,21 @@ fn wait_for_sync_response(
 ) -> bool {
     let wants_stepping = RESUME_FAMILY.contains(&event);
     let mut got_ticket = false;
+    let mut accepted = false;
     let mut got_stepping = !wants_stepping;
     let mut failed = false;
     let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
 
     let done = pump_until(socket, deadline, |v| {
-        if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+        if is_final_reply(v, ticket) {
             got_ticket = true;
             // An error reply is a final answer - there'll be no cpu.stepping to follow.
-            if v.get("event").and_then(|e| e.as_str()) == Some("error") {
+            if is_error(v) {
                 failed = true;
                 got_stepping = true;
             }
+        } else if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+            accepted = true;
         }
         // Only counts once the request has been acknowledged, so a cpu.stepping still in flight
         // from something earlier can't be mistaken for this command's.
@@ -687,7 +738,13 @@ fn wait_for_sync_response(
     if !done {
         eprintln!(
             "! --sync: timed out after {timeout_secs}s waiting for '{event}' (ticket {ticket}){}",
-            if got_ticket { ", acknowledged but never stopped" } else { "" }
+            if got_ticket {
+                ", acknowledged but never stopped"
+            } else if accepted {
+                ", accepted but the reply never came"
+            } else {
+                ""
+            }
         );
     }
     done && !failed
@@ -921,6 +978,7 @@ fn drain_pending(socket: &mut WebSocket<TcpStream>, secs: f64) {
             pending_count(),
             secs
         );
+        PENDING.lock().unwrap().failed = true;
     }
 }
 
@@ -969,7 +1027,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                 match words.next() {
                     Some(":quit") | Some(":q") | Some(":exit") => {
                         drain_pending(&mut socket, 10.0);
-                        return Ok(!failed);
+                        return Ok(!failed && !pending_failed());
                     }
                     Some(":help") | Some(":h") => print_help(),
                     Some(":snapshot") => {
@@ -1036,7 +1094,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             Err(mpsc::TryRecvError::Disconnected) => {
                 // Piped script hit EOF - same race as :quit.
                 drain_pending(&mut socket, 10.0);
-                return Ok(!failed);
+                return Ok(!failed && !pending_failed());
             }
             Err(mpsc::TryRecvError::Empty) => {}
         }
@@ -1048,13 +1106,13 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             }
             Ok(Message::Close(frame)) => {
                 println!("\n[connection closed by PPSSPP: {frame:?}]");
-                return Ok(!failed);
+                return Ok(!failed && !pending_failed());
             }
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
             Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
                 println!("\n[connection closed]");
-                return Ok(!failed);
+                return Ok(!failed && !pending_failed());
             }
             Err(e) => {
                 eprintln!("\n[connection error: {e}]");
