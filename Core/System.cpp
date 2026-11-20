@@ -719,10 +719,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	}
 
 	if (g_CoreParameter.updateRecent) {
-		g_recentFiles.Add(g_CoreParameter.fileToStart.ToString());
-		// A UMD Video disc picked from the game list boots the XMB (which Add skips) to play it.
+		// A UMD Video disc, however it was picked, boots the XMB with it in the drive to play it. That's
+		// the disc being played, so only the disc goes in Recents, not the XMB as well.
 		if (!g_CoreParameter.mountIso.empty() && g_CoreParameter.umdAutoboot.has_value()) {
 			g_recentFiles.Add(g_CoreParameter.mountIso.ToString());
+		} else {
+			g_recentFiles.Add(g_CoreParameter.fileToStart.ToString());
 		}
 	}
 
