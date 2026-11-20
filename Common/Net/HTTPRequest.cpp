@@ -177,7 +177,17 @@ void RequestManager::CancelAll() {
 		downloads_[i]->Cancel();
 	}
 	for (size_t i = 0; i < downloads_.size(); i++) {
-		downloads_[i]->Join();
+		if (downloads_[i]->Done() || !downloads_[i]->Detach()) {
+			downloads_[i]->Join();
+			continue;
+		}
+		// Still running, most likely in a DNS lookup, which cancelling can't interrupt. Joining
+		// it here blocked NativeShutdown on the UI thread until Android killed us (an ANR). It
+		// exits by itself once the lookup returns. Never freed, on purpose: the thread uses the
+		// request until then, and this can outlive the manager (it's destroyed at exit).
+		static std::vector<std::shared_ptr<Request>> *abandoned = new std::vector<std::shared_ptr<Request>>();
+		WARN_LOG(Log::HTTP, "Leaving request for %s to finish on its own", downloads_[i]->url().c_str());
+		abandoned->push_back(downloads_[i]);
 	}
 	downloads_.clear();
 }
