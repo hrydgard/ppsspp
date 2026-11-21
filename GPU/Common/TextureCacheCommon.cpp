@@ -2415,6 +2415,9 @@ void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool fla
 	} else {
 		samplerKey = GetSamplingParams(0, nullptr, flatZ, pixelMapped);
 	}
+	// Only when the texture is filtered both ways: the shader can't tell magnification from minification, and a
+	// nearest sample must stay exact.
+	gstate_c.SetTruncateBilinear(PSP_CoreParameter().compat.flags().TruncateBilinear && samplerKey.minFilt && samplerKey.magFilt);
 	ApplySamplerByKey(samplerKey);
 }
 

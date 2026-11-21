@@ -561,6 +561,12 @@ struct GPUStateCache {
 				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
+	void SetTruncateBilinear(bool truncate) {
+		if (truncate != truncateBilinear) {
+			truncateBilinear = truncate;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 	void SetTextureIs3D(bool is3D) {
 		if (is3D != curTextureIs3D) {
 			curTextureIs3D = is3D;
@@ -635,6 +641,8 @@ public:
 	int curTextureXOffset;
 	int curTextureYOffset;
 	bool curTextureIs3D;
+	// TruncateBilinear (compat.ini) is on and the current sampler filters linearly. See FS_BIT_TRUNCATE_BILINEAR.
+	bool truncateBilinear;
 
 	// Cached 4x4 products of the matrices.
 	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
