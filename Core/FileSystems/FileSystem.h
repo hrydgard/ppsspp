@@ -149,7 +149,7 @@ public:
 	virtual size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) = 0;
 	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) = 0;
 	virtual size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) = 0;
-	virtual size_t   SeekFile(u32 handle, s32 position, FileMove type) = 0;
+	virtual size_t   SeekFile(u32 handle, s64 position, FileMove type) = 0;
 	virtual PSPFileInfo GetFileInfo(std::string filename) = 0;
 	virtual PSPFileInfo GetFileInfoByHandle(u32 handle) = 0;  // Mainly used for debugging.
 	virtual bool     OwnsHandle(u32 handle) = 0;
@@ -187,7 +187,7 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override {return 0;}
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override {return 0;}
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override {return 0;}
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override {return 0;}
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override {return 0;}
 	PSPFileInfo GetFileInfo(std::string filename) override {PSPFileInfo f; return f;}
 	PSPFileInfo GetFileInfoByHandle(u32 handle) override {PSPFileInfo f; return f;}
 	bool     OwnsHandle(u32 handle) override {return false;}

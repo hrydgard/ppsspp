@@ -189,6 +189,8 @@ struct IoAsyncParams {
 			u32 filenameAddr;
 			int flags;
 			int mode;
+			// -1 in states from before it was saved, then it comes from filenameAddr.
+			int delayUs;
 		} open;
 		struct {
 			u32 addr;
@@ -747,7 +749,7 @@ void __IoShutdown() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 5);
+	auto s = p.Section("sceIo", 1, 6);
 	if (!s)
 		return;
 
@@ -794,6 +796,9 @@ void __IoDoState(PointerWrap &p) {
 
 		if (s >= 4) {
 			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
+			if (s < 6 && asyncParams[i].op == IoAsyncOp::OPEN) {
+				asyncParams[i].open.delayUs = -1;
+			}
 			bool hasThread = asyncThreads[i] != nullptr;
 			Do(p, hasThread);
 			if (hasThread) {
@@ -1502,28 +1507,27 @@ static u32 sceIoCancel(int id)
 	}
 }
 
-static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
+static s64 npdrmLseek(FileNode *f, s64 where, FileMove whence)
 {
-	u32 newPos, blockPos;
-
 	if (!f->pgdInfo) {
 		//WARN_LOG(Log::IO, "npdrmLseek: pgdInfo is null for file %s, seeking as non-encrypted", f->fullpath.c_str());
-		return (u32)pspFileSystem.SeekFile(f->handle, where, whence);
+		return (s64)pspFileSystem.SeekFile(f->handle, where, whence);
 	}
+	s64 newPos;
 	if(whence==FILEMOVE_BEGIN){
 		newPos = where;
 	}else if(whence==FILEMOVE_CURRENT){
-		newPos = f->pgdInfo->file_offset+where;
+		newPos = (s64)f->pgdInfo->file_offset+where;
 	}else{
-		newPos = f->pgdInfo->data_size+where;
+		newPos = (s64)f->pgdInfo->data_size+where;
 	}
 
-	if (newPos > f->pgdInfo->data_size)
+	if (newPos < 0 || newPos > f->pgdInfo->data_size)
 		return -EINVAL;
 
-	f->pgdInfo->file_offset = newPos;
-	blockPos = newPos&~(f->pgdInfo->block_size-1);
-	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+blockPos, whence);
+	f->pgdInfo->file_offset = (u32)newPos;
+	const u32 blockPos = (u32)newPos & ~(f->pgdInfo->block_size-1);
+	pspFileSystem.SeekFile(f->handle, (s64)f->pgdInfo->data_offset+blockPos, FILEMOVE_BEGIN);
 
 	return newPos;
 }
@@ -1571,12 +1575,11 @@ static s64 __IoLseek(SceUID id, s64 offset, int whence) {
 		FileMove seek;
 		s64 newPos = __IoLseekDest(f, offset, whence, seek);
 
-		if(f->npdrm)
-			return npdrmLseek(f, (s32)offset, seek);
-
 		if (newPos < 0)
 			return newPos;
-		return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		if (f->npdrm)
+			return npdrmLseek(f, offset, seek);
+		return pspFileSystem.SeekFile(f->handle, offset, seek);
 	} else {
 		return (s32) error;
 	}
@@ -2566,6 +2569,22 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
 	}
 }
 
+// See notes on timing in sceIoOpen.
+static int IoAsyncOpenDelayUs(const FileNode *f, const std::string &filename, int error) {
+	IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+	if (!sys) {
+		return 80;
+	}
+	if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+		return sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
+	}
+	if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
+		// These are fast to open, no delay or even rescheduling happens.
+		return 80;
+	}
+	return sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
+}
+
 static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 	if (!filename) {
@@ -2608,6 +2627,8 @@ static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int 
 	params.open.filenameAddr = PARAM(0);
 	params.open.flags = flags;
 	params.open.mode = mode;
+	// The game may reuse the filename buffer before the open runs.
+	params.open.delayUs = IoAsyncOpenDelayUs(f, filename, error);
 	IoStartAsyncThread(fd, f);
 
 	if (error != 0) {
@@ -3631,26 +3652,25 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 static u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	WARN_LOG(Log::sceIo, "sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
 
-	auto out = PSPPointer<SceUID_le>::Create(outAddr);
 	int count = 0;
+	// outSize comes from the game, so check each entry's address.
+	auto add = [&](int fd) {
+		if (count < outSize && Memory::IsValidRange(outAddr + count * 4, 4)) {
+			Memory::WriteUnchecked_U32(fd, outAddr + count * 4);
+		}
+		++count;
+	};
 
 	// Always have the first three.
 	for (int i = 0; i < PSP_MIN_FD; ++i) {
 		// TODO: Technically it seems like these are fixed ids > PSP_COUNT_FDS.
-		if (count < outSize && out.IsValid()) {
-			out[count] = i;
-		}
-		++count;
+		add(i);
 	}
 
 	for (int i = PSP_MIN_FD; i < PSP_COUNT_FDS; ++i) {
-		if (fds[i] == 0) {
-			continue;
+		if (fds[i] != 0) {
+			add(i);
 		}
-		if (count < outSize && out.IsValid()) {
-			out[count] = i;
-		}
-		++count;
 	}
 
 	if (Memory::IsValidRange(fdNumAddr, 4))
@@ -3717,30 +3737,15 @@ static int IoAsyncFinish(MIPSState *mips, int id) {
 			break;
 
 		case IoAsyncOp::OPEN:
-		{
-			// See notes on timing in sceIoOpen.
-			if (!Memory::IsValidNullTerminatedString(params.open.filenameAddr)) {
-				// Bad
-				ERROR_LOG(Log::sceIo, "Bad pointer to filename %08x", params.open.filenameAddr);
-				us = 80;
-				break;
-			}
-			const std::string filename = Memory::GetCharPointerUnchecked(params.open.filenameAddr);
-			IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
-			if (sys) {
-				if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
-					us = sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
-				} else if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
-					// These are fast to open, no delay or even rescheduling happens.
-					us = 80;
-				} else {
-					us = sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
-				}
+			if (params.open.delayUs >= 0) {
+				us = params.open.delayUs;
+			} else if (Memory::IsValidNullTerminatedString(params.open.filenameAddr)) {
+				us = IoAsyncOpenDelayUs(f, Memory::GetCharPointerUnchecked(params.open.filenameAddr), (int)f->asyncResult);
 			} else {
+				ERROR_LOG(Log::sceIo, "Bad pointer to filename %08x", params.open.filenameAddr);
 				us = 80;
 			}
 			break;
-		}
 
 		case IoAsyncOp::CLOSE:
 			f->asyncResult = 0;

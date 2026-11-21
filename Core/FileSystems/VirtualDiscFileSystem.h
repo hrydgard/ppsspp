@@ -39,7 +39,7 @@ public:
 
 	void DoState(PointerWrap &p) override;
 	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	void     CloseFile(u32 handle) override;
@@ -121,8 +121,8 @@ private:
 		size_t Read(u8 *data, s64 size) {
 			return (size_t)handler->Read(handle, data, size);
 		}
-		size_t Seek(s32 position, FileMove type) {
-			return (size_t)handler->Seek(handle, position, type);
+		size_t Seek(s64 position, FileMove type) {
+			return (size_t)handler->Seek(handle, (s32)position, type);
 		}
 		void Close() {
 			handler->Close(handle);
@@ -170,7 +170,7 @@ private:
 				return hFile.Read(data, size);
 			}
 		}
-		size_t Seek(s32 position, FileMove type) {
+		size_t Seek(s64 position, FileMove type) {
 			if (handler.IsValid()) {
 				return handler.Seek(position, type);
 			} else {

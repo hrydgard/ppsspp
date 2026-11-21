@@ -464,14 +464,14 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	return bytesWritten;
 }
 
-size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
+size_t DirectoryFileHandle::Seek(s64 position, FileMove type)
 {
 	if (needsTrunc_ != -1) {
 		// If the file is "currently truncated" move to the end based on that position.
 		// The actual, underlying file hasn't been truncated (yet.)
 		if (type == FILEMOVE_END) {
 			type = FILEMOVE_BEGIN;
-			position = (s32)(needsTrunc_ + position);
+			position = needsTrunc_ + position;
 		}
 	}
 
@@ -496,7 +496,7 @@ size_t DirectoryFileHandle::Seek(s32 position, FileMove type)
 	distance.QuadPart = position;
 	LARGE_INTEGER cursor{};
 	if (!SetFilePointerEx(hFile, distance, &cursor, moveMethod)) {
-		ERROR_LOG(Log::IO, "DirectoryFileHandle::Seek(%d, %d) failed", position, (int)type);
+		ERROR_LOG(Log::IO, "DirectoryFileHandle::Seek(%lld, %d) failed", (long long)position, (int)type);
 	}
 	result = (size_t)cursor.QuadPart;
 #else
@@ -519,7 +519,7 @@ void DirectoryFileHandle::Close() {
 			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
 #elif defined(_WIN32)
-		Seek((s32)needsTrunc_, FILEMOVE_BEGIN);
+		Seek(needsTrunc_, FILEMOVE_BEGIN);
 		if (SetEndOfFile(hFile) == 0) {
 			ERROR_LOG(Log::FileSystem, "Failed to truncate file to %d bytes", (int)needsTrunc_);
 		}
@@ -837,7 +837,7 @@ size_t DirectoryFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, i
 	}
 }
 
-size_t DirectoryFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+size_t DirectoryFileSystem::SeekFile(u32 handle, s64 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		return iter->second.hFile.Seek(position,type);
@@ -1337,7 +1337,7 @@ size_t VFSFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &us
 	return 0;
 }
 
-size_t VFSFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+size_t VFSFileSystem::SeekFile(u32 handle, s64 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		s64 newPos = 0;

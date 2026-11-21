@@ -37,7 +37,7 @@ public:
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;
@@ -139,7 +139,7 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override {
 		return isoFileSystem_->ReadFile(handle, pointer, size, usec);
 	}
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override {
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override {
 		return isoFileSystem_->SeekFile(handle, position, type);
 	}
 	PSPFileInfo GetFileInfo(std::string filename) override {
