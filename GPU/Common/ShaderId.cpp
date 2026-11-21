@@ -270,6 +270,7 @@ std::string FShaderID::Description(bool includeID) const {
 	if (Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
 	if (Bit(FS_BIT_NO_DEPTH_WRITE)) desc.C("NoDepthWrite ");
+	if (Bit(FS_BIT_TRUNCATE_BILINEAR)) desc.C("TruncBilinear ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
@@ -370,6 +371,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 			}
 			id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+			// The other depal modes filter (or don't) on their own.
+			id.SetBit(FS_BIT_TRUNCATE_BILINEAR, gstate_c.truncateBilinear && (shaderDepalMode == ShaderDepalMode::OFF || shaderDepalMode == ShaderDepalMode::CLUT8));
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);

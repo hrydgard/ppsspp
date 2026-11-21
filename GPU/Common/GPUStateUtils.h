@@ -63,6 +63,9 @@ inline bool CanForceBilinear(const GEState &gstate) {
 	return ((!gstate.isColorTestEnabled() || IsColorTestTriviallyTrue()) && (!gstate.isAlphaTestEnabled() || IsAlphaTestTriviallyTrue()));
 }
 
+// The texture filtering setting (a TextureFiltering), or TEX_FILTER_AUTO for a game that needs exact filtering.
+int GetTextureFilteringSetting();
+
 StencilValueType ReplaceAlphaWithStencilType();
 int ClearModeChannelMask();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);

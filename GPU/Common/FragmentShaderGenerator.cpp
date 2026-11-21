@@ -668,6 +668,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				}
+				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
+					// The PSP's bilinear filter weighs the texels in 1/16ths and truncates each lerp to 8 bits (see SampleLinear
+					// in GPU/Software/Sampler.cpp), while the GPU keeps the fraction, which the output then rounds to nearest.
+					// Rounding down here makes them agree on all but a few pixels, though not bit for bit: the two truncations
+					// can lose more than one step between them. The small offset keeps a value that's exactly on a step, as
+					// when all four texels are the same, from dropping a step through float error.
+					WRITE(p, "  t = floor(t * 255.0 + 0.01) * (1.0 / 255.0);\n");
+				}
 				break;
 			case ShaderDepalMode::SMOOTHED:
 				// Specific mode for Test Drive. Fixes the banding.
@@ -878,6 +886,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
+					// This mode samples one texel even when the game asks for bilinear filtering. The PSP's filter
+					// truncates (see the OFF case above), so over a smooth texture it comes out at about the nearest
+					// texel's color less a step. Taking that step off makes a game that compares the result exactly
+					// agree with the PSP nearly everywhere, without four lookups. Alpha is left alone, so that opaque
+					// stays opaque.
+					p.C("  t.rgb = max(t.rgb - splat3(1.0 / 255.0), splat3(0.0));\n");
+				}
 				break;
 			}
 			}

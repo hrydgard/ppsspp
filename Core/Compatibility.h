@@ -135,6 +135,7 @@ struct CompatFlags {
 	bool BlockTransferReadbackSmall;
 	bool SelfTextureCopyTracksDraws;
 	bool TolerantDepthEqual;
+	bool TruncateBilinear;
 	bool DepthCLUTIntoHalves;
 	bool AccurateSplines;
 	bool ReadbackShadow;

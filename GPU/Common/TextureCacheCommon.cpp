@@ -278,7 +278,7 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		useReplacerFiltering = entry->replacedTexture->ForceFiltering(&forceFiltering);
 	}
 	if (!useReplacerFiltering) {
-		switch (g_Config.iTexFiltering) {
+		switch (GetTextureFilteringSetting()) {
 		case TEX_FILTER_AUTO:
 			// Follow what the game wants. We just do a single heuristic change to avoid bleeding of wacky color test colors
 			// in higher resolution (used by some games for sprites, and they accidentally have linear filter on).
@@ -368,7 +368,7 @@ SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWi
 	key.texture3d = false;
 
 	// Filtering overrides from replacements or settings.
-	switch ((TextureFiltering)g_Config.iTexFiltering) {
+	switch ((TextureFiltering)GetTextureFilteringSetting()) {
 	case TEX_FILTER_AUTO:
 	case TEX_FILTER_AUTO_MAX_QUALITY:
 		if (pixelMapped) {
@@ -2415,6 +2415,9 @@ void TextureCacheCommon::ApplySampler(const TextureApplyResult &result, bool fla
 	} else {
 		samplerKey = GetSamplingParams(0, nullptr, flatZ, pixelMapped);
 	}
+	// Only when the texture is filtered both ways: the shader can't tell magnification from minification, and a
+	// nearest sample must stay exact.
+	gstate_c.SetTruncateBilinear(PSP_CoreParameter().compat.flags().TruncateBilinear && samplerKey.minFilt && samplerKey.magFilt);
 	ApplySamplerByKey(samplerKey);
 }
 
