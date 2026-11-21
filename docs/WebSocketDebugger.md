@@ -137,8 +137,8 @@ Sent without you asking, whenever the underlying state changes:
 | Event | Sent when | Source |
 |---|---|---|
 | `log` | A new log line is emitted | `LogBroadcaster.cpp` |
-| `game.start` | A game finishes booting | `GameBroadcaster.cpp` |
-| `game.quit` | The game is closed/reset | `GameBroadcaster.cpp` |
+| `game.start` | A game finishes booting, also after a reset | `GameBroadcaster.cpp` |
+| `game.quit` | The game is closed/reset (for a reset, sent together with the `game.start`, once it has booted again) | `GameBroadcaster.cpp` |
 | `game.pause` / `game.resume` | User opens/leaves the pause menu | `GameBroadcaster.cpp` |
 | `cpu.stepping` | CPU enters a stepping/break state | `SteppingBroadcaster.cpp` |
 | `cpu.resume` | CPU resumes from stepping | `SteppingBroadcaster.cpp` |

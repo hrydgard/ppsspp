@@ -68,12 +68,20 @@ private:
 // being read, and the resulting event is then handed to every connected debugger.
 static CoreState g_prevState = CORE_POWERDOWN;
 static int g_lastCounter = 0;
+static int g_lastBootCount = 0;
 
 std::string SteppingBroadcaster::PollChange() {
 	if (PSP_GetBootState() != BootState::Complete) {
 		g_lastCounter = -1;
 		g_prevState = CORE_POWERDOWN;
 		return std::string();
+	}
+	// A reset can happen between two polls. The stepping state from before it is gone, so the CPU
+	// running now isn't a resume. A break on boot still bumps the stepping counter.
+	const int bootCount = PSP_GetBootCount();
+	if (bootCount != g_lastBootCount) {
+		g_lastBootCount = bootCount;
+		g_prevState = CORE_POWERDOWN;
 	}
 
 	std::string result;

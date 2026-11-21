@@ -270,10 +270,14 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 		if (PSP_CoreParameter().startBreak) {
 			coreState = CORE_STEPPING_CPU;
+			// Gives the debugger's cpu.stepping a reason, and makes it one even after a reset.
+			Core_ReportBreakWithoutRunning(BreakReason::BreakOnBoot, currentMIPS ? currentMIPS->pc : 0);
 			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 		} else {
 			coreState = CORE_RUNNING_CPU;
 		}
+		// A reset boots with the same parameters, and a game.reset with break=true only means that one.
+		PSP_CoreParameter().startBreak = !g_Config.bAutoRun;
 
 		Achievements::Initialize();
 

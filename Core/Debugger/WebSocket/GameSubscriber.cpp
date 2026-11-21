@@ -260,9 +260,11 @@ DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 // Use this if you need to break on start and do something before the game starts.
 //
 // Parameters:
-//  - break: optional boolean, true to break CPU on start.  Use cpu.resume afterward.
+//  - break: optional boolean, true to break CPU on start (a cpu.stepping with reason "ui.boot").
+//    Use cpu.resume afterward.
 //
-// Response (same event name) with no extra data or error.
+// Response (same event name) with no extra data or error. It comes as soon as the reset is queued:
+// game.quit and then game.start follow once the game has booted again.
 void WebSocketGameReset(DebuggerRequest &req) {
 	bool needBreak = false;
 	if (!req.ParamBool("break", &needBreak, DebuggerParamType::OPTIONAL))

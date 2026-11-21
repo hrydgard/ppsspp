@@ -18,13 +18,14 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace GameBroadcaster {
 
-// Notices game start/quit/pause/resume transitions and returns the formatted event for one, or an
-// empty string if nothing changed. CPU thread only - it reads the UI state and the param SFO, and
+// Notices game start/quit/pause/resume transitions and returns the formatted events for them (two
+// for a reset: quit, then start), or none if nothing changed. CPU thread only - it reads the UI state and the param SFO, and
 // is what lets connected debuggers hear about this without touching either from their own threads.
 // Must be called even when no debugger is connected, so the transition state doesn't go stale.
-std::string PollChange();
+std::vector<std::string> PollChange();
 
 }  // namespace GameBroadcaster
