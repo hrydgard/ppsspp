@@ -282,7 +282,7 @@ namespace MainWindow {
 
 		TranslateMenuItem(menu, ID_OPTIONS_RENDERMODE_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_SKIP_BUFFER_EFFECTS);
-		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_MENU, g_Config.bSystemControls ? L"\tF7" : L"");
+		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_MENU);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_0);
 		// Skip frameskipping 1-8..
