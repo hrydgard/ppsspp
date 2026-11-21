@@ -162,6 +162,9 @@ for (int i = 0; i < 8; i++) {
 float mstd0 = sum / 32.0;
 float mstd1 = sumsq / 32.0 - mstd0 * mstd0;
 float mstd2 = mix(0.0, inversesqrt(mstd1), mstd1 >= 1.192092896e-7);
+if (mstd2 == 0.0) {
+	return clamp(mstd0, 0.0, 1.0);
+}
 mstd1 *= mstd2;
 float vsum = 0.0, wsum = 0.0, sum1, sum2;
 #define T(x) intBitsToFloat(x)
@@ -247,6 +250,9 @@ for (int i = 0; i < 8; i++) {
 float mstd0 = sum / 32.0;
 float mstd1 = sumsq / 32.0 - mstd0 * mstd0;
 float mstd2 = mix(0.0, inversesqrt(mstd1), mstd1 >= 1.192092896e-7);
+if (mstd2 == 0.0) {
+	return clamp(mstd0, 0.0, 1.0);
+}
 mstd1 *= mstd2;
 float vsum = 0.0, wsum = 0.0, sum1, sum2;
 #define T(x) intBitsToFloat(x)
@@ -516,38 +522,66 @@ void LoadStage1SourceTile() {
 }
 
 void LoadStage1VerticalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(S1_V_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % S1_V_TILE_W;
-		int y = int(i) / S1_V_TILE_W;
+	// Group alternating rows so neighboring invocations take the same prediction path.
+	for (int i = int(gl_LocalInvocationIndex); i < S1_V_TILE_W * ((S1_V_TILE_H + 1) / 2); i += WG_W * WG_H) {
+		int x = i % S1_V_TILE_W;
+		int y = 2 * (i / S1_V_TILE_W);
 		ivec2 globalPos = ivec2(GroupSrcBase().x, GroupSrcBase().y * 2) + ivec2(S1_V_MIN_X, S1_V_MIN_Y) + ivec2(x, y);
-		tile[OFF_S1_V + int(i)] = packColor(ComputeStage1VerticalPixel(globalPos));
+		tile[OFF_S1_V + y * S1_V_TILE_W + x] = packColor(ComputeStage1VerticalPixel(globalPos));
+	}
+	for (int i = int(gl_LocalInvocationIndex); i < S1_V_TILE_W * (S1_V_TILE_H / 2); i += WG_W * WG_H) {
+		int x = i % S1_V_TILE_W;
+		int y = 2 * (i / S1_V_TILE_W) + 1;
+		ivec2 globalPos = ivec2(GroupSrcBase().x, GroupSrcBase().y * 2) + ivec2(S1_V_MIN_X, S1_V_MIN_Y) + ivec2(x, y);
+		tile[OFF_S1_V + y * S1_V_TILE_W + x] = packColor(ComputeStage1VerticalPixel(globalPos));
 	}
 }
 
 void LoadStage1HorizontalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(S1_H_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % S1_H_TILE_W;
-		int y = int(i) / S1_H_TILE_W;
+	// Group alternating columns so neighboring invocations take the same prediction path.
+	for (int i = int(gl_LocalInvocationIndex); i < ((S1_H_TILE_W + 1) / 2) * S1_H_TILE_H; i += WG_W * WG_H) {
+		int x = 2 * (i % ((S1_H_TILE_W + 1) / 2));
+		int y = i / ((S1_H_TILE_W + 1) / 2);
 		ivec2 globalPos = GroupStage1RawBase() + ivec2(S1_H_MIN_X, S1_H_MIN_Y) + ivec2(x, y);
-		tile[OFF_S1_H + int(i)] = packColor(ComputeStage1HorizontalPixel(globalPos));
+		tile[OFF_S1_H + y * S1_H_TILE_W + x] = packColor(ComputeStage1HorizontalPixel(globalPos));
+	}
+	for (int i = int(gl_LocalInvocationIndex); i < (S1_H_TILE_W / 2) * S1_H_TILE_H; i += WG_W * WG_H) {
+		int x = 2 * (i % (S1_H_TILE_W / 2)) + 1;
+		int y = i / (S1_H_TILE_W / 2);
+		ivec2 globalPos = GroupStage1RawBase() + ivec2(S1_H_MIN_X, S1_H_MIN_Y) + ivec2(x, y);
+		tile[OFF_S1_H + y * S1_H_TILE_W + x] = packColor(ComputeStage1HorizontalPixel(globalPos));
 	}
 }
 
 void LoadStage2VerticalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(S2_V_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % S2_V_TILE_W;
-		int y = int(i) / S2_V_TILE_W;
+	// Group alternating rows so neighboring invocations take the same prediction path.
+	for (int i = int(gl_LocalInvocationIndex); i < S2_V_TILE_W * ((S2_V_TILE_H + 1) / 2); i += WG_W * WG_H) {
+		int x = i % S2_V_TILE_W;
+		int y = 2 * (i / S2_V_TILE_W);
 		ivec2 globalPos = ivec2(GroupStage1RawBase().x, GroupStage1RawBase().y * 2) + ivec2(S2_V_MIN_X, S2_V_MIN_Y) + ivec2(x, y);
-		tile[OFF_S2_V + int(i)] = packColor(ComputeStage2VerticalPixel(globalPos));
+		tile[OFF_S2_V + y * S2_V_TILE_W + x] = packColor(ComputeStage2VerticalPixel(globalPos));
+	}
+	for (int i = int(gl_LocalInvocationIndex); i < S2_V_TILE_W * (S2_V_TILE_H / 2); i += WG_W * WG_H) {
+		int x = i % S2_V_TILE_W;
+		int y = 2 * (i / S2_V_TILE_W) + 1;
+		ivec2 globalPos = ivec2(GroupStage1RawBase().x, GroupStage1RawBase().y * 2) + ivec2(S2_V_MIN_X, S2_V_MIN_Y) + ivec2(x, y);
+		tile[OFF_S2_V + y * S2_V_TILE_W + x] = packColor(ComputeStage2VerticalPixel(globalPos));
 	}
 }
 
 void LoadStage2HorizontalTile() {
-	for (uint i = gl_LocalInvocationIndex; i < uint(S2_H_SIZE); i += uint(WG_W * WG_H)) {
-		int x = int(i) % S2_H_TILE_W;
-		int y = int(i) / S2_H_TILE_W;
+	// Group alternating columns so neighboring invocations take the same prediction path.
+	for (int i = int(gl_LocalInvocationIndex); i < ((S2_H_TILE_W + 1) / 2) * S2_H_TILE_H; i += WG_W * WG_H) {
+		int x = 2 * (i % ((S2_H_TILE_W + 1) / 2));
+		int y = i / ((S2_H_TILE_W + 1) / 2);
 		ivec2 globalPos = GroupFinalBase() + ivec2(S2_H_MIN_X, S2_H_MIN_Y) + ivec2(x, y);
-		tile[OFF_S2_H + int(i)] = packColor(ComputeStage2HorizontalPixel(globalPos));
+		tile[OFF_S2_H + y * S2_H_TILE_W + x] = packColor(ComputeStage2HorizontalPixel(globalPos));
+	}
+	for (int i = int(gl_LocalInvocationIndex); i < (S2_H_TILE_W / 2) * S2_H_TILE_H; i += WG_W * WG_H) {
+		int x = 2 * (i % (S2_H_TILE_W / 2)) + 1;
+		int y = i / (S2_H_TILE_W / 2);
+		ivec2 globalPos = GroupFinalBase() + ivec2(S2_H_MIN_X, S2_H_MIN_Y) + ivec2(x, y);
+		tile[OFF_S2_H + y * S2_H_TILE_W + x] = packColor(ComputeStage2HorizontalPixel(globalPos));
 	}
 }
 
