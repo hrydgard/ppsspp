@@ -486,8 +486,15 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		__IoCompleteAsyncIO(f);
 	}
 
+	// The callback for a CloseAsync isn't run by the sceIoWaitAsyncCB that collects it, only by a
+	// later wait (pspautotests io/async/async).
+	const SceUID lateCallback = f->closePending ? f->callbackID : 0;
+	const u32 lateCallbackArg = f->callbackArg;
 	const SceUID closingThread = f->closingThread;
 	if (f->waitingThreads.empty() && !closingThread) {
+		if (lateCallback) {
+			__KernelNotifyCallback(lateCallback, lateCallbackArg);
+		}
 		return;
 	}
 
@@ -521,6 +528,9 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	} else if (woke && f->closePending) {
 		// If this was a sceIoCloseAsync, we should close it at this point.
 		__IoFreeFd(fd, error);
+	}
+	if (lateCallback) {
+		__KernelNotifyCallback(lateCallback, lateCallbackArg);
 	}
 	if (woke || closingThread) {
 		// Like any interrupt that wakes a thread, this dispatches right away, so a better
@@ -840,6 +850,10 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 }
 
 static void IoStartAsyncThread(int id, FileNode *f) {
+	// Starting an async op turns dispatch back on (pspautotests io/async/async, IoctlAsync untested).
+	if (!__KernelIsDispatchEnabled()) {
+		hleCall(ThreadManForUser, u32, sceKernelResumeDispatchThread, 1);
+	}
 	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
 		// Wake the thread up.
 		if (asyncParams[id].priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000) {
@@ -918,7 +932,8 @@ u64 __IoCompleteAsyncIO(FileNode *f) {
 	} else {
 		// It's okay, not all operations are deferred.
 	}
-	if (f->callbackID) {
+	// A CloseAsync notifies only once its waiter is woken, see __IoAsyncNotify.
+	if (f->callbackID && !f->closePending) {
 		__KernelNotifyCallback(f->callbackID, f->callbackArg);
 	}
 	f->pendingAsyncResult = false;
@@ -1789,6 +1804,10 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 }
 
 static u32 sceIoClose(int id) {
+	// Even with no async op (pspautotests io/async/async).
+	if (__IsInInterrupt()) {
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+	}
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f && f->asyncBusy()) {
@@ -1797,12 +1816,13 @@ static u32 sceIoClose(int id) {
 		if (sceKernelGetCompiledSdkVersion() > 0x02060010) {
 			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		// Before that, a queued op is cancelled, but one already running is waited for, and the
-		// thread waiting on it gets its result (pspautotests io/async/async).
-		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread && !__IsInInterrupt()) {
-			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
-			}
+		// Before that, the close waits for the op, whether it's queued, running or done.
+		if (!__KernelIsDispatchEnabled()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		}
+		// A queued op is cancelled, but one already running is waited for, and the thread waiting
+		// on it gets its result (pspautotests io/async/async).
+		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread) {
 			HLEKernel::CleanupWaitingThreads(WAITTYPE_ASYNCIO, f->GetUID(), f->waitingThreads);
 			f->closingThread = __KernelGetCurThread();
 			f->closingHadWaiter = !f->waitingThreads.empty();
@@ -2528,7 +2548,9 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
 
-	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+	// From SDK 4.02, -1 stays -1 and the thread takes on each submitter's priority (pspautotests io/async/async).
+	const bool inherit = priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000;
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped() && !inherit) {
 		if (priority == -1) {
 			priority = KernelCurThreadPriority();
 		}
@@ -2561,6 +2583,11 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		// 0 doesn't clear it (pspautotests io/async/async).
+		u32 cbError;
+		if (!kernelObjects.Get<PSPCallback>(clbckId, cbError)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "not a callback");
+		}
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
 		return hleLogDebug(Log::sceIo, 0);
@@ -2672,11 +2699,7 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 				__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
-			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(Log::sceIo, "%lli = sceIoGetAsyncStat(%i, %i, %08x): dispatch disabled", f->asyncResult, id, poll, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
-			}
-
+			// A ready result is collected even with dispatch disabled (pspautotests io/async/async).
 			DEBUG_LOG(Log::sceIo, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			if (Memory::IsValid4AlignedRange(address, 8)) {
 				Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
@@ -2718,9 +2741,6 @@ static int sceIoWaitAsync(int id, u32 address) {
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 			return hleLogDebug(Log::sceIo, 0, "waiting");
 		} else if (f->hasAsyncResult) {
-			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
-			}
 			if (Memory::IsValid4AlignedRange(address, 8)) {
 				Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
 			}
@@ -2752,9 +2772,12 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
 		}
 
+		if (f->pendingAsyncResult && !__KernelIsDispatchEnabled()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		}
+
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
-			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
 			return hleLogDebug(Log::sceIo, 0, "waiting");
@@ -2781,6 +2804,9 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (__IsInInterrupt()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+		}
 		if (IsMissingAsyncResultAddr(address)) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
 		}
