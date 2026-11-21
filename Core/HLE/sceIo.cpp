@@ -189,6 +189,8 @@ struct IoAsyncParams {
 			u32 filenameAddr;
 			int flags;
 			int mode;
+			// -1 in states from before it was saved, then it comes from filenameAddr.
+			int delayUs;
 		} open;
 		struct {
 			u32 addr;
@@ -484,8 +486,15 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		__IoCompleteAsyncIO(f);
 	}
 
+	// The callback for a CloseAsync isn't run by the sceIoWaitAsyncCB that collects it, only by a
+	// later wait (pspautotests io/async/async).
+	const SceUID lateCallback = f->closePending ? f->callbackID : 0;
+	const u32 lateCallbackArg = f->callbackArg;
 	const SceUID closingThread = f->closingThread;
 	if (f->waitingThreads.empty() && !closingThread) {
+		if (lateCallback) {
+			__KernelNotifyCallback(lateCallback, lateCallbackArg);
+		}
 		return;
 	}
 
@@ -519,6 +528,9 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	} else if (woke && f->closePending) {
 		// If this was a sceIoCloseAsync, we should close it at this point.
 		__IoFreeFd(fd, error);
+	}
+	if (lateCallback) {
+		__KernelNotifyCallback(lateCallback, lateCallbackArg);
 	}
 	if (woke || closingThread) {
 		// Like any interrupt that wakes a thread, this dispatches right away, so a better
@@ -747,7 +759,7 @@ void __IoShutdown() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 5);
+	auto s = p.Section("sceIo", 1, 6);
 	if (!s)
 		return;
 
@@ -794,6 +806,9 @@ void __IoDoState(PointerWrap &p) {
 
 		if (s >= 4) {
 			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
+			if (s < 6 && asyncParams[i].op == IoAsyncOp::OPEN) {
+				asyncParams[i].open.delayUs = -1;
+			}
 			bool hasThread = asyncThreads[i] != nullptr;
 			Do(p, hasThread);
 			if (hasThread) {
@@ -835,6 +850,10 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 }
 
 static void IoStartAsyncThread(int id, FileNode *f) {
+	// Starting an async op turns dispatch back on (pspautotests io/async/async, IoctlAsync untested).
+	if (!__KernelIsDispatchEnabled()) {
+		hleCall(ThreadManForUser, u32, sceKernelResumeDispatchThread, 1);
+	}
 	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
 		// Wake the thread up.
 		if (asyncParams[id].priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000) {
@@ -913,7 +932,8 @@ u64 __IoCompleteAsyncIO(FileNode *f) {
 	} else {
 		// It's okay, not all operations are deferred.
 	}
-	if (f->callbackID) {
+	// A CloseAsync notifies only once its waiter is woken, see __IoAsyncNotify.
+	if (f->callbackID && !f->closePending) {
 		__KernelNotifyCallback(f->callbackID, f->callbackArg);
 	}
 	f->pendingAsyncResult = false;
@@ -1190,6 +1210,10 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 		} else if (size < 0) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
+		} else if (data_addr == 0) {
+			// Even for 0 bytes, on ms0: (pspautotests io/file/file).
+			result = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
 			const std::string tag = "IoRead/" + IODetermineFilename(f);
 			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
@@ -1274,7 +1298,9 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return hleLogDebug(Log::sceIo, 0, "deferring result");
-	} else if (result >= 0) {
+	} else if (result >= 0 || result == (int)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
+		// The driver refuses a NULL buffer, after the call got as far as rescheduling
+		// (pspautotests audio/mp3/notifyadd reads 0 bytes into NULL).
 		return hleDelayResult(hleLogDebug(Log::sceIo, result), "io read", us);
 	} else {
 		return hleLogWarning(Log::ME, result, "error %08x", result);
@@ -1335,8 +1361,8 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		us = 100;
 	}
 
-	const void *data_ptr = Memory::GetPointerOrException(data_addr);
 	const u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
+	const void *data_ptr = validSize ? Memory::GetPointerUnchecked(data_addr) : nullptr;
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		__IoWriteToHostOutput(id == PSP_STDERR ? DebugOutputChannel::StdErr : DebugOutputChannel::StdOut,
@@ -1355,8 +1381,13 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_BADF;
 			return true;
 		}
-		if (size < 0) {
+		// Checked in this order on ms0: (pspautotests io/file/file).
+		if (size < 0 || (data_addr & 0x80000000) != 0) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
+		}
+		if (data_addr == 0) {
+			result = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			return true;
 		}
 
@@ -1502,28 +1533,27 @@ static u32 sceIoCancel(int id)
 	}
 }
 
-static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
+static s64 npdrmLseek(FileNode *f, s64 where, FileMove whence)
 {
-	u32 newPos, blockPos;
-
 	if (!f->pgdInfo) {
 		//WARN_LOG(Log::IO, "npdrmLseek: pgdInfo is null for file %s, seeking as non-encrypted", f->fullpath.c_str());
-		return (u32)pspFileSystem.SeekFile(f->handle, where, whence);
+		return (s64)pspFileSystem.SeekFile(f->handle, where, whence);
 	}
+	s64 newPos;
 	if(whence==FILEMOVE_BEGIN){
 		newPos = where;
 	}else if(whence==FILEMOVE_CURRENT){
-		newPos = f->pgdInfo->file_offset+where;
+		newPos = (s64)f->pgdInfo->file_offset+where;
 	}else{
-		newPos = f->pgdInfo->data_size+where;
+		newPos = (s64)f->pgdInfo->data_size+where;
 	}
 
-	if (newPos > f->pgdInfo->data_size)
+	if (newPos < 0 || newPos > f->pgdInfo->data_size)
 		return -EINVAL;
 
-	f->pgdInfo->file_offset = newPos;
-	blockPos = newPos&~(f->pgdInfo->block_size-1);
-	pspFileSystem.SeekFile(f->handle, (s32)f->pgdInfo->data_offset+blockPos, whence);
+	f->pgdInfo->file_offset = (u32)newPos;
+	const u32 blockPos = (u32)newPos & ~(f->pgdInfo->block_size-1);
+	pspFileSystem.SeekFile(f->handle, (s64)f->pgdInfo->data_offset+blockPos, FILEMOVE_BEGIN);
 
 	return newPos;
 }
@@ -1554,9 +1584,10 @@ static s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 		return (s32)SCE_KERNEL_ERROR_INVAL;
 	}
 
-	// Yes, -1 is the correct return code for this case.
-	if (newPos < 0)
-		return -1;
+	// On ms0:, a position before the start or past what a u32 holds (pspautotests io/file/file).
+	// PSPLink's host0: returns -1 instead.
+	if (newPos < 0 || newPos > 0xFFFFFFFFLL)
+		return (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	return newPos;
 }
 
@@ -1571,12 +1602,11 @@ static s64 __IoLseek(SceUID id, s64 offset, int whence) {
 		FileMove seek;
 		s64 newPos = __IoLseekDest(f, offset, whence, seek);
 
-		if(f->npdrm)
-			return npdrmLseek(f, (s32)offset, seek);
-
 		if (newPos < 0)
 			return newPos;
-		return pspFileSystem.SeekFile(f->handle, (s32) offset, seek);
+		if (f->npdrm)
+			return npdrmLseek(f, offset, seek);
+		return pspFileSystem.SeekFile(f->handle, offset, seek);
 	} else {
 		return (s32) error;
 	}
@@ -1584,7 +1614,7 @@ static s64 __IoLseek(SceUID id, s64 offset, int whence) {
 
 static s64 sceIoLseek(int id, s64 offset, int whence) {
 	s64 result = __IoLseek(id, offset, whence);
-	if (result >= 0 || result == -1) {
+	if (result >= 0 || result == (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
@@ -1596,7 +1626,7 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 
 static u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
-	if (result >= 0 || result == -1) {
+	if (result >= 0 || result == (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
@@ -1786,6 +1816,10 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 }
 
 static u32 sceIoClose(int id) {
+	// Even with no async op (pspautotests io/async/async).
+	if (__IsInInterrupt()) {
+		return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+	}
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f && f->asyncBusy()) {
@@ -1794,12 +1828,13 @@ static u32 sceIoClose(int id) {
 		if (sceKernelGetCompiledSdkVersion() > 0x02060010) {
 			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		// Before that, a queued op is cancelled, but one already running is waited for, and the
-		// thread waiting on it gets its result (pspautotests io/async/async).
-		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread && !__IsInInterrupt()) {
-			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
-			}
+		// Before that, the close waits for the op, whether it's queued, running or done.
+		if (!__KernelIsDispatchEnabled()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		}
+		// A queued op is cancelled, but one already running is waited for, and the thread waiting
+		// on it gets its result (pspautotests io/async/async).
+		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread) {
 			HLEKernel::CleanupWaitingThreads(WAITTYPE_ASYNCIO, f->GetUID(), f->waitingThreads);
 			f->closingThread = __KernelGetCurThread();
 			f->closingHadWaiter = !f->waitingThreads.empty();
@@ -1817,9 +1852,41 @@ static u32 sceIoClose(int id) {
 	return hleDelayResult(hleLogDebug(Log::sceIo, error), "file closed", 100);
 }
 
+static bool IoMapPath(const std::string &name, IFileSystem **sys, std::string *path) {
+	return pspFileSystem.MapFilePath(name, path, sys) == 0;
+}
+
+static bool IoIsFileOpen(IFileSystem *sys, const std::string &path) {
+	for (int i = PSP_MIN_FD; i < PSP_COUNT_FDS; ++i) {
+		u32 error;
+		FileNode *f = fds[i] ? __IoGetFd(i, error) : nullptr;
+		IFileSystem *fsys = nullptr;
+		std::string fpath;
+		if (f && f->handle != (u32)-1 && IoMapPath(f->fullpath, &fsys, &fpath) && fsys == sys && equalsNoCase(fpath, path)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool IoIsRootPath(const std::string &path) {
+	return path.empty() || path == "/";
+}
+
+// The error codes for Remove, Mkdir and Rmdir are from ms0: (pspautotests io/file/file). Working
+// them out here keeps them from depending on what the host's file calls allow.
 static u32 sceIoRemove(const char *filename) {
-	if (!pspFileSystem.GetFileInfo(filename).exists) {
+	IFileSystem *sys;
+	std::string path;
+	if (!IoMapPath(filename, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	const PSPFileInfo info = sys->GetFileInfo(path);
+	if (!info.exists) {
 		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file removed", 100);
+	}
+	if (info.type == FILETYPE_DIRECTORY || IoIsFileOpen(sys, path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_NO_PERM), "file removed", 100);
 	}
 
 	pspFileSystem.RemoveFile(filename);
@@ -1828,6 +1895,25 @@ static u32 sceIoRemove(const char *filename) {
 }
 
 static u32 sceIoMkdir(const char *dirname, int mode) {
+	IFileSystem *sys;
+	std::string path;
+	if (!IoMapPath(dirname, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	if (IoIsRootPath(path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT), "mkdir", 1000);
+	}
+	if (sys->GetFileInfo(path).exists) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS), "mkdir", 1000);
+	}
+	const size_t slash = path.find_last_of('/');
+	if (slash != std::string::npos && slash != 0) {
+		const PSPFileInfo parent = sys->GetFileInfo(path.substr(0, slash));
+		if (!parent.exists || parent.type != FILETYPE_DIRECTORY) {
+			return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "mkdir", 1000);
+		}
+	}
+
 	// TODO: Improve timing.
 	if (pspFileSystem.MkDir(dirname))
 		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "mkdir", 1000);
@@ -1836,6 +1922,29 @@ static u32 sceIoMkdir(const char *dirname, int mode) {
 }
 
 static u32 sceIoRmdir(const char *dirname) {
+	IFileSystem *sys;
+	std::string path;
+	if (!IoMapPath(dirname, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	const PSPFileInfo info = sys->GetFileInfo(path);
+	if (!info.exists) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "rmdir", 1000);
+	}
+	bool empty = true;
+	if (info.type == FILETYPE_DIRECTORY) {
+		for (const PSPFileInfo &entry : sys->GetDirListing(path)) {
+			if (entry.name != "." && entry.name != "..") {
+				empty = false;
+				break;
+			}
+		}
+	}
+	// A file and a directory that isn't empty fail the same way.
+	if (info.type != FILETYPE_DIRECTORY || !empty) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_NO_PERM), "rmdir", 1000);
+	}
+
 	// TODO: Improve timing.
 	if (pspFileSystem.RmDir(dirname))
 		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "rmdir", 1000);
@@ -2525,7 +2634,9 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 		return hleLogError(Log::sceIo, error, "bad file descriptor");
 	}
 
-	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+	// From SDK 4.02, -1 stays -1 and the thread takes on each submitter's priority (pspautotests io/async/async).
+	const bool inherit = priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000;
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped() && !inherit) {
 		if (priority == -1) {
 			priority = KernelCurThreadPriority();
 		}
@@ -2558,12 +2669,33 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		// 0 doesn't clear it (pspautotests io/async/async).
+		u32 cbError;
+		if (!kernelObjects.Get<PSPCallback>(clbckId, cbError)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "not a callback");
+		}
 		f->callbackID = clbckId;
 		f->callbackArg = clbckArg;
 		return hleLogDebug(Log::sceIo, 0);
 	} else {
 		return hleLogError(Log::sceIo, error);
 	}
+}
+
+// See notes on timing in sceIoOpen.
+static int IoAsyncOpenDelayUs(const FileNode *f, const std::string &filename, int error) {
+	IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+	if (!sys) {
+		return 80;
+	}
+	if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+		return sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
+	}
+	if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
+		// These are fast to open, no delay or even rescheduling happens.
+		return 80;
+	}
+	return sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
 }
 
 static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int mode) {
@@ -2608,6 +2740,8 @@ static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int 
 	params.open.filenameAddr = PARAM(0);
 	params.open.flags = flags;
 	params.open.mode = mode;
+	// The game may reuse the filename buffer before the open runs.
+	params.open.delayUs = IoAsyncOpenDelayUs(f, filename, error);
 	IoStartAsyncThread(fd, f);
 
 	if (error != 0) {
@@ -2651,11 +2785,7 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 				__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 			}
 		} else if (f->hasAsyncResult) {
-			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(Log::sceIo, "%lli = sceIoGetAsyncStat(%i, %i, %08x): dispatch disabled", f->asyncResult, id, poll, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
-			}
-
+			// A ready result is collected even with dispatch disabled (pspautotests io/async/async).
 			DEBUG_LOG(Log::sceIo, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			if (Memory::IsValid4AlignedRange(address, 8)) {
 				Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
@@ -2697,9 +2827,6 @@ static int sceIoWaitAsync(int id, u32 address) {
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
 			return hleLogDebug(Log::sceIo, 0, "waiting");
 		} else if (f->hasAsyncResult) {
-			if (!__KernelIsDispatchEnabled()) {
-				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
-			}
 			if (Memory::IsValid4AlignedRange(address, 8)) {
 				Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
 			}
@@ -2731,9 +2858,12 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
 		}
 
+		if (f->pendingAsyncResult && !__KernelIsDispatchEnabled()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		}
+
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
-			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
 			return hleLogDebug(Log::sceIo, 0, "waiting");
@@ -2760,6 +2890,9 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (__IsInInterrupt()) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
+		}
 		if (IsMissingAsyncResultAddr(address)) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
 		}
@@ -3631,26 +3764,25 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 static u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 	WARN_LOG(Log::sceIo, "sceIoGetFdList(%08x, %i, %08x)", outAddr, outSize, fdNumAddr);
 
-	auto out = PSPPointer<SceUID_le>::Create(outAddr);
 	int count = 0;
+	// outSize comes from the game, so check each entry's address.
+	auto add = [&](int fd) {
+		if (count < outSize && Memory::IsValidRange(outAddr + count * 4, 4)) {
+			Memory::WriteUnchecked_U32(fd, outAddr + count * 4);
+		}
+		++count;
+	};
 
 	// Always have the first three.
 	for (int i = 0; i < PSP_MIN_FD; ++i) {
 		// TODO: Technically it seems like these are fixed ids > PSP_COUNT_FDS.
-		if (count < outSize && out.IsValid()) {
-			out[count] = i;
-		}
-		++count;
+		add(i);
 	}
 
 	for (int i = PSP_MIN_FD; i < PSP_COUNT_FDS; ++i) {
-		if (fds[i] == 0) {
-			continue;
+		if (fds[i] != 0) {
+			add(i);
 		}
-		if (count < outSize && out.IsValid()) {
-			out[count] = i;
-		}
-		++count;
 	}
 
 	if (Memory::IsValidRange(fdNumAddr, 4))
@@ -3717,30 +3849,15 @@ static int IoAsyncFinish(MIPSState *mips, int id) {
 			break;
 
 		case IoAsyncOp::OPEN:
-		{
-			// See notes on timing in sceIoOpen.
-			if (!Memory::IsValidNullTerminatedString(params.open.filenameAddr)) {
-				// Bad
-				ERROR_LOG(Log::sceIo, "Bad pointer to filename %08x", params.open.filenameAddr);
-				us = 80;
-				break;
-			}
-			const std::string filename = Memory::GetCharPointerUnchecked(params.open.filenameAddr);
-			IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
-			if (sys) {
-				if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
-					us = sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
-				} else if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
-					// These are fast to open, no delay or even rescheduling happens.
-					us = 80;
-				} else {
-					us = sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
-				}
+			if (params.open.delayUs >= 0) {
+				us = params.open.delayUs;
+			} else if (Memory::IsValidNullTerminatedString(params.open.filenameAddr)) {
+				us = IoAsyncOpenDelayUs(f, Memory::GetCharPointerUnchecked(params.open.filenameAddr), (int)f->asyncResult);
 			} else {
+				ERROR_LOG(Log::sceIo, "Bad pointer to filename %08x", params.open.filenameAddr);
 				us = 80;
 			}
 			break;
-		}
 
 		case IoAsyncOp::CLOSE:
 			f->asyncResult = 0;

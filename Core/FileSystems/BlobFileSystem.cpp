@@ -78,7 +78,7 @@ size_t BlobFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &u
 	return 0;
 }
 
-size_t BlobFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+size_t BlobFileSystem::SeekFile(u32 handle, s64 position, FileMove type) {
 	auto entry = entries_.find(handle);
 	if (entry != entries_.end()) {
 		switch (type) {

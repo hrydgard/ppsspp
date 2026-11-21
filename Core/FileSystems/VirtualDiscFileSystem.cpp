@@ -443,7 +443,7 @@ int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 	}
 }
 
-size_t VirtualDiscFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+size_t VirtualDiscFileSystem::SeekFile(u32 handle, s64 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		auto &entry = iter->second;

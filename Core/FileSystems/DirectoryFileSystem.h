@@ -44,6 +44,7 @@ struct DirectoryFileHandle {
 	s64 needsTrunc_ = -1;
 	bool replay_ = true;
 	bool inGameDir_ = false;
+	bool append_ = false;
 	FileSystemFlags fileSystemFlags_ = (FileSystemFlags)0;
 
 	DirectoryFileHandle() {}
@@ -55,7 +56,7 @@ struct DirectoryFileHandle {
 	bool Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
-	size_t Seek(s32 position, FileMove type);
+	size_t Seek(s64 position, FileMove type);
 	void Close();
 };
 
@@ -74,7 +75,7 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;
@@ -131,7 +132,7 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override;

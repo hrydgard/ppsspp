@@ -329,8 +329,15 @@ void MetaFileSystem::Unmount(std::string_view prefix) {
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(std::string_view filename) {
 	size_t prefixPos = filename.find(':');
-	if (prefixPos == filename.npos)
-		return 0;
+	if (prefixPos == filename.npos) {
+		// Relative to the current directory, which names the device.
+		std::string path;
+		IFileSystem *system = nullptr;
+		if (MapFilePath(filename, &path, &system) == 0) {
+			return system;
+		}
+		return nullptr;
+	}
 	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 
@@ -621,7 +628,7 @@ size_t MetaFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &u
 		return 0;
 }
 
-size_t MetaFileSystem::SeekFile(u32 handle, s32 position, FileMove type)
+size_t MetaFileSystem::SeekFile(u32 handle, s64 position, FileMove type)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
