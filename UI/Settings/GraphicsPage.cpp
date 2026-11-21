@@ -203,6 +203,16 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	});
 #endif
 
+#if PPSSPP_PLATFORM(ANDROID)
+	// The stream is a Game output too, drawn by a second swapchain.
+	page->Setting(&g_Config.bMoonlightHost).EnabledFunc([host] {
+		Draw::DrawContext *draw = host->PageScreenManager()->getDrawContext();
+		return draw && draw->GetDeviceCaps().multipleSwapchains;
+	}).Hint({ I18NCat::GRAPHICS, "Stream to Moonlight Tip", "Play on a TV or PC with the Moonlight app, over Wi-Fi. Its controllers and keyboard control the game." }).OnChange([](UI::EventParams &e) {
+		System_Notify(SystemNotification::MOONLIGHT_HOST_CHANGED);
+	});
+#endif
+
 	// Backends that don't allow a device choice will only expose one device.
 	if (draw->GetDeviceList().size() > 1) {
 		std::string *deviceNameSetting = GPUDeviceNameSetting();

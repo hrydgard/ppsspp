@@ -63,3 +63,6 @@
 [submodule "ext/oboe"]
 	path = ext/oboe
 	url = https://github.com/google/oboe.git
+[submodule "ext/moonlight-host-android"]
+	path = ext/moonlight-host-android
+	url = https://github.com/rasulnurmamedow/moonlight-host-android.git

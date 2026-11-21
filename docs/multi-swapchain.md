@@ -295,6 +295,11 @@ can be tested on its own.
   or right away if the graphics are shut down (the outputs have no swapchains then). The activity
   dismisses the presentation in `onStop`, before it stops the render thread.
 - **Device name:** "In menus on %1" uses `Settings.Global.DEVICE_NAME` (Android 7.1 and up).
+- **Moonlight:** with Graphics → "Stream to Moonlight" on, `MoonlightStream` makes the app a Moonlight
+  (GameStream) host, through `ext/moonlight-host-android`. While a client watches, the input surface of a
+  hardware video encoder is a `Game` output, added and removed like a TV's. The sound goes to the stream
+  instead of the speaker (`AndroidMix` in `app-android.cpp`), and the client's controllers and keyboard
+  come in as `DEVICE_ID_PAD_0` and `DEVICE_ID_KEYBOARD`.
 
 ## Later clients
 
