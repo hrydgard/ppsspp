@@ -1084,14 +1084,18 @@ void FramebufferManagerCommon::CopyDepthRect(Draw::Framebuffer *src, int srcX, i
 	const bool sameSamples = src->MultiSampleLevel() == dst->MultiSampleLevel();
 	// Only a copy takes all the samples, and blits of multisampled buffers aren't supported at all.
 	const bool multisampled = src->MultiSampleLevel() != 0 || dst->MultiSampleLevel() != 0;
-	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported) || (multisampled && caps.framebufferCopySupported))) {
+	const bool canRaster = caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported;
+	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (multisampled && caps.framebufferCopySupported))) {
 		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
 	} else if (multisampled) {
 		WARN_LOG_ONCE(depthRectMSAA, Log::FrameBuf, "Can't copy multisampled depth here (%s)", tag);
 	} else if (caps.framebufferDepthBlitSupported) {
 		draw_->BlitFramebuffer(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
-	} else if (caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported) {
+	} else if (canRaster) {
+		// Before a plain copy: D3D11 copies only whole depth surfaces, and skips a copy of part of one.
 		BlitUsingRaster(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, false, scaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), tag);
+	} else if (caps.framebufferCopySupported) {
+		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
 	}
 }
 
