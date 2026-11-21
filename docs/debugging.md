@@ -304,7 +304,8 @@ as games compile. It logs the best of each, per block, and two things to check a
 IR the passes made, which a change to the passes or the frontend shouldn't change, and how much host code
 the blocks came to, which a change to a backend shouldn't change. (A hash of the code would change from
 launch to launch with ASLR, which moves the addresses in it. Even the size can move by a few bytes when a
-change moves static data.)
+change moves static data.) It also logs how long clearing the cache took, a stall of its own when a game
+fills the code space.
 
 ```bash
 PPSSPPHeadless --cpu=jit-ir --log --graphics=software --jit-bench=300 --timeout-wall=60 --state=GAME.ppst GAME.iso 2>&1 | grep "JIT bench"

@@ -118,6 +118,7 @@ public:
 
 	void Start() override;
 	void Join() override;
+	bool Detach() override;
 
 	bool Done() override { return completed_; }
 	bool Failed() const override { return failed_; }

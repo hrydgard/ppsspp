@@ -2662,9 +2662,12 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->newWidth = vfb->width;
 	vfb->newHeight = vfb->height;
 	vfb->lastFrameNewSize = gpuStats.totals.numFlips;
-	vfb->renderScaleFactor = renderScaleFactor_;
-	vfb->renderWidth = (u16)(vfb->width * renderScaleFactor_);
-	vfb->renderHeight = (u16)(vfb->height * renderScaleFactor_);
+	// compat.ini's NativeResolutionFramebuffer, as in ResizeFramebufFBO.
+	const u32 nativeResAddress = PSP_CoreParameter().compat.flags().NativeResolutionFramebuffer;
+	const int scale = nativeResAddress != 0 && vfb->fb_address == nativeResAddress ? 1 : renderScaleFactor_;
+	vfb->renderScaleFactor = scale;
+	vfb->renderWidth = (u16)(vfb->width * scale);
+	vfb->renderHeight = (u16)(vfb->height * scale);
 	vfb->bufferWidth = vfb->width;
 	vfb->bufferHeight = vfb->height;
 	vfb->fb_format = format == GE_FORMAT_DEPTH16 ? GE_FORMAT_8888 : format;

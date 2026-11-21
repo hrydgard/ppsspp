@@ -827,6 +827,30 @@ void RestoreDefault() {
 #endif
 }
 
+static InputDeviceID g_legacyAxisRemapDevice = DEVICE_ID_DEFAULT;
+static std::vector<AxisRemap> g_legacyAxisRemaps;
+
+void SetLegacyAxisRemap(InputDeviceID deviceId, const AxisRemap *remaps, size_t count) {
+	g_legacyAxisRemapDevice = deviceId;
+	g_legacyAxisRemaps.assign(remaps, remaps + count);
+}
+
+static void ApplyLegacyAxisRemap(MultiInputMapping *input) {
+	for (InputMapping &mapping : input->mappings) {
+		if (mapping.deviceId != g_legacyAxisRemapDevice || !mapping.IsAxis()) {
+			continue;
+		}
+		int direction;
+		const int axis = mapping.Axis(&direction);
+		for (const AxisRemap &remap : g_legacyAxisRemaps) {
+			if (axis == remap.from) {
+				mapping = InputMapping(mapping.deviceId, remap.to, direction);
+				break;
+			}
+		}
+	}
+}
+
 // TODO: Make the ini format nicer.
 void LoadFromIni(IniFile &file) {
 	RestoreDefault();
@@ -854,6 +878,7 @@ void LoadFromIni(IniFile &file) {
 			if (input.empty()) {
 				continue;  // eat empty mappings, however they arose, so they can't keep haunting us.
 			}
+			ApplyLegacyAxisRemap(&input);
 			SetInputMapping(psp_button_names[i].key, input, false);
 			for (auto mapping : input.mappings) {
 				g_seenDeviceIds.insert(mapping.deviceId);

@@ -298,10 +298,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			}
 
 			data = (u8 *)AllocateAlignedMemory(dataSize, 16);
-			_assert_msg_(data != nullptr, "Failed to allocate aligned memory for texture level %d: %d bytes (%dx%d)", i, (int)dataSize, mipWidth, mipHeight);
-
 			if (!data) {
-				ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+				// Happens on 32-bit with big replacement textures. Like D3D11, skip the texture
+				// rather than abort.
+				ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer for level %d: %d bytes (%dx%d)", i, (int)dataSize, mipWidth, mipHeight);
 				return;
 			}
 
@@ -321,9 +321,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 		size_t dataSize = levelStride * plan.depth;
 		u8 *data = (u8 *)AllocateAlignedMemory(dataSize, 16);
-		_assert_msg_(data != nullptr, "Failed to allocate aligned memory for 3d texture: %d bytes", (int)dataSize);
 		if (!data) {
-			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary 3D texture upload buffer (%dx%dx%d)", plan.w, plan.h, plan.depth);
+			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary 3D texture upload buffer: %d bytes (%dx%dx%d)", (int)dataSize, plan.w, plan.h, plan.depth);
 			return;
 		}
 

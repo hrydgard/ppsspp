@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 
 #include "Common/CommonTypes.h"
@@ -60,9 +61,9 @@ private:
 	CodeBlock(const CodeBlock &) = delete;
 	void operator=(const CodeBlock &) = delete;
 
-	// A privately used function to set the executable RAM space to something invalid.
+	// A privately used function to set the executable RAM space to something invalid, from offset to end.
 	// For debugging usefulness it should be used to set the RAM to a host specific breakpoint instruction
-	virtual void PoisonMemory(int offset) = 0;
+	virtual void PoisonMemory(int offset, int end) = 0;
 
 public:
 	CodeBlock() {}
@@ -92,21 +93,27 @@ public:
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
-	// uninitialized, it just breaks into the debugger.
-	void ClearCodeSpace(int offset) {
+	// uninitialized, it just breaks into the debugger. Past the code pointer it's still poisoned from
+	// the last clear, so after the first, only the part up to it is. Returns where the cleared part
+	// ends, as an offset (for flushing the icache over it).
+	size_t ClearCodeSpace(int offset) {
 		if (!region) {
-			return;
+			return offset;
 		}
 		if (PlatformIsWXExclusive()) {
 			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
+		const size_t used = T::GetCodePointer() - region;
+		const size_t end = poisonedAll_ ? std::max((size_t)offset, used) : region_size;
+		poisonedAll_ = true;
 		// If not WX Exclusive, no need to call ProtectMemoryPages because we never change the protection from RWX.
-		PoisonMemory(offset);
+		PoisonMemory(offset, (int)end);
 		ResetCodePtr(offset);
 		if (PlatformIsWXExclusive()) {
 			// Need to re-protect the part we didn't clear (with MAP_JIT, this thread's view of it all).
 			ProtectMemoryPages(region, offset, MEM_PROT_READ | MEM_PROT_EXEC);
 		}
+		return end;
 	}
 
 	// BeginWrite/EndWrite assume that we keep appending.
@@ -201,6 +208,8 @@ private:
 	const uint8_t *writeStart_ = nullptr;
 	uint8_t *writableRegion = nullptr;
 	size_t writeEstimated_ = 0;
+	// Whether ClearCodeSpace() has poisoned the whole region once.
+	bool poisonedAll_ = false;
 #if PPSSPP_PLATFORM(SWITCH)
 	Jit jitController;
 #endif // PPSSPP_PLATFORM(SWITCH)

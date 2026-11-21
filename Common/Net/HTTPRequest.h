@@ -63,6 +63,10 @@ public:
 
 	virtual void Start() = 0;
 	virtual void Join() = 0;
+	// For a request that's still running after Cancel(): lets its thread finish alone instead of
+	// waiting for it, and returns true. The caller must then keep the request alive for good,
+	// since the thread still uses it. Returns false if there's nothing to wait for, so Join().
+	virtual bool Detach() { return false; }
 
 	virtual bool Done() = 0;
 	virtual bool Failed() const = 0;

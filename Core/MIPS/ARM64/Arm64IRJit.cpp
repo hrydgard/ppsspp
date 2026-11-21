@@ -372,10 +372,10 @@ bool Arm64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 }
 
 void Arm64JitBackend::ClearAllBlocks() {
-	ClearCodeSpace(jitStartOffset_);
+	const size_t end = ClearCodeSpace(jitStartOffset_);
 	// Whatever was pending is in there.
 	numPendingFlushes_ = 0;
-	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
+	FlushIcacheSection(region + jitStartOffset_, region + end);
 	EraseAllLinks(-1);
 }
 
