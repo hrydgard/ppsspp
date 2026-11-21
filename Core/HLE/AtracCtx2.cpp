@@ -1222,10 +1222,7 @@ int Atrac2::EnqueueForSas(u32 address, u32 ptr) {
 		return SCE_SAS_ERROR_ATRAC3_ALREADY_QUEUED;
 	}
 
-	if (address == 0 && ptr == 0) {
-		WARN_LOG(Log::Atrac, "Caller tries to send us a zero buffer. Something went wrong.");
-	}
-
+	// A zero address marks the end of the stream: the voice ends once it runs out of data.
 	DEBUG_LOG(Log::Atrac, "EnqueueForSas: Second buffer updated to %08x, sz: %08x", address, ptr);
 	info.secondBuffer = address;
 	info.secondBufferByte = ptr;
@@ -1239,7 +1236,9 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 	// First frame handling. Not sure if accurate. Set up the initial buffer as the current streaming buffer.
 	// Also works for the non-streaming case.
+	int skip = 0;
 	if (info.buffer) {
+		skip = info.firstValidSample;
 		sas_.curBuffer = 0;
 		sas_.bufPtr[0] = info.buffer;
 		sas_.bufSize[0] = info.bufferByte - info.streamOff;  // also equals info.streamDataByte
@@ -1254,12 +1253,31 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		// Just decode.
 		const u8 *srcData = Memory::GetPointerOrException(sas_.bufPtr[sas_.curBuffer] + sas_.streamOffset);
 		int bytesConsumed = 0;
-		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
-		if (!decodeResult) {
-			ERROR_LOG(Log::Atrac, "SAS failed to decode regular packet");
+		bool decodeResult = true;
+		// The ME decodes the first frame once more for every whole frame in firstValidSample, without
+		// moving on, then drops the remaining samples from the output (tests/audio/atrac/sasstream).
+		const int samplesPerFrame = info.SamplesPerFrame();
+		while (decodeResult && skip > samplesPerFrame) {
+			decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
+			skip -= samplesPerFrame;
+		}
+		if (decodeResult) {
+			decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
 		}
 		sas_.streamOffset += bytesConsumed;
-	} else if (sas_.isStreaming) {
+		if (!decodeResult) {
+			// The ME ends the voice on a frame it can't decode (tests/audio/atrac/sasstream).
+			WARN_LOG(Log::Atrac, "SAS failed to decode packet, ending the voice");
+			*bytesWritten = 0;
+			*finish = 1;
+		} else if (skip > 0) {
+			const int drop = std::min(skip, *bytesWritten);
+			memmove(dstData, dstData + drop, (*bytesWritten - drop) * sizeof(s16));
+			*bytesWritten -= drop;
+		}
+	} else if (!sas_.isStreaming) {
+		*finish = 1;
+	} else {
 		// TODO: Do we need special handling for the first buffer, since SetData will wrap around that packet? I think yes!
 		DEBUG_LOG(Log::Atrac, "Streaming atrac through sas, and hit the end of buffer %d", sas_.curBuffer);
 
@@ -1292,25 +1310,24 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 			Memory::MemcpyUnchecked(assembly, part1Addr, part1Size);
 		}
 
-		// Check if we hit the end.
-		if (sas_.fileOffset >= info.fileDataEnd) {
-			DEBUG_LOG(Log::Atrac, "Streaming and hit the file end.");
-			*bytesWritten = 0;
+		// The ME doesn't look at fileDataEnd. The game ends the stream by concatenating (0, 0), and until
+		// it queues something the voice outputs silence and waits (tests/audio/atrac/sasstream).
+		if (info.secondBuffer == 0) {
+			DEBUG_LOG(Log::Atrac, "SAS stream ended");
 			*finish = 1;
 			return;
 		}
-
-		// Check that a new buffer actually exists
+		if ((int)info.secondBuffer < 0) {
+			VERBOSE_LOG(Log::Atrac, "SAS stream waiting for data");
+			return;
+		}
+		if ((int)info.secondBufferByte < part2Size) {
+			WARN_LOG(Log::Atrac, "SAS: next buffer too small (%d < %d), ending the voice", info.secondBufferByte, part2Size);
+			*finish = 1;
+			return;
+		}
 		if (info.secondBuffer == sas_.bufPtr[sas_.curBuffer]) {
 			ERROR_LOG(Log::Atrac, "Can't enqueue the same buffer twice in a row!");
-			*bytesWritten = 0;
-			*finish = 1;
-			return;
-		}
-
-		if ((int)info.secondBuffer < 0) {
-			ERROR_LOG(Log::Atrac, "AtracSas streaming ran out of data, no secondbuffer pending");
-			*bytesWritten = 0;
 			*finish = 1;
 			return;
 		}
@@ -1324,17 +1341,10 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 
 		sas_.streamOffset = part2Size;
 
-		// If we'll reach the end during this buffer, set second buffer to 0, signaling that we don't need more data.
-		if (sas_.fileOffset >= info.fileDataEnd) {
-			// We've reached the end.
-			info.secondBuffer = 0;
-			DEBUG_LOG(Log::Atrac, "%08x >= %08x: Reached the end.", sas_.fileOffset, info.fileDataEnd);
-		} else {
-			// Signal to the caller that we accept a new next buffer.
-			info.secondBuffer = 0xFFFFFFFF;
-		}
+		// Ask for the next buffer.
+		info.secondBuffer = 0xFFFFFFFF;
 
-		DEBUG_LOG(Log::Atrac, "Switching over to buffer %d, updating buffer to %08x, sz: %08x. %s", sas_.curBuffer, info.secondBuffer, info.secondBufferByte, info.secondBuffer == 0xFFFFFFFF ? "Signalling for more data." : "");
+		DEBUG_LOG(Log::Atrac, "Switching over to buffer %d, sz: %08x. Signalling for more data.", sas_.curBuffer, info.secondBufferByte);
 
 		// Copy the second half (or if part1Size == 0, the whole packet) to the assembly buffer.
 		Memory::Memcpy(assembly + part1Size, sas_.bufPtr[sas_.curBuffer], part2Size);
@@ -1343,7 +1353,9 @@ void Atrac2::DecodeForSas(s16 *dstData, int *bytesWritten, int *finish) {
 		int bytesConsumed = 0;
 		bool decodeResult = decoder_->Decode(srcData, info.sampleSize, &bytesConsumed, 1, dstData, bytesWritten);
 		if (!decodeResult) {
-			ERROR_LOG(Log::Atrac, "SAS failed to decode assembled packet");
+			WARN_LOG(Log::Atrac, "SAS failed to decode assembled packet, ending the voice");
+			*bytesWritten = 0;
+			*finish = 1;
 		}
 	}
 }
