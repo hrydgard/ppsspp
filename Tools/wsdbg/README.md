@@ -93,6 +93,18 @@ trips would otherwise hang the script forever, so it gives up after `--sync-time
 (default 30), reports it, and makes the run exit non-zero.
 
 An `error` reply to a line doesn't stop the script, but makes the run exit non-zero at the end.
+That includes `:nowait` lines, whose replies are still collected (for up to ten seconds at EOF or
+`:quit`); one that never arrives fails the run too.
+
+Some requests are only answered once they've finished: `game.state.save`/`load`/`rewind`/`verify`
+with `wait=true`, `input.buttons.press`, `gpu.stats.get` and `gpu.record.dump`. Both one-shot mode
+and `--sync` wait for that reply, so a failed save shows up as an error. To start one and then let
+the CPU run the frame that finishes it, send it with `:nowait`:
+
+```
+:nowait game.state.save path=checkpoint.ppst wait=true
+cpu.runUntilTime relativeUs=100000
+```
 
 Matching is by ticket, always - `--sync` never waits for "whatever message arrives next", which is
 what used to quietly desynchronise a script. So prefer the `key=value` form for nested parameters

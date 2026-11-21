@@ -68,8 +68,9 @@ void WebSocketClientConfigGet(DebuggerRequest &req) {
 //
 // Parameters (all optional):
 //  - acknowledgeDeferred: boolean, whether to send a "deferred" event when a request is accepted
-//    but only finishes later (cpu.resume, cpu.stepInto and friends, gpu.stats.feed,
-//    input.buttons.press.)  Defaults to false.
+//    but only finishes later (cpu.resume, cpu.stepInto and friends, gpu.stats.feed.)  Not sent
+//    when the later answer carries the request's ticket (input.buttons.press, gpu.stats.get,
+//    gpu.record.dump, game.state.* with wait): that answer is the reply.  Defaults to false.
 //
 // Response (same event name):
 //  - acknowledgeDeferred: boolean, the setting as it now stands.
