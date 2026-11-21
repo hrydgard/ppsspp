@@ -1076,7 +1076,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		for (auto it = module->exportedFuncs.begin(), end = module->exportedFuncs.end(); it != end; ++it) {
 			if (it->Matches(func)) {
 				if (reimporting && Memory::Read_Instruction(func.stubAddr) != MIPS_MAKE_J(it->symAddr)) {
-					WARN_LOG_REPORT(Log::Loader, "Reimporting: func import %s/%08x changed", func.moduleName, func.nid);
+					WARN_LOG(Log::Loader, "Reimporting: func import %s/%08x changed", func.moduleName, func.nid);
 				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
 				currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);

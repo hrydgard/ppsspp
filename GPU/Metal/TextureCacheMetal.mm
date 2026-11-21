@@ -33,6 +33,9 @@
 #include "GPU/Metal/DrawEngineMetal.h"
 #include "GPU/Metal/FramebufferManagerMetal.h"
 
+// The BC formats only exist from iOS 16.4. GetDataFormatSupport checks for that before they're used.
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunguarded-availability-new"
 static MTLPixelFormat ToMetalFormat(Draw::DataFormat fmt) {
 	switch (fmt) {
 	case Draw::DataFormat::BC1_RGBA_UNORM_BLOCK: return MTLPixelFormatBC1_RGBA;
@@ -55,6 +58,7 @@ static MTLPixelFormat ToMetalFormat(Draw::DataFormat fmt) {
 		return MTLPixelFormatRGBA8Unorm;
 	}
 }
+#pragma clang diagnostic pop
 
 // Metal names the channels of packed formats from the lowest bits up, and the PSP stores red lowest. So
 // B5G6R5Unorm's "blue" is the PSP's red, and so on, which the swizzle puts back. The same as the Vulkan backend's
