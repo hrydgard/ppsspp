@@ -355,6 +355,7 @@ tests_good = [
   "io/stat/stat",
   "io/stat/readonly",
   "io/open/badparent",
+  "io/async/async",
   "jpeg/create",
   "jpeg/delete",
   "jpeg/finish",
