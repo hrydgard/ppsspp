@@ -44,6 +44,7 @@ struct DirectoryFileHandle {
 	s64 needsTrunc_ = -1;
 	bool replay_ = true;
 	bool inGameDir_ = false;
+	bool append_ = false;
 	FileSystemFlags fileSystemFlags_ = (FileSystemFlags)0;
 
 	DirectoryFileHandle() {}

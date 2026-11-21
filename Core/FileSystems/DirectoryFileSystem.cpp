@@ -172,6 +172,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	}
 	// else we try fopen first (in case we're lucky) before simulating case insensitivity
 
+	append_ = (access & FILEACCESS_APPEND) != 0;
 	Path fullName = GetLocalPath(basePath, fileName);
 
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
@@ -419,6 +420,12 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 	size_t bytesWritten = 0;
 	bool diskFull = false;
 
+#if defined(_WIN32) || defined(HAVE_LIBRETRO_VFS)
+	// No O_APPEND here, so every write goes to the end by hand (io/file/file).
+	if (append_) {
+		Seek(0, FILEMOVE_END);
+	}
+#endif
 #ifdef HAVE_LIBRETRO_VFS
 	bytesWritten = fwrite(pointer, 1, size, hFile);
 #elif defined(_WIN32)
