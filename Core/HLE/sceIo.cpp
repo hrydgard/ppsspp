@@ -1210,6 +1210,10 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 		} else if (size < 0) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 			return true;
+		} else if (data_addr == 0) {
+			// Even for 0 bytes, on ms0: (pspautotests io/file/file).
+			result = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+			return true;
 		} else if (Memory::IsValidAddress(data_addr)) {
 			const std::string tag = "IoRead/" + IODetermineFilename(f);
 			NotifyMemInfo(MemBlockFlags::WRITE, data_addr, size, tag.c_str(), tag.size());
@@ -1294,7 +1298,9 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 		__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io read");
 		f->waitingSyncThreads.push_back(__KernelGetCurThread());
 		return hleLogDebug(Log::sceIo, 0, "deferring result");
-	} else if (result >= 0) {
+	} else if (result >= 0 || result == (int)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
+		// The driver refuses a NULL buffer, after the call got as far as rescheduling
+		// (pspautotests audio/mp3/notifyadd reads 0 bytes into NULL).
 		return hleDelayResult(hleLogDebug(Log::sceIo, result), "io read", us);
 	} else {
 		return hleLogWarning(Log::ME, result, "error %08x", result);
@@ -1872,7 +1878,10 @@ static bool IoIsRootPath(const std::string &path) {
 static u32 sceIoRemove(const char *filename) {
 	IFileSystem *sys;
 	std::string path;
-	const PSPFileInfo info = IoMapPath(filename, &sys, &path) ? sys->GetFileInfo(path) : PSPFileInfo();
+	if (!IoMapPath(filename, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	const PSPFileInfo info = sys->GetFileInfo(path);
 	if (!info.exists) {
 		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file removed", 100);
 	}
