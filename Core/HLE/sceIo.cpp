@@ -248,7 +248,7 @@ public:
 	}
 
 	void DoState(PointerWrap &p) override {
-		auto s = p.Section("FileNode", 1, 3);
+		auto s = p.Section("FileNode", 1, 4);
 		if (!s)
 			return;
 
@@ -302,6 +302,13 @@ public:
 			Do(p, isTTY);
 		}
 		Do(p, pausedWaits);
+		if (s >= 4) {
+			Do(p, closingThread);
+			Do(p, closingHadWaiter);
+		} else {
+			closingThread = 0;
+			closingHadWaiter = false;
+		}
 	}
 
 	std::string fullpath;
@@ -317,6 +324,10 @@ public:
 	bool sectorBlockMode = false;
 	// TODO: Use an enum instead?
 	bool closePending = false;
+	// A thread blocked in sceIoClose until the running async op finishes (old SDKs only).
+	SceUID closingThread = 0;
+	// Whether a thread was already waiting for the result when that close began.
+	bool closingHadWaiter = false;
 
 	bool infoReady = false;
 	PSPFileInfo info;
@@ -401,6 +412,11 @@ static void __IoFreeFd(int fd, u32 &error) {
 				return;
 			}
 
+			if (f->closingThread) {
+				HLEKernel::ResumeFromWait(f->closingThread, WAITTYPE_IO, fd, 0);
+				f->closingThread = 0;
+			}
+
 			// Wake anyone waiting on the file before closing it.
 			for (size_t i = 0; i < f->waitingThreads.size(); ++i) {
 				HLEKernel::ResumeFromWait(f->waitingThreads[i], WAITTYPE_ASYNCIO, f->GetUID(), (int)SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -468,27 +484,42 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		__IoCompleteAsyncIO(f);
 	}
 
-	if (f->waitingThreads.empty()) {
+	const SceUID closingThread = f->closingThread;
+	if (f->waitingThreads.empty() && !closingThread) {
 		return;
 	}
 
-	SceUID threadID = f->waitingThreads.front();
-	f->waitingThreads.erase(f->waitingThreads.begin());
+	bool woke = false;
+	if (!f->waitingThreads.empty()) {
+		SceUID threadID = f->waitingThreads.front();
+		f->waitingThreads.erase(f->waitingThreads.begin());
 
-	u32 address = __KernelGetWaitValue(threadID, error);
-	if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
-		HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, f->GetUID(), 0);
-		// Someone woke up, so it's no longer got one.
-		f->hasAsyncResult = false;
+		u32 address = __KernelGetWaitValue(threadID, error);
+		if (HLEKernel::VerifyWait(threadID, WAITTYPE_ASYNCIO, f->GetUID())) {
+			// A thread that started waiting while sceIoClose was blocked gets the result, but fails
+			// since the close already deleted the semaphore (pspautotests io/async/async).
+			int waitResult = closingThread && !f->closingHadWaiter ? (int)SCE_KERNEL_ERROR_UNKNOWN_SEMID : 0;
+			HLEKernel::ResumeFromWait(threadID, WAITTYPE_ASYNCIO, f->GetUID(), waitResult);
+			// Someone woke up, so it's no longer got one.
+			f->hasAsyncResult = false;
 
-		if (Memory::IsValid4AlignedAddress(address)) {
-			Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
+			if (Memory::IsValid4AlignedAddress(address)) {
+				Memory::WriteUnchecked_U64((u64)f->asyncResult, address);
+			}
+			woke = true;
 		}
+	}
 
+	if (closingThread) {
+		// The op sceIoClose was waiting for is done, so the close finishes now.
+		f->closingThread = 0;
+		HLEKernel::ResumeFromWait(closingThread, WAITTYPE_IO, fd, 0);
+		__IoFreeFd(fd, error);
+	} else if (woke && f->closePending) {
 		// If this was a sceIoCloseAsync, we should close it at this point.
-		if (f->closePending) {
-			__IoFreeFd(fd, error);
-		}
+		__IoFreeFd(fd, error);
+	}
+	if (woke || closingThread) {
 		// Like any interrupt that wakes a thread, this dispatches right away, so a better
 		// priority waiter doesn't sit ready until something else happens to reschedule.
 		__KernelReSchedule("async io completed");
@@ -1256,6 +1287,10 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
+		// Checked before queueing, so it's returned here, not as the async result.
+		if (!(f->openMode & FILEACCESS_READ)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_BADF, "wrong access mode");
+		}
 
 		auto &params = asyncParams[id];
 		params.op = IoAsyncOp::READ;
@@ -1413,6 +1448,10 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	if (f) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+		}
+		// Checked before queueing, so it's returned here, not as the async result.
+		if (!(f->openMode & FILEACCESS_WRITE)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_BADF, "wrong access mode");
 		}
 
 		auto &params = asyncParams[id];
@@ -1747,8 +1786,26 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 
 static u32 sceIoClose(int id) {
 	u32 error;
-	// Closing the memory stick's raw device doesn't reschedule (pspautotests io/msstor/msstor).
 	FileNode *f = __IoGetFd(id, error);
+	if (f && f->asyncBusy()) {
+		// Past SDK 2.06, an async op that's pending or not yet collected keeps the fd open.
+		// Misshitsu no Sacrifice closes right after sceIoReadAsync and collects the read later.
+		if (sceKernelGetCompiledSdkVersion() > 0x02060010) {
+			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+		}
+		// Before that, a queued op is cancelled, but one already running is waited for, and the
+		// thread waiting on it gets its result (pspautotests io/async/async).
+		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread) {
+			if (!__KernelIsDispatchEnabled()) {
+				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+			}
+			f->closingThread = __KernelGetCurThread();
+			f->closingHadWaiter = !f->waitingThreads.empty();
+			__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io close");
+			return hleLogDebug(Log::sceIo, 0, "waiting for async op");
+		}
+	}
+	// Closing the memory stick's raw device doesn't reschedule (pspautotests io/msstor/msstor).
 	const bool rawMemstick = f && startsWithNoCase(f->fullpath, "msstor");
 	__IoFreeFd(id, error);
 	if (rawMemstick) {
@@ -2561,6 +2618,11 @@ static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int 
 	return hleLogDebug(Log::sceIo, fd);
 }
 
+// Later SDKs refuse a NULL result pointer before looking at the fd's state (pspautotests io/async/async).
+static bool IsMissingAsyncResultAddr(u32 address) {
+	return address == 0 && sceKernelGetCompiledSdkVersion() > 0x0506FFFF;
+}
+
 static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
@@ -2568,6 +2630,9 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 		if (__IsInInterrupt()) {
 			DEBUG_LOG(Log::sceIo, "%lli = sceIoGetAsyncStat(%i, %i, %08x): illegal context", f->asyncResult, id, poll, address);
 			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+		}
+		if (IsMissingAsyncResultAddr(address)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
 		}
 		if (f->pendingAsyncResult) {
 			if (poll) {
@@ -2619,6 +2684,9 @@ static int sceIoWaitAsync(int id, u32 address) {
 		if (__IsInInterrupt()) {
 			return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
+		if (IsMissingAsyncResultAddr(address)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
+		}
 		if (f->pendingAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
 				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
@@ -2657,6 +2725,9 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 		if (__IsInInterrupt()) {
 			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
+		if (IsMissingAsyncResultAddr(address)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
+		}
 
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
@@ -2687,6 +2758,9 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
+		if (IsMissingAsyncResultAddr(address)) {
+			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "null result pointer");
+		}
 		if (f->pendingAsyncResult) {
 			return hleLogVerbose(Log::sceIo, 1, "not ready");
 		} else if (f->hasAsyncResult) {
