@@ -40,10 +40,26 @@ static time_t start_time;
 
 void __KernelTimeInit()
 {
-	time(&start_time);
+	const std::optional<FrontendCalendar> &calendar = PSP_CoreParameter().calendar;
+	if (calendar) {
+		start_time = (time_t)calendar->utcSeconds;
+	} else {
+		time(&start_time);
+	}
 	if (PSP_CoreParameter().compat.flags().DateLimited) {
 		// Car Jack Streets(NPUZ00043) requires that the date cannot exceed a certain time.
 		// 2011 year makes it work fine.
+		if (calendar) {
+			// 2011 in the frontend's local time, without the host's zone.
+			time_t local = start_time + calendar->utcOffset;
+			const tm *utc = gmtime(&local);
+			if (utc) {
+				tm t = *utc;
+				t.tm_year = 111;
+				start_time = RtcTimeGm(&t) - calendar->utcOffset;
+			}
+			return;
+		}
 		tm *tm;
 		tm = localtime(&start_time);
 		tm->tm_year = 111;// 2011 year.

@@ -41,6 +41,7 @@
 #include "Core/Core.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceRtc.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
@@ -61,6 +62,7 @@
 #include "UI/AudioCommon.h"
 
 #include <libretro.h>
+#include "libretro/libretro_calendar_time.h"
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/libretro_core_options.h"
 
@@ -113,6 +115,7 @@ static bool show_ip_address_options = true;
 static bool show_upnp_port_option = true;
 static bool show_detect_frame_rate_option = true;
 static std::string changeProAdhocServer;
+static retro_calendar_time_interface calendar_iface;
 
 void* unserialize_data = NULL;
 size_t unserialize_size = 0;
@@ -1219,6 +1222,12 @@ void retro_init(void)
       log_callback_handle = g_logManager.AddExternalLogCallback(&RetroLogCallback, (void *)log_cb);
    }
 
+   calendar_iface = {};
+   calendar_iface.interface_version = RETRO_CALENDAR_TIME_INTERFACE_VERSION;
+   if (!environ_cb(RETRO_ENVIRONMENT_GET_CALENDAR_TIME_INTERFACE, &calendar_iface) || calendar_iface.interface_version == 0) {
+      calendar_iface = {};
+   }
+
    VsyncSwapIntervalReset();
 
    struct retro_input_descriptor desc[] = {
@@ -1329,6 +1338,7 @@ void retro_deinit(void)
    log_cb = NULL;
 
    libretro_supports_bitmasks = false;
+   calendar_iface = {};
 
    VsyncSwapIntervalReset();
 
@@ -1584,6 +1594,48 @@ static void retro_check_backend(void) {
    }
 }
 
+// Unset when the frontend does not know the zone.
+static void ReadFrontendZone(FrontendCalendar &calendar) {
+   calendar.standardOffset.reset();
+   retro_calendar_zone zone = {};
+   if (calendar_iface.get_zone && calendar_iface.get_zone(&zone)) {
+      calendar.standardOffset = zone.standard_offset;
+   }
+}
+
+// The load boots from the frontend's start time, never its current time.
+static void ReadFrontendCalendar(CoreParameter &coreParam) {
+   coreParam.calendar.reset();
+   retro_calendar_time start = {};
+   if (!calendar_iface.get_start_time || !calendar_iface.get_start_time(&start)) {
+      return;
+   }
+   FrontendCalendar calendar;
+   calendar.utcSeconds = start.sec;
+   calendar.utcOffset = start.utc_offset;
+   ReadFrontendZone(calendar);
+   coreParam.calendar = calendar;
+}
+
+// Reset reboots the PSP. The reboot continues the clock instead of going back to the start time.
+static void CarryFrontendCalendar(CoreParameter &coreParam) {
+   if (!coreParam.calendar) {
+      return;
+   }
+   retro_calendar_time now = {};
+   if (calendar_iface.get_current_time && calendar_iface.get_current_time(&now)) {
+      // The frontend's offset and zone, not those of a state loaded since.
+      coreParam.calendar->utcSeconds = now.sec;
+      coreParam.calendar->utcOffset = now.utc_offset;
+      ReadFrontendZone(*coreParam.calendar);
+      return;
+   }
+   // The frontend holds its clock (netplay, replays): carry the running clock, which peers share.
+   if (PollBootState() != BootState::Off) {
+      RtcRunningCalendar(&*coreParam.calendar);
+   }
+}
+
 bool retro_load_game(const struct retro_game_info *game) {
    retro_pixel_format fmt = retro_pixel_format::RETRO_PIXEL_FORMAT_XRGB8888;
    if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt)) {
@@ -1614,6 +1666,7 @@ bool retro_load_game(const struct retro_game_info *game) {
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
    check_variables(coreParam);
+   ReadFrontendCalendar(coreParam);
 
    // TODO: OpenGL goes black when inited with software rendering,
    // therefore start without, set back after init, and reset.
@@ -1692,6 +1745,7 @@ void retro_reset(void) {
 
    ScopedContextLock contextLock;
    Libretro::FinishPendingBoot();
+   CarryFrontendCalendar(PSP_CoreParameter());
    if (PollBootState() != BootState::Off)
       PSP_Shutdown(true);
 
