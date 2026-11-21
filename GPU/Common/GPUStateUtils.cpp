@@ -134,6 +134,15 @@ bool IsColorTestTriviallyTrue() {
 	}
 }
 
+int GetTextureFilteringSetting() {
+	// A game that compares filtered colors exactly gets the filtering it asks for. Forced filtering or anisotropy changes
+	// the values, even on a texture it samples nearest.
+	if (PSP_CoreParameter().compat.flags().TruncateBilinear) {
+		return TEX_FILTER_AUTO;
+	}
+	return g_Config.iTexFiltering;
+}
+
 bool IsDepthTestEffectivelyDisabled() {
 	if (!gstate.isDepthTestEnabled())
 		return true;

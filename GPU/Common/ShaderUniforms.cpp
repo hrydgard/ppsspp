@@ -294,7 +294,7 @@ uint32_t PackDepalBits(bool pixelMapped) {
 	// maybe we can share it somehow.
 	// TODO: Handle replaced textures.
 	bool bilinear = gstate.isMagnifyFilteringEnabled() && !pixelMapped;
-	switch (g_Config.iTexFiltering) {
+	switch (GetTextureFilteringSetting()) {
 	case TEX_FILTER_FORCE_NEAREST:
 		bilinear = false;
 		break;
