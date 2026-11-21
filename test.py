@@ -151,6 +151,7 @@ tests_good = [
   "audio/atrac/setdata",
   "audio/atrac/sas",
   "audio/atrac/c0mono",
+  "audio/atrac/sasstream",
   "audio/atrac/headerfields",
   "audio/audiocodec/basic",
   "audio/audiocodec/at3param",

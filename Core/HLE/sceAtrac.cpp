@@ -724,6 +724,11 @@ static u32 sceAtracGetStreamDataInfo(int atracID, u32 writePtrAddr, u32 writable
 }
 
 static u32 sceAtracReleaseAtracID(int atracID) {
+	AtracBase *atrac = getAtrac(atracID);
+	if (atrac && atrac->BufferState() == ATRAC_STATUS_FOR_SCESAS) {
+		// Games set the state back before releasing an ID they used with SAS (tests/audio/atrac/sasstream).
+		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_BAD_ATRACID, "still set up for SAS");
+	}
 	int result = UnregisterAndDeleteAtrac(atracID);
 	if (result < 0) {
 		if (atracID >= 0) {

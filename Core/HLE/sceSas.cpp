@@ -741,7 +741,11 @@ static u32 __sceSasConcatenateATRAC3(u32 core, int voiceNum, u32 atrac3DataAddr,
 	DEBUG_LOG(Log::sceSas, "__sceSasConcatenateATRAC3(%08x, %i, %08x, %i)", core, voiceNum, atrac3DataAddr, atrac3DataLength);
 
 	SasVoice &v = sas->voices[voiceNum];
-	v.atrac3.Concatenate(atrac3DataAddr, atrac3DataLength);
+	int result = v.atrac3.Concatenate(atrac3DataAddr, atrac3DataLength);
+	if (result < 0) {
+		// The voice hasn't asked for more data yet. Normal for games that poll this.
+		return hleLogDebug(Log::sceSas, result, "already queued");
+	}
 	return hleLogDebug(Log::sceSas, 0);
 }
 
