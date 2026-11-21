@@ -33,6 +33,8 @@ struct CollectedStats {
 	std::vector<float> frameTimes;
 	std::vector<float> sleepTimes;
 	int frameTimePos;
+	// The gpu.stats.get requests this flip answers (an empty string for one without a ticket.)
+	std::vector<std::string> tickets;
 };
 
 struct DebuggerGPUStatsEvent {
@@ -87,8 +89,9 @@ protected:
 	std::atomic<bool> sendNext_{ false };
 	std::atomic<bool> sendFeed_{ false };
 
-	std::string lastTicket_;
 	std::mutex pendingLock_;
+	// gpu.stats.get requests waiting for the next flip. Each is answered by the first flip after it.
+	std::vector<std::string> waitingTickets_;
 	std::vector<CollectedStats> pendingStats_;
 };
 
@@ -142,6 +145,8 @@ void WebSocketGPUStatsState::FlipListener() {
 		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(float) * valid);
 	}
 
+	stats.tickets = std::move(waitingTickets_);
+	waitingTickets_.clear();
 	sendNext_ = false;
 }
 
@@ -160,16 +165,16 @@ void WebSocketGPUStatsState::FlipListener() {
 //
 // Note: stats are returned after the next flip completes (paused if CPU or GPU in break.)
 // Note: info and timing may not be accurate if certain settings are disabled.
-// Note: sending this event with no ticket will not trigger a response! (TODO: maybe fix this?)
+// Note: each request gets its own response, even several sent before the next flip.
 void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");
 
-	std::lock_guard<std::mutex> guard(pendingLock_);
-	sendNext_ = true;
-
 	const JsonNode *value = req.data.get("ticket");
-	lastTicket_ = value ? json_stringify(value) : "";
+	std::lock_guard<std::mutex> guard(pendingLock_);
+	waitingTickets_.push_back(value ? json_stringify(value) : "");
+	sendNext_ = true;
+	req.ReplyLater();
 }
 
 // Setup GPU stats feed (gpu.stats.feed)
@@ -200,18 +205,15 @@ void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 
 void WebSocketGPUStatsState::Broadcast(net::WebSocketServer *ws) {
 	std::lock_guard<std::mutex> guard(pendingLock_);
-	if (lastTicket_.empty() && !sendFeed_) {
-		pendingStats_.clear();
-		return;
-	}
-
-	// To be safe, make sure we only send one if we're doing a get.
-	if (!sendFeed_ && pendingStats_.size() > 1)
-		pendingStats_.resize(1);
-
-	for (size_t i = 0; i < pendingStats_.size(); ++i) {
-		ws->Send(DebuggerGPUStatsEvent{ pendingStats_[i], lastTicket_ });
-		lastTicket_.clear();
+	static const std::string noTicket;
+	for (const CollectedStats &stats : pendingStats_) {
+		// A requested frame also serves as that frame's feed event.
+		for (const std::string &ticket : stats.tickets) {
+			ws->Send(DebuggerGPUStatsEvent{ stats, ticket });
+		}
+		if (stats.tickets.empty() && sendFeed_) {
+			ws->Send(DebuggerGPUStatsEvent{ stats, noTicket });
+		}
 	}
 	pendingStats_.clear();
 }
