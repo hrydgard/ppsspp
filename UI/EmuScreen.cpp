@@ -1501,6 +1501,9 @@ void EmuScreen::update() {
 
 	// The HOME button's quit screen.
 	const bool gameRunning = PSP_IsInited() && !bootPending_ && coreState == CORE_RUNNING_CPU && !PSP_HasBootRequest();
+	if (gameRunning) {
+		g_Config.TimeTracker().Update();
+	}
 	if (imposeHome_->Update(gameRunning, IsOnTop()) == ImposeHomeScreen::Action::LEAVE_GAME) {
 		leaveGame();
 	}

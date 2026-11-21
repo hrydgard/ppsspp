@@ -47,6 +47,7 @@ public:
 	struct PlayTime {
 		int totalTimePlayed;
 		double startTime;  // time_now_d() time
+		double lastUpdateTime;  // time_now_d() time
 		uint64_t lastTimePlayed;  // UTC Unix time for portability.
 	};
 
@@ -54,6 +55,8 @@ public:
 	void Start(std::string_view gameId);
 	void Stop(std::string_view gameId);
 	void Reset(std::string_view gameId);
+	// Call every frame while playing. A long gap between calls (the computer asleep) isn't counted.
+	void Update();
 
 	void Load(const Section *section);
 	void Save(Section *section);
@@ -62,6 +65,7 @@ public:
 
 private:
 	std::map<std::string, PlayTime, std::less<>> tracker_;
+	std::string activeGameId_;
 };
 
 struct ConfigSetting;
