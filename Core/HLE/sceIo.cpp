@@ -490,7 +490,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	}
 
 	bool woke = false;
-	if (!f->waitingThreads.empty()) {
+	// Skip threads that stopped waiting (released, or deleted) since they started.
+	while (!woke && !f->waitingThreads.empty()) {
 		SceUID threadID = f->waitingThreads.front();
 		f->waitingThreads.erase(f->waitingThreads.begin());
 
@@ -1795,10 +1796,11 @@ static u32 sceIoClose(int id) {
 		}
 		// Before that, a queued op is cancelled, but one already running is waited for, and the
 		// thread waiting on it gets its result (pspautotests io/async/async).
-		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread) {
+		if (f->pendingAsyncResult && asyncParams[id].op == IoAsyncOp::NONE && !f->closingThread && !__IsInInterrupt()) {
 			if (!__KernelIsDispatchEnabled()) {
 				return hleLogDebug(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
+			HLEKernel::CleanupWaitingThreads(WAITTYPE_ASYNCIO, f->GetUID(), f->waitingThreads);
 			f->closingThread = __KernelGetCurThread();
 			f->closingHadWaiter = !f->waitingThreads.empty();
 			__KernelWaitCurThread(WAITTYPE_IO, id, 0, 0, false, "io close");
