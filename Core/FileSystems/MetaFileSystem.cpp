@@ -329,8 +329,15 @@ void MetaFileSystem::Unmount(std::string_view prefix) {
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(std::string_view filename) {
 	size_t prefixPos = filename.find(':');
-	if (prefixPos == filename.npos)
-		return 0;
+	if (prefixPos == filename.npos) {
+		// Relative to the current directory, which names the device.
+		std::string path;
+		IFileSystem *system = nullptr;
+		if (MapFilePath(filename, &path, &system) == 0) {
+			return system;
+		}
+		return nullptr;
+	}
 	return GetSystem(filename.substr(0, prefixPos + 1));
 }
 

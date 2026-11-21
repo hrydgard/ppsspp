@@ -1355,8 +1355,8 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		us = 100;
 	}
 
-	const void *data_ptr = Memory::GetPointerOrException(data_addr);
 	const u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
+	const void *data_ptr = validSize ? Memory::GetPointerUnchecked(data_addr) : nullptr;
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
 		__IoWriteToHostOutput(id == PSP_STDERR ? DebugOutputChannel::StdErr : DebugOutputChannel::StdOut,
@@ -1375,8 +1375,13 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			result = SCE_KERNEL_ERROR_BADF;
 			return true;
 		}
-		if (size < 0) {
+		// Checked in this order on ms0: (pspautotests io/file/file).
+		if (size < 0 || (data_addr & 0x80000000) != 0) {
 			result = SCE_KERNEL_ERROR_ILLEGAL_ADDR;
+			return true;
+		}
+		if (data_addr == 0) {
+			result = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 			return true;
 		}
 
@@ -1573,9 +1578,10 @@ static s64 __IoLseekDest(FileNode *f, s64 offset, int whence, FileMove &seek) {
 		return (s32)SCE_KERNEL_ERROR_INVAL;
 	}
 
-	// Yes, -1 is the correct return code for this case.
-	if (newPos < 0)
-		return -1;
+	// On ms0:, a position before the start or past what a u32 holds (pspautotests io/file/file).
+	// PSPLink's host0: returns -1 instead.
+	if (newPos < 0 || newPos > 0xFFFFFFFFLL)
+		return (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	return newPos;
 }
 
@@ -1602,7 +1608,7 @@ static s64 __IoLseek(SceUID id, s64 offset, int whence) {
 
 static s64 sceIoLseek(int id, s64 offset, int whence) {
 	s64 result = __IoLseek(id, offset, whence);
-	if (result >= 0 || result == -1) {
+	if (result >= 0 || result == (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
@@ -1614,7 +1620,7 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 
 static u32 sceIoLseek32(int id, int offset, int whence) {
 	s32 result = (s32) __IoLseek(id, offset, whence);
-	if (result >= 0 || result == -1) {
+	if (result >= 0 || result == (s32)SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT) {
 		// Educated guess at timing.
 		hleEatCycles(1400);
 		hleReSchedule("io seek");
@@ -1840,9 +1846,38 @@ static u32 sceIoClose(int id) {
 	return hleDelayResult(hleLogDebug(Log::sceIo, error), "file closed", 100);
 }
 
+static bool IoMapPath(const std::string &name, IFileSystem **sys, std::string *path) {
+	return pspFileSystem.MapFilePath(name, path, sys) == 0;
+}
+
+static bool IoIsFileOpen(IFileSystem *sys, const std::string &path) {
+	for (int i = PSP_MIN_FD; i < PSP_COUNT_FDS; ++i) {
+		u32 error;
+		FileNode *f = fds[i] ? __IoGetFd(i, error) : nullptr;
+		IFileSystem *fsys = nullptr;
+		std::string fpath;
+		if (f && f->handle != (u32)-1 && IoMapPath(f->fullpath, &fsys, &fpath) && fsys == sys && equalsNoCase(fpath, path)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool IoIsRootPath(const std::string &path) {
+	return path.empty() || path == "/";
+}
+
+// The error codes for Remove, Mkdir and Rmdir are from ms0: (pspautotests io/file/file). Working
+// them out here keeps them from depending on what the host's file calls allow.
 static u32 sceIoRemove(const char *filename) {
-	if (!pspFileSystem.GetFileInfo(filename).exists) {
+	IFileSystem *sys;
+	std::string path;
+	const PSPFileInfo info = IoMapPath(filename, &sys, &path) ? sys->GetFileInfo(path) : PSPFileInfo();
+	if (!info.exists) {
 		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "file removed", 100);
+	}
+	if (info.type == FILETYPE_DIRECTORY || IoIsFileOpen(sys, path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_NO_PERM), "file removed", 100);
 	}
 
 	pspFileSystem.RemoveFile(filename);
@@ -1851,6 +1886,25 @@ static u32 sceIoRemove(const char *filename) {
 }
 
 static u32 sceIoMkdir(const char *dirname, int mode) {
+	IFileSystem *sys;
+	std::string path;
+	if (!IoMapPath(dirname, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	if (IoIsRootPath(path)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT), "mkdir", 1000);
+	}
+	if (sys->GetFileInfo(path).exists) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_ALREADY_EXISTS), "mkdir", 1000);
+	}
+	const size_t slash = path.find_last_of('/');
+	if (slash != std::string::npos && slash != 0) {
+		const PSPFileInfo parent = sys->GetFileInfo(path.substr(0, slash));
+		if (!parent.exists || parent.type != FILETYPE_DIRECTORY) {
+			return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "mkdir", 1000);
+		}
+	}
+
 	// TODO: Improve timing.
 	if (pspFileSystem.MkDir(dirname))
 		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "mkdir", 1000);
@@ -1859,6 +1913,29 @@ static u32 sceIoMkdir(const char *dirname, int mode) {
 }
 
 static u32 sceIoRmdir(const char *dirname) {
+	IFileSystem *sys;
+	std::string path;
+	if (!IoMapPath(dirname, &sys, &path)) {
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "no such device");
+	}
+	const PSPFileInfo info = sys->GetFileInfo(path);
+	if (!info.exists) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND), "rmdir", 1000);
+	}
+	bool empty = true;
+	if (info.type == FILETYPE_DIRECTORY) {
+		for (const PSPFileInfo &entry : sys->GetDirListing(path)) {
+			if (entry.name != "." && entry.name != "..") {
+				empty = false;
+				break;
+			}
+		}
+	}
+	// A file and a directory that isn't empty fail the same way.
+	if (info.type != FILETYPE_DIRECTORY || !empty) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_NO_PERM), "rmdir", 1000);
+	}
+
 	// TODO: Improve timing.
 	if (pspFileSystem.RmDir(dirname))
 		return hleDelayResult(hleLogDebug(Log::sceIo, 0), "rmdir", 1000);
