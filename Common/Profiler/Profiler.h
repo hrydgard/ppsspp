@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <stddef.h>
 #include <vector>
 
 // Compiled into every build (unless it defines NO_PROFILER), and off until something turns it on
