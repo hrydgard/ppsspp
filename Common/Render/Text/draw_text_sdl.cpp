@@ -143,7 +143,6 @@ TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 #endif
 
 	PrepareFallbackFonts(getlocale());
-	fallbackFonts_.assign(fallbackFontPaths_.size(), nullptr);
 }
 
 TextDrawerSDL::~TextDrawerSDL() {
@@ -161,13 +160,13 @@ TextDrawerSDL::~TextDrawerSDL() {
 
 // If a user complains about missing characters on SDL, re-visit this!
 void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
-	auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate) {
+	auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate, bool emoji) {
 		for (const auto &existing : fallbackFontPaths_) {
-			if (existing.first == candidate.first && existing.second == candidate.second) {
+			if (existing.path == candidate.first && existing.faceIndex == candidate.second) {
 				return;
 			}
 		}
-		fallbackFontPaths_.push_back(candidate);
+		fallbackFontPaths_.push_back({ candidate.first, candidate.second, emoji });
 	};
 
 #if defined(USE_SDL3_TTF_FONTCONFIG)
@@ -203,7 +202,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 				fontIndex = 0;
 			}
 			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch && path) {
-				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex));
+				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex), true);
 			}
 		}
 		if (foundFonts) {
@@ -226,7 +225,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 				fontIndex = 0;
 			}
 			if (FcPatternGetString(matched, FC_FILE, 0, &path) == FcResultMatch && path) {
-				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex));
+				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex), true);
 			}
 			FcPatternDestroy(matched);
 		}
@@ -310,10 +309,10 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 		}
 
 		for (const auto &candidate : preferredFonts) {
-			addFallbackUnique(candidate);
+			addFallbackUnique(candidate, false);
 		}
 		for (const auto &candidate : otherFonts) {
-			addFallbackUnique(candidate);
+			addFallbackUnique(candidate, false);
 		}
 
 		if (foundFonts) {
@@ -352,7 +351,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 				TTF_Font *openedFont = TTF_OpenFont(fontPath.ToString().c_str(), 24.0f);
 				int numFaces = TTF_GetNumFontFaces(openedFont);
 				for (int k = 0; k < numFaces; k++) {
-					addFallbackUnique(std::make_pair(fontPath.ToString(), k));
+					addFallbackUnique(std::make_pair(fontPath.ToString(), k), strstr(fallbackFonts[j], "Emoji") != nullptr);
 				}
 				TTF_CloseFont(openedFont);
 			}
@@ -385,7 +384,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	};
 	for (size_t i = 0; i < ARRAY_SIZE(standardFontPaths); i++) {
 		if (File::Exists(Path(standardFontPaths[i]))) {
-			addFallbackUnique(std::make_pair(std::string(standardFontPaths[i]), 0));
+			addFallbackUnique(std::make_pair(std::string(standardFontPaths[i]), 0), true);
 		}
 	}
 }
@@ -519,132 +518,104 @@ static std::vector<TextRun> SegmentLine(std::string_view line) {
 
 } // namespace
 
-uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text) {
-	if (!font) {
-		return 0;
+TTF_Font *TextDrawerSDL::GetFallbackFont(int index, int ptSize) {
+	auto iter = fallbackFonts_.find(std::make_pair(index, ptSize));
+	if (iter != fallbackFonts_.end()) {
+		return iter->second;
 	}
-	UTF8 utf8Decoded(text);
-
-	auto attachedIter = attachedFallbackIndices_.find(font);
-
-	while (!utf8Decoded.end()) {
-		uint32_t glyph = utf8Decoded.next();
-		if (TTF_FontHasGlyph(font, glyph)) {
-			continue;
-		}
-
-		// Don't search fallbacks to attach to the base font for emoji glyphs,
-		// as oversized emoji fonts are scaled and rendered separately.
-		if (CodepointIsEmoji(glyph)) {
-			continue;
-		}
-
-		auto cacheIter = glyphFallbackFontIndex_.find(glyph);
-		if (cacheIter != glyphFallbackFontIndex_.end() && cacheIter->second == -1) {
-			// Already known that no fallback font can satisfy this glyph.
-			continue;
-		}
-
-		bool foundInAttached = false;
-		if (attachedIter != attachedFallbackIndices_.end()) {
-			for (int idx : attachedIter->second) {
-				if (idx >= 0 && idx < (int)fallbackFonts_.size() && fallbackFonts_[idx]) {
-					if (TTF_FontHasGlyph(fallbackFonts_[idx], glyph)) {
-						foundInAttached = true;
-						break;
-					}
-				}
-			}
-		}
-		if (!foundInAttached) {
-			return glyph;
-		}
-	}
-
-	return 0;
+	const FallbackFontPath &fallback = fallbackFontPaths_[index];
+	TTF_Font *font = OpenFontFace(fallback.path, static_cast<float>(ptSize), fallback.faceIndex);
+	fallbackFonts_[std::make_pair(index, ptSize)] = font;
+	return font;
 }
 
-// If this returns >= 0, the nth font in fallbackFonts_ can be used as a fallback.
-int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
-	auto iter = glyphFallbackFontIndex_.find(missingGlyph);
+// Fixed-size bitmap fonts (like Noto Color Emoji's 128px strikes) aren't attachable: SDL3_ttf would draw
+// their glyphs unscaled and make the whole line that tall. They're only used for emoji runs, scaled down.
+bool TextDrawerSDL::FallbackHasGlyph(int index, uint32_t glyph, bool attachable, int ptSize) {
+	// Which glyphs a face has doesn't depend on the size, so any open copy can answer.
+	auto iter = fallbackFonts_.lower_bound(std::make_pair(index, 0));
+	if (iter != fallbackFonts_.end() && iter->first.first == index) {
+		TTF_Font *font = iter->second;
+		return font && TTF_FontHasGlyph(font, glyph) && (!attachable || TTF_FontIsScalable(font));
+	}
+
+	const FallbackFontPath &fallback = fallbackFontPaths_[index];
+	TTF_Font *font = OpenFontFace(fallback.path, static_cast<float>(ptSize), fallback.faceIndex);
+	if (!font) {
+		return false;
+	}
+	if (TTF_FontHasGlyph(font, glyph) && (!attachable || TTF_FontIsScalable(font))) {
+		fallbackFonts_[std::make_pair(index, ptSize)] = font;
+		return true;
+	}
+	// Don't keep faces open that we have no use for yet, there can be dozens.
+	TTF_CloseFont(font);
+	return false;
+}
+
+// Returns an index in fallbackFontPaths_, or -1. Emoji fonts are tried first for emoji, and last for
+// everything else, so that symbols they also have come from a font that can be attached.
+int TextDrawerSDL::FindFallbackFont(uint32_t glyph, bool emoji, int ptSize) {
+	const uint32_t key = glyph * 2 + (emoji ? 1 : 0);
+	auto iter = glyphFallbackFontIndex_.find(key);
 	if (iter != glyphFallbackFontIndex_.end()) {
 		return iter->second;
 	}
 
-	// First, check already opened fallback fonts.
-	for (size_t i = 0; i < fallbackFonts_.size(); i++) {
-		TTF_Font *fallbackFont = fallbackFonts_[i];
-		if (fallbackFont && TTF_FontHasGlyph(fallbackFont, missingGlyph)) {
-			glyphFallbackFontIndex_[missingGlyph] = (int)i;
-			return (int)i;
-		}
-	}
-
-	// If none of the loaded fonts can handle it, load more fonts.
-	for (size_t i = 0; i < fallbackFontPaths_.size(); i++) {
-		if (fallbackFonts_[i] == nullptr) {
-			const std::string &fontPath = fallbackFontPaths_[i].first;
-			int faceIndex = fallbackFontPaths_[i].second;
-
-			TTF_Font *font = OpenFontFace(fontPath, static_cast<float>(ptSize), faceIndex);
-			if (font) {
-				fallbackFonts_[i] = font;
-				if (TTF_FontHasGlyph(font, missingGlyph)) {
-					glyphFallbackFontIndex_[missingGlyph] = (int)i;
-					return (int)i;
-				}
+	int found = -1;
+	for (int pass = 0; pass < 2 && found < 0; pass++) {
+		for (int i = 0; i < (int)fallbackFontPaths_.size(); i++) {
+			if ((fallbackFontPaths_[i].emoji == emoji) != (pass == 0)) {
+				continue;
+			}
+			if (FallbackHasGlyph(i, glyph, !emoji, ptSize)) {
+				found = i;
+				break;
 			}
 		}
 	}
 
-	// Not found at all? Let's remember that for this glyph.
-	glyphFallbackFontIndex_[missingGlyph] = -1;
-	return -1;
+	glyphFallbackFontIndex_[key] = found;
+	return found;
 }
 
 TTF_Font *TextDrawerSDL::FindEmojiFont(uint32_t emojiGlyph, int ptSize) {
-	int idx = FindFallbackFonts(emojiGlyph, ptSize);
-	if (idx >= 0 && idx < (int)fallbackFonts_.size()) {
-		TTF_Font *f = fallbackFonts_[idx];
-		if (f && (int)TTF_GetFontSize(f) != ptSize) {
-			TTF_SetFontSize(f, (float)ptSize);
-		}
-		return f;
-	}
-	return nullptr;
+	int index = FindFallbackFont(emojiGlyph, true, ptSize);
+	return index >= 0 ? GetFallbackFont(index, ptSize) : nullptr;
 }
 
-void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_view text, int ptSize) {
+void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_view text) {
 	if (!font || text.empty()) {
 		return;
 	}
 
-	const int baseHeight = TTF_GetFontHeight(font);
-	std::set<uint32_t> triedGlyphs;
-	while (uint32_t missingGlyph = CheckMissingGlyph(font, text)) {
-		if (!triedGlyphs.insert(missingGlyph).second) {
-			break;
-		}
-		int fallbackIndex = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackIndex < 0 || fallbackIndex >= (int)fallbackFonts_.size()) {
+	const int ptSize = static_cast<int>(TTF_GetFontSize(font));
+	std::set<int> &attached = attachedFallbackIndices_[font];
+	UTF8 decoder(text);
+	while (!decoder.end()) {
+		const uint32_t glyph = decoder.next();
+		// Emoji runs are drawn separately, with an emoji font.
+		if (CodepointIsEmoji(glyph) || TTF_FontHasGlyph(font, glyph)) {
 			continue;
 		}
-		TTF_Font *fallbackFont = fallbackFonts_[fallbackIndex];
-		if (!fallbackFont) {
+		bool covered = false;
+		for (int index : attached) {
+			TTF_Font *fallback = GetFallbackFont(index, ptSize);
+			if (fallback && TTF_FontHasGlyph(fallback, glyph)) {
+				covered = true;
+				break;
+			}
+		}
+		if (covered) {
 			continue;
 		}
-		if ((int)TTF_GetFontSize(fallbackFont) != ptSize) {
-			TTF_SetFontSize(fallbackFont, (float)ptSize);
-		}
-		int fallbackHeight = TTF_GetFontHeight(fallbackFont);
-		// If the fallback font is oversized (e.g. fixed-size bitmap strikes like Noto Color Emoji with height 128),
-		// do NOT attach it directly to the base font. Attaching causes SDL3_ttf to expand the entire line and
-		// render 128px unscaled glyphs. Instead, oversized emoji fonts are scaled and rendered separately.
-		if (fallbackHeight > 0 && baseHeight > 0 && fallbackHeight > baseHeight * 1.5f) {
+		const int index = FindFallbackFont(glyph, false, ptSize);
+		if (index < 0) {
 			continue;
 		}
-		if (attachedFallbackIndices_[font].insert(fallbackIndex).second) {
-			TTF_AddFallbackFont(font, fallbackFont);
+		TTF_Font *fallback = GetFallbackFont(index, ptSize);
+		if (fallback && attached.insert(index).second) {
+			TTF_AddFallbackFont(font, fallback);
 		}
 	}
 }
@@ -694,8 +665,8 @@ void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_vi
 		str = reorderedStr;
 	}
 
-	const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
-	AttachFallbackFontsForString(font, str, ptSize);
+	const int ptSize = static_cast<int>(TTF_GetFontSize(font));
+	AttachFallbackFontsForString(font, str);
 	SetBidiDirection(font, reordered);
 
 	std::vector<std::string_view> lines;
@@ -785,7 +756,7 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 	}
 
 	const int ptSize = static_cast<int>(TTF_GetFontSize(font));
-	AttachFallbackFontsForString(font, processedStr, ptSize);
+	AttachFallbackFontsForString(font, processedStr);
 	SetBidiDirection(font, reordered);
 
 	const int baseHeight = TTF_GetFontHeight(font);
@@ -989,14 +960,14 @@ void TextDrawerSDL::ClearFonts() {
 		delete[] iter.second.second;
 	}
 	for (auto iter : fallbackFonts_) {
-		if (iter) {
-			TTF_CloseFont(iter);
+		if (iter.second) {
+			TTF_CloseFont(iter.second);
 		}
 	}
 
 	// We wipe all the maps, including fontMap_.
 	fontMap_.clear();
-	fallbackFonts_.assign(fallbackFontPaths_.size(), nullptr);
+	fallbackFonts_.clear();
 	glyphFallbackFontIndex_.clear();
 	attachedFallbackIndices_.clear();
 }

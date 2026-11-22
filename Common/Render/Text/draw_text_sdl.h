@@ -30,17 +30,27 @@ protected:
 	void ClearFonts() override;
 
 private:
+	struct FallbackFontPath {
+		std::string path;
+		int faceIndex;
+		bool emoji;
+	};
+
 	void PrepareFallbackFonts(std::string_view locale);
-	uint32_t CheckMissingGlyph(TTF_Font *font, std::string_view text);
-	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
-	void AttachFallbackFontsForString(TTF_Font *font, std::string_view text, int ptSize);
+	bool FallbackHasGlyph(int index, uint32_t glyph, bool attachable, int ptSize);
+	int FindFallbackFont(uint32_t glyph, bool emoji, int ptSize);
+	TTF_Font *GetFallbackFont(int index, int ptSize);
 	TTF_Font *FindEmojiFont(uint32_t emojiGlyph, int ptSize);
+	void AttachFallbackFontsForString(TTF_Font *font, std::string_view text);
 
 	std::map<FontStyle, std::pair<TTF_Font *, uint8_t *>> fontMap_;
 
-	std::vector<TTF_Font *> fallbackFonts_;
-	std::vector<std::pair<std::string, int>> fallbackFontPaths_; // path and font face index
+	std::vector<FallbackFontPath> fallbackFontPaths_;
+	// Opened fallback fonts, by index in fallbackFontPaths_ and point size. Each size needs its own copy,
+	// since fallbacks are attached to base fonts of different sizes.
+	std::map<std::pair<int, int>, TTF_Font *> fallbackFonts_;
 
+	// Keyed by glyph * 2 + emoji, see FindFallbackFont.
 	std::map<uint32_t, int> glyphFallbackFontIndex_;
 	std::map<TTF_Font *, std::set<int>> attachedFallbackIndices_;
 
