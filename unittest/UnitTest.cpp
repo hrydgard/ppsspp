@@ -4639,9 +4639,13 @@ bool TestTextDrawerSDL() {
 	const FontStyle font(FontFamily::SansSerif, 20, FontStyleFlags::Default);
 	float w = 0, h = 0;
 	std::string testStr = "Test \xF0\x9F\x90\x9B\xF0\x9F\x90\x9C\xF0\x9F\xA4\x94"; // 🐛🐜🤔
+	float textW = 0, textH = 0;
+	drawer.MeasureString(font, 1.0f, 1.0f, "Test", &textW, &textH);
 	drawer.MeasureString(font, 1.0f, 1.0f, testStr, &w, &h);
 	EXPECT_TRUE(w > 0.0f);
 	EXPECT_TRUE(h > 0.0f);
+	// Height of string with emoji must match the font character height, not inflated by oversized fallback font.
+	EXPECT_TRUE(h <= textH * 1.5f);
 
 	std::vector<uint8_t> bitmapData;
 	TextStringEntry entry(0);
@@ -4650,6 +4654,7 @@ bool TestTextDrawerSDL() {
 	EXPECT_TRUE(!bitmapData.empty());
 	EXPECT_TRUE(entry.bmWidth > 0);
 	EXPECT_TRUE(entry.bmHeight > 0);
+	EXPECT_TRUE((float)entry.bmHeight <= textH * 1.5f);
 
 	if (registeredAssets) {
 		g_VFS.Clear();

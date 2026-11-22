@@ -390,6 +390,135 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	}
 }
 
+namespace {
+
+struct TextRun {
+	std::string text;
+	bool isEmoji;
+};
+
+static bool CodepointIsEmoji(uint32_t c) {
+	if (c > 0xFFFF) {
+		return true;
+	}
+	if ((c >= 0x2600 && c <= 0x27BF) ||
+		(c >= 0x2300 && c <= 0x23FF) ||
+		(c >= 0x2B50 && c <= 0x2B55) ||
+		c == 0x200D ||
+		(c >= 0xFE0E && c <= 0xFE0F) ||
+		c == 0x20E3) {
+		return true;
+	}
+	return false;
+}
+
+static uint32_t GetFirstCodepoint(std::string_view str) {
+	if (str.empty())
+		return 0;
+	const char *p = str.data();
+	unsigned char c = (unsigned char)p[0];
+	uint32_t cp = 0;
+	int extra = 0;
+	if (c < 0x80)
+		cp = c;
+	else if ((c & 0xE0) == 0xC0) {
+		cp = c & 0x1F;
+		extra = 1;
+	} else if ((c & 0xF0) == 0xE0) {
+		cp = c & 0x0F;
+		extra = 2;
+	} else if ((c & 0xF8) == 0xF0) {
+		cp = c & 0x07;
+		extra = 3;
+	}
+	for (int k = 1; k <= extra && (size_t)k < str.size(); ++k) {
+		cp = (cp << 6) | ((unsigned char)p[k] & 0x3F);
+	}
+	return cp;
+}
+
+static bool LineHasEmoji(std::string_view line) {
+	const char *p = line.data();
+	size_t len = line.size();
+	size_t i = 0;
+	while (i < len) {
+		unsigned char c = (unsigned char)p[i++];
+		uint32_t cp = 0;
+		int extra = 0;
+		if (c < 0x80)
+			cp = c;
+		else if ((c & 0xE0) == 0xC0) {
+			cp = c & 0x1F;
+			extra = 1;
+		} else if ((c & 0xF0) == 0xE0) {
+			cp = c & 0x0F;
+			extra = 2;
+		} else if ((c & 0xF8) == 0xF0) {
+			cp = c & 0x07;
+			extra = 3;
+		}
+		for (int k = 0; k < extra && i < len; ++k) {
+			cp = (cp << 6) | ((unsigned char)p[i++] & 0x3F);
+		}
+		if (CodepointIsEmoji(cp))
+			return true;
+	}
+	return false;
+}
+
+static std::vector<TextRun> SegmentLine(std::string_view line) {
+	std::vector<TextRun> runs;
+	if (line.empty())
+		return runs;
+	const char *p = line.data();
+	size_t len = line.size();
+	size_t i = 0;
+	TextRun currentRun;
+	bool hasCurrent = false;
+
+	while (i < len) {
+		size_t start = i;
+		unsigned char c = (unsigned char)p[i++];
+		uint32_t cp = 0;
+		int extra = 0;
+		if (c < 0x80)
+			cp = c;
+		else if ((c & 0xE0) == 0xC0) {
+			cp = c & 0x1F;
+			extra = 1;
+		} else if ((c & 0xF0) == 0xE0) {
+			cp = c & 0x0F;
+			extra = 2;
+		} else if ((c & 0xF8) == 0xF0) {
+			cp = c & 0x07;
+			extra = 3;
+		}
+		for (int k = 0; k < extra && i < len; ++k) {
+			cp = (cp << 6) | ((unsigned char)p[i++] & 0x3F);
+		}
+		bool isEmoji = CodepointIsEmoji(cp);
+		std::string glyphStr(p + start, i - start);
+
+		if (!hasCurrent) {
+			currentRun.text = glyphStr;
+			currentRun.isEmoji = isEmoji;
+			hasCurrent = true;
+		} else if (currentRun.isEmoji == isEmoji) {
+			currentRun.text += glyphStr;
+		} else {
+			runs.push_back(currentRun);
+			currentRun.text = glyphStr;
+			currentRun.isEmoji = isEmoji;
+		}
+	}
+	if (hasCurrent) {
+		runs.push_back(currentRun);
+	}
+	return runs;
+}
+
+} // namespace
+
 uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text) {
 	if (!font) {
 		return 0;
@@ -401,6 +530,12 @@ uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text)
 	while (!utf8Decoded.end()) {
 		uint32_t glyph = utf8Decoded.next();
 		if (TTF_FontHasGlyph(font, glyph)) {
+			continue;
+		}
+
+		// Don't search fallbacks to attach to the base font for emoji glyphs,
+		// as oversized emoji fonts are scaled and rendered separately.
+		if (CodepointIsEmoji(glyph)) {
 			continue;
 		}
 
@@ -467,11 +602,24 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	return -1;
 }
 
+TTF_Font *TextDrawerSDL::FindEmojiFont(uint32_t emojiGlyph, int ptSize) {
+	int idx = FindFallbackFonts(emojiGlyph, ptSize);
+	if (idx >= 0 && idx < (int)fallbackFonts_.size()) {
+		TTF_Font *f = fallbackFonts_[idx];
+		if (f && (int)TTF_GetFontSize(f) != ptSize) {
+			TTF_SetFontSize(f, (float)ptSize);
+		}
+		return f;
+	}
+	return nullptr;
+}
+
 void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_view text, int ptSize) {
 	if (!font || text.empty()) {
 		return;
 	}
 
+	const int baseHeight = TTF_GetFontHeight(font);
 	std::set<uint32_t> triedGlyphs;
 	while (uint32_t missingGlyph = CheckMissingGlyph(font, text)) {
 		if (!triedGlyphs.insert(missingGlyph).second) {
@@ -487,6 +635,13 @@ void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_vie
 		}
 		if ((int)TTF_GetFontSize(fallbackFont) != ptSize) {
 			TTF_SetFontSize(fallbackFont, (float)ptSize);
+		}
+		int fallbackHeight = TTF_GetFontHeight(fallbackFont);
+		// If the fallback font is oversized (e.g. fixed-size bitmap strikes like Noto Color Emoji with height 128),
+		// do NOT attach it directly to the base font. Attaching causes SDL3_ttf to expand the entire line and
+		// render 128px unscaled glyphs. Instead, oversized emoji fonts are scaled and rendered separately.
+		if (fallbackHeight > 0 && baseHeight > 0 && fallbackHeight > baseHeight * 1.5f) {
+			continue;
 		}
 		if (attachedFallbackIndices_[font].insert(fallbackIndex).second) {
 			TTF_AddFallbackFont(font, fallbackFont);
@@ -546,23 +701,53 @@ void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_vi
 	std::vector<std::string_view> lines;
 	SplitString(str, '\n', lines);
 
-	// INFO_LOG(Log::G3D, "Measuring string %.*s", STR_VIEW(str));
-
+	const int baseHeight = TTF_GetFontHeight(font);
 	int extW = 0, extH = 0;
 	std::string temp;
+
 	for (auto line : lines) {
-		int width = 0;
-		int height = 0;
 		if (line.empty()) {
-			// Measure empty lines as if it was a space.
 			line = " ";
 		}
-		temp = line;  // zero-terminate, ugh.
-		TTF_GetStringSize(font, temp.c_str(), temp.size(), &width, &height);
 
-		if (width > extW)
-			extW = width;
-		extH += height;
+		if (LineHasEmoji(line)) {
+			auto runs = SegmentLine(line);
+			int lineWidth = 0;
+			for (const auto &run : runs) {
+				int rw = 0, rh = 0;
+				if (!run.isEmoji) {
+					temp = run.text;
+					TTF_GetStringSize(font, temp.c_str(), temp.size(), &rw, &rh);
+					lineWidth += rw;
+				} else {
+					uint32_t firstCp = GetFirstCodepoint(run.text);
+					TTF_Font *emojiFont = FindEmojiFont(firstCp, ptSize);
+					if (emojiFont) {
+						temp = run.text;
+						TTF_GetStringSize(emojiFont, temp.c_str(), temp.size(), &rw, &rh);
+						int emojiH = TTF_GetFontHeight(emojiFont);
+						if (emojiH > baseHeight && baseHeight > 0) {
+							rw = (rw * baseHeight + emojiH / 2) / emojiH;
+						}
+					} else {
+						temp = run.text;
+						TTF_GetStringSize(font, temp.c_str(), temp.size(), &rw, &rh);
+					}
+					lineWidth += rw;
+				}
+			}
+			if (lineWidth > extW)
+				extW = lineWidth;
+			extH += baseHeight;
+		} else {
+			temp = line;
+			int width = 0;
+			int height = 0;
+			TTF_GetStringSize(font, temp.c_str(), temp.size(), &width, &height);
+			if (width > extW)
+				extW = width;
+			extH += height;
+		}
 	}
 
 	*w = (float)extW;
@@ -595,7 +780,6 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 	// If a string includes only newlines, SDL3_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that.
 	bool isAllNewline = processedStr.find_first_not_of('\n') == std::string::npos;
-
 	if (isAllNewline) {
 		processedStr.push_back(' ');
 	}
@@ -604,15 +788,132 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 	AttachFallbackFontsForString(font, processedStr, ptSize);
 	SetBidiDirection(font, reordered);
 
-	if (align & ALIGN_HCENTER)
-		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_CENTER);
-	else if (align & ALIGN_RIGHT)
-		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_RIGHT);
-	else
-		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_LEFT);
-
+	const int baseHeight = TTF_GetFontHeight(font);
 	SDL_Color fgColor = { 0xFF, 0xFF, 0xFF, 0xFF };
-	SDL_Surface *text = TTF_RenderText_Blended_Wrapped(font, processedStr.c_str(), processedStr.size(), fgColor, 0);
+	SDL_Surface *text = nullptr;
+
+	if (LineHasEmoji(processedStr)) {
+		std::vector<std::string_view> lines;
+		SplitString(processedStr, '\n', lines);
+
+		struct MeasuredLine {
+			std::vector<TextRun> runs;
+			std::vector<int> runWidths;
+			int totalWidth = 0;
+		};
+		std::vector<MeasuredLine> measuredLines(lines.size());
+		int maxLineWidth = 0;
+
+		for (size_t li = 0; li < lines.size(); ++li) {
+			auto line = lines[li];
+			if (line.empty()) {
+				line = " ";
+			}
+			auto runs = SegmentLine(line);
+			measuredLines[li].runs = runs;
+			for (const auto &run : runs) {
+				int rw = 0, rh = 0;
+				if (!run.isEmoji) {
+					std::string temp(run.text);
+					TTF_GetStringSize(font, temp.c_str(), temp.size(), &rw, &rh);
+				} else {
+					uint32_t firstCp = GetFirstCodepoint(run.text);
+					TTF_Font *emojiFont = FindEmojiFont(firstCp, ptSize);
+					if (emojiFont) {
+						std::string temp(run.text);
+						TTF_GetStringSize(emojiFont, temp.c_str(), temp.size(), &rw, &rh);
+						int emojiH = TTF_GetFontHeight(emojiFont);
+						if (emojiH > baseHeight && baseHeight > 0) {
+							rw = (rw * baseHeight + emojiH / 2) / emojiH;
+						}
+					} else {
+						std::string temp(run.text);
+						TTF_GetStringSize(font, temp.c_str(), temp.size(), &rw, &rh);
+					}
+				}
+				measuredLines[li].runWidths.push_back(rw);
+				measuredLines[li].totalWidth += rw;
+			}
+			if (measuredLines[li].totalWidth > maxLineWidth) {
+				maxLineWidth = measuredLines[li].totalWidth;
+			}
+		}
+
+		if (maxLineWidth <= 0)
+			maxLineWidth = 1;
+		int totalHeight = (int)lines.size() * baseHeight;
+		if (totalHeight <= 0)
+			totalHeight = 1;
+
+		text = SDL_CreateSurface(maxLineWidth, totalHeight, SDL_PIXELFORMAT_ARGB8888);
+		if (text) {
+			SDL_ClearSurface(text, 0.0f, 0.0f, 0.0f, 0.0f);
+			for (size_t li = 0; li < lines.size(); ++li) {
+				const auto &mline = measuredLines[li];
+				int startX = 0;
+				if (align & ALIGN_HCENTER) {
+					startX = (maxLineWidth - mline.totalWidth) / 2;
+				} else if (align & ALIGN_RIGHT) {
+					startX = maxLineWidth - mline.totalWidth;
+				}
+				int curX = startX;
+				int curY = (int)li * baseHeight;
+
+				for (size_t ri = 0; ri < mline.runs.size(); ++ri) {
+					const auto &run = mline.runs[ri];
+					int rw = mline.runWidths[ri];
+					if (!run.isEmoji) {
+						std::string temp(run.text);
+						SDL_Surface *s = TTF_RenderText_Blended(font, temp.c_str(), temp.size(), fgColor);
+						if (s) {
+							SDL_Rect dst = { curX, curY, s->w, s->h };
+							SDL_BlitSurface(s, NULL, text, &dst);
+							curX += s->w;
+							SDL_DestroySurface(s);
+						} else {
+							curX += rw;
+						}
+					} else {
+						uint32_t firstCp = GetFirstCodepoint(run.text);
+						TTF_Font *emojiFont = FindEmojiFont(firstCp, ptSize);
+						if (emojiFont) {
+							std::string temp(run.text);
+							SDL_Surface *s = TTF_RenderText_Blended(emojiFont, temp.c_str(), temp.size(), fgColor);
+							if (s) {
+								SDL_Rect dst = { curX, curY, rw, baseHeight };
+								SDL_BlitSurfaceScaled(s, NULL, text, &dst, SDL_SCALEMODE_LINEAR);
+								curX += rw;
+								SDL_DestroySurface(s);
+							} else {
+								curX += rw;
+							}
+						} else {
+							std::string temp(run.text);
+							SDL_Surface *s = TTF_RenderText_Blended(font, temp.c_str(), temp.size(), fgColor);
+							if (s) {
+								SDL_Rect dst = { curX, curY, s->w, s->h };
+								SDL_BlitSurface(s, NULL, text, &dst);
+								curX += s->w;
+								SDL_DestroySurface(s);
+							} else {
+								curX += rw;
+							}
+						}
+					}
+				}
+			}
+		}
+	} else {
+		if (align & ALIGN_HCENTER)
+			TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_CENTER);
+		else if (align & ALIGN_RIGHT)
+			TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_RIGHT);
+		else
+			TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_LEFT);
+
+		text = TTF_RenderText_Blended_Wrapped(font, processedStr.c_str(), processedStr.size(), fgColor, 0);
+	}
+
 	if (!text) {
 		ERROR_LOG(Log::G3D, "Failed to render SDL3_ttf text: %s", SDL_GetError());
 		return false;

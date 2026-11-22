@@ -34,6 +34,7 @@ private:
 	uint32_t CheckMissingGlyph(TTF_Font *font, std::string_view text);
 	int FindFallbackFonts(uint32_t missingGlyph, int ptSize);
 	void AttachFallbackFontsForString(TTF_Font *font, std::string_view text, int ptSize);
+	TTF_Font *FindEmojiFont(uint32_t emojiGlyph, int ptSize);
 
 	std::map<FontStyle, std::pair<TTF_Font *, uint8_t *>> fontMap_;
 
