@@ -1059,6 +1059,9 @@ bool FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
+	if (useBlit && draw_->GetBugs().Has(Draw::Bugs::RASTER_DEPTH_COPY_INEXACT)) {
+		useRaster = false;
+	}
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
 	if (useRaster) {
