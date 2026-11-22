@@ -892,14 +892,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
 				if (shaderDepalFmt == GE_FORMAT_565 || shaderDepalFmt == GE_FORMAT_5551) {
 					// The CPU checked that the CLUT is a ramp over the high byte's indices and that the index is the
-					// byte itself. Look it up at the byte's value before truncation, blue on top of green's top bits.
+					// byte itself. Look it up at the byte's average value under dithering, blue on top of green's top
+					// bits: each truncated field comes out half a step below its exact value on average.
 					p.C("  if ((u_depal_mask_shift_off_fmt & 0x40000000u) != 0u && component == 1) {\n");
 					if (shaderDepalFmt == GE_FORMAT_565) {
-						p.F("    %s float smoothIndex = t.z * 248.0 + t.y * (63.0 / 8.0);\n", prec);
+						// 8 * (blue / 8 - 0.5) + (green / 32 - 0.5), with the channels in 0-255.
+						p.F("    %s float smoothIndex = clamp(t.z * 255.0 + t.y * (255.0 / 32.0) - 4.5, 0.0, 255.0);\n", prec);
 						p.C("    int rampBase = 0;\n");
 						p.C("    int rampTop = 255;\n");
 					} else {
-						p.F("    %s float smoothIndex = t.z * 124.0 + t.y * (31.0 / 8.0);\n", prec);
+						// 4 * (blue / 8 - 0.5) + (green / 64 - 0.5).
+						p.F("    %s float smoothIndex = clamp(t.z * 127.5 + t.y * (255.0 / 64.0) - 2.5, 0.0, 127.0);\n", prec);
 						p.C("    int rampBase = index & 0x80;\n");
 						p.C("    int rampTop = 127;\n");
 					}
