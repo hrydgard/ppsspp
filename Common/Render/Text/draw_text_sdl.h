@@ -30,6 +30,12 @@ protected:
 	void ClearFonts() override;
 
 private:
+	struct TextRun {
+		std::string_view text;
+		TTF_Font *emojiFont;  // nullptr for text, drawn with the base font.
+		int width;
+	};
+
 	struct FallbackFontPath {
 		std::string path;
 		int faceIndex;
@@ -42,6 +48,7 @@ private:
 	TTF_Font *GetFallbackFont(int index, int ptSize);
 	TTF_Font *FindEmojiFont(uint32_t emojiGlyph, int ptSize);
 	void AttachFallbackFontsForString(TTF_Font *font, std::string_view text);
+	std::vector<TextRun> LayoutLine(TTF_Font *font, std::string_view line, int *lineWidth);
 
 	std::map<FontStyle, std::pair<TTF_Font *, uint8_t *>> fontMap_;
 
