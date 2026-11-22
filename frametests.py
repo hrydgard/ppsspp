@@ -64,13 +64,15 @@ STATUS_ERROR = "ERROR"
 def find_headless(config_dir, config_path):
     """Locate the PPSSPPHeadless binary. The config headlessPath wins, then
     the PPSSPP_HEADLESS env var, then candidate paths (newest by mtime)."""
-    candidates = []
     if config_path:
         p = Path(config_path)
-        candidates.append(p if p.is_absolute() else config_dir / p)
+        p = p if p.is_absolute() else config_dir / p
+        if p.is_file():
+            return p.resolve()
     env_path = os.environ.get("PPSSPP_HEADLESS")
-    if env_path:
-        candidates.append(Path(env_path))
+    if env_path and Path(env_path).is_file():
+        return Path(env_path).resolve()
+    candidates = []
     for pattern in HEADLESS_CANDIDATES:
         candidates.extend(Path(m) for m in glob.glob(pattern))
     found = [c.resolve() for c in candidates if c.is_file()]
