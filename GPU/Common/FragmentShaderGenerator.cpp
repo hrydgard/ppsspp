@@ -855,6 +855,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					p.C("  int component = int(uv_round.x) & 1;\n");
 					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
 				}
+				// When the CPU found that every pixel of the draw reads the same byte, use that. A center that error moves
+				// across the byte edge then reads the neighboring pixel's byte, which looks the same, not another channel.
+				p.C("  if ((u_depal_mask_shift_off_fmt & 0x08000000u) != 0u) {\n");
+				p.C("    component = int((u_depal_mask_shift_off_fmt >> 28u) & 3u);\n");
+				p.C("  }\n");
 				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
 				// The byte decodes below are exact in fp32, but the product rounding in fp16 makes 16 of 256 bytes come out one low.
 				p.F("  %s vec4 t = ", prec).SampleTexture2D("tex", "uv_round").C(";\n");
