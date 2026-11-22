@@ -188,7 +188,16 @@ python3 frametests.py frametests/frametests.json --adb
 ```
 
 The first run pushes the binary, `assets/` and the dumps to `/data/local/tmp/ppsspp-frametests`; later runs
-only push what changed. The variants default to `vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles
+only push what changed. With `--filter`, only the matching dumps are pushed, which is much quicker for a
+handful of dumps than the whole set (the frame dumps repo is around a gigabyte):
+
+```bash
+python3 frametests.py ../ppsspp-framedumps/frametests.json --adb=SERIAL --filter="silent hill"
+```
+
+`--filter` is a single case-insensitive substring of the dump's path, so a set that no one substring picks
+out takes one run per substring. Dumps already on the device from earlier runs stay there, and only those
+asked for run. `--ios` copies only the matching dumps in the same way. The variants default to `vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles
 --dump-compat`, and `--host-args` (default `--graphics=vulkan --dump-compat`) sets how the host renders its
 side. `--dump-compat` applies the game's `compat.ini` settings, which headless otherwise skips for dumps;
 without them some games look wrong on every backend (Coded Arms needs `AccurateSplines`). A failing test's diff image shows host, device and the
