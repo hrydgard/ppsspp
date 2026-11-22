@@ -2487,6 +2487,34 @@ static bool CanUseSmoothDepal(const GEState &gstate, GEBufferFormat framebufferF
 	return false;
 }
 
+static bool ClutRampCovers(const ClutTexture &clutTexture, int start, int length) {
+	for (int i = 0; i < ClutTexture::MAX_RAMPS; i++) {
+		if (clutTexture.rampStarts[i] == start && clutTexture.rampLengths[i] >= length) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// CLUT8 reading a 16-bit framebuffer: the high byte holds the top of blue and below it the top bits of green
+// (and in 5551, alpha above). If the CLUT is a smooth ramp over the indices that byte reaches, we can interpolate
+// it from the full-precision channels, standing in for the dither that smooths the steps on the PSP.
+// SOCOM FTB3 does this for a brightness pass over the screen.
+static bool CanUseSmoothClut8(const GEState &gstate, GEBufferFormat framebufferFormat, const ClutTexture &clutTexture) {
+	if (gstate.getClutIndexShift() != 0 || gstate.getClutIndexMask() != 0xFF || gstate.getClutIndexStartPos() != 0) {
+		return false;
+	}
+	switch (framebufferFormat) {
+	case GE_FORMAT_565:
+		return ClutRampCovers(clutTexture, 0, 256);
+	case GE_FORMAT_5551:
+		// The alpha bit picks a half, each of which has to be a ramp.
+		return ClutRampCovers(clutTexture, 0, 128) && ClutRampCovers(clutTexture, 128, 128);
+	default:
+		return false;
+	}
+}
+
 void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel) {
 	Draw2DPipeline *textureShader = nullptr;
 	const uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
@@ -2564,9 +2592,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			ApplySamplerByKey(samplerKey);
 
 			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
+			bool smoothClut8 = false;
 			if (texFormat == GE_TFMT_CLUT8) {
 				mode = ShaderDepalMode::CLUT8;
 				smoothedDepal = false;  // just in case
+				smoothClut8 = clutRenderAddress_ == 0xFFFFFFFF && CanUseSmoothClut8(gstate, fbFormat, clutTexture);
 				// The shader picks the byte out of each pixel in PSP units, which it gets from u_texclamp.
 				gstate_c.SetNeedShaderTexclamp(true);
 			} else if (smoothedDepal) {
@@ -2575,6 +2605,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 			gstate_c.Dirty(DIRTY_DEPAL | DIRTY_FRAGMENTSHADER_STATE);
 			gstate_c.SetShaderDepal(mode, fbFormat);
+			gstate_c.depalSmoothClut8 = smoothClut8;
 
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;

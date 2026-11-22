@@ -310,6 +310,9 @@ uint32_t PackDepalBits(bool pixelMapped) {
 		// Poke in a bilinear filter flag in the top bit.
 		val |= 0x80000000;
 	}
+	if (gstate_c.shaderDepalMode == ShaderDepalMode::CLUT8 && gstate_c.depalSmoothClut8) {
+		val |= 0x40000000;
+	}
 	return val;
 }
 
