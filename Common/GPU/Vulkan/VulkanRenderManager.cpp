@@ -1364,10 +1364,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		} else if (depthLoad == VKRRenderPassLoadAction::DONT_CARE) {
 			depthLoad = stencilLoad;
 		} else if (stencilLoad == VKRRenderPassLoadAction::CLEAR) {
-			depthLoad = stencilLoad;
+			// Depth is KEEP: keep both, and clear the stencil in the pass. Clearing both wiped the depth that the
+			// stencil upload (StencilFromAlpha) keeps, and Silent Hill: Shattered Memories' flashlight, an EQUAL
+			// redraw over it, then failed everywhere on Mali.
+			stencilLoad = depthLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 		} else if (depthLoad == VKRRenderPassLoadAction::CLEAR) {
-			stencilLoad = depthLoad;
+			depthLoad = stencilLoad;
 			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 		}
 	}
@@ -1431,7 +1434,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		}
 	}
 
-	if (colorLoad == VKRRenderPassLoadAction::CLEAR || depthLoad == VKRRenderPassLoadAction::CLEAR || stencilLoad == VKRRenderPassLoadAction::CLEAR) {
+	if (colorLoad == VKRRenderPassLoadAction::CLEAR || depthLoad == VKRRenderPassLoadAction::CLEAR || stencilLoad == VKRRenderPassLoadAction::CLEAR || lateClearMask != 0) {
 		curRenderArea_.SetRect(0, 0, curWidth_, curHeight_);
 	}
 
