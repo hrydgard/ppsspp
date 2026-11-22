@@ -171,6 +171,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		shading = doFlatShading ? "flat" : "";
 	}
+	// With GPU_USE_SCREEN_LINEAR_COLOR, colors and fog come scaled by w, with w in v_fogdepth.y (see the vertex
+	// shader generator). In GLSL, the varyings can't be overwritten, so the unscaled values go in these.
+	const bool screenLinear = gstate_c.Use(GPU_USE_SCREEN_LINEAR_COLOR);
+	const bool unscaleLocals = screenLinear && compat.shaderLanguage != HLSL_D3D11;
+	const char *color0Name = unscaleLocals ? "vcolor0" : "v_color0";
+	const char *color1Name = unscaleLocals ? "vcolor1" : "v_color1";
+	const char *fogName = unscaleLocals ? "vfogdepth" : "v_fogdepth";
 
 
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
@@ -233,11 +240,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Note: the precision qualifiers must match the vertex shader!
 		// Centroid, matching the vertex shader.
 		const char *colorQualifier = *shading ? shading : "centroid";
-		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", colorQualifier);
+		const char *colorPrecision = screenLinear ? "highp" : "lowp";
+		WRITE(p, "layout (location = 1) %s in %s vec4 v_color0;\n", colorQualifier, colorPrecision);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", colorQualifier);
+			WRITE(p, "layout (location = 2) %s in %s vec3 v_color1;\n", colorQualifier, colorPrecision);
 		}
-		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
+		WRITE(p, "layout (location = 3) in highp %s v_fogdepth;\n", screenLinear ? "vec2" : "float");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) centroid in highp vec3 v_texcoord;\n");
 		}
@@ -304,7 +312,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1: COLOR1;\n");
 		}
-		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  %s v_fogdepth: TEXCOORD1;\n", screenLinear ? "vec2" : "float");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
@@ -421,15 +429,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Varyings
 
-		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
+		const char *colorPrecision = screenLinear ? "highp" : "lowp";
+		WRITE(p, "%s %s %s vec4 v_color0;\n", shading, compat.varying_fs, colorPrecision);
 		if (lmode) {
-			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+			WRITE(p, "%s %s %s vec3 v_color1;\n", shading, compat.varying_fs, colorPrecision);
 		}
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
 		}
-		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
+		if (screenLinear) {
+			WRITE(p, "%s highp vec2 v_fogdepth;\n", compat.varying_fs);
+		} else {
+			WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
+		}
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
@@ -522,7 +535,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "void main() {\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11) {
+	if (screenLinear) {
+		// w is 1 where the vertex shader didn't scale.
+		const char *in = compat.shaderLanguage == HLSL_D3D11 ? "In." : "";
+		const char *scale = doFlatShading ? "" : " * invW";
+		WRITE(p, "  highp float invW = 1.0 / %sv_fogdepth.y;\n", in);
+		WRITE(p, "  lowp vec4 %s = %sv_color0%s;\n", color0Name, in, scale);
+		if (lmode) {
+			WRITE(p, "  lowp vec3 %s = %sv_color1%s;\n", color1Name, in, scale);
+		}
+		if (enableFog) {
+			WRITE(p, "  highp float %s = %sv_fogdepth.x * invW;\n", fogName, in);
+		}
+	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
@@ -530,6 +555,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
 		}
+	}
+
+	if (compat.shaderLanguage == HLSL_D3D11) {
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -563,12 +591,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  vec4 v = v_color0;\n");
+		WRITE(p, "  vec4 v = %s;\n", color0Name);
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+			WRITE(p, "  vec4 s = vec4(%s, 0.0);\n", color1Name);
 			secondary = " + s";
 		}
 
@@ -929,7 +957,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			}
 
-			WRITE(p, "  vec4 p = v_color0;\n");
+			WRITE(p, "  vec4 p = %s;\n", color0Name);
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
 				WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
@@ -974,11 +1002,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0%s;\n", secondary);
+			WRITE(p, "  vec4 v = %s%s;\n", color0Name, secondary);
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(%s, 0.0, 1.0);\n", fogName);
 			WRITE(p, "  v.rgb = mix(u_fogcolor, v.rgb, fogCoef);\n");
 		}
 

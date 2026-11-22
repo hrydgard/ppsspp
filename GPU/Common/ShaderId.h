@@ -69,7 +69,9 @@ enum VShaderBit : uint8_t {
 	VS_BIT_SIMPLE_STEREO = 51,
 	// With lighting, a vertex can have colors lit on the CPU instead (DecVtxFormat::cpuLit).
 	VS_BIT_CPU_LIT = 52,
-	// bits 53-63 are free.
+	// Colors and fog scaled by w for screen-linear interpolation (GPU_USE_SCREEN_LINEAR_COLOR).
+	VS_BIT_SCREEN_LINEAR = 53,
+	// bits 54-63 are free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {

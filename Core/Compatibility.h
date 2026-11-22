@@ -129,6 +129,7 @@ struct CompatFlags {
 	bool FileCreatedTimeHack;
 	bool FastEmulatedGPU;
 	bool CorrectCullAfterClip;
+	bool ScreenLinearColors;
 	float SpriteBorderFix;
 	bool TextureCLUTInShader;
 	bool DisableRangeCulling;

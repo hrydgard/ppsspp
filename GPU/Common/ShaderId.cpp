@@ -70,6 +70,7 @@ std::string VShaderID::Description(bool includeID) const {
 	if (Bit(VS_BIT_SIMPLE_STEREO)) desc.C("SimpleStereo ");
 	if (Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc.C("RangeCull ");
 	if (Bit(VS_BIT_CPU_LIT)) desc.C("CpuLit ");
+	if (Bit(VS_BIT_SCREEN_LINEAR)) desc.C("ScreenLinear ");
 
 	return desc.as_string();
 }
@@ -167,6 +168,8 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
+	// NoNearClip is only set with GPU_USE_SCREEN_LINEAR_COLOR.
+	id.SetBit(VS_BIT_SCREEN_LINEAR, useHWTransform && !isModeThrough && (clipInfoFlags & ClipInfoFlags::NoNearClip) != 0);
 
 	// These two bits cannot be combined, otherwise havoc occurs. We get reports that indicate this happened somehow... "ERROR: 0:14: 'u_proj' : undeclared identifier"
 	_dbg_assert_msg_(!id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
