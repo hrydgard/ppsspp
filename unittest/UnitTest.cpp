@@ -147,7 +147,9 @@
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
 #include "Common/Render/Text/draw_text.h"
-#if defined(USE_SDL3_TTF)
+// On Mac, USE_SDL3_TTF is defined but the Cocoa drawer is used, and draw_text_sdl.cpp isn't built.
+#if defined(USE_SDL3_TTF) && !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
+#define HAVE_TEXT_DRAWER_SDL
 #include "Common/Render/Text/draw_text_sdl.h"
 #endif
 #include "Common/Net/Resolve.h"
@@ -4615,7 +4617,7 @@ bool TestTextDrawerCache() {
 }
 
 bool TestTextDrawerSDL() {
-#if defined(USE_SDL3_TTF)
+#if defined(HAVE_TEXT_DRAWER_SDL)
 	bool registeredAssets = false;
 	if (!g_VFS.Exists("Roboto_Condensed-Regular.ttf")) {
 		Path candidates[] = {
