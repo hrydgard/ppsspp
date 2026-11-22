@@ -388,6 +388,14 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 			addFallbackUnique(std::make_pair(std::string(standardFontPaths[i]), 0), true);
 		}
 	}
+
+	const bool haveEmojiFont = std::any_of(fallbackFontPaths_.begin(), fallbackFontPaths_.end(), [](const FallbackFontPath &fallback) {
+		return fallback.emoji;
+	});
+	if (!haveEmojiFont) {
+		WARN_LOG(Log::G3D, "No emoji font found, emoji will show as boxes. Install one, like Noto Color Emoji: "
+			"fonts-noto-color-emoji on Debian/Ubuntu, google-noto-color-emoji-fonts on Fedora, noto-fonts-emoji on Arch.");
+	}
 }
 
 // Characters that stay in the emoji run they follow: the zero width joiner, variation selectors, the
