@@ -520,6 +520,9 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	}
 
 	ClipInfoFlags flags = ClipInfoFlags::Valid;
+	if (gstate_c.Use(GPU_USE_SCREEN_LINEAR_COLOR) && !AnyCompareBitsSet(anyBehindNear)) {
+		flags |= ClipInfoFlags::NoNearClip;
+	}
 
 	// If the W=-Z plane was intersected, here we can go through the vertices again, and check for X/Y bounds for range culling.
 	// However! We need to find a valid way to do so by "backprojecting" the range culling into clip space, which may be a little tricky.

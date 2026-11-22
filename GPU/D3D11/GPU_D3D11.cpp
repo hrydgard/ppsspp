@@ -78,6 +78,11 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 GPU_D3D11::~GPU_D3D11() {}
 
+u32 GPU_D3D11::CheckGPUFeatures() const {
+	// Nothing D3D11-specific, but the late features (the depth rounding compat flags) apply here too.
+	return CheckGPUFeaturesLate(GPUCommonHW::CheckGPUFeatures());
+}
+
 void GPU_D3D11::DeviceLost() {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	// Simply drop all caches and textures.
