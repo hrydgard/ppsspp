@@ -100,6 +100,7 @@
 #include "Core/HW/StereoResampler.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -146,6 +147,9 @@
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
 #include "Common/Render/Text/draw_text.h"
+#if defined(USE_SDL3_TTF)
+#include "Common/Render/Text/draw_text_sdl.h"
+#endif
 #include "Common/Net/Resolve.h"
 
 #include "unittest/JitHarness.h"
@@ -4610,6 +4614,50 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
+bool TestTextDrawerSDL() {
+#if defined(USE_SDL3_TTF)
+	bool registeredAssets = false;
+	if (!g_VFS.Exists("Roboto_Condensed-Regular.ttf")) {
+		Path candidates[] = {
+			Path("assets"),
+			Path("../assets"),
+			File::GetExeDirectory() / "assets",
+			File::GetExeDirectory() / "../assets",
+		};
+		for (const auto &cand : candidates) {
+			if (File::Exists(cand / "Roboto_Condensed-Regular.ttf")) {
+				g_VFS.Register("", new DirectoryReader(cand));
+				registeredAssets = true;
+				break;
+			}
+		}
+	}
+
+	TextDrawerSDL drawer(nullptr);
+	EXPECT_TRUE(drawer.SupportsColorEmoji());
+
+	const FontStyle font(FontFamily::SansSerif, 20, FontStyleFlags::Default);
+	float w = 0, h = 0;
+	std::string testStr = "Test \xF0\x9F\x90\x9B\xF0\x9F\x90\x9C\xF0\x9F\xA4\x94"; // 🐛🐜🤔
+	drawer.MeasureString(font, 1.0f, 1.0f, testStr, &w, &h);
+	EXPECT_TRUE(w > 0.0f);
+	EXPECT_TRUE(h > 0.0f);
+
+	std::vector<uint8_t> bitmapData;
+	TextStringEntry entry(0);
+	bool success = drawer.DrawStringBitmapRect(font, 1.0f, bitmapData, entry, Draw::DataFormat::R8G8B8A8_UNORM, testStr, Bounds(0, 0, w, h), 0, true);
+	EXPECT_TRUE(success);
+	EXPECT_TRUE(!bitmapData.empty());
+	EXPECT_TRUE(entry.bmWidth > 0);
+	EXPECT_TRUE(entry.bmHeight > 0);
+
+	if (registeredAssets) {
+		g_VFS.Clear();
+	}
+#endif
+	return true;
+}
+
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -5177,6 +5225,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UIFlowLayout),
 	TEST_ITEM(UITextEdit),
 	TEST_ITEM(TextDrawerCache),
+	TEST_ITEM(TextDrawerSDL),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(UmdDiscType),

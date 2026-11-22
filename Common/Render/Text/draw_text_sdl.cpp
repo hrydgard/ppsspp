@@ -143,6 +143,7 @@ TextDrawerSDL::TextDrawerSDL(Draw::DrawContext *draw): TextDrawer(draw) {
 #endif
 
 	PrepareFallbackFonts(getlocale());
+	fallbackFonts_.assign(fallbackFontPaths_.size(), nullptr);
 }
 
 TextDrawerSDL::~TextDrawerSDL() {
@@ -160,8 +161,77 @@ TextDrawerSDL::~TextDrawerSDL() {
 
 // If a user complains about missing characters on SDL, re-visit this!
 void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
+	auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate) {
+		for (const auto &existing : fallbackFontPaths_) {
+			if (existing.first == candidate.first && existing.second == candidate.second) {
+				return;
+			}
+		}
+		fallbackFontPaths_.push_back(candidate);
+	};
+
 #if defined(USE_SDL3_TTF_FONTCONFIG)
 	FcObjectSet *os = FcObjectSetBuild (FC_FILE, FC_INDEX, (char *) 0);
+
+	// Standard color and symbol emoji font names across Linux/FreeBSD/OpenBSD/NetBSD.
+	const char *emojiNames[] = {
+		"Noto Color Emoji",
+		"Twemoji",
+		"Twitter Color Emoji",
+		"OpenMoji",
+		"OpenMoji Color",
+		"OpenMoji Black",
+		"JoyPixels",
+		"EmojiOne",
+		"EmojiOne Color",
+		"EmojiOne Mozilla",
+		"Apple Color Emoji",
+		"Segoe UI Emoji",
+		"Noto Emoji",
+		"Symbola",
+	};
+
+	// Query known emoji font families first with FcFontList so color emoji fonts are prioritized
+	for (size_t i = 0; i < ARRAY_SIZE(emojiNames); i++) {
+		FcPattern *name = FcNameParse((const FcChar8 *)emojiNames[i]);
+		FcFontSet *foundFonts = FcFontList(config, name, os);
+		for (int j = 0; foundFonts && j < foundFonts->nfont; ++j) {
+			FcPattern *font = foundFonts->fonts[j];
+			FcChar8 *path = nullptr;
+			int fontIndex = 0;
+			if (FcPatternGetInteger(font, FC_INDEX, 0, &fontIndex) != FcResultMatch) {
+				fontIndex = 0;
+			}
+			if (FcPatternGetString(font, FC_FILE, 0, &path) == FcResultMatch && path) {
+				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex));
+			}
+		}
+		if (foundFonts) {
+			FcFontSetDestroy(foundFonts);
+		}
+		FcPatternDestroy(name);
+	}
+
+	// Also query fontconfig's "emoji" generic family to match any custom system-configured emoji font.
+	FcPattern *emojiPattern = FcNameParse((const FcChar8 *)"emoji");
+	if (emojiPattern) {
+		FcConfigSubstitute(config, emojiPattern, FcMatchPattern);
+		FcDefaultSubstitute(emojiPattern);
+		FcResult res;
+		FcPattern *matched = FcFontMatch(config, emojiPattern, &res);
+		if (matched) {
+			FcChar8 *path = nullptr;
+			int fontIndex = 0;
+			if (FcPatternGetInteger(matched, FC_INDEX, 0, &fontIndex) != FcResultMatch) {
+				fontIndex = 0;
+			}
+			if (FcPatternGetString(matched, FC_FILE, 0, &path) == FcResultMatch && path) {
+				addFallbackUnique(std::make_pair(std::string((const char *)path), fontIndex));
+			}
+			FcPatternDestroy(matched);
+		}
+		FcPatternDestroy(emojiPattern);
+	}
 
 	// To install the recommended Droid Sans fallback font in Ubuntu:
 	// sudo apt install fonts-droid-fallback
@@ -202,14 +272,11 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	}
 
 	// Then push all the hardcoded ones.
-	for (int i = 0; i < ARRAY_SIZE(hardcodedNames); i++) {
+	for (size_t i = 0; i < ARRAY_SIZE(hardcodedNames); i++) {
 		names.push_back(hardcodedNames[i]);
 	}
 
-	// First, add the region-specific Noto fonts according to the locale.
-
-	for (int i = 0; i < names.size(); i++) {
-		// printf("trying font name %s\n", names[i]);
+	for (size_t i = 0; i < names.size(); i++) {
 		FcPattern *name = FcNameParse((const FcChar8 *)names[i]);
 		FcPatternAddInteger(name, FC_WEIGHT, FC_WEIGHT_NORMAL);
 		FcPatternAddInteger(name, FC_SLANT, FC_SLANT_ROMAN);
@@ -242,15 +309,6 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 			}
 		}
 
-		auto addFallbackUnique = [&](const std::pair<std::string, int> &candidate) {
-			for (const auto &existing : fallbackFontPaths_) {
-				if (existing.first == candidate.first && existing.second == candidate.second) {
-					return;
-				}
-			}
-			fallbackFontPaths_.push_back(candidate);
-		};
-
 		for (const auto &candidate : preferredFonts) {
 			addFallbackUnique(candidate);
 		}
@@ -276,6 +334,7 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 	};
 
 	const char *fallbackFonts[] = {
+		"Apple Color Emoji.ttc",
 		"Hiragino Sans GB.ttc",
 		"PingFang.ttc",
 		"PingFang SC.ttc",
@@ -293,16 +352,42 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 				TTF_Font *openedFont = TTF_OpenFont(fontPath.ToString().c_str(), 24.0f);
 				int numFaces = TTF_GetNumFontFaces(openedFont);
 				for (int k = 0; k < numFaces; k++) {
-					fallbackFontPaths_.push_back(std::make_pair(fontPath.ToString(), k));
+					addFallbackUnique(std::make_pair(fontPath.ToString(), k));
 				}
 				TTF_CloseFont(openedFont);
 			}
 		}
 	}
-#else
-	// We don't have a fallback font for this platform.
-	// Unsupported characters will be rendered as squares.
 #endif
+
+	// Direct filesystem fallback paths for Linux, FreeBSD, OpenBSD, NetBSD
+	const char *standardFontPaths[] = {
+		// Linux
+		"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+		"/usr/share/fonts/google-noto-color-emoji/NotoColorEmoji.ttf",
+		"/usr/share/fonts/noto-color-emoji/NotoColorEmoji.ttf",
+		"/usr/share/fonts/noto-emoji/NotoColorEmoji.ttf",
+		"/usr/share/fonts/twemoji/Twemoji.ttf",
+		"/usr/share/fonts/twemoji-color/Twemoji.ttf",
+		"/usr/share/fonts/openmoji/OpenMoji-Color.ttf",
+		"/usr/share/fonts/truetype/ancient-scripts/Symbola_hint.ttf",
+		"/usr/share/fonts/truetype/ancient-scripts/Symbola.ttf",
+		// FreeBSD
+		"/usr/local/share/fonts/noto/NotoColorEmoji.ttf",
+		"/usr/local/share/fonts/twemoji/Twemoji.ttf",
+		"/usr/local/share/fonts/Symbola/Symbola.ttf",
+		// OpenBSD
+		"/usr/local/share/fonts/noto/NotoColorEmoji.ttf",
+		"/usr/local/share/fonts/Symbola.ttf",
+		// NetBSD
+		"/usr/pkg/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+		"/usr/pkg/share/fonts/noto/NotoColorEmoji.ttf",
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(standardFontPaths); i++) {
+		if (File::Exists(Path(standardFontPaths[i]))) {
+			addFallbackUnique(std::make_pair(std::string(standardFontPaths[i]), 0));
+		}
+	}
 }
 
 uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text) {
@@ -311,16 +396,37 @@ uint32_t TextDrawerSDL::CheckMissingGlyph(TTF_Font *font, std::string_view text)
 	}
 	UTF8 utf8Decoded(text);
 
-	uint32_t missingGlyph = 0;
+	auto attachedIter = attachedFallbackIndices_.find(font);
+
 	while (!utf8Decoded.end()) {
 		uint32_t glyph = utf8Decoded.next();
-		if (!TTF_FontHasGlyph(font, glyph)) {
-			missingGlyph = glyph;
-			break;
+		if (TTF_FontHasGlyph(font, glyph)) {
+			continue;
+		}
+
+		auto cacheIter = glyphFallbackFontIndex_.find(glyph);
+		if (cacheIter != glyphFallbackFontIndex_.end() && cacheIter->second == -1) {
+			// Already known that no fallback font can satisfy this glyph.
+			continue;
+		}
+
+		bool foundInAttached = false;
+		if (attachedIter != attachedFallbackIndices_.end()) {
+			for (int idx : attachedIter->second) {
+				if (idx >= 0 && idx < (int)fallbackFonts_.size() && fallbackFonts_[idx]) {
+					if (TTF_FontHasGlyph(fallbackFonts_[idx], glyph)) {
+						foundInAttached = true;
+						break;
+					}
+				}
+			}
+		}
+		if (!foundInAttached) {
+			return glyph;
 		}
 	}
 
-	return missingGlyph;
+	return 0;
 }
 
 // If this returns >= 0, the nth font in fallbackFonts_ can be used as a fallback.
@@ -330,29 +436,28 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 		return iter->second;
 	}
 
-	// If we encounter a missing glyph, try to use one of already loaded fallback fonts.
-	for (int i = 0; i < fallbackFonts_.size(); i++) {
+	// First, check already opened fallback fonts.
+	for (size_t i = 0; i < fallbackFonts_.size(); i++) {
 		TTF_Font *fallbackFont = fallbackFonts_[i];
-		if (TTF_FontHasGlyph(fallbackFont, missingGlyph)) {
-			glyphFallbackFontIndex_[missingGlyph] = i;
-			return i;
+		if (fallbackFont && TTF_FontHasGlyph(fallbackFont, missingGlyph)) {
+			glyphFallbackFontIndex_[missingGlyph] = (int)i;
+			return (int)i;
 		}
 	}
 
 	// If none of the loaded fonts can handle it, load more fonts.
-	// TODO: Don't retry already tried fonts.
-	for (int i = 0; i < fallbackFontPaths_.size(); i++) {
-		std::string& fontPath = fallbackFontPaths_[i].first;
-		int faceIndex = fallbackFontPaths_[i].second;
+	for (size_t i = 0; i < fallbackFontPaths_.size(); i++) {
+		if (fallbackFonts_[i] == nullptr) {
+			const std::string &fontPath = fallbackFontPaths_[i].first;
+			int faceIndex = fallbackFontPaths_[i].second;
 
-		TTF_Font *font = OpenFontFace(fontPath, static_cast<float>(ptSize), faceIndex);
-
-		if (font && TTF_FontHasGlyph(font, missingGlyph)) {
-			fallbackFonts_.push_back(font);
-			return fallbackFonts_.size() - 1;
-		} else {
+			TTF_Font *font = OpenFontFace(fontPath, static_cast<float>(ptSize), faceIndex);
 			if (font) {
-				TTF_CloseFont(font);
+				fallbackFonts_[i] = font;
+				if (TTF_FontHasGlyph(font, missingGlyph)) {
+					glyphFallbackFontIndex_[missingGlyph] = (int)i;
+					return (int)i;
+				}
 			}
 		}
 	}
@@ -360,6 +465,33 @@ int TextDrawerSDL::FindFallbackFonts(uint32_t missingGlyph, int ptSize) {
 	// Not found at all? Let's remember that for this glyph.
 	glyphFallbackFontIndex_[missingGlyph] = -1;
 	return -1;
+}
+
+void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_view text, int ptSize) {
+	if (!font || text.empty()) {
+		return;
+	}
+
+	std::set<uint32_t> triedGlyphs;
+	while (uint32_t missingGlyph = CheckMissingGlyph(font, text)) {
+		if (!triedGlyphs.insert(missingGlyph).second) {
+			break;
+		}
+		int fallbackIndex = FindFallbackFonts(missingGlyph, ptSize);
+		if (fallbackIndex < 0 || fallbackIndex >= (int)fallbackFonts_.size()) {
+			continue;
+		}
+		TTF_Font *fallbackFont = fallbackFonts_[fallbackIndex];
+		if (!fallbackFont) {
+			continue;
+		}
+		if ((int)TTF_GetFontSize(fallbackFont) != ptSize) {
+			TTF_SetFontSize(fallbackFont, (float)ptSize);
+		}
+		if (attachedFallbackIndices_[font].insert(fallbackIndex).second) {
+			TTF_AddFallbackFont(font, fallbackFont);
+		}
+	}
 }
 
 void TextDrawerSDL::EnsureFont(const FontStyle &style) {
@@ -407,15 +539,8 @@ void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_vi
 		str = reorderedStr;
 	}
 
-	uint32_t missingGlyph = CheckMissingGlyph(font, str);
-
-	if (missingGlyph) {
-		const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
-		const int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
-			font = fallbackFonts_[fallbackFont];
-		}
-	}
+	const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
+	AttachFallbackFontsForString(font, str, ptSize);
 	SetBidiDirection(font, reordered);
 
 	std::vector<std::string_view> lines;
@@ -445,8 +570,6 @@ void TextDrawerSDL::MeasureStringInternal(const FontStyle &style, std::string_vi
 }
 
 bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, std::string_view str, int align, bool fullColor) {
-	_dbg_assert_(!fullColor)
-
 	if (str.empty()) {
 		bitmapData.clear();
 		return false;
@@ -477,15 +600,8 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 		processedStr.push_back(' ');
 	}
 
-	uint32_t missingGlyph = CheckMissingGlyph(font, processedStr);
-
-	if (missingGlyph) {
-		const int ptSize = static_cast<int>(TTF_GetFontSize(font));
-		int fallbackFont = FindFallbackFonts(missingGlyph, ptSize);
-		if (fallbackFont >= 0 && fallbackFont < (int)fallbackFonts_.size()) {
-			font = fallbackFonts_[fallbackFont];
-		}
-	}
+	const int ptSize = static_cast<int>(TTF_GetFontSize(font));
+	AttachFallbackFontsForString(font, processedStr, ptSize);
 	SetBidiDirection(font, reordered);
 
 	if (align & ALIGN_HCENTER)
@@ -513,23 +629,45 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 	uint32_t *imageData = (uint32_t *)text->pixels;
 	uint32_t pitch = text->pitch / sizeof(uint32_t);
 
-	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+	if (texFormat == Draw::DataFormat::R8G8B8A8_UNORM || texFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint32_t));
+		bool swap = texFormat == Draw::DataFormat::R8G8B8A8_UNORM;
+		uint32_t *bitmapData32 = (uint32_t *)&bitmapData[0];
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
+				if (x < text->w) {
+					uint32_t v = imageData[pitch * y + x];
+					if (fullColor) {
+						if (swap)
+							v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
+						bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(v);
+					} else {
+						bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(v >> 24);
+					}
+				} else {
+					bitmapData32[entry.bmWidth * y + x] = 0;
+				}
+			}
+		}
+	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 
-		for (int x = 0; x < entry.bmWidth; x++) {
-			for (int y = 0; y < entry.bmHeight; y++) {
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
 				const uint64_t index = entry.bmWidth * y + x;
-				const u16 alpha = AlphaToPremul4444(imageData[pitch * y + x] >> 24);
+				const u16 alpha = (x < text->w) ? AlphaToPremul4444(imageData[pitch * y + x] >> 24) : 0;
 				bitmapData16[index] = alpha;
 			}
 		}
 	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight);
-		for (int x = 0; x < entry.bmWidth; x++) {
-			for (int y = 0; y < entry.bmHeight; y++) {
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
 				uint64_t index = entry.bmWidth * y + x;
-				bitmapData[index] = imageData[pitch * y + x] >> 24;
+				bitmapData[index] = (x < text->w) ? (imageData[pitch * y + x] >> 24) : 0;
 			}
 		}
 	} else {
@@ -544,6 +682,7 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 void TextDrawerSDL::ClearFonts() {
 	for (auto iter : fontMap_) {
 		if (iter.second.first) {
+			TTF_ClearFallbackFonts(iter.second.first);
 			TTF_CloseFont(iter.second.first);
 		}
 		delete[] iter.second.second;
@@ -556,8 +695,9 @@ void TextDrawerSDL::ClearFonts() {
 
 	// We wipe all the maps, including fontMap_.
 	fontMap_.clear();
-	fallbackFonts_.clear();
+	fallbackFonts_.assign(fallbackFontPaths_.size(), nullptr);
 	glyphFallbackFontIndex_.clear();
+	attachedFallbackIndices_.clear();
 }
 
 #endif
