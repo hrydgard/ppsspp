@@ -100,6 +100,7 @@
 #include "Core/HW/StereoResampler.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Math/fast/fast_matrix.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -146,6 +147,11 @@
 #include "Common/File/AndroidContentURI.h"
 #include "Common/System/Request.h"
 #include "Common/Render/Text/draw_text.h"
+// On Mac, USE_SDL3_TTF is defined but the Cocoa drawer is used, and draw_text_sdl.cpp isn't built.
+#if defined(USE_SDL3_TTF) && !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
+#define HAVE_TEXT_DRAWER_SDL
+#include "Common/Render/Text/draw_text_sdl.h"
+#endif
 #include "Common/Net/Resolve.h"
 
 #include "unittest/JitHarness.h"
@@ -563,6 +569,23 @@ bool TestUtf8() {
 			EXPECT_TRUE(ReplaceInvalidUTF8(once) == once);
 		}
 	}
+
+	// Emoji detection, which picks color text rendering.
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x1F41B));  // bug
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x1F1EF));  // regional indicator J
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x231A));  // watch, first BMP range
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x2705));  // check mark button
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x2B55));  // circle, last BMP range
+	EXPECT_FALSE(CodepointIsProbablyEmoji('A'));
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2600));  // sun, text by default
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2713));  // check mark
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2B56));
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x20000));  // CJK extension B
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x1D400));  // mathematical bold A
+	EXPECT_TRUE(AnyEmojiInString("Hi \xF0\x9F\x90\x9B", 7));
+	EXPECT_TRUE(AnyEmojiInString("\xE2\x98\x80\xEF\xB8\x8F", 6));  // sun + U+FE0F
+	EXPECT_FALSE(AnyEmojiInString("\xE2\x98\x80 sun", 7));
+	EXPECT_FALSE(AnyEmojiInString("\xF0\xA0\x80\x80", 4));  // CJK extension B
 
 	return true;
 }
@@ -4610,6 +4633,55 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
+bool TestTextDrawerSDL() {
+#if defined(HAVE_TEXT_DRAWER_SDL)
+	bool registeredAssets = false;
+	if (!g_VFS.Exists("Roboto_Condensed-Regular.ttf")) {
+		Path candidates[] = {
+			Path("assets"),
+			Path("../assets"),
+			File::GetExeDirectory() / "assets",
+			File::GetExeDirectory() / "../assets",
+		};
+		for (const auto &cand : candidates) {
+			if (File::Exists(cand / "Roboto_Condensed-Regular.ttf")) {
+				g_VFS.Register("", new DirectoryReader(cand));
+				registeredAssets = true;
+				break;
+			}
+		}
+	}
+
+	TextDrawerSDL drawer(nullptr);
+	EXPECT_TRUE(drawer.SupportsColorEmoji());
+
+	const FontStyle font(FontFamily::SansSerif, 20, FontStyleFlags::Default);
+	float w = 0, h = 0;
+	std::string testStr = "Test \xF0\x9F\x90\x9B\xF0\x9F\x90\x9C\xF0\x9F\xA4\x94"; // 🐛🐜🤔
+	float textW = 0, textH = 0;
+	drawer.MeasureString(font, 1.0f, 1.0f, "Test", &textW, &textH);
+	drawer.MeasureString(font, 1.0f, 1.0f, testStr, &w, &h);
+	EXPECT_TRUE(w > 0.0f);
+	EXPECT_TRUE(h > 0.0f);
+	// Height of string with emoji must match the font character height, not inflated by oversized fallback font.
+	EXPECT_TRUE(h <= textH * 1.5f);
+
+	std::vector<uint8_t> bitmapData;
+	TextStringEntry entry(0);
+	bool success = drawer.DrawStringBitmapRect(font, 1.0f, bitmapData, entry, Draw::DataFormat::R8G8B8A8_UNORM, testStr, Bounds(0, 0, w, h), 0, true);
+	EXPECT_TRUE(success);
+	EXPECT_TRUE(!bitmapData.empty());
+	EXPECT_TRUE(entry.bmWidth > 0);
+	EXPECT_TRUE(entry.bmHeight > 0);
+	EXPECT_TRUE((float)entry.bmHeight <= textH * 1.5f);
+
+	if (registeredAssets) {
+		g_VFS.Clear();
+	}
+#endif
+	return true;
+}
+
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -5177,6 +5249,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UIFlowLayout),
 	TEST_ITEM(UITextEdit),
 	TEST_ITEM(TextDrawerCache),
+	TEST_ITEM(TextDrawerSDL),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(UmdDiscType),
