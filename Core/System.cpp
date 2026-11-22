@@ -120,8 +120,14 @@ static std::atomic<BootState> g_bootState = BootState::Off;
 static std::atomic<bool> g_loaderDone = false;
 static bool g_loaderFailed = false;
 
+static std::atomic<int> g_bootCount = 0;
+
 BootState PSP_GetBootState() {
 	return g_bootState;
+}
+
+int PSP_GetBootCount() {
+	return g_bootCount;
 }
 
 FileLoader *PSP_LoadedFile() {
@@ -983,6 +989,7 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		return BootState::Booting;
 	}
 
+	g_bootCount++;
 	g_bootState = BootState::Complete;
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 	return BootState::Complete;

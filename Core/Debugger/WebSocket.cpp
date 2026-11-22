@@ -203,7 +203,7 @@ void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
 void WebSocketDebuggerTick() {
 	// Poll unconditionally, even with nothing connected: these track transitions, and skipping them
 	// would let the "previous" state go stale and fire a bogus event at whoever connects next.
-	const std::string gameEvent = GameBroadcaster::PollChange();
+	const std::vector<std::string> gameEvents = GameBroadcaster::PollChange();
 	const std::string steppingEvent = SteppingBroadcaster::PollChange();
 
 	std::lock_guard<std::mutex> guard(g_sinkLock);
@@ -221,7 +221,7 @@ void WebSocketDebuggerTick() {
 				sink->Push("stepping", steppingPrime);
 			continue;
 		}
-		if (!gameEvent.empty())
+		for (const std::string &gameEvent : gameEvents)
 			sink->Push("game", gameEvent);
 		if (!steppingEvent.empty())
 			sink->Push("stepping", steppingEvent);
