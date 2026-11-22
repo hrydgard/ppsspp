@@ -418,10 +418,15 @@ std::vector<TextDrawerSDL::TextRun> TextDrawerSDL::LayoutLine(TTF_Font *font, st
 	while (!decoder.end()) {
 		const int start = decoder.byteIndex();
 		const uint32_t c = decoder.next();
+		// U+FE0F asks for emoji presentation of the character before it, U+FE0E for text.
+		const uint32_t selector = decoder.end() ? 0 : decoder.peek();
 		TTF_Font *emojiFont = nullptr;
 		if (!runs.empty() && runs.back().emojiFont && (afterJoiner || CodepointContinuesEmoji(c))) {
 			emojiFont = runs.back().emojiFont;
-		} else if (CodepointIsProbablyEmoji(c)) {
+		} else if (selector == 0xFE0F || (selector != 0xFE0E && CodepointIsProbablyEmoji(c))) {
+			emojiFont = FindEmojiFont(c, ptSize);
+		} else if (!TTF_FontHasGlyph(font, c) && FindFallbackFont(c, false, ptSize) < 0) {
+			// No font that can be attached has it, but an emoji font might.
 			emojiFont = FindEmojiFont(c, ptSize);
 		}
 		afterJoiner = c == 0x200D;
@@ -527,8 +532,8 @@ void TextDrawerSDL::AttachFallbackFontsForString(TTF_Font *font, std::string_vie
 	UTF8 decoder(text);
 	while (!decoder.end()) {
 		const uint32_t glyph = decoder.next();
-		// Emoji that an emoji font has are drawn in runs of their own, see LayoutLine.
-		if (TTF_FontHasGlyph(font, glyph) || (CodepointIsProbablyEmoji(glyph) && FindFallbackFont(glyph, true, ptSize) >= 0)) {
+		// Emoji are mostly drawn in runs of their own (see LayoutLine), but U+FE0E can put them in a text run.
+		if (TTF_FontHasGlyph(font, glyph)) {
 			continue;
 		}
 		bool covered = false;

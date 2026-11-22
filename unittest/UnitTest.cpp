@@ -570,6 +570,23 @@ bool TestUtf8() {
 		}
 	}
 
+	// Emoji detection, which picks color text rendering.
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x1F41B));  // bug
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x1F1EF));  // regional indicator J
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x231A));  // watch, first BMP range
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x2705));  // check mark button
+	EXPECT_TRUE(CodepointIsProbablyEmoji(0x2B55));  // circle, last BMP range
+	EXPECT_FALSE(CodepointIsProbablyEmoji('A'));
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2600));  // sun, text by default
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2713));  // check mark
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x2B56));
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x20000));  // CJK extension B
+	EXPECT_FALSE(CodepointIsProbablyEmoji(0x1D400));  // mathematical bold A
+	EXPECT_TRUE(AnyEmojiInString("Hi \xF0\x9F\x90\x9B", 7));
+	EXPECT_TRUE(AnyEmojiInString("\xE2\x98\x80\xEF\xB8\x8F", 6));  // sun + U+FE0F
+	EXPECT_FALSE(AnyEmojiInString("\xE2\x98\x80 sun", 7));
+	EXPECT_FALSE(AnyEmojiInString("\xF0\xA0\x80\x80", 4));  // CJK extension B
+
 	return true;
 }
 
