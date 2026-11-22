@@ -437,6 +437,16 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
 				}
 			}
+			if (bugs.Has(Draw::Bugs::ADRENO_DISCARD_DEPTH_REJECTED)) {
+				// Writing gl_FragDepth moves the depth test after the shader, where it works. Only for LESS and LEQUAL,
+				// the less common direction that fails: gl_FragCoord.z isn't always exactly the depth the draw would
+				// have written, which broke alpha tested GEQUAL text drawn over a dialog box in through mode.
+				const GEComparison func = gstate.getDepthTestFunction();
+				bool discards = (id.Bit(FS_BIT_ALPHA_TEST) || id.Bit(FS_BIT_COLOR_TEST)) && !id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
+				if (discards && (func == GE_COMP_LESS || func == GE_COMP_LEQUAL) && !IsDepthTestEffectivelyDisabled() && gstate.isDepthWriteEnabled()) {
+					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
+				}
+			}
 		}
 
 		// Various conditions that require per-pixel depth manipulation (very expensive!)

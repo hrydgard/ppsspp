@@ -1092,6 +1092,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		if (!turnip && deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000)
 			bugs_.Infest(Bugs::UNIFORM_INDEXING_BROKEN);
 
+		// A draw that can discard and writes depth gets rejected by the early depth test after one that tested
+		// the other way (GEQUAL, then LESS), though the depth buffer holds what it should. Hitman Reborn Battle
+		// Arena 2's HUD bars went missing. Seen on Adreno 630 with driver 415; the 506 is fine.
+		if (!turnip && deviceProps.deviceID >= 0x06000000 && deviceProps.deviceID < 0x07000000)
+			bugs_.Infest(Bugs::ADRENO_DISCARD_DEPTH_REJECTED);
+
 		// Trying to follow all the rules in https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 		// and https://registry.khronos.org/vulkan/specs/1.3/html/vkspec.html#renderpass-feedbackloop, but still it doesn't
 		// quite work - artifacts on triangle boundaries on Adreno.
