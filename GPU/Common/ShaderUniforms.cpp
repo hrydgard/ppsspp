@@ -277,10 +277,15 @@ void VRUpdateUniforms(UB_VS_FS_Base *base, UB_VS_VR *vr, uint64_t dirtyUniforms)
 	}
 }
 
-void DirtyDepalIfPixelMappedChanged(bool pixelMapped) {
-	if (gstate_c.shaderDepalMode != ShaderDepalMode::OFF && pixelMapped != gstate_c.depalPixelMapped) {
+void DirtyDepalForDraw(bool pixelMapped) {
+	// The locked byte only holds for the draw the software transform worked it out for. Through mode always goes
+	// through it, so a value left over from a culled draw can't reach a hardware transformed one.
+	const u8 lockedByte = gstate.isModeThrough() ? gstate_c.nextDepalLockedByte : 0;
+	gstate_c.nextDepalLockedByte = 0;
+	if (gstate_c.shaderDepalMode != ShaderDepalMode::OFF && (pixelMapped != gstate_c.depalPixelMapped || lockedByte != gstate_c.depalLockedByte)) {
 		gstate_c.Dirty(DIRTY_DEPAL);
 	}
+	gstate_c.depalLockedByte = lockedByte;
 }
 
 uint32_t PackDepalBits(bool pixelMapped) {
@@ -309,6 +314,15 @@ uint32_t PackDepalBits(bool pixelMapped) {
 	if (bilinear) {
 		// Poke in a bilinear filter flag in the top bit.
 		val |= 0x80000000;
+	}
+	if (gstate_c.shaderDepalMode == ShaderDepalMode::CLUT8) {
+		if (gstate_c.depalSmoothClut8) {
+			val |= 0x40000000;
+		}
+		if (gstate_c.depalLockedByte) {
+			// Bits 24-26 are the format.
+			val |= 0x08000000 | ((u32)(gstate_c.depalLockedByte - 1) << 28);
+		}
 	}
 	return val;
 }

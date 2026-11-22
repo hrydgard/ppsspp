@@ -131,7 +131,7 @@ bool GuessVRDrawingHUD(bool is2D, bool flatScreen);
 uint32_t PackLightControlBits();
 uint32_t PackDepalBits(bool pixelMapped);
 // Call before reading the dirty uniforms: the depal uniform depends on pixelMapped, which changes per draw.
-void DirtyDepalIfPixelMappedChanged(bool pixelMapped);
+void DirtyDepalForDraw(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 

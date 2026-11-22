@@ -855,6 +855,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					p.C("  int component = int(uv_round.x) & 1;\n");
 					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
 				}
+				// When the CPU found that every pixel of the draw reads the same byte, use that. A center that error moves
+				// across the byte edge then reads the neighboring pixel's byte, which looks the same, not another channel.
+				p.C("  if ((u_depal_mask_shift_off_fmt & 0x08000000u) != 0u) {\n");
+				p.C("    component = int((u_depal_mask_shift_off_fmt >> 28u) & 3u);\n");
+				p.C("  }\n");
 				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
 				// The byte decodes below are exact in fp32, but the product rounding in fp16 makes 16 of 256 bytes come out one low.
 				p.F("  %s vec4 t = ", prec).SampleTexture2D("tex", "uv_round").C(";\n");
@@ -885,7 +890,33 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					break;
 				}
 				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
-				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+				if (shaderDepalFmt == GE_FORMAT_565 || shaderDepalFmt == GE_FORMAT_5551) {
+					// The CPU checked that the CLUT is a ramp over the high byte's indices and that the index is the
+					// byte itself. Look it up at the byte's average value under dithering, blue on top of green's top
+					// bits: each truncated field comes out half a step below its exact value on average.
+					p.C("  if ((u_depal_mask_shift_off_fmt & 0x40000000u) != 0u && component == 1) {\n");
+					if (shaderDepalFmt == GE_FORMAT_565) {
+						// 8 * (blue / 8 - 0.5) + (green / 32 - 0.5), with the channels in 0-255.
+						p.F("    %s float smoothIndex = clamp(t.z * 255.0 + t.y * (255.0 / 32.0) - 4.5, 0.0, 255.0);\n", prec);
+						p.C("    int rampBase = 0;\n");
+						p.C("    int rampTop = 255;\n");
+					} else {
+						// 4 * (blue / 8 - 0.5) + (green / 64 - 0.5).
+						p.F("    %s float smoothIndex = clamp(t.z * 127.5 + t.y * (255.0 / 64.0) - 2.5, 0.0, 127.0);\n", prec);
+						p.C("    int rampBase = index & 0x80;\n");
+						p.C("    int rampTop = 127;\n");
+					}
+					p.C("    int index0 = int(smoothIndex);\n");
+					p.C("    int index1 = min(index0 + 1, rampTop);\n");
+					p.C("    vec4 c0 = ").LoadTexture2D("pal", "ivec2(rampBase + index0, 0)", 0).C(";\n");
+					p.C("    vec4 c1 = ").LoadTexture2D("pal", "ivec2(rampBase + index1, 0)", 0).C(";\n");
+					p.C("    t = mix(c0, c1, smoothIndex - float(index0));\n");
+					p.C("  } else {\n");
+					p.C("    t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+					p.C("  }\n");
+				} else {
+					p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+				}
 				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
 					// This mode samples one texel even when the game asks for bilinear filtering. The PSP's filter
 					// truncates (see the OFF case above), so over a smooth texture it comes out at about the nearest

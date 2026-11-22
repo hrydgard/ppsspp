@@ -138,12 +138,34 @@ static bool SpriteUPlaneShort(const TransformedVertex &a, const TransformedVerte
 	return !GESpriteUPlaneExact((int64_t)(left.x * 16.0f), top, (int64_t)(right.x * 16.0f), bottom, left.u / texW, right.u / texW);
 }
 
+// For a CLUT8 depal, which byte of each framebuffer pixel a through-mode sprite reads, or -1 if that varies across
+// it. It's the same everywhere when u steps by a whole number of pixels per pixel. Worked out like the shader does,
+// at a pixel center (u in texels, which are bytes).
+static int SpriteDepalByte(const TransformedVertex &a, const TransformedVertex &b, float uNudge, int bytesPerPixel, int xOffset) {
+	if ((a.x < b.x) != (a.y < b.y))
+		return -1;
+	const TransformedVertex &left = a.x <= b.x ? a : b;
+	const TransformedVertex &right = a.x <= b.x ? b : a;
+	const double width = (double)right.x - (double)left.x;
+	if (width <= 0.0)
+		return -1;
+	const double dudx = ((double)right.u - (double)left.u) / width;
+	if (dudx != floor(dudx) || fmod(dudx, (double)bytesPerPixel) != 0.0)
+		return -1;
+	const double centerX = floor((double)left.x) + 0.5;
+	const double u = (double)left.u + (centerX - (double)left.x) * dudx - (double)uNudge;
+	const int64_t byte = (int64_t)floor(floor(u * 16.0 + 0.015) / 16.0) + xOffset;
+	return (int)(((byte % bytesPerPixel) + bytesPerPixel) % bytesPerPixel);
+}
+
 SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	// These primitive are not handled.
 	_dbg_assert_(prim != GE_PRIM_KEEP_PREVIOUS && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_LINE_STRIP);
 
 	const bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	const bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
+	// Only ExpandRectangles sets this, for the draw it expands.
+	gstate_c.nextDepalLockedByte = 0;
 
 	TransformedVertex *transformed = params.transformed;
 	VertexReader reader(params.decoded, decVtxFormat, vertType);
@@ -1138,12 +1160,21 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	// little, 0.03 of the GE's 1/16 texel step, which the shader's truncation then follows.
 	const bool nudgeShortU = throughmode && gstate_c.shaderDepalMode == ShaderDepalMode::CLUT8;
 	const double texW = (double)gstate.getTextureWidth(0);
+	// Pixel centers on a byte edge also make the shader's byte choice fragile: interpolation error (worse at high
+	// render scales and on mobile GPUs) flips some to the other byte, which shows up as lines of wrong CLUT colors.
+	// When every pixel of the draw reads the same byte, tell the shader which.
+	const int depalBytesPerPixel = gstate_c.depalTextureFormat == GE_FORMAT_8888 ? 4 : 2;
+	int lockedByte = nudgeShortU ? -2 : -1;  // -2: no sprite yet.
 
 	int outVerts = 0;
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
 		const float uNudge = nudgeShortU && SpriteUPlaneShort(transVtxTL, transVtxBR, texW) ? 0.03f / 16.0f : 0.0f;
+		if (lockedByte != -1) {
+			const int spriteByte = SpriteDepalByte(transVtxTL, transVtxBR, uNudge, depalBytesPerPixel, gstate_c.curTextureXOffset);
+			lockedByte = (lockedByte == -2 || lockedByte == spriteByte) ? spriteByte : -1;
+		}
 
 		if (!throughmode && (outsideRange(transVtxTL) || outsideRange(transVtxBR))) {
 			continue;
@@ -1230,6 +1261,7 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	inds = newInds;
 	*pixelMappedExactly = pixelMapped || exactlyPixelMapped;
 	*drawIndexCount = indsOut - newInds;
+	gstate_c.nextDepalLockedByte = lockedByte >= 0 ? (u8)(lockedByte + 1) : 0;
 	return true;
 }
 

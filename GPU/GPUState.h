@@ -698,6 +698,12 @@ public:
 	GEBufferFormat depalTextureFormat;
 	// The pixelMapped that the depal uniform was last packed with (it turns bilinear depal off).
 	bool depalPixelMapped;
+	// CLUT8 depal from a 16-bit framebuffer: interpolate the CLUT for the high byte (see CanUseSmoothClut8).
+	bool depalSmoothClut8;
+	// CLUT8 depal: the byte of each pixel every pixel of the draw reads, plus one, or 0 when it varies (see
+	// ExpandRectangles). Next is set for the coming draw, and DirtyDepalForDraw moves it over.
+	u8 nextDepalLockedByte;
+	u8 depalLockedByte;
 
 	void SetShaderDepal(ShaderDepalMode mode, GEBufferFormat texFormat = {}) {
 		if (mode != shaderDepalMode || (mode != ShaderDepalMode::OFF && texFormat != depalTextureFormat)) {
