@@ -623,9 +623,9 @@ Verified against `ppsspp/` source. Key facts about how these strings surface:
 
 - **`External display`** — "External display"
   - Where: setting `g_Config.iExternalDisplay` (`Core/Config.cpp`, key `ExternalDisplay`), iOS/Android only when the device supports a second swapchain (TV/external screen) (`UI/Settings/GraphicsPage.cpp`).
-  - Meaning: what shows on an attached TV/monitor. Choices: `Show the game` (render the game to the external display via its own swapchain; the device keeps the UI) vs `Mirror the screen` (let the system mirror whatever the device shows).
+  - Meaning: what shows on an attached TV/monitor. Choices: `Show the game` (render the game to the external display via its own swapchain; the device keeps the UI) vs `Mirror / Off` (leave the display to the system, which usually mirrors the device).
 
-- **`Show the game` / `Mirror the screen`** — choices of `External display` (`externalDisplayNames`).
+- **`Show the game` / `Mirror / Off`** — choices of `External display` (`externalDisplayNames`).
 
 - **`Framerate mode`** — see Framerate control above.
 

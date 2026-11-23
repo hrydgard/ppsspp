@@ -269,7 +269,7 @@ can be tested on its own.
   the main thread waits for that (the same handshake as `requestExitVulkanRenderLoop`). Only then does
   it remove the window. Removing the window should give the TV back to system mirroring. **Verify on
   the device:** if iOS doesn't resume mirroring, we need a `Mirror` output for the menus instead.
-- **Setting:** Graphics → "External display": "Show the game" (the default) or "Mirror the screen"
+- **Setting:** Graphics → "External display": "Show the game" (the default) or "Mirror / Off"
   (`iExternalDisplay`, iOS and Android). It's disabled on backends without `multipleSwapchains`, and a
   change applies right away (`SystemNotification::EXTERNAL_DISPLAY_CHANGED`).
 - **Out of scope:** iPad Stage Manager's interactive extended displays (role `Application`), and

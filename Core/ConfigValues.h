@@ -155,7 +155,7 @@ enum class GPUBackend {
 // What an external display (a TV) shows, where the platform lets us choose. See docs/multi-swapchain.md.
 enum class ExternalDisplayMode {
 	SHOW_GAME = 0,  // The game, with the controls and the menus on the device. Needs Metal or Vulkan.
-	MIRROR = 1,
+	MIRROR = 1,  // We leave the display alone, so it shows whatever the system puts there (the phone's screen, mostly).
 };
 
 enum class DepthRasterMode {
