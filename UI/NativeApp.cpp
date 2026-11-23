@@ -101,6 +101,7 @@
 #include "Common/GPU/ShaderTranslation.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Thread/ThreadManager.h"
+#include "Common/Thread/Promise.h"
 #include "Common/Audio/AudioBackend.h"
 #include "Common/UI/PopupScreens.h"
 #include "Core/CmdLine.h"
@@ -504,6 +505,9 @@ std::vector<std::function<void()>> g_pendingClosures;
 AudioBackend *g_audioBackend = nullptr;
 
 std::thread *graphicsLoadThread;
+
+// Read on an IO thread, since it's on the memory stick (often a content URI) and nothing needs it at startup.
+static Promise<bool> *g_iconCacheLoad;
 
 // globals
 Path boot_filename;
@@ -931,12 +935,17 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		SaveState::Load(Path(cmdLineOptions.stateToLoad.value()), -1, &ShowMessageAfterSaveStateAction);
 	}
 
-	if (g_Config.bAchievementsEnable) {
-		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "rb");
-		if (iconCacheFile) {
-			g_iconCache.LoadFromFile(iconCacheFile);
+	if (g_Config.bAchievementsEnable && !g_iconCacheLoad) {
+		const Path iconCachePath = GetSysDirectory(DIRECTORY_CACHE) / "icon.cache";
+		g_iconCacheLoad = Promise<bool>::Spawn(&g_threadManager, [iconCachePath]() {
+			FILE *iconCacheFile = File::OpenCFile(iconCachePath, "rb");
+			if (!iconCacheFile) {
+				return false;
+			}
+			const bool success = g_iconCache.LoadFromFile(iconCacheFile);
 			fclose(iconCacheFile);
-		}
+			return success;
+		}, TaskType::IO_BLOCKING);
 	}
 
 	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
@@ -2074,6 +2083,13 @@ void NativeShutdown() {
 
 	// A half-written image would be left behind otherwise.
 	GamePacker::Shutdown();
+
+	// Saving before the load is done would drop what it hasn't read yet.
+	if (g_iconCacheLoad) {
+		g_iconCacheLoad->BlockUntilReady();
+		delete g_iconCacheLoad;
+		g_iconCacheLoad = nullptr;
+	}
 
 	if (g_Config.bAchievementsEnable) {
 		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");
