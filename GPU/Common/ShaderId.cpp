@@ -70,6 +70,7 @@ std::string VShaderID::Description(bool includeID) const {
 	if (Bit(VS_BIT_SIMPLE_STEREO)) desc.C("SimpleStereo ");
 	if (Bit(VS_BIT_VERTEX_RANGE_CULLING)) desc.C("RangeCull ");
 	if (Bit(VS_BIT_CPU_LIT)) desc.C("CpuLit ");
+	if (Bit(VS_BIT_SCREEN_LINEAR)) desc.C("ScreenLinear ");
 
 	return desc.as_string();
 }
@@ -167,6 +168,8 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
+	// NoNearClip is only set with GPU_USE_SCREEN_LINEAR_COLOR.
+	id.SetBit(VS_BIT_SCREEN_LINEAR, useHWTransform && !isModeThrough && (clipInfoFlags & ClipInfoFlags::NoNearClip) != 0);
 
 	// These two bits cannot be combined, otherwise havoc occurs. We get reports that indicate this happened somehow... "ERROR: 0:14: 'u_proj' : undeclared identifier"
 	_dbg_assert_msg_(!id.Bit(VS_BIT_USE_HW_TRANSFORM) || !id.Bit(VS_BIT_IS_THROUGH), "Can't have both THROUGH and USE_HW_TRANSFORM together!");
@@ -270,6 +273,7 @@ std::string FShaderID::Description(bool includeID) const {
 	if (Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
 	if (Bit(FS_BIT_NO_DEPTH_WRITE)) desc.C("NoDepthWrite ");
+	if (Bit(FS_BIT_TRUNCATE_BILINEAR)) desc.C("TruncBilinear ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
@@ -370,6 +374,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				id.SetBit(FS_BIT_SAMPLE_ARRAY_TEXTURE);
 			}
 			id.SetBit(FS_BIT_DO_TEXTURE_PROJ, doTextureProjection);
+			// The other depal modes filter (or don't) on their own.
+			id.SetBit(FS_BIT_TRUNCATE_BILINEAR, gstate_c.truncateBilinear && (shaderDepalMode == ShaderDepalMode::OFF || shaderDepalMode == ShaderDepalMode::CLUT8));
 		}
 
 		id.SetBit(FS_BIT_LMODE, lmode);
@@ -432,6 +438,16 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				bool stencilWithoutDepth = (!gstate.isDepthTestEnabled() || !gstate.isDepthWriteEnabled()) && !IsStencilTestOutputDisabled();
 				if (stencilWithoutDepth) {
 					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, stencilWithoutDepth);
+				}
+			}
+			if (bugs.Has(Draw::Bugs::ADRENO_DISCARD_DEPTH_REJECTED)) {
+				// Writing gl_FragDepth moves the depth test after the shader, where it works. Only for LESS and LEQUAL,
+				// the less common direction that fails: gl_FragCoord.z isn't always exactly the depth the draw would
+				// have written, which broke alpha tested GEQUAL text drawn over a dialog box in through mode.
+				const GEComparison func = gstate.getDepthTestFunction();
+				bool discards = (id.Bit(FS_BIT_ALPHA_TEST) || id.Bit(FS_BIT_COLOR_TEST)) && !id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
+				if (discards && (func == GE_COMP_LESS || func == GE_COMP_LEQUAL) && !IsDepthTestEffectivelyDisabled() && gstate.isDepthWriteEnabled()) {
+					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 				}
 			}
 		}

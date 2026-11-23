@@ -584,6 +584,9 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	if (draw_->GetDeviceCaps().fragmentShaderFullPrecisionFloat) {
 		features |= GPU_USE_FULL_PRECISION_IN_FRAGMENT;
+		if (PSP_CoreParameter().compat.flags().ScreenLinearColors) {
+			features |= GPU_USE_SCREEN_LINEAR_COLOR;
+		}
 	}
 
 	if (draw_->GetDeviceCaps().depthClampSupported) {

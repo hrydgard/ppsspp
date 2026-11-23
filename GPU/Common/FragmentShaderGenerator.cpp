@@ -171,6 +171,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (compat.glslES30 || compat.shaderLanguage == ShaderLanguage::GLSL_VULKAN) {
 		shading = doFlatShading ? "flat" : "";
 	}
+	// With GPU_USE_SCREEN_LINEAR_COLOR, colors and fog come scaled by w, with w in v_fogdepth.y (see the vertex
+	// shader generator). In GLSL, the varyings can't be overwritten, so the unscaled values go in these.
+	const bool screenLinear = gstate_c.Use(GPU_USE_SCREEN_LINEAR_COLOR);
+	const bool unscaleLocals = screenLinear && compat.shaderLanguage != HLSL_D3D11;
+	const char *color0Name = unscaleLocals ? "vcolor0" : "v_color0";
+	const char *color1Name = unscaleLocals ? "vcolor1" : "v_color1";
+	const char *fogName = unscaleLocals ? "vfogdepth" : "v_fogdepth";
 
 
 	GEBlendSrcFactor replaceBlendFuncA = (GEBlendSrcFactor)id.Bits(FS_BIT_BLENDFUNC_A, 4);
@@ -233,11 +240,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Note: the precision qualifiers must match the vertex shader!
 		// Centroid, matching the vertex shader.
 		const char *colorQualifier = *shading ? shading : "centroid";
-		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", colorQualifier);
+		const char *colorPrecision = screenLinear ? "highp" : "lowp";
+		WRITE(p, "layout (location = 1) %s in %s vec4 v_color0;\n", colorQualifier, colorPrecision);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", colorQualifier);
+			WRITE(p, "layout (location = 2) %s in %s vec3 v_color1;\n", colorQualifier, colorPrecision);
 		}
-		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
+		WRITE(p, "layout (location = 3) in highp %s v_fogdepth;\n", screenLinear ? "vec2" : "float");
 		if (doTexture) {
 			WRITE(p, "layout (location = 0) centroid in highp vec3 v_texcoord;\n");
 		}
@@ -304,7 +312,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1: COLOR1;\n");
 		}
-		WRITE(p, "  float v_fogdepth: TEXCOORD1;\n");
+		WRITE(p, "  %s v_fogdepth: TEXCOORD1;\n", screenLinear ? "vec2" : "float");
 		if (needFragCoord) {
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  vec4 pixelPos : SV_POSITION;\n");
@@ -421,15 +429,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		// Varyings
 
-		WRITE(p, "%s %s lowp vec4 v_color0;\n", shading, compat.varying_fs);
+		const char *colorPrecision = screenLinear ? "highp" : "lowp";
+		WRITE(p, "%s %s %s vec4 v_color0;\n", shading, compat.varying_fs, colorPrecision);
 		if (lmode) {
-			WRITE(p, "%s %s lowp vec3 v_color1;\n", shading, compat.varying_fs);
+			WRITE(p, "%s %s %s vec3 v_color1;\n", shading, compat.varying_fs, colorPrecision);
 		}
 		if (enableFog) {
 			*uniformMask |= DIRTY_FOGCOLOR;
 			WRITE(p, "uniform vec3 u_fogcolor;\n");
 		}
-		WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
+		if (screenLinear) {
+			WRITE(p, "%s highp vec2 v_fogdepth;\n", compat.varying_fs);
+		} else {
+			WRITE(p, "%s %s float v_fogdepth;\n", compat.varying_fs, highpFog ? "highp" : "mediump");
+		}
 		if (doTexture) {
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
@@ -522,7 +535,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "void main() {\n");
 	}
 
-	if (compat.shaderLanguage == HLSL_D3D11) {
+	if (screenLinear) {
+		// w is 1 where the vertex shader didn't scale.
+		const char *in = compat.shaderLanguage == HLSL_D3D11 ? "In." : "";
+		const char *scale = doFlatShading ? "" : " * invW";
+		WRITE(p, "  highp float invW = 1.0 / %sv_fogdepth.y;\n", in);
+		WRITE(p, "  lowp vec4 %s = %sv_color0%s;\n", color0Name, in, scale);
+		if (lmode) {
+			WRITE(p, "  lowp vec3 %s = %sv_color1%s;\n", color1Name, in, scale);
+		}
+		if (enableFog) {
+			WRITE(p, "  highp float %s = %sv_fogdepth.x * invW;\n", fogName, in);
+		}
+	} else if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "  vec4 v_color0 = In.v_color0;\n");
 		if (lmode) {
 			WRITE(p, "  vec3 v_color1 = In.v_color1;\n");
@@ -530,6 +555,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (enableFog) {
 			WRITE(p, "  float v_fogdepth = In.v_fogdepth;\n");
 		}
+	}
+
+	if (compat.shaderLanguage == HLSL_D3D11) {
 		if (doTexture) {
 			WRITE(p, "  vec3 v_texcoord = In.v_texcoord;\n");
 		}
@@ -563,12 +591,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	if (isModeClear) {
 		// Clear mode does not allow any fancy shading.
-		WRITE(p, "  vec4 v = v_color0;\n");
+		WRITE(p, "  vec4 v = %s;\n", color0Name);
 	} else {
 		const char *secondary = "";
 		// Secondary color for specular on top of texture
 		if (lmode) {
-			WRITE(p, "  vec4 s = vec4(v_color1, 0.0);\n");
+			WRITE(p, "  vec4 s = vec4(%s, 0.0);\n", color1Name);
 			secondary = " + s";
 		}
 
@@ -667,6 +695,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, %s.xy%s);\n", compat.texture, texcoord, lodBias);
 						}
 					}
+				}
+				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
+					// The PSP's bilinear filter weighs the texels in 1/16ths and truncates each lerp to 8 bits (see SampleLinear
+					// in GPU/Software/Sampler.cpp), while the GPU keeps the fraction, which the output then rounds to nearest.
+					// Rounding down here makes them agree on all but a few pixels, though not bit for bit: the two truncations
+					// can lose more than one step between them. The small offset keeps a value that's exactly on a step, as
+					// when all four texels are the same, from dropping a step through float error.
+					WRITE(p, "  t = floor(t * 255.0 + 0.01) * (1.0 / 255.0);\n");
 				}
 				break;
 			case ShaderDepalMode::SMOOTHED:
@@ -847,6 +883,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					p.C("  int component = int(uv_round.x) & 1;\n");
 					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
 				}
+				// When the CPU found that every pixel of the draw reads the same byte, use that. A center that error moves
+				// across the byte edge then reads the neighboring pixel's byte, which looks the same, not another channel.
+				p.C("  if ((u_depal_mask_shift_off_fmt & 0x08000000u) != 0u) {\n");
+				p.C("    component = int((u_depal_mask_shift_off_fmt >> 28u) & 3u);\n");
+				p.C("  }\n");
 				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
 				// The byte decodes below are exact in fp32, but the product rounding in fp16 makes 16 of 256 bytes come out one low.
 				p.F("  %s vec4 t = ", prec).SampleTexture2D("tex", "uv_round").C(";\n");
@@ -877,12 +918,46 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					break;
 				}
 				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
-				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+				if (shaderDepalFmt == GE_FORMAT_565 || shaderDepalFmt == GE_FORMAT_5551) {
+					// The CPU checked that the CLUT is a ramp over the high byte's indices and that the index is the
+					// byte itself. Look it up at the byte's average value under dithering, blue on top of green's top
+					// bits: each truncated field comes out half a step below its exact value on average.
+					p.C("  if ((u_depal_mask_shift_off_fmt & 0x40000000u) != 0u && component == 1) {\n");
+					if (shaderDepalFmt == GE_FORMAT_565) {
+						// 8 * (blue / 8 - 0.5) + (green / 32 - 0.5), with the channels in 0-255.
+						p.F("    %s float smoothIndex = clamp(t.z * 255.0 + t.y * (255.0 / 32.0) - 4.5, 0.0, 255.0);\n", prec);
+						p.C("    int rampBase = 0;\n");
+						p.C("    int rampTop = 255;\n");
+					} else {
+						// 4 * (blue / 8 - 0.5) + (green / 64 - 0.5).
+						p.F("    %s float smoothIndex = clamp(t.z * 127.5 + t.y * (255.0 / 64.0) - 2.5, 0.0, 127.0);\n", prec);
+						p.C("    int rampBase = index & 0x80;\n");
+						p.C("    int rampTop = 127;\n");
+					}
+					p.C("    int index0 = int(smoothIndex);\n");
+					p.C("    int index1 = min(index0 + 1, rampTop);\n");
+					p.C("    vec4 c0 = ").LoadTexture2D("pal", "ivec2(rampBase + index0, 0)", 0).C(";\n");
+					p.C("    vec4 c1 = ").LoadTexture2D("pal", "ivec2(rampBase + index1, 0)", 0).C(";\n");
+					p.C("    t = mix(c0, c1, smoothIndex - float(index0));\n");
+					p.C("  } else {\n");
+					p.C("    t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+					p.C("  }\n");
+				} else {
+					p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
+				}
+				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
+					// This mode samples one texel even when the game asks for bilinear filtering. The PSP's filter
+					// truncates (see the OFF case above), so over a smooth texture it comes out at about the nearest
+					// texel's color less a step. Taking that step off makes a game that compares the result exactly
+					// agree with the PSP nearly everywhere, without four lookups. Alpha is left alone, so that opaque
+					// stays opaque.
+					p.C("  t.rgb = max(t.rgb - splat3(1.0 / 255.0), splat3(0.0));\n");
+				}
 				break;
 			}
 			}
 
-			WRITE(p, "  vec4 p = v_color0;\n");
+			WRITE(p, "  vec4 p = %s;\n", color0Name);
 
 			if (texFunc != GE_TEXFUNC_REPLACE) {
 				WRITE(p, "  t.a = max(t.a, u_texNoAlphaMul.x);\n");
@@ -927,11 +1002,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else {
 			// No texture mapping
-			WRITE(p, "  vec4 v = v_color0%s;\n", secondary);
+			WRITE(p, "  vec4 v = %s%s;\n", color0Name, secondary);
 		}
 
 		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  float fogCoef = clamp(%s, 0.0, 1.0);\n", fogName);
 			WRITE(p, "  v.rgb = mix(u_fogcolor, v.rgb, fogCoef);\n");
 		}
 

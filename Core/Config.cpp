@@ -2608,17 +2608,22 @@ void Config::GetReportingInfo(UrlEncoder &data) const {
 	}
 }
 
+// Longer than any frame, even while loading.
+static constexpr double PLAYTIME_MAX_GAP = 10.0;
+
 void PlayTimeTracker::Start(std::string_view gameId) {
 	if (gameId.empty()) {
 		return;
 	}
 	VERBOSE_LOG(Log::Config, "GameTimeTracker::Start(%.*s)", STR_VIEW(gameId));
+	activeGameId_ = gameId;
 
 	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime == 0.0) {
 			iter->second.lastTimePlayed = time_now_unix_utc();
 			iter->second.startTime = time_now_d();
+			iter->second.lastUpdateTime = iter->second.startTime;
 		}
 		return;
 	}
@@ -2627,7 +2632,26 @@ void PlayTimeTracker::Start(std::string_view gameId) {
 	playTime.lastTimePlayed = time_now_unix_utc();
 	playTime.totalTimePlayed = 0.0;
 	playTime.startTime = time_now_d();
+	playTime.lastUpdateTime = playTime.startTime;
 	tracker_[std::string(gameId)] = playTime;
+}
+
+void PlayTimeTracker::Update() {
+	if (activeGameId_.empty()) {
+		return;
+	}
+	auto iter = tracker_.find(activeGameId_);
+	if (iter == tracker_.end() || iter->second.startTime == 0.0) {
+		return;
+	}
+	PlayTime &playTime = iter->second;
+	const double now = time_now_d();
+	if (now - playTime.lastUpdateTime > PLAYTIME_MAX_GAP) {
+		// Count up to the last update, and start over from now.
+		playTime.totalTimePlayed += playTime.lastUpdateTime - playTime.startTime;
+		playTime.startTime = now;
+	}
+	playTime.lastUpdateTime = now;
 }
 
 void PlayTimeTracker::Stop(std::string_view gameId) {
@@ -2636,11 +2660,17 @@ void PlayTimeTracker::Stop(std::string_view gameId) {
 	}
 
 	VERBOSE_LOG(Log::Config, "GameTimeTracker::Stop(%.*s)", STR_VIEW(gameId));
+	if (activeGameId_ == gameId) {
+		activeGameId_.clear();
+	}
 
 	auto iter = tracker_.find(gameId);
 	if (iter != tracker_.end()) {
 		if (iter->second.startTime != 0.0) {
-			iter->second.totalTimePlayed += time_now_d() - iter->second.startTime;
+			const double now = time_now_d();
+			// Stopped after a long gap, like waking from sleep onto the pause menu: count up to the last update.
+			const double end = now - iter->second.lastUpdateTime > PLAYTIME_MAX_GAP ? iter->second.lastUpdateTime : now;
+			iter->second.totalTimePlayed += end - iter->second.startTime;
 			iter->second.startTime = 0.0;
 		}
 		iter->second.lastTimePlayed = time_now_unix_utc();

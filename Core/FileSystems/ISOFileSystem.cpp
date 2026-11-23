@@ -693,7 +693,7 @@ size_t ISOFileSystem::WriteFile(u32 handle, const u8 *pointer, s64 size, int &us
 	return 0;
 }
 
-size_t ISOFileSystem::SeekFile(u32 handle, s32 position, FileMove type) {
+size_t ISOFileSystem::SeekFile(u32 handle, s64 position, FileMove type) {
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		OpenFileEntry &e = iter->second;

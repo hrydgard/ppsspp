@@ -556,5 +556,13 @@ bool TestShaderGenerators() {
 		return false;
 	}
 
+	// Again with screen-linear colors (ScreenLinearColors in compat.ini), which changes the varyings.
+	gstate_c.SetUseFlags(oldFlags | GPU_USE_SCREEN_LINEAR_COLOR);
+	const bool screenLinearResult = TestFragmentShaders() && TestVertexShaders(false);
+	gstate_c.SetUseFlags(oldFlags);
+	if (!screenLinearResult) {
+		return false;
+	}
+
 	return true;
 } 

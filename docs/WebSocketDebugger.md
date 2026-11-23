@@ -91,12 +91,23 @@ If you would rather not track which those are, ask to be told explicitly:
 <- { "event": "cpu.resume" }
 ```
 
-With that on, every request draws exactly one immediate reply - a response, an
-`error`, or a `deferred` - so a client can correlate without a hardcoded list,
+With that on, every request draws exactly one reply - a response, an `error`,
+or a `deferred` - so a client can correlate without a hardcoded list,
 including for events added in future versions. It is off by default and must
 stay that way: an extra message would break a client that correlates purely by
 ticket, and it can't reuse the request's event name because for
 `input.buttons.press` that is exactly what the real, later answer looks like.
+
+Requests whose later answer carries their ticket get no `deferred`: that
+answer (the response, or an `error`) is their one reply, however long it takes.
+That holds for `input.buttons.press`, `gpu.stats.get`, `gpu.record.dump` and
+the `game.state.*` operations sent with `wait`. Sent without a ticket, they
+get a `deferred` like the others.
+
+```json
+-> { "event": "game.state.save", "path": "a.ppst", "wait": true, "ticket": 8 }
+<- { "event": "game.state.save", "message": "Saved State", "metadata": "", "ticket": 8 }
+```
 
 Errors look like this:
 ```json
@@ -126,8 +137,8 @@ Sent without you asking, whenever the underlying state changes:
 | Event | Sent when | Source |
 |---|---|---|
 | `log` | A new log line is emitted | `LogBroadcaster.cpp` |
-| `game.start` | A game finishes booting | `GameBroadcaster.cpp` |
-| `game.quit` | The game is closed/reset | `GameBroadcaster.cpp` |
+| `game.start` | A game finishes booting, also after a reset | `GameBroadcaster.cpp` |
+| `game.quit` | The game is closed/reset (for a reset, sent together with the `game.start`, once it has booted again) | `GameBroadcaster.cpp` |
 | `game.pause` / `game.resume` | User opens/leaves the pause menu | `GameBroadcaster.cpp` |
 | `cpu.stepping` | CPU enters a stepping/break state | `SteppingBroadcaster.cpp` |
 | `cpu.resume` | CPU resumes from stepping | `SteppingBroadcaster.cpp` |

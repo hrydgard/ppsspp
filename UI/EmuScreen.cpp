@@ -270,10 +270,14 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 		if (PSP_CoreParameter().startBreak) {
 			coreState = CORE_STEPPING_CPU;
+			// Gives the debugger's cpu.stepping a reason, and makes it one even after a reset.
+			Core_ReportBreakWithoutRunning(BreakReason::BreakOnBoot, currentMIPS ? currentMIPS->pc : 0);
 			System_Notify(SystemNotification::DEBUG_MODE_CHANGE);
 		} else {
 			coreState = CORE_RUNNING_CPU;
 		}
+		// A reset boots with the same parameters, and a game.reset with break=true only means that one.
+		PSP_CoreParameter().startBreak = !g_Config.bAutoRun;
 
 		Achievements::Initialize();
 
@@ -1501,6 +1505,9 @@ void EmuScreen::update() {
 
 	// The HOME button's quit screen.
 	const bool gameRunning = PSP_IsInited() && !bootPending_ && coreState == CORE_RUNNING_CPU && !PSP_HasBootRequest();
+	if (gameRunning) {
+		g_Config.TimeTracker().Update();
+	}
 	if (imposeHome_->Update(gameRunning, IsOnTop()) == ImposeHomeScreen::Action::LEAVE_GAME) {
 		leaveGame();
 	}

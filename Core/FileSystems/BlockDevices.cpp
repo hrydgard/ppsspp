@@ -651,13 +651,12 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	// Index entries must be monotonically non-decreasing, otherwise ReadBlock()
-	// would compute a negative (underflowed) compressed read size from two
-	// adjacent entries.  Reject such files rather than reading into a fixed buffer.
+	// Some modded CSOs have index entries that go backwards, in frames the game never reads (#22921).
+	// So don't reject the file: the read functions return zeroes for such frames.
 	for (u32 i = 0; i < indexSize - 1; i++) {
 		if ((index[i] & 0x7FFFFFFF) > (index[i + 1] & 0x7FFFFFFF)) {
-			errorString_ = StringFromFormat("CSO index is not monotonic at entry %d", i);
-			return;
+			WARN_LOG(Log::Loader, "CSO index is not monotonic at entry %d, that frame is unreadable", i);
+			break;
 		}
 	}
 
@@ -685,6 +684,13 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	const u32 indexPos = idx & 0x7FFFFFFF;
 	const u32 nextIndexPos = index[frameNumber + 1] & 0x7FFFFFFF;
 	z_stream z{};
+
+	if (nextIndexPos < indexPos) {
+		ERROR_LOG(Log::Loader, "CSO frame %d has a negative size in the index", frameNumber);
+		NotifyReadError("CSO index is corrupt");
+		memset(outPtr, 0, GetBlockSize());
+		return false;
+	}
 
 	const u64 compressedReadPos = (u64)indexPos << indexShift;
 	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
@@ -791,9 +797,19 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
 		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame - frameBlockOffset);
 
-		if (frameReadEnd > readBufferEnd) {
-			const s64 maxNeeded = totalReadEnd - frameReadPos;
-			const size_t chunkSize = (size_t)std::min<s64>(std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE)), (s64)readBufferSize);
+		if (nextIndexPos < indexPos) {
+			ERROR_LOG(Log::Loader, "CSO frame %d has a negative size in the index", frame);
+			NotifyReadError("CSO index is corrupt");
+			memset(outPtr, 0, frameBlocks * GetBlockSize());
+			block += frameBlocks;
+			outPtr += frameBlocks * GetBlockSize();
+			continue;
+		}
+
+		// After a corrupt entry, a frame can start before what's buffered.
+		if (frameReadPos < readBufferStart || frameReadEnd > readBufferEnd) {
+			const u64 maxNeeded = std::max<u64>(totalReadEnd > frameReadPos ? totalReadEnd - frameReadPos : 0, frameReadSize);
+			const size_t chunkSize = (size_t)std::min<u64>(std::min<u64>(maxNeeded, std::max(frameReadSize, CSO_READ_BUFFER_SIZE)), readBufferSize);
 
 			const u32 readSize = (u32)fileLoader_->ReadAt(frameReadPos, 1, chunkSize, readBuffer);
 			if (readSize < chunkSize) {

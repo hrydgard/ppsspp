@@ -156,6 +156,19 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	if (compat.glslES30 || compat.shaderLanguage == GLSL_VULKAN)
 		shading = doFlatShading ? "flat " : "";
 
+	// The GE interpolates colors and fog linearly in screen space (GE probes exp54 and exp20-24; the
+	// software renderer does the same). Perspective-correct varyings give that when they carry value * w and w
+	// (v_fogdepth.y), which the fragment shader divides: both are linear in clip space, so it also holds where the
+	// GPU clips. Not at the near plane, where the GE gives the vertices clipping makes colors interpolated in clip
+	// space, so draws crossing it keep perspective-correct colors (w = 1). Only in the games flagged
+	// ScreenLinearColors: Spider-Man 3 has bogus colors on vertices far off screen and close to the camera
+	// (apparently from clipping them itself), which perspective correction pulls into view.
+	const bool screenLinearVaryings = gstate_c.Use(GPU_USE_SCREEN_LINEAR_COLOR);
+	const bool scaleByW = screenLinearVaryings && id.Bit(VS_BIT_SCREEN_LINEAR);
+	// Must match the fragment shader.
+	const char *colorPrecision = screenLinearVaryings ? "highp" : "lowp";
+	const char *fogType = screenLinearVaryings ? "vec2" : "float";
+
 	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
 	if (useHWTransform) {
 		int shadeLight0 = doShadeMapping ? ls0 : -1;
@@ -215,14 +228,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Centroid keeps them inside the primitive on pixels it only partly covers with MSAA, so that
 		// textures aren't sampled from outside the UV range. Without MSAA, it's the same as center.
 		const char *colorQualifier = *shading ? shading : "centroid ";
-		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", colorQualifier);
+		WRITE(p, "layout (location = 1) %sout %s vec4 v_color0;\n", colorQualifier, colorPrecision);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", colorQualifier);
+			WRITE(p, "layout (location = 2) %sout %s vec3 v_color1;\n", colorQualifier, colorPrecision);
 		}
 
 		WRITE(p, "layout (location = 0) centroid out highp vec3 v_texcoord;\n");
 
-		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
+		WRITE(p, "layout (location = 3) out highp %s v_fogdepth;\n", fogType);
 
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) out highp vec2 v_zw;\n");
@@ -282,7 +295,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "  %svec3 v_color1    : COLOR1;\n", colorInterpolation);
 		}
 
-		WRITE(p, "  float v_fogdepth : TEXCOORD1;\n");
+		WRITE(p, "  %s v_fogdepth : TEXCOORD1;\n", fogType);
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  highp vec2 v_zw : TEXCOORD2;\n");
 		}
@@ -420,16 +433,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform highp vec2 u_fogcoef;\n");
 		*uniformMask |= DIRTY_FOGCOEF;
 
-		WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, compat.varying_vs);
+		WRITE(p, "%s%s %s vec4 v_color0;\n", shading, compat.varying_vs, colorPrecision);
 		if (lmode) {
-			WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, compat.varying_vs);
+			WRITE(p, "%s%s %s vec3 v_color1;\n", shading, compat.varying_vs, colorPrecision);
 		}
 
 		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
 
 		// See the fragment shader generator
-		if (highpFog) {
-			WRITE(p, "%s highp float v_fogdepth;\n", compat.varying_vs);
+		if (highpFog || screenLinearVaryings) {
+			WRITE(p, "%s highp %s v_fogdepth;\n", compat.varying_vs, fogType);
 		} else {
 			WRITE(p, "%s mediump float v_fogdepth;\n", compat.varying_vs);
 		}
@@ -511,7 +524,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lmode) {
 			WRITE(p, "  %sv_color1 = color1;\n", compat.vsOutPrefix);
 		}
-		WRITE(p, "  %sv_fogdepth = fog;\n", compat.vsOutPrefix);
+		WRITE(p, "  %sv_fogdepth = %s;\n", compat.vsOutPrefix, screenLinearVaryings ? "vec2(fog, 1.0)" : "fog");
 
 		// If non-through, the viewport has already been applied here.
 		WRITE(p, "  vec4 outPos = position;\n");
@@ -942,7 +955,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		// Compute fogdepth
-		WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		if (screenLinearVaryings) {
+			WRITE(p, "  %sv_fogdepth = vec2((viewPos.z + u_fogcoef.x) * u_fogcoef.y, 1.0);\n", compat.vsOutPrefix);
+		} else {
+			WRITE(p, "  %sv_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n", compat.vsOutPrefix);
+		}
 	}
 
 	if (!isModeThrough) {
@@ -1037,6 +1054,17 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 	// We've named the output gl_Position in HLSL as well.
 	WRITE(p, "  %sgl_Position = outPos;\n", compat.vsOutPrefix);
+
+	if (scaleByW) {
+		// Divided by the interpolated w in the fragment shader, for screen-linear values.
+		if (!doFlatShading) {
+			WRITE(p, "  %sv_color0 *= outPos.w;\n", compat.vsOutPrefix);
+			if (lmode) {
+				WRITE(p, "  %sv_color1 *= outPos.w;\n", compat.vsOutPrefix);
+			}
+		}
+		WRITE(p, "  %sv_fogdepth *= outPos.w;\n", compat.vsOutPrefix);
+	}
 
 	if (gstate_c.Use(GPU_USE_VIRTUAL_REALITY)) {
 		// HUD scaling

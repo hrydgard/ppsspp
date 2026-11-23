@@ -318,6 +318,9 @@ void DrawEngineD3D11::Flush() {
 		if (changed & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)) {
 			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE);
 		}
+		if (changed & ClipInfoFlags::NoNearClip) {
+			gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+		}
 		if (changed & ClipInfoFlags::FlatZ) {
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}

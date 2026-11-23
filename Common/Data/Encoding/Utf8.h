@@ -26,13 +26,9 @@ int u8_wc_toutf8(char *dest, uint32_t ch);
 void u8_inc(const char *s, int *i);
 void u8_dec(const char *s, int *i);
 
-inline bool CodepointIsProbablyEmoji(uint32_t c) {
-	// Original check was some ranges grabbed from https://stackoverflow.com/a/62898106.
-	// But let's just go with checking if outside the BMP, it's not a big deal if we accidentally
-	// switch to color when not needed if someone uses a weird glyph.
-	return c > 0xFFFF;
-}
-
+// True for characters that are drawn as (color) emoji by default.
+bool CodepointIsProbablyEmoji(uint32_t c);
+// Also true when a character asks for emoji presentation with U+FE0F, as in "\u2600\uFE0F".
 bool AnyEmojiInString(std::string_view str, size_t byteCount);
 
 class UTF8 {

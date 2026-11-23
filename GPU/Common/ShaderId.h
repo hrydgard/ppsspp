@@ -69,7 +69,9 @@ enum VShaderBit : uint8_t {
 	VS_BIT_SIMPLE_STEREO = 51,
 	// With lighting, a vertex can have colors lit on the CPU instead (DecVtxFormat::cpuLit).
 	VS_BIT_CPU_LIT = 52,
-	// bits 53-63 are free.
+	// Colors and fog scaled by w for screen-linear interpolation (GPU_USE_SCREEN_LINEAR_COLOR).
+	VS_BIT_SCREEN_LINEAR = 53,
+	// bits 54-63 are free.
 };
 
 static inline VShaderBit operator +(VShaderBit bit, int i) {
@@ -115,7 +117,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_DEPTH_TEST_NEVER = 60,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 61,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
 	FS_BIT_NO_DEPTH_WRITE = 62,  // Depth test effectively off, so skip the fragment depth write.
-	// Free bit: 63
+	FS_BIT_TRUNCATE_BILINEAR = 63,  // TruncateBilinear in compat.ini: round the filtered texture color down, like the PSP.
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

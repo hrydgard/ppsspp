@@ -73,14 +73,26 @@ struct GameStatusEvent {
 //     - id: string disc ID (such as ULUS12345.)
 //     - version: string disc version.
 //     - title: string game title.
-std::string GameBroadcaster::PollChange() {
+std::vector<std::string> GameBroadcaster::PollChange() {
 	// Tracked globally rather than per connection: this runs on the CPU thread, which owns the state
 	// being read, and the resulting event is then handed to every connected debugger.
 	static GlobalUIState prevState = GetUIState();
+	static int lastBootCount = PSP_GetBootCount();
 
 	const GlobalUIState state = GetUIState();
+	const int bootCount = PSP_GetBootCount();
+	if (PSP_GetBootState() == BootState::Complete && bootCount != lastBootCount) {
+		const bool reset = lastBootCount != 0;
+		lastBootCount = bootCount;
+		// A reset stays in UISTATE_INGAME, so it only shows in the boot count. From the menu this is a
+		// normal start, handled below.
+		if (reset && state == UISTATE_INGAME && prevState != UISTATE_MENU) {
+			prevState = state;
+			return { R"({"event":"game.quit","game":null})", GameStatusEvent{"game.start"} };
+		}
+	}
 	if (prevState == state)
-		return std::string();
+		return {};
 
 	const char *ev = nullptr;
 	if (state == UISTATE_PAUSEMENU) {
@@ -93,8 +105,8 @@ std::string GameBroadcaster::PollChange() {
 		ev = "game.quit";
 	}
 	if (!ev)
-		return std::string();
+		return {};
 
 	prevState = state;
-	return GameStatusEvent{ev};
+	return { GameStatusEvent{ev} };
 }

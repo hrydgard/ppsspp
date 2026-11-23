@@ -388,7 +388,7 @@ static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_BLEND_MINMAX",
 	"GPU_USE_LOGIC_OP",
 	"GPU_USE_SHADER_LOD_BIAS",
-	"N/A",
+	"GPU_USE_SCREEN_LINEAR_COLOR",
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",
 	"N/A",

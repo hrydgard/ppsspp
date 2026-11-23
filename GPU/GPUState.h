@@ -474,7 +474,9 @@ enum : u32 {
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
 	GPU_USE_SHADER_LOD_BIAS = FLAG_BIT(6),  // The sampler ignores the LOD bias (MoltenVK), so the shader applies it.
-	// Free bit: 7
+	// ScreenLinearColors in compat.ini: colors and fog interpolated linearly in screen space, like the GE, except on
+	// draws crossing the near plane. Needs highp in the fragment shader.
+	GPU_USE_SCREEN_LINEAR_COLOR = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
 	// Free bit: 10-12
@@ -561,6 +563,12 @@ struct GPUStateCache {
 				Dirty(DIRTY_TEXCLAMP);
 		}
 	}
+	void SetTruncateBilinear(bool truncate) {
+		if (truncate != truncateBilinear) {
+			truncateBilinear = truncate;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 	void SetTextureIs3D(bool is3D) {
 		if (is3D != curTextureIs3D) {
 			curTextureIs3D = is3D;
@@ -635,6 +643,8 @@ public:
 	int curTextureXOffset;
 	int curTextureYOffset;
 	bool curTextureIs3D;
+	// TruncateBilinear (compat.ini) is on and the current sampler filters linearly. See FS_BIT_TRUNCATE_BILINEAR.
+	bool truncateBilinear;
 
 	// Cached 4x4 products of the matrices.
 	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
@@ -690,6 +700,12 @@ public:
 	GEBufferFormat depalTextureFormat;
 	// The pixelMapped that the depal uniform was last packed with (it turns bilinear depal off).
 	bool depalPixelMapped;
+	// CLUT8 depal from a 16-bit framebuffer: interpolate the CLUT for the high byte (see CanUseSmoothClut8).
+	bool depalSmoothClut8;
+	// CLUT8 depal: the byte of each pixel every pixel of the draw reads, plus one, or 0 when it varies (see
+	// ExpandRectangles). Next is set for the coming draw, and DirtyDepalForDraw moves it over.
+	u8 nextDepalLockedByte;
+	u8 depalLockedByte;
 
 	void SetShaderDepal(ShaderDepalMode mode, GEBufferFormat texFormat = {}) {
 		if (mode != shaderDepalMode || (mode != ShaderDepalMode::OFF && texFormat != depalTextureFormat)) {

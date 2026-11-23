@@ -136,11 +136,22 @@ struct DebuggerRequest {
 	void Flush();
 	bool Finish();
 
+	// For a handler that answers later with a message carrying the request's ticket, rather than
+	// a ticketless broadcast. That message is then the request's one reply, so no deferred event
+	// is sent for it.
+	void ReplyLater() {
+		replyLater_ = true;
+	}
+	bool RepliesLater() const {
+		return replyLater_;
+	}
+
 private:
 	JsonWriter writer_;
 	bool responseBegun_ = false;
 	bool responseSent_ = false;
 	bool responsePartial_ = false;
+	bool replyLater_ = false;
 };
 
 class DebuggerSubscriber {

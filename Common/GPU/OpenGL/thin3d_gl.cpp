@@ -666,6 +666,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		if (gl_extensions.modelNumber < 600 && System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26)
 			bugs_.Infest(Bugs::ADRENO_RESOURCE_DEADLOCK);
 #endif
+		// Depth copied by drawing it from a depth texture comes out slightly off, even with highp everywhere, so a
+		// later EQUAL test against it fails. Colin McRae Rally lost the shading it multiplies onto its ground. Seen
+		// on Adreno 630 and 506. A depth blit is exact.
+		bugs_.Infest(Bugs::RASTER_DEPTH_COPY_INEXACT);
 	}
 
 #if PPSSPP_PLATFORM(IOS)

@@ -203,7 +203,7 @@ void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
 void WebSocketDebuggerTick() {
 	// Poll unconditionally, even with nothing connected: these track transitions, and skipping them
 	// would let the "previous" state go stale and fire a bogus event at whoever connects next.
-	const std::string gameEvent = GameBroadcaster::PollChange();
+	const std::vector<std::string> gameEvents = GameBroadcaster::PollChange();
 	const std::string steppingEvent = SteppingBroadcaster::PollChange();
 
 	std::lock_guard<std::mutex> guard(g_sinkLock);
@@ -221,7 +221,7 @@ void WebSocketDebuggerTick() {
 				sink->Push("stepping", steppingPrime);
 			continue;
 		}
-		if (!gameEvent.empty())
+		for (const std::string &gameEvent : gameEvents)
 			sink->Push("game", gameEvent);
 		if (!steppingEvent.empty())
 			sink->Push("stepping", steppingEvent);
@@ -343,7 +343,10 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 				// carrying a hardcoded list of the events that don't answer. Everyone else sees
 				// exactly what they saw before; see client.config.set for why it can't be the
 				// default.
-				if (client_info.acknowledgeDeferred)
+				// A request that will be answered with its own ticket gets nothing now: that answer
+				// is its one reply, and a second message with the same ticket would be ambiguous.
+				bool ticketedReplyFollows = req.RepliesLater() && root.get("ticket");
+				if (client_info.acknowledgeDeferred && !ticketedReplyFollows)
 					ws->Send(DebuggerDeferredEvent(event, root));
 				// Poll more frequently for a second in case this triggers something.
 				highActivity = 1000;

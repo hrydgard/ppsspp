@@ -26,3 +26,11 @@ if(USE_SYSTEM_ZSTD)
 else()
 	target_link_libraries(basis_universal libzstd_static)
 endif()
+
+# Newer clang warns about memset() on basisu's header structs, which have non-trivial members but are
+# fine to zero.
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag(-Wnontrivial-memcall HAVE_WNONTRIVIAL_MEMCALL)
+if(HAVE_WNONTRIVIAL_MEMCALL)
+	target_compile_options(basis_universal PRIVATE -Wno-nontrivial-memcall)
+endif()

@@ -59,6 +59,8 @@ enum class BootState {
 };
 
 BootState PSP_GetBootState();
+// Goes up each time a boot completes, so a reset shows even to a poller that never saw the game stop.
+int PSP_GetBootCount();
 inline bool PSP_IsInited() {
 	return PSP_GetBootState() == BootState::Complete;
 }

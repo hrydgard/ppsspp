@@ -686,11 +686,12 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
 	// by copying from any overlapping buffers with fresher content.
 	if (!isClearingDepth && useBufferedRendering_) {
-		CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
+		const bool copiedDepth = CopyToDepthFromOverlappingFramebuffers(currentRenderVfb_);
 
 		// Need to upload the first line of depth buffers, for Burnout Dominator lens flares. See issue #11100 and comments to #16081.
 		// Might make this more generic and upload the whole depth buffer if we find it's needed for something.
-		if (newlyUsingDepth && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
+		// Not over depth just copied from another framebuffer, which is newer than RAM.
+		if (newlyUsingDepth && !copiedDepth && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
 			// Sanity check the depth buffer pointer.
 			if (Memory::IsValidRange(currentRenderVfb_->z_address, currentRenderVfb_->width * 2)) {
 				const u16 *src = (const u16 *)Memory::GetPointerUnchecked(currentRenderVfb_->z_address);
@@ -720,7 +721,7 @@ struct CopySource {
 // Not sure if it's more profitable to always do these copies with raster (which may screw up early-Z due to explicit depth buffer write)
 // or to use image copies when possible (which may make it easier for the driver to preserve early-Z, but on the other hand, will cost additional memory
 // bandwidth on tilers due to the load operation, which we might otherwise be able to skip).
-void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest) {
+bool FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest) {
 	std::vector<CopySource> sources;
 	for (auto src : vfbs_) {
 		if (src == dest)
@@ -746,13 +747,14 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 	// For now, let's just do the last thing, if there are multiple.
 
 	// for (auto &source : sources) {
+	bool copied = false;
 	if (!sources.empty()) {
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 		auto &source = sources.back();
 		if (source.channel == RASTER_DEPTH) {
 			// Good old depth->depth copy.
-			BlitFramebufferDepth(source.vfb, dest);
+			copied = BlitFramebufferDepth(source.vfb, dest);
 			gpuStats.perFrame.numDepthCopies++;
 			dest->last_frame_depth_updated = gpuStats.totals.numFlips;
 		} else if (source.channel == RASTER_COLOR && draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {
@@ -777,10 +779,12 @@ void FramebufferManagerCommon::CopyToDepthFromOverlappingFramebuffers(VirtualFra
 				src->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
 				dest->fbo, 0.0f, 0.0f, src->renderWidth, src->renderHeight,
 				false, dest->renderScaleFactor, Get2DPipeline(shader), "565_to_depth");
+			copied = true;
 		}
 	}
 
 	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+	return copied;
 }
 
 // Can't easily dynamically create these strings, we just pass along the pointer.
@@ -1020,7 +1024,7 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	delete v;
 }
 
-void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch) {
+bool FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch) {
 	_dbg_assert_(src && dst);
 	_dbg_assert_(src != dst);
 
@@ -1028,15 +1032,16 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = (src->width == dst->width || (src->width == 512 && dst->width == 480) || (src->width == 480 && dst->width == 512)) && src->height == dst->height;
 	if (!matchingDepthBuffer || (!matchingSize && !allowSizeMismatch)) {
-		return;
+		return false;
 	}
 
 	// Copy depth value from the previously bound framebuffer to the current one.
-	bool hasNewerDepth = src->last_frame_depth_render != 0 && src->last_frame_depth_render >= dst->last_frame_depth_updated;
+	// These are flip counts, -1 for never, so depth rendered in the first frame counts.
+	bool hasNewerDepth = src->last_frame_depth_render >= 0 && src->last_frame_depth_render >= dst->last_frame_depth_updated;
 	if (!src->fbo || !dst->fbo || !useBufferedRendering_ || !hasNewerDepth) {
 		// If depth wasn't updated, then we're at least "two degrees" away from the data.
 		// This is an optimization: it probably doesn't need to be copied in this case.
-		return;
+		return false;
 	}
 
 	bool useCopy = draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported || (!draw_->GetDeviceCaps().framebufferDepthBlitSupported && draw_->GetDeviceCaps().framebufferCopySupported);
@@ -1054,6 +1059,9 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 
 	int w = std::min(src->renderWidth, dst->renderWidth);
 	int h = std::min(src->renderHeight, dst->renderHeight);
+	if (useBlit && draw_->GetBugs().Has(Draw::Bugs::RASTER_DEPTH_COPY_INEXACT)) {
+		useRaster = false;
+	}
 
 	// Some GPUs can copy depth but only if stencil gets to come along for the ride. We only want to use this if there is no blit functionality.
 	if (useRaster) {
@@ -1065,9 +1073,12 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 		// We'll accept whether we get a separate depth blit or not...
 		draw_->BlitFramebuffer(src->fbo, 0, 0, w, h, dst->fbo, 0, 0, w, h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebufferDepth");
 		RebindFramebuffer("After BlitFramebufferDepth");
+	} else {
+		return false;
 	}
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	return true;
 }
 
 // Copies a rectangle of depth (in render pixels) between two framebuffers, by whichever means the device has.
@@ -1076,14 +1087,18 @@ void FramebufferManagerCommon::CopyDepthRect(Draw::Framebuffer *src, int srcX, i
 	const bool sameSamples = src->MultiSampleLevel() == dst->MultiSampleLevel();
 	// Only a copy takes all the samples, and blits of multisampled buffers aren't supported at all.
 	const bool multisampled = src->MultiSampleLevel() != 0 || dst->MultiSampleLevel() != 0;
-	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported) || (multisampled && caps.framebufferCopySupported))) {
+	const bool canRaster = caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported;
+	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (multisampled && caps.framebufferCopySupported))) {
 		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
 	} else if (multisampled) {
 		WARN_LOG_ONCE(depthRectMSAA, Log::FrameBuf, "Can't copy multisampled depth here (%s)", tag);
 	} else if (caps.framebufferDepthBlitSupported) {
 		draw_->BlitFramebuffer(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
-	} else if (caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported) {
+	} else if (canRaster) {
+		// Before a plain copy: D3D11 copies only whole depth surfaces, and skips a copy of part of one.
 		BlitUsingRaster(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, false, scaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), tag);
+	} else if (caps.framebufferCopySupported) {
+		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
 	}
 }
 

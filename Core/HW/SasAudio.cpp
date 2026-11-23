@@ -242,23 +242,33 @@ void SasAtrac3::GetNextSamples(s16 *outbuf, int wantedSamples) {
 		buf_ = new s16[0x800];
 	}
 
+	const int wantedbytes = wantedSamples * sizeof(s16);
+	if (end_) {
+		// Once ended, the voice stays ended.
+		memset(outbuf, 0, wantedbytes);
+		return;
+	}
+
 	int finish = 0;
-	int wantedbytes = wantedSamples * sizeof(s16);
 	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
 		int numSamples = 0;
 		AtracSasDecodeData(atracID_, (u8*)buf_, &numSamples, &finish);
-		if (numSamples > 0)
-			sampleQueue_->push((u8*)buf_, numSamples * sizeof(s16));
-		else
-			finish = 1;
+		if (numSamples <= 0) {
+			// Either the end, or a stream waiting for its next buffer, which plays silence.
+			break;
+		}
+		sampleQueue_->push((u8*)buf_, numSamples * sizeof(s16));
 	}
-	sampleQueue_->pop_front((u8*)outbuf, wantedbytes);
+	const int gotbytes = sampleQueue_->pop_front((u8*)outbuf, wantedbytes);
+	if (gotbytes < wantedbytes) {
+		memset((u8 *)outbuf + gotbytes, 0, wantedbytes - gotbytes);
+	}
 	end_ = finish == 1;
 }
 
 int SasAtrac3::Concatenate(u32 bufPtr, u32 addbytes) {
 	if (atracID_ >= 0) {
-		AtracSasAddStreamData(atracID_, bufPtr, addbytes);
+		return AtracSasAddStreamData(atracID_, bufPtr, addbytes);
 	}
 	return 0;
 }

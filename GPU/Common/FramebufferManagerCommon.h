@@ -591,7 +591,8 @@ protected:
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags);
 
 	void CopyToColorFromOverlappingFramebuffers(VirtualFramebuffer *dest);
-	void CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
+	// Returns true if it copied depth into dest.
+	bool CopyToDepthFromOverlappingFramebuffers(VirtualFramebuffer *dest);
 
 	bool UpdateRenderSize(int msaaLevel);
 	bool ShouldMultisample(const VirtualFramebuffer *vfb) const;
@@ -610,7 +611,8 @@ protected:
 	static void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
-	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
+	// Returns true if it copied.
+	bool BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
 	void CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag);
 	void ShiftDepthForOffsetRendering(VirtualFramebuffer *vfb, int xOffset);
 	void EnsureStencilWritePipeline(bool useExportShader);

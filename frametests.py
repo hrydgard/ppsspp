@@ -64,13 +64,15 @@ STATUS_ERROR = "ERROR"
 def find_headless(config_dir, config_path):
     """Locate the PPSSPPHeadless binary. The config headlessPath wins, then
     the PPSSPP_HEADLESS env var, then candidate paths (newest by mtime)."""
-    candidates = []
     if config_path:
         p = Path(config_path)
-        candidates.append(p if p.is_absolute() else config_dir / p)
+        p = p if p.is_absolute() else config_dir / p
+        if p.is_file():
+            return p.resolve()
     env_path = os.environ.get("PPSSPP_HEADLESS")
-    if env_path:
-        candidates.append(Path(env_path))
+    if env_path and Path(env_path).is_file():
+        return Path(env_path).resolve()
+    candidates = []
     for pattern in HEADLESS_CANDIDATES:
         candidates.extend(Path(m) for m in glob.glob(pattern))
     found = [c.resolve() for c in candidates if c.is_file()]
@@ -175,13 +177,25 @@ class AdbDevice:
     def shell(self, command, timeout=None, check=True):
         return self.adb("shell", command, timeout=timeout, check=check)
 
-    def setup(self, binary, assets_dir, test_root):
-        """Push the binary, the assets and the dumps. --sync skips files that are already there."""
+    def setup(self, binary, assets_dir, test_root, dumps=None):
+        """Push the binary, the assets and the dumps (all of them, or only the dumps listed). --sync skips
+        files that are already there."""
         self.shell("mkdir -p %s" % shlex.quote(self.dir))
         self.adb("push", str(binary), self.dir + "/ppsspp_headless")
         self.shell("chmod 755 %s/ppsspp_headless" % shlex.quote(self.dir))
         self.adb("push", "--sync", str(assets_dir) + "/.", self.dir + "/assets")
-        self.adb("push", "--sync", str(test_root) + "/.", self.dir + "/dumps")
+        if dumps is None:
+            self.adb("push", "--sync", str(test_root) + "/.", self.dir + "/dumps")
+        else:
+            by_dir = {}
+            for d in dumps:
+                by_dir.setdefault(d.parent.relative_to(test_root).as_posix(), []).append(str(d))
+            for rel_dir, files in sorted(by_dir.items()):
+                remote = self.dir + "/dumps" + ("" if rel_dir == "." else "/" + rel_dir)
+                self.shell("mkdir -p %s" % shlex.quote(remote))
+                # In chunks, to stay well under the Windows command line limit.
+                for i in range(0, len(files), 50):
+                    self.adb("push", "--sync", *files[i:i + 50], remote)
         self.shell("rm -rf %s/shots && mkdir -p %s/shots" % (shlex.quote(self.dir), shlex.quote(self.dir)))
         model = self.shell("getprop ro.product.model").stdout.strip()
         soc = self.shell("getprop ro.soc.model", check=False).stdout.strip()
@@ -241,11 +255,11 @@ class IosDevice:
         self.device = candidates[0][0]
         return candidates[0][1]
 
-    def setup(self, app, test_root, sync_dumps):
+    def setup(self, app, test_root, sync_dumps, dumps=None):
         desc = self.find_device()
         self.devicectl("device", "install", "app", "--device", self.device, str(app), timeout=600)
         if sync_dumps:
-            self.sync_dumps(test_root)
+            self.sync_dumps(test_root, dumps)
         return desc
 
     def remote_files(self, subdirectory):
@@ -261,16 +275,17 @@ class IosDevice:
                 files = json.load(f)["result"]["files"]
         return {f["relativePath"]: f["metadata"]["size"] for f in files if not f["resources"]["isDirectory"]}
 
-    def sync_dumps(self, test_root):
-        """Copy the dumps that aren't on the device already (by name and size). Nothing is ever deleted:
-        devicectl can't, and its --remove-existing-content empties all of Documents. Dumps left over from
-        another test set do no harm, since only the ones asked for run."""
+    def sync_dumps(self, test_root, dumps=None):
+        """Copy the dumps (all of them, or only those listed) that aren't on the device already (by name and
+        size). Nothing is ever deleted: devicectl can't, and its --remove-existing-content empties all of
+        Documents. Dumps left over from another test set do no harm, since only the ones asked for run."""
         remote = self.remote_files("Documents/dumps")
-        local = {p.relative_to(test_root).as_posix(): p.stat().st_size for p in test_root.rglob("*") if p.is_file()}
+        files = dumps if dumps is not None else [p for p in test_root.rglob("*") if p.is_file()]
+        local = {p.relative_to(test_root).as_posix(): p.stat().st_size for p in files}
         changed = sorted(rel for rel, size in local.items() if remote.get(rel) != size)
         if not changed:
             print("The dumps are already on the device.")
-        elif len(changed) > 20:
+        elif len(changed) > 20 and dumps is None:
             # Each copy costs a second or so, so many files go faster as one folder.
             print("Copying all %d files under %s (%d new or changed)..." % (len(local), test_root, len(changed)))
             self.devicectl("device", "copy", "to", *self.container_args(), "--source", str(test_root),
@@ -600,7 +615,7 @@ def main():
         ios = IosDevice(args.ios)
         print("Installing %s%s..." % (ios_app, "" if args.no_sync else " and copying the dumps"))
         try:
-            print("Device: %s" % ios.setup(ios_app, test_root, not args.no_sync))
+            print("Device: %s" % ios.setup(ios_app, test_root, not args.no_sync, dumps if args.filter else None))
         except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
             print("ERROR: %s" % e, file=sys.stderr)
             return 2
@@ -610,9 +625,11 @@ def main():
             print("ERROR: Android headless binary not found: %s" % device_headless, file=sys.stderr)
             return 2
         device = AdbDevice(args.adb, args.device_dir)
-        print("Pushing %s, assets and dumps to %s..." % (device_headless, device.dir))
+        print("Pushing %s, assets and %s to %s..." % (
+            device_headless, "%d dumps" % len(dumps) if args.filter else "all dumps", device.dir))
         try:
-            print("Device: %s" % device.setup(device_headless, Path(__file__).resolve().parent / "assets", test_root))
+            print("Device: %s" % device.setup(device_headless, Path(__file__).resolve().parent / "assets", test_root,
+                                              dumps if args.filter else None))
         except (RuntimeError, OSError) as e:
             print("ERROR: %s" % e, file=sys.stderr)
             return 2

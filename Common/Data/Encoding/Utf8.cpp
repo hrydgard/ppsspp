@@ -142,12 +142,45 @@ void u8_dec(const char *s, int *i) {
 		isutf(s[--(*i)]) || --(*i));
 }
 
+bool CodepointIsProbablyEmoji(uint32_t c) {
+	if (c >= 0x1F000) {
+		// The emoji blocks. Not everything in them has emoji presentation by default (Emoji_Presentation in
+		// Unicode's emoji-data.txt), but anything there is best drawn with an emoji font anyway.
+		return c <= 0x1FAFF;
+	}
+	if (c < 0x231A || c > 0x2B55) {
+		return false;
+	}
+	// The BMP characters with Emoji_Presentation, from Unicode 16's emoji-data.txt. Others, like U+2600 (sun),
+	// are text unless followed by U+FE0F.
+	static const uint16_t ranges[][2] = {
+		{ 0x231A, 0x231B }, { 0x23E9, 0x23EC }, { 0x23F0, 0x23F0 }, { 0x23F3, 0x23F3 },
+		{ 0x25FD, 0x25FE }, { 0x2614, 0x2615 }, { 0x2648, 0x2653 }, { 0x267F, 0x267F },
+		{ 0x2693, 0x2693 }, { 0x26A1, 0x26A1 }, { 0x26AA, 0x26AB }, { 0x26BD, 0x26BE },
+		{ 0x26C4, 0x26C5 }, { 0x26CE, 0x26CE }, { 0x26D4, 0x26D4 }, { 0x26EA, 0x26EA },
+		{ 0x26F2, 0x26F3 }, { 0x26F5, 0x26F5 }, { 0x26FA, 0x26FA }, { 0x26FD, 0x26FD },
+		{ 0x2705, 0x2705 }, { 0x270A, 0x270B }, { 0x2728, 0x2728 }, { 0x274C, 0x274C },
+		{ 0x274E, 0x274E }, { 0x2753, 0x2755 }, { 0x2757, 0x2757 }, { 0x2795, 0x2797 },
+		{ 0x27B0, 0x27B0 }, { 0x27BF, 0x27BF }, { 0x2B1B, 0x2B1C }, { 0x2B50, 0x2B50 },
+		{ 0x2B55, 0x2B55 },
+	};
+	for (const auto &range : ranges) {
+		if (c < range[0]) {
+			return false;
+		}
+		if (c <= range[1]) {
+			return true;
+		}
+	}
+	return false;
+}
+
 bool AnyEmojiInString(std::string_view str, size_t byteCount) {
 	int i = 0;
 	byteCount = std::min(byteCount, str.size());
 	while (i < byteCount) {
 		uint32_t c = u8_nextchar(str.data(), &i, str.size());
-		if (CodepointIsProbablyEmoji(c)) {
+		if (CodepointIsProbablyEmoji(c) || c == 0xFE0F) {
 			return true;
 		}
 	}

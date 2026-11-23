@@ -605,7 +605,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 }
 
 LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, const ComputedPipelineState &pipelineState, ClipInfoFlags clipInfoFlags, bool pixelMapped) {
-	DirtyDepalIfPixelMappedChanged(pixelMapped);
+	DirtyDepalForDraw(pixelMapped);
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty) {
 		if (lastShader_)
@@ -758,7 +758,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 48
+#define CACHE_VERSION 50
 
 struct CacheHeader {
 	uint32_t magic;

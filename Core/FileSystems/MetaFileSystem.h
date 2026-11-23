@@ -50,9 +50,6 @@ private:
 	std::string startingDirectory;
 	mutable std::recursive_mutex lock;  // must be recursive. TODO: fix that
 
-	// For the UMD host0 hack.
-	bool host0Mapped_ = false;
-
 	// Assumes the lock is held
 	void Reset() {
 		// This used to be 6, probably an attempt to replicate PSP handles.
@@ -130,7 +127,7 @@ public:
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size) override;
 	size_t   WriteFile(u32 handle, const u8 *pointer, s64 size, int &usec) override;
-	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
+	size_t   SeekFile(u32 handle, s64 position, FileMove type) override;
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	PSPFileInfo GetFileInfoByHandle(u32 handle) override;
 	bool     OwnsHandle(u32 handle) override { return false; }

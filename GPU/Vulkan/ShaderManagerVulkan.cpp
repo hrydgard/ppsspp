@@ -221,7 +221,7 @@ void ShaderManagerVulkan::ClearShaders() {
 }
 
 uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
-	DirtyDepalIfPixelMappedChanged(pixelMapped);
+	DirtyDepalForDraw(pixelMapped);
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
@@ -378,7 +378,7 @@ enum class VulkanCacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 65
+#define CACHE_VERSION 67
 
 struct VulkanCacheHeader {
 	uint32_t magic;

@@ -222,6 +222,9 @@ enum class ClipInfoFlags {
 	// A skinned draw, whose Z range is only known once it's decoded: at flush, it gets MinMaxZDiscard if it reaches
 	// past the depth range (DrawEngineCommon::CheckSkinnedMinMaxZ).
 	MinMaxZCheck = 512,
+	// With GPU_USE_SCREEN_LINEAR_COLOR: no vertex is behind the near plane, so the GPU doesn't clip there and the
+	// draw can interpolate colors linearly in screen space (VS_BIT_SCREEN_LINEAR).
+	NoNearClip = 1024,
 };
 ENUM_CLASS_BITOPS(ClipInfoFlags);
 
