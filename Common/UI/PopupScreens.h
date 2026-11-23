@@ -370,6 +370,8 @@ private:
 
 	void ChoiceCallback(int num);
 	virtual bool PostChoiceCallback(int num) { return true; }
+	// Called every time the popup is about to open.
+	virtual void RefreshChoices() {}
 
 	I18NCat category_;
 	ScreenManager *screenManager_;
@@ -391,35 +393,24 @@ public:
 	PopupMultiChoiceDynamic(std::string *value, std::string_view text, const std::vector<std::string> &choices,
 		I18NCat category, ScreenManager *screenManager, std::vector<std::string> *values = nullptr, UI::LayoutParams *layoutParams = nullptr)
 		: UI::PopupMultiChoice(&valueInt_, text, nullptr, 0, (int)choices.size(), category, screenManager, layoutParams), valueStr_(value) {
-		if (values) {
-			_dbg_assert_(choices.size() == values->size());
-		}
-		choices_ = new const char *[numChoices_];
-		valueInt_ = 0;
-		for (int i = 0; i < numChoices_; i++) {
-			choices_[i] = new char[choices[i].size() + 1];
-			memcpy((char *)choices_[i], choices[i].c_str(), choices[i].size() + 1);
-			if (values) {
-				if (*value == (*values)[i])
-					valueInt_ = i;
-			}
-			if (*value == choices_[i])
-				valueInt_ = i;
-		}
 		value_ = &valueInt_;
-		if (values) {
-			choiceValues_ = *values;
-		}
-		UpdateText();
+		SetChoices(choices, values);
 	}
 	~PopupMultiChoiceDynamic() {
-		for (int i = 0; i < numChoices_; i++) {
-			delete[] choices_[i];
-		}
-		delete[] choices_;
+		FreeChoices();
+	}
+
+	// Gets the choices again each time the popup opens, for lists that can change meanwhile (like files).
+	void SetChoicesProvider(std::function<std::vector<std::string>()> provider) {
+		choicesProvider_ = std::move(provider);
 	}
 
 protected:
+	void RefreshChoices() override {
+		if (choicesProvider_) {
+			SetChoices(choicesProvider_(), nullptr);
+		}
+	}
 	bool PostChoiceCallback(int num) override {
 		if (!valueStr_) {
 			return true;
@@ -438,9 +429,46 @@ protected:
 	}
 
 private:
+	void SetChoices(const std::vector<std::string> &choices, const std::vector<std::string> *values) {
+		if (values) {
+			_dbg_assert_(choices.size() == values->size());
+		}
+		FreeChoices();
+		numChoices_ = (int)choices.size();
+		choices_ = new const char *[numChoices_];
+		valueInt_ = 0;
+		for (int i = 0; i < numChoices_; i++) {
+			choices_[i] = new char[choices[i].size() + 1];
+			memcpy((char *)choices_[i], choices[i].c_str(), choices[i].size() + 1);
+			if (values) {
+				if (*valueStr_ == (*values)[i])
+					valueInt_ = i;
+			}
+			if (*valueStr_ == choices_[i])
+				valueInt_ = i;
+		}
+		if (values) {
+			choiceValues_ = *values;
+		} else {
+			choiceValues_.clear();
+		}
+		UpdateText();
+	}
+	void FreeChoices() {
+		if (!choices_) {
+			return;
+		}
+		for (int i = 0; i < numChoices_; i++) {
+			delete[] choices_[i];
+		}
+		delete[] choices_;
+		choices_ = nullptr;
+	}
+
 	int valueInt_;
 	std::string *valueStr_;
 	std::vector<std::string> choiceValues_;
+	std::function<std::vector<std::string>()> choicesProvider_;
 };
 
 class PopupSliderChoice : public AbstractChoiceWithValueDisplay {

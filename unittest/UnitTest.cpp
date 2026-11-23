@@ -115,6 +115,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Common/UI/Context.h"
+#include "Common/UI/IconCache.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
@@ -5081,6 +5082,41 @@ static bool TestRequestManager() {
 	return true;
 }
 
+// The icon cache is loaded from disk while it's already in use, so entries and downloads may have arrived
+// first.
+static bool TestIconCacheLoad() {
+	const Path path = UnitTestTempPath("unittest_icon.cache");
+	{
+		IconCache saved;
+		EXPECT_TRUE(saved.InsertIcon("a", IconFormat::PNG, std::string("saved a")));
+		EXPECT_TRUE(saved.InsertIcon("b", IconFormat::PNG, std::string("saved b")));
+		EXPECT_TRUE(saved.InsertIcon("c", IconFormat::PNG, std::string("saved c")));
+		FILE *f = File::OpenCFile(path, "wb");
+		EXPECT_TRUE(f);
+		saved.SaveToFile(f);
+		fclose(f);
+	}
+
+	IconCache cache;
+	EXPECT_TRUE(cache.InsertIcon("a", IconFormat::PNG, std::string("newer a, longer")));
+	EXPECT_TRUE(cache.MarkPending("b"));
+	FILE *f = File::OpenCFile(path, "rb");
+	EXPECT_TRUE(f);
+	const bool loaded = cache.LoadFromFile(f);
+	fclose(f);
+	File::Delete(path);
+	EXPECT_TRUE(loaded);
+
+	const IconCacheStats stats = cache.GetStats();
+	EXPECT_EQ_INT(stats.cachedCount, 3);
+	// "a" kept the newer entry.
+	EXPECT_EQ_INT(stats.dataSize, strlen("newer a, longer") + strlen("saved b") + strlen("saved c"));
+	// The download of "b" is no longer waited for, its result is turned away.
+	EXPECT_EQ_INT(stats.pending, 0);
+	EXPECT_TRUE(!cache.InsertIcon("b", IconFormat::PNG, std::string("downloaded b")));
+	return true;
+}
+
 // When the resampler drops a lasting excess of buffered audio, the waveform has to carry on
 // smoothly across the skip: jumping straight ahead was a click.
 static bool TestStereoResamplerExcessDrop() {
@@ -5260,6 +5296,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(SaveStateMounts),
 	TEST_ITEM(SaveStatePeek),
 	TEST_ITEM(StereoResamplerExcessDrop),
+	TEST_ITEM(IconCacheLoad),
 };
 
 int main(int argc, const char *argv[]) {

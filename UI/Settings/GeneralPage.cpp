@@ -181,6 +181,11 @@ static void BuildUISettingsPage(SettingsPage *page) {
 	page->Header();
 	page->Custom("Theme", [host](UI::ViewGroup *parent) -> UI::View * {
 		PopupMultiChoiceDynamic *theme = parent->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, T(I18NCat::SYSTEM, "Theme"), GetThemeInfoNames(), I18NCat::THEMES, host->PageScreenManager()));
+		// Someone making a theme can edit its file while the settings are open.
+		theme->SetChoicesProvider([]() {
+			ReloadAllThemeInfo();
+			return GetThemeInfoNames();
+		});
 		theme->OnChoice.Add([](EventParams &e) {
 			UpdateTheme();
 			// Reset the tint/saturation if the theme changed.

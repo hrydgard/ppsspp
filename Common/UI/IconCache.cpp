@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cstring>
+#include <utility>
+#include <vector>
 
 #include "Common/UI/IconCache.h"
 #include "Common/UI/Context.h"
@@ -81,7 +83,8 @@ void IconCache::SaveToFile(FILE *file) {
 }
 
 bool IconCache::LoadFromFile(FILE *file) {
-	std::unique_lock<std::mutex> lock(lock_);
+	// Read without holding the lock, since the file can be slow to read. Entries that arrived meanwhile win.
+	std::vector<std::pair<std::string, Entry>> loaded;
 
 	DiskCacheHeader header{};
 	if (fread(&header, 1, sizeof(header), file) != sizeof(DiskCacheHeader)) {
@@ -112,8 +115,8 @@ bool IconCache::LoadFromFile(FILE *file) {
 			break;
 		}
 
-		// Skip it if we already have the entry somehow, or it has expired.
-		if (cache_.find(key) != cache_.end() || nowUnix > entryHeader.expireTimestamp) {
+		// Skip it if it has expired.
+		if (nowUnix > entryHeader.expireTimestamp) {
 			// Seek past the data and go to the next entry.
 			File::Fseek(file, entryHeader.dataLen, SEEK_CUR);
 			continue;
@@ -133,9 +136,15 @@ bool IconCache::LoadFromFile(FILE *file) {
 		entry.expireTimeStamp = entryHeader.expireTimestamp;
 		entry.usedTimeStamp = now;
 		PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
-		cache_.emplace(key, entry);
+		loaded.emplace_back(std::move(key), std::move(entry));
 	}
 
+	std::unique_lock<std::mutex> lock(lock_);
+	for (auto &[key, entry] : loaded) {
+		// A download of it may have started meanwhile. Its InsertIcon will be turned away, so it's no longer pending.
+		pending_.erase(key);
+		cache_.emplace(std::move(key), std::move(entry));
+	}
 	return true;
 }
 
