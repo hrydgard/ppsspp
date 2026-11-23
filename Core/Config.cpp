@@ -1778,9 +1778,11 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 	const char *ppssppIniFilename = IsVREnabled() ? "ppssppvr.ini" : "ppsspp.ini";
 	const char *controlsIniFilename = IsVREnabled() ? "controlsvr.ini" : "controls.ini";
 
+	// The default files go straight in the search path. FindConfigFile would also check that they exist, which
+	// nothing here uses, and with a memory stick on a content URI each check is a slow call at startup.
 	bool exists;
-	iniFilename_ = FindConfigFile(searchPath_, useIniFilename ? iniFileName : ppssppIniFilename, &exists);
-	controllerIniFilename_ = FindConfigFile(searchPath_, useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
+	iniFilename_ = useIniFilename ? FindConfigFile(searchPath_, iniFileName, &exists) : searchPath_ / ppssppIniFilename;
+	controllerIniFilename_ = useControllerIniFilename ? FindConfigFile(searchPath_, controllerIniFilename, &exists) : searchPath_ / controlsIniFilename;
 }
 
 bool Config::LoadAppendedConfig(bool save) {
