@@ -1010,8 +1010,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Display display = null;
 		if (externalDisplayWatched && "1".equals(NativeApp.queryConfig("externalDisplayOutput"))) {
 			DisplayManager displayManager = (DisplayManager)getSystemService(Context.DISPLAY_SERVICE);
+			// The display we're on (in desktop windowing, that can be the external one). Not the device's main one.
+			int ownDisplayId = getWindowManager().getDefaultDisplay().getDisplayId();
 			for (Display candidate : displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
-				if (!isBuiltInDisplay(candidate) && isTvShaped(candidate)) {
+				if (candidate.getDisplayId() != ownDisplayId && !isBuiltInDisplay(candidate) && isTvShaped(candidate)) {
 					display = candidate;
 					break;
 				}

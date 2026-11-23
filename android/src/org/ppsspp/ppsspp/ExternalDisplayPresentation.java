@@ -7,6 +7,7 @@ import android.util.Log;
 import android.view.Display;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.WindowManager;
 
 // Shows the game on a second display (a TV on HDMI, or a wireless display that apps can draw to), as a
 // Game output. The phone keeps the touch controls and the menus. See docs/multi-swapchain.md.
@@ -22,6 +23,8 @@ public class ExternalDisplayPresentation extends Presentation implements Surface
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		// Only shows the game. Focused, it would take the controller's keys from the activity, and Back would dismiss it.
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
 		SurfaceView view = new SurfaceView(getContext());
 		view.getHolder().addCallback(this);
 		setContentView(view);
