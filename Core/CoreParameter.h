@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -38,6 +39,13 @@ enum GPUCore : int {
 struct VSHLaunch {
 	Path vshmain;  // Host path of vshmain.prx.
 	std::vector<u8> vshmainArgs;  // What the XMB passed when it launched the game.
+};
+
+// Calendar time handed over by a frontend at boot.
+struct FrontendCalendar {
+	int64_t utcSeconds = 0;  // UTC seconds since 1970 at boot (after a reset, the carried clock).
+	int32_t utcOffset = 0;  // Seconds east of UTC, DST included.
+	std::optional<int32_t> standardOffset;  // Seconds east of UTC without DST, unset if the zone is unknown.
 };
 
 enum class FPSLimit {
@@ -83,6 +91,9 @@ struct CoreParameter {
 	std::optional<VSHLaunch> launchedFromVSH;
 	// For a boot of vshmain.prx: what its module_start gets, which tells it it's coming back from a game.
 	std::vector<u8> vshmainArgs;
+
+	// Set by the libretro port; unset means host clock and time zone.
+	std::optional<FrontendCalendar> calendar;
 
 	Path nandRoot;  // If non-empty, use this directory as the root above flash0:-flash3: (which are hosted in subdirectories flash0-flash3 of it).
 

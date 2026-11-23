@@ -18,11 +18,13 @@
 #pragma once
 
 #include <cstdint>
+#include <ctime>
 
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 
 class PointerWrap;
+struct FrontendCalendar;
 
 struct PSPTimeval {
 	s32_le tv_sec;
@@ -33,6 +35,18 @@ void __RtcTimeOfDay(PSPTimeval *tv);
 int32_t RtcBaseTime(int32_t *micro = nullptr);
 void RtcSetBaseTime(int32_t seconds, int32_t micro = 0);
 u64 __RtcGetCurrentTick();
+
+// Seconds east of UTC that local time conversions use.
+int RtcLocalOffsetSeconds();
+// In minutes, what INT_TIMEZONE and /CONFIG/DATE/time_zone_offset read.
+int RtcTimeZoneParam();
+// PSP_SYSTEMPARAM_DAYLIGHTSAVINGS_SAVING or _STD.
+int RtcDaylightSavingsParam();
+// Sets utcSeconds to the emulated calendar time now (whole seconds), and when the RTC follows a
+// frontend calendar also utcOffset and standardOffset, so a reboot can carry them on.
+void RtcRunningCalendar(FrontendCalendar *calendar);
+// timegm: a UTC struct tm to seconds, independent of the host time zone.
+time_t RtcTimeGm(struct tm *t);
 
 void Register_sceRtc();
 void Register_sceRtc_driver();

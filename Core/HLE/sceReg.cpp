@@ -5,6 +5,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
+#include "Core/HLE/sceRtc.h"
 #include "Core/HLE/sceUtility.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeMap.h"
@@ -29,8 +30,8 @@
 // CONFIG/DATE/date_format <-> g_Config.iDateFormat
 // CONFIG/DATE/time_format <-> g_Config.iTimeFormat
 // CONFIG/DATE/time_zone_area <-> g_Config.sTimeZoneArea
-// CONFIG/DATE/time_zone_offset <-> g_Config.iTimeZoneOffset
-// CONFIG/DATE/summer_time <-> g_Config.bDayLightSavings
+// CONFIG/DATE/time_zone_offset <-> g_Config.iTimeZoneOffset - but reads follow the frontend's calendar when there is one (libretro).
+// CONFIG/DATE/summer_time <-> g_Config.bDayLightSavings - but reads follow the frontend's calendar when there is one (libretro).
 // CONFIG/SYSTEM/LOCK/parental_level <-> g_Config.iLockParentalLevel, int
 // CONFIG/SYSTEM/LOCK/password <-> g_Config.sXmbLockPassword (4 byte binary, ASCII digits)
 // CONFIG/SYSTEM/LOCK/browser_start <-> (unmapped, bool)
@@ -837,8 +838,8 @@ static const KeyValue tree_CONFIG_SYSTEM[] = {
 static const KeyValue tree_CONFIG_DATE[] = {
 	{ "time_format", ValueType::INT, "", (int)0x0, nullptr, &g_Config.iTimeFormat },  // decimal: 0
 	{ "date_format", ValueType::INT, "", (int)0x2, nullptr, &g_Config.iDateFormat },  // decimal: 2
-	{ "summer_time", ValueType::INT, "", (int)0x0, nullptr, &g_Config.bDayLightSavings },  // decimal: 0
-	{ "time_zone_offset", ValueType::INT, "", (int)0x3c, nullptr, &g_Config.iTimeZoneOffset },  // decimal: 60
+	{ "summer_time", ValueType::INT, "", (int)0x0, nullptr, &g_Config.bDayLightSavings, &RtcDaylightSavingsParam },  // decimal: 0
+	{ "time_zone_offset", ValueType::INT, "", (int)0x3c, nullptr, &g_Config.iTimeZoneOffset, &RtcTimeZoneParam },  // decimal: 60
 	{ "time_zone_area", ValueType::STR, "sweden", 7, nullptr, &g_Config.sTimeZoneArea },
 };
 
