@@ -4071,6 +4071,12 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	if (channel == RASTER_DEPTH && src != dst && src->fbo->MultiSampleLevel() == dst->fbo->MultiSampleLevel() && draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported) {
 		useCopy = true;
 	}
+	// Where drawing depth from a texture isn't exact, blit it. Silent Hill: Origins' flashlight shadows test EQUAL
+	// against depth carried over when the buffer is widened for them.
+	if (channel == RASTER_DEPTH && src != dst && !useCopy && draw_->GetBugs().Has(Draw::Bugs::RASTER_DEPTH_COPY_INEXACT) &&
+		draw_->GetDeviceCaps().framebufferDepthBlitSupported && src->fbo->MultiSampleLevel() == 0 && dst->fbo->MultiSampleLevel() == 0) {
+		useBlit = true;
+	}
 
 	float srcXFactor = src->renderScaleFactor;
 	float srcYFactor = src->renderScaleFactor;

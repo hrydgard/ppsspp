@@ -672,6 +672,11 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		bugs_.Infest(Bugs::RASTER_DEPTH_COPY_INEXACT);
 	}
 
+	if (caps_.vendor == GPUVendor::VENDOR_ARM) {
+		// The same on Mali-G57: Silent Hill: Origins lost its flashlight shadows.
+		bugs_.Infest(Bugs::RASTER_DEPTH_COPY_INEXACT);
+	}
+
 #if PPSSPP_PLATFORM(IOS)
 	// For some reason, this bug does not appear on M1.
 	if (caps_.vendor == GPUVendor::VENDOR_APPLE) {
