@@ -269,7 +269,7 @@ can be tested on its own.
   the main thread waits for that (the same handshake as `requestExitVulkanRenderLoop`). Only then does
   it remove the window. Removing the window should give the TV back to system mirroring. **Verify on
   the device:** if iOS doesn't resume mirroring, we need a `Mirror` output for the menus instead.
-- **Setting:** Graphics → "External display": "Show the game" (the default) or "Mirror the screen"
+- **Setting:** Graphics → "External display": "Show the game" (the default) or "Mirror / Off"
   (`iExternalDisplay`, iOS and Android). It's disabled on backends without `multipleSwapchains`, and a
   change applies right away (`SystemNotification::EXTERNAL_DISPLAY_CHANGED`).
 - **Out of scope:** iPad Stage Manager's interactive extended displays (role `Application`), and
@@ -287,7 +287,9 @@ can be tested on its own.
   `DISPLAY_CATEGORY_PRESENTATION` display, the backend is Vulkan and the setting says "Show the game"
   (`queryConfig("externalDisplayOutput")`), shows an `ExternalDisplayPresentation` there. Displays that
   are part of the device (a dual-screen handheld's second screen) are skipped, where Android can tell
-  (12 and up, `DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN`). That's a `Presentation` with a `SurfaceView`, whose
+  (12 and up, `DeviceProductInfo.CONNECTION_TO_SINK_BUILT_IN`), and so are displays squarer than 3:2
+  and the one the activity itself is on (desktop windowing). The presentation isn't focusable, so
+  the controller's keys, Back among them, stay with the activity. That's a `Presentation` with a `SurfaceView`, whose
   surface callbacks add, resize and remove a `Game` output through JNI. Otherwise Android mirrors.
   A backend change recreates the activity, which checks again.
 - **Removing:** the surface mustn't be touched once `surfaceDestroyed` returns, so it removes the output

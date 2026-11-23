@@ -21,6 +21,7 @@
 
 #include "UI/Theme.h"
 
+#include "Common/StringUtils.h"
 #include "Common/Data/Format/IniFile.h"
 #include "Common/File/DirListing.h"
 #include "Common/Log/LogManager.h"
@@ -76,15 +77,12 @@ static std::vector<ThemeInfo> themeInfos;
 
 static void LoadThemeInfo(const std::vector<Path> &directories) {
 	themeInfos.clear();
-	ThemeInfo def{};
-	def.name = "Default";
-	themeInfos.push_back(def);
 
-	// This will update the theme if already present, as such default in assets/theme will get priority if exist
-	auto appendTheme = [&](const ThemeInfo &info) {
-		auto beginErase = std::remove(themeInfos.begin(), themeInfos.end(), info.name);
-		if (beginErase != themeInfos.end()) {
-			themeInfos.erase(beginErase, themeInfos.end());
+	// The first theme with a name wins. The bundled themes are loaded first, so a custom theme can't replace one.
+	auto appendTheme = [&](const ThemeInfo &info, const Path &file) {
+		if (std::find(themeInfos.begin(), themeInfos.end(), info.name) != themeInfos.end()) {
+			WARN_LOG(Log::System, "Theme '%s' in %s ignored: a theme with that name already exists", info.name.c_str(), file.c_str());
+			return;
 		}
 		themeInfos.push_back(info);
 	};
@@ -168,10 +166,23 @@ static void LoadThemeInfo(const std::vector<Path> &directories) {
 
 				section.Get("ChoiceRoundRadius", &info.choiceRoundRadius);
 
-				appendTheme(info);
+				appendTheme(info, Path(f.fullName));
 			}
 		}
 	}
+
+	// Alphabetical, like the shaders, with Default first. It's also built in, in case the assets don't have it.
+	auto defaultIter = std::find(themeInfos.begin(), themeInfos.end(), "Default");
+	ThemeInfo def{};
+	def.name = "Default";
+	if (defaultIter != themeInfos.end()) {
+		def = *defaultIter;
+		themeInfos.erase(defaultIter);
+	}
+	std::stable_sort(themeInfos.begin(), themeInfos.end(), [](const ThemeInfo &a, const ThemeInfo &b) {
+		return strcasecmp(a.name.c_str(), b.name.c_str()) < 0;
+	});
+	themeInfos.insert(themeInfos.begin(), def);
 }
 
 static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {

@@ -381,6 +381,7 @@ void PopupMultiChoice::HandleClick(UI::EventParams &e) {
 		preOpenCallback_(this);
 		callbackExecuted_ = true;
 	}
+	RefreshChoices();
 
 	restoreFocus_ = HasFocus();
 
