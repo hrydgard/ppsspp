@@ -85,7 +85,7 @@ typedef struct {
 typedef struct {
 	short   satellites_in_view;
 	short   garbage;
-	SatInfo satInfo[32];
+	SatInfo satInfo[24];
 } SatData;
 
 #pragma pack(pop)

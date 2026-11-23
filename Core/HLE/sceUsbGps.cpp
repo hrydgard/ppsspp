@@ -165,7 +165,7 @@ void GPS::init() {
 	gpsData.reserve0  = 0;
 	gpsData.reserve1  = 0; // geoid separation (m)?
 
-	satData.satellites_in_view = 32;
+	satData.satellites_in_view = 24;
 	for (unsigned char i = 0; i < satData.satellites_in_view; i++) {
 		satData.satInfo[i].id        = i + 1; // 1 .. 32
 		satData.satInfo[i].elevation = 20 * ((i / 12) % 3 + 1); // 1-12=20 13-24=40 25-32=60
