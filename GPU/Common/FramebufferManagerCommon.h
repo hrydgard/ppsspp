@@ -248,6 +248,8 @@ enum class TempFBO {
 	SAMPLE0,
 	// A copy for draws that read only the bits outside their write mask.
 	MASK_COPY,
+	// The depth that draws with gstate_c.shaderDepthEqual test against.
+	DEPTH_COPY,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -544,6 +546,13 @@ public:
 	void DiscardFramebufferCopy() {
 		currentFramebufferCopy_ = nullptr;
 		maskCopy_ = nullptr;
+		depthCopy_ = nullptr;
+	}
+	// Binds a copy of the current render target's depth, for gstate_c.shaderDepthEqual. The copy is kept until
+	// DiscardDepthCopy(), which the caller does when a draw may have changed the depth.
+	bool BindDepthCopyAsTexture(int stage);
+	void DiscardDepthCopy() {
+		depthCopy_ = nullptr;
 	}
 	// The target hasn't changed, but texturing from it should see the latest drawing.
 	void DiscardSelfTextureCopy() {
@@ -697,6 +706,10 @@ protected:
 	Draw::Framebuffer *maskCopy_ = nullptr;
 	const VirtualFramebuffer *maskCopyVfb_ = nullptr;
 	u32 maskCopyMask_ = 0;
+
+	// See BindDepthCopyAsTexture.
+	Draw::Framebuffer *depthCopy_ = nullptr;
+	const VirtualFramebuffer *depthCopyVfb_ = nullptr;
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufColorRangeEnd_ = 0;

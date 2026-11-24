@@ -193,6 +193,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	bool fetchFramebuffer = needFramebufferRead && id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
 	bool readFramebufferTex = needFramebufferRead && !id.Bit(FS_BIT_USE_FRAMEBUFFER_FETCH);
+	// Only Vulkan sets it (Bugs::EQUAL_DEPTH_TEST_BROKEN), and never with a framebuffer read, which takes the binding.
+	const bool shaderDepthEqual = id.Bit(FS_BIT_SHADER_DEPTH_EQUAL) && compat.shaderLanguage == GLSL_VULKAN && !needFramebufferRead;
 
 	// Vulkan GLSL reads the framebuffer through an input attachment. Only the Metal backend uses that, where
 	// SPIRV-Cross turns it into programmable blending ([[color(0)]]).
@@ -229,6 +231,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (readFramebufferTex) {
 			// The framebuffer texture is always bound as an array.
 			p.F("layout (set = 0, binding = %d) uniform sampler2DArray fbotex;\n", DRAW_BINDING_2ND_TEXTURE);
+		} else if (shaderDepthEqual) {
+			p.F("layout (set = 0, binding = %d) uniform sampler2DArray depthCopy;\n", DRAW_BINDING_2ND_TEXTURE);
 		} else if (fetchFramebuffer) {
 			p.F("layout (input_attachment_index = 0, set = 0, binding = %d) uniform subpassInput inputColor;\n", DRAW_BINDING_2ND_TEXTURE);
 		}
@@ -1394,6 +1398,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
 		// This doesn't make a ton of sense, but empirically does work.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
+	}
+
+	if (shaderDepthEqual) {
+		// The other half of the EQUAL test, which the hardware does as GEQUAL: what's in front of the depth fails.
+		// With some slack, far less than a step of the PSP's 16-bit Z.
+		WRITE(p, "  if (%s > texelFetch(depthCopy, ivec3(ivec2(gl_FragCoord.xy), 0), 0).x + (0.125 / 65536.0)) DISCARD;\n",
+			writeDepth ? "gl_FragDepth" : "gl_FragCoord.z");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

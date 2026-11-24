@@ -3307,6 +3307,26 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	drawPixelsCache_.clear();
 }
 
+bool FramebufferManagerCommon::BindDepthCopyAsTexture(int stage) {
+	VirtualFramebuffer *vfb = currentRenderVfb_;
+	if (!vfb || !vfb->fbo || !useBufferedRendering_ || vfb->fbo->MultiSampleLevel() != 0) {
+		return false;
+	}
+	if (!depthCopy_ || depthCopyVfb_ != vfb) {
+		Draw::Framebuffer *copy = GetTempFBO(TempFBO::DEPTH_COPY, vfb->renderWidth, vfb->renderHeight);
+		if (!copy) {
+			return false;
+		}
+		CopyDepthRect(vfb->fbo, 0, 0, copy, 0, 0, vfb->renderWidth, vfb->renderHeight, vfb->renderScaleFactor, "DepthCopyForEqual");
+		gpuStats.perFrame.numDepthCopies++;
+		RebindFramebuffer("After DepthCopyForEqual");
+		depthCopy_ = copy;
+		depthCopyVfb_ = vfb;
+	}
+	draw_->BindFramebufferAsTexture(depthCopy_, stage, Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
+	return true;
+}
+
 void FramebufferManagerCommon::CheckMaskCopyStillValid(const VirtualFramebuffer *vfb) {
 	// Anything but a draw with the same write mask, without blending or a logic op, can change the bits the copy holds.
 	if (vfb != maskCopyVfb_ || gstate.isModeClear() || gstate.getColorMask() != maskCopyMask_ ||
@@ -3324,6 +3344,7 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::DEPTH_SHIFT: return "depth_shift";
 	case TempFBO::SAMPLE0: return "sample0";
 	case TempFBO::MASK_COPY: return "mask_copy";
+	case TempFBO::DEPTH_COPY: return "depth_copy";
 	default: break;
 	}
 	return "";
@@ -3367,7 +3388,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 		return it->second.fbo;
 	}
 
-	bool z_stencil = reason == TempFBO::STENCIL || reason == TempFBO::DEPTH_SHIFT;
+	bool z_stencil = reason == TempFBO::STENCIL || reason == TempFBO::DEPTH_SHIFT || reason == TempFBO::DEPTH_COPY;
 	char name[128];
 	snprintf(name, sizeof(name), "tempfbo_%s_%dx%d", TempFBOReasonToString(reason), w / renderScaleFactor_, h / renderScaleFactor_);
 

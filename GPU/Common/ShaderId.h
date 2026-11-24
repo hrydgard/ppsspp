@@ -111,7 +111,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_REPLACE_LOGIC_OP = 49,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 	FS_BIT_SHADER_DEPAL_MODE = 53,  // 2 bits (ShaderDepalMode)
 	FS_BIT_SHADER_DEPAL_FORMAT = 55,  // 3 bits (GEBufferFormat), connected to FS_BIT_SHADER_DEPAL_MODE
-	// Free bit: 58
+	FS_BIT_SHADER_DEPTH_EQUAL = 58,  // gstate_c.shaderDepthEqual.
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 	FS_BIT_DEPTH_TEST_NEVER = 60,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 61,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.

@@ -292,5 +292,5 @@ constexpr float tolerantDepthEqualOffset = 0.25f;
 
 // The depth test to set up for the draw.
 inline GEComparison DepthTestFunctionForDraw() {
-	return gstate_c.tolerantDepthEqual ? GE_COMP_GEQUAL : gstate.getDepthTestFunction();
+	return (gstate_c.tolerantDepthEqual || gstate_c.shaderDepthEqual) ? GE_COMP_GEQUAL : gstate.getDepthTestFunction();
 }

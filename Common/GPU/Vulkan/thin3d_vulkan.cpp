@@ -1160,6 +1160,10 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 		// Monster Hunter 3rd. Without cull distances, draws reaching past the Z planes get clipped and culled on
 		// the CPU instead.
 		caps_.maxCullDistances = 0;
+		// An EQUAL depth test fails on most fragments of a redraw, mostly when it blends with the destination, while
+		// GREATER_OR_EQUAL passes the same ones. Seen on a GE8320 (Redmi 9A) in the flashlight lighting of Silent Hill:
+		// Origins and Shattered Memories.
+		bugs_.Infest(Bugs::EQUAL_DEPTH_TEST_BROKEN);
 	}
 
 	if (!vulkan->Extensions().KHR_depth_stencil_resolve) {

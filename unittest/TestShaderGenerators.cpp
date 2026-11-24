@@ -464,6 +464,10 @@ bool TestFragmentShaders() {
 
 		// bits we don't need to test because they are irrelevant on d3d11
 		id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, false);
+		// CLUT8 depal always comes with the shader texture clamp, which it gets the texture size from.
+		if ((ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2) == ShaderDepalMode::CLUT8) {
+			id.SetBit(FS_BIT_SHADER_TEX_CLAMP);
+		}
 
 		// DX9 disabling:
 		if (static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2)) == ReplaceAlphaType::REPLACE_ALPHA_DUALSOURCE)
