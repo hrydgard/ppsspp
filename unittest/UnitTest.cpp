@@ -2580,10 +2580,14 @@ bool TestVFPUDot() {
 				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, scalar, expected);
 			return false;
 		}
-		// vfpu_multi_dot on the last four a's as the matrix, each output against the reference.
+		// vfpu_multi_dot on the last four a's as the matrix, each output against the reference, at
+		// every term count.
 		memcpy(lastA[n & 3], a, sizeof(lastA[0]));
-		if ((n++ & 3) == 3 && !checkMulti(b, 2 + (int)(n % 3), (n & 4) != 0))
-			return false;
+		const bool transposed = (n++ & 1) != 0;
+		for (int terms = 1; terms <= 4; terms++) {
+			if (!checkMulti(b, terms, transposed))
+				return false;
+		}
 		return true;
 	};
 	return ForEachVFPUDotTestCase(check);
