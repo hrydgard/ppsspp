@@ -66,7 +66,9 @@ inline void Memcpy(const u32 to_address, const u32 from_address, const u32 len, 
 	if (!from)
 		return;
 
-	memcpy(to, from, len);
+	// Both are guest addresses the game chose, so they can overlap, and memcpy of an overlapping range
+	// depends on the host's C library.
+	memmove(to, from, len);
 
 	if (MemBlockInfoDetailed(len)) {
 		if (!tag) {
