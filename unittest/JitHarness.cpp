@@ -315,7 +315,9 @@ bool TestJitDotBench() {
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		const double callsPerSecond = ExecCPUTest(false);
 		if (getenv("PPSSPP_JITBENCH_DISASM")) {
-			JitBlockDebugInfo block = mipsr4k.jit->GetBlockCacheDebugInterface()->GetBlockDebugInfo(0);
+			// Not block 0, which the IR JITs keep as a placeholder.
+			JitBlockCacheDebugInterface *blocks = mipsr4k.jit->GetBlockCacheDebugInterface();
+			JitBlockDebugInfo block = blocks->GetBlockDebugInfo(blocks->GetBlockNumberFromStartAddress(PSP_GetUserMemoryBase()));
 			for (size_t i = 0; i < block.targetDisasm.size() && i < 80; i++)
 				printf("  %s\n", block.targetDisasm[i].c_str());
 		}
