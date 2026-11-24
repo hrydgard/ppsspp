@@ -160,6 +160,8 @@ const std::string g_iconCachePrefix = "badge:";
 Path g_gamePath;
 std::string s_game_hash;
 static std::string s_lastRichPresence;
+static double s_lastRichPresenceCheck = 0.0;
+constexpr double RICH_PRESENCE_CHECK_INTERVAL = 10.0;  // seconds
 
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
@@ -906,6 +908,7 @@ void UpdateSettings() {
 bool Shutdown(bool waitForRequests) {
 	g_activeChallenges.clear();
 	s_lastRichPresence.clear();
+	s_lastRichPresenceCheck = 0.0;
 	if (g_rcClient) {
 		for (auto iter = g_trackedClients.begin(); iter != g_trackedClients.end(); ++iter) {
 			if (iter->second.client != g_rcClient) {
@@ -942,6 +945,14 @@ void FrameUpdate() {
 	if (!g_rcClient)
 		return;
 	rc_client_do_frame(g_rcClient);
+
+	// Evaluating the Rich Presence script reads emulated memory, and many scripts change every frame
+	// (timers, counters), so only check it now and then.
+	double now = time_now_d();
+	if (s_lastRichPresenceCheck != 0.0 && now < s_lastRichPresenceCheck + RICH_PRESENCE_CHECK_INTERVAL) {
+		return;
+	}
+	s_lastRichPresenceCheck = now;
 	char buf[512];
 	size_t sz = GetRichPresenceMessage(buf, sizeof(buf));
 	std::string currentRP = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
@@ -1270,6 +1281,7 @@ void UnloadGame() {
 		g_gamePath.clear();
 		s_game_hash.clear();
 		s_lastRichPresence.clear();
+		s_lastRichPresenceCheck = 0.0;
 	}
 	// Unloading aborts a pending load, and rc_client doesn't call back for an aborted load.
 	g_isIdentifying = false;

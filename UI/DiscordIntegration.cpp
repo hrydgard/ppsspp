@@ -9,6 +9,7 @@
 #include "UI/DiscordIntegration.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
+#include "Common/TimeUtil.h"
 
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(UWP)
 
@@ -40,6 +41,29 @@ static const char *ppsspp_app_id_gold = "1471464214710190152";
 static void handleDiscordError(int errCode, const char *message) {
 	ERROR_LOG(Log::System, "Discord error code %d: '%s'", errCode, message);
 }
+
+// Discord rejects the whole presence if a string field is longer than this.
+static constexpr size_t DISCORD_MAX_FIELD_LEN = 127;
+
+static std::string GetRichPresenceForDiscord() {
+	char buf[512];
+	size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
+	if (sz == (size_t)-1) {
+		return std::string();
+	}
+	if (sz > DISCORD_MAX_FIELD_LEN) {
+		sz = DISCORD_MAX_FIELD_LEN;
+		// Don't cut a UTF-8 sequence in half.
+		while (sz > 0 && ((uint8_t)buf[sz] & 0xC0) == 0x80) {
+			sz--;
+		}
+	}
+	return std::string(buf, sz);
+}
+
+// Rich Presence scripts often change every frame (timers, counters), and evaluating one reads
+// emulated memory, so only check now and then.
+static constexpr double RICH_PRESENCE_CHECK_INTERVAL = 10.0;  // seconds
 #endif
 
 Discord::~Discord() {
@@ -87,10 +111,15 @@ void Discord::Shutdown() {
 #endif
 		initialized_ = false;
 	}
+	ResetGameState();
+}
+
+void Discord::ResetGameState() {
 	inGame_ = false;
 	startTimestamp_ = 0;
 	gameTitle_.clear();
 	richPresence_.clear();
+	lastRichPresenceCheck_ = 0.0;
 }
 
 void Discord::Update() {
@@ -106,12 +135,12 @@ void Discord::Update() {
 	}
 
 #ifdef ENABLE_DISCORD
-	if (inGame_) {
-		char buf[512];
-		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
-		std::string currentRP = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
+	double now = time_now_d();
+	if (inGame_ && now >= lastRichPresenceCheck_ + RICH_PRESENCE_CHECK_INTERVAL) {
+		lastRichPresenceCheck_ = now;
+		std::string currentRP = GetRichPresenceForDiscord();
 		if (currentRP != richPresence_) {
-			richPresence_ = currentRP;
+			richPresence_ = std::move(currentRP);
 			UpdateGamePresence();
 		}
 	}
@@ -125,12 +154,12 @@ void Discord::Update() {
 
 void Discord::UpdateGamePresence() {
 #ifdef ENABLE_DISCORD
-	auto sc = GetI18NCategory(I18NCat::SCREEN);
 	DiscordRichPresence discordPresence{};
 	if (!richPresence_.empty()) {
 		discordPresence.details = gameTitle_.c_str();
 		discordPresence.state = richPresence_.c_str();
 	} else {
+		auto sc = GetI18NCategory(I18NCat::SCREEN);
 		discordPresence.state = gameTitle_.c_str();
 		discordPresence.details = sc->T_cstr("Playing");
 	}
@@ -152,11 +181,10 @@ void Discord::SetPresenceGame(std::string_view gameTitle) {
 	inGame_ = true;
 	gameTitle_ = std::string(gameTitle);
 	startTimestamp_ = time(0);
-
-	char buf[512];
-	size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
-	richPresence_ = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
-
+#ifdef ENABLE_DISCORD
+	richPresence_ = GetRichPresenceForDiscord();
+	lastRichPresenceCheck_ = time_now_d();
+#endif
 	UpdateGamePresence();
 }
 
@@ -168,10 +196,7 @@ void Discord::SetPresenceMenu() {
 		Init();
 	}
 
-	inGame_ = false;
-	startTimestamp_ = 0;
-	gameTitle_.clear();
-	richPresence_.clear();
+	ResetGameState();
 
 #ifdef ENABLE_DISCORD
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -187,10 +212,7 @@ void Discord::SetPresenceMenu() {
 }
 
 void Discord::ClearPresence() {
-	inGame_ = false;
-	startTimestamp_ = 0;
-	gameTitle_.clear();
-	richPresence_.clear();
+	ResetGameState();
 
 	if (!IsEnabled() || !initialized_)
 		return;
