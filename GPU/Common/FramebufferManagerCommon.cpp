@@ -30,8 +30,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
-#include "Core/Core.h"
-#include "Core/CoreParameter.h"
+#include "Core/Core.h"#include "Core/CoreParameter.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -139,9 +138,16 @@ bool FramebufferManagerCommon::PresentsToOtherOutput() const {
 }
 
 void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
+	const u32 prevPtr = displayFramebufPtr_;
 	displayFramebufPtr_ = framebuf & 0x3FFFFFFF;
 	if (Memory::IsVRAMAddress(displayFramebufPtr_))
 		displayFramebufPtr_ = framebuf & 0x041FFFFF;
+	if (displayFramebufPtr_ != prevPtr) {
+		displaySwitchedFromPtr_ = prevPtr;
+		displaySwitched_ = true;
+		displaySwitchedReally_ = true;
+		displayChecksSinceSwitch_ = 0;
+	}
 	displayStride_ = stride;
 	displayFormat_ = format;
 }
@@ -209,6 +215,59 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveVFB(u32 addr, int stride, G
 
 VirtualFramebuffer *FramebufferManagerCommon::GetDisplayVFB() {
 	return GetExactVFB(displayFramebufPtr_, displayStride_, displayFormat_);
+}
+
+// The framebuffer holding a display address, at its start or at an offset into it. Unlike
+// FindDisplayVFB, this only looks: it never resolves a format, so it's safe for a per-vblank check.
+VirtualFramebuffer *FramebufferManagerCommon::FindDisplayContainingVFB(u32 addr) const {
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(addr))
+		addr &= 0x041FFFFF;
+	VirtualFramebuffer *match = nullptr;
+	for (VirtualFramebuffer *v : vfbs_) {
+		if (v->fb_format != displayFormat_ || v->fb_stride != displayStride_) {
+			continue;
+		}
+		if (addr >= v->fb_address && addr < v->fb_address + v->BufferByteSize(RASTER_COLOR)) {
+			if (!match || v->fb_address > match->fb_address) {
+				match = v;
+			}
+		}
+	}
+	return match;
+}
+
+bool FramebufferManagerCommon::ConsumeDisplayDirty(bool really) {
+	bool &switchedFlag = really ? displaySwitchedReally_ : displaySwitched_;
+	const bool switched = switchedFlag;
+	switchedFlag = false;
+	if (!really && displayChecksSinceSwitch_ < 1000) {
+		displayChecksSinceSwitch_++;
+	}
+
+	VirtualFramebuffer *vfb = GetDisplayVFB();
+	// With no framebuffer at exactly this address, present every time, as we always have.
+	bool dirty = true;
+	if (vfb) {
+		bool &dirtyFlag = really ? vfb->reallyDirtyAfterDisplay : vfb->dirtyAfterDisplay;
+		dirty = dirtyFlag;
+		dirtyFlag = false;
+	}
+
+	// A game that shows two parts of one buffer in turn (Silent Hill: Shattered Memories flips between
+	// the halves of a 1024-wide one) draws its next frame into the same framebuffer it's displaying, so
+	// the dirty flags would present each frame twice, or once a vblank late when the drawing used them
+	// up before the switch. While it keeps switching within one framebuffer, only the switches count.
+	// Between separate framebuffers the dirty flags are right: God of War switches every vblank but
+	// draws only every other one when slow, and showing the stale buffer again would judder.
+	const int SWITCHING_CHECKS = 8;
+	if (displayChecksSinceSwitch_ <= SWITCHING_CHECKS && displaySwitchedFromPtr_ != 0) {
+		VirtualFramebuffer *containing = FindDisplayContainingVFB(displayFramebufPtr_);
+		if (containing && FindDisplayContainingVFB(displaySwitchedFromPtr_) == containing) {
+			return switched;
+		}
+	}
+	return dirty;
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -383,7 +442,6 @@ static void ApplyKillzoneFramebufferSplit(FramebufferHeuristicParams *params, in
 
 VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(FramebufferHeuristicParams &params, u32 skipDrawReason) {
 	gstate_c.Clean(DIRTY_FRAMEBUF);
-
 	// Collect all parameters. This whole function has really become a cesspool of heuristics...
 	// but it appears that's what it takes, unless we emulate VRAM layout more accurately somehow.
 

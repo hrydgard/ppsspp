@@ -416,6 +416,10 @@ public:
 	u32 DisplayFramebufAddr() const {
 		return displayFramebufPtr_;
 	}
+	// Whether the displayed framebuffer has a new frame to present since the last call, for
+	// GPUCommonHW's FramebufferDirty() (really = false) and FramebufferReallyDirty() (really = true),
+	// which each consume their own flags.
+	bool ConsumeDisplayDirty(bool really);
 	u32 DisplayFramebufStride() const {
 		return displayStride_;
 	}
@@ -624,6 +628,7 @@ protected:
 	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	VirtualFramebuffer *FindDisplayVFB(u32 fbaddr, u32 *offsetX, u32 *offsetY);
+	VirtualFramebuffer *FindDisplayContainingVFB(u32 addr) const;
 	bool ReadFramebufferForDebug(VirtualFramebuffer *vfb, int x, int y, int w, int h, GPUDebugBuffer &buffer, int maxScaleFactor);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
@@ -664,6 +669,12 @@ protected:
 	bool needBackBufferYSwap_ = false;
 
 	u32 displayFramebufPtr_ = 0;
+	// For ConsumeDisplayDirty(): the address displayed before the latest switch, whether a switch hasn't
+	// been reported yet (one flag per caller), and how many checks ago the latest switch was.
+	u32 displaySwitchedFromPtr_ = 0;
+	bool displaySwitched_ = false;
+	bool displaySwitchedReally_ = false;
+	int displayChecksSinceSwitch_ = 0;
 	u32 displayStride_ = 0;
 	GEBufferFormat displayFormat_ = GE_FORMAT_565;
 	u32 prevDisplayFramebufPtr_ = 0;

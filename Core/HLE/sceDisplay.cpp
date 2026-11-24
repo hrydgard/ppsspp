@@ -211,6 +211,10 @@ static u64 lastVblankTicks = 0;
 // When the GE was done with the last frame, paced or not. 0 when there's none yet.
 static u64 pacedFrameDoneTicks = 0;
 static bool flippedSincePacedFrame = false;
+// Times the game switched to a different framebuffer: its real frame rate, for headless's
+// --frame-stats. Setting the same buffer again (some games do it every vblank) doesn't count.
+static u32 lastSetTopaddr = 0;
+static int framebufChanges = 0;
 // How far past a vblank a paced frame is done.
 static const double PACE_MARGIN_MS = 1.0;
 
@@ -1198,6 +1202,10 @@ int sceDisplaySetFramebuf(MIPSState *mips, u32 topaddr, int linesize, int pixelf
 
 	if (topaddr != 0) {
 		flippedSincePacedFrame = true;
+		if (topaddr != lastSetTopaddr) {
+			framebufChanges++;
+			lastSetTopaddr = topaddr;
+		}
 	}
 
 	// No delaying while inside an interrupt.  It'll cause idle threads to starve.
@@ -1220,6 +1228,10 @@ static s64 VblankAtOrBefore(u64 ticks, s64 frameCycles) {
 	s64 offset = (s64)(ticks - lastVblankTicks);
 	s64 frames = offset >= 0 ? offset / frameCycles : -((-offset + frameCycles - 1) / frameCycles);
 	return (s64)lastVblankTicks + frames * frameCycles;
+}
+
+int __DisplayGetFramebufChanges() {
+	return framebufChanges;
 }
 
 bool __DisplayLimitTo30FPS() {
