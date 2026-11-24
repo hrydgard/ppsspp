@@ -43,6 +43,11 @@ What's new in 1.21
   - Fushigi no Dungeon: Fuurai no Shiren 4 Plus (v3.10 update) now loads ([#22258])
   - Killzone: Liberation: the Chapter 5 DLC now works, installed straight from the official download ([#22565], [#22585])
   - The Chinese fan translations of Utawarerumono and Clannad now boot ([#22427], [#22432])
+  - Metal Gear Solid: Peace Walker: no more black screen after the long comic-style cutscene ([#22634])
+  - Fortix: no longer crashes at the title screen ([#23059])
+  - Frontier Gate Boost+: no longer crashes after loading a save ([#23053])
+  - Spider-Man 3: no longer crashes on some Android devices ([#23161]), and walls no longer turn red ([#23149])
+  - Amagoushi no Yakata and its sequels: clicking in investigation mode works at higher rendering resolutions ([#22610], [#22883])
 
 - PSP firmware support
   - PSP firmware can now be installed from update files shipped on game discs, or from an updater EBOOT.PBP. This happens automatically on game launch if enabled ([#22124], [#22138], [#22278])
@@ -50,18 +55,31 @@ What's new in 1.21
   - New Tools / PSP Firmware screen showing the installed firmware ([#22271])
   - Game fonts are now taken from the firmware when available, and sceFont and a number of other libraries now run as the real firmware code, improving font rendering ([#22230], [#22282])
   - Game updates in PKG format (like the ones for God Eater 2) can now be installed by simply opening them, no more need to patch ISOs ([#22258])
+  - PS1 games can be played through the firmware's own PS1 emulator (POPS), both as PSN EBOOTs and straight from disc images (cue/bin, CHD and others), running on a new emulation of the PSP's Media Engine ([#22690], [#22705], [#22707], [#22710], [#22747])
+  - In the XMB: UMD Video discs play (also directly from the game list), and the Saved Data Utility, Camera, and music and video from the memory stick work ([#22714], [#22715], [#22740], [#22768], [#22903], [#23090], [#23126]). The XMB can be launched from Recents and from an Android home screen shortcut ([#22774], [#23104])
+  - The ARK-5 custom firmware's XMB menus and ISO loader work, by LunaMoo ([#22787])
+  - With firmware installed, the HOME screen and UI sounds can come from the firmware, by LunaMoo ([#22789], [#22807])
+  - Firmware installs are much faster ([#22665], [#22974]), and you get a warning if the installed firmware is for a different PSP model ([#22913])
 
 - Video and audio
   - Video playback has been rebuilt: sceMpeg and sceMp4 now run the game's or firmware's own code on top of a new sceVideocodec implementation. This fixes video problems in many games, like Silent Hill Origins, Mega Man Powered Up, The Warriors, Valkyrie Profile, Taiko no Tatsujin and ATV Offroad Fury Pro ([#22286], [#22309], [#22299], [#22302], [#22306], [#22318])
   - More video fixes: Need for Speed: Shift ([#21907]), Ridge Racer 1+2 ([#21793]), Idolmaster Shiny Festa chapter select ([#21924]), Ys I & II pacing ([#22359]), Buzz! Master Quiz ([#22509]), SSX On Tour ([#22515])
   - sceAudio now models the real hardware buffering, fixing crackling in FMVs in Dirt 2 and F1 2009, and popping in several other games ([#22279], [#22498])
   - MP3 streaming has been reworked, fixing Beats custom soundtracks ([#22245]), and Crazy Taxi: Fare Wars custom music now works ([#22248])
-  - Fixed the music in LocoRoco 2's MuiMui house ([#22391]), reverb tuning ([#22270]), Atrac3 and audio codec fixes ([#22371], [#22348])
+  - Fixed the music in LocoRoco 2's MuiMui house ([#22391]), reverb tuning ([#22270]), Atrac3 and audio codec fixes ([#22371], [#22348], [#23015], [#23135])
+  - Games whose game list preview has its sound inside ICON1.PMF now play it, in sync with the video ([#23111])
+  - "Force real clock sync" has been reworked and renamed "Low-latency CPU timing". It no longer spins a CPU core, and lowers audio and network latency ([#22838], [#23026])
+
+- Multiplayer (ad hoc and infrastructure)
+  - Ad hoc emulation has been reworked against new tests on pairs of real PSPs. Matching, discovery, game mode and timing now behave like the hardware, fixing NBA 2K13, Shaun White Snowboarding, Bomberman, Pangya: Fantasy Golf and others ([#22835], [#22843], [#22844], [#22845], [#22846], [#22847], [#22848], [#22851], [#22891], [#22894], [#22994])
+  - New UDP (ENet) mode for the relay, for players with TCP connection problems, by Kethen ([#22549]). The built-in ad hoc server now includes a relay server ([#22831]), and the relay has lower latency ([#22864], [#22897]). New server: SWAENET ([#22755])
+  - Infrastructure networking (sockets, DNS, access points) now behaves like the PSP's network stack ([#22823], [#22825], [#22826], [#22827], [#22828], [#22829], [#22892]). Recruiting by access point scan works in Metal Gear Solid: Portable Ops and Peace Walker ([#22961])
 
 - CPU and kernel emulation
   - VFPU dot products and special functions (sin, cos, exp etc) are now bit-exact with the PSP, on all CPU backends. Reverse engineering work started by fp64 ([#21798], [#21815], [#22343], [#22345], [#22568])
   - Fixed the vrnds instruction, which fixes smoke and explosions in Resistance: Retribution and the Syphon Filter games ([#22571])
-  - All JITs are now IR-based. The old x86-64, ARM64 and ARM32 JITs have been removed ([#22563], [#22564]), and the IR JITs and interpreter have been optimized a lot ([#22357], [#22351], [#22579], [#22587])
+  - All JITs are now IR-based. The old x86-64, ARM64 and ARM32 JITs have been removed ([#22563], [#22564]), and the IR JITs and interpreter have been optimized a lot ([#22357], [#22351], [#22579], [#22587]). The JIT also compiles faster, reducing stutter on slower devices ([#23035], [#23049])
+  - Loading and unloading modules is much faster, which speeds up loading in many games ([#23036])
   - A new fuzzer checks that all the CPU backends behave identically, which found and fixed many subtle bugs ([#22551], [#22554], [#22555], [#22557], [#22558])
   - JIT bookkeeping no longer overwrites game code in PSP memory. This fixes games that read or check their own code, and the savestate crash in Harry Potter and the Goblet of Fire ([#22494])
   - Thread scheduling, wait timeouts, interrupts and callbacks now match the PSP's timing much more closely, backed by new hardware tests ([#22377], [#22378], [#22383], [#22395], [#22263])
@@ -76,6 +94,11 @@ What's new in 1.21
   - Display list calls now nest like on hardware, fixing colorless hit effects in Soul Calibur ([#22552])
   - Fixed player portraits in Everybody's Golf and Hot Shots Tennis ([#22501]), lock-on in Coded Arms: Contagion ([#22520], [#22523]), custom portraits in The Sims 2 ([#22341]), map preview in Worms: Battle Islands ([#22403]), text in Umineko Portable ([#22347])
   - More fixes: GTA sprite edges ([#21788], [#21804]), Ridge Racer lens flares ([#21825]), Metal Slug and Tokiden ([#21832]), Metal Gear Solid: Portable Ops ([#21831]), texture hash collisions ([#22388])
+  - Draws that need special clipping now stay on hardware transform, which fixes depth fighting and saves CPU ([#22619], [#22936])
+  - The flashlight in Silent Hill: Origins and Shattered Memories now works on the hardware renderers ([#23105], [#23137], [#23139], [#23156])
+  - SOCOM: Fireteam Bravo 3 no longer gets very dark in mission 4, and its sky is smooth ([#23102], [#23145]). The lens flare in Split/Second no longer shows through buildings ([#23119])
+  - MSAA no longer changes how blur and glow effects look ([#22638]). New "Limit framerate to 30 fps" setting, for games that misbehave at 60 ([#23012], [#23160])
+  - Workarounds for GPU driver bugs on Adreno, Mali and PowerVR ([#22912], [#22919], [#23047], [#23146], [#23150], [#23152])
   - Jackass: The Game is much faster on Vulkan ([#22547])
   - Less CPU spent on texture hashing ([#21808], [#22338]), and software depth rasterization (for lens flares in Wipeout, Syphon Filter etc) moved to a worker thread ([#22602])
   - The software renderer is now almost bit-exact with the PSP's GPU ([#22414], [#22435]), and is also much faster, close to twice as fast in heavy games on ARM ([#22433], [#22464], [#22486])
@@ -86,41 +109,59 @@ What's new in 1.21
   - GTA: Vice City Stories: the hovercraft no longer gets stuck in "White Lies" ([#22618])
   - God of War: Ghost of Sparta: fixed endless fight in the Vortex ([#22524])
   - Crazy Taxi: Fare Wars (EU) no longer hangs ([#22327])
+  - Syphon Filter: Logan's Shadow no longer crashes from explosion smoke at 60fps, and cutscenes in it and Dark Mirror play out right at 60fps ([#22717], [#22754])
+  - Bejeweled 2 no longer randomly crashes after loading ([#22603]), Zuma aims properly with an analog stick ([#22731])
+  - Activision Hits Remixed: the menus no longer run far too fast ([#22711]). MotoGP no longer complains about memory stick space ([#22979])
+  - MX vs. ATV Untamed no longer crashes at boot without an installed firmware ([#22902]). Buzz! Quiz World question videos show ([#23071])
 
 - User interface
-  - New XMB-style list view in the game browser, now the default ([#22559]). Search also matches file names ([#22372])
-  - Save states can be given custom names ([#22290]), and loading a state can optionally ask for confirmation ([#21755])
+  - A visual refresh with rounded corners and better layouts on large screens ([#22751], [#22760]). The settings have been reorganized into sub-pages, with much better search ([#22771], [#22779], [#22792])
+  - New XMB-style list view in the game browser, now the default ([#22559], [#22968]). Icon size can be zoomed with Ctrl+wheel ([#22956]). Search also matches file names ([#22372])
+  - Games can be compressed to CSO, or extracted to ISO, from the game screen, by LunaMoo ([#22616])
+  - Save states are now saved and loaded on a background thread, so no more stutter ([#22667], [#22668]), and they can be given custom names ([#22290]). Loading a state can optionally ask for confirmation ([#21755])
+  - Saves can be exported as zip files ([#23040])
+  - Overlay (bezel) images can be drawn around the game, by LunaMoo ([#22718])
+  - Gyro-stabilized tilt control, which can also drive the right analog stick ([#22706], [#22708]). The analog stick gesture can drive either stick ([#23103])
   - Download a cheat database with a single button ([#21682]), support for PSPAR (_M) cheat codes ([#22590])
   - Much better keyboard and controller navigation ([#22538]), with Tab/Shift+Tab support ([#22151])
   - The right analog stick is now mapped by default ([#21774], [#22220]). Advanced deadzone controls for analog sticks ([#21688]). Combo mappings no longer also trigger the single-button mappings they contain ([#22233])
   - Texture replacement now supports indexed (palettized) and luma-only textures, by LunaMoo ([#22574])
   - Notifications are hidden from screenshots ([#22503]), new bindable key for creating frame dumps ([#22469])
-  - New languages: Khmer ([#21753]) and Norwegian Nynorsk ([#21839]), plus many translation updates
+  - New languages: Khmer ([#21753]) and Norwegian Nynorsk ([#21839]), plus many translation updates, and most missing strings have been filled in ([#22809])
 
 - Platform support
   - Windows
     - Vulkan now defaults to borderless fullscreen, which makes Auto HDR work. Exclusive fullscreen is still available ([#21616])
     - Fixes for surround-sound devices in WASAPI ([#21714], [#22023]), microphone capture through WASAPI ([#22491]), color emoji ([#21638])
+    - The file browser can browse network shares ([#22749], [#22753])
   - Android
-    - Audio now uses Oboe (AAudio), and follows output device changes ([#22485]). "Mix audio with other apps" is now implemented ([#21754])
+    - Audio now uses Oboe (AAudio), and follows output device changes ([#22485]). "Mix audio with other apps" is now implemented ([#21754]). TVs use OpenSL ES, fixing silent Bluetooth audio ([#22766]), and audio latency is lower ([#22889], [#23024])
     - Support for Android 17 ([#21836], [#22614]), many activity lifecycle fixes ([#22451], [#22454], [#22460], [#22487]), fixed RetroAchievements login input ([#22511])
+    - TV mode: with a second display connected, the game plays there and the controls stay on the phone. Also on iOS through AirPlay ([#22728], [#22735], [#22738])
+    - Custom Vulkan drivers can be used on Mali too, and new Turnip driver options ([#22810], [#22869])
+    - Many crash and ANR fixes from Google Play reports ([#22654], [#22782], [#22817], [#22839])
   - Linux
     - Moved to SDL3 ([#21838]), Wayland is preferred when available ([#22238]), HTTPS support ([#22193]), microphone support ([#22459], [#22611])
     - Mixed-direction text (Arabic, Hebrew) is now rendered correctly ([#22608]). Games can be launched by dropping them on the window ([#22532])
     - The Qt frontend has been removed ([#22053])
+    - The AppImage now includes PPSSPPHeadless ([#22733], [#22975]). HTTPS support on FreeBSD ([#22595])
   - iOS and Mac
-    - OpenGL support has been removed on iOS, Vulkan (through MoltenVK) is used everywhere ([#22034], [#22502]). The minimum versions are now iOS 15 and macOS 12 ([#22452])
-    - Microphone support on iOS ([#22490]), option to hide the status bar ([#22037]), Mac menu bar fixes ([#22346])
+    - New native Metal rendering backend ([#22659]). iOS now uses Metal only, and OpenGL and MoltenVK have been removed there ([#22034], [#22502], [#22980]). The minimum versions are now iOS 15 and macOS 12 ([#22452])
+    - Microphone support on iOS ([#22490]), option to hide the status bar ([#22037]), Mac menu bar fixes ([#22346]), shortcuts use Cmd instead of Ctrl ([#22630])
+  - VR
+    - VR on Quest now runs on Vulkan, with both eyes drawn in a single pass. OpenGL VR has been removed ([#22934], [#23054])
   - LoongArch64 and RISC-V: now built and tested on CI, with JIT updates ([#22314], [#22586], [#21730])
-  - libretro: assorted fixes, including Vulkan fast-forward crashes ([#22160], [#22544], [#22605], [#21883])
+  - libretro: assorted fixes, including Vulkan fast-forward crashes ([#22160], [#22544], [#22605], [#21883]). Stereoscopic and VR support, by cscd98 ([#22761], [#23045]). The Switch core is now built from this tree instead of a 2022 fork ([#22153])
 
 - Debugger
   - The WebSocket debugger is now documented, thread-safe and has many new features ([#21984], [#22051], [#22093])
   - Support for ELF line numbers and demangled C++ symbols ([#22113], [#22144], [#22163], [#22168]), many ImDebugger improvements ([#22048], [#22050], [#22112], [#22604])
 
 - Other
-  - A large number of security and robustness fixes, many found by code review and fuzzing ([#22008], [#22012], [#22014], [#22476])
-  - RetroAchievements fixes ([#22398], [#22244])
+  - A large number of security and robustness fixes, many found by code review and fuzzing ([#22008], [#22012], [#22014], [#22476], [#22939], [#22940], [#22944], [#22945], [#22946], [#22947])
+  - Game crashes can be reported to the report server from the crash screen ([#23044])
+  - RetroAchievements fixes ([#22398], [#22244]), and Rich Presence is shown in Discord, by MackdannyTwitch ([#23157])
+  - FFmpeg is now built from source as part of PPSSPP, which makes the binary about 2MB smaller ([#22785])
   - Homebrew can use extra RAM without asking for it when emulating a PSP Slim ([#22387])
 
 What's new in 1.20.4
@@ -819,3 +860,138 @@ See [history.md](history.md).
 [#22614]: https://github.com/hrydgard/ppsspp/issues/22614 "Android 17: Local network permission, upload button, large-screen orientation"
 [#22617]: https://github.com/hrydgard/ppsspp/issues/22617 "Fix the Medievil Dragon Armor fire at 60hz"
 [#22618]: https://github.com/hrydgard/ppsspp/issues/22618 "GTA: Vice City Stories: Set the gas pedal on planes, so the hovercraft doesn't stick"
+[#22153]: https://github.com/hrydgard/ppsspp/issues/22153 "Switch: build the libretro core from this tree"
+[#22549]: https://github.com/hrydgard/ppsspp/issues/22549 "UDP(ENet) mode for adhocctl & aemu_postoffice relay"
+[#22595]: https://github.com/hrydgard/ppsspp/issues/22595 "Add https support to FreeBSD builds (which also unbreaks builds where curl is installed and detected by find_package). Also, explicitly include <clocale> to unbreak with newer clang"
+[#22603]: https://github.com/hrydgard/ppsspp/issues/22603 "Bejeweled 2: Work around race condition during loading, due to bad frame accounting"
+[#22610]: https://github.com/hrydgard/ppsspp/issues/22610 "Compat flag for Amagoushi no Yakata 3D investigation hit-test readback (fixed PR)"
+[#22616]: https://github.com/hrydgard/ppsspp/issues/22616 "Add built-in CSO packing functionality"
+[#22619]: https://github.com/hrydgard/ppsspp/issues/22619 "GE: Make hardware and software transform depth agree more often, and keep more near/far-plane draws on the GPU"
+[#22630]: https://github.com/hrydgard/ppsspp/issues/22630 "UI: Use Cmd for shortcuts on Mac and iOS, not Ctrl"
+[#22634]: https://github.com/hrydgard/ppsspp/issues/22634 "sceVideocodec: Hand pictures back when the PSP's decoder does (fixes MGS Peace Walker cutscene end)"
+[#22638]: https://github.com/hrydgard/ppsspp/issues/22638 "MSAA: Only multisample full size framebuffers"
+[#22654]: https://github.com/hrydgard/ppsspp/issues/22654 "Fix Android crashes and ANRs from the 1.20.5-beta1 Play reports"
+[#22659]: https://github.com/hrydgard/ppsspp/issues/22659 "Metal rendering backend"
+[#22665]: https://github.com/hrydgard/ppsspp/issues/22665 "Firmware install: Faster through parallelism"
+[#22667]: https://github.com/hrydgard/ppsspp/issues/22667 "Async savestates: compress and write on a worker thread"
+[#22668]: https://github.com/hrydgard/ppsspp/issues/22668 "Savestate loads: keep JIT blocks and textures, pause menu waits for loads, review fixes"
+[#22690]: https://github.com/hrydgard/ppsspp/issues/22690 "Media Engine part 1: Address space and core (off by default)"
+[#22705]: https://github.com/hrydgard/ppsspp/issues/22705 "Media Engine part 6: The audio block, and what the POPS manager needs from the kernel"
+[#22706]: https://github.com/hrydgard/ppsspp/issues/22706 "Tilt: Gyro-stabilized tilt on Android, right analog stick output"
+[#22707]: https://github.com/hrydgard/ppsspp/issues/22707 "Boot PS1 EBOOTs through the firmware's POPS emulator"
+[#22708]: https://github.com/hrydgard/ppsspp/issues/22708 "iOS: Feed the gyroscope into tilt input"
+[#22710]: https://github.com/hrydgard/ppsspp/issues/22710 "POPS part 2: PS1 rendering fixes, driven by compat.ini"
+[#22711]: https://github.com/hrydgard/ppsspp/issues/22711 "Activision Hits Remixed: Limit the front end to one frame per vblank"
+[#22714]: https://github.com/hrydgard/ppsspp/issues/22714 "VSH: UMD discs and UMD Video in the XMB"
+[#22715]: https://github.com/hrydgard/ppsspp/issues/22715 "VSH: Saved Data Utility, returning to the XMB, and network connection screen"
+[#22717]: https://github.com/hrydgard/ppsspp/issues/22717 "Syphon Filter: Logan's Shadow: Fix the explosion smoke crashing at 60fps"
+[#22718]: https://github.com/hrydgard/ppsspp/issues/22718 "Add overlay (bezel) support"
+[#22728]: https://github.com/hrydgard/ppsspp/issues/22728 "Multi-swapchain (multi-window rendering) support, for Metal"
+[#22731]: https://github.com/hrydgard/ppsspp/issues/22731 "Zuma: Correct aiming algorithm to behave better with analog sticks"
+[#22733]: https://github.com/hrydgard/ppsspp/issues/22733 "AppImage: Also package PPSSPPHeadless, as an AppImage of its own"
+[#22735]: https://github.com/hrydgard/ppsspp/issues/22735 "Multi-swapchain support for Vulkan (iOS TV mode, --game-window on Mac, Linux and Windows)"
+[#22738]: https://github.com/hrydgard/ppsspp/issues/22738 "Android TV mode, and an 'External display' setting (iOS and Android)"
+[#22740]: https://github.com/hrydgard/ppsspp/issues/22740 "Play UMD Video discs in the XMB from the game list, and fix video disc detection"
+[#22747]: https://github.com/hrydgard/ppsspp/issues/22747 "POPS: Boot PS1 disc images (cue/bin, ccd/img, mds/mdf, CHD, iso) as converted EBOOTs made on the fly"
+[#22749]: https://github.com/hrydgard/ppsspp/issues/22749 "PathBrowser: List the shares of a network server on Windows"
+[#22751]: https://github.com/hrydgard/ppsspp/issues/22751 "UI: Introduce rounded rectangle primitive, round off the corners of settings and some main screen buttons"
+[#22753]: https://github.com/hrydgard/ppsspp/issues/22753 "PathBrowser: Add a Network folder on Windows"
+[#22754]: https://github.com/hrydgard/ppsspp/issues/22754 "Syphon Filter: Make cutscene timing frame rate independent (Dark Mirror, Logan's Shadow)"
+[#22755]: https://github.com/hrydgard/ppsspp/issues/22755 "Another adhoc server ('SWAENET'), some logging reduction"
+[#22760]: https://github.com/hrydgard/ppsspp/issues/22760 "Better layouts for large screens"
+[#22761]: https://github.com/hrydgard/ppsspp/issues/22761 "Add Stereoscopic and Immersive VR to libretro core"
+[#22766]: https://github.com/hrydgard/ppsspp/issues/22766 "Android: Use OpenSL ES for audio on TVs, add audio API and MMAP settings"
+[#22768]: https://github.com/hrydgard/ppsspp/issues/22768 "XMB video: play MP4 and Motion JPEG from the memory stick"
+[#22771]: https://github.com/hrydgard/ppsspp/issues/22771 "Settings: Build the settings screen from pages described as data"
+[#22774]: https://github.com/hrydgard/ppsspp/issues/22774 "XMB: Show it in Recents, with an icon and its firmware version as the title"
+[#22779]: https://github.com/hrydgard/ppsspp/issues/22779 "Setting reorg part #1: Break out Speed Hacks and PSP Settings into their own sub pages."
+[#22782]: https://github.com/hrydgard/ppsspp/issues/22782 "Fixes for crashes and ANRs from the 1.21-beta1 Play reports"
+[#22785]: https://github.com/hrydgard/ppsspp/issues/22785 "Build FFmpeg from a trimmed, vendored copy instead of prebuilt libraries"
+[#22787]: https://github.com/hrydgard/ppsspp/issues/22787 "Ark vshctrl"
+[#22789]: https://github.com/hrydgard/ppsspp/issues/22789 "Xmb home exit"
+[#22792]: https://github.com/hrydgard/ppsspp/issues/22792 "Settings: General tab, pause screen save state refresh, UI polish"
+[#22807]: https://github.com/hrydgard/ppsspp/issues/22807 "Firmware UI sounds"
+[#22809]: https://github.com/hrydgard/ppsspp/issues/22809 "Fill in untranslated UI strings in 40 languages, fix wrong-language strings"
+[#22810]: https://github.com/hrydgard/ppsspp/issues/22810 "Implement support for setting two common driver flags for Turnip (custom Adreno driver)"
+[#22817]: https://github.com/hrydgard/ppsspp/issues/22817 "Fixes for crashes from the 1.20.5 beta Play reports: savedata list count, GL startup race"
+[#22823]: https://github.com/hrydgard/ppsspp/issues/22823 "sceNetInet: errno per thread as on hardware, and the socket table"
+[#22825]: https://github.com/hrydgard/ppsspp/issues/22825 "sceNetInet: Addresses in and out like the PSP"
+[#22826]: https://github.com/hrydgard/ppsspp/issues/22826 "sceNetInet: Socket options as the PSP keeps them"
+[#22827]: https://github.com/hrydgard/ppsspp/issues/22827 "sceNetInet: Poll and select as on hardware, and host sockets past FD_SETSIZE"
+[#22828]: https://github.com/hrydgard/ppsspp/issues/22828 "sceNetInet: Recvmsg, Sendmsg rewritten, and sendto without an address"
+[#22829]: https://github.com/hrydgard/ppsspp/issues/22829 "sceNetInet: TCP socket states and bind's port sharing"
+[#22831]: https://github.com/hrydgard/ppsspp/issues/22831 "Built-in aemu_postoffice relay next to the built-in ad hoc server"
+[#22835]: https://github.com/hrydgard/ppsspp/issues/22835 "Ad hoc 1/9: Socket fixes from the single-console tests"
+[#22838]: https://github.com/hrydgard/ppsspp/issues/22838 "Lag sync: Fix drift and pacing. Set built-in relay to pump every millisecond"
+[#22839]: https://github.com/hrydgard/ppsspp/issues/22839 "Play crash fixes: vertex range, interrupt and vtimer edge cases, GL push buffer"
+[#22843]: https://github.com/hrydgard/ppsspp/issues/22843 "Ad hoc 2/9: sceNetAdhocDiscover states, GetPeerInfo on the local MAC"
+[#22844]: https://github.com/hrydgard/ppsspp/issues/22844 "Ad hoc 3/9: sceNetAdhocMatching fixes from the pair tests"
+[#22845]: https://github.com/hrydgard/ppsspp/issues/22845 "Ad hoc 4/9: Run the adhocctl client on the CPU thread, don't wait for the login"
+[#22846]: https://github.com/hrydgard/ppsspp/issues/22846 "Ad hoc 5/9: Accurate PSP timing for adhocctl events"
+[#22847]: https://github.com/hrydgard/ppsspp/issues/22847 "Ad hoc 6/9: Fail entering game mode the way a PSP does"
+[#22848]: https://github.com/hrydgard/ppsspp/issues/22848 "Ad hoc 7/9: Leaving the network, and timing out a peer that left, as on a PSP"
+[#22851]: https://github.com/hrydgard/ppsspp/issues/22851 "Ad hoc 9/9: Fixes from playing games, and 8x faster ad hoc tests"
+[#22864]: https://github.com/hrydgard/ppsspp/issues/22864 "Ad hoc: Relay without fixed real-time waits"
+[#22869]: https://github.com/hrydgard/ppsspp/issues/22869 "Android: Allow custom Vulkan drivers on Mali too"
+[#22883]: https://github.com/hrydgard/ppsspp/issues/22883 "MIPSAnalyst: Add Koori no Bohyou (NPJH50186/ULJS00247) picking pass readback (Follow-up to #22514 and #22610)"
+[#22889]: https://github.com/hrydgard/ppsspp/issues/22889 "Android: Minor input and audio latency improvements"
+[#22891]: https://github.com/hrydgard/ppsspp/issues/22891 "Ad hoc: Fix NBA 2K13's joiner (scan list, relay self-connect, PtpFlush timing)"
+[#22892]: https://github.com/hrydgard/ppsspp/issues/22892 "sceNetInet: Timed waits end late, and the other calls cost what they do on a PSP"
+[#22894]: https://github.com/hrydgard/ppsspp/issues/22894 "Ad hoc: Fix Shaun White Snowboarding's game mode, send buffer occupancy, and FIXMEs settled on hardware"
+[#22897]: https://github.com/hrydgard/ppsspp/issues/22897 "Ad hoc relay: Deliver back-to-back PTP sends about 1 ms apart"
+[#22902]: https://github.com/hrydgard/ppsspp/issues/22902 "HLE: Fall back to our HLE when a game asks for a firmware module we haven't got"
+[#22903]: https://github.com/hrydgard/ppsspp/issues/22903 "sceIo: Let pre-3.80 XMB music browsers read the memory stick"
+[#22912]: https://github.com/hrydgard/ppsspp/issues/22912 "Vulkan: Work around a PowerVR crash when a vertex shader doesn't read the lights UBO"
+[#22913]: https://github.com/hrydgard/ppsspp/issues/22913 "Warn when the installed firmware is for a different PSP model"
+[#22919]: https://github.com/hrydgard/ppsspp/issues/22919 "Vulkan: Don't use cull distances on PowerVR"
+[#22934]: https://github.com/hrydgard/ppsspp/issues/22934 "VR: OpenXR on Vulkan, with single-pass stereo (Quest)"
+[#22936]: https://github.com/hrydgard/ppsspp/issues/22936 "GPU: Clip and cull on the CPU while keeping hardware transform, with CPU-lit clipped triangles"
+[#22939]: https://github.com/hrydgard/ppsspp/issues/22939 "Harden file format parsers against malformed input"
+[#22940]: https://github.com/hrydgard/ppsspp/issues/22940 "HLE: Range-check buffers and structs from game arguments"
+[#22944]: https://github.com/hrydgard/ppsspp/issues/22944 "Ad hoc: Bound what the server and peers can make us store"
+[#22945]: https://github.com/hrydgard/ppsspp/issues/22945 "Web server, HTTP client, inet: Check Origin and bound what the network can make us do"
+[#22946]: https://github.com/hrydgard/ppsspp/issues/22946 "Lang files, 7z, sound effects: Bound what downloaded content can do"
+[#22947]: https://github.com/hrydgard/ppsspp/issues/22947 "GE, texture packs, shaders: Bound memory access from GE commands and shared content"
+[#22956]: https://github.com/hrydgard/ppsspp/issues/22956 "Game browser: Ctrl/Cmd+wheel and Ctrl/Cmd+Plus/Minus icon zoom; unify wheel units; drop SDL2 leftovers"
+[#22961]: https://github.com/hrydgard/ppsspp/issues/22961 "sceNetApctl: Access point scans like a PSP's (MGS: Portable Ops and Peace Walker recruiting)"
+[#22968]: https://github.com/hrydgard/ppsspp/issues/22968 "Game browser: Just grid and list, with an icon size each"
+[#22974]: https://github.com/hrydgard/ppsspp/issues/22974 "KIRK: Make the ECDSA math about 700 times faster"
+[#22975]: https://github.com/hrydgard/ppsspp/issues/22975 "bundle `PPSSPPHeadless` in the existing appimage"
+[#22979]: https://github.com/hrydgard/ppsspp/issues/22979 "Compat: Report a small memory stick to MotoGP"
+[#22980]: https://github.com/hrydgard/ppsspp/issues/22980 "iOS: Metal only (drop MoltenVK), and full debug symbols in archives"
+[#22994]: https://github.com/hrydgard/ppsspp/issues/22994 "sceNetAdhocDiscover: Run the library's state machine; peers become visible when a PSP's would"
+[#23012]: https://github.com/hrydgard/ppsspp/issues/23012 "Add a 'Limit framerate to 30 fps' setting, and a compat flag for it"
+[#23015]: https://github.com/hrydgard/ppsspp/issues/23015 "Audio: Fix wrapping overflows, filter the SAS reverb's rate conversions"
+[#23024]: https://github.com/hrydgard/ppsspp/issues/23024 "Audio: Make smooth audio use similar buffersizes to classic audio. Show stats."
+[#23026]: https://github.com/hrydgard/ppsspp/issues/23026 "Rework 'Force real clock sync': Pace without spinning, shrink the audio buffer, call it Low-latency CPU timing"
+[#23035]: https://github.com/hrydgard/ppsspp/issues/23035 "IR JIT: Compile ~38% faster, and measure compile stalls"
+[#23036]: https://github.com/hrydgard/ppsspp/issues/23036 "Speed up module loading and unloading"
+[#23040]: https://github.com/hrydgard/ppsspp/issues/23040 "Export saves as zip files, and share or save frame dumps"
+[#23044]: https://github.com/hrydgard/ppsspp/issues/23044 "Report game crashes to the report server"
+[#23045]: https://github.com/hrydgard/ppsspp/issues/23045 "libretro: support Vulkan stereo and immersive VR"
+[#23047]: https://github.com/hrydgard/ppsspp/issues/23047 "Adreno 5xx: Work around framebuffer fetch (GL) and light ubershader (Vulkan) driver bugs"
+[#23049]: https://github.com/hrydgard/ppsspp/issues/23049 "IR JITs: Compile blocks faster"
+[#23053]: https://github.com/hrydgard/ppsspp/issues/23053 "JIT: Drop blocks whose code changed on a large icache invalidation"
+[#23054]: https://github.com/hrydgard/ppsspp/issues/23054 "VR: Remove OpenGL VR, VR is Vulkan only"
+[#23059]: https://github.com/hrydgard/ppsspp/issues/23059 "sceAac: Fix stream buffer overrun (Fortix crash), add LLE option"
+[#23071]: https://github.com/hrydgard/ppsspp/issues/23071 "Fix missing question videos in Buzz! Quiz World"
+[#23090]: https://github.com/hrydgard/ppsspp/issues/23090 "Camera: Make the XMB's Camera work, and fix capture restarts"
+[#23102]: https://github.com/hrydgard/ppsspp/issues/23102 "SOCOM FTB3: Read back the scene luminance block when the game reads it"
+[#23103]: https://github.com/hrydgard/ppsspp/issues/23103 "Gestures: Let the analog stick gesture drive either stick"
+[#23104]: https://github.com/hrydgard/ppsspp/issues/23104 "Android: Let a home screen shortcut boot the XMB"
+[#23105]: https://github.com/hrydgard/ppsspp/issues/23105 "Silent Hill: Origins: Fix framedump recording, and flashlight shadows and their flicker on hardware backends"
+[#23111]: https://github.com/hrydgard/ppsspp/issues/23111 "Game list: Play the sound muxed into ICON1.PMF, in sync with its video"
+[#23119]: https://github.com/hrydgard/ppsspp/issues/23119 "Split/Second: Read back the sun visibility buffer when the game counts it"
+[#23126]: https://github.com/hrydgard/ppsspp/issues/23126 "UMD Video: Faster playback"
+[#23135]: https://github.com/hrydgard/ppsspp/issues/23135 "SAS: Atrac3 voice streaming accuracy fixes"
+[#23137]: https://github.com/hrydgard/ppsspp/issues/23137 "Silent Hill: Shattered Memories: Fix flashlight shadows and floor lines"
+[#23139]: https://github.com/hrydgard/ppsspp/issues/23139 "Silent Hill: Origins flashlight fixes (D3D11 depth shift, TruncateBilinear)"
+[#23145]: https://github.com/hrydgard/ppsspp/issues/23145 "SOCOM FTB3: Smooth the sky (CLUT8 depal ramp interpolation), enable depth raster"
+[#23146]: https://github.com/hrydgard/ppsspp/issues/23146 "Vulkan: Write depth in the shader for discarding LESS draws on Adreno 6xx"
+[#23149]: https://github.com/hrydgard/ppsspp/issues/23149 "Screen-linear colors for Spider-Man 3 (compat flag), and D3D11 depth rounding fix"
+[#23150]: https://github.com/hrydgard/ppsspp/issues/23150 "OpenGL: Blit depth instead of drawing it on Adreno"
+[#23152]: https://github.com/hrydgard/ppsspp/issues/23152 "Vulkan: On Mali, keep the depth when only the stencil is cleared at bind"
+[#23156]: https://github.com/hrydgard/ppsspp/issues/23156 "Fix EQUAL depth redraws: Origins vertex snapping, Mali GL depth blit, PowerVR shader EQUAL"
+[#23157]: https://github.com/hrydgard/ppsspp/issues/23157 "Log RetroAchievements Rich Presence and display it in Discord"
+[#23160]: https://github.com/hrydgard/ppsspp/issues/23160 "Fix uneven 30fps when a game flips between halves of one buffer"
+[#23161]: https://github.com/hrydgard/ppsspp/issues/23161 "Fix a Spider-Man 3 crash on Android, and make runs agree across hosts and sessions"
