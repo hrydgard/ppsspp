@@ -542,8 +542,6 @@ int g_screenshotFailures;
 		}
 
 		rewindStates.NotifyState();
-		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break(BreakReason::SavestateLoad, 0);
 		return Enqueue(op);
 	}
 
@@ -557,8 +555,6 @@ int g_screenshotFailures;
 		}
 
 		rewindStates.NotifyState();
-		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break(BreakReason::SavestateSave, 0);
 		return Enqueue(op);
 	}
 
@@ -578,8 +574,6 @@ int g_screenshotFailures;
 		// Or a snapshot can be taken just before the rewind runs (after a long pause, say), and the
 		// rewind then restores that.
 		rewindStates.NotifyState();
-		if (coreState == CoreState::CORE_RUNTIME_ERROR)
-			Core_Break(BreakReason::SavestateRewind, 0);
 		return Enqueue(Operation(OperationType::Rewind, Path(), -1, callback));
 	}
 
@@ -1382,6 +1376,14 @@ int g_screenshotFailures;
 		});
 	}
 
+	// A loaded state replaces whatever crashed, so a core stopped on the crash runs again.
+	static void ClearExceptionAfterLoad() {
+		Core_ResetException();
+		if (coreState == CORE_RUNTIME_ERROR) {
+			Core_Resume();
+		}
+	}
+
 	// Returns false while the file is still being read.
 	static bool RunLoad(Operation &op) {
 		if (!op.read) {
@@ -1469,7 +1471,7 @@ int g_screenshotFailures;
 			metadata = SaveState::GetSaveFileDateAsString(op.path.GetFilename());
 
 			hasLoadedState = true;
-			Core_ResetException();
+			ClearExceptionAfterLoad();
 
 			if (op.slot >= 0)
 				message = SlotPrefix(op.slot) + message;
@@ -1523,7 +1525,7 @@ int g_screenshotFailures;
 			message = sc->T("Loaded State");
 			status = Status::SUCCESS;
 			hasLoadedState = true;
-			Core_ResetException();
+			ClearExceptionAfterLoad();
 		} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 			// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 			if (HandleLoadFailure(true, &metadata)) {
@@ -1531,7 +1533,7 @@ int g_screenshotFailures;
 				message = sc->T("Loaded State");
 				status = Status::SUCCESS;
 				hasLoadedState = true;
-				Core_ResetException();
+				ClearExceptionAfterLoad();
 			} else {
 				message = std::string(i18nLoadFailure) + " (" + errorString + ")";
 				status = Status::FAILURE;
