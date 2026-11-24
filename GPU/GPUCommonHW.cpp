@@ -784,25 +784,13 @@ void GPUCommonHW::InvalidateCache(u32 addr, int size, GPUInvalidationType type) 
 bool GPUCommonHW::FramebufferDirty() {
 	if (!framebufferManager_)
 		return true;
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
+	return framebufferManager_->ConsumeDisplayDirty(false);
 }
 
 bool GPUCommonHW::FramebufferReallyDirty() {
 	if (!framebufferManager_)
 		return true;
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
+	return framebufferManager_->ConsumeDisplayDirty(true);
 }
 
 void GPUCommonHW::ExecuteOp(u32 op, u32 diff) {
