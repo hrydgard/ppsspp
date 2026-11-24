@@ -111,14 +111,16 @@ u64 GetGlobalTimeUsScaled() {
 u64 GetGlobalTimeUs() {
 	s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
 	int freq = GetClockFrequencyHz();
-	s64 usSinceLast = ticksSinceLast * 1000000 / freq;
 	if (ticksSinceLast > UINT_MAX) {
-		// Adjust the calculated value to avoid overflow errors.
-		lastGlobalTimeUs += usSinceLast;
-		lastGlobalTimeTicks = GetTicks(currentMIPS);
-		usSinceLast = 0;
+		// Rebase, so the multiply below can't overflow. By whole seconds, which are exactly freq
+		// ticks: dropping the fraction of a microsecond instead made the time depend on when this
+		// happened to be called, and host code (lag sync, the debugger) calls it too.
+		const s64 seconds = ticksSinceLast / freq;
+		lastGlobalTimeUs += seconds * 1000000;
+		lastGlobalTimeTicks += seconds * freq;
+		ticksSinceLast -= seconds * freq;
 	}
-	return lastGlobalTimeUs + usSinceLast;
+	return lastGlobalTimeUs + ticksSinceLast * 1000000 / freq;
 }
 
 // Turns the microsecond deadline into the tick count Advance() compares against. Has to be redone
