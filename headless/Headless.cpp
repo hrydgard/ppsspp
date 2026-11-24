@@ -750,8 +750,12 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	double paceStart = startTime;
 	// --frame-stats: flips in each emulated second, starting once the state (if any) is loaded.
 	std::vector<int> flipsPerSecond;
+	// Switches to a different framebuffer, the game's own frame rate. The flips above are the vblanks
+	// that had something new to present, which is what the app's FPS counter shows.
+	std::vector<int> pageFlipsPerSecond;
 	double statsStart = -1.0;
 	int statsLastFlips = 0;
+	int statsLastPageFlips = 0;
 	std::vector<std::pair<double, Path>> screenshotsAt = opt.screenshotsAt;
 	std::vector<std::pair<double, Path>> dumpsAt = opt.dumpsAt;
 	// Hold the game until a --state has been applied. Otherwise it keeps booting while the state is
@@ -816,9 +820,12 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			if (statsStart < 0.0) {
 				statsStart = emulatedElapsed;
 				statsLastFlips = gpuStats.totals.numFlips;
+				statsLastPageFlips = __DisplayGetFramebufChanges();
 			} else if (emulatedElapsed - statsStart >= flipsPerSecond.size() + 1.0) {
 				flipsPerSecond.push_back(gpuStats.totals.numFlips - statsLastFlips);
 				statsLastFlips = gpuStats.totals.numFlips;
+				pageFlipsPerSecond.push_back(__DisplayGetFramebufChanges() - statsLastPageFlips);
+				statsLastPageFlips = __DisplayGetFramebufChanges();
 			}
 		}
 
@@ -975,6 +982,13 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			perSecond += StringFromFormat(" %d", flips);
 		}
 		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
+		int pageTotal = 0;
+		std::string pagePerSecond;
+		for (int flips : pageFlipsPerSecond) {
+			pageTotal += flips;
+			pagePerSecond += StringFromFormat(" %d", flips);
+		}
+		fprintf(stderr, "Frame stats: %d switches to a different framebuffer, per second:%s\n", pageTotal, pagePerSecond.c_str());
 		if (g_Config.bForceLagSync) {
 			LagSyncStats lagSync;
 			__DisplayGetLagSyncStats(&lagSync);
