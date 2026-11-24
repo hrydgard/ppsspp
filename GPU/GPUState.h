@@ -665,6 +665,12 @@ public:
 	// TolerantDepthEqual: the current draw's EQUAL depth test is done as GEQUAL, with its Z raised by
 	// tolerantDepthEqualOffset (in the viewport Z offset uniform). See DepthTestFunctionForDraw.
 	bool tolerantDepthEqual;
+	// For Bugs::EQUAL_DEPTH_TEST_BROKEN: the current draw tests EQUAL, which the backend may then do with
+	// shaderDepthEqual.
+	bool depthEqualNeedsShader;
+	// The EQUAL depth test is done as GEQUAL, and the fragment shader discards what's in front of a copy of the
+	// depth buffer (bound where shader blending binds its framebuffer copy, which these draws then don't use).
+	bool shaderDepthEqual;
 
 	GEBufferFormat framebufFormat;
 	// Some games use a very specific masking setup to draw into the alpha channel of a 4444 target using the blue channel of a 565 target.

@@ -1006,6 +1006,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	// for the two to agree, not PSP behavior. Z steps of a whole unit break decals (Star Wars Lethal
 	// Alliance).
 	WRITE(p, "  outPos.z = floor(outPos.z * 8.0 + 0.5) * 0.125;\n");
+	if (PSP_CoreParameter().compat.flags().SnapVertexXY && !isModeThrough) {
+		// The GE puts vertices on a 1/16 pixel grid, so two draws of the same geometry rasterize the same even when their
+		// matrices round differently, and an EQUAL depth test between them passes. Rounding came out closer to the PSP
+		// than flooring like the software renderer. Not for all games: across many dumps it moved blur and glow passes
+		// further from the PSP than it brought anything closer.
+		WRITE(p, "  outPos.xy = floor(outPos.xy * 16.0 + 0.5) * 0.0625;\n");
+	}
 	if (compat.bitwiseOps) {
 		WRITE(p, "  outPos.w = uintBitsToFloat((floatBitsToUint(outPos.w) + 128u) & 4294967040u);\n");
 	}

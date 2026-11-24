@@ -211,6 +211,13 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				key.destColor = VK_BLEND_FACTOR_ONE;
 			}
 		}
+
+		// Not when the shader reads the framebuffer, which takes the binding. Then the EQUAL test stays as it is.
+		const bool shaderDepthEqual = gstate_c.depthEqualNeedsShader && !gstate.isModeClear() && !(pipelineState_.FramebufferRead() && useBufferedRendering);
+		if (shaderDepthEqual != gstate_c.shaderDepthEqual) {
+			gstate_c.shaderDepthEqual = shaderDepthEqual;
+			gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
@@ -360,12 +367,20 @@ void DrawEngineVulkan::BindShaderBlendTex() {
 
 			// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 			dirtyRequiresRecheck_ |= DIRTY_BLEND_STATE;
-		} else {
-			boundSecondary_ = VK_NULL_HANDLE;
+			return;
 		}
-	} else {
-		boundSecondary_ = VK_NULL_HANDLE;
+		if (gstate_c.shaderDepthEqual) {
+			if (framebufferManager_->BindDepthCopyAsTexture(1)) {
+				boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE1_IMAGEVIEW);
+			} else {
+				boundSecondary_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW_ARRAY);
+			}
+			return;
+		}
 	}
+	boundSecondary_ = VK_NULL_HANDLE;
+	// Any other draw may change the depth.
+	framebufferManager_->DiscardDepthCopy();
 }
 
 void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bool applyStencilRef, uint8_t stencilRef, bool useBlendConstant) {

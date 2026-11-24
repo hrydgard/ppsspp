@@ -258,6 +258,7 @@ std::string FShaderID::Description(bool includeID) const {
 	} else if (Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
 		desc.C("StenOff ");
 	}
+	if (Bit(FS_BIT_SHADER_DEPTH_EQUAL)) desc.C("DepthEqual ");
 
 	if (Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc.C("AlphaTest0 ").W(alphaTestFuncs[AlphaTestFunc()]).C(" ");
 	else if (AlphaTest()) desc.C("AlphaTest ").W(alphaTestFuncs[AlphaTestFunc()]).C(" ");
@@ -397,6 +398,8 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		// 2 bits
 		id.SetBits(FS_BIT_STENCIL_TO_ALPHA, 2, stencilToAlpha);
+
+		id.SetBit(FS_BIT_SHADER_DEPTH_EQUAL, gstate_c.shaderDepthEqual);
 
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
