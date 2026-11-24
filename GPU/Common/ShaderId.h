@@ -78,7 +78,6 @@ static inline VShaderBit operator +(VShaderBit bit, int i) {
 	return VShaderBit((int)bit + i);
 }
 
-// TODO: See what we can free up. We're out of bits!
 enum FShaderBit : uint8_t {
 	FS_BIT_CLEARMODE = 0,
 	FS_BIT_DO_TEXTURE = 1,
@@ -90,11 +89,11 @@ enum FShaderBit : uint8_t {
 	FS_BIT_FLATSHADE = 9,
 	FS_BIT_DEPTH_CLAMP = 10,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
 	FS_BIT_MINMAX_DISCARD = 11,
-	FS_BIT_ALPHA_TEST = 12,
-	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits
+	// Free bit: 12
+	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits, see FShaderID::AlphaTestFunc()
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
-	FS_BIT_COLOR_TEST = 17,
-	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits
+	// Free bit: 17
+	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits, see FShaderID::ColorTestFunc()
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
 	FS_BIT_SHADER_TEX_CLAMP = 21,
 	FS_BIT_CLAMP_S = 22,
@@ -112,7 +111,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_REPLACE_LOGIC_OP = 49,  // 4 bits. GE_LOGIC_COPY means no-op/off.
 	FS_BIT_SHADER_DEPAL_MODE = 53,  // 2 bits (ShaderDepalMode)
 	FS_BIT_SHADER_DEPAL_FORMAT = 55,  // 3 bits (GEBufferFormat), connected to FS_BIT_SHADER_DEPAL_MODE
-	FS_BIT_STEREO = 58,
+	// Free bit: 58
 	FS_BIT_USE_FRAMEBUFFER_FETCH = 59,
 	FS_BIT_DEPTH_TEST_NEVER = 60,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 61,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
@@ -239,6 +238,27 @@ struct FShaderID : public ShaderID {
 
 	void SetBits(FShaderBit bit, int count, int value) {
 		ShaderID::SetBits((int)bit, count, value);
+	}
+
+	// The alpha and color test functions are stored XOR 1, which swaps NEVER and ALWAYS, so that 0
+	// means off. An ALWAYS test is trivially true and never makes it into the ID.
+	GEComparison AlphaTestFunc() const {
+		return (GEComparison)(Bits(FS_BIT_ALPHA_TEST_FUNC, 3) ^ 1);
+	}
+	GEComparison ColorTestFunc() const {
+		return (GEComparison)(Bits(FS_BIT_COLOR_TEST_FUNC, 2) ^ 1);
+	}
+	bool AlphaTest() const {
+		return AlphaTestFunc() != GE_COMP_ALWAYS;
+	}
+	bool ColorTest() const {
+		return ColorTestFunc() != GE_COMP_ALWAYS;
+	}
+	void SetAlphaTestFunc(GEComparison func) {
+		SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, func ^ 1);
+	}
+	void SetColorTestFunc(GEComparison func) {
+		SetBits(FS_BIT_COLOR_TEST_FUNC, 2, func ^ 1);
 	}
 
 	std::string Description(bool includeID = true) const;

@@ -53,7 +53,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	*fragmentShaderFlags = (FragmentShaderFlags)0;
 	errorString->clear();
 
-	bool useStereo = id.Bit(FS_BIT_STEREO);
+	bool useStereo = gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO);
 	bool highpFog = false;
 	bool highpTexcoord = false;
 	bool enableFragmentTestCache = gstate_c.Use(GPU_USE_FRAGMENT_TEST_CACHE);
@@ -108,11 +108,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	bool lmode = id.Bit(FS_BIT_LMODE);
 	bool doTexture = id.Bit(FS_BIT_DO_TEXTURE);
 	bool enableFog = id.Bit(FS_BIT_ENABLE_FOG);
-	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
+	bool enableAlphaTest = id.AlphaTest();
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
 	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
-	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
+	bool enableColorTest = id.ColorTest();
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool doTextureProjection = id.Bit(FS_BIT_DO_TEXTURE_PROJ);
 
@@ -155,8 +155,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 	bool colorWriteMask = id.Bit(FS_BIT_COLOR_WRITEMASK) && compat.bitwiseOps;
 
-	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
-	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
+	GEComparison alphaTestFunc = id.AlphaTestFunc();
+	GEComparison colorTestFunc = id.ColorTestFunc();
 	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
 
 	GETexFunc texFunc = (GETexFunc)id.Bits(FS_BIT_TEXFUNC, 3);
