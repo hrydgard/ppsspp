@@ -310,8 +310,16 @@ bool TestJitDotBench() {
 		Memory::WriteUnchecked_U32(MIPS_MAKE_BREAK(1), addr + 4);
 		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), addr + 8);
 
-		for (int i = 0; i < 128; ++i)
-			currentMIPS->v[i] = 0.75f + (float)((i * 37) % 101) * 0.37f * ((i & 1) ? -1.0f : 1.0f);
+		auto resetRegs = []() {
+			for (int i = 0; i < 128; ++i)
+				currentMIPS->v[i] = 0.75f + (float)((i * 37) % 101) * 0.37f * ((i & 1) ? -1.0f : 1.0f);
+		};
+		// The IR interpreter calls the C++ versions, vfpu_dot() and vfpu_multi_dot().
+		resetRegs();
+		mipsr4k.UpdateCore(CPUCore::IR_INTERPRETER);
+		const double irCallsPerSecond = ExecCPUTest(false);
+		mipsr4k.jit->ClearCache();
+		resetRegs();
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		const double callsPerSecond = ExecCPUTest(false);
 		if (getenv("PPSSPP_JITBENCH_DISASM")) {
@@ -322,7 +330,7 @@ bool TestJitDotBench() {
 				printf("  %s\n", block.targetDisasm[i].c_str());
 		}
 		mipsr4k.jit->ClearCache();
-		printf("%-14s %6.2f ns per dot\n", seq.name, 1e9 / (callsPerSecond * groups * seq.dots));
+		printf("%-14s %6.2f ns per dot, %6.2f in the IR interpreter\n", seq.name, 1e9 / (callsPerSecond * groups * seq.dots), 1e9 / (irCallsPerSecond * groups * seq.dots));
 	}
 
 	DestroyJitHarness();
