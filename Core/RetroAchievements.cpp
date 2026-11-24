@@ -159,6 +159,7 @@ const std::string g_iconCachePrefix = "badge:";
 
 Path g_gamePath;
 std::string s_game_hash;
+static std::string s_lastRichPresence;
 
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
@@ -904,6 +905,7 @@ void UpdateSettings() {
 
 bool Shutdown(bool waitForRequests) {
 	g_activeChallenges.clear();
+	s_lastRichPresence.clear();
 	if (g_rcClient) {
 		for (auto iter = g_trackedClients.begin(); iter != g_trackedClients.end(); ++iter) {
 			if (iter->second.client != g_rcClient) {
@@ -940,6 +942,15 @@ void FrameUpdate() {
 	if (!g_rcClient)
 		return;
 	rc_client_do_frame(g_rcClient);
+	char buf[512];
+	size_t sz = GetRichPresenceMessage(buf, sizeof(buf));
+	std::string currentRP = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
+	if (currentRP != s_lastRichPresence) {
+		s_lastRichPresence = currentRP;
+		if (!currentRP.empty()) {
+			NOTICE_LOG(Log::Achievements, "Rich Presence: %s", currentRP.c_str());
+		}
+	}
 }
 
 void Idle() {
@@ -1258,6 +1269,7 @@ void UnloadGame() {
 		rc_client_unload_game(g_rcClient);
 		g_gamePath.clear();
 		s_game_hash.clear();
+		s_lastRichPresence.clear();
 	}
 	// Unloading aborts a pending load, and rc_client doesn't call back for an aborted load.
 	g_isIdentifying = false;

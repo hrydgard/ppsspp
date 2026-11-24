@@ -5,6 +5,7 @@
 #include "ppsspp_config.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/RetroAchievements.h"
 #include "UI/DiscordIntegration.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
@@ -86,6 +87,10 @@ void Discord::Shutdown() {
 #endif
 		initialized_ = false;
 	}
+	inGame_ = false;
+	startTimestamp_ = 0;
+	gameTitle_.clear();
+	richPresence_.clear();
 }
 
 void Discord::Update() {
@@ -101,6 +106,16 @@ void Discord::Update() {
 	}
 
 #ifdef ENABLE_DISCORD
+	if (inGame_) {
+		char buf[512];
+		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
+		std::string currentRP = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
+		if (currentRP != richPresence_) {
+			richPresence_ = currentRP;
+			UpdateGamePresence();
+		}
+	}
+
 #ifdef DISCORD_DISABLE_IO_THREAD
 	Discord_UpdateConnection();
 #endif
@@ -108,25 +123,41 @@ void Discord::Update() {
 #endif
 }
 
-void Discord::SetPresenceGame(std::string_view gameTitle) {
-	if (!IsEnabled())
-		return;
-	
-	if (!initialized_) {
-		Init();
-	}
-
+void Discord::UpdateGamePresence() {
 #ifdef ENABLE_DISCORD
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
-	std::string title(gameTitle);
 	DiscordRichPresence discordPresence{};
-	discordPresence.state = title.c_str();
-	discordPresence.details = sc->T_cstr("Playing");
-	discordPresence.startTimestamp = time(0);
+	if (!richPresence_.empty()) {
+		discordPresence.details = gameTitle_.c_str();
+		discordPresence.state = richPresence_.c_str();
+	} else {
+		discordPresence.state = gameTitle_.c_str();
+		discordPresence.details = sc->T_cstr("Playing");
+	}
+	discordPresence.startTimestamp = startTimestamp_;
 	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
 	discordPresence.largeImageKey = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "icon_gold_png" : "icon_regular_png";
 	Discord_UpdatePresence(&discordPresence);
 #endif
+}
+
+void Discord::SetPresenceGame(std::string_view gameTitle) {
+	if (!IsEnabled())
+		return;
+
+	if (!initialized_) {
+		Init();
+	}
+
+	inGame_ = true;
+	gameTitle_ = std::string(gameTitle);
+	startTimestamp_ = time(0);
+
+	char buf[512];
+	size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
+	richPresence_ = (sz != (size_t)-1) ? std::string(buf, sz) : std::string();
+
+	UpdateGamePresence();
 }
 
 void Discord::SetPresenceMenu() {
@@ -136,6 +167,11 @@ void Discord::SetPresenceMenu() {
 	if (!initialized_) {
 		Init();
 	}
+
+	inGame_ = false;
+	startTimestamp_ = 0;
+	gameTitle_.clear();
+	richPresence_.clear();
 
 #ifdef ENABLE_DISCORD
 	auto sc = GetI18NCategory(I18NCat::SCREEN);
@@ -151,6 +187,11 @@ void Discord::SetPresenceMenu() {
 }
 
 void Discord::ClearPresence() {
+	inGame_ = false;
+	startTimestamp_ = 0;
+	gameTitle_.clear();
+	richPresence_.clear();
+
 	if (!IsEnabled() || !initialized_)
 		return;
 
