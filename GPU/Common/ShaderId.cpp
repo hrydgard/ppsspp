@@ -259,16 +259,15 @@ std::string FShaderID::Description(bool includeID) const {
 		desc.C("StenOff ");
 	}
 
-	if (Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc.C("AlphaTest0 ").W(alphaTestFuncs[Bits(FS_BIT_ALPHA_TEST_FUNC, 3)]).C(" ");
-	else if (Bit(FS_BIT_ALPHA_TEST)) desc.C("AlphaTest ").W(alphaTestFuncs[Bits(FS_BIT_ALPHA_TEST_FUNC, 3)]).C(" ");
-	if (Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc.C("ColorTest0 ").W(alphaTestFuncs[Bits(FS_BIT_COLOR_TEST_FUNC, 2)]).C(" ");  // first 4 match;
-	else if (Bit(FS_BIT_COLOR_TEST)) desc.C("ColorTest ").W(alphaTestFuncs[Bits(FS_BIT_COLOR_TEST_FUNC, 2)]).C(" ");  // first 4 match
+	if (Bit(FS_BIT_ALPHA_AGAINST_ZERO)) desc.C("AlphaTest0 ").W(alphaTestFuncs[AlphaTestFunc()]).C(" ");
+	else if (AlphaTest()) desc.C("AlphaTest ").W(alphaTestFuncs[AlphaTestFunc()]).C(" ");
+	if (Bit(FS_BIT_COLOR_AGAINST_ZERO)) desc.C("ColorTest0 ").W(alphaTestFuncs[ColorTestFunc()]).C(" ");  // first 4 match;
+	else if (ColorTest()) desc.C("ColorTest ").W(alphaTestFuncs[ColorTestFunc()]).C(" ");  // first 4 match
 	if (Bit(FS_BIT_TEST_DISCARD_TO_ZERO)) desc.C("TestDiscardToZero ");
 	if (Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL)) desc.C("StencilDiscardWorkaround ");
 	int logicMode = Bits(FS_BIT_REPLACE_LOGIC_OP, 4);
 	if ((logicMode != GE_LOGIC_COPY) && !Bit(FS_BIT_CLEARMODE)) desc.C("RLogic(").W(logicFuncs[logicMode]).C(")");
 	if (Bit(FS_BIT_SAMPLE_ARRAY_TEXTURE)) desc.C("TexArray ");
-	if (Bit(FS_BIT_STEREO)) desc.C("Stereo ");
 	if (Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc.C("(fetch)");
 	if (Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
@@ -382,15 +381,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		if (enableAlphaTest) {
 			// 5 bits total.
-			id.SetBit(FS_BIT_ALPHA_TEST);
-			id.SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
+			id.SetAlphaTestFunc(gstate.getAlphaTestFunction());
 			id.SetBit(FS_BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
 			id.SetBit(FS_BIT_TEST_DISCARD_TO_ZERO, !NeedsTestDiscard());
 		}
 		if (enableColorTest) {
 			// 4 bits total.
-			id.SetBit(FS_BIT_COLOR_TEST);
-			id.SetBits(FS_BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
+			id.SetColorTestFunc(gstate.getColorTestFunction());
 			id.SetBit(FS_BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
 			// This is also set in enableAlphaTest - color test is uncommon, but we can skip discard the same way.
 			id.SetBit(FS_BIT_TEST_DISCARD_TO_ZERO, !NeedsTestDiscard());
@@ -427,10 +424,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
 
-		// Stereo support
-		if (gstate_c.Use(GPU_USE_SINGLE_PASS_STEREO)) {
-			id.SetBit(FS_BIT_STEREO);
-		}
+		// Single pass stereo isn't in the ID: it's a use flag, and changing those clears all shaders.
 
 		if (g_Config.bVendorBugChecksEnabled) {
 			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO) || bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI)) {
@@ -445,7 +439,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 				// the less common direction that fails: gl_FragCoord.z isn't always exactly the depth the draw would
 				// have written, which broke alpha tested GEQUAL text drawn over a dialog box in through mode.
 				const GEComparison func = gstate.getDepthTestFunction();
-				bool discards = (id.Bit(FS_BIT_ALPHA_TEST) || id.Bit(FS_BIT_COLOR_TEST)) && !id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
+				bool discards = (id.AlphaTest() || id.ColorTest()) && !id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 				if (discards && (func == GE_COMP_LESS || func == GE_COMP_LEQUAL) && !IsDepthTestEffectivelyDisabled() && gstate.isDepthWriteEnabled()) {
 					id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 				}
