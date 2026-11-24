@@ -126,12 +126,11 @@ is worth reporting.
   first window fall back to bursting. That's expected, and it goes back to pacing two seconds later if
   there's idle time.
 - Laptops on battery throttle unpredictably; plug in. Don't run two builds at once.
-- **Games diverge.** Pacing for the first second shifts the emulated timeline, and a game can take
-  another path from there: from a God of War: Ghost of Sparta state at a quick-time prompt, the paced
-  run was in a fight at 60 seconds while the bursting run still waited at the prompt, and it reached
-  11% fewer emulated seconds near the ceiling. Starting that run already bursting gave the same speed
-  as lag sync off, and a state that doesn't diverge showed no difference. Pick states where nothing
-  is about to happen, and compare screenshots when a result looks odd.
+- **Games must not diverge.** Lag sync only decides when the host sleeps, so a run with it plays out
+  exactly like one without (`--lag-sync --realtime` against a plain run from the same state, compared
+  with the debugger at fixed `cpu.runUntilTime` stops). A difference is a bug. One was
+  `GetGlobalTimeUs()` dropping a fraction of a microsecond whenever it rebased, which depended on who
+  called it first: lag sync calls it every millisecond, so the game's clock read differently.
 
 ### Audio buffer
 

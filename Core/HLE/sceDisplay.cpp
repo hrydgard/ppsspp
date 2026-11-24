@@ -290,8 +290,14 @@ static void ScheduleLagSync() {
 	}
 }
 
+// wakeUs: the extra exit cost of the threads this vblank released.
+static void SetVblankHandlerCosts(int wakeUs) {
+	__SetIntrHandlerCosts(PSP_VBLANK_INTR, (int)usToCycles(VBLANK_HANDLER_ENTRY_US), (int)usToCycles(VBLANK_HANDLER_EXIT_US + wakeUs));
+}
+
 void __DisplayInit() {
 	__DisplaySetFramerate();
+	SetVblankHandlerCosts(0);
 	hasSetMode = false;
 	mode = 0;
 	resumeMode = 0;
@@ -359,6 +365,12 @@ void __DisplayDoState(PointerWrap &p) {
 	auto s = p.Section("sceDisplay", 1, 8);
 	if (!s)
 		return;
+
+	if (p.mode == p.MODE_READ) {
+		// What a state from before the interrupt handlers saved their costs gets. A newer one
+		// overwrites this when the handlers are loaded, which comes later.
+		SetVblankHandlerCosts(0);
+	}
 
 	Do(p, framebuf);
 	Do(p, latchedFramebuf);
@@ -768,7 +780,7 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		}
 	}
 	const int wakeUs = released > 0 ? 7 + 3 * (released - 1) : 0;
-	__SetIntrHandlerCosts(PSP_VBLANK_INTR, (int)usToCycles(VBLANK_HANDLER_ENTRY_US), (int)usToCycles(VBLANK_HANDLER_EXIT_US + wakeUs));
+	SetVblankHandlerCosts(wakeUs);
 
 	const bool taken = __InterruptsEnabled() && !__IsInInterrupt();
 	const int handlers = __TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);

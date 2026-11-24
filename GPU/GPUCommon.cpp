@@ -2629,7 +2629,9 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 			// Since they're identical we don't need to copy.
 			if (dest != src) {
 				if (Memory::IsValidRange(dest, size) && Memory::IsValidRange(src, size)) {
-					memcpy(Memory::GetPointerWriteUnchecked(dest), Memory::GetPointerUnchecked(src), size);
+					// The game's memmove ends up here too, and memcpy of an overlapping range depends on the
+					// host's C library: Spider-Man 3 shifting an array in VRAM lost an element on Android.
+					memmove(Memory::GetPointerWriteUnchecked(dest), Memory::GetPointerUnchecked(src), size);
 				}
 				if (MemBlockInfoDetailed(size)) {
 					NotifyMemInfoCopy(dest, src, size, "GPUMemcpy/");

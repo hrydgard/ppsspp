@@ -242,7 +242,7 @@ int IntrHandler::queueUp(int subintr) {
 
 void IntrHandler::DoState(PointerWrap &p)
 {
-	auto s = p.Section("IntrHandler", 1, 2);
+	auto s = p.Section("IntrHandler", 1, 3);
 	if (!s)
 		return;
 
@@ -254,6 +254,13 @@ void IntrHandler::DoState(PointerWrap &p)
 		Do(p, baseEnabled_);
 	} else {
 		setBaseHandler(0, 0);
+	}
+	// A state saved inside a handler is charged its exit cost on the way out, so the costs have to
+	// come from the state, not from whatever ran before the load.
+	// (An older state keeps the ones set at init, and VBLANK's from __DisplayDoState.)
+	if (s >= 3) {
+		Do(p, entryCycles_);
+		Do(p, exitCycles_);
 	}
 	if (p.mode == p.MODE_READ && (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)) {
 		ERROR_LOG(Log::sceIntc, "Savestate failure: invalid interrupt handler %d", intrNumber);

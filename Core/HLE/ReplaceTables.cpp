@@ -146,9 +146,11 @@ static int Replace_memcpy(MIPSState *mips) {
 			// Already logged.
 		} else if (std::min(destPtr, srcPtr) + bytes > std::max(destPtr, srcPtr)) {
 			// Overlap.  Star Ocean breaks if it's not handled in 16 bytes blocks.
+			// Each block is loaded whole before it's stored, which memmove does on every host (memcpy of
+			// a block that overlaps itself depends on the C library).
 			const u32 blocks = bytes & ~0x0f;
 			for (u32 offset = 0; offset < blocks; offset += 0x10) {
-				memcpy(dst + offset, src + offset, 0x10);
+				memmove(dst + offset, src + offset, 0x10);
 			}
 			for (u32 offset = blocks; offset < bytes; ++offset) {
 				dst[offset] = src[offset];
