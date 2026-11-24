@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+#include <string>
 #include <string_view>
 
 // Simple wrapper around the Discord api.
@@ -24,8 +26,15 @@ public:
 private:
 	void Init();
 	bool IsEnabled() const;
+	void UpdateGamePresence();
+	void ResetGameState();
 
 	bool initialized_ = false;
+	bool inGame_ = false;
+	int64_t startTimestamp_ = 0;
+	std::string gameTitle_;
+	std::string richPresence_;
+	double lastRichPresenceCheck_ = 0.0;
 };
 
 extern Discord g_Discord;
