@@ -130,8 +130,12 @@ static void RecomputeBreakDeadline() {
 		breakDeadlineTicks = 0;
 		return;
 	}
-	const s64 remainingUs = breakDeadlineUs - (s64)GetGlobalTimeUs();
-	breakDeadlineTicks = (s64)GetTicks(currentMIPS) + (remainingUs > 0 ? usToCycles(remainingUs) : 0);
+	// The first tick GetGlobalTimeUs() reads the deadline at, from its base rather than from now: now
+	// is a fraction of a microsecond past what it reads, so the break landed somewhere else depending
+	// on when it was asked for.
+	const s64 freq = GetClockFrequencyHz();
+	const s64 ticks = lastGlobalTimeTicks + ((breakDeadlineUs - lastGlobalTimeUs) * freq + 999999) / 1000000;
+	breakDeadlineTicks = std::max(ticks, (s64)GetTicks(currentMIPS));
 }
 
 void SetBreakDeadlineUs(u64 us) {
