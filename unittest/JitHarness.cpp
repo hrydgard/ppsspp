@@ -54,6 +54,8 @@
 #include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
 #include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
+#elif PPSSPP_ARCH(ARM64)
+#include "Core/MIPS/ARM64/Arm64VfpuDot.h"
 #endif
 #include "unittest/UnitTest.h"
 
@@ -313,7 +315,9 @@ bool TestJitDotBench() {
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		const double callsPerSecond = ExecCPUTest(false);
 		if (getenv("PPSSPP_JITBENCH_DISASM")) {
-			JitBlockDebugInfo block = mipsr4k.jit->GetBlockCacheDebugInterface()->GetBlockDebugInfo(0);
+			// Not block 0, which the IR JITs keep as a placeholder.
+			JitBlockCacheDebugInterface *blocks = mipsr4k.jit->GetBlockCacheDebugInterface();
+			JitBlockDebugInfo block = blocks->GetBlockDebugInfo(blocks->GetBlockNumberFromStartAddress(PSP_GetUserMemoryBase()));
 			for (size_t i = 0; i < block.targetDisasm.size() && i < 80; i++)
 				printf("  %s\n", block.targetDisasm[i].c_str());
 		}
@@ -2099,6 +2103,7 @@ bool TestVFPUDotJit() {
 			return bits;
 		};
 		printf("%s\n", name);
+		fflush(stdout);
 		return ForEachVFPUDotTestCase([&](const float a[4], const float b[4]) {
 			float operands[8];
 			memcpy(operands, a, sizeof(float) * 4);
@@ -2192,6 +2197,102 @@ bool TestVFPUDotJit() {
 		code.FlushIcache();
 		code.EndWrite();
 		if (!check(lsx ? "LSX" : "scalar", (DotFunc)start))
+			success = false;
+	}
+	code.FreeCodeSpace();
+#elif PPSSPP_ARCH(ARM64)
+	using namespace Arm64Gen;
+	using namespace MIPSComp;
+	// The multi-dot routine, called as the JIT does: the terms in q0-q3 (lane k of each for output
+	// k), the vector in q4, the result in q0. Each output is checked against the reference over the
+	// last four test cases' first vectors, with the case's second vector, at every term count.
+	typedef void (*MultiDotFunc)(const float *in, float *out, MIPSState *ctx);
+	ARM64CodeBlock code;
+	code.AllocCodeSpace(0x10000);
+	ARM64FloatEmitter fp(&code);
+
+	// The single dot routine, called as the JIT does: the operands in q0 and q1, the result in w1.
+	{
+		code.BeginWrite(0x2000);
+		// ctx has to survive the C call on the inf and NaN path, as the JIT's (x27) does.
+		const u8 *special = GenerateArm64VfpuDotSpecial(&code, &fp, X27);
+		const u8 *routine = GenerateArm64VfpuDotCall(&code, &fp, X27, special);
+		const u8 *start = code.AlignCode16();
+		code.STP(INDEX_PRE, X29, X30, SP, -16);
+		code.STP(INDEX_PRE, X27, X28, SP, -16);
+		code.MOVP2R(X27, &mipsr4k);
+		// Whatever the routine reads before writing is garbage.
+		for (int i = 2; i < 7; i++)
+			fp.MVNI(32, (ARM64Reg)(Q0 + i), 0);
+		fp.LDP(128, INDEX_SIGNED, Q0, Q1, X0, 0);
+		code.BL(routine);
+		fp.FMOV(S0, W1);
+		code.LDP(INDEX_POST, X27, X28, SP, 16);
+		code.LDP(INDEX_POST, X29, X30, SP, 16);
+		(code.RET)();  // RET is a macro in UnitTest.h.
+		code.FlushIcache();
+		code.EndWrite();
+		if (!check("ARM64 dot", (DotFunc)start))
+			success = false;
+	}
+	for (int terms = 2; terms <= 4; terms++) {
+		code.BeginWrite(0x2000);
+		const u8 *routine = GenerateArm64VfpuMultiDot(&code, &fp, X9, terms);
+		const u8 *start = code.AlignCode16();
+		code.STP(INDEX_PRE, X29, X30, SP, -16);
+		code.MOV(X9, X2);
+		// Whatever the routine reads before writing is garbage.
+		for (int i = 5; i < 32; i++) {
+			if (i < 8 || i >= 16)
+				fp.MVNI(32, (ARM64Reg)(Q0 + i), 0);
+		}
+		fp.LDP(128, INDEX_SIGNED, Q0, Q1, X0, 0);
+		fp.LDP(128, INDEX_SIGNED, Q2, Q3, X0, 32);
+		fp.LDR(128, INDEX_UNSIGNED, Q4, X0, 64);
+		code.BL(routine);
+		fp.STR(128, INDEX_UNSIGNED, Q0, X1, 0);
+		code.LDP(INDEX_POST, X29, X30, SP, 16);
+		(code.RET)();  // RET is a macro in UnitTest.h.
+		code.FlushIcache();
+		code.EndWrite();
+		const MultiDotFunc fn = (MultiDotFunc)start;
+
+		printf("ARM64 multi-dot, %d terms\n", terms);
+		float history[4][4]{};
+		int next = 0;
+		auto toBits = [](float f) {
+			u32 bits;
+			memcpy(&bits, &f, sizeof(bits));
+			return bits;
+		};
+		const bool ok = ForEachVFPUDotTestCase([&](const float a[4], const float b[4]) {
+			memcpy(history[next], a, sizeof(history[next]));
+			next = (next + 1) & 3;
+			alignas(16) float in[20]{};
+			for (int k = 0; k < 4; k++) {
+				for (int i = 0; i < terms; i++)
+					in[i * 4 + k] = history[k][i];
+			}
+			for (int i = 0; i < terms; i++)
+				in[16 + i] = b[i];
+			alignas(16) float out[4];
+			fn(in, out, &mipsr4k);
+			for (int k = 0; k < 4; k++) {
+				float x[4]{}, y[4]{};
+				for (int i = 0; i < terms; i++) {
+					x[i] = history[k][i];
+					y[i] = b[i];
+				}
+				const u32 expected = toBits(vfpu_dot_reference(x, y));
+				if (toBits(out[k]) != expected) {
+					printf("output %d: (%08x %08x %08x %08x) . (%08x %08x %08x %08x) = %08x, expected %08x\n", k,
+						toBits(x[0]), toBits(x[1]), toBits(x[2]), toBits(x[3]), toBits(y[0]), toBits(y[1]), toBits(y[2]), toBits(y[3]), toBits(out[k]), expected);
+					return false;
+				}
+			}
+			return true;
+		});
+		if (!ok)
 			success = false;
 	}
 	code.FreeCodeSpace();
