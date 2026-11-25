@@ -405,7 +405,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
-			UI::PlayUISound(UI::UISound::TOGGLE_ON);
+			// Choice::ClickInternal plays the sound.
 			ClickInternal();
 			return true;
 		}
@@ -1747,17 +1747,51 @@ void TriggerButton::GetContentDimensions(const UIContext &dc, float &w, float &h
 	dc.Draw()->GetAtlas()->measureImage(imageBackground_, &w, &h);
 }
 
+void SliderKeyRepeat::Start(InputKeyCode key) {
+	key_ = key;
+	startTime_ = time_now_d();
+	lastTime_ = startTime_;
+	accum_ = 0.0;
+}
+
+int SliderKeyRepeat::Update(int numSteps) {
+	if (key_ == NKCODE_UNKNOWN) {
+		return 0;
+	}
+	// Starts at startRate steps per second and doubles every doublingTime seconds, up to a rate
+	// that crosses the whole range in two seconds.
+	const double delay = 0.3;
+	const double startRate = 6.0;
+	const double doublingTime = 0.6;
+	const double now = time_now_d();
+	const double held = now - startTime_ - delay;
+	if (held <= 0.0) {
+		lastTime_ = now;
+		return 0;
+	}
+	const double maxRate = std::max(startRate, numSteps * 0.5);
+	const double rate = std::min(maxRate, startRate * pow(2.0, held / doublingTime));
+	accum_ += rate * (now - lastTime_);
+	lastTime_ = now;
+	const int steps = (int)accum_;
+	accum_ -= steps;
+	return steps;
+}
+
 bool Slider::Key(const KeyInput &input) {
 	if (HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT)) {
+		// The focus code sends its own repeats of a held key (without IS_REPEAT). We repeat it ourselves.
+		if (repeat_.IsHeld(input.keyCode)) {
+			return true;
+		}
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
-			repeat_ = 0;
-			repeatCode_ = input.keyCode;
+			repeat_.Start(input.keyCode);
 			return true;
 		}
 		return false;
-	} else if ((input.flags & KeyInputFlags::UP) && input.keyCode == repeatCode_) {
-		repeat_ = -1;
+	} else if ((input.flags & KeyInputFlags::UP) && repeat_.IsHeld(input.keyCode)) {
+		repeat_.Stop();
 		return false;
 	} else {
 		return false;
@@ -1854,7 +1888,7 @@ bool Slider::Touch(const TouchInput &input) {
 	}
 
 	// Cancel any key repeat.
-	repeat_ = -1;
+	repeat_.Stop();
 	return contains;
 }
 
@@ -1901,18 +1935,10 @@ std::string Slider::DescribeText() const {
 
 void Slider::Update() {
 	View::Update();
-	if (repeat_ >= 0) {
-		repeat_++;
-	}
-
-	if (repeat_ >= 47) {
-		ApplyKey(repeatCode_);
-		if ((maxValue_ - minValue_) / step_ >= 300) {
-			ApplyKey(repeatCode_);
-		}
-		Clamp();
-	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
-		ApplyKey(repeatCode_);
+	const int numSteps = numFixedChoices_ ? (int)numFixedChoices_ : (maxValue_ - minValue_) / step_;
+	const int steps = repeat_.Update(numSteps);
+	for (int i = 0; i < steps; i++) {
+		ApplyKey(repeat_.Key());
 		Clamp();
 	}
 }
@@ -1949,15 +1975,18 @@ void Slider::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 
 bool SliderFloat::Key(const KeyInput &input) {
 	if (HasFocus() && (input.flags & KeyInputFlags::DOWN) && !(input.flags & KeyInputFlags::IS_REPEAT)) {
+		// See Slider::Key.
+		if (repeat_.IsHeld(input.keyCode)) {
+			return true;
+		}
 		if (ApplyKey(input.keyCode)) {
 			Clamp();
-			repeat_ = 0;
-			repeatCode_ = input.keyCode;
+			repeat_.Start(input.keyCode);
 			return true;
 		}
 		return false;
-	} else if ((input.flags & KeyInputFlags::UP) && input.keyCode == repeatCode_) {
-		repeat_ = -1;
+	} else if ((input.flags & KeyInputFlags::UP) && repeat_.IsHeld(input.keyCode)) {
+		repeat_.Stop();
 		return false;
 	} else {
 		return false;
@@ -2016,7 +2045,7 @@ bool SliderFloat::Touch(const TouchInput &input) {
 	}
 
 	// Cancel any key repeat.
-	repeat_ = -1;
+	repeat_.Stop();
 	return contains;
 }
 
@@ -2055,15 +2084,10 @@ std::string SliderFloat::DescribeText() const {
 
 void SliderFloat::Update() {
 	View::Update();
-	if (repeat_ >= 0) {
-		repeat_++;
-	}
-
-	if (repeat_ >= 47) {
-		ApplyKey(repeatCode_);
-		Clamp();
-	} else if (repeat_ >= 12 && (repeat_ & 1) == 1) {
-		ApplyKey(repeatCode_);
+	// ApplyKey steps by a 50th of the range.
+	const int steps = repeat_.Update(50);
+	for (int i = 0; i < steps; i++) {
+		ApplyKey(repeat_.Key());
 		Clamp();
 	}
 }
