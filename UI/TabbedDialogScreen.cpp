@@ -89,6 +89,7 @@ void UITabbedBaseDialogScreen::CreateViews() {
 			tabHolderFlags |= TabHolderFlags::VerticalShowIcons;
 		}
 		tabHolder_ = new TabHolder(ORIENT_VERTICAL, 300, tabHolderFlags, nullptr, nullptr);
+		tabHolder_->SetPadding(UI::Margins(12, 0, 0, 0));
 		CreateExtraButtons(tabHolder_->Container(), 10);
 		tabHolder_->AddBack(this);
 		root_ = tabHolder_;
