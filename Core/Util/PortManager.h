@@ -76,7 +76,7 @@ struct PortMap {
 	std::string enabled;
 };
 
-// Only ever touched by the UPnP service thread (see PortManager.cpp). Don't call into it
+// Each UPnP service thread has its own (see PortManager.cpp). Don't use one
 // from anywhere else - queue a request with UPnP_Add()/UPnP_Remove() instead.
 class PortManager {
 public:
@@ -127,8 +127,6 @@ private:
 	std::deque<std::pair<std::string, std::string>> m_portList;
 	std::deque<PortMap> m_otherPortList;
 };
-
-extern PortManager g_PortManager;
 
 void __UPnPInit(unsigned int timeout_ms);
 void __UPnPShutdown();

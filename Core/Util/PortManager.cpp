@@ -24,10 +24,15 @@
 // (UPnP_Add/UPnP_Remove) or poke the condition variable (UPnP_Notify). Talking to a router means
 // blocking socket I/O with multi-second timeouts, so none of it may happen on a thread anyone
 // waits for - and the thread must never end up in a state where it can't be told to stop.
+//
+// __UPnPShutdown only waits a bounded time for the thread (on Android it runs on the UI thread),
+// then leaves it to finish by itself. So each thread has its own PortManager, and a generation
+// number tells it that it has been left behind, after which it must not touch the shared state.
 
 #include <algorithm>  // find_if
 #include <chrono>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <thread>
 #include <mutex>
@@ -45,12 +50,12 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PortManager.h"
 
-PortManager g_PortManager;
-
 // Guards g_upnpServiceThread itself, so that a start racing a start (or a shutdown) can't end up
 // with two service threads or a std::thread being reassigned while it's still running.
 static std::mutex g_upnpThreadLock;
 static std::thread g_upnpServiceThread;
+// Set by its service thread as its last act (under g_upnpLock), to end __UPnPShutdown's wait.
+static std::shared_ptr<bool> g_upnpThreadDone;
 static bool g_upnpInitialized;
 
 static std::mutex g_upnpLock;
@@ -60,6 +65,8 @@ static std::condition_variable g_upnpCond;
 static std::deque<UPnPArgs> g_upnpReqs;
 static unsigned int g_upnpTimeout = 2000;
 static bool g_upnpExit;
+// Bumped by each shutdown. A service thread whose generation is older has been left behind.
+static uint32_t g_upnpGeneration;
 // Whether a service thread is up. The thread only exists while the setting is on, so most users
 // never pay for one at all - it used to be started unconditionally and parked for the session.
 static bool g_upnpThreadRunning;
@@ -82,6 +89,10 @@ static constexpr double MIN_RETRY_SECONDS = 5.0;
 static constexpr double MAX_RETRY_SECONDS = 300.0;
 // Some routers do not support non-zero lease durations, in which case we fall back to 0 (permanent).
 static const char * const DEFAULT_LEASE_DURATION = "43200";  // 12 hours, range is 0-604800 (0 = indefinite)
+// How long the exit cleanup may talk to the router, and how long __UPnPShutdown waits for it. A
+// healthy router answers in milliseconds, and leftover mappings expire with the lease anyway.
+static constexpr double EXIT_CLEANUP_SECONDS = 1.5;
+static constexpr double SHUTDOWN_WAIT_SECONDS = 2.0;
 
 #ifdef WITH_UPNP
 // Real routers report an error once the index runs past the end of the mapping table. This is just
@@ -442,9 +453,15 @@ bool PortManager::RefreshPortList() {
 
 // --- Service thread ---
 
-static void DiscardQueuedRequests() {
+// Call with g_upnpLock held. True once the thread should stop, either because we're shutting down,
+// or because it was left behind by an earlier shutdown and must leave the shared state alone.
+static bool ShouldStop(uint32_t generation) {
+	return g_upnpExit || g_upnpGeneration != generation;
+}
+
+static void DiscardQueuedRequests(uint32_t generation) {
 	std::lock_guard<std::mutex> lock(g_upnpLock);
-	if (!g_upnpReqs.empty()) {
+	if (!ShouldStop(generation) && !g_upnpReqs.empty()) {
 		DEBUG_LOG(Log::Net, "UPnPService: discarding %d queued request(s)", (int)g_upnpReqs.size());
 		g_upnpReqs.clear();
 	}
@@ -452,12 +469,12 @@ static void DiscardQueuedRequests() {
 
 // Works through the queue until it's empty or the router stops answering.
 // Returns false if we lost the router, in which case the unfinished request stays queued.
-static bool ProcessQueuedRequests() {
+static bool ProcessQueuedRequests(PortManager &portManager, uint32_t generation) {
 	while (true) {
 		UPnPArgs arg;
 		{
 			std::lock_guard<std::mutex> lock(g_upnpLock);
-			if (g_upnpExit || g_upnpReqs.empty())
+			if (ShouldStop(generation) || g_upnpReqs.empty())
 				return true;
 			// Take it out of the queue for the duration. Talking to the router happens without the
 			// lock held, and QueueRequest() supersedes pending requests for the same port - if the
@@ -470,10 +487,10 @@ static bool ProcessQueuedRequests() {
 		bool ok;
 		switch (arg.cmd) {
 		case UPNP_CMD_ADD:
-			ok = g_PortManager.Add(arg.protocol.c_str(), arg.port, arg.intport, arg.desc);
+			ok = portManager.Add(arg.protocol.c_str(), arg.port, arg.intport, arg.desc);
 			break;
 		case UPNP_CMD_REMOVE:
-			ok = g_PortManager.Remove(arg.protocol.c_str(), arg.port);
+			ok = portManager.Remove(arg.protocol.c_str(), arg.port);
 			break;
 		default:
 			ok = true;
@@ -487,6 +504,8 @@ static bool ProcessQueuedRequests() {
 		// would just fail the same way.
 		if (++arg.attempts < MAX_REQUEST_ATTEMPTS) {
 			std::lock_guard<std::mutex> lock(g_upnpLock);
+			if (ShouldStop(generation))
+				return false;
 			const bool superseded = std::any_of(g_upnpReqs.begin(), g_upnpReqs.end(), [&arg](const UPnPArgs &req) {
 				return req.port == arg.port && req.protocol == arg.protocol;
 			});
@@ -500,9 +519,11 @@ static bool ProcessQueuedRequests() {
 	}
 }
 
-static int upnpService(unsigned int timeout) {
+static int upnpService(unsigned int timeout, uint32_t generation, std::shared_ptr<bool> done) {
 	SetCurrentThreadName("UPnPService");
 	INFO_LOG(Log::Net, "UPnPService: Begin of UPnPService Thread");
+
+	PortManager portManager;
 
 	int failCount = 0;
 	bool wasEnabled = false;
@@ -515,7 +536,7 @@ static int upnpService(unsigned int timeout) {
 		uint32_t seq;
 		{
 			std::lock_guard<std::mutex> lock(g_upnpLock);
-			if (g_upnpExit)
+			if (ShouldStop(generation))
 				break;
 			seq = g_upnpWakeSeq;
 			if (g_upnpResetBackoff) {
@@ -534,17 +555,21 @@ static int upnpService(unsigned int timeout) {
 			// Callers queue requests without checking the setting (see bind() in sceNetInet), so throw
 			// them away here. Otherwise the queue grows without bound and, worse, the wait below never
 			// blocks - which is what pegged a core whenever UPnP was off but a game was using sockets.
-			DiscardQueuedRequests();
+			DiscardQueuedRequests(generation);
 			if (wasEnabled) {
 				// Turned off at runtime - take our mappings back down right away.
 				INFO_LOG(Log::Net, "UPnPService: UPnP was disabled, cleaning up");
-				g_PortManager.Shutdown();
+				portManager.Shutdown();
 				wasEnabled = false;
 			}
 			failCount = 0;
 			nextInitTime = 0.0;
 
 			std::lock_guard<std::mutex> lock(g_upnpLock);
+			if (ShouldStop(generation)) {
+				// g_upnpThreadRunning isn't ours to clear any more.
+				break;
+			}
 			if (!g_Config.bEnableUPnP) {
 				// Nothing left to do until the setting comes back on, and StartUPnPService() will
 				// spin up a fresh thread for that. Deciding this under the lock is what makes that
@@ -557,13 +582,19 @@ static int upnpService(unsigned int timeout) {
 			continue;
 		} else {
 			wasEnabled = true;
-			if (g_PortManager.GetInitState() == UPNP_INITSTATE_NONE && time_now_d() >= nextInitTime) {
-				if (g_PortManager.Initialize(timeout)) {
+			if (portManager.GetInitState() == UPNP_INITSTATE_NONE && time_now_d() >= nextInitTime) {
+				if (portManager.Initialize(timeout)) {
 					failCount = 0;
 					nextInitTime = 0.0;
 				} else {
-					// Only complain the first time, not once per retry.
-					if (failCount == 0)
+					bool stopping;
+					{
+						std::lock_guard<std::mutex> lock(g_upnpLock);
+						stopping = ShouldStop(generation);
+					}
+					// Only complain the first time, not once per retry. A thread left behind may be
+					// finishing after the UI is gone.
+					if (failCount == 0 && !stopping)
 						ShowUPnPMessage("Unable to find UPnP device");
 					failCount++;
 					const double backoff = std::min(MIN_RETRY_SECONDS * (1 << std::min(failCount - 1, 8)), MAX_RETRY_SECONDS);
@@ -571,18 +602,18 @@ static int upnpService(unsigned int timeout) {
 				}
 			}
 
-			if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
-				if (!ProcessQueuedRequests()) {
+			if (portManager.GetInitState() == UPNP_INITSTATE_DONE) {
+				if (!ProcessQueuedRequests(portManager, generation)) {
 					// Lost the router mid-request. Whatever's left stays queued for after we reconnect.
 					nextInitTime = time_now_d() + MIN_RETRY_SECONDS;
 				}
 			}
-			if (g_PortManager.GetInitState() != UPNP_INITSTATE_DONE)
+			if (portManager.GetInitState() != UPNP_INITSTATE_DONE)
 				wakeAt = nextInitTime;
 		}
 
 		std::unique_lock<std::mutex> lock(g_upnpLock);
-		auto shouldWake = [seq] { return g_upnpExit || g_upnpWakeSeq != seq; };
+		auto shouldWake = [seq, generation] { return ShouldStop(generation) || g_upnpWakeSeq != seq; };
 		if (wakeAt == 0.0) {
 			g_upnpCond.wait(lock, shouldWake);
 		} else {
@@ -592,14 +623,15 @@ static int upnpService(unsigned int timeout) {
 	}
 
 	// Clean up regardless of g_Config.bEnableUPnP, to avoid leaving open ports on the router.
-	g_PortManager.Shutdown();
-
-	{
-		std::lock_guard<std::mutex> lock(g_upnpLock);
-		g_upnpReqs.clear();
-	}
+	// (Already done, so a no-op, if the setting was turned off.)
+	portManager.Shutdown(EXIT_CLEANUP_SECONDS);
 
 	INFO_LOG(Log::Net, "UPnPService: End of UPnPService Thread");
+	{
+		std::lock_guard<std::mutex> lock(g_upnpLock);
+		*done = true;
+	}
+	g_upnpCond.notify_all();
 	return 0;
 }
 
@@ -621,7 +653,13 @@ static void StartUPnPService() {
 	// g_upnpThreadRunning it has already cleaned up after itself, so this doesn't block on a router.
 	if (g_upnpServiceThread.joinable())
 		g_upnpServiceThread.join();
-	g_upnpServiceThread = std::thread(upnpService, g_upnpTimeout);
+	uint32_t generation;
+	{
+		std::lock_guard<std::mutex> lock(g_upnpLock);
+		generation = g_upnpGeneration;
+	}
+	g_upnpThreadDone = std::make_shared<bool>(false);
+	g_upnpServiceThread = std::thread(upnpService, g_upnpTimeout, generation, g_upnpThreadDone);
 }
 
 void __UPnPInit(unsigned int timeout) {
@@ -642,6 +680,7 @@ void __UPnPShutdown() {
 		std::lock_guard<std::mutex> lock(g_upnpLock);
 		g_upnpInitialized = false;
 		g_upnpExit = true;
+		g_upnpGeneration++;
 		// Anything still queued is moot, and dropping it here means the thread won't try to talk to
 		// a router we may no longer be able to reach on its way out.
 		g_upnpReqs.clear();
@@ -652,8 +691,25 @@ void __UPnPShutdown() {
 	std::lock_guard<std::mutex> threadLock(g_upnpThreadLock);
 	if (g_upnpServiceThread.joinable()) {
 		INFO_LOG(Log::Net, "Waiting for upnp thread to shut down...");
+#ifdef __LIBRETRO__
+		// The core can be unloaded after this, so the thread can't be left running.
 		g_upnpServiceThread.join();
-		INFO_LOG(Log::Net, "upnp thread shut down.");
+#else
+		// It can be in the middle of a discovery or a request to an unresponsive router, each of which
+		// takes several seconds to time out. Android calls this on the UI thread, so don't wait that out.
+		bool done;
+		{
+			std::unique_lock<std::mutex> lock(g_upnpLock);
+			done = g_upnpCond.wait_for(lock, std::chrono::duration<double>(SHUTDOWN_WAIT_SECONDS), [] { return *g_upnpThreadDone; });
+		}
+		if (done) {
+			g_upnpServiceThread.join();
+			INFO_LOG(Log::Net, "upnp thread shut down.");
+		} else {
+			WARN_LOG(Log::Net, "upnp thread is still busy, leaving it to finish by itself");
+			g_upnpServiceThread.detach();
+		}
+#endif
 	}
 	std::lock_guard<std::mutex> lock(g_upnpLock);
 	g_upnpThreadRunning = false;
