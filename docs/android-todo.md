@@ -38,7 +38,61 @@ but only apply an override after the user confirms it in PPSSPP. Also, `onReceiv
 `NativeApp.setAchievementsHostOverride` on the main thread, which writes `g_Config` fields other
 threads read.
 
+## A failed surface init leaves a black screen
+
+When `InitSurface` fails, `RenderLoopThread` gives up, but `runRenderLoop` had already returned true, so
+Java's `renderLoopRunning` stays set. Every later `surfaceChanged` takes the "already running, surface
+changed in place" path, and the reaping branch in `runRenderLoop` is never reached until the surface is
+destroyed or the activity stops. The `System_Toast` it queues is never delivered either, since only a
+running frame loop or `NativeApp.init` processes the command queue.
+
+## Microphone goes silent after an activity recreate
+
+On a recreate, `onDestroy` passes `checkCurrent` and calls `audioShutdown`, which deletes the state holding
+`input_enable` and the input sample rate. The new activity's `audioInit` starts with input off, so the
+mic isn't restarted while the game still thinks it's recording. (`audioShutdown` also nulls
+`g_audioState` even when `AndroidAudio_Shutdown` refuses because a stream is open, which would leak a
+running stream. `onStop`'s pause runs first today, so that part isn't reachable.)
+
+## Window state isn't re-sent to a recreated activity
+
+`postCommand` drops commands that arrive after `isDestroyed()`, failing only those with a request ID.
+State that's only sent on change is lost with them: `set_keep_screen_bright` (sent from `Core/System.cpp`
+when the UI state changes), so an activity recreated in-game lets the screen dim; and the soft keyboard
+`persist` state.
+
+## The render loop can start while the activity is stopped
+
+`startRenderLoopThread` checks for a surface and that the activity is current, not that it's started.
+On devices that keep a stopped activity's surface, a `surfaceChanged` after `onStop` (resize, rotation,
+the `setFixedSize` from `viewSizeChanged`) restarts emulation invisibly with audio paused and sensors
+off. A `started` flag checked there would close it.
+
 ## Smaller ones
+
+- **Achievements host override applied before the config loads:** `onCreate` calls
+  `setAchievementsHostOverride` before the first `Initialize()`, so `ApplyAchievementsHostOverride` saves
+  the default host and hardcore flag as the values to restore. Clearing the override then restores the
+  defaults for that session.
+- **Hardware keyboard characters above U+FFFF:** `dispatchKeyEvent` casts the unicode char to `char`,
+  leaving a lone surrogate. The IME path in `NativeSurfaceView` handles code points.
+- **Shutdown joins on the UI thread:** `NativeShutdown` (from `onDestroy`, also on a graphics restart)
+  joins the UPnP thread, which can be in a miniupnpc network call, and the web server thread, with no
+  timeout. A slow router could ANR.
+- **Second display removal timeout:** `removeOutput` returns after `Native_RemoveOutputAndWait`'s 3 s
+  timeout even if the swapchain is still live, so a long frame can present to the Presentation's surface
+  after `surfaceDestroyed` returned. The VkSurface holds its own window reference, so no use-after-free.
+- **Moving the activity onto the TV display isn't re-checked:** with desktop windowing, nothing calls
+  `updateExternalDisplay` when the activity moves to the display showing the Presentation.
+- **`AndroidJNIThreadContext` doesn't nest:** the destructor detaches even when the thread was already
+  attached. `Core/WebServer.cpp` nests it (`HandleFallback` inside `ForwardDebuggerRequest`); harmless only
+  because nothing calls Java after the inner scope.
+- **Unsynchronized reads:** `getSelectedCamera` reads `g_Config.sCameraDevice` on the UI thread while the
+  settings screen can assign it; `display_scale_x/y` change on the UI thread a frame before
+  `g_display.dpi_scale_*`, so touches in between use a mixed scale.
+- **Unchecked OOM:** `pushCameraImageAndroid` doesn't null-check `GetByteArrayElements`, and
+  `GetJavaString` leaves the exception pending when `GetStringChars` fails.
+- **`inputbox` params:** split on `:@:`, so a title containing it corrupts the default text.
 
 - **Denied permissions get no answer:** a denied location or microphone permission sends nothing to
   native, so the game's request just stays silent. Storage and local network do report denial.
