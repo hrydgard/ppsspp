@@ -984,8 +984,11 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 			performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline, vertOffset);
 		}
 
-		if (isFinalAtOutputResolution && postShaderInfo_.back().isUpscalingFilter)
+		if (isFinalAtOutputResolution && postShaderInfo_.back().isUpscalingFilter) {
 			useNearest = true;
+			// CopyToOutput runs the final pass, and picks its sampler from these.
+			outputFlags_ |= OutputFlags::NEAREST;
+		}
 	} else {
 		// Only need to update the first four verts, the rest are unused.
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
