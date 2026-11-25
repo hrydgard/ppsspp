@@ -525,14 +525,22 @@ bool TestUtf8() {
 		EXPECT_TRUE(sanitized.substr(0, 3) == "abc");
 	}
 
-	// ConvertUTF8ToJavaModifiedUTF8 must simply drop an incomplete trailing
-	// sequence rather than asserting or crashing.
+	// ConvertUTF8ToJavaModifiedUTF8 must only output valid modified UTF-8, replacing bad bytes.
 	{
-		std::string input = "abc";
-		input += (char)0xF0;
+		const std::string replacement = "\xEF\xBF\xBD";  // U+FFFD
 		std::string output;
-		ConvertUTF8ToJavaModifiedUTF8(&output, input);
-		EXPECT_TRUE(output == "abc");
+
+		// An incomplete trailing sequence.
+		ConvertUTF8ToJavaModifiedUTF8(&output, std::string("abc\xF0"));
+		EXPECT_TRUE(output == "abc" + replacement);
+
+		// Bad bytes in the middle don't take the rest of the string with them.
+		ConvertUTF8ToJavaModifiedUTF8(&output, std::string("a\x80" "b\xC3?\xF0" "cd"));
+		EXPECT_TRUE(output == "a" + replacement + "b" + replacement + "?" + replacement + "cd");
+
+		// Valid 2 and 3 byte sequences are copied, NUL becomes C0 80, and a 4 byte one a surrogate pair.
+		ConvertUTF8ToJavaModifiedUTF8(&output, std::string("\xC3\xA9\xE2\x82\xAC", 5) + std::string(1, '\0') + "\xF0\x9F\x8E\xAE");
+		EXPECT_TRUE(output == std::string("\xC3\xA9\xE2\x82\xAC\xC0\x80\xED\xA0\xBC\xED\xBE\xAE"));
 	}
 
 	// ReplaceInvalidUTF8 must always return well-formed UTF-8, keeping the good parts.  This one

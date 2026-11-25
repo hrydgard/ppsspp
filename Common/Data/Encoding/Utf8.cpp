@@ -435,63 +435,39 @@ size_t encode_utf8_modified(uint32_t code_point, unsigned char* output) {
 }
 
 // A function to convert regular UTF-8 to Java Modified UTF-8. Only used on Android.
-// Written by ChatGPT and corrected and modified.
+// Invalid bytes become U+FFFD, since NewStringUTF aborts on them under CheckJNI.
 void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) {
 	// The overflow can't really happen on 64-bit, but let's do the check anyway.
-	if (input.length() > SIZE_MAX / 6) {
+	if (input.length() > SIZE_MAX / 3) {
 		output->clear();
 		return;
 	}
-	output->resize(input.length() * 6); // worst case: every input character is encoded as 6 bytes. Can't really plausibly happen, though.
+	// Worst case: every input byte is invalid and becomes a 3-byte U+FFFD.
+	output->resize(input.length() * 3);
+	const unsigned char *bytes = (const unsigned char *)input.data();
 	size_t out_idx = 0;
 	for (size_t i = 0; i < input.length(); ) {
-		unsigned char c = input[i];
-		if (c == 0) {
-			// Encode null character as 0xC0 0x80. TODO: We probably don't need to support this?
+		const int length = ValidUTF8SequenceLength(bytes + i, input.length() - i);
+		if (length == 0) {
+			out_idx += encode_utf8_modified(0xFFFD, (unsigned char *)(output->data() + out_idx));
+			i++;
+		} else if (bytes[i] == 0) {
+			// Encode null character as 0xC0 0x80.
 			(*output)[out_idx++] = (char)0xC0;
 			(*output)[out_idx++] = (char)0x80;
 			i++;
-		} else if ((c & 0xF0) == 0xF0) { // 4-byte sequence (U+10000 to U+10FFFF)
-			if (i + 4 > input.length()) {
-				// Bad.
-				break;
-			}
-			uint8_t b0 = (uint8_t)input[i];
-			uint8_t b1 = (uint8_t)input[i + 1];
-			uint8_t b2 = (uint8_t)input[i + 2];
-			uint8_t b3 = (uint8_t)input[i + 3];
-
-			// Decode the Unicode code point from the UTF-8 sequence
-			const uint32_t code_point = ((b0 & 0x07) << 18) | ((b1 & 0x3F) << 12) | ((b2 & 0x3F) << 6) | (b3 & 0x3F);
-			if (code_point < 0x10000 || code_point > 0x10FFFF) {
-				// invalid UTF-8
-				i += 4;
-				continue;
-			}
-
-			// Convert to surrogate pair
-			uint16_t high_surrogate = ((code_point - 0x10000) / 0x400) + 0xD800;
-			uint16_t low_surrogate = ((code_point - 0x10000) % 0x400) + 0xDC00;
-
-			// Encode the surrogates in UTF-8. encode_utf8_modified outputs at most 3 bytes.
+		} else if (length == 4) {
+			// U+10000 to U+10FFFF become a surrogate pair, each encoded in 3 bytes.
+			const uint32_t code_point = ((bytes[i] & 0x07) << 18) | ((bytes[i + 1] & 0x3F) << 12) | ((bytes[i + 2] & 0x3F) << 6) | (bytes[i + 3] & 0x3F);
+			const uint16_t high_surrogate = ((code_point - 0x10000) / 0x400) + 0xD800;
+			const uint16_t low_surrogate = ((code_point - 0x10000) % 0x400) + 0xDC00;
 			out_idx += encode_utf8_modified(high_surrogate, (unsigned char *)(output->data() + out_idx));
 			out_idx += encode_utf8_modified(low_surrogate, (unsigned char *)(output->data() + out_idx));
-
 			i += 4;
 		} else {
-			// Copy the other UTF-8 sequences (1-3 bytes)
-			size_t utf8_len = 1;
-			if ((c & 0xE0) == 0xC0) {
-				utf8_len = 2; // 2-byte sequence
-			} else if ((c & 0xF0) == 0xE0) {
-				utf8_len = 3; // 3-byte sequence
-			}
-			if (i + utf8_len > input.length()) {
-				break;
-			}
-			memcpy(output->data() + out_idx, input.data() + i, utf8_len);
-			out_idx += utf8_len;
-			i += utf8_len;
+			memcpy(output->data() + out_idx, input.data() + i, length);
+			out_idx += length;
+			i += length;
 		}
 	}
 	output->resize(out_idx);
