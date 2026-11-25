@@ -44,8 +44,9 @@ struct AudioPendingBuffer {
 // of a playing buffer without that being heard. Stereo pairs, mono duplicated. Not saved: after
 // a load the buffer plays from memory, which only differs if the game wrote over its start.
 struct AudioPrefetch {
-	// The mixer thread outranks the caller and mixes the first 64-sample block of a buffer right
-	// away. The SRC DMA is ahead by about 100us, a few samples.
+	// A buffer that starts the mixer DMA has its first 64-sample block mixed right away, since the
+	// mixer thread outranks the caller (see __AudioLatchFirstBlock). The SRC DMA is ahead by about
+	// 100us, a few samples.
 	static constexpr u32 MIXER_SAMPLES = 64;
 	static constexpr u32 SRC_SAMPLES = 8;
 
