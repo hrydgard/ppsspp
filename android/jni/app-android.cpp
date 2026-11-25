@@ -568,6 +568,9 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 	}
 	Android_StorageSetActivity(newActivity);
 
+	// Only sent when the UI state changes, so an activity recreated in-game wouldn't get it.
+	PushCommand("set_keep_screen_bright", GetUIState() == UISTATE_INGAME ? "on" : "off");
+
 	// An activity that gets recreated (rotation, resize) never unregisters, so this is where we let go
 	// of it. Used to leak the whole activity, once per rotation.
 	if (oldActivity) {
@@ -913,14 +916,17 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	if (!g_audioState) {
 		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
 	} else {
-		ERROR_LOG(Log::Audio, "Audio state already initialized");
+		// A new activity while the native side kept running. The state is only shut down with it.
+		INFO_LOG(Log::Audio, "Audio state already initialized, keeping it");
 	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass) {
 	if (g_audioState) {
-		AndroidAudio_Shutdown(g_audioState);
-		g_audioState = nullptr;
+		// It refuses while a stream is open, and the stream's callback still needs the state then.
+		if (AndroidAudio_Shutdown(g_audioState)) {
+			g_audioState = nullptr;
+		}
 	} else {
 		ERROR_LOG(Log::Audio, "Audio state already shutdown!");
 	}
@@ -1225,12 +1231,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("infrared_command", param1);
 		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
-		// From the CPU thread. Starting and stopping go through Java, which asks for permission.
+		// From the CPU thread. Starting goes through Java, which asks for permission.
 		if (param1 == "pollRecording") {
 			AndroidAudio_Recording_Poll();
 			return true;
 		} else if (param1 == "deviceChanged") {
 			// There's no device choice on Android.
+			return true;
+		} else if (param1 == "stopRecording") {
+			// Needs no permission, so no need for Java. A command could be dropped between activities,
+			// and the next activity's resume would then start the mic again.
+			AndroidAudio_Recording_Stop(g_audioState);
 			return true;
 		}
 		if (startsWith(param1, "startRecording:")) {
