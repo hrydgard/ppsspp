@@ -68,8 +68,11 @@ off. A `started` flag checked there would close it.
   defaults for that session.
 - **Hardware keyboard characters above U+FFFF:** `dispatchKeyEvent` casts the unicode char to `char`,
   leaving a lone surrogate. The IME path in `NativeSurfaceView` handles code points.
-- **Web server join on the UI thread:** `NativeShutdown` (from `onDestroy`, also on a graphics restart)
-  joins the web server thread with no timeout.
+- **Joins on the UI thread:** `NativeShutdown` (from `onDestroy`, also on a graphics restart) joins the
+  web server thread with no timeout, and the UPnP thread, which with UPnP on can be several seconds into
+  a discovery or a request to an unresponsive router. Leaving the UPnP thread to finish was tried and
+  dropped: a thread still running at process exit uses globals during static destruction, and one left
+  behind on Android races the next session's thread.
 - **Second display removal timeout:** `removeOutput` returns after `Native_RemoveOutputAndWait`'s 3 s
   timeout even if the swapchain is still live, so a long frame can present to the Presentation's surface
   after `surfaceDestroyed` returned. The VkSurface holds its own window reference, so no use-after-free.
