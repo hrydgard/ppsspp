@@ -234,6 +234,8 @@ private:
 	};
 
 	MockButton *AddButton(int button, ImageID img, ImageID bg, float angle, float w, float h, float l, float t);
+	// Null for a button the picture doesn't have.
+	MockButton *GetButton(int btn) const;
 
 	void OnSelectButton(UI::EventParams &e);
 
@@ -282,8 +284,14 @@ void MockPSP::SelectButton(int btn) {
 	selectedButton_ = btn;
 }
 
+MockButton *MockPSP::GetButton(int btn) const {
+	// Not operator[]: that would add a null entry, which Layout() then dereferences.
+	auto it = buttons_.find(btn);
+	return it != buttons_.end() ? it->second : nullptr;
+}
+
 void MockPSP::FocusButton(int btn) {
-	MockButton *view = buttons_[btn];
+	MockButton *view = GetButton(btn);
 	if (view) {
 		view->SetFocus(UI::FocusFlags::CAUSE_FORCED);
 	} else {
@@ -292,7 +300,7 @@ void MockPSP::FocusButton(int btn) {
 }
 
 void MockPSP::NotifyPressed(int btn) {
-	MockButton *view = buttons_[btn];
+	MockButton *view = GetButton(btn);
 	if (view)
 		view->NotifyPressed();
 }
@@ -311,7 +319,7 @@ bool MockPSP::SubviewFocused(View *view) {
 }
 
 float MockPSP::GetPopupOffset() {
-	MockButton *view = buttons_[selectedButton_];
+	MockButton *view = GetButton(selectedButton_);
 	if (!view)
 		return 0.0f;
 
