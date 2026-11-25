@@ -45,6 +45,8 @@ static u32 backlightOffTime;
 // See sceImposeChanges, further down.
 static u32 imposeChanges;
 static u32 imposeAvls;
+static u32 impose80000006;
+static u32 impose80000007;
 
 void __ImposeInit() {
 	language = GetPSPLanguage();
@@ -58,10 +60,12 @@ void __ImposeInit() {
 	backlightOffTime = 0;
 	imposeChanges = 0;
 	imposeAvls = 0;
+	impose80000006 = 0;
+	impose80000007 = 0;
 }
 
 void __ImposeDoState(PointerWrap &p) {
-	auto s = p.Section("sceImpose", 1, 2);
+	auto s = p.Section("sceImpose", 1, 3);
 	if (!s)
 		return;
 
@@ -75,6 +79,13 @@ void __ImposeDoState(PointerWrap &p) {
 	} else if (p.mode == p.MODE_READ) {
 		imposeChanges = 0;
 		imposeAvls = 0;
+	}
+	if (s >= 3) {
+		Do(p, impose80000006);
+		Do(p, impose80000007);
+	} else if (p.mode == p.MODE_READ) {
+		impose80000006 = 0;
+		impose80000007 = 0;
 	}
 }
 
@@ -209,6 +220,10 @@ static int sceImposeGetParam(int param) {
 		return hleLogDebug(Log::sceUtility, 3);
 	case PSP_IMPOSE_AVLS:
 		return hleLogDebug(Log::sceUtility, imposeAvls);
+	case PSP_IMPOSE_80000006:
+		return hleLogDebug(Log::sceUtility, impose80000006);
+	case PSP_IMPOSE_80000007:
+		return hleLogDebug(Log::sceUtility, impose80000007);
 	case PSP_IMPOSE_MUTE:
 	case PSP_IMPOSE_SOUND_REDUCTION:
 	case PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL:
@@ -225,8 +240,6 @@ static int sceImposeGetParam(int param) {
 	case PSP_IMPOSE_80000003:
 	case PSP_IMPOSE_80000004:
 	case PSP_IMPOSE_80000005:
-	case PSP_IMPOSE_80000006:
-	case PSP_IMPOSE_80000007:
 	case PSP_IMPOSE_80000008:
 	case PSP_IMPOSE_80000009:
 	case PSP_IMPOSE_8000000A:
@@ -238,7 +251,17 @@ static int sceImposeGetParam(int param) {
 }
 
 static int sceImposeSetParam(int param, int value) {
-	switch (param) {
+	switch ((u32)param) {
+	// The 6.61 impose_02g.prx setter stores these separately from the change flags.
+	case PSP_IMPOSE_80000006:
+		if (value < 0 || value > 1) {
+			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
+		}
+		impose80000006 = value;
+		break;
+	case PSP_IMPOSE_80000007:
+		impose80000007 = value;
+		break;
 	case PSP_IMPOSE_AVLS:
 		if (value < 0 || value > 1)
 			return hleLogWarning(Log::sceUtility, SCE_KERNEL_ERROR_INVALID_VALUE);
