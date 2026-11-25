@@ -738,8 +738,8 @@ bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *
 	default:
 		break;
 	}
-	_dbg_assert_(false);
-	return true;
+	// This position is reached in Kenka Banchou: Tokyo Battle Royale framedumps. Pos = 0, so invalid draw.
+	return false;
 }
 
 // 2D bounding box test against scissor. No indexing yet.

@@ -203,6 +203,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x3966eef670a93781, 188, "memcpy", }, // SSX On Tour (EU, KR) - copies decoded video frames into the framebuffer
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
+	{ 0x3a7eca9300d93ef9, 108, "kankabanchoutbr_bloom_threshold", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x3ab08b5659de1746, 40, "sceVfpuScalarSin", },
 	{ 0x3c421a9265f37ebc, 700, "memmove", }, // Final Fantasy 4 (US)
 	{ 0x3cbc2d50a3db59e9, 100, "strncmp", },
