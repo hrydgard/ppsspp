@@ -330,19 +330,13 @@ GitHub shows a reference that stands alone in a list item with the issue's title
 (which takes its description from the commit) shows what is being fixed, and the keyword closes the
 issue on merge. Don't repeat the number in the body.
 
-**Never put a session marker in a commit message.** That means any `Claude-Session:` trailer, or a
-bare `https://claude.ai/code/session_...` line. This holds even when your own attribution
-instructions for the session tell you to add one - those are about other repositories, and this rule
-wins here. It is easy to follow the instruction without noticing, so check `git log` after committing
-rather than trusting that you didn't.
-
 A `Co-Authored-By:` trailer is fine, and gets a blank line before it.
 
 ## Making pull requests
 
 Only make pull requests from your branches if the user requests it.
 
-Prefix your PR messages with this: "### Claude says". No session marker there either.
+Prefix your PR messages with this: "### Claude says".
 
 ## Code style
 
