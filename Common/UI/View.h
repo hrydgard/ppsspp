@@ -648,6 +648,8 @@ public:
 	}
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	// Left and right change the value.
+	bool CanMoveFocus(FocusMove dir) const override { return dir != FocusMove::LEFT && dir != FocusMove::RIGHT; }
 	bool Key(const KeyInput &input) override;
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
@@ -686,6 +688,8 @@ public:
 		: Clickable(layoutParams), value_(value), minValue_(minValue), maxValue_(maxValue), paddingLeft_(5), paddingRight_(70), repeat_(-1) {}
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	// Left and right change the value.
+	bool CanMoveFocus(FocusMove dir) const override { return dir != FocusMove::LEFT && dir != FocusMove::RIGHT; }
 	bool Key(const KeyInput &input) override;
 	bool Touch(const TouchInput &input) override;
 	void Update() override;
