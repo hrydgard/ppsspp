@@ -1635,7 +1635,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	}
 
 	Memory::WriteOrException_U32(param, destaddr);
-	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
+	return hleLogDebug(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
 }
 
 static u32 sceUtilityLoadNetModule(MIPSState *mips, u32 module) {

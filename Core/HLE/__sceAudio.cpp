@@ -302,6 +302,21 @@ static void __AudioStartSRCDMA() {
 	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
 }
 
+// The mixer thread mixes one 64-sample block per DMA completion, and outranks the game's threads.
+// A buffer handed over while the DMA is idle starts it, so the mixer wakes at once and mixes the
+// first block before the caller runs again: that block is read now. Otherwise the first read is at
+// the next DMA completion, up to a block (1.45ms) later, and comes from memory as it is then.
+// Prince of Persia: Revelations relies on that: it outputs the same buffer over and over, and
+// rewrites it with the next 1024 samples as soon as the blocking call returns. The start read at
+// the handover was the previous contents, two clicks per buffer.
+static void __AudioLatchFirstBlock(AudioPrefetch &prefetch, u32 samplePtr, u32 numSamples, bool mono, bool startsDMA) {
+	if (startsDMA) {
+		prefetch.Latch(samplePtr, numSamples, AudioPrefetch::MIXER_SAMPLES, mono);
+	} else {
+		prefetch.Clear();
+	}
+}
+
 u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol) {
 	if (!chan.reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
@@ -325,7 +340,7 @@ u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol)
 	// disagree with each other.
 	chan.sampleAddress = samplePtr;
 	chan.bufferAddress = samplePtr;
-	chan.prefetch.Latch(samplePtr, chan.sampleCount, AudioPrefetch::MIXER_SAMPLES, chan.format == PSP_AUDIO_FORMAT_MONO);
+	__AudioLatchFirstBlock(chan.prefetch, samplePtr, chan.sampleCount, chan.format == PSP_AUDIO_FORMAT_MONO, startsDMA);
 	if (startsDMA) {
 		__AudioStartMixerDMA();
 	}
@@ -344,7 +359,7 @@ void __AudioEnqueueOneshot(AudioChannel &chan, u32 samplePtr, u32 sampleCount, u
 	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying() && !mixerDMABusy;
 	chan.sampleAddress = samplePtr;
 	chan.bufferAddress = samplePtr;
-	chan.prefetch.Latch(samplePtr, sampleCount, AudioPrefetch::MIXER_SAMPLES, format == PSP_AUDIO_FORMAT_MONO);
+	__AudioLatchFirstBlock(chan.prefetch, samplePtr, sampleCount, format == PSP_AUDIO_FORMAT_MONO, startsDMA);
 	if (startsDMA) {
 		__AudioStartMixerDMA();
 	}
@@ -412,9 +427,10 @@ int __AudioSRCCallCycles(const AudioSRCChannel &chan) {
 
 // The SRC DMA transfers ahead of the audio being heard (a descriptor retires about 100us before
 // its last sample plays), so by the time a game is woken for the next buffer, the start of the one
-// now playing is already out of memory. The mixer channels are read ahead too, by the mixer thread,
-// which outranks the game's. Games that mix in software can rely on that, writing a few samples
-// past the end of the buffer they refill, onto the start of the other one, which is playing.
+// now playing is already out of memory. Games that mix in software can rely on that, writing a few
+// samples past the end of the buffer they refill, onto the start of the other one, which is
+// playing. The mixer channels are read ahead only when a buffer starts the DMA, see
+// __AudioLatchFirstBlock.
 void AudioPrefetch::Latch(u32 address, u32 numSamples, u32 maxSamples, bool mono) {
 	count = 0;
 	const u32 stride = mono ? 2 : 4;
