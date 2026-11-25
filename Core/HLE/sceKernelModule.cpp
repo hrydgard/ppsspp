@@ -1032,12 +1032,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 		}
 		g_hookedImportStubs.erase(hooked);
 	}
-	if (const FuncSymbolImport *redirect = FindRedirect(g_hijackRedirects, func.moduleName, func.nid)) {
-		INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x (sctrlHENHijackFunction)", importingModule, func.moduleName, func.nid, redirect->stubAddr);
-		WriteFuncStub(func.stubAddr, redirect->stubAddr);
-		currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
-		return;
-	}
+	// A user syscall hook overrides the direct function target, including for modules loaded later.
 	if (IsUserModeStub(func.stubAddr)) {
 		if (const FuncSymbolImport *redirect = FindRedirect(g_syscallRedirects, func.moduleName, func.nid)) {
 			INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x (sctrlHENPatchSyscall)", importingModule, func.moduleName, func.nid, redirect->stubAddr);
@@ -1045,6 +1040,12 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 			currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
 			return;
 		}
+	}
+	if (const FuncSymbolImport *redirect = FindRedirect(g_hijackRedirects, func.moduleName, func.nid)) {
+		INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x (sctrlHENHijackFunction)", importingModule, func.moduleName, func.nid, redirect->stubAddr);
+		WriteFuncStub(func.stubAddr, redirect->stubAddr);
+		currentMIPS->InvalidateICacheRangeDeferred(func.stubAddr, 8);
+		return;
 	}
 
 	bool shouldHLE = ShouldHLEModuleByImportName(func.moduleName);
@@ -3680,6 +3681,9 @@ static int RedirectImports(const char *moduleName, u32 nid, u32 newAddr, bool al
 		for (const FuncSymbolImport &import : module->importedFuncs) {
 			if (import.nid == nid && !strncmp(import.moduleName, redirect.moduleName, KERNELOBJECT_MAX_NAME_LENGTH) &&
 				(allModes || IsUserModeStub(import.stubAddr)) && g_hookedImportStubs.find(import.stubAddr) == g_hookedImportStubs.end()) {
+				if (allModes && IsUserModeStub(import.stubAddr) && FindRedirect(g_syscallRedirects, moduleName, nid)) {
+					continue;
+				}
 				INFO_LOG(Log::sceModule, "%s's import of %s/%08x goes to %08x", module->GetName(), moduleName, nid, newAddr);
 				WriteFuncStub(import.stubAddr, newAddr);
 				currentMIPS->InvalidateICacheRangeDeferred(import.stubAddr, 8);

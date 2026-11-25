@@ -980,7 +980,7 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 		memset(Memory::GetPointerWriteUnchecked(destAddr), data, size);
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, destAddr, size, "KernelMemset");
-	return hleLogVerbose(Log::sceKernel, 0);
+	return hleLogVerbose(Log::sceKernel, destAddr);
 }
 
 static int sysclib_strstr(u32 s1, u32 s2) {
