@@ -298,6 +298,9 @@ static void BuildHLEPage(SettingsPage *page) {
 	using namespace UI;
 
 	page->Setting(&g_Config.bUseOldAtrac);
+	page->Setting(&g_Config.bLLEUtilityDialogs).EnabledFunc([] {
+		return !PSP_IsInited();
+	});
 
 	auto addModule = [page](int *flags, DisableHLEFlags flag, const char *modname) {
 		page->Custom(SettingText::Raw(modname), [flags, flag, modname](UI::ViewGroup *parent) -> UI::View * {

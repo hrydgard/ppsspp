@@ -1000,11 +1000,7 @@ void UnexportVarSymbol(const VarSymbolExport &var) {
 
 // EXPERIMENT: functions sent to the firmware's utility.prx instead of our HLE.
 bool LLEUtilityEnabled() {
-	static int enabled = -1;
-	if (enabled < 0) {
-		enabled = getenv("PPSSPP_LLE_UTILITY") != nullptr ? 1 : 0;
-	}
-	return enabled != 0;
+	return g_Config.bLLEUtilityDialogs;
 }
 
 static bool FuncIsLLEOverride(std::string_view module, u32 nid) {
