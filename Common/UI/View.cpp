@@ -405,7 +405,7 @@ bool StickyChoice::Key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
 		if (IsAcceptKey(key)) {
 			down_ = true;
-			UI::PlayUISound(UI::UISound::TOGGLE_ON);
+			// Choice::ClickInternal plays the sound.
 			ClickInternal();
 			return true;
 		}
