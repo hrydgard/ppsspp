@@ -341,8 +341,6 @@ public:
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	bool bSmart2DTexFiltering;
-	bool bTexShaderXBRZ;
-	bool bTexShaderXBRZBounds;
 
 	// We'll carry over the old single layout into landscape for now.
 	DisplayLayoutConfig displayLayoutLandscape;
@@ -436,6 +434,9 @@ public:
 
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
+	// Texture sampling shader (Type=Sampling, "Off" for none), and whether it stays inside each 2D sprite.
+	std::string sTextureSamplingShader;
+	bool bTexSamplingSeparateSprites;
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;

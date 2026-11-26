@@ -161,7 +161,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		}
 		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;
 		ub->texMul = gstate.isColorDoublingEnabled() ? 2.0f : 1.0f;
-		ub->texNoXBRZ = gstate_c.textureReplaced ? 1.0f : 0.0f;
+		ub->texNoSampling = gstate_c.textureReplaced ? 1.0f : 0.0f;
 	}
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {

@@ -642,7 +642,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			reason = "fboverlap";
 		}
 
-		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && !gstate_c.Use(GPU_USE_TEX_XBRZ) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && !gstate_c.Use(GPU_USE_TEX_SAMPLING) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			DEBUG_LOG(Log::TexReplacement, "%08x: Reloading texture to do the scaling we skipped before", texaddr);
 			match = false;
 			reason = "scaling";
@@ -3034,8 +3034,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.scaleFactor = shaderScaleFactor_;
 	}
 
-	// xBRZ texture sampling works on the texture's own texel grid, so upscaling first would run xBRZ twice.
-	if (gstate_c.Use(GPU_USE_TEX_XBRZ)) {
+	// Texture sampling works on the texture's own texel grid, so upscaling first would run it on an upscaled one.
+	if (gstate_c.Use(GPU_USE_TEX_SAMPLING)) {
 		plan.hardwareScaling = false;
 		plan.scaleFactor = 1;
 	}

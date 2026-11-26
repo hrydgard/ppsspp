@@ -982,10 +982,6 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Texture Filter").Choices(texFilteringNames, 1),
 	ConfigSetting("Smart2DTexFiltering", SETTING(g_Config, bSmart2DTexFiltering), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::GRAPHICS, "Smart 2D texture filtering"),
-	ConfigSetting("TextureShaderXBRZ", SETTING(g_Config, bTexShaderXBRZ), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
-		.Label(I18NCat::GRAPHICS, "xBRZ texture sampling").OnChanged(&OnGPUConfigChanged),
-	ConfigSetting("TextureShaderXBRZBounds", SETTING(g_Config, bTexShaderXBRZBounds), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
-		.Label(I18NCat::GRAPHICS, "xBRZ: keep sprites separate").OnChanged(&OnGPUConfigChanged),
 	ConfigSetting("InternalResolution", SETTING(g_Config, iInternalResolution), &DefaultInternalResolution, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::GRAPHICS, "Rendering Resolution").Choices(internalResolutionNames).OnChanged(&OnInternalResolutionChanged),
 	ConfigSetting("AndroidHwScale", SETTING(g_Config, iAndroidHwScale), 0, CfgFlag::DEFAULT)
@@ -1062,6 +1058,9 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Lower resolution for effects").Choices(bloomHackNames),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
+	ConfigSetting("TextureSamplingShader", SETTING(g_Config, sTextureSamplingShader), "Off", CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TextureSamplingSeparateSprites", SETTING(g_Config, bTexSamplingSeparateSprites), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
+		.Label(I18NCat::GRAPHICS, "Keep sampled sprites separate").OnChanged(&OnGPUConfigChanged),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("SkipGPUReadbackMode", SETTING(g_Config, iSkipGPUReadbackMode), false, CfgFlag::PER_GAME | CfgFlag::REPORT)

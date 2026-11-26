@@ -66,11 +66,11 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 // The PSP has a funky mechanism where the UV direction of screen-space rectangles is decided by the relative positioning
 // of the two corners defining the rectangle. This all boils down to a simple swap of the UVs of the two middle vertices,
 // after a check.
-// For GPU_USE_TEX_XBRZ_BOUNDS: each triangle's vertices get the triangle's texture bounds, which for half of a quad are
+// For GPU_USE_TEX_SAMPLING_BOUNDS: each triangle's vertices get the triangle's texture bounds, which for half of a quad are
 // the whole sprite. They go in uv_w and fog, unused in through mode, as 12-bit fractions: uv_w = umin + vmin * 4096,
 // fog = umax + vmax * 4096. The vertex shader unpacks them into v_texbounds. A vertex shared by triangles with
 // different bounds is duplicated. Bounds outside 0..1 (a wrapping texture) are written as none (min > max).
-static void AssignXBRZBounds(TransformedVertex *verts, int *numVerts, int capacity, u16 *inds, int indexCount) {
+static void AssignSamplingBounds(TransformedVertex *verts, int *numVerts, int capacity, u16 *inds, int indexCount) {
 	static std::vector<u8> assigned;
 	const int origVerts = *numVerts;
 	assigned.assign(origVerts, 0);
@@ -496,8 +496,8 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 	}
 
 	SoftwareTransformAction action = ProjectClipAndExpand(params, prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
-	if (action == SW_DRAW_INDEXED && throughmode && gstate_c.Use(GPU_USE_TEX_XBRZ_BOUNDS)) {
-		AssignXBRZBounds(result->drawBuffer, &result->drawVertexCount, vertsSize, inds, result->drawIndexCount);
+	if (action == SW_DRAW_INDEXED && throughmode && gstate_c.Use(GPU_USE_TEX_SAMPLING_BOUNDS)) {
+		AssignSamplingBounds(result->drawBuffer, &result->drawVertexCount, vertsSize, inds, result->drawIndexCount);
 	}
 	return action;
 }

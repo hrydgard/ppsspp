@@ -159,7 +159,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 	queries.push_back({ &u_mipBias, "u_mipBias" });
 	queries.push_back({ &u_texLodBias, "u_texLodBias" });
-	queries.push_back({ &u_texNoXBRZ, "u_texNoXBRZ" });
+	queries.push_back({ &u_texNoSampling, "u_texNoSampling" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -329,8 +329,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		}
 		float noAlphaMul[2] = { doTextureAlpha ? 0.0f : 1.0f, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f };
 		render_->SetUniformF(&u_texNoAlphaMul, 2, noAlphaMul);
-		float noXBRZ = gstate_c.textureReplaced ? 1.0f : 0.0f;
-		render_->SetUniformF(&u_texNoXBRZ, 1, &noXBRZ);
+		float noSampling = gstate_c.textureReplaced ? 1.0f : 0.0f;
+		render_->SetUniformF(&u_texNoSampling, 1, &noSampling);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {
 		if (shaderLanguage.bitwiseOps) {

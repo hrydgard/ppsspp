@@ -37,6 +37,8 @@
 static std::vector<ShaderInfo> shaderInfo;
 // Okay, not really "post" shaders, but related.
 static std::vector<TextureShaderInfo> textureShaderInfo;
+static std::vector<TextureSamplingShaderInfo> textureSamplingShaderInfo;
+static std::string textureSamplingShaderSource;
 
 static Draw::GPUVendor VendorFromString(const std::string &vendor) {
 	// TODO: This should probably be a function somewhere.
@@ -76,6 +78,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 
 	shaderInfo.clear();
 	textureShaderInfo.clear();
+	textureSamplingShaderInfo.clear();
 
 	auto appendShader = [&](const ShaderInfo &info) {
 		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
@@ -91,6 +94,14 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 			textureShaderInfo.erase(beginErase, textureShaderInfo.end());
 		}
 		textureShaderInfo.push_back(info);
+	};
+
+	auto appendSamplingShader = [&](const TextureSamplingShaderInfo &info) {
+		auto beginErase = std::remove(textureSamplingShaderInfo.begin(), textureSamplingShaderInfo.end(), info.name);
+		if (beginErase != textureSamplingShaderInfo.end()) {
+			textureSamplingShaderInfo.erase(beginErase, textureSamplingShaderInfo.end());
+		}
+		textureSamplingShaderInfo.push_back(info);
 	};
 
 	for (size_t d = 0; d < directories.size(); d++) {
@@ -263,6 +274,20 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					} else {
 						ERROR_LOG(Log::G3D, "Compute field missing for compute shader");
 					}
+				} else if (section.HasKey("Sampling") && equalsNoCase(shaderType, "sampling")) {
+					TextureSamplingShaderInfo info{};
+					std::string temp;
+					info.iniFile = fileInfo[f].fullName;
+					info.section = section.name();
+					info.name = section.name();
+					section.Get("Name", &info.name);
+					section.Get("Sampling", &temp);
+					if (HasParentDirComponent(temp)) {
+						WARN_LOG(Log::G3D, "Ignoring sampling shader '%s' with a parent dir in its path", info.section.c_str());
+						continue;
+					}
+					info.file = path / temp;
+					appendSamplingShader(info);
 				} else if (!section.name().empty()) {
 					WARN_LOG(Log::G3D, "Unrecognized shader type '%s' or invalid shader in section '%s'", shaderType.c_str(), section.name().c_str());
 				}
@@ -273,6 +298,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	// Sort shaders alphabetically.
 	std::sort(shaderInfo.begin(), shaderInfo.end());
 	std::sort(textureShaderInfo.begin(), textureShaderInfo.end());
+	std::sort(textureSamplingShaderInfo.begin(), textureSamplingShaderInfo.end());
 
 	ShaderInfo off{};
 	off.visible = true;
@@ -290,6 +316,11 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	textureOff.name = "Off";
 	textureOff.section = "Off";
 	textureShaderInfo.insert(textureShaderInfo.begin(), textureOff);
+
+	TextureSamplingShaderInfo samplingOff{};
+	samplingOff.name = "Off";
+	samplingOff.section = "Off";
+	textureSamplingShaderInfo.insert(textureSamplingShaderInfo.begin(), samplingOff);
 
 	// We always want the not visible ones at the end.  Makes menus easier.
 	shaderInfo.reserve(notVisible.size() + 1);
@@ -380,6 +411,88 @@ const TextureShaderInfo *GetTextureShaderInfo(std::string_view name) {
 }
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo() {
 	return textureShaderInfo;
+}
+
+const TextureSamplingShaderInfo *GetTextureSamplingShaderInfo(std::string_view name) {
+	for (auto &info : textureSamplingShaderInfo) {
+		if (info.section == name) {
+			return &info;
+		}
+	}
+	return nullptr;
+}
+
+const std::vector<TextureSamplingShaderInfo> &GetAllTextureSamplingShaderInfo() {
+	return textureSamplingShaderInfo;
+}
+
+// Sampling shaders go into every textured fragment shader, whose buffer is fixed (32 KB), so comments and
+// indentation are dropped. Line breaks stay, for preprocessor lines and error line numbers.
+static std::string CompactShaderSource(std::string_view src) {
+	std::string out;
+	out.reserve(src.size());
+	bool lineStart = true;
+	for (size_t i = 0; i < src.size(); i++) {
+		const char c = src[i];
+		if (c == '/' && i + 1 < src.size() && src[i + 1] == '/') {
+			while (i + 1 < src.size() && src[i + 1] != '\n') {
+				i++;
+			}
+		} else if (c == '/' && i + 1 < src.size() && src[i + 1] == '*') {
+			i += 2;
+			while (i + 1 < src.size() && !(src[i] == '*' && src[i + 1] == '/')) {
+				if (src[i] == '\n') {
+					out.push_back('\n');
+				}
+				i++;
+			}
+			i++;
+		} else if (c == '\r') {
+			// Dropped.
+		} else if ((c == ' ' || c == '\t') && lineStart) {
+			// Indentation, dropped.
+		} else {
+			out.push_back(c);
+			lineStart = c == '\n';
+		}
+	}
+	return out;
+}
+
+bool LoadTextureSamplingShader(Draw::DrawContext *draw, std::string_view name, bool *changed) {
+	std::string source;
+	if (!name.empty() && name != "Off") {
+		if (!GetTextureSamplingShaderInfo(name)) {
+			ReloadAllPostShaderInfo(draw);
+		}
+		const TextureSamplingShaderInfo *info = GetTextureSamplingShaderInfo(name);
+		if (info && !info->file.empty()) {
+			size_t size = 0;
+			uint8_t *data = g_VFS.ReadFile(info->file.c_str(), &size);
+			if (data) {
+				source = CompactShaderSource(std::string_view((const char *)data, size));
+				delete[] data;
+				// Leaves room in the fragment shader buffer for the rest of the largest shaders.
+				if (source.size() > 12 * 1024) {
+					ERROR_LOG(Log::G3D, "Sampling shader '%s' is too large (%d bytes without comments, max 12 KB)", info->file.c_str(), (int)source.size());
+					source.clear();
+				}
+			} else {
+				ERROR_LOG(Log::G3D, "Failed to read sampling shader '%s'", info->file.c_str());
+			}
+		}
+	}
+	*changed = source != textureSamplingShaderSource;
+	textureSamplingShaderSource = std::move(source);
+	return !textureSamplingShaderSource.empty();
+}
+
+const std::string &GetTextureSamplingShaderSource() {
+	return textureSamplingShaderSource;
+}
+
+void SetTextureSamplingShaderSource(std::string_view source) {
+	textureSamplingShaderSource = source;
 }
 
 void FixPostShaderOrder(std::vector<std::string> *names) {

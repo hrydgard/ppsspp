@@ -30,6 +30,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -48,100 +49,58 @@ static const SamplerDef samplersStereo[3] = {
 	{ 2, "pal" },
 };
 
-// xBRZ freescale (after Hyllian's xbrz-freescale shader and the DeSmuME team's 4xBRZ), evaluated at each texture
-// sample on the texture's own texel grid. Because it works on texels rather than screen pixels, the result stays the
-// same however the texture is moved, scaled or blended. Colors are premultiplied so transparent texels don't fringe.
-// Only the bottom-right corner of the center texel is written out; the other three are rotations of it.
-static const char * const xbrzSampleFunctions = R"(
-float xbDist(vec4 a, vec4 b) {
-	vec3 d = a.rgb - b.rgb;
-	float Y = dot(d, vec3(0.2627, 0.6780, 0.0593));
-	float Cb = 0.5 / (1.0 - 0.0593) * (d.b - Y);
-	float Cr = 0.5 / (1.0 - 0.2627) * (d.r - Y);
-	return sqrt(Y * Y + Cb * Cb + Cr * Cr) + abs(a.a - b.a);
+// Texture sampling shaders (Type=Sampling in a shader ini, see defaultshaders.ini) define
+// vec4 sampleTexture(highp vec2 uv), returning a premultiplied color for the texture coordinate uv. They're written
+// in the GLSL that also compiles as HLSL through ShaderWriter's macros, and get these to work with:
+//   texSize: the texture's size in texels. texScale: screen pixels per texel, on each axis.
+//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied, kept inside the sprite (see
+//   GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's sampler wrap/clamp.
+//   STATIC: put it before global variables (HLSL needs "static").
+static const char * const samplingPrelude = R"(
+STATIC highp vec2 texSize;
+STATIC highp vec2 texScale;
+STATIC highp vec2 texLo;
+STATIC highp vec2 texHi;
+vec4 texFetch(highp vec2 texel) {
+	vec4 t = SAMPLING_TEX(clamp((floor(texel) + vec2(0.5, 0.5)) / texSize, texLo, texHi));
+	return vec4(t.rgb * t.a, t.a);
 }
-bool xbEq(vec4 a, vec4 b) { return xbDist(a, b) < 0.001; }
-bool xbPixEq(vec4 a, vec4 b) { return xbDist(a, b) < 30.0 / 255.0; }
-float xbRatio(highp vec2 pos, vec2 origin, vec2 dir, highp vec2 scale) {
-	highp vec2 p0 = pos - origin;
-	highp vec2 distv = p0 - dir * (dot(p0, dir) / dot(dir, dir));
-	float side = sign(dot(p0, vec2(-dir.y, dir.x)));
-	return smoothstep(-0.70710678, 0.70710678, side * length(distv * scale));
-}
-int xbPre(vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I, vec4 H5, vec4 I5, vec4 F4, vec4 I4) {
-	if ((xbEq(E, F) && xbEq(H, I)) || (xbEq(E, H) && xbEq(F, I))) return 0;
-	float dHF = xbDist(G, E) + xbDist(E, C) + xbDist(H5, I) + xbDist(I, F4) + 4.0 * xbDist(H, F);
-	float dEI = xbDist(D, H) + xbDist(H, I5) + xbDist(B, F) + xbDist(F, I4) + 4.0 * xbDist(E, I);
-	if (!(dHF < dEI) || xbEq(E, F) || xbEq(E, H)) return 0;
-	return (3.6 * dHF < dEI) ? 2 : 1;
-}
-vec4 xbBlend(vec4 res, int bZ, int bY, int bW, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I, highp vec2 pos, highp vec2 scale) {
-	if (bZ == 0) return res;
-	float dFG = xbDist(F, G);
-	float dHC = xbDist(H, C);
-	bool doLine = bZ == 2 || !((bY != 0 && !xbPixEq(E, G)) || (bW != 0 && !xbPixEq(E, C)) ||
-		(xbPixEq(G, H) && xbPixEq(H, I) && xbPixEq(I, F) && xbPixEq(F, C) && !xbPixEq(E, I)));
-	vec2 origin = vec2(0.0, 0.70710678);
-	vec2 dir = vec2(1.0, -1.0);
-	if (doLine) {
-		bool shallow = 2.2 * dFG <= dHC && !xbEq(E, G) && !xbEq(D, G);
-		bool steep = 2.2 * dHC <= dFG && !xbEq(E, C) && !xbEq(B, C);
-		origin = vec2(0.0, shallow ? 0.25 : 0.5);
-		dir.x += shallow ? 1.0 : 0.0;
-		dir.y -= steep ? 1.0 : 0.0;
-	}
-	vec4 blendPix = mix(H, F, step(xbDist(E, F), xbDist(E, H)));
-	return mix(res, blendPix, xbRatio(pos, origin, dir, scale));
-}
-vec4 xbT(highp vec2 c) { vec4 t = XBRZ_TEX(c); return vec4(t.rgb * t.a, t.a); }
-// bounds: the sprite's texture rectangle (umin, vmin, umax, vmax); min > max means none. Reads past it repeat its edge
-// texels, so sprites cut from a shared texture don't pick up their neighbours.
-vec4 xbrzSample(highp vec2 uv, highp vec2 size, highp vec2 scale, highp vec4 bounds) {
-	highp vec2 tc = uv * size;
-	highp vec2 pos = fract(tc) - vec2(0.5, 0.5);
-	highp vec2 c = (floor(tc) + vec2(0.5, 0.5)) / size;
-	highp vec2 dx = vec2(1.0 / size.x, 0.0);
-	highp vec2 dy = vec2(0.0, 1.0 / size.y);
-	highp vec2 lo = vec2(-1000.0, -1000.0);
-	highp vec2 hi = vec2(1000.0, 1000.0);
+)";
+
+// bounds: the sprite's texture rectangle (umin, vmin, umax, vmax), min > max for none. Fetches past it repeat its
+// edge texels, so sprites cut from a shared texture don't pick up their neighbours.
+static const char * const samplingEpilogue = R"(
+vec4 runTextureSampling(highp vec2 uv, highp vec2 size, highp vec2 scale, highp vec4 bounds) {
+	texSize = size;
+	texScale = scale;
+	texLo = vec2(-1000.0, -1000.0);
+	texHi = vec2(1000.0, 1000.0);
 	if (bounds.x <= bounds.z && bounds.y <= bounds.w) {
-		lo = (floor(bounds.xy * size + vec2(0.5, 0.5)) + vec2(0.5, 0.5)) / size;
-		hi = max((floor(bounds.zw * size + vec2(0.5, 0.5)) - vec2(0.5, 0.5)) / size, lo);
+		texLo = (floor(bounds.xy * size + vec2(0.5, 0.5)) + vec2(0.5, 0.5)) / size;
+		texHi = max((floor(bounds.zw * size + vec2(0.5, 0.5)) - vec2(0.5, 0.5)) / size, texLo);
 	}
-	vec4 A = xbT(clamp(c - dx - dy, lo, hi)); vec4 B = xbT(clamp(c - dy, lo, hi)); vec4 C = xbT(clamp(c + dx - dy, lo, hi));
-	vec4 D = xbT(clamp(c - dx, lo, hi)); vec4 E = xbT(clamp(c, lo, hi)); vec4 F = xbT(clamp(c + dx, lo, hi));
-	vec4 G = xbT(clamp(c - dx + dy, lo, hi)); vec4 H = xbT(clamp(c + dy, lo, hi)); vec4 I = xbT(clamp(c + dx + dy, lo, hi));
-	vec4 A1 = xbT(clamp(c - dx - 2.0 * dy, lo, hi)); vec4 C1 = xbT(clamp(c + dx - 2.0 * dy, lo, hi));
-	vec4 A0 = xbT(clamp(c - 2.0 * dx - dy, lo, hi)); vec4 G0 = xbT(clamp(c - 2.0 * dx + dy, lo, hi));
-	vec4 C4 = xbT(clamp(c + 2.0 * dx - dy, lo, hi)); vec4 I4 = xbT(clamp(c + 2.0 * dx + dy, lo, hi));
-	vec4 G5 = xbT(clamp(c - dx + 2.0 * dy, lo, hi)); vec4 I5 = xbT(clamp(c + dx + 2.0 * dy, lo, hi));
-	vec4 B1 = xbT(clamp(c - 2.0 * dy, lo, hi)); vec4 D0 = xbT(clamp(c - 2.0 * dx, lo, hi));
-	vec4 H5 = xbT(clamp(c + 2.0 * dy, lo, hi)); vec4 F4 = xbT(clamp(c + 2.0 * dx, lo, hi));
-	int bZ = xbPre(B, C, D, E, F, G, H, I, H5, I5, F4, I4);
-	int bW = xbPre(F, I, B, E, H, A, D, G, D0, G0, H5, G5);
-	int bY = xbPre(D, A, H, E, B, I, F, C, F4, C4, B1, C1);
-	int bX = xbPre(H, G, F, E, D, C, B, A, B1, A1, D0, A0);
-	vec4 res = E;
-	res = xbBlend(res, bZ, bY, bW, B, C, D, E, F, G, H, I, pos, scale);
-	res = xbBlend(res, bW, bZ, bX, F, I, B, E, H, A, D, G, vec2(pos.y, -pos.x), scale.yx);
-	res = xbBlend(res, bY, bX, bZ, D, A, H, E, B, I, F, C, vec2(-pos.y, pos.x), scale.yx);
-	res = xbBlend(res, bX, bW, bY, H, G, F, E, D, C, B, A, -pos, scale);
+	vec4 res = sampleTexture(uv);
 	return vec4(res.rgb / max(res.a, 0.00001), res.a);
 }
 )";
 
-static void WriteXBRZSampleFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat) {
+static void WriteTextureSamplingFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat, std::string_view source) {
 	if (compat.shaderLanguage == HLSL_D3D11) {
-		p.C("#define XBRZ_TEX(c) tex.SampleLevel(texSamp, c, 0.0)\n");
-		p.C("float2 xbrzTexSize() { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+		p.C("#define SAMPLING_TEX(c) tex.SampleLevel(texSamp, c, 0.0)\n");
+		p.C("#define STATIC static\n");
+		p.C("float2 samplingTexSize() { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
 	} else {
-		p.C("#define XBRZ_TEX(c) textureLod(tex, c, 0.0)\n");
-		p.C("highp vec2 xbrzTexSize() { return vec2(textureSize(tex, 0)); }\n");
+		p.C("#define SAMPLING_TEX(c) textureLod(tex, c, 0.0)\n");
+		p.C("#define STATIC\n");
+		p.C("highp vec2 samplingTexSize() { return vec2(textureSize(tex, 0)); }\n");
 	}
-	// The distance sums overflow lowp. The default goes back to lowp for main (useXBRZ excludes the CLUT8 path,
-	// the only one that raises it).
+	// Edge detection sums overflow lowp. The default goes back to lowp for main (useSampling excludes the CLUT8
+	// path, the only one that raises it).
 	p.HighPrecisionFloat();
-	p.W(xbrzSampleFunctions);
+	p.W(samplingPrelude);
+	p.W(source);
+	p.C("\n");
+	p.W(samplingEpilogue);
 	p.LowPrecisionFloat();
 }
 
@@ -299,9 +258,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
-	const bool useXBRZ = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_XBRZ) && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
+	const std::string &samplingSource = GetTextureSamplingShaderSource();
+	const bool useSampling = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_SAMPLING) && !samplingSource.empty() && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
 	// Declared whenever the vertex shader writes it, so the D3D11 structs match.
-	const bool xbrzBounds = gstate_c.Use(GPU_USE_TEX_XBRZ_BOUNDS) && compat.glslES30;
+	const bool samplingBounds = gstate_c.Use(GPU_USE_TEX_SAMPLING_BOUNDS) && compat.glslES30;
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
@@ -354,7 +314,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");
 		}
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "layout (location = 5) in highp vec4 v_texbounds;\n");
 		}
 
@@ -426,7 +386,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
 		}
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "  vec4 v_texbounds : TEXCOORD3;\n");
 		}
 		WRITE(p, "};\n");
@@ -458,8 +418,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 			WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
-			if (useXBRZ) {
-				WRITE(p, "uniform float u_texNoXBRZ;\n");
+			if (useSampling) {
+				WRITE(p, "uniform float u_texNoSampling;\n");
 			}
 		}
 
@@ -560,7 +520,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "%s highp vec4 v_texbounds;\n", compat.varying_fs);
 		}
 
@@ -636,8 +596,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
-	if (useXBRZ) {
-		WriteXBRZSampleFunctions(p, compat);
+	if (useSampling) {
+		WriteTextureSamplingFunctions(p, compat, samplingSource);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
@@ -682,7 +642,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw = In.v_zw;\n");
 		}
-		if (xbrzBounds && useXBRZ) {
+		if (samplingBounds && useSampling) {
 			WRITE(p, "  vec4 v_texbounds = In.v_texbounds;\n");
 		}
 	}
@@ -817,18 +777,18 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 						}
 					}
 				}
-				if (useXBRZ) {
+				if (useSampling) {
 					// Only where a texel covers more than a pixel (fully from two). fwidth stays outside the branch.
-					const char *uv = doTextureProjection ? "xbrzProjUV" : texcoord;
+					const char *uv = doTextureProjection ? "samplingProjUV" : texcoord;
 					if (doTextureProjection) {
-						WRITE(p, "  highp vec2 xbrzProjUV = %s.xy / %s.z;\n", texcoord, texcoord);
+						WRITE(p, "  highp vec2 samplingProjUV = %s.xy / %s.z;\n", texcoord, texcoord);
 					}
-					WRITE(p, "  highp vec2 xbrzSize = xbrzTexSize();\n");
-					WRITE(p, "  highp vec2 xbrzScale = 1.0 / max(fwidth(%s.xy * xbrzSize), vec2(0.000001, 0.000001));\n", uv);
-					// u_texNoXBRZ is 1 for textures from a replacement pack.
-					WRITE(p, "  float xbrzAmount = smoothstep(1.0, 2.0, min(xbrzScale.x, xbrzScale.y)) * (1.0 - u_texNoXBRZ);\n");
-					WRITE(p, "  if (xbrzAmount > 0.0) {\n");
-					WRITE(p, "    t = mix(t, xbrzSample(%s.xy, xbrzSize, xbrzScale, %s), xbrzAmount);\n", uv, xbrzBounds ? "v_texbounds" : "vec4(1.0, 1.0, 0.0, 0.0)");
+					WRITE(p, "  highp vec2 samplingSize = samplingTexSize();\n");
+					WRITE(p, "  highp vec2 samplingScale = 1.0 / max(fwidth(%s.xy * samplingSize), vec2(0.000001, 0.000001));\n", uv);
+					// u_texNoSampling is 1 for textures from a replacement pack.
+					WRITE(p, "  float samplingAmount = smoothstep(1.0, 2.0, min(samplingScale.x, samplingScale.y)) * (1.0 - u_texNoSampling);\n");
+					WRITE(p, "  if (samplingAmount > 0.0) {\n");
+					WRITE(p, "    t = mix(t, runTextureSampling(%s.xy, samplingSize, samplingScale, %s), samplingAmount);\n", uv, samplingBounds ? "v_texbounds" : "vec4(1.0, 1.0, 0.0, 0.0)");
 					WRITE(p, "  }\n");
 				}
 				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {

@@ -77,6 +77,20 @@ private:
 	std::vector<File::FileInfo> langs_;
 };
 
+class TextureSamplingScreen : public UI::ListPopupScreen {
+public:
+	TextureSamplingScreen(std::string_view title);
+
+	void CreateViews() override;
+
+	const char *tag() const override { return "TextureSampling"; }
+
+private:
+	void OnCompleted(DialogResult result) override;
+	bool ShowButtons() const override { return true; }
+	std::vector<TextureSamplingShaderInfo> shaders_;
+};
+
 class TextureShaderScreen : public UI::ListPopupScreen {
 public:
 	TextureShaderScreen(std::string_view title);

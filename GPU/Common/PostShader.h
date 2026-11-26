@@ -111,6 +111,24 @@ struct TextureShaderInfo {
 	}
 };
 
+// A texture sampling shader (Type=Sampling in a shader ini): a function the fragment shader runs for each texture
+// read, like xBRZ freescale. The file's contract is described in assets/shaders/defaultshaders.ini.
+struct TextureSamplingShaderInfo {
+	Path iniFile;
+	std::string section;
+	std::string name;
+	Path file;
+
+	bool operator == (const std::string &other) const {
+		return name == other;
+	}
+	bool operator < (const TextureSamplingShaderInfo &other) const {
+		if (name < other.name) return true;
+		if (name > other.name) return false;
+		return iniFile < other.iniFile;
+	}
+};
+
 void ReloadAllPostShaderInfo(Draw::DrawContext *draw);
 
 const ShaderInfo *GetPostShaderInfo(std::string_view name);
@@ -121,6 +139,14 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
 const TextureShaderInfo *GetTextureShaderInfo(std::string_view name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
+
+const TextureSamplingShaderInfo *GetTextureSamplingShaderInfo(std::string_view name);
+const std::vector<TextureSamplingShaderInfo> &GetAllTextureSamplingShaderInfo();
+// Loads the named sampling shader's source for the fragment shader generator ("Off" or a missing one clears it).
+// Returns whether a shader is loaded, and sets *changed if the source differs from before.
+bool LoadTextureSamplingShader(Draw::DrawContext *draw, std::string_view name, bool *changed);
+const std::string &GetTextureSamplingShaderSource();
+void SetTextureSamplingShaderSource(std::string_view source);  // For tests.
 void RemoveUnknownPostShaders(std::vector<std::string> *names);
 
 // Call this any time you alter the postshader list. It makes sure

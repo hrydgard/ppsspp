@@ -75,10 +75,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 
-	// v_texbounds: each triangle's texture bounds for xBRZ texture sampling. Through-mode vertices carry them packed
-	// in uv_w and fog (see AssignXBRZBounds), which through mode doesn't use. Every other shader writes "none".
-	const bool xbrzBounds = gstate_c.Use(GPU_USE_TEX_XBRZ_BOUNDS) && compat.glslES30;
-	const bool xbrzBoundsIn = xbrzBounds && !useHWTransform && isModeThrough;
+	// v_texbounds: each triangle's texture bounds for texture sampling. Through-mode vertices carry them packed
+	// in uv_w and fog (see AssignSamplingBounds), which through mode doesn't use. Every other shader writes "none".
+	const bool samplingBounds = gstate_c.Use(GPU_USE_TEX_SAMPLING_BOUNDS) && compat.glslES30;
+	const bool samplingBoundsIn = samplingBounds && !useHWTransform && isModeThrough;
 
 	const bool clipNearPlane = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && useHWTransform;
 	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && !isModeThrough;  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
@@ -216,7 +216,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 				texCoordInVec3 = true;
-			} else if (xbrzBoundsIn) {
+			} else if (samplingBoundsIn) {
 				WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			} else {
 				WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
@@ -247,7 +247,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) out highp vec2 v_zw;\n");
 		}
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "layout (location = 5) out highp vec4 v_texbounds;\n");
 		}
 
@@ -282,7 +282,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doTextureTransform && !isModeThrough) {
 					texCoordInVec3 = true;
 					WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
-				} else if (xbrzBoundsIn) {
+				} else if (samplingBoundsIn) {
 					WRITE(p, "  vec3 texcoord : TEXCOORD0;\n");
 				} else {
 					WRITE(p, "  vec2 texcoord : TEXCOORD0;\n");
@@ -311,7 +311,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  highp vec2 v_zw : TEXCOORD2;\n");
 		}
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "  vec4 v_texbounds : TEXCOORD3;\n");
 		}
 		// gl_Position must be last for D3D11.
@@ -349,7 +349,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			if (!useHWTransform && doTextureTransform && !isModeThrough) {
 				WRITE(p, "%s vec3 texcoord;\n", compat.attribute);
 				texCoordInVec3 = true;
-			} else if (xbrzBoundsIn) {
+			} else if (samplingBoundsIn) {
 				WRITE(p, "%s highp vec3 texcoord;\n", compat.attribute);
 			} else {
 				WRITE(p, "%s vec2 texcoord;\n", compat.attribute);
@@ -456,7 +456,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		}
 
 		WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_vs, highpTexcoord ? "highp" : "mediump");
-		if (xbrzBounds) {
+		if (samplingBounds) {
 			WRITE(p, "%s highp vec4 v_texbounds;\n", compat.varying_vs);
 		}
 
@@ -502,7 +502,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "VS_OUT main(VS_IN In) {\n");
 		WRITE(p, "  VS_OUT Out;\n");
 		if (hasTexcoord) {
-			if (texCoordInVec3 || xbrzBoundsIn) {
+			if (texCoordInVec3 || samplingBoundsIn) {
 				WRITE(p, "  vec3 texcoord = In.texcoord;\n");
 			} else {
 				WRITE(p, "  vec2 texcoord = In.texcoord;\n");
@@ -533,13 +533,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	WRITE(p, "  bool zClipped = false;\n");
 
-	if (xbrzBoundsIn) {
+	if (samplingBoundsIn) {
 		// 12 bits each: uv_w = umin + vmin * 4096, fog = umax + vmax * 4096. Attributes arrive exact, varyings might not.
 		WRITE(p, "  highp vec2 xbPacked = vec2(texcoord.z, fog);\n");
 		WRITE(p, "  highp vec2 xbHigh = floor(xbPacked / 4096.0);\n");
 		WRITE(p, "  highp vec2 xbLow = xbPacked - xbHigh * 4096.0;\n");
 		WRITE(p, "  %sv_texbounds = vec4(xbLow.x, xbHigh.x, xbLow.y, xbHigh.y) / 4095.0;\n", compat.vsOutPrefix);
-	} else if (xbrzBounds) {
+	} else if (samplingBounds) {
 		WRITE(p, "  %sv_texbounds = vec4(1.0, 1.0, 0.0, 0.0);\n", compat.vsOutPrefix);  // min > max: no bounds
 	}
 
@@ -547,7 +547,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Simple pass-through of vertex data to fragment shader
 		if (texCoordInVec3) {
 			WRITE(p, "  %sv_texcoord = texcoord;\n", compat.vsOutPrefix);
-		} else if (xbrzBoundsIn) {
+		} else if (samplingBoundsIn) {
 			WRITE(p, "  %sv_texcoord = vec3(texcoord.xy, 1.0);\n", compat.vsOutPrefix);
 		} else {
 			WRITE(p, "  %sv_texcoord = vec3(texcoord, 1.0);\n", compat.vsOutPrefix);

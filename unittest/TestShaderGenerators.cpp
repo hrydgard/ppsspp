@@ -15,6 +15,8 @@
 #include "GPU/Common/ReinterpretFramebuffer.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
+#include "GPU/Common/PostShader.h"
+#include "Common/File/FileUtil.h"
 
 #include "UnitTest.h"
 
@@ -564,13 +566,31 @@ bool TestShaderGenerators() {
 		return false;
 	}
 
-	// Again with xBRZ texture sampling, without and with the per-sprite bounds (which add a varying).
-	gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_XBRZ);
-	bool xbrzResult = TestFragmentShaders();
-	gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_XBRZ | GPU_USE_TEX_XBRZ_BOUNDS);
-	xbrzResult = xbrzResult && TestFragmentShaders() && TestVertexShaders(false);
+	// Again with each built-in texture sampling shader, without and with the per-sprite bounds (which add a
+	// varying). They're read from assets/shaders, looked for from the usual working directories.
+	const char *const samplingFiles[] = { "tex_sample_xbrz.fsh", "tex_sample_xbr.fsh", "tex_sample_omniscale.fsh", "tex_sample_sharp_bilinear.fsh" };
+	const Path shaderDirs[] = { Path("assets/shaders"), Path("../assets/shaders"), File::GetExeDirectory() / "assets/shaders", File::GetExeDirectory() / "../../../assets/shaders" };
+	bool samplingResult = true;
+	for (const char *file : samplingFiles) {
+		std::string source;
+		for (const Path &dir : shaderDirs) {
+			if (File::ReadTextFileToString(dir / file, &source)) {
+				break;
+			}
+		}
+		if (source.empty()) {
+			printf("Texture sampling shader %s not found, skipped\n", file);
+			continue;
+		}
+		SetTextureSamplingShaderSource(source);
+		gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_SAMPLING);
+		samplingResult = samplingResult && TestFragmentShaders();
+		gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_SAMPLING | GPU_USE_TEX_SAMPLING_BOUNDS);
+		samplingResult = samplingResult && TestFragmentShaders() && TestVertexShaders(false);
+	}
+	SetTextureSamplingShaderSource("");
 	gstate_c.SetUseFlags(oldFlags);
-	if (!xbrzResult) {
+	if (!samplingResult) {
 		return false;
 	}
 

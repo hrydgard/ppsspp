@@ -14,6 +14,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PostShader.h"
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -622,10 +623,12 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	}
 
 	// Needs textureSize, textureLod and fwidth in the fragment shader.
-	if (g_Config.bTexShaderXBRZ && draw_->GetShaderLanguageDesc().glslES30) {
-		features |= GPU_USE_TEX_XBRZ;
-		if (g_Config.bTexShaderXBRZBounds) {
-			features |= GPU_USE_TEX_XBRZ_BOUNDS;
+	bool samplingChanged = false;
+	const bool samplingAvailable = draw_->GetShaderLanguageDesc().glslES30 && !g_Config.bSoftwareRendering;
+	if (LoadTextureSamplingShader(draw_, samplingAvailable ? g_Config.sTextureSamplingShader : "Off", &samplingChanged)) {
+		features |= GPU_USE_TEX_SAMPLING;
+		if (g_Config.bTexSamplingSeparateSprites) {
+			features |= GPU_USE_TEX_SAMPLING_BOUNDS;
 		}
 	}
 
@@ -635,6 +638,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	// Headless --disable-gpu-features, to test the fallbacks for GPUs without them (old Mali has none of
 	// clip distance, cull distance and depth clamp).
+	if (samplingChanged) {
+		// Same flags, different code: the shaders have to go anyway (the backends clear them on this).
+		gstate_c.useFlagsChanged = true;
+	}
+
 	features &= ~PSP_CoreParameter().disabledGPUFeatures;
 	if (!(features & GPU_USE_CLIP_DISTANCE)) {
 		// Hardware depth clamp turns off clipping at the near plane too, which the vertex shader can then only

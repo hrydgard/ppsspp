@@ -479,8 +479,8 @@ enum : u32 {
 	GPU_USE_SCREEN_LINEAR_COLOR = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	GPU_USE_TEX_XBRZ = FLAG_BIT(10),  // Textures are sampled through xBRZ freescale in the fragment shader.
-	GPU_USE_TEX_XBRZ_BOUNDS = FLAG_BIT(11),  // xBRZ sampling stays inside each through-mode triangle's texture bounds (v_texbounds).
+	GPU_USE_TEX_SAMPLING = FLAG_BIT(10),  // Textures are read through a texture sampling shader (GetTextureSamplingShaderSource).
+	GPU_USE_TEX_SAMPLING_BOUNDS = FLAG_BIT(11),  // Texture sampling stays inside each through-mode triangle's texture bounds (v_texbounds).
 	// Free bit: 12
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
@@ -580,7 +580,7 @@ struct GPUStateCache {
 	void SetTextureReplaced(bool replaced) {
 		if (replaced != textureReplaced) {
 			textureReplaced = replaced;
-			Dirty(DIRTY_TEX_ALPHA_MUL);  // Carries u_texNoXBRZ.
+			Dirty(DIRTY_TEX_ALPHA_MUL);  // Carries u_texNoSampling.
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
@@ -653,7 +653,7 @@ public:
 	bool curTextureIs3D;
 	// TruncateBilinear (compat.ini) is on and the current sampler filters linearly. See FS_BIT_TRUNCATE_BILINEAR.
 	bool truncateBilinear;
-	// The bound texture comes from a replacement pack, so xBRZ texture sampling leaves it alone.
+	// The bound texture comes from a replacement pack, so texture sampling leaves it alone.
 	bool textureReplaced;
 
 	// Cached 4x4 products of the matrices.

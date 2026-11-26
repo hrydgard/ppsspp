@@ -70,7 +70,7 @@ public:
 	int u_world;
 	int u_mipBias;
 	int u_texLodBias;
-	int u_texNoXBRZ;
+	int u_texNoSampling;
 	int u_NaN;
 
 	int u_rasterOffset;
