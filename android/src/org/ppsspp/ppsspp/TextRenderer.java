@@ -90,7 +90,9 @@ public class TextRenderer {
 			Point sz = measureLine(line, font, textSize);
 			total.x = Math.max(sz.x, total.x);
 		}
-		total.y = (int) (textPaint.descent() - textPaint.ascent()) * lines.length + 2;
+		// Round the total, not the line height: renderText advances by the unrounded height,
+		// and truncating it first cut off the bottom of the last lines of long text.
+		total.y = (int) Math.ceil((textPaint.descent() - textPaint.ascent()) * lines.length) + 2;
 		// Returning a 0 size can create problems when the caller
 		// uses the measurement to create a texture.
 		// Also, clamp to a reasonable maximum size.
@@ -113,8 +115,13 @@ public class TextRenderer {
 		return (s.x << 16) | s.y;
 	}
 
+	public static final int ALIGN_LEFT = 0;
+	public static final int ALIGN_CENTER = 1;
+	public static final int ALIGN_RIGHT = 2;
+
+	// align is one of the ALIGN_ constants above, and only matters for multi-line text.
 	@Keep
-	public static int[] renderText(String string, int font, double textSize, int w, int h) {
+	public static int[] renderText(String string, int font, double textSize, int w, int h, int align) {
 		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);
 
@@ -128,6 +135,13 @@ public class TextRenderer {
 		Path path = null;
 		for (String line : lines) {
 			if (!line.isEmpty()) {
+				// measureLine pads every line the same way, so this lines them up with the widest.
+				float x = 1.0f;
+				if (align == ALIGN_CENTER) {
+					x = (w - textPaint.measureText(line)) * 0.5f;
+				} else if (align == ALIGN_RIGHT) {
+					x = w - 1.0f - textPaint.measureText(line);
+				}
 				if (highContrastFontsEnabled) {
 					// This is a workaround for avoiding "High Contrast Fonts" screwing up our
 					// single-channel font rendering.
@@ -135,11 +149,11 @@ public class TextRenderer {
 					if (path == null) {
 						path = new Path();
 					}
-					textPaint.getTextPath(line, 0, line.length(), 1, -textPaint.ascent() + y, path);
+					textPaint.getTextPath(line, 0, line.length(), x, -textPaint.ascent() + y, path);
 					canvas.drawPath(path, textPaint);
 				} else {
 					// Standard text rendering, including emoji. Fine if high contrast fonts are not enabled.
-					canvas.drawText(line, 1, -textPaint.ascent() + y, textPaint);
+					canvas.drawText(line, x, -textPaint.ascent() + y, textPaint);
 				}
 			}
 			y += textPaint.descent() - textPaint.ascent();
