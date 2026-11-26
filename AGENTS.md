@@ -40,6 +40,7 @@ for it:
 | [docs/metal-backend.md](docs/metal-backend.md) | The Metal backend: shader translation, the render manager (recording, replay, pass merging), programmable blending, how it was tested against Vulkan, and what isn't done |
 | [docs/lag-sync.md](docs/lag-sync.md) | How lag sync ("Force real clock sync") paces emulation every millisecond and falls back to bursting, and how to benchmark it on a platform (speed near the host's limit, CPU cost, sleep lateness) |
 | [docs/async-savestates.md](docs/async-savestates.md) | How savestate compression and file I/O run on a worker thread: the save/load/rewind pipelines, ordering, memory rules, what stays synchronous, and testing slots with the `game.state.*` debugger commands |
+| [docs/render-manager-unification.md](docs/render-manager-unification.md) | The plan for one render manager interface across backends, thin3d on top of it, pipelines owned by the render managers, GL's uniform-cracking corner, and later game draws through it with a shared command list that frame effects (SSAO, inserted passes, frame interpolation) can edit |
 
 ## General instructions
 
