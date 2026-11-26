@@ -86,11 +86,16 @@ vec4 runTextureSampling(highp vec2 uv, highp vec2 size, highp vec2 scale, highp 
 }
 )";
 
-static void WriteTextureSamplingFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat, std::string_view source) {
+// On Vulkan, framebuffer textures are arrays (layer 0, or the eye in stereo).
+static void WriteTextureSamplingFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat, bool arrayTexture, bool useStereo, std::string_view source) {
 	if (compat.shaderLanguage == HLSL_D3D11) {
 		p.C("#define SAMPLING_TEX(c) tex.SampleLevel(texSamp, c, 0.0)\n");
 		p.C("#define STATIC static\n");
 		p.C("float2 samplingTexSize() { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+	} else if (arrayTexture) {
+		p.F("#define SAMPLING_TEX(c) textureLod(tex, vec3(c, %s), 0.0)\n", useStereo ? "float(gl_ViewIndex)" : "0.0");
+		p.C("#define STATIC\n");
+		p.C("highp vec2 samplingTexSize() { return vec2(textureSize(tex, 0).xy); }\n");
 	} else {
 		p.C("#define SAMPLING_TEX(c) textureLod(tex, c, 0.0)\n");
 		p.C("#define STATIC\n");
@@ -261,7 +266,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
 	const std::string &samplingSource = GetTextureSamplingShaderSource();
-	const bool useSampling = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_SAMPLING) && !samplingSource.empty() && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
+	const bool useSampling = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_SAMPLING) && !samplingSource.empty() && compat.glslES30 && !texture3D && shaderDepalMode == ShaderDepalMode::OFF;
 	// Declared whenever the vertex shader writes it, so the D3D11 structs match.
 	const bool samplingBounds = gstate_c.Use(GPU_USE_TEX_SAMPLING_BOUNDS) && compat.glslES30;
 
@@ -599,7 +604,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	if (useSampling) {
-		WriteTextureSamplingFunctions(p, compat, samplingSource);
+		WriteTextureSamplingFunctions(p, compat, arrayTexture, useStereo, samplingSource);
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {
