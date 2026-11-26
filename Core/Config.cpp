@@ -393,6 +393,8 @@ static constexpr ConfigSetting generalSettings[] = {
 	ConfigSetting("DefaultTab", SETTING(g_Config, iDefaultTab), 0, CfgFlag::DEFAULT),
 	ConfigSetting("DisableHLEFlags", SETTING(g_Config, iDisableHLE), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("ForceEnableHLEFlags", SETTING(g_Config, iForceEnableHLE), 0, CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("LLEUtilityDialogs", SETTING(g_Config, bLLEUtilityDialogs), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
+		.Label(I18NCat::DEVELOPER, "Use the firmware's utility dialogs (experimental, partial)"),
 
 	ConfigSetting("ScreenshotMode", SETTING(g_Config, iScreenshotMode), 0, CfgFlag::DEFAULT)
 		.Label(I18NCat::SYSTEM, "Screenshot mode").Choices(screenshotModeNames),

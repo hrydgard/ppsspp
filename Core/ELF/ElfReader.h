@@ -52,6 +52,10 @@ typedef int SectionID;
 // prerelocated module's first segment could in principle have.
 constexpr u32 SEGMENT_NOT_LOADED = 0xFFFFFFFF;
 
+class BlockAllocator;
+// EXPERIMENT: when set, LoadInto allocates from this partition.
+extern BlockAllocator *g_elfAllocatorOverride;
+
 class ElfReader {
 public:
 	ElfReader(const void *ptr, size_t size) {

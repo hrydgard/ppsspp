@@ -288,6 +288,7 @@ public:
 	int iAskForExitConfirmationAfterSeconds;
 	int iUIScaleFactor;  // In 8ths of powers of two.
 	int iDisableHLE;
+	bool bLLEUtilityDialogs;  // Experimental: run the firmware's utility.prx for MsgDialog and OSK.
 	int iForceEnableHLE;  // The opposite of DisableHLE: puts the HLE back for a module that has graduated to always running for real. Saved as ForceEnableHLEFlags, and the way out if one of those turns out to break a game.
 
 	int iScreenRotation;  // Screen rotation lock. Only supported on Android and possibly other mobile platforms.
