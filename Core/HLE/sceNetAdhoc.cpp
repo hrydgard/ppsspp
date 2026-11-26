@@ -974,13 +974,17 @@ static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint
 	queue.bytes += (u32)len;
 }
 
-// Nothing arrives from a console that has joined the group but isn't in the peer list yet: the first
-// datagram comes a few ms after it shows up there, and the ones sent before are lost (pspautotests
-// net/adhoc/pair/joindata). Kurohyou 2 leaves a room whose host sends to it while not in its list.
+// Nothing arrives from a console that has joined the group but isn't in the peer list yet, and what it
+// sent before is lost (pspautotests net/adhoc/pair/joindata). The first datagram comes a few ms after it
+// shows up there (4-7 ms on the joiner and about 20 on the host, with the test's SHOW_TIMES), so a game
+// that looks at the peer list and then reads never has data from someone not in it. Kurohyou 2 leaves a
+// room whose host sends to it while not in its list.
+static const u64 PDP_AFTER_LISTED_US = 4000;
+
 static bool pdpSenderNotListedYet(const SceNetEtherAddr &mac) {
 	std::lock_guard<std::recursive_mutex> guard(peerlock);
 	SceNetAdhocctlPeerInfo *peer = findFriend((SceNetEtherAddr *)&mac);
-	return peer != NULL && peer->last_recv != 0 && !isPeerVisible(peer);
+	return peer != NULL && peer->last_recv != 0 && CoreTiming::GetGlobalTimeUsScaled() < peer->visible_at + PDP_AFTER_LISTED_US;
 }
 
 static void pdpFillQueue(int id) {
