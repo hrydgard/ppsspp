@@ -279,8 +279,6 @@ void TextDrawerUWP::MeasureStringInternal(const FontStyle &style, std::string_vi
 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
-	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-
 	IDWriteTextLayout *layout = nullptr;
 	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
@@ -319,13 +317,6 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 		return false;
 	}
 
-	if (align & ALIGN_HCENTER)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-	else if (align & ALIGN_LEFT)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-	else if (align & ALIGN_RIGHT)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-
 	IDWriteTextLayout *layout = nullptr;
 	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
@@ -339,6 +330,16 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 		bitmapData.clear();
 		return false;
 	}
+
+	// Set on the layout, not on the format, which all strings in this style share.
+	// ALIGN_LEFT is 0, so it's the fallback.
+	DWRITE_TEXT_ALIGNMENT textAlign = DWRITE_TEXT_ALIGNMENT_LEADING;
+	if (align & ALIGN_HCENTER) {
+		textAlign = DWRITE_TEXT_ALIGNMENT_CENTER;
+	} else if (align & ALIGN_RIGHT) {
+		textAlign = DWRITE_TEXT_ALIGNMENT_TRAILING;
+	}
+	layout->SetTextAlignment(textAlign);
 
 	DWRITE_TEXT_METRICS metrics;
 	layout->GetMetrics(&metrics);
