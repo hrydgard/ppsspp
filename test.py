@@ -622,6 +622,7 @@ tests_good = [
   "net/adhoc/pair/basic",
   "net/adhoc/pair/joindata",
   "net/adhoc/pair/joinrace",
+  "net/adhoc/pair/leftdata",
   "net/adhoc/pair/listsizes",
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",

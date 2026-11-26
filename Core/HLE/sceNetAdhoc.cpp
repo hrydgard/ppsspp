@@ -1055,7 +1055,8 @@ static int pdpTakeFromQueue(AdhocSocket *sock, SceNetEtherAddr *saddr, uint16_t 
 
 	peerlock.lock();
 	SceNetAdhocctlPeerInfo *peer = findFriend(saddr);
-	if (peer != NULL) {
+	// Reading what a peer sent before it left doesn't bring it back (pspautotests net/adhoc/pair/leftdata).
+	if (peer != NULL && peer->last_recv != 0) {
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 	}
 	peerlock.unlock();
