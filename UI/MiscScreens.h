@@ -31,6 +31,7 @@
 
 struct ShaderInfo;
 struct TextureShaderInfo;
+struct TextureSamplingShaderInfo;
 
 inline void NoOpVoidBool(bool) {}
 
