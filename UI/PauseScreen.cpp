@@ -612,10 +612,10 @@ void GamePauseScreen::CreateViews() {
 		const InfraDNSConfig &dnsConfig = GetInfraDNSConfig();
 		LinearLayout *networkInfo = saveDataScrollItems->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 		if (dnsConfig.loaded && __NetApctlConnected()) {
-			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("Network connected"), nw->T("Infrastructure")), ""));
+			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("Network connected"), nw->T("Infrastructure")), ""))->SetRoundCorners();
 
 			if (dnsConfig.state == InfraGameState::NotWorking) {
-				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Some network functionality in this game is not working"), ""))->SetRoundCorners();
 				if (!dnsConfig.workingIDs.empty()) {
 					std::string str(nw->T("Other versions of this game that should work:"));
 					for (auto &id : dnsConfig.workingIDs) {
@@ -625,7 +625,7 @@ void GamePauseScreen::CreateViews() {
 					networkInfo->Add(new TextView(str));
 				}
 			} else if (dnsConfig.state == InfraGameState::Unknown) {
-				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::WARN, nw->T("Network functionality in this game is not guaranteed"), ""))->SetRoundCorners();
 			}
 			if (!dnsConfig.revivalTeam.empty()) {
 				networkInfo->Add(new TextView(std::string(nw->T("Infrastructure server provided by:"))));
@@ -644,7 +644,7 @@ void GamePauseScreen::CreateViews() {
 			// If we have it (thanks to the server list), add more metadata about the connected ad-hoc server here.
 			AdhocServerListEntry entry{};
 			if (AdhocGetServerByHost(g_Config.sProAdhocServer, &entry)) {
-				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("AdHoc server"), nw->T("Connected")), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2", nw->T("AdHoc server"), nw->T("Connected")), ""))->SetRoundCorners();
 				Choice *status = networkInfo->Add(new Choice(ApplySafeSubstitutions(nw->T("Server status: %1"), entry.name), new LinearLayoutParams(WRAP_CONTENT, ITEM_HEIGHT)));
 				status->SetIconLeft(ImageID("I_INFO"));
 				status->OnClick.Add([this, entry](UI::EventParams &) {
@@ -652,11 +652,11 @@ void GamePauseScreen::CreateViews() {
 				});
 			} else {
 				// Awkwardly re-using a string here
-				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2 (%3)", nw->T("AdHoc server"), nw->T("Connected"), g_Config.sProAdhocServer), ""));
+				networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, ApplySafeSubstitutions("%1: %2 (%3)", nw->T("AdHoc server"), nw->T("Connected"), g_Config.sProAdhocServer), ""))->SetRoundCorners();
 			}
 		} else {
 			// Hm, other kind of network connection, maybe plain sockets.
-			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, nw->T("Network connected"), ""));
+			networkInfo->Add(new NoticeView(NoticeLevel::SUCCESS, nw->T("Network connected"), ""))->SetRoundCorners();
 		}
 	}
 
@@ -669,7 +669,7 @@ void GamePauseScreen::CreateViews() {
 	if (showSavestateControls) {
 		if (PSP_CoreParameter().compat.flags().SaveStatesNotRecommended) {
 			LinearLayout *horiz = saveDataScrollItems->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)));
+			horiz->Add(new NoticeView(NoticeLevel::WARN, pa->T("Using save states is not recommended in this game"), "", new LinearLayoutParams(1.0f)))->SetRoundCorners();
 			horiz->Add(new Choice(di->T("More info"), ImageID("I_LINK_OUT_QUESTION"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Add([](UI::EventParams &e) {
 				System_LaunchUrl(LaunchUrlType::BROWSER_URL, "https://www.ppsspp.org/docs/troubleshooting/save-state-time-warps/");
 			});
@@ -695,7 +695,7 @@ void GamePauseScreen::CreateViews() {
 
 		// And tack on an explanation for why savestate options are not available.
 		if (!achievementsAllowSavestates) {
-			saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, ac->T("Save states not available in Hardcore Mode"), ""));
+			saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, ac->T("Save states not available in Hardcore Mode"), ""))->SetRoundCorners();
 		}
 
 		if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
