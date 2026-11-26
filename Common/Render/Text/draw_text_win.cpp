@@ -20,9 +20,9 @@ enum {
 	MAX_TEXT_HEIGHT = 512
 };
 
-class TextDrawerFontContext {
+class TextDrawerWin32FontContext {
 public:
-	explicit TextDrawerFontContext(const FontStyle &_style, float _dpiScale) : hFont(0), style(_style), dpiScale(_dpiScale) {
+	explicit TextDrawerWin32FontContext(const FontStyle &_style, float _dpiScale) : hFont(0), style(_style), dpiScale(_dpiScale) {
 		FontStyleFlags styleFlags{};
 		std::string fontName = GetFontNameForFontStyle(style, &styleFlags);
 		if (fontName.empty()) {
@@ -52,7 +52,7 @@ public:
 			VARIABLE_PITCH, ConvertUTF8ToWString(fontName).c_str());
 	}
 
-	~TextDrawerFontContext() {
+	~TextDrawerWin32FontContext() {
 		Destroy();
 	}
 
@@ -66,14 +66,14 @@ public:
 	float dpiScale;
 };
 
-struct TextDrawerContext {
+struct TextDrawerWin32Context {
 	HDC hDC;
 	HBITMAP hbmBitmap;
 	int *pBitmapBits;
 };
 
 TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
-	ctx_ = new TextDrawerContext();
+	ctx_ = new TextDrawerWin32Context();
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
 	// Load the font files (pass the all flags so we get all filenames);
@@ -121,7 +121,7 @@ void TextDrawerWin32::EnsureFont(const FontStyle &style) {
 	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_);
+	fontMap_[style] = std::make_unique<TextDrawerWin32FontContext>(style, dpiScale_);
 }
 
 void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
