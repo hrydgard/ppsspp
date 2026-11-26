@@ -67,9 +67,12 @@ public:
 };
 
 struct TextDrawerWin32Context {
-	HDC hDC;
-	HBITMAP hbmBitmap;
-	int *pBitmapBits;
+	HDC hDC = nullptr;
+	HBITMAP hbmBitmap = nullptr;
+	int *pBitmapBits = nullptr;
+	// The DC's own objects. GDI won't delete an object that's selected into a DC, so these go back in first.
+	HGDIOBJ hOrigBitmap = nullptr;
+	HGDIOBJ hOrigFont = nullptr;
 };
 
 TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
@@ -98,7 +101,8 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	_assert_(ctx_->hbmBitmap != nullptr);
 	SetMapMode(ctx_->hDC, MM_TEXT);
 
-	SelectObject(ctx_->hDC, ctx_->hbmBitmap);
+	ctx_->hOrigBitmap = SelectObject(ctx_->hDC, ctx_->hbmBitmap);
+	ctx_->hOrigFont = GetCurrentObject(ctx_->hDC, OBJ_FONT);
 }
 
 TextDrawerWin32::~TextDrawerWin32() {
@@ -112,6 +116,7 @@ TextDrawerWin32::~TextDrawerWin32() {
 		RemoveFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
 	}
 
+	SelectObject(ctx_->hDC, ctx_->hOrigBitmap);
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
 	delete ctx_;
@@ -248,6 +253,8 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 }
 
 void TextDrawerWin32::ClearFonts() {
+	// The last font used is still selected, and GDI won't delete it.
+	SelectObject(ctx_->hDC, ctx_->hOrigFont);
 	for (auto &iter : fontMap_) {
 		iter.second->Destroy();
 	}
