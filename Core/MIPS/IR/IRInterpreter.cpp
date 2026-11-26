@@ -255,6 +255,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::Vec4DuplicateUpperBitsAndShift1] = &&L_Vec4DuplicateUpperBitsAndShift1;
 		dispatch[(int)IROp::FCmpVfpuBit] = &&L_FCmpVfpuBit;
 		dispatch[(int)IROp::FCmpVfpuAggregate] = &&L_FCmpVfpuAggregate;
+		dispatch[(int)IROp::Vec4CmpVfpu] = &&L_Vec4CmpVfpu;
 		dispatch[(int)IROp::FCmovVfpuCC] = &&L_FCmovVfpuCC;
 		dispatch[(int)IROp::Vec4Min] = &&L_Vec4Min;
 		dispatch[(int)IROp::Vec4Max] = &&L_Vec4Max;
@@ -944,6 +945,30 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			int anyBit = (cc & mask) ? 0x10 : 0x00;
 			int allBit = (cc & mask) == mask ? 0x20 : 0x00;
 			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | anyBit | allBit;
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4CmpVfpu)
+		{
+			u32 bits = 0;
+			for (int i = 0; i < 4; i++) {
+				const float a = mips->f[inst->src1 + i], b = mips->f[inst->src2 + i];
+				bool result;
+				switch (inst->dest) {
+				case VC_EQ: result = a == b; break;
+				case VC_NE: result = a != b; break;
+				case VC_LT: result = a < b; break;
+				case VC_LE: result = a <= b; break;
+				case VC_GT: result = a > b; break;
+				default: result = a >= b; break;
+				}
+				bits |= (u32)result << i;
+			}
+			if (bits != 0)
+				bits |= 0x10;
+			if ((bits & 0xF) == 0xF)
+				bits |= 0x20;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (mips->vfpuCtrl[VFPU_CTRL_CC] & ~0x3F) | bits;
 			IR_NEXT;
 		}
 

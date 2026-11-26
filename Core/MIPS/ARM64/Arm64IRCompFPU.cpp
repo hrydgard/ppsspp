@@ -321,6 +321,38 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4CmpVfpu:
+	{
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		const ARM64Reg a = regs_.MapVec4(inst.src1), b = regs_.MapVec4(inst.src2);
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		// Like the scalar compares: false for NaN, except NE.
+		switch (VCondition(inst.dest)) {
+		case VC_EQ: fp_.FCMEQ(32, Q0, a, b); break;
+		case VC_NE: fp_.FCMEQ(32, Q0, a, b); fp_.NOT(Q0, Q0); break;
+		case VC_LT: fp_.FCMGT(32, Q0, b, a); break;
+		case VC_LE: fp_.FCMGE(32, Q0, b, a); break;
+		case VC_GT: fp_.FCMGT(32, Q0, a, b); break;
+		default: fp_.FCMGE(32, Q0, a, b); break;
+		}
+		// A bit per lane, then lanes 1 and 3 on top of 0 and 2.
+		fp_.USHR(32, Q0, Q0, 31);
+		fp_.USRA(64, Q0, Q0, 31);
+		fp_.UMOV(32, SCRATCH1, Q0, 0);
+		fp_.UMOV(32, SCRATCH2, Q0, 2);
+		ORR(SCRATCH1, SCRATCH1, SCRATCH2, ArithOption(SCRATCH2, ST_LSL, 2));
+		// Any is bit 4 of bits + 15, all is bit 4 of bits + 1.
+		ADDI2R(SCRATCH2, SCRATCH1, 15);
+		ANDI2R(SCRATCH2, SCRATCH2, 0x10);
+		ORR(SCRATCH2, SCRATCH2, SCRATCH1);
+		ADDI2R(SCRATCH1, SCRATCH1, 1);
+		ANDI2R(SCRATCH1, SCRATCH1, 0x10);
+		ORR(SCRATCH2, SCRATCH2, SCRATCH1, ArithOption(SCRATCH1, ST_LSL, 1));
+		BFI(regs_.R(IRREG_VFPU_CC), SCRATCH2, 0, 6);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

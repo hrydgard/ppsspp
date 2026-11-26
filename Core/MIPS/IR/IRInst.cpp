@@ -158,6 +158,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmovVfpuCC, "FCmovVfpuCC", "FFI", IRFLAG_SRC3DST },
 	{ IROp::FCmpVfpuBit, "FCmpVfpuBit", "IFF" },
 	{ IROp::FCmpVfpuAggregate, "FCmpVfpuAggregate", "I" },
+	{ IROp::Vec4CmpVfpu, "Vec4CmpVfpu", "IVV" },
 	{ IROp::Vec4Init, "Vec4Init", "Vv" },
 	{ IROp::Vec4Shuffle, "Vec4Shuffle", "VVs" },
 	{ IROp::Vec4Blend, "Vec4Blend", "VVVc" },

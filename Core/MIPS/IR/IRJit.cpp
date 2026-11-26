@@ -79,12 +79,16 @@ IRJit::IRJit(MIPSState *mipsState, bool compileToNative) : frontend_(mipsState->
 #if PPSSPP_ARCH(ARM64)
 	opts.vfpuMultiDot = true;
 	opts.moreVec4Ops = true;
+	opts.vec4CmpVfpu = true;
 #elif PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
 	opts.vfpuMultiDot = !compileToNative;
 	opts.moreVec4Ops = true;
 #else
 	opts.vfpuMultiDot = !compileToNative;
 	opts.moreVec4Ops = !compileToNative;
+#endif
+#if !PPSSPP_ARCH(ARM64)
+	opts.vec4CmpVfpu = !compileToNative;
 #endif
 	opts.continueBranches = IR_CONTINUE_BRANCHES;
 	frontend_.SetOptions(opts);

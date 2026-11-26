@@ -2011,8 +2011,13 @@ namespace MIPSComp {
 				dots[i].a[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
 				dots[i].b[k] = tl[k];
 			}
-			dots[i].dest = IRVTEMP_PFX_D + i;
+			dots[i].dest = dregs[i];
 		}
+		// As one multi-dot, the results can go straight to d if it's a whole Vec4 (TryMultiDot checks the overlap).
+		if (n == 4 && IsVec4(sz, dregs) && TryMultiDot(dots, n, n, -1, false))
+			return;
+		for (int i = 0; i < n; i++)
+			dots[i].dest = IRVTEMP_PFX_D + i;
 		const bool multi = TryMultiDot(dots, n, n, IRVTEMP_PFX_D, true);
 		for (int i = 0; i < n && !multi; i++) {
 			DotLane sl[4];
@@ -2389,6 +2394,11 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 
 		int cond = op & 0xF;
+		const bool twoOperands = cond == VC_EQ || cond == VC_NE || cond == VC_LT || cond == VC_LE || cond == VC_GT || cond == VC_GE;
+		if (opts.vec4CmpVfpu && twoOperands && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
+			ir.Write(IROp::Vec4CmpVfpu, cond, sregs[0], tregs[0]);
+			return;
+		}
 		int mask = 0;
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::FCmpVfpuBit, cond | (i << 4), sregs[i], tregs[i]);

@@ -385,6 +385,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
 	case IROp::FCmpVfpuAggregate:
+	case IROp::Vec4CmpVfpu:
 		CompIR_FCompare(inst);
 		break;
 

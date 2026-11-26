@@ -176,6 +176,8 @@ enum class IROp : uint8_t {
 	FCmovVfpuCC,
 	FCmpVfpuBit,
 	FCmpVfpuAggregate,
+	// FCmpVfpuBit for the four lanes of two Vec4s (EQ, NE, LT, LE, GT or GE) and the aggregate, in one.
+	Vec4CmpVfpu,
 
 	// Rounding Mode
 	RestoreRoundingMode,
@@ -504,6 +506,8 @@ struct IROptions {
 	bool continueBranches;
 	// The backend has Vec4Min, Vec4Max, Vec4Slt, Vec4Sge and Vec4CvtScaledSW.
 	bool moreVec4Ops;
+	// The backend has Vec4CmpVfpu.
+	bool vec4CmpVfpu;
 };
 
 // Filled in by InitIR(). Inline, since the passes and backends look it up for every instruction.
