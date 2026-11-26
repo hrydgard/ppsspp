@@ -2967,6 +2967,21 @@ private:
 	std::vector<std::string> shortNames_;
 };
 
+// Matches ms0:/PSP/SAVEDATA however the game spells it ("ms0:PSP/SAVEDATA", trailing slash...)
+static bool IsSaveDataRoot(std::string_view path) {
+	if (!startsWithNoCase(path, "ms0:")) {
+		return false;
+	}
+	path.remove_prefix(4);
+	while (!path.empty() && path.front() == '/') {
+		path.remove_prefix(1);
+	}
+	while (!path.empty() && path.back() == '/') {
+		path.remove_suffix(1);
+	}
+	return equalsNoCase(path, "PSP/SAVEDATA");
+}
+
 static u32 sceIoDopen(const char *path) {
 	if (!path) {
 		// Not tested on the PSP. Matches sceIoOpen.
@@ -3038,7 +3053,20 @@ static u32 sceIoDopen(const char *path) {
 
 		dir->listing = filtered;
 	}
-	
+
+	// NHL 07 reads one SAVEDATA entry every other frame, three times over, before going online. With
+	// the hundreds of save folders an emulator memstick often has, that takes close to a minute.
+	if (PSP_CoreParameter().compat.flags().HideOtherGamesSaveData && IsSaveDataRoot(path)) {
+		const std::string discID = g_paramSFO.GetDiscID();
+		std::vector<PSPFileInfo> filtered;
+		for (const auto &entry : dir->listing) {
+			if (entry.name == "." || entry.name == ".." || startsWithNoCase(entry.name, discID)) {
+				filtered.push_back(entry);
+			}
+		}
+		dir->listing = filtered;
+	}
+
 	// TODO: The result is delayed only from the memstick, it seems.
 	return hleLogDebug(Log::sceIo, id);
 }

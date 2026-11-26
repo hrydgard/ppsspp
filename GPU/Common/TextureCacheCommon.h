@@ -484,6 +484,7 @@ protected:
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	VirtualFramebuffer *SetTextureFramebuffer(const AttachCandidate &candidate, RasterChannel *framebufferTextureChannel);
 	void Decimate(const TexCacheEntry *const exceptThisOne, bool forcePressure);  // forcePressure defaults to false.
+	void LimitSecondCache();
 
 	void ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer, GETextureFormat texFormat, RasterChannel channel);
 	void ApplyTextureDepalFramebufferCLUT(const TexCacheEntry *const entry);

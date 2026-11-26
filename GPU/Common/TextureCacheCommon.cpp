@@ -66,6 +66,12 @@
 #define TEXCACHE_MIN_PRESSURE 128 * 1024 * 1024
 #define TEXCACHE_SECOND_MIN_PRESSURE 32 * 1024 * 1024
 
+// Decimate() only evicts textures unused for TEXTURE_SECOND_KILL_AGE frames, so a texture rewritten many
+// times per frame fills the secondary cache with versions faster than they age. Above either of these,
+// the least recently used ones go right away.
+#define TEXCACHE_SECOND_MAX_BYTES 128 * 1024 * 1024
+#define TEXCACHE_SECOND_MAX_ENTRIES 4096
+
 static bool MatchFramebuffer(const TextureDefinition &entry, VirtualFramebuffer *framebuffer, u32 texaddrOffset, RasterChannel channel, bool useBufferedRendering, FramebufferMatchInfo *matchInfo);
 static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, const TextureDefinition &entry, u32 texAddrOffset, AttachCandidate *bestCandidate, const char *context);
 
@@ -793,6 +799,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							secondCache_[secondKeyOld].reset(entry);
 							// Forget the entry.
 							entry = nullptr;
+							LimitSecondCache();
 						} else {
 							// This is expected with video, multiple black frames for example. However, shouldn't really happen much with
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
@@ -1195,6 +1202,37 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 	}
 
 	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
+}
+
+void TextureCacheCommon::LimitSecondCache() {
+	// Summing the sizes walks the whole cache, so only do it every so often.
+	if (secondCache_.size() < TEXCACHE_SECOND_MAX_ENTRIES && (secondCache_.size() & 31) != 0) {
+		return;
+	}
+	s64 sizeEstimate = SecondCacheSizeEstimate();
+	if (secondCache_.size() < TEXCACHE_SECOND_MAX_ENTRIES && sizeEstimate < TEXCACHE_SECOND_MAX_BYTES) {
+		return;
+	}
+
+	// Down to half, so this doesn't run again on the next few inserts.
+	std::vector<TexCache::iterator> byAge;
+	byAge.reserve(secondCache_.size());
+	for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ++iter) {
+		byAge.push_back(iter);
+	}
+	std::sort(byAge.begin(), byAge.end(), [](const TexCache::iterator &a, const TexCache::iterator &b) {
+		return a->second->lastFrame < b->second->lastFrame;
+	});
+	const size_t had = secondCache_.size();
+	for (TexCache::iterator iter : byAge) {
+		if (secondCache_.size() <= TEXCACHE_SECOND_MAX_ENTRIES / 2 && sizeEstimate <= TEXCACHE_SECOND_MAX_BYTES / 2) {
+			break;
+		}
+		sizeEstimate -= iter->second->EstimateTexMemoryUsage();
+		ReleaseTexture(iter->second.get(), true);
+		secondCache_.erase(iter);
+	}
+	DEBUG_LOG(Log::TexCache, "Second texture cache over its limit, dropped %d of %d textures", (int)(had - secondCache_.size()), (int)had);
 }
 
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {

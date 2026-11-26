@@ -215,7 +215,8 @@ enum {
 #define	PSP_NET_INET_AF_MAX			31
 
 // Infrastructure ERRNO Values (similar to this https://github.com/eblot/newlib/blob/master/newlib/libc/include/sys/errno.h ?)
-#define	ERROR_INET_EINTR			4	// Interrupted system call 
+#define	ERROR_INET_EPERM			1	// Operation not permitted
+#define	ERROR_INET_EINTR			4	// Interrupted system call
 #define ERROR_INET_EBADF			9	//0x09  // Or was it 0x80010009 (SCE_ERROR_ERRNO_EBADF/SCE_KERNEL_ERROR_ERRNO_INVALID_FILE_DESCRIPTOR) ?
 #define ERROR_INET_EAGAIN			11	//0x0B  // Or was it 0x8001000B (SCE_ERROR_ERRNO_EAGAIN) ?
 #define ERROR_INET_EWOULDBLOCK		ERROR_INET_EAGAIN // Operation would block
