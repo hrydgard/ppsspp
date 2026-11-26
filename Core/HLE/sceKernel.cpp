@@ -622,6 +622,11 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		// The current thread is deleted with the rest. Until sceKernelThread loads the new one,
 		// nothing should look at it.
 		__KernelForgetCurrentThread();
+		// As in __KernelShutdown: the modules unload here and the state's own load right after,
+		// so one rebuild of the active tables beats erasing and re-adding per symbol.
+		if (g_symbolMap) {
+			g_symbolMap->InvalidateActiveSymbols();
+		}
 		kernelObjects.Clear();
 	}
 
