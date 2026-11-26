@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstddef>
 
 #include "Common/CommonTypes.h"
@@ -104,7 +103,10 @@ public:
 			ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		}
 		const size_t used = T::GetCodePointer() - region;
-		const size_t end = poisonedAll_ ? std::max((size_t)offset, used) : region_size;
+		size_t end = region_size;
+		if (poisonedAll_) {
+			end = used > (size_t)offset ? used : (size_t)offset;
+		}
 		poisonedAll_ = true;
 		// If not WX Exclusive, no need to call ProtectMemoryPages because we never change the protection from RWX.
 		PoisonMemory(offset, (int)end);

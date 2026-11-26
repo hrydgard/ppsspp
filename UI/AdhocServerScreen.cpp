@@ -371,15 +371,14 @@ void AdhocServerInfoScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *content = new LinearLayout(ORIENT_VERTICAL);
-	content->SetSpacing(8.0f);
+	content->SetSpacing(12.0f);
 	if (!entry_.ip.empty()) {
 		content->Add(new InfoItem(entry_.ip, ""));
 	}
-	InfoItem *desc = content->Add(new InfoItem(entry_.description, "", new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	desc->SetRoundCorners();
+	content->Add(new HintView(entry_.description));
 
 	LinearLayout *buttonStrip = content->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	buttonStrip->SetSpacing(8);
+	buttonStrip->SetSpacing(12);
 	if (!entry_.web.empty() || !entry_.discord.empty()) {
 		if (!entry_.web.empty()) {
 			buttonStrip->Add(CreateLinkButton(entry_.web));

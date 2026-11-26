@@ -678,7 +678,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
 
 	leftColumn->Add(new Choice(di->T("Reset")))->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
-	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	leftColumn->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 
 	leftColumn->SetRoundCorners();
 

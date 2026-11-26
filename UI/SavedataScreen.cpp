@@ -91,8 +91,7 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	using namespace UI;
 
 	const Style &textStyle = dc.GetTheme().popupStyle;
-	LinearLayout *toprow = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT));
-	Add(toprow);
+	LinearLayout *toprow = Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	toprow->SetSpacing(0.0);
 
 	savedataTitle_ = nullptr;
@@ -101,11 +100,11 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 	detail_ = nullptr;
 	if (type == IdentifiedFileType::PSP_SAVEDATA_DIRECTORY) {
 		if (showIcon) {
-			toprow->Add(new GameImageView(savePath, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(Margins(5, 5))));
+			toprow->Add(new GameImageView(savePath, GameInfoFlags::ICON, 2.0f, new LinearLayoutParams(Margins(0, 0, 12, 0))));
 		}
 		// Contents to the right of the image:
 		LinearLayout *topright = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, 1.0f));
-		topright->SetSpacing(1.0f);
+		topright->SetSpacing(2.0f);
 		savedataTitle_ = topright->Add(new TextView(savedataTitle, ALIGN_LEFT | FLAG_WRAP_TEXT, false));
 		savedataTitle_->SetTextColor(textStyle.fgColor);
 		fileSize_ = topright->Add(new TextView(fileSize, 0, true));
@@ -115,20 +114,22 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		toprow->Add(topright);
 
 		// Content below the image.
-		Add(new Spacer(3.0));
-		detail_ = Add(new TextView(SanitizeString(savedataDetail, StringRestriction::ConvertToUnixEndings), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
-		detail_->SetTextColor(textStyle.fgColor);
+		if (savedataDetail.size() > 1) {  // Excludes "-" which is sometimes seen.
+			Add(new Spacer(3.0));
+			detail_ = Add(new TextView(SanitizeString(savedataDetail, StringRestriction::ConvertToUnixEndings), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(Margins(10, 0))));
+			detail_->SetTextColor(textStyle.fgColor);
+		}
 		Add(new Spacer(3.0));
 	} else {
 		_dbg_assert_(type == IdentifiedFileType::PPSSPP_SAVESTATE);
 		Path image_path;
 		if (savePath.WithReplacedExtension(".ppst", ".jpg", &image_path) && File::Exists(image_path)) {
-			toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
+			toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(0, 0))));
 		} else {
 			auto sa = GetI18NCategory(I18NCat::SAVEDATA);
 			toprow->Add(new TextView(sa->T("No screenshot"), new LinearLayoutParams(Margins(10, 5))))->SetTextColor(textStyle.fgColor);
 		}
-		mTime_ = Add(new TextView(mtime, 0, true, new LinearLayoutParams(Margins(10, 5))));
+		mTime_ = Add(new TextView(mtime, 0, true));
 		mTime_->SetTextColor(textStyle.fgColor);
 	}
 }
@@ -257,7 +258,7 @@ void SavedataPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		}));
 	});
 
-	buttonRow2->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	buttonRow2->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(1.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	if (System_GetPropertyBool(SYSPROP_CAN_SHOW_FILE)) {
 		buttonRow2->Add(new Choice(di->T("Show in folder"), ImageID("I_FOLDER"), new LinearLayoutParams(1.0f)))->OnClick.Add([this](UI::EventParams &e) {
 			System_ShowFileInFolder(savePath_);
@@ -742,7 +743,7 @@ void SavedataScreen::CreateSavedataTab(UI::ViewGroup *savedata) {
 	sortStrip->SetRoundCorners();
 	savedata->Add(sortStrip);
 
-	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, gameID_, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	dataBrowser_ = savedata->Add(new SavedataBrowser(savedata_dir, gameID_, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	dataBrowser_->SetSortOption(sortOption_);
 	if (!searchFilter_.empty())
 		dataBrowser_->SetSearchFilter(searchFilter_);
@@ -768,7 +769,7 @@ void SavedataScreen::CreateSavestateTab(UI::ViewGroup *savestate) {
 	sortStrip->SetRoundCorners();
 	savestate->Add(sortStrip);
 
-	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir, gameID_));
+	stateBrowser_ = savestate->Add(new SavedataBrowser(savestate_dir, gameID_, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	stateBrowser_->SetSortOption(sortOption_);
 	if (!searchFilter_.empty())
 		stateBrowser_->SetSearchFilter(searchFilter_);

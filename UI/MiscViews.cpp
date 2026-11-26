@@ -57,13 +57,11 @@ TopBar::TopBar(const UIContext &ctx, TopBarFlags flags, std::string_view title, 
 
 	if (!(flags & TopBarFlags::NoBackButton)) {
 		auto dlg = GetI18NCategory(I18NCat::DIALOG);
-		backButton_ = Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
+		backButton_ = Add(new Choice(ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)));
 		backButton_->OnClick.Add([](UI::EventParams &e) {
 			e.bubbleResult = DR_BACK;
 		});
 		backButton_->SetRoundCorners();
-	} else {
-		Add(new Spacer(4.0f));
 	}
 
 	if (!title.empty()) {
