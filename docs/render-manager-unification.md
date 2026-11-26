@@ -10,7 +10,9 @@ thin3d stops wrapping them and needs one implementation, not one per backend. Re
 pipelines. GL uses uniform buffers, and a small corner of `GLRenderManager` turns them back into plain
 uniforms for GLES 2 and for drivers where uniform buffers are slow. Later, if the overhead stays under
 1%, game draws go through the same interface, and the end state is one command list format with a
-replay written per backend.
+replay written per backend. That list is what lets the shared code edit a frame before it's replayed:
+inserting fullscreen effects between the scene and the HUD, splitting a pass into a Z prepass, AO and
+a final pass, and interpolating frames by replaying with in-between transforms.
 
 ## Where things stand
 
@@ -191,6 +193,53 @@ replaces Vulkan's next, then the others.
 format of its own. D3D11 would get a player too, replaying on the emulator thread. Recording, state
 deduplication and render pass merging could then be written once.
 
+## Later: editing the frame
+
+A shared command list is also what makes frame-level effects possible. The current post-processing
+shaders (`PresentationCommon`) only see the final image: no depth, and the HUD already baked in. With
+the game's draws recorded in one format, the shared code can rewrite a frame before it's replayed:
+
+- **Inserting passes:** fullscreen effects (blur, bloom, color grading, SSAO) between the 3D scene and
+  the HUD, reading the scene's color and depth.
+- **Splitting passes:** replay the scene's draws depth-only as a Z prepass, compute AO from that depth,
+  then replay them again with depth test `EQUAL` and the AO texture applied in the fragment shader.
+- **Frame interpolation:** match draws between two consecutive frames, interpolate their transforms, and
+  replay the frame with the in-between matrices. Rendering motion vectors from the previous frame's
+  matrices is the cheaper variant, feeding a GPU-side interpolator (FSR 3, MetalFX) instead of a
+  second full replay.
+
+None of this needs vertex data rewritten; it all works on draws, passes and their state. It does put
+requirements on the design, which are cheap to meet up front and expensive to retrofit:
+
+- **Commands carry GE-side metadata.** The player ignores it, but an editor needs, per draw: the PSP
+  framebuffer and depth buffer addresses, through mode (a reasonable first cut at "HUD": the first
+  through-mode draw after 3D in the displayed framebuffer is where the scene ends), the world, view and
+  projection matrices (or their known offsets in the uniform blob, which has one shared layout), and a
+  draw identity stable across frames for interpolation (vertex address, texture, shader ID and order
+  within the pass).
+- **The edit runs on the shared list, before backend optimization.** Record, then edit, then merge
+  passes, deduplicate state and replay. If a backend merges passes first, the editor can't find the
+  scene's boundaries.
+- **Pipeline descriptions can be rewritten.** A depth-only variant (color writes off), depth func
+  `EQUAL`, and fragment shader variants that sample the AO texture. The AO variant is a new shader ID
+  bit, so a cache version bump (see AGENTS.md).
+- **Depth is sampleable on every backend**, MSAA resolved. Vulkan and Metal already sample depth for
+  depal and depth readback; GL and D3D11 need checking, and GLES 2 may simply not get these effects.
+- **Replaying a frame twice must be safe.** Commands that have effects outside the frame (readbacks to
+  PSP memory, framebuffer downloads, copies other frames depend on) run once. The uniform and vertex
+  push buffer memory stays alive until every replay of the frame is done.
+
+Limits to expect:
+
+- **Software transform** bakes the matrices into the vertices, so interpolation needs hardware
+  transform. So does anything else the CPU animates: CPU skinning and morphing, games that transform
+  on the VFPU and draw in through mode, texture scrolling done by rewriting UVs.
+- **Matching draws** fails when a game reorders its draws between frames or streams vertices into
+  reused buffers; unmatched draws are drawn as in the newer frame.
+- **Render-to-texture chains** (reflections, shadow maps, the many games that render to a texture and
+  then draw it) make "the scene" a heuristic. The scene pass is the one that ends in the displayed
+  framebuffer with a depth buffer attached; effects that guess wrong need a per-game override.
+
 ## Order of work
 
 0. Merge the Metal backend. Done: it's the default on iOS, while Vulkan through MoltenVK stays the
@@ -215,7 +264,10 @@ deduplication and render pass merging could then be written once.
 7. GL: uniform buffers, the cracking corner.
 8. Game draws through the interface: Metal's draw engine first, measured against the current one, then
    the other backends if it holds up.
-9. The shared command list, with a player per backend.
+9. The shared command list, with a player per backend, carrying the GE metadata from the start.
+10. Frame editing: first a fullscreen pass inserted between the scene and the HUD, since it needs
+    only pass boundaries and sampleable depth. Then the Z prepass and AO split, then interpolation
+    (motion vectors first, a full second replay after).
 
 Each step is a PR of its own and leaves every backend working.
 
@@ -227,3 +279,8 @@ Each step is a PR of its own and leaves every backend working.
 - Whether pipelines bake viewport-independent raster state on every backend, or GL and D3D11 keep it
   dynamic.
 - Which GLES 3 drivers need the uniform cracking path. That needs measurements on devices.
+- How effects find the scene pass and the HUD boundary across games, and how per-game overrides are
+  expressed (compat.ini, or something in the post-shader definitions).
+- Whether frame interpolation holds up on real games, given how many animate on the CPU. Worth a
+  survey of the benchmark savestates (how many draws match, how many are hardware-transformed) before
+  building it.
