@@ -161,7 +161,7 @@ Path g_gamePath;
 std::string s_game_hash;
 static std::string s_lastRichPresence;
 static double s_lastRichPresenceCheck = 0.0;
-constexpr double RICH_PRESENCE_CHECK_INTERVAL = 10.0;  // seconds
+constexpr double RICH_PRESENCE_CHECK_INTERVAL = 1.0;  // seconds
 
 std::set<uint32_t> g_activeChallenges;
 bool g_isIdentifying = false;
