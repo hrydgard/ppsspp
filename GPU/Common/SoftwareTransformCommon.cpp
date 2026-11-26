@@ -66,6 +66,62 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 // The PSP has a funky mechanism where the UV direction of screen-space rectangles is decided by the relative positioning
 // of the two corners defining the rectangle. This all boils down to a simple swap of the UVs of the two middle vertices,
 // after a check.
+// For GPU_USE_TEX_XBRZ_BOUNDS: each triangle's vertices get the triangle's texture bounds, which for half of a quad are
+// the whole sprite. They go in uv_w and fog, unused in through mode, as 12-bit fractions: uv_w = umin + vmin * 4096,
+// fog = umax + vmax * 4096. The vertex shader unpacks them into v_texbounds. A vertex shared by triangles with
+// different bounds is duplicated. Bounds outside 0..1 (a wrapping texture) are written as none (min > max).
+static void AssignXBRZBounds(TransformedVertex *verts, int *numVerts, int capacity, u16 *inds, int indexCount) {
+	static std::vector<u8> assigned;
+	const int origVerts = *numVerts;
+	assigned.assign(origVerts, 0);
+	capacity = std::min(capacity, 65536);
+
+	auto quantize = [](float f) {
+		return (float)std::clamp((int)floorf(f * 4095.0f + 0.5f), 0, 4095);
+	};
+
+	for (int i = 0; i + 2 < indexCount; i += 3) {
+		float umin = verts[inds[i]].u, umax = umin;
+		float vmin = verts[inds[i]].v, vmax = vmin;
+		for (int k = 1; k < 3; k++) {
+			const TransformedVertex &tv = verts[inds[i + k]];
+			umin = std::min(umin, tv.u);
+			umax = std::max(umax, tv.u);
+			vmin = std::min(vmin, tv.v);
+			vmax = std::max(vmax, tv.v);
+		}
+		float packedMin, packedMax;
+		const float slack = 0.5f / 4096.0f;
+		if (umin < -slack || vmin < -slack || umax > 1.0f + slack || vmax > 1.0f + slack) {
+			packedMin = 4095.0f + 4095.0f * 4096.0f;
+			packedMax = 0.0f;
+		} else {
+			packedMin = quantize(umin) + quantize(vmin) * 4096.0f;
+			packedMax = quantize(umax) + quantize(vmax) * 4096.0f;
+		}
+
+		for (int k = 0; k < 3; k++) {
+			const int idx = inds[i + k];
+			if (idx >= origVerts) {
+				continue;  // A copy made for an earlier triangle of this draw. Not shared.
+			}
+			TransformedVertex &tv = verts[idx];
+			if (!assigned[idx]) {
+				assigned[idx] = 1;
+				tv.uv_w = packedMin;
+				tv.fog = packedMax;
+			} else if ((tv.uv_w != packedMin || tv.fog != packedMax) && *numVerts < capacity) {
+				TransformedVertex &copy = verts[*numVerts];
+				copy = tv;
+				copy.uv_w = packedMin;
+				copy.fog = packedMax;
+				inds[i + k] = (u16)*numVerts;
+				(*numVerts)++;
+			}
+		}
+	}
+}
+
 static void RotateUV(TransformedVertex v[4]) {
 	const float x1 = v[2].x;
 	const float x2 = v[0].x;
@@ -439,7 +495,11 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 		}
 	}
 
-	return ProjectClipAndExpand(params, prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
+	SoftwareTransformAction action = ProjectClipAndExpand(params, prim, vertexCount, vertType, inds, indsSize, numDecodedVerts, vertsSize, result);
+	if (action == SW_DRAW_INDEXED && throughmode && gstate_c.Use(GPU_USE_TEX_XBRZ_BOUNDS)) {
+		AssignXBRZBounds(result->drawBuffer, &result->drawVertexCount, vertsSize, inds, result->drawIndexCount);
+	}
+	return action;
 }
 
 // Modifies the vertices in-place. Applies viewport and projection.

@@ -392,7 +392,7 @@ static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",
 	"GPU_USE_TEX_XBRZ",
-	"N/A",
+	"GPU_USE_TEX_XBRZ_BOUNDS",
 	"N/A",
 	"GPU_USE_16BIT_FORMATS",
 	"GPU_USE_DEPTH_CLAMP",

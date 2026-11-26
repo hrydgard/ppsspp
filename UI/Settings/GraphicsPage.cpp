@@ -382,6 +382,9 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Setting(&g_Config.iTexFiltering).Disabled(&g_Config.bSoftwareRendering);
 	page->Setting(&g_Config.bSmart2DTexFiltering).Disabled(&g_Config.bSoftwareRendering);
 	page->Setting(&g_Config.bTexShaderXBRZ).Disabled(&g_Config.bSoftwareRendering);
+	page->Setting(&g_Config.bTexShaderXBRZBounds).EnabledFunc([]() {
+		return g_Config.bTexShaderXBRZ && !g_Config.bSoftwareRendering;
+	}).Hint({ I18NCat::GRAPHICS, "xBRZ keep sprites separate Tip", "Fixes edge artifacts on 2D sprites and HUD pieces cut from a shared texture" });
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;

@@ -564,9 +564,11 @@ bool TestShaderGenerators() {
 		return false;
 	}
 
-	// Again with xBRZ texture sampling.
+	// Again with xBRZ texture sampling, without and with the per-sprite bounds (which add a varying).
 	gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_XBRZ);
-	const bool xbrzResult = TestFragmentShaders();
+	bool xbrzResult = TestFragmentShaders();
+	gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_XBRZ | GPU_USE_TEX_XBRZ_BOUNDS);
+	xbrzResult = xbrzResult && TestFragmentShaders() && TestVertexShaders(false);
 	gstate_c.SetUseFlags(oldFlags);
 	if (!xbrzResult) {
 		return false;

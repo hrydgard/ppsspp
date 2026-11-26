@@ -624,6 +624,9 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	// Needs textureSize, textureLod and fwidth in the fragment shader.
 	if (g_Config.bTexShaderXBRZ && draw_->GetShaderLanguageDesc().glslES30) {
 		features |= GPU_USE_TEX_XBRZ;
+		if (g_Config.bTexShaderXBRZBounds) {
+			features |= GPU_USE_TEX_XBRZ_BOUNDS;
+		}
 	}
 
 	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {

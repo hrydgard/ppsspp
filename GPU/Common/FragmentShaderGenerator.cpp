@@ -94,21 +94,29 @@ vec4 xbBlend(vec4 res, int bZ, int bY, int bW, vec4 B, vec4 C, vec4 D, vec4 E, v
 	return mix(res, blendPix, xbRatio(pos, origin, dir, scale));
 }
 vec4 xbT(highp vec2 c) { vec4 t = XBRZ_TEX(c); return vec4(t.rgb * t.a, t.a); }
-vec4 xbrzSample(highp vec2 uv, highp vec2 size, highp vec2 scale) {
+// bounds: the sprite's texture rectangle (umin, vmin, umax, vmax); min > max means none. Reads past it repeat its edge
+// texels, so sprites cut from a shared texture don't pick up their neighbours.
+vec4 xbrzSample(highp vec2 uv, highp vec2 size, highp vec2 scale, highp vec4 bounds) {
 	highp vec2 tc = uv * size;
 	highp vec2 pos = fract(tc) - vec2(0.5, 0.5);
 	highp vec2 c = (floor(tc) + vec2(0.5, 0.5)) / size;
 	highp vec2 dx = vec2(1.0 / size.x, 0.0);
 	highp vec2 dy = vec2(0.0, 1.0 / size.y);
-	vec4 A = xbT(c - dx - dy); vec4 B = xbT(c - dy); vec4 C = xbT(c + dx - dy);
-	vec4 D = xbT(c - dx); vec4 E = xbT(c); vec4 F = xbT(c + dx);
-	vec4 G = xbT(c - dx + dy); vec4 H = xbT(c + dy); vec4 I = xbT(c + dx + dy);
-	vec4 A1 = xbT(c - dx - 2.0 * dy); vec4 C1 = xbT(c + dx - 2.0 * dy);
-	vec4 A0 = xbT(c - 2.0 * dx - dy); vec4 G0 = xbT(c - 2.0 * dx + dy);
-	vec4 C4 = xbT(c + 2.0 * dx - dy); vec4 I4 = xbT(c + 2.0 * dx + dy);
-	vec4 G5 = xbT(c - dx + 2.0 * dy); vec4 I5 = xbT(c + dx + 2.0 * dy);
-	vec4 B1 = xbT(c - 2.0 * dy); vec4 D0 = xbT(c - 2.0 * dx);
-	vec4 H5 = xbT(c + 2.0 * dy); vec4 F4 = xbT(c + 2.0 * dx);
+	highp vec2 lo = vec2(-1000.0, -1000.0);
+	highp vec2 hi = vec2(1000.0, 1000.0);
+	if (bounds.x <= bounds.z && bounds.y <= bounds.w) {
+		lo = (floor(bounds.xy * size + vec2(0.5, 0.5)) + vec2(0.5, 0.5)) / size;
+		hi = max((floor(bounds.zw * size + vec2(0.5, 0.5)) - vec2(0.5, 0.5)) / size, lo);
+	}
+	vec4 A = xbT(clamp(c - dx - dy, lo, hi)); vec4 B = xbT(clamp(c - dy, lo, hi)); vec4 C = xbT(clamp(c + dx - dy, lo, hi));
+	vec4 D = xbT(clamp(c - dx, lo, hi)); vec4 E = xbT(clamp(c, lo, hi)); vec4 F = xbT(clamp(c + dx, lo, hi));
+	vec4 G = xbT(clamp(c - dx + dy, lo, hi)); vec4 H = xbT(clamp(c + dy, lo, hi)); vec4 I = xbT(clamp(c + dx + dy, lo, hi));
+	vec4 A1 = xbT(clamp(c - dx - 2.0 * dy, lo, hi)); vec4 C1 = xbT(clamp(c + dx - 2.0 * dy, lo, hi));
+	vec4 A0 = xbT(clamp(c - 2.0 * dx - dy, lo, hi)); vec4 G0 = xbT(clamp(c - 2.0 * dx + dy, lo, hi));
+	vec4 C4 = xbT(clamp(c + 2.0 * dx - dy, lo, hi)); vec4 I4 = xbT(clamp(c + 2.0 * dx + dy, lo, hi));
+	vec4 G5 = xbT(clamp(c - dx + 2.0 * dy, lo, hi)); vec4 I5 = xbT(clamp(c + dx + 2.0 * dy, lo, hi));
+	vec4 B1 = xbT(clamp(c - 2.0 * dy, lo, hi)); vec4 D0 = xbT(clamp(c - 2.0 * dx, lo, hi));
+	vec4 H5 = xbT(clamp(c + 2.0 * dy, lo, hi)); vec4 F4 = xbT(clamp(c + 2.0 * dx, lo, hi));
 	int bZ = xbPre(B, C, D, E, F, G, H, I, H5, I5, F4, I4);
 	int bW = xbPre(F, I, B, E, H, A, D, G, D0, G0, H5, G5);
 	int bY = xbPre(D, A, H, E, B, I, F, C, F4, C4, B1, C1);
@@ -292,6 +300,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
 	const bool useXBRZ = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_XBRZ) && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
+	// Declared whenever the vertex shader writes it, so the D3D11 structs match.
+	const bool xbrzBounds = gstate_c.Use(GPU_USE_TEX_XBRZ_BOUNDS) && compat.glslES30;
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
@@ -343,6 +353,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");
+		}
+		if (xbrzBounds) {
+			WRITE(p, "layout (location = 5) in highp vec4 v_texbounds;\n");
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -412,6 +425,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
+		}
+		if (xbrzBounds) {
+			WRITE(p, "  vec4 v_texbounds : TEXCOORD3;\n");
 		}
 		WRITE(p, "};\n");
 
@@ -544,6 +560,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
+		if (xbrzBounds) {
+			WRITE(p, "%s highp vec4 v_texbounds;\n", compat.varying_fs);
+		}
 
 		if (!enableFragmentTestCache) {
 			if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -662,6 +681,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw = In.v_zw;\n");
+		}
+		if (xbrzBounds && useXBRZ) {
+			WRITE(p, "  vec4 v_texbounds = In.v_texbounds;\n");
 		}
 	}
 
@@ -806,7 +828,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					// u_texNoXBRZ is 1 for textures from a replacement pack.
 					WRITE(p, "  float xbrzAmount = smoothstep(1.0, 2.0, min(xbrzScale.x, xbrzScale.y)) * (1.0 - u_texNoXBRZ);\n");
 					WRITE(p, "  if (xbrzAmount > 0.0) {\n");
-					WRITE(p, "    t = mix(t, xbrzSample(%s.xy, xbrzSize, xbrzScale), xbrzAmount);\n", uv);
+					WRITE(p, "    t = mix(t, xbrzSample(%s.xy, xbrzSize, xbrzScale, %s), xbrzAmount);\n", uv, xbrzBounds ? "v_texbounds" : "vec4(1.0, 1.0, 0.0, 0.0)");
 					WRITE(p, "  }\n");
 				}
 				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {

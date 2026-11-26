@@ -480,7 +480,8 @@ enum : u32 {
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
 	GPU_USE_TEX_XBRZ = FLAG_BIT(10),  // Textures are sampled through xBRZ freescale in the fragment shader.
-	// Free bit: 11-12
+	GPU_USE_TEX_XBRZ_BOUNDS = FLAG_BIT(11),  // xBRZ sampling stays inside each through-mode triangle's texture bounds (v_texbounds).
+	// Free bit: 12
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_SAMPLER_LOD_CONTROL = FLAG_BIT(15),
