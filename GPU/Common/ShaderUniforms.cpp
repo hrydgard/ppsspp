@@ -74,13 +74,33 @@ void CalcTexClamp(float texClamp[4], float texClampOffset[2]) {
 	texClampOffset[1] = gstate_c.curTextureYOffset * invH;
 }
 
+// Whether the fragment's alpha can change the picture. The framebuffer's alpha is stencil on the PSP, so only
+// alpha test and blend factors reading source alpha can (min and max blending ignore the factors).
+static bool FragmentAlphaMatters() {
+	if (gstate.isAlphaTestEnabled()) {
+		return true;
+	}
+	if (!gstate.isAlphaBlendEnabled()) {
+		return false;
+	}
+	const GEBlendMode eq = gstate.getBlendEq();
+	if (eq == GE_BLENDMODE_MIN || eq == GE_BLENDMODE_MAX || eq == GE_BLENDMODE_ABSDIFF) {
+		return false;
+	}
+	const GEBlendSrcFactor a = gstate.getBlendFuncA();
+	const GEBlendDstFactor b = gstate.getBlendFuncB();
+	const bool aUsesSrcAlpha = a == GE_SRCBLEND_SRCALPHA || a == GE_SRCBLEND_INVSRCALPHA || a == GE_SRCBLEND_DOUBLESRCALPHA || a == GE_SRCBLEND_DOUBLEINVSRCALPHA;
+	const bool bUsesSrcAlpha = b == GE_DSTBLEND_SRCALPHA || b == GE_DSTBLEND_INVSRCALPHA || b == GE_DSTBLEND_DOUBLESRCALPHA || b == GE_DSTBLEND_DOUBLEINVSRCALPHA;
+	return aUsesSrcAlpha || bUsesSrcAlpha;
+}
+
 float TextureSamplingMode() {
 	if (gstate_c.textureReplaced) {
 		return 1.0f;
 	}
-	// Texture alpha only reaches the screen through alpha test or blending. Without them (videos often have alpha 0
-	// and draw without), sampling has to keep the colors as if alpha were 1.
-	return (gstate.isAlphaTestEnabled() || gstate.isAlphaBlendEnabled()) ? 0.0f : 0.5f;
+	// Where texture alpha can't change the picture, sampling keeps the colors as if it were 1: videos have alpha 0,
+	// and draw with blending that doesn't read it.
+	return FragmentAlphaMatters() ? 0.0f : 0.5f;
 }
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped) {
