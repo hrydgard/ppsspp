@@ -4201,6 +4201,10 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
 					sin.sin_port = htons(ptpsocket.pport + finalPortOffset);
 
+					// TODO: A PSP's connection to a peer that has joined but isn't in the peer list yet only comes
+					// up at the first retransmit (rexmt_int after the connect, and so on) after the peer is
+					// listed, without another PtpConnect call (pspautotests net/adhoc/pair/joinptp, in
+					// tests_next). Ours comes up at once. PDP holds its data back, see pdpSenderNotListedYet().
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					int errorcode = 0;
