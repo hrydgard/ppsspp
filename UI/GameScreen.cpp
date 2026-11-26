@@ -529,6 +529,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 				if (found) {
 					NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("ISO OK according to the ReDump project"), "", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 					tvVerified->SetLevel(NoticeLevel::SUCCESS);
+					tvVerified->SetRoundCorners();
 				}
 			}
 		} else if (!isHomebrew_) {
@@ -554,6 +555,7 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 				NoticeView *tvVerified = infoLayout->Add(new NoticeView(NoticeLevel::INFO, ga->T("Click \"Calculate CRC\" to verify ISO"), "", new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 				tvVerified->SetVisibility(UI::V_VISIBLE);
 				tvVerified->SetLevel(NoticeLevel::INFO);
+				tvVerified->SetRoundCorners();
 			}
 		}
 	}
