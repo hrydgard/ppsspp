@@ -852,6 +852,10 @@ protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
+	// GetContentDimensionsBySpec, but with textPadding in place of textPadding_.
+	void MeasureWithTextPadding(const UIContext &dc, MeasureSpec horiz, const Padding &textPadding, float &w, float &h) const;
+	void GetTextPadding(const UIContext &dc, float *left, float *right) const;
+
 	std::string text_;
 	std::string smallText_;
 	ImageID image_;  // Centered if no text, on the left if text.
@@ -948,6 +952,12 @@ protected:
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
+	// ValueText, masked if it's a password.
+	std::string DisplayedValueText(bool *shadow) const;
+	bool ShowsTitle() const {
+		return !text_.empty() && !hideTitle_;
+	}
+
 	bool passwordMasking_ = false;
 };
 
@@ -999,6 +1009,7 @@ public:
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	//allow external agents to toggle the checkbox

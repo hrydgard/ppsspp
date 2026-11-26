@@ -501,18 +501,30 @@ void Choice::ClickInternal() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	MeasureWithTextPadding(dc, horiz, textPadding_, w, h);
+}
+
+// The text's left and right padding, the same in measuring and drawing so the text wraps the same.
+void Choice::GetTextPadding(const UIContext &dc, float *left, float *right) const {
+	// An image goes in a square slot on the left. It's ITEM_HEIGHT wide, rather than as wide as the
+	// choice is tall, since the height isn't known yet when measuring.
+	*left = image_.isValid() ? ITEM_HEIGHT : 12.0f;
+	*right = 12.0f;
+	if (rightIconImage_.isValid()) {
+		float imgW, imgH;
+		dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
+		*right = std::max(ITEM_HEIGHT, imgW);
+	}
+}
+
+void Choice::MeasureWithTextPadding(const UIContext &dc, MeasureSpec horiz, const Padding &textPadding, float &w, float &h) const {
 	float totalW = 0.0f;
 	float totalH = 0.0f;
 	if (!text_.empty() && !hideTitle_) {
-		int paddingLeft = 12;
-		int paddingRight = 12;
-		if (rightIconImage_.isValid()) {
-			float imgW, imgH;
-			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
-			paddingRight = std::max(ITEM_HEIGHT, imgW);
-		}
+		float paddingLeft, paddingRight;
+		GetTextPadding(dc, &paddingLeft, &paddingRight);
 
-		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
+		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding.horiz();
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
@@ -524,11 +536,8 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 		textW += 4;  // We need a small fudge factor here, not sure why yet.
 		totalH = std::max(totalH, textH);
-		totalW += textW;
-		if (image_.isValid()) {
-			totalW += 12;
-			totalW += totalH;
-		}
+		// The 24 added below covers 12 of padding on each side, so only add what the image slot takes beyond that.
+		totalW += textW + paddingLeft - 12.0f;
 	} else {
 		if (image_.isValid()) {
 			dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
@@ -559,31 +568,20 @@ void Choice::Draw(UIContext &dc) {
 			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 		}
 	} else if (!text_.empty() && !hideTitle_) {
-		int paddingLeft = 12;
-		int paddingRight = 12;
+		float paddingLeft, paddingRight;
+		GetTextPadding(dc, &paddingLeft, &paddingRight);
 
 		if (image_.isValid()) {
-			paddingLeft = 0;
-			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
-			if (image) {
-				_dbg_assert_(image);
-				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-				dc.Draw()->DrawImage(image_, bounds.x + bounds.h * 0.5f + paddingLeft, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
-
-				paddingLeft += bounds.h;
-			}
-		}
-
-		if (rightIconImage_.isValid()) {
-			float imgW, imgH;
-			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
-			paddingRight = std::max(ITEM_HEIGHT, imgW);
+			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
+			dc.Draw()->DrawImage(image_, bounds.x + paddingLeft * 0.5f, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 		}
 
 		float availWidth = bounds.w - (paddingLeft + paddingRight + textPadding_.horiz());
+		Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
 
 		if (centered_) {
-			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, bounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			// Centered in the same space it was measured in.
+			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
@@ -596,7 +594,6 @@ void Choice::Draw(UIContext &dc) {
 				}
 				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
-			Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
 			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
@@ -626,8 +623,8 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	float w1, h1, w2, h2;
 
 	if (rightText_.empty()) {
-		// There's only one text, and that should wrap.
-		if (horiz.type == MeasureSpecType::AT_MOST) {
+		// There's only one text, and that should wrap. Draw wraps it to any width we get, exact ones too.
+		if (horiz.type != MeasureSpecType::UNSPECIFIED) {
 			float availableWidth = horiz.size - 24;
 			dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availableWidth, &w, &h, FLAG_WRAP_TEXT);
 		} else {
@@ -639,7 +636,7 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
 
-	if (horiz.type == MeasureSpecType::AT_MOST) {
+	if (horiz.type != MeasureSpecType::UNSPECIFIED) {
 		float availableWidth = horiz.size - w1 - 24;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, availableWidth, &w2, &h2, FLAG_WRAP_TEXT);
 	} else {
@@ -928,6 +925,10 @@ std::string CheckBox::DescribeText() const {
 }
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	GetContentDimensionsBySpec(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED), w, h);
+}
+
+void CheckBox::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
 	if (imageID_.isValid()) {
 		image = imageID_;
@@ -944,25 +945,33 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 		return;
 	}
 
-	// The below code is kinda wacky, we shouldn't involve bounds_ here.
+	// The width we'll be laid out, and so drawn, with. Measuring against bounds_ instead used the previous
+	// layout's width, which is 0 before the first one.
+	float width = layoutParams_->width;
+	if (width < 0.0f) {
+		width = horiz.type == UNSPECIFIED ? 0.0f : horiz.size;
+	} else {
+		ApplyBoundBySpec(width, horiz);
+	}
 
-	// Padding right of the checkbox image too.
-	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	if (availWidth < 0.0f) {
+	// Padding right of the checkbox image too. Same as in Draw.
+	float availWidth = width - paddingX * 2 - imageW - paddingX;
+	if (availWidth <= 0.0f) {
 		// Let it have as much space as it needs.
 		availWidth = MAX_ITEM_SIZE;
 	}
 
+	float textW = 0.0f;
 	if (!text_.empty()) {
 		float scale = dc.CalculateTextScale(dc.GetTheme().uiFont, text_, availWidth);
 
-		float actualWidth, actualHeight;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		float actualHeight;
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		h = std::max(actualHeight, ITEM_HEIGHT);
 	} else {
 		h = std::max(imageH, ITEM_HEIGHT);
 	}
-	w = bounds_.w;
+	w = width > 0.0f ? width : textW + paddingX * 3 + imageW;
 }
 
 BitCheckBox::BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText, LayoutParams *layoutParams)

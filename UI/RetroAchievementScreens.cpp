@@ -684,7 +684,8 @@ static void MeasureGameAchievementSummary(const UIContext &dc, std::string_view 
 	std::string description = Achievements::GetGameAchievementSummary(subsetId);
 
 	float iconSpace = 64.0f;
-	float availableWidth = maxWidth - iconSpace - 5.0f - 5.0f - 8.0f;
+	// The width RenderGameAchievementSummary draws the texts in.
+	float availableWidth = maxWidth - iconSpace - 5.0f - 5.0f;
 
 	float titleWidth, titleHeight;
 	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, title, availableWidth, &titleWidth, &titleHeight, FLAG_ELLIPSIZE_TEXT);

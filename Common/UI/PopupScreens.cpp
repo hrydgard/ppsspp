@@ -1047,10 +1047,10 @@ void TextEditPopupScreen::OnCompleted(DialogResult result) {
 
 void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	bool shadow;
-	const std::string valueText = ValueText(&shadow);
+	const std::string valueText = DisplayedValueText(&shadow);
 	int paddingX = 12;
-	// Assume we want at least 20% of the size for the label, at a minimum.
-	float availWidth = (horiz.size - paddingX * 2) * (text_.empty() ? 1.0f : 0.8f);
+	// Assume we want at least 20% of the size for the label, at a minimum. Same as in Draw.
+	float availWidth = (horiz.size - paddingX * 2) * (ShowsTitle() ? 0.8f : 1.0f);
 	if (availWidth < 0) {
 		availWidth = 65535.0f;
 	}
@@ -1058,12 +1058,15 @@ void AbstractChoiceWithValueDisplay::GetContentDimensionsBySpec(const UIContext 
 
 	float valueW, valueH;
 	dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, valueText, availWidth, &valueW, &valueH, ALIGN_RIGHT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
-	valueW += paddingX;
 
-	// Give the choice itself less space to grow in, so it shrinks if needed.
-	// MeasureSpec horizLabel = horiz;
-	// horizLabel.size -= valueW;
-	Choice::GetContentDimensionsBySpec(dc, horiz, vert, w, h);
+	// Leave the label the room Draw will, rather than going by textPadding_, which only Draw sets and so
+	// is stale (or still zero) for a choice that hasn't been drawn at this width yet, like one scrolled out of view.
+	Padding textPadding = textPadding_;
+	if (ShowsTitle()) {
+		textPadding.right = valueW + paddingX;
+	}
+	valueW += paddingX;
+	MeasureWithTextPadding(dc, horiz, textPadding, w, h);
 
 	w += valueW;
 	// Fill out anyway if there's space.
@@ -1087,12 +1090,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 	int paddingX = 12;
 
 	bool shadow;
-	std::string valueText = ValueText(&shadow);
-
-	if (passwordMasking_) {
-		// Replace all characters with stars.
-		memset(&valueText[0], '*', valueText.size());
-	}
+	const std::string valueText = DisplayedValueText(&shadow);
 
 	// If there is a label, assume we want at least 20% of the size for it, at a minimum.
 	u32 color = style.fgColor;
@@ -1100,7 +1098,7 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 		color = alphaMul(color, 0.4f);
 	}
 
-	if (!text_.empty() && !hideTitle_) {
+	if (ShowsTitle()) {
 		float availWidth = (bounds_.w - paddingX * 2) * 0.8f;
 		float scale = CalculateValueScale(dc, valueText, availWidth);
 
@@ -1128,11 +1126,22 @@ void AbstractChoiceWithValueDisplay::Draw(UIContext &dc) {
 			return;
 		}
 
-		float scale = CalculateValueScale(dc, valueText, bounds.w);
+		// Scaled for the width it's drawn in, as measured.
+		const Bounds valueBounds = bounds.Expand(-paddingX, 0.0f);
+		float scale = CalculateValueScale(dc, valueText, valueBounds.w);
 		dc.SetFontScale(scale, scale);
-		dc.DrawTextRect(dc.GetTheme().uiFont, valueText, bounds.Expand(-paddingX, 0.0f), color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		dc.DrawTextRect(dc.GetTheme().uiFont, valueText, valueBounds, color, ALIGN_LEFT | ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
+}
+
+std::string AbstractChoiceWithValueDisplay::DisplayedValueText(bool *shadow) const {
+	std::string valueText = ValueText(shadow);
+	if (passwordMasking_) {
+		// Replace all characters with stars.
+		memset(&valueText[0], '*', valueText.size());
+	}
+	return valueText;
 }
 
 float AbstractChoiceWithValueDisplay::CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const {
