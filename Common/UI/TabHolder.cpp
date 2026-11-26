@@ -70,7 +70,7 @@ void TabHolder::AddBack(UIScreen *parent) {
 	if (tabContainer_) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		tabContainer_->Add(new UI::Spacer(8.0f));
-		Choice *backButton = tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 10, 10))));
+		Choice *backButton = tabContainer_->Add(new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, Margins(0, 0, 12, 12))));
 		backButton->SetRoundCorners(RoundCorners::All);
 		backButton->OnClick.Handle<UIScreen>(parent, &UIScreen::OnBack);
 	}

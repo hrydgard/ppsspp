@@ -296,7 +296,7 @@ void GPUDriverTestScreen::CreateViews() {
 
 	tabHolder_->SetInitialTab(0);
 
-	Choice *back = new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *back = new Choice(di->T("Back"), ImageID("I_CHEVRON_LEFT"), new AnchorLayoutParams(190, WRAP_CONTENT, 10, NONE, NONE, 10));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	anchor->Add(back);
 }

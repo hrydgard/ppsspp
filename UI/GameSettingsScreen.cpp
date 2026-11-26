@@ -251,7 +251,7 @@ void GestureMappingScreen::CreateGestureTab(UI::LinearLayout *vert, int zoneInde
 	if (portrait) {
 		flags |= TopBarFlags::Portrait;
 	}
-	vert->Add(new TopBar(*screenManager()->getUIContext(), flags, ApplySafeSubstitutions("%1: %2", co->T("Gesture"), di->T(zoneIndex == 0 ? "Left side" : "Right side"))));
+	vert->Add(new TopBar(*screenManager()->getUIContext(), flags, ApplySafeSubstitutions("%1: %2", co->T("Gesture"), di->T(zoneIndex == 0 ? "Left side" : "Right side")), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 
 	ChoiceGroupList *list = vert->Add(new ChoiceGroupList());
 
