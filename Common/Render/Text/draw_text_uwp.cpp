@@ -14,6 +14,7 @@
 #if defined(_WIN32)
 
 #include <string>
+#include <cmath>
 
 #include <d3d11.h>
 #include <dxgi1_3.h>
@@ -58,7 +59,7 @@ public:
 			weight,
 			fontStyle,
 			DWRITE_FONT_STRETCH_NORMAL,
-			(float)MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
+			roundf(height * 96.0f / (72.0f * dpiScale)),  // Same as the GDI drawer.
 			L"en-us",
 			&textFmt
 		);
@@ -279,8 +280,6 @@ void TextDrawerUWP::MeasureStringInternal(const FontStyle &style, std::string_vi
 
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
-	format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-
 	IDWriteTextLayout *layout = nullptr;
 	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
@@ -319,13 +318,6 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 		return false;
 	}
 
-	if (align & ALIGN_HCENTER)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
-	else if (align & ALIGN_LEFT)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
-	else if (align & ALIGN_RIGHT)
-		format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_TRAILING);
-
 	IDWriteTextLayout *layout = nullptr;
 	HRESULT hr = m_dwriteFactory->CreateTextLayout(
 		(LPWSTR)wstr.c_str(),
@@ -339,6 +331,16 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 		bitmapData.clear();
 		return false;
 	}
+
+	// Set on the layout, not on the format, which all strings in this style share.
+	// ALIGN_LEFT is 0, so it's the fallback.
+	DWRITE_TEXT_ALIGNMENT textAlign = DWRITE_TEXT_ALIGNMENT_LEADING;
+	if (align & ALIGN_HCENTER) {
+		textAlign = DWRITE_TEXT_ALIGNMENT_CENTER;
+	} else if (align & ALIGN_RIGHT) {
+		textAlign = DWRITE_TEXT_ALIGNMENT_TRAILING;
+	}
+	layout->SetTextAlignment(textAlign);
 
 	DWRITE_TEXT_METRICS metrics;
 	layout->GetMetrics(&metrics);
@@ -399,7 +401,8 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 				if (fullColor) {
 					if (swap)
 						v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
-					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(v);
+					// The D2D bitmap is premultiplied already.
+					bitmapData32[entry.bmWidth * y + x] = v;
 				} else {
 					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(v >> 24);
 				}

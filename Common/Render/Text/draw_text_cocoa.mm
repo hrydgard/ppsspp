@@ -51,7 +51,9 @@ public:
 		if (styleFlags & FontStyleFlags::Bold)   traits |= kCTFontTraitBold;
 		if (styleFlags & FontStyleFlags::Italic) traits |= kCTFontTraitItalic;
 
-		CTFontRef base = CTFontCreateWithName(CFStringCreateWithCString(kCFAllocatorDefault, fontName.c_str(), kCFStringEncodingUTF8), fontSize, nil);
+		CFStringRef cfFontName = CFStringCreateWithCString(kCFAllocatorDefault, fontName.c_str(), kCFStringEncodingUTF8);
+		CTFontRef base = CTFontCreateWithName(cfFontName, fontSize, nil);
+		CFRelease(cfFontName);
 		CTFontRef font = CTFontCreateCopyWithSymbolicTraits(base, fontSize, NULL, traits, traits); // desired & mask
 		if (!font) {
 			// Skip the traits.
@@ -159,6 +161,19 @@ void TextDrawerCocoa::ClearFonts() {
 	fontMap_.clear();
 }
 
+// An empty line has no glyphs to take a height from, so measure "Wg", which typically has a good ascent and descent.
+static CGFloat EmptyLineHeight(NSDictionary *attributes) {
+	NSAttributedString *as = [[NSAttributedString alloc] initWithString:@"Wg" attributes:attributes];
+	CTLineRef ctline = CTLineCreateWithAttributedString((CFAttributedStringRef)as);
+	if (!ctline) {
+		return 0.0;
+	}
+	CGFloat ascent, descent, leading;
+	CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
+	CFRelease(ctline);
+	return ascent + descent + leading;
+}
+
 // AI added some error checks here.
 void TextDrawerCocoa::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
 	auto iter = fontMap_.find(style);
@@ -173,14 +188,7 @@ void TextDrawerCocoa::MeasureStringInternal(const FontStyle &style, std::string_
 	float extW = 0, extH = 0;
 	for (auto &line : lines) {
 		if (line.empty()) {
-			// Handle empty lines by measuring the string "Wg" which typically has a good ascent and descent.
-			NSString *emptyLineString = @"Wg";
-			NSAttributedString* emptyAs = [[NSAttributedString alloc] initWithString:emptyLineString attributes:attributes];
-			CTLineRef emptyCtline = CTLineCreateWithAttributedString((CFAttributedStringRef)emptyAs);
-			CGFloat ascent, descent, leading;
-			CTLineGetTypographicBounds(emptyCtline, &ascent, &descent, &leading);
-			CFRelease(emptyCtline);
-			extH += (float)(ascent + descent + leading); // Use actual line height for empty lines
+			extH += (float)EmptyLineHeight(attributes);
 			continue;
 		}
 		// Handle potential UTF-8 conversion failure
@@ -299,6 +307,11 @@ bool TextDrawerCocoa::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 
 	float lineY = 0.0;
 	for (std::string_view line : lines) {
+		if (line.empty()) {
+			// Advance as much as MeasureStringInternal counted.
+			lineY += EmptyLineHeight(attributes);
+			continue;
+		}
 		NSString *string = [[NSString alloc] initWithBytes:line.data() length:line.size() encoding: NSUTF8StringEncoding];
 
 		// If UTF-8 fails, fallback to ASCII to prevent nil
@@ -327,8 +340,13 @@ bool TextDrawerCocoa::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 		CGFloat ascent, descent, leading;
 		double fWidth = CTLineGetTypographicBounds(ctline, &ascent, &descent, &leading);
 
-		// Draw the text
+		// Draw the text. ALIGN_LEFT is 0.
 		CGFloat x = 0.0;
+		if (align & ALIGN_HCENTER) {
+			x = floor((width - fWidth) * 0.5);
+		} else if (align & ALIGN_RIGHT) {
+			x = width - fWidth;
+		}
 		CGFloat y = bmHeight - lineY - ascent;  // from bottom???
 		CGContextSetTextPosition(ctx, x, y);
 		CTLineDraw(ctline, ctx);
@@ -354,10 +372,11 @@ bool TextDrawerCocoa::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t color = bitmap[bmWidth * y + x];
 				if (fullColor) {
-					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(color);
+					// The context is kCGImageAlphaPremultipliedLast already.
+					bitmapData32[entry.bmWidth * y + x] = color;
 				} else {
 					// Don't know why we'd end up here, but let's support it.
-					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(color);
+					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(color >> 24);
 				}
 			}
 		}

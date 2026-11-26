@@ -350,6 +350,9 @@ void TextDrawerSDL::PrepareFallbackFonts(std::string_view locale) {
 
 			if (File::Exists(fontPath)) {
 				TTF_Font *openedFont = TTF_OpenFont(fontPath.ToString().c_str(), 24.0f);
+				if (!openedFont) {
+					continue;
+				}
 				int numFaces = TTF_GetNumFontFaces(openedFont);
 				for (int k = 0; k < numFaces; k++) {
 					addFallbackUnique(std::make_pair(fontPath.ToString(), k), strstr(fallbackFonts[j], "Emoji") != nullptr);
@@ -744,7 +747,8 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 	entry.texture = nullptr;
 	// Each row of pixel needs to be aligned to 8 bytes (= 2 pixels), or else
 	// graphics corruption occurs. Made it 16-byte aligned just to be sure.
-	entry.bmWidth = entry.width = (text->w + 3) & ~3;
+	entry.width = text->w;
+	entry.bmWidth = (text->w + 3) & ~3;
 	entry.bmHeight = entry.height = text->h;
 	entry.lastUsedFrame = frameCount_;
 
@@ -772,7 +776,8 @@ bool TextDrawerSDL::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 				}
 			}
 		}
-	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+	} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
+		// The 4444 formats all come out the same, with alpha in every channel.
 		_dbg_assert_(!fullColor);
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];

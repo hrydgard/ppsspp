@@ -7,9 +7,10 @@
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
-struct TextDrawerContext;
-// Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)
-class TextDrawerFontContext;
+// Internal structs, all details in the .cpp file (pimpl to avoid pulling in excessive headers here).
+// Their names must differ from the DirectWrite drawer's, which is linked into the same binary.
+struct TextDrawerWin32Context;
+class TextDrawerWin32FontContext;
 
 class TextDrawerWin32 : public TextDrawer {
 public:
@@ -24,8 +25,8 @@ protected:
 	bool SupportsColorEmoji() const override { return false; }
 	void ClearFonts() override;
 
-	TextDrawerContext *ctx_;
-	std::map<FontStyle, std::unique_ptr<TextDrawerFontContext>> fontMap_;
+	TextDrawerWin32Context *ctx_;
+	std::map<FontStyle, std::unique_ptr<TextDrawerWin32FontContext>> fontMap_;
 };
 
 #endif

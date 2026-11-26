@@ -135,7 +135,8 @@ void TextDrawer::DrawString(DrawBuffer &target, const FontStyle &style, float sc
 
 	TextStringEntry *entry;
 
-	auto [iter, inserted] = cache_.try_emplace(LookupKey(style, str, align & FLAG_DROP_SHADOW));
+	// The backends lay out the lines of multi-line text by the horizontal alignment.
+	auto [iter, inserted] = cache_.try_emplace(LookupKey(style, str, align & (FLAG_DROP_SHADOW | ALIGN_HCENTER | ALIGN_RIGHT)));
 	if (!inserted) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -190,7 +191,7 @@ void TextDrawer::DrawString(DrawBuffer &target, const FontStyle &style, float sc
 		desc.depth = 1;
 		desc.mipLevels = 1;
 		desc.tag = "TextDrawer";
-		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_PREMUL_ALPHA : Draw::TextureSwizzle::DEFAULT,
+		desc.swizzle = texFormat == Draw::DataFormat::R8_UNORM ? Draw::TextureSwizzle::R8_AS_PREMUL_ALPHA : Draw::TextureSwizzle::DEFAULT;
 		entry->texture = draw_->CreateTexture(desc);
 	}
 

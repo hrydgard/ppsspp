@@ -41,7 +41,7 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Landroid/content/Context;Ljava/lang/String;)I");
 		method_freeAllFonts = env->GetStaticMethodID(cls_textRenderer, "freeAllFonts", "()V");
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;ID)I");
-		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;IDII)[I");
+		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;IDIII)[I");
 	}
 	dpiScale_ = CalculateDPIScale();
 
@@ -155,8 +155,16 @@ bool TextDrawerAndroid::DrawStringBitmap(const FontStyle &style, std::vector<uin
 		imageHeight = 1;
 	// WARN_LOG(Log::G3D, "Text: '%.*s' (%02x)", (int)str.length(), str.data(), str[0]);
 
+	// TextRenderer.ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT.
+	jint javaAlign = 0;
+	if (align & ALIGN_HCENTER) {
+		javaAlign = 1;
+	} else if (align & ALIGN_RIGHT) {
+		javaAlign = 2;
+	}
+
 	// TODO: Handle bold/italic
-	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size, imageWidth, imageHeight);
+	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size, imageWidth, imageHeight, javaAlign);
 	env->DeleteLocalRef(jstr);
 	// Most likely an OutOfMemoryError allocating the bitmap.
 	if (CheckJavaException(env, __FUNCTION__) || !imageData) {
@@ -182,7 +190,8 @@ bool TextDrawerAndroid::DrawStringBitmap(const FontStyle &style, std::vector<uin
 	entry.height = imageHeight;
 	entry.lastUsedFrame = frameCount_;
 
-	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+	// The 4444 formats all come out the same, with alpha in every channel.
+	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int y = 0; y < entry.bmHeight; y++) {

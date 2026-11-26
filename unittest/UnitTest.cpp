@@ -153,6 +153,9 @@
 #define HAVE_TEXT_DRAWER_SDL
 #include "Common/Render/Text/draw_text_sdl.h"
 #endif
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#include "Common/Render/Text/draw_text_win.h"
+#endif
 #include "Common/Net/Resolve.h"
 
 #include "unittest/JitHarness.h"
@@ -4646,24 +4649,30 @@ bool TestTextDrawerCache() {
 	return true;
 }
 
-bool TestTextDrawerSDL() {
-#if defined(HAVE_TEXT_DRAWER_SDL)
-	bool registeredAssets = false;
-	if (!g_VFS.Exists("Roboto_Condensed-Regular.ttf")) {
-		Path candidates[] = {
-			Path("assets"),
-			Path("../assets"),
-			File::GetExeDirectory() / "assets",
-			File::GetExeDirectory() / "../assets",
-		};
-		for (const auto &cand : candidates) {
-			if (File::Exists(cand / "Roboto_Condensed-Regular.ttf")) {
-				g_VFS.Register("", new DirectoryReader(cand));
-				registeredAssets = true;
-				break;
-			}
+// Makes our fonts readable through g_VFS, which the drawers load them from. Returns true if it registered
+// something, to undo with g_VFS.Clear().
+static bool RegisterFontAssets() {
+	if (g_VFS.Exists("Roboto_Condensed-Regular.ttf")) {
+		return false;
+	}
+	Path candidates[] = {
+		Path("assets"),
+		Path("../assets"),
+		File::GetExeDirectory() / "assets",
+		File::GetExeDirectory() / "../assets",
+	};
+	for (const auto &cand : candidates) {
+		if (File::Exists(cand / "Roboto_Condensed-Regular.ttf")) {
+			g_VFS.Register("", new DirectoryReader(cand));
+			return true;
 		}
 	}
+	return false;
+}
+
+bool TestTextDrawerSDL() {
+#if defined(HAVE_TEXT_DRAWER_SDL)
+	const bool registeredAssets = RegisterFontAssets();
 
 	TextDrawerSDL drawer(nullptr);
 	EXPECT_TRUE(drawer.SupportsColorEmoji());
@@ -4693,6 +4702,80 @@ bool TestTextDrawerSDL() {
 	}
 #endif
 	return true;
+}
+
+// Draws a two-line string whose first line is much shorter than its second, and checks where the first
+// line starts.
+static bool CheckTextDrawerAlignment(TextDrawer &drawer) {
+	drawer.SetForcedDPIScale(1.0f);
+	const FontStyle font(FontFamily::SansSerif, 20, FontStyleFlags::Default);
+
+	// Where the first line's leftmost coverage is, as a fraction of the text width.
+	auto firstLineStart = [&](std::string_view str, int align, float *start) {
+		std::vector<uint8_t> bitmap;
+		TextStringEntry entry(0);
+		if (!drawer.DrawStringBitmapRect(font, 1.0f, bitmap, entry, Draw::DataFormat::R8_UNORM, str, Bounds(0, 0, 1000.0f, 1000.0f), align, false)) {
+			return false;
+		}
+		if (entry.width <= 0 || (int)bitmap.size() < entry.bmWidth * entry.bmHeight) {
+			return false;
+		}
+		int minX = entry.bmWidth;
+		for (int y = 0; y < entry.height / 2; y++) {
+			for (int x = 0; x < minX; x++) {
+				if (bitmap[y * entry.bmWidth + x] > 0x40) {
+					minX = x;
+					break;
+				}
+			}
+		}
+		*start = (float)minX / (float)entry.width;
+		return true;
+	};
+
+	float start = 0.0f;
+	// Right-aligned first: DirectWrite used to keep that alignment for the next left-aligned string.
+	EXPECT_TRUE(firstLineStart("i\nWWWWWWWWWW", ALIGN_RIGHT, &start));
+	EXPECT_TRUE(start > 0.7f);
+	EXPECT_TRUE(firstLineStart("l\nWWWWWWWWWW", ALIGN_LEFT, &start));
+	EXPECT_TRUE(start < 0.2f);
+	EXPECT_TRUE(firstLineStart("i\nWWWWWWWWWW", ALIGN_HCENTER, &start));
+	EXPECT_TRUE(start > 0.3f && start < 0.6f);
+	return true;
+}
+
+bool TestTextDrawerAlignment() {
+	const bool registeredAssets = RegisterFontAssets();
+	bool success = true;
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	{
+		TextDrawerWin32 gdi(nullptr);
+		if (!CheckTextDrawerAlignment(gdi)) {
+			printf("GDI text drawer failed\n");
+			success = false;
+		}
+		// Create() picks DirectWrite on Windows 10 and later. Its header doesn't compile after the
+		// lean Windows headers this file has already included.
+		std::unique_ptr<TextDrawer> directWrite(TextDrawer::Create(nullptr));
+		if (directWrite && !CheckTextDrawerAlignment(*directWrite)) {
+			printf("DirectWrite text drawer failed\n");
+			success = false;
+		}
+	}
+#endif
+#if defined(HAVE_TEXT_DRAWER_SDL)
+	{
+		TextDrawerSDL sdl(nullptr);
+		if (!CheckTextDrawerAlignment(sdl)) {
+			printf("SDL text drawer failed\n");
+			success = false;
+		}
+	}
+#endif
+	if (registeredAssets) {
+		g_VFS.Clear();
+	}
+	return success;
 }
 
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
@@ -5298,6 +5381,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITextEdit),
 	TEST_ITEM(TextDrawerCache),
 	TEST_ITEM(TextDrawerSDL),
+	TEST_ITEM(TextDrawerAlignment),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(UmdDiscType),

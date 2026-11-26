@@ -14,15 +14,16 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <cmath>
 
 enum {
 	MAX_TEXT_WIDTH = 4096,
 	MAX_TEXT_HEIGHT = 512
 };
 
-class TextDrawerFontContext {
+class TextDrawerWin32FontContext {
 public:
-	explicit TextDrawerFontContext(const FontStyle &_style, float _dpiScale) : hFont(0), style(_style), dpiScale(_dpiScale) {
+	explicit TextDrawerWin32FontContext(const FontStyle &_style, float _dpiScale) : hFont(0), style(_style), dpiScale(_dpiScale) {
 		FontStyleFlags styleFlags{};
 		std::string fontName = GetFontNameForFontStyle(style, &styleFlags);
 		if (fontName.empty()) {
@@ -41,18 +42,16 @@ public:
 		bool italic = (styleFlags & FontStyleFlags::Italic);
 		int height = style.sizePts;
 
-		if (hFont) {
-			Destroy();
-		}
 		// We apparently specify all font sizes in pts (1pt = 1.33px), so divide by only 72 for pixels.
-		int nHeight = -MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72);
+		// Round once at the end. Truncating 96 / dpiScale first turned 168 into 167 at 175% scaling.
+		int nHeight = -(int)roundf(height * 96.0f / (72.0f * dpiScale));
 		hFont = CreateFont(nHeight, 0, 0, 0, weight, italic,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
+			CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,  // Grayscale: ClearType's colored fringes don't survive taking one channel as alpha.
 			VARIABLE_PITCH, ConvertUTF8ToWString(fontName).c_str());
 	}
 
-	~TextDrawerFontContext() {
+	~TextDrawerWin32FontContext() {
 		Destroy();
 	}
 
@@ -66,14 +65,17 @@ public:
 	float dpiScale;
 };
 
-struct TextDrawerContext {
-	HDC hDC;
-	HBITMAP hbmBitmap;
-	int *pBitmapBits;
+struct TextDrawerWin32Context {
+	HDC hDC = nullptr;
+	HBITMAP hbmBitmap = nullptr;
+	int *pBitmapBits = nullptr;
+	// The DC's own objects. GDI won't delete an object that's selected into a DC, so these go back in first.
+	HGDIOBJ hOrigBitmap = nullptr;
+	HGDIOBJ hOrigFont = nullptr;
 };
 
 TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ctx_(nullptr) {
-	ctx_ = new TextDrawerContext();
+	ctx_ = new TextDrawerWin32Context();
 	ctx_->hDC = CreateCompatibleDC(NULL);
 
 	// Load the font files (pass the all flags so we get all filenames);
@@ -98,7 +100,8 @@ TextDrawerWin32::TextDrawerWin32(Draw::DrawContext *draw) : TextDrawer(draw), ct
 	_assert_(ctx_->hbmBitmap != nullptr);
 	SetMapMode(ctx_->hDC, MM_TEXT);
 
-	SelectObject(ctx_->hDC, ctx_->hbmBitmap);
+	ctx_->hOrigBitmap = SelectObject(ctx_->hDC, ctx_->hbmBitmap);
+	ctx_->hOrigFont = GetCurrentObject(ctx_->hDC, OBJ_FONT);
 }
 
 TextDrawerWin32::~TextDrawerWin32() {
@@ -112,6 +115,7 @@ TextDrawerWin32::~TextDrawerWin32() {
 		RemoveFontResourceEx(ConvertUTF8ToWString(fn).c_str(), FR_PRIVATE, NULL);
 	}
 
+	SelectObject(ctx_->hDC, ctx_->hOrigBitmap);
 	DeleteObject(ctx_->hbmBitmap);
 	DeleteDC(ctx_->hDC);
 	delete ctx_;
@@ -121,7 +125,7 @@ void TextDrawerWin32::EnsureFont(const FontStyle &style) {
 	if (fontMap_.find(style) != fontMap_.end()) {
 		return;
 	}
-	fontMap_[style] = std::make_unique<TextDrawerFontContext>(style, dpiScale_);
+	fontMap_[style] = std::make_unique<TextDrawerWin32FontContext>(style, dpiScale_);
 }
 
 void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_view str, float *w, float *h) {
@@ -138,7 +142,7 @@ void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_
 
 	int extW = 0, extH = 0;
 	for (auto &line : lines) {
-		SIZE size;
+		SIZE size{};
 		std::wstring wstr = ConvertUTF8ToWString(line);
 		if (wstr.empty() && lines.size() > 1) {
 			// Measure empty lines as if it was a space.
@@ -159,20 +163,28 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 		bitmapData.clear();
 		return false;
 	}
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
-
 	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		SelectObject(ctx_->hDC, iter->second->hFont);
+	if (iter == fontMap_.end()) {
+		ERROR_LOG(Log::G3D, "Failed to draw string, font missing");
+		bitmapData.clear();
+		return false;
 	}
+	SelectObject(ctx_->hDC, iter->second->hFont);
+
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
 	// Set text properties
 	SetTextColor(ctx_->hDC, 0xFFFFFF);
 	SetBkColor(ctx_->hDC, 0);
 	SetTextAlign(ctx_->hDC, TA_TOP);
 
-	// This matters for multi-line text - DT_CENTER is horizontal only.
-	UINT dtAlign = (align & ALIGN_HCENTER) == 0 ? DT_LEFT : DT_CENTER;
+	// This matters for multi-line text - DT_CENTER and DT_RIGHT are horizontal only.
+	UINT dtAlign = DT_LEFT;
+	if (align & ALIGN_HCENTER) {
+		dtAlign = DT_CENTER;
+	} else if (align & ALIGN_RIGHT) {
+		dtAlign = DT_RIGHT;
+	}
 
 	RECT textRect = { 0 };
 	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_NOPREFIX | DT_TOP | dtAlign | DT_CALCRECT, 0);
@@ -202,6 +214,8 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 	rc.right = entry.bmWidth;
 	rc.bottom = entry.bmHeight;
 	FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
+	// Align within the text's width, not the padded bitmap's.
+	rc.right = size.cx;
 	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_NOPREFIX | DT_TOP | dtAlign, 0);
 
 	// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
@@ -248,6 +262,8 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 }
 
 void TextDrawerWin32::ClearFonts() {
+	// The last font used is still selected, and GDI won't delete it.
+	SelectObject(ctx_->hDC, ctx_->hOrigFont);
 	for (auto &iter : fontMap_) {
 		iter.second->Destroy();
 	}

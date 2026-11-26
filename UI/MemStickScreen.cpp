@@ -624,6 +624,7 @@ void ConfirmMemstickMoveScreen::CreateContentViews(UI::ViewGroup *parent) {
 	case MemstickFolderCheck::OK:
 		break;
 	}
+	groups->SetRoundCorners();
 
 	// Only while it can still be changed.
 	const bool busy = moveDataTask_ || restartTime_ > 0.0;
