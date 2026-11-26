@@ -42,6 +42,7 @@ public:
 	void GetStats(StringWriter &w) override;
 	void DeviceLost() override;  // Destroy all device objects.
 	void DeviceRestore(Draw::DrawContext *draw) override;
+	void NotifyConfigChanged() override;
 
 protected:
 	void FinishDeferred() override;

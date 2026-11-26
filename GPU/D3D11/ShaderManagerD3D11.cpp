@@ -24,19 +24,25 @@
 #include <map>
 
 #include "Common/GPU/thin3d.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log.h"
 #include "Common/CommonTypes.h"
+#include "Common/Thread/Promise.h"
+#include "Core/System.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/PostShader.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/VertexShaderGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/D3D11Util.h"
+#include "ext/xxhash.h"
 
-D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, FShaderID id, const char *code, bool useHWTransform)
+D3D11FragmentShader::D3D11FragmentShader(ID3D11Device *device, FShaderID id, const char *code, const std::vector<uint8_t> &bytecode, bool useHWTransform)
 	: device_(device), useHWTransform_(useHWTransform), id_(id) {
 	source_ = code;
 
-	if (FAILED(CreatePixelShaderD3D11(device, code, strlen(code), featureLevel, 0, &module_)))
+	if (bytecode.empty() || FAILED(device->CreatePixelShader(bytecode.data(), bytecode.size(), nullptr, &module_)))
 		failed_ = true;
 }
 
@@ -54,11 +60,11 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 	}
 }
 
-D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, bool useHWTransform)
-	: device_(device), useHWTransform_(useHWTransform), id_(id) {
+D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, VShaderID id, const char *code, const std::vector<uint8_t> &bytecode, bool useHWTransform)
+	: device_(device), useHWTransform_(useHWTransform), id_(id), bytecode_(bytecode) {
 	source_ = code;
 
-	if(FAILED(CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel, 0, &module_)))
+	if (bytecode.empty() || FAILED(device->CreateVertexShader(bytecode.data(), bytecode.size(), nullptr, &module_)))
 		failed_ = true;
 }
 
@@ -78,6 +84,15 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 
 static constexpr size_t CODE_BUFFER_SIZE = 32768;
 
+static constexpr uint32_t BYTECODE_CACHE_MAGIC = 0x43533344;  // "D3SC"
+static constexpr uint32_t BYTECODE_CACHE_VERSION = 1;
+// Past this, only what was used in the last session is written back (old versions' shaders pile up otherwise).
+static constexpr size_t BYTECODE_CACHE_MAX_SIZE = 32 * 1024 * 1024;
+
+static Path BytecodeCachePath() {
+	return GetSysDirectory(DIRECTORY_APP_CACHE) / "d3d11shaders.bin";
+}
+
 ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
 	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel) {
 	codeBuffer_ = new char[CODE_BUFFER_SIZE];
@@ -88,12 +103,183 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 
 	InitDeviceObjects();
+	LoadBytecodeCache();
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {
+	WaitForPrecompile();
+	SaveBytecodeCache();
 	ClearShaders();
 	delete[] codeBuffer_;
 	DestroyDeviceObjects();
+}
+
+static const char *ShaderProfile(D3D_FEATURE_LEVEL featureLevel, bool vertex) {
+	if (featureLevel <= D3D_FEATURE_LEVEL_9_3) {
+		return vertex ? "vs_4_0_level_9_1" : "ps_4_0_level_9_1";
+	}
+	return vertex ? "vs_4_0" : "ps_4_0";
+}
+
+std::vector<uint8_t> ShaderManagerD3D11::GetBytecode(const char *code, size_t size, bool vertex) {
+	const char *profile = ShaderProfile(featureLevel_, vertex);
+	const uint64_t key = XXH3_64bits_withSeed(code, size, XXH3_64bits(profile, strlen(profile)));
+	{
+		std::unique_lock<std::mutex> lock(bytecodeMutex_);
+		bytecodeCond_.wait(lock, [&] { return bytecodeInFlight_.count(key) == 0; });
+		auto iter = bytecodeCache_.find(key);
+		if (iter != bytecodeCache_.end()) {
+			bytecodeUsed_.insert(key);
+			return iter->second;
+		}
+		bytecodeInFlight_.insert(key);
+	}
+	std::vector<uint8_t> bytecode = CompileShaderToBytecodeD3D11(code, size, profile, 0);
+	{
+		std::lock_guard<std::mutex> lock(bytecodeMutex_);
+		bytecodeInFlight_.erase(key);
+		if (!bytecode.empty()) {
+			bytecodeCache_[key] = bytecode;
+			bytecodeUsed_.insert(key);
+			bytecodeCacheDirty_ = true;
+		}
+	}
+	bytecodeCond_.notify_all();
+	return bytecode;
+}
+
+void ShaderManagerD3D11::PrecompileForFlags(u32 useFlags, std::string_view samplingSource) {
+	if (!draw_ || (vsCache_.empty() && fsCache_.empty())) {
+		return;
+	}
+	// Only when just texture sampling changes: it changes the code but not what the IDs mean. With other flags,
+	// old IDs can be ones the generators refuse.
+	const u32 codeOnlyFlags = GPU_USE_TEX_SAMPLING | GPU_USE_TEX_SAMPLING_BOUNDS;
+	if ((useFlags ^ shaderUseFlags_) & ~codeOnlyFlags) {
+		return;
+	}
+
+	// The generators read the flags and the sampling source from globals, so they're swapped in for this
+	// (on this thread, quick), and the compiles go to workers.
+	const u32 oldFlags = gstate_c.GetUseFlags();
+	const bool oldFlagsChanged = gstate_c.useFlagsChanged;
+	const std::string oldSource = GetTextureSamplingShaderSource();
+	gstate_c.SetUseFlags(useFlags);
+	SetTextureSamplingShaderSource(samplingSource);
+
+	std::vector<std::pair<std::string, bool>> sources;
+	for (const auto &[id, vs] : vsCache_) {
+		std::string genErrorString;
+		uint32_t attrMask;
+		uint64_t uniformMask;
+		VertexShaderFlags flags;
+		if (GenerateVertexShader(id, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString)) {
+			sources.emplace_back(codeBuffer_, true);
+		}
+	}
+	for (const auto &[id, fs] : fsCache_) {
+		std::string genErrorString;
+		uint64_t uniformMask;
+		FragmentShaderFlags flags;
+		if (GenerateFragmentShader(id, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &genErrorString)) {
+			sources.emplace_back(codeBuffer_, false);
+		}
+	}
+
+	SetTextureSamplingShaderSource(oldSource);
+	gstate_c.SetUseFlags(oldFlags);
+	gstate_c.useFlagsChanged = oldFlagsChanged;
+
+	{
+		std::lock_guard<std::mutex> lock(bytecodeMutex_);
+		precompileTasks_ += (int)sources.size();
+	}
+	for (auto &[source, vertex] : sources) {
+		g_threadManager.EnqueueTask(new IndependentTask(TaskType::CPU_COMPUTE, TaskPriority::LOW, [this, source = std::move(source), vertex = vertex]() {
+			GetBytecode(source.data(), source.size(), vertex);
+			{
+				std::lock_guard<std::mutex> lock(bytecodeMutex_);
+				precompileTasks_--;
+			}
+			bytecodeCond_.notify_all();
+		}));
+	}
+	INFO_LOG(Log::G3D, "Precompiling %d shaders for the new settings", (int)sources.size());
+}
+
+void ShaderManagerD3D11::WaitForPrecompile() {
+	std::unique_lock<std::mutex> lock(bytecodeMutex_);
+	bytecodeCond_.wait(lock, [&] { return precompileTasks_ == 0; });
+}
+
+void ShaderManagerD3D11::LoadBytecodeCache() {
+	const Path path = BytecodeCachePath();
+	std::string data;
+	if (!VerifyShaderCacheChecksum(path) || !File::ReadBinaryFileToString(path, &data)) {
+		return;
+	}
+	const uint8_t *p = (const uint8_t *)data.data();
+	const uint8_t *end = p + data.size() - sizeof(uint64_t);  // Ends with the checksum.
+	uint32_t header[3];
+	if (end - p < (ptrdiff_t)sizeof(header)) {
+		return;
+	}
+	memcpy(header, p, sizeof(header));
+	p += sizeof(header);
+	if (header[0] != BYTECODE_CACHE_MAGIC || header[1] != BYTECODE_CACHE_VERSION) {
+		return;
+	}
+	for (uint32_t i = 0; i < header[2]; i++) {
+		uint64_t key;
+		uint32_t size;
+		if (end - p < (ptrdiff_t)(sizeof(key) + sizeof(size))) {
+			break;
+		}
+		memcpy(&key, p, sizeof(key));
+		memcpy(&size, p + sizeof(key), sizeof(size));
+		p += sizeof(key) + sizeof(size);
+		if ((size_t)(end - p) < size) {
+			break;
+		}
+		bytecodeCache_[key] = std::vector<uint8_t>(p, p + size);
+		p += size;
+	}
+	INFO_LOG(Log::G3D, "Loaded %d D3D11 shaders from the cache", (int)bytecodeCache_.size());
+}
+
+void ShaderManagerD3D11::SaveBytecodeCache() {
+	if (!bytecodeCacheDirty_) {
+		return;
+	}
+	size_t total = 0;
+	for (const auto &[key, bytecode] : bytecodeCache_) {
+		total += bytecode.size();
+	}
+	const bool onlyUsed = total > BYTECODE_CACHE_MAX_SIZE;
+
+	std::string data;
+	uint32_t header[3] = { BYTECODE_CACHE_MAGIC, BYTECODE_CACHE_VERSION, 0 };
+	data.append((const char *)header, sizeof(header));
+	for (const auto &[key, bytecode] : bytecodeCache_) {
+		if (onlyUsed && !bytecodeUsed_.count(key)) {
+			continue;
+		}
+		const uint32_t size = (uint32_t)bytecode.size();
+		data.append((const char *)&key, sizeof(key));
+		data.append((const char *)&size, sizeof(size));
+		data.append((const char *)bytecode.data(), bytecode.size());
+		header[2]++;
+	}
+	memcpy(&data[0], header, sizeof(header));
+
+	const Path path = BytecodeCachePath();
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+	if (!File::WriteDataToFile(false, data.data(), data.size(), path) || !AppendShaderCacheChecksum(path)) {
+		WARN_LOG(Log::G3D, "Failed to write the D3D11 shader cache");
+		File::Delete(path);
+		return;
+	}
+	bytecodeCacheDirty_ = false;
 }
 
 void ShaderManagerD3D11::InitDeviceObjects() {
@@ -217,7 +403,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 		GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &genErrorString);
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
 		// OutputDebugStringA(codeBuffer_);
-		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, useHWTransform);
+		vs = new D3D11VertexShader(device_, VSID, codeBuffer_, GetBytecode(codeBuffer_, strlen(codeBuffer_), true), useHWTransform);
+		shaderUseFlags_ = gstate_c.GetUseFlags();
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;
@@ -234,7 +421,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertexType, D3D11VertexShader 
 		GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &genErrorString);
 		_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
 		// OutputDebugStringA(codeBuffer_);
-		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
+		fs = new D3D11FragmentShader(device_, FSID, codeBuffer_, GetBytecode(codeBuffer_, strlen(codeBuffer_), false), useHWTransform);
+		shaderUseFlags_ = gstate_c.GetUseFlags();
 		fsCache_[FSID] = fs;
 	} else {
 		fs = fsIter->second;

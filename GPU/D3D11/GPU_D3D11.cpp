@@ -25,6 +25,7 @@
 #include "GPU/GPUState.h"
 
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/GPU_D3D11.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
@@ -100,6 +101,20 @@ void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
 	GPUCommonHW::DeviceRestore(draw);
 }
 
+void GPU_D3D11::NotifyConfigChanged() {
+	GPUCommonHW::NotifyConfigChanged();
+	// The change itself waits for the next frame of the game, which can be after a while in a menu: get the shaders
+	// it needs compiling now. CheckGPUFeatures loads the sampling shader it picks, which is put back after, so the
+	// next frame sees the change as usual.
+	const std::string oldSource = GetTextureSamplingShaderSource();
+	const bool oldFlagsChanged = gstate_c.useFlagsChanged;
+	const u32 newFlags = CheckGPUFeatures();
+	const std::string newSource = GetTextureSamplingShaderSource();
+	SetTextureSamplingShaderSource(oldSource);
+	gstate_c.useFlagsChanged = oldFlagsChanged;
+	shaderManagerD3D11_->PrecompileForFlags(newFlags, newSource);
+}
+
 void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
 	GPUCommonHW::BeginHostFrame(config);
 
@@ -109,8 +124,8 @@ void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
 	framebufferManager_->BeginFrame(config);
 
 	if (gstate_c.useFlagsChanged) {
-		// TODO: It'd be better to recompile them in the background, probably?
-		// This most likely means that saw equal depth changed.
+		// This most likely means that saw equal depth changed. Texture sampling changes were precompiled in
+		// NotifyConfigChanged, the shaders come from the bytecode cache then.
 		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
