@@ -623,8 +623,8 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 	float w1, h1, w2, h2;
 
 	if (rightText_.empty()) {
-		// There's only one text, and that should wrap.
-		if (horiz.type == MeasureSpecType::AT_MOST) {
+		// There's only one text, and that should wrap. Draw wraps it to any width we get, exact ones too.
+		if (horiz.type != MeasureSpecType::UNSPECIFIED) {
 			float availableWidth = horiz.size - 24;
 			dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, availableWidth, &w, &h, FLAG_WRAP_TEXT);
 		} else {
@@ -636,7 +636,7 @@ void InfoItem::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 
 	dc.MeasureText(dc.GetTheme().uiFont, 1.0f, 1.0f, text_, &w1, &h1, 0);
 
-	if (horiz.type == MeasureSpecType::AT_MOST) {
+	if (horiz.type != MeasureSpecType::UNSPECIFIED) {
 		float availableWidth = horiz.size - w1 - 24;
 		dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, rightText_, availableWidth, &w2, &h2, FLAG_WRAP_TEXT);
 	} else {
