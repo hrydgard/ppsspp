@@ -14,6 +14,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <cmath>
 
 enum {
 	MAX_TEXT_WIDTH = 4096,
@@ -42,7 +43,8 @@ public:
 		int height = style.sizePts;
 
 		// We apparently specify all font sizes in pts (1pt = 1.33px), so divide by only 72 for pixels.
-		int nHeight = -MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72);
+		// Round once at the end. Truncating 96 / dpiScale first turned 168 into 167 at 175% scaling.
+		int nHeight = -(int)roundf(height * 96.0f / (72.0f * dpiScale));
 		hFont = CreateFont(nHeight, 0, 0, 0, weight, italic,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
 			CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,  // Grayscale: ClearType's colored fringes don't survive taking one channel as alpha.

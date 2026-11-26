@@ -14,6 +14,7 @@
 #if defined(_WIN32)
 
 #include <string>
+#include <cmath>
 
 #include <d3d11.h>
 #include <dxgi1_3.h>
@@ -58,7 +59,7 @@ public:
 			weight,
 			fontStyle,
 			DWRITE_FONT_STRETCH_NORMAL,
-			(float)MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72),
+			roundf(height * 96.0f / (72.0f * dpiScale)),  // Same as the GDI drawer.
 			L"en-us",
 			&textFmt
 		);
