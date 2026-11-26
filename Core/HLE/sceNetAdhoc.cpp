@@ -974,6 +974,19 @@ static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint
 	queue.bytes += (u32)len;
 }
 
+// Nothing arrives from a console that has joined the group but isn't in the peer list yet, and what it
+// sent before is lost (pspautotests net/adhoc/pair/joindata). The first datagram comes a few ms after it
+// shows up there (4-7 ms on the joiner and about 20 on the host, with the test's SHOW_TIMES), so a game
+// that looks at the peer list and then reads never has data from someone not in it. Kurohyou 2 leaves a
+// room whose host sends to it while not in its list.
+static const u64 PDP_AFTER_LISTED_US = 4000;
+
+static bool pdpSenderNotListedYet(const SceNetEtherAddr &mac) {
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
+	SceNetAdhocctlPeerInfo *peer = findFriend((SceNetEtherAddr *)&mac);
+	return peer != NULL && peer->last_recv != 0 && CoreTiming::GetGlobalTimeUsScaled() < peer->visible_at + PDP_AFTER_LISTED_US;
+}
+
 static void pdpFillQueue(int id) {
 	AdhocSocket *sock = adhocSockets[id - 1];
 	SceNetEtherAddr mac;
@@ -981,6 +994,10 @@ static void pdpFillQueue(int id) {
 	std::vector<u8> data;
 	// Bounded, so a flood can't stall the emulator thread here. The rest waits for the next call.
 	for (int i = 0; i < 256 && Transport().PdpTakeDatagram(id, &mac, &port, data); i++) {
+		if (sock->data.pdp.lport != ADHOC_GAMEMODE_PORT && pdpSenderNotListedYet(mac)) {
+			VERBOSE_LOG(Log::sceNet, "PDP socket on port %d: datagram from %s dropped, not in the peer list yet", sock->data.pdp.lport, mac2str(&mac).c_str());
+			continue;
+		}
 		pdpQueueDatagram(sock, mac, port, data.data(), data.size());
 	}
 }
@@ -1042,7 +1059,8 @@ static int pdpTakeFromQueue(AdhocSocket *sock, SceNetEtherAddr *saddr, uint16_t 
 
 	peerlock.lock();
 	SceNetAdhocctlPeerInfo *peer = findFriend(saddr);
-	if (peer != NULL) {
+	// Reading what a peer sent before it left doesn't bring it back (pspautotests net/adhoc/pair/leftdata).
+	if (peer != NULL && peer->last_recv != 0) {
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 	}
 	peerlock.unlock();
@@ -4183,6 +4201,10 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect) 
 					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
 					sin.sin_port = htons(ptpsocket.pport + finalPortOffset);
 
+					// TODO: A PSP's connection to a peer that has joined but isn't in the peer list yet only comes
+					// up at the first retransmit (rexmt_int after the connect, and so on) after the peer is
+					// listed, without another PtpConnect call (pspautotests net/adhoc/pair/joinptp, in
+					// tests_next). Ours comes up at once. PDP holds its data back, see pdpSenderNotListedYet().
 					// Connect Socket to Peer
 					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					int errorcode = 0;

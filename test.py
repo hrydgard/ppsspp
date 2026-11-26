@@ -620,12 +620,16 @@ tests_good = [
   "video/psmfplayer/stop",
   # Two-console tests: run on two instances, through the built-in relay and in P2P (see run_pair_tests).
   "net/adhoc/pair/basic",
+  "net/adhoc/pair/joindata",
   "net/adhoc/pair/joinrace",
+  "net/adhoc/pair/leftdata",
+  "net/adhoc/pair/leftptp",
   "net/adhoc/pair/listsizes",
   "net/adhoc/pair/matching",
   "net/adhoc/pair/matching2",
   "net/adhoc/pair/matching3",
   "net/adhoc/pair/matchingorder",
+  "net/adhoc/pair/pdpleave",
   "net/adhoc/pair/ptpmsg",
   "net/adhoc/pair/ptppoll",
   "net/adhoc/pair/scaninfo",
@@ -791,6 +795,7 @@ tests_next = [
   "net/adhoc/pair/discover",  # Same, and the host sees a joiner before the joiner sees it (the host leaves first)
   "net/adhoc/pair/flow",  # PDP matches; the PTP send and receive windows aren't emulated
   "net/adhoc/pair/gamemode",
+  "net/adhoc/pair/joinptp",  # A PTP connection comes up before the peer is in the peer list; on a PSP only after
   "net/adhoc/pair/lifecycle",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 
