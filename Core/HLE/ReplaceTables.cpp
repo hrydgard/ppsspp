@@ -1610,6 +1610,49 @@ static int Hook_medievil_projectile_update(MIPSState *mips) {
 	return 0;
 }
 
+// Lumines' VS lobby. The console that accepts a challenge looks for the matching ESTABLISHED event
+// once, in its next logic update, and goes back to the opponent list if it isn't there. A PSP delivers
+// it 4-7 ms after SelectTarget (pspautotests net/adhoc/pair/matchingaccept), in time for that update,
+// but here the update comes 1.3 ms of emulated time later, so the match usually never started. Hooked
+// in the check for a request of our own still being answered, which keeps the lobby waiting: count a
+// peer we've accepted and aren't established with yet as one too, for up to 100 ms.
+static int Hook_lumines_vs_accept_wait(MIPSState *mips) {
+	static u64 waitingSince = 0;
+	static u64 lastCall = 0;
+	const u64 now = CoreTiming::GetGlobalTimeUs();
+	if (now - lastCall > 50000) {
+		// Not the accept we timed last.
+		waitingSince = 0;
+	}
+	lastCall = now;
+
+	// Ten 0x80-byte peers: flags (bit 0 is ESTABLISHED), then the game's state (3 is accepted).
+	const u32 peers = mips->r[MIPS_REG_S1] + 0x46B0;
+	const u32 result = mips->r[MIPS_REG_SP];
+	if (!Memory::IsValid4AlignedRange(peers, 10 * 0x80) || !Memory::IsValidRange(result, 1)) {
+		return 0;
+	}
+	bool accepted = false;
+	for (int i = 0; i < 10; i++) {
+		const u32 peer = peers + i * 0x80;
+		if ((Memory::ReadUnchecked_U32(peer) & 1) == 0 && Memory::ReadUnchecked_U32(peer + 4) == 3) {
+			accepted = true;
+		}
+	}
+	if (!accepted) {
+		waitingSince = 0;
+		return 0;
+	}
+	if (waitingSince == 0) {
+		waitingSince = now;
+	}
+	if (now - waitingSince < 100000) {
+		// 0 is "still waiting".
+		Memory::WriteUnchecked_U8(0, result);
+	}
+	return 0;
+}
+
 // Syphon Filter: Dark Mirror's actor steering (#22669). When a scripted move reaches its target, the
 // actor stops, the AI notices on the next update and only issues the next command (usually "face
 // this way") on the one after, so the actor coasts on for two updates before it turns. The turn
@@ -2270,6 +2313,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "syphonfilterls_draw_trail", &Hook_syphonfilterls_draw_trail, 0, REPFLAG_HOOK, 0x198 },
 	{ "zuma_pad_analog", &Hook_zuma_pad_analog, 0, REPFLAG_HOOK, 0x234 },
 	{ "zuma_aim_cursor", &Hook_zuma_aim_cursor, 0, REPFLAG_HOOK, 0x210 },
+	{ "lumines_vs_accept_wait", &Hook_lumines_vs_accept_wait, 0, REPFLAG_HOOK, 0x7C },
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_arrived, 0, REPFLAG_HOOK, 0x13E8 },
 	{ "syphonfilter_steer", &Hook_syphonfilter_steer_turn_rate, 0, REPFLAG_HOOK, 0x1610 },
 	{ "syphonfilterls_fade", &Hook_syphonfilterls_fade_hold, 0, REPFLAG_HOOK, 0x78 },
