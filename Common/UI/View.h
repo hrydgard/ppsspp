@@ -952,6 +952,12 @@ protected:
 
 	float CalculateValueScale(const UIContext &dc, std::string_view valueText, float availWidth) const;
 
+	// ValueText, masked if it's a password.
+	std::string DisplayedValueText(bool *shadow) const;
+	bool ShowsTitle() const {
+		return !text_.empty() && !hideTitle_;
+	}
+
 	bool passwordMasking_ = false;
 };
 
