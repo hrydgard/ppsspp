@@ -852,6 +852,10 @@ protected:
 	// hackery
 	virtual bool IsSticky() const { return false; }
 
+	// GetContentDimensionsBySpec, but with textPadding in place of textPadding_.
+	void MeasureWithTextPadding(const UIContext &dc, MeasureSpec horiz, const Padding &textPadding, float &w, float &h) const;
+	void GetTextPadding(const UIContext &dc, float *left, float *right) const;
+
 	std::string text_;
 	std::string smallText_;
 	ImageID image_;  // Centered if no text, on the left if text.

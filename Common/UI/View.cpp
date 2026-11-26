@@ -501,18 +501,30 @@ void Choice::ClickInternal() {
 }
 
 void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
+	MeasureWithTextPadding(dc, horiz, textPadding_, w, h);
+}
+
+// The text's left and right padding, the same in measuring and drawing so the text wraps the same.
+void Choice::GetTextPadding(const UIContext &dc, float *left, float *right) const {
+	// An image goes in a square slot on the left. It's ITEM_HEIGHT wide, rather than as wide as the
+	// choice is tall, since the height isn't known yet when measuring.
+	*left = image_.isValid() ? ITEM_HEIGHT : 12.0f;
+	*right = 12.0f;
+	if (rightIconImage_.isValid()) {
+		float imgW, imgH;
+		dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
+		*right = std::max(ITEM_HEIGHT, imgW);
+	}
+}
+
+void Choice::MeasureWithTextPadding(const UIContext &dc, MeasureSpec horiz, const Padding &textPadding, float &w, float &h) const {
 	float totalW = 0.0f;
 	float totalH = 0.0f;
 	if (!text_.empty() && !hideTitle_) {
-		int paddingLeft = 12;
-		int paddingRight = 12;
-		if (rightIconImage_.isValid()) {
-			float imgW, imgH;
-			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
-			paddingRight = std::max(ITEM_HEIGHT, imgW);
-		}
+		float paddingLeft, paddingRight;
+		GetTextPadding(dc, &paddingLeft, &paddingRight);
 
-		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding_.horiz() - totalW;
+		float availWidth = horiz.size - paddingLeft - paddingRight - textPadding.horiz();
 		if (availWidth < 0.0f) {
 			// Let it have as much space as it needs.
 			availWidth = MAX_ITEM_SIZE;
@@ -524,11 +536,8 @@ void Choice::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, 
 		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &textH, FLAG_WRAP_TEXT);
 		textW += 4;  // We need a small fudge factor here, not sure why yet.
 		totalH = std::max(totalH, textH);
-		totalW += textW;
-		if (image_.isValid()) {
-			totalW += 12;
-			totalW += totalH;
-		}
+		// The 24 added below covers 12 of padding on each side, so only add what the image slot takes beyond that.
+		totalW += textW + paddingLeft - 12.0f;
 	} else {
 		if (image_.isValid()) {
 			dc.Draw()->GetAtlas()->measureImage(image_, &w, &h);
@@ -559,31 +568,20 @@ void Choice::Draw(UIContext &dc) {
 			DrawIconShine(dc, b.Inset(5.0f, 5.0f), 0.65f, false);
 		}
 	} else if (!text_.empty() && !hideTitle_) {
-		int paddingLeft = 12;
-		int paddingRight = 12;
+		float paddingLeft, paddingRight;
+		GetTextPadding(dc, &paddingLeft, &paddingRight);
 
 		if (image_.isValid()) {
-			paddingLeft = 0;
-			const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(image_);
-			if (image) {
-				_dbg_assert_(image);
-				// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
-				dc.Draw()->DrawImage(image_, bounds.x + bounds.h * 0.5f + paddingLeft, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
-
-				paddingLeft += bounds.h;
-			}
-		}
-
-		if (rightIconImage_.isValid()) {
-			float imgW, imgH;
-			dc.Draw()->GetAtlas()->measureImage(rightIconImage_, &imgW, &imgH);
-			paddingRight = std::max(ITEM_HEIGHT, imgW);
+			// TODO: Use scale rotation and flip here as well (DrawImageRotated is always ALIGN_CENTER for now)
+			dc.Draw()->DrawImage(image_, bounds.x + paddingLeft * 0.5f, bounds.centerY(), 1.0f, style.fgColor, ALIGN_CENTER);
 		}
 
 		float availWidth = bounds.w - (paddingLeft + paddingRight + textPadding_.horiz());
+		Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
 
 		if (centered_) {
-			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, bounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
+			// Centered in the same space it was measured in.
+			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_CENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		} else {
 			if (rightIconImage_.isValid()) {
 				uint32_t col = rightIconKeepColor_ ? 0xffffffff : style.fgColor; // Don't apply theme to gold icon
@@ -596,7 +594,6 @@ void Choice::Draw(UIContext &dc) {
 				}
 				dc.Draw()->DrawImageRotated(rightIconImage_, iconX, bounds.centerY(), rightIconScale_, rightIconRot_, col, rightIconFlipH_);
 			}
-			Bounds textBounds(bounds.x + paddingLeft + textPadding_.left, bounds.y, availWidth, bounds.h);
 			dc.DrawTextRectSqueeze(dc.GetTheme().uiFont, text_, textBounds, style.fgColor, ALIGN_VCENTER | FLAG_WRAP_TEXT | drawTextFlags_);
 		}
 		dc.SetFontScale(1.0f, 1.0f);
