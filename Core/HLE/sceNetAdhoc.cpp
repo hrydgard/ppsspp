@@ -974,6 +974,15 @@ static void pdpQueueDatagram(AdhocSocket *sock, const SceNetEtherAddr &mac, uint
 	queue.bytes += (u32)len;
 }
 
+// Nothing arrives from a console that has joined the group but isn't in the peer list yet: the first
+// datagram comes a few ms after it shows up there, and the ones sent before are lost (pspautotests
+// net/adhoc/pair/joindata). Kurohyou 2 leaves a room whose host sends to it while not in its list.
+static bool pdpSenderNotListedYet(const SceNetEtherAddr &mac) {
+	std::lock_guard<std::recursive_mutex> guard(peerlock);
+	SceNetAdhocctlPeerInfo *peer = findFriend((SceNetEtherAddr *)&mac);
+	return peer != NULL && peer->last_recv != 0 && !isPeerVisible(peer);
+}
+
 static void pdpFillQueue(int id) {
 	AdhocSocket *sock = adhocSockets[id - 1];
 	SceNetEtherAddr mac;
@@ -981,6 +990,10 @@ static void pdpFillQueue(int id) {
 	std::vector<u8> data;
 	// Bounded, so a flood can't stall the emulator thread here. The rest waits for the next call.
 	for (int i = 0; i < 256 && Transport().PdpTakeDatagram(id, &mac, &port, data); i++) {
+		if (sock->data.pdp.lport != ADHOC_GAMEMODE_PORT && pdpSenderNotListedYet(mac)) {
+			VERBOSE_LOG(Log::sceNet, "PDP socket on port %d: datagram from %s dropped, not in the peer list yet", sock->data.pdp.lport, mac2str(&mac).c_str());
+			continue;
+		}
 		pdpQueueDatagram(sock, mac, port, data.data(), data.size());
 	}
 }
