@@ -928,6 +928,10 @@ std::string CheckBox::DescribeText() const {
 }
 
 void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	GetContentDimensionsBySpec(dc, MeasureSpec(UNSPECIFIED), MeasureSpec(UNSPECIFIED), w, h);
+}
+
+void CheckBox::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	ImageID image = Toggled() ? dc.GetTheme().checkOn : dc.GetTheme().checkOff;
 	if (imageID_.isValid()) {
 		image = imageID_;
@@ -944,25 +948,33 @@ void CheckBox::GetContentDimensions(const UIContext &dc, float &w, float &h) con
 		return;
 	}
 
-	// The below code is kinda wacky, we shouldn't involve bounds_ here.
+	// The width we'll be laid out, and so drawn, with. Measuring against bounds_ instead used the previous
+	// layout's width, which is 0 before the first one.
+	float width = layoutParams_->width;
+	if (width < 0.0f) {
+		width = horiz.type == UNSPECIFIED ? 0.0f : horiz.size;
+	} else {
+		ApplyBoundBySpec(width, horiz);
+	}
 
-	// Padding right of the checkbox image too.
-	float availWidth = bounds_.w - paddingX * 2 - imageW - paddingX;
-	if (availWidth < 0.0f) {
+	// Padding right of the checkbox image too. Same as in Draw.
+	float availWidth = width - paddingX * 2 - imageW - paddingX;
+	if (availWidth <= 0.0f) {
 		// Let it have as much space as it needs.
 		availWidth = MAX_ITEM_SIZE;
 	}
 
+	float textW = 0.0f;
 	if (!text_.empty()) {
 		float scale = dc.CalculateTextScale(dc.GetTheme().uiFont, text_, availWidth);
 
-		float actualWidth, actualHeight;
-		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &actualWidth, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
+		float actualHeight;
+		dc.MeasureTextRect(dc.GetTheme().uiFont, scale, scale, text_, availWidth, &textW, &actualHeight, ALIGN_VCENTER | FLAG_WRAP_TEXT);
 		h = std::max(actualHeight, ITEM_HEIGHT);
 	} else {
 		h = std::max(imageH, ITEM_HEIGHT);
 	}
-	w = bounds_.w;
+	w = width > 0.0f ? width : textW + paddingX * 3 + imageW;
 }
 
 BitCheckBox::BitCheckBox(uint32_t *bitfield, uint32_t bit, std::string_view text, std::string_view smallText, LayoutParams *layoutParams)

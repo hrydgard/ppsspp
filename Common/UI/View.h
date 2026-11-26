@@ -999,6 +999,7 @@ public:
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 
 	//allow external agents to toggle the checkbox
