@@ -53,8 +53,8 @@ static const SamplerDef samplersStereo[3] = {
 // vec4 sampleTexture(highp vec2 uv), returning a premultiplied color for the texture coordinate uv. They're written
 // in the GLSL that also compiles as HLSL through ShaderWriter's macros, and get these to work with:
 //   texSize: the texture's size in texels. texScale: screen pixels per texel, on each axis.
-//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied, kept inside the sprite (see
-//   GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's sampler wrap/clamp.
+//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied (alpha 1 if the draw doesn't
+//   use texture alpha), kept inside the sprite (see GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's wrap/clamp.
 //   STATIC: put it before global variables (HLSL needs "static").
 static const char * const samplingPrelude = R"(
 STATIC highp vec2 texSize;
@@ -63,7 +63,9 @@ STATIC highp vec2 texLo;
 STATIC highp vec2 texHi;
 vec4 texFetch(highp vec2 texel) {
 	vec4 t = SAMPLING_TEX(clamp((floor(texel) + vec2(0.5, 0.5)) / texSize, texLo, texHi));
-	return vec4(t.rgb * t.a, t.a);
+	// Alpha counts only if the draw uses it: textures drawn RGB-only (like videos) often have alpha 0.
+	float a = max(t.a, u_texNoAlphaMul.x);
+	return vec4(t.rgb * a, a);
 }
 )";
 
