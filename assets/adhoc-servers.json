@@ -57,52 +57,6 @@
 			"icon": "/favicon.ico"
 		},
 		{
-			"name": "ArenaAnywhere SA",
-			"host": "relay-sa.arenaanywhere.site",
-			"discord": "https://discord.gg/GdsXWmNHq5",
-			"ip": "34.35.138.175",
-			"web": "https://arenaanywhere.site/lobby-status.html",
-			"location": "South Africa",
-			"location-emoji": "🇿🇦",
-			"description": "For players looking to play any games",
-			"status_data_json": "https://relay-sa.arenaanywhere.site/data.json",
-			"data_mode": "AemuPostoffice"
-		},
-		{
-			"name": "ArenaAnywhere EU",
-			"host": "relay.arenaanywhere.site",
-			"discord": "https://discord.gg/GdsXWmNHq5",
-			"ip": "34.91.25.46",
-			"web": "https://arenaanywhere.site/lobby-status.html",
-			"location": "Europe",
-			"location-emoji": "🇪🇺",
-			"description": "For players looking to play any games",
-			"status_data_json": "https://relay.arenaanywhere.site/data.json",
-			"data_mode": "AemuPostoffice"
-		},
-		{
-			"name": "ArenaAnywhere US",
-			"host": "relay-usa.arenaanywhere.site",
-			"discord": "https://discord.gg/GdsXWmNHq5",
-			"web": "https://arenaanywhere.site/lobby-status.html",
-			"location": "US",
-			"location-emoji": "🇺🇸",
-			"description": "For players looking to play any games",
-			"data_mode": "AemuPostoffice"
-		},
-		{
-			"name": "ArenaAnywhere Asia",
-			"host": "relay-asia.arenaanywhere.site",
-			"ip": "35.198.217.43",
-			"discord": "https://discord.gg/GdsXWmNHq5",
-			"web": "https://arenaanywhere.site/lobby-status.html",
-			"location": "Singapore",
-			"location-emoji": "🇸🇬",
-			"description": "For players looking to play any games",
-			"status_data_json": "https://relay-asia.arenaanywhere.site/data.json",
-			"data_mode": "AemuPostoffice"
-		},
-		{
 			"name": "Saya Akan Lawan! (beta)",
 			"host": "sayaakanlawan.my.id",
 			"discord": "",
@@ -223,6 +177,52 @@
 			"data_mode": "AemuPostoffice",
 			"status_data_json": "https://132.226.189.224/data.json",
 			"icon": "https://132.226.189.224/assets/favicon.svg"
+		},
+		{
+			"name": "ArenaAnywhere SA",
+			"host": "relay-sa.arenaanywhere.site",
+			"discord": "https://discord.gg/GdsXWmNHq5",
+			"ip": "34.35.138.175",
+			"web": "https://arenaanywhere.site/lobby-status.html",
+			"location": "South Africa",
+			"location-emoji": "🇿🇦",
+			"description": "For players looking to play any games",
+			"status_data_json": "https://relay-sa.arenaanywhere.site/data.json",
+			"data_mode": "AemuPostoffice"
+		},
+		{
+			"name": "ArenaAnywhere EU",
+			"host": "relay.arenaanywhere.site",
+			"discord": "https://discord.gg/GdsXWmNHq5",
+			"ip": "34.91.25.46",
+			"web": "https://arenaanywhere.site/lobby-status.html",
+			"location": "Europe",
+			"location-emoji": "🇪🇺",
+			"description": "For players looking to play any games",
+			"status_data_json": "https://relay.arenaanywhere.site/data.json",
+			"data_mode": "AemuPostoffice"
+		},
+		{
+			"name": "ArenaAnywhere US",
+			"host": "relay-usa.arenaanywhere.site",
+			"discord": "https://discord.gg/GdsXWmNHq5",
+			"web": "https://arenaanywhere.site/lobby-status.html",
+			"location": "US",
+			"location-emoji": "🇺🇸",
+			"description": "For players looking to play any games",
+			"data_mode": "AemuPostoffice"
+		},
+		{
+			"name": "ArenaAnywhere Asia",
+			"host": "relay-asia.arenaanywhere.site",
+			"ip": "35.198.217.43",
+			"discord": "https://discord.gg/GdsXWmNHq5",
+			"web": "https://arenaanywhere.site/lobby-status.html",
+			"location": "Singapore",
+			"location-emoji": "🇸🇬",
+			"description": "For players looking to play any games",
+			"status_data_json": "https://relay-asia.arenaanywhere.site/data.json",
+			"data_mode": "AemuPostoffice"
 		},
 		{
 			"name": "aemu_postoffice test server",
