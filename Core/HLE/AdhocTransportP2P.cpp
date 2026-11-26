@@ -206,7 +206,9 @@ int P2PTransport::DoBlockingPtpRecv(AdhocSocketRequest &req, s64 &result) {
 		// Update last recv timestamp
 		peerlock.lock();
 		auto peer = findFriend(&ptpsocket.paddr);
-		if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+		// Not for a peer that has left: reading what it sent before doesn't bring it back (pspautotests
+		// net/adhoc/pair/leftptp).
+		if (peer != NULL && peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 		peerlock.unlock();
 
 		// Set to Established on successful Recv when an attempt to Connect was initiated
@@ -1037,7 +1039,9 @@ int P2PTransport::PtpRecv(int id, void *buf, int *len, int timeout, int flag) {
 		// Update last recv timestamp, may cause disconnection not detected properly tho
 		peerlock.lock();
 		auto peer = findFriend(&ptpsocket.paddr);
-		if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
+		// Not for a peer that has left: reading what it sent before doesn't bring it back (pspautotests
+		// net/adhoc/pair/leftptp).
+		if (peer != NULL && peer->last_recv != 0) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 		peerlock.unlock();
 
 		DEBUG_LOG(Log::sceNet, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u\n", id, ptpsocket.lport, received, mac2str(&ptpsocket.paddr).c_str(), ptpsocket.pport);
