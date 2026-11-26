@@ -41,14 +41,11 @@ public:
 		bool italic = (styleFlags & FontStyleFlags::Italic);
 		int height = style.sizePts;
 
-		if (hFont) {
-			Destroy();
-		}
 		// We apparently specify all font sizes in pts (1pt = 1.33px), so divide by only 72 for pixels.
 		int nHeight = -MulDiv(height, (int)(96.0f * (1.0f / dpiScale)), 72);
 		hFont = CreateFont(nHeight, 0, 0, 0, weight, italic,
 			FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS, PROOF_QUALITY,
+			CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,  // Grayscale: ClearType's colored fringes don't survive taking one channel as alpha.
 			VARIABLE_PITCH, ConvertUTF8ToWString(fontName).c_str());
 	}
 
@@ -143,7 +140,7 @@ void TextDrawerWin32::MeasureStringInternal(const FontStyle &style, std::string_
 
 	int extW = 0, extH = 0;
 	for (auto &line : lines) {
-		SIZE size;
+		SIZE size{};
 		std::wstring wstr = ConvertUTF8ToWString(line);
 		if (wstr.empty() && lines.size() > 1) {
 			// Measure empty lines as if it was a space.
@@ -164,20 +161,28 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 		bitmapData.clear();
 		return false;
 	}
-	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
-
 	auto iter = fontMap_.find(style);
-	if (iter != fontMap_.end()) {
-		SelectObject(ctx_->hDC, iter->second->hFont);
+	if (iter == fontMap_.end()) {
+		ERROR_LOG(Log::G3D, "Failed to draw string, font missing");
+		bitmapData.clear();
+		return false;
 	}
+	SelectObject(ctx_->hDC, iter->second->hFont);
+
+	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 
 	// Set text properties
 	SetTextColor(ctx_->hDC, 0xFFFFFF);
 	SetBkColor(ctx_->hDC, 0);
 	SetTextAlign(ctx_->hDC, TA_TOP);
 
-	// This matters for multi-line text - DT_CENTER is horizontal only.
-	UINT dtAlign = (align & ALIGN_HCENTER) == 0 ? DT_LEFT : DT_CENTER;
+	// This matters for multi-line text - DT_CENTER and DT_RIGHT are horizontal only.
+	UINT dtAlign = DT_LEFT;
+	if (align & ALIGN_HCENTER) {
+		dtAlign = DT_CENTER;
+	} else if (align & ALIGN_RIGHT) {
+		dtAlign = DT_RIGHT;
+	}
 
 	RECT textRect = { 0 };
 	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &textRect, DT_NOPREFIX | DT_TOP | dtAlign | DT_CALCRECT, 0);
@@ -207,6 +212,8 @@ bool TextDrawerWin32::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 	rc.right = entry.bmWidth;
 	rc.bottom = entry.bmHeight;
 	FillRect(ctx_->hDC, &rc, (HBRUSH)GetStockObject(BLACK_BRUSH));
+	// Align within the text's width, not the padded bitmap's.
+	rc.right = size.cx;
 	DrawTextExW(ctx_->hDC, (LPWSTR)wstr.c_str(), (int)wstr.size(), &rc, DT_NOPREFIX | DT_TOP | dtAlign, 0);
 
 	// Convert the bitmap to a Thin3D compatible array of 16-bit pixels. Can't use a single channel format
