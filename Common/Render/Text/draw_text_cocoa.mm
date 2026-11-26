@@ -354,10 +354,11 @@ bool TextDrawerCocoa::DrawStringBitmap(const FontStyle &style, std::vector<uint8
 			for (int x = 0; x < entry.bmWidth; x++) {
 				uint32_t color = bitmap[bmWidth * y + x];
 				if (fullColor) {
-					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(color);
+					// The context is kCGImageAlphaPremultipliedLast already.
+					bitmapData32[entry.bmWidth * y + x] = color;
 				} else {
 					// Don't know why we'd end up here, but let's support it.
-					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(color);
+					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(color >> 24);
 				}
 			}
 		}

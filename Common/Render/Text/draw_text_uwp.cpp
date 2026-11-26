@@ -401,7 +401,8 @@ bool TextDrawerUWP::DrawStringBitmap(const FontStyle &style, std::vector<uint8_t
 				if (fullColor) {
 					if (swap)
 						v = (v & 0xFF00FF00) | ((v >> 16) & 0xFF) | ((v << 16) & 0xFF0000);
-					bitmapData32[entry.bmWidth * y + x] = RGBAToPremul8888(v);
+					// The D2D bitmap is premultiplied already.
+					bitmapData32[entry.bmWidth * y + x] = v;
 				} else {
 					bitmapData32[entry.bmWidth * y + x] = AlphaToPremul8888(v >> 24);
 				}
