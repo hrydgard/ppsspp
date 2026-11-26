@@ -479,7 +479,8 @@ enum : u32 {
 	GPU_USE_SCREEN_LINEAR_COLOR = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	// Free bit: 10-12
+	GPU_USE_TEX_XBRZ = FLAG_BIT(10),  // Textures are sampled through xBRZ freescale in the fragment shader.
+	// Free bit: 11-12
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_SAMPLER_LOD_CONTROL = FLAG_BIT(15),

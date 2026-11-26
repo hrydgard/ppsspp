@@ -48,6 +48,95 @@ static const SamplerDef samplersStereo[3] = {
 	{ 2, "pal" },
 };
 
+// xBRZ freescale (after Hyllian's xbrz-freescale shader and the DeSmuME team's 4xBRZ), evaluated at each texture
+// sample on the texture's own texel grid. Because it works on texels rather than screen pixels, the result stays the
+// same however the texture is moved, scaled or blended. Colors are premultiplied so transparent texels don't fringe.
+// Only the bottom-right corner of the center texel is written out; the other three are rotations of it.
+static const char * const xbrzSampleFunctions = R"(
+float xbDist(vec4 a, vec4 b) {
+	vec3 d = a.rgb - b.rgb;
+	float Y = dot(d, vec3(0.2627, 0.6780, 0.0593));
+	float Cb = 0.5 / (1.0 - 0.0593) * (d.b - Y);
+	float Cr = 0.5 / (1.0 - 0.2627) * (d.r - Y);
+	return sqrt(Y * Y + Cb * Cb + Cr * Cr) + abs(a.a - b.a);
+}
+bool xbEq(vec4 a, vec4 b) { return xbDist(a, b) < 0.001; }
+bool xbPixEq(vec4 a, vec4 b) { return xbDist(a, b) < 30.0 / 255.0; }
+float xbRatio(highp vec2 pos, vec2 origin, vec2 dir, highp vec2 scale) {
+	highp vec2 p0 = pos - origin;
+	highp vec2 distv = p0 - dir * (dot(p0, dir) / dot(dir, dir));
+	float side = sign(dot(p0, vec2(-dir.y, dir.x)));
+	return smoothstep(-0.70710678, 0.70710678, side * length(distv * scale));
+}
+int xbPre(vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I, vec4 H5, vec4 I5, vec4 F4, vec4 I4) {
+	if ((xbEq(E, F) && xbEq(H, I)) || (xbEq(E, H) && xbEq(F, I))) return 0;
+	float dHF = xbDist(G, E) + xbDist(E, C) + xbDist(H5, I) + xbDist(I, F4) + 4.0 * xbDist(H, F);
+	float dEI = xbDist(D, H) + xbDist(H, I5) + xbDist(B, F) + xbDist(F, I4) + 4.0 * xbDist(E, I);
+	if (!(dHF < dEI) || xbEq(E, F) || xbEq(E, H)) return 0;
+	return (3.6 * dHF < dEI) ? 2 : 1;
+}
+vec4 xbBlend(vec4 res, int bZ, int bY, int bW, vec4 B, vec4 C, vec4 D, vec4 E, vec4 F, vec4 G, vec4 H, vec4 I, highp vec2 pos, highp vec2 scale) {
+	if (bZ == 0) return res;
+	float dFG = xbDist(F, G);
+	float dHC = xbDist(H, C);
+	bool doLine = bZ == 2 || !((bY != 0 && !xbPixEq(E, G)) || (bW != 0 && !xbPixEq(E, C)) ||
+		(xbPixEq(G, H) && xbPixEq(H, I) && xbPixEq(I, F) && xbPixEq(F, C) && !xbPixEq(E, I)));
+	vec2 origin = vec2(0.0, 0.70710678);
+	vec2 dir = vec2(1.0, -1.0);
+	if (doLine) {
+		bool shallow = 2.2 * dFG <= dHC && !xbEq(E, G) && !xbEq(D, G);
+		bool steep = 2.2 * dHC <= dFG && !xbEq(E, C) && !xbEq(B, C);
+		origin = vec2(0.0, shallow ? 0.25 : 0.5);
+		dir.x += shallow ? 1.0 : 0.0;
+		dir.y -= steep ? 1.0 : 0.0;
+	}
+	vec4 blendPix = mix(H, F, step(xbDist(E, F), xbDist(E, H)));
+	return mix(res, blendPix, xbRatio(pos, origin, dir, scale));
+}
+vec4 xbT(highp vec2 c) { vec4 t = XBRZ_TEX(c); return vec4(t.rgb * t.a, t.a); }
+vec4 xbrzSample(highp vec2 uv, highp vec2 size, highp vec2 scale) {
+	highp vec2 tc = uv * size;
+	highp vec2 pos = fract(tc) - vec2(0.5, 0.5);
+	highp vec2 c = (floor(tc) + vec2(0.5, 0.5)) / size;
+	highp vec2 dx = vec2(1.0 / size.x, 0.0);
+	highp vec2 dy = vec2(0.0, 1.0 / size.y);
+	vec4 A = xbT(c - dx - dy); vec4 B = xbT(c - dy); vec4 C = xbT(c + dx - dy);
+	vec4 D = xbT(c - dx); vec4 E = xbT(c); vec4 F = xbT(c + dx);
+	vec4 G = xbT(c - dx + dy); vec4 H = xbT(c + dy); vec4 I = xbT(c + dx + dy);
+	vec4 A1 = xbT(c - dx - 2.0 * dy); vec4 C1 = xbT(c + dx - 2.0 * dy);
+	vec4 A0 = xbT(c - 2.0 * dx - dy); vec4 G0 = xbT(c - 2.0 * dx + dy);
+	vec4 C4 = xbT(c + 2.0 * dx - dy); vec4 I4 = xbT(c + 2.0 * dx + dy);
+	vec4 G5 = xbT(c - dx + 2.0 * dy); vec4 I5 = xbT(c + dx + 2.0 * dy);
+	vec4 B1 = xbT(c - 2.0 * dy); vec4 D0 = xbT(c - 2.0 * dx);
+	vec4 H5 = xbT(c + 2.0 * dy); vec4 F4 = xbT(c + 2.0 * dx);
+	int bZ = xbPre(B, C, D, E, F, G, H, I, H5, I5, F4, I4);
+	int bW = xbPre(F, I, B, E, H, A, D, G, D0, G0, H5, G5);
+	int bY = xbPre(D, A, H, E, B, I, F, C, F4, C4, B1, C1);
+	int bX = xbPre(H, G, F, E, D, C, B, A, B1, A1, D0, A0);
+	vec4 res = E;
+	res = xbBlend(res, bZ, bY, bW, B, C, D, E, F, G, H, I, pos, scale);
+	res = xbBlend(res, bW, bZ, bX, F, I, B, E, H, A, D, G, vec2(pos.y, -pos.x), scale.yx);
+	res = xbBlend(res, bY, bX, bZ, D, A, H, E, B, I, F, C, vec2(-pos.y, pos.x), scale.yx);
+	res = xbBlend(res, bX, bW, bY, H, G, F, E, D, C, B, A, -pos, scale);
+	return vec4(res.rgb / max(res.a, 0.00001), res.a);
+}
+)";
+
+static void WriteXBRZSampleFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat) {
+	if (compat.shaderLanguage == HLSL_D3D11) {
+		p.C("#define XBRZ_TEX(c) tex.SampleLevel(texSamp, c, 0.0)\n");
+		p.C("float2 xbrzTexSize() { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+	} else {
+		p.C("#define XBRZ_TEX(c) textureLod(tex, c, 0.0)\n");
+		p.C("highp vec2 xbrzTexSize() { return vec2(textureSize(tex, 0)); }\n");
+	}
+	// The distance sums overflow lowp. The default goes back to lowp for main (useXBRZ excludes the CLUT8 path,
+	// the only one that raises it).
+	p.HighPrecisionFloat();
+	p.W(xbrzSampleFunctions);
+	p.LowPrecisionFloat();
+}
+
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
 	*fragmentShaderFlags = (FragmentShaderFlags)0;
@@ -522,6 +611,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
+	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
+	const bool useXBRZ = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_XBRZ) && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
+	if (useXBRZ) {
+		WriteXBRZSampleFunctions(p, compat);
+	}
+
 	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
@@ -695,6 +790,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, %s.xy%s);\n", compat.texture, texcoord, lodBias);
 						}
 					}
+				}
+				if (useXBRZ) {
+					// Only where a texel covers more than a pixel (fully from two). fwidth stays outside the branch.
+					const char *uv = doTextureProjection ? "xbrzProjUV" : texcoord;
+					if (doTextureProjection) {
+						WRITE(p, "  highp vec2 xbrzProjUV = %s.xy / %s.z;\n", texcoord, texcoord);
+					}
+					WRITE(p, "  highp vec2 xbrzSize = xbrzTexSize();\n");
+					WRITE(p, "  highp vec2 xbrzScale = 1.0 / max(fwidth(%s.xy * xbrzSize), vec2(0.000001, 0.000001));\n", uv);
+					WRITE(p, "  float xbrzAmount = smoothstep(1.0, 2.0, min(xbrzScale.x, xbrzScale.y));\n");
+					WRITE(p, "  if (xbrzAmount > 0.0) {\n");
+					WRITE(p, "    t = mix(t, xbrzSample(%s.xy, xbrzSize, xbrzScale), xbrzAmount);\n", uv);
+					WRITE(p, "  }\n");
 				}
 				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
 					// The PSP's bilinear filter weighs the texels in 1/16ths and truncates each lerp to 8 bits (see SampleLinear

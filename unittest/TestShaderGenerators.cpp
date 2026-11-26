@@ -564,5 +564,13 @@ bool TestShaderGenerators() {
 		return false;
 	}
 
+	// Again with xBRZ texture sampling.
+	gstate_c.SetUseFlags(oldFlags | GPU_USE_TEX_XBRZ);
+	const bool xbrzResult = TestFragmentShaders();
+	gstate_c.SetUseFlags(oldFlags);
+	if (!xbrzResult) {
+		return false;
+	}
+
 	return true;
 } 

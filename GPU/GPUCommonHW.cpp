@@ -621,6 +621,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	// Needs textureSize, textureLod and fwidth in the fragment shader.
+	if (g_Config.bTexShaderXBRZ && draw_->GetShaderLanguageDesc().glslES30) {
+		features |= GPU_USE_TEX_XBRZ;
+	}
+
 	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}

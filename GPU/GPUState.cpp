@@ -391,7 +391,7 @@ static constexpr const char * g_gpuUseFlagNames[32] = {
 	"GPU_USE_SCREEN_LINEAR_COLOR",
 	"GPU_USE_ANISOTROPY",
 	"GPU_USE_CLEAR_RAM_HACK",
-	"N/A",
+	"GPU_USE_TEX_XBRZ",
 	"N/A",
 	"N/A",
 	"GPU_USE_16BIT_FORMATS",

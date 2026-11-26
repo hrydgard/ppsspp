@@ -341,6 +341,7 @@ public:
 
 	int iTexFiltering; // 1 = auto , 2 = nearest , 3 = linear , 4 = auto max quality
 	bool bSmart2DTexFiltering;
+	bool bTexShaderXBRZ;
 
 	// We'll carry over the old single layout into landscape for now.
 	DisplayLayoutConfig displayLayoutLandscape;

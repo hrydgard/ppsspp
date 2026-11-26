@@ -376,6 +376,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Setting(&g_Config.iAnisotropyLevel).Disabled(&g_Config.bSoftwareRendering);
 	page->Setting(&g_Config.iTexFiltering).Disabled(&g_Config.bSoftwareRendering);
 	page->Setting(&g_Config.bSmart2DTexFiltering).Disabled(&g_Config.bSoftwareRendering);
+	page->Setting(&g_Config.bTexShaderXBRZ).Disabled(&g_Config.bSoftwareRendering);
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	bool showCardboardSettings = deviceType != DEVICE_TYPE_VR;

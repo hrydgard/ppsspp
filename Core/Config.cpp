@@ -982,6 +982,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Texture Filter").Choices(texFilteringNames, 1),
 	ConfigSetting("Smart2DTexFiltering", SETTING(g_Config, bSmart2DTexFiltering), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::GRAPHICS, "Smart 2D texture filtering"),
+	ConfigSetting("TextureShaderXBRZ", SETTING(g_Config, bTexShaderXBRZ), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
+		.Label(I18NCat::GRAPHICS, "xBRZ texture sampling").OnChanged(&OnGPUConfigChanged),
 	ConfigSetting("InternalResolution", SETTING(g_Config, iInternalResolution), &DefaultInternalResolution, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::GRAPHICS, "Rendering Resolution").Choices(internalResolutionNames).OnChanged(&OnInternalResolutionChanged),
 	ConfigSetting("AndroidHwScale", SETTING(g_Config, iAndroidHwScale), 0, CfgFlag::DEFAULT)
