@@ -568,6 +568,9 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 	}
 	Android_StorageSetActivity(newActivity);
 
+	// Only sent when the UI state changes, so an activity recreated in-game wouldn't get it.
+	PushCommand("set_keep_screen_bright", GetUIState() == UISTATE_INGAME ? "on" : "off");
+
 	// An activity that gets recreated (rotation, resize) never unregisters, so this is where we let go
 	// of it. Used to leak the whole activity, once per rotation.
 	if (oldActivity) {
@@ -741,6 +744,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	g_extFilesDir = externalFilesDir;
 	VulkanSetNativeLibDir(nativeLibDir);
 
+	// init runs again on a graphics restart, and SplitString appends.
+	g_additionalStorageDirs.clear();
 	if (!additionalStorageDirsString.empty()) {
 		SplitString(additionalStorageDirsString, ':', g_additionalStorageDirs);
 		for (auto &str : g_additionalStorageDirs) {
@@ -911,14 +916,17 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 	if (!g_audioState) {
 		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
 	} else {
-		ERROR_LOG(Log::Audio, "Audio state already initialized");
+		// A new activity while the native side kept running. The state is only shut down with it.
+		INFO_LOG(Log::Audio, "Audio state already initialized, keeping it");
 	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioShutdown(JNIEnv *, jclass) {
 	if (g_audioState) {
-		AndroidAudio_Shutdown(g_audioState);
-		g_audioState = nullptr;
+		// It refuses while a stream is open, and the stream's callback still needs the state then.
+		if (AndroidAudio_Shutdown(g_audioState)) {
+			g_audioState = nullptr;
+		}
 	} else {
 		ERROR_LOG(Log::Audio, "Audio state already shutdown!");
 	}
@@ -999,8 +1007,12 @@ struct PendingResize {
 };
 static std::mutex g_pendingResizeLock;
 static std::optional<PendingResize> g_pendingResize;
+// Set when a resize was applied while nothing was drawing. NativeInitGraphics drops the notification
+// that ApplyResize sent, so the render loop sends it again once the graphics are up.
+static std::atomic<bool> g_resizedWhileDown;
 
-static void ApplyResize(const PendingResize &resize) {
+// Returns true if it notified the app of a change.
+static bool ApplyResize(const PendingResize &resize) {
 	const int old_w = g_display.pixel_xres;
 	const int old_h = g_display.pixel_yres;
 	const int old_dp_w = g_display.dp_xres;
@@ -1015,9 +1027,10 @@ static void ApplyResize(const PendingResize &resize) {
 		INFO_LOG(Log::G3D, "%s detected (previously %dx%d px, %dx%d dp) - calling NativeResized()",
 			new_size ? "Size change" : "Rotation change", old_w, old_h, old_dp_w, old_dp_h);
 		NativeResized();
-	} else {
-		INFO_LOG(Log::G3D, "ApplyResize: Size didn't change.");
+		return true;
 	}
+	INFO_LOG(Log::G3D, "ApplyResize: Size didn't change.");
+	return false;
 }
 
 // On the render thread, before each frame.
@@ -1125,7 +1138,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	} else {
 		// Nothing is drawing, so nothing reads g_display. runRenderLoop is on this thread, so that can't change under us.
 		g_pendingResize.reset();
-		ApplyResize(resize);
+		if (ApplyResize(resize)) {
+			g_resizedWhileDown = true;
+		}
 	}
 }
 
@@ -1216,12 +1231,17 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("infrared_command", param1);
 		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
-		// From the CPU thread. Starting and stopping go through Java, which asks for permission.
+		// From the CPU thread. Starting goes through Java, which asks for permission.
 		if (param1 == "pollRecording") {
 			AndroidAudio_Recording_Poll();
 			return true;
 		} else if (param1 == "deviceChanged") {
 			// There's no device choice on Android.
+			return true;
+		} else if (param1 == "stopRecording") {
+			// Needs no permission, so no need for Java. A command could be dropped between activities,
+			// and the next activity's resume would then start the mic again.
+			AndroidAudio_Recording_Stop(g_audioState);
 			return true;
 		}
 		if (startsWith(param1, "startRecording:")) {
@@ -1387,8 +1407,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
 		last_y = y;
 	}
 
-	x *= g_display.dpi_scale_x;
-	y *= g_display.dpi_scale_y;
+	// The same view-to-backbuffer scaling as touch.
+	x *= display_scale_x * g_display.dpi_scale_x;
+	y *= display_scale_y * g_display.dpi_scale_y;
 
 	if (button == 0) {
 		// It's a pure mouse move.
@@ -1417,10 +1438,13 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
 	if (button) {
 		KeyInput keyInput{};
 		keyInput.deviceId = DEVICE_ID_MOUSE;
+		// MotionEvent.BUTTON_* bits, from getActionButton().
 		switch (button) {
 		case 1: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_1; break;
 		case 2: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_2; break;
-		case 3: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
+		case 4: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_3; break;
+		case 8: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_4; break;
+		case 16: keyInput.keyCode = NKCODE_EXT_MOUSEBUTTON_5; break;
 		default: WARN_LOG(Log::System, "Unexpected mouse button %d", button);
 		}
 		keyInput.flags = action == 1 ? KeyInputFlags::DOWN : KeyInputFlags::UP;
@@ -1440,6 +1464,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_mouseWheelEvent(
 	int wheelDelta = y * (float)WHEEL_DELTA_PER_NOTCH;
 	if (wheelDelta > maxDelta) wheelDelta = maxDelta;
 	if (wheelDelta < -maxDelta) wheelDelta = -maxDelta;
+	if (wheelDelta == 0) {
+		// Horizontal scrolling, or less than a notch's worth.
+		return false;
+	}
 
 	KeyInput key;
 	key.deviceId = DEVICE_ID_MOUSE;
@@ -1839,6 +1867,9 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 	// The frame callback runs on the emu thread, which with OpenGL isn't this one.
 	PerformanceHintSession perfHint;
 	const auto frame = [&perfHint](GraphicsContext *graphicsContext) {
+		if (g_resizedWhileDown.exchange(false)) {
+			NativeResized();
+		}
 		ApplyPendingResize();
 		NativeFrame(graphicsContext);
 		ProcessFrameCommands();
@@ -1905,15 +1936,25 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	jobject activityRef = nullptr;
 
 	bool teardownThreadManager = false;
-	// Maybe we should just check ppssppActivity instead.
 	if (!g_threadManager.IsInitialized()) {
 		teardownThreadManager = true;
 		g_threadManager.Init(1, 1);
 		g_logManager.SetOutputsEnabled(LogOutput::Stdio);
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
+		INFO_LOG(Log::System, "No thread manager - initializing one");
+	}
+
+	// The native side can outlive PpssppActivity (backed out of, not exited), which unregisters itself
+	// from storage. Content URIs need an activity, so lend ours. Both of these run on the UI thread, so
+	// one can't register in between.
+	bool hasActivity;
+	{
+		std::lock_guard<std::mutex> guard(g_activityLock);
+		hasActivity = ppssppActivity != nullptr;
+	}
+	if (!hasActivity) {
 		activityRef = env->NewGlobalRef(activity);
 		Android_StorageSetActivity(activityRef);
-		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 
 	Path path = Path(GetJavaString(env, jpath));
@@ -1929,18 +1970,25 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 		env->SetByteArrayRegion(gameIcon, 0, (jsize)iconData.size(), (const jbyte *)iconData.data());
 	}
 
+	if (activityRef) {
+		Android_StorageSetActivity(nullptr);
+	}
 	if (teardownThreadManager) {
 		g_logManager.SetOutputsEnabled((LogOutput)0);
-		Android_StorageSetActivity(nullptr);
 		g_threadManager.Teardown();
 	}
 
 	// Construct a Java Object[] with two entries: name (String), icon (byte[])
 	jobjectArray result = env->NewObjectArray(2, env->FindClass("java/lang/Object"), nullptr);
 
-	jstring jname = env->NewStringUTF(gameName.c_str());
-	env->SetObjectArrayElement(result, 0, jname);
-	env->DeleteLocalRef(jname);
+	// A null name leaves Java with its fallback, the file name.
+	if (!gameName.empty()) {
+		std::string modifiedName;
+		ConvertUTF8ToJavaModifiedUTF8(&modifiedName, gameName);
+		jstring jname = env->NewStringUTF(modifiedName.c_str());
+		env->SetObjectArrayElement(result, 0, jname);
+		env->DeleteLocalRef(jname);
+	}
 
 	if (gameIcon != nullptr) {
 		env->SetObjectArrayElement(result, 1, gameIcon);
