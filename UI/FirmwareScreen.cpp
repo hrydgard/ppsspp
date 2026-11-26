@@ -159,9 +159,6 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (fullFirmware || info_.hasVsh) {
 		content->Add(new InfoItem(sy->T("XMB (VSH)"), info_.hasVsh ? di->T("Yes") : di->T("No")));
 	}
-	if (fullFirmware) {
-		content->Add(new InfoItem(sy->T("Files"), info_.fileCount));
-	}
 	content->Add(new InfoItem(st->T("Size"), NiceSizeFormat(info_.totalSize)));
 }
 
