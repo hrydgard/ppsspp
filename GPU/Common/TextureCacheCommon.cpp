@@ -552,6 +552,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		Unbind();
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
@@ -891,6 +892,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		// defaults afterwards would undo its work, breaking depal-from-framebuffer entirely.
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		gstate_c.SetTextureIsArray(framebuffer != nullptr);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
@@ -1008,6 +1010,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		return TextureApplyResult{};
 	} else {
 		if (doBind) {
@@ -1015,6 +1018,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
+		gstate_c.SetTextureReplaced(entry->replacedTexture && entry->replacedTexture->State() == ReplacementState::ACTIVE);
 		if (entry->status & TexStatus::CLUT8_INDEXED) {
 			bool smoothedDepal = false;
 			u32 depthUpperBits = 0;

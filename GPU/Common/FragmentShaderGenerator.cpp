@@ -290,6 +290,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
+	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
+	const bool useXBRZ = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_XBRZ) && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
+
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
@@ -439,6 +442,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 			WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
+			if (useXBRZ) {
+				WRITE(p, "uniform float u_texNoXBRZ;\n");
+			}
 		}
 
 		if (readFramebufferTex) {
@@ -611,8 +617,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
-	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
-	const bool useXBRZ = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_XBRZ) && compat.glslES30 && !texture3D && !arrayTexture && shaderDepalMode == ShaderDepalMode::OFF;
 	if (useXBRZ) {
 		WriteXBRZSampleFunctions(p, compat);
 	}
@@ -799,7 +803,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					}
 					WRITE(p, "  highp vec2 xbrzSize = xbrzTexSize();\n");
 					WRITE(p, "  highp vec2 xbrzScale = 1.0 / max(fwidth(%s.xy * xbrzSize), vec2(0.000001, 0.000001));\n", uv);
-					WRITE(p, "  float xbrzAmount = smoothstep(1.0, 2.0, min(xbrzScale.x, xbrzScale.y));\n");
+					// u_texNoXBRZ is 1 for textures from a replacement pack.
+					WRITE(p, "  float xbrzAmount = smoothstep(1.0, 2.0, min(xbrzScale.x, xbrzScale.y)) * (1.0 - u_texNoXBRZ);\n");
 					WRITE(p, "  if (xbrzAmount > 0.0) {\n");
 					WRITE(p, "    t = mix(t, xbrzSample(%s.xy, xbrzSize, xbrzScale), xbrzAmount);\n", uv);
 					WRITE(p, "  }\n");

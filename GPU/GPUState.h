@@ -576,6 +576,12 @@ struct GPUStateCache {
 			Dirty(DIRTY_FRAGMENTSHADER_STATE | (is3D ? DIRTY_MIPBIAS : 0));
 		}
 	}
+	void SetTextureReplaced(bool replaced) {
+		if (replaced != textureReplaced) {
+			textureReplaced = replaced;
+			Dirty(DIRTY_TEX_ALPHA_MUL);  // Carries u_texNoXBRZ.
+		}
+	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only
 		if (textureIsArray != isArrayTexture) {
 			textureIsArray = isArrayTexture;
@@ -646,6 +652,8 @@ public:
 	bool curTextureIs3D;
 	// TruncateBilinear (compat.ini) is on and the current sampler filters linearly. See FS_BIT_TRUNCATE_BILINEAR.
 	bool truncateBilinear;
+	// The bound texture comes from a replacement pack, so xBRZ texture sampling leaves it alone.
+	bool textureReplaced;
 
 	// Cached 4x4 products of the matrices.
 	// Useful for culling and extracing the final Z from vertices (so we can check if clipping is needed).
