@@ -65,24 +65,28 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 	}
 
 	float chromeWidth = iconW + m * 2.0f + 12.0f + padding * 2.0f;
-	float availableWidth = maxWidth - chromeWidth;
 
-	// OK, now that we have figured out how much space we have for the text, we can measure it (with wrapping if needed).
-	// We currently don't wrap the title.
+	// Wrap at the widths of the rects RenderNotice draws the texts into, or the measured height can have
+	// a line more or less than the drawn text.
+	const float textX = padding * 2.0f + iconW + m * 2.0f;
+	const float titleWrapWidth = maxWidth - textX - 3.0f;  // primaryBounds.Inset(2.0f, 0.0f, 1.0f, 0.0f)
+	const float detailsWrapWidth = maxWidth - textX - 8.0f;  // bottomTextBounds, then Inset(1.0f, 1.0f)
 
 	float titleWidth, titleHeight;
-	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text, availableWidth, &titleWidth, &titleHeight, align);
+	dc.MeasureTextRect(dc.GetTheme().uiFont, 1.0f, 1.0f, text, titleWrapWidth, &titleWidth, &titleHeight, align);
 
-	*width = std::min(titleWidth, availableWidth);
+	*width = titleWidth;
 	*height1 = titleHeight;
 
 	float width2 = 0.0f, height2 = 0.0f;
 	if (!details.empty()) {
-		dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, details, availableWidth, &width2, &height2, align | FLAG_WRAP_TEXT);
+		dc.MeasureTextRect(dc.GetTheme().uiFontSmall, 1.0f, 1.0f, details, detailsWrapWidth, &width2, &height2, align | FLAG_WRAP_TEXT);
 		*width = std::max(*width, width2);
 	}
 
-	*width += chromeWidth;
+	// When the box is sized from this, its text rects are at least as wide as the wrapped text and at
+	// most as wide as the wrap widths above, so the text wraps the same when drawn.
+	*width = std::min(*width + chromeWidth, maxWidth);
 	if (height2 == 0.0f && iconH < 2.0f * *height1) {
 		// Center vertically using the icon.
 		*height1 = std::max(*height1, iconH + m * 2.0f);
