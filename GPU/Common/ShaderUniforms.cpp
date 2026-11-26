@@ -74,6 +74,15 @@ void CalcTexClamp(float texClamp[4], float texClampOffset[2]) {
 	texClampOffset[1] = gstate_c.curTextureYOffset * invH;
 }
 
+float TextureSamplingMode() {
+	if (gstate_c.textureReplaced) {
+		return 1.0f;
+	}
+	// Texture alpha only reaches the screen through alpha test or blending. Without them (videos often have alpha 0
+	// and draw without), sampling has to keep the colors as if alpha were 1.
+	return (gstate.isAlphaTestEnabled() || gstate.isAlphaBlendEnabled()) ? 0.0f : 0.5f;
+}
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBufferedRendering, bool pixelMapped) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
 		Uint8x3ToFloat3(ub->texEnvColor, gstate.texenvcolor);
@@ -161,7 +170,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		}
 		ub->texNoAlpha = doTextureAlpha ? 0.0f : 1.0f;
 		ub->texMul = gstate.isColorDoublingEnabled() ? 2.0f : 1.0f;
-		ub->texNoSampling = gstate_c.textureReplaced ? 1.0f : 0.0f;
+		ub->texNoSampling = TextureSamplingMode();
 	}
 
 	if (dirtyUniforms & DIRTY_STENCILREPLACEVALUE) {

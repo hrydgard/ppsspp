@@ -329,7 +329,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		}
 		float noAlphaMul[2] = { doTextureAlpha ? 0.0f : 1.0f, gstate.isColorDoublingEnabled() ? 2.0f : 1.0f };
 		render_->SetUniformF(&u_texNoAlphaMul, 2, noAlphaMul);
-		float noSampling = gstate_c.textureReplaced ? 1.0f : 0.0f;
+		float noSampling = TextureSamplingMode();
 		render_->SetUniformF(&u_texNoSampling, 1, &noSampling);
 	}
 	if (dirty & DIRTY_ALPHACOLORREF) {

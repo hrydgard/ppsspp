@@ -580,7 +580,7 @@ struct GPUStateCache {
 	void SetTextureReplaced(bool replaced) {
 		if (replaced != textureReplaced) {
 			textureReplaced = replaced;
-			Dirty(DIRTY_TEX_ALPHA_MUL);  // Carries u_texNoSampling.
+			Dirty(DIRTY_TEX_ALPHA_MUL);  // Carries u_texNoSampling (TextureSamplingMode).
 		}
 	}
 	void SetTextureIsArray(bool isArrayTexture) {  // VK only

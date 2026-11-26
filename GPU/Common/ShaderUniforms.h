@@ -135,6 +135,10 @@ void DirtyDepalForDraw(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
+// u_texNoSampling: 0 = texture sampling with texture alpha, 0.5 = sampling with alpha as 1 (it can't reach the
+// screen), 1 = no sampling (a texture from a replacement pack).
+float TextureSamplingMode();
+
 // Computes u_texclamp and u_texclampoff. Only meaningful when gstate_c.needShaderTexClamp is set.
 void CalcTexClamp(float texClamp[4], float texClampOffset[2]);
 // The part of a video texture the frame fills, and whether it's smaller than the texture.

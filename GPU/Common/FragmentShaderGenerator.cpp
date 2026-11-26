@@ -53,8 +53,8 @@ static const SamplerDef samplersStereo[3] = {
 // vec4 sampleTexture(highp vec2 uv), returning a premultiplied color for the texture coordinate uv. They're written
 // in the GLSL that also compiles as HLSL through ShaderWriter's macros, and get these to work with:
 //   texSize: the texture's size in texels. texScale: screen pixels per texel, on each axis.
-//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied (alpha 1 if the draw doesn't
-//   use texture alpha), kept inside the sprite (see GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's wrap/clamp.
+//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied (alpha 1 if texture alpha can't
+//   reach the screen), kept inside the sprite (see GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's wrap/clamp.
 //   STATIC: put it before global variables (HLSL needs "static").
 static const char * const samplingPrelude = R"(
 STATIC highp vec2 texSize;
@@ -63,8 +63,8 @@ STATIC highp vec2 texLo;
 STATIC highp vec2 texHi;
 vec4 texFetch(highp vec2 texel) {
 	vec4 t = SAMPLING_TEX(clamp((floor(texel) + vec2(0.5, 0.5)) / texSize, texLo, texHi));
-	// Alpha counts only if the draw uses it: textures drawn RGB-only (like videos) often have alpha 0.
-	float a = max(t.a, u_texNoAlphaMul.x);
+	// Alpha counts only if it can reach the screen (see TextureSamplingMode): videos often have alpha 0.
+	float a = max(t.a, max(u_texNoAlphaMul.x, step(0.25, u_texNoSampling)));
 	return vec4(t.rgb * a, a);
 }
 )";
@@ -787,8 +787,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					}
 					WRITE(p, "  highp vec2 samplingSize = samplingTexSize();\n");
 					WRITE(p, "  highp vec2 samplingScale = 1.0 / max(fwidth(%s.xy * samplingSize), vec2(0.000001, 0.000001));\n", uv);
-					// u_texNoSampling is 1 for textures from a replacement pack.
-					WRITE(p, "  float samplingAmount = smoothstep(1.0, 2.0, min(samplingScale.x, samplingScale.y)) * (1.0 - u_texNoSampling);\n");
+					// u_texNoSampling is 1 for textures from a replacement pack (see TextureSamplingMode).
+					WRITE(p, "  float samplingAmount = smoothstep(1.0, 2.0, min(samplingScale.x, samplingScale.y)) * step(u_texNoSampling, 0.75);\n");
 					WRITE(p, "  if (samplingAmount > 0.0) {\n");
 					WRITE(p, "    t = mix(t, runTextureSampling(%s.xy, samplingSize, samplingScale, %s), samplingAmount);\n", uv, samplingBounds ? "v_texbounds" : "vec4(1.0, 1.0, 0.0, 0.0)");
 					WRITE(p, "  }\n");
