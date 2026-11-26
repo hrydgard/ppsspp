@@ -152,6 +152,9 @@ public:
 	// name alone, same as before crc existed.
 	void AddModule(const char *name, u32 address, u32 size, u32 crc = 0);
 	void UnloadModule(u32 address, u32 size);
+	// Before unloading many modules at once: they then skip removing their symbols from the active
+	// tables one by one, and the next query rebuilds the tables instead.
+	void InvalidateActiveSymbols();
 	u32 GetModuleRelativeAddr(u32 address, int moduleIndex = -1) const;
 	u32 GetModuleAbsoluteAddr(u32 relative, int moduleIndex) const;
 	// Index of the currently *active* module containing address, or -1 if none does (including

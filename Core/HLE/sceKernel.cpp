@@ -25,6 +25,7 @@
 #include "Core/Config.h"
 #include "Core/CwCheat.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -202,6 +203,11 @@ void __KernelShutdown()
 	kernelObjects.List();
 	INFO_LOG(Log::sceKernel, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	hleCurrentThreadName = NULL;
+	// Every module is about to unload. Erasing a big game's functions from the active tables
+	// one at a time is slow (seconds with libc++'s debug checks), and nothing needs them again.
+	if (g_symbolMap) {
+		g_symbolMap->InvalidateActiveSymbols();
+	}
 	kernelObjects.Clear();
 
 	__RegShutdown();
@@ -616,6 +622,11 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 		// The current thread is deleted with the rest. Until sceKernelThread loads the new one,
 		// nothing should look at it.
 		__KernelForgetCurrentThread();
+		// As in __KernelShutdown: the modules unload here and the state's own load right after,
+		// so one rebuild of the active tables beats erasing and re-adding per symbol.
+		if (g_symbolMap) {
+			g_symbolMap->InvalidateActiveSymbols();
+		}
 		kernelObjects.Clear();
 	}
 

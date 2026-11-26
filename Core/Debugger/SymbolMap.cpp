@@ -857,6 +857,11 @@ void SymbolMap::UnloadModule(u32 address, u32 size) {
 	DeactivateModuleSymbols(module);
 }
 
+void SymbolMap::InvalidateActiveSymbols() {
+	Bump();
+	activeNeedUpdate_ = true;
+}
+
 void SymbolMap::ActivateModuleSymbols(const ModuleEntry &module) {
 	if (activeNeedUpdate_) {
 		// A full update is due anyway.
