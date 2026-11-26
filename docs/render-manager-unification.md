@@ -1,8 +1,8 @@
 # Unifying the render managers
 
 A design for giving the backends one render manager interface, and moving thin3d on top of it. Written
-2026-10-18, during the Metal backend work (branch `metal-backend`); the counts and file references will
-drift.
+2026-10-18 during the Metal backend work, updated 2026-11-26 after Metal was merged; the counts and file
+references will drift.
 
 **Summary:** every backend gets a render manager with the same interface for resources, passes,
 pipelines and uniforms. The GPU layer and thin3d both use the render manager's objects directly, so
@@ -14,14 +14,14 @@ replay written per backend.
 
 ## Where things stand
 
-The line between thin3d and the backends is fuzzy. Measured on `metal-backend`:
+The line between thin3d and the backends is fuzzy. Measured on master, 2026-11-26:
 
-- The shared layer leans on thin3d heavily: 266 calls in `GPU/Common`, mostly in
-  `FramebufferManagerCommon` (84), `PresentationCommon` (54), `StencilCommon` (39), `TextureCacheCommon`
-  (36), `Draw2D` (25) and `DepthBufferCommon` (20). Framebuffers, copies, blits, readbacks, stencil
-  uploads, reinterprets, depal and presentation all go through it.
-- The backends use it lightly (Vulkan 53 calls, GL 43, D3D11 31, Metal 20) and draw the game natively,
-  reaching the API through about 80 `GetNativeObject()` calls.
+- The shared layer leans on thin3d heavily: 314 uses of `draw_` in `GPU/Common`, mostly in
+  `FramebufferManagerCommon`, `PresentationCommon`, `StencilCommon`, `TextureCacheCommon`, `Draw2D` and
+  `DepthBufferCommon`. Framebuffers, copies, blits, readbacks, stencil uploads, reinterprets, depal and
+  presentation all go through it.
+- The backends use it lightly and draw the game natively, reaching the API through about 100
+  `GetNativeObject()` calls.
 
 Three seams cause most of the trouble:
 
@@ -71,6 +71,11 @@ baking everything into its pipeline, GL by applying the states with redundancy f
   their own way (Vulkan's per-frame delete queues, GL's queued deletes, Metal's `DeferRelease`). The
   interface defines when an object may be released and who keeps it alive until the GPU is done with it.
   Mistakes here crash at shutdown or on device loss, so this needs settling before anything moves.
+- **Device loss is part of the contract.** Android GL loses its context when the app is backgrounded,
+  and D3D11 devices can be removed. Today `GPUCommon::DeviceLost()`/`DeviceRestore()` tear down and
+  rebuild each backend's objects by hand. The interface says which objects a render manager recreates by
+  itself (pipelines from their descriptions, samplers) and which the owner has to recreate (textures and
+  framebuffers, whose contents are gone), and how the owner is told.
 - **The render manager tracks the current state.** Utility passes and game draws go through the same
   render manager, so it always knows what's bound. That replaces the `Invalidate`/`Dirty` calls (seam 2):
   the draw engine re-applies its state when the render manager says it changed.
@@ -111,6 +116,11 @@ cracks the blob into plain uniforms:
   the dirty fields. The dirty mask keeps this as cheap as today's per-uniform tracking in
   `ShaderManagerGLES`;
 - nothing above `GLRenderManager` knows which path is in use.
+
+thin3d's GL driver already does this for its own shaders: a pipeline's `UniformBufferDesc` lists each
+field's offset and type, and the driver issues `glUniform*` calls for them from the blob
+(`dynamicUniformLocs_` in `Common/GPU/OpenGL/thin3d_gl.cpp`). That code is the starting point; it moves
+down into `GLRenderManager` and gains the dirty mask.
 
 The choice is a `Draw::Bugs` entry (say `UNIFORM_BUFFERS_SLOW`), always set on GLES 2 and set for GLES 3
 drivers where uniform buffers are measured to be slower. Measure with the ring buffer in place before
@@ -183,9 +193,9 @@ deduplication and render pass merging could then be written once.
 
 ## Order of work
 
-0. Merge the Metal backend (branch `metal-backend`), opt-in at first: Vulkan through MoltenVK stays the
-   default on Apple until Metal has had some use. Its render manager is the newest and the closest to
-   what the shared one should look like.
+0. Merge the Metal backend. Done: it's the default on iOS, while Vulkan through MoltenVK stays the
+   default on ARM Macs. Its render manager is the newest and the closest to what the shared one should
+   look like.
 1. A small abstract `RenderManager` parent class (`Common/GPU/RenderManager.h`), starting with what thin3d's
    `DrawContext` answers per backend today: device caps, bugs, the shader language description and the
    supported data formats. Each render manager does its own detection and owns the result, and the thin3d
@@ -197,9 +207,11 @@ deduplication and render pass merging could then be written once.
 3. Settle the lifetime rule and the state-tracking contract.
 4. Define the interface for framebuffers, textures and buffers. Implement it on all four render managers,
    Metal and Vulkan first, and move `FramebufferManagerCommon` and `TextureCacheCommon` onto it.
-5. Make Metal's thin3d a facade over the interface, and check the frame dumps against Vulkan
-   (`frametests.py`, and the full-dump Metal/Vulkan comparison). Then Vulkan, D3D11 and GL.
-6. Move pipelines into the render managers, Metal and Vulkan first.
+5. Move pipelines into the render managers, Metal and Vulkan first. This comes before the facade,
+   since Draw2D, presentation and the UI create their pipelines through `DrawContext`.
+6. Make Metal's thin3d a facade over the interface, and check the frame dumps against Vulkan
+   (`frametests.py`, and the full-dump Metal/Vulkan comparison). Then Vulkan, D3D11 and GL. GL's
+   facade keeps thin3d's uniform cracking until step 7 moves it into `GLRenderManager`.
 7. GL: uniform buffers, the cracking corner.
 8. Game draws through the interface: Metal's draw engine first, measured against the current one, then
    the other backends if it holds up.
