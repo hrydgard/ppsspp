@@ -41,6 +41,11 @@
 #include "UI/SettingsPage.h"
 #include "UI/Settings/MainSettingsPages.h"
 
+// xBRZ texture sampling turns texture upscaling off (see PrepareBuildTexture).
+static bool TextureUpscalingAllowed() {
+	return !g_Config.bTexShaderXBRZ && !g_Config.bSoftwareRendering;
+}
+
 static bool UsingHardwareTextureScaling() {
 	return g_Config.bTexHardwareScaling && (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) && !g_Config.bSoftwareRendering;
 }
@@ -357,18 +362,18 @@ void BuildGraphicsSettings(SettingsPage *page) {
 				host->PageScreenManager()->push(shaderScreen);
 			});
 			return textureShaderChoice;
-		}).Disabled(&g_Config.bSoftwareRendering);
+		}).EnabledFunc(&TextureUpscalingAllowed);
 	}
 
 	page->Setting(&g_Config.iTexScalingType).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !g_Config.bTexShaderXBRZ;
 	});
 	page->Setting(&g_Config.iTexScalingLevel).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !g_Config.bTexShaderXBRZ;
 	}).Hint({ I18NCat::GRAPHICS, "UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter" });
 
 	page->Setting(&g_Config.bTexDeposterize).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !g_Config.bTexShaderXBRZ;
 	}).Hint({ I18NCat::GRAPHICS, "Deposterize Tip", "Fixes visual banding glitches in upscaled textures" });
 
 	page->Header("Texture Filtering");
