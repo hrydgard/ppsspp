@@ -164,6 +164,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "FastEmulatedGPU", &flags_.FastEmulatedGPU);
 	CheckSetting(iniFile, gameID, "CorrectCullAfterClip", &flags_.CorrectCullAfterClip);
 	CheckSetting(iniFile, gameID, "ScreenLinearColors", &flags_.ScreenLinearColors);
+	CheckSetting(iniFile, gameID, "HideOtherGamesSaveData", &flags_.HideOtherGamesSaveData);
 	CheckSetting(iniFile, gameID, "SpriteBorderFix", &flags_.SpriteBorderFix);
 	CheckSetting(iniFile, gameID, "TextureCLUTInShader", &flags_.TextureCLUTInShader);
 	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
