@@ -15,7 +15,7 @@
 
 #if defined(USING_EGL)
 #include "EGL/egl.h"
-#if !defined(USING_FBDEV) && !defined(__APPLE__)
+#if !defined(USING_FBDEV) && !defined(__APPLE__) && !defined(PPSSPP_NO_X11)
 #include <X11/Xlib.h>
 #endif
 #endif
@@ -110,6 +110,14 @@ static int8_t EGL_Open(SDL_Window *window, std::string *errorMessage) {
 			g_Display = (EGLNativeDisplayType)waylandDisplay;
 			g_Window = (EGLNativeWindowType)waylandEGLWindow;
 		} else {
+#if defined(PPSSPP_NO_X11)
+			/* No X11 headers in this build; Wayland is the only SDL video
+			 * backend. */
+			if (errorMessage) {
+				*errorMessage += "Unable to retrieve Wayland window properties.\n";
+			}
+			return 1;
+#else
 			if (errorMessage) {
 				*errorMessage += "Unable to retrieve native window properties, falling back to X11.\n";
 			}
@@ -122,10 +130,17 @@ static int8_t EGL_Open(SDL_Window *window, std::string *errorMessage) {
 				return 1;
 			}
 			g_Window = (EGLNativeWindowType)nullptr;
+#endif
 		}
 	}
 
 	if (!EGL_OpenInit(errorMessage)) {
+#if defined(PPSSPP_NO_X11)
+		if (errorMessage) {
+			*errorMessage += "Unable to initialize EGL.\n";
+		}
+		return 1;
+#else
 		g_Display = (EGLNativeDisplayType)XOpenDisplay(nullptr);
 		g_XDisplayOpen = g_Display != nullptr;
 		if (!g_XDisplayOpen) {
@@ -135,6 +150,7 @@ static int8_t EGL_Open(SDL_Window *window, std::string *errorMessage) {
 			return 1;
 		}
 		g_Window = (EGLNativeWindowType)nullptr;
+#endif
 	}
 
 #endif
@@ -309,7 +325,7 @@ void EGL_Close() {
 		g_eglDisplay = EGL_NO_DISPLAY;
 	}
 	if (g_Display != nullptr) {
-#if !defined(USING_FBDEV)
+#if !defined(USING_FBDEV) && !defined(PPSSPP_NO_X11)
 		if (g_XDisplayOpen)
 			XCloseDisplay((Display *)g_Display);
 #endif
