@@ -419,19 +419,8 @@ static bool ReachesPastDepthRange(float minProjZ, float maxProjZ) {
 	return (depthRangeMin != 0 && minProjZ < depthRangeMin) || (depthRangeMax != 0xFFFF && maxProjZ > depthRangeMax);
 }
 
-template<u32 posFmt, u32 idxFmt>
-static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, bool cpuCullSupported, ClipInfoFlags *clipInfoFlags) {
-	// Four vertices at a time, one per lane. Past the end, the last vertex fills the lanes, which changes nothing.
-	// The matrix stays in four registers, multiplied by lane. Splatted, it took sixteen, and was reloaded from the
-	// stack every iteration.
-	const Vec4F32 col0 = Vec4F32::Load(cullMatrix);
-	const Vec4F32 col1 = Vec4F32::Load(cullMatrix + 4);
-	const Vec4F32 col2 = Vec4F32::Load(cullMatrix + 8);
-	const Vec4F32 tx = Vec4F32::Splat(cullMatrix[12]);
-	const Vec4F32 ty = Vec4F32::Splat(cullMatrix[13]);
-	const Vec4F32 tz = Vec4F32::Splat(cullMatrix[14]);
-	const Vec4F32 tw = Vec4F32::Splat(cullMatrix[15]);
-
+// The accumulators of a bounding box scan, one vertex per lane.
+struct BoundingBoxState {
 	// For each side of the clipping cube, whether any vertex is inside it, and whether any is outside the Z sides.
 	Vec4S32 insideLeft = Vec4S32::Zero();
 	Vec4S32 insideRight = Vec4S32::Zero();
@@ -441,58 +430,119 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	Vec4S32 insideFar = Vec4S32::Zero();
 	Vec4S32 anyOutsideZ = Vec4S32::Zero();
 	Vec4S32 anyBehindNear = Vec4S32::Zero();
-
-	const int stride = dec->VertexSize();
-	const s8 *srcdata = (const s8 *)vdata + dec->posoff;
-	const int last = vertexCount - 1;
-
-	const Vec4F32 vpZScale = Vec4F32::Splat(gstate.getViewportZScale());
-	const Vec4F32 zero = Vec4F32::Zero();
 	Vec4F32 minZ = Vec4F32::Splat(FLT_MAX);
 	Vec4F32 maxZ = Vec4F32::Splat(-FLT_MAX);
+};
+
+// The matrix stays in four registers, multiplied by lane. Splatted, it took sixteen, and was reloaded from the
+// stack every iteration.
+struct BoundingBoxConsts {
+	Vec4F32 col0;
+	Vec4F32 col1;
+	Vec4F32 col2;
+	Vec4F32 tx;
+	Vec4F32 ty;
+	Vec4F32 tz;
+	Vec4F32 tw;
+	Vec4F32 vpZScale;
+};
+
+// Four vertices. depthClip is a template parameter so that it costs nothing in the loop: as a variable, the
+// compiler rebuilt a lane mask from it for every four.
+template<u32 posFmt, bool depthClip>
+static __forceinline void BoundingBoxStep(BoundingBoxState &s, const BoundingBoxConsts &c, const s8 *p0, const s8 *p1, const s8 *p2, const s8 *p3) {
+	Vec4F32 objX = BoundingBoxPos<posFmt>(p0);
+	Vec4F32 objY = BoundingBoxPos<posFmt>(p1);
+	Vec4F32 objZ = BoundingBoxPos<posFmt>(p2);
+	Vec4F32 unused = BoundingBoxPos<posFmt>(p3);
+	Vec4F32::Transpose(objX, objY, objZ, unused);
+
+	// The same operations in the same order as AsVec3ByMatrix44(), so the same rounding.
+	const Vec4F32 x = (objX.MulLane<0>(c.col0) + objY.MulLane<0>(c.col1)) + (objZ.MulLane<0>(c.col2) + c.tx);
+	const Vec4F32 y = (objX.MulLane<1>(c.col0) + objY.MulLane<1>(c.col1)) + (objZ.MulLane<1>(c.col2) + c.ty);
+	const Vec4F32 z = (objX.MulLane<2>(c.col0) + objY.MulLane<2>(c.col1)) + (objZ.MulLane<2>(c.col2) + c.tz);
+	const Vec4F32 w = (objX.MulLane<3>(c.col0) + objY.MulLane<3>(c.col1)) + (objZ.MulLane<3>(c.col2) + c.tw);
+
+	const Vec4F32 zero = Vec4F32::Zero();
+	s.insideLeft |= (x + w).CompareGe(zero);
+	s.insideRight |= (w - x).CompareGe(zero);
+	s.insideTop |= (y + w).CompareGe(zero);
+	s.insideBottom |= (w - y).CompareGe(zero);
+	// We need to add the same culling epsilons as when setting up the cull distances in the vertex shader,
+	// so we don't over-cull here. We could also cull looser, but I can't figure out how to do so accurately.
+	const Vec4F32 deltaZ = w.RecipApprox() * 0.0000304f;
+	const Vec4F32 nearDist = (z + w) + deltaZ;
+	const Vec4F32 farDist = (w - z) + deltaZ;
+	s.insideNear |= nearDist.CompareGe(zero);
+	s.insideFar |= farDist.CompareGe(zero);
+	s.anyOutsideZ |= nearDist.CompareLt(zero) | farDist.CompareLt(zero);
+	const Vec4S32 behindNear = (z + w).CompareLt(zero);
+	s.anyBehindNear |= behindNear;
+
+	// NaN compares false, so it's never picked.
+	const Vec4F32 projZ = DivideExact(c.vpZScale * z, w);
 	// With depth clipping, what's behind the near plane is clipped away before it's drawn, so its screen Z (which
-	// behind the eye is meaningless) doesn't count, and the near plane's does instead, below. Counting it made every
-	// draw crossing the near plane take the fragment shader depth clamp, whose depth doesn't match the other draws'
-	// (Monster Hunter 3rd HD's ground on PowerVR GLES).
+	// behind the eye is meaningless) doesn't count, and the near plane's does instead (see TestBoundingBoxFast).
+	// Counting it made every draw crossing the near plane take the fragment shader depth clamp, whose depth
+	// doesn't match the other draws' (Monster Hunter 3rd HD's ground on PowerVR GLES).
+	if (depthClip) {
+		s.minZ = Select(projZ.CompareLt(s.minZ).AndNot(behindNear), projZ, s.minZ);
+		s.maxZ = Select(projZ.CompareGt(s.maxZ).AndNot(behindNear), projZ, s.maxZ);
+	} else {
+		s.minZ = Select(projZ.CompareLt(s.minZ), projZ, s.minZ);
+		s.maxZ = Select(projZ.CompareGt(s.maxZ), projZ, s.maxZ);
+	}
+}
+
+// Four vertices at a time, one per lane: the whole fours, then the rest as one more, with the last vertex filling
+// its lanes, which changes nothing. Clamping to the last vertex in every iteration instead cost more instructions
+// than the transform.
+template<u32 posFmt, u32 idxFmt, bool depthClip>
+static void ScanBoundingBox(BoundingBoxState &result, const float *cullMatrix, const s8 *srcdata, const void *idata, int stride, int vertexCount) {
+	BoundingBoxConsts c;
+	c.col0 = Vec4F32::Load(cullMatrix);
+	c.col1 = Vec4F32::Load(cullMatrix + 4);
+	c.col2 = Vec4F32::Load(cullMatrix + 8);
+	c.tx = Vec4F32::Splat(cullMatrix[12]);
+	c.ty = Vec4F32::Splat(cullMatrix[13]);
+	c.tz = Vec4F32::Splat(cullMatrix[14]);
+	c.tw = Vec4F32::Splat(cullMatrix[15]);
+	c.vpZScale = Vec4F32::Splat(gstate.getViewportZScale());
+
+	// A local, so that it stays in registers.
+	BoundingBoxState s;
+	int i = 0;
+	for (; i + 4 <= vertexCount; i += 4) {
+		BoundingBoxStep<posFmt, depthClip>(s, c,
+			BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i), BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i + 1),
+			BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i + 2), BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i + 3));
+	}
+	if (i < vertexCount) {
+		const int last = vertexCount - 1;
+		BoundingBoxStep<posFmt, depthClip>(s, c,
+			BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i), BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 1, last)),
+			BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 2, last)), BoundingBoxVertex<idxFmt>(srcdata, idata, stride, last));
+	}
+	result = s;
+}
+
+template<u32 posFmt, u32 idxFmt>
+static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, bool cpuCullSupported, ClipInfoFlags *clipInfoFlags) {
+	const int stride = dec->VertexSize();
+	const s8 *srcdata = (const s8 *)vdata + dec->posoff;
 	const bool depthClip = gstate.isDepthClipEnabled();
 
-	for (int i = 0; i < vertexCount; i += 4) {
-		Vec4F32 objX = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i));
-		Vec4F32 objY = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 1, last)));
-		Vec4F32 objZ = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 2, last)));
-		Vec4F32 unused = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 3, last)));
-		Vec4F32::Transpose(objX, objY, objZ, unused);
-
-		// The same operations in the same order as AsVec3ByMatrix44(), so the same rounding.
-		const Vec4F32 x = (objX.MulLane<0>(col0) + objY.MulLane<0>(col1)) + (objZ.MulLane<0>(col2) + tx);
-		const Vec4F32 y = (objX.MulLane<1>(col0) + objY.MulLane<1>(col1)) + (objZ.MulLane<1>(col2) + ty);
-		const Vec4F32 z = (objX.MulLane<2>(col0) + objY.MulLane<2>(col1)) + (objZ.MulLane<2>(col2) + tz);
-		const Vec4F32 w = (objX.MulLane<3>(col0) + objY.MulLane<3>(col1)) + (objZ.MulLane<3>(col2) + tw);
-
-		insideLeft |= (x + w).CompareGe(zero);
-		insideRight |= (w - x).CompareGe(zero);
-		insideTop |= (y + w).CompareGe(zero);
-		insideBottom |= (w - y).CompareGe(zero);
-		// We need to add the same culling epsilons as when setting up the cull distances in the vertex shader,
-		// so we don't over-cull here. We could also cull looser, but I can't figure out how to do so accurately.
-		const Vec4F32 deltaZ = w.RecipApprox() * 0.0000304f;
-		const Vec4F32 nearDist = (z + w) + deltaZ;
-		const Vec4F32 farDist = (w - z) + deltaZ;
-		insideNear |= nearDist.CompareGe(zero);
-		insideFar |= farDist.CompareGe(zero);
-		anyOutsideZ |= nearDist.CompareLt(zero) | farDist.CompareLt(zero);
-		const Vec4S32 behindNear = (z + w).CompareLt(zero);
-		anyBehindNear |= behindNear;
-
-		// NaN compares false, so it's never picked.
-		const Vec4F32 projZ = DivideExact(vpZScale * z, w);
-		const Vec4S32 notCounted = depthClip ? behindNear : Vec4S32::Zero();
-		minZ = Select(projZ.CompareLt(minZ).AndNot(notCounted), projZ, minZ);
-		maxZ = Select(projZ.CompareGt(maxZ).AndNot(notCounted), projZ, maxZ);
+	BoundingBoxState s;
+	if (depthClip) {
+		ScanBoundingBox<posFmt, idxFmt, true>(s, cullMatrix, srcdata, idata, stride, vertexCount);
+	} else {
+		ScanBoundingBox<posFmt, idxFmt, false>(s, cullMatrix, srcdata, idata, stride, vertexCount);
 	}
+	const Vec4S32 anyOutsideZ = s.anyOutsideZ;
+	const Vec4S32 anyBehindNear = s.anyBehindNear;
 
-	if (!AnyCompareBitsSet(insideLeft) || !AnyCompareBitsSet(insideRight) || !AnyCompareBitsSet(insideTop) ||
-		!AnyCompareBitsSet(insideBottom) || !AnyCompareBitsSet(insideNear) || !AnyCompareBitsSet(insideFar)) {
+	if (!AnyCompareBitsSet(s.insideLeft) || !AnyCompareBitsSet(s.insideRight) || !AnyCompareBitsSet(s.insideTop) ||
+		!AnyCompareBitsSet(s.insideBottom) || !AnyCompareBitsSet(s.insideNear) || !AnyCompareBitsSet(s.insideFar)) {
 		// All vertices were outside one side of the clipping cube. We can skip the draw entirely.
 		return false;
 	}
@@ -500,10 +550,10 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	float minProjZ = FLT_MAX;
 	float maxProjZ = -FLT_MAX;
 	for (int i = 0; i < 4; i++) {
-		if (minZ[i] < minProjZ)
-			minProjZ = minZ[i];
-		if (maxZ[i] > maxProjZ)
-			maxProjZ = maxZ[i];
+		if (s.minZ[i] < minProjZ)
+			minProjZ = s.minZ[i];
+		if (s.maxZ[i] > maxProjZ)
+			maxProjZ = s.maxZ[i];
 	}
 
 	const float vpZOffset = gstate.getViewportZCenter();
