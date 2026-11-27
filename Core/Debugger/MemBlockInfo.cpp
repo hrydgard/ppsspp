@@ -448,11 +448,14 @@ size_t FormatMemWriteTagAtNoFlush(char *buf, size_t sz, const char *prefix, size
 void FlushPendingMemInfo() {
 	// This lock prevents us from another thread reading while we're busy flushing.
 	std::lock_guard<std::mutex> guard(pendingReadMutex);
-	std::vector<PendingNotifyMem> thisBatch;
+	// Kept from flush to flush (under pendingReadMutex), and swapped with the pending ones. A new vector each time
+	// was 160 KB of fresh pages for the notifying thread to fault in, several times a frame in a game that loads
+	// many CLUTs.
+	static std::vector<PendingNotifyMem> thisBatch;
+	thisBatch.clear();
 	{
 		std::lock_guard<std::mutex> guard(pendingWriteMutex);
-		thisBatch = std::move(pendingNotifies);
-		pendingNotifies.clear();
+		thisBatch.swap(pendingNotifies);
 		pendingNotifies.reserve(MAX_PENDING_NOTIFIES);
 
 		pendingNotifyMinAddr1 = 0xFFFFFFFF;
