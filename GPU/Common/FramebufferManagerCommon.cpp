@@ -2249,7 +2249,6 @@ void FramebufferManagerCommon::NotifyFramebufferSampled(VirtualFramebuffer *src)
 
 	auto srcIt = effectBuffers_.find(EffectKey(src));
 	const bool srcCandidate = srcIt != effectBuffers_.end() && (srcIt->second.signals & EFFECT_SIGNALS_CANDIDATE) != 0;
-	dst->effectSceneCopy = shrinks && !srcCandidate && !IsEffectBuffer(src);
 
 	// What's displayed, and buffers also used for depth, are never effect buffers.
 	const bool dstCanBeEffect = (dst->usageFlags & (FB_USAGE_DISPLAYED_FRAMEBUFFER | FB_USAGE_COLOR_MIXED_DEPTH)) == 0 && dst->fb_address != displayFramebufPtr_;
@@ -2329,12 +2328,13 @@ Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectComposite(VirtualFrameb
 	if (!SmoothsEffectComposite(src)) {
 		return src->fbo;
 	}
-	const int param = (g_Config.iEffectsSpread << 13) | (g_Config.iEffectsOpacity << 3) | ((int)src->effectSceneCopy << 2) | (int)GetEffectOpacityMode();
+	const bool masked = EffectCompositeIsMasked();
+	const int param = (g_Config.iEffectsSpread << 13) | (g_Config.iEffectsOpacity << 3) | ((int)masked << 2) | (int)GetEffectOpacityMode();
 	if (effectSourceVfb_ == src && effectSourceBindSeq_ == src->colorBindSeq && effectSourceFrame_ == gpuStats.totals.numFlips && effectSourceParam_ == param) {
 		return effectSourceCopy_;
 	}
 
-	Draw::Framebuffer *result = SmoothEffectTexture(src->fbo, src->renderWidth, src->renderHeight, src->effectSceneCopy);
+	Draw::Framebuffer *result = SmoothEffectTexture(src->fbo, src->renderWidth, src->renderHeight, masked);
 	RebindFramebuffer("After SmoothEffectComposite");
 	if (!result) {
 		return src->fbo;
@@ -2350,7 +2350,11 @@ Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectComposite(VirtualFrameb
 
 // The work of SmoothEffectComposite, on any w x h texture at 1x (also the output of a depal pass). Leaves
 // a temp FBO bound as the render target.
-Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool sceneCopy) {
+bool FramebufferManagerCommon::EffectCompositeIsMasked() {
+	return gstate.isStencilTestEnabled() && gstate.getStencilTestFunction() != GE_COMP_ALWAYS;
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool masked) {
 	const VirtualFramebuffer *dst = currentRenderVfb_;
 	if (!dst) {
 		return nullptr;
@@ -2366,8 +2370,9 @@ Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectTexture(Draw::Framebuff
 	// the dark parts of the scene as a veil (God of War lays its glow over everything), while the lower of the
 	// two alone gives a halo around something bright in the dark a hard outline (The 3rd Birthday). Without min
 	// blending (old GLES 2), the layers are just blended.
-	// A straight shrink of the scene isn't a glow and doesn't get spread out: God of War draws one over the
-	// background at 80% for a soft focus. It only gets the first layer.
+	// An effect the game limits to part of the scene with a stencil test isn't spread past that, and only gets
+	// the first layer: God of War draws a shrunk copy of the scene over the background for a soft focus, which
+	// the wider layers smeared.
 	// mix is 0.46 at 25%, 0.65 at 100%, 0.85 from 180%.
 	const float mix = std::min(0.4f + 0.25f * spread, 0.85f);
 	const int alpha = (int)(mix * 256.0f + 0.5f);
@@ -2375,7 +2380,7 @@ Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectTexture(Draw::Framebuff
 	Draw2DPipeline *minPipeline = Get2DPipeline(DRAW2D_COPY_COLOR_MIN);
 	Draw2DPipeline *copyPipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
 	const int MAX_LEVELS = 4;
-	const int LEVELS = sceneCopy ? 1 : MAX_LEVELS;
+	const int LEVELS = masked ? 1 : MAX_LEVELS;
 	const float OUTWARD = 0.35f;
 	int levelW[MAX_LEVELS];
 	int levelH[MAX_LEVELS];

@@ -620,10 +620,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
-	if (gstate_c.effectCompositeNoStencil) {
-		gstate_c.effectCompositeNoStencil = false;
-		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);
-	}
 	if (gstate_c.effectOpacityActive) {
 		gstate_c.effectOpacityActive = false;
 		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
@@ -915,18 +911,10 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Not for the debugger's looks at the texture.
 			if (doBind && channel == RASTER_COLOR) {
 				framebufferManager_->NotifyFramebufferSampled(framebuffer);
-				if (framebufferManager_->DrawsEffectOverScene(framebuffer)) {
-					// The smoothed effect spreads past the edges of a mask that lined up with it. A scene copy isn't
-					// spread, and keeps its mask: God of War limits its soft focus to the background with stencil.
-					if (!framebuffer->effectSceneCopy) {
-						gstate_c.effectCompositeNoStencil = true;
-						gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);
-					}
-					if (g_Config.iEffectsOpacity < 100) {
-						gstate_c.effectOpacityActive = true;
-						gstate_c.effectOpacity = std::max(g_Config.iEffectsOpacity, 0) / 100.0f;
-						gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
-					}
+				if (g_Config.iEffectsOpacity < 100 && framebufferManager_->DrawsEffectOverScene(framebuffer)) {
+					gstate_c.effectOpacityActive = true;
+					gstate_c.effectOpacity = std::max(g_Config.iEffectsOpacity, 0) / 100.0f;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
 				}
 			}
 			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
@@ -2755,7 +2743,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		Draw::Framebuffer *depalOut = depalFBO;
 		if (smoothEffect) {
-			Draw::Framebuffer *smoothed = framebufferManager_->SmoothEffectTexture(depalFBO, depalWidth, framebuffer->renderHeight, framebuffer->effectSceneCopy);
+			Draw::Framebuffer *smoothed = framebufferManager_->SmoothEffectTexture(depalFBO, depalWidth, framebuffer->renderHeight, FramebufferManagerCommon::EffectCompositeIsMasked());
 			if (smoothed) {
 				depalOut = smoothed;
 			}

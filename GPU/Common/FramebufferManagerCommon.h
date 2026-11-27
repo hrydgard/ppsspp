@@ -154,9 +154,6 @@ struct VirtualFramebuffer {
 	int colorBindSeq;
 	int depthBindSeq;
 
-	// Last drawn as a straight shrink of the scene, not by a pass of an effect chain (see SmoothEffectTexture).
-	bool effectSceneCopy = false;
-
 	// These are mainly used for garbage collection purposes and similar.
 	// Cannot be used to determine new-ness against a similar other buffer, since they are
 	// only at frame granularity. Although, can be used to check for -1 to see if they have ever
@@ -435,9 +432,11 @@ public:
 	bool DrawsEffectOverScene(const VirtualFramebuffer *src) const;
 	// Auto (smooth) scales src up smoothly where it's drawn over the current render target (SmoothEffectComposite).
 	bool SmoothsEffectComposite(const VirtualFramebuffer *src) const;
-	// The same for a texture made from it, like a depal pass's output. w x h at 1x. sceneCopy is the source's
-	// effectSceneCopy. Returns nullptr on failure, and leaves another render target bound.
-	Draw::Framebuffer *SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool sceneCopy);
+	// The same for a texture made from it, like a depal pass's output. w x h at 1x. masked is
+	// EffectCompositeIsMasked(). Returns nullptr on failure, and leaves another render target bound.
+	Draw::Framebuffer *SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool masked);
+	// The current draw is limited to part of the scene by a stencil test (see SmoothEffectTexture).
+	static bool EffectCompositeIsMasked();
 	bool TracksEffectBuffers() const {
 		return bloomHack_ >= BLOOMHACK_AUTO && renderScaleFactor_ != 1 && useBufferedRendering_;
 	}

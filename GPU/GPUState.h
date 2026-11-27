@@ -665,10 +665,7 @@ public:
 	// Where the textured through-mode draws since the last flush write (like queuedSelfTextureDraws, but without
 	// the render target offset). Only collected for effect buffer detection. With vertBounds, gives their scale.
 	DrawnBounds queuedThroughDraws;
-	// The texture is an effect buffer being drawn over the scene, spread past what the PSP has, so the stencil
-	// test is dropped. Set in TextureCacheCommon::ApplyTexture.
-	bool effectCompositeNoStencil;
-	// Effects opacity below 100% on such a draw, done by changing the fixed blend colors (see GetBlendFixA).
+	// Effects opacity below 100% on a draw of an effect buffer over the scene, done by changing the fixed blend colors (see GetBlendFixA).
 	bool effectOpacityActive;
 	float effectOpacity;
 	// TolerantDepthEqual: the current draw's EQUAL depth test is done as GEQUAL, with its Z raised by

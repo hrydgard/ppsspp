@@ -1487,9 +1487,7 @@ static void ConvertStencilMask5551(GenericStencilFuncState &state) {
 void ConvertStencilFuncState(GenericStencilFuncState &state) {
 	// The PSP's mask is reversed (bits not to write.)  Ignore enabled, used for clears too.
 	state.writeMask = (~gstate.getStencilWriteMask()) & 0xFF;
-	// Games mask where an effect goes with the stencil. Blurred beyond the PSP's amount, the effect runs
-	// up to the mask's edge and stops there, which shows its shape (God of War: Ghost of Sparta).
-	state.enabled = gstate.isStencilTestEnabled() && !(gstate_c.effectCompositeNoStencil && gstate.isTextureMapEnabled());
+	state.enabled = gstate.isStencilTestEnabled();
 	if (!state.enabled) {
 		if (gstate_c.framebufFormat == GE_FORMAT_5551)
 			ConvertStencilMask5551(state);
