@@ -357,12 +357,15 @@ typedef u8 IRReg;
 // Vec4VfpuMultiDot dest, block, v, constant: lane k of dest is vfpu_dot() of lane k of the 4x4 block
 // of regs (16 in a row) and v, over the first IRMULTIDOT_TERMS(constant) terms (the rest are zero in
 // both). Lane k is the block's row k (block[4 * i + k]), or with IRMULTIDOT_TRANSPOSED, its Vec4 k
-// (block[4 * k + i]).
+// (block[4 * k + i]). The lanes in IRMULTIDOT_SKIP(constant) aren't wanted, and are zero in dest instead: a
+// backend that makes a call per dot leaves those out.
 enum : u32 {
 	IRMULTIDOT_TERMS_MASK = 0x7,
 	IRMULTIDOT_TRANSPOSED = 0x10,
+	IRMULTIDOT_SKIP_SHIFT = 8,
 };
 inline int IRMULTIDOT_TERMS(u32 constant) { return (int)(constant & IRMULTIDOT_TERMS_MASK); }
+inline u32 IRMULTIDOT_SKIP(u32 constant) { return (constant >> IRMULTIDOT_SKIP_SHIFT) & 0xF; }
 
 enum : IRReg {
 	IRTEMP_0 = 192,
@@ -502,6 +505,9 @@ struct IROptions {
 	bool optimizeForInterpreter;
 	// The backend has Vec4VfpuMultiDot.
 	bool vfpuMultiDot;
+	// A Vec4VfpuMultiDot costs less than its dots one by one, so a run of vdots is worth making one. Not where
+	// it's a call per dot, which only saves the moves that line up operands, and a vdot's are lined up already.
+	bool vfpuDotRuns;
 	// Compile on past conditional branches (see IRFrontend::CanContinuePastBranch). Always
 	// IR_CONTINUE_BRANCHES, which the interpreter follows.
 	bool continueBranches;

@@ -985,6 +985,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 
 		IR_CASE(Vec4VfpuMultiDot)
 			vfpu_multi_dot(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2], IRMULTIDOT_TERMS(inst->constant), (inst->constant & IRMULTIDOT_TRANSPOSED) != 0);
+			for (int i = 0; i < 4; i++) {
+				if (IRMULTIDOT_SKIP(inst->constant) & (1 << i))
+					mips->f[inst->dest + i] = 0.0f;
+			}
 			IR_NEXT;
 
 		IR_CASE(Vec4VfpuCross)

@@ -93,6 +93,7 @@ IRJit::IRJit(MIPSState *mipsState, bool compileToNative) : frontend_(mipsState->
 	opts.vec4CmpVfpu = !compileToNative;
 	opts.vec4VfpuCross = !compileToNative;
 #endif
+	opts.vfpuDotRuns = opts.vfpuMultiDot;
 	opts.continueBranches = IR_CONTINUE_BRANCHES;
 	frontend_.SetOptions(opts);
 
