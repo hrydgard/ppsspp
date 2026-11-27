@@ -540,7 +540,9 @@ namespace MIPSComp {
 				break;
 			}
 
-			if (zeroedLanes != (u32)-1) {
+			// With ones, only where Vec4 ops are worth it: lane by lane, it's two ops per lane more than the
+			// constant alone.
+			if (zeroedLanes != (u32)-1 && (oneLanes == 0 || opts.preferVec4)) {
 				// A Vec4Init with ones in the lanes that get one, and zeroes in those that get zero.
 				static const struct { Vec4Init init; u32 ones; } inits[] = {
 					{ Vec4Init::AllZERO, 0x0 }, { Vec4Init::AllONE, 0xF }, { Vec4Init::Set_1000, 0x1 },
@@ -1956,7 +1958,9 @@ namespace MIPSComp {
 		// row of s, which is a column of d. Whichever of those is a Vec4, so the results go straight to it
 		// (the shared row then is one too, as the matrices usually have the same orientation). The other
 		// way, each result and each lane of the shared row took an FMov.
-		const bool byColumn = dregs[4] == dregs[0] + 1;
+		// Without multi-dots it stays a row of d at a time: the row of t is then lined up once for its dots,
+		// where by column it would be for each of them.
+		const bool byColumn = opts.vfpuMultiDot && dregs[4] == dregs[0] + 1;
 		for (int x = 0; x < n; x++) {
 			DotLane sl[4], tl[4];
 			MultiDot dots[4];
