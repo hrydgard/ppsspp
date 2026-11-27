@@ -2335,9 +2335,14 @@ namespace MIPSComp {
 			}
 		}
 
-		for (int i = 0; i < nOut; i++) {
-			if (tempregs[i] != dregs[i]) {
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+		if (nOut == 4 && tempregs[0] != dregs[0] && IsVec4(outsize, dregs) && IsVec4(outsize, tempregs)) {
+			// Unpacked in place (vs2i.p C400, C400), which went through the temp.
+			ir.Write(IROp::Vec4Mov, dregs[0], tempregs[0]);
+		} else {
+			for (int i = 0; i < nOut; i++) {
+				if (tempregs[i] != dregs[i]) {
+					ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+				}
 			}
 		}
 		ApplyPrefixD(dregs, outsize, _VD);
