@@ -424,8 +424,8 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
-		SetColorUniform3(render_, &u_blendFixA, gstate.getFixA());
-		SetColorUniform3(render_, &u_blendFixB, gstate.getFixB());
+		SetColorUniform3(render_, &u_blendFixA, GetBlendFixA());
+		SetColorUniform3(render_, &u_blendFixB, GetBlendFixB());
 
 		const float fbotexSize[2] = {
 			1.0f / (float)gstate_c.curRTRenderWidth,

@@ -324,6 +324,13 @@ void BuildGraphicsSettings(SettingsPage *page) {
 
 	page->Header();
 	page->Setting(&g_Config.iBloomHack).Disabled(&g_Config.bSoftwareRendering).Hint({I18NCat::GRAPHICS, "ReducesBloomArtifactsHint", "Reduces artifacts in visual effects like blooms at higher resolutions."});
+	// Only for Auto (smooth), BLOOMHACK_AUTO_SMOOTH.
+	page->Setting(&g_Config.iEffectsSpread).EnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iBloomHack == 5;
+	});
+	page->Setting(&g_Config.iEffectsOpacity).EnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iBloomHack == 5;
+	});
 
 	page->Header("Latency");
 

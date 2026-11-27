@@ -620,6 +620,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	// Should probably revisit how this works..
 	gstate_c.SetNeedShaderTexclamp(false);
 	gstate_c.skipDrawReason &= ~SKIPDRAW_BAD_FB_TEXTURE;
+	if (gstate_c.effectCompositeNoStencil) {
+		gstate_c.effectCompositeNoStencil = false;
+		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);
+	}
+	if (gstate_c.effectOpacityActive) {
+		gstate_c.effectOpacityActive = false;
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
+	}
 
 	if (entryIter != cache_.Map().end()) {
 		TexCacheEntry *entry = entryIter->second.get();
@@ -907,6 +915,19 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Not for the debugger's looks at the texture.
 			if (doBind && channel == RASTER_COLOR) {
 				framebufferManager_->NotifyFramebufferSampled(framebuffer);
+				if (framebufferManager_->DrawsEffectOverScene(framebuffer)) {
+					// The smoothed effect spreads past the edges of a mask that lined up with it. A scene copy isn't
+					// spread, and keeps its mask: God of War limits its soft focus to the background with stencil.
+					if (!framebuffer->effectSceneCopy) {
+						gstate_c.effectCompositeNoStencil = true;
+						gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);
+					}
+					if (g_Config.iEffectsOpacity < 100) {
+						gstate_c.effectOpacityActive = true;
+						gstate_c.effectOpacity = std::max(g_Config.iEffectsOpacity, 0) / 100.0f;
+						gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
+					}
+				}
 			}
 			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
 			if (doBind) {
@@ -2582,6 +2603,13 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		break;
 	}
 
+	// Auto (smooth) scales up an effect drawn over the scene after its palette lookup (blurring the values before
+	// it would change what they map to), so that needs the depal pass. The 3rd Birthday draws its bloom this way.
+	const bool smoothEffect = need_depalettize && !depth && framebufferManager_->SmoothsEffectComposite(framebuffer);
+	if (smoothEffect) {
+		useShaderDepal = false;
+	}
+
 	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	ClutTexture clutTexture{};
 	bool smoothedDepal = false;
@@ -2725,10 +2753,18 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		gstate_c.curTextureWidth = clut8From16 ? texWidth * 2 : texWidth;
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
+		Draw::Framebuffer *depalOut = depalFBO;
+		if (smoothEffect) {
+			Draw::Framebuffer *smoothed = framebufferManager_->SmoothEffectTexture(depalFBO, depalWidth, framebuffer->renderHeight, framebuffer->effectSceneCopy);
+			if (smoothed) {
+				depalOut = smoothed;
+			}
+		}
+
 		draw_->BindTexture(0, nullptr);
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
 
-		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::Aspect::COLOR_BIT, Draw::ALL_LAYERS);
+		draw_->BindFramebufferAsTexture(depalOut, 0, Draw::Aspect::COLOR_BIT, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -2740,7 +2776,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	} else {
 		framebufferManager_->RebindFramebuffer("ApplyTextureFramebuffer");
-		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET, Draw::ALL_LAYERS);
+		framebufferManager_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET | BINDFBCOLOR_EFFECT_SOURCE, Draw::ALL_LAYERS);
 		BoundFramebufferTexture();
 
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);

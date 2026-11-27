@@ -929,7 +929,7 @@ static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
 static constexpr const char *frameRateLimit30Names[] = { "Auto", "Always", "Off" };
-static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive", "Auto" };
+static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive", "Auto", "Auto (smooth)" };
 static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
 #ifndef MOBILE_DEVICE
@@ -1056,8 +1056,12 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "VSync"),
 	ConfigSetting("LowLatencyPresent", SETTING(g_Config, bLowLatencyPresent), false, CfgFlag::PER_GAME)
 		.Label(I18NCat::GRAPHICS, "Low latency display"),
-	ConfigSetting("BloomHack", SETTING(g_Config, iBloomHack), 0, CfgFlag::PER_GAME | CfgFlag::REPORT)
+	ConfigSetting("BloomHack", SETTING(g_Config, iBloomHack), 5, CfgFlag::PER_GAME | CfgFlag::REPORT)
 		.Label(I18NCat::GRAPHICS, "Lower resolution for effects").Choices(bloomHackNames),
+	ConfigSetting("EffectsSpread", SETTING(g_Config, iEffectsSpread), 100, CfgFlag::PER_GAME)
+		.Label(I18NCat::GRAPHICS, "Effects spread").Range(25, 300, 25).Units("%"),
+	ConfigSetting("EffectsOpacity", SETTING(g_Config, iEffectsOpacity), 100, CfgFlag::PER_GAME)
+		.Label(I18NCat::GRAPHICS, "Effects opacity").Range(0, 100, 5).Units("%").ZeroLabel("Off"),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),

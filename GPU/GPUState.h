@@ -665,6 +665,12 @@ public:
 	// Where the textured through-mode draws since the last flush write (like queuedSelfTextureDraws, but without
 	// the render target offset). Only collected for effect buffer detection. With vertBounds, gives their scale.
 	DrawnBounds queuedThroughDraws;
+	// The texture is an effect buffer being drawn over the scene, spread past what the PSP has, so the stencil
+	// test is dropped. Set in TextureCacheCommon::ApplyTexture.
+	bool effectCompositeNoStencil;
+	// Effects opacity below 100% on such a draw, done by changing the fixed blend colors (see GetBlendFixA).
+	bool effectOpacityActive;
+	float effectOpacity;
 	// TolerantDepthEqual: the current draw's EQUAL depth test is done as GEQUAL, with its Z raised by
 	// tolerantDepthEqualOffset (in the viewport Z offset uniform). See DepthTestFunctionForDraw.
 	bool tolerantDepthEqual;
@@ -736,3 +742,26 @@ class GPUInterface;
 class GPUCommon;
 
 extern GPUStateCache gstate_c;
+
+// The fixed blend colors. While an effect is drawn over the scene with Effects opacity below 100%, a draw that
+// adds it with fixed colors (src * A + dst * B) gets A * t and B * t + (1 - t), which fades it towards not
+// being drawn at all. Scaling only the effect's color wouldn't: with B below 1, as in God of War's 50/50 mix,
+// the scene would still be darkened.
+inline bool EffectOpacityOverridesFix() {
+	return gstate_c.effectOpacityActive && gstate.isTextureMapEnabled() && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
+		gstate.getBlendFuncA() == GE_SRCBLEND_FIXA && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB;
+}
+inline u32 FadeFixColor(u32 color, float t, bool towardOne) {
+	u32 result = 0;
+	for (int shift = 0; shift < 24; shift += 8) {
+		const float c = (float)((color >> shift) & 0xFF) * t + (towardOne ? 255.0f * (1.0f - t) : 0.0f);
+		result |= (u32)std::min(std::max((int)(c + 0.5f), 0), 255) << shift;
+	}
+	return result;
+}
+inline u32 GetBlendFixA() {
+	return EffectOpacityOverridesFix() ? FadeFixColor(gstate.getFixA(), gstate_c.effectOpacity, false) : gstate.getFixA();
+}
+inline u32 GetBlendFixB() {
+	return EffectOpacityOverridesFix() ? FadeFixColor(gstate.getFixB(), gstate_c.effectOpacity, true) : gstate.getFixB();
+}

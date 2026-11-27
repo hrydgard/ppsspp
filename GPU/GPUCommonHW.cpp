@@ -1005,6 +1005,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	ClipInfoFlags flags{};
 	const bool tracksSelfTexture = vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws;
 	const bool tracksEffects = vfb && gstate.isModeThrough() && gstate.isTextureMapEnabled() && framebufferManager_->TracksEffectBuffers();
+	// Effects opacity Off: draws that put an effect over the scene are dropped. Texture state doesn't
+	// change within the batch below, so this holds for all of it.
+	const bool skipEffectDraw = framebufferManager_->SkipsEffectDraw(vfb);
 	DrawnBounds drawnBounds{};
 	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
@@ -1050,11 +1053,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	// If certain conditions are true, do frustum culling.
-	bool passCulling = PASSES_CULLING && !discardLines;
+	bool passCulling = PASSES_CULLING && !discardLines && !skipEffectDraw;
 	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
 		flags = DrawEngineCommon::UncheckedClipInfoFlags();
 	}
-	if (!passCulling && !discardLines) {
+	if (!passCulling && !discardLines && !skipEffectDraw) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 			passCulling = true;
@@ -1163,12 +1166,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				canExtend = isTriangle;
 			}
 
-			bool passCulling = onePassed || PASSES_CULLING;
+			bool passCulling = (onePassed || PASSES_CULLING) && !skipEffectDraw;
 			ClipInfoFlags flags{};
 			if (passCulling) {
 				flags = DrawEngineCommon::UncheckedClipInfoFlags();
 			}
-			if (!passCulling) {
+			if (!passCulling && !skipEffectDraw) {
 				// Do software culling.
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 					passCulling = true;

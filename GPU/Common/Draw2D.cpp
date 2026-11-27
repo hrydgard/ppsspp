@@ -107,6 +107,107 @@ Draw2DPipelineInfo GenerateDraw2DCopyColorRect2LinFs(ShaderWriter &writer) {
 	};
 }
 
+// Nine taps 0.75 sigma apart, which reach 3 sigma. The weights are exp(-x*x/2) at those offsets, normalized.
+static void GenerateDraw2DGaussianFs(ShaderWriter &writer, bool vertical) {
+	static const float weights[5] = { 0.29937f, 0.22596f, 0.09720f, 0.02383f, 0.00332f };
+	// The tap offsets are fractions of a texel.
+	writer.HighPrecisionFloat();
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
+	if (vertical) {
+		writer.C("  vec2 tapStep = vec2(0.0, scaleFactor * (0.75 / 16.0) / texSize.y);\n");
+	} else {
+		writer.C("  vec2 tapStep = vec2(scaleFactor * (0.75 / 16.0) / texSize.x, 0.0);\n");
+	}
+	writer.F("  vec4 outColor = %f * ", weights[0]).SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
+	for (int i = 1; i < 5; i++) {
+		char plus[64], minus[64];
+		snprintf(plus, sizeof(plus), "v_texcoord.xy + tapStep * %d.0", i);
+		snprintf(minus, sizeof(minus), "v_texcoord.xy - tapStep * %d.0", i);
+		writer.F("  outColor += %f * (", weights[i]).SampleTexture2D("tex", plus).C(" + ").SampleTexture2D("tex", minus).C(");\n");
+	}
+	writer.EndFSMain("outColor");
+}
+
+Draw2DPipelineInfo GenerateDraw2DGaussianHFs(ShaderWriter &writer) {
+	GenerateDraw2DGaussianFs(writer, false);
+	return Draw2DPipelineInfo{
+		"draw2d_gaussian_h",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
+Draw2DPipelineInfo GenerateDraw2DGaussianVFs(ShaderWriter &writer) {
+	GenerateDraw2DGaussianFs(writer, true);
+	return Draw2DPipelineInfo{
+		"draw2d_gaussian_v",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
+Draw2DPipelineInfo GenerateDraw2DCopyColorBlendFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
+	writer.C("  vec4 outColor = vec4(").SampleTexture2D("tex", "v_texcoord.xy").C(".rgb, scaleFactor / 256.0);\n");
+	writer.EndFSMain("outColor");
+
+	Draw2DPipelineInfo info{
+		"draw2d_copy_color_blend",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+	info.blend = true;
+	return info;
+}
+
+Draw2DPipelineInfo GenerateDraw2DCopyColorMinFs(ShaderWriter &writer) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(Slice<UniformDef>::empty(), varyings);
+	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
+	writer.EndFSMain("outColor");
+
+	Draw2DPipelineInfo info{
+		"draw2d_copy_color_min",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+	info.blend = true;
+	info.blendMin = true;
+	return info;
+}
+
+static void GenerateDraw2DCopyScaleFs(ShaderWriter &writer, bool alpha) {
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(g_draw2Duniforms, varyings);
+	writer.C("  vec4 outColor = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
+	if (alpha) {
+		writer.C("  outColor.a = min(outColor.a * scaleFactor / 100.0, 1.0);\n");
+	} else {
+		writer.C("  outColor.rgb = min(outColor.rgb * (scaleFactor / 100.0), vec3(1.0, 1.0, 1.0));\n");
+	}
+	writer.EndFSMain("outColor");
+}
+
+Draw2DPipelineInfo GenerateDraw2DCopyScaleRGBFs(ShaderWriter &writer) {
+	GenerateDraw2DCopyScaleFs(writer, false);
+	return Draw2DPipelineInfo{
+		"draw2d_copy_scale_rgb",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
+Draw2DPipelineInfo GenerateDraw2DCopyScaleAlphaFs(ShaderWriter &writer) {
+	GenerateDraw2DCopyScaleFs(writer, true);
+	return Draw2DPipelineInfo{
+		"draw2d_copy_scale_alpha",
+		RASTER_COLOR,
+		RASTER_COLOR,
+	};
+}
+
 Draw2DPipelineInfo GenerateDraw2DCopyDepthFs(ShaderWriter &writer) {
 	writer.SetFlags(ShaderWriterFlags::FS_WRITE_DEPTH);
 	writer.DeclareSamplers(samplers);
@@ -282,7 +383,14 @@ Draw2DPipeline *Draw2D::Create2DPipeline(std::function<Draw2DPipelineInfo (Shade
 	};
 	InputLayout *inputLayout = draw_->CreateInputLayout(desc);
 
-	BlendState *blend = draw_->CreateBlendState({ false, info.writeChannel == RASTER_COLOR ? 0xF : 0x0 });
+	BlendState *blend;
+	if (info.blendMin) {
+		blend = draw_->CreateBlendState({ true, 0x7, Draw::BlendFactor::ONE, Draw::BlendFactor::ONE, Draw::BlendOp::MIN, Draw::BlendFactor::ONE, Draw::BlendFactor::ZERO, Draw::BlendOp::ADD });
+	} else if (info.blend) {
+		blend = draw_->CreateBlendState({ true, 0x7, Draw::BlendFactor::SRC_ALPHA, Draw::BlendFactor::ONE_MINUS_SRC_ALPHA, Draw::BlendOp::ADD, Draw::BlendFactor::ONE, Draw::BlendFactor::ZERO, Draw::BlendOp::ADD });
+	} else {
+		blend = draw_->CreateBlendState({ false, info.writeChannel == RASTER_COLOR ? 0xF : 0x0 });
+	}
 
 	DepthStencilStateDesc dsDesc{};
 	if (info.writeChannel == RASTER_DEPTH) {
@@ -404,6 +512,45 @@ Draw2DPipeline *FramebufferManagerCommon::Get2DPipeline(Draw2DShader shader) {
 			draw2DPipelineColorSample0_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorSample0Fs);
 		}
 		pipeline = draw2DPipelineColorSample0_;
+		break;
+	case DRAW2D_COPY_COLOR_BLEND:
+		if (!draw2DPipelineCopyColorBlend_) {
+			draw2DPipelineCopyColorBlend_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorBlendFs);
+		}
+		pipeline = draw2DPipelineCopyColorBlend_;
+		break;
+	case DRAW2D_COPY_COLOR_MIN:
+		if (!draw_->GetDeviceCaps().blendMinMaxSupported) {
+			return nullptr;
+		}
+		if (!draw2DPipelineCopyColorMin_) {
+			draw2DPipelineCopyColorMin_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyColorMinFs);
+		}
+		pipeline = draw2DPipelineCopyColorMin_;
+		break;
+	case DRAW2D_COPY_SCALE_RGB:
+		if (!draw2DPipelineCopyScaleRGB_) {
+			draw2DPipelineCopyScaleRGB_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyScaleRGBFs);
+		}
+		pipeline = draw2DPipelineCopyScaleRGB_;
+		break;
+	case DRAW2D_COPY_SCALE_ALPHA:
+		if (!draw2DPipelineCopyScaleAlpha_) {
+			draw2DPipelineCopyScaleAlpha_ = draw2D_.Create2DPipeline(&GenerateDraw2DCopyScaleAlphaFs);
+		}
+		pipeline = draw2DPipelineCopyScaleAlpha_;
+		break;
+	case DRAW2D_GAUSSIAN_H:
+		if (!draw2DPipelineGaussianH_) {
+			draw2DPipelineGaussianH_ = draw2D_.Create2DPipeline(&GenerateDraw2DGaussianHFs);
+		}
+		pipeline = draw2DPipelineGaussianH_;
+		break;
+	case DRAW2D_GAUSSIAN_V:
+		if (!draw2DPipelineGaussianV_) {
+			draw2DPipelineGaussianV_ = draw2D_.Create2DPipeline(&GenerateDraw2DGaussianVFs);
+		}
+		pipeline = draw2DPipelineGaussianV_;
 		break;
 	case DRAW2D_COPY_DEPTH:
 		if (!draw_->GetDeviceCaps().fragmentShaderDepthWriteSupported) {

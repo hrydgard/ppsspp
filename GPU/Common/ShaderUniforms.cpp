@@ -88,8 +88,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		Uint8x3ToFloat3(ub->fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
-		Uint8x3ToFloat3(ub->blendFixA, gstate.getFixA());
-		Uint8x3ToFloat3(ub->blendFixB, gstate.getFixB());
+		Uint8x3ToFloat3(ub->blendFixA, GetBlendFixA());
+		Uint8x3ToFloat3(ub->blendFixB, GetBlendFixB());
 	}
 	if (dirtyUniforms & DIRTY_TEXCLAMP) {
 		CalcTexClamp(ub->texClamp, ub->texClampOffset);

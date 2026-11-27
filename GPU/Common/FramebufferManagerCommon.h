@@ -154,6 +154,9 @@ struct VirtualFramebuffer {
 	int colorBindSeq;
 	int depthBindSeq;
 
+	// Last drawn as a straight shrink of the scene, not by a pass of an effect chain (see SmoothEffectTexture).
+	bool effectSceneCopy = false;
+
 	// These are mainly used for garbage collection purposes and similar.
 	// Cannot be used to determine new-ness against a similar other buffer, since they are
 	// only at frame granularity. Although, can be used to check for -1 to see if they have ever
@@ -224,6 +227,8 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_UNCACHED = 16,
 	// The draw reads only the bits its write mask keeps. See maskCopy_.
 	BINDFBCOLOR_MASK_READ = 32,
+	// A plain color read, which may be smoothed when it draws an effect buffer over the scene (SmoothEffectComposite).
+	BINDFBCOLOR_EFFECT_SOURCE = 64,
 };
 
 enum DrawTextureFlags {
@@ -242,11 +247,12 @@ inline DrawTextureFlags operator | (DrawTextureFlags lhs, DrawTextureFlags rhs) 
 // are found by how they're used instead.
 enum {
 	BLOOMHACK_AUTO = 4,  // Effect buffers are rendered at 1x.
+	BLOOMHACK_AUTO_SMOOTH = 5,  // Like BLOOMHACK_AUTO, and smoothly scaled up where an effect is drawn over the scene.
 };
 
 // Effect buffers render at 1x.
 inline bool BloomHackRendersEffectsAt1x(int bloomHack) {
-	return bloomHack == BLOOMHACK_AUTO;
+	return bloomHack == BLOOMHACK_AUTO || bloomHack == BLOOMHACK_AUTO_SMOOTH;
 }
 
 enum class TempFBO {
@@ -266,6 +272,11 @@ enum class TempFBO {
 	MASK_COPY,
 	// The depth that draws with gstate_c.shaderDepthEqual test against.
 	DEPTH_COPY,
+	// Effect buffers being scaled up smoothly (see SmoothEffectComposite).
+	EFFECT_SOURCE,
+	// The two passes of its blur.
+	EFFECT_SOURCE_2,
+	EFFECT_SOURCE_3,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -418,6 +429,15 @@ public:
 	bool BloomHackChanged() const {
 		return bloomHack_ != EffectiveBloomHack();
 	}
+	// The current draw puts an effect buffer over a framebuffer that isn't one, with Effects opacity Off.
+	bool SkipsEffectDraw(const VirtualFramebuffer *target) const;
+	// Drawing src, an effect buffer, over the current render target, with Auto (smooth).
+	bool DrawsEffectOverScene(const VirtualFramebuffer *src) const;
+	// Auto (smooth) scales src up smoothly where it's drawn over the current render target (SmoothEffectComposite).
+	bool SmoothsEffectComposite(const VirtualFramebuffer *src) const;
+	// The same for a texture made from it, like a depal pass's output. w x h at 1x. sceneCopy is the source's
+	// effectSceneCopy. Returns nullptr on failure, and leaves another render target bound.
+	Draw::Framebuffer *SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool sceneCopy);
 	bool TracksEffectBuffers() const {
 		return bloomHack_ >= BLOOMHACK_AUTO && renderScaleFactor_ != 1 && useBufferedRendering_;
 	}
@@ -790,7 +810,24 @@ protected:
 	void AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals);
 	static u64 EffectKey(const VirtualFramebuffer *vfb);
 	bool IsEffectBuffer(const VirtualFramebuffer *vfb) const;
+	bool MayBeEffectBuffer(const VirtualFramebuffer *vfb) const;
 	std::unordered_map<u64, EffectBufferInfo> effectBuffers_;
+
+	Draw::Framebuffer *ResampleEffectSource(Draw::Framebuffer *from, int fromW, int fromH, int w, int h);
+	Draw::Framebuffer *BlurEffectSource(Draw::Framebuffer *from, int w, int h, float sigma);
+	Draw::Framebuffer *SmoothEffectComposite(VirtualFramebuffer *src);
+	enum class EffectOpacityMode {
+		COLOR,
+		ALPHA,
+		FIXED_COLORS,
+	};
+	static EffectOpacityMode GetEffectOpacityMode();
+	// The last filtered source, reused until the source is drawn to again.
+	const VirtualFramebuffer *effectSourceVfb_ = nullptr;
+	Draw::Framebuffer *effectSourceCopy_ = nullptr;
+	int effectSourceBindSeq_ = -1;
+	int effectSourceFrame_ = -1;
+	int effectSourceParam_ = 0;
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
@@ -835,6 +872,12 @@ protected:
 	Draw2DPipeline *draw2DPipelineEncodeDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
+	Draw2DPipeline *draw2DPipelineGaussianH_ = nullptr;
+	Draw2DPipeline *draw2DPipelineGaussianV_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColorBlend_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColorMin_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyScaleRGB_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyScaleAlpha_ = nullptr;
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.

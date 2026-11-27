@@ -416,7 +416,9 @@ public:
 	float fHomebrewScrollPosition;
 	float fRemoteScrollPosition;
 	bool bReportAccurateFreeStorageSpace;
-	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive, 4 = auto (see BLOOMHACK_AUTO)
+	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive, 4 = auto, 5 = auto smooth (see BLOOMHACK_AUTO)
+	int iEffectsSpread;  // In %, for the smooth level of iBloomHack.
+	int iEffectsOpacity;  // In %, for the smooth level of iBloomHack. 0 leaves the effects out.
 	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 	bool bUberShaderVertex;
