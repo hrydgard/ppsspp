@@ -599,7 +599,7 @@ static int GetPickerRequestId(id picker) {
 					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
 					newLocation.altitude,
 					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
-					0 /* bearing */);
+					0 /* course: could use MAX(newLocation.course, 0.0), left as 0 since untested on iOS */);
 }
 
 #endif  // PPSSPP_PLATFORM(TVOS)

@@ -27,16 +27,9 @@
 #include "Core/HLE/sceUsbGps.h"
 #include "Core/MemMapHelpers.h"
 
-enum GpsStatus {
-	GPS_STATE_OFF = 0,
-	GPS_STATE_ACTIVATING1 = 1,
-	GPS_STATE_ACTIVATING2 = 2,
-	GPS_STATE_ON = 3,
-};
-
 constexpr int AUTO_UPDATE_GPSTIME = 10;
 
-GpsStatus gpsStatus = GPS_STATE_OFF;
+GpsState gpsState = GPS_STATE_NOT_AVAILABLE;
 GpsData gpsData;
 SatData satData;
 time_t lastGPSTime;
@@ -44,59 +37,59 @@ time_t lastGPSTime;
 static std::recursive_mutex gpsLock;
 
 void __UsbGpsInit() {
-	gpsStatus = GPS_STATE_OFF;
+	gpsState = GPS_STATE_NOT_AVAILABLE;
 }
 
 void __UsbGpsDoState(PointerWrap &p) {
-	const bool wasOn = gpsStatus == GPS_STATE_ON;
+	const bool wasWorking = gpsState == GPS_STATE_WORKING;
 	auto s = p.Section("sceUsbGps", 0, 1);
 	if (!s) {
-		// Older states didn't save it, so leave it off.
+		// Older states didn't save it, so mark it as not available.
 		if (p.mode == p.MODE_READ) {
-			if (wasOn) {
+			if (wasWorking) {
 				System_GPSCommand("close");
 			}
-			gpsStatus = GPS_STATE_OFF;
+			gpsState = GPS_STATE_NOT_AVAILABLE;
 		}
 		return;
 	}
 
-	Do(p, gpsStatus);
+	Do(p, gpsState);
 	if (p.mode == p.MODE_READ) {
-		if (gpsStatus == GPS_STATE_ON) {
+		if (gpsState == GPS_STATE_WORKING) {
 			GPS::init();
 			System_GPSCommand("open");
-		} else if (wasOn) {
+		} else if (wasWorking) {
 			System_GPSCommand("close");
 		}
 	}
 }
 
 void __UsbGpsShutdown() {
-    gpsStatus = GPS_STATE_OFF;
-    System_GPSCommand("close");
-};
+	gpsState = GPS_STATE_NOT_AVAILABLE;
+	System_GPSCommand("close");
+}
 
 static int sceUsbGpsGetInitDataLocation(u32 addr) {
-    return 0;
+	return 0;
 }
 
 static int sceUsbGpsGetState(u32 stateAddr) {
 	if (Memory::IsValidRange(stateAddr, 4)) {
-		Memory::WriteUnchecked_U32(gpsStatus, stateAddr);
+		Memory::WriteUnchecked_U32(gpsState, stateAddr);
 	}
 	return 0;
 }
 
 static int sceUsbGpsOpen() {
 	GPS::init();
-	gpsStatus = GPS_STATE_ON;
+	gpsState = GPS_STATE_WORKING;
 	System_GPSCommand("open");
 	return 0;
 }
 
 static int sceUsbGpsClose() {
-	gpsStatus = GPS_STATE_OFF;
+	gpsState = GPS_STATE_NOT_AVAILABLE;
 	System_GPSCommand("close");
 	return 0;
 }
@@ -107,20 +100,27 @@ static int sceUsbGpsGetData(u32 gpsDataAddr, u32 satDataAddr) {
 	time(&currentTime);
 	if (difftime(currentTime, lastGPSTime) > AUTO_UPDATE_GPSTIME)
 	{
-		/* Simulate fresh updates to satisfy MAPLUS 1/2 apps
-		 * when real GPS data isn't available */
-		GPS::setGpsTime(&currentTime);
+		static time_t lastFakeUpdate = 0;
+		if (difftime(currentTime, lastFakeUpdate) >= 1.0)
+		{
+			// Simulate fresh updates to satisfy MAPLUS 1/2 apps when real GPS data isn't available.
+			// MAPLUS 1 and 3 are tolerant of received data and can ignore quality (GpsPositionQuality),
+			// placing more importance on mode (GpsPositionMode), whereas MAPLUS 2 reflects
+			// reception quality more accurately in-game.
+			GPS::setGpsTime(&currentTime);
+			lastFakeUpdate = currentTime;
+		}
 	}
 
-	auto gpsData = PSPPointer<GpsData>::Create(gpsDataAddr);
-	if (gpsData.IsValid()) {
-		*gpsData = *GPS::getGpsData();
-		gpsData.NotifyWrite("UsbGpsGetData");
+	auto gpsPtr = PSPPointer<GpsData>::Create(gpsDataAddr);
+	if (gpsPtr.IsValid()) {
+		*gpsPtr = *GPS::getGpsData();
+		gpsPtr.NotifyWrite("UsbGpsGetData");
 	}
-	auto satData = PSPPointer<SatData>::Create(satDataAddr);
-	if (satData.IsValid()) {
-		*satData = *GPS::getSatData();
-		satData.NotifyWrite("UsbGpsGetData");
+	auto satPtr = PSPPointer<SatData>::Create(satDataAddr);
+	if (satPtr.IsValid()) {
+		*satPtr = *GPS::getSatData();
+		satPtr.NotifyWrite("UsbGpsGetData");
 	}
 	return 0;
 }
@@ -150,23 +150,28 @@ void Register_sceUsbGps()
 void GPS::init() {
 	time_t currentTime;
 	time(&currentTime);
+	lastGPSTime = 0;
 	setGpsTime(&currentTime);
 
+	// Dummy values with boundary/precision edge cases to check MAPLUS 1/2/3 behavior differences.
 	gpsData.hdop      = 1.0f;
-	gpsData.latitude  = 51.510357f;
-	gpsData.longitude = -0.116773f;
-	gpsData.altitude  = 19.0f;
-	gpsData.speed     = 3.0f;
-	gpsData.bearing   = 35.0f;
-	gpsData.garbage2  = 513;
+	gpsData.latitude  = 35.6811761f;
+	gpsData.longitude = 139.7671141f;
+	gpsData.altitude  = 3.6f;
+	gpsData.speed     = 1000.9999f;
+	gpsData.course    = 359.999f;
+	gpsData.quality   = GPS_POSITION_QUALITY_GPS;
+	gpsData.mode      = GPS_POSITION_MODE_3D;
+	gpsData.reserve0  = 0;
+	gpsData.reserve1  = 0; // geoid separation (m)?
 
-	satData.satellites_in_view = 12;
+	satData.satellites_in_view = 24;
 	for (unsigned char i = 0; i < satData.satellites_in_view; i++) {
-		satData.satInfo[i].id = i + 1; // 1 .. 32
-		satData.satInfo[i].elevation = 20;
-		satData.satInfo[i].azimuth = i * (360/satData.satellites_in_view);
-		satData.satInfo[i].snr = 45;
-		satData.satInfo[i].good = !!(i % 3);
+		satData.satInfo[i].id        = i + 1; // 1 .. 32
+		satData.satInfo[i].elevation = 20 * ((i / 12) % 3 + 1); // 1-12=20 13-24=40 25-32=60
+		satData.satInfo[i].azimuth   = (i % 12) * 30; // 0, 30, .. 330 deg
+		satData.satInfo[i].snr       = 45;
+		satData.satInfo[i].good      = !!(i % 3);
 	}
 }
 
@@ -175,15 +180,16 @@ void GPS::setGpsTime(time_t *time) {
 	struct tm *gpsTime;
 	gpsTime = gmtime(time);
 
-	gpsData.year   = (short)(gpsTime->tm_year + 1900);
-	gpsData.month  = (short)(gpsTime->tm_mon + 1);
-	gpsData.date   = (short)gpsTime->tm_mday;
-	gpsData.hour   = (short)gpsTime->tm_hour;
-	gpsData.minute = (short)gpsTime->tm_min;
-	gpsData.second = (short)gpsTime->tm_sec;
+	gpsData.datetime.year        = (short)(gpsTime->tm_year + 1900);
+	gpsData.datetime.month       = (short)(gpsTime->tm_mon + 1);
+	gpsData.datetime.day         = (short)gpsTime->tm_mday;
+	gpsData.datetime.hour        = (short)gpsTime->tm_hour;
+	gpsData.datetime.minute      = (short)gpsTime->tm_min;
+	gpsData.datetime.second      = (short)gpsTime->tm_sec;
+	gpsData.datetime.microsecond = 0;
 }
 
-void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longitude, float altitude, float speed, float bearing) {
+void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longitude, float altitude, float speed, float course) {
 	std::lock_guard<std::recursive_mutex> guard(gpsLock);
 	lastGPSTime = (time_t)gpsTime;
 	setGpsTime(&lastGPSTime);
@@ -193,7 +199,7 @@ void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longit
 	gpsData.longitude = longitude;
 	gpsData.altitude  = altitude;
 	gpsData.speed     = speed;
-	gpsData.bearing   = bearing;
+	gpsData.course    = course;
 }
 
 void GPS::setSatInfo(short index, unsigned char id, unsigned char elevation, short azimuth, unsigned char snr, unsigned char good) {
