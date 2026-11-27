@@ -2111,7 +2111,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 }
 
 u64 FramebufferManagerCommon::EffectKey(const VirtualFramebuffer *vfb) {
-	return ((u64)vfb->fb_address << 32) | ((u64)(vfb->width & 0xFFF) << 20) | ((u64)(vfb->height & 0xFFF) << 8) | (u64)vfb->fb_format;
+	return ((u64)vfb->fb_address << 32) | (u64)vfb->fb_format;
 }
 
 // An effect buffer, or a candidate well under the screen's size that may turn out to be one. What an effect is
@@ -2130,8 +2130,9 @@ bool FramebufferManagerCommon::MayBeEffectBuffer(const VirtualFramebuffer *vfb) 
 }
 
 bool FramebufferManagerCommon::IsEffectBuffer(const VirtualFramebuffer *vfb) const {
-	// Depth is read at full resolution (and a 1x buffer that gets used for depth goes back up anyway).
-	if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+	// Depth is read at full resolution (and a 1x buffer that gets used for depth goes back up anyway), and what's
+	// on screen is the scene.
+	if (vfb->usageFlags & (FB_USAGE_COLOR_MIXED_DEPTH | FB_USAGE_DISPLAYED_FRAMEBUFFER)) {
 		return false;
 	}
 	auto it = effectBuffers_.find(EffectKey(vfb));
@@ -2201,19 +2202,19 @@ void FramebufferManagerCommon::NotifyEffectBufferDisplayed(const VirtualFramebuf
 	if (!TracksEffectBuffers()) {
 		return;
 	}
-	EffectBufferInfo &info = effectBuffers_[EffectKey(vfb)];
-	if (info.confirmed) {
-		INFO_LOG(Log::FrameBuf, "Displayed framebuffer %08x %dx%d isn't an effect buffer", vfb->fb_address, vfb->width, vfb->height);
+	auto it = effectBuffers_.find(EffectKey(vfb));
+	if (it != effectBuffers_.end()) {
+		if (it->second.confirmed) {
+			INFO_LOG(Log::FrameBuf, "Displayed framebuffer %08x %dx%d isn't an effect buffer", vfb->fb_address, vfb->width, vfb->height);
+		}
+		effectBuffers_.erase(it);
 	}
-	info.displayed = true;
-	info.confirmed = false;
-	info.signals = 0;
 }
 
 void FramebufferManagerCommon::AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals) {
 	const u64 key = EffectKey(vfb);
 	auto it = effectBuffers_.find(key);
-	if (it != effectBuffers_.end() && (it->second.displayed || (it->second.signals | signals) == it->second.signals)) {
+	if ((vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) || (it != effectBuffers_.end() && (it->second.signals | signals) == it->second.signals)) {
 		return;
 	}
 	// Games only have a handful, so something odd is going on if this grows large.

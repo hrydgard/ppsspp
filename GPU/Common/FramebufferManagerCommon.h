@@ -786,8 +786,9 @@ protected:
 	static int EffectiveBloomHack();
 
 	// Effect buffers (bloom, glow, blur) found by how they're drawn and sampled, for the Auto levels of
-	// "Lower resolution for effects". Keyed by EffectKey(), so a framebuffer recreated at the same address
-	// and size is known straight away.
+	// "Lower resolution for effects". Keyed by EffectKey(), the address: games keep framebuffers of several
+	// sizes over the same memory, which are parts of one effect (God of War has 864, 736 and 480 wide ones at
+	// one address), and they need to be at the same scale, or the copies between them show 1x texels.
 	// Each buffer collects signals over its use, and is an effect buffer once their weights (EffectSignalWeight)
 	// add up to EFFECT_SCORE_THRESHOLD. A single signal is never enough.
 	enum EffectSignal : u8 {
@@ -806,8 +807,6 @@ protected:
 	struct EffectBufferInfo {
 		u8 signals = 0;
 		bool confirmed = false;
-		// Shown on screen, so never an effect buffer.
-		bool displayed = false;
 	};
 	static int EffectSignalWeight(EffectSignal signal);
 	static bool GetQueuedDrawScale(bool *shrinks, bool *grows);
