@@ -1195,6 +1195,17 @@ static bool vfpu_multi_dot_neon(float out[4], const float block[16], const float
 
 #endif
 
+void vfpu_cross(float out[4], const float s[4], const float t[4]) {
+	// Against permuted and negated copies of t, as in the interpreter (Int_CrossQuat). The last has t[2] in the
+	// lane where s has none, which still makes it NaN when t[2] is inf or NaN.
+	const float sv[4] = { s[0], s[1], s[2], 0.0f };
+	const float t0[4] = { 0.0f, t[2], -t[1], 0.0f };
+	const float t1[4] = { -t[2], 0.0f, t[0], 0.0f };
+	const float t2[4] = { t[1], -t[0], 0.0f, t[2] };
+	const float result[4] = { vfpu_dot(sv, t0), vfpu_dot(sv, t1), vfpu_dot(sv, t2), 0.0f };
+	memcpy(out, result, sizeof(result));
+}
+
 void vfpu_multi_dot(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
 #if PPSSPP_ARCH(ARM64_NEON)
 	bool done = false;

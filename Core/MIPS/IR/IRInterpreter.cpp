@@ -264,6 +264,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::Vec4CvtScaledSW] = &&L_Vec4CvtScaledSW;
 		dispatch[(int)IROp::Vec4VfpuDot] = &&L_Vec4VfpuDot;
 		dispatch[(int)IROp::Vec4VfpuMultiDot] = &&L_Vec4VfpuMultiDot;
+		dispatch[(int)IROp::Vec4VfpuCross] = &&L_Vec4VfpuCross;
 		dispatch[(int)IROp::FSin] = &&L_FSin;
 		dispatch[(int)IROp::FCos] = &&L_FCos;
 		dispatch[(int)IROp::FRSqrt] = &&L_FRSqrt;
@@ -984,6 +985,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 
 		IR_CASE(Vec4VfpuMultiDot)
 			vfpu_multi_dot(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2], IRMULTIDOT_TERMS(inst->constant), (inst->constant & IRMULTIDOT_TRANSPOSED) != 0);
+			IR_NEXT;
+
+		IR_CASE(Vec4VfpuCross)
+			vfpu_cross(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2]);
 			IR_NEXT;
 
 		IR_CASE(FSin)

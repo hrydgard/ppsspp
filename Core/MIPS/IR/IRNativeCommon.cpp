@@ -432,6 +432,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 
 	case IROp::Vec4VfpuDot:
 	case IROp::Vec4VfpuMultiDot:
+	case IROp::Vec4VfpuCross:
 		CompIR_VecHoriz(inst);
 		break;
 

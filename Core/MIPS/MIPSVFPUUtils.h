@@ -72,6 +72,9 @@ inline float vfpu_clamp(float v, float min, float max) {
 }
 
 float vfpu_dot(const float a[4], const float b[4]);
+// vcrsp.t: lanes 0-2 of out are the cross product of lanes 0-2 of s and t, as the three vfpu_dot()s the VFPU
+// does (IROp::Vec4VfpuCross), and lane 3 is zero. out may overlap the inputs.
+void vfpu_cross(float out[4], const float s[4], const float t[4]);
 // The portable version vfpu_dot is checked against.
 float vfpu_dot_reference(const float a[4], const float b[4]);
 // vfpu_dot on hosts with no SIMD version.

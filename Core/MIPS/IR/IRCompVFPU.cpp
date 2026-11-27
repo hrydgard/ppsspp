@@ -2372,6 +2372,19 @@ namespace MIPSComp {
 			INVALIDOP;
 		}
 
+		if (sz == V_Triple && opts.vec4VfpuCross && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs)) {
+			// The three dots as one op (and one call of the multi-dot routine on ARM64, where each took a call
+			// and its operands several moves). Through the D temp, as it writes four lanes.
+			ir.Write(IROp::Vec4VfpuCross, IRVTEMP_PFX_D, sregs[0], tregs[0]);
+			if (IsVec3of4(sz, dregs) && opts.preferVec4) {
+				ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_PFX_D, 0x7);
+			} else {
+				for (int i = 0; i < 3; i++)
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
+			}
+			return;
+		}
+
 		// The dots the interpreter does, against permuted and negated copies of t. The results
 		// go to the D temp first, since d may overlap s or t.
 		const DotLane zero = DotConst(0.0f);

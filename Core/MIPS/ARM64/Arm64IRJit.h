@@ -68,6 +68,8 @@ private:
 
 	void SaveStaticRegisters();
 	void LoadStaticRegisters();
+	// Calls the multi-dot routine for terms terms, keeping the guest state in the registers it clobbers.
+	void CallVfpuMultiDot(int terms);
 
 	// Note: destroys SCRATCH1.
 	void FlushAll();

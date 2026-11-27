@@ -624,6 +624,42 @@ void Arm64JitBackend::CompIR_VecAssign(IRInst inst) {
 	}
 }
 
+void Arm64JitBackend::CallVfpuMultiDot(int terms) {
+	// The routine saves nothing, so keep the guest state in what it clobbers of q16-q31, in pairs where
+	// they come in pairs.
+	const u32 clobbers = Arm64VfpuMultiDotClobbers(terms);
+	u32 keep = 0;
+	for (int i = 0; i < 16; i++) {
+		if ((clobbers & (1 << i)) && regs_.IsHostRegInUse((ARM64Reg)(Q16 + i)))
+			keep |= 1 << i;
+	}
+	const s32 save = (s32)offsetof(MIPSState, vfpuMultiDotSave);
+	auto saveOrRestore = [&](bool restore) {
+		ADDI2R(SCRATCH1_64, CTXREG, save, SCRATCH2);
+		for (int i = 0; i < 16; i++) {
+			if (!(keep & (1 << i)))
+				continue;
+			const ARM64Reg q = (ARM64Reg)(Q16 + i);
+			if (i + 1 < 16 && (keep & (1 << (i + 1)))) {
+				if (restore)
+					fp_.LDP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+				else
+					fp_.STP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+				i++;
+			} else if (restore) {
+				fp_.LDR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+			} else {
+				fp_.STR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+			}
+		}
+	};
+	if (keep)
+		saveOrRestore(false);
+	BL(vfpuMultiDot_[terms]);
+	if (keep)
+		saveOrRestore(true);
+}
+
 void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -705,39 +741,44 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		for (int i = terms; i < 4; i++)
 			fp_.INS(32, Q4, i, WZR);
 
-		// It saves nothing, so keep the guest state in what it clobbers of q16-q31, in pairs where
-		// they come in pairs.
-		const u32 clobbers = Arm64VfpuMultiDotClobbers(terms);
-		u32 keep = 0;
-		for (int i = 0; i < 16; i++) {
-			if ((clobbers & (1 << i)) && regs_.IsHostRegInUse((ARM64Reg)(Q16 + i)))
-				keep |= 1 << i;
-		}
-		const s32 save = (s32)offsetof(MIPSState, vfpuMultiDotSave);
-		auto saveOrRestore = [&](bool restore) {
-			ADDI2R(SCRATCH1_64, CTXREG, save, SCRATCH2);
-			for (int i = 0; i < 16; i++) {
-				if (!(keep & (1 << i)))
-					continue;
-				const ARM64Reg q = (ARM64Reg)(Q16 + i);
-				if (i + 1 < 16 && (keep & (1 << (i + 1)))) {
-					if (restore)
-						fp_.LDP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
-					else
-						fp_.STP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
-					i++;
-				} else if (restore) {
-					fp_.LDR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
-				} else {
-					fp_.STR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
-				}
-			}
-		};
-		if (keep)
-			saveOrRestore(false);
-		BL(vfpuMultiDot_[terms]);
-		if (keep)
-			saveOrRestore(true);
+		CallVfpuMultiDot(terms);
+
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		fp_.MOV(regs_.FQ(inst.dest), Q0);
+		break;
+	}
+
+	case IROp::Vec4VfpuCross:
+	{
+		// vfpu_cross() as one call of the four-term routine, which takes term i of dot k in lane k of q(i),
+		// and s in q4:
+		//   q0 = (0, -t2, t1, 0), q1 = (t2, 0, -t0, 0), q2 = (-t1, t0, 0, 0), q3 = (0, 0, t2, 0)
+		// The last is the lane where s has nothing, which still makes the third dot NaN if t2 is inf or NaN.
+		// The fourth dot is of zeroes, so lane 3 of the result is zero.
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		const s32 sOffset = (s32)offsetof(MIPSState, vfpuMultiDotArgs) + 64;
+		// s may be in q4-q7, so it goes through memory, like the multi-dot's vector.
+		fp_.STR(128, INDEX_UNSIGNED, regs_.MapVec4(inst.src1), CTXREG, sOffset);
+		fp_.MOV(Q3, regs_.MapVec4(inst.src2));
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		regs_.FlushHostRegs({ Q4, Q5, Q6, Q7 });
+
+		fp_.FNEG(32, Q5, Q3);
+		fp_.MOVI(32, Q0, 0);
+		fp_.MOVI(32, Q1, 0);
+		fp_.MOVI(32, Q2, 0);
+		fp_.MOVI(32, Q6, 0);
+		fp_.INS(32, Q0, 1, Q5, 2);
+		fp_.INS(32, Q0, 2, Q3, 1);
+		fp_.INS(32, Q1, 0, Q3, 2);
+		fp_.INS(32, Q1, 2, Q5, 0);
+		fp_.INS(32, Q2, 0, Q5, 1);
+		fp_.INS(32, Q2, 1, Q3, 0);
+		fp_.INS(32, Q6, 2, Q3, 2);
+		fp_.MOV(Q3, Q6);
+		fp_.LDR(128, INDEX_UNSIGNED, Q4, CTXREG, sOffset);
+		fp_.INS(32, Q4, 3, WZR);
+		CallVfpuMultiDot(4);
 
 		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
 		fp_.MOV(regs_.FQ(inst.dest), Q0);

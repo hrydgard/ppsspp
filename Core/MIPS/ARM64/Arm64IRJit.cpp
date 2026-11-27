@@ -75,6 +75,7 @@ bool Arm64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 		switch (instructions[i].op) {
 		case IROp::Vec4VfpuDot:
 		case IROp::Vec4VfpuMultiDot:
+		case IROp::Vec4VfpuCross:
 		// The jump to a register looks up the block itself.
 		case IROp::ExitToReg:
 			sizeEstimate += 96;
