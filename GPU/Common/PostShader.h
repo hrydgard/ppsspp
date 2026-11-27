@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "ppsspp_config.h"
 #include "Common/GPU/thin3d.h"
 
 struct ShaderInfo {
@@ -139,6 +140,15 @@ const std::vector<ShaderInfo> &GetAllPostShaderInfo();
 
 const TextureShaderInfo *GetTextureShaderInfo(std::string_view name);
 const std::vector<TextureShaderInfo> &GetAllTextureShaderInfo();
+
+// Not on phones and tablets: the filters run for every magnified texture pixel, too heavy for mobile GPUs.
+constexpr bool TextureSamplingSupported() {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	return false;
+#else
+	return true;
+#endif
+}
 
 const TextureSamplingShaderInfo *GetTextureSamplingShaderInfo(std::string_view name);
 const std::vector<TextureSamplingShaderInfo> &GetAllTextureSamplingShaderInfo();

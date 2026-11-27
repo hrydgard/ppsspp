@@ -42,7 +42,7 @@
 #include "UI/Settings/MainSettingsPages.h"
 
 static bool TextureSamplingOn() {
-	return g_Config.sTextureSamplingShader != "Off" && !g_Config.sTextureSamplingShader.empty() && !g_Config.bSoftwareRendering;
+	return TextureSamplingSupported() && g_Config.sTextureSamplingShader != "Off" && !g_Config.sTextureSamplingShader.empty() && !g_Config.bSoftwareRendering;
 }
 
 // Texture sampling turns texture upscaling off (see PrepareBuildTexture).
@@ -359,25 +359,27 @@ void BuildGraphicsSettings(SettingsPage *page) {
 
 	page->Header("Texture upscaling");
 
-	page->Custom("Texture sampling", [host](UI::ViewGroup *parent) -> UI::View * {
-		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-		ChoiceWithValueDisplay *samplingChoice = parent->Add(new ChoiceWithValueDisplay(&g_Config.sTextureSamplingShader, gr->T("Texture sampling"), &TextureSamplingTranslateName));
-		samplingChoice->OnClick.Add([host](UI::EventParams &e) {
+	if (TextureSamplingSupported()) {
+		page->Custom("Texture sampling", [host](UI::ViewGroup *parent) -> UI::View * {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			auto samplingScreen = new TextureSamplingScreen(gr->T("Texture sampling"));
-			samplingScreen->OnChoice.Add([host](UI::EventParams &e) {
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-				host->RecreatePageViews();  // Update setting name, and the upscaling settings it disables.
+			ChoiceWithValueDisplay *samplingChoice = parent->Add(new ChoiceWithValueDisplay(&g_Config.sTextureSamplingShader, gr->T("Texture sampling"), &TextureSamplingTranslateName));
+			samplingChoice->OnClick.Add([host](UI::EventParams &e) {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				auto samplingScreen = new TextureSamplingScreen(gr->T("Texture sampling"));
+				samplingScreen->OnChoice.Add([host](UI::EventParams &e) {
+					System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+					host->RecreatePageViews();  // Update setting name, and the upscaling settings it disables.
+				});
+				if (e.v)
+					samplingScreen->SetPopupOrigin(e.v);
+				host->PageScreenManager()->push(samplingScreen);
 			});
-			if (e.v)
-				samplingScreen->SetPopupOrigin(e.v);
-			host->PageScreenManager()->push(samplingScreen);
-		});
-		return samplingChoice;
-	}).Disabled(&g_Config.bSoftwareRendering)
-		.Hint({ I18NCat::GRAPHICS, "Texture sampling Tip", "Smooths pixel edges while drawing, at any size and with no extra memory, so they stay stable when sprites move or scale. Usually better than upscaling for 2D games, but costs GPU time on every pixel. Replaces upscaling while on." });
-	page->Setting(&g_Config.bTexSamplingSeparateSprites).EnabledFunc(&TextureSamplingOn)
-		.Hint({ I18NCat::GRAPHICS, "Keep sampled sprites separate Tip", "Stops sprites cut from a shared texture from blending into their neighbours. Fixes edge artifacts on HUDs and sprites in some 2D games." });
+			return samplingChoice;
+		}).Disabled(&g_Config.bSoftwareRendering)
+			.Hint({ I18NCat::GRAPHICS, "Texture sampling Tip", "Smooths pixel edges while drawing, at any size and with no extra memory, so they stay stable when sprites move or scale. Usually better than upscaling for 2D games, but costs GPU time on every pixel. Replaces upscaling while on." });
+		page->Setting(&g_Config.bTexSamplingSeparateSprites).EnabledFunc(&TextureSamplingOn)
+			.Hint({ I18NCat::GRAPHICS, "Keep sampled sprites separate Tip", "Stops sprites cut from a shared texture from blending into their neighbours. Fixes edge artifacts on HUDs and sprites in some 2D games." });
+	}
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) {
 		page->Custom("GPU texture upscaler (fast)", [host](UI::ViewGroup *parent) -> UI::View * {

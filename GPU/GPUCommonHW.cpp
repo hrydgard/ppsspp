@@ -624,7 +624,7 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	// Needs textureSize, textureLod and fwidth in the fragment shader.
 	bool samplingChanged = false;
-	const bool samplingAvailable = draw_->GetShaderLanguageDesc().glslES30 && !g_Config.bSoftwareRendering;
+	const bool samplingAvailable = TextureSamplingSupported() && draw_->GetShaderLanguageDesc().glslES30 && !g_Config.bSoftwareRendering;
 	if (LoadTextureSamplingShader(draw_, samplingAvailable ? g_Config.sTextureSamplingShader : "Off", &samplingChanged)) {
 		features |= GPU_USE_TEX_SAMPLING;
 		if (g_Config.bTexSamplingSeparateSprites) {
