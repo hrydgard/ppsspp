@@ -248,7 +248,7 @@ public:
 		return videos_;
 	}
 
-	virtual void Flush();
+	void Flush();
 
 #ifdef USE_CRT_DBG
 #undef new

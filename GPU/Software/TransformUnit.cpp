@@ -164,6 +164,7 @@ TransformUnit::~TransformUnit() {
 
 SoftwareDrawEngine::SoftwareDrawEngine() : transformDecoders_(32) {
 	flushOnParams_ = false;
+	alwaysFlush_ = true;
 	// Our DispatchSubmitPrim decodes by itself.
 	curvesPredecoded_ = false;
 }

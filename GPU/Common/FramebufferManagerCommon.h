@@ -142,6 +142,11 @@ struct VirtualFramebuffer {
 
 	// A reinterpret changed the alpha, and the stencil hasn't been rebuilt from it yet.
 	bool stencilFromAlphaPending;
+	// The part it changed, in the buffer's own pixels (not clipped to it).
+	int stencilPendingX1;
+	int stencilPendingY1;
+	int stencilPendingX2;
+	int stencilPendingY2;
 
 	// Global sequence numbers for the last time these were bound.
 	// Not based on frames at all. Can be used to determine new-ness of one framebuffer over another,
@@ -763,6 +768,7 @@ protected:
 	// Common implementation of stencil buffer upload. Also not 100% optimal, but not performance
 	// critical either.
 	Draw::Pipeline *stencilWritePipeline_ = nullptr;
+	Draw::Pipeline *stencilClearPipeline_ = nullptr;
 	Draw::SamplerState *stencilWriteSampler_ = nullptr;
 
 	// Used on GLES where we can't directly readback depth or stencil, but here for simplicity.

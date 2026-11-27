@@ -89,6 +89,10 @@ public:
 
 	// Dispatches the queued-up draws.
 	virtual void Flush() = 0;
+	// Most flushes find nothing queued, so GPUCommon::Flush() asks before making the virtual call.
+	bool HasQueuedDraws() const {
+		return numDrawVerts_ != 0 || alwaysFlush_;
+	}
 
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
@@ -409,6 +413,8 @@ protected:
 	const VertexDecoder *dec_ = nullptr;
 	u32 lastVType_ = -1;  // corresponds to dec_.  Could really just pick it out of dec_...
 	int numDrawVerts_ = 0;
+	// For an engine that queues its draws elsewhere (the software renderer).
+	bool alwaysFlush_ = false;
 	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
 	// How many vertices software transform expands the queued points, lines and rectangles to (4 per

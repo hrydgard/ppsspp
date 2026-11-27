@@ -42,7 +42,9 @@
 bool __KernelIsDispatchEnabled();
 
 void GPUCommon::Flush() {
-	drawEngineCommon_->Flush();
+	if (drawEngineCommon_->HasQueuedDraws()) {
+		drawEngineCommon_->Flush();
+	}
 }
 
 GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
