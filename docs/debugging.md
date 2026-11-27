@@ -296,6 +296,19 @@ shows as emitter and IR pass functions; profile 20 emulated seconds or more to s
 To compare two builds by where the time goes, profile one game at a time: several at once wait on each
 other's GPU work, which moves the shares.
 
+The IR interpreter's report (`--cpu=ir`) ends with register statistics, for choosing which guest registers
+a native JIT keeps in host registers all the time (`GetStaticAllocations()`). They model a register cache
+on the block runs the profiler saw: a `REGUSE` line per GPR and FPU register counts the loads from the
+context a run needs (the register is read before the block writes it) and the stores back (it's dirty at
+an exit the run passes, taken or not), which is what a static allocation saves. `REGDISTINCT` lines give
+how many registers a run touches, for how few can be left to allocate. Any host's build does: the IR is
+the same. Savestates run without their games (above) give a set of games quickly, and `--graphics=null`
+keeps it to the CPU. Averaged over the games of a savestate collection in November 2026, without any static allocation there
+would be 540 loads and stores per 1000 IR instructions, half of them for `a0`, `a1`, `v0`, `ra`, `sp` and
+`v1`. The next eight are `a2`, `a3`, `s0`, `t0`, `s1`, `s2`, `t1` and `s3`, which leave a seventh, and
+after those no register is worth much (`t2` 2%, `s4` 2%). A block run is 11 IR instructions and touches 4
+GPRs at the median, 8 or fewer in 90%. The FPU registers are a tenth of the GPRs, `f12` first.
+
 ### Timing the JIT compiler
 
 `--jit-bench=N` (app and headless, IR JITs) recompiles every block in the cache after N flips: five times
