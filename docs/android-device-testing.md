@@ -151,9 +151,14 @@ timed and profiled on a phone without the app, its UI or its frame pacing:
     adb shell mkdir -p /data/local/tmp/bench
     adb push android/libs/arm64-v8a/ppsspp_headless /data/local/tmp/bench/
     adb shell chmod 755 /data/local/tmp/bench/ppsspp_headless
+    adb push assets /data/local/tmp/bench/assets
 
 (`ab.cmd` on Windows. `adb push` from Windows drops the execute bit every time, hence the `chmod`.) The
 unstripped binary for symbols is in `android/obj/local/arm64-v8a/`.
+
+**Don't leave out `assets`.** Headless looks for it next to the binary, and without it there is no
+`compat.ini`: nothing fails, and every game runs without its compat flags. A game that needs one to avoid a
+framebuffer readback then measures at half its real speed, for a reason the app doesn't have.
 
 **The game doesn't have to be copied to the device.** Two ways around it:
 
@@ -179,6 +184,22 @@ gives the speed without the startup. For counts that repeat to 0.1%, wrap the ru
 `simpleperf/bin/android/arm64/`; NDK 29's doesn't start on Android 7, NDK 26's does). Hardware counters
 aren't available to the shell on every device: where `cpu-cycles` is "not supported", only wall time
 is left.
+
+**Find out whether the GPU is the limit before profiling the CPU.** On an old phone it often is, even at
+1x, and then nothing done to the emulator thread shows. Three ways to tell:
+
+- `--profile-log=FILE` (see [debugging.md](debugging.md)): `wait_gpu` on the emulator thread is the time
+  each frame spends waiting for the GPU to finish an earlier one. Milliseconds there mean GPU-bound.
+- The driver's own counters, on Adreno: `cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage` and
+  `devfreq/cur_freq` in the same directory, while the game runs. 99% at the highest frequency is
+  GPU-bound.
+- `--resolution-scale=2`: frame time that grows with the pixel count is fill, and time that doesn't is
+  per draw or per pass.
+
+To find which render pass costs the time, a temporary early return in
+`VulkanQueueRunner::PerformRenderPass()` for passes matching an environment variable (by framebuffer tag,
+pass tag or draw count), and the wall time with each one skipped, is quick and exact enough. Uncomment
+`LogSteps()` in `VulkanRenderManager::Run()` for one frame to get the list of passes.
 
 A binary owned by the shell can be profiled without a debuggable app:
 
