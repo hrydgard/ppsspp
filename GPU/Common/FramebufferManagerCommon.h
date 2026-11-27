@@ -154,6 +154,9 @@ struct VirtualFramebuffer {
 	int colorBindSeq;
 	int depthBindSeq;
 
+	// Rendered at 1x as an effect buffer (see FramebufferManagerCommon::IsEffectBuffer).
+	bool effectAt1x = false;
+
 	// These are mainly used for garbage collection purposes and similar.
 	// Cannot be used to determine new-ness against a similar other buffer, since they are
 	// only at frame granularity. Although, can be used to check for -1 to see if they have ever
@@ -803,10 +806,13 @@ protected:
 	struct EffectBufferInfo {
 		u8 signals = 0;
 		bool confirmed = false;
+		// Shown on screen, so never an effect buffer.
+		bool displayed = false;
 	};
 	static int EffectSignalWeight(EffectSignal signal);
 	static bool GetQueuedDrawScale(bool *shrinks, bool *grows);
 	void AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals);
+	void NotifyEffectBufferDisplayed(const VirtualFramebuffer *vfb);
 	static u64 EffectKey(const VirtualFramebuffer *vfb);
 	bool IsEffectBuffer(const VirtualFramebuffer *vfb) const;
 	bool MayBeEffectBuffer(const VirtualFramebuffer *vfb) const;

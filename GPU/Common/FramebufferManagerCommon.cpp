@@ -690,8 +690,9 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		NotifyRenderFramebufferUpdated(vfb);
 	}
 
-	// Found to be an effect buffer after it was created. Its contents are copied down.
-	if (useBufferedRendering_ && BloomHackRendersEffectsAt1x(bloomHack_) && vfb->renderScaleFactor != 1 && IsEffectBuffer(vfb)) {
+	// Found to be an effect buffer after it was created, or found not to be one after all (it got displayed).
+	// Its contents are copied over at the new size.
+	if (useBufferedRendering_ && BloomHackRendersEffectsAt1x(bloomHack_) && (vfb->renderScaleFactor != 1 || vfb->effectAt1x) && vfb->effectAt1x != IsEffectBuffer(vfb)) {
 		ResizeFramebufFBO(vfb, vfb->bufferWidth, vfb->bufferHeight, true);
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
 	}
@@ -1983,6 +1984,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	NotifyEffectBufferDisplayed(vfb);
 	vfb->last_frame_displayed = gpuStats.totals.numFlips;
 	vfb->dirtyAfterDisplay = false;
 	vfb->reallyDirtyAfterDisplay = false;
@@ -2193,10 +2195,25 @@ int FramebufferManagerCommon::EffectSignalWeight(EffectSignal signal) {
 	}
 }
 
+// The scene can collect signals before it's first shown, like while a loading screen draws into it, and would
+// stay at 1x if it got confirmed then.
+void FramebufferManagerCommon::NotifyEffectBufferDisplayed(const VirtualFramebuffer *vfb) {
+	if (!TracksEffectBuffers()) {
+		return;
+	}
+	EffectBufferInfo &info = effectBuffers_[EffectKey(vfb)];
+	if (info.confirmed) {
+		INFO_LOG(Log::FrameBuf, "Displayed framebuffer %08x %dx%d isn't an effect buffer", vfb->fb_address, vfb->width, vfb->height);
+	}
+	info.displayed = true;
+	info.confirmed = false;
+	info.signals = 0;
+}
+
 void FramebufferManagerCommon::AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals) {
 	const u64 key = EffectKey(vfb);
 	auto it = effectBuffers_.find(key);
-	if (it != effectBuffers_.end() && (it->second.signals | signals) == it->second.signals) {
+	if (it != effectBuffers_.end() && (it->second.displayed || (it->second.signals | signals) == it->second.signals)) {
 		return;
 	}
 	// Games only have a handful, so something odd is going on if this grows large.
@@ -2529,6 +2546,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		force1x = true;
 	}
 
+	vfb->effectAt1x = force1x && BloomHackRendersEffectsAt1x(bloomHack_) && IsEffectBuffer(vfb);
 	if (force1x && g_Config.iInternalResolution != 1) {
 		vfb->renderScaleFactor = 1;
 		vfb->renderWidth = vfb->bufferWidth;
