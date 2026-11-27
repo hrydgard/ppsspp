@@ -10,6 +10,7 @@
 #
 # This script only needs an already-built PPSSPPHeadless binary (see
 # docs/pspautotests.md for how to build one); it doesn't build anything itself.
+# Pass its path as the argument to use one outside the usual build directories.
 # After it finishes, just build normally - Core/MIPS/InterpreterDispatch.cpp is
 # already wired into every build system, so no further steps are needed.
 
@@ -48,10 +49,11 @@ def find_headless():
 
 
 def main():
+  explicit = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else None
   repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
   os.chdir(repo_root)
 
-  headless = find_headless()
+  headless = explicit if explicit and os.path.isfile(explicit) else (None if explicit else find_headless())
   if headless is None:
     sys.stderr.write("error: couldn't find a built PPSSPPHeadless binary. Checked:\n")
     for candidate in CANDIDATES:
