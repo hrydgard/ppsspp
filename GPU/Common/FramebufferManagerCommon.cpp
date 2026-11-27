@@ -1016,7 +1016,25 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 
 			if (pipeline && src->fb_format != dst->fb_format && dst->fb_format != GE_FORMAT_565) {
 				// Rebuilt when a draw first uses it. MX vs. ATV Untamed reinterprets about 60 times a frame, and
-				// stencil tests after one of them.
+				// stencil tests after one of them. Only where the blit wrote: without stencil export the rebuild
+				// is a draw per stencil bit, and Silent Hill: Shattered Memories reinterprets a small shadow map
+				// into a corner of a screen-sized buffer every frame.
+				const int scale = dst->renderScaleFactor;
+				const int x1 = dstX1 / scale;
+				const int y1 = dstY1 / scale;
+				const int x2 = (dstX2 + scale - 1) / scale;
+				const int y2 = (dstY2 + scale - 1) / scale;
+				if (dst->stencilFromAlphaPending) {
+					dst->stencilPendingX1 = std::min(dst->stencilPendingX1, x1);
+					dst->stencilPendingY1 = std::min(dst->stencilPendingY1, y1);
+					dst->stencilPendingX2 = std::max(dst->stencilPendingX2, x2);
+					dst->stencilPendingY2 = std::max(dst->stencilPendingY2, y2);
+				} else {
+					dst->stencilPendingX1 = x1;
+					dst->stencilPendingY1 = y1;
+					dst->stencilPendingX2 = x2;
+					dst->stencilPendingY2 = y2;
+				}
 				dst->stencilFromAlphaPending = true;
 			}
 		}
@@ -3964,6 +3982,7 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	}
 	DoRelease(stencilWriteSampler_);
 	DoRelease(stencilWritePipeline_);
+	DoRelease(stencilClearPipeline_);
 	DoRelease(stencilReadbackSampler_);
 	DoRelease(stencilReadbackPipeline_);
 	DoRelease(depthReadbackSampler_);

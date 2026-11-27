@@ -143,6 +143,16 @@ void GenerateStencilFs(char *buffer, const ShaderLanguageDesc &lang, const Draw:
 	writer.EndFSMain("outColor");
 }
 
+// Writes the stencil reference everywhere, and no color. The same interface as the stencil write shader.
+static void GenerateStencilClearFs(char *buffer, const ShaderLanguageDesc &lang) {
+	ShaderWriter writer(buffer, lang, ShaderStage::Fragment);
+	writer.HighPrecisionFloat();
+	writer.DeclareSamplers(samplers);
+	writer.BeginFSMain(uniforms, varyings);
+	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
+	writer.EndFSMain("outColor");
+}
+
 // This can probably be shared with some other shaders, like reinterpret or the future depth upload.
 void GenerateStencilVs(char *buffer, const ShaderLanguageDesc &lang) {
 	ShaderWriter writer(buffer, lang, ShaderStage::Vertex);
@@ -208,6 +218,23 @@ void FramebufferManagerCommon::EnsureStencilWritePipeline(bool useExportShader) 
 	stencilWritePipeline_ = draw_->CreateGraphicsPipeline(stencilWriteDesc, "stencil_upload");
 	_assert_(stencilWritePipeline_);
 
+	if (!useExportShader) {
+		// The bit by bit passes only set bits, so a partial rebuild zeroes its part with this first.
+		GenerateStencilClearFs(fsCode, shaderLanguageDesc);
+		ShaderModule *stencilClearFs = draw_->CreateShaderModule(ShaderStage::Fragment, shaderLanguageDesc.shaderLanguage, (const uint8_t *)fsCode, strlen(fsCode), "stencil_clear_fs");
+		_assert_(stencilClearFs);
+		BlendState *blendNoWrite = draw_->CreateBlendState({ false, 0x0 });
+		PipelineDesc stencilClearDesc{
+			Primitive::TRIANGLE_LIST,
+			{ stencilUploadVs, stencilClearFs },
+			inputLayout, stencilWrite, blendNoWrite, rasterNoCull, &stencilUBDesc,
+		};
+		stencilClearPipeline_ = draw_->CreateGraphicsPipeline(stencilClearDesc, "stencil_clear");
+		_assert_(stencilClearPipeline_);
+		blendNoWrite->Release();
+		stencilClearFs->Release();
+	}
+
 	delete[] fsCode;
 	delete[] vsCode;
 
@@ -223,21 +250,21 @@ void FramebufferManagerCommon::EnsureStencilWritePipeline(bool useExportShader) 
 	stencilWriteSampler_ = draw_->CreateSamplerState(descNearest);
 }
 
+// Fullscreen triangle coordinates.
+static const float stencilPositions[6] = {
+	0.0, 0.0,
+	1.0, 0.0,
+	0.0, 1.0,
+};
+
 // Draws the stencil write pipeline over the whole target, with the source's alpha bound as the texture.
 void FramebufferManagerCommon::DrawStencilWritePasses(GEBufferFormat format, int values, u8 usedBits, bool useExportShader) {
-	// Fullscreen triangle coordinates.
-	static const float positions[6] = {
-		0.0, 0.0,
-		1.0, 0.0,
-		0.0, 1.0,
-	};
-
 	if (useExportShader) {
 		// We only need to do one pass if using an export shader.
 		StencilUB ub{};
 		draw_->SetStencilParams(0xFF, 0xFF, 0xFF);
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-		draw_->DrawUP(positions, 3);
+		draw_->DrawUP(stencilPositions, 3);
 		return;
 	}
 
@@ -258,7 +285,7 @@ void FramebufferManagerCommon::DrawStencilWritePasses(GEBufferFormat format, int
 			ub.stencilValue = i * (1.0f / 255.0f);
 		}
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-		draw_->DrawUP(positions, 3);
+		draw_->DrawUP(stencilPositions, 3);
 	}
 }
 
@@ -282,18 +309,37 @@ void FramebufferManagerCommon::WriteStencilFromFramebufferAlpha(VirtualFramebuff
 	const bool useExportShader = draw_->GetDeviceCaps().fragmentShaderStencilWriteSupported;
 	EnsureStencilWritePipeline(useExportShader);
 
-	// The source can't be the target, so read the alpha from a copy.
+	// Only the part the reinterprets changed: the rest of the stencil still matches its alpha.
 	const int w = dst->renderWidth;
 	const int h = dst->renderHeight;
-	Framebuffer *copy = GetTempFBO(TempFBO::COPY, w, h);
-	BlitUsingRaster(dst->fbo, 0.0f, 0.0f, (float)w, (float)h, copy, 0.0f, 0.0f, (float)w, (float)h, false, dst->renderScaleFactor, Get2DPipeline(DRAW2D_COPY_COLOR), "StencilFromAlpha_Copy");
+	const int scale = dst->renderScaleFactor;
+	const int x1 = std::clamp(dst->stencilPendingX1 * scale, 0, w);
+	const int y1 = std::clamp(dst->stencilPendingY1 * scale, 0, h);
+	const int x2 = std::clamp(dst->stencilPendingX2 * scale, 0, w);
+	const int y2 = std::clamp(dst->stencilPendingY2 * scale, 0, h);
+	if (x1 >= x2 || y1 >= y2) {
+		return;
+	}
+	const bool whole = x1 == 0 && y1 == 0 && x2 == w && y2 == h;
 
-	draw_->BindFramebufferAsRenderTarget(dst->fbo, { RPAction::KEEP, RPAction::KEEP, RPAction::CLEAR }, "StencilFromAlpha");
+	// The source can't be the target, so read the alpha from a copy.
+	Framebuffer *copy = GetTempFBO(TempFBO::COPY, w, h);
+	BlitUsingRaster(dst->fbo, (float)x1, (float)y1, (float)x2, (float)y2, copy, (float)x1, (float)y1, (float)x2, (float)y2, false, scale, Get2DPipeline(DRAW2D_COPY_COLOR), "StencilFromAlpha_Copy");
+
+	draw_->BindFramebufferAsRenderTarget(dst->fbo, { RPAction::KEEP, RPAction::KEEP, whole ? RPAction::CLEAR : RPAction::KEEP }, "StencilFromAlpha");
 	Viewport viewport = { 0.0f, 0.0f, (float)w, (float)h, 0.0f, 1.0f };
 	draw_->SetViewport(viewport);
-	draw_->SetScissorRect(0, 0, w, h);
+	draw_->SetScissorRect(x1, y1, x2 - x1, y2 - y1);
 	draw_->BindFramebufferAsTexture(copy, TEX_SLOT_PSP_TEXTURE, Aspect::COLOR_BIT, 0);
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilWriteSampler_);
+	if (!whole && !useExportShader) {
+		// What the pass's clear does for the whole buffer.
+		StencilUB ub{};
+		draw_->BindPipeline(stencilClearPipeline_);
+		draw_->SetStencilParams(0x00, 0xFF, 0xFF);
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+		draw_->DrawUP(stencilPositions, 3);
+	}
 	draw_->BindPipeline(stencilWritePipeline_);
 	DrawStencilWritePasses(dst->fb_format, values, 0xFF, useExportShader);
 
