@@ -1312,7 +1312,7 @@ void sendChat(std::string_view chatString) {
 				// logic has to be updated in the future if later adhocctl protocol supports longer messages
 				char buf[64];
 				truncate_cpy(buf, chatString);
-				enum adhocctl_call_status chat_send_status = adhocctl_chat(adhocctlHandle, buf);
+				enum adhocctl_call_status chat_send_status = AdhocControl().Chat(adhocctlHandle, buf);
 				if (chat_send_status != ADHOCCTL_CALL_SUCCESS) {
 					ERROR_LOG(Log::sceNet, "adhocctl client failed while sending chat message");
 					killAdhocctlClient(true, adhocctl_guard);
@@ -1360,7 +1360,7 @@ void killAdhocctlClient(bool due_to_error, const std::lock_guard<std::mutex> &lo
 
 	g_adhocServerConnected = false;
 
-	destroy_adhocctl_session(adhocctlHandle);
+	AdhocControl().Logout(adhocctlHandle);
 	adhocctlHandle = NULL;
 	// Nothing more comes from that session.
 	groupJoinInFlight = false;
@@ -1417,7 +1417,7 @@ static void AdhocctlKeepalive() {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		const uint64_t now = time_now_d() * 1000000.0;
 		// A failed ping is left for the poll to notice and handle.
-		if (adhocctlHandle && static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT && adhocctl_ping(adhocctlHandle) == ADHOCCTL_CALL_SUCCESS) {
+		if (adhocctlHandle && static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT && AdhocControl().Ping(adhocctlHandle) == ADHOCCTL_CALL_SUCCESS) {
 			lastAdhocctlPing = now;
 		}
 	}
@@ -1466,8 +1466,24 @@ static void ResolveAdhocServer() {
 	}
 }
 
+static AdhocControlTransport defaultAdhocControl;
+static AdhocControlTransport *adhocControl = &defaultAdhocControl;
+
+AdhocControlTransport &AdhocControl() {
+	return *adhocControl;
+}
+
+void SetAdhocControlTransport(AdhocControlTransport *provider) {
+	adhocControl = provider ? provider : &defaultAdhocControl;
+}
+
 static void AdhocctlLogin(bool resolve, bool bind, struct adhocctl_addr_v4 bindAddr, SceNetAdhocctlAdhocId productCode, SceNetAdhocctlNickname nickname, SceNetEtherAddr mac, bool useUdp) {
 	SetCurrentThreadName("AdhocctlLogin");
+	if (AdhocControl().IsExternal()) {
+		adhocctlLoginHandle = AdhocControl().Login(nullptr, nullptr, (char *)productCode.data, (char *)nickname.data, (char *)mac.data, false, should_abort_adhocctl_connection, nullptr);
+		adhocctlLoginDone = true;
+		return;
+	}
 	if (resolve) {
 		ResolveAdhocServer();
 	}
@@ -1481,7 +1497,7 @@ static void AdhocctlLogin(bool resolve, bool bind, struct adhocctl_addr_v4 bindA
 		adhocctl_addr.port = server_ip.in.sin_port;
 
 		// Connect to Adhoc Server
-		handle = create_adhocctl_v1_session_v4(&adhocctl_addr, bind ? &bindAddr : NULL, (char *)productCode.data, (char *)nickname.data, (char *)mac.data, useUdp, should_abort_adhocctl_connection, NULL);
+		handle = AdhocControl().Login(&adhocctl_addr, bind ? &bindAddr : NULL, (char *)productCode.data, (char *)nickname.data, (char *)mac.data, useUdp, should_abort_adhocctl_connection, NULL);
 		if (!handle && friendFinderRunning) {
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			ERROR_LOG(Log::sceNet, "Failed connecting to adhocctl server [%s/%s:%u]", g_Config.sProAdhocServer.c_str(), ip2str(server_ip.in.sin_addr).c_str(), ntohs(server_ip.in.sin_port));
@@ -1589,7 +1605,7 @@ void friendFinderStop() {
 		adhocctlLoginThread.join();
 	}
 	if (adhocctlLoginHandle) {
-		destroy_adhocctl_session(adhocctlLoginHandle);
+		AdhocControl().Logout(adhocctlLoginHandle);
 		adhocctlLoginHandle = nullptr;
 	}
 	adhocctlLoginRunning = false;
@@ -1656,7 +1672,7 @@ void friendFinderPoll() {
 			// Ping Server
 			// original code : ((sceKernelGetSystemTimeWide() - lastping) >= ADHOCCTL_PING_TIMEOUT)
 			if (static_cast<s64>(now - lastAdhocctlPing) >= PSP_ADHOCCTL_PING_TIMEOUT) { // We may need to use lower interval to prevent getting timeout at Pro Adhoc Server through internet
-				enum adhocctl_call_status ping_status = adhocctl_ping(adhocctlHandle);
+				enum adhocctl_call_status ping_status = AdhocControl().Ping(adhocctlHandle);
 
 				if (ping_status != ADHOCCTL_CALL_SUCCESS) {
 					ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during ping");
@@ -1668,7 +1684,7 @@ void friendFinderPoll() {
 				VERBOSE_LOG(Log::sceNet, "FriendFinder: Sending OPCODE_PING (%llu)", static_cast<unsigned long long>(now));
 			}
 
-			adhocctl_get_event(adhocctlHandle, &adhocctl_event);
+			AdhocControl().GetEvent(adhocctlHandle, &adhocctl_event);
 			if (adhocctl_event.type == ADHOCCTL_CLIENT_EVENT_ERROR) {
 				ERROR_LOG(Log::sceNet, "FriendFinder: adhocctl client error during event fetch");
 				killAdhocctlClient(true, adhocctl_guard);
@@ -2096,6 +2112,9 @@ bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask) {
 }
 
 void getLocalMac(SceNetEtherAddr * addr) {
+	if (AdhocControl().GetLocalMac(addr->data)) {
+		return;
+	}
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {

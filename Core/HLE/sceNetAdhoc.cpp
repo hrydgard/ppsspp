@@ -631,7 +631,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		if (adhocctlHandle) {
 			switch(req.opcode) {
 			case OPCODE_CONNECT:{
-				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
+				call_status = AdhocControl().Connect(adhocctlHandle, (char *)req.group.data);
 				if (call_status == ADHOCCTL_CALL_SUCCESS) {
 					adhocctlInServerGroup = true;
 					groupJoinInFlight = true;
@@ -639,11 +639,11 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 				break;
 			}
 			case OPCODE_SCAN:{
-				call_status = adhocctl_scan(adhocctlHandle);
+				call_status = AdhocControl().Scan(adhocctlHandle);
 				break;
 			}
 			case OPCODE_DISCONNECT:{
-				call_status = adhocctl_disconnect(adhocctlHandle);
+				call_status = AdhocControl().Disconnect(adhocctlHandle);
 				break;
 			}
 			case OPCODE_LOGIN:{
@@ -1524,7 +1524,10 @@ static void SetupAdhocRelayMode() {
 		break;
 	}
 
-	if (serverHasRelay) {
+	transport = AdhocControl().CreateDataTransport();
+	if (transport) {
+		serverHasRelay = true;
+	} else if (serverHasRelay) {
 		transport = std::make_unique<RelayTransport>();
 	} else {
 		transport = std::make_unique<P2PTransport>();
@@ -1536,6 +1539,11 @@ static void SetupAdhocRelayMode() {
 
 	netAdhocUseUdp = g_Config.bAdhocUseUdp;
 	netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
+
+	if (AdhocControl().IsExternal()) {
+		netAdhocUseUdp = false;
+		return;
+	}
 
 	init_aemu_postoffice(netAdhocUseUdp);
 	// Closing a session normally first sleeps 50 ms, in case another thread is about to use it. Here
@@ -1747,7 +1755,9 @@ void __NetAdhocDoState(PointerWrap &p) {
 				// one more pump to best effort send the final disconnects
 				pump_enet_aemu_postoffice();
 			}
-			deinit_aemu_postoffice();
+			if (!AdhocControl().IsExternal()) {
+				deinit_aemu_postoffice();
+			}
 		}
 	}
 }
@@ -1762,7 +1772,7 @@ void NetAdhocctl_GameModeTimedOut() {
 	if (adhocctlInServerGroup) {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		if (adhocctlHandle != NULL) {
-			adhocctl_disconnect(adhocctlHandle);
+			AdhocControl().Disconnect(adhocctlHandle);
 		}
 		adhocctlInServerGroup = false;
 	}
@@ -3036,7 +3046,7 @@ static u32 NetAdhocctl_Disconnect(bool fromGameMode = false) {
 			adhocctlMutex.lock();
 			enum adhocctl_call_status status = ADHOCCTL_CALL_SUCCESS;
 			if (adhocctlHandle != NULL) {
-				status = adhocctl_disconnect(adhocctlHandle);
+				status = AdhocControl().Disconnect(adhocctlHandle);
 			}
 			adhocctlMutex.unlock();
 			if (status == ADHOCCTL_CALL_ERROR) {
@@ -3592,7 +3602,9 @@ int NetAdhoc_Term() {
 			pump_enet_aemu_postoffice();
 		}
 
-		deinit_aemu_postoffice();
+		if (!AdhocControl().IsExternal()) {
+			deinit_aemu_postoffice();
+		}
 
 		netAdhocInited = false;
 		//return hleLogSuccessInfoI(Log::sceNet, 0);
