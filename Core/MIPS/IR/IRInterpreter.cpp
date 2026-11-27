@@ -255,6 +255,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::Vec4DuplicateUpperBitsAndShift1] = &&L_Vec4DuplicateUpperBitsAndShift1;
 		dispatch[(int)IROp::FCmpVfpuBit] = &&L_FCmpVfpuBit;
 		dispatch[(int)IROp::FCmpVfpuAggregate] = &&L_FCmpVfpuAggregate;
+		dispatch[(int)IROp::Vec4CmpVfpu] = &&L_Vec4CmpVfpu;
 		dispatch[(int)IROp::FCmovVfpuCC] = &&L_FCmovVfpuCC;
 		dispatch[(int)IROp::Vec4Min] = &&L_Vec4Min;
 		dispatch[(int)IROp::Vec4Max] = &&L_Vec4Max;
@@ -263,6 +264,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::Vec4CvtScaledSW] = &&L_Vec4CvtScaledSW;
 		dispatch[(int)IROp::Vec4VfpuDot] = &&L_Vec4VfpuDot;
 		dispatch[(int)IROp::Vec4VfpuMultiDot] = &&L_Vec4VfpuMultiDot;
+		dispatch[(int)IROp::Vec4VfpuCross] = &&L_Vec4VfpuCross;
 		dispatch[(int)IROp::FSin] = &&L_FSin;
 		dispatch[(int)IROp::FCos] = &&L_FCos;
 		dispatch[(int)IROp::FRSqrt] = &&L_FRSqrt;
@@ -947,6 +949,30 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			IR_NEXT;
 		}
 
+		IR_CASE(Vec4CmpVfpu)
+		{
+			u32 bits = 0;
+			for (int i = 0; i < 4; i++) {
+				const float a = mips->f[inst->src1 + i], b = mips->f[inst->src2 + i];
+				bool result;
+				switch (inst->dest) {
+				case VC_EQ: result = a == b; break;
+				case VC_NE: result = a != b; break;
+				case VC_LT: result = a < b; break;
+				case VC_LE: result = a <= b; break;
+				case VC_GT: result = a > b; break;
+				default: result = a >= b; break;
+				}
+				bits |= (u32)result << i;
+			}
+			if (bits != 0)
+				bits |= 0x10;
+			if ((bits & 0xF) == 0xF)
+				bits |= 0x20;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (mips->vfpuCtrl[VFPU_CTRL_CC] & ~0x3F) | bits;
+			IR_NEXT;
+		}
+
 		IR_CASE(FCmovVfpuCC)
 			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == ((u32)inst->src2 >> 7)) {
 				mips->f[inst->dest] = mips->f[inst->src1];
@@ -959,6 +985,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 
 		IR_CASE(Vec4VfpuMultiDot)
 			vfpu_multi_dot(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2], IRMULTIDOT_TERMS(inst->constant), (inst->constant & IRMULTIDOT_TRANSPOSED) != 0);
+			IR_NEXT;
+
+		IR_CASE(Vec4VfpuCross)
+			vfpu_cross(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2]);
 			IR_NEXT;
 
 		IR_CASE(FSin)

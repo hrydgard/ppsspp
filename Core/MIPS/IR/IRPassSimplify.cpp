@@ -892,6 +892,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Div:
 		case IROp::Vec4VfpuDot:
 		case IROp::Vec4VfpuMultiDot:
+		case IROp::Vec4VfpuCross:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
 		case IROp::Vec4Blend:
@@ -927,6 +928,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			goto doDefault;
 
 		case IROp::FCmpVfpuBit:
+		case IROp::Vec4CmpVfpu:
 			gpr.MapDirty(IRREG_VFPU_CC);
 			goto doDefault;
 

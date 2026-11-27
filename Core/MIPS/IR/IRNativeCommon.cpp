@@ -385,6 +385,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FCmovVfpuCC:
 	case IROp::FCmpVfpuBit:
 	case IROp::FCmpVfpuAggregate:
+	case IROp::Vec4CmpVfpu:
 		CompIR_FCompare(inst);
 		break;
 
@@ -431,6 +432,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 
 	case IROp::Vec4VfpuDot:
 	case IROp::Vec4VfpuMultiDot:
+	case IROp::Vec4VfpuCross:
 		CompIR_VecHoriz(inst);
 		break;
 
