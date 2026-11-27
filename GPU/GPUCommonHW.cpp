@@ -1004,10 +1004,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Also we take the opportunity to check for flat draws, where we can detect sprites (to fix filter artifacts).
 	ClipInfoFlags flags{};
 	const bool tracksSelfTexture = vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws;
+	const bool tracksEffects = vfb && gstate.isModeThrough() && gstate.isTextureMapEnabled() && framebufferManager_->TracksEffectBuffers();
 	DrawnBounds drawnBounds{};
 	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
-		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags, tracksSelfTexture ? &drawnBounds : nullptr)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags, (tracksSelfTexture || tracksEffects) ? &drawnBounds : nullptr)) {
 			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
@@ -1017,6 +1018,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
+		if (tracksEffects) {
+			gstate_c.queuedThroughDraws.Add(drawnBounds);
+		}
 	}
 	if (tracksSelfTexture) {
 		// The bounding box test reads the first morph frame's positions, unskinned.

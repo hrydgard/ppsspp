@@ -904,6 +904,10 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		TextureApplyResult result;
 		ForgetLastTexture();
 		if (framebuffer) {
+			// Not for the debugger's looks at the texture.
+			if (doBind && channel == RASTER_COLOR) {
+				framebufferManager_->NotifyFramebufferSampled(framebuffer);
+			}
 			// ApplyTextureFramebuffer is responsible for setting SetTextureFullAlpha.
 			if (doBind) {
 				ApplyTextureFramebuffer(framebuffer, gstate.getTextureFormat(), channel);

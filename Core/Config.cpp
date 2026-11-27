@@ -929,7 +929,7 @@ static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
 static constexpr const char *frameRateLimit30Names[] = { "Auto", "Always", "Off" };
-static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive" };
+static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive", "Auto" };
 static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
 #ifndef MOBILE_DEVICE

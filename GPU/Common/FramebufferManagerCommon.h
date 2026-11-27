@@ -238,6 +238,17 @@ inline DrawTextureFlags operator | (DrawTextureFlags lhs, DrawTextureFlags rhs) 
 	return DrawTextureFlags((u32)lhs | (u32)rhs);
 }
 
+// g_Config.iBloomHack: 0 is off, 1-3 force 1x by framebuffer size. From BLOOMHACK_AUTO up, effect buffers
+// are found by how they're used instead.
+enum {
+	BLOOMHACK_AUTO = 4,  // Effect buffers are rendered at 1x.
+};
+
+// Effect buffers render at 1x.
+inline bool BloomHackRendersEffectsAt1x(int bloomHack) {
+	return bloomHack == BLOOMHACK_AUTO;
+}
+
 enum class TempFBO {
 	DEPAL,
 	BLIT,
@@ -401,9 +412,14 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
+	// A draw into the current render target samples the color of src. Feeds the effect buffer detection.
+	void NotifyFramebufferSampled(VirtualFramebuffer *src);
 	// "Lower resolution for effects" changed since the framebuffers were made, which needs them remade.
 	bool BloomHackChanged() const {
 		return bloomHack_ != EffectiveBloomHack();
+	}
+	bool TracksEffectBuffers() const {
+		return bloomHack_ >= BLOOMHACK_AUTO && renderScaleFactor_ != 1 && useBufferedRendering_;
 	}
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Reads the rows covering size bytes from the start of the framebuffer at addr. Returns false if there is none.
@@ -746,6 +762,35 @@ protected:
 	int bloomHack_ = 0;
 	bool updatePostShaders_ = false;
 	static int EffectiveBloomHack();
+
+	// Effect buffers (bloom, glow, blur) found by how they're drawn and sampled, for the Auto levels of
+	// "Lower resolution for effects". Keyed by EffectKey(), so a framebuffer recreated at the same address
+	// and size is known straight away.
+	// Each buffer collects signals over its use, and is an effect buffer once their weights (EffectSignalWeight)
+	// add up to EFFECT_SCORE_THRESHOLD. A single signal is never enough.
+	enum EffectSignal : u8 {
+		EFFECT_SIGNAL_DOWNSAMPLED = 1,  // Drawn from a framebuffer at least twice its size.
+		EFFECT_SIGNAL_CHAINED = 2,      // Drawn from a candidate (see below) without being enlarged: blur passes.
+		EFFECT_SIGNAL_FEEDS_CHAIN = 4,  // A candidate drawn into another one (the next blur pass).
+		EFFECT_SIGNAL_UPSAMPLED = 8,    // Drawn into a framebuffer at least twice its size.
+		EFFECT_SIGNAL_ADDITIVE = 16,    // That, with additive blending: how glows are put over the scene.
+		EFFECT_SIGNAL_SMALL = 32,       // Small enough for the Balanced size preset.
+		// A candidate is a buffer that may be part of an effect chain, which takes one of these.
+		EFFECT_SIGNALS_CANDIDATE = EFFECT_SIGNAL_DOWNSAMPLED | EFFECT_SIGNAL_CHAINED,
+	};
+	enum {
+		EFFECT_SCORE_THRESHOLD = 8,
+	};
+	struct EffectBufferInfo {
+		u8 signals = 0;
+		bool confirmed = false;
+	};
+	static int EffectSignalWeight(EffectSignal signal);
+	static bool GetQueuedDrawScale(bool *shrinks, bool *grows);
+	void AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals);
+	static u64 EffectKey(const VirtualFramebuffer *vfb);
+	bool IsEffectBuffer(const VirtualFramebuffer *vfb) const;
+	std::unordered_map<u64, EffectBufferInfo> effectBuffers_;
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;

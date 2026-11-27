@@ -690,6 +690,12 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		NotifyRenderFramebufferUpdated(vfb);
 	}
 
+	// Found to be an effect buffer after it was created. Its contents are copied down.
+	if (useBufferedRendering_ && BloomHackRendersEffectsAt1x(bloomHack_) && vfb->renderScaleFactor != 1 && IsEffectBuffer(vfb)) {
+		ResizeFramebufFBO(vfb, vfb->bufferWidth, vfb->bufferHeight, true);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
+	}
+
 	vfb->colorBindSeq = GetBindSeqCount();
 
 	// The whole buffer, not the guessed drawing size: that sizes the viewport, and the GE draws anywhere the
@@ -2096,6 +2102,143 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
+u64 FramebufferManagerCommon::EffectKey(const VirtualFramebuffer *vfb) {
+	return ((u64)vfb->fb_address << 32) | ((u64)(vfb->width & 0xFFF) << 20) | ((u64)(vfb->height & 0xFFF) << 8) | (u64)vfb->fb_format;
+}
+
+bool FramebufferManagerCommon::IsEffectBuffer(const VirtualFramebuffer *vfb) const {
+	// Depth is read at full resolution (and a 1x buffer that gets used for depth goes back up anyway).
+	if (vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) {
+		return false;
+	}
+	auto it = effectBuffers_.find(EffectKey(vfb));
+	return it != effectBuffers_.end() && it->second.confirmed;
+}
+
+// Compares the texels the queued draws read (through-mode texcoords, in vertBounds) with the pixels they
+// write. False when either isn't known.
+bool FramebufferManagerCommon::GetQueuedDrawScale(bool *shrinks, bool *grows) {
+	const KnownVertexBounds &uv = gstate_c.vertBounds;
+	const DrawnBounds &drawn = gstate_c.queuedThroughDraws;
+	if (uv.maxU <= uv.minU || uv.maxV <= uv.minV || drawn.IsEmpty()) {
+		return false;
+	}
+	const int readW = uv.maxU - uv.minU;
+	const int readH = uv.maxV - uv.minV;
+	// The drawn bounds have a pixel added on each side.
+	const int writeW = std::max(1, drawn.x2 - drawn.x1 - 2);
+	const int writeH = std::max(1, drawn.y2 - drawn.y1 - 2);
+	// A ratio of 1.75 or more along one side, the other not going the opposite way.
+	*shrinks = readW >= writeW && readH >= writeH && (readW * 4 >= writeW * 7 || readH * 4 >= writeH * 7);
+	*grows = writeW >= readW && writeH >= readH && (writeW * 4 >= readW * 7 || writeH * 4 >= readH * 7);
+	return true;
+}
+
+int FramebufferManagerCommon::EffectSignalWeight(EffectSignal signal) {
+	switch (signal) {
+	case EFFECT_SIGNAL_DOWNSAMPLED: return 4;
+	case EFFECT_SIGNAL_CHAINED: return 3;
+	case EFFECT_SIGNAL_FEEDS_CHAIN: return 3;
+	case EFFECT_SIGNAL_UPSAMPLED: return 2;
+	case EFFECT_SIGNAL_ADDITIVE: return 3;
+	case EFFECT_SIGNAL_SMALL: return 1;
+	default: return 0;
+	}
+}
+
+void FramebufferManagerCommon::AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals) {
+	const u64 key = EffectKey(vfb);
+	auto it = effectBuffers_.find(key);
+	if (it != effectBuffers_.end() && (it->second.signals | signals) == it->second.signals) {
+		return;
+	}
+	// Games only have a handful, so something odd is going on if this grows large.
+	if (it == effectBuffers_.end() && effectBuffers_.size() >= 256) {
+		effectBuffers_.clear();
+	}
+
+	EffectBufferInfo &info = effectBuffers_[key];
+	info.signals |= signals;
+	if (info.confirmed) {
+		return;
+	}
+	int score = 0;
+	for (int bit = 0; bit < 8; bit++) {
+		score += EffectSignalWeight((EffectSignal)(info.signals & (1 << bit)));
+	}
+	DEBUG_LOG(Log::FrameBuf, "Effect signals for %08x %dx%d: %02x, score %d", vfb->fb_address, vfb->width, vfb->height, info.signals, score);
+	if (score >= EFFECT_SCORE_THRESHOLD) {
+		INFO_LOG(Log::FrameBuf, "Effect buffer: %08x %dx%d %s (signals %02x), rendering at 1x", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), info.signals);
+		info.confirmed = true;
+	}
+}
+
+// Bloom and similar effects shrink the scene into a small buffer, maybe blur it between buffers of that
+// size, then stretch it back over a larger one, usually adding to it. At a higher render resolution the
+// small buffers keep enough detail for the blur's offset copies to show up as ghosts, so those get
+// rendered at 1x. Each part of that pattern adds to a score, so that something like a shrunk copy of
+// the screen drawn back as a picture (a pause menu, a save icon) isn't taken for an effect.
+void FramebufferManagerCommon::NotifyFramebufferSampled(VirtualFramebuffer *src) {
+	VirtualFramebuffer *dst = currentRenderVfb_;
+	if (!TracksEffectBuffers() || !dst) {
+		return;
+	}
+	if (!src->width || !src->height || !dst->width || !dst->height) {
+		return;
+	}
+
+	// The draws' own scale where it's known. Games can keep a whole chain in one framebuffer: God of War
+	// draws each level at another X offset of a 512-stride buffer, which becomes a single 864x272 one.
+	bool shrinks = false;
+	bool grows = false;
+	if (!GetQueuedDrawScale(&shrinks, &grows)) {
+		if (dst == src) {
+			return;
+		}
+		// Otherwise the buffer sizes, in PSP pixels: at least half the size along one side and no larger along the other.
+		shrinks = dst->width <= src->width && dst->height <= src->height && (dst->width * 2 <= src->width || dst->height * 2 <= src->height);
+		grows = src->width <= dst->width && src->height <= dst->height && (src->width * 2 <= dst->width || src->height * 2 <= dst->height);
+	}
+
+	auto srcIt = effectBuffers_.find(EffectKey(src));
+	const bool srcCandidate = srcIt != effectBuffers_.end() && (srcIt->second.signals & EFFECT_SIGNALS_CANDIDATE) != 0;
+
+	// What's displayed, and buffers also used for depth, are never effect buffers.
+	const bool dstCanBeEffect = (dst->usageFlags & (FB_USAGE_DISPLAYED_FRAMEBUFFER | FB_USAGE_COLOR_MIXED_DEPTH)) == 0 && dst->fb_address != displayFramebufPtr_;
+	u8 dstSignals = 0;
+	if (dstCanBeEffect) {
+		if (shrinks) {
+			dstSignals |= EFFECT_SIGNAL_DOWNSAMPLED;
+		} else if (srcCandidate && !grows) {
+			dstSignals |= EFFECT_SIGNAL_CHAINED;
+		}
+		if (dstSignals && (dst->bufferWidth <= 256 || dst->bufferHeight <= 128)) {
+			dstSignals |= EFFECT_SIGNAL_SMALL;
+		}
+	}
+
+	u8 srcSignals = 0;
+	if ((dstSignals & EFFECT_SIGNAL_CHAINED) && dst != src) {
+		srcSignals |= EFFECT_SIGNAL_FEEDS_CHAIN;
+	}
+	if (grows) {
+		srcSignals |= EFFECT_SIGNAL_UPSAMPLED;
+		const bool additive = gstate.isAlphaBlendEnabled() && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
+			gstate.getBlendFuncB() == GE_DSTBLEND_FIXB && gstate.getFixB() != 0;
+		if (additive) {
+			srcSignals |= EFFECT_SIGNAL_ADDITIVE;
+		}
+	}
+
+	if (dstSignals) {
+		AddEffectSignals(dst, dstSignals);
+	}
+	// Only candidates collect the signals of what they're drawn into, or every texture would get an entry.
+	if (srcCandidate && srcSignals) {
+		AddEffectSignals(src, srcSignals);
+	}
+}
+
 // Requires width/height to be set already.
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
@@ -2128,6 +2271,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		break;
 	case 3:
 		force1x = vfb->bufferWidth < 480 || vfb->bufferWidth > 800 || vfb->bufferHeight < 272; // GOW uses 864x272
+		break;
+	case BLOOMHACK_AUTO:
+		force1x = IsEffectBuffer(vfb);
 		break;
 	}
 
@@ -3295,6 +3441,7 @@ void FramebufferManagerCommon::NotifyConfigChanged() {
 void FramebufferManagerCommon::DestroyAllFBOs() {
 	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
+	effectBuffers_.clear();
 	// Or a new framebuffer at the same address would skip its depth shift.
 	depthShiftedFor_ = 0;
 	lastRenderAddress_ = 0;

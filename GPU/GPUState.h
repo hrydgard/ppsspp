@@ -662,6 +662,9 @@ public:
 	// Where the self-texturing draws since the last flush write, in the render target's pixels, x2/y2 exclusive.
 	// Empty when x1 >= x2.
 	DrawnBounds queuedSelfTextureDraws;
+	// Where the textured through-mode draws since the last flush write (like queuedSelfTextureDraws, but without
+	// the render target offset). Only collected for effect buffer detection. With vertBounds, gives their scale.
+	DrawnBounds queuedThroughDraws;
 	// TolerantDepthEqual: the current draw's EQUAL depth test is done as GEQUAL, with its Z raised by
 	// tolerantDepthEqualOffset (in the viewport Z offset uniform). See DepthTestFunctionForDraw.
 	bool tolerantDepthEqual;
