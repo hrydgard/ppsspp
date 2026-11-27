@@ -80,16 +80,20 @@ void FramebufferManagerCommon::Init(int msaaLevel) {
 	NotifyRenderResized(displayLayoutConfigCopy_, msaaLevel);
 }
 
+int FramebufferManagerCommon::EffectiveBloomHack() {
+	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
+		return 3;
+	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
+		return 0;
+	}
+	return g_Config.iBloomHack;
+}
+
 // Returns true if we need to stop the render thread
 bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
 
-	int effectiveBloomHack = g_Config.iBloomHack;
-	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
-		effectiveBloomHack = 3;
-	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
-		effectiveBloomHack = 0;
-	}
+	const int effectiveBloomHack = EffectiveBloomHack();
 
 	bool newBuffered = !g_Config.bSkipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;

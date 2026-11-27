@@ -84,6 +84,10 @@ void GPUCommon::BeginHostFrame(const DisplayLayoutConfig &config) {
 	if (framebufferManager_ && framebufferManager_->UseBufferedRendering() == g_Config.bSkipBufferEffects) {
 		renderResized_ = true;
 	}
+	// The same for Lower resolution for effects, which nothing posts a resize for.
+	if (framebufferManager_ && framebufferManager_->BloomHackChanged()) {
+		renderResized_ = true;
+	}
 	CheckRenderResized(config);
 
 	// After the resizes, which ask for the post shaders to be rebuilt at the new size.

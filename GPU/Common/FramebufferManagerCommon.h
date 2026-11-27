@@ -401,6 +401,10 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
+	// "Lower resolution for effects" changed since the framebuffers were made, which needs them remade.
+	bool BloomHackChanged() const {
+		return bloomHack_ != EffectiveBloomHack();
+	}
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Reads the rows covering size bytes from the start of the framebuffer at addr. Returns false if there is none.
 	bool ReadbackFramebufferRows(u32 addr, int size, Draw::ReadbackMode mode);
@@ -741,6 +745,7 @@ protected:
 	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
 	bool updatePostShaders_ = false;
+	static int EffectiveBloomHack();
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
