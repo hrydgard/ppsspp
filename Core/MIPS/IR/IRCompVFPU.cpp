@@ -397,7 +397,11 @@ namespace MIPSComp {
 			}
 		}
 		const int out = destDirect ? destVec : destTemp;
-		ir.Write(IROp::Vec4VfpuMultiDot, out, base, vecReady ? vec[0].reg : vecTemp, terms | (transposed ? IRMULTIDOT_TRANSPOSED : 0));
+		// The lanes no dot goes to (in a temp or the caller's scratch, then).
+		u32 skip = 0xF;
+		for (int j = 0; j < count; j++)
+			skip &= ~(1 << laneOf[j]);
+		ir.Write(IROp::Vec4VfpuMultiDot, out, base, vecReady ? vec[0].reg : vecTemp, terms | (transposed ? IRMULTIDOT_TRANSPOSED : 0) | (skip << IRMULTIDOT_SKIP_SHIFT));
 		if (!destDirect) {
 			for (int j = 0; j < count; j++)
 				ir.Write(IROp::FMov, dots[j].dest, destTemp + laneOf[j]);
@@ -1060,7 +1064,7 @@ namespace MIPSComp {
 
 		// A run of vdots against one vector (a matrix times a vector, written out) goes as one
 		// Vec4VfpuMultiDot, eating the rest of the run.
-		if (opts.vfpuMultiDot && js.HasNoPrefix() && !js.inDelaySlot && n >= 2) {
+		if (opts.vfpuMultiDot && opts.vfpuDotRuns && js.HasNoPrefix() && !js.inDelaySlot && n >= 2) {
 			MultiDot dots[4];
 			int count = 0;
 			for (; count < 4; count++) {

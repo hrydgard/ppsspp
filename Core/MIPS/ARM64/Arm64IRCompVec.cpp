@@ -743,6 +743,11 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 
 		CallVfpuMultiDot(terms);
 
+		// The routine does all four lanes anyway, so the skipped ones only have to read zero.
+		for (int i = 0; i < 4; i++) {
+			if (IRMULTIDOT_SKIP(inst.constant) & (1 << i))
+				fp_.INS(32, Q0, i, WZR);
+		}
 		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
 		fp_.MOV(regs_.FQ(inst.dest), Q0);
 		break;
