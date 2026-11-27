@@ -1937,31 +1937,47 @@ namespace MIPSComp {
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(tregs, sz, vt);
 		GetMatrixRegs(dregs, sz, vd);
-		for (int a = 0; a < n; a++) {
-			DotLane tl[4];
-			for (int c = 0; c < 4; c++)
-				tl[c] = c < n ? DotReg(tregs[a * 4 + c]) : DotConst(0.0f);
+		// A multi-dot at a time: all of s against a row of t, which is a row of d, or all of t against a
+		// row of s, which is a column of d. Whichever of those is a Vec4, so the results go straight to it
+		// (the shared row then is one too, as the matrices usually have the same orientation). The other
+		// way, each result and each lane of the shared row took an FMov.
+		const bool byColumn = dregs[4] == dregs[0] + 1;
+		for (int x = 0; x < n; x++) {
+			DotLane sl[4], tl[4];
 			MultiDot dots[4];
-			for (int b = 0; b < n; b++) {
+			for (int y = 0; y < n; y++) {
+				const int a = byColumn ? y : x;
+				const int b = byColumn ? x : y;
 				for (int c = 0; c < 4; c++) {
-					dots[b].a[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
-					dots[b].b[c] = tl[c];
+					dots[y].a[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
+					dots[y].b[c] = c < n ? DotReg(tregs[a * 4 + c]) : DotConst(0.0f);
 				}
-				dots[b].dest = dregs[a * 4 + b];
+				dots[y].dest = dregs[a * 4 + b];
 			}
 			if (TryMultiDot(dots, n, n, -1, false))
 				continue;
-			for (int b = 0; b < n; b++) {
-				DotLane sl[4];
-				for (int c = 0; c < 4; c++)
-					sl[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
+			for (int c = 0; c < 4; c++) {
+				sl[c] = dots[0].a[c];
+				tl[c] = dots[0].b[c];
+			}
+			for (int y = 0; y < n; y++) {
+				// The shared row is built once, and stays where it was built.
+				for (int c = 0; c < 4; c++) {
+					if (byColumn)
+						tl[c] = dots[y].b[c];
+					else
+						sl[c] = dots[y].a[c];
+				}
 				u8 sv, tv;
 				if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
 					DISABLE;
-				// Built once per row of t.
-				for (int c = 0; c < 4; c++)
-					tl[c] = DotReg(tv + c);
-				ir.Write(IROp::Vec4VfpuDot, dregs[a * 4 + b], sv, tv);
+				for (int c = 0; c < 4; c++) {
+					if (byColumn)
+						sl[c] = DotReg(sv + c);
+					else
+						tl[c] = DotReg(tv + c);
+				}
+				ir.Write(IROp::Vec4VfpuDot, dots[y].dest, sv, tv);
 			}
 		}
 	}
