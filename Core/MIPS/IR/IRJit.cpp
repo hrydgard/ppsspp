@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <unordered_map>
 #include "ppsspp_config.h"
 #include <set>
 #include <algorithm>
@@ -129,6 +130,94 @@ void IRJit::FlushProfile() {
 		WriteProfileReport();
 }
 
+// (block number << 16 | index of the exit taken) -> runs, for the register statistics in the profile report.
+static std::unordered_map<u64, u64> g_profileExits;
+
+// How often a native JIT's register cache would load each guest register from the context (read before it's
+// written in a block run) and store it back (dirty at an exit the run passes, taken or not), per block run as
+// the profiler saw them. That's what a static allocation of the register saves.
+static void WriteRegisterStats(FILE *f, JitBlockTable &blocks, const IRInst *arena) {
+	static const char * const gprNames[32] = {
+		"zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+		"s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra",
+	};
+	u64 loads[2][32]{}, stores[2][32]{};
+	u64 irRun = 0, blockRuns = 0;
+	u64 distinct[2][33]{};
+	for (const auto &it : g_profileExits) {
+		const int blockNum = (int)(it.first >> 16);
+		const int exitIndex = (int)(it.first & 0xFFFF);
+		const u64 runs = it.second;
+		if (blockNum >= blocks.GetNumBlocks())
+			continue;
+		const JitBlock *b = blocks.GetBlock(blockNum);
+		const IRInst *inst = arena + b->GetEntry();
+		const int count = std::min(exitIndex + 1, b->GetNumIRInstructions());
+		bool seen[2][32]{}, dirty[2][32]{};
+		auto read = [&](char type, IRReg r) {
+			const int k = type == 'G' ? 0 : (type == 'F' ? 1 : -1);
+			if (k < 0 || r >= 32 || (k == 0 && r == 0) || seen[k][r])
+				return;
+			seen[k][r] = true;
+			loads[k][r] += runs;
+		};
+		auto write = [&](char type, IRReg r) {
+			const int k = type == 'G' ? 0 : (type == 'F' ? 1 : -1);
+			if (k < 0 || r >= 32 || (k == 0 && r == 0))
+				return;
+			seen[k][r] = true;
+			dirty[k][r] = true;
+		};
+		for (int i = 0; i < count; ++i) {
+			const IRMeta *m = GetIRMeta(inst[i].op);
+			read(m->types[1], inst[i].src1);
+			read(m->types[2], inst[i].src2);
+			if (m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST))
+				read(m->types[0], inst[i].dest);
+			if (!(m->flags & IRFLAG_SRC3))
+				write(m->types[0], inst[i].dest);
+			if (m->flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) {
+				for (int k = 0; k < 2; k++) {
+					for (int r = 0; r < 32; r++) {
+						if (dirty[k][r])
+							stores[k][r] += runs;
+						dirty[k][r] = false;
+						// A barrier leaves nothing mapped.
+						if (m->flags & IRFLAG_BARRIER)
+							seen[k][r] = false;
+					}
+				}
+			}
+		}
+		for (int k = 0; k < 2; k++) {
+			int n = 0;
+			for (int r = 0; r < 32; r++)
+				n += seen[k][r] ? 1 : 0;
+			distinct[k][n] += runs;
+		}
+		irRun += runs * count;
+		blockRuns += runs;
+	}
+	if (!blockRuns)
+		return;
+	fprintf(f, "Register statistics: %llu block runs, %llu IR instructions\n", (unsigned long long)blockRuns, (unsigned long long)irRun);
+	for (int k = 0; k < 2; k++) {
+		for (int r = 0; r < 32; r++) {
+			char name[8];
+			if (k == 0)
+				snprintf(name, sizeof(name), "%s", gprNames[r]);
+			else
+				snprintf(name, sizeof(name), "f%d", r);
+			fprintf(f, "REGUSE %s %s loads %llu stores %llu\n", k == 0 ? "gpr" : "fpr", name, (unsigned long long)loads[k][r], (unsigned long long)stores[k][r]);
+		}
+		for (int n = 0; n <= 32; n++) {
+			if (distinct[k][n])
+				fprintf(f, "REGDISTINCT %s %d runs %llu\n", k == 0 ? "gpr" : "fpr", n, (unsigned long long)distinct[k][n]);
+		}
+	}
+	fprintf(f, "\n");
+}
+
 void IRInterpreterJit::WriteProfileReport() {
 	int64_t totalNanos = 0;
 	std::vector<int> hot;
@@ -165,6 +254,8 @@ void IRInterpreterJit::WriteProfileReport() {
 		}
 		fprintf(f, "\n");
 	}
+	WriteRegisterStats(f, blocks_, arena_.data());
+	g_profileExits.clear();
 	fclose(f);
 
 	for (int blockNum : hot)
@@ -500,11 +591,24 @@ inline void IRInterpreterJit::RunBlocksUntilDowncount() {
 				instPtr++;
 			}
 			if constexpr (profile) {
-				JitBlock *block = blocks_.GetBlock(blocks_.FindByEntry(offset));
+				const int profiledBlockNum = blocks_.FindByEntry(offset);
+				JitBlock *block = blocks_.GetBlock(profiledBlockNum);
 				Instant start = Instant::Now();
 				mips->pc = IRInterpret(mips, instPtr);
 				block->profileStats_.executions += 1;
 				block->profileStats_.totalNanos += start.ElapsedNanos();
+				// Which exit it took: the first one to that address, or the last instruction.
+				const IRInst *blockInsts = arena_.data() + block->GetEntry();
+				const int numInsts = block->GetNumIRInstructions();
+				int exitIndex = numInsts - 1;
+				for (int i = 0; i < numInsts; ++i) {
+					const IRMeta *m = GetIRMeta(blockInsts[i].op);
+					if ((m->flags & IRFLAG_EXIT) && m->types[0] == 'C' && blockInsts[i].constant == mips->pc) {
+						exitIndex = i;
+						break;
+					}
+				}
+				g_profileExits[((u64)profiledBlockNum << 16) | (u64)std::min(exitIndex, 0xFFFF)] += 1;
 			} else {
 				// Runs on through the blocks it can, as long as downcount lasts.
 				mips->pc = IRInterpret(mips, instPtr, arena_.data());
