@@ -624,6 +624,10 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		gstate_c.effectOpacityActive = false;
 		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_SHADERBLEND);
 	}
+	if (gstate_c.effect16BitComposite != EFFECT_16BIT_OFF) {
+		gstate_c.effect16BitComposite = EFFECT_16BIT_OFF;
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	}
 
 	if (entryIter != cache_.Map().end()) {
 		TexCacheEntry *entry = entryIter->second.get();
@@ -911,6 +915,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			// Not for the debugger's looks at the texture.
 			if (doBind && channel == RASTER_COLOR) {
 				framebufferManager_->NotifyFramebufferSampled(framebuffer);
+				const u8 effect16Bit = framebufferManager_->Effect16BitForComposite(framebuffer);
+				if (effect16Bit != EFFECT_16BIT_OFF) {
+					gstate_c.effect16BitComposite = effect16Bit;
+					gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
+				}
 				if (g_Config.iEffectsOpacity < 100 && framebufferManager_->DrawsEffectOverScene(framebuffer)) {
 					gstate_c.effectOpacityActive = true;
 					gstate_c.effectOpacity = std::max(g_Config.iEffectsOpacity, 0) / 100.0f;

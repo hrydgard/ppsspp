@@ -433,6 +433,8 @@ public:
 	bool SkipsEffectDraw(const VirtualFramebuffer *target) const;
 	// Drawing src, an effect buffer, over the current render target, with Auto (smooth).
 	bool DrawsEffectOverScene(const VirtualFramebuffer *src) const;
+	// Drawing src, an effect buffer, over a 16-bit scene with an Auto level: its Effect16BitMode, else 0.
+	u8 Effect16BitForComposite(const VirtualFramebuffer *src) const;
 	// Auto (smooth) scales src up smoothly where it's drawn over the current render target (SmoothEffectComposite).
 	bool SmoothsEffectComposite(const VirtualFramebuffer *src) const;
 	// The same for a texture made from it, like a depal pass's output. w x h at 1x. masked is
@@ -812,6 +814,7 @@ protected:
 	static bool GetQueuedDrawScale(bool *shrinks, bool *grows);
 	void AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals);
 	void NotifyEffectBufferDisplayed(const VirtualFramebuffer *vfb);
+	void SetEffect16Bit(const VirtualFramebuffer *vfb);
 	static u64 EffectKey(const VirtualFramebuffer *vfb);
 	bool IsEffectBuffer(const VirtualFramebuffer *vfb) const;
 	bool MayBeEffectBuffer(const VirtualFramebuffer *vfb) const;

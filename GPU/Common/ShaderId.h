@@ -89,10 +89,12 @@ enum FShaderBit : uint8_t {
 	FS_BIT_FLATSHADE = 9,
 	FS_BIT_DEPTH_CLAMP = 10,  // These both are connected to VS_BIT_MINMAX_DISCARD_OR_DEPTH_CLAMP in the vertex shader.
 	FS_BIT_MINMAX_DISCARD = 11,
-	// Free bit: 12
+	// With FS_BIT_EFFECT_16BIT_HI: the render target is a 16-bit effect buffer, whose color is rounded down to
+	// its format's precision after blending, like the PSP stores it (GetEffect16BitMode()).
+	FS_BIT_EFFECT_16BIT_LO = 12,
 	FS_BIT_ALPHA_TEST_FUNC = 13,  // 3 bits, see FShaderID::AlphaTestFunc()
 	FS_BIT_ALPHA_AGAINST_ZERO = 16,
-	// Free bit: 17
+	FS_BIT_EFFECT_16BIT_HI = 17,
 	FS_BIT_COLOR_TEST_FUNC = 18,  // 2 bits, see FShaderID::ColorTestFunc()
 	FS_BIT_COLOR_AGAINST_ZERO = 20,
 	FS_BIT_SHADER_TEX_CLAMP = 21,

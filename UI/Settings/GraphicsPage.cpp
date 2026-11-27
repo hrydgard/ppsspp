@@ -331,6 +331,10 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Setting(&g_Config.iEffectsOpacity).EnabledFunc([] {
 		return !g_Config.bSoftwareRendering && g_Config.iBloomHack == 5;
 	});
+	// Both Auto levels, BLOOMHACK_AUTO and BLOOMHACK_AUTO_SMOOTH.
+	page->Setting(&g_Config.bEffects16BitColor).EnabledFunc([] {
+		return !g_Config.bSoftwareRendering && (g_Config.iBloomHack == 4 || g_Config.iBloomHack == 5);
+	}).Hint({I18NCat::GRAPHICS, "Effects16BitColorHint", "Rounds effects drawn in 16-bit color like the PSP does. Closer to its colors, with some banding."});
 
 	page->Header("Latency");
 

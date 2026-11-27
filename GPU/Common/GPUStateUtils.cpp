@@ -316,6 +316,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
+	// The color is rounded to 16-bit precision after blending, so the blend has to happen in the shader.
+	if (GetEffect16BitMode() != EFFECT_16BIT_OFF) {
+		return REPLACE_BLEND_READ_FRAMEBUFFER;
+	}
 
 	GEBlendMode eq = gstate.getBlendEq();
 	// Let's get the non-factor modes out of the way first.

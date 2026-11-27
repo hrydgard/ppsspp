@@ -665,6 +665,11 @@ public:
 	// Where the textured through-mode draws since the last flush write (like queuedSelfTextureDraws, but without
 	// the render target offset). Only collected for effect buffer detection. With vertBounds, gives their scale.
 	DrawnBounds queuedThroughDraws;
+	// The render target is a 16-bit effect buffer (Effect16BitMode). Its color is rounded to the format's
+	// precision after blending, which is then done in the shader. See FramebufferManagerCommon::SetEffect16Bit.
+	u8 effect16Bit;
+	// The same for a draw that puts an effect over a 16-bit scene. Set where the texture is applied.
+	u8 effect16BitComposite;
 	// Effects opacity below 100% on a draw of an effect buffer over the scene, done by changing the fixed blend colors (see GetBlendFixA).
 	bool effectOpacityActive;
 	float effectOpacity;
@@ -739,6 +744,17 @@ class GPUInterface;
 class GPUCommon;
 
 extern GPUStateCache gstate_c;
+
+enum Effect16BitMode : u8 {
+	EFFECT_16BIT_OFF = 0,
+	EFFECT_16BIT_5551 = 1,
+	EFFECT_16BIT_565 = 2,
+	EFFECT_16BIT_4444 = 3,
+};
+
+inline u8 GetEffect16BitMode() {
+	return gstate_c.effect16Bit != EFFECT_16BIT_OFF ? gstate_c.effect16Bit : gstate_c.effect16BitComposite;
+}
 
 // The fixed blend colors. While an effect is drawn over the scene with Effects opacity below 100%, a draw that
 // adds it with fixed colors (src * A + dst * B) gets A * t and B * t + (1 - t), which fades it towards not

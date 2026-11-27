@@ -696,6 +696,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		ResizeFramebufFBO(vfb, vfb->bufferWidth, vfb->bufferHeight, true);
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
 	}
+	SetEffect16Bit(vfb);
 
 	vfb->colorBindSeq = GetBindSeqCount();
 
@@ -2194,6 +2195,42 @@ int FramebufferManagerCommon::EffectSignalWeight(EffectSignal signal) {
 	case EFFECT_SIGNAL_SMALL: return 1;
 	default: return 0;
 	}
+}
+
+// "16-bit color for effects": the PSP stores a 16-bit framebuffer's color with 5 (or 4, or 6) bits per channel,
+// while it's kept here at 8.
+// An effect chain blends into its buffers over many passes, and the PSP rounds down after each: a red glow's
+// small green and blue fade out, where here they add up and turn it pink. So draws into a 16-bit effect buffer
+// round their color the same way (in the shader, which also has to do their blending for that). Effect buffers
+// are small, which keeps the cost of that down. Off by default, as it brings back the PSP's banding too.
+static u8 Effect16BitModeFor(GEBufferFormat format) {
+	switch (format) {
+	case GE_FORMAT_5551: return EFFECT_16BIT_5551;
+	case GE_FORMAT_565: return EFFECT_16BIT_565;
+	case GE_FORMAT_4444: return EFFECT_16BIT_4444;
+	default: return EFFECT_16BIT_OFF;
+	}
+}
+
+void FramebufferManagerCommon::SetEffect16Bit(const VirtualFramebuffer *vfb) {
+	u8 mode = EFFECT_16BIT_OFF;
+	if (vfb && g_Config.bEffects16BitColor && BloomHackRendersEffectsAt1x(bloomHack_) && IsEffectBuffer(vfb)) {
+		mode = Effect16BitModeFor(vfb->fb_format);
+	}
+	if (gstate_c.effect16Bit != mode) {
+		gstate_c.effect16Bit = mode;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+	}
+}
+
+// The draw that adds the effect to the scene rounds too, where the scene is 16-bit (in Syphon Filter it's the
+// draw that has the most left to lose).
+u8 FramebufferManagerCommon::Effect16BitForComposite(const VirtualFramebuffer *src) const {
+	const VirtualFramebuffer *dst = currentRenderVfb_;
+	if (!g_Config.bEffects16BitColor || !dst || dst == src || !BloomHackRendersEffectsAt1x(bloomHack_) || !IsEffectBuffer(src) || MayBeEffectBuffer(dst)) {
+		return EFFECT_16BIT_OFF;
+	}
+	return Effect16BitModeFor(dst->fb_format);
 }
 
 // The scene can collect signals before it's first shown, like while a loading screen draws into it, and would
@@ -3701,6 +3738,7 @@ void FramebufferManagerCommon::DestroyAllFBOs() {
 	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
 	effectBuffers_.clear();
+	SetEffect16Bit(nullptr);
 	effectSourceVfb_ = nullptr;
 	effectSourceCopy_ = nullptr;
 	// Or a new framebuffer at the same address would skip its depth shift.

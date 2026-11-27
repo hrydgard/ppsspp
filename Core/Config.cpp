@@ -1062,6 +1062,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Effects spread").Range(25, 300, 25).Units("%"),
 	ConfigSetting("EffectsOpacity", SETTING(g_Config, iEffectsOpacity), 100, CfgFlag::PER_GAME)
 		.Label(I18NCat::GRAPHICS, "Effects opacity").Range(0, 100, 5).Units("%").ZeroLabel("Off"),
+	ConfigSetting("Effects16BitColor", SETTING(g_Config, bEffects16BitColor), false, CfgFlag::PER_GAME)
+		.Label(I18NCat::GRAPHICS, "16-bit color for effects"),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),

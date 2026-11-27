@@ -1240,6 +1240,23 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
 			WRITE(p, "  v.a *= 2.0;\n");
 		}
+
+		// A 16-bit effect buffer: the PSP keeps the top bits of each channel, so a glow built over several
+		// passes loses its small channels (Syphon Filter: Logan's Shadow's red night vision stays red). Read
+		// back, they're expanded like the PSP's 16-bit colors are everywhere else.
+		const int effect16Bit = (id.Bit(FS_BIT_EFFECT_16BIT_LO) ? 1 : 0) | (id.Bit(FS_BIT_EFFECT_16BIT_HI) ? 2 : 0);
+		if (effect16Bit != EFFECT_16BIT_OFF) {
+			const char *step = "vec3(8.0, 8.0, 8.0)";
+			const char *spread = "vec3(4.0, 4.0, 4.0)";
+			if (effect16Bit == EFFECT_16BIT_565) {
+				step = "vec3(8.0, 4.0, 8.0)";
+				spread = "vec3(4.0, 16.0, 4.0)";
+			} else if (effect16Bit == EFFECT_16BIT_4444) {
+				step = "vec3(16.0, 16.0, 16.0)";
+				spread = "vec3(1.0, 1.0, 1.0)";
+			}
+			WRITE(p, "  { vec3 top = floor(floor(clamp(v.rgb, 0.0, 1.0) * 255.0 + 0.001) / %s); v.rgb = (top * %s + floor(top / %s)) / 255.0; }\n", step, step, spread);
+		}
 	}
 
 	char replacedAlpha[64] = "0.0";
