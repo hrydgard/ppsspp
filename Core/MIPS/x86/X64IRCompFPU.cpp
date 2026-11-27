@@ -380,6 +380,61 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4CmpVfpu:
+	{
+#if PPSSPP_ARCH(AMD64)
+		// All four lanes at once: the compare mask's sign bits are the four bits, and any and all follow from
+		// them. NaN compares false, except for NE.
+		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		switch (VCondition(inst.dest & 0xF)) {
+		case VC_EQ:
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPPS(tempReg, regs_.F(inst.src2), CMP_EQ);
+			break;
+		case VC_NE:
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPPS(tempReg, regs_.F(inst.src2), CMP_NEQ);
+			break;
+		case VC_LT:
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPPS(tempReg, regs_.F(inst.src2), CMP_LT);
+			break;
+		case VC_LE:
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPPS(tempReg, regs_.F(inst.src2), CMP_LE);
+			break;
+		case VC_GT:
+			MOVAPS(tempReg, regs_.F(inst.src2));
+			CMPPS(tempReg, regs_.F(inst.src1), CMP_LT);
+			break;
+		case VC_GE:
+			MOVAPS(tempReg, regs_.F(inst.src2));
+			CMPPS(tempReg, regs_.F(inst.src1), CMP_LE);
+			break;
+		default:
+			_assert_msg_(false, "Unexpected Vec4CmpVfpu condition %d", inst.dest);
+			break;
+		}
+		MOVMSKPS(SCRATCH1, R(tempReg));
+		// The register only has these six bits.
+		MOV(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+		// Any: bit 4 of bits + 15. All: bit 4 of bits + 1, moved up one.
+		ADD(32, R(SCRATCH1), Imm8(15));
+		AND(32, R(SCRATCH1), Imm8(0x10));
+		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+		MOV(32, R(SCRATCH1), regs_.R(IRREG_VFPU_CC));
+		AND(32, R(SCRATCH1), Imm8(0xF));
+		ADD(32, R(SCRATCH1), Imm8(1));
+		AND(32, R(SCRATCH1), Imm8(0x10));
+		SHL(32, R(SCRATCH1), Imm8(1));
+		OR(32, regs_.R(IRREG_VFPU_CC), R(SCRATCH1));
+#else
+		CompIR_Generic(inst);
+#endif
+		break;
+	}
+
 	case IROp::FCmpVfpuBit:
 	{
 		regs_.MapGPR(IRREG_VFPU_CC, MIPSMap::DIRTY);

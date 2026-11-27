@@ -289,6 +289,125 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 	}
 
+	case IROp::Vec4VfpuMultiDot:
+	{
+#if PPSSPP_ARCH(AMD64)
+		if (!vfpuDot_) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// Four calls of the dot routine, with the operands and the results in MIPSState's scratch space, as the
+		// routine clobbers most of what could hold them. What it saves over four Vec4VfpuDots is the moves the IR
+		// needed to line their operands up.
+		const int terms = IRMULTIDOT_TERMS(inst.constant);
+		const bool transposed = (inst.constant & IRMULTIDOT_TRANSPOSED) != 0;
+		const int args = (int)(offsetof(MIPSState, vfpuMultiDotArgs) - offsetof(MIPSState, f));
+		const int result = (int)(offsetof(MIPSState, vfpuMultiDotResult) - offsetof(MIPSState, f));
+		for (int j = 0; j < 4; j++)
+			MOVUPS(MDisp(CTXREG, args + 16 * j), regs_.MapVec4(inst.src1 + 4 * j));
+		MOVUPS(MDisp(CTXREG, args + 64), regs_.MapVec4(inst.src2));
+		regs_.FlushHostRegs({ RCX, RDX, RSI, RDI }, { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM14, XMM15 });
+
+		if (!transposed) {
+			// Lane k of the result is against the block's row k: transpose it, so each is one Vec4.
+			MOVUPS(XMM0, MDisp(CTXREG, args));
+			MOVUPS(XMM1, MDisp(CTXREG, args + 16));
+			MOVUPS(XMM2, MDisp(CTXREG, args + 32));
+			MOVUPS(XMM3, MDisp(CTXREG, args + 48));
+			MOVAPS(XMM4, R(XMM0));
+			UNPCKLPS(XMM0, R(XMM1));
+			UNPCKHPS(XMM4, R(XMM1));
+			MOVAPS(XMM5, R(XMM2));
+			UNPCKLPS(XMM2, R(XMM3));
+			UNPCKHPS(XMM5, R(XMM3));
+			MOVAPS(XMM1, R(XMM0));
+			MOVLHPS(XMM0, XMM2);
+			MOVHLPS(XMM2, XMM1);
+			MOVAPS(XMM1, R(XMM4));
+			MOVLHPS(XMM4, XMM5);
+			MOVHLPS(XMM5, XMM1);
+			MOVUPS(MDisp(CTXREG, args), XMM0);
+			MOVUPS(MDisp(CTXREG, args + 16), XMM2);
+			MOVUPS(MDisp(CTXREG, args + 32), XMM4);
+			MOVUPS(MDisp(CTXREG, args + 48), XMM5);
+		}
+		// The lanes past the terms count as zero in both operands.
+		for (int j = 0; j < 5; j++) {
+			for (int i = terms; i < 4; i++)
+				MOV(32, MDisp(CTXREG, args + 16 * j + 4 * i), Imm32(0));
+		}
+		for (int k = 0; k < 4; k++) {
+			if (IRMULTIDOT_SKIP(inst.constant) & (1 << k)) {
+				MOV(32, MDisp(CTXREG, result + 4 * k), Imm32(0));
+				continue;
+			}
+			MOVUPS(XMM0, MDisp(CTXREG, args + 16 * k));
+			MOVUPS(XMM1, MDisp(CTXREG, args + 64));
+			CALL(vfpuDot_);
+			MOV(32, MDisp(CTXREG, result + 4 * k), R(EDI));
+		}
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		MOVUPS(regs_.FX(inst.dest), MDisp(CTXREG, result));
+#else
+		CompIR_Generic(inst);
+#endif
+		break;
+	}
+
+	case IROp::Vec4VfpuCross:
+	{
+#if PPSSPP_ARCH(AMD64)
+		if (!vfpuDot_) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// vfpu_cross(): three calls of the dot routine, s against permuted and negated copies of t, which are
+		// put together in MIPSState's scratch space.
+		const int args = (int)(offsetof(MIPSState, vfpuMultiDotArgs) - offsetof(MIPSState, f));
+		const int result = (int)(offsetof(MIPSState, vfpuMultiDotResult) - offsetof(MIPSState, f));
+		const int sOffset = args + 64;
+		const int tOffset = args + 48;
+		MOVUPS(MDisp(CTXREG, sOffset), regs_.MapVec4(inst.src1));
+		MOVUPS(MDisp(CTXREG, tOffset), regs_.MapVec4(inst.src2));
+		regs_.FlushHostRegs({ RCX, RDX, RSI, RDI }, { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM14, XMM15 });
+
+		MOV(32, MDisp(CTXREG, sOffset + 12), Imm32(0));
+		// Row k is at args + 16 * k: (0, t2, -t1, 0), (-t2, 0, t0, 0), (t1, -t0, 0, t2). The last has t2 where s
+		// has nothing, which still makes the third dot NaN if t2 is inf or NaN.
+		auto row = [&](int k, int lane) { return MDisp(CTXREG, args + 16 * k + 4 * lane); };
+		MOV(32, R(SCRATCH1), MDisp(CTXREG, tOffset));
+		MOV(32, row(1, 2), R(SCRATCH1));
+		XOR(32, R(SCRATCH1), Imm32(0x80000000));
+		MOV(32, row(2, 1), R(SCRATCH1));
+		MOV(32, R(SCRATCH1), MDisp(CTXREG, tOffset + 4));
+		MOV(32, row(2, 0), R(SCRATCH1));
+		XOR(32, R(SCRATCH1), Imm32(0x80000000));
+		MOV(32, row(0, 2), R(SCRATCH1));
+		MOV(32, R(SCRATCH1), MDisp(CTXREG, tOffset + 8));
+		MOV(32, row(0, 1), R(SCRATCH1));
+		MOV(32, row(2, 3), R(SCRATCH1));
+		XOR(32, R(SCRATCH1), Imm32(0x80000000));
+		MOV(32, row(1, 0), R(SCRATCH1));
+		MOV(32, row(0, 0), Imm32(0));
+		MOV(32, row(0, 3), Imm32(0));
+		MOV(32, row(1, 1), Imm32(0));
+		MOV(32, row(1, 3), Imm32(0));
+		MOV(32, row(2, 2), Imm32(0));
+		for (int k = 0; k < 3; k++) {
+			MOVUPS(XMM0, MDisp(CTXREG, sOffset));
+			MOVUPS(XMM1, MDisp(CTXREG, args + 16 * k));
+			CALL(vfpuDot_);
+			MOV(32, MDisp(CTXREG, result + 4 * k), R(EDI));
+		}
+		MOV(32, MDisp(CTXREG, result + 12), Imm32(0));
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		MOVUPS(regs_.FX(inst.dest), MDisp(CTXREG, result));
+#else
+		CompIR_Generic(inst);
+#endif
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;
