@@ -515,8 +515,9 @@ namespace MIPSComp {
 				}
 			}
 
-			// Check if we're just zeroing certain lanes - this is common.
+			// Check if we're just setting certain lanes to 0 or 1 - this is common (x, y, z, 1).
 			u32 zeroedLanes = 0;
+			u32 oneLanes = 0;
 			for (int i = 0; i < 4; ++i) {
 				int regnum = VFPUPrefixSwizzle(prefix, i);
 				bool abs = VFPUPrefixAbs(prefix, i);
@@ -529,6 +530,10 @@ namespace MIPSComp {
 					zeroedLanes |= 1 << i;
 					continue;
 				}
+				if (constants && regnum == 1 && abs == 0 && !negate) {
+					oneLanes |= 1 << i;
+					continue;
+				}
 
 				// Nope, it has something else going on.
 				zeroedLanes = (u32)-1;
@@ -536,10 +541,20 @@ namespace MIPSComp {
 			}
 
 			if (zeroedLanes != (u32)-1) {
-				InitRegs(vregs, tempReg);
-				ir.Write(IROp::Vec4Init, vregs[0], (int)Vec4Init::AllZERO);
-				ir.Write(IROp::Vec4Blend, vregs[0], origV[0], vregs[0], zeroedLanes);
-				return;
+				// A Vec4Init with ones in the lanes that get one, and zeroes in those that get zero.
+				static const struct { Vec4Init init; u32 ones; } inits[] = {
+					{ Vec4Init::AllZERO, 0x0 }, { Vec4Init::AllONE, 0xF }, { Vec4Init::Set_1000, 0x1 },
+					{ Vec4Init::Set_0100, 0x2 }, { Vec4Init::Set_0010, 0x4 }, { Vec4Init::Set_0001, 0x8 },
+				};
+				const u32 constLanes = zeroedLanes | oneLanes;
+				for (const auto &entry : inits) {
+					if ((entry.ones & constLanes) != oneLanes)
+						continue;
+					InitRegs(vregs, tempReg);
+					ir.Write(IROp::Vec4Init, vregs[0], (int)entry.init);
+					ir.Write(IROp::Vec4Blend, vregs[0], origV[0], vregs[0], constLanes);
+					return;
+				}
 			}
 		}
 
