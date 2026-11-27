@@ -36,7 +36,7 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
 	float texNoAlpha; float texMul; float texClampOffset[2];;  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
-	float fogCoef[2]; float texLodBias; float padding4;
+	float fogCoef[2]; float texLodBias; float texNoSampling;
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float texClamp[4];
@@ -63,7 +63,7 @@ R"(  mat4 u_proj;
   uint u_colorWriteMask;
   float u_mipBias;
   vec2 u_texNoAlphaMul; vec2 u_texclampoff;
-  vec2 u_fogcoef; float u_texLodBias; float pad2;
+  vec2 u_fogcoef; float u_texLodBias; float u_texNoSampling;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
   vec4 u_texclamp;
@@ -134,6 +134,10 @@ uint32_t PackDepalBits(bool pixelMapped);
 void DirtyDepalForDraw(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
+
+// u_texNoSampling: 0 = texture sampling with texture alpha, 0.5 = sampling with alpha as 1 (it can't change the
+// picture: no alpha test, and no blending that reads source alpha), 1 = no sampling (a replacement pack texture).
+float TextureSamplingMode();
 
 // Computes u_texclamp and u_texclampoff. Only meaningful when gstate_c.needShaderTexClamp is set.
 void CalcTexClamp(float texClamp[4], float texClampOffset[2]);

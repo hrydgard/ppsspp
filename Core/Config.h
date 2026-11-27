@@ -435,6 +435,9 @@ public:
 
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
+	// Texture sampling shader (Type=Sampling, "Off" for none), and whether it stays inside each 2D sprite.
+	std::string sTextureSamplingShader;
+	bool bTexSamplingSeparateSprites;
 	bool bGfxDebugOutput;
 	int iInflightFrames;
 	bool bRenderDuplicateFrames;

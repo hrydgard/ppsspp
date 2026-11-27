@@ -30,6 +30,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Common/FragmentShaderGenerator.h"
+#include "GPU/Common/PostShader.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -47,6 +48,68 @@ static const SamplerDef samplersStereo[3] = {
 	{ 1, "fbotex", SamplerFlags::ARRAY_ON_VULKAN },
 	{ 2, "pal" },
 };
+
+// Texture sampling shaders (Type=Sampling in a shader ini, see defaultshaders.ini) define
+// vec4 sampleTexture(highp vec2 uv), returning a premultiplied color for the texture coordinate uv. They're written
+// in the GLSL that also compiles as HLSL through ShaderWriter's macros, and get these to work with:
+//   texSize: the texture's size in texels. texScale: screen pixels per texel, on each axis.
+//   vec4 texFetch(highp vec2 texel): the texel at integer coordinates, premultiplied (alpha 1 if texture alpha can't
+//   reach the screen), kept inside the sprite (see GPU_USE_TEX_SAMPLING_BOUNDS) and the texture's wrap/clamp.
+//   STATIC: put it before global variables (HLSL needs "static").
+static const char * const samplingPrelude = R"(
+STATIC highp vec2 texSize;
+STATIC highp vec2 texScale;
+STATIC highp vec2 texLo;
+STATIC highp vec2 texHi;
+vec4 texFetch(highp vec2 texel) {
+	vec4 t = SAMPLING_TEX(clamp((floor(texel) + vec2(0.5, 0.5)) / texSize, texLo, texHi));
+	// Alpha counts only if it can reach the screen (see TextureSamplingMode): videos often have alpha 0.
+	float a = max(t.a, max(u_texNoAlphaMul.x, step(0.25, u_texNoSampling)));
+	return vec4(t.rgb * a, a);
+}
+)";
+
+// bounds: the sprite's texture rectangle (umin, vmin, umax, vmax), min > max for none. Fetches past it repeat its
+// edge texels, so sprites cut from a shared texture don't pick up their neighbours.
+static const char * const samplingEpilogue = R"(
+vec4 runTextureSampling(highp vec2 uv, highp vec2 size, highp vec2 scale, highp vec4 bounds) {
+	texSize = size;
+	texScale = scale;
+	texLo = vec2(-1000.0, -1000.0);
+	texHi = vec2(1000.0, 1000.0);
+	if (bounds.x <= bounds.z && bounds.y <= bounds.w) {
+		texLo = (floor(bounds.xy * size + vec2(0.5, 0.5)) + vec2(0.5, 0.5)) / size;
+		texHi = max((floor(bounds.zw * size + vec2(0.5, 0.5)) - vec2(0.5, 0.5)) / size, texLo);
+	}
+	vec4 res = sampleTexture(uv);
+	return vec4(res.rgb / max(res.a, 0.00001), res.a);
+}
+)";
+
+// On Vulkan, framebuffer textures are arrays (layer 0, or the eye in stereo).
+static void WriteTextureSamplingFunctions(ShaderWriter &p, const ShaderLanguageDesc &compat, bool arrayTexture, bool useStereo, std::string_view source) {
+	if (compat.shaderLanguage == HLSL_D3D11) {
+		p.C("#define SAMPLING_TEX(c) tex.SampleLevel(texSamp, c, 0.0)\n");
+		p.C("#define STATIC static\n");
+		p.C("float2 samplingTexSize() { float2 size; tex.GetDimensions(size.x, size.y); return size; }\n");
+	} else if (arrayTexture) {
+		p.F("#define SAMPLING_TEX(c) textureLod(tex, vec3(c, %s), 0.0)\n", useStereo ? "float(gl_ViewIndex)" : "0.0");
+		p.C("#define STATIC\n");
+		p.C("highp vec2 samplingTexSize() { return vec2(textureSize(tex, 0).xy); }\n");
+	} else {
+		p.C("#define SAMPLING_TEX(c) textureLod(tex, c, 0.0)\n");
+		p.C("#define STATIC\n");
+		p.C("highp vec2 samplingTexSize() { return vec2(textureSize(tex, 0)); }\n");
+	}
+	// Edge detection sums overflow lowp. The default goes back to lowp for main (useSampling excludes the CLUT8
+	// path, the only one that raises it).
+	p.HighPrecisionFloat();
+	p.W(samplingPrelude);
+	p.W(source);
+	p.C("\n");
+	p.W(samplingEpilogue);
+	p.LowPrecisionFloat();
+}
 
 bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLanguageDesc &compat, Draw::Bugs bugs, uint64_t *uniformMask, FragmentShaderFlags *fragmentShaderFlags, std::string *errorString) {
 	*uniformMask = 0;
@@ -203,6 +266,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
+	// Needs textureSize, textureLod and fwidth, which glslES30 implies (GLSL 3xx, Vulkan, D3D11).
+	const std::string &samplingSource = GetTextureSamplingShaderSource();
+	const bool useSampling = doTexture && !isModeClear && gstate_c.Use(GPU_USE_TEX_SAMPLING) && !samplingSource.empty() && compat.glslES30 && !texture3D && shaderDepalMode == ShaderDepalMode::OFF;
+	// Declared whenever the vertex shader writes it, so the D3D11 structs match.
+	const bool samplingBounds = gstate_c.Use(GPU_USE_TEX_SAMPLING_BOUNDS) && compat.glslES30;
+
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
@@ -255,6 +324,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");
+		}
+		if (samplingBounds) {
+			WRITE(p, "layout (location = 5) in highp vec4 v_texbounds;\n");
 		}
 
 		if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -325,6 +397,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw : TEXCOORD2;\n");
 		}
+		if (samplingBounds) {
+			WRITE(p, "  vec4 v_texbounds : TEXCOORD3;\n");
+		}
 		WRITE(p, "};\n");
 
 		if (compat.shaderLanguage == HLSL_D3D11) {
@@ -354,6 +429,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 			*uniformMask |= DIRTY_TEX_ALPHA_MUL;
 			WRITE(p, "uniform vec2 u_texNoAlphaMul;\n");
+			if (useSampling) {
+				WRITE(p, "uniform float u_texNoSampling;\n");
+			}
 		}
 
 		if (readFramebufferTex) {
@@ -453,6 +531,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
+		if (samplingBounds) {
+			WRITE(p, "%s highp vec4 v_texbounds;\n", compat.varying_fs);
+		}
 
 		if (!enableFragmentTestCache) {
 			if (enableAlphaTest && !alphaTestAgainstZero) {
@@ -526,6 +607,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "float mymod(float a, float b) { return a - b * floor(a / b); }\n");
 	}
 
+	if (useSampling) {
+		WriteTextureSamplingFunctions(p, compat, arrayTexture, useStereo, samplingSource);
+	}
+
 	if (compat.shaderLanguage == HLSL_D3D11) {
 		WRITE(p, "PS_OUT main( PS_IN In ) {\n");
 		WRITE(p, "  PS_OUT outfragment;\n");
@@ -567,6 +652,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  vec2 v_zw = In.v_zw;\n");
+		}
+		if (samplingBounds && useSampling) {
+			WRITE(p, "  vec4 v_texbounds = In.v_texbounds;\n");
 		}
 	}
 
@@ -699,6 +787,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, %s.xy%s);\n", compat.texture, texcoord, lodBias);
 						}
 					}
+				}
+				if (useSampling) {
+					// Only where a texel covers more than a pixel (fully from two). fwidth stays outside the branch.
+					const char *uv = doTextureProjection ? "samplingProjUV" : texcoord;
+					if (doTextureProjection) {
+						WRITE(p, "  highp vec2 samplingProjUV = %s.xy / %s.z;\n", texcoord, texcoord);
+					}
+					WRITE(p, "  highp vec2 samplingSize = samplingTexSize();\n");
+					WRITE(p, "  highp vec2 samplingScale = 1.0 / max(fwidth(%s.xy * samplingSize), vec2(0.000001, 0.000001));\n", uv);
+					// u_texNoSampling is 1 for textures from a replacement pack (see TextureSamplingMode).
+					WRITE(p, "  float samplingAmount = smoothstep(1.0, 2.0, min(samplingScale.x, samplingScale.y)) * step(u_texNoSampling, 0.75);\n");
+					WRITE(p, "  if (samplingAmount > 0.0) {\n");
+					WRITE(p, "    t = mix(t, runTextureSampling(%s.xy, samplingSize, samplingScale, %s), samplingAmount);\n", uv, samplingBounds ? "v_texbounds" : "vec4(1.0, 1.0, 0.0, 0.0)");
+					WRITE(p, "  }\n");
 				}
 				if (id.Bit(FS_BIT_TRUNCATE_BILINEAR)) {
 					// The PSP's bilinear filter weighs the texels in 1/16ths and truncates each lerp to 8 bits (see SampleLinear

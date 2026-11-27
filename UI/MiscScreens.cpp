@@ -290,6 +290,31 @@ void TextureShaderScreen::OnCompleted(DialogResult result) {
 	g_Config.sTextureShaderName = shaders_[listView_->GetSelected()].section;
 }
 
+TextureSamplingScreen::TextureSamplingScreen(std::string_view title) : ListPopupScreen(title) {}
+
+void TextureSamplingScreen::CreateViews() {
+	auto ps = GetI18NCategory(I18NCat::TEXTURESHADERS);
+	ReloadAllPostShaderInfo(screenManager()->getDrawContext());
+
+	shaders_ = GetAllTextureSamplingShaderInfo();
+	std::vector<std::string> items;
+	int selected = -1;
+	for (int i = 0; i < (int)shaders_.size(); i++) {
+		if (shaders_[i].section == g_Config.sTextureSamplingShader)
+			selected = i;
+		items.emplace_back(ps->T(shaders_[i].section, shaders_[i].name));
+	}
+	adaptor_ = UI::StringVectorListAdaptor(items, selected);
+
+	ListPopupScreen::CreateViews();
+}
+
+void TextureSamplingScreen::OnCompleted(DialogResult result) {
+	if (result != DR_OK)
+		return;
+	g_Config.sTextureSamplingShader = shaders_[listView_->GetSelected()].section;
+}
+
 NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(title) {
 	// Disable annoying encoding warning
 #ifdef _MSC_VER

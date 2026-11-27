@@ -1060,6 +1060,9 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Lower resolution for effects").Choices(bloomHackNames),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
+	ConfigSetting("TextureSamplingShader", SETTING(g_Config, sTextureSamplingShader), "Off", CfgFlag::PER_GAME | CfgFlag::REPORT),
+	ConfigSetting("TextureSamplingSeparateSprites", SETTING(g_Config, bTexSamplingSeparateSprites), false, CfgFlag::PER_GAME | CfgFlag::REPORT)
+		.Label(I18NCat::GRAPHICS, "Keep sampled sprites separate").OnChanged(&OnGPUConfigChanged),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),
 
 	ConfigSetting("SkipGPUReadbackMode", SETTING(g_Config, iSkipGPUReadbackMode), false, CfgFlag::PER_GAME | CfgFlag::REPORT)

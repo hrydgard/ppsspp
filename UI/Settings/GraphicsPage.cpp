@@ -41,12 +41,31 @@
 #include "UI/SettingsPage.h"
 #include "UI/Settings/MainSettingsPages.h"
 
+static bool TextureSamplingOn() {
+	return TextureSamplingSupported() && g_Config.sTextureSamplingShader != "Off" && !g_Config.sTextureSamplingShader.empty() && !g_Config.bSoftwareRendering;
+}
+
+// Texture sampling turns texture upscaling off (see PrepareBuildTexture).
+static bool TextureUpscalingAllowed() {
+	return !TextureSamplingOn() && !g_Config.bSoftwareRendering;
+}
+
 static bool UsingHardwareTextureScaling() {
 	return g_Config.bTexHardwareScaling && (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) && !g_Config.bSoftwareRendering;
 }
 
 static std::string TextureTranslateName(std::string_view value) {
 	const TextureShaderInfo *info = GetTextureShaderInfo(value);
+	if (info) {
+		auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
+		return std::string(ts->T(value, info->name.c_str()));
+	} else {
+		return std::string(value);
+	}
+}
+
+static std::string TextureSamplingTranslateName(std::string_view value) {
+	const TextureSamplingShaderInfo *info = GetTextureSamplingShaderInfo(value);
 	if (info) {
 		auto ts = GetI18NCategory(I18NCat::TEXTURESHADERS);
 		return std::string(ts->T(value, info->name.c_str()));
@@ -340,6 +359,28 @@ void BuildGraphicsSettings(SettingsPage *page) {
 
 	page->Header("Texture upscaling");
 
+	if (TextureSamplingSupported()) {
+		page->Custom("Texture sampling", [host](UI::ViewGroup *parent) -> UI::View * {
+			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+			ChoiceWithValueDisplay *samplingChoice = parent->Add(new ChoiceWithValueDisplay(&g_Config.sTextureSamplingShader, gr->T("Texture sampling"), &TextureSamplingTranslateName));
+			samplingChoice->OnClick.Add([host](UI::EventParams &e) {
+				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+				auto samplingScreen = new TextureSamplingScreen(gr->T("Texture sampling"));
+				samplingScreen->OnChoice.Add([host](UI::EventParams &e) {
+					System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+					host->RecreatePageViews();  // Update setting name, and the upscaling settings it disables.
+				});
+				if (e.v)
+					samplingScreen->SetPopupOrigin(e.v);
+				host->PageScreenManager()->push(samplingScreen);
+			});
+			return samplingChoice;
+		}).Disabled(&g_Config.bSoftwareRendering)
+			.Hint({ I18NCat::GRAPHICS, "Texture sampling Tip", "Smooths pixel edges while drawing, at any size and with no extra memory, so they stay stable when sprites move or scale. Usually better than upscaling for 2D games, but costs GPU time on every pixel. Replaces upscaling while on." });
+		page->Setting(&g_Config.bTexSamplingSeparateSprites).EnabledFunc(&TextureSamplingOn)
+			.Hint({ I18NCat::GRAPHICS, "Keep sampled sprites separate Tip", "Stops sprites cut from a shared texture from blending into their neighbours. Fixes edge artifacts on HUDs and sprites in some 2D games." });
+	}
+
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) {
 		page->Custom("GPU texture upscaler (fast)", [host](UI::ViewGroup *parent) -> UI::View * {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
@@ -357,18 +398,18 @@ void BuildGraphicsSettings(SettingsPage *page) {
 				host->PageScreenManager()->push(shaderScreen);
 			});
 			return textureShaderChoice;
-		}).Disabled(&g_Config.bSoftwareRendering);
+		}).EnabledFunc(&TextureUpscalingAllowed);
 	}
 
 	page->Setting(&g_Config.iTexScalingType).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !TextureSamplingOn();
 	});
 	page->Setting(&g_Config.iTexScalingLevel).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !TextureSamplingOn();
 	}).Hint({ I18NCat::GRAPHICS, "UpscaleLevel Tip", "CPU heavy - some scaling may be delayed to avoid stutter" });
 
 	page->Setting(&g_Config.bTexDeposterize).EnabledFunc([]() {
-		return !UsingHardwareTextureScaling();
+		return !UsingHardwareTextureScaling() && !TextureSamplingOn();
 	}).Hint({ I18NCat::GRAPHICS, "Deposterize Tip", "Fixes visual banding glitches in upscaled textures" });
 
 	page->Header("Texture Filtering");

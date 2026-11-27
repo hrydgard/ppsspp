@@ -17,7 +17,13 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <map>
+#include <mutex>
+#include <string_view>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #include "Common/CommonWindows.h"
 #include <d3d11.h>
@@ -34,7 +40,7 @@ class D3D11PushBuffer;
 
 class D3D11FragmentShader {
 public:
-	D3D11FragmentShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, FShaderID id, const char *code, bool useHWTransform);
+	D3D11FragmentShader(ID3D11Device *device, FShaderID id, const char *code, const std::vector<uint8_t> &bytecode, bool useHWTransform);
 	~D3D11FragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -57,7 +63,7 @@ protected:
 
 class D3D11VertexShader {
 public:
-	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, bool useHWTransform);
+	D3D11VertexShader(ID3D11Device *device, VShaderID id, const char *code, const std::vector<uint8_t> &bytecode, bool useHWTransform);
 	~D3D11VertexShader();
 
 	const std::string &source() const { return source_; }
@@ -106,6 +112,10 @@ public:
 	uint64_t UpdateUniforms(bool useBufferedRendering, bool pixelMapped);
 	void BindUniforms();
 
+	// Compiles the shaders in use as they'll be with these use flags and sampling shader, on worker threads, into
+	// the bytecode cache. Called when settings change, so the switch (on the next frame of the game) doesn't stall.
+	void PrecompileForFlags(u32 useFlags, std::string_view samplingSource);
+
 	// TODO: Avoid copying these buffers if same as last draw, can still point to it assuming we're still in the same pushbuffer.
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
@@ -114,6 +124,23 @@ public:
 
 private:
 	void Clear();
+
+	// Compiled bytecode by source, kept across ClearShaders and on disk. Thread-safe; waits for a worker that's
+	// compiling the same code.
+	std::vector<uint8_t> GetBytecode(const char *code, size_t size, bool vertex);
+	void LoadBytecodeCache();
+	void SaveBytecodeCache();
+	void WaitForPrecompile();
+
+	std::mutex bytecodeMutex_;
+	std::condition_variable bytecodeCond_;
+	std::unordered_map<uint64_t, std::vector<uint8_t>> bytecodeCache_;
+	std::unordered_set<uint64_t> bytecodeUsed_;  // This session, the ones kept when the file gets too big.
+	std::unordered_set<uint64_t> bytecodeInFlight_;
+	int precompileTasks_ = 0;
+	bool bytecodeCacheDirty_ = false;
+	// The use flags the shaders in the caches were generated with.
+	u32 shaderUseFlags_ = 0;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;

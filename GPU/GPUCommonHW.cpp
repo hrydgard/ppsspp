@@ -14,6 +14,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include "GPU/Common/PostShader.h"
 
 struct CommonCommandTableEntry {
 	uint8_t cmd;
@@ -84,7 +85,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE },
 	{ GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL },
 	{ GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL },  // u_texNoSampling
 	{ GE_CMD_COLORTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_COLORTESTMASK, FLAG_FLUSHBEFOREONCHANGE, DIRTY_ALPHACOLORMASK | DIRTY_FRAGMENTSHADER_STATE },
 
@@ -119,8 +120,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
 	{ GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_ALPHABLENDENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL },  // u_texNoSampling
+	{ GE_CMD_BLENDMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL },  // u_texNoSampling
 	{ GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_COLORWRITEMASK },
@@ -621,12 +622,27 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_CLEAR_RAM_HACK;
 	}
 
+	// Needs textureSize, textureLod and fwidth in the fragment shader.
+	bool samplingChanged = false;
+	const bool samplingAvailable = TextureSamplingSupported() && draw_->GetShaderLanguageDesc().glslES30 && !g_Config.bSoftwareRendering;
+	if (LoadTextureSamplingShader(draw_, samplingAvailable ? g_Config.sTextureSamplingShader : "Off", &samplingChanged)) {
+		features |= GPU_USE_TEX_SAMPLING;
+		if (g_Config.bTexSamplingSeparateSprites) {
+			features |= GPU_USE_TEX_SAMPLING_BOUNDS;
+		}
+	}
+
 	if (!PSP_CoreParameter().compat.flags().DisableRangeCulling && !draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
 	// Headless --disable-gpu-features, to test the fallbacks for GPUs without them (old Mali has none of
 	// clip distance, cull distance and depth clamp).
+	if (samplingChanged) {
+		// Same flags, different code: the shaders have to go anyway (the backends clear them on this).
+		gstate_c.useFlagsChanged = true;
+	}
+
 	features &= ~PSP_CoreParameter().disabledGPUFeatures;
 	if (!(features & GPU_USE_CLIP_DISTANCE)) {
 		// Hardware depth clamp turns off clipping at the near plane too, which the vertex shader can then only

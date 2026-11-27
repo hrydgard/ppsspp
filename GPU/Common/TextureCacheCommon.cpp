@@ -558,6 +558,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		Unbind();
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		gstate_c.SetTextureIsArray(false);
 		gstate_c.SetTextureIsFramebuffer(false);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
@@ -647,7 +648,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			reason = "fboverlap";
 		}
 
-		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexStatus::TO_SCALE) && (standardScaleFactor_ > 1 || shaderScaleFactor_ > 1) && !gstate_c.Use(GPU_USE_TEX_SAMPLING) && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
 			DEBUG_LOG(Log::TexReplacement, "%08x: Reloading texture to do the scaling we skipped before", texaddr);
 			match = false;
 			reason = "scaling";
@@ -898,6 +899,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		// defaults afterwards would undo its work, breaking depal-from-framebuffer entirely.
 		gstate_c.SetTextureIsVideo(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		gstate_c.SetTextureIsArray(framebuffer != nullptr);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 
@@ -1015,6 +1017,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha(false);
 		gstate_c.SetTextureIs3D(false);
+		gstate_c.SetTextureReplaced(false);
 		return TextureApplyResult{};
 	} else {
 		if (doBind) {
@@ -1022,6 +1025,7 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		}
 		gstate_c.SetTextureSolidAlpha((entry->status & TexStatus::ALPHA_SOLID) != 0);
 		gstate_c.SetTextureIs3D((entry->status & TexStatus::IS_3D) != 0);
+		gstate_c.SetTextureReplaced(entry->replacedTexture && entry->replacedTexture->State() == ReplacementState::ACTIVE);
 		if (entry->status & TexStatus::CLUT8_INDEXED) {
 			bool smoothedDepal = false;
 			u32 depthUpperBits = 0;
@@ -3066,6 +3070,12 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (plan.hardwareScaling) {
 		plan.scaleFactor = shaderScaleFactor_;
+	}
+
+	// Texture sampling works on the texture's own texel grid, so upscaling first would run it on an upscaled one.
+	if (gstate_c.Use(GPU_USE_TEX_SAMPLING)) {
+		plan.hardwareScaling = false;
+		plan.scaleFactor = 1;
 	}
 
 	bool isFakeMipmapChange = false;
