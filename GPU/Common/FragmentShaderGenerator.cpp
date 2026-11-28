@@ -203,7 +203,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
+	// Rounding to 16-bit color (see FS_BIT_EFFECT_16BIT_LO), dithered where the shader language has the bitwise ops for it.
+	const int effect16Bit = (id.Bit(FS_BIT_EFFECT_16BIT_LO) ? 1 : 0) | (id.Bit(FS_BIT_EFFECT_16BIT_HI) ? 2 : 0);
+	const bool effect16BitDither = effect16Bit != 0 && compat.bitwiseOps;
+	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8 || effect16BitDither;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
@@ -401,6 +404,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform sampler2D pal;\n");
 			WRITE(p, "uniform uint u_depal_mask_shift_off_fmt;\n");
 			*uniformMask |= DIRTY_DEPAL;
+		}
+
+		if (effect16BitDither) {
+			WRITE(p, "uniform uint u_ditherLo;\n");
+			WRITE(p, "uniform uint u_ditherHi;\n");
+			*uniformMask |= DIRTY_SHADERBLEND;
 		}
 
 		if (colorWriteMask) {
@@ -1241,10 +1250,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "  v.a *= 2.0;\n");
 		}
 
-		// A 16-bit effect buffer: the PSP keeps the top bits of each channel, so a glow built over several
-		// passes loses its small channels (Syphon Filter: Logan's Shadow's red night vision stays red). Read
-		// back, they're expanded like the PSP's 16-bit colors are everywhere else.
-		const int effect16Bit = (id.Bit(FS_BIT_EFFECT_16BIT_LO) ? 1 : 0) | (id.Bit(FS_BIT_EFFECT_16BIT_HI) ? 2 : 0);
+		// A 16-bit render target (an effect buffer, or any with "16-bit color rounding"): the PSP keeps the top bits
+		// of each channel, so what's built over several passes loses its small channels (Syphon Filter: Logan's
+		// Shadow's red night vision stays red, its scene isn't washed out). Read back, they're expanded like the
+		// PSP's 16-bit colors are everywhere else.
 		if (effect16Bit != EFFECT_16BIT_OFF) {
 			const char *step = "vec3(8.0, 8.0, 8.0)";
 			const char *spread = "vec3(4.0, 4.0, 4.0)";
@@ -1255,7 +1264,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				step = "vec3(16.0, 16.0, 16.0)";
 				spread = "vec3(1.0, 1.0, 1.0)";
 			}
-			WRITE(p, "  { vec3 top = floor(floor(clamp(v.rgb, 0.0, 1.0) * 255.0 + 0.001) / %s); v.rgb = (top * %s + floor(top / %s)) / 255.0; }\n", step, step, spread);
+			WRITE(p, "  {\n");
+			WRITE(p, "    vec3 color8 = floor(clamp(v.rgb, 0.0, 1.0) * 255.0 + 0.001);\n");
+			if (effect16BitDither) {
+				// The PSP adds the game's dither matrix before it drops the low bits. Here it's laid over the rendered
+				// pixels rather than the PSP's, which keeps it fine at higher resolutions: the bands the rounding would
+				// leave become a pattern that mostly averages out, like on the PSP's own screen.
+				WRITE(p, "    uint ditherIndex = (uint(gl_FragCoord.y) & 3u) * 4u + (uint(gl_FragCoord.x) & 3u);\n");
+				WRITE(p, "    uint ditherWord = ditherIndex < 8u ? u_ditherLo : u_ditherHi;\n");
+				WRITE(p, "    int ditherRaw = int((ditherWord >> ((ditherIndex & 7u) * 4u)) & 15u);\n");
+				WRITE(p, "    color8 = clamp(color8 + float(ditherRaw >= 8 ? ditherRaw - 16 : ditherRaw), 0.0, 255.0);\n");
+			}
+			WRITE(p, "    vec3 top = floor(color8 / %s);\n", step);
+			WRITE(p, "    v.rgb = (top * %s + floor(top / %s)) / 255.0;\n", step, spread);
+			WRITE(p, "  }\n");
 		}
 	}
 

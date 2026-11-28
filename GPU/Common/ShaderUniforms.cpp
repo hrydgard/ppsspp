@@ -88,6 +88,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 		Uint8x3ToFloat3(ub->fogColor, gstate.fogcolor);
 	}
 	if (dirtyUniforms & DIRTY_SHADERBLEND) {
+		GetDitherUniform(&ub->ditherLo, &ub->ditherHi);
 		Uint8x3ToFloat3(ub->blendFixA, GetBlendFixA());
 		Uint8x3ToFloat3(ub->blendFixB, GetBlendFixB());
 	}

@@ -427,7 +427,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
-		const u8 effect16Bit = GetEffect16BitMode();
+		const u8 effect16Bit = GetColorRoundingMode();
 		id.SetBit(FS_BIT_EFFECT_16BIT_LO, (effect16Bit & 1) != 0);
 		id.SetBit(FS_BIT_EFFECT_16BIT_HI, (effect16Bit & 2) != 0);
 

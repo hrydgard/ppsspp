@@ -317,7 +317,7 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 		return REPLACE_BLEND_NO;
 	}
 	// The color is rounded to 16-bit precision after blending, so the blend has to happen in the shader.
-	if (GetEffect16BitMode() != EFFECT_16BIT_OFF) {
+	if (GetEffect16BitMode() != EFFECT_16BIT_OFF || (gstate_c.round16Bit != EFFECT_16BIT_OFF && !BlendReplacesDst())) {
 		return REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
 

@@ -2221,6 +2221,14 @@ void FramebufferManagerCommon::SetEffect16Bit(const VirtualFramebuffer *vfb) {
 		gstate_c.effect16Bit = mode;
 		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
 	}
+	// "16-bit color rounding", for everything drawn into a 16-bit framebuffer. Only draws that really mix with
+	// what's under them read the framebuffer for it (BlendReplacesDst()): Syphon Filter alpha blends thousands of
+	// draws a frame, most of them with full alpha.
+	const u8 round = vfb && g_Config.bRound16BitColor ? Effect16BitModeFor(vfb->fb_format) : EFFECT_16BIT_OFF;
+	if (gstate_c.round16Bit != round) {
+		gstate_c.round16Bit = round;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+	}
 }
 
 // The draw that adds the effect to the scene rounds too, where the scene is 16-bit (in Syphon Filter it's the

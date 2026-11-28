@@ -552,7 +552,8 @@ struct GPUStateCache {
 	void SetTextureSolidAlpha(bool solidAlpha) {
 		if (solidAlpha != textureSolidAlpha) {
 			textureSolidAlpha = solidAlpha;
-			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL);
+			// With "16-bit color rounding", it can decide whether the shader blends (BlendReplacesDst()).
+			Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_TEX_ALPHA_MUL | (round16Bit ? DIRTY_BLEND_STATE : 0));
 		}
 	}
 	void SetNeedShaderTexclamp(bool need) {
@@ -670,6 +671,11 @@ public:
 	u8 effect16Bit;
 	// The same for a draw that puts an effect over a 16-bit scene. Set where the texture is applied.
 	u8 effect16BitComposite;
+	// "16-bit color rounding": the render target is 16-bit, and the color is rounded to its precision like the
+	// PSP stores it. See BlendReplacesDst().
+	u8 round16Bit;
+	// BlendReplacesDst() at the last check, to notice when the vertex alpha changes it (UpdateColorRoundingBlend()).
+	bool roundBlendReplaces;
 	// Effects opacity below 100% on a draw of an effect buffer over the scene, done by changing the fixed blend colors (see GetBlendFixA).
 	bool effectOpacityActive;
 	float effectOpacity;
@@ -754,6 +760,56 @@ enum Effect16BitMode : u8 {
 
 inline u8 GetEffect16BitMode() {
 	return gstate_c.effect16Bit != EFFECT_16BIT_OFF ? gstate_c.effect16Bit : gstate_c.effect16BitComposite;
+}
+
+// The rounding the fragment shader does (FS_BIT_EFFECT_16BIT_LO/HI), after the blend when the shader does it.
+inline u8 GetColorRoundingMode() {
+	const u8 effect = GetEffect16BitMode();
+	return effect != EFFECT_16BIT_OFF ? effect : gstate_c.round16Bit;
+}
+
+// Nothing of what's under the draw is left after the blend, so rounding the color before it gives what the PSP
+// stores, without reading the framebuffer: no blending, or alpha blending with full alpha. Other draws blend in
+// the shader for "16-bit color rounding", and round after that.
+inline bool BlendReplacesDst() {
+	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
+		return true;
+	}
+	if (gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_ADD) {
+		return false;
+	}
+	const GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+	const GEBlendDstFactor funcB = gstate.getBlendFuncB();
+	const bool keepsNoDst = funcB == GE_DSTBLEND_FIXB && gstate.getFixB() == 0;
+	if (funcA == GE_SRCBLEND_FIXA && gstate.getFixA() == 0xFFFFFF && keepsNoDst) {
+		return true;
+	}
+	const bool fullAlpha = gstate_c.vertexFullAlpha && (!gstate.isTextureMapEnabled() || gstate_c.textureSolidAlpha || !gstate.isTextureAlphaUsed());
+	return fullAlpha && funcA == GE_SRCBLEND_SRCALPHA && (funcB == GE_DSTBLEND_INVSRCALPHA || keepsNoDst);
+}
+
+// The dither matrix for the 16-bit color rounding, 4 bits a value, rows 0-1 in lo and 2-3 in hi. All zero while
+// dithering is off.
+inline void GetDitherUniform(u32 *lo, u32 *hi) {
+	if (!gstate.isDitherEnabled()) {
+		*lo = 0;
+		*hi = 0;
+		return;
+	}
+	*lo = (gstate.dithmtx[0] & 0xFFFF) | ((gstate.dithmtx[1] & 0xFFFF) << 16);
+	*hi = (gstate.dithmtx[2] & 0xFFFF) | ((gstate.dithmtx[3] & 0xFFFF) << 16);
+}
+
+// Called by the draw engines once they know the vertex alpha, before the draw state is applied.
+inline void UpdateColorRoundingBlend() {
+	if (gstate_c.round16Bit == EFFECT_16BIT_OFF) {
+		return;
+	}
+	const bool replaces = BlendReplacesDst();
+	if (replaces != gstate_c.roundBlendReplaces) {
+		gstate_c.roundBlendReplaces = replaces;
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	}
 }
 
 // The fixed blend colors. While an effect is drawn over the scene with Effects opacity below 100%, a draw that

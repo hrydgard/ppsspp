@@ -699,6 +699,7 @@ void DrawEngineMetal::Flush() {
 		} else {
 			gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && ((hasColor && (gstate.materialupdate & 1)) || gstate.getMaterialAmbientA() == 255) && (!gstate.isLightingEnabled() || gstate.getAmbientA() == 255);
 		}
+		UpdateColorRoundingBlend();
 	};
 
 	auto updatePipeline = [&](bool hwTransform) -> Pipeline * {
