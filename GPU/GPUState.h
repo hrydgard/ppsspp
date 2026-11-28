@@ -678,6 +678,9 @@ public:
 	u8 round16Bit;
 	// BlendReplacesDst() at the last check, to notice when the vertex alpha changes it (UpdateColorRoundingBlend()).
 	bool roundBlendReplaces;
+	// Translucent draws blend in the shader and round after that (with framebuffer fetch, or "Exact 16-bit
+	// blending"). Otherwise they're rounded before the blend. See RoundsAfterBlend().
+	bool round16BitExact;
 	// Effects opacity below 100% on a draw of an effect buffer over the scene, done by changing the fixed blend colors (see GetBlendFixA).
 	bool effectOpacityActive;
 	float effectOpacity;
@@ -813,6 +816,14 @@ inline void GetDitherUniform(u32 *lo, u32 *hi) {
 	*hi = (gstate.dithmtx[2] & 0xFFFF) | ((gstate.dithmtx[3] & 0xFFFF) << 16);
 }
 
+// Whether "16-bit color rounding" blends translucent draws in the shader and rounds after that. Without framebuffer
+// fetch that takes a copy of the framebuffer for each (ColorRoundingDrawsAlone()), which is slow at high
+// resolutions, so it's only done with "Exact 16-bit blending". Otherwise their color is rounded before the blend,
+// which the blend then scales by alpha: close, and it leaves transparent parts of particles alone.
+inline bool RoundsAfterBlend() {
+	return gstate_c.round16BitExact || gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
+}
+
 // Without framebuffer fetch, a draw that blends in the shader reads a copy of the framebuffer made before it, so
 // overlapping primitives in one draw don't see each other: a burst of Syphon Filter's smoke particles would leave
 // hard rectangles where each quad, transparent parts included, overwrites the ones under it. So for "16-bit color
@@ -820,7 +831,7 @@ inline void GetDitherUniform(u32 *lo, u32 *hi) {
 // time), each with its own copy. Whether it does also depends on the alpha, which isn't known yet here, so this
 // leaves that out: draws that turn out to have full alpha just aren't merged with others.
 inline bool ColorRoundingDrawsAlone() {
-	if (gstate_c.round16Bit == EFFECT_16BIT_OFF || gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) || !gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
+	if (gstate_c.round16Bit == EFFECT_16BIT_OFF || gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) || !gstate_c.round16BitExact || !gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return false;
 	}
 	const bool replaces = gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendFuncA() == GE_SRCBLEND_FIXA &&
@@ -830,7 +841,7 @@ inline bool ColorRoundingDrawsAlone() {
 
 // Called by the draw engines once they know the vertex alpha, before the draw state is applied.
 inline void UpdateColorRoundingBlend() {
-	if (gstate_c.round16Bit == EFFECT_16BIT_OFF) {
+	if (gstate_c.round16Bit == EFFECT_16BIT_OFF || !RoundsAfterBlend()) {
 		return;
 	}
 	const bool replaces = BlendReplacesDst();

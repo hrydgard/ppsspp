@@ -2225,9 +2225,10 @@ void FramebufferManagerCommon::SetEffect16Bit(const VirtualFramebuffer *vfb) {
 	// what's under them read the framebuffer for it (BlendReplacesDst()): Syphon Filter alpha blends thousands of
 	// draws a frame, most of them with full alpha.
 	const u8 round = vfb && g_Config.iRound16BitColor != 0 ? Effect16BitModeFor(vfb->fb_format) : EFFECT_16BIT_OFF;
-	if (gstate_c.round16Bit != round) {
+	if (gstate_c.round16Bit != round || gstate_c.round16BitExact != g_Config.bRound16BitColorExact) {
 		gstate_c.round16Bit = round;
-		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		gstate_c.round16BitExact = g_Config.bRound16BitColorExact;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
 	}
 }
 

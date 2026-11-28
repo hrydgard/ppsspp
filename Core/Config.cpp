@@ -1067,6 +1067,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "16-bit color for effects"),
 	ConfigSetting("Round16BitColor", SETTING(g_Config, iRound16BitColor), 0, CfgFlag::PER_GAME)
 		.Label(I18NCat::GRAPHICS, "16-bit color rounding").Choices(round16BitColorNames),
+	ConfigSetting("Round16BitColorExact", SETTING(g_Config, bRound16BitColorExact), false, CfgFlag::PER_GAME)
+		.Label(I18NCat::GRAPHICS, "Exact 16-bit blending"),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),

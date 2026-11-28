@@ -316,10 +316,9 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
-	// The color is rounded to 16-bit precision after blending, so the blend has to happen in the shader. Without
-	// framebuffer fetch, that reads a copy of the framebuffer, so "16-bit color rounding" draws those one primitive
-	// at a time (ColorRoundingDrawsAlone()).
-	if (GetEffect16BitMode() != EFFECT_16BIT_OFF || (gstate_c.round16Bit != EFFECT_16BIT_OFF && !BlendReplacesDst())) {
+	// The color is rounded to 16-bit precision after blending, so the blend has to happen in the shader. For
+	// "16-bit color rounding" only where that's affordable (RoundsAfterBlend()).
+	if (GetEffect16BitMode() != EFFECT_16BIT_OFF || (gstate_c.round16Bit != EFFECT_16BIT_OFF && RoundsAfterBlend() && !BlendReplacesDst())) {
 		return REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
 

@@ -421,6 +421,7 @@ public:
 	int iEffectsOpacity;  // In %, for the smooth level of iBloomHack. 0 leaves the effects out.
 	bool bEffects16BitColor;  // For the Auto levels of iBloomHack: round 16-bit effect buffers like the PSP.
 	int iRound16BitColor;  // 16-bit framebuffers: 0 = as is, 1 = rounded like the PSP (dithered), 2 = its average loss, smoothly.
+	bool bRound16BitColorExact;  // Its translucent draws blend in the shader even without framebuffer fetch (slow).
 	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	bool bShaderCache;  // Hidden ini-only setting, useful for debugging shader compile times.
 	bool bUberShaderVertex;
