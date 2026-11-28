@@ -154,6 +154,9 @@ struct VirtualFramebuffer {
 	int colorBindSeq;
 	int depthBindSeq;
 
+	// Rendered at 1x as an effect buffer (see FramebufferManagerCommon::IsEffectBuffer).
+	bool effectAt1x = false;
+
 	// These are mainly used for garbage collection purposes and similar.
 	// Cannot be used to determine new-ness against a similar other buffer, since they are
 	// only at frame granularity. Although, can be used to check for -1 to see if they have ever
@@ -224,6 +227,8 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_UNCACHED = 16,
 	// The draw reads only the bits its write mask keeps. See maskCopy_.
 	BINDFBCOLOR_MASK_READ = 32,
+	// A plain color read, which may be smoothed when it draws an effect buffer over the scene (SmoothEffectComposite).
+	BINDFBCOLOR_EFFECT_SOURCE = 64,
 };
 
 enum DrawTextureFlags {
@@ -236,6 +241,18 @@ enum DrawTextureFlags {
 
 inline DrawTextureFlags operator | (DrawTextureFlags lhs, DrawTextureFlags rhs) {
 	return DrawTextureFlags((u32)lhs | (u32)rhs);
+}
+
+// g_Config.iBloomHack: 0 is off, 1-3 force 1x by framebuffer size. From BLOOMHACK_AUTO up, effect buffers
+// are found by how they're used instead.
+enum {
+	BLOOMHACK_AUTO = 4,  // Effect buffers are rendered at 1x.
+	BLOOMHACK_AUTO_SMOOTH = 5,  // Like BLOOMHACK_AUTO, and smoothly scaled up where an effect is drawn over the scene.
+};
+
+// Effect buffers render at 1x.
+inline bool BloomHackRendersEffectsAt1x(int bloomHack) {
+	return bloomHack == BLOOMHACK_AUTO || bloomHack == BLOOMHACK_AUTO_SMOOTH;
 }
 
 enum class TempFBO {
@@ -255,6 +272,11 @@ enum class TempFBO {
 	MASK_COPY,
 	// The depth that draws with gstate_c.shaderDepthEqual test against.
 	DEPTH_COPY,
+	// Effect buffers being scaled up smoothly (see SmoothEffectComposite).
+	EFFECT_SOURCE,
+	// The two passes of its blur.
+	EFFECT_SOURCE_2,
+	EFFECT_SOURCE_3,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -401,6 +423,28 @@ public:
 	void NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int w, int h, int bpp, u32 skipDrawReason);
 
 	bool BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags, int layer);
+	// A draw into the current render target samples the color of src. Feeds the effect buffer detection.
+	void NotifyFramebufferSampled(VirtualFramebuffer *src);
+	// "Lower resolution for effects" changed since the framebuffers were made, which needs them remade.
+	bool BloomHackChanged() const {
+		return bloomHack_ != EffectiveBloomHack();
+	}
+	// The current draw puts an effect buffer over a framebuffer that isn't one, with Effects opacity Off.
+	bool SkipsEffectDraw(const VirtualFramebuffer *target) const;
+	// Drawing src, an effect buffer, over the current render target, with Auto (smooth).
+	bool DrawsEffectOverScene(const VirtualFramebuffer *src) const;
+	// Drawing src, an effect buffer, over a 16-bit scene with an Auto level: its Effect16BitMode, else 0.
+	u8 Effect16BitForComposite(const VirtualFramebuffer *src) const;
+	// Auto (smooth) scales src up smoothly where it's drawn over the current render target (SmoothEffectComposite).
+	bool SmoothsEffectComposite(const VirtualFramebuffer *src) const;
+	// The same for a texture made from it, like a depal pass's output. w x h at 1x. masked is
+	// EffectCompositeIsMasked(). Returns nullptr on failure, and leaves another render target bound.
+	Draw::Framebuffer *SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool masked);
+	// The current draw is limited to part of the scene by a stencil test (see SmoothEffectTexture).
+	static bool EffectCompositeIsMasked();
+	bool TracksEffectBuffers() const {
+		return bloomHack_ >= BLOOMHACK_AUTO && renderScaleFactor_ != 1 && useBufferedRendering_;
+	}
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
 	// Reads the rows covering size bytes from the start of the framebuffer at addr. Returns false if there is none.
 	bool ReadbackFramebufferRows(u32 addr, int size, Draw::ReadbackMode mode);
@@ -741,6 +785,56 @@ protected:
 	int pixelHeight_ = 0;
 	int bloomHack_ = 0;
 	bool updatePostShaders_ = false;
+	static int EffectiveBloomHack();
+
+	// Effect buffers (bloom, glow, blur) found by how they're drawn and sampled, for the Auto levels of
+	// "Lower resolution for effects". Keyed by EffectKey(), the address: games keep framebuffers of several
+	// sizes over the same memory, which are parts of one effect (God of War has 864, 736 and 480 wide ones at
+	// one address), and they need to be at the same scale, or the copies between them show 1x texels.
+	// Each buffer collects signals over its use, and is an effect buffer once their weights (EffectSignalWeight)
+	// add up to EFFECT_SCORE_THRESHOLD. A single signal is never enough.
+	enum EffectSignal : u8 {
+		EFFECT_SIGNAL_DOWNSAMPLED = 1,  // Drawn from a framebuffer at least twice its size.
+		EFFECT_SIGNAL_CHAINED = 2,      // Drawn from a candidate (see below) without being enlarged: blur passes.
+		EFFECT_SIGNAL_FEEDS_CHAIN = 4,  // A candidate drawn into another one (the next blur pass).
+		EFFECT_SIGNAL_UPSAMPLED = 8,    // Drawn into a framebuffer at least twice its size.
+		EFFECT_SIGNAL_ADDITIVE = 16,    // That, with additive blending: how glows are put over the scene.
+		EFFECT_SIGNAL_SMALL = 32,       // Small enough for the Balanced size preset.
+		// A candidate is a buffer that may be part of an effect chain, which takes one of these.
+		EFFECT_SIGNALS_CANDIDATE = EFFECT_SIGNAL_DOWNSAMPLED | EFFECT_SIGNAL_CHAINED,
+	};
+	enum {
+		EFFECT_SCORE_THRESHOLD = 8,
+	};
+	struct EffectBufferInfo {
+		u8 signals = 0;
+		bool confirmed = false;
+	};
+	static int EffectSignalWeight(EffectSignal signal);
+	static bool GetQueuedDrawScale(bool *shrinks, bool *grows);
+	void AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals);
+	void NotifyEffectBufferDisplayed(const VirtualFramebuffer *vfb);
+	void SetEffect16Bit(const VirtualFramebuffer *vfb);
+	static u64 EffectKey(const VirtualFramebuffer *vfb);
+	bool IsEffectBuffer(const VirtualFramebuffer *vfb) const;
+	bool MayBeEffectBuffer(const VirtualFramebuffer *vfb) const;
+	std::unordered_map<u64, EffectBufferInfo> effectBuffers_;
+
+	Draw::Framebuffer *ResampleEffectSource(Draw::Framebuffer *from, int fromW, int fromH, int w, int h);
+	Draw::Framebuffer *BlurEffectSource(Draw::Framebuffer *from, int w, int h, float sigma);
+	Draw::Framebuffer *SmoothEffectComposite(VirtualFramebuffer *src);
+	enum class EffectOpacityMode {
+		COLOR,
+		ALPHA,
+		FIXED_COLORS,
+	};
+	static EffectOpacityMode GetEffectOpacityMode();
+	// The last filtered source, reused until the source is drawn to again.
+	const VirtualFramebuffer *effectSourceVfb_ = nullptr;
+	Draw::Framebuffer *effectSourceCopy_ = nullptr;
+	int effectSourceBindSeq_ = -1;
+	int effectSourceFrame_ = -1;
+	int effectSourceParam_ = 0;
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
@@ -785,6 +879,12 @@ protected:
 	Draw2DPipeline *draw2DPipelineEncodeDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepthDeswizzle_ = nullptr;
+	Draw2DPipeline *draw2DPipelineGaussianH_ = nullptr;
+	Draw2DPipeline *draw2DPipelineGaussianV_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColorBlend_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyColorMin_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyScaleRGB_ = nullptr;
+	Draw2DPipeline *draw2DPipelineCopyScaleAlpha_ = nullptr;
 
 	Draw2D draw2D_;
 	// The fragment shaders are "owned" by the pipelines since they're 1:1.

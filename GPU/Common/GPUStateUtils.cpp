@@ -56,7 +56,7 @@ bool NeedsTestDiscard() {
 		return true;
 	// GE_DSTBLEND_DOUBLEINVSRCALPHA is actually inverse double src alpha, and doubling zero is still zero.
 	if (gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA && gstate.getBlendFuncB() != GE_DSTBLEND_DOUBLEINVSRCALPHA) {
-		if (gstate.getBlendFuncB() != GE_DSTBLEND_FIXB || gstate.getFixB() != 0xFFFFFF)
+		if (gstate.getBlendFuncB() != GE_DSTBLEND_FIXB || GetBlendFixB() != 0xFFFFFF)
 			return true;
 	}
 	if (gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
@@ -316,6 +316,11 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return REPLACE_BLEND_NO;
 	}
+	// The color is rounded to 16-bit precision after blending, so the blend has to happen in the shader. For
+	// "16-bit color rounding" only where that's affordable (RoundsAfterBlend()).
+	if (GetEffect16BitMode() != EFFECT_16BIT_OFF || (gstate_c.round16Bit != EFFECT_16BIT_OFF && RoundsAfterBlend() && !BlendReplacesDst())) {
+		return REPLACE_BLEND_READ_FRAMEBUFFER;
+	}
 
 	GEBlendMode eq = gstate.getBlendEq();
 	// Let's get the non-factor modes out of the way first.
@@ -497,15 +502,15 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 
 		case GE_DSTBLEND_FIXB:
 		default:
-			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
+			if (GetBlendFixA() == 0xFFFFFF && GetBlendFixB() == 0x000000) {
 				// Some games specify this. Some GPUs may prefer blending off entirely.
 				return REPLACE_BLEND_NO;
 			} else if (IsGEExactFixedBlend(funcB, gstate.getBlendEq())) {
 				// 0 and 0xFFFFFF are exact as blend factors. Other fixed colors need the GE's math, see ConvertBlendState.
-				const bool trivialA = gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000;
-				const bool trivialB = gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000;
+				const bool trivialA = GetBlendFixA() == 0xFFFFFF || GetBlendFixA() == 0x000000;
+				const bool trivialB = GetBlendFixB() == 0xFFFFFF || GetBlendFixB() == 0x000000;
 				return trivialA && trivialB ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_PRE_SRC;
-			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
+			} else if (GetBlendFixA() == 0xFFFFFF || GetBlendFixA() == 0x000000 || GetBlendFixB() == 0xFFFFFF || GetBlendFixB() == 0x000000) {
 				// We can represent this with standard factors.
 				return REPLACE_BLEND_STANDARD;
 			} else {
@@ -1057,8 +1062,8 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	const GEBlendMode blendFuncEq = gstate.getBlendEq();
 	GEBlendSrcFactor blendFuncA = gstate.getBlendFuncA();
 	GEBlendDstFactor blendFuncB = gstate.getBlendFuncB();
-	const u32 fixA = gstate.getFixA();
-	const u32 fixB = gstate.getFixB();
+	const u32 fixA = GetBlendFixA();
+	const u32 fixB = GetBlendFixB();
 
 	if (blendFuncA > GE_SRCBLEND_FIXA)
 		blendFuncA = GE_SRCBLEND_FIXA;

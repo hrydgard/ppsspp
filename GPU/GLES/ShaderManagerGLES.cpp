@@ -157,6 +157,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	}
 
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
+	queries.push_back({ &u_ditherLo, "u_ditherLo" });
+	queries.push_back({ &u_ditherHi, "u_ditherHi" });
 	queries.push_back({ &u_mipBias, "u_mipBias" });
 	queries.push_back({ &u_texLodBias, "u_texLodBias" });
 
@@ -424,8 +426,14 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
-		SetColorUniform3(render_, &u_blendFixA, gstate.getFixA());
-		SetColorUniform3(render_, &u_blendFixB, gstate.getFixB());
+		if (u_ditherLo != -1) {
+			u32 ditherLo, ditherHi;
+			GetDitherUniform(&ditherLo, &ditherHi);
+			render_->SetUniformUI1(&u_ditherLo, ditherLo);
+			render_->SetUniformUI1(&u_ditherHi, ditherHi);
+		}
+		SetColorUniform3(render_, &u_blendFixA, GetBlendFixA());
+		SetColorUniform3(render_, &u_blendFixB, GetBlendFixB());
 
 		const float fbotexSize[2] = {
 			1.0f / (float)gstate_c.curRTRenderWidth,
@@ -758,7 +766,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 52
+#define CACHE_VERSION 54
 
 struct CacheHeader {
 	uint32_t magic;

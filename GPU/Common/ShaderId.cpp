@@ -274,6 +274,7 @@ std::string FShaderID::Description(bool includeID) const {
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
 	if (Bit(FS_BIT_NO_DEPTH_WRITE)) desc.C("NoDepthWrite ");
 	if (Bit(FS_BIT_TRUNCATE_BILINEAR)) desc.C("TruncBilinear ");
+	if (Bit(FS_BIT_EFFECT_16BIT_LO) || Bit(FS_BIT_EFFECT_16BIT_HI)) desc.C("Effect16Bit ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
@@ -426,6 +427,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 		id.SetBit(FS_BIT_COLOR_WRITEMASK, colorWriteMask);
+		const u8 effect16Bit = GetColorRoundingMode();
+		id.SetBit(FS_BIT_EFFECT_16BIT_LO, (effect16Bit & 1) != 0);
+		id.SetBit(FS_BIT_EFFECT_16BIT_HI, (effect16Bit & 2) != 0);
 
 		// Single pass stereo isn't in the ID: it's a use flag, and changing those clears all shaders.
 

@@ -203,7 +203,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
+	// Rounding to 16-bit color (see FS_BIT_EFFECT_16BIT_LO), dithered where the shader language has the bitwise ops for it.
+	const int effect16Bit = (id.Bit(FS_BIT_EFFECT_16BIT_LO) ? 1 : 0) | (id.Bit(FS_BIT_EFFECT_16BIT_HI) ? 2 : 0);
+	const bool effect16BitDither = effect16Bit != 0 && compat.bitwiseOps;
+	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8 || effect16BitDither;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
@@ -401,6 +404,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "uniform sampler2D pal;\n");
 			WRITE(p, "uniform uint u_depal_mask_shift_off_fmt;\n");
 			*uniformMask |= DIRTY_DEPAL;
+		}
+
+		if (effect16BitDither) {
+			WRITE(p, "uniform uint u_ditherLo;\n");
+			WRITE(p, "uniform uint u_ditherHi;\n");
+			*uniformMask |= DIRTY_SHADERBLEND;
 		}
 
 		if (colorWriteMask) {
@@ -1239,6 +1248,54 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (replaceBlend == REPLACE_BLEND_2X_ALPHA || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
 			WRITE(p, "  v.a *= 2.0;\n");
+		}
+
+		// A 16-bit render target (an effect buffer, or any with "16-bit color rounding"): the PSP keeps the top bits
+		// of each channel, so what's built over several passes loses its small channels (Syphon Filter: Logan's
+		// Shadow's red night vision stays red, its scene isn't washed out). Read back, they're expanded like the
+		// PSP's 16-bit colors are everywhere else.
+		if (effect16Bit != EFFECT_16BIT_OFF) {
+			const char *step = "vec3(8.0, 8.0, 8.0)";
+			const char *spread = "vec3(4.0, 4.0, 4.0)";
+			if (effect16Bit == EFFECT_16BIT_565) {
+				step = "vec3(8.0, 4.0, 8.0)";
+				spread = "vec3(4.0, 16.0, 4.0)";
+			} else if (effect16Bit == EFFECT_16BIT_4444) {
+				step = "vec3(16.0, 16.0, 16.0)";
+				spread = "vec3(1.0, 1.0, 1.0)";
+			}
+			WRITE(p, "  {\n");
+			if (gstate_c.Use(GPU_USE_SMOOTH_16BIT_COLOR)) {
+				// Smooth: no rounding, so no banding, just what it takes off on average. Dropping the low bits loses
+				// (step - 1) / 2 on average (less the dither's average), and expanding the result back gives the top
+				// of the range back: 255 stays 255. So the color is mapped from [loss, 255] to [0, 255].
+				WRITE(p, "    vec3 loss = (%s - 1.0) * 0.5;\n", step);
+				if (effect16BitDither) {
+					WRITE(p, "    loss -= float(int(u_ditherLo)) / 16.0;\n");
+				}
+				if (replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {
+					// Rounding what's already stored doesn't change it, so a blend loses only as far as it changes the
+					// color: a mostly transparent quad (smoke) would otherwise darken all of its rectangle.
+					WRITE(p, "    loss *= clamp(abs(v.rgb - destColor.rgb) * 255.0 / %s, 0.0, 1.0);\n", step);
+				}
+				WRITE(p, "    vec3 color8 = clamp(v.rgb, 0.0, 1.0) * 255.0;\n");
+				WRITE(p, "    v.rgb = clamp((color8 - loss) / (255.0 - loss), 0.0, 1.0);\n");
+				WRITE(p, "  }\n");
+			} else {
+				WRITE(p, "    vec3 color8 = floor(clamp(v.rgb, 0.0, 1.0) * 255.0 + 0.001);\n");
+				if (effect16BitDither) {
+					// The PSP adds the game's dither matrix before it drops the low bits. Here it's laid over the rendered
+					// pixels rather than the PSP's, which keeps it fine at higher resolutions: the bands the rounding would
+					// leave become a pattern that mostly averages out, like on the PSP's own screen.
+					WRITE(p, "    uint ditherIndex = (uint(gl_FragCoord.y) & 3u) * 4u + (uint(gl_FragCoord.x) & 3u);\n");
+					WRITE(p, "    uint ditherWord = ditherIndex < 8u ? u_ditherLo : u_ditherHi;\n");
+					WRITE(p, "    int ditherRaw = int((ditherWord >> ((ditherIndex & 7u) * 4u)) & 15u);\n");
+					WRITE(p, "    color8 = clamp(color8 + float(ditherRaw >= 8 ? ditherRaw - 16 : ditherRaw), 0.0, 255.0);\n");
+				}
+				WRITE(p, "    vec3 top = floor(color8 / %s);\n", step);
+				WRITE(p, "    v.rgb = (top * %s + floor(top / %s)) / 255.0;\n", step, spread);
+				WRITE(p, "  }\n");
+			}
 		}
 	}
 

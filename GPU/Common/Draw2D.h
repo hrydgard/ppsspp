@@ -21,6 +21,12 @@ enum Draw2DShader {
 	DRAW2D_565_TO_DEPTH_DESWIZZLE,
 	DRAW2D_COPY_COLOR_RECT2LIN,
 	DRAW2D_COPY_COLOR_SAMPLE0,  // From a multisampled framebuffer, its first sample instead of the average. Needs framebufferSampleReadSupported.
+	DRAW2D_GAUSSIAN_H,  // Gaussian blur along x, with the scale factor as sigma in sixteenths of a source texel.
+	DRAW2D_GAUSSIAN_V,  // The same along y.
+	DRAW2D_COPY_COLOR_BLEND,  // Blends the source over the destination by the scale factor / 256.
+	DRAW2D_COPY_COLOR_MIN,  // The lower of the source and destination color. Needs blendMinMaxSupported.
+	DRAW2D_COPY_SCALE_RGB,  // Copies with the color multiplied by the scale factor / 100.
+	DRAW2D_COPY_SCALE_ALPHA,  // Copies with the alpha multiplied by the scale factor / 100.
 };
 
 inline RasterChannel Draw2DSourceChannel(Draw2DShader shader) {
@@ -42,6 +48,8 @@ struct Draw2DPipelineInfo {
 	RasterChannel writeChannel;
 	Slice<SamplerDef> samplers;
 	bool readSamples = false;  // Binds the source with BindFramebufferSamplesAsTexture.
+	bool blend = false;  // Blends over the destination's color, by the alpha the shader outputs. Leaves its alpha.
+	bool blendMin = false;  // Keeps the lower of the source and destination color instead. Leaves the alpha.
 };
 
 extern const UniformDef g_draw2Duniforms[2];

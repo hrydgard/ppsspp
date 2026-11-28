@@ -298,6 +298,7 @@ protected:
 		gstate_c.vertBounds.maxU = 0;
 		gstate_c.vertBounds.maxV = 0;
 		gstate_c.queuedSelfTextureDraws.Clear();
+		gstate_c.queuedThroughDraws.Clear();
 	}
 
 	inline bool CollectedPureDraw() const {

@@ -115,7 +115,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// Simple render state changes. Handled in StateMapping.cpp.
 	{ GE_CMD_CULL, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE },
 	{ GE_CMD_CULLFACEENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE },
-	{ GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE },
+	{ GE_CMD_DITHERENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_RASTER_STATE | DIRTY_SHADERBLEND },
 	{ GE_CMD_STENCILOP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_STENCILTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_STENCILREPLACEVALUE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE },
 	{ GE_CMD_STENCILTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
@@ -304,10 +304,11 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TRANSFERSTART, FLAG_EXECUTE | FLAG_READS_PC, 0, &GPUCommonHW::Execute_BlockTransferStart },
 
 	// We don't use the dither table.
-	{ GE_CMD_DITH0 },
-	{ GE_CMD_DITH1 },
-	{ GE_CMD_DITH2 },
-	{ GE_CMD_DITH3 },
+	// The 16-bit color rounding dithers with these (GetDitherUniform()).
+	{ GE_CMD_DITH0, FLAG_FLUSHBEFOREONCHANGE, DIRTY_SHADERBLEND },
+	{ GE_CMD_DITH1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_SHADERBLEND },
+	{ GE_CMD_DITH2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_SHADERBLEND },
+	{ GE_CMD_DITH3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_SHADERBLEND },
 
 	// These handle their own flushing.
 	{ GE_CMD_WORLDMATRIXNUMBER, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommonHW::Execute_WorldMtxNum },
@@ -611,6 +612,10 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		if (!g_Config.bSkipBufferEffects) {
 			features |= GPU_USE_SHADER_BLENDING;
 		}
+	}
+
+	if (g_Config.iRound16BitColor == 2) {
+		features |= GPU_USE_SMOOTH_16BIT_COLOR;
 	}
 
 	if (draw_->GetShaderLanguageDesc().bitwiseOps && g_Config.bUberShaderVertex) {
@@ -1004,10 +1009,14 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// Also we take the opportunity to check for flat draws, where we can detect sprites (to fix filter artifacts).
 	ClipInfoFlags flags{};
 	const bool tracksSelfTexture = vfb && PSP_CoreParameter().compat.flags().SelfTextureCopyTracksDraws;
+	const bool tracksEffects = vfb && gstate.isModeThrough() && gstate.isTextureMapEnabled() && framebufferManager_->TracksEffectBuffers();
+	// Effects opacity Off: draws that put an effect over the scene are dropped. Texture state doesn't
+	// change within the batch below, so this holds for all of it.
+	const bool skipEffectDraw = framebufferManager_->SkipsEffectDraw(vfb);
 	DrawnBounds drawnBounds{};
 	if (gstate.isModeThrough()) {
 		int bytesRead = 0;
-		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags, tracksSelfTexture ? &drawnBounds : nullptr)) {
+		if (!drawEngineCommon_->TestBoundingBoxThrough(prim, verts, inds, count, decoder, vertexType, &bytesRead, &flags, (tracksSelfTexture || tracksEffects) ? &drawnBounds : nullptr)) {
 			gpuStats.perFrame.numCulledDraws++;
 			int cycles = vertexCost_ * count;
 			gpuStats.perFrame.vertexGPUCycles += cycles;
@@ -1017,6 +1026,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			return;
 		}
 		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
+		if (tracksEffects) {
+			gstate_c.queuedThroughDraws.Add(drawnBounds);
+		}
 	}
 	if (tracksSelfTexture) {
 		// The bounding box test reads the first morph frame's positions, unskinned.
@@ -1046,11 +1058,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	// If certain conditions are true, do frustum culling.
-	bool passCulling = PASSES_CULLING && !discardLines;
+	bool passCulling = PASSES_CULLING && !discardLines && !skipEffectDraw;
 	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
 		flags = DrawEngineCommon::UncheckedClipInfoFlags();
 	}
-	if (!passCulling && !discardLines) {
+	if (!passCulling && !discardLines && !skipEffectDraw) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 			passCulling = true;
@@ -1061,9 +1073,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 
-	// A logic op done in the shader reads a copy of the framebuffer taken when the batch is drawn.
-	const bool readsFramebufferPerDraw = PSP_CoreParameter().compat.flags().SeparateLogicOpDraws && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY &&
-		!gstate_c.Use(GPU_USE_LOGIC_OP) && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
+	// A logic op done in the shader reads a copy of the framebuffer taken when the batch is drawn. So does a blend
+	// for "16-bit color rounding" (ColorRoundingDrawsAlone()).
+	const bool readsFramebufferPerDraw = (PSP_CoreParameter().compat.flags().SeparateLogicOpDraws && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY &&
+		!gstate_c.Use(GPU_USE_LOGIC_OP) && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) || ColorRoundingDrawsAlone();
 
 	// If the first one in a batch passes, let's assume the whole batch passes.
 	// Cuts down on checking, while not losing that much efficiency.
@@ -1159,12 +1172,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				canExtend = isTriangle;
 			}
 
-			bool passCulling = onePassed || PASSES_CULLING;
+			bool passCulling = (onePassed || PASSES_CULLING) && !skipEffectDraw;
 			ClipInfoFlags flags{};
 			if (passCulling) {
 				flags = DrawEngineCommon::UncheckedClipInfoFlags();
 			}
-			if (!passCulling) {
+			if (!passCulling && !skipEffectDraw) {
 				// Do software culling.
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags, drawEngineCommon_->CpuCullSupported())) {
 					passCulling = true;

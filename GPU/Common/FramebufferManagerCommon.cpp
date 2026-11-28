@@ -80,16 +80,20 @@ void FramebufferManagerCommon::Init(int msaaLevel) {
 	NotifyRenderResized(displayLayoutConfigCopy_, msaaLevel);
 }
 
+int FramebufferManagerCommon::EffectiveBloomHack() {
+	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
+		return 3;
+	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
+		return 0;
+	}
+	return g_Config.iBloomHack;
+}
+
 // Returns true if we need to stop the render thread
 bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight || msaaLevel_ != msaaLevel;
 
-	int effectiveBloomHack = g_Config.iBloomHack;
-	if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
-		effectiveBloomHack = 3;
-	} else if (PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOff) {
-		effectiveBloomHack = 0;
-	}
+	const int effectiveBloomHack = EffectiveBloomHack();
 
 	bool newBuffered = !g_Config.bSkipBufferEffects;
 	const bool newSettings = bloomHack_ != effectiveBloomHack || useBufferedRendering_ != newBuffered;
@@ -686,6 +690,14 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		NotifyRenderFramebufferUpdated(vfb);
 	}
 
+	// Found to be an effect buffer after it was created, or found not to be one after all (it got displayed).
+	// Its contents are copied over at the new size.
+	if (useBufferedRendering_ && BloomHackRendersEffectsAt1x(bloomHack_) && (vfb->renderScaleFactor != 1 || vfb->effectAt1x) && vfb->effectAt1x != IsEffectBuffer(vfb)) {
+		ResizeFramebufFBO(vfb, vfb->bufferWidth, vfb->bufferHeight, true);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
+	}
+	SetEffect16Bit(vfb);
+
 	vfb->colorBindSeq = GetBindSeqCount();
 
 	// The whole buffer, not the guessed drawing size: that sizes the viewport, and the GE draws anywhere the
@@ -1090,6 +1102,8 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 	DiscardFramebufferCopy();
 	if (currentRenderVfb_ == v)
 		currentRenderVfb_ = nullptr;
+	if (effectSourceVfb_ == v)
+		effectSourceVfb_ = nullptr;
 	if (displayFramebuf_ == v)
 		displayFramebuf_ = nullptr;
 	if (prevDisplayFramebuf_ == v)
@@ -1595,7 +1609,11 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		}
 		return true;
 	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
-		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::Aspect::COLOR_BIT, layer);
+		Draw::Framebuffer *fbo = framebuffer->fbo;
+		if ((flags & BINDFBCOLOR_EFFECT_SOURCE) && framebuffer != currentRenderVfb_) {
+			fbo = SmoothEffectComposite(framebuffer);
+		}
+		draw_->BindFramebufferAsTexture(fbo, stage, Draw::Aspect::COLOR_BIT, layer);
 		return true;
 	} else {
 		// Here it's an error because for some reason skipCopy is true. That shouldn't really happen.
@@ -1967,6 +1985,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	}
 
 	vfb->usageFlags |= FB_USAGE_DISPLAYED_FRAMEBUFFER;
+	NotifyEffectBufferDisplayed(vfb);
 	vfb->last_frame_displayed = gpuStats.totals.numFlips;
 	vfb->dirtyAfterDisplay = false;
 	vfb->reallyDirtyAfterDisplay = false;
@@ -2092,6 +2111,437 @@ void FramebufferManagerCommon::DecimateFBOs() {
 	}
 }
 
+u64 FramebufferManagerCommon::EffectKey(const VirtualFramebuffer *vfb) {
+	return ((u64)vfb->fb_address << 32) | (u64)vfb->fb_format;
+}
+
+// An effect buffer, or a candidate well under the screen's size that may turn out to be one. What an effect is
+// drawn over only counts as the scene if it's neither: a chain's larger buffer is often confirmed last (when
+// it's drawn over the scene), and the passes into it from smaller ones before that aren't drawing the effect
+// over the scene (God Eater Burst). The size limit keeps the scene itself out before it's known to be displayed.
+bool FramebufferManagerCommon::MayBeEffectBuffer(const VirtualFramebuffer *vfb) const {
+	if (IsEffectBuffer(vfb)) {
+		return true;
+	}
+	if ((int)vfb->width * (int)vfb->height * 2 > 480 * 272) {
+		return false;
+	}
+	auto it = effectBuffers_.find(EffectKey(vfb));
+	return it != effectBuffers_.end() && (it->second.signals & EFFECT_SIGNALS_CANDIDATE) != 0;
+}
+
+bool FramebufferManagerCommon::IsEffectBuffer(const VirtualFramebuffer *vfb) const {
+	// Depth is read at full resolution (and a 1x buffer that gets used for depth goes back up anyway), and what's
+	// on screen is the scene.
+	if (vfb->usageFlags & (FB_USAGE_COLOR_MIXED_DEPTH | FB_USAGE_DISPLAYED_FRAMEBUFFER)) {
+		return false;
+	}
+	auto it = effectBuffers_.find(EffectKey(vfb));
+	return it != effectBuffers_.end() && it->second.confirmed;
+}
+
+bool FramebufferManagerCommon::DrawsEffectOverScene(const VirtualFramebuffer *src) const {
+	if (bloomHack_ != BLOOMHACK_AUTO_SMOOTH || g_Config.iEffectsOpacity <= 0) {
+		return false;
+	}
+	return currentRenderVfb_ && src != currentRenderVfb_ && IsEffectBuffer(src) && !MayBeEffectBuffer(currentRenderVfb_);
+}
+
+bool FramebufferManagerCommon::SkipsEffectDraw(const VirtualFramebuffer *target) const {
+	if (bloomHack_ != BLOOMHACK_AUTO_SMOOTH || g_Config.iEffectsOpacity > 0 || !TracksEffectBuffers()) {
+		return false;
+	}
+	if (!target || !gstate.isTextureMapEnabled() || gstate.isModeClear() || effectBuffers_.empty() || MayBeEffectBuffer(target)) {
+		return false;
+	}
+	u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(texAddr)) {
+		texAddr &= 0x041FFFFF;
+	}
+	for (const VirtualFramebuffer *vfb : vfbs_) {
+		if (vfb != target && texAddr >= vfb->fb_address && texAddr < vfb->fb_address + vfb->FbStrideInBytes() * vfb->bufferHeight && IsEffectBuffer(vfb)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// Compares the texels the queued draws read (through-mode texcoords, in vertBounds) with the pixels they
+// write. False when either isn't known.
+bool FramebufferManagerCommon::GetQueuedDrawScale(bool *shrinks, bool *grows) {
+	const KnownVertexBounds &uv = gstate_c.vertBounds;
+	const DrawnBounds &drawn = gstate_c.queuedThroughDraws;
+	if (uv.maxU <= uv.minU || uv.maxV <= uv.minV || drawn.IsEmpty()) {
+		return false;
+	}
+	const int readW = uv.maxU - uv.minU;
+	const int readH = uv.maxV - uv.minV;
+	// The drawn bounds have a pixel added on each side.
+	const int writeW = std::max(1, drawn.x2 - drawn.x1 - 2);
+	const int writeH = std::max(1, drawn.y2 - drawn.y1 - 2);
+	// A ratio of 1.75 or more along one side, the other not going the opposite way.
+	*shrinks = readW >= writeW && readH >= writeH && (readW * 4 >= writeW * 7 || readH * 4 >= writeH * 7);
+	*grows = writeW >= readW && writeH >= readH && (writeW * 4 >= readW * 7 || writeH * 4 >= readH * 7);
+	return true;
+}
+
+int FramebufferManagerCommon::EffectSignalWeight(EffectSignal signal) {
+	switch (signal) {
+	case EFFECT_SIGNAL_DOWNSAMPLED: return 4;
+	case EFFECT_SIGNAL_CHAINED: return 3;
+	case EFFECT_SIGNAL_FEEDS_CHAIN: return 3;
+	case EFFECT_SIGNAL_UPSAMPLED: return 2;
+	case EFFECT_SIGNAL_ADDITIVE: return 3;
+	case EFFECT_SIGNAL_SMALL: return 1;
+	default: return 0;
+	}
+}
+
+// "16-bit color for effects": the PSP stores a 16-bit framebuffer's color with 5 (or 4, or 6) bits per channel,
+// while it's kept here at 8.
+// An effect chain blends into its buffers over many passes, and the PSP rounds down after each: a red glow's
+// small green and blue fade out, where here they add up and turn it pink. So draws into a 16-bit effect buffer
+// round their color the same way (in the shader, which also has to do their blending for that). Effect buffers
+// are small, which keeps the cost of that down. Off by default, as it brings back the PSP's banding too.
+static u8 Effect16BitModeFor(GEBufferFormat format) {
+	switch (format) {
+	case GE_FORMAT_5551: return EFFECT_16BIT_5551;
+	case GE_FORMAT_565: return EFFECT_16BIT_565;
+	case GE_FORMAT_4444: return EFFECT_16BIT_4444;
+	default: return EFFECT_16BIT_OFF;
+	}
+}
+
+void FramebufferManagerCommon::SetEffect16Bit(const VirtualFramebuffer *vfb) {
+	u8 mode = EFFECT_16BIT_OFF;
+	if (vfb && g_Config.bEffects16BitColor && BloomHackRendersEffectsAt1x(bloomHack_) && IsEffectBuffer(vfb)) {
+		mode = Effect16BitModeFor(vfb->fb_format);
+	}
+	if (gstate_c.effect16Bit != mode) {
+		gstate_c.effect16Bit = mode;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+	}
+	// "16-bit color rounding", for everything drawn into a 16-bit framebuffer. Only draws that really mix with
+	// what's under them read the framebuffer for it (BlendReplacesDst()): Syphon Filter alpha blends thousands of
+	// draws a frame, most of them with full alpha.
+	const u8 round = vfb && g_Config.iRound16BitColor != 0 ? Effect16BitModeFor(vfb->fb_format) : EFFECT_16BIT_OFF;
+	if (gstate_c.round16Bit != round || gstate_c.round16BitExact != g_Config.bRound16BitColorExact) {
+		gstate_c.round16Bit = round;
+		gstate_c.round16BitExact = g_Config.bRound16BitColorExact;
+		gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE | DIRTY_BLEND_STATE);
+	}
+}
+
+// The draw that adds the effect to the scene rounds too, where the scene is 16-bit (in Syphon Filter it's the
+// draw that has the most left to lose).
+u8 FramebufferManagerCommon::Effect16BitForComposite(const VirtualFramebuffer *src) const {
+	const VirtualFramebuffer *dst = currentRenderVfb_;
+	if (!g_Config.bEffects16BitColor || !dst || dst == src || !BloomHackRendersEffectsAt1x(bloomHack_) || !IsEffectBuffer(src) || MayBeEffectBuffer(dst)) {
+		return EFFECT_16BIT_OFF;
+	}
+	return Effect16BitModeFor(dst->fb_format);
+}
+
+// The scene can collect signals before it's first shown, like while a loading screen draws into it, and would
+// stay at 1x if it got confirmed then.
+void FramebufferManagerCommon::NotifyEffectBufferDisplayed(const VirtualFramebuffer *vfb) {
+	if (!TracksEffectBuffers()) {
+		return;
+	}
+	auto it = effectBuffers_.find(EffectKey(vfb));
+	if (it != effectBuffers_.end()) {
+		if (it->second.confirmed) {
+			INFO_LOG(Log::FrameBuf, "Displayed framebuffer %08x %dx%d isn't an effect buffer", vfb->fb_address, vfb->width, vfb->height);
+		}
+		effectBuffers_.erase(it);
+	}
+}
+
+void FramebufferManagerCommon::AddEffectSignals(const VirtualFramebuffer *vfb, u8 signals) {
+	const u64 key = EffectKey(vfb);
+	auto it = effectBuffers_.find(key);
+	if ((vfb->usageFlags & FB_USAGE_DISPLAYED_FRAMEBUFFER) || (it != effectBuffers_.end() && (it->second.signals | signals) == it->second.signals)) {
+		return;
+	}
+	// Games only have a handful, so something odd is going on if this grows large.
+	if (it == effectBuffers_.end() && effectBuffers_.size() >= 256) {
+		effectBuffers_.clear();
+	}
+
+	EffectBufferInfo &info = effectBuffers_[key];
+	info.signals |= signals;
+	if (info.confirmed) {
+		return;
+	}
+	int score = 0;
+	for (int bit = 0; bit < 8; bit++) {
+		score += EffectSignalWeight((EffectSignal)(info.signals & (1 << bit)));
+	}
+	DEBUG_LOG(Log::FrameBuf, "Effect signals for %08x %dx%d: %02x, score %d", vfb->fb_address, vfb->width, vfb->height, info.signals, score);
+	if (score >= EFFECT_SCORE_THRESHOLD) {
+		INFO_LOG(Log::FrameBuf, "Effect buffer: %08x %dx%d %s (signals %02x), rendering at 1x", vfb->fb_address, vfb->width, vfb->height, GeBufferFormatToString(vfb->fb_format), info.signals);
+		info.confirmed = true;
+	}
+}
+
+// Bloom and similar effects shrink the scene into a small buffer, maybe blur it between buffers of that
+// size, then stretch it back over a larger one, usually adding to it. At a higher render resolution the
+// small buffers keep enough detail for the blur's offset copies to show up as ghosts, so those get
+// rendered at 1x. Each part of that pattern adds to a score, so that something like a shrunk copy of
+// the screen drawn back as a picture (a pause menu, a save icon) isn't taken for an effect.
+void FramebufferManagerCommon::NotifyFramebufferSampled(VirtualFramebuffer *src) {
+	VirtualFramebuffer *dst = currentRenderVfb_;
+	if (!TracksEffectBuffers() || !dst) {
+		return;
+	}
+	if (!src->width || !src->height || !dst->width || !dst->height) {
+		return;
+	}
+
+	// The draws' own scale where it's known. Games can keep a whole chain in one framebuffer: God of War
+	// draws each level at another X offset of a 512-stride buffer, which becomes a single 864x272 one.
+	bool shrinks = false;
+	bool grows = false;
+	if (!GetQueuedDrawScale(&shrinks, &grows)) {
+		if (dst == src) {
+			return;
+		}
+		// Otherwise the buffer sizes, in PSP pixels: at least half the size along one side and no larger along the other.
+		shrinks = dst->width <= src->width && dst->height <= src->height && (dst->width * 2 <= src->width || dst->height * 2 <= src->height);
+		grows = src->width <= dst->width && src->height <= dst->height && (src->width * 2 <= dst->width || src->height * 2 <= dst->height);
+	}
+
+	auto srcIt = effectBuffers_.find(EffectKey(src));
+	const bool srcCandidate = srcIt != effectBuffers_.end() && (srcIt->second.signals & EFFECT_SIGNALS_CANDIDATE) != 0;
+
+	// What's displayed, and buffers also used for depth, are never effect buffers.
+	const bool dstCanBeEffect = (dst->usageFlags & (FB_USAGE_DISPLAYED_FRAMEBUFFER | FB_USAGE_COLOR_MIXED_DEPTH)) == 0 && dst->fb_address != displayFramebufPtr_;
+	u8 dstSignals = 0;
+	if (dstCanBeEffect) {
+		if (shrinks) {
+			dstSignals |= EFFECT_SIGNAL_DOWNSAMPLED;
+		} else if (srcCandidate && !grows) {
+			dstSignals |= EFFECT_SIGNAL_CHAINED;
+		}
+		if (dstSignals && (dst->bufferWidth <= 256 || dst->bufferHeight <= 128)) {
+			dstSignals |= EFFECT_SIGNAL_SMALL;
+		}
+	}
+
+	u8 srcSignals = 0;
+	if ((dstSignals & EFFECT_SIGNAL_CHAINED) && dst != src) {
+		srcSignals |= EFFECT_SIGNAL_FEEDS_CHAIN;
+	}
+	if (grows) {
+		srcSignals |= EFFECT_SIGNAL_UPSAMPLED;
+		const bool additive = gstate.isAlphaBlendEnabled() && gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD &&
+			gstate.getBlendFuncB() == GE_DSTBLEND_FIXB && gstate.getFixB() != 0;
+		if (additive) {
+			srcSignals |= EFFECT_SIGNAL_ADDITIVE;
+		}
+	}
+
+	if (dstSignals) {
+		AddEffectSignals(dst, dstSignals);
+	}
+	// Only candidates collect the signals of what they're drawn into, or every texture would get an entry.
+	if (srcCandidate && srcSignals) {
+		AddEffectSignals(src, srcSignals);
+	}
+}
+
+// Scales in steps of at most 2x with bilinear filtering: going down, each step averages 2x2 blocks; going up,
+// each step stays smooth where a single big bilinear stretch would show creases. Draws keep their texture
+// coordinates, which are relative to the whole buffer, so the size can be anything.
+Draw::Framebuffer *FramebufferManagerCommon::ResampleEffectSource(Draw::Framebuffer *from, int fromW, int fromH, int w, int h) {
+	Draw2DPipeline *pipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
+	auto step = [](int from, int to) {
+		if (from > to) {
+			return from <= to * 2 ? to : from / 2;
+		}
+		return from * 2 >= to ? to : from * 2;
+	};
+	while (from && (fromW != w || fromH != h)) {
+		const int nextW = step(fromW, w);
+		const int nextH = step(fromH, h);
+		Draw::Framebuffer *to = GetTempFBO(TempFBO::EFFECT_SOURCE, nextW, nextH);
+		if (!to) {
+			return nullptr;
+		}
+		BlitUsingRaster(from, 0.0f, 0.0f, (float)fromW, (float)fromH, to, 0.0f, 0.0f, (float)nextW, (float)nextH, true, 1, pipeline, "ResampleEffectSource");
+		from = to;
+		fromW = nextW;
+		fromH = nextH;
+	}
+	return from;
+}
+
+// Auto (smooth): the effect buffer is at 1x as in Auto, so what it holds matches the PSP. But the draw that
+// stretches it over the full resolution scene does so with plain bilinear filtering (or nearest), which shows
+// every 1x texel as a block or diamond. That draw gets a copy scaled up smoothly instead (SmoothEffectTexture).
+// Everything else stays as the game drew it.
+bool FramebufferManagerCommon::SmoothsEffectComposite(const VirtualFramebuffer *src) const {
+	const VirtualFramebuffer *dst = currentRenderVfb_;
+	if (bloomHack_ != BLOOMHACK_AUTO_SMOOTH || g_Config.iEffectsOpacity <= 0 || !dst || dst == src || !src->fbo) {
+		return false;
+	}
+	return src->renderScaleFactor == 1 && dst->renderScaleFactor > 1 && IsEffectBuffer(src) && !MayBeEffectBuffer(dst);
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectComposite(VirtualFramebuffer *src) {
+	if (!SmoothsEffectComposite(src)) {
+		return src->fbo;
+	}
+	const bool masked = EffectCompositeIsMasked();
+	const int param = (g_Config.iEffectsSpread << 13) | (g_Config.iEffectsOpacity << 3) | ((int)masked << 2) | (int)GetEffectOpacityMode();
+	if (effectSourceVfb_ == src && effectSourceBindSeq_ == src->colorBindSeq && effectSourceFrame_ == gpuStats.totals.numFlips && effectSourceParam_ == param) {
+		return effectSourceCopy_;
+	}
+
+	Draw::Framebuffer *result = SmoothEffectTexture(src->fbo, src->renderWidth, src->renderHeight, masked);
+	RebindFramebuffer("After SmoothEffectComposite");
+	if (!result) {
+		return src->fbo;
+	}
+
+	effectSourceVfb_ = src;
+	effectSourceCopy_ = result;
+	effectSourceBindSeq_ = src->colorBindSeq;
+	effectSourceFrame_ = gpuStats.totals.numFlips;
+	effectSourceParam_ = param;
+	return result;
+}
+
+// The work of SmoothEffectComposite, on any w x h texture at 1x (also the output of a depal pass). Leaves
+// a temp FBO bound as the render target.
+bool FramebufferManagerCommon::EffectCompositeIsMasked() {
+	return gstate.isStencilTestEnabled() && gstate.getStencilTestFunction() != GE_COMP_ALWAYS;
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::SmoothEffectTexture(Draw::Framebuffer *from, int w, int h, bool masked) {
+	const VirtualFramebuffer *dst = currentRenderVfb_;
+	if (!dst) {
+		return nullptr;
+	}
+	const float spread = std::min(std::max(g_Config.iEffectsSpread, 25), 300) / 100.0f;
+	// Not past what fits in a texture comfortably, for a wide buffer at a high scale.
+	const int scale = std::min((int)dst->renderScaleFactor, std::max(2, 4096 / std::max(w, h)));
+
+	// Layers: the effect at twice its size, then at 1x, 1/2 and 1/4, each blurred by 1.5 of its texels times
+	// Effects spread. They're combined from the smallest up, each into the next: there, the lower of the two
+	// plus OUTWARD of the wider one's light is blended in by mix (more with more spread). So the effect's edges
+	// fade into a gradient, mostly from the bright side. A wider layer blended in whole would lay its light over
+	// the dark parts of the scene as a veil (God of War lays its glow over everything), while the lower of the
+	// two alone gives a halo around something bright in the dark a hard outline (The 3rd Birthday). Without min
+	// blending (old GLES 2), the layers are just blended.
+	// An effect the game limits to part of the scene with a stencil test isn't spread past that, and only gets
+	// the first layer: God of War draws a shrunk copy of the scene over the background for a soft focus, which
+	// the wider layers smeared.
+	// mix is 0.46 at 25%, 0.65 at 100%, 0.85 from 180%.
+	const float mix = std::min(0.4f + 0.25f * spread, 0.85f);
+	const int alpha = (int)(mix * 256.0f + 0.5f);
+	Draw2DPipeline *blendPipeline = Get2DPipeline(DRAW2D_COPY_COLOR_BLEND);
+	Draw2DPipeline *minPipeline = Get2DPipeline(DRAW2D_COPY_COLOR_MIN);
+	Draw2DPipeline *copyPipeline = Get2DPipeline(DRAW2D_COPY_COLOR);
+	const int MAX_LEVELS = 4;
+	const int LEVELS = masked ? 1 : MAX_LEVELS;
+	const float OUTWARD = 0.35f;
+	int levelW[MAX_LEVELS];
+	int levelH[MAX_LEVELS];
+	Draw::Framebuffer *levels[MAX_LEVELS]{};
+	for (int i = 0; i < LEVELS; i++) {
+		levelW[i] = i == 0 ? w * 2 : std::max(4, w >> (i - 1));
+		levelH[i] = i == 0 ? h * 2 : std::max(4, h >> (i - 1));
+		Draw::Framebuffer *scaled = ResampleEffectSource(from, w, h, levelW[i], levelH[i]);
+		// Nine taps cover up to about 4.5 texels smoothly.
+		levels[i] = scaled ? BlurEffectSource(scaled, levelW[i], levelH[i], 1.5f * std::max(spread, 0.75f)) : nullptr;
+		if (!levels[i]) {
+			break;
+		}
+	}
+	Draw::Framebuffer *result = nullptr;
+	if (levels[LEVELS - 1] && blendPipeline) {
+		for (int i = LEVELS - 1; i > 0; i--) {
+			// Up to the next level's size in steps of 2x where needed, then blended over it.
+			const int toW = levelW[i - 1];
+			const int toH = levelH[i - 1];
+			Draw::Framebuffer *up = levels[i];
+			int upW = levelW[i];
+			int upH = levelH[i];
+			if (toW > upW * 2 || toH > upH * 2) {
+				up = ResampleEffectSource(levels[i], upW, upH, toW / 2, toH / 2);
+				upW = toW / 2;
+				upH = toH / 2;
+			}
+			if (!up) {
+				break;
+			}
+			// The blur's first pass target at this size is free again.
+			Draw::Framebuffer *lower = minPipeline ? GetTempFBO(TempFBO::EFFECT_SOURCE_2, toW, toH) : nullptr;
+			if (lower) {
+				BlitUsingRaster(levels[i - 1], 0.0f, 0.0f, (float)toW, (float)toH, lower, 0.0f, 0.0f, (float)toW, (float)toH, false, 1, copyPipeline, "SmoothEffectComposite_Copy");
+				BlitUsingRaster(up, 0.0f, 0.0f, (float)upW, (float)upH, lower, 0.0f, 0.0f, (float)toW, (float)toH, true, 1, minPipeline, "SmoothEffectComposite_Min");
+				BlitUsingRaster(up, 0.0f, 0.0f, (float)upW, (float)upH, lower, 0.0f, 0.0f, (float)toW, (float)toH, true, (int)(OUTWARD * 256.0f), blendPipeline, "SmoothEffectComposite_Outward");
+				up = lower;
+				upW = toW;
+				upH = toH;
+			}
+			BlitUsingRaster(up, 0.0f, 0.0f, (float)upW, (float)upH, levels[i - 1], 0.0f, 0.0f, (float)toW, (float)toH, true, alpha, blendPipeline, "SmoothEffectComposite_Blend");
+		}
+		result = ResampleEffectSource(levels[0], levelW[0], levelH[0], w * scale, h * scale);
+	}
+
+	// Effects opacity, where the draw's blend can't do it with its fixed colors (see GetBlendFixA). The blur
+	// targets are free again by now; at scale 2 the result may be one of them.
+	const int opacity = std::min(std::max(g_Config.iEffectsOpacity, 0), 100);
+	const EffectOpacityMode opacityMode = GetEffectOpacityMode();
+	if (result && opacity != 100 && opacityMode != EffectOpacityMode::FIXED_COLORS) {
+		Draw2DPipeline *scalePipeline = Get2DPipeline(opacityMode == EffectOpacityMode::ALPHA ? DRAW2D_COPY_SCALE_ALPHA : DRAW2D_COPY_SCALE_RGB);
+		Draw::Framebuffer *scaled = GetTempFBO(TempFBO::EFFECT_SOURCE_3, w * scale, h * scale);
+		if (scaled == result) {
+			scaled = GetTempFBO(TempFBO::EFFECT_SOURCE_2, w * scale, h * scale);
+		}
+		if (scaled && scalePipeline) {
+			BlitUsingRaster(result, 0.0f, 0.0f, (float)(w * scale), (float)(h * scale), scaled, 0.0f, 0.0f, (float)(w * scale), (float)(h * scale), false, opacity, scalePipeline, "SmoothEffectComposite_Opacity");
+			result = scaled;
+		}
+	}
+	return result;
+}
+
+// How Effects opacity fades the effect for the current draw: an alpha blended one (The 3rd Birthday) by its
+// alpha, one mixed in with fixed colors (God of War, God Eater Burst) by those (GetBlendFixA), anything else by
+// its color, which is exact where the scene is kept whole (dst * 1).
+FramebufferManagerCommon::EffectOpacityMode FramebufferManagerCommon::GetEffectOpacityMode() {
+	if (!gstate.isAlphaBlendEnabled()) {
+		return EffectOpacityMode::COLOR;
+	}
+	const GEBlendSrcFactor funcA = gstate.getBlendFuncA();
+	if (funcA == GE_SRCBLEND_SRCALPHA || funcA == GE_SRCBLEND_DOUBLESRCALPHA) {
+		return EffectOpacityMode::ALPHA;
+	}
+	if (gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD && funcA == GE_SRCBLEND_FIXA && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB) {
+		return EffectOpacityMode::FIXED_COLORS;
+	}
+	return EffectOpacityMode::COLOR;
+}
+
+// A separable gaussian, sigma in texels of from.
+Draw::Framebuffer *FramebufferManagerCommon::BlurEffectSource(Draw::Framebuffer *from, int w, int h, float sigma) {
+	Draw2DPipeline *horizontal = Get2DPipeline(DRAW2D_GAUSSIAN_H);
+	Draw2DPipeline *vertical = Get2DPipeline(DRAW2D_GAUSSIAN_V);
+	Draw::Framebuffer *pass1 = GetTempFBO(TempFBO::EFFECT_SOURCE_2, w, h);
+	Draw::Framebuffer *pass2 = GetTempFBO(TempFBO::EFFECT_SOURCE_3, w, h);
+	if (!horizontal || !vertical || !pass1 || !pass2) {
+		return nullptr;
+	}
+	// The pipelines take sigma in sixteenths of a texel.
+	const int sigma16 = std::max(1, (int)(sigma * 16.0f + 0.5f));
+	BlitUsingRaster(from, 0.0f, 0.0f, (float)w, (float)h, pass1, 0.0f, 0.0f, (float)w, (float)h, true, sigma16, horizontal, "BlurEffectSource_H");
+	BlitUsingRaster(pass1, 0.0f, 0.0f, (float)w, (float)h, pass2, 0.0f, 0.0f, (float)w, (float)h, true, sigma16, vertical, "BlurEffectSource_V");
+	return pass2;
+}
+
 // Requires width/height to be set already.
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
@@ -2125,6 +2575,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	case 3:
 		force1x = vfb->bufferWidth < 480 || vfb->bufferWidth > 800 || vfb->bufferHeight < 272; // GOW uses 864x272
 		break;
+	case BLOOMHACK_AUTO:
+	case BLOOMHACK_AUTO_SMOOTH:
+		force1x = IsEffectBuffer(vfb);
+		break;
 	}
 
 	if ((vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) && !PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
@@ -2139,6 +2593,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		force1x = true;
 	}
 
+	vfb->effectAt1x = force1x && BloomHackRendersEffectsAt1x(bloomHack_) && IsEffectBuffer(vfb);
 	if (force1x && g_Config.iInternalResolution != 1) {
 		vfb->renderScaleFactor = 1;
 		vfb->renderWidth = vfb->bufferWidth;
@@ -3291,6 +3746,10 @@ void FramebufferManagerCommon::NotifyConfigChanged() {
 void FramebufferManagerCommon::DestroyAllFBOs() {
 	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
+	effectBuffers_.clear();
+	SetEffect16Bit(nullptr);
+	effectSourceVfb_ = nullptr;
+	effectSourceCopy_ = nullptr;
 	// Or a new framebuffer at the same address would skip its depth shift.
 	depthShiftedFor_ = 0;
 	lastRenderAddress_ = 0;
@@ -3363,6 +3822,9 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::SAMPLE0: return "sample0";
 	case TempFBO::MASK_COPY: return "mask_copy";
 	case TempFBO::DEPTH_COPY: return "depth_copy";
+	case TempFBO::EFFECT_SOURCE: return "effect_source";
+	case TempFBO::EFFECT_SOURCE_2: return "effect_source_2";
+	case TempFBO::EFFECT_SOURCE_3: return "effect_source_3";
 	default: break;
 	}
 	return "";
@@ -3994,6 +4456,12 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	DoRelease(draw2DPipelineEncodeDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
 	DoRelease(draw2DPipeline565ToDepthDeswizzle_);
+	DoRelease(draw2DPipelineGaussianH_);
+	DoRelease(draw2DPipelineGaussianV_);
+	DoRelease(draw2DPipelineCopyColorBlend_);
+	DoRelease(draw2DPipelineCopyColorMin_);
+	DoRelease(draw2DPipelineCopyScaleRGB_);
+	DoRelease(draw2DPipelineCopyScaleAlpha_);
 }
 
 void FramebufferManagerCommon::DeviceLost() {
@@ -4218,7 +4686,7 @@ void FramebufferManagerCommon::BlitUsingRaster(
 		draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
 	}
 
-	if (destX1 == 0.0f && destY1 == 0.0f && destX2 >= destW && destY2 >= destH) {
+	if (destX1 == 0.0f && destY1 == 0.0f && destX2 >= destW && destY2 >= destH && !pipeline->info.blend) {
 		// We overwrite the whole channel of the framebuffer, so we can invalidate the current contents.
 		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_LOAD, pipeline->info.writeChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT);
 	}
