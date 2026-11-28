@@ -335,7 +335,7 @@ void BuildGraphicsSettings(SettingsPage *page) {
 	page->Setting(&g_Config.bEffects16BitColor).EnabledFunc([] {
 		return !g_Config.bSoftwareRendering && (g_Config.iBloomHack == 4 || g_Config.iBloomHack == 5);
 	}).Hint({I18NCat::GRAPHICS, "Effects16BitColorHint", "Rounds effects drawn in 16-bit color like the PSP does. Closer to its colors, with some banding."});
-	page->Setting(&g_Config.bRound16BitColor).Disabled(&g_Config.bSoftwareRendering).Hint({I18NCat::GRAPHICS, "Round16BitColorHint", "Rounds colors drawn in 16-bit like the PSP does, so games using it look less washed out. Some banding."});
+	page->Setting(&g_Config.iRound16BitColor).Disabled(&g_Config.bSoftwareRendering).Hint({I18NCat::GRAPHICS, "Round16BitColorHint", "Games drawing in 16-bit color look less washed out. Accurate rounds colors like the PSP, dithered where the game dithers. Smooth comes close without any banding."});
 
 	page->Header("Latency");
 

@@ -614,6 +614,10 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		}
 	}
 
+	if (g_Config.iRound16BitColor == 2) {
+		features |= GPU_USE_SMOOTH_16BIT_COLOR;
+	}
+
 	if (draw_->GetShaderLanguageDesc().bitwiseOps && g_Config.bUberShaderVertex) {
 		features |= GPU_USE_LIGHT_UBERSHADER;
 	}
@@ -1069,9 +1073,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 
-	// A logic op done in the shader reads a copy of the framebuffer taken when the batch is drawn.
-	const bool readsFramebufferPerDraw = PSP_CoreParameter().compat.flags().SeparateLogicOpDraws && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY &&
-		!gstate_c.Use(GPU_USE_LOGIC_OP) && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH);
+	// A logic op done in the shader reads a copy of the framebuffer taken when the batch is drawn. So does a blend
+	// for "16-bit color rounding" (ColorRoundingDrawsAlone()).
+	const bool readsFramebufferPerDraw = (PSP_CoreParameter().compat.flags().SeparateLogicOpDraws && gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY &&
+		!gstate_c.Use(GPU_USE_LOGIC_OP) && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) || ColorRoundingDrawsAlone();
 
 	// If the first one in a batch passes, let's assume the whole batch passes.
 	// Cuts down on checking, while not losing that much efficiency.

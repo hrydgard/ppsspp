@@ -479,7 +479,9 @@ enum : u32 {
 	GPU_USE_SCREEN_LINEAR_COLOR = FLAG_BIT(7),
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
-	// Free bit: 10-12
+	// "16-bit color rounding" set to Smooth: the shader takes off the rounding's average loss instead of rounding.
+	GPU_USE_SMOOTH_16BIT_COLOR = FLAG_BIT(10),
+	// Free bit: 11-12
 	GPU_USE_16BIT_FORMATS = FLAG_BIT(13),
 	GPU_USE_DEPTH_CLAMP = FLAG_BIT(14),
 	GPU_USE_SAMPLER_LOD_CONTROL = FLAG_BIT(15),
@@ -769,8 +771,8 @@ inline u8 GetColorRoundingMode() {
 }
 
 // Nothing of what's under the draw is left after the blend, so rounding the color before it gives what the PSP
-// stores, without reading the framebuffer: no blending, or alpha blending with full alpha. Other draws blend in
-// the shader for "16-bit color rounding", and round after that.
+// stores, without reading the framebuffer: no blending, or alpha blending with full alpha. Other draws blend in the
+// shader for "16-bit color rounding", and round after that.
 inline bool BlendReplacesDst() {
 	if (!gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
 		return true;
@@ -789,15 +791,41 @@ inline bool BlendReplacesDst() {
 }
 
 // The dither matrix for the 16-bit color rounding, 4 bits a value, rows 0-1 in lo and 2-3 in hi. All zero while
-// dithering is off.
+// dithering is off. Smooth (GPU_USE_SMOOTH_16BIT_COLOR) only needs its average: lo is the sum of its 16 values.
 inline void GetDitherUniform(u32 *lo, u32 *hi) {
 	if (!gstate.isDitherEnabled()) {
 		*lo = 0;
 		*hi = 0;
 		return;
 	}
+	if (gstate_c.Use(GPU_USE_SMOOTH_16BIT_COLOR)) {
+		int sum = 0;
+		for (int y = 0; y < 4; y++) {
+			for (int x = 0; x < 4; x++) {
+				sum += gstate.getDitherValue(x, y);
+			}
+		}
+		*lo = (u32)sum;
+		*hi = 0;
+		return;
+	}
 	*lo = (gstate.dithmtx[0] & 0xFFFF) | ((gstate.dithmtx[1] & 0xFFFF) << 16);
 	*hi = (gstate.dithmtx[2] & 0xFFFF) | ((gstate.dithmtx[3] & 0xFFFF) << 16);
+}
+
+// Without framebuffer fetch, a draw that blends in the shader reads a copy of the framebuffer made before it, so
+// overlapping primitives in one draw don't see each other: a burst of Syphon Filter's smoke particles would leave
+// hard rectangles where each quad, transparent parts included, overwrites the ones under it. So for "16-bit color
+// rounding" a draw that may blend in the shader is drawn a primitive at a time (rectangle lists a rectangle at a
+// time), each with its own copy. Whether it does also depends on the alpha, which isn't known yet here, so this
+// leaves that out: draws that turn out to have full alpha just aren't merged with others.
+inline bool ColorRoundingDrawsAlone() {
+	if (gstate_c.round16Bit == EFFECT_16BIT_OFF || gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) || !gstate.isAlphaBlendEnabled() || gstate.isModeClear()) {
+		return false;
+	}
+	const bool replaces = gstate.getBlendEq() == GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendFuncA() == GE_SRCBLEND_FIXA &&
+		gstate.getFixA() == 0xFFFFFF && gstate.getBlendFuncB() == GE_DSTBLEND_FIXB && gstate.getFixB() == 0;
+	return !replaces;
 }
 
 // Called by the draw engines once they know the vertex alpha, before the draw state is applied.

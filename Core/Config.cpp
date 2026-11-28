@@ -929,6 +929,7 @@ static constexpr const char *frameSkipNames[] = { "Off", "1", "2", "3", "4" };
 static constexpr const char *skipGPUReadbackModeNames[] = { "No", "Skip", "Copy to texture" };
 static constexpr const char *depthRasterModeNames[] = { "Auto", "Low", "Off", "Always on" };
 static constexpr const char *frameRateLimit30Names[] = { "Auto", "Always", "Off" };
+static constexpr const char *round16BitColorNames[] = { "Off", "Accurate", "Smooth" };
 static constexpr const char *bloomHackNames[] = { "Off", "Safe", "Balanced", "Aggressive", "Auto", "Auto (smooth)" };
 static constexpr const char *inflightFramesNames[] = { "No buffer", "Up to 1", "Up to 2" };
 static constexpr const char *texScalingTypeNames[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
@@ -1064,8 +1065,8 @@ static constexpr ConfigSetting graphicsSettings[] = {
 		.Label(I18NCat::GRAPHICS, "Effects opacity").Range(0, 100, 5).Units("%").ZeroLabel("Off"),
 	ConfigSetting("Effects16BitColor", SETTING(g_Config, bEffects16BitColor), false, CfgFlag::PER_GAME)
 		.Label(I18NCat::GRAPHICS, "16-bit color for effects"),
-	ConfigSetting("Round16BitColor", SETTING(g_Config, bRound16BitColor), false, CfgFlag::PER_GAME)
-		.Label(I18NCat::GRAPHICS, "16-bit color rounding"),
+	ConfigSetting("Round16BitColor", SETTING(g_Config, iRound16BitColor), 0, CfgFlag::PER_GAME)
+		.Label(I18NCat::GRAPHICS, "16-bit color rounding").Choices(round16BitColorNames),
 
 	ConfigSetting("TextureShader", SETTING(g_Config, sTextureShaderName), "Off", CfgFlag::PER_GAME),
 	ConfigSetting("ShaderChainRequires60FPS", SETTING(g_Config, bShaderChainRequires60FPS), false, CfgFlag::PER_GAME),
